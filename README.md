@@ -44,7 +44,7 @@ The current `main` documentation targets the v2 alpha line. Use
 pip install whitebox-workflows==1.3.5
 ```
 
-Optional extras: `[ide]`, `[test]`, `[viewer3d]`, `[docs]`. Solver binaries
+Optional extras: `[ide]`, `[test]`, `[docs]`. Solver binaries
 (MODFLOW 6, MODFLOW-NWT, MODPATH, MT3D-USGS) are downloaded on demand into
 `~/.cache/hydromodpy/bin/` on first solver run, or eagerly with
 `hmp install-binaries`.

@@ -1,6 +1,6 @@
 """Constructor helpers for ``BoussinesqMesh``.
 
-Splits the planar-mesh and bundle translation paths out of the dataclass so
+Splits the cell-mesh and bundle translation paths out of the dataclass so
 ``mesh.py`` can stay focused on the runtime API.
 """
 
@@ -18,9 +18,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundleEdge,
     CatchmentMeshBundleNode,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    build_gmsh_support_metadata,
-)
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 from ._mesh_geometry import (
@@ -33,26 +30,31 @@ from ._mesh_geometry import (
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
-    from .mesh import BoussinesqMesh
 
+def family_edge_indices(
+    cell_mesh: PlanarCellMesh, family: str, edge_nodes: np.ndarray
+) -> np.ndarray:
+    """Return the edges of one face family, as rows of ``edge_nodes``.
 
-def family_edge_indices(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
-    """Return the edges of one face family, as rows of ``cell_mesh.geometry.edge_nodes``.
-
-    A face row names its two vertices; the edge is the mesh edge between them,
-    found by the key ``min * n_nodes + max`` the edge table is sorted on. Sorted,
-    without repeats, empty when the mesh has no such family.
+    A face row names its two vertices; ``edge_nodes`` lists the two vertices of
+    every edge of the caller, in the caller's order. Sorted, without repeats,
+    empty when the mesh has no such family.
     """
     table = cell_mesh.face_families
     rows = cell_mesh.face_rows(family)
     if table is None or not rows.any():
         return np.empty(0, dtype=np.int64)
     n_nodes = np.int64(cell_mesh.mesh.n_nodes)
-    edge_nodes = cell_mesh.geometry.edge_nodes
-    known = edge_nodes[:, 0] * n_nodes + edge_nodes[:, 1]
+    edge_nodes = np.asarray(edge_nodes, dtype=np.int64)
+    known = np.minimum(edge_nodes[:, 0], edge_nodes[:, 1]) * n_nodes + np.maximum(
+        edge_nodes[:, 0], edge_nodes[:, 1]
+    )
+    if known.size == 0:
+        raise ValueError(f"a face of the family '{family}' is not an edge of the mesh")
+    order = np.argsort(known, kind="stable")
     node_a, node_b = table.node_a[rows], table.node_b[rows]
     wanted = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
-    position = np.minimum(np.searchsorted(known, wanted), known.size - 1)
+    position = order[np.minimum(np.searchsorted(known, wanted, sorter=order), known.size - 1)]
     if np.any(known[position] != wanted):
         raise ValueError(f"a face of the family '{family}' is not an edge of the mesh")
     return np.unique(position)
@@ -145,7 +147,7 @@ def build_runtime_bundle_from_cell_mesh(
 
     geometry = cell_mesh.geometry
     is_river = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
-    is_river[family_edge_indices(cell_mesh, "rivers")] = True
+    is_river[family_edge_indices(cell_mesh, "rivers", geometry.edge_nodes)] = True
     edges = tuple(
         CatchmentMeshBundleEdge(
             edge_id=edge_id,
@@ -283,7 +285,6 @@ def assemble_mesh_arrays_from_bundle(bundle: CatchmentMeshBundle) -> dict:
         **edge_arrays,
         "cell_index_by_id": cell_index_by_id,
         "node_index_by_id": node_index_by_id,
-        "support_metadata": build_gmsh_support_metadata(bundle),
     }
 
 
@@ -380,44 +381,4 @@ def _assemble_edge_arrays(
         "edge_midpoint_y_m": np.asarray(edge_midpoint_y_m, dtype=float),
         "edge_kind": tuple(edge_kind),
         "edge_is_river": np.asarray(edge_is_river, dtype=bool),
-    }
-
-
-def build_planar_mesh_kwargs(
-    *,
-    base_mesh: BoussinesqMesh,
-    cell_mesh: PlanarCellMesh,
-) -> dict:
-    """Return constructor kwargs for the BoussinesqMesh that keeps its cell mesh."""
-    return {
-        "bundle_dir": base_mesh.bundle_dir,
-        "cell_ids": base_mesh.cell_ids,
-        "node_ids": base_mesh.node_ids,
-        "node_x_m": base_mesh.node_x_m,
-        "node_y_m": base_mesh.node_y_m,
-        "cell_node_ids": base_mesh.cell_node_ids,
-        "cell_centroid_x_m": base_mesh.cell_centroid_x_m,
-        "cell_centroid_y_m": base_mesh.cell_centroid_y_m,
-        "cell_area_m2": base_mesh.cell_area_m2,
-        "z_top_m": base_mesh.z_top_m,
-        "z_bottom_m": base_mesh.z_bottom_m,
-        "hydraulic_conductivity_m_s": base_mesh.hydraulic_conductivity_m_s,
-        "storage_coefficient": base_mesh.storage_coefficient,
-        "edge_ids": base_mesh.edge_ids,
-        "edge_node_a": base_mesh.edge_node_a,
-        "edge_node_b": base_mesh.edge_node_b,
-        "edge_cell_a": base_mesh.edge_cell_a,
-        "edge_cell_b": base_mesh.edge_cell_b,
-        "edge_length_m": base_mesh.edge_length_m,
-        "edge_distance_m": base_mesh.edge_distance_m,
-        "edge_midpoint_distance_to_cell_a_m": base_mesh.edge_midpoint_distance_to_cell_a_m,
-        "edge_midpoint_distance_to_cell_b_m": base_mesh.edge_midpoint_distance_to_cell_b_m,
-        "edge_midpoint_x_m": base_mesh.edge_midpoint_x_m,
-        "edge_midpoint_y_m": base_mesh.edge_midpoint_y_m,
-        "edge_kind": base_mesh.edge_kind,
-        "edge_is_river": base_mesh.edge_is_river,
-        "cell_index_by_id": base_mesh.cell_index_by_id,
-        "node_index_by_id": base_mesh.node_index_by_id,
-        "cell_mesh": cell_mesh,
-        "support_metadata": base_mesh.support_metadata,
     }

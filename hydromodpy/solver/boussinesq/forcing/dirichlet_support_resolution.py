@@ -48,9 +48,8 @@ class DirichletSupportResolutionMixin:
         support_label = self.boundary_support_label(boundary)
         if support_label is None:
             return None
-        edge_indices, cell_indices = self.labelled_support_indices(
-            support_label, label=f"flow.bc.{bc_id}"
-        )
+        edge_indices = np.asarray(self.mesh.edge_indices_for_label(support_label), dtype=int)
+        cell_indices = np.asarray(self.mesh.cell_indices_for_label(support_label), dtype=int)
         if edge_indices.size == 0 or cell_indices.size == 0:
             raise ValueError(
                 f"flow.bc.{bc_id}.support_label='{support_label}' did not match any runtime mesh support."
@@ -90,13 +89,8 @@ class DirichletSupportResolutionMixin:
         if labelled_support is not None:
             return labelled_support
 
-        support = self.runtime_mesh_support()
-        if support is not None:
-            edge_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
-            cell_indices = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
-        else:
-            edge_indices = self.mesh.river_edge_indices()
-            cell_indices = self.mesh.river_cell_indices()
+        edge_indices = self.mesh.edge_indices_for_label("stream")
+        cell_indices = self.mesh.cell_indices_for_label("stream")
         if edge_indices.size == 0:
             raise ValueError(
                 "Boundary 'stream' is active but no edge is tagged is_river in the mesh bundle."

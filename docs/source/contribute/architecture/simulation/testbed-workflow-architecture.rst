@@ -66,7 +66,7 @@ The contract accepts only explicit subject and runner pairs
      - ``simulation``
      - ``[workflow].mode = "simulation"`` with ``[[simulation.process]]`` of
        ``type = "mesh"``
-     - Resolution ladders, constraint sensitivity, conformity checks.
+     - Resolution ladders and conformity checks.
    * - ``flow``
      - ``simulation``
      - ``[workflow].mode = "simulation"``

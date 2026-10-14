@@ -1,9 +1,9 @@
 """MODFLOW 6 locates wells and boundaries on the cells it solves.
 
-A Voronoi cell mesh has one cell per node of its triangulation. The support of the
-triangles indexes the triangles. A triangle index read as a dual cell index puts a
-well in the wrong cell, or runs past the end of the dual grid. The solver reads the
-cell mesh it solves on, whatever the engine that built it.
+A Voronoi cell mesh has one cell per node of its triangulation. The triangles are
+indexed differently: a triangle index read as a dual cell index puts a well in the
+wrong cell, or runs past the end of the dual grid. The solver reads the cell mesh it
+solves on, whatever the engine that built it.
 """
 
 from __future__ import annotations
@@ -27,26 +27,26 @@ from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.adapters.cell_mesh import (
-    cell_mesh_from_triangulation,
-    cell_mesh_from_voronoi_dual,
-)
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
     SolverSGridConfig,
     VerticalGridConfig,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
-    build_gmsh_support_metadata,
-    support_on_planar_mesh,
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+    FaceFamilyTable,
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
 )
 from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
-from hydromodpy.spatial.mesh.ops.family_cells import stream_cells
+from hydromodpy.spatial.mesh.ops.family_cells import side_cells, stream_cells
 from hydromodpy.spatial.mesh.ops.voronoi import (
     domain_polygon_from_mesh,
     voronoi_planar_mesh,
 )
+from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.dual_of_triangles import dual_of_the_triangles
 
 from ._test_modflow6_boundary_conditions_builders import _build_model
 
@@ -140,17 +140,37 @@ def _surface(value: float, name: str) -> Surface:
     return Surface(name=name, values=np.full((52, 52), value), support=support)
 
 
+def _triangles_and_dual(
+    mesh: HydroMesh, bundle: SimpleNamespace
+) -> tuple[PlanarCellMesh, PlanarCellMesh]:
+    """Return the bundle triangles as a cell mesh, and their Voronoi dual with the river faces."""
+    triangles = cell_mesh_from_bundle(bundle, crs_wkt=TEST_CRS_WKT)
+    domain = domain_polygon_from_mesh(mesh)
+    xmin, ymin, xmax, ymax = domain.bounds
+    request = MeshRequest(
+        domain=domain,
+        crs_wkt=TEST_CRS_WKT,
+        grid=RasterGridSpec(
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+            dx=xmax - xmin,
+            dy=ymax - ymin,
+            nrow=1,
+            ncol=1,
+            crs_wkt=TEST_CRS_WKT,
+        ),
+        nominal_size_m=SIZE_M / (N_SIDE - 1),
+    )
+    return triangles, dual_of_the_triangles(triangles, request)
+
+
 def _grid_context(engine: str):
     """Extrude the triangles (``engine = "triangle"``) or their dual (``"voronoi"``)."""
     mesh, bundle = _triangulated_square()
-    triangle_support = build_gmsh_support_metadata(bundle)
-    if engine == "triangle":
-        cell_mesh = cell_mesh_from_triangulation(mesh, triangle_support, crs_wkt=TEST_CRS_WKT)
-    else:
-        dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
-        cell_mesh = cell_mesh_from_voronoi_dual(
-            dual, support_on_planar_mesh(triangle_support, dual), crs_wkt=TEST_CRS_WKT
-        )
+    triangles, dual = _triangles_and_dual(mesh, bundle)
+    cell_mesh = triangles if engine == "triangle" else dual
     domain = Domain(config=DomainConfig(), surface_topo=_surface(20.0, "surface_topo"))
     domain.substratum = _surface(0.0, "substratum")
     ctx = build_spatial_discretization(
@@ -160,7 +180,7 @@ def _grid_context(engine: str):
         ),
         cell_mesh=cell_mesh,
     )
-    return ctx, triangle_support, mesh
+    return ctx, triangles, mesh, bundle
 
 
 def _model_on(ctx) -> object:
@@ -183,32 +203,33 @@ POINTS = [(250.0, 250.0), (61.0, 433.0), (377.0, 120.0), (430.0, 470.0), (190.0,
 
 
 def test_the_voronoi_cell_mesh_describes_the_dual_cells() -> None:
-    ctx, triangle_support, mesh = _grid_context("voronoi")
+    ctx, triangles, mesh, _bundle = _grid_context("voronoi")
     cell_mesh = ctx.solver_mesh.cell_mesh
 
     assert ctx.solver_mesh.n_cells == mesh.n_nodes
-    assert triangle_support.n_cells > ctx.solver_mesh.n_cells
+    assert triangles.n_cells > ctx.solver_mesh.n_cells
     assert cell_mesh.n_cells == ctx.solver_mesh.n_cells
     faces = cell_mesh.face_families
     assert int(max(faces.cell_a.max(), faces.cell_b.max())) < cell_mesh.n_cells
 
 
 def test_the_triangle_cell_mesh_carries_the_river_of_its_triangles() -> None:
-    ctx, triangle_support, _mesh = _grid_context("triangle")
+    ctx, triangles, _mesh, bundle = _grid_context("triangle")
     cell_mesh = ctx.solver_mesh.cell_mesh
 
-    assert cell_mesh.n_cells == triangle_support.n_cells == ctx.solver_mesh.n_cells
+    assert cell_mesh.n_cells == triangles.n_cells == ctx.solver_mesh.n_cells
     centre_x, centre_y = ctx.solver_mesh.cell_centroids().T
-    assert np.array_equal(centre_x, triangle_support.cell_centroid_x_m)
-    assert np.array_equal(centre_y, triangle_support.cell_centroid_y_m)
-    assert set(triangle_support.river_cell_indices().tolist()) <= set(
-        stream_cells(cell_mesh).tolist()
-    )
+    assert np.array_equal(centre_x, [cell.centroid_x for cell in bundle.cells])
+    assert np.array_equal(centre_y, [cell.centroid_y for cell in bundle.cells])
+    river_cells = {
+        cell for edge in bundle.edges if edge.is_river for cell in (edge.cell_a, edge.cell_b)
+    }
+    assert river_cells <= set(stream_cells(cell_mesh).tolist())
 
 
 @pytest.mark.parametrize(("x_m", "y_m"), POINTS)
 def test_a_point_lands_in_the_dual_cell_that_holds_it(x_m: float, y_m: float) -> None:
-    ctx, _triangle_support, _mesh = _grid_context("voronoi")
+    ctx, _triangles, _mesh, _bundle = _grid_context("voronoi")
 
     cell = int(locate_cells(ctx.solver_mesh.cell_mesh, [(x_m, y_m)], allow_nearest=False)[0])
 
@@ -221,10 +242,10 @@ def test_a_point_lands_in_the_dual_cell_that_holds_it(x_m: float, y_m: float) ->
 def test_the_triangle_index_is_not_the_dual_cell() -> None:
     # Guard on the test itself: on this mesh, the bundle triangle index of some
     # point names another dual cell, so the tests above see the old defect.
-    ctx, triangle_support, _mesh = _grid_context("voronoi")
+    ctx, triangles, _mesh, _bundle = _grid_context("voronoi")
 
     differs = [
-        triangle_support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
+        int(locate_cells(triangles, [(x_m, y_m)], allow_nearest=False)[0])
         != int(locate_cells(ctx.solver_mesh.cell_mesh, [(x_m, y_m)], allow_nearest=False)[0])
         for x_m, y_m in POINTS
     ]
@@ -232,7 +253,7 @@ def test_the_triangle_index_is_not_the_dual_cell() -> None:
 
 
 def test_a_well_is_written_in_the_dual_cell_that_holds_it() -> None:
-    ctx, _triangle_support, _mesh = _grid_context("voronoi")
+    ctx, _triangles, _mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
     x_m, y_m = POINTS[1]
     model.flow = SimpleNamespace(
@@ -254,7 +275,7 @@ def test_a_well_is_written_in_the_dual_cell_that_holds_it() -> None:
 
 
 def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
-    ctx, _triangle_support, mesh = _grid_context("voronoi")
+    ctx, _triangles, mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -274,7 +295,7 @@ def test_side_boundaries_on_the_dual_take_the_dual_cells_of_the_side() -> None:
 
 
 def test_a_stream_boundary_on_the_dual_takes_the_cells_the_river_runs_through() -> None:
-    ctx, _triangle_support, mesh = _grid_context("voronoi")
+    ctx, _triangles, mesh, _bundle = _grid_context("voronoi")
     model = _model_on(ctx)
     model.flow = SimpleNamespace(
         boundary_conditions={"stream": SimpleNamespace(value=7.0)},
@@ -295,9 +316,45 @@ def test_a_stream_boundary_on_the_dual_takes_the_cells_the_river_runs_through() 
 SIDES = ("west_side", "east_side", "south_side", "north_side")
 
 
-def _square_dual(seeds: np.ndarray, size_m: float = 400.0) -> GmshSupportMetadata:
+def _square_dual(seeds: np.ndarray, size_m: float = 400.0) -> PlanarCellMesh:
+    """Return the Voronoi dual of the seeds in a square, with the faces on its four sides."""
     mesh = voronoi_planar_mesh(seeds, box(0.0, 0.0, size_m, size_m))
-    return support_on_planar_mesh(GmshSupportMetadata(), mesh)
+    cell_mesh = build_planar_cell_mesh(
+        mesh,
+        np.asarray(mesh.cell_data["disv_cell_center"], dtype=float).reshape(-1, 2),
+        center_kind="generator",
+        crs_wkt=TEST_CRS_WKT,
+        identity=MeshIdentity("voronoi", "0", "", None),
+        declarations={
+            "graded": True,
+            "exact_faces": False,
+            "deterministic": True,
+            "needs_cache": False,
+        },
+    )
+    geometry = cell_mesh.geometry
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    midpoint = 0.5 * (vertices[geometry.edge_nodes[:, 0]] + vertices[geometry.edge_nodes[:, 1]])
+    outer = geometry.edge_cells[:, 1] < 0
+    sides = {
+        "west": outer & np.isclose(midpoint[:, 0], 0.0),
+        "east": outer & np.isclose(midpoint[:, 0], size_m),
+        "south": outer & np.isclose(midpoint[:, 1], 0.0),
+        "north": outer & np.isclose(midpoint[:, 1], size_m),
+    }
+    rows = [np.flatnonzero(mask) for mask in sides.values()]
+    edges = np.concatenate(rows)
+    table = FaceFamilyTable(
+        names=tuple(f"boundary:{side}" for side in sides),
+        family=np.repeat(np.arange(len(rows)), [row.size for row in rows]),
+        cell_a=geometry.edge_cells[edges, 0],
+        cell_b=geometry.edge_cells[edges, 1],
+        node_a=geometry.edge_nodes[edges, 0],
+        node_b=geometry.edge_nodes[edges, 1],
+        zone_left=np.full(edges.size, -1),
+        zone_right=np.full(edges.size, -1),
+    )
+    return replace(cell_mesh, face_families=table)
 
 
 def _sparse_side_seeds() -> np.ndarray:
@@ -323,15 +380,16 @@ def _expected_side_cells(seeds: np.ndarray, size_m: float = 400.0) -> dict[str, 
 
 def test_a_side_on_the_dual_takes_exactly_the_cells_centred_on_it() -> None:
     seeds = _sparse_side_seeds()
-    support = _square_dual(seeds)
+    dual = _square_dual(seeds)
 
     expected = _expected_side_cells(seeds)
-    face_rule = replace(support, side_cell_indices={})
     for side in SIDES:
-        assert set(support.boundary_cell_indices_for_side(side).tolist()) == expected[side]
-        assert set(support.cell_indices_for_label(side).tolist()) == expected[side]
+        assert set(side_cells(dual, side).tolist()) == expected[side]
         # Guard on the test itself: inner cells also touch the side here.
-        assert set(face_rule.boundary_cell_indices_for_side(side).tolist()) > expected[side]
+        assert (
+            set(dual.family_cells(f"boundary:{side.removesuffix('_side')}").tolist())
+            > expected[side]
+        )
 
 
 def test_a_corner_cell_belongs_to_both_sides_as_on_the_structured_grid() -> None:
@@ -340,11 +398,11 @@ def test_a_corner_cell_belongs_to_both_sides_as_on_the_structured_grid() -> None
     assert 0 in side_boundary_cell_ids(structured, "north_side")
 
     seeds = _sparse_side_seeds()
-    support = _square_dual(seeds)
+    dual = _square_dual(seeds)
 
     north_west = int(np.flatnonzero((seeds[:, 0] == 0.0) & (seeds[:, 1] == 400.0))[0])
-    assert north_west in support.boundary_cell_indices_for_side("west_side").tolist()
-    assert north_west in support.boundary_cell_indices_for_side("north_side").tolist()
+    assert north_west in side_cells(dual, "west_side").tolist()
+    assert north_west in side_cells(dual, "north_side").tolist()
 
 
 def test_a_side_with_no_centred_cell_keeps_the_cells_with_a_face_on_it(
@@ -354,9 +412,9 @@ def test_a_side_with_no_centred_cell_keeps_the_cells_with_a_face_on_it(
         [(x, y) for x in range(50, 400, 100) for y in range(50, 400, 100)], dtype=float
     )
 
+    dual = _square_dual(seeds)
     with caplog.at_level(logging.WARNING, logger="hydromodpy"):
-        support = _square_dual(seeds)
+        west = set(side_cells(dual, "west_side").tolist())
 
-    west = set(support.boundary_cell_indices_for_side("west_side").tolist())
     assert west == set(np.flatnonzero(seeds[:, 0] == 50.0).tolist())
     assert "No cell of the solver mesh is centred on west_side" in caplog.text

@@ -1,19 +1,19 @@
-"""``locate_cells`` equals the readers it replaces: the well arithmetic and the support lookup.
+"""``locate_cells`` equals the reader it replaces on a grid and a brute-force search elsewhere.
 
 On a regular grid the oracle is the floor arithmetic of the well builder. On an unstructured
-mesh it is ``GmshSupportMetadata.locate_cell_index_for_point``. The probes include points on
-edges and on vertices.
+mesh it is the cell of smallest id that covers the point. The probes include points on edges
+and on vertices.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
+import shapely
 from pyproj import CRS
 from shapely.geometry import box
 
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import support_from_cell_mesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
@@ -115,25 +115,30 @@ def test_a_point_outside_a_grid_takes_the_nearest_centre_when_allowed(grid) -> N
         assert cell == int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
 
 
+def _covering_polygons(cell_mesh: PlanarCellMesh) -> np.ndarray:
+    """The cell polygons, built from the vertex rows of the cells."""
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
+    rows = cell_mesh.geometry.padded_connectivity
+    return np.array([shapely.Polygon(vertices[row[row >= 0]]) for row in rows], dtype=object)
+
+
 @pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
-def test_an_unstructured_mesh_is_located_like_its_support(case, producer) -> None:
-    cell_mesh, _ = producer(case)
-    support = support_from_cell_mesh(cell_mesh)
+def test_an_unstructured_mesh_is_located_like_a_brute_force_search(case, producer) -> None:
+    cell_mesh = producer(case)
+    polygons = _covering_polygons(cell_mesh)
     probes = _probes(cell_mesh, seed=2)[:-N_EDGE_PROBES]
     cells = locate_cells(cell_mesh, probes, allow_nearest=False)
     for index, (x, y) in enumerate(probes.tolist()):
-        try:
-            legacy = support.locate_cell_index_for_point(x, y, allow_nearest=False)
-        except ValueError:
-            legacy = -1
-        assert cells[index] == legacy, (index, x, y)
+        covering = np.flatnonzero(shapely.covers(polygons, shapely.Point(x, y)))
+        expected = int(covering.min()) if covering.size else -1
+        assert cells[index] == expected, (index, x, y)
     assert (cells[:N_RANDOM] >= 0).sum() > 0.4 * N_RANDOM
 
 
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
 def test_an_edge_midpoint_is_in_one_of_the_two_cells_of_the_edge(producer) -> None:
-    cell_mesh, _ = producer(BUNDLE_CASES[2])
+    cell_mesh = producer(BUNDLE_CASES[2])
     geometry = cell_mesh.geometry
     inner = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)[:60]
     cells = locate_cells(cell_mesh, geometry.edge_midpoint[inner], allow_nearest=False)
@@ -142,7 +147,7 @@ def test_an_edge_midpoint_is_in_one_of_the_two_cells_of_the_edge(producer) -> No
 
 
 def test_a_shared_vertex_gives_the_smallest_cell_id() -> None:
-    cell_mesh, _ = bundle_triangles(BUNDLE_CASES[2])
+    cell_mesh = bundle_triangles(BUNDLE_CASES[2])
     padded = cell_mesh.geometry.padded_connectivity
     nodes = padded[:, 0]
     for node in nodes[:30].tolist():
@@ -152,7 +157,7 @@ def test_a_shared_vertex_gives_the_smallest_cell_id() -> None:
 
 
 def test_an_unstructured_point_outside_is_lost_or_snapped_to_the_nearest_centre() -> None:
-    cell_mesh, _ = bundle_triangles(BUNDLE_CASES[2])
+    cell_mesh = bundle_triangles(BUNDLE_CASES[2])
     xmin, ymin, xmax, ymax = cell_mesh.mesh.bounds()
     outside = np.array([[xmin - 50.0, ymin - 50.0], [xmax + 20.0, (ymin + ymax) / 2]])
     assert locate_cells(cell_mesh, outside, allow_nearest=False).tolist() == [-1, -1]

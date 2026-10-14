@@ -23,6 +23,7 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 from hydromodpy.solver.boussinesq.runtimes.stationary_failure_diagnostics import (
     write_stationary_failure_diagnostics,
 )
+from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 
 
 def _two_cell_mesh() -> BoussinesqMesh:
@@ -55,6 +56,7 @@ def _two_cell_mesh() -> BoussinesqMesh:
         edge_is_river=np.asarray([False], dtype=bool),
         cell_index_by_id={10: 0, 11: 1},
         node_index_by_id={0: 0, 1: 1, 2: 2, 3: 3},
+        cell_mesh=placeholder_cell_mesh(2),
     )
 
 

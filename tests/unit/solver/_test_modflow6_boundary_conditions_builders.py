@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,11 +12,10 @@ from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_triangulation
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.gmsh_grid import GmshSupportMetadata
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
-from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
 
 _GRID_CRS_WKT = CRS.from_epsg(2154).to_wkt()
 
@@ -93,7 +93,12 @@ def _build_unstructured_runtime(
     *,
     river_internal_edge: bool = False,
     boundary_labels_by_edge_id: dict[int, str] | None = None,
-) -> tuple[SolverMesh, GmshSupportMetadata]:
+) -> SolverMesh:
+    """Return two triangles on the unit square, with their river and boundary face families.
+
+    Edges 0 to 3 are the south, east, north and west sides; edge 4 is the diagonal.
+    ``boundary_labels_by_edge_id`` renames the family of a side edge.
+    """
     vertices = np.asarray(
         [
             [0.0, 0.0],
@@ -108,42 +113,31 @@ def _build_unstructured_runtime(
         vertices=vertices,
         cell_blocks=(CellBlock(CellType.TRIANGLE, connectivity),),
     )
-    support = GmshSupportMetadata(
-        cell_ids=np.asarray([0, 1], dtype=int),
-        node_ids=np.asarray([0, 1, 2, 3], dtype=int),
-        node_x_m=vertices[:, 0],
-        node_y_m=vertices[:, 1],
-        cell_node_indices=((0, 1, 2), (0, 2, 3)),
-        cell_centroid_x_m=np.asarray([2.0 / 3.0, 1.0 / 3.0], dtype=float),
-        cell_centroid_y_m=np.asarray([1.0 / 3.0, 2.0 / 3.0], dtype=float),
-        edge_ids=np.asarray([0, 1, 2, 3, 4], dtype=int),
-        edge_node_a_index=np.asarray([0, 1, 2, 3, 0], dtype=int),
-        edge_node_b_index=np.asarray([1, 2, 3, 0, 2], dtype=int),
-        edge_cell_a=np.asarray([0, 0, 1, 1, 0], dtype=int),
-        edge_cell_b=np.asarray([-1, -1, -1, -1, 1], dtype=int),
-        edge_midpoint_x_m=np.asarray([0.5, 1.0, 0.5, 0.0, 0.5], dtype=float),
-        edge_midpoint_y_m=np.asarray([0.0, 0.5, 1.0, 0.5, 0.5], dtype=float),
-        edge_kind=("boundary", "boundary", "boundary", "boundary", "internal"),
-        edge_is_river=np.asarray(
-            [False, False, False, False, bool(river_internal_edge)], dtype=bool
-        ),
-        geology_a_key=("", "", "", "", ""),
-        geology_b_key=("", "", "", "", ""),
-        boundary_labels_by_edge_id={
-            0: "south_side",
-            1: "east_side",
-            2: "north_side",
-            3: "west_side",
-            **(boundary_labels_by_edge_id or {}),
-        },
+    edge_nodes = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)]
+    edge_cells = [(0, -1), (0, -1), (1, -1), (1, -1), (0, 1)]
+    labels = {0: "south_side", 1: "east_side", 2: "north_side", 3: "west_side"}
+    labels.update(boundary_labels_by_edge_id or {})
+    selections = {"rivers": [4]} if river_internal_edge else {}
+    for label in sorted(set(labels.values())):
+        rows = [edge for edge, edge_label in labels.items() if edge_label == label]
+        selections[f"boundary:{label.removesuffix('_side')}"] = sorted(rows)
+    rows = [edge for edges in selections.values() for edge in edges]
+    faces = FaceFamilyTable(
+        names=tuple(selections),
+        family=np.repeat(np.arange(len(selections)), [len(edges) for edges in selections.values()]),
+        cell_a=[edge_cells[edge][0] for edge in rows],
+        cell_b=[edge_cells[edge][1] for edge in rows],
+        node_a=[edge_nodes[edge][0] for edge in rows],
+        node_b=[edge_nodes[edge][1] for edge in rows],
+        zone_left=np.full(len(rows), -1),
+        zone_right=np.full(len(rows), -1),
     )
-    solver_mesh = SolverMesh(
-        cell_mesh=cell_mesh_from_triangulation(planar_mesh, support, crs_wkt=TEST_CRS_WKT),
+    return SolverMesh(
+        cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=faces),
         top=np.asarray([10.0, 10.0], dtype=float),
         botm=np.asarray([[1.0, 1.0]], dtype=float),
         inactive_mask=np.zeros((1, 2), dtype=bool),
     )
-    return solver_mesh, support
 
 
 def _build_unstructured_model(
@@ -152,11 +146,10 @@ def _build_unstructured_model(
     boundary_labels_by_edge_id: dict[int, str] | None = None,
 ) -> Modflow6:
     model = _build_model()
-    solver_mesh, _ = _build_unstructured_runtime(
+    model.solver_mesh = _build_unstructured_runtime(
         river_internal_edge=river_internal_edge,
         boundary_labels_by_edge_id=boundary_labels_by_edge_id,
     )
-    model.solver_mesh = solver_mesh
     model.nlay = 1
     model.ncpl = 2
     model.dem_mask = np.zeros(2, dtype=bool)

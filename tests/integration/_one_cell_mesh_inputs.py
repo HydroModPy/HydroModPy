@@ -546,7 +546,7 @@ def prepare_boussinesq(pair: MeshPair, flow: Flow) -> SolverInputs:
     """The per-cell K, Sy and recharge series a Boussinesq model is built with."""
     mesh = resolve_runtime_solver_mesh(boussinesq_setup(pair, flow))
     resolver = BoussinesqForcingResolver(
-        mesh=mesh, flow=flow, time_grid=SimpleNamespace(window=WINDOW), mesh_bundle=None
+        mesh=mesh, flow=flow, time_grid=SimpleNamespace(window=WINDOW)
     )
     series = resolver.resolve_recharge_series(NPER)
     return SolverInputs(

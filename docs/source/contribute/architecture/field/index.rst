@@ -66,5 +66,5 @@ Related pages
 -------------
 
 - :doc:`../spatial_support/spatial-support-uml-diagrams`
-- :doc:`../mesh/structured-grid-architecture`
+- :doc:`../mesh/mesh-engines`
 - :doc:`../mesh/mesh-pivot` for the cross-mesh pivot format.

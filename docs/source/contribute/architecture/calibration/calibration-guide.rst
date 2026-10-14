@@ -106,7 +106,7 @@ do not match, because it reads the state the step before it produced.
    * - 4
      - ``build_mesh``
      - once
-     - ``domain.supports``, ``mesh_catchment``, ``mesh_input``
+     - ``domain.supports``, ``mesh``
    * - 5
      - ``setup_process``
      - once, or per trial for a depth-model parameter

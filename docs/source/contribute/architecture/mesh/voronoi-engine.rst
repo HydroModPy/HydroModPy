@@ -148,6 +148,11 @@ Limits
   of these cases; a larger hole that touches a ring must be separated in the domain first.
 - **Holes.** The planner drops a hole of the domain, a lake or the catchment that is smaller
   than one local cell squared, for every engine, and says how many in the log.
+- **Fewer cells than the dual of a triangulation.** At equal size parameters the generated mode
+  makes about half the cells the dual of a triangulation made: 826 became 344 cells on one
+  catchment and 303 became 144 on another. The cause is not isolated. A comparison at equal cost
+  reads the cell count of the mesh, which the QA reports, and does not infer it from
+  ``[mesh] cell_size`` (:ref:`mesh-budget`).
 - **Reproducibility.** The mesh is reproducible for one platform, one GEOS and one scipy
   version. A resume on another build can rebuild a different mesh; the QA notes name the
   versions.
@@ -156,4 +161,5 @@ See also
 --------
 
 - :doc:`mesh-pivot` for the ``PlanarCellMesh`` this engine returns.
+- :doc:`mesh-engines` for the port, the planner and the other engines.
 - :doc:`/theory/mesh` for the choice of a Voronoi mesh.

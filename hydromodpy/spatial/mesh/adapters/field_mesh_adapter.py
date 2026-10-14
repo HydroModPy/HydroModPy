@@ -1,8 +1,8 @@
 """Adapters between ``HydroMesh`` and the field/mesh layer.
 
 These functions bridge the existing ``BaseFieldMesh`` hierarchy
-(``StructuredFieldMesh``, triangular field meshes, ``GmshPlanarMesh2D``,
-``ExtrudedPrismMesh3D``) and the unified ``HydroMesh`` pivot.
+(``StructuredFieldMesh``, triangular field meshes, ``GmshPlanarMesh2D``) and the
+unified ``HydroMesh`` pivot.
 
 This module is deliberately pragmatic: it recognizes the small set of mesh
 objects that HydroModPy itself emits today and converts them into a single
@@ -91,36 +91,3 @@ def to_field_mesh(mesh: HydroMesh) -> BaseFieldMesh:
     from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
     return GmshPlanarMesh2D.from_hydro_mesh(mesh)
-
-
-def from_extruded_prism(extruded_mesh) -> HydroMesh:
-    """Convert an ``ExtrudedPrismMesh3D`` into a 3D ``HydroMesh``.
-
-    Layer and source-cell metadata are preserved as ``cell_data`` /
-    ``point_data`` so that downstream solvers and diagnostics can keep the
-    vertical provenance of each prism.
-    """
-    points_xyz = np.asarray(extruded_mesh.points_xyz, dtype=float)
-    connectivity = np.asarray(extruded_mesh.prism_connectivity, dtype=int)
-
-    cell_type_2d = str(extruded_mesh.cell_type_2d).strip().lower()
-    if cell_type_2d == "triangle":
-        ct = CellType.WEDGE
-    else:
-        ct = CellType.HEXAHEDRON
-
-    cell_data: dict[str, np.ndarray] = {
-        "layer_index": np.asarray(extruded_mesh.layer_indices, dtype=int),
-        "source_cell_index": np.asarray(extruded_mesh.source_cell_indices, dtype=int),
-    }
-    point_data: dict[str, np.ndarray] = {
-        "layer_index": np.asarray(extruded_mesh.point_layer_indices, dtype=int),
-        "base_index": np.asarray(extruded_mesh.point_base_indices, dtype=int),
-    }
-
-    return HydroMesh(
-        vertices=points_xyz,
-        cell_blocks=(CellBlock(cell_type=ct, connectivity=connectivity),),
-        cell_data=cell_data,
-        point_data=point_data,
-    )

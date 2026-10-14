@@ -1,21 +1,16 @@
 """Round-trip the variable-arity ``cells.csv`` bundle table.
 
-Voronoi/PEBI meshes carry cells with 5, 7 or more vertices. The bundle writer
-records the real node count in ``ncvert`` and widens the ``n<k>`` columns to the
-largest cell; the reader must give back every node list untouched (no silent
-truncation to four nodes).
+Voronoi/PEBI meshes carry cells with 5, 7 or more vertices. A bundle records the
+real node count in ``ncvert`` and widens the ``n<k>`` columns to the largest cell;
+the reader must give back every node list untouched (no silent truncation to four
+nodes).
 """
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
-from types import SimpleNamespace
 
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle import (
-    _cell_node_index_columns,
-    _cells_node_column_count,
-    _write_csv,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import _load_cells
 
 _OPTIONAL_CELL_FIELDS = [
@@ -34,28 +29,8 @@ _OPTIONAL_CELL_FIELDS = [
 
 
 def _write_cells_bundle(path: Path, node_lists: list[tuple[int, ...]]) -> None:
-    """Write a ``cells.csv`` for a tiny mesh through the real writer helpers."""
-    cells = [SimpleNamespace(node_indices=nodes) for nodes in node_lists]
-    n_node_columns = _cells_node_column_count(cells)
-    rows: list[dict[str, object]] = []
-    for cell_id, nodes in enumerate(node_lists):
-        row: dict[str, object] = {
-            "cell_id": cell_id,
-            "geom_type": "polygon",
-            **_cell_node_index_columns(nodes, n_node_columns),
-            "centroid_x": 0.0,
-            "centroid_y": 0.0,
-            "area_m2": 1.0,
-            "z_top_centroid": "",
-            "z_top_mean": "",
-            "z_bottom_centroid": "",
-            "z_bottom_mean": "",
-            "geology_code": "",
-            "geology_key": "",
-            "hydraulic_conductivity_m_s": "",
-            "storage_coefficient": "",
-        }
-        rows.append(row)
+    """Write the ``cells.csv`` of a tiny mesh, padding the short node lists."""
+    n_node_columns = max(3, max(len(nodes) for nodes in node_lists))
     fieldnames = [
         "cell_id",
         "geom_type",
@@ -63,11 +38,25 @@ def _write_cells_bundle(path: Path, node_lists: list[tuple[int, ...]]) -> None:
         *[f"n{position}" for position in range(n_node_columns)],
         *_OPTIONAL_CELL_FIELDS,
     ]
-    _write_csv(path, fieldnames, rows)
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for cell_id, nodes in enumerate(node_lists):
+            row: dict[str, object] = {
+                "cell_id": cell_id,
+                "geom_type": "polygon",
+                "ncvert": len(nodes),
+                "centroid_x": 0.0,
+                "centroid_y": 0.0,
+                "area_m2": 1.0,
+            }
+            for position in range(n_node_columns):
+                row[f"n{position}"] = nodes[position] if position < len(nodes) else ""
+            writer.writerow(row)
 
 
 def test_variable_arity_cells_round_trip(tmp_path: Path) -> None:
-    """A 3-, 5- and 7-vertex cell survive the writer/reader round-trip intact."""
+    """A 3-, 5- and 7-vertex cell are read back intact."""
     node_lists = [
         (0, 1, 2),
         (3, 4, 5, 6, 7),

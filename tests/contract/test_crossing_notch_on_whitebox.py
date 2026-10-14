@@ -1,7 +1,7 @@
 """The crossing notch, run for real on Whitebox over a road across a valley.
 
 A V valley drains south and a road embankment, three metres high, is laid across
-it at row 30. The domain entry point delineates, finds the road on the generated
+it at row 30. The geographic pipeline delineates, finds the road on the generated
 channel, notches the ground there, delineates again, and clips the model top from
 the notched ground. What the unit tests pin on recorders is checked here on the
 real rasters: the names of the channel rasters, the pointer encoding, the walk.
@@ -22,9 +22,7 @@ gpd = pytest.importorskip("geopandas")
 
 from shapely.geometry import LineString  # noqa: E402
 
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (  # noqa: E402
-    build_geographic_derived_features,
-)
+from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation  # noqa: E402
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig  # noqa: E402
 
 RES = 25.0
@@ -88,7 +86,7 @@ def _run(tmp_path: Path):
         crossings={"enabled": True, "path": _the_road(tmp_path), "bed_reach": 75.0},
     )
     workspace = SimpleNamespace(project_root=tmp_path / "results")
-    features = build_geographic_derived_features(config=config, workspace=workspace)
+    features = CatchmentDelineation(config, workspace).get_geographic_derived_features()
     return features, surface, tmp_path / "results"
 
 

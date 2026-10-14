@@ -32,6 +32,7 @@ from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     build_drain_stress_period_data,
 )
+from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
 
 BED_M = 0.25
 K_M_S = np.asarray([1.0e-5, 4.0e-5, 2.0e-4])
@@ -70,6 +71,7 @@ def _line_mesh(*, drain_bed_thickness_m: float = BED_M) -> BoussinesqMesh:
         edge_is_river=np.zeros(2, dtype=bool),
         cell_index_by_id={0: 0, 1: 1, 2: 2},
         node_index_by_id={0: 0, 1: 1, 2: 2, 3: 3},
+        cell_mesh=placeholder_cell_mesh(3),
         drain_bed_thickness_m=drain_bed_thickness_m,
     )
 

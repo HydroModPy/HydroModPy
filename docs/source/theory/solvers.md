@@ -35,7 +35,7 @@ does not repeat them. It says which options HydroModPy writes.
 | | MODFLOW 6 | MODFLOW-NWT | Boussinesq |
 |---|---|---|---|
 | Name in `solvers` | `modflow6` | `modflow_nwt` | `boussinesq` |
-| Grid | DISV for every grid, structured or not | structured grid only (DIS) | triangular cells of a Gmsh mesh |
+| Mesh | DISV for every engine of {toml}`mesh.engine` | the `regular` engine only (DIS) | the `triangle` engine only |
 | Time | backward Euler, equal steps in a period | backward Euler, equal steps in a period | one backward Euler step per period |
 | Transport | GWT and particle tracking | MODPATH and MT3DMS | refused |
 
@@ -143,11 +143,11 @@ HydroModPy writes no UZF, GHB or RIV package. Three notes on the table.
 
 ### The grid
 
-MODFLOW 6 reads every grid as a DISV grid, structured or not: one code path covers both.
-A structured model is a DISV grid whose cells are the DEM pixels. A mesh built from Gmsh
-is, by default, the Voronoi dual of its triangles, which is orthogonal to its connections.
-{toml}`modflow6.sgrid.grid_dual` keeps the triangles as cells instead. The number of
-layers is {toml}`modflow6.sgrid.vertical.nlay`. The mesh is the subject of {doc}`mesh`.
+MODFLOW 6 reads the cells of every mesh engine as a DISV grid: one code path covers the three.
+A `regular` model is a DISV grid whose cells are the DEM pixels. The cells of the `voronoi`
+engine are orthogonal to their connections, and the triangles of the `triangle` engine are not,
+which turns XT3D on. The engine is {toml}`mesh.engine` and the number of layers is
+{toml}`modflow6.sgrid.vertical.nlay`. The mesh is the subject of {doc}`mesh`.
 
 (solvers-computational-top)=
 **The computational top.** Under Newton, MODFLOW 6 builds the horizontal conductance from
@@ -261,9 +261,9 @@ The static ocean and side boundaries are not CHD rows. They are cells with a neg
 `ibound` in BAS, which imposes the starting head on them. Four things differ from
 MODFLOW 6.
 
-- **The grid must be structured.** NWT stops with `MODFLOW NWT requires a structured grid`.
-  A `[mesh_catchment]` section does not change that: the solver keeps the grid it builds
-  from the DEM.
+- **The mesh must be the `regular` engine.** A file whose {toml}`mesh.engine` is another engine
+  is refused when it is read. NWT builds the grid of the DEM pixels, or a coarser one given by
+  {toml}`mesh.cell_size`.
 - **The unconfined law is the upstream-weighted UPW package** {cite:p}`niswonger2011`,
   with a smoothing of the saturated thickness set by
   {toml}`modflownwt.runtime.nwt.thickfact`.
@@ -350,7 +350,7 @@ for each. A threshold is a bound a test accepts, not a measured error, so it ran
 
 ## The Boussinesq solver
 
-The in-house solver writes one residual per triangle of a Gmsh mesh. It solves each stress
+The in-house solver writes one residual per triangle of the `triangle` engine. It solves each stress
 period in {toml}`simulation.time.substeps_per_period` backward Euler steps.
 {toml}`flow.runtime_backend` picks the nonlinear solver, `auto` by default: the dense `local`
 engine up to 400 cells and the sparse `scipy_sparse` above; a dense engine asked by name
@@ -426,8 +426,10 @@ an MT3DMS process is planned after it. The file name is
 The capability matrix is generated on {doc}`../reference/solvers`. The refusals, with their
 messages, are these.
 
-- **Grid.** MODFLOW-NWT works on the structured grid only. The Boussinesq solver works on
-  Gmsh triangles only, and a dense runtime asked by name on a mesh of more than 400 cells.
+- **Mesh.** MODFLOW 6 reads every engine, MODFLOW-NWT the `regular` engine and Boussinesq the
+  `triangle` engine. A file that pairs a solver with another engine is refused when it is read:
+  the message starts `solver 'modflow_nwt' reads the meshes of the engines`. A dense Boussinesq
+  runtime asked by name stops on a mesh of more than 400 cells.
 - **Boundaries.** Lakes, reservoirs, SFR and barriers need MODFLOW 6. The `stream` boundary
   needs MODFLOW 6 or Boussinesq. When {toml}`solver.backend` names `modflow_nwt`, the file
   is refused when it is read if it asks for {toml}`flow.active_bc` with `sfr`, `lake`,
@@ -435,8 +437,7 @@ messages, are these.
   condition of type `spinup_cyclic`. `does not support the 'sfr' boundary` is the start of
   the message for the first case, and
   `does not support flow barriers / dam cutoff walls (HFB); they require the 'modflow6' backend.`
-  is the whole message for barriers. An unstructured mesh stops the build with
-  `MODFLOW NWT requires a structured grid`.
+  is the whole message for barriers.
 - **Soil reservoir.** `[flow.sinks_sources.recharge.soil] is wired to MODFLOW 6 only`
   stops a file that asks for it with another solver.
 - **ETP.** MODFLOW 6 draws no ETP outside soil mode, and only logs a warning.

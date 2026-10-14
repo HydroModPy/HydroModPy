@@ -2,7 +2,7 @@
 
 Half a cell inside on a regular grid, inside the triangle on triangles, on the side on
 a mesh centred on its generators. The number is the median distance from the centre of
-each side cell to its side, measured here from the legacy support, not from the helper.
+each side cell to its side, measured here from the side cells and the centres.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from shapely.geometry import box
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.spatial.mesh.ops.family_cells import side_cells
 from hydromodpy.spatial.mesh.ops.side_offset import (
     SIDE_OFFSET_KEY,
     annotate_side_cells,
@@ -53,19 +54,19 @@ def _grid(*, nrow: int, ncol: int, size: float):
     return RegularMeshEngine().build(request)
 
 
-def _offsets_from_the_support(cell_mesh, support) -> np.ndarray:
-    """Distance of the support centroids of the side cells to the side of the vertex box."""
-    centroids = np.column_stack([support.cell_centroid_x_m, support.cell_centroid_y_m])
+def _offsets_by_hand(cell_mesh) -> np.ndarray:
+    """Distance of the centres of the side cells to the side of the vertex box."""
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)
     edges = {
-        "west_side": (0, support.x_min_m),
-        "east_side": (0, support.x_max_m),
-        "south_side": (1, support.y_min_m),
-        "north_side": (1, support.y_max_m),
+        "west_side": (0, vertices[:, 0].min()),
+        "east_side": (0, vertices[:, 0].max()),
+        "south_side": (1, vertices[:, 1].min()),
+        "north_side": (1, vertices[:, 1].max()),
     }
     out = []
     for side, (axis, edge) in edges.items():
-        cells = support.boundary_cell_indices_for_side(side)
-        out.append(np.abs(centroids[cells, axis] - edge))
+        cells = side_cells(cell_mesh, side)
+        out.append(np.abs(cell_mesh.centers[cells, axis] - edge))
     return np.concatenate(out)
 
 
@@ -79,16 +80,16 @@ def test_the_side_cells_of_a_grid_sit_half_a_cell_inside() -> None:
 
 
 @pytest.mark.parametrize("producer", [bundle_triangles, bundle_dual])
-def test_the_offset_of_a_bundle_mesh_is_the_one_of_its_support(producer) -> None:
-    cell_mesh, support = producer(RECTANGLE)
+def test_the_offset_of_a_bundle_mesh_is_the_one_measured_by_hand(producer) -> None:
+    cell_mesh = producer(RECTANGLE)
 
-    expected = _offsets_from_the_support(cell_mesh, support)
+    expected = _offsets_by_hand(cell_mesh)
 
     assert np.allclose(np.sort(side_center_offset_m(cell_mesh)), np.sort(expected), atol=1.0e-6)
 
 
 def test_the_side_cells_of_a_dual_are_centred_on_the_side() -> None:
-    dual, _ = bundle_dual(RECTANGLE)
+    dual = bundle_dual(RECTANGLE)
 
     offsets = side_center_offset_m(dual)
 
@@ -97,7 +98,7 @@ def test_the_side_cells_of_a_dual_are_centred_on_the_side() -> None:
 
 
 def test_the_triangles_of_a_side_have_their_centre_inside_the_domain() -> None:
-    triangles, _ = bundle_triangles(RECTANGLE)
+    triangles = bundle_triangles(RECTANGLE)
 
     assert float(np.median(side_center_offset_m(triangles))) > 0.0
 
@@ -111,7 +112,7 @@ def test_the_regular_engine_states_the_half_cell_in_its_qa() -> None:
 
 
 def test_the_annotation_adds_the_statement_and_the_median() -> None:
-    triangles, _ = bundle_triangles(RECTANGLE)
+    triangles = bundle_triangles(RECTANGLE)
     assert SIDE_OFFSET_KEY not in triangles.qa.extras
 
     annotated = annotate_side_cells(triangles, STATEMENT)
@@ -124,7 +125,7 @@ def test_the_annotation_adds_the_statement_and_the_median() -> None:
 
 
 def test_the_annotation_does_not_derive_the_geometry_again() -> None:
-    triangles, _ = bundle_triangles(RECTANGLE)
+    triangles = bundle_triangles(RECTANGLE)
 
     annotated = annotate_side_cells(triangles, STATEMENT)
 
@@ -133,7 +134,7 @@ def test_the_annotation_does_not_derive_the_geometry_again() -> None:
 
 
 def test_a_mesh_without_a_side_keeps_the_statement_and_has_no_number() -> None:
-    triangles, _ = bundle_triangles(BUNDLE_CASES[0])
+    triangles = bundle_triangles(BUNDLE_CASES[0])
     no_side = _without_faces(triangles)
 
     annotated = annotate_side_cells(no_side, STATEMENT)

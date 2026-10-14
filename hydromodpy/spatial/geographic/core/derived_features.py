@@ -7,7 +7,7 @@ are neither raw data-managers nor domain zones:
 - boundary/support polygons used by the domain and meshing workflows,
 - optional river-network products derived from the DEM workflow.
 
-`DomainGeographicContext` remains available as a narrower domain view, but
+`DomainGeographicContext` is the narrower domain view of that bundle, but
 orchestration code should prefer `GeographicDerivedFeatures` whenever it needs
 the complete geographic product bundle.
 """
@@ -22,6 +22,57 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.surface import Surface
+
+
+@dataclass(frozen=True)
+class DomainGeographicContext:
+    """Geographic handoff object consumed by the domain execution pipeline.
+
+    The context is the compact object returned by
+    ``CatchmentDelineation.get_domain_geographic_context()``. It contains the
+    topographic surface, domain polygons, area, outlet metadata, zone mode, and
+    metadata needed to build a domain without passing the full
+    ``CatchmentDelineation`` runtime object.
+
+    Attributes
+    ----------
+    surface_topo
+        DEM-derived topographic surface on the buffered rectangular support.
+    watershed_shp
+        Catchment polygon path (canonical ``watershed.shp`` output).
+    catchment_area_km2
+        Catchment area used by domain parameterization.
+    catch_def
+        Catchment definition mode from configuration.
+    x_outlet, y_outlet
+        Outlet coordinates when catchment is outlet-derived, else ``None``.
+    watershed_box_buff_dem
+        DEM clipped to buffered rectangular support, the one ``surface_topo``
+        reads: the clip of the ground with its channel bed regularised when
+        ``[geographic.bed_regularization]`` is on.
+    watershed_box_shp
+        Bounding-box support polygon before external buffer.
+    box_buff_shp
+        Buffered rectangular support polygon.
+    zone_kind
+        ``"catchment"`` for the historical 3-zone raster, ``"uniform"`` for
+        direct-DEM domains with no catchment/buffer notion.
+    regional_dem_path
+        Full-resolution regional DEM used to contextualize the catchment on
+        a broader map when needed.
+    """
+
+    surface_topo: Surface
+    watershed_shp: str
+    catchment_area_km2: float
+    catch_def: str
+    x_outlet: float | None
+    y_outlet: float | None
+    watershed_box_buff_dem: str
+    watershed_box_shp: str | None
+    box_buff_shp: str
+    zone_kind: str
+    regional_dem_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,12 +102,8 @@ class GeographicDerivedFeatures:
     regional_dem_path: str | None = None
     hydrographic_networks: HydrographicNetworks = field(default_factory=HydrographicNetworks)
 
-    def to_domain_geographic_context(self):
+    def to_domain_geographic_context(self) -> DomainGeographicContext:
         """Return the narrow domain view used by domain consumers."""
-        from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import (
-            DomainGeographicContext,
-        )
-
         return DomainGeographicContext(
             surface_topo=self.surface_topo,
             watershed_shp=str(self.boundaries.watershed_shp),
@@ -202,6 +249,7 @@ def resolve_river_mesh_trace(
 
 
 __all__ = [
+    "DomainGeographicContext",
     "GeographicBoundaryFeatures",
     "GeographicDerivedFeatures",
     "attach_reference_hydrographic_network",

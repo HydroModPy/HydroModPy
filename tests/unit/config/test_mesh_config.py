@@ -76,7 +76,7 @@ def test_a_full_user_section_is_read() -> None:
 
     assert config.families.geology == "none"
     assert config.refinement_zone[0].cell_size == 20.0
-    assert config.lake_refinement is not None and config.lake_refinement.enabled
+    assert config.lake_refinement is not None and config.lake_refinement.cell_size == 40.0
 
 
 def test_a_mesh_read_from_a_file_feeds_the_voronoi_generators() -> None:
@@ -171,7 +171,8 @@ def test_an_installed_engine_is_accepted(monkeypatch: pytest.MonkeyPatch) -> Non
             ("triangulation", "path"),
         ),
         ({"engine": "triangle", "cell_size": 50.0, "river_cell_size": 80.0}, ("river_cell_size",)),
-        ({"lake_refinement": {"enabled": False}}, ("lake_refinement",)),
+        ({"lake_refinement": {"enabled": True}}, ("[mesh.lake_refinement]", "'enabled'", "table")),
+        ({"lake_refinement": {"enabled": False}}, ("[mesh.lake_refinement]", "'enabled'", "table")),
     ],
 )
 def test_a_combination_no_engine_reads_is_refused(data: dict, words: tuple[str, ...]) -> None:
@@ -210,10 +211,11 @@ def test_the_lloyd_tolerance_of_generated_generators_is_a_dev_key_with_the_engin
     assert config.voronoi.lloyd_tolerance == 0.05
 
 
-def test_a_lake_refinement_object_is_switched_on_by_its_presence() -> None:
+def test_the_lake_refinement_table_is_its_own_switch_and_the_dump_has_no_enabled_key() -> None:
     config = MeshConfig(lake_refinement=LakeRefinementConfig(cell_size=30.0))
 
-    assert config.lake_refinement.enabled
+    assert config.lake_refinement is not None
+    assert "enabled" not in config.model_dump(mode="json")["lake_refinement"]
 
 
 @pytest.mark.parametrize(

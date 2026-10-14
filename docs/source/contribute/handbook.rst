@@ -142,8 +142,8 @@ The three a contributor needs every day:
        (see :doc:`documentation/how-the-docs-are-built`).
 
 Every extra, including ``calibration``, ``mesh``, ``duckdb``, ``mf6api``,
-``viz``, ``fair``, ``performance``, ``profiling``, ``metrics``, ``ide`` and
-``viewer3d``, is listed with what it installs in
+``viz``, ``fair``, ``performance``, ``profiling``, ``metrics`` and ``ide``,
+is listed with what it installs in
 :doc:`architecture/generated/extras`.
 
 Windows with WSL for PETSc

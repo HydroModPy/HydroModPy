@@ -56,6 +56,28 @@ def _river_grid() -> PlanarCellMesh:
     return dataclasses.replace(base, cell_chains=(chain,), face_families=table)
 
 
+def _zoned_triangles() -> PlanarCellMesh:
+    """The triangles of the bundle in two zones, split at the median x, with their contact faces."""
+    base = bundle_triangles(BUNDLE)
+    zone = (base.centers[:, 0] > np.median(base.centers[:, 0])).astype(np.int32)
+    geometry = base.geometry
+    cell_a, cell_b = geometry.edge_cells[:, 0], geometry.edge_cells[:, 1]
+    contact = np.flatnonzero((cell_b >= 0) & (zone[cell_a] != zone[np.maximum(cell_b, 0)]))
+    table = FaceFamilyTable(
+        names=("geology",),
+        family=np.zeros(contact.size),
+        cell_a=cell_a[contact],
+        cell_b=cell_b[contact],
+        node_a=geometry.edge_nodes[contact, 0],
+        node_b=geometry.edge_nodes[contact, 1],
+        zone_left=zone[cell_a[contact]],
+        zone_right=zone[cell_b[contact]],
+    )
+    return dataclasses.replace(
+        base, cell_zone=zone, zone_names=("east", "west"), face_families=table
+    )
+
+
 def _vertices_3d(cell_mesh: PlanarCellMesh) -> np.ndarray:
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)
     return np.column_stack([xy, np.zeros(xy.shape[0])])
@@ -126,7 +148,7 @@ def test_a_stored_layout_gives_back_the_families_of_the_mesh(tmp_path):
 
 
 def test_a_family_name_is_made_cf_safe_in_the_flag_meanings_only(tmp_path):
-    cell_mesh, _ = bundle_dual(BUNDLE)
+    cell_mesh = bundle_dual(BUNDLE)
     store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
     store.write_mesh(
         _vertices_3d(cell_mesh),
@@ -182,7 +204,7 @@ def test_a_mesh_without_summary_leaves_the_request_and_the_qa_out(tmp_path):
 
 
 def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
-    cell_mesh, _ = bundle_triangles(BUNDLE)
+    cell_mesh = _zoned_triangles()
     store = _store(tmp_path / "fields.zarr", cell_mesh)
     zone = store.root["mesh"]["face_zone"]
 
@@ -208,7 +230,7 @@ def test_without_a_layout_the_group_holds_what_it_always_held(tmp_path):
 def test_xugrid_reads_the_stored_edges_as_they_are(tmp_path):
     import xugrid as xu
 
-    cell_mesh, _ = bundle_triangles(BUNDLE)
+    cell_mesh = bundle_triangles(BUNDLE)
     store = _store(tmp_path / "fields.zarr", cell_mesh)
     mesh = store.root["mesh"]
     grid = xu.Ugrid2d(
@@ -230,7 +252,7 @@ def test_xugrid_reads_the_stored_edges_as_they_are(tmp_path):
 def test_a_stranger_opens_the_mesh_group_with_xarray(tmp_path):
     import xarray as xr
 
-    cell_mesh, _ = bundle_triangles(BUNDLE)
+    cell_mesh = bundle_triangles(BUNDLE)
     store = _store(tmp_path / "fields.zarr", cell_mesh)
     store.close()
 
@@ -243,7 +265,7 @@ def test_a_stranger_opens_the_mesh_group_with_xarray(tmp_path):
 
 def test_a_layout_of_another_mesh_is_refused(tmp_path):
     cell_mesh = _river_grid()
-    other, _ = bundle_dual(BUNDLE)
+    other = bundle_dual(BUNDLE)
     store = SimulationZarr.create(tmp_path / "fields.zarr", n_cells=cell_mesh.n_cells, n_layers=1)
 
     with pytest.raises(IncompatibleMeshError, match="cells"):
@@ -374,7 +396,7 @@ def test_the_offsets_of_a_chain_fill_the_offset_column():
 
 
 def test_a_zone_index_becomes_its_name_in_the_face_table():
-    cell_mesh, _ = bundle_triangles(BUNDLE)
+    cell_mesh = _zoned_triangles()
 
     rows = face_family_rows(cell_mesh)
     table = cell_mesh.face_families

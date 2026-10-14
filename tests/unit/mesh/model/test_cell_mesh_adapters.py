@@ -1,27 +1,15 @@
-"""Planar cell meshes adapted from the regular grid, the triangulation and its dual."""
+"""Planar cell meshes adapted from the regular grid and read from a mesh bundle."""
 
 from __future__ import annotations
 
-import dataclasses
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.mesh.adapters.cell_mesh import (
-    cell_mesh_from_regular_grid,
-    cell_mesh_from_triangulation,
-    cell_mesh_from_voronoi_dual,
-)
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    build_gmsh_support_metadata,
-    support_on_planar_mesh,
-)
-from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_regular_grid
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
 
 X0, Y0 = 351_250.0, 6_789_500.0
 """Lambert-93 origin of every mesh here (EPSG:2154)."""
@@ -31,11 +19,11 @@ N_SIDE = 6
 RIVER_ROW = 3
 
 
-def _square_triangulation() -> tuple[HydroMesh, SimpleNamespace]:
-    """A jittered square triangulation and its bundle-like payload.
+def _square_bundle(*, id_shift: int = 0, river: bool = True) -> SimpleNamespace:
+    """A jittered square triangulation as a bundle-like payload.
 
-    The nodes of row ``RIVER_ROW`` are joined by river edges; the cells left of
-    ``x = X0 + 250`` are zone ``west``, the others ``east``.
+    The nodes of row ``RIVER_ROW`` are joined by river edges. Node and cell ids
+    are the positions plus ``id_shift``.
     """
     rng = np.random.default_rng(7)
     axis = np.linspace(0.0, SIZE_M, N_SIDE)
@@ -54,56 +42,40 @@ def _square_triangulation() -> tuple[HydroMesh, SimpleNamespace]:
             np.column_stack([a, a + N_SIDE + 1, a + N_SIDE]),
         ]
     )
-    zone = np.where(node_x[triangles].mean(axis=1) < X0 + 250.0, "west", "east")
-
     owners: dict[tuple[int, int], list[int]] = {}
     for cell, tri in enumerate(triangles.tolist()):
         for k in range(3):
             p, q = tri[k], tri[(k + 1) % 3]
             owners.setdefault((min(p, q), max(p, q)), []).append(cell)
-    river = {(RIVER_ROW * N_SIDE + k, RIVER_ROW * N_SIDE + k + 1) for k in range(N_SIDE - 1)}
-    edges = []
-    for edge_id, (key, cells) in enumerate(owners.items()):
-        cell_b = cells[1] if len(cells) > 1 else None
-        kind = "boundary" if cell_b is None else "internal"
-        if cell_b is not None and zone[cells[0]] != zone[cell_b]:
-            kind = "geology_interface"
-        edges.append(
-            SimpleNamespace(
-                edge_id=edge_id,
-                node_a=key[0],
-                node_b=key[1],
-                cell_a=cells[0],
-                cell_b=cell_b,
-                edge_kind=kind,
-                is_river=key in river,
-                geology_a_key=str(zone[cells[0]]),
-                geology_b_key="" if cell_b is None else str(zone[cell_b]),
-            )
+    flagged = (
+        {(RIVER_ROW * N_SIDE + k, RIVER_ROW * N_SIDE + k + 1) for k in range(N_SIDE - 1)}
+        if river
+        else set()
+    )
+    edges = tuple(
+        SimpleNamespace(
+            edge_id=edge_id,
+            node_a=key[0] + id_shift,
+            node_b=key[1] + id_shift,
+            cell_a=cells[0] + id_shift,
+            cell_b=cells[1] + id_shift if len(cells) > 1 else None,
+            is_river=key in flagged,
         )
-    bundle = SimpleNamespace(
-        bundle_dir=".",
-        mesh_path="mesh_2d.msh",
+        for edge_id, (key, cells) in enumerate(owners.items())
+    )
+    return SimpleNamespace(
         nodes=tuple(
-            SimpleNamespace(node_id=k, x=float(x), y=float(y))
+            SimpleNamespace(node_id=k + id_shift, x=float(x), y=float(y))
             for k, (x, y) in enumerate(zip(node_x, node_y, strict=True))
         ),
         cells=tuple(
             SimpleNamespace(
-                cell_id=c,
-                node_indices=tuple(tri),
-                centroid_x=float(node_x[tri].mean()),
-                centroid_y=float(node_y[tri].mean()),
+                cell_id=c + id_shift, node_indices=tuple(int(n) + id_shift for n in tri)
             )
             for c, tri in enumerate(triangles)
         ),
-        edges=tuple(edges),
+        edges=edges,
     )
-    mesh = HydroMesh(
-        vertices=np.column_stack([node_x, node_y]),
-        cell_blocks=(CellBlock(CellType.TRIANGLE, triangles),),
-    )
-    return mesh, bundle
 
 
 def _node_pairs(nodes_a: np.ndarray, nodes_b: np.ndarray) -> set[tuple[int, int]]:
@@ -148,137 +120,92 @@ def test_regular_adapter_centres_are_cell_centres_row_zero_north() -> None:
     assert cell_mesh.qa.declarations["deterministic"] is True
 
 
-# -- triangles ---------------------------------------------------------------
+# -- bundle ------------------------------------------------------------------
 
 
-def test_triangle_adapter_families_are_the_support_river_and_boundary_edges() -> None:
-    mesh, bundle = _square_triangulation()
-    support = build_gmsh_support_metadata(bundle)
-    cell_mesh = cell_mesh_from_triangulation(mesh, support, crs_wkt=CRS)
+def _boundary_edges(bundle: SimpleNamespace) -> set[tuple[int, int]]:
+    return {
+        (min(e.node_a, e.node_b), max(e.node_a, e.node_b)) for e in bundle.edges if e.cell_b is None
+    }
 
-    river = np.flatnonzero(support.edge_is_river)
-    assert _family_pairs(cell_mesh, "rivers") == _node_pairs(
-        support.edge_node_a_index[river], support.edge_node_b_index[river]
-    )
-    labelled = np.isin(support.edge_ids, list(support.boundary_labels_by_edge_id))
-    sides = set()
-    for side in ("west", "east", "south", "north"):
-        assert cell_mesh.face_rows(f"boundary:{side}").any()
-        sides |= _family_pairs(cell_mesh, f"boundary:{side}")
-    assert sides == _node_pairs(
-        support.edge_node_a_index[labelled], support.edge_node_b_index[labelled]
-    )
-    boundary_rows = np.array(
-        [name.startswith("boundary:") for name in cell_mesh.face_families.names]
-    )
-    on_boundary = boundary_rows[cell_mesh.face_families.family]
-    assert np.all(cell_mesh.face_families.cell_b[on_boundary] == -1)
+
+def test_bundle_cell_mesh_keeps_the_nodes_and_the_triangles_in_file_order() -> None:
+    bundle = _square_bundle()
+    cell_mesh = cell_mesh_from_bundle(bundle, crs_wkt=CRS)
+
     np.testing.assert_array_equal(
-        np.sort(cell_mesh.family_cells("rivers")), support.river_cell_indices()
+        cell_mesh.mesh.vertices, [[node.x, node.y] for node in bundle.nodes]
     )
-
-
-def test_triangle_adapter_maps_geology_zones() -> None:
-    mesh, bundle = _square_triangulation()
-    support = build_gmsh_support_metadata(bundle)
-    cell_mesh = cell_mesh_from_triangulation(mesh, support, crs_wkt=CRS)
-    table = cell_mesh.face_families
-    rows = cell_mesh.face_rows("geology")
-    contact = np.flatnonzero(np.asarray(support.edge_kind) == "geology_interface")
-
-    assert cell_mesh.zone_names == ("east", "west")
-    assert int(rows.sum()) == contact.size > 0
-    left = np.asarray(cell_mesh.zone_names)[table.zone_left[rows]]
-    right = np.asarray(cell_mesh.zone_names)[table.zone_right[rows]]
-    np.testing.assert_array_equal(left, np.asarray(support.geology_a_key)[contact])
-    np.testing.assert_array_equal(right, np.asarray(support.geology_b_key)[contact])
-    expected = np.where(mesh.vertices[mesh.flat_connectivity].mean(axis=1)[:, 0] < X0 + 250.0, 1, 0)
-    np.testing.assert_array_equal(cell_mesh.cell_zone, expected)
-
-
-def test_triangle_adapter_centres_are_vertex_means() -> None:
-    mesh, bundle = _square_triangulation()
-    cell_mesh = cell_mesh_from_triangulation(
-        GmshPlanarMesh2D.from_hydro_mesh(mesh), build_gmsh_support_metadata(bundle), crs_wkt=CRS
+    np.testing.assert_array_equal(
+        cell_mesh.mesh.flat_connectivity, [cell.node_indices for cell in bundle.cells]
     )
-    xs, ys = mesh.cell_centroids()
-
     assert cell_mesh.center_kind == "vertex_mean"
-    np.testing.assert_allclose(cell_mesh.centers, np.column_stack([xs, ys]), rtol=0.0, atol=1e-9)
     assert cell_mesh.identity.engine_id == "triangle"
-    assert cell_mesh.qa.center_offset["max"] == pytest.approx(0.0, abs=1e-9)
+    assert cell_mesh.crs_wkt == CRS
+    xs, ys = cell_mesh.mesh.cell_centroids()
+    np.testing.assert_allclose(cell_mesh.centers, np.column_stack([xs, ys]), rtol=0.0, atol=1e-9)
 
 
-def test_triangle_adapter_without_support_has_no_family() -> None:
-    mesh, _ = _square_triangulation()
-    cell_mesh = cell_mesh_from_triangulation(mesh, None, crs_wkt=CRS)
+def test_bundle_cell_mesh_ids_are_read_as_positions() -> None:
+    plain = cell_mesh_from_bundle(_square_bundle(), crs_wkt=CRS)
+    shifted = cell_mesh_from_bundle(_square_bundle(id_shift=10), crs_wkt=CRS)
 
-    assert cell_mesh.face_families is None
-    assert cell_mesh.cell_zone is None
-    assert cell_mesh.qa.families == {}
-
-
-def test_a_support_of_other_cells_is_refused() -> None:
-    mesh, bundle = _square_triangulation()
-    support = build_gmsh_support_metadata(bundle)
-    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
-
-    with pytest.raises(ValueError, match="cells"):
-        cell_mesh_from_voronoi_dual(dual, support, crs_wkt=CRS)
+    np.testing.assert_array_equal(shifted.mesh.flat_connectivity, plain.mesh.flat_connectivity)
+    for family in ("rivers", "boundary:west", "boundary:north"):
+        for column in ("cell_a", "cell_b", "node_a", "node_b"):
+            np.testing.assert_array_equal(
+                getattr(shifted.face_families, column)[shifted.face_rows(family)],
+                getattr(plain.face_families, column)[plain.face_rows(family)],
+            )
 
 
-def test_a_support_of_permuted_cells_is_refused() -> None:
-    mesh, bundle = _square_triangulation()
-    support = build_gmsh_support_metadata(bundle)
-    order = np.random.default_rng(0).permutation(mesh.n_cells)
-    permuted = HydroMesh(
-        vertices=mesh.vertices,
-        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray(mesh.flat_connectivity)[order]),),
-    )
+def test_bundle_cell_mesh_river_family_is_the_flagged_edges() -> None:
+    bundle = _square_bundle()
+    cell_mesh = cell_mesh_from_bundle(bundle, crs_wkt=CRS)
+    flagged = [e for e in bundle.edges if e.is_river]
+    table, rows = cell_mesh.face_families, cell_mesh.face_rows("rivers")
 
-    with pytest.raises(ValueError, match="cell order"):
-        cell_mesh_from_triangulation(permuted, support, crs_wkt=CRS)
-
-
-def test_a_support_edge_that_is_not_a_mesh_edge_is_refused() -> None:
-    mesh, bundle = _square_triangulation()
-    support = build_gmsh_support_metadata(bundle)
-    node_a = np.array(support.edge_node_a_index, copy=True)
-    node_b = np.array(support.edge_node_b_index, copy=True)
-    node_b[0] = (int(node_a[0]) + 2 * N_SIDE) % mesh.n_nodes
-    broken = dataclasses.replace(support, edge_node_b_index=node_b)
-
-    with pytest.raises(ValueError, match="not a mesh edge"):
-        cell_mesh_from_triangulation(mesh, broken, crs_wkt=CRS)
+    assert len(flagged) == N_SIDE - 1
+    np.testing.assert_array_equal(table.node_a[rows], [e.node_a for e in flagged])
+    np.testing.assert_array_equal(table.node_b[rows], [e.node_b for e in flagged])
+    np.testing.assert_array_equal(table.cell_a[rows], [e.cell_a for e in flagged])
+    np.testing.assert_array_equal(table.cell_b[rows], [e.cell_b for e in flagged])
+    expected = {e.cell_a for e in flagged} | {e.cell_b for e in flagged}
+    assert set(cell_mesh.family_cells("rivers").tolist()) == expected
 
 
-# -- Voronoi dual ------------------------------------------------------------
+def test_bundle_cell_mesh_sides_are_the_boundary_edges_on_the_bounding_box() -> None:
+    bundle = _square_bundle()
+    cell_mesh = cell_mesh_from_bundle(bundle, crs_wkt=CRS)
+    x = {node.node_id: node.x for node in bundle.nodes}
+    y = {node.node_id: node.y for node in bundle.nodes}
+    sides: set[tuple[int, int]] = set()
+    for side, (axis, value) in {
+        "west": (x, X0),
+        "east": (x, X0 + SIZE_M),
+        "south": (y, Y0),
+        "north": (y, Y0 + SIZE_M),
+    }.items():
+        pairs = _family_pairs(cell_mesh, f"boundary:{side}")
+        assert pairs
+        assert all(axis[p] == axis[q] == value for p, q in pairs)
+        sides |= pairs
+    assert sides == _boundary_edges(bundle)
+    on_boundary = np.array([n.startswith("boundary:") for n in cell_mesh.face_families.names])
+    assert np.all(cell_mesh.face_families.cell_b[on_boundary[cell_mesh.face_families.family]] == -1)
 
 
-def test_voronoi_adapter_centres_are_the_generators_and_families_the_dual_support() -> None:
-    mesh, bundle = _square_triangulation()
-    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
-    support = support_on_planar_mesh(build_gmsh_support_metadata(bundle), dual)
-    cell_mesh = cell_mesh_from_voronoi_dual(dual, support, crs_wkt=CRS)
+def test_bundle_cell_mesh_without_a_river_has_no_river_family() -> None:
+    cell_mesh = cell_mesh_from_bundle(_square_bundle(river=False), crs_wkt=CRS)
 
-    assert cell_mesh.center_kind == "generator"
-    np.testing.assert_array_equal(cell_mesh.centers, dual.cell_data["disv_cell_center"])
-    river = np.flatnonzero(support.edge_is_river)
-    assert river.size > 0
-    assert _family_pairs(cell_mesh, "rivers") == _node_pairs(
-        support.edge_node_a_index[river], support.edge_node_b_index[river]
-    )
-    np.testing.assert_array_equal(cell_mesh.family_cells("rivers"), support.river_cell_indices())
-    assert any(name.startswith("boundary:") for name in cell_mesh.face_families.names)
-    assert cell_mesh.identity.engine_id == "voronoi"
-    assert cell_mesh.qa.nonorthogonality_deg["max"] < 1e-6
+    assert not cell_mesh.face_rows("rivers").any()
+    assert cell_mesh.face_rows("boundary:west").any()
 
 
-def test_voronoi_adapter_needs_the_generators() -> None:
-    mesh, bundle = _square_triangulation()
-    dual = voronoi_planar_mesh(np.asarray(mesh.vertices)[:, :2], domain_polygon_from_mesh(mesh))
-    support = support_on_planar_mesh(build_gmsh_support_metadata(bundle), dual)
-    bare = HydroMesh(vertices=dual.vertices, cell_blocks=dual.cell_blocks)
+def test_bundle_cell_mesh_needs_triangles() -> None:
+    bundle = _square_bundle()
+    quad = SimpleNamespace(cell_id=0, node_indices=(0, 1, 7, 6))
+    bundle = SimpleNamespace(nodes=bundle.nodes, cells=(quad,), edges=())
 
-    with pytest.raises(ValueError, match="disv_cell_center"):
-        cell_mesh_from_voronoi_dual(bare, support, crs_wkt=CRS)
+    with pytest.raises(ValueError, match="triangles"):
+        cell_mesh_from_bundle(bundle, crs_wkt=CRS)

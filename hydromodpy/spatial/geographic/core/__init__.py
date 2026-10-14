@@ -20,7 +20,6 @@ __all__ = [
     "catchment_zones",
     "direct_dem_domain",
     "domain_dem",
-    "domain_geographic_pipeline",
     "flow_products",
     "hydrographic_network",
     "hydrographic_network_comparison",

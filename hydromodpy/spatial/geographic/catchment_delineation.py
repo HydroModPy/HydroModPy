@@ -16,10 +16,10 @@ from pathlib import Path
 from geopy.geocoders import Nominatim
 
 from hydromodpy.spatial.geographic.core.derived_features import (
+    DomainGeographicContext,
     GeographicBoundaryFeatures,
     GeographicDerivedFeatures,
 )
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import DomainGeographicContext
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HydrographicNetwork,
@@ -125,7 +125,7 @@ class CatchmentDelineation:
         river products.
     ``get_domain_geographic_context``
         Return the compact
-        :class:`~hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext`
+        :class:`~hydromodpy.spatial.geographic.core.derived_features.DomainGeographicContext`
         consumed by ``Domain``.
     ``processing``
         Run geographic preprocessing and hydrate the runtime attributes.
@@ -303,7 +303,7 @@ class CatchmentDelineation:
 
         Returns
         -------
-        :class:`~hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext`
+        :class:`~hydromodpy.spatial.geographic.core.derived_features.DomainGeographicContext`
             Dataclass containing:
 
             - ``surface_topo``: DEM-derived topographic surface.
@@ -316,7 +316,7 @@ class CatchmentDelineation:
 
         See Also
         --------
-        hydromodpy.spatial.geographic.core.domain_geographic_pipeline.DomainGeographicContext
+        hydromodpy.spatial.geographic.core.derived_features.DomainGeographicContext
             Full field documentation for the returned object.
         """
         return self.get_geographic_derived_features().to_domain_geographic_context()

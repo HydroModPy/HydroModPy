@@ -17,8 +17,6 @@ from hydromodpy.analysis.testbed.regional_lab_types import (
     RegionalLabSiteRecord,
 )
 from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-from hydromodpy.spatial.geographic.core.domain_geographic_pipeline import _delineate
-from hydromodpy.spatial.geographic.core.pipeline_steps import prepare_geographic_run
 from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
 from hydromodpy.spatial.geographic.regional_flow_job import load_regional_flow_job
 from hydromodpy.spatial.terrain.numpy_engine import NumpyTerrainEngine
@@ -90,6 +88,14 @@ value = "1e-5 m/s"
     )
 
 
+class _Locator:
+    def __init__(self, **kwargs):
+        pass
+
+    def reverse(self, *args, **kwargs):
+        return None
+
+
 def _site(index: int) -> RegionalLabSiteRecord:
     return RegionalLabSiteRecord(
         site_id=f"site_{index}",
@@ -158,11 +164,14 @@ def test_ten_site_configs_share_one_sealed_flow_job(tmp_path: Path, monkeypatch)
     assert len(paths) == 1
     assert load_regional_flow_job(job_dir=next(iter(paths))).outcome.reused
     geographic = HydroModPyConfig.from_toml(first.cases[0].config_path).geographic
-    setup = prepare_geographic_run(config=geographic, out_dir_path=tmp_path / "domain")
-    flow, correction, _ = _delineate(config=geographic, setup=setup, routing_dem_path=str(dem))
-    assert correction == "fill"
-    assert Path(flow.acc).is_file()
-    assert Path(setup.paths.watershed_shp).is_file()
+    delineated = build_geographic_runtime_context(
+        config=geographic,
+        out_dir_path=tmp_path / "domain",
+        backend=FakeWhiteboxBackend(),
+        locator_factory=_Locator,
+    )
+    assert Path(delineated.flow_products.acc).is_file()
+    assert Path(delineated.paths.watershed_shp).is_file()
     assert calls == {"condition_dem": 1, "drainage_directions": 1, "flow_accumulation": 1}
 
     second = materialize_regional_lab_flow(cases, output_root=tmp_path / "lab")
@@ -222,13 +231,6 @@ config_path_template = "{simulation_config}"
     )
 
     watersheds: list[Path] = []
-
-    class _Locator:
-        def __init__(self, **kwargs):
-            pass
-
-        def reverse(self, *args, **kwargs):
-            return None
 
     class _GeographicProvider:
         def materialize_regional_flow(self, cases, *, output_root):

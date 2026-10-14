@@ -303,10 +303,9 @@ class TerrainRequestError(TerrainError):
 class EmptyCatchmentError(TerrainProductError):
     """An outlet delineated nothing at all.
 
-    Its own class and not a message, because a caller decides on it: the
-    geographic pipeline retries a breached DEM with a fill when a breach carves
-    the outlet off its own catchment, and reading that decision out of the text
-    of an error message is how the next rewording breaks it silently.
+    Its own class and not a message, because a caller decides on it, and
+    reading that decision out of the text of an error message is how the next
+    rewording breaks it silently.
     """
 
     code = "HMPY.E1004"

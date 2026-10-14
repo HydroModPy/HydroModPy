@@ -246,7 +246,7 @@ def _render_numerical_methods(ctx: ComparisonWebContext) -> str:
         ),
         (
             "Spatial discretization",
-            "mesh generated for each simulation by mesh_catchment, conforming to the "
+            "mesh generated for each simulation by the mesh engine, conforming to the "
             "geological interfaces; no pre-existing mesh is given to the solver.",
         ),
     ]

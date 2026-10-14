@@ -91,7 +91,8 @@ Subsystems
       :link: mesh/index
       :link-type: doc
 
-      The catchment-conformal Gmsh pipeline, the structured grid, and the HydroMesh pivot.
+      The three mesh engines behind one port, the cell mesh every solver reads, and the
+      HydroMesh pivot.
 
    .. grid-item-card:: Calibration
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

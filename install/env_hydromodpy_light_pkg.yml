@@ -23,7 +23,6 @@ dependencies:
   - sphinx
   - pyproj
   - pyshp
-  - pyvista
   - rasterio
   - rioxarray
   - cma

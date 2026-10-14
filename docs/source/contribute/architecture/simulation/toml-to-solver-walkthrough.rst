@@ -36,7 +36,7 @@ Config loading and the model phase
 
 The CLI is a thin entry point. ``Project`` keeps the session state: the typed
 config tree, the raw TOML for the optional sections, the resolved time window, the
-data-loading plan and the optional runtime mesh inputs. These concerns mix paths,
+data-loading plan and, once it is built, the cell mesh. These concerns mix paths,
 workspaces and optional sections, so they stay project-level code. Ordered
 execution belongs to ``Pipeline``.
 

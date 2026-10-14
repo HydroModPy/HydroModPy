@@ -148,27 +148,6 @@ class HydroMesh:
 class CellBlock:
     cell_type: CellType  # TRIANGLE | QUADRILATERAL | WEDGE | HEXAHEDRON
     connectivity: np.ndarray  # (n_cells, nodes_per_cell) int
-
-
-# Maillage 3D extrude - gmsh_grid/extruded_prism_mesh.py
-@dataclass(frozen=True)
-class ExtrudedPrismMeshData:
-    points_xyz: np.ndarray  # (n_nodes, 3)
-    prism_connectivity: np.ndarray  # (n_prisms, 6|8)
-    cell_type_2d: str  # "triangle" | "quadrilateral"
-    z_interfaces: np.ndarray  # (nz,) limites verticales
-    layer_indices: np.ndarray  # (n_prisms,) couche par prisme
-    source_cell_indices: np.ndarray  # (n_prisms,) cellule 2D source
-
-
-# Champs attaches - gmsh_grid/extruded_mesh_values.py
-@dataclass(frozen=True)
-class ExtrudedPrismMeshWithValues:
-    mesh: ExtrudedPrismMesh3D
-    values_3d: np.ndarray  # (nlay, n_cells_2d)
-    label: str | None
-    prism_center_depths: np.ndarray | None
-    metadata: Mapping[str, Any] | None
 ```
 
 ### Consequences pour le stockage
@@ -341,9 +320,6 @@ project_results.zarr/
     +-- mesh/                              # Topologie (stockee 1 fois)
     |   +-- vertices                       # (n_nodes, 2|3) float64
     |   +-- face_node_connectivity         # (n_cells, max_vpf) int32, fill=-1
-    |   +-- z_interfaces                   # (nz,) float64
-    |   +-- layer_indices                  # (n_prisms,) int32
-    |   +-- source_cell_indices            # (n_prisms,) int32
     |   +-- .zattrs                        # cell_types, start_index, n_layers...
     |
     +-- head                               # (ntimesteps, nlayers, ncells) float64

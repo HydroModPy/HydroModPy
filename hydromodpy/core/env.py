@@ -177,23 +177,11 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "so the sidecar is the same bytes on every run.",
     ),
     EnvVar(
-        "HMP_GMSH_VERBOSE",
-        "unset, Gmsh is silent",
-        "dev",
-        "``1``, ``true``, ``yes`` or ``on`` keeps the terminal output of Gmsh.",
-    ),
-    EnvVar(
         "HMP_KEEP_TRIAL_SCRATCH",
         "unset, removed",
         "dev",
         "Any value other than empty, ``0``, ``false`` or ``no`` keeps the solver folder "
         "of each calibration trial and the preprocessing tree of the session.",
-    ),
-    EnvVar(
-        "HMP_MESH_TRACE_FILE",
-        "unset, no trace",
-        "dev",
-        "Path of a text file. Each stage of the Gmsh meshing appends one timestamped line to it.",
     ),
     EnvVar(
         "HMP_OUT_PATH",
@@ -319,13 +307,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "test",
         "Scratch folder of one test session. Set by the test conftest and by "
         "``hmp test``, inherited by the subprocesses.",
-    ),
-    EnvVar(
-        "HMP_UPDATE_GOLDEN",
-        "unset, compared",
-        "test",
-        "``1`` rewrites the golden signatures of the structured-grid field "
-        "discretization test instead of comparing against them.",
     ),
     EnvVar(
         "HMP_WHEEL_SITE",

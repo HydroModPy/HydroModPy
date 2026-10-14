@@ -61,9 +61,9 @@ Sections live close to the package they configure:
    * - ``[overview]``
      - ``OverviewConfig``
      - ``hydromodpy/display/overview/config.py``
-   * - ``[mesh_catchment]``
-     - ``MeshCatchmentConfig``
-     - ``hydromodpy/spatial/mesh/config/``
+   * - ``[mesh]``
+     - ``MeshConfig``
+     - ``hydromodpy/spatial/mesh/config/mesh.py``
    * - ``[calibration]``
      - ``CalibrationConfig``
      - ``hydromodpy/calibration/config.py``
@@ -276,17 +276,16 @@ the key applies and its exceptions come after it.
 
 .. code-block:: python
 
-   grid_dual: Annotated[Literal["voronoi", "triangle"], Profile.USER] = Field(
-       default="voronoi",
+   geology: Annotated[Literal["face", "none"], StripLower, Profile.USER] = Field(
+       default="face",
        description=(
-           "Cell shape of a runtime gmsh mesh: the Voronoi (PEBI) dual or the "
-           "triangles themselves. Applies only to a MODFLOW 6 run on a runtime "
-           "gmsh mesh; ignored for structured grids."
+           "How the mesh follows the contacts between the zones of the vector geology "
+           "map that a flow parameter reads."
        ),
        json_schema_extra=field_metadata(
            value_docs={
-               "voronoi": "Exact CVFD orthogonality, about half the cells. The default.",
-               "triangle": "Keeps the triangulation cells, for simplex comparison runs.",
+               "face": "Cell faces lie on the contacts between geology zones.",
+               "none": "The mesh ignores the geology contacts.",
            }
        ),
    )

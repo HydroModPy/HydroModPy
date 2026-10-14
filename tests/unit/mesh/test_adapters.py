@@ -22,36 +22,6 @@ class TestFieldMeshAdapter:
         assert mesh.n_cells == 1
         assert mesh.single_cell_type is CellType.TRIANGLE
 
-    def test_from_extruded_prism(self) -> None:
-        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_extruded_prism
-
-        # 1 triangle extruded into 1 wedge
-        extruded = SimpleNamespace(
-            points_xyz=np.array(
-                [
-                    [0, 0, 1],
-                    [1, 0, 1],
-                    [0.5, 1, 1],
-                    [0, 0, 0],
-                    [1, 0, 0],
-                    [0.5, 1, 0],
-                ],
-                dtype=float,
-            ),
-            prism_connectivity=np.array([[0, 1, 2, 3, 4, 5]], dtype=int),
-            cell_type_2d="triangle",
-            layer_indices=np.array([0], dtype=int),
-            source_cell_indices=np.array([0], dtype=int),
-            point_layer_indices=np.array([0, 0, 0, 1, 1, 1], dtype=int),
-            point_base_indices=np.array([0, 1, 2, 0, 1, 2], dtype=int),
-        )
-        mesh = from_extruded_prism(extruded)
-        assert mesh.ndim == 3
-        assert mesh.n_cells == 1
-        assert mesh.single_cell_type is CellType.WEDGE
-        assert "layer_index" in mesh.cell_data
-        assert "base_index" in mesh.point_data
-
     def test_from_field_mesh_structured(self) -> None:
         from hydromodpy.spatial.field.meshes import StructuredFieldMesh
         from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
@@ -65,23 +35,6 @@ class TestFieldMeshAdapter:
 
 
 class TestFlopyAdapter:
-    def test_from_flopy_structured_via_delr_delc(self) -> None:
-        from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
-
-        sgrid = SimpleNamespace(
-            delr=np.array([100.0, 100.0]),
-            delc=np.array([50.0, 50.0, 50.0]),
-            xoffset=0.0,
-            yoffset=0.0,
-            nrow=3,
-            ncol=2,
-        )
-        mesh = from_flopy_structured(sgrid)
-        assert mesh.is_structured
-        assert mesh.structured_shape == (3, 2)
-        assert mesh.n_cells == 6
-        assert mesh.single_cell_type is CellType.QUADRILATERAL
-
     def test_to_flopy_disv_args(self) -> None:
         from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
 

@@ -1,12 +1,7 @@
-"""Adapters between HydroMesh and flopy grid objects.
+"""Adapter from a planar ``HydroMesh`` to the arguments of flopy DISV.
 
-The two main pathways:
-
-1. **from_flopy_structured** - read a flopy ``StructuredGrid`` into a
-   ``HydroMesh`` (preserving the structured_shape hint).
-2. **to_flopy_disv_args** - export a planar ``HydroMesh`` as the keyword
-   arguments needed by ``flopy.mf6.ModflowGwfdisv`` (vertices, cell2d,
-   top, botm).
+**to_flopy_disv_args** exports a planar ``HydroMesh`` as the keyword arguments
+needed by ``flopy.mf6.ModflowGwfdisv`` (vertices, cell2d, top, botm).
 """
 
 from __future__ import annotations
@@ -15,8 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
 
 def _signed_polygon_area_xy(vertices_xy: np.ndarray) -> float:
@@ -34,46 +28,6 @@ def _orient_nodes_for_disv(nodes: np.ndarray, vertices: np.ndarray) -> np.ndarra
     if _signed_polygon_area_xy(polygon) <= 0.0:
         return np.asarray(nodes, dtype=int)
     return np.asarray([nodes[0], *nodes[:0:-1]], dtype=int)
-
-
-def from_flopy_structured(sgrid) -> HydroMesh:
-    """Convert a flopy ``StructuredGrid`` into a 2D ``HydroMesh``.
-
-    The grid's vertex coordinates are extracted from ``xvertices`` /
-    ``yvertices`` (preferred), ``xyzvertices``, or ``delr`` / ``delc``.
-    """
-    # Reuse existing extraction logic
-    from hydromodpy.spatial.mesh.cartesian_grid.sgrid_mesh_adapter import (
-        extract_structured_vertices,
-    )
-
-    x_verts, y_verts = extract_structured_vertices(sgrid)
-    ny, nx = x_verts.shape  # (nrow+1, ncol+1)
-    vertices = np.column_stack((x_verts.reshape(-1), y_verts.reshape(-1)))
-
-    # Build quadrilateral connectivity (nrow * ncol cells)
-    nrow, ncol = ny - 1, nx - 1
-    connectivity = np.empty((nrow * ncol, 4), dtype=int)
-    idx = 0
-    for j in range(nrow):
-        for i in range(ncol):
-            n00 = j * nx + i
-            n10 = j * nx + (i + 1)
-            n11 = (j + 1) * nx + (i + 1)
-            n01 = (j + 1) * nx + i
-            connectivity[idx] = [n00, n10, n11, n01]
-            idx += 1
-
-    return HydroMesh(
-        vertices=vertices,
-        cell_blocks=(
-            CellBlock(
-                cell_type=CellType.QUADRILATERAL,
-                connectivity=connectivity,
-            ),
-        ),
-        structured_shape=(nrow, ncol),
-    )
 
 
 def to_flopy_disv_args(

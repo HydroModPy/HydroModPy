@@ -39,7 +39,7 @@ and simulation steps:
 - `river_network.py`: optional stream extraction and network diagnostics.
 - `hydrographic_network.py`: canonical hydrographic-network concept and naming contract.
 - `pipeline_steps.py`: shared setup helpers reused by orchestration.
-- `domain_geographic_pipeline.py`: top-level context builder for domain runtime.
+- `derived_features.py`: `GeographicDerivedFeatures` bundle and its narrow `DomainGeographicContext` view.
 
 ## Processing Modes
 
@@ -66,10 +66,9 @@ For `standard`, `catch_def` selects the domain definition:
 7. Compute metrics (`catchment_metrics`).
 8. Optionally build the generated hydrographic network (`geographic.river_network`).
 
-The `domain_geographic_pipeline` module orchestrates this sequence for modern
-domain entrypoints. The `CatchmentDelineation` class preserves the runtime contract using
-compatibility payloads that now live directly in this package, with old import
-paths served only through centralized aliases.
+`pipeline.build_geographic_runtime_context` orchestrates this sequence once, and
+`CatchmentDelineation` exposes its products as runtime attributes and as
+`GeographicDerivedFeatures`.
 
 ## Generated Hydrographic Network
 

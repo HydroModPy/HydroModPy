@@ -12,7 +12,7 @@ component "SpatialSupportProviderRegistry" as Registry
 component "Support providers\nGeneratedBands / Rings /\nCatchmentZones / Geology" as Providers
 component "Field\nspatial support contract" as Field
 component "FieldParam\nhomogeneous / heterogeneous values" as FieldParam
-component "discretize_fieldparam_on_sgrid" as Discretizer
+component "map_flow_properties" as Mapper
 component "resolve_flow_property_arrays" as PropertyMapping
 component "Solver property arrays\nhk / sy / ss" as SolverArrays
 
@@ -28,9 +28,9 @@ Providers --> Field : build support objects\ncompatible with Field
 Providers --> Domain : register supports as zones
 PropertyMapping --> FieldParam : select flow parameter
 PropertyMapping --> Domain : resolve_spatial_support(field_spatial_id)
-PropertyMapping --> Discretizer : project + evaluate values
-Discretizer --> Field : on_mesh(...)
-Discretizer --> FieldParam : to_mesh_field(...)
+PropertyMapping --> Mapper : project + evaluate values
+Mapper --> Field : zone fractions on the cell mesh
+Mapper --> FieldParam : to_mesh_field(...)
 PropertyMapping --> SolverArrays : store 2D/3D property arrays
 
 note right of Field

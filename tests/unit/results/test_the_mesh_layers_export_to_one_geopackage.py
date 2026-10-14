@@ -258,7 +258,7 @@ def test_a_crs_reprojects_every_layer(catalog, new_run):
 
 
 def test_a_ragged_mesh_keeps_every_cell_as_a_valid_polygon(tmp_path):
-    cell_mesh, _ = bundle_dual(BUNDLE)
+    cell_mesh = bundle_dual(BUNDLE)
     cell_mesh = dataclasses.replace(cell_mesh, crs_wkt=LAMBERT)
     with Catalog(tmp_path / "workspace") as catalog:
         sid = _register(catalog, cell_mesh)

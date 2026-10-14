@@ -1,7 +1,7 @@
-"""Solver-owned mesh view for the gmsh catchment bundle contract.
+"""Solver-owned mesh view of a cell mesh.
 
-The gmsh bundle reader exposes a rich, generic description of the catchment
-mesh. The Boussinesq solver only needs a compact subset of that information:
+The Boussinesq solver needs a compact subset of what a cell mesh and a mesh
+bundle describe:
 
 - cell geometry and material properties,
 - edge connectivity and metric terms,
@@ -22,16 +22,12 @@ import numpy as np
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
-    build_planar_mesh_kwargs,
     build_runtime_bundle_from_cell_mesh,
     family_edge_indices,
 )
-from hydromodpy.solver.boussinesq._mesh_geometry import point_in_triangle
+from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
-)
-from hydromodpy.spatial.mesh.gmsh_grid.runtime_support import (
-    GmshSupportMetadata,
 )
 from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS, label_cells, side_cells
@@ -49,11 +45,11 @@ class BoussinesqMesh:
     whenever useful, distances are precomputed and the geometry is kept
     immutable through the frozen dataclass contract.
 
-    A mesh built from a runtime cell mesh keeps it in ``cell_mesh``: its edges
-    are the edges of the cell mesh, in order, and its sides, river and cell
-    location are read from the cell mesh. A mesh built from a mesh bundle (the
-    validation cases) has no ``cell_mesh``; its sides come from the bounding box
-    of the edge midpoints and its cells are located triangle by triangle.
+    The mesh keeps its cell mesh in ``cell_mesh``, whether it was built from a
+    runtime cell mesh or from a mesh bundle (the validation cases). The sides,
+    the river and the cell location are read from it. The edge arrays keep the
+    order of the source: the edge table of the cell mesh, or the edge file of the
+    bundle.
     """
 
     bundle_dir: Path
@@ -84,8 +80,7 @@ class BoussinesqMesh:
     edge_is_river: np.ndarray
     cell_index_by_id: dict[int, int]
     node_index_by_id: dict[int, int]
-    cell_mesh: PlanarCellMesh | None = None
-    support_metadata: GmshSupportMetadata | None = None
+    cell_mesh: PlanarCellMesh
     # solver.drain_bed_thickness_m, with the same default. The flow adapter sets it.
     drain_bed_thickness_m: float = 1.0
 
@@ -97,9 +92,9 @@ class BoussinesqMesh:
             )
 
     @property
-    def planar_mesh(self) -> HydroMesh | None:
-        """The planar ``HydroMesh`` of the cell mesh, ``None`` for a bundle mesh."""
-        return None if self.cell_mesh is None else self.cell_mesh.mesh
+    def planar_mesh(self) -> HydroMesh:
+        """The planar ``HydroMesh`` of the cell mesh."""
+        return self.cell_mesh.mesh
 
     @property
     def n_cells(self) -> int:
@@ -137,85 +132,41 @@ class BoussinesqMesh:
     def y_max_m(self) -> float:
         return float(np.max(self.node_y_m))
 
-    def boundary_edge_indices_for_side(
-        self,
-        bc_id: str,
-        *,
-        tolerance_m: float | None = None,
-    ) -> np.ndarray:
-        """Return boundary edges that belong to one outer side.
+    def family_edge_indices(self, family: str) -> np.ndarray:
+        """Return the edges of one face family, as indices into the edge arrays of this mesh."""
+        node_ids = np.asarray(self.node_ids, dtype=np.int64)
+        order = np.argsort(node_ids, kind="stable")
 
-        A mesh built from a cell mesh reads them in its ``boundary:<side>`` face
-        family. A mesh built from a bundle infers the side from the edge
-        midpoints and the mesh bounding box, which is sufficient for the
-        rectangular strip-like domains of the validation cases; ``tolerance_m``
-        is the distance to the box that bundle rule accepts.
-        """
+        def position(ids: np.ndarray) -> np.ndarray:
+            return order[np.searchsorted(node_ids, ids, sorter=order)]
+
+        edge_nodes = np.column_stack([position(self.edge_node_a), position(self.edge_node_b)])
+        return family_edge_indices(self.cell_mesh, family, edge_nodes)
+
+    def boundary_edge_indices_for_side(self, bc_id: str) -> np.ndarray:
+        """Return the edges of one outer side: the face family ``boundary:<side>``."""
         if bc_id not in SIDE_IDS:
             raise ValueError(f"Unsupported side boundary id: {bc_id}.")
-        if self.cell_mesh is not None:
-            return family_edge_indices(self.cell_mesh, f"boundary:{bc_id.removesuffix('_side')}")
-        boundary_mask = np.asarray(self.boundary_edge_mask, dtype=bool)
-        if tolerance_m is None:
-            span_x = max(self.x_max_m - self.x_min_m, 0.0)
-            span_y = max(self.y_max_m - self.y_min_m, 0.0)
-            tolerance_m = max(1.0e-9, 1.0e-8 * max(span_x, span_y, 1.0))
+        return self.family_edge_indices(f"boundary:{bc_id.removesuffix('_side')}")
 
-        midpoint, edge = {
-            "west_side": (self.edge_midpoint_x_m, self.x_min_m),
-            "east_side": (self.edge_midpoint_x_m, self.x_max_m),
-            "south_side": (self.edge_midpoint_y_m, self.y_min_m),
-            "north_side": (self.edge_midpoint_y_m, self.y_max_m),
-        }[bc_id]
-        side_mask = np.isclose(midpoint, edge, atol=float(tolerance_m), rtol=0.0)
-        return np.flatnonzero(boundary_mask & side_mask).astype(int, copy=False)
-
-    def boundary_cell_indices_for_side(
-        self,
-        bc_id: str,
-        *,
-        tolerance_m: float | None = None,
-    ) -> np.ndarray:
+    def boundary_cell_indices_for_side(self, bc_id: str) -> np.ndarray:
         """Return owner-cell indices for one outer side of the domain."""
-        if self.cell_mesh is not None:
-            return side_cells(self.cell_mesh, bc_id)
-        edge_indices = self.boundary_edge_indices_for_side(
-            bc_id,
-            tolerance_m=tolerance_m,
-        )
-        if edge_indices.size == 0:
-            return np.asarray([], dtype=int)
-        return np.unique(np.asarray(self.edge_cell_a[edge_indices], dtype=int)).astype(
-            int, copy=False
-        )
+        return side_cells(self.cell_mesh, bc_id)
 
     def edge_indices_for_label(self, label: str) -> np.ndarray:
-        """Return the edges of one support label: ``stream``, a side id or ``boundary:<name>``.
-
-        Only a mesh built from a cell mesh knows its families.
-        """
-        cell_mesh = self._require_cell_mesh(f"the support label '{label}'")
+        """Return the edges of one support label: ``stream``, a side id or ``boundary:<name>``."""
         text = str(label).strip()
         if text in ("stream", "river"):
             return self.river_edge_indices()
         if text in SIDE_IDS:
             return self.boundary_edge_indices_for_side(text)
         if text.startswith("boundary:"):
-            return family_edge_indices(cell_mesh, text)
+            return self.family_edge_indices(text)
         return np.empty(0, dtype=np.int64)
 
     def cell_indices_for_label(self, label: str) -> np.ndarray:
         """Return the cells of one support label, as :meth:`edge_indices_for_label` reads it."""
-        return label_cells(self._require_cell_mesh(f"the support label '{label}'"), label)
-
-    def _require_cell_mesh(self, what: str) -> PlanarCellMesh:
-        """Return the cell mesh, or say that ``what`` needs one."""
-        if self.cell_mesh is None:
-            raise ValueError(
-                f"{what} is read from the face families of a cell mesh, and this "
-                "Boussinesq mesh was built from a mesh bundle."
-            )
-        return self.cell_mesh
+        return label_cells(self.cell_mesh, label)
 
     def locate_cell_index_for_point(
         self,
@@ -231,53 +182,24 @@ class BoussinesqMesh:
         cell centre, which is convenient for wells and observation points defined
         in approximate coordinates.
         """
-        point_x_m = float(x_m)
-        point_y_m = float(y_m)
-        if self.cell_mesh is not None:
-            cell = int(
-                locate_cells(
-                    self.cell_mesh,
-                    np.array([[point_x_m, point_y_m]]),
-                    allow_nearest=allow_nearest,
-                )[0]
-            )
-            if cell < 0:
-                raise ValueError(
-                    f"Point ({point_x_m}, {point_y_m}) is outside the triangular mesh domain."
-                )
-            return cell
-        for cell_index, node_ids in enumerate(self.cell_node_ids):
-            if len(node_ids) != 3:
-                continue
-            node_indices = [self.node_index_by_id[int(node_id)] for node_id in node_ids]
-            triangle_x_m = self.node_x_m[np.asarray(node_indices, dtype=int)]
-            triangle_y_m = self.node_y_m[np.asarray(node_indices, dtype=int)]
-            if point_in_triangle(point_x_m, point_y_m, triangle_x_m, triangle_y_m):
-                return int(cell_index)
-
-        if not allow_nearest:
+        cell = int(
+            locate_cells(
+                self.cell_mesh,
+                np.array([[float(x_m), float(y_m)]]),
+                allow_nearest=allow_nearest,
+            )[0]
+        )
+        if cell < 0:
             raise ValueError(
-                f"Point ({point_x_m}, {point_y_m}) is outside the triangular mesh domain."
+                f"Point ({float(x_m)}, {float(y_m)}) is outside the triangular mesh domain."
             )
-
-        dx = self.cell_centroid_x_m - point_x_m
-        dy = self.cell_centroid_y_m - point_y_m
-        return int(np.argmin((dx * dx) + (dy * dy)))
+        return cell
 
     def river_edge_indices(self) -> np.ndarray:
-        """Return all edges tagged as river support in the gmsh bundle."""
+        """Return all edges tagged as river support."""
         return np.flatnonzero(np.asarray(self.edge_is_river, dtype=bool)).astype(
             int,
             copy=False,
-        )
-
-    def river_cell_indices(self) -> np.ndarray:
-        """Return owner-cell indices for edges tagged as river support."""
-        edge_indices = self.river_edge_indices()
-        if edge_indices.size == 0:
-            return np.asarray([], dtype=int)
-        return np.unique(np.asarray(self.edge_cell_a[edge_indices], dtype=int)).astype(
-            int, copy=False
         )
 
     @classmethod
@@ -305,19 +227,24 @@ class BoussinesqMesh:
             storage_coefficient=storage_coefficient,
             source_path=source_path,
         )
-        base_mesh = cls.from_bundle(runtime_bundle)
-        return cls(**build_planar_mesh_kwargs(base_mesh=base_mesh, cell_mesh=cell_mesh))
+        return cls(**assemble_mesh_arrays_from_bundle(runtime_bundle), cell_mesh=cell_mesh)
 
     @classmethod
     def from_bundle(cls, bundle: CatchmentMeshBundle) -> BoussinesqMesh:
-        """Build the solver mesh view from one gmsh catchment bundle.
+        """Build the solver mesh view from one catchment mesh bundle.
 
-        This constructor is the main translation layer between the generic gmsh
+        This constructor is the main translation layer between the generic
         exchange object and the compact arrays used by the solver. It also
         performs early validation so runtime code can assume the mesh is
-        physically coherent.
+        physically coherent. The bundle is read as a cell mesh in its CRS.
         """
-        return cls(**assemble_mesh_arrays_from_bundle(bundle))
+        arrays = assemble_mesh_arrays_from_bundle(bundle)
+        crs = bundle.metadata_view.crs
+        if crs is None:
+            raise ValueError(
+                f"The mesh bundle {bundle.bundle_dir} declares no 'crs' in its metadata."
+            )
+        return cls(**arrays, cell_mesh=cell_mesh_from_bundle(bundle, crs_wkt=crs))
 
 
 __all__ = ["BoussinesqMesh"]

@@ -5,18 +5,15 @@ from __future__ import annotations
 import os
 import warnings
 from collections.abc import Mapping
-from dataclasses import replace
 
 import flopy
 import numpy as np
 
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.build import mf6_safe_name, optional_ims_kwargs
-from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
 from hydromodpy.solver.modflow6.support.computational_top import disv_grid_kwargs
 from hydromodpy.solver.modflow6.support.windows_paths import check_mf6_workspace_paths
 from hydromodpy.solver.modflow_common import (
-    ModflowPostprocessOptions,
     build_concentration_runtime_overrides,
 )
 from hydromodpy.solver.modflow_common.progress import (
@@ -240,46 +237,6 @@ class Modflow6Transport:
                 description="Solving transport stress periods",
             )
         return success
-
-    def _resolve_postprocess_options(
-        self,
-        *,
-        export_all_tif: bool,
-        options: ModflowPostprocessOptions | None,
-    ) -> ModflowPostprocessOptions:
-        """Resolve transport post-processing options from explicit or inherited flow settings."""
-        if options is not None and not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError("transport post_processing options must be ModflowPostprocessOptions")
-
-        resolved = options
-        if resolved is None:
-            inherited = getattr(self.model_modflow, "last_postprocess_options", None)
-            if isinstance(inherited, ModflowPostprocessOptions):
-                resolved = inherited
-        if resolved is None:
-            return ModflowPostprocessOptions(export_all_tif=bool(export_all_tif))
-        if bool(getattr(resolved, "export_all_tif", False)) == bool(export_all_tif):
-            return resolved
-        return replace(resolved, export_all_tif=bool(export_all_tif))
-
-    def post_processing(
-        self,
-        model_mt3dms: object,
-        concentration_seepage: bool = True,
-        mass_seepage: bool = True,
-        mass_accumulated: bool = False,
-        export_all_tif: bool = False,
-        options: ModflowPostprocessOptions | None = None,
-    ) -> None:
-        run_transport_post_processing(
-            self,
-            model_mt3dms,
-            concentration_seepage=concentration_seepage,
-            mass_seepage=mass_seepage,
-            mass_accumulated=mass_accumulated,
-            export_all_tif=export_all_tif,
-            options=options,
-        )
 
 
 __all__ = ["Modflow6Transport"]

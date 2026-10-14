@@ -1,6 +1,8 @@
 """Regular cell meshes for the solver unit tests, with the vertices flopy computes.
 
-``regular_cell_mesh`` builds the planar mesh of a regular grid from a flopy
+``from_flopy_structured`` is the independent oracle of the quad connectivity of the
+``regular`` engine: a plain Python loop over the vertices a flopy ``StructuredGrid``
+computes. ``regular_cell_mesh`` builds the planar mesh of a regular grid from a flopy
 ``StructuredGrid``: the reference the ``regular`` engine must reproduce to the
 bit. ``regular_cell_mesh_of_surface`` gives the grid of a surface support.
 Not public API.
@@ -11,7 +13,8 @@ from __future__ import annotations
 import numpy as np
 from flopy.discretization import StructuredGrid
 
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import from_flopy_structured
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
@@ -19,6 +22,30 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 )
 from hydromodpy.spatial.surface import Surface
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+
+
+def from_flopy_structured(sgrid: StructuredGrid) -> HydroMesh:
+    """Return the quad ``HydroMesh`` of a flopy ``StructuredGrid``, row 0 north."""
+    x_verts = np.asarray(sgrid.xvertices, dtype=float)
+    y_verts = np.asarray(sgrid.yvertices, dtype=float)
+    ny, nx = x_verts.shape
+    vertices = np.column_stack((x_verts.reshape(-1), y_verts.reshape(-1)))
+    nrow, ncol = ny - 1, nx - 1
+    connectivity = np.empty((nrow * ncol, 4), dtype=int)
+    idx = 0
+    for j in range(nrow):
+        for i in range(ncol):
+            n00 = j * nx + i
+            n10 = j * nx + (i + 1)
+            n11 = (j + 1) * nx + (i + 1)
+            n01 = (j + 1) * nx + i
+            connectivity[idx] = [n00, n10, n11, n01]
+            idx += 1
+    return HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(cell_type=CellType.QUADRILATERAL, connectivity=connectivity),),
+        structured_shape=(nrow, ncol),
+    )
 
 
 def regular_cell_mesh(

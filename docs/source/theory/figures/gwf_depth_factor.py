@@ -3,8 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.solver.modflow_grid.discretization_spatial import _compute_layer_proportions
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_proportions
 
 H = 100.0
 profile = {"mode": "exponential", "characteristic_depth": 20.0}
@@ -18,9 +18,7 @@ floored = FieldParam(
 
 # Layer centres of a four-layer decay column, as SolverMesh.layer_center_depths
 # computes them: halfway between the two interfaces.
-shares, _ = _compute_layer_proportions(
-    genmtd_lay="decay", nlay=4, lay_decay=2.0, lay_proportions=None
-)
+shares, _ = layer_proportions(genmtd_lay="decay", nlay=4, lay_decay=2.0, lay_proportions=None)
 bottoms = H * shares
 centres = 0.5 * (np.concatenate(([0.0], bottoms[:-1])) + bottoms)
 

@@ -145,7 +145,7 @@ other solvers do not need it. The workflows are in `.github/workflows/` and desc
 |---|---|---|
 | `hmp: command not found` | The environment that holds the command is not active, or the folder of pip scripts is not on `PATH` (a `pip install --user`). | Activate the environment. Or call the module, which is the same program: `python -m hydromodpy --version`. On Windows the command is `.venv\Scripts\hmp.exe`. |
 | `hmp --version` prints `1.0.0` | `--pre` was left out, so pip took the stable release. | `pip install --pre --upgrade hydromodpy`. |
-| `ImportError: ... cannot open shared object file` when `gmsh`, `pyvista` or `rasterio` loads, on Linux | A system library is missing. The Dockerfile of the repository installs `libglu1-mesa` for gmsh and pyvista, and `libexpat1` for rasterio. | On Debian or Ubuntu: `sudo apt-get install libglu1-mesa libexpat1`. |
+| `ImportError: ... cannot open shared object file` when `gmsh` or `rasterio` loads, on Linux | A system library is missing. The Dockerfile of the repository installs `libglu1-mesa` for gmsh and `libexpat1` for rasterio. | On Debian or Ubuntu: `sudo apt-get install libglu1-mesa libexpat1`. |
 | `Could not download the MODFLOW binaries of release <tag> from <address>: [Errno 111] Connection refused. ...` from `hmp install-binaries`, or `step 'run_solver' failed: NetworkError: Could not download ...` from the first run. Exit code 16 | The binaries are downloaded from GitHub and the machine has no direct route to it. | Behind a proxy, set `HTTPS_PROXY` (`urllib` reads it). Offline, download the executables elsewhere, copy them in one flat folder and set `HMP_BIN` to it. |
 | `use GITHUB_TOKEN env to bypass rate limit` | GitHub limits the unauthenticated requests that look up the release. | Set `GITHUB_TOKEN` to a token of your own and run the command again. |
 | `WARN solver:mf6 not cached, not on PATH` from `hmp doctor` | Nothing was downloaded yet. | Run `hmp install-binaries`, or run any simulation: the first one downloads. |
@@ -155,10 +155,9 @@ Every exit code and its category are listed in {doc}`../reference/cli/exit-codes
 
 ## Optional extras
 
-Add an extra between brackets: `pip install --pre "hydromodpy[ide,viewer3d]"`.
+Add an extra between brackets: `pip install --pre "hydromodpy[ide,mesh]"`.
 
 - `ide`: JupyterLab, Spyder and PySide6.
-- `viewer3d`: PyVista, for 3D views of the mesh.
 - `calibration`: `cma` and `cmaes`, for the CMA-ES variants. The default `optuna` sampler is in the base install.
 - `mesh`: `gmsh`.
 - `mf6api`: `modflowapi` and `xmipy`.

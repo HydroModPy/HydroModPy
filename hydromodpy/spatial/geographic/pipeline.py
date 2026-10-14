@@ -728,9 +728,6 @@ def build_geographic_runtime_context(
 ) -> GeographicRuntimeContext:
     """Build the full geographic runtime context from config and workspace.
 
-    This is the full runtime counterpart to
-    ``build_geographic_derived_features``.
-
     The function prepares regional flow rasters, standard or direct DEM domain
     polygons, clipped domain rasters, DEM metadata, and optional river-network
     products. When cache reuse is enabled, it validates the cache fingerprint

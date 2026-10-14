@@ -1,8 +1,7 @@
 """MODFLOW 6 flow solver facade aligned with HydroModPy workflow APIs.
 
 This module exposes the :class:`Modflow6` adapter. Concern-specific helpers
-live in ``build`` (pre_processing), ``run`` (processing), ``postprocess``
-(water table, budget, native exports) and ``diagnostics`` (matplotlib overlays).
+live in ``build`` (pre_processing) and ``run`` (processing).
 The class methods are thin delegators so this module stays under the 1500 LOC
 architectural limit.
 """
@@ -36,10 +35,8 @@ from hydromodpy.solver.modflow6.modflow6_config import (
     Modflow6Config,
     _coerce_modflow6_config,
 )
-from hydromodpy.solver.modflow6.postprocess import run_flow_post_processing
 from hydromodpy.solver.modflow6.run import run_processing
 from hydromodpy.solver.modflow_common import (
-    ModflowPostprocessOptions,
     ModflowPreprocessOptions,
     ModflowRunOptions,
     SolverRoutingContext,
@@ -155,10 +152,6 @@ class Modflow6:
     def _log_xt3d_resolution(self, solver_mesh=None) -> None:
         log_xt3d_resolution(self, solver_mesh)
 
-    def _to_export_array(self, flat_array: np.ndarray) -> np.ndarray:
-        """Reshape flat (ncpl,) to (nrow, ncol) for raster export (structured only)."""
-        return self.solver_mesh.reshape_to_grid(flat_array)
-
     def _write_solver_grid_template(self) -> str:
         return write_solver_grid_template(self)
 
@@ -235,9 +228,3 @@ class Modflow6:
         if api_lib_path is not None:
             self._mf6_api_lib_path = api_lib_path
         return run_processing(self, options)
-
-    # post_processing --------------------------------------------------
-
-    def post_processing(self, options: ModflowPostprocessOptions | None = None):
-        """Run MODFLOW 6 flow post-processing."""
-        run_flow_post_processing(self, options=options)
