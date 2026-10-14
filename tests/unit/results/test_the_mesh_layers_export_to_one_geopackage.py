@@ -184,6 +184,40 @@ def test_the_cells_carry_their_area_families_and_quality(catalog, new_run):
     assert "in_basin" not in cells
 
 
+def test_the_cells_say_which_ones_the_basin_of_d_holds(catalog, new_run):
+    n_cells = _grid().n_cells
+    basin = np.zeros(n_cells, dtype=bool)
+    basin[[4, 5, 8]] = True
+    flags = np.zeros(n_cells, dtype=bool)
+    store = catalog.open_zarr(new_run)
+    try:
+        store.write_descent(
+            receiver=np.full(n_cells, -1, dtype=np.int64),
+            surface=np.linspace(10.0, 21.0, n_cells),
+            base_level=flags,
+            constant_head=flags,
+            raised=flags,
+            channel=flags,
+            pinned=flags,
+            attrs={},
+            basin=basin,
+            basin_attrs={
+                "descent_outlet": 4,
+                "basin_rule": "near_point",
+                "basin_area_m2": 3 * 625.0,
+                "basin_seeded_at_outlet": False,
+                "basin_version": 1,
+            },
+        )
+    finally:
+        store.close()
+
+    (path,) = catalog.export(new_run, ExportRequest(variables="mesh_cells"))
+
+    cells = gpd.read_file(path, layer="mesh_cells")
+    assert cells.index[cells["in_basin"]].tolist() == [4, 5, 8]
+
+
 def test_a_seed_sits_on_the_solver_centre_and_names_its_families(catalog, new_run):
     (path,) = catalog.export(new_run, ExportRequest(variables="mesh_seeds"))
 

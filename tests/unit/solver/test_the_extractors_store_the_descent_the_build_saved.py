@@ -2,7 +2,9 @@
 
 Both backends call one helper right after the mesh. A missing sidecar is an INFO
 line and no array; a sidecar that does not fit the mesh is a warning that names
-what reads D. Neither may cost the mesh that was already written.
+what reads D. Neither may cost the mesh that was already written. The basin of D
+travels in the sidecar and is stored beside D with its outlet; a sidecar written
+before the basin stores D alone.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.descent import BASIN_VERSION, DescentBasin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
@@ -50,6 +53,41 @@ def test_the_sidecar_the_build_left_lands_under_mesh(store, tmp_path) -> None:
     assert attrs["n_pinned"] == 0
     assert "n_lake_flooded" in attrs
     assert attrs["epsilon"] > 0.0
+
+
+def _basin() -> DescentBasin:
+    mask = np.zeros(N_CELLS, dtype=bool)
+    mask[[3, 4, 5, 7]] = True
+    return DescentBasin(
+        mask=mask, outlet=4, rule="near_point", area_m2=4.0e4, seeded_at_outlet=True
+    )
+
+
+def test_the_basin_of_the_sidecar_lands_beside_d_with_its_outlet(store, tmp_path) -> None:
+    basin = _basin()
+    write_descent_sidecar(grid_descent(TOP), tmp_path, "model", basin=basin)
+
+    written = write_descent_sidecar_to_store(store, tmp_path, sim_id="s", n_cells=N_CELLS)
+
+    assert written
+    array = store.root["mesh"]["descent_basin"]
+    np.testing.assert_array_equal(array[:], basin.mask)
+    attrs = dict(array.attrs)
+    assert attrs["descent_outlet"] == 4
+    assert attrs["basin_rule"] == "near_point"
+    assert attrs["basin_area_m2"] == pytest.approx(4.0e4)
+    assert attrs["basin_seeded_at_outlet"] is True
+    assert attrs["basin_version"] == BASIN_VERSION
+
+
+def test_a_sidecar_written_before_the_basin_stores_d_alone(store, tmp_path) -> None:
+    write_descent_sidecar(grid_descent(TOP), tmp_path, "model")
+
+    written = write_descent_sidecar_to_store(store, tmp_path, sim_id="s", n_cells=N_CELLS)
+
+    assert written
+    assert "descent_receiver" in store.root["mesh"]
+    assert "descent_basin" not in store.root["mesh"]
 
 
 def test_without_a_sidecar_nothing_is_written_and_info_says_so(store, tmp_path, caplog) -> None:

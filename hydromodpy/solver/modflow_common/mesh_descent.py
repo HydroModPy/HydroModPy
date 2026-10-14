@@ -13,8 +13,13 @@ flats by flood order and runs beside A, so the hillslope joins it lower down.
 With it, D follows A on the cells A crosses (pinned receivers) and the steepest
 descent elsewhere.
 
-The build leaves D beside the model as ``<model>.descent.npz``: the extractors
-never see the model, so they read this sidecar back with
+It computes the basin of D at the catchment outlet, once per build
+(:func:`run_basin`), the catchment every consumer of the run reads. On a domain
+that is the catchment itself (``geographic.domain_extent = "watershed"``) D is
+flooded from that outlet and the constant-head cells, not from the whole rim.
+
+The build leaves D and its basin beside the model as ``<model>.descent.npz``:
+the extractors never see the model, so they read this sidecar back with
 :func:`read_descent_sidecar` and store D with the run.
 """
 
@@ -24,13 +29,22 @@ import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import numpy as np
 
 from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M
-from hydromodpy.core.descent import Descent, build_descent
+from hydromodpy.core.descent import (
+    BasinRule,
+    Descent,
+    DescentBasin,
+    build_descent,
+    descent_basin,
+)
+from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
+from hydromodpy.solver.modflow_common.catchment_support import polygon_cell_mask
 
 logger = get_logger(__name__)
 
@@ -44,6 +58,7 @@ __all__ = (
     "read_channel_tree",
     "read_descent_sidecar",
     "resolve_dam_foot_cells",
+    "run_basin",
     "write_descent_sidecar",
 )
 
@@ -56,6 +71,7 @@ DESCENT_EPSILON_M = DEFAULT_EPSILON_M
 _ADJACENCY_KINDS = ("shared_nodes", "shared_faces")
 _REPORT_COUNTS = ("n_raised", "n_lake_flooded", "n_pinned_raised", "n_channel", "n_pinned")
 _REPORT_MAXIMA_M = ("max_raise_m", "max_lake_flood_m", "max_pinned_raise_m")
+_BASIN_KEYS = ("basin", "basin_outlet", "basin_rule", "basin_area_m2", "basin_seeded_at_outlet")
 
 # File names written by spatial.geographic.core.river_network.
 _LINK_NAME = "dem_stream_link_id_full.tif"
@@ -334,6 +350,7 @@ def build_solver_mesh_descent(
     base_level_mask: np.ndarray | None,
     channel_tree: ChannelTree | None = None,
     active_column: np.ndarray | None = None,
+    geographic: object | None = None,
 ) -> Descent:
     """Return D on ``solver_mesh``, its lakes traversed and its CHD cells seeded.
 
@@ -344,9 +361,15 @@ def build_solver_mesh_descent(
     its own. Lakes are numbered in the iteration order of
     ``lake_cells_by_lake``, the order build.py numbers LAK lakes in.
     ``base_level_mask`` holds the constant-head cells, where water leaves the
-    model: they seed the flood and keep their steepest descent. ``channel_tree`` is the generated network A; without it D has no pin
-    and follows the steepest descent everywhere. The adjacency is fixed by the
+    model: they seed the flood and keep their steepest descent.
+    ``channel_tree`` is the generated network A; without it D has no pin and
+    follows the steepest descent everywhere. The adjacency is fixed by the
     mesh: shared nodes (D8) on quads, shared faces elsewhere.
+
+    ``geographic`` says where the catchment closes. When its domain is the
+    catchment (``domain_extent = "watershed"``), D is built twice: seeded on
+    the rim to find the outlet as :func:`run_basin` will, then seeded at that
+    outlet and the constant-head cells only.
     """
     planar_mesh = solver_mesh.planar_mesh
     n_cells = int(solver_mesh.n_cells)
@@ -369,18 +392,44 @@ def build_solver_mesh_descent(
             int((pinned_receiver >= 0).sum()),
             int((channel & (pinned_receiver < 0)).sum()),
         )
-    descent = build_descent(
-        np.asarray(solver_mesh.top, dtype=float),
-        solver_mesh.cell_mesh.geometry.padded_connectivity,
-        vertices=np.asarray(planar_mesh.vertices, dtype=float)[:, :2],
-        centroids=solver_mesh.cell_mesh.centers,
-        routable=routable,
-        base_level=base_level_mask,
-        lake_of=lake_of,
-        pinned_receiver=pinned_receiver,
-        channel=channel,
-        epsilon=DESCENT_EPSILON_M,
-    )
+
+    def flood(outlet: int | None) -> Descent:
+        return build_descent(
+            np.asarray(solver_mesh.top, dtype=float),
+            solver_mesh.cell_mesh.geometry.padded_connectivity,
+            vertices=np.asarray(planar_mesh.vertices, dtype=float)[:, :2],
+            centroids=solver_mesh.cell_mesh.centers,
+            routable=routable,
+            base_level=base_level_mask,
+            lake_of=lake_of,
+            pinned_receiver=pinned_receiver,
+            channel=channel,
+            epsilon=DESCENT_EPSILON_M,
+            outlet=outlet,
+        )
+
+    descent = flood(None)
+    if _domain_is_the_catchment(geographic):
+        near, within = _outlet_search(geographic, solver_mesh, descent)
+        if near is None and within is None:
+            logger.warning(
+                "geographic.domain_extent = 'watershed' but the run has neither an outlet "
+                "point nor a watershed polygon: D stays seeded on the domain rim."
+            )
+        else:
+            outlet = resolve_outlet(
+                descent.metric,
+                near=near,
+                within=within,
+                adjacency=descent.adjacency,
+                cell_area_m2=_cell_areas(solver_mesh),
+            )
+            descent = flood(outlet)
+            logger.info(
+                "Descent D seeded at the outlet cell %d and the constant-head cells: the "
+                "domain is the catchment.",
+                outlet,
+            )
     logger.info(
         "Descent D: %d cell(s) raised on the routing copy of the top (max +%.2f m), "
         "%d lake cell(s) flooded (max +%.2f m), %d of %d pinned channel cell(s) raised "
@@ -397,6 +446,128 @@ def build_solver_mesh_descent(
         len(lake_cells_by_lake),
     )
     return descent
+
+
+def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> DescentBasin:
+    """Return the basin of D at the catchment outlet, the one call of this build.
+
+    The outlet is searched near the point the catchment was closed on (the
+    snapped outlet, else the declared one), else inside the watershed polygon
+    (cells whose centre it covers), else the basin is only the largest one of
+    the domain. Call it before D drops its adjacency. The polygon is compared
+    with the basin: a gap above ``CATCHMENT_MISMATCH_WARNING_SHARE`` of its
+    area is a warning, as in the stream criterion.
+    """
+    areas = _cell_areas(solver_mesh)
+    near, within = _outlet_search(geographic, solver_mesh, descent)
+    seeded = _domain_is_the_catchment(geographic) and (near is not None or within is not None)
+    basin = descent_basin(
+        descent, cell_area_m2=areas, near=near, within=within, seeded_at_outlet=seeded
+    )
+    if seeded and not descent.base_level[basin.outlet]:
+        raise ValueError(
+            f"the outlet cell {basin.outlet} of the basin is not the cell D was seeded at: "
+            "the two outlet searches of a watershed domain disagree."
+        )
+    if within is not None:
+        _compare_with_the_polygon(basin, within, areas)
+    logger.info(
+        "Basin of D: %d cells (%.3f km2), outlet cell %d by rule %s, seeded at the outlet: %s.",
+        int(basin.mask.sum()),
+        basin.area_m2 / 1.0e6,
+        basin.outlet,
+        basin.rule,
+        basin.seeded_at_outlet,
+    )
+    _count_constant_head_sinks(descent, basin, within, areas)
+    return basin
+
+
+def _domain_is_the_catchment(geographic: object | None) -> bool:
+    """Whether the active domain is the catchment itself, so D floods from its outlet."""
+    # A synthetic geographic has no delineated extent: its domain is a box.
+    return getattr(geographic, "domain_extent", "box") == "watershed"
+
+
+def _cell_areas(solver_mesh: Any) -> np.ndarray:
+    areas = np.asarray(solver_mesh.cell_areas(), dtype=float)
+    return np.where(np.isfinite(areas), areas, 0.0)
+
+
+def _outlet_search(
+    geographic: object | None, solver_mesh: Any, descent: Descent
+) -> tuple[tuple[float, float] | None, np.ndarray | None]:
+    """Return ``(near, within)``: the closing point and the routable polygon cells."""
+    within = polygon_cell_mask(geographic, solver_mesh.cell_centroids())
+    if within is not None:
+        within = within & descent.routable
+        if not np.any(within):
+            within = None
+    return _catchment_outlet_xy(geographic), within
+
+
+def _catchment_outlet_xy(geographic: object | None) -> tuple[float, float] | None:
+    """The point the catchment was closed on: the snapped outlet, else the declared one."""
+    for x_name, y_name in (("x_outlet_snapped", "y_outlet_snapped"), ("x_outlet", "y_outlet")):
+        x = getattr(geographic, x_name, None)
+        y = getattr(geographic, y_name, None)
+        if x is None or y is None:
+            continue
+        point = (float(x), float(y))
+        if np.all(np.isfinite(point)):
+            return point
+    return None
+
+
+def _compare_with_the_polygon(basin: DescentBasin, polygon: np.ndarray, areas: np.ndarray) -> None:
+    """Log how far the basin of D lies from the watershed polygon, a warning above the share."""
+    polygon_area = float(areas[polygon].sum())
+    outside = basin.mask & ~polygon
+    missing = polygon & ~basin.mask
+    outside_share = float(areas[outside].sum()) / polygon_area if polygon_area else 0.0
+    missing_share = float(areas[missing].sum()) / polygon_area if polygon_area else 0.0
+    mismatch = outside_share + missing_share
+    log = logger.warning if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE else logger.info
+    log(
+        "Watershed polygon and basin of D: %d basin cells against %d in the polygon; %d "
+        "basin cells outside the polygon (%.1f %% of its area), %d polygon cells outside "
+        "the basin (%.1f %%).%s",
+        int(basin.mask.sum()),
+        int(polygon.sum()),
+        int(outside.sum()),
+        100.0 * outside_share,
+        int(missing.sum()),
+        100.0 * missing_share,
+        (
+            " The gap is above the warning share: the outlet may sit on another branch, "
+            "or the mesh is much coarser than the DEM the polygon came from."
+            if mismatch > CATCHMENT_MISMATCH_WARNING_SHARE
+            else ""
+        ),
+    )
+
+
+def _count_constant_head_sinks(
+    descent: Descent, basin: DescentBasin, within: np.ndarray | None, areas: np.ndarray
+) -> None:
+    """Warn about the constant-head sinks of the catchment that take its upslope off the basin.
+
+    A sink is a constant-head cell D ends at. The one the basin itself ends at
+    is the outlet and is no loss. With a watershed polygon, only the sinks
+    inside it count: one far outside it drains its own land.
+    """
+    sinks = descent.constant_head & descent.routable & (descent.receiver < 0) & ~basin.mask
+    if within is not None:
+        sinks &= within
+    if not np.any(sinks):
+        return
+    drained = accumulate_on_downhill_graph(descent.metric.graph, areas)
+    logger.warning(
+        "Constant-head sinks of D: %d constant-head cell(s) have no lower neighbour; %.3f km2 "
+        "drain into them and stay outside the basin.",
+        int(sinks.sum()),
+        float(drained[sinks].sum()) / 1.0e6,
+    )
 
 
 def resolve_dam_foot_cells(
@@ -427,6 +598,10 @@ class DescentRecord:
     flood raised. ``dam_foot`` holds the cell ids below the dams, possibly
     none. ``adjacency`` is ``"shared_nodes"`` or ``"shared_faces"``;
     ``epsilon`` is the flood step in metres.
+
+    ``basin`` is the basin of D at the catchment outlet (outlet included),
+    with the fields of :class:`hydromodpy.core.descent.DescentBasin`. It is
+    None for a sidecar written before the basin was stored.
     """
 
     receiver: np.ndarray
@@ -447,6 +622,11 @@ class DescentRecord:
     n_channel: int
     n_pinned: int
     dam_foot: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    basin: np.ndarray | None = None
+    basin_outlet: int = -1
+    basin_rule: str = ""
+    basin_area_m2: float = float("nan")
+    basin_seeded_at_outlet: bool = False
 
     def report(self) -> dict[str, int | float]:
         """The build report as plain scalars, counts then maxima in metres."""
@@ -461,11 +641,13 @@ def write_descent_sidecar(
     stem: str,
     *,
     dam_foot_cells: Mapping[str, int] | None = None,
+    basin: DescentBasin | None = None,
 ) -> Path | None:
     """Leave D beside the model as ``<stem>.descent.npz``; return its path.
 
     ``dam_foot_cells`` are the cells below the dams, one per lake
     (:func:`resolve_dam_foot_cells`); none when the run has no lake.
+    ``basin`` is the basin of D at the catchment outlet (:func:`run_basin`).
 
     A file that cannot be written is a warning, not a failure: the run solves
     without it, and its readers rebuild an unpinned D from the stored top.
@@ -487,6 +669,16 @@ def write_descent_sidecar(
         payload[name] = np.asarray(int(getattr(descent, name)), dtype=np.int64)
     for name in _REPORT_MAXIMA_M:
         payload[name] = np.asarray(float(getattr(descent, name)), dtype=np.float64)
+    if basin is not None:
+        payload.update(
+            {
+                "basin": np.asarray(basin.mask, dtype=bool),
+                "basin_outlet": np.asarray(int(basin.outlet), dtype=np.int64),
+                "basin_rule": np.asarray(str(basin.rule)),
+                "basin_area_m2": np.asarray(float(basin.area_m2), dtype=np.float64),
+                "basin_seeded_at_outlet": np.asarray(bool(basin.seeded_at_outlet)),
+            }
+        )
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(path, **payload)
@@ -508,8 +700,9 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
     ------
     ValueError
         When the file lacks an array, its arrays disagree on the cell count,
-        its adjacency is not one this module writes, or a dam foot is not a
-        cell of the mesh.
+        its adjacency is not one this module writes, a dam foot is not a cell
+        of the mesh, or its basin lacks a field, names an unknown rule or an
+        outlet outside it.
     """
     path = Path(path)
     if not path.is_file():
@@ -551,6 +744,21 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
         scalars: dict[str, Any] = {"epsilon": float(payload["epsilon"])}
         scalars.update({name: int(payload[name]) for name in _REPORT_COUNTS})
         scalars.update({name: float(payload[name]) for name in _REPORT_MAXIMA_M})
+        # Absent from a sidecar written before the basin was stored: no basin.
+        basin_fields: dict[str, Any] = {}
+        if "basin" in names:
+            missing = sorted(set(_BASIN_KEYS) - names)
+            if missing:
+                raise ValueError(
+                    f"the descent sidecar {path.name} holds a basin without {', '.join(missing)}."
+                )
+            arrays["basin"] = np.asarray(payload["basin"], dtype=bool).reshape(-1)
+            basin_fields = {
+                "basin_outlet": int(payload["basin_outlet"]),
+                "basin_rule": str(payload["basin_rule"]),
+                "basin_area_m2": float(payload["basin_area_m2"]),
+                "basin_seeded_at_outlet": bool(payload["basin_seeded_at_outlet"]),
+            }
     sizes = {name: int(values.size) for name, values in arrays.items()}
     if len(set(sizes.values())) != 1:
         raise ValueError(f"the descent sidecar {path.name} mixes cell counts: {sizes}.")
@@ -561,4 +769,20 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
         )
     if dam_foot.size and (dam_foot.min() < 0 or dam_foot.max() >= next(iter(sizes.values()))):
         raise ValueError(f"the descent sidecar {path.name} holds a dam foot outside the mesh.")
-    return DescentRecord(**arrays, dam_foot=dam_foot, adjacency=adjacency, **scalars)
+    if "basin" in arrays:
+        _check_stored_basin(path.name, arrays["basin"], basin_fields)
+    return DescentRecord(
+        **arrays, dam_foot=dam_foot, adjacency=adjacency, **scalars, **basin_fields
+    )
+
+
+def _check_stored_basin(name: str, mask: np.ndarray, fields: Mapping[str, Any]) -> None:
+    """Raise unless the stored basin names a known rule and holds its own outlet."""
+    if fields["basin_rule"] not in get_args(BasinRule):
+        raise ValueError(
+            f"the descent sidecar {name} names basin rule {fields['basin_rule']!r}, "
+            f"not one of {get_args(BasinRule)}."
+        )
+    outlet = int(fields["basin_outlet"])
+    if not 0 <= outlet < mask.size or not mask[outlet]:
+        raise ValueError(f"the descent sidecar {name} holds a basin outlet outside its basin.")

@@ -3,8 +3,11 @@
 The build writes ``<model>.descent.npz`` in the solver folder. The extractors
 do not see the model, so they find it there and write it under
 ``fields.zarr/mesh/`` right after the mesh. Figures and the accumulation of cell fluxes read it from
-there. A run without the sidecar gets no D in its store: its readers rebuild
-one from the stored top and say so.
+there. The basin of D at the catchment outlet travels in the same sidecar and
+lands beside D as ``mesh/descent_basin``, with its outlet. A run without the
+sidecar gets no D in its store: its readers rebuild one from the stored top and
+say so. A sidecar written before the basin was stored gives a D without a basin,
+and its readers name the old support they fall back to.
 """
 
 from __future__ import annotations
@@ -12,9 +15,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.descent import BASIN_VERSION
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.mesh_descent import (
     DESCENT_SIDECAR_SUFFIX,
+    DescentRecord,
     read_descent_sidecar,
 )
 
@@ -62,6 +67,8 @@ def write_descent_sidecar_to_store(
             channel=record.channel,
             pinned=record.pinned,
             dam_foot=record.dam_foot,
+            basin=record.basin,
+            basin_attrs=_basin_attrs(record),
             attrs={
                 "adjacency": str(record.adjacency),
                 "epsilon": float(record.epsilon),
@@ -80,6 +87,19 @@ def write_descent_sidecar_to_store(
         )
         return False
     return True
+
+
+def _basin_attrs(record: DescentRecord) -> dict[str, object] | None:
+    """Return the attributes of ``mesh/descent_basin``, ``None`` without a basin."""
+    if record.basin is None:
+        return None
+    return {
+        "descent_outlet": int(record.basin_outlet),
+        "basin_rule": str(record.basin_rule),
+        "basin_area_m2": float(record.basin_area_m2),
+        "basin_seeded_at_outlet": bool(record.basin_seeded_at_outlet),
+        "basin_version": int(BASIN_VERSION),
+    }
 
 
 __all__ = ("write_descent_sidecar_to_store",)

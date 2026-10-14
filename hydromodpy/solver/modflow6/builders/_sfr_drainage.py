@@ -1,8 +1,8 @@
 """DRN de-confliction and the hillslope-drainage MVR routing.
 
 Private helpers behind the public ``sfr_drain_cells_to_drop`` /
-``remove_drain_cells`` / ``sfr_routes_drainage`` / ``watershed_drainage_cell_mask``
-/ ``build_drainage_mover_records`` re-exported from ``builders.sfr``. The routing
+``remove_drain_cells`` / ``sfr_routes_drainage`` / ``build_drainage_mover_records``
+re-exported from ``builders.sfr``. The routing
 walks the receivers of the descent D (``core.descent``), handed in as an array.
 It also owns the two MF6 package-name literals shared by both mover builders (the
 SFR->LAK one lives in ``builders.sfr``); they are strings, never an import edge
@@ -65,28 +65,6 @@ def remove_drain_cells(
 def sfr_routes_drainage(networks: Mapping[str, ResolvedSfrNetwork]) -> bool:
     """Return whether one active network asks for the DRN -> SFR routing."""
     return any(bool(network.definition.get("route_drainage")) for network in networks.values())
-
-
-def watershed_drainage_cell_mask(
-    watershed_geometry: object,
-    cell_centroids: np.ndarray,
-) -> np.ndarray:
-    """Boolean (n_cells,) mask, True where a cell centroid lies in the watershed.
-
-    Used to keep hillslope DRN routing inside the topographic catchment: DRN
-    cells in the surrounding buffer model neighbouring basins and must not feed
-    this catchment's streams and lake.
-    """
-    from shapely.geometry import Point
-    from shapely.prepared import prep
-
-    prepared = prep(watershed_geometry)
-    centroids = np.asarray(cell_centroids, dtype=float)
-    return np.fromiter(
-        (prepared.covers(Point(float(x), float(y))) for x, y in centroids),
-        dtype=bool,
-        count=len(centroids),
-    )
 
 
 def build_drainage_mover_records(

@@ -222,7 +222,7 @@ class TestThePipelineTakesTheSameRoute:
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
                 self._adapter(served),
-                SimpleNamespace(run=SimpleNamespace(solver="modflow6")),
+                SimpleNamespace(run=SimpleNamespace(solver="modflow6"), model=None),
             ),
         )
         ctx = self._ctx()
@@ -243,7 +243,7 @@ class TestThePipelineTakesTheSameRoute:
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
                 self._adapter(served),
-                SimpleNamespace(run=SimpleNamespace(solver="modflow6")),
+                SimpleNamespace(run=SimpleNamespace(solver="modflow6"), model=None),
             ),
         )
         ctx = self._ctx()
@@ -265,7 +265,7 @@ class TestThePipelineTakesTheSameRoute:
             "hydromodpy.calibration.metrics.composite.resolve_flow_adapter",
             lambda ctx: (
                 self._adapter(served),
-                SimpleNamespace(run=SimpleNamespace(solver="modflow6")),
+                SimpleNamespace(run=SimpleNamespace(solver="modflow6"), model=None),
             ),
         )
         ctx = self._ctx()

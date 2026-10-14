@@ -216,6 +216,8 @@ class SimulationZarr:
         pinned: np.ndarray,
         attrs: Mapping[str, object],
         dam_foot: np.ndarray | None = None,
+        basin: np.ndarray | None = None,
+        basin_attrs: Mapping[str, object] | None = None,
     ) -> None:
         """Write the descent D under ``mesh/``, additive to the mesh arrays."""
         zarr_writer.write_descent(
@@ -229,6 +231,8 @@ class SimulationZarr:
             pinned=pinned,
             attrs=attrs,
             dam_foot=dam_foot,
+            basin=basin,
+            basin_attrs=basin_attrs,
         )
 
     def write_topography(

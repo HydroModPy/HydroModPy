@@ -197,6 +197,15 @@ class CatchmentDelineation:
 
         self.processing()
 
+    @property
+    def domain_extent(self) -> str:
+        """Active extent of the domain: ``box``, ``watershed_buff`` or ``watershed``.
+
+        The solver floods its descent D from the catchment outlet when the
+        domain is the catchment itself, and from the domain rim otherwise.
+        """
+        return self._config.domain_extent
+
     def build_georeferencing(self) -> dict[str, object]:
         """
         Return the georeferencing metadata needed by `Domain`.
@@ -241,8 +250,9 @@ class CatchmentDelineation:
             "watershed_buff": self.watershed_buff_dem,
             "watershed": self.watershed_dem,
         }
-        extent = getattr(self._config, "domain_extent", "box")
-        return build_surface_topo_from_dem(dem_by_extent.get(extent, self.watershed_box_buff_dem))
+        return build_surface_topo_from_dem(
+            dem_by_extent.get(self.domain_extent, self.watershed_box_buff_dem)
+        )
 
     def get_geographic_derived_features(self) -> GeographicDerivedFeatures:
         """Return the canonical bundle of derived geographic artifacts."""

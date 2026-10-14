@@ -42,6 +42,11 @@ from hydromodpy.solver.modflow_common.budget_components import (
 from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.mesh_descent import (
+    DESCENT_SIDECAR_SUFFIX,
+    DescentRecord,
+    read_descent_sidecar,
+)
 from hydromodpy.solver.modflow_common.period_steps import (
     group_steps_by_stamp,
     period_mean_balance,
@@ -191,6 +196,24 @@ def _records_by_stamp(
         stamp, weight = stamp_weight
         by_stamp[stamp].setdefault(component, []).append((idx, weight))
     return by_stamp
+
+
+def _basin_the_build_left(
+    solver_output_dir: Path, *, n_cells: int
+) -> tuple[DescentRecord | None, str]:
+    """The descent record holding the build's basin, else None and why there is none."""
+    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
+    if not files:
+        return None, "no descent sidecar"
+    try:
+        record = read_descent_sidecar(files[0])
+    except ValueError as exc:
+        return None, f"an unreadable descent sidecar: {exc}"
+    if record is None or record.basin is None:
+        return None, "a sidecar written before the basin was stored"
+    if int(record.basin.size) != int(n_cells):
+        return None, f"a basin of {int(record.basin.size)} cells on a mesh of {int(n_cells)}"
+    return record, ""
 
 
 def _stream_constant_head_mask(
@@ -958,14 +981,43 @@ class Modflow6OutputAdapter:
         *,
         n_cells: int,
     ) -> np.ndarray | None:
-        """Cells of the delineated catchment, None when it cannot be placed.
+        """Cells of the catchment budget zone, None when it cannot be placed.
 
-        Read from the GRB rather than from the persisted mesh. The extractor
-        checks the two against each other afterwards, so the mask agrees with
-        the stored cells.
-        A run without a watershed, without a CRS or on a synthetic domain keeps
-        the domain-wide row alone, exactly as before.
+        The zone is the basin of D the build left in the descent sidecar. The
+        budget is computed before the Zarr store is written, so the sidecar is
+        the one place the basin can be read from at this point. A basin that is
+        only the largest one of a domain with neither outlet nor polygon is no
+        catchment: the domain-wide row stands alone, as on any synthetic
+        domain.
+
+        A build that left no basin (no sidecar, a sidecar written before the
+        basin was stored, an unreadable one) keeps the old support
+        ``polygon_centroid`` and says so: the cells whose centre the delineated
+        watershed covers, read from the GRB rather than from the persisted mesh.
+        The extractor checks the two against each other afterwards, so the mask
+        agrees with the stored cells. A run without a watershed or a CRS keeps
+        the domain-wide row alone.
         """
+        record, reason = _basin_the_build_left(solver_output_dir, n_cells=n_cells)
+        if record is not None:
+            if record.basin_rule == "largest_basin":
+                return None
+            logger.info(
+                "Budget zone '%s' for sim %s: the basin of D, %d of %d cells (%.3f km2).",
+                CATCHMENT_BUDGET_ZONE,
+                sim_id,
+                int(record.basin.sum()),
+                n_cells,
+                float(record.basin_area_m2) / 1.0e6,
+            )
+            return np.asarray(record.basin, dtype=bool)
+        logger.warning(
+            "Budget zone '%s' for sim %s: the build left no basin of D (%s), so the zone "
+            "keeps the old support 'polygon_centroid'.",
+            CATCHMENT_BUDGET_ZONE,
+            sim_id,
+            reason,
+        )
         try:
             from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
                 cell_polygons,

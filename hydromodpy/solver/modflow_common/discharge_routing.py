@@ -70,10 +70,10 @@ def route_release_to_discharge(
 
     ``release`` is ``(n_times, n_cells)`` or ``(n_cells,)`` in m3/s per cell, the
     frame ``release_flux`` already serves. ``catchment_mask`` zeroes the cells
-    outside the delineated catchment before routing: the mesh is built on a
-    buffered box, and the neighbouring basins drain into it. Measured on the
-    Nancon at 25 m, the unmasked domain carries 2.4 times the water the gauge
-    sees.
+    outside the catchment, the basin of D the build kept, before routing: the
+    mesh is built on a buffered box, and the neighbouring basins drain into it.
+    Measured on the Nancon at 25 m, the unmasked domain carries 2.4 times the
+    water the gauge sees.
     """
     values = np.asarray(release, dtype=float)
     single = values.ndim == 1
@@ -124,13 +124,15 @@ def upstream_area_m2(model: Any, graph: Any, *, catchment_mask: np.ndarray) -> n
     cells whose release it also sees.
 
     The largest accumulation is reported against the catchment it should equal.
-    A delineated basin has one cell every drop leaves by, so that ratio is one on
-    a graph that drains the basin; far below one, the graph the model routes on
-    and the catchment the delineation produced describe different drainage, and
-    every routed quantity read from it is a fraction of what it claims. That is
-    the symptom of a delineation and a mesh that disagree, for instance a
-    catchment polygon cut across the talweg the mesh top carries. The ratio
-    itself is kept, not just logged: see ``last_largest_drainable_share``.
+    The catchment is the basin of D, the cells that drain through the outlet on
+    the very graph this routes on, so the accumulation at the outlet is the area
+    of the basin and the ratio is one by construction. It is far below one only
+    for a mask that is not that basin: the old support of a model that carries
+    no basin of D, a catchment polygon cut across the talweg the mesh top
+    carries. Then the graph the model routes on and the delineation describe
+    different drainage, and every routed quantity read from it is a fraction of
+    what it claims. The ratio itself is kept, not just logged: see
+    ``last_largest_drainable_share``.
     """
     areas = np.asarray(model.solver_mesh.cell_areas(), dtype=float).reshape(-1)
     accumulated = route_release_to_discharge(areas, graph, catchment_mask=catchment_mask)

@@ -41,10 +41,11 @@ class Grid:
     catchment_area_m2 : float
         Catchment area from the watershed delineation polygon (m²),
         i.e. ``catch_area`` stored in the catalog converted to m².
-        For a mask-consistent area use
-        ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``, which holds
-        only for a run whose cells are the DEM pixels. Otherwise sum
-        ``run.mesh.cell_areas()``.
+        For the area of the catchment as the run saw it, sum
+        ``run.mesh.cell_areas()`` over ``run.catchment_mask``, which is one
+        value per face. ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``
+        holds only for a run sealed before the basin of D was stored and whose
+        cells are the DEM pixels, where the mask is the DEM raster mask.
     """
 
     cell_size: float

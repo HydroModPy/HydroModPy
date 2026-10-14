@@ -113,6 +113,21 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The catchment of a MODFLOW run is the basin of its descent D, computed once per build
+  (`core.descent.descent_basin`) and stored as `mesh/descent_basin` with its outlet and rule: the
+  budget zone `catchment`, the `_catchment` discharge and its runoff area, the discharge
+  observable and its runoff area in a calibration, the drainage routing, the `catchment_mismatch`
+  diagnostic of the network criterion and `Run.catchment_mask` read it. A run sealed before keeps
+  its old support and says so. `Run.catchment_mask` is one boolean per mesh face, no longer the
+  raster `watershed_dem > 0`. On a domain that is the catchment (`domain_extent = "watershed"`), D
+  is flooded from the outlet, so the basin holds the whole domain (99.89 % before on example 04).
+  Example 04: basin 64.77 km2 against the 64.62 km2 of the polygon, mean discharge +1.05 %, NSE
+  0.671 to 0.680, KGE 0.670 to 0.677. Flume d2 (2019): basin 91.54 km2 against 93.26 km2 for the
+  discharge observable, mean discharge +0.04 %. Heads, per-cell budgets and D do not move; the K
+  and the cost of the example 12 network calibration do not either. Discharge scores and
+  calibrated K from before are not comparable. Examples 03 `run_manual.py` and 10
+  `generate_nwt_flux_testbed_web_report.py` read `catchment_mask` as a raster and fail on a new
+  run.
 - The case-by-solver matrix of the Validation page shows how far each solver lands from the
   known reference: the error as a share of a scale of the case (head range, largest drawdown,
   initial discharge), in four classes, red when the test fails, a red mark when the error grew
@@ -170,6 +185,8 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `watershed_drainage_cell_mask` (`solver/modflow6/builders`) and the polygon masks of the
+  MODFLOW 6 build: the drainage routing and the catchment readers take the basin of D.
 - `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
   `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
   `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement; a stored

@@ -1,6 +1,7 @@
 """D lives under ``fields.zarr/mesh/`` and ``run.descent`` reads it back.
 
-Seven static arrays, never rounded, plus the build report on the receiver array.
+Seven static arrays, never rounded, plus the build report on the receiver array
+and, when the build kept one, the basin of D with its outlet.
 The layout is additive: ``zarr_schema_version`` stays where it was, and a run
 sealed before D was stored gets one rebuilt from its stored top, announced once.
 """
@@ -17,7 +18,7 @@ import pytest
 from hydromodpy.core.descent import Descent, descent_from_stored_mesh
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.results.run.contracts import Mesh
-from hydromodpy.results.run.descent import RunDescent, load_descent
+from hydromodpy.results.run.descent import RunDescent, load_descent, read_basin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -252,3 +253,180 @@ def test_an_attribute_the_view_does_not_have_is_an_attribute_error() -> None:
 
     with pytest.raises(AttributeError):
         getattr(holder, "nothing_of_the_kind")  # noqa: B009
+
+
+BASIN_CELLS = [5, 6, 9, 10]
+BASIN_OUTLET = PIT
+
+
+def _basin_mask() -> np.ndarray:
+    mask = np.zeros(N_CELLS, dtype=bool)
+    mask[BASIN_CELLS] = True
+    return mask
+
+
+def _basin_attrs(**changes: object) -> dict[str, object]:
+    attrs: dict[str, object] = {
+        "descent_outlet": BASIN_OUTLET,
+        "basin_rule": "within_polygon",
+        "basin_area_m2": 4.0,
+        "basin_seeded_at_outlet": True,
+        "basin_version": 1,
+    }
+    return {**attrs, **changes}
+
+
+def _write_with_basin(store: SimulationZarr, mask: np.ndarray, attrs: dict[str, object]) -> None:
+    descent = _built_descent()
+    store.write_descent(
+        receiver=descent.receiver,
+        surface=descent.surface,
+        base_level=descent.base_level,
+        constant_head=descent.constant_head,
+        raised=descent.raised,
+        channel=descent.channel,
+        pinned=descent.pinned,
+        attrs=_attrs(descent),
+        basin=mask,
+        basin_attrs=attrs,
+    )
+
+
+def test_the_basin_is_a_bool_array_per_face_with_its_outlet_on_it(store) -> None:
+    _write_mesh(store)
+
+    _write_with_basin(store, _basin_mask(), _basin_attrs())
+
+    array = store.root["mesh"]["descent_basin"]
+    assert array.dtype == np.bool_
+    assert array.shape == (N_CELLS,)
+    assert np.flatnonzero(array[:]).tolist() == BASIN_CELLS
+    attrs = dict(array.attrs)
+    assert attrs["descent_outlet"] == BASIN_OUTLET
+    assert attrs["basin_rule"] == "within_polygon"
+    assert attrs["basin_area_m2"] == pytest.approx(4.0)
+    assert attrs["basin_seeded_at_outlet"] is True
+    assert attrs["basin_version"] == 1
+
+
+def test_a_stored_basin_reads_back_read_only_with_its_attributes(store) -> None:
+    vertices, connectivity = _write_mesh(store)
+    _write_with_basin(store, _basin_mask(), _basin_attrs())
+
+    view = load_descent(_run_over(store, vertices, connectivity))
+
+    assert not view.rebuilt
+    np.testing.assert_array_equal(view.basin, _basin_mask())
+    assert not view.basin.flags.writeable
+    assert view.basin_attrs == _basin_attrs()
+
+
+def test_the_basin_is_read_alone_without_loading_or_rebuilding_d(store, monkeypatch) -> None:
+    vertices, connectivity = _write_mesh(store)
+    _write_with_basin(store, _basin_mask(), _basin_attrs())
+    from hydromodpy.results.run import descent as module
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("D must be neither loaded nor rebuilt to read the basin")
+
+    for name in ("load_descent", "_rebuild", "_read_stored"):
+        monkeypatch.setattr(module, name, refuse)
+
+    mask, attrs = read_basin(_run_over(store, vertices, connectivity))
+
+    np.testing.assert_array_equal(mask, _basin_mask())
+    assert not mask.flags.writeable
+    assert attrs["descent_outlet"] == BASIN_OUTLET
+
+
+def test_the_holder_reads_the_basin_alone_and_a_run_without_one_is_not_rebuilt(
+    store, monkeypatch
+) -> None:
+    vertices, connectivity = _write_mesh(store)
+    run = _run_over(store, vertices, connectivity)
+    from hydromodpy.results.run import descent as module
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("D must be neither loaded nor rebuilt to read the basin")
+
+    for name in ("load_descent", "_rebuild", "_read_stored"):
+        monkeypatch.setattr(module, name, refuse)
+    holder = RunDescent.of_run(run)
+
+    assert holder.stored_basin() is None
+
+    _write_with_basin(store, _basin_mask(), _basin_attrs())
+    holder = RunDescent.of_run(run)
+    mask, attrs = holder.stored_basin()
+    np.testing.assert_array_equal(mask, _basin_mask())
+    assert attrs["descent_outlet"] == BASIN_OUTLET
+
+
+def test_a_descent_stored_before_the_basin_reads_back_without_one(store) -> None:
+    vertices, connectivity = _write_mesh(store)
+    _write(store, _built_descent())
+    run = _run_over(store, vertices, connectivity)
+
+    view = load_descent(run)
+
+    assert not view.rebuilt
+    assert view.basin is None
+    assert view.basin_attrs == {}
+    assert read_basin(run) is None
+
+
+def test_a_rebuilt_descent_has_no_basin(store) -> None:
+    vertices, connectivity = _write_mesh(store)
+
+    view = load_descent(_run_over(store, vertices, connectivity))
+
+    assert view.rebuilt
+    assert view.basin is None
+
+
+@pytest.mark.parametrize(
+    ("mask", "attrs", "message"),
+    [
+        (_basin_mask()[:-1], _basin_attrs(), "one value per cell"),
+        (_basin_mask(), {}, "descent_outlet"),
+        (_basin_mask(), _basin_attrs(descent_outlet=0), "not a cell of the basin"),
+        (_basin_mask(), _basin_attrs(descent_outlet=N_CELLS), "not a cell of the basin"),
+    ],
+    ids=["wrong size", "no outlet", "outlet off the basin", "outlet off the mesh"],
+)
+def test_a_basin_that_does_not_fit_d_is_refused(store, mask, attrs, message) -> None:
+    _write_mesh(store)
+
+    with pytest.raises(ValueError, match=message):
+        _write_with_basin(store, mask, attrs)
+
+    assert "descent_basin" not in store.root["mesh"]
+
+
+def test_attributes_without_a_basin_are_refused(store) -> None:
+    descent = _built_descent()
+
+    with pytest.raises(ValueError, match="without a basin"):
+        store.write_descent(
+            receiver=descent.receiver,
+            surface=descent.surface,
+            base_level=descent.base_level,
+            constant_head=descent.constant_head,
+            raised=descent.raised,
+            channel=descent.channel,
+            pinned=descent.pinned,
+            attrs={},
+            basin_attrs=_basin_attrs(),
+        )
+
+
+def test_storing_the_basin_moves_neither_the_schema_version_nor_the_other_arrays(store) -> None:
+    _write_mesh(store)
+    before = dict(store.root.attrs)["zarr_schema_version"]
+
+    _write_with_basin(store, _basin_mask(), _basin_attrs())
+
+    assert dict(store.root.attrs)["zarr_schema_version"] == before == ZARR_SCHEMA_VERSION
+    np.testing.assert_array_equal(
+        store.root["mesh"]["descent_receiver"][:], _built_descent().receiver
+    )

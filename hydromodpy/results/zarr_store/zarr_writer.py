@@ -513,6 +513,8 @@ def write_descent(
     pinned: np.ndarray,
     attrs: Mapping[str, object],
     dam_foot: np.ndarray | None = None,
+    basin: np.ndarray | None = None,
+    basin_attrs: Mapping[str, object] | None = None,
 ) -> None:
     """Write the descent D next to the mesh it routes on, under ``mesh/``.
 
@@ -521,8 +523,10 @@ def write_descent(
     raised, channel and pinned masks. ``attrs`` (adjacency kind, epsilon, report
     counts) is stamped on the receiver array. ``descent_dam_foot`` is an eighth
     array, int64, the ids of the cells below the dams (empty when the run has no
-    lake); it is a list of cells, not a per-face field. Additive: a store
-    without these arrays is still valid.
+    lake); it is a list of cells, not a per-face field. ``basin`` is a ninth
+    array, ``descent_basin`` (bool per face): the basin of D at the catchment
+    outlet. ``basin_attrs`` is stamped on it and must name ``descent_outlet``,
+    a cell of the basin. Additive: a store without these arrays is still valid.
     """
     arrays = {
         "descent_receiver": (np.asarray(receiver, dtype="int64"), "Receiver cell of the descent"),
@@ -539,6 +543,7 @@ def write_descent(
     sizes = {values.size for values, _ in arrays.values()}
     if len(sizes) != 1 or any(values.ndim != 1 for values, _ in arrays.values()):
         raise ValueError(f"the descent arrays must be 1-D and share one size, got {sorted(sizes)}.")
+    basin_values = _checked_basin(basin, basin_attrs, n_cells=next(iter(sizes)))
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
         for name, (values, long_name) in arrays.items():
@@ -564,6 +569,37 @@ def write_descent(
             dimension_names=(field_registry.AXIS_RECORD,),
             attrs={"long_name": "Cells below the dams, where the stream under a lake starts"},
         )
+        if basin_values is not None:
+            _write_array(
+                store_obj,
+                mesh,
+                "descent_basin",
+                basin_values,
+                dimension_names=(field_registry.AXIS_FACE,),
+                attrs={
+                    "long_name": "Basin of the descent at the catchment outlet",
+                    **dict(basin_attrs or {}),
+                },
+            )
+
+
+def _checked_basin(
+    basin: np.ndarray | None, basin_attrs: Mapping[str, object] | None, *, n_cells: int
+) -> np.ndarray | None:
+    """Return the basin mask as a bool array, or refuse one that does not fit D."""
+    if basin is None:
+        if basin_attrs:
+            raise ValueError("basin_attrs were given without a basin.")
+        return None
+    values = np.asarray(basin, dtype=bool)
+    if values.ndim != 1 or values.size != n_cells:
+        raise ValueError(f"the basin must hold one value per cell ({n_cells}), got {values.shape}.")
+    if not basin_attrs or "descent_outlet" not in basin_attrs:
+        raise ValueError("a basin is stored with its descent_outlet attribute.")
+    outlet = int(basin_attrs["descent_outlet"])
+    if not 0 <= outlet < n_cells or not values[outlet]:
+        raise ValueError(f"the outlet cell {outlet} is not a cell of the basin.")
+    return values
 
 
 def write_topography(

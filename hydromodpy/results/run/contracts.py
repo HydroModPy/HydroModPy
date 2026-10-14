@@ -167,7 +167,9 @@ class MeshDescent:
     accumulation crosses them; ``raised`` flags the cells D raised on its copy,
     where the routing departs from the model top. A run sealed before D was
     stored gets one rebuilt from its stored top (``rebuilt``): no channel pin,
-    no constant-head seed, no lake.
+    no constant-head seed, no lake. ``basin`` is the basin of D at the catchment
+    outlet, one flag per face, outlet included; it is ``None`` for a rebuilt D
+    and for a run sealed before the basin was stored.
     """
 
     receiver: np.ndarray
@@ -189,6 +191,12 @@ class MeshDescent:
     dam_foot: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     """Cell ids below the dams, where the stream under a lake starts. Empty for a
     run with no lake, a run sealed before they were stored, or a rebuilt D."""
+    basin: np.ndarray | None = None
+    """Basin of D at the catchment outlet, a read-only bool per face, ``None`` when not stored."""
+    basin_attrs: dict[str, object] = field(default_factory=dict)
+    """Attributes of the stored basin: ``descent_outlet`` (the outlet cell), ``basin_rule`` (how
+    the outlet was found), ``basin_area_m2``, ``basin_seeded_at_outlet`` and ``basin_version``.
+    Empty when no basin is stored."""
 
     @property
     def diagonal_neighbors(self) -> bool:

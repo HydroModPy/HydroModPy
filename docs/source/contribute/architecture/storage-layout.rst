@@ -448,17 +448,21 @@ arrays, no ``engine`` and no ``crs`` on ``mesh/``; its readers say so and do not
 **Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
 ``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the
 masks ``descent_base_level``, ``descent_constant_head``, ``descent_raised``, ``descent_channel``
-and ``descent_pinned``, and the list ``descent_dam_foot``. The attributes of ``descent_receiver``
-name the neighbourhood and carry the build report. The solver build leaves D in the solver folder
-as ``<model>.descent.npz`` and the extractor copies it into the store right after the mesh.
-``run.descent`` reads it back, and the flow direction map and ``accumulation_flux`` route on it
+and ``descent_pinned``, the list ``descent_dam_foot`` and the mask ``descent_basin``, the basin of D
+at the catchment outlet, whose attributes name the outlet cell (``descent_outlet``), the rule that
+found it (``basin_rule``), the area (``basin_area_m2``), whether D was seeded at the outlet
+(``basin_seeded_at_outlet``) and the rule version (``basin_version``). The attributes of
+``descent_receiver`` name the neighbourhood and carry the build report. The solver build leaves D
+and its basin in the solver folder as ``<model>.descent.npz`` and the extractor copies them into
+the store right after the mesh. ``run.descent`` reads them back, and the flow direction map and ``accumulation_flux`` route on it
 (the contract of D is in :doc:`solver/backends`). A Boussinesq run stores the mesh of its
 setup like any other, and its extractor builds D from the Whitebox D8 pointer of the filled top and
 stores it once per run as ``descent_receiver`` and ``descent_surface``, for a raster run only. A
 Boussinesq run on a triangular mesh stores no D, and its accumulation fields are unavailable. The
 arrays are new datasets, so ``zarr_schema_version`` does not change. A run sealed before D was stored has no
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
-constant-head seed and no lake.
+constant-head seed and no lake. A run sealed with D but before ``descent_basin`` has no basin, and
+each reader of the catchment says which older support it falls back to.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under

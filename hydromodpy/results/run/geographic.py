@@ -26,6 +26,7 @@ from hydromodpy.results.derive.mesh_quality import (
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path
 from hydromodpy.results.run.contracts import Mesh, MeshStoreIdentity, RasterField
+from hydromodpy.results.run.descent import read_basin
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -169,13 +170,31 @@ class RunGeographicMixin:
 
     @cached_property
     def catchment_mask(self) -> np.ndarray:
-        """2D boolean mask of active catchment cells on the DEM raster.
+        """Boolean mask of the catchment: the basin of D at the catchment outlet.
 
-        Shape matches ``run.grid.shape``. ``True`` where the DEM has a
-        valid positive elevation. Cached on first access.
+        One value per mesh face, read-only, ``True`` for the faces of the basin
+        stored as ``mesh/descent_basin``. A run sealed before the basin was
+        stored, a run with no descent (such as a Boussinesq run) and a run whose
+        basin is only the largest one of a synthetic domain (no catchment) fall
+        back, with an INFO line, to a 2D mask on the DEM raster, ``True`` where
+        the DEM has a valid positive elevation; its shape is ``run.grid.shape``.
+        Cached on first access.
         """
+        stored = read_basin(self)
+        synthetic = stored is not None and stored[1].get("basin_rule") == "largest_basin"
+        if stored is not None and not synthetic:
+            return stored[0]
         raster = self.geographic_raster("watershed_dem")
         dem = raster.data.astype(float)
+        logger.info(
+            "Run %s %s: catchment_mask is the old support 'dem_raster' (watershed DEM > 0, "
+            "shape %s), not one value per mesh face.",
+            self._sim_id,
+            "stores the largest basin of a synthetic domain, which is no catchment"
+            if synthetic
+            else "predates the stored basin of D",
+            dem.shape,
+        )
         return np.isfinite(dem) & (dem > 0)
 
     @cached_property

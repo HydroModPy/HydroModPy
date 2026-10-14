@@ -31,12 +31,17 @@ receiver, like a rim seed, so the accumulation crosses a river CHD and the
 outlet still sums the whole domain. The walks that must end where water leaves
 the model (the drainage mover, the reach rectification) read
 :attr:`Descent.stopping_receiver`, which is -1 on ``constant_head``.
+
+The basin of D at the outlet of the catchment (:func:`descent_basin`) is the
+catchment of a run: the budget zone, the discharge a gauge sees and the
+drainage routing all read it. It is computed here and nowhere else.
 """
 
 from __future__ import annotations
 
 import heapq
 from dataclasses import dataclass, replace
+from typing import Literal
 
 import numpy as np
 
@@ -48,6 +53,7 @@ from hydromodpy.core.field_routing import (
     cell_centroids_from_mesh,
     domain_edge_cells,
 )
+from hydromodpy.core.stream_geometry import resolve_outlet
 from hydromodpy.core.topographic_distance import (
     DownslopeMetric,
     build_downslope_metric,
@@ -55,7 +61,22 @@ from hydromodpy.core.topographic_distance import (
     shared_node_adjacency,
 )
 
-__all__ = ("Descent", "build_descent", "descent_from_stored_mesh", "descent_graph")
+__all__ = (
+    "BASIN_VERSION",
+    "BasinRule",
+    "Descent",
+    "DescentBasin",
+    "build_descent",
+    "descent_basin",
+    "descent_from_stored_mesh",
+    "descent_graph",
+)
+
+BasinRule = Literal["near_point", "within_polygon", "largest_basin"]
+"""How the outlet of a basin of D was found: the closing point, the polygon, or neither."""
+
+BASIN_VERSION = 1
+"""Version of the basin rule, stored with the basin so a reader knows which rule made it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +178,87 @@ class Descent:
         return inside
 
 
+@dataclass(frozen=True, slots=True)
+class DescentBasin:
+    """The basin of D at the outlet of the catchment: the cells that drain through it.
+
+    ``mask`` holds the outlet. ``rule`` says how the outlet was found: near the
+    closing point, inside the watershed polygon, or the largest basin of the
+    domain when the run has neither. ``seeded_at_outlet`` says D was flooded
+    from this outlet, the domain being the catchment itself.
+    """
+
+    mask: np.ndarray
+    outlet: int
+    rule: BasinRule
+    area_m2: float
+    seeded_at_outlet: bool
+
+    @property
+    def is_catchment(self) -> bool:
+        """Whether the basin closes a catchment, not just the largest basin of the domain."""
+        return self.rule != "largest_basin"
+
+
+def descent_basin(
+    descent: Descent,
+    *,
+    cell_area_m2: np.ndarray,
+    near: tuple[float, float] | None = None,
+    within: np.ndarray | None = None,
+    seeded_at_outlet: bool = False,
+) -> DescentBasin:
+    """Return the basin of D at the outlet of the catchment, the one computation of it.
+
+    The outlet follows the rule of the stream criterion
+    (:func:`hydromodpy.core.stream_geometry.resolve_outlet`): the most drained
+    cell within two rings of ``near``, else inside ``within``, else the largest
+    basin of the domain. The basin follows :attr:`Descent.receiver`, never the
+    stopping receiver: it continues through a constant-head cell that has a
+    lower neighbour. A constant-head cell with none is a sink, and the cells
+    draining into it stay outside.
+
+    Raises
+    ------
+    ValueError
+        When ``cell_area_m2`` does not match the mesh, or ``near`` is given to
+        a D whose adjacency was already dropped.
+    """
+    areas = np.asarray(cell_area_m2, dtype=float).reshape(-1)
+    if areas.size != descent.receiver.size:
+        raise ValueError(
+            f"cell_area_m2 holds {areas.size} cells, the descent {descent.receiver.size}."
+        )
+    if near is not None and descent.adjacency is None:
+        raise ValueError(
+            "snapping the outlet near a point needs the adjacency of D: compute the basin "
+            "before D drops it."
+        )
+    rule: BasinRule = (
+        "near_point"
+        if near is not None
+        else "within_polygon"
+        if within is not None
+        else "largest_basin"
+    )
+    outlet = resolve_outlet(
+        descent.metric,
+        near=near,
+        within=within,
+        adjacency=descent.adjacency,
+        cell_area_m2=areas,
+    )
+    mask = descent.basin(outlet)
+    area = float(np.where(np.isfinite(areas), areas, 0.0)[mask].sum())
+    return DescentBasin(
+        mask=mask,
+        outlet=outlet,
+        rule=rule,
+        area_m2=area,
+        seeded_at_outlet=bool(seeded_at_outlet),
+    )
+
+
 def build_descent(
     top: np.ndarray,
     face_node_connectivity: np.ndarray,
@@ -170,13 +272,19 @@ def build_descent(
     channel: np.ndarray | None = None,
     diagonal_neighbors: bool = True,
     epsilon: float = DEFAULT_EPSILON_M,
+    outlet: int | None = None,
 ) -> Descent:
     """Fill a copy of ``top`` on the descended graph and build its receivers.
 
     ``routable`` names the cells of the graph, lake cells included: a lake is
     crossed by the fill, so a fixed-area lake, inactive in the solver, must be
     routable here. ``base_level`` adds seeds to the rim of the routable domain,
-    the constant-head cells where water leaves the model inside it. Every seed,
+    the constant-head cells where water leaves the model inside it.
+
+    ``outlet`` replaces the rim by one cell, for a domain that is the catchment
+    itself: water leaves it at its outlet, not along its whole edge. The
+    connected parts of the graph that do not hold the outlet keep their rim as
+    seeds, since no flood from the outlet reaches them. Every seed,
     rim or constant head, keeps its steepest descent: the accumulation passes
     through it, and the walks that stop there read
     :attr:`Descent.stopping_receiver`. ``diagonal_neighbors`` asks
@@ -201,8 +309,8 @@ def build_descent(
     ValueError
         When an array does not match the mesh, a lake cell is not routable, a
         pin is out of range, leaves a non-channel cell, lands on a lake, a
-        non-channel or an off-graph cell, or closes a cycle, or when a cell is
-        left with no way down.
+        non-channel or an off-graph cell, or closes a cycle, when ``outlet`` is
+        off the graph, or when a cell is left with no way down.
     """
     surface_in = np.asarray(top, dtype=float).reshape(-1)
     n_cells = int(surface_in.size)
@@ -236,7 +344,11 @@ def build_descent(
         else cell_adjacency_from_face_connectivity(face_node_connectivity, n_cells=n_cells)
     )
     constant_head = extra_seeds & on_graph
-    seeds = domain_edge_cells(face_node_connectivity, on_graph) | constant_head
+    if outlet is None:
+        rim = domain_edge_cells(face_node_connectivity, on_graph)
+    else:
+        rim = _outlet_and_detached_rims(int(outlet), adjacency, face_node_connectivity, on_graph)
+    seeds = rim | constant_head
     if not np.any(seeds):
         raise ValueError("the descent has no seed: no routable cell lies on the domain rim.")
     channel_mask, pin = _resolve_pins(
@@ -331,6 +443,36 @@ def descent_from_stored_mesh(
         centroids=cell_centroids_from_mesh(vertices, face_node_connectivity),
         routable=active_surface_mask(surface),
     )
+
+
+def _outlet_and_detached_rims(
+    outlet: int,
+    adjacency: list[set[int]],
+    face_node_connectivity: np.ndarray,
+    on_graph: np.ndarray,
+) -> np.ndarray:
+    """Seeds of a domain that is its catchment: the outlet and the rims it cannot reach.
+
+    The connected part of the graph that holds the outlet is seeded there
+    alone. A part detached from it, an island the raster clip of the
+    catchment left, keeps its rim, or no flood would ever reach its cells.
+    """
+    if not 0 <= outlet < on_graph.size or not on_graph[outlet]:
+        raise ValueError(f"the outlet cell {outlet} is off the descended graph.")
+    reached = np.zeros(on_graph.size, dtype=bool)
+    reached[outlet] = True
+    frontier = [outlet]
+    while frontier:
+        following: list[int] = []
+        for cell in frontier:
+            for neighbour in adjacency[cell]:
+                if on_graph[neighbour] and not reached[neighbour]:
+                    reached[neighbour] = True
+                    following.append(neighbour)
+        frontier = following
+    seeds = domain_edge_cells(face_node_connectivity, on_graph) & ~reached
+    seeds[outlet] = True
+    return seeds
 
 
 def _flood(
