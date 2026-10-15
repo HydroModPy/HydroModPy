@@ -10,17 +10,15 @@
 #   hmp run examples/projects/11_run_from_scratch_without_plots/project.toml
 #   hmp catalog show canut_headless_mf6
 #
+[site]
+name = "canut"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "canut_headless_mf6"
 description = "Canut catchment, steady MODFLOW 6, three-layer 50 m aquifer, no figure rendered."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

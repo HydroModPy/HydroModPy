@@ -2,7 +2,7 @@
 
 Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 
-- ``on_collision`` -> ``if_exists``
+- ``on_collision`` -> ``if_exists``, ``"replace"`` becoming ``"version"``
 - ``run_id`` -> ``name`` (when ``name`` is not already set)
 - ``[simulation.results.export]`` -> top-level ``[export]``
 - ``[export.variables]`` boolean submodel (``head``, ``concentration``,
@@ -116,6 +116,9 @@ def migrate_config_doc(doc: Any) -> list[str]:
     if "on_collision" in simulation:
         value = simulation["on_collision"]
         if "if_exists" not in simulation:
+            # "replace" is gone: a run never overwrites an earlier one.
+            if value == "replace":
+                value = "version"
             simulation["if_exists"] = value
             changes.append(f"simulation.on_collision -> if_exists ({value!r})")
         else:

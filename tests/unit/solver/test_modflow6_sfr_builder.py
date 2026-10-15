@@ -236,7 +236,9 @@ def test_explicit_network_resolves_cells_and_runs_picard_check() -> None:
             _chain_reach(0, 1, [], [2], 96.0),
             _chain_reach(1, 1, [1], [3], 95.9),
             _chain_reach(2, 1, [2], [], 95.8),
-        ]
+        ],
+        # Single Picard pass only when nothing moves water into the reaches.
+        route_drainage=False,
     )
     model = _fake_model({"net0": payload})
     networks = resolve_sfr_networks(model, solver_mesh=mesh)

@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "CalibratedBy": {
+      "additionalProperties": false,
+      "description": "The session, phase and trial a promoted run comes from.",
+      "properties": {
+        "phase": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Phase of that session",
+          "title": "Phase",
+          "x-hmp-profile": "user"
+        },
+        "session_id": {
+          "description": "Session that promoted the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Session Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "session_status": {
+          "description": "How the session ended",
+          "enum": [
+            "completed",
+            "partial",
+            "aborted"
+          ],
+          "examples": [
+            "completed"
+          ],
+          "title": "Session Status",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "trial": {
+          "description": "Trial number, unique in the session",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Trial",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Window the session scored its objective on",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "session_id",
+        "trial",
+        "session_status"
+      ],
+      "title": "CalibratedBy",
+      "type": "object"
+    },
+    "DateWindow": {
+      "additionalProperties": false,
+      "description": "A closed range of days, ``start`` and ``end`` included.",
+      "properties": {
+        "end": {
+          "description": "Last day of the window, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "description": "First day of the window",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DateWindow",
+      "type": "object"
+    },
+    "Validity": {
+      "description": "One check that qualifies a result without penalising it.\n\n``passed`` is the verdict, ``message`` the sentence a reader who is not a\nhydrogeologist needs. ``fatal`` is true for the few checks whose failure\nmakes the number a fiction rather than coarse.",
+      "properties": {
+        "fatal": {
+          "default": false,
+          "title": "Fatal",
+          "type": "boolean"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "passed",
+        "value",
+        "message"
+      ],
+      "title": "Validity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The measured facts of a run, sealed with it.",
+  "properties": {
+    "bounds_hit": {
+      "description": "Calibrated parameters that ended on a bound",
+      "items": {
+        "type": "string"
+      },
+      "title": "Bounds Hit",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "budget_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Water-budget discrepancy, percent",
+      "title": "Budget Pct",
+      "x-hmp-profile": "user"
+    },
+    "budget_threshold_pct": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Discrepancy the user accepts, percent; none when undeclared",
+      "title": "Budget Threshold Pct",
+      "x-hmp-profile": "user"
+    },
+    "calibrated_by": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalibratedBy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Present on a run promoted by a calibration",
+      "x-hmp-profile": "user"
+    },
+    "code_reproducible": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "False for a dirty checkout or an editable install",
+      "title": "Code Reproducible",
+      "x-hmp-profile": "user"
+    },
+    "converged": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Convergence reported by the solver",
+      "title": "Converged",
+      "x-hmp-profile": "user"
+    },
+    "n_samples": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Samples the score used",
+      "title": "N Samples",
+      "x-hmp-profile": "user"
+    },
+    "obs_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Share of the score window with observations",
+      "title": "Obs Coverage",
+      "x-hmp-profile": "user"
+    },
+    "score_window": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DateWindow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Window the run was scored on",
+      "x-hmp-profile": "user"
+    },
+    "validities": {
+      "description": "Criterion verdicts",
+      "items": {
+        "$ref": "#/$defs/Validity"
+      },
+      "title": "Validities",
+      "type": "array",
+      "x-hmp-profile": "user"
+    }
+  },
+  "title": "Checks",
+  "type": "object"
+}

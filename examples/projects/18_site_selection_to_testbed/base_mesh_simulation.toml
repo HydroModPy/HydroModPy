@@ -1,9 +1,6 @@
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "outputs/site_selection_manifest_mesh_testbed/base_workspace"
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"

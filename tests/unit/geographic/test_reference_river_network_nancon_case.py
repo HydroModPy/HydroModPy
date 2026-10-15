@@ -27,8 +27,10 @@ def _write_tmp_config(work_root: Path) -> Path:
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{out_path}"',
                 f'root = "{ws_root}"',
+                "",
+                "[site]",
+                'name = "nancon"',
                 "",
                 "[geographic]",
                 'crs_project = "EPSG:2154"',

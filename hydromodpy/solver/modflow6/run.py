@@ -104,7 +104,76 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
                 success_model, _ = run_simulation_with_progress(model.sim, int(model.nper))
         finally:
             model.last_flow_solve_time_seconds = time.perf_counter() - solve_start
+        if success_model:
+            warn_on_throttled_wells(model)
     return success_model
+
+
+def warn_on_throttled_wells(model) -> list[dict]:
+    """Warn when AUTO_FLOW_REDUCE cut a well by more than 10 % of its requested volume.
+
+    Compares the volume the WEL package was asked for with the one the budget
+    file reports. The rows are kept on ``model.well_throttle_report`` for the
+    run QA. A missing budget or well package returns an empty list.
+    """
+    from hydromodpy.physics.flow.sinks_sources.wells import (
+        throttled_well_message,
+        throttled_well_report,
+    )
+
+    rows: list[dict] = []
+    try:
+        wel = getattr(model, "wel", None)
+        if wel is None:
+            model.well_throttle_report = rows
+            return rows
+        requested, applied = _well_volumes(model, wel)
+        rows = throttled_well_report(requested, applied)
+    except Exception as exc:  # the check must never fail a finished solve
+        logger.debug("Well throttle check skipped: %s", exc)
+    model.well_throttle_report = rows
+    if rows:
+        message = throttled_well_message(rows)
+        logger.warning(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+    return rows
+
+
+def _well_volumes(model, wel) -> tuple[dict, dict]:
+    """Return requested and applied well volumes (m3) keyed by ``(layer, cell)``."""
+    import os
+
+    import flopy
+    import numpy as np
+
+    folder = model.sim.simulation_data.mfpath.get_sim_path()
+    cbc_path = os.path.join(folder, model.model_output_name)
+    cbc = flopy.utils.CellBudgetFile(cbc_path, precision="double")
+    times = [float(t) for t in cbc.get_times()]
+    kstpkper = cbc.get_kstpkper()
+    ncpl = int(model.gwf.modelgrid.ncpl)
+    spd = wel.stress_period_data.get_data()
+    requested: dict = {}
+    applied: dict = {}
+    previous = 0.0
+    last_rows = None
+    for totim, (_, kper) in zip(times, kstpkper, strict=False):
+        dt = totim - previous
+        previous = totim
+        rows = spd.get(int(kper), last_rows)
+        last_rows = rows
+        if rows is None:
+            continue
+        for row in rows:
+            layer, cell = (int(i) for i in row["cellid"][:2])
+            key = (layer, cell)
+            requested[key] = requested.get(key, 0.0) + float(row["q"]) * dt
+        for record in cbc.get_data(totim=totim, text="WEL"):
+            for item in np.atleast_1d(record):
+                node = int(item["node"]) - 1
+                key = (node // ncpl, node % ncpl)
+                applied[key] = applied.get(key, 0.0) + float(item["q"]) * dt
+    return requested, applied
 
 
 # Whether a solve runs isolated is asked for in ``solver/base/api_isolation``:

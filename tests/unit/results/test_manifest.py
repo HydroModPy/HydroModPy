@@ -392,6 +392,8 @@ def test_parameters_land_on_disk_as_parquet(sealed_run):
         "unit",
         "parameterization",
         "valid_from",
+        "origin",
+        "calibrated",
     ]
     rows = {(r["param_name"], r["zone_id"]): r for r in table.to_pylist()}
     assert rows[("hk", "__global__")]["value"] == pytest.approx(1e-5)

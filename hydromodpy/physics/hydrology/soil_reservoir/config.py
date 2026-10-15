@@ -194,8 +194,8 @@ class SoilReservoirConfig(HydroModelBase):
         description=(
             'State of the soil on the first day. "first_year" repeats the first '
             "365 days of the run until the storage at the end of that year moves by "
-            "less than 0.1 mm, 20 times at most; the run must last one year at "
-            'least. "none" starts from a full soil, the state of a soil in a wet '
+            "less than 0.1 mm, 20 times at most; the run must last 364 days "
+            '(52 weeks) at least, and a 364-day run repeats those 364 days. "none" starts from a full soil, the state of a soil in a wet '
             "winter."
         ),
         json_schema_extra={
@@ -429,9 +429,15 @@ def steady_start_refusal(flow_config: object, window: ResolvedSimulationTimeWind
     )
 
 
+# Shortest run whose first days can stand for a year in the spin-up.
+# 52 weekly stress periods cover 364 days. The spin-up then repeats that
+# 364-day cycle, one day short of a calendar year.
+SPINUP_MIN_RUN_DAYS = 52 * 7
+
+
 def spinup_refusal(config: SoilReservoirConfig, run_days: int) -> str | None:
     """Say why the first year cannot be repeated, or None."""
-    if config.spinup != "first_year" or run_days >= 365:
+    if config.spinup != "first_year" or run_days >= SPINUP_MIN_RUN_DAYS:
         return None
     return (
         'spinup = "first_year" repeats the first 365 days of the run, and '
@@ -442,6 +448,7 @@ def spinup_refusal(config: SoilReservoirConfig, run_days: int) -> str | None:
 
 
 __all__ = [
+    "SPINUP_MIN_RUN_DAYS",
     "SoilReservoirConfig",
     "soil_reservoir_of",
     "spinup_refusal",

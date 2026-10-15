@@ -42,7 +42,6 @@ _COMMON = """\
 mode = "simulation"
 
 [workspace]
-project_root = "{root}"
 
 [simulation]
 name = "toit"

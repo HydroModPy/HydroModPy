@@ -197,7 +197,6 @@ def _run_cli_workflow(
                 'mode = "overview"',
                 "",
                 "[workspace]",
-                f'project_root = "{workspace.as_posix()}"',
                 f'root = "{workspace.as_posix()}"',
                 "",
             ]

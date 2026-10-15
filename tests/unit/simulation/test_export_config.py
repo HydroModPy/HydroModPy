@@ -13,7 +13,6 @@ from hydromodpy.core.exceptions import ConfigValidationError
 
 _HEAD = """\
 [workspace]
-project_root = "{root}"
 
 [workflow]
 mode = "simulation"

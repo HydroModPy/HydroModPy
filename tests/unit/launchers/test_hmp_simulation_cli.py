@@ -25,7 +25,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=simulation dispatches to run_simulation."""
     config = _write_toml(
         tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -53,7 +53,7 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
     """``hmp run --no-display`` must reach run_simulation(no_display=True)."""
     config = _write_toml(
         tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -74,7 +74,7 @@ def test_hmp_run_rejects_removed_checkpoint_flag(monkeypatch, tmp_path) -> None:
     """``--checkpoint`` was removed with the pickle layer."""
     config = _write_toml(
         tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--checkpoint"])
     with pytest.raises(SystemExit) as exc_info:
@@ -86,7 +86,7 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
     config = _write_toml(
         tmp_path / "config.toml",
         '[workflow]\nmode = "simulation"\n'
-        '[workspace]\nproject_root = "."\n'
+        "[workspace]\n"
         '[simulation]\nname = "base"\nrun_id = "base_run"\n',
     )
     overlay = _write_toml(
@@ -129,7 +129,7 @@ def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:
     """``--resume`` propagates a run_id to the simulation dispatcher."""
     config = _write_toml(
         tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -150,7 +150,7 @@ def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_
     """Pipeline step controls must reach only the simulation dispatcher."""
     config = _write_toml(
         tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -201,7 +201,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=overview dispatches to run_overview."""
     config = _write_toml(
         tmp_path / "overview.toml",
-        '[workflow]\nmode = "overview"\n[workspace]\nproject_root = "."\n[overview]\nname = "test"\n',
+        '[workflow]\nmode = "overview"\n[workspace]\n[overview]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -224,7 +224,7 @@ def test_hmp_run_rejects_removed_mesh_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` no longer accepts the removed workflow=mesh value."""
     config = _write_toml(
         tmp_path / "mesh.toml",
-        '[workflow]\nmode = "mesh"\n[workspace]\nproject_root = "."\n[mesh]\ncell_size = 200\n',
+        '[workflow]\nmode = "mesh"\n[workspace]\n[mesh]\ncell_size = 200\n',
     )
 
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
@@ -275,36 +275,13 @@ def test_hmp_run_crashes_when_workflow_field_missing(monkeypatch, tmp_path) -> N
     """``hmp run`` refuses a TOML that does not declare ``[workflow].mode``."""
     config = _write_toml(
         tmp_path / "no_workflow.toml",
-        '[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workspace]\n[simulation]\nname = "test"\n',
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == EXIT_CONFIG
-
-
-def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=comparison dispatches to run_comparison."""
-    config = _write_toml(
-        tmp_path / "comparison.toml",
-        '[workflow]\nmode = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
-    )
-
-    captured: dict = {}
-
-    def fake_run(config_path):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        return {"mode": "comparison"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "comparison", fake_run)
-    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
-
-    main()
-
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
 
 
 def test_hmp_run_rejects_scalar_workflow(monkeypatch, tmp_path) -> None:
@@ -321,60 +298,11 @@ def test_hmp_run_rejects_scalar_workflow(monkeypatch, tmp_path) -> None:
     assert exc_info.value.code == EXIT_CONFIG
 
 
-def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=testbed dispatches to run_testbed."""
-    config = _write_toml(
-        tmp_path / "testbed.toml",
-        '[workflow]\nmode = "testbed"\n[testbed]\nid = "demo"\n',
-    )
-
-    captured: dict = {}
-
-    def fake_run(config_path):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        return {"mode": "testbed"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "testbed", fake_run)
-    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
-
-    main()
-
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
-
-
-def test_hmp_run_dispatches_site_selection_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=site_selection dispatches to run_site_selection."""
-    config = _write_toml(
-        tmp_path / "site_selection.toml",
-        '[workflow]\nmode = "site_selection"\n'
-        "[site_selection]\n"
-        'selection_id = "demo"\n'
-        'output_root = "out"\n',
-    )
-
-    captured: dict = {}
-
-    def fake_run(config_path):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        return {"mode": "site_selection"}
-
-    monkeypatch.setitem(project_workflow.DISPATCH, "site_selection", fake_run)
-    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
-
-    main()
-
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
-
-
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
     """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(
         tmp_path / "bad_workflow.toml",
-        '[workflow]\nmode = "not_a_workflow"\n[workspace]\nproject_root = "."\n',
+        '[workflow]\nmode = "not_a_workflow"\n[workspace]\n',
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 

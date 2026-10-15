@@ -483,11 +483,20 @@ def build_lake_connectiondata(
             float(centroids[neighbour, 0]), float(centroids[neighbour, 1]), bx, by, p0, p1
         )
 
+    sealed = [0]
+
     def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, occ_c: int, iconn: int):
-        """HORIZONTAL bank connections of one lake column, sealed at the dam."""
+        """HORIZONTAL bank connections of one lake column, sealed at the dam.
+
+        Fixed area: the bank spans the occupied cap ``[lake_bottom, lake_top]``.
+        Marnage (decision D8): the lake column stays active below its carved bed,
+        so the bank spans ``[carved bed, neighbour top]`` and never sits below the
+        bed. Every neighbour layer that crosses that band gets one row.
+        """
         out: list[list[Any]] = []
         faces = _cell_faces(solver_mesh.cell_mesh, cid)
-        for lay in range(occ_c):
+        layers = range(nlay) if dynamic_area else range(occ_c)
+        for lay in layers:
             for neighbour, node_a, node_b, width in faces:
                 if width <= 0.0:
                     continue  # degenerate (zero-length) edge: skip
@@ -496,15 +505,20 @@ def build_lake_connectiondata(
                 if int(idomain[lay, neighbour]) != 1:
                     continue  # neighbour inactive at this layer
                 if _neighbour_behind_wall(neighbour):
+                    sealed[0] += 1
                     continue  # seal: no bank seepage across the dam
                 connlen = _point_to_segment_distance(
                     centroids[neighbour], vertices[node_a], vertices[node_b]
                 )
                 if connlen <= 0.0:
                     continue
-                belev = max(float(botm[lay, neighbour]), lake_bottom)
                 cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
-                telev = min(cell_top, lake_top)
+                if dynamic_area:
+                    belev = max(float(botm[lay, neighbour]), lake_top)
+                    telev = min(cell_top, float(top[neighbour]))
+                else:
+                    belev = max(float(botm[lay, neighbour]), lake_bottom)
+                    telev = min(cell_top, lake_top)
                 if telev <= belev:
                     continue  # neighbour cell sits outside the lake vertical extent
                 out.append(
@@ -574,6 +588,21 @@ def build_lake_connectiondata(
             hrows = _horizontal_rows(cid, lake_top, lake_bottom, occ_c, iconn)
             rows.extend(hrows)
             iconn += len(hrows)
+
+    if sealed[0]:
+        logger.warning(
+            "Lake %d: cutoff_wall seals %d bank connection(s) behind the dam. "
+            "The seal is a perfect wall, independent of the HFB hydchr.",
+            int(lake_index),
+            int(sealed[0]),
+        )
+    if model is not None:
+        try:
+            counts = dict(getattr(model, "_lake_sealed_bank_connections", {}) or {})
+            counts[int(lake_index)] = int(sealed[0])
+            model._lake_sealed_bank_connections = counts
+        except AttributeError:
+            pass
 
     if not rows:
         raise ValueError(
@@ -645,6 +674,85 @@ def build_lake_table(
 _DEFAULT_SURFDEP = 0.1
 # Fallback leakance (1/T) used until a calibratable per-lake value is declared.
 _DEFAULT_BEDLEAK = 1.0
+
+
+_TABLE_FLOOR_TOL_M = 1e-3
+"""Gap (m) between the table bottom and min(belev) that triggers a warning."""
+
+
+def _lake_connection_floor(rows: Sequence[Sequence[Any]], solver_mesh: SolverMesh) -> float:
+    """Return the lowest connection bottom MF6 derives for one lake.
+
+    MF6 bounds the lake stage at this floor. A VERTICAL connection bottoms at
+    the top of its cell. A HORIZONTAL one bottoms at ``belev``, or at the cell
+    bottom when ``belev == telev``.
+    """
+    top = np.asarray(solver_mesh.top, dtype=float)
+    botm = np.asarray(solver_mesh.botm, dtype=float)
+    floors: list[float] = []
+    for row in rows:
+        lay, cid = int(row[2][0]), int(row[2][1])
+        cell_top = float(top[cid]) if lay == 0 else float(botm[lay - 1, cid])
+        if row[3] == _VERTICAL:
+            floors.append(cell_top)
+        elif float(row[5]) == float(row[6]):
+            floors.append(float(botm[lay, cid]))
+        else:
+            floors.append(float(row[5]))
+    return float(min(floors))
+
+
+def _warn_table_off_connection_floor(
+    lake_id: str, table: Sequence[Sequence[float]], floor: float
+) -> None:
+    """Warn when the abacus bottom does not match the MF6 stage floor.
+
+    Below the floor the table holds dead storage MF6 never drains. Above it
+    MF6 extrapolates the table under its first row.
+    """
+    bottom = float(table[0][0])
+    if abs(bottom - floor) <= _TABLE_FLOOR_TOL_M:
+        return
+    side = "below" if bottom < floor else "above"
+    logger.warning(
+        "Lake '%s': table bottom %.3f m is %s min(belev) %.3f m of its connections "
+        "(gap %.3f m). MF6 bounds the stage at min(belev).",
+        lake_id,
+        bottom,
+        side,
+        floor,
+        abs(bottom - floor),
+    )
+
+
+def _chd_cellids(model) -> set[tuple[int, int]]:
+    """Return the ``(lay, cell2d)`` cells held by the model CHD package, if any."""
+    chd = getattr(model, "chd", None)
+    if chd is None:
+        return set()
+    data = chd.stress_period_data.get_data() or {}
+    cells: set[tuple[int, int]] = set()
+    for records in data.values():
+        if records is None:
+            continue
+        for rec in records:
+            cellid = rec["cellid"] if getattr(rec, "dtype", None) is not None else rec[0]
+            cells.add((int(cellid[0]), int(cellid[-1])))
+    return cells
+
+
+def _refuse_chd_connections(model, *, lake_id: str, rows: Sequence[Sequence[Any]]) -> None:
+    """Refuse a lake connected to a CHD cell: MF6 fails on the LAK residual."""
+    chd_cells = _chd_cellids(model)
+    if not chd_cells:
+        return
+    hit = sorted({(int(r[2][0]), int(r[2][1])) for r in rows} & chd_cells)
+    if hit:
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} connects to {len(hit)} CHD cell(s) "
+            f"(first (layer, cell): {hit[0]}). A lake must not touch a constant-head "
+            "cell; move the CHD boundary or the lake polygon."
+        )
 
 
 def build_lak_package_args(
@@ -728,6 +836,7 @@ def build_lak_package_args(
             cutoff_wall_line=definition.get("cutoff_wall_line"),
             bank_seepage=bank_seepage,
         )
+        _refuse_chd_connections(model, lake_id=str(lake_id), rows=rows)
         connectiondata.extend(rows)
         # VERTICAL connections sit under the lake footprint: their per-lake iconn
         # tags the under-dam leakage the extractor sums separately.
@@ -743,6 +852,9 @@ def build_lak_package_args(
 
         abacus = definition.get("abacus")
         table = build_lake_table(model, lake_id=lake_id, abacus=abacus)
+        _warn_table_off_connection_floor(
+            str(lake_id), table, _lake_connection_floor(rows, solver_mesh)
+        )
         stageinit = definition.get("stageinit")
         if lake_id in restart_stages:
             strt = float(restart_stages[lake_id])

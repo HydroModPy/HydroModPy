@@ -262,23 +262,6 @@ def _load_optional_mesh_section(
     return MeshConfig.model_validate(payload)
 
 
-def _load_optional_testbed_section(
-    section_data: Any,
-    base: Path,
-) -> Any | None:
-    """Load the optional ``[testbed]`` section."""
-    if section_data is None:
-        return None
-    if not isinstance(section_data, Mapping):
-        raise ValueError("[testbed] must be a mapping")
-    from hydromodpy.analysis.testbed.config import TestbedConfig
-
-    return TestbedConfig.from_toml(
-        {"testbed": dict(section_data)},
-        config_path=base / "testbed.toml",
-    )
-
-
 def _load_optional_calibration_section(
     section_data: Any,
     base: Path,

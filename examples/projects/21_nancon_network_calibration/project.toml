@@ -14,17 +14,15 @@
 # 67 km2, Ille-et-Vilaine), mises en forme sous `examples/data/`.
 # ======================================================================
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 # ----------------------------------------------------------------------
 # Geographic - delimitation et surface de routage
 # ----------------------------------------------------------------------
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
@@ -176,7 +174,6 @@ values = 0.0
 [simulation]
 name = "nancon_base"
 description = "Nancon - config de base pour la calibration par le reseau."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

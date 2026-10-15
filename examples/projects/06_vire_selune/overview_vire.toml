@@ -1,7 +1,9 @@
 base_config = "overview_common.toml"
 
+[site]
+name = "vire"
+
 [workspace]
-project_root = "outputs/vire_overview"
 root = "../.."
 
 [geographic.catchment]

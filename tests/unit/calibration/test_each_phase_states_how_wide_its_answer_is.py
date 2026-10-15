@@ -258,7 +258,6 @@ def test_the_width_does_not_enter_the_params_hash(tmp_path) -> None:
 
 PROJECT = """
 [workspace]
-project_root = "{root}"
 
 [workflow]
 mode = "calibration"

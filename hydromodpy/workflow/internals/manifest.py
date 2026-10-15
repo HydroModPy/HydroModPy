@@ -320,14 +320,11 @@ def _state_config_payload(state: PipelineState) -> Any:
 def _current_dump(payload: Any) -> Any | None:
     """Return *payload* as this version's model dumps it, or None when it does not load."""
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.config.stored_config_migration import migrate_stored_config
 
     if not isinstance(payload, Mapping):
         return None
     try:
-        cfg = HydroModPyConfig.model_validate(
-            migrate_stored_config(payload, source="checkpoint resolved config")
-        )
+        cfg = HydroModPyConfig.model_validate(payload)
     except ValueError:
         # A payload this version refuses signs nothing it can compare: the
         # caller keeps the refusal, which names the sections that moved.

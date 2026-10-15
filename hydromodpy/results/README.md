@@ -27,7 +27,22 @@ running it twice describes the project identically. The layout is
 | `storage/` | what a run and a session directory hold (`contract.py`), how a Parquet table is written (`parquet_io.py`, one schema per view in `parquet_schemas.py`), lazy loaders, input fingerprints, layout diagnostics |
 | `zarr_store/` | the per-run Zarr 3 array store `SimulationZarr`: writer, reader, finalizer, schema, ACDD and CF metadata, chunk and shard sizes |
 | `field_registry.py` | the one table that maps a field name to its place in the Zarr store and to its CF metadata |
-| `manifest.py`, `annotations.py`, `trash_marker.py`, `session_journal.py` | the on-disk side of the rule: the seal, the human sidecars, the trial history of a calibration session |
+| `manifest.py`, `annotations.py`, `trash.py`, `trash_marker.py`, `session_journal.py` | the on-disk side of the rule: the seal, the human sidecars, the trash by move and its tombstones (`trash.py`; `trash_marker.py` goes with the in-place marker), the trial history of a calibration session |
+| `record.py` | `RunRecord`: the seal built in memory by the run and written by it, `simulation.parquet`, `parameters.parquet`, `provenance.json`, `inputs.json`, then `manifest.json` last and durable; never opens the index |
+| `outcome.py` | `outcome.json`, the issue of an attempt, and `effective_status()`: the one word a reader derives from a directory (manifest wins, then the outcome, then the pulse) |
+| `heartbeat.py` | `logs/heartbeat.json`, the pulse of a running attempt, and the thread that writes it |
+| `checks.py` | the `checks` block of the seal: the measured facts (budget, convergence, coverage, verdicts, promoting session) a label derives from, and their flat columns |
+| `validity_rules.py`, `known_issues.toml` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the register of known issues that declasses the runs of the versions they touched |
+| `identity.py` | the `identity` block every exported file carries, posed and read back per format: Zarr attributes, Parquet metadata, `gpkg_metadata`, PNG text chunk, `.meta.json` sidecar |
+| `lineage.py` | the `lineage` block of the seal: parent run, session, phase, trial, kind and overrides, by ids |
+| `rel_dir.py` | the one validator of every `rel_dir` field of the sealed formats, on `core.state.paths.parse_rel_dir` |
+| `ledger.py` | `figures/index.json` and `exports/index.json`: one entry per derived file, with its producer, options, version, digest and identity |
+| `readme.py` | the generated `README.md` of a run, a session or a summary, with the digest of the manifest in its footer |
+| `metric_rule.py` | `MetricRule` (station, window, version) and `score()`: a metric on the declared window only, with its sample count; without a window there is no score |
+| `session/` | the formats of `sessions/<case>/`: `session.json` (`descriptor.py`), `trials.jsonl` with one trial number per session (`journal.py`), `phases/<phase>/session.json` (`phase.py`) |
+| `plan_store.py` | `plan/<hash>/` written once (plan.json, sites.parquet, cases.parquet, one TOML per case) and `plan/current`; a different content under an existing hash is refused |
+| `publication.py` | `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
+| `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome |
 | `catalog/` | `Catalog`, the project facade: registration of a run, writes, reads, discovery by filter, schema discovery, `.hmp` packages, lifecycle, reindex; `ports.py` is the `CatalogBackend` port, `adapters/duckdb.py` its DuckDB adapter, `protocol.py` the `SimulationStore` protocol, `migrations/` the numbered SQL files |
 | `run/` | `Run`, one finished simulation, and the providers behind it: `geographic`, `timeseries`, `hydrographic`, `array` (xarray), `point` (one variable at one place), `periods`, `descent`, `particles`; `group.py` is `RunSet`, a view over several runs |
 | `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), stream-network comparisons, time alignment, downsampling |
@@ -72,7 +87,7 @@ hydromodpy/results/
   __init__.py                  lazy Catalog
   storage/       contract.py  parquet_io.py  parquet_schemas.py  lazy_loaders.py  diagnostics.py
   zarr_store/    simulation_zarr.py  zarr_writer.py  zarr_reader.py  zarr_finalizer.py  chunks.py ...
-  field_registry.py  manifest.py  annotations.py  trash_marker.py  session_journal.py
+  field_registry.py  manifest.py  annotations.py  trash.py  trash_marker.py  session_journal.py
   catalog/       facade.py  ports.py  protocol.py  adapters/duckdb.py  migrations/
                  registration.py  lifecycle.py  writes*.py  reads.py  discovery.py
                  reindex.py  views.py  parquet_views.py  package_io.py  cross_db.py ...
@@ -123,7 +138,7 @@ The connection opens through `connect_with_retry`, and some write methods carry
 | a stored field | an entry of `field_registry.py` (name, path, CF metadata), its writer in `zarr_store/` or `catalog/writes_zarr.py`, a name in `exporters/vocabulary.py` if users may export it |
 | a Parquet view | a schema in `storage/parquet_schemas.py`, its write in `catalog/writes_parquet.py`, its place in `storage/contract.py`; a view the index needs also gets its rebuild in `catalog/reindex.py` |
 | an index table or column | a new numbered file in `catalog/migrations/`, and the matching read-back in `catalog/reindex.py`: nothing the index holds may be missing from disk |
-| a value a person sets after the seal | a sidecar next to `manifest.json`, written after the index row, read back by `reindex.py` (`annotations.py` and `trash_marker.py` are the model) |
+| a value a person sets after the seal | a sidecar next to `manifest.json`, written after the index row, read back by `reindex.py` (`annotations.py` is the model) |
 | a computed field | a function in `derive/virtual_fields.py`, so it needs no storage |
 | a `Run` accessor | a provider in `run/` bound in `run/view.py` |
 | an export format | a module in `exporters/`, its kind in `exporters/vocabulary.py`, its route in `exporters/request.py`; see `docs/source/contribute/architecture/how-to/add-an-exporter.rst` |

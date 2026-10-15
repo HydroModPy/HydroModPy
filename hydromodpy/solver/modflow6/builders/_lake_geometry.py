@@ -249,8 +249,9 @@ def _drop_cutoff_wall_downstream_cells(
         if isinstance(area, dict):
             for c in dropped:
                 area.pop(int(c), None)
-        logger.info(
-            "Cutoff wall '%s': dropped %d LAK cell(s) downstream of the voile.",
+        logger.warning(
+            "Cutoff wall '%s': dropped %d LAK cell(s) downstream of the voile "
+            "(implicit perfect seal, independent of the HFB hydchr).",
             lake_id,
             len(dropped),
         )

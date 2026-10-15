@@ -28,10 +28,12 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 "reuse_existing_outputs = true",
+                "",
+                "[site]",
+                'name = "site_a"',
                 "",
                 "[geographic.catchment]",
                 'catch_def = "dem"',
@@ -60,10 +62,12 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 "",
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 f'data_dir = "{tmp_path / "data"}"',
                 "",
                 "[geographic]",
+                "",
+                "[site]",
+                'name = "site_a"',
                 "",
                 "[geographic.catchment]",
                 'catch_def = "dem"',
@@ -93,7 +97,6 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 '[workflow]\nmode = "calibration"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -133,7 +136,6 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -157,7 +159,6 @@ def test_hydromodpy_config_ignores_empty_site_selection_placeholder(
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -183,6 +184,7 @@ def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
         {
             "workflow": {"mode": "simulation"},
             "workspace": {"root": str(tmp_path), "project_root": ""},
+            "site": {"name": "site_a"},
             "geographic": {
                 "catchment": {
                     "catch_def": "dem",
@@ -219,6 +221,7 @@ def test_hydromodpy_config_from_json_resolves_nested_geographic_catchment(
     payload = {
         "workflow": {"mode": "simulation"},
         "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
+        "site": {"name": "site_a"},
         "geographic": {
             "catchment": {
                 "catch_def": "dem",

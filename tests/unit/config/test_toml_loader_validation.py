@@ -20,11 +20,16 @@ def test_load_toml_with_base_config_rejects_cycles(tmp_path: Path) -> None:
         load_toml_with_base_config(first_path)
 
 
-def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
-    path = tmp_path / "missing_workspace.toml"
-    path.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+def test_from_toml_refuses_workspace_project_root(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n',
+        encoding="utf-8",
+    )
 
-    with pytest.raises(ConfigValidationError, match=r"\[workspace\]\.project_root is required"):
+    with pytest.raises(
+        ConfigValidationError, match=r"\[workspace\] project_root is not a key of a file"
+    ):
         HydroModPyConfig.from_toml(path)
 
 
@@ -36,7 +41,6 @@ def test_from_toml_rejects_scalar_workflow(tmp_path: Path) -> None:
                 'workflow = "simulation"',
                 "",
                 "[workspace]",
-                f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -75,7 +79,6 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
-                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',

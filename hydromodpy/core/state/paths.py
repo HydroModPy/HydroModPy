@@ -1,12 +1,34 @@
-"""XDG-compliant path helpers and workspace path utilities.
+"""Project layout, XDG-compliant path helpers and workspace path utilities.
 
 Cache directory: binaries (solver downloads, http_cache).
 State directory: index.duckdb, locks, audit.log.
-Override env vars: HMP_CACHE_HOME, HMP_STATE_HOME, HMP_BIN.
+Override env vars: HMP_CACHE_HOME, HMP_STATE_HOME, HMP_BIN, HMP_SCRATCH_ROOT.
 
-Workspace layout constants and portable-path helpers also live here so
-every layer (catalog writes, global index, CLI) shares a single source
-of truth without depending on a higher layer.
+The layout constants and portable-path helpers live here so every layer
+(catalog writes, global index, CLI) shares a single source of truth without
+depending on a higher layer. A project root is::
+
+    project.toml            configuration, and the marker of the root
+    configs/                config variants (user-managed, never created)
+    runs/<case>[.vN]/       one directory per run; every artifact of a run lives in it
+    sessions/<case>[.vN]/   one directory per calibration session
+        trials/<nnnn>/      a kept trial of the session, itself a run directory
+    summary/                derived tables, figures and report of a project of N cases
+    plan/<hash>/            the immutable plan of a [sites] project; plan/current names it
+    jobs/<stamp>/           the journal of each launch, array scripts, frozen case list
+    trash/                  runs and sessions deleted by a move; tombstones.txt
+    site_overrides/         <site>.toml, the per-site overlays of a [sites] project
+    .hmp/                   strictly rebuildable: index, launcher lease, mesh cache, logs
+
+Inside a run, ``.hmp/`` holds the state of the attempt in progress (scratch,
+locks, checkpoints, private data cache) and is removed when a completed run is
+sealed. The names of the files *inside* one run directory belong to the
+result-storage contract (:mod:`hydromodpy.results.storage.contract`).
+
+The two relative forms of a result directory, ``runs/<name>`` and
+``sessions/<name>/trials/<nnnn>``, are spelled by :func:`run_dir_rel`,
+:func:`session_dir_rel` and :func:`trial_dir_rel`, and read back by
+:func:`parse_rel_dir`. They are the only declared holders of the two forms.
 """
 
 from __future__ import annotations
@@ -17,8 +39,9 @@ import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
@@ -34,19 +57,8 @@ _APP_NAME = "hydromodpy"
 
 # Project layout -----------------------------------------------------------
 #
-# A project root is::
-#
-#     project.toml            configuration, and the marker of the root
-#     configs/                config variants (user-managed, never created)
-#     runs/<name>/            one directory per run, named after the run
-#     sessions/<name>/        calibration and spin-up sessions
-#     share/                  on-demand exports, reports and portable packages
-#     .hmp/                   disposable internals (index, trash, scratch, ...)
-#
-# Every directory name of that layout is declared here so no layer has to
-# hard-code a literal. The names of the files *inside* one run directory
-# belong to the result-storage contract
-# (:mod:`hydromodpy.results.storage.contract`).
+# The tree is drawn in the module docstring. Every directory name of that
+# layout is declared here so no layer has to hard-code a literal.
 
 PROJECT_MARKER_FILENAME = "project.toml"
 """The project configuration file, and the marker of a project root.
@@ -65,6 +77,33 @@ RUNS_DIRNAME = "runs"
 SESSIONS_DIRNAME = "sessions"
 """Directory holding calibration and spin-up sessions."""
 
+TRIALS_DIRNAME = "trials"
+"""Sub-directory of a session holding its kept trials, ``sessions/<name>/trials/<nnnn>``."""
+
+TRIAL_DIRNAME_WIDTH = 4
+"""Zero-padded width of a trial directory name: trial 4 is ``0004``."""
+
+SUMMARY_DIRNAME = "summary"
+"""Derived tables, figures and report of a project of N cases (``hmp project collect``)."""
+
+PLAN_DIRNAME = "plan"
+"""Immutable plans of a ``[sites]`` project, one ``plan/<hash>/`` per content."""
+
+PLAN_CURRENT_FILENAME = "current"
+"""File ``plan/current`` holding the hash of the plan in force."""
+
+JOBS_DIRNAME = "jobs"
+"""Journal of each launch, ``jobs/<stamp>-<scheduler>/``: journal, scripts, case list."""
+
+TRASH_DIRNAME = "trash"
+"""Runs and sessions deleted by a move, ``trash/<rel_dir>@<timestamp>/``."""
+
+TOMBSTONES_FILENAME = "tombstones.txt"
+"""File ``trash/tombstones.txt``: one line per emptied entry, so a name is never reused."""
+
+SITE_OVERRIDES_DIRNAME = "site_overrides"
+"""Per-site overlays of a ``[sites]`` project, ``site_overrides/<site>.toml``."""
+
 SHARE_DIRNAME = "share"
 """Directory holding on-demand exports and portable packages."""
 
@@ -72,7 +111,32 @@ REPORTS_DIRNAME = "reports"
 """Report sub-directory of :data:`SHARE_DIRNAME`."""
 
 INTERNAL_DIRNAME = ".hmp"
-"""Disposable internals: index database, trash, scratch, logs, cache."""
+"""Rebuildable internals of a project, and the attempt state inside a run directory."""
+
+LAUNCHER_LEASE_FILENAME = "launcher.lease"
+"""Lease ``<project>/.hmp/launcher.lease`` held by the one launcher of a project."""
+
+MESH_CACHE_DIRNAME = "mesh_cache"
+"""Cache ``<project>/.hmp/mesh_cache/``; a run copies the entry it consumes into its own folder."""
+
+RUN_INTERNAL_SCRATCH_DIRNAME = "scratch"
+"""Solver scratch of the attempt in progress, ``runs/<case>/.hmp/scratch/``."""
+
+RUN_INTERNAL_LOCKS_DIRNAME = "locks"
+"""File locks of the attempt in progress, ``runs/<case>/.hmp/locks/``."""
+
+RUN_INTERNAL_CHECKPOINTS_DIRNAME = "checkpoints"
+"""Step checkpoints of the attempt in progress, ``runs/<case>/.hmp/checkpoints/``."""
+
+RUN_DATA_CACHE_FILENAME = "data-cache.duckdb"
+"""Private data cache of a worker, ``runs/<case>/.hmp/data-cache.duckdb``, merged by the launcher."""
+
+SCRATCH_ROOT_ENV = "HMP_SCRATCH_ROOT"
+"""Machine scratch root that replaces ``runs/<case>/.hmp/scratch/`` (``$SLURM_TMPDIR``).
+
+Under it a run works in ``<project>/<case>.a<attempt>/``. It is read from the
+environment only: it is never an author key and never enters the config hash.
+"""
 
 CATALOG_FILENAME = "index.duckdb"
 """Project index database living at ``<project>/.hmp/index.duckdb``."""
@@ -117,13 +181,143 @@ def runs_dir_for(project_root: Path) -> Path:
     return Path(project_root) / RUNS_DIRNAME
 
 
+def sessions_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/sessions``, the parent of every session directory."""
+    return Path(project_root) / SESSIONS_DIRNAME
+
+
+def summary_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/summary``, the derived outputs of a project of N cases."""
+    return Path(project_root) / SUMMARY_DIRNAME
+
+
+def plan_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/plan``, the parent of every immutable plan."""
+    return Path(project_root) / PLAN_DIRNAME
+
+
+def jobs_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/jobs``, the journals of the launches."""
+    return Path(project_root) / JOBS_DIRNAME
+
+
+def trash_dir_for(project_root: Path) -> Path:
+    """Return ``<project>/trash``, where deleted runs and sessions are moved."""
+    return Path(project_root) / TRASH_DIRNAME
+
+
+# Relative result directories ------------------------------------------------
+#
+# A result directory is addressed by its path relative to the project root.
+# There are two forms, a run or a session at the top of its directory and a
+# kept trial inside its session. Index rows, manifests, ledgers and the CLI all
+# carry these strings; the five functions below are their only declared
+# holders.
+
+RelDirKind = Literal["run", "session", "trial"]
+
+
+def _check_dir_name(name: str) -> str:
+    """Return *name* when it can be one path segment; refuse it otherwise."""
+    text = str(name)
+    if not text or text in {".", ".."} or "/" in text or "\\" in text:
+        raise ValueError(f"{text!r} is not a result directory name")
+    return text
+
+
+def _trial_dirname(trial: int) -> str:
+    """Return the zero-padded directory name of a trial number."""
+    if isinstance(trial, bool) or not isinstance(trial, int) or trial < 0:
+        raise ValueError(f"trial must be a non-negative integer, got {trial!r}")
+    return f"{trial:0{TRIAL_DIRNAME_WIDTH}d}"
+
+
+@dataclass(frozen=True, slots=True)
+class RelDir:
+    """A result directory relative to the project root, parsed into its parts.
+
+    ``name`` is the run or session directory name with its ``.vN`` suffix;
+    this module does not read the version grammar. ``trial`` is set only for
+    a kept trial.
+    """
+
+    kind: RelDirKind
+    name: str
+    trial: int | None = None
+
+    def as_posix(self) -> str:
+        """Return the relative path in POSIX spelling."""
+        if self.kind == "run":
+            return run_dir_rel(self.name)
+        if self.kind == "session":
+            return session_dir_rel(self.name)
+        if self.trial is None:
+            raise ValueError("a trial directory needs a trial number")
+        return trial_dir_rel(self.name, self.trial)
+
+
+def run_dir_rel(name: str) -> str:
+    """Return ``runs/<name>``, the relative path of a run directory."""
+    return f"{RUNS_DIRNAME}/{_check_dir_name(name)}"
+
+
+def session_dir_rel(name: str) -> str:
+    """Return ``sessions/<name>``, the relative path of a session directory."""
+    return f"{SESSIONS_DIRNAME}/{_check_dir_name(name)}"
+
+
+def trial_dir_rel(name: str, trial: int) -> str:
+    """Return ``sessions/<name>/trials/<nnnn>``, the relative path of a kept trial."""
+    return f"{session_dir_rel(name)}/{TRIALS_DIRNAME}/{_trial_dirname(trial)}"
+
+
+def parse_rel_dir(rel_dir: str) -> RelDir:
+    """Read a relative result directory back into its parts.
+
+    Accepts exactly ``runs/<name>``, ``sessions/<name>`` and
+    ``sessions/<name>/trials/<nnnn>`` with the trial zero-padded to
+    :data:`TRIAL_DIRNAME_WIDTH` digits. Any other form raises ``ValueError``.
+    """
+    text = str(rel_dir)
+    parts = text.split("/")
+    try:
+        if len(parts) == 2 and parts[0] == RUNS_DIRNAME:
+            return RelDir("run", _check_dir_name(parts[1]))
+        if len(parts) == 2 and parts[0] == SESSIONS_DIRNAME:
+            return RelDir("session", _check_dir_name(parts[1]))
+        if len(parts) == 4 and parts[0] == SESSIONS_DIRNAME and parts[2] == TRIALS_DIRNAME:
+            digits = parts[3]
+            if digits.isdigit() and digits.isascii():
+                trial = int(digits)
+                if _trial_dirname(trial) == digits:
+                    return RelDir("trial", _check_dir_name(parts[1]), trial)
+    except ValueError:
+        pass
+    raise ValueError(
+        f"{text!r} is not a result directory: write runs/<name>, sessions/<name> or "
+        f"sessions/<name>/{TRIALS_DIRNAME}/<{'n' * TRIAL_DIRNAME_WIDTH}>"
+    )
+
+
 def is_sealed_run_config(path: str | Path) -> bool:
     """Return whether *path* is a configuration a run froze in its run directory.
 
-    A run directory is ``<project>/runs/<name>``. The frozen file is its
-    ``config.toml``, and ``hmp run --set`` writes its effective copy next to it.
+    A run directory is ``runs/<name>`` or a kept trial
+    ``sessions/<name>/trials/<nnnn>`` (:func:`parse_rel_dir`). The frozen file
+    is its ``config.toml``, and ``hmp run --set`` writes its effective copy
+    next to it.
     """
-    return Path(path).expanduser().resolve().parent.parent.name == RUNS_DIRNAME
+    parts = Path(path).expanduser().resolve().parent.parts
+    for depth in (2, 4):
+        if len(parts) < depth:
+            continue
+        try:
+            kind = parse_rel_dir("/".join(parts[-depth:])).kind
+        except ValueError:
+            continue
+        if kind in {"run", "trial"}:
+            return True
+    return False
 
 
 def share_dir_for(project_root: Path) -> Path:
@@ -140,10 +334,14 @@ def reports_dir_for(project_root: Path) -> Path:
 #: A subprocess inherits it, so a child run launched by a run works in its folder.
 RUN_SCRATCH_ENV = "HMP_RUN_SCRATCH"
 
-#: Members of a resolved configuration that name the per-run scratch folder.
-#: They differ between two launches of one run (process id, run label) and never
-#: change what the run computes, so no run identity or checkpoint reads them.
-PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (("workspace", "solver_scratch_folder"),)
+#: Members of a resolved configuration that differ between two launches of one
+#: run and never change what it computes: the per-run scratch folder (process id,
+#: run label) and the project root (where the project folder sits on this
+#: machine). No run identity or checkpoint reads them.
+PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (
+    ("workspace", "solver_scratch_folder"),
+    ("workspace", "project_root"),
+)
 
 #: Folder of the geographic, data and mesh preprocessing, inside a run's scratch.
 PREPROCESSING_DIRNAME = "_preprocessing"
@@ -624,16 +822,34 @@ __all__: Iterable[str] = (
     "CONFIGS_DIRNAME",
     "INDEX_FILENAME",
     "INTERNAL_DIRNAME",
-    "PROJECTS_DIRNAME",
+    "JOBS_DIRNAME",
+    "LAUNCHER_LEASE_FILENAME",
+    "MESH_CACHE_DIRNAME",
     "PER_RUN_CONFIG_KEYS",
+    "PLAN_CURRENT_FILENAME",
+    "PLAN_DIRNAME",
     "PREPROCESSING_DIRNAME",
+    "PROJECTS_DIRNAME",
     "PROJECT_MARKER_FILENAME",
     "REPORTS_DIRNAME",
     "RUNS_DIRNAME",
+    "RUN_DATA_CACHE_FILENAME",
+    "RUN_INTERNAL_CHECKPOINTS_DIRNAME",
+    "RUN_INTERNAL_LOCKS_DIRNAME",
+    "RUN_INTERNAL_SCRATCH_DIRNAME",
     "RUN_SCRATCH_ENV",
+    "SCRATCH_ROOT_ENV",
     "SESSIONS_DIRNAME",
     "SHARE_DIRNAME",
+    "SITE_OVERRIDES_DIRNAME",
+    "SUMMARY_DIRNAME",
+    "TOMBSTONES_FILENAME",
+    "TRASH_DIRNAME",
+    "TRIALS_DIRNAME",
+    "TRIAL_DIRNAME_WIDTH",
     "WORKSPACE_TOML_FILENAME",
+    "RelDir",
+    "RelDirKind",
     "active_run_scratch",
     "cache_dir",
     "catalog_path_for",
@@ -643,10 +859,13 @@ __all__: Iterable[str] = (
     "from_workspace_relative",
     "internal_dir",
     "is_sealed_run_config",
+    "jobs_dir_for",
     "kept_preprocessing_dir",
     "is_project_root",
     "is_under_workspace",
     "is_workspace_root",
+    "parse_rel_dir",
+    "plan_dir_for",
     "preprocessing_dir",
     "project_roots_under",
     "reports_dir_for",
@@ -654,14 +873,20 @@ __all__: Iterable[str] = (
     "resolve_workspace",
     "running_sidecar_dir",
     "running_sidecar_path",
+    "run_dir_rel",
     "run_scratch",
     "run_scratch_of",
     "runs_dir_for",
     "scratch_dir_for",
     "scratch_root_for",
+    "session_dir_rel",
+    "sessions_dir_for",
     "share_dir_for",
     "state_dir",
+    "summary_dir_for",
     "sweep_dead_run_scratch",
     "to_workspace_relative",
     "to_workspace_uri",
+    "trash_dir_for",
+    "trial_dir_rel",
 )

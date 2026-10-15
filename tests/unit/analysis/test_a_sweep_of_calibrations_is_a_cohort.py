@@ -25,7 +25,6 @@ import pytest
 
 _BASE = """
 [workspace]
-project_root = "."
 
 [workflow]
 mode = "simulation"

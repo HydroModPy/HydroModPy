@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import Field, ValidationError
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import (
     CellSamplingDensity,
@@ -28,6 +29,7 @@ class _GeologySourceBase(HydroModelBase):
             "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is "
             "requested over. A project run fills it with the delineated watershed."
         ),
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     extent: Annotated[Literal["watershed", "study_area"] | None, Profile.DEV] = Field(
         default=None,

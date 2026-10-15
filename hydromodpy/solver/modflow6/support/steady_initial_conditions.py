@@ -13,6 +13,7 @@ from hydromodpy.core import progress
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
+from hydromodpy.physics.flow.time_forcing import compact_pre_resolved_forcings
 from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 from hydromodpy.solver.steady_initial_conditions import (
     cycles_have_settled,
@@ -120,6 +121,20 @@ def _steady_initialization_balance_is_acceptable(list_path: Path) -> bool:
     return discrepancy is not None and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
 
 
+def _compact_flow_forcings_to_one_period(flow: object, model: object) -> int:
+    """Average the run's per-period lake and SFR forcings for the steady solve.
+
+    The data step resolves lake and SFR forcings (SIM2 or soil runoff, file
+    inflows) to one value per run period. The auxiliary model has a single
+    period, so each such list becomes its duration-weighted mean.
+    """
+    sinks_sources = getattr(flow, "sinks_sources", None)
+    lengths = getattr(getattr(model, "time_grid", None), "period_lengths_seconds", None)
+    if sinks_sources is None or lengths is None:
+        return 0
+    return compact_pre_resolved_forcings(sinks_sources, period_lengths=list(lengths))
+
+
 def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
     """Run one auxiliary steady MF6 model and return heads for the transient IC."""
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
@@ -146,8 +161,10 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
         ),
     )
     steady_model.auxiliary = True
+    steady_flow = steady_flow_copy_for_initialization(model.flow)
+    _compact_flow_forcings_to_one_period(steady_flow, model)
     steady_model.pre_processing(
-        flow=steady_flow_copy_for_initialization(model.flow),
+        flow=steady_flow,
         domain=model.domain,
         cell_mesh=model.runtime_cell_mesh,
         flow_runtime_overrides=getattr(model, "_flow_runtime_overrides", None),

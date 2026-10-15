@@ -7,18 +7,17 @@
 #
 #   hmp run project.toml
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
 # verbosity = "quiet" | "normal" (default) | "verbose" | "debug", overridden by
 # `hmp run -q | -v | --debug`. step1_minimal.toml says what each level prints.
 
-[workspace]
-project_root = "."
-
 [simulation]
 name = "nancon_intermittence_mf6"
 description = "Nancon catchment, monthly transient 2000-2002, seasonal seepage intermittence."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

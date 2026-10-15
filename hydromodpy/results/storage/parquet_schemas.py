@@ -1,7 +1,8 @@
-"""PyArrow schemas for every per-simulation Parquet view.
+"""PyArrow schemas for every per-simulation Parquet file.
 
 One declared :class:`pa.Schema` per file under
-``runs/<name>/tables.parquet/``. These schemas are the single source of
+``runs/<name>/tables.parquet/``: the appended views, and the two tables the
+seal writes once (``simulation``, ``parameters``). These schemas are the single source of
 truth for column names, Arrow types, nullability, primary keys, and field-level
 metadata (units, descriptions, allowed values). The catalog write path casts
 incoming records to the matching schema before handing them to
@@ -342,17 +343,277 @@ PARAMETERS_SCHEMA: Final[pa.Schema] = pa.schema(
             nullable=True,
             metadata=_field_meta(description="Timestamp the value became current, UTC"),
         ),
+        pa.field(
+            "origin",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                allowed="declared|site_table|site_override|recipe|calibrated",
+                description="Where the value came from: the file, the site table, a site "
+                "override, the recipe, or the calibration that promoted this run",
+            ),
+        ),
+        pa.field(
+            "calibrated",
+            pa.bool_(),
+            nullable=False,
+            metadata=_field_meta(description="True when a calibration set the value"),
+        ),
     ],
     metadata=_schema_metadata(
         "parameters",
         pk=("sim_id", "param_name", "zone_id"),
     ),
 )
-"""Per-run parameter values, mirroring the ``parameters`` index table.
+"""Per-run parameter values, one row per parameter and present zone.
 
-Written once at seal time by :mod:`hydromodpy.results.manifest`, not appended
-to during the run, so it is not a Parquet *view*: it stays out of
+Written once at seal time from the :class:`~hydromodpy.results.record.RunRecord`,
+not appended to during the run, so it is not a Parquet *view*: it stays out of
 :data:`VIEW_SCHEMAS` and of ``PARQUET_VIEW_NAMES``.
+"""
+
+
+def _checks_fields() -> list[pa.Field]:
+    """The flattened ``checks`` block of the seal, one column per fact."""
+    return [
+        pa.field(
+            "budget_pct",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(unit="percent", description="Water-budget discrepancy"),
+        ),
+        pa.field(
+            "budget_threshold_pct",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(unit="percent", description="Discrepancy the user accepts"),
+        ),
+        pa.field(
+            "converged",
+            pa.bool_(),
+            nullable=True,
+            metadata=_field_meta(description="Solver convergence reported by the backend"),
+        ),
+        pa.field(
+            "obs_coverage",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Share of the score window covered by observations"),
+        ),
+        pa.field(
+            "score_window_start",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="First day of the window the run was scored on"),
+        ),
+        pa.field(
+            "score_window_end",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="Last day of the window the run was scored on"),
+        ),
+        pa.field(
+            "n_samples",
+            pa.int64(),
+            nullable=True,
+            metadata=_field_meta(description="Samples the score used"),
+        ),
+        pa.field(
+            "calibrated_by_session_id",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Session that promoted this run"),
+        ),
+        pa.field(
+            "calibrated_by_phase",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Phase of that session"),
+        ),
+        pa.field(
+            "calibrated_by_trial",
+            pa.int64(),
+            nullable=True,
+            metadata=_field_meta(description="Trial of that session"),
+        ),
+        pa.field(
+            "calibrated_by_session_status",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                allowed="completed|partial|aborted",
+                description="How that session ended",
+            ),
+        ),
+        pa.field(
+            "calibrated_by_window_start",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="First day of the window that session scored"),
+        ),
+        pa.field(
+            "calibrated_by_window_end",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="Last day of the window that session scored"),
+        ),
+        pa.field(
+            "validities_failed",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Names of the validities that failed, comma separated; null when none"
+            ),
+        ),
+        pa.field(
+            "fatal_failed",
+            pa.bool_(),
+            nullable=False,
+            metadata=_field_meta(description="True when a fatal validity failed"),
+        ),
+        pa.field(
+            "bounds_hit",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Calibrated parameters that sit on a bound, comma separated; null when none"
+            ),
+        ),
+        pa.field(
+            "code_reproducible",
+            pa.bool_(),
+            nullable=True,
+            metadata=_field_meta(description="False for a dirty checkout or an editable install"),
+        ),
+    ]
+
+
+CHECK_COLUMNS: Final[tuple[str, ...]] = tuple(field.name for field in _checks_fields())
+"""Column names of the flattened ``checks`` block, in order."""
+
+
+SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
+    [
+        pa.field("sim_id", pa.string(), nullable=False),
+        pa.field(
+            "name",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Run name, with its .vN"),
+        ),
+        pa.field("name_stem", pa.string(), nullable=False),
+        pa.field("version_int", pa.int32(), nullable=False),
+        pa.field("project", pa.string(), nullable=False),
+        pa.field("site", pa.string(), nullable=True, metadata=_field_meta(description="Site name")),
+        pa.field("site_fingerprint", pa.string(), nullable=True),
+        pa.field(
+            "recipe",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Recipe of a planned case"),
+        ),
+        pa.field("case_id", pa.string(), nullable=False),
+        pa.field(
+            "rel_dir",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(description="Run directory, relative to the project root"),
+        ),
+        pa.field("attempt", pa.int32(), nullable=False),
+        pa.field("attempt_id", pa.string(), nullable=False),
+        pa.field("solver", pa.string(), nullable=False),
+        pa.field("solver_category", pa.string(), nullable=True),
+        pa.field(
+            "status",
+            pa.string(),
+            nullable=False,
+            metadata=_field_meta(
+                allowed="completed",
+                description="Always completed: only a completed run is sealed",
+            ),
+        ),
+        pa.field("flow_regime", pa.string(), nullable=True),
+        pa.field("mesh_topology", pa.string(), nullable=True),
+        pa.field("mesh_hash", pa.string(), nullable=True),
+        pa.field("n_cells", pa.int64(), nullable=True),
+        pa.field("n_layers", pa.int32(), nullable=True),
+        pa.field("n_timesteps", pa.int64(), nullable=True),
+        pa.field("crs_wkt", pa.string(), nullable=True),
+        pa.field("crs_epsg", pa.int32(), nullable=True),
+        pa.field("bbox_xmin", pa.float64(), nullable=True),
+        pa.field("bbox_ymin", pa.float64(), nullable=True),
+        pa.field("bbox_xmax", pa.float64(), nullable=True),
+        pa.field("bbox_ymax", pa.float64(), nullable=True),
+        pa.field("period_start", pa.timestamp("ms", tz="UTC"), nullable=True),
+        pa.field("period_end", pa.timestamp("ms", tz="UTC"), nullable=True),
+        pa.field("time_unit", pa.string(), nullable=True),
+        pa.field("config_hash", pa.string(), nullable=True),
+        pa.field("config_source", pa.string(), nullable=True),
+        pa.field("parent_sim_id", pa.string(), nullable=True),
+        pa.field(
+            "lineage_kind",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(allowed="rerun|promoted|trial|version"),
+        ),
+        pa.field("session_id", pa.string(), nullable=True),
+        pa.field("hydromodpy_version", pa.string(), nullable=False),
+        pa.field("created_at", pa.timestamp("ms", tz="UTC"), nullable=False),
+        pa.field("started_at", pa.timestamp("ms", tz="UTC"), nullable=True),
+        pa.field("ended_at", pa.timestamp("ms", tz="UTC"), nullable=True),
+        pa.field("duration_s", pa.float64(), nullable=True),
+        pa.field("description", pa.string(), nullable=True),
+        pa.field("scientific_objective", pa.string(), nullable=True),
+        pa.field("contact_email", pa.string(), nullable=True),
+        pa.field("doi", pa.string(), nullable=True),
+        *_checks_fields(),
+        pa.field(
+            "nse",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="NSE at the declared station over the declared window; null without a window"
+            ),
+        ),
+        pa.field("nse_window_start", pa.date32(), nullable=True),
+        pa.field("nse_window_end", pa.date32(), nullable=True),
+        pa.field("nse_n", pa.int64(), nullable=True),
+        pa.field("metric_rule_version", pa.string(), nullable=True),
+        pa.field(
+            "objective_name",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Objective of the session that promoted the run"),
+        ),
+        pa.field(
+            "objective_value",
+            pa.float64(),
+            nullable=True,
+            metadata=_field_meta(description="Value of that objective for this run"),
+        ),
+        pa.field(
+            "objective_window_start",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="First day the session scored the objective on"),
+        ),
+        pa.field(
+            "objective_window_end",
+            pa.date32(),
+            nullable=True,
+            metadata=_field_meta(description="Last day the session scored the objective on"),
+        ),
+    ],
+    metadata=_schema_metadata("simulation", pk=("sim_id",)),
+)
+"""The one-row index payload of a run, written at seal time from its ``RunRecord``.
+
+What the ``simulations`` index table holds about a run and means outside SQL,
+plus the site, the case, the attempt, the flattened ``checks``, the headline
+metric under its rule and the objective of the promoting session. Written
+for a completed run only: ``status`` is always ``completed``. The site
+fingerprint is ``site_fingerprint``, the only one. No label: the label is a function of reading. Not a
+Parquet *view* either: one file per run, read back whole by the indexer.
 """
 
 
@@ -976,6 +1237,7 @@ def check_schema_version(metadata: dict[bytes, bytes] | dict[str, str] | None) -
 __all__ = [
     "BUDGETS_SCHEMA",
     "CF_CONVENTIONS",
+    "CHECK_COLUMNS",
     "MASS_BALANCE_SCHEMA",
     "MESH_CELL_FAMILIES_SCHEMA",
     "MESH_FACE_FAMILIES_SCHEMA",
@@ -987,6 +1249,7 @@ __all__ = [
     "ParquetSchemaVersionError",
     "TIMESERIES_SCHEMA",
     "SFR_REACHES_SCHEMA",
+    "SIMULATION_SCHEMA",
     "SOIL_BUDGET_SCHEMA",
     "VIEW_SCHEMAS",
     "check_schema_version",

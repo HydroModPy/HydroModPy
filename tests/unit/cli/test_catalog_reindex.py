@@ -45,7 +45,7 @@ def _seal_run(catalog: Catalog, name: str) -> str:
 def project(tmp_path) -> Path:
     root = tmp_path / "demo"
     root.mkdir()
-    (root / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    (root / "project.toml").write_text("[workspace]\n")
     with Catalog(root) as catalog:
         _seal_run(catalog, "alpha")
         _seal_run(catalog, "beta")

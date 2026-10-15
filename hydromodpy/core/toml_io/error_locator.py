@@ -7,8 +7,8 @@ can jump straight to the offending section.
 
 The lookup is heuristic: it does not require ``tomlkit`` and works on the
 raw text. It scans for ``[section.subsection]`` headers and ``key =``
-assignments, falling back to the closest known location when an exact match
-is not found.
+assignments, bare or quoted (``"site.name" =``, ``'k2e-5' =``), falling back
+to the closest known location when an exact match is not found.
 """
 
 from __future__ import annotations
@@ -20,7 +20,21 @@ from pathlib import Path
 from pydantic import ValidationError
 
 _HEADER_RE = re.compile(r"^\s*\[\[?(?P<name>[^\]]+)\]?\]\s*(?:#.*)?$")
-_ASSIGNMENT_RE = re.compile(r"^\s*(?P<key>[A-Za-z_][A-Za-z0-9_\-]*)\s*=")
+# A key is bare, or quoted as TOML allows: "site.name" = ... in [sites.bind]
+# names one key that holds dots, not a nested table.
+_ASSIGNMENT_RE = re.compile(
+    r"""^\s*(?:"(?P<dquoted>(?:[^"\\]|\\.)*)"|'(?P<squoted>[^']*)'"""
+    r"""|(?P<bare>[A-Za-z0-9_][A-Za-z0-9_\-]*))\s*="""
+)
+
+
+def _assigned_key(match: re.Match[str]) -> str:
+    """Return the key an assignment line names, quotes and escapes removed."""
+    if match.group("dquoted") is not None:
+        return re.sub(r"\\(.)", r"\1", match.group("dquoted"))
+    if match.group("squoted") is not None:
+        return match.group("squoted")
+    return match.group("bare")
 
 
 def _normalise_loc(loc: Sequence[object]) -> list[str]:
@@ -60,7 +74,7 @@ def _find_key_line(lines: Sequence[str], header_line: int | None, key: str) -> i
             if header_line is not None and index + 1 != header_line:
                 break
         match = _ASSIGNMENT_RE.match(line)
-        if match and match.group("key") == key:
+        if match and _assigned_key(match) == key:
             return index + 1
     return None
 

@@ -33,7 +33,7 @@ def test_migrates_on_collision_and_run_id(tmp_path: Path) -> None:
 
     parsed = tomllib.loads(path.read_text())["simulation"]
     assert "on_collision" not in parsed
-    assert parsed["if_exists"] == "replace"
+    assert parsed["if_exists"] == "version"
     assert "run_id" not in parsed
     assert parsed["name"] == "cheze_baseline"
     # comments and untouched keys survive the round-trip

@@ -27,7 +27,6 @@ from hydromodpy.workflow.steps.validate import (
 
 _HEAD = """\
 [workspace]
-project_root = "{root}"
 
 [workflow]
 mode = "simulation"

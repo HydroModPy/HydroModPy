@@ -11,17 +11,15 @@
 #
 #   hmp run examples/projects/09_transport_model_for_an_agricultural_catchment/project.toml
 
+[site]
+name = "naizin"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "naizin_nitrate_mf6"
 description = "Naizin catchment, monthly transient 2003, MODFLOW 6 flow and GWT nitrate transport."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2003-01-01"

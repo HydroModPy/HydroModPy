@@ -15,11 +15,11 @@ from hydromodpy.physics.hydrology.soil_reservoir.config import (
 def test_a_run_shorter_than_a_year_is_refused() -> None:
     config = SoilReservoirConfig(ru=100.0)
 
-    refusal = spinup_refusal(config, 364)
+    refusal = spinup_refusal(config, 363)
 
     assert refusal == (
         'spinup = "first_year" repeats the first 365 days of the run, and '
-        '[simulation.time] covers 364 days: write spinup = "none" under '
+        '[simulation.time] covers 363 days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or extend "
         "the run to one year at least."
     )

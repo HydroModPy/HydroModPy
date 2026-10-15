@@ -318,7 +318,7 @@ class FlowReachNetworkConfig(HydroModelBase):
         description="If False every reach uses cellid 'none' (routing only, no streambed leakage).",
     )
     route_drainage: Annotated[bool, Profile.USER] = Field(
-        default=False,
+        default=True,
         description=(
             "Route the hillslope drainage (DRN) discharge into the stream network: "
             "every remaining DRN cell of the basin hands its outflow, through an MVR "
@@ -327,7 +327,9 @@ class FlowReachNetworkConfig(HydroModelBase):
             "whose descent leaves the model first keeps a plain DRN. "
             "This is the surface re-infiltration / runon convergence of drained "
             "water towards the river; without it only the reach cells' streambed "
-            "captures baseflow and the rest of the catchment discharge is lost."
+            "captures baseflow and the rest of the catchment discharge is lost "
+            "(about 6 % of the water of the basin of D on the Nancon). "
+            "On by default; set False only to study the network alone."
         ),
     )
     storage: Annotated[bool, Profile.USER] = Field(

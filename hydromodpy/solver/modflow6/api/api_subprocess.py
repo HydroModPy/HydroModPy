@@ -27,7 +27,7 @@ from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import SolverError
+from hydromodpy.core.exceptions import SolverDivergedError, SolverError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
@@ -92,7 +92,11 @@ def _api_subprocess_entry(
     except BaseException as exc:  # noqa: BLE001 - relayed to the parent verbatim
         import traceback
 
-        result_queue.put((False, f"{exc!r}\n{traceback.format_exc()}"))
+        if isinstance(exc, SolverDivergedError):
+            # Keep the E401 type across the process boundary.
+            result_queue.put((False, ("diverged", str(exc))))
+        else:
+            result_queue.put((False, f"{exc!r}\n{traceback.format_exc()}"))
 
 
 @contextmanager
@@ -205,9 +209,24 @@ def run_mf6_api_isolated(
     if result is None:
         raise SolverError(
             f"MF6 API subprocess for {sim_ws} exited (code {proc.exitcode}) without "
-            "a result; libmf6 likely crashed."
+            "a result; libmf6 likely crashed or stopped on an input error."
+            f"{_stdout_tail(sim_ws)}"
         )
     ok, payload = result
+    if not ok and isinstance(payload, tuple) and payload[:1] == ("diverged",):
+        raise SolverDivergedError(payload[1])
     if not ok:
         raise SolverError(f"MF6 API subprocess for {sim_ws} failed:\n{payload}")
     return bool(payload)
+
+
+def _stdout_tail(sim_ws: str | os.PathLike[str], lines: int = 15) -> str:
+    """Return the last lines of ``mfsim.stdout``, where libmf6 writes a stop."""
+    path = Path(sim_ws) / "mfsim.stdout"
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore").strip().splitlines()
+    except OSError:
+        return ""
+    if not text:
+        return ""
+    return f" {path}:\n" + "\n".join(text[-lines:])

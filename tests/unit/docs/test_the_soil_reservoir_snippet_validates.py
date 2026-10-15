@@ -35,12 +35,11 @@ def test_the_soil_section_of_the_page_reads_as_a_request() -> None:
 def test_the_soil_section_loads_as_a_project_file(tmp_path: Path) -> None:
     from hydromodpy.config import HydroModPyConfig
 
-    boilerplate = f"""
+    boilerplate = """
 [workflow]
 mode = "simulation"
 
 [workspace]
-project_root = "{tmp_path.as_posix()}"
 
 [geographic]
 source_mode = "synthetic"

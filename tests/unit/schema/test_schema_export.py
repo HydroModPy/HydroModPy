@@ -38,8 +38,8 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
 
     assert "properties" in config
     workflow_schema = config["$defs"]["WorkflowConfig"]["properties"]["mode"]
-    assert "comparison" in workflow_schema["enum"]
-    assert "testbed" in workflow_schema["enum"]
+    (literal,) = [branch for branch in workflow_schema["anyOf"] if "enum" in branch]
+    assert literal["enum"] == ["simulation", "calibration", "overview"]
     assert "flow" in config["properties"]
     assert isinstance(meta.get("sections"), list)
     assert isinstance(meta.get("root_fields"), list)
@@ -47,7 +47,7 @@ def test_export_full_schema_produces_valid_json(tmp_path: Path) -> None:
     for expected in ("workspace", "geographic", "flow", "simulation", "solver", "workflow"):
         assert expected in section_names
     assert isinstance(validators, dict)
-    assert validators["workflow.mode"] == "enum"
+    assert "workflow.mode" in validators
     assert "flow.flow_regime" in validators
 
 

@@ -37,7 +37,6 @@ _PROJECT_TOML = """
 mode = "simulation"
 
 [workspace]
-project_root = "{root}"
 
 [simulation]
 name = "soil_two_ru"

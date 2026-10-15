@@ -10,9 +10,6 @@ base_config = "config_fast_common.toml"
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "./results_reused_real_meshes/example12_fast_mf6"
-
 [mesh]
 engine = "voronoi"
 

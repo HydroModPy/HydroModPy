@@ -76,6 +76,8 @@ ALLOWLIST: tuple[tuple[str, str], ...] = (
     ("physics/hydrology/pyhelp/core/paths.py", "application/vnd.github+json"),
     # The FORMAT name the Geoplateforme WMS-Raster GetMap request takes.
     ("data/variables/dem/apis/geoplateforme_wms.py", "image/geotiff"),
+    # The column default the GeoPackage standard imposes in the gpkg_metadata DDL.
+    ("results/identity.py", "text/xml"),
 )
 
 # Pinned by hand from hydromodpy/schema/media_types.py (read character by

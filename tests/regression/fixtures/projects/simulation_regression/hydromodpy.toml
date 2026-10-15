@@ -1,11 +1,11 @@
 # Shared simulation_regression settings for all example12 regression variants.
 
 
+[site]
+name = "naizin"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
 
 [geographic]
 crs_project = "EPSG:2154"

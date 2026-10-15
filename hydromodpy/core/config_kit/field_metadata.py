@@ -24,6 +24,12 @@ rather than at first JSON schema export.
 ``renamed_from`` lists the TOML paths a field replaces, written in full
 (``calibration.optimizer_kwargs``). The changes page of the parameter
 reference reads it to list a rename instead of a removal.
+
+``site_scoped`` marks a field whose value belongs to one catchment (an outlet,
+a station, a site-specific file). A ``[sites]`` project refuses a case whose
+resolved config keeps a literal value in such a field without a ``bind`` or a
+site overlay, and the generated docs say the value varies by site.
+:func:`hydromodpy.core.config_kit.introspect.site_scoped_paths` lists them.
 """
 
 from __future__ import annotations
@@ -57,6 +63,7 @@ class FieldMetadata(TypedDict, total=False):
     stability: Stability
     value_docs: dict[str, str]
     renamed_from: list[str]
+    site_scoped: bool
 
 
 _ALLOWED_KEYS: Final[frozenset[str]] = frozenset(FieldMetadata.__annotations__)

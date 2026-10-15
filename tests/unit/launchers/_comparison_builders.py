@@ -100,7 +100,6 @@ def _write_base_simulation_config(path: Path) -> None:
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                'project_root = "project/base_case"',
                 "",
                 "[simulation]",
                 'run_id = "base_run"',

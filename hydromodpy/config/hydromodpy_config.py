@@ -29,19 +29,17 @@ import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, ValidationError, ValidationInfo, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.analysis.config import AnalysisConfig
-from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import migrate_config_doc_on_load
-from hydromodpy.config.stored_config_migration import (
-    migrate_stored_config,
-    raw_flow_process_solver,
-)
+from hydromodpy.config.metrics_config import MetricsConfig
+from hydromodpy.config.publication_config import PublicationConfig
+from hydromodpy.config.sites.models import SitesConfig
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
@@ -51,9 +49,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_mesh_section,
     _load_optional_overview_section,
     _load_optional_spinup_section,
-    _load_optional_testbed_section,
     _raw_declares_dem_source,
-    _validation_context,
     load_geographic_section,
     load_standard_section,
 )
@@ -66,10 +62,12 @@ from hydromodpy.core.config_kit.introspect import (
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.exceptions import (
+    ConfigError,
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
-from hydromodpy.core.state.paths import is_sealed_run_config
+from hydromodpy.core.site import SiteConfig
+from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.core.time.window import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
@@ -109,30 +107,40 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshConfig
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 
-WorkflowMode = Literal[
-    "simulation",
-    "calibration",
-    "overview",
-    "comparison",
-    "testbed",
-    "site_selection",
-]
+WorkflowMode = Literal["simulation", "calibration", "overview"]
 ValidationContext = Literal["toml", "api"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
+
+RETIRED_WORKFLOW_MODES: dict[str, str] = {
+    "testbed": (
+        "workflow.mode = 'testbed' is gone: a case of a testbed is a recipe. List the "
+        "catchments in [sites] and the variants in [sites.recipes], then hmp run the file."
+    ),
+    "comparison": (
+        "workflow.mode = 'comparison' is gone: the legs of a comparison are recipes of "
+        "one site in [sites.recipes]. Run them with hmp run, then compare the runs with "
+        "hmp report compare <run> <run>."
+    ),
+    "site_selection": (
+        "workflow.mode = 'site_selection' is gone: run the selection with "
+        "hmp site select <file>, and remove [workflow] mode."
+    ),
+}
 
 
 class WorkflowConfig(HydroModelBase):
     """Workflow selector configuration."""
 
-    mode: Annotated[WorkflowMode, Profile.USER] = Field(
-        ...,
-        description="Workflow mode dispatched by `hmp run`.",
+    mode: Annotated[WorkflowMode | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "What `hmp run` does with the file. Unset, it follows from the sections: "
+            "[calibration] calibrates, [overview] without [simulation] draws the "
+            "overview, anything else simulates."
+        ),
         json_schema_extra={
             "value_docs": {
-                "simulation": (
-                    "Runs one forward simulation and persists solver outputs, "
-                    "catalog rows, and result stores."
-                ),
+                "simulation": ("Runs one forward simulation and writes its run directory."),
                 "calibration": (
                     "Repeatedly proposes parameters, runs candidate simulations, "
                     "and records the calibration history."
@@ -141,21 +149,18 @@ class WorkflowConfig(HydroModelBase):
                     "Loads geographic and data context and renders review maps "
                     "without running a solver."
                 ),
-                "comparison": (
-                    "Runs several child simulations from one shared base config "
-                    "and compares their observables."
-                ),
-                "testbed": (
-                    "Expands a case matrix, delegates each case to a runner, and "
-                    "collects evidence artifacts."
-                ),
-                "site_selection": (
-                    "Selects or rejects candidate catchments and produces an "
-                    "auditable HTML review report."
-                ),
             }
         },
     )
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _name_the_replacement_of_a_retired_mode(cls, value: Any) -> Any:
+        """Refuse a retired mode with what replaces it."""
+        if isinstance(value, str) and value in RETIRED_WORKFLOW_MODES:
+            raise ValueError(RETIRED_WORKFLOW_MODES[value])
+        return value
+
     verbosity: Annotated[Verbosity, Profile.USER] = Field(
         default="normal",
         description=(
@@ -325,6 +330,15 @@ def _validation_refusal(
     )
 
 
+def _optional_model(model_cls: type[HydroModelBase]) -> Callable[[Any, Path], Any]:
+    """Return the loader of an optional section that names no file.
+
+    The section is validated as written: its relative paths, if any, are read
+    from the project root by the code that opens them, not rebased here.
+    """
+    return lambda data, _base: None if data is None else model_cls.model_validate(data)
+
+
 def _derive_name_from_filename(toml_path: Path) -> str:
     """Derive a simulation name from a TOML filename.
 
@@ -353,6 +367,59 @@ def _resolve_calibration_parameter_names(cfg: Any) -> None:
     resolve_parameter_targets(calibration, cfg, strict=False)
 
 
+REAL_CATCHMENT_DEFINITIONS: frozenset[str] = frozenset(
+    {"from_outlet_coord", "from_polyg_shp", "dem"}
+)
+"""Values of ``geographic.catchment.catch_def`` that model a real catchment, named by a site."""
+
+
+def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
+    """Return the id and first solver of the first flow process, before validation."""
+    if isinstance(simulation, Mapping):
+        processes = simulation.get("process")
+    else:
+        processes = getattr(simulation, "process", None)
+    if not isinstance(processes, list | tuple):
+        return None
+    for process in processes:
+        if isinstance(process, Mapping):
+            kind = str(process.get("type", "")).strip().lower()
+            solvers = process.get("solvers")
+            process_id = process.get("id")
+        else:
+            kind = str(getattr(process, "type", "")).strip().lower()
+            solvers = getattr(process, "solvers", None)
+            process_id = getattr(process, "id", None)
+        if kind != "flow" or not isinstance(solvers, list | tuple):
+            continue
+        names = [str(name).strip() for name in solvers if name and str(name).strip()]
+        if names:
+            return str(process_id or "flow"), names[0]
+    return None
+
+
+def require_site_for_real_catchment(config: Any) -> None:
+    """Refuse a real catchment that no site names.
+
+    A run on a real catchment is grouped, compared and published by its site,
+    never by the name of its project folder. A synthetic domain has no site,
+    and a ``[sites]`` project takes the site of each case from its table row.
+    Raises :class:`~hydromodpy.core.exceptions.ConfigError` naming
+    ``catch_def`` and the key to write.
+    """
+    if getattr(config, "site", None) is not None or getattr(config, "sites", None) is not None:
+        return
+    geographic = getattr(config, "geographic", None)
+    catch_def = getattr(geographic, "catch_def", None) if geographic is not None else None
+    if catch_def not in REAL_CATCHMENT_DEFINITIONS:
+        return
+    raise ConfigError(
+        f"geographic.catchment.catch_def = {catch_def!r} models a real catchment, and no "
+        '[site] names it. Add [site] with name = "<catchment>" (letters, digits and '
+        'underscores), and gauge = "<station>" when a station measures it.'
+    )
+
+
 class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
@@ -365,18 +432,58 @@ class HydroModPyConfig(HydroModelBase):
     """
 
     workflow: Annotated[WorkflowConfig, Profile.USER] = Field(
+        default_factory=WorkflowConfig,
         description=(
-            "Workflow configuration. `workflow.mode` must be one of "
-            "'simulation', 'calibration', 'overview', "
-            "'comparison', 'testbed', 'site_selection'. "
-            "Drives dispatch in `hmp run <toml>` and in API-driven callers "
-            "that instantiate `HydroModPyConfig` from a frontend form."
+            "Workflow configuration: `workflow.mode` ('simulation', 'calibration' or "
+            "'overview'), the console verbosity and the profiler. The mode is optional; "
+            "unset, the sections of the file say what `hmp run` does."
         ),
         examples=[{"mode": "simulation"}],
     )
-    workspace: Annotated[WorkspaceConfig, Profile.USER] = Field(
-        description="Configuration block for the project workspace and folder structure.",
-        examples=[{"project_root": "."}],
+    workspace: Annotated[WorkspaceConfig, Profile.DEV] = Field(
+        description=(
+            "Where the shared input data of the project are read and cached. The "
+            "project root is the folder that holds project.toml, never a key of the "
+            "file."
+        ),
+        examples=[{"root": "../.."}],
+    )
+    site: Annotated[SiteConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "The catchment this project models: its name, label, gauge and registry "
+            "URI. Required when geographic.catchment.catch_def declares a real "
+            "catchment (from_outlet_coord, from_polyg_shp or dem); a synthetic domain "
+            "has none. Refused beside [sites], where each case takes its site from a "
+            "row of the site table."
+        ),
+        examples=[{"name": "nancon", "gauge": "J0014010", "uri": "hubeau:J0014010"}],
+    )
+    sites: Annotated[SitesConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "The catchments of a campaign and the recipes run on each of them: the "
+            "plan is sites x recipes, one case <site>-<recipe> per pair. Refused "
+            "beside [site]."
+        ),
+        examples=[{"table": "sites.csv", "recipes": {"base": "project.toml"}}],
+    )
+    metrics: Annotated[MetricsConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Where and when a run is scored after it ends: the station (default "
+            "[site] gauge) and the window. Without a window the scores are left empty."
+        ),
+        examples=[{"window": {"start": "2001-01-01", "end": "2002-12-31"}}],
+    )
+    publication: Annotated[PublicationConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Licence, creators and attribution written into every copy hmp publish "
+            "makes of a result. hmp publish --public refuses a project without a "
+            "licence."
+        ),
+        examples=[{"license": "etalab-2.0", "creators": ["A. Author"]}],
     )
     geographic: Annotated[GeographicConfig, Profile.USER] = Field(
         description="Configuration block for geographic and watershed delineation parameters."
@@ -536,15 +643,6 @@ class HydroModPyConfig(HydroModelBase):
             "the previous state, until the heads and the lake stage converge."
         ),
     )
-    testbed: Annotated[TestbedConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional method-testbed settings loaded from the [testbed] "
-            "section. Drives the orchestration layer over child runners "
-            "(comparison or simulation) and is dispatched when "
-            "workflow.mode='testbed'."
-        ),
-    )
     site_selection: Annotated[SiteSelectionConfig | None, Profile.USER] = Field(
         default=None,
         description="Optional upstream basin site-selection workflow configuration.",
@@ -554,26 +652,30 @@ class HydroModPyConfig(HydroModelBase):
         description="Optional hydrometric observations used by data and site-selection workflows.",
     )
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "testbed": (
+            "a case of a testbed is a recipe: list the catchments in [sites] and the "
+            "variants in [sites.recipes]."
+        ),
+    }
+
     @model_validator(mode="before")
     @classmethod
-    def _default_workspace_for_direct_validation(cls, data: Any, info: ValidationInfo) -> Any:
-        """Provide a minimal workspace for direct model_validate callers."""
+    def _default_workspace_for_direct_validation(cls, data: Any) -> Any:
+        """Give a direct ``model_validate`` caller the current folder as project root.
+
+        A file never names its project root: the loader derives it from where the
+        file sits. A Python caller that validates a mapping without one works in
+        the current folder.
+        """
         if not isinstance(data, Mapping):
             return data
-        context = _validation_context(info.context)
         payload = dict(data)
         workspace = payload.get("workspace")
-        has_project_root = (
-            isinstance(workspace, Mapping) and bool(workspace.get("project_root"))
-        ) or bool(getattr(workspace, "project_root", None))
-        if context == "toml" and not has_project_root:
-            raise ValueError("TOML [workspace].project_root is required")
         if workspace is None:
             payload["workspace"] = {"project_root": "."}
         elif isinstance(workspace, Mapping) and not workspace.get("project_root"):
-            workspace_payload = dict(workspace)
-            workspace_payload["project_root"] = "."
-            payload["workspace"] = workspace_payload
+            payload["workspace"] = {**workspace, "project_root": "."}
         return payload
 
     @model_validator(mode="before")
@@ -606,7 +708,7 @@ class HydroModPyConfig(HydroModelBase):
         """
         if not isinstance(data, Mapping):
             return data
-        flow = raw_flow_process_solver(data.get("simulation"))
+        flow = _raw_flow_process_solver(data.get("simulation"))
         if flow is None:
             return data
         process_id, process_solver = flow
@@ -752,6 +854,18 @@ class HydroModPyConfig(HydroModelBase):
             )
 
     @model_validator(mode="after")
+    def _name_the_site_of_a_real_catchment(self) -> HydroModPyConfig:
+        """Refuse a real catchment without [site].
+
+        The rule holds for a file read from disk and for a Python caller alike.
+        """
+        try:
+            require_site_for_real_catchment(self)
+        except ConfigError as exc:
+            raise ValueError(exc.message) from exc
+        return self
+
+    @model_validator(mode="after")
     def _check_cross_section_coherence(self) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.
 
@@ -774,6 +888,13 @@ class HydroModPyConfig(HydroModelBase):
         * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
           without it the workflow delineates and loads, then writes no report.
         """
+        if self.site is not None and self.sites is not None:
+            raise ValueError(
+                "[site] and [sites] are both declared: a [sites] project takes the site "
+                "of each case from its row of the site table. Remove [site], or remove "
+                "[sites] to model one catchment."
+            )
+
         if getattr(getattr(self, "workflow", None), "mode", None) == "overview" and (
             getattr(self, "overview", None) is None
         ):
@@ -1100,12 +1221,6 @@ class HydroModPyConfig(HydroModelBase):
         """
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
-        if is_sealed_run_config(toml_path):
-            # A run froze this file in its run directory: drop the keys removed
-            # since, so the run can still be resumed. It goes first: the stored
-            # migration owns the keys a sealed file cannot be told to fix, and the
-            # message for a user file would name a command that does not apply.
-            raw = migrate_stored_config(raw, source=toml_path)
         # A config written against an earlier schema still loads: the migration
         # runs on the parsed payload, in memory. Reading never rewrites the file;
         # only `hmp doctor` does, and the log line says so.
@@ -1243,8 +1358,14 @@ class HydroModPyConfig(HydroModelBase):
         if "batch" in raw:
             raise _section_refusal(
                 "batch",
-                "Section [batch] is no longer supported. Use workflow='testbed' "
-                "with [testbed].profile = 'regional_lab' and [analysis.batch] instead.",
+                "Section [batch] is no longer supported. List the catchments in [sites] "
+                "and the variants in [sites.recipes].",
+                source_path=source_path,
+            )
+        if "testbed" in raw:
+            raise _section_refusal(
+                "testbed",
+                "Section [testbed] is no longer supported: " + cls.model_refused_keys["testbed"],
                 source_path=source_path,
             )
         if "persistence" in raw:
@@ -1263,8 +1384,9 @@ class HydroModPyConfig(HydroModelBase):
         if "regional_lab" in raw:
             raise _section_refusal(
                 "regional_lab",
-                "Section [regional_lab] is not a HydroModPyConfig section. "
-                "Use [analysis.batch] for regional-lab testbed settings.",
+                "Section [regional_lab] is not a HydroModPyConfig section. A regional "
+                "lab is a [sites] project: list the catchments in [sites] and the "
+                "variants in [sites.recipes].",
                 source_path=source_path,
             )
         known = set(cls.model_fields)
@@ -1285,8 +1407,9 @@ class HydroModPyConfig(HydroModelBase):
                 ),
             )
 
-        # Auto-derive workspace.project_root from TOML location if absent.
-        # HMP_PROJECT_ROOT env var takes precedence (used by test infra).
+        # The project root is never a key of a file: it is the folder that holds
+        # project.toml above the file, else the folder of the file. A Python caller
+        # may pass it. HMP_PROJECT_ROOT wins over both (used by test infra).
         workspace_section = raw.get("workspace", {})
         if workspace_section is None:
             workspace_section = {}
@@ -1298,24 +1421,30 @@ class HydroModPyConfig(HydroModelBase):
                 error_type="dict_type",
             )
         workspace_section = dict(workspace_section)
+        if context == "toml" and "project_root" in workspace_section:
+            message = (
+                "[workspace] project_root is not a key of a file: the project root is "
+                "the folder that holds project.toml (or the folder of this file). "
+                "Delete the line."
+            )
+            raise ConfigValidationError(
+                f"{source_path}: {message}" if source_path is not None else message,
+                source=None if source_path is None else str(source_path),
+                details=(
+                    {
+                        "pointer": json_pointer(("workspace", "project_root")),
+                        "loc": "workspace.project_root",
+                        "msg": message,
+                        "type": "extra_forbidden",
+                    },
+                ),
+            )
         env_project_root = os.environ.get("HMP_PROJECT_ROOT")
         if env_project_root:
             workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
+        elif context == "toml":
+            workspace_section["project_root"] = str(resolve_project_root(base))
         elif not workspace_section.get("project_root"):
-            if context == "toml":
-                message = "TOML [workspace].project_root is required"
-                raise ConfigValidationError(
-                    f"{source_path}: {message}" if source_path is not None else message,
-                    source=None if source_path is None else str(source_path),
-                    details=(
-                        {
-                            "pointer": json_pointer(("workspace", "project_root")),
-                            "loc": "workspace.project_root",
-                            "msg": "Field required",
-                            "type": "missing",
-                        },
-                    ),
-                )
             workspace_section["project_root"] = str(base)
 
         # Workspace must be parsed first so we can derive the shared data
@@ -1339,11 +1468,6 @@ class HydroModPyConfig(HydroModelBase):
             return lambda data, b: load_standard_section(
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
-
-        workflow_mode = None
-        workflow_section = raw.get("workflow")
-        if isinstance(workflow_section, Mapping):
-            workflow_mode = workflow_section.get("mode")
 
         geographic_section = raw.get("geographic", {})
         catchment_section = (
@@ -1393,19 +1517,15 @@ class HydroModPyConfig(HydroModelBase):
             "mesh": (None, _load_optional_mesh_section),
             "calibration": (None, _load_optional_calibration_section),
             "spinup": (None, _load_optional_spinup_section),
-            "testbed": (None, _load_optional_testbed_section),
+            "site": (None, _optional_model(SiteConfig)),
+            "sites": (None, _optional_model(SitesConfig)),
+            "metrics": (None, _optional_model(MetricsConfig)),
+            "publication": (None, _optional_model(PublicationConfig)),
             "site_selection": (
                 None,
                 lambda data, b: (
                     None
-                    if (
-                        data is None
-                        or (
-                            isinstance(data, Mapping)
-                            and not data
-                            and workflow_mode != "site_selection"
-                        )
-                    )
+                    if data is None or (isinstance(data, Mapping) and not data)
                     else load_standard_section(
                         data,
                         SiteSelectionConfig,
@@ -1480,8 +1600,8 @@ class HydroModPyConfig(HydroModelBase):
     ) -> HydroModPyConfig:
         """Reconstruct a config from a stored JSON snapshot.
 
-        The snapshot is migrated first: a key removed from the schema since the
-        run was stored is dropped or moved, and one log line names it.
+        The snapshot is read as stored: a key removed from the schema since the
+        run was stored is refused, as in a file.
 
         Parameters
         ----------
@@ -1495,8 +1615,7 @@ class HydroModPyConfig(HydroModelBase):
         -------
         HydroModPyConfig
         """
-        stored = migrate_stored_config(snapshot, source="config snapshot")
-        merged = _deep_merge(stored, overrides) if overrides else stored
+        merged = _deep_merge(snapshot, overrides) if overrides else snapshot
         return cls.model_validate(merged)
 
 

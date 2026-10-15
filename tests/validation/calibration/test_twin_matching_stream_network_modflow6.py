@@ -177,7 +177,6 @@ solvers = ["{solver_id}"]
 field_precision = "exact"
 
 [workspace]
-project_root = "."
 
 [geographic]
 source_mode = "synthetic"

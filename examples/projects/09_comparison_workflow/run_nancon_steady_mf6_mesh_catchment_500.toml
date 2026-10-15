@@ -4,13 +4,11 @@ base_config = "base_nancon_steady_hydrography_mesh_catchment.toml"
 mode = "simulation"
 
 [workspace]
-project_root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_500"
 root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_500"
 
 [simulation]
 name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_500"
 description = "MODFLOW 6 Nancon steady candidate on a generated irregular mesh-catchment grid, target size 500 m."
-if_exists = "replace"
 
 [mesh]
 cell_size = 500.0

@@ -5,17 +5,15 @@
 #
 #   hmp run examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
 
+[site]
+name = "aber"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "aber_transient_mf6"
 description = "Aber catchment, monthly transient 2017, MODFLOW 6, two pumping wells and particle tracking."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2017-01-01"

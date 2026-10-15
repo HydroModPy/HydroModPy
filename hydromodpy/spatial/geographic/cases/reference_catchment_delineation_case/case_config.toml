@@ -2,8 +2,8 @@
 # Reference geographic multi-case configuration.
 # ----------------------------------------------------------------------
 
-[workspace]
-project_root = "."
+[site]
+name = "naizin"
 
 [geographic]
 crs_project = "EPSG:2154"

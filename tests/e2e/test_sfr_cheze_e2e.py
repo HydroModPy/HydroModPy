@@ -101,7 +101,6 @@ value = "2 m"
 mode = "simulation"
 
 [workspace]
-project_root = "."
 
 [geographic]
 crs_project = "{_PROJECT_CRS}"

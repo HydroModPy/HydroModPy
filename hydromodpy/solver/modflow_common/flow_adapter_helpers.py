@@ -335,6 +335,7 @@ def run_flow_model(
             if failure_lines:
                 detail += " mfsim.lst: " + " | ".join(failure_lines) + "."
             diagnostics_path = model_dir / "mfsim.lst"
+            detail += xt3d_failure_hint(model_dir)
         raise SolverDivergedError(
             f"[HMPY.E401] Flow solver '{ctx.run.solver}' failed for run '{ctx.run.id}'."
             f"{detail} See {diagnostics_path} for diagnostics.",
@@ -356,3 +357,30 @@ def run_flow_model(
         solver_output_dir=Path(model_modflow.full_path),
         metrics=metrics,
     )
+
+
+def xt3d_failure_hint(model_dir: Path) -> str:
+    """Return a hint naming the XT3D switch when the written NPF uses XT3D.
+
+    XT3D can keep the Newton outer loop cycling on some triangle meshes.
+    The user needs the config key that turns it off.
+    """
+    for npf in sorted(Path(model_dir).glob("*.npf")):
+        try:
+            text = npf.read_text(errors="replace")
+        except OSError:
+            continue
+        in_options = False
+        for raw in text.splitlines():
+            line = raw.strip().upper()
+            if line.startswith("BEGIN OPTIONS"):
+                in_options = True
+            elif line.startswith("END OPTIONS"):
+                break
+            elif in_options and line.split()[:1] == ["XT3D"]:
+                return (
+                    " The NPF package uses XT3D. If the outer iterations cycle,"
+                    " set mf6_enable_xt3d = false under [modflow6.runtime]"
+                    " and run again."
+                )
+    return ""

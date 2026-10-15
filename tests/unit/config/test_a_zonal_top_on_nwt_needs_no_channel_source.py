@@ -14,7 +14,6 @@ PROJECT_TOML = """
 mode = "simulation"
 
 [workspace]
-project_root = "{root}"
 
 [geographic]
 source_mode = "synthetic"

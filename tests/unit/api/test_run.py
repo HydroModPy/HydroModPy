@@ -26,7 +26,7 @@ def test_run_with_overview_toml_dispatches(monkeypatch, tmp_path: Path) -> None:
     )
     captured: dict = {}
 
-    def fake_resolve(config_path, *, cli_workflow=None, require_toml_field=True):
+    def fake_resolve(config_path, *, cli_workflow=None):
         captured["resolve_path"] = Path(config_path)
         return "overview"
 
@@ -56,7 +56,7 @@ def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(
         "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "overview",
+        lambda p, *, cli_workflow=None: "overview",
     )
 
     def fake_dispatch(workflow, config_path, **kwargs):
@@ -167,7 +167,7 @@ def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path
     config = _write_toml(tmp_path / "sim.toml", '[workflow]\nmode = "simulation"\n')
     monkeypatch.setattr(
         "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "simulation",
+        lambda p, *, cli_workflow=None: "simulation",
     )
     captured: dict = {}
 

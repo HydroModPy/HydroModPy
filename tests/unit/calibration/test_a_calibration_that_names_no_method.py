@@ -224,7 +224,6 @@ def test_a_single_stage_calibration_with_no_method_runs_the_chosen_one(tmp_path)
 
 PROJECT = """
 [workspace]
-project_root = "{root}"
 
 [workflow]
 mode = "calibration"

@@ -22,7 +22,6 @@ from hydromodpy.core.exceptions import ConfigValidationError
 
 WORKSPACE = """\
 [workspace]
-project_root = "{root}"
 
 """
 
@@ -69,8 +68,8 @@ def test_an_unknown_key_reaches_the_config_exit_code(tmp_path: Path) -> None:
     assert exit_code_for(error) == EXIT_CONFIG
 
 
-def test_a_missing_project_root_reaches_the_config_exit_code(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[simulation]\nname = 'probe'\n", head=""))
+def test_a_project_root_in_a_file_reaches_the_config_exit_code(tmp_path: Path) -> None:
+    error = _refusal(_write(tmp_path, "[workspace]\nproject_root = '.'\n", head=""))
     assert exit_code_for(error) == EXIT_CONFIG
 
 
@@ -119,8 +118,8 @@ def test_every_unknown_section_gets_its_own_pointer(tmp_path: Path) -> None:
     assert sorted(entry["pointer"] for entry in error.details) == ["/alpha", "/zulu"]
 
 
-def test_a_missing_project_root_points_at_the_key_it_wants(tmp_path: Path) -> None:
-    error = _refusal(_write(tmp_path, "[simulation]\nname = 'probe'\n", head=""))
+def test_a_project_root_in_a_file_points_at_that_key(tmp_path: Path) -> None:
+    error = _refusal(_write(tmp_path, "[workspace]\nproject_root = '.'\n", head=""))
     assert [entry["pointer"] for entry in error.details] == ["/workspace/project_root"]
 
 
@@ -253,8 +252,8 @@ def test_a_missing_key_still_points_at_where_it_belongs(tmp_path: Path) -> None:
     """The counterweight to the test above: a segment the document lacks is
     dropped only when the next one resolves in its place. A ``missing`` fault
     names a key that is by definition absent, and its pointer must survive."""
-    error = _refusal(_write(tmp_path, "[simulation]\nname = 'probe'\n", head=""))
-    assert [entry["pointer"] for entry in error.details] == ["/workspace/project_root"]
+    error = _refusal(_write(tmp_path, "[site]\nlabel = 'probe'\n", head=LOADABLE))
+    assert [entry["pointer"] for entry in error.details] == ["/site/name"]
 
 
 def test_a_protocol_option_is_pointed_at_and_typed(tmp_path: Path) -> None:

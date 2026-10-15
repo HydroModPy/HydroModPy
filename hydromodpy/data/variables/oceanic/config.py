@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
@@ -45,6 +46,7 @@ class OceanicSourceConfig(
     ] = Field(
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
 
     # --- Constant source fields ---

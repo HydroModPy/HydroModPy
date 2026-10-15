@@ -1,6 +1,12 @@
 """Workspace configuration with project-local result catalogs.
 
-Resolution order (first match wins):
+The project root is never written in a file. The config loader sets
+``project_root`` from where the file sits: the folder that holds
+``project.toml`` above it, else the folder of the file itself. A Python
+caller may pass it. It is a runtime attribute: never written back to TOML
+and never part of the config hash.
+
+Resolution order of the shared data workspace (first match wins):
 
 1. **Explicit** - the TOML declares ``root`` or ``data_dir`` under
    ``[workspace]``. A declared ``root`` derives the shared data directory
@@ -29,6 +35,7 @@ from pydantic import Field, PrivateAttr, computed_field, model_validator
 from upath import UPath
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
@@ -62,9 +69,9 @@ class WorkspaceConfig(HydroModelBase):
 
     Fields under ``[workspace]``:
 
-    ``project_root`` (required)
-        Directory of the project TOML. Usually auto-derived from the TOML
-        location by the loader.
+    ``project_root`` (runtime only)
+        Directory of the project. Set by the loader from the location of the
+        file; refused when a file writes it.
 
     ``root`` (explicit workspace override)
         When set, the shared data workspace root. Derives ``data_dir``
@@ -79,9 +86,12 @@ class WorkspaceConfig(HydroModelBase):
         published ``share/`` tree). Defaults to ``project_root``.
     """
 
-    project_root: Annotated[Path | UPath, Profile.USER] = Field(
-        description="Path to the project directory. Required in TOML configs.",
-        examples=["."],
+    project_root: Annotated[Path | UPath, Profile.DEV] = Field(
+        description=(
+            "Folder of the project, set by the loader: the folder that holds "
+            "project.toml, else the folder of the file. Never written in a file."
+        ),
+        json_schema_extra=field_metadata(toml_exclude=True),
     )
 
     root: Annotated[Path | UPath | None, Profile.USER] = Field(

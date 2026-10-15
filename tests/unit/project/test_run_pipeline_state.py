@@ -29,7 +29,9 @@ type = "flow"
 solvers = ["modflow6"]
 
 [workspace]
-project_root = "{root}"
+
+[site]
+name = "naizin"
 
 [geographic]
 crs_project = "EPSG:2154"

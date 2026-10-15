@@ -126,6 +126,35 @@ def _forcing_attr(forcing: object, name: str) -> object:
     return getattr(forcing, name, None)
 
 
+def compact_pre_resolved_forcings(tree: object, *, period_lengths: Sequence[float]) -> int:
+    """Average every pre-resolved per-period forcing of ``tree`` to one period.
+
+    A one-period auxiliary model (the steady initial condition) reuses the
+    run's sinks and sources. A ``{"kind": "values"}`` forcing there holds one
+    value per run period. It is replaced in place by its duration-weighted
+    mean, so it matches the single averaged period. A list whose length
+    differs from ``period_lengths`` is left alone. Returns the count replaced.
+    """
+    weights = np.asarray([float(v) for v in period_lengths], dtype=float)
+    if weights.size < 2 or not np.all(np.isfinite(weights)) or weights.sum() <= 0.0:
+        return 0
+    count = 0
+    if isinstance(tree, Mapping):
+        values = tree.get("values")
+        if tree.get("kind") == "values" and isinstance(values, (list, tuple)):
+            if len(values) == weights.size and isinstance(tree, dict):
+                mean = float(np.dot(np.asarray(values, dtype=float), weights) / weights.sum())
+                tree["values"] = [mean]
+                return 1
+            return 0
+        for child in tree.values():
+            count += compact_pre_resolved_forcings(child, period_lengths=weights)
+    elif isinstance(tree, (list, tuple)):
+        for child in tree:
+            count += compact_pre_resolved_forcings(child, period_lengths=weights)
+    return count
+
+
 def resolve_period_values_from_forcing(
     *,
     forcing: object,

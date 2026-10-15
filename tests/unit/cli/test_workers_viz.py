@@ -720,22 +720,6 @@ def _migration_messages(config: Path, caplog) -> list[str]:
     return [r.getMessage() for r in caplog.records if "migrated" in r.getMessage()]
 
 
-def test_a_sealed_run_config_takes_the_stored_migration(monkeypatch, tmp_path, caplog) -> None:
-    # runs/<name>/config.toml belongs to the run, not to the user: its message
-    # must not send them to `hmp doctor`.
-    run_dir = tmp_path / RUNS_DIRNAME / "baseline"
-    run_dir.mkdir(parents=True)
-    config = run_dir / "config.toml"
-    config.write_text(_RETIRED, encoding="utf-8")
-    _gallery_with_one_run(monkeypatch)
-
-    messages = _migration_messages(config, caplog)
-
-    assert len(messages) == 1
-    assert "removed since the run was stored" in messages[0]
-    assert "hmp doctor" not in messages[0]
-
-
 def test_a_sealed_run_config_opens_the_catalog_of_its_project(monkeypatch, tmp_path) -> None:
     run_dir = tmp_path / RUNS_DIRNAME / "baseline"
     run_dir.mkdir(parents=True)

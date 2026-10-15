@@ -388,11 +388,7 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         from hydromodpy.workflow.dispatch import resolve_workflow
 
         config_path = Path(config).expanduser().resolve()
-        workflow = resolve_workflow(
-            config_path,
-            cli_workflow=None,
-            require_toml_field=True,
-        )
+        workflow = resolve_workflow(config_path, cli_workflow=None)
         if workflow == "simulation":
             _refuse_overrides_on_a_path(config_path, kwargs)
         summary = dispatch_workflow(workflow, config_path, **kwargs)
@@ -410,9 +406,10 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
             return run_obj
         return summary
 
-    # In-memory config object: dispatch on the declared workflow mode so a
-    # pure-Python config reaches every workflow, not only a plain simulation.
-    mode = getattr(getattr(config, "workflow", None), "mode", "simulation")
+    # In-memory config object: dispatch on the declared workflow mode, or on
+    # the one its sections imply, so a pure-Python config reaches every
+    # workflow, not only a plain simulation.
+    mode = _workflow_of_config(config)
     if mode == "simulation":
         from hydromodpy.project import Project
         from hydromodpy.project.dispatch.workflow import completed_identical_run
@@ -444,6 +441,21 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
 
     with _materialized_config(config) as materialized_path:
         return dispatch_workflow(mode, materialized_path, **kwargs)
+
+
+def _workflow_of_config(config: Any) -> str:
+    """Return the workflow a config object runs: its mode, or what its sections imply."""
+    from hydromodpy.workflow.dispatch import infer_workflow
+
+    declared = getattr(getattr(config, "workflow", None), "mode", None)
+    if declared:
+        return str(declared)
+    written = set(getattr(config, "model_fields_set", ()))
+    return infer_workflow(
+        calibration=getattr(config, "calibration", None) is not None,
+        overview=getattr(config, "overview", None) is not None,
+        simulation="simulation" in written,
+    )
 
 
 def calibrate(

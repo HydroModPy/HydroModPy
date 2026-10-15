@@ -1,0 +1,72 @@
+{
+  "additionalProperties": false,
+  "description": "What a plan was made from, and what it holds.",
+  "properties": {
+    "budget": {
+      "additionalProperties": true,
+      "description": "Announced budget: solves, peak memory, scratch",
+      "title": "Budget",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "created_at": {
+      "description": "Instant the plan was written, UTC",
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "fingerprints": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Digest of each input of the plan: project.toml, recipes...",
+      "title": "Fingerprints",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "hydromodpy_version": {
+      "description": "Version that wrote the plan",
+      "examples": [
+        "example"
+      ],
+      "title": "Hydromodpy Version",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "n_cases": {
+      "description": "Number of cases",
+      "examples": [
+        1
+      ],
+      "minimum": 0,
+      "title": "N Cases",
+      "type": "integer",
+      "x-hmp-profile": "user"
+    },
+    "plan_hash": {
+      "description": "Fingerprint of the plan",
+      "examples": [
+        "example"
+      ],
+      "pattern": "^[0-9a-f]{8,64}$",
+      "title": "Plan Hash",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.plan.v1",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_hash",
+    "hydromodpy_version",
+    "created_at",
+    "n_cases"
+  ],
+  "title": "Plan",
+  "type": "object"
+}

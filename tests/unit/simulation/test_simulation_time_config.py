@@ -38,16 +38,12 @@ def test_simulation_catalog_metadata_parses_from_mapping() -> None:
             "scientific_objective": "calibration",
             "contact_email": "user@example.org",
             "doi": "10.5281/zenodo.0",
-            "study_area_name": "Nancon",
-            "outlet_x": 350000.0,
-            "outlet_y": 6780000.0,
             "process": [],
         }
     )
 
     assert cfg.scientific_objective == "calibration"
-    assert cfg.outlet_x == 350000.0
-    assert cfg.outlet_y == 6780000.0
+    assert cfg.doi == "10.5281/zenodo.0"
 
 
 def test_simulation_time_window_parses_inline_step_value_unit() -> None:

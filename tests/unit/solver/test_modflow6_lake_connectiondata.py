@@ -365,7 +365,7 @@ def test_marnage_bank_seepage_adds_horizontal_to_vertical() -> None:
     # connections (bed + bank, the physical case); with it off it stays bed-only.
     from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
 
-    mesh = _grid_4x4(nlay=2)  # active everywhere (marnage keeps lake cells active)
+    mesh = _carved_grid(lake_top=7.0)  # active everywhere, lake columns carved
 
     def types(bank: bool):
         rows = build_lake_connectiondata(
@@ -385,3 +385,140 @@ def test_marnage_bank_seepage_adds_horizontal_to_vertical() -> None:
     assert "HORIZONTAL" not in bed_only  # bed-only marnage
     assert with_bank.count("VERTICAL") == len(_LAKE_CELLS)
     assert with_bank.count("HORIZONTAL") > 0  # bank added on top of the bed
+
+
+def _carved_grid(lake_top: float = 7.0, nlay: int = 3) -> SolverMesh:
+    # Neighbour tops at 10 m, lake columns carved down to ``lake_top``.
+    top = np.full((4, 4), 10.0)
+    for cid in _LAKE_CELLS:
+        top[cid // 4, cid % 4] = lake_top
+    botm = np.stack([np.full((4, 4), 6.0 - lay * 3.0) for lay in range(nlay)])
+    return solver_mesh_from_structured_arrays(nrow=4, ncol=4, top=top, botm=botm, dx=1.0, dy=1.0)
+
+
+def test_marnage_banks_sit_above_the_carved_bed() -> None:
+    # D8: a marnage bank spans [carved lake top, neighbour top], never below the bed.
+    mesh = _carved_grid(lake_top=7.0)
+    rows = build_lake_connectiondata(
+        None,
+        lake_index=0,
+        lake_cell_ids=_LAKE_CELLS,
+        bedleak=0.5,
+        solver_mesh=mesh,
+        dynamic_area=True,
+        bank_seepage=True,
+    )
+    horizontal = [r for r in rows if r[3] == "HORIZONTAL"]
+    assert horizontal
+    for r in horizontal:
+        assert r[5] >= 7.0 - 1e-12  # belev at or above the carved bed
+        assert r[6] <= 10.0 + 1e-12  # telev at or below the neighbour top
+        assert r[6] > r[5]
+
+
+def test_marnage_bank_absent_when_neighbour_is_not_higher() -> None:
+    # A neighbour whose top is at the bed level offers no bank face.
+    mesh = _carved_grid(lake_top=10.0)
+    rows = build_lake_connectiondata(
+        None,
+        lake_index=0,
+        lake_cell_ids=_LAKE_CELLS,
+        bedleak=0.5,
+        solver_mesh=mesh,
+        dynamic_area=True,
+        bank_seepage=True,
+    )
+    assert not [r for r in rows if r[3] == "HORIZONTAL"]
+
+
+def test_polygon_overlap_drops_a_sliver_below_the_relative_area_floor() -> None:
+    # BV-2: a 1e-8 m2 sliver on a 1 m2 cell must not enter the lake footprint.
+    from shapely.geometry import box
+
+    from hydromodpy.spatial.mesh.ops.family_interior import polygon_overlap
+
+    mesh = _grid_4x4(nlay=1)
+    cen = mesh.cell_centroids()
+    first = int(np.argmin(cen[:, 0] + 10.0 * cen[:, 1]))
+    x0, y0 = float(cen[first, 0]) - 0.5, float(cen[first, 1]) - 0.5
+    polygon = box(x0, y0, x0 + 1.0 + 1e-8, y0 + 1.0)
+    cells, areas = polygon_overlap(mesh.cell_mesh, polygon)
+    assert cells.tolist() == [first]
+    assert areas[0] > 0.99
+
+
+def test_cutoff_wall_seal_warns_with_the_sealed_connection_count(caplog) -> None:
+    # HFB-3: the implicit seal is a WARNING that names the count of sealed banks.
+    import logging
+
+    from shapely.geometry import LineString
+
+    mesh = _masked_grid()
+    cen = mesh.cell_centroids()
+    body = cen[_LAKE_CELLS].mean(axis=0)
+    y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.01
+    wall = LineString([(float(body[0]) - 5.0, y_wall), (float(body[0]) + 5.0, y_wall)])
+    model = SimpleNamespace()
+    with caplog.at_level(logging.WARNING):
+        build_lake_connectiondata(
+            model,
+            lake_index=0,
+            lake_cell_ids=_LAKE_CELLS,
+            bedleak=0.5,
+            solver_mesh=mesh,
+            cutoff_wall_line=wall,
+        )
+    n_sealed = model._lake_sealed_bank_connections[0]
+    assert n_sealed > 0
+    assert any(
+        r.levelno == logging.WARNING and f"seals {n_sealed} bank" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_lake_connected_to_a_chd_cell_is_refused() -> None:
+    # CHD: MF6 fails on the LAK residual when a lake connects to a CHD cell.
+    import pytest
+
+    from hydromodpy.solver.modflow6.builders.lake import _refuse_chd_connections
+
+    rows = _rows()
+    target = next(r[2] for r in rows if r[3] == "HORIZONTAL")
+    dtype = [("cellid", object), ("head", float)]
+    chd_rec = np.array([(target, 5.0)], dtype=dtype).view(np.recarray)
+    chd = SimpleNamespace(stress_period_data=SimpleNamespace(get_data=lambda: {0: chd_rec}))
+    with pytest.raises(ValueError, match="CHD"):
+        _refuse_chd_connections(SimpleNamespace(chd=chd), lake_id="lac0", rows=rows)
+    # No CHD package, or a CHD elsewhere: accepted.
+    _refuse_chd_connections(SimpleNamespace(), lake_id="lac0", rows=rows)
+    far = np.array([((1, 0), 5.0)], dtype=dtype).view(np.recarray)
+    other = SimpleNamespace(stress_period_data=SimpleNamespace(get_data=lambda: {0: far}))
+    _refuse_chd_connections(SimpleNamespace(chd=other), lake_id="lac0", rows=rows)
+
+
+def test_table_bottom_is_compared_to_the_connection_floor(caplog) -> None:
+    # LAK-7: MF6 bounds the stage at min(belev); a table away from it warns.
+    import logging
+
+    from hydromodpy.solver.modflow6.builders.lake import (
+        _lake_connection_floor,
+        _warn_table_off_connection_floor,
+    )
+
+    mesh = _carved_grid(lake_top=7.0)
+    rows = build_lake_connectiondata(
+        None,
+        lake_index=0,
+        lake_cell_ids=_LAKE_CELLS,
+        bedleak=0.5,
+        solver_mesh=mesh,
+        dynamic_area=True,
+    )
+    floor = _lake_connection_floor(rows, mesh)
+    assert floor == 7.0
+    with caplog.at_level(logging.WARNING):
+        _warn_table_off_connection_floor("lac0", [(7.0, 0.0, 0.0), (8.0, 4.0, 4.0)], floor)
+    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+    with caplog.at_level(logging.WARNING):
+        _warn_table_off_connection_floor("lac0", [(5.0, 0.0, 0.0), (8.0, 4.0, 4.0)], floor)
+    assert any("min(belev)" in r.getMessage() for r in caplog.records)

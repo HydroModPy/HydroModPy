@@ -22,7 +22,6 @@ def _toml(
 mode = "simulation"
 
 [workspace]
-project_root = "{project_root.as_posix()}"
 
 [geographic]
 source_mode = "synthetic"

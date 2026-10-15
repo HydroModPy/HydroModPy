@@ -6,11 +6,11 @@
 # Name of the watershed/catchment (used as folder name).
 catch_name = "example12_domain_case"
 
-# Root output directory where all results will be stored.
-project_root = "."
-
 # Path to the input data folder (observations, climate, GIS layers, etc.).
 data_path = "../../../examples_legacy/example12/data"
+
+[site]
+name = "nancon"
 
 [geographic]
 

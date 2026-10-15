@@ -18,7 +18,7 @@ from hydromodpy.core.exceptions import ConfigValidationError
 def test_a_root_persistence_table_in_a_file_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "project.toml"
     path.write_text(
-        '[workspace]\nproject_root = "."\n\n'
+        "[workspace]\n\n"
         '[workflow]\nmode = "simulation"\n\n'
         '[persistence]\nfield_precision = "exact"\n',
         encoding="utf-8",

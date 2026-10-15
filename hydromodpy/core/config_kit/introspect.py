@@ -169,12 +169,91 @@ def collect_profile_violations(
     return violations
 
 
+LIST_ITEM_MARK = "[]"
+"""Suffix of a path part that is a list: the path continues inside each item."""
+
+TABLE_KEY_MARK = "*"
+"""Path part standing for any key of a ``dict[str, Model]`` table."""
+
+
+def is_site_scoped(field_info: Any) -> bool:
+    """Return whether *field_info* carries ``site_scoped=True`` in its metadata."""
+    extra = getattr(field_info, "json_schema_extra", None)
+    return isinstance(extra, dict) and extra.get("site_scoped") is True
+
+
+def _unwrap_members(annotation: Any) -> list[Any]:
+    """Return the members of an annotation, ``Annotated`` and ``None`` removed."""
+    import types
+    from typing import Annotated, Union, get_args, get_origin
+
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _unwrap_members(get_args(annotation)[0])
+    if origin is Union or origin is types.UnionType:
+        out: list[Any] = []
+        for arg in get_args(annotation):
+            out.extend(_unwrap_members(arg))
+        return out
+    if annotation is type(None):
+        return []
+    return [annotation]
+
+
+def site_scoped_paths(model: type[BaseModel]) -> tuple[str, ...]:
+    """Return the dotted paths of every field marked ``site_scoped`` under *model*.
+
+    The walk follows nested models, every variant of a union, list items and
+    ``dict[str, Model]`` values. A part that is a list ends in ``[]``
+    (``data.hydrometry.sources[].station_ids``) and a table key is written
+    ``*`` (``calibration.outputs.*.observes``): these are patterns over a
+    resolved document, not key paths a ``--set`` could assign. Paths are
+    sorted and unique.
+    """
+    from typing import get_args, get_origin
+
+    from pydantic import BaseModel as _BaseModel
+
+    found: set[str] = set()
+
+    def _walk(cls: type[BaseModel], prefix: tuple[str, ...], stack: tuple[type, ...]) -> None:
+        if cls in stack:
+            return
+        for name, info in cls.model_fields.items():
+            here = (*prefix, name)
+            if is_site_scoped(info):
+                found.add(".".join(here))
+            _descend(info.annotation, here, (*stack, cls))
+
+    def _descend(annotation: Any, here: tuple[str, ...], stack: tuple[type, ...]) -> None:
+        for member in _unwrap_members(annotation):
+            if isinstance(member, type) and issubclass(member, _BaseModel):
+                _walk(member, here, stack)
+                continue
+            origin = get_origin(member)
+            args = get_args(member)
+            if origin in {list, tuple, set, frozenset} and args:
+                marked = (*here[:-1], here[-1] + LIST_ITEM_MARK)
+                for arg in args:
+                    if arg is not Ellipsis:
+                        _descend(arg, marked, stack)
+            elif origin is dict and len(args) == 2:
+                _descend(args[1], (*here, TABLE_KEY_MARK), stack)
+
+    _walk(model, (), ())
+    return tuple(sorted(found))
+
+
 __all__ = [
     "DEFAULT_FIELD_PROFILE",
+    "LIST_ITEM_MARK",
+    "TABLE_KEY_MARK",
     "collect_profile_violations",
     "extract_profile",
     "iter_basemodels",
+    "is_site_scoped",
     "iter_fields_by_profile",
     "read_profile_from_schema",
     "resolve_profile",
+    "site_scoped_paths",
 ]

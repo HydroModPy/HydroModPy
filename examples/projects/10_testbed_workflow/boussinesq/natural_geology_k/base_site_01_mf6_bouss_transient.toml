@@ -9,7 +9,6 @@ mode = "simulation"
 
 [workspace]
 # Path to the project directory. Auto-derived from TOML location when absent.
-project_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/base_workspace"
 # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result
 # catalogs stay project-local by default.
 root = "../../../.."
@@ -26,7 +25,6 @@ description = "Shared refined natural site_01 recharge-response case for MF6 ver
 # Behavior when registering a simulation whose ``name`` already exists in this project.
 # ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises
 # an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
-if_exists = "replace"
 
 # Optional canonical simulation window used to align solver temporal settings and validate forcing
 # coverage. Required for launcher flow processes and for runtime features that explicitly consume

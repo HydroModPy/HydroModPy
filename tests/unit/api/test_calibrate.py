@@ -441,7 +441,9 @@ MINIMAL_REAL_PROJECT_TOML = """\
 mode = "simulation"
 
 [workspace]
-project_root = "."
+
+[site]
+name = "naizin"
 
 [geographic]
 crs_project = "EPSG:2154"
@@ -508,7 +510,7 @@ enabled = false
 
 def _write_real_project(tmp_path: Path) -> Path:
     """A minimal, real, loadable project: relative dem_init_path and
-    project_root = ".", the idiom every example uses. Also declares Sy and
+    a [site], the idiom every example uses. Also declares Sy and
     a network output the two tests below never mention in their Python
     call, to prove neither leaks into the written document.
     """

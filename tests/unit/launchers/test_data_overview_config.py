@@ -22,8 +22,10 @@ def test_overview_config_respects_project_root_env_override(
 [workflow]
 mode = "simulation"
 [workspace]
-project_root = "."
 root = "{tmp_path}"
+
+[site]
+name = "site_a"
 
 [geographic]
 [geographic.catchment]

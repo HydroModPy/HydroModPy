@@ -1,0 +1,317 @@
+{
+  "$defs": {
+    "DateWindow": {
+      "additionalProperties": false,
+      "description": "A closed range of days, ``start`` and ``end`` included.",
+      "properties": {
+        "end": {
+          "description": "Last day of the window, included",
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "start": {
+          "description": "First day of the window",
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DateWindow",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "description": "Who a run is, posed into every file that leaves it.",
+      "properties": {
+        "attempt_id": {
+          "description": "Id of the attempt that sealed the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Attempt Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "case_id": {
+          "description": "Case the run is: the run name, or site-recipe",
+          "examples": [
+            "example"
+          ],
+          "title": "Case Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "code_reproducible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "False for a dirty checkout or an editable install",
+          "title": "Code Reproducible",
+          "x-hmp-profile": "user"
+        },
+        "config_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identity hash of the configuration",
+          "title": "Config Hash",
+          "x-hmp-profile": "user"
+        },
+        "hydromodpy_version": {
+          "description": "Version that produced the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Hydromodpy Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "enum": [
+                "exploratory",
+                "calibrated",
+                "evaluated",
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label at the date below; never sealed",
+          "title": "Label",
+          "x-hmp-profile": "user"
+        },
+        "label_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Day the label was computed",
+          "title": "Label Date",
+          "x-hmp-profile": "user"
+        },
+        "mesh_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hash of the mesh",
+          "title": "Mesh Hash",
+          "x-hmp-profile": "user"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Simulated period; none when steady",
+          "x-hmp-profile": "user"
+        },
+        "rule_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rules the label follows",
+          "title": "Rule Version",
+          "x-hmp-profile": "user"
+        },
+        "score_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Window the run was scored on",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "description": "Id of the run",
+          "examples": [
+            "example"
+          ],
+          "title": "Sim Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "site": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site name",
+          "title": "Site",
+          "x-hmp-profile": "user"
+        },
+        "site_fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fingerprint of the site",
+          "title": "Site Fingerprint",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "case_id",
+        "sim_id",
+        "attempt_id",
+        "hydromodpy_version"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "LedgerEntry": {
+      "additionalProperties": false,
+      "description": "How one file of the directory was made.",
+      "properties": {
+        "at": {
+          "description": "Instant the file was written, UTC",
+          "format": "date-time",
+          "title": "At",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "file": {
+          "description": "Path of the file, relative to the ledger directory",
+          "examples": [
+            "example"
+          ],
+          "title": "File",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "hydromodpy_version": {
+          "description": "Version that wrote the file",
+          "examples": [
+            "example"
+          ],
+          "title": "Hydromodpy Version",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "identity": {
+          "$ref": "#/$defs/Identity",
+          "description": "Identity block posed in the file",
+          "x-hmp-profile": "user"
+        },
+        "options": {
+          "additionalProperties": true,
+          "description": "Options it was given",
+          "title": "Options",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "producer": {
+          "description": "Name of the producer that wrote the file",
+          "examples": [
+            "example"
+          ],
+          "title": "Producer",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sha256": {
+          "description": "Digest of the file",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "file",
+        "producer",
+        "hydromodpy_version",
+        "at",
+        "sha256",
+        "identity"
+      ],
+      "title": "LedgerEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The entries of one directory.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LedgerEntry"
+      },
+      "title": "Entries",
+      "type": "array",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.ledger.v1",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    }
+  },
+  "title": "Ledger",
+  "type": "object"
+}

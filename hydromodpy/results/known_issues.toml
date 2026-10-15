@@ -1,0 +1,27 @@
+# Known issues of published HydroModPy versions, read by results/validity_rules.py.
+#
+# One [[issue]] per bug that makes the runs of some versions not comparable with
+# the runs of this build. The label of such a run is "exploratory" today, its seal
+# untouched. Format: validity_rules.py module docstring. Versions are PEP 440
+# specifier sets; a fix lands with its entry.
+
+[[issue]]
+id = "discharge_scores_before_period_alignment"
+versions = "<2.0.0a1"
+quantities = ["metrics"]
+since_commit = "e6c5e50f5"
+description = "A stress-period stamp was compared with the observed value at the stamp instead of the mean of the period it closes, so discharge scores (NSE, KGE, RMSE) of these runs are not comparable with later ones."
+
+[[issue]]
+id = "voronoi_nwt_boussinesq_fixes_2026_10_09"
+versions = "<2.0.0a5"
+quantities = ["mesh@voronoi", "fluxes@modflow_nwt", "heads@boussinesq", "fluxes@boussinesq"]
+since_commit = "c14c1b4c6"
+description = "MF6 wells and sides were placed on the triangulation instead of the Voronoi dual cells, MODFLOW-NWT stored one slice per time step and read a wrong budget, and Boussinesq ignored the steady first period, the bed thickness of drains, the recharge rule of fixed-head cells and the sub-steps; fixed between c14c1b4c6 and 48d7db46e."
+
+[[issue]]
+id = "mf6_computation_top"
+versions = "<2.0.0a5"
+quantities = ["heads@modflow6", "fluxes@modflow6"]
+since_commit = "b1fa87021"
+description = "The MODFLOW 6 DISV took the ground as its top, so the top layer had an uneven thickness and heads under a varying thickness were off by 0.16 to 0.31 m on the Nancon; the DISV now carries a computation top, fixed between b1fa87021 and ec7f8de88."

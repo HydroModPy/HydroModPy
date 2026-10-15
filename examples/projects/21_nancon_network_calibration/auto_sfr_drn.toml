@@ -37,17 +37,15 @@
 # lent. L'etage 2 tourne donc sur deux ans. Compter cinq a six heures.
 # ======================================================================
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "calibration"
-
-[workspace]
-project_root = "."
-
 
 # ----------------------------------------------------------------------
 # Geographic - delimitation et surface de routage
 # ----------------------------------------------------------------------
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
@@ -229,7 +227,6 @@ value = "2 m"
 [simulation]
 name = "nancon_auto_sfr"
 description = "Nancon - SFR + DRN, K par le reseau en drain pur puis Sy route."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

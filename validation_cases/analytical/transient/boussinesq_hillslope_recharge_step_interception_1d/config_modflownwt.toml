@@ -16,9 +16,6 @@ id = "flow_validation"
 type = "flow"
 solvers = ["modflow_nwt"]
 
-[workspace]
-project_root = "."
-
 [geographic]
 source_mode = "synthetic"
 

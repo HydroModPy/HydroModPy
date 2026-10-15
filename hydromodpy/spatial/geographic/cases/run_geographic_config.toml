@@ -2,8 +2,8 @@
 # Geographic-only case extracted from the historical example12 configuration.
 # ----------------------------------------------------------------------
 
-[workspace]
-project_root = "."
+[site]
+name = "naizin"
 
 [geographic]
 crs_project = "EPSG:2154"

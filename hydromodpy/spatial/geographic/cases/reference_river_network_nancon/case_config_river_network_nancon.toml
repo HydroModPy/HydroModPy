@@ -2,8 +2,8 @@
 # Reference case: hydrographic network extraction on Nançon.
 # ----------------------------------------------------------------------
 
-[workspace]
-project_root = "."
+[site]
+name = "nancon"
 
 [geographic]
 crs_project = "EPSG:2154"

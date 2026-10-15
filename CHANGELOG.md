@@ -33,7 +33,74 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Fixed
+- Lake-river stack, correction of the audit of 2026-10-14 (seven lots integrated on 2026-10-15):
+  - MODFLOW 6 API path: a solve that does not converge raises `SolverDivergedError`
+    [HMPY.E401] like the executable path, libmf6 is finalized on every exception,
+    ATS is refused under the API (C-02, API-2, API-3).
+  - `[modflow6.runtime] mf6_backtracking_number` (None = preset, 0 cuts IMS
+    backtracking); the E401 message names `mf6_enable_xt3d = false` when the NPF
+    carries XT3D (C-03, TRI-XT3D).
+  - LAK HORIZONTAL banks in marnage cover [carved lake cell top, neighbour top], never
+    the carved bed; the table bottom is compared to the connection floor (warning);
+    a lake connected to a CHD cell is refused; slivers below 1e-6 of the cell area
+    are dropped; the implicit seal behind a cutoff wall is a WARNING with its count
+    (C-01, LAK-7, CHD, BV-2, HFB-3).
+  - HFB: every layer cut by the wall is barred on both cells of the link, face
+    `hydchr` weighted by trace length over face chain length, `hydchr <= 0`
+    refused under XT3D, open length at each end reported (HFB-1, HFB-4, HFB-5).
+  - Soil + lake: per-period forcings are averaged for the steady initial
+    condition; `spinup = first_year` accepted on 52 weekly periods; two lakes
+    without SFR share the basin runoff once (SOL-2, SPIN, LAK-6).
+  - Mesh: WARNING when a size term asks less than the DEM pixel; sill zone contour
+    simplified before the buffer; DISV vertices written with 15 decimals (C-06, C-07,
+    DISV-PREC).
+  - SFR: the routed outflow counts lake outlets and refuses an all-zero series;
+    `route_drainage` defaults to true with SFR; DRN movers to a lake are counted
+    (C-08, SFR-4, BC-1).
+  - Config: lake, outlet and SFR csv forcings resolve against `data/`; `runtime_reuse`
+    removed and its key refused; throttled wells (AUTO_FLOW_REDUCE) reported; DRAINC
+    break dated 2015-07-31 (CSV, REUSE, WEL-1, RCH-0).
+  - `tests/integration/test_two_lake_voronoi_stack_e2e.py`: two lakes, Voronoi mesh,
+    HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
+
 ### Added
+- `[site]`, `[sites]`, `[metrics]` and `[publication]` root sections (`hydromodpy/core/site/`,
+  `hydromodpy/config/sites/models.py`, `config/metrics_config.py`, `config/publication_config.py`):
+  a real catchment names its site (`name`, `label`, `gauge`, `uri`), a project of N sites declares its
+  table, recipes (`[sites.recipes]`, three forms, `recipes_table`), `bind`, `[sites.run]`,
+  `[sites.summary]` and `[[sites.export]]`; `[site]` and `[sites]` never coexist. `SiteRow` fixes the
+  columns of the workspace site catalogue; `site_fingerprint()` is a pure function of the declaration;
+  `resolve_gauge()` names a conflict between `[site] gauge` and a station key. Fields proper to one
+  catchment carry `field_metadata(site_scoped=True)` (`core.config_kit.introspect.site_scoped_paths`).
+- One dotted-path analyser for `--set`, `HMP_SET_*`, `bind` and inline `set`
+  (`hydromodpy/core/toml_io/paths.py`: `parse`, `assign`, `lookup`, `resolve_field`), quoted keys
+  accepted by the TOML error locator.
+- Project layout names of the target in `core/state/paths.py` (`trash/`, `jobs/`, `plan/`, `summary/`,
+  `site_overrides/`, `tombstones.txt`, `launcher.lease`, the run-internal `scratch`, `locks`,
+  `checkpoints`, `data-cache.duckdb`, `HMP_SCRATCH_ROOT`) and the two forms of a relative run directory
+  (`run_dir_rel`, `session_dir_rel`, `trial_dir_rel`, `parse_rel_dir`), their only declared holders.
+- The sealed formats of a run and a session as single-module Pydantic models under `hydromodpy/results/`:
+  `RunRecord` (the seal built in memory and written without SQL, `manifest.json` last and durable),
+  `Outcome` (`outcome.json`, `effective_status` with the written precedence), `HeartbeatThread`
+  (`logs/heartbeat.json` by `os.replace`), `Checks` and `Validity`, `ValidityRules` with
+  `known_issues.toml` shipped in the wheel and `label_for()` (`exploratory`, `calibrated`, `evaluated`,
+  `failed` derived on read), `Identity` and its applicators (Zarr attributes, Parquet metadata,
+  `gpkg_metadata`, PNG metadata and footer, `<file>.meta.json`), `Ledger` (`figures/index.json`,
+  `exports/index.json`), README generators with the sha256 of the manifest in the footer, `Lineage` by
+  ids, `results/session/` (`session.json` v3, `phases/<p>/session.json`, `trials.jsonl` with one trial
+  number per case), `plan_store` (immutable `plan/<hash>/`, `plan/current`), `Publication`
+  (`PUBLICATION.json`, `published.jsonl`, one `redact()`), `MetricRule` and `score()` on a declared
+  window (`nse_window_start`, `nse_window_end`, `nse_n`, `metric_rule_version`, `objective_*`). JSON
+  schemas under `hydromodpy/schema/results/`. `simulation.parquet` and `parameters.parquet` schemas carry
+  `site`, `case_id`, `rel_dir`, `attempt`, the flattened checks, `origin` and `calibrated`.
+- `reserve_version_dirname()`: the `.vN` of a run or session is computed on disk (live, trashed and
+  tombstoned versions) and claimed by one atomic `mkdir`; a deleted name is never given out again; a
+  promoted run takes the version of its session (`pair_with`). `hydromodpy/results/trash.py`: the
+  trash is a move to `trash/<rel_dir>@<stamp>/`, with `restore`, `gc` and `tombstones.txt`.
+- `tests/unit/results/test_run_layout_contract.py` rewritten on the target layout,
+  `test_internal_dir_is_reconstructible.py`, `test_a_name_is_never_reassigned.py`, `test_trash_move.py`,
+  `test_heartbeat_is_atomic.py`, `test_validity_rules.py`, `test_metric_rule.py`, `test_site_fingerprint.py`.
 - Mesh engines behind one port (`spatial/mesh/port.py`, `registry.py`, entry-point group
   `hydromodpy.mesh.engine`): `regular`, `triangle` and `voronoi` are built in, a third-party engine
   is reached by entry point and proven by `tests/contract/test_mesh_engine_contract.py` and
@@ -142,6 +209,18 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `[workflow] mode` is optional and limited to `simulation`, `calibration` and `overview`; left unset it
+  follows from the sections (`hydromodpy.workflow.dispatch.infer_workflow`, one helper for `hmp run` and
+  `hmp.run`). A retired mode (`comparison`, `testbed`, `site_selection`) is refused with its replacement.
+- `[workspace] project_root` is refused in a TOML file (the project root is the directory of
+  `project.toml`, or of the root file of the `base_config` chain) and leaves the config hash;
+  `[workspace]` is a DEV section. `if_exists` keeps `version` and `fail` only.
+- `docs/source/contribute/architecture/storage-layout.rst` describes the target: one artefact in the
+  directory of its producer, two state roots, the attempt protocol, the status precedence, versions
+  computed on disk, the trash by move.
+- `[site] name` is required when `geographic.catchment.catch_def` declares a real catchment, in the
+  TOML and in the Python API; the example, validation and test configurations name their site.
+- `hmp run --set` and `HMP_SET_*` go through the shared dotted-path analyser.
 - `[mesh.lake_refinement] enabled` is refused: the table being present switches the refinement
   on. Both `enabled = true` and `enabled = false` raise "[mesh.lake_refinement] has no
   'enabled' key: the table being present switches the lake refinement on. Remove the key, or
@@ -258,6 +337,12 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `[testbed]`, `[simulation] study_area_name`, `outlet_x`, `outlet_y`, `if_exists = "replace"`,
+  `[workspace] project_root` in a file, the `testbed`, `comparison` and `site_selection` workflow modes and
+  their `DISPATCH` routes, `ProjectTestbedRunnerProvider`.
+- `hydromodpy/config/stored_config_migration.py` and its tests: a stored configuration is read as it was
+  written, a run is replayed with the version that produced it.
+- `geographic_fingerprint` from the new sealed formats: `site.fingerprint` is the only fingerprint.
 - `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
   `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
   `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement (the message

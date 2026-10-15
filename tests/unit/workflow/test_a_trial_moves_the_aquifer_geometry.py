@@ -34,7 +34,6 @@ type = "flow"
 solvers = ["modflow6"]
 
 [workspace]
-project_root = "{root}"
 
 [geographic]
 source_mode = "synthetic"

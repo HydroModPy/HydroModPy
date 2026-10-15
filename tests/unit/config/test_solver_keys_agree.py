@@ -16,6 +16,7 @@ def _payload(**sections: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "workflow": {"mode": "simulation"},
         "workspace": {"project_root": "."},
+        "site": {"name": "site_a"},
         "geographic": {"catchment": {"catch_def": "dem", "dem_init_path": "dem.tif"}},
     }
     payload.update(sections)
