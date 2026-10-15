@@ -4,13 +4,11 @@ base_config = "../09_comparison_workflow/base_nancon_steady_hydrography_mesh_inp
 mode = "simulation"
 
 [workspace]
-project_root = "outputs/mf6_prt_pathlines/workspace"
 root = "../../"
 
 [simulation]
 name = "nancon_steady_mf6_prt_pathlines"
 description = "Nancon steady MODFLOW 6 flow followed by MODFLOW 6 PRT pathline tracking."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

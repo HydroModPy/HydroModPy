@@ -24,6 +24,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
 
@@ -74,6 +75,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
             "Explicit station identifiers to select, whether stations are read "
             "from a custom source or fetched from an API source such as Hub'Eau."
         ),
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     extent: Annotated[
         Literal["watershed", "study_area"] | None,
@@ -94,6 +96,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
             "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations "
             "or clip gridded sources."
         ),
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
         default=None,

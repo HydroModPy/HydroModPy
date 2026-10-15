@@ -70,7 +70,7 @@ def project(tmp_path) -> Path:
 
     root = tmp_path / "demo"
     (root).mkdir(parents=True)
-    (root / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    (root / "project.toml").write_text("[workspace]\n")
     with Catalog(root) as catalog:
         _seal(catalog, "base")
         _seal(catalog, "scenario", offset=10.0)

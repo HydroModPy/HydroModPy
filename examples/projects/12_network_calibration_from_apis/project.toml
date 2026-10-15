@@ -4,16 +4,15 @@
 #   hmp calibrate project.toml --check
 #   hmp run project.toml
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "calibration"
-
-[workspace]
-project_root = "."
 
 [simulation]
 name = "nancon_network_k_from_apis"
 description = "Nancon, inputs from public services, K from the full BD Topage network, steady state."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

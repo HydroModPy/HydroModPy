@@ -14,6 +14,7 @@ from typing import Annotated, Literal, TypeAlias
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
@@ -130,4 +131,5 @@ class CrossingsConfig(HydroModelBase):
             "A project run has it filled in from the delineated watershed; a standalone "
             "call names it."
         ),
+        json_schema_extra=field_metadata(site_scoped=True),
     )

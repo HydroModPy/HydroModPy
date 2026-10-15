@@ -11,17 +11,15 @@
 #
 #   hmp run examples/projects/06_particle_tracking_and_residence_times/project.toml
 
+[site]
+name = "lasset"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "lasset_tracking_mf6"
 description = "Lasset catchment, steady MODFLOW 6 with PRT tracking, pathlines and residence times."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

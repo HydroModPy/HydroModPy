@@ -21,7 +21,6 @@ from hydromodpy.cli.helpers import EXIT_CONFIG
 _TEMPLATE = textwrap.dedent(
     """
     [workspace]
-    project_root = "PROJECT_ROOT"
 
     [workflow]
     mode = "calibration"
@@ -98,7 +97,6 @@ def test_the_summary_counts_what_it_found(tmp_path, capsys) -> None:
 _PROTOCOL = textwrap.dedent(
     """
     [workspace]
-    project_root = "PROJECT_ROOT"
 
     [workflow]
     mode = "calibration"

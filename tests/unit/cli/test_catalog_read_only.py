@@ -33,7 +33,7 @@ def _digest(path: Path) -> str:
 def project(tmp_path) -> Path:
     root = tmp_path / "demo"
     root.mkdir()
-    (root / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    (root / "project.toml").write_text("[workspace]\n")
     with Catalog(root) as catalog:
         sid = str(uuid.uuid4())
         registration = catalog.register_simulation(
@@ -89,7 +89,7 @@ def test_rendering_a_figure_never_creates_an_index(tmp_path) -> None:
 
     empty = tmp_path / "empty"
     empty.mkdir()
-    (empty / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    (empty / "project.toml").write_text("[workspace]\n")
 
     with pytest.raises(FileNotFoundError):
         render_figure("alpha", "piezometric_map", workspace=empty)
@@ -107,7 +107,7 @@ def test_ls_shows_a_dash_for_a_run_with_no_mesh_engine(monkeypatch, project, cap
 def test_ls_shows_the_mesh_engine_of_a_run(monkeypatch, tmp_path, capsys) -> None:
     root = tmp_path / "demo"
     root.mkdir()
-    (root / "project.toml").write_text("[workspace]\nproject_root = '.'\n")
+    (root / "project.toml").write_text("[workspace]\n")
     with Catalog(root) as catalog:
         sid = str(uuid.uuid4())
         registration = catalog.register_simulation(

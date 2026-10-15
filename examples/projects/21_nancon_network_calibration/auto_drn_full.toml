@@ -27,17 +27,15 @@
 # mesure a environ trois heures, et non leur somme.
 # ======================================================================
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "calibration"
-
-[workspace]
-project_root = "."
-
 
 # ----------------------------------------------------------------------
 # Geographic - delimitation et surface de routage
 # ----------------------------------------------------------------------
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
@@ -192,7 +190,6 @@ values = 0.0
 [simulation]
 name = "nancon_auto_drn"
 description = "Nancon - DRN plein, K par le reseau puis Sy par l'hydrogramme."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

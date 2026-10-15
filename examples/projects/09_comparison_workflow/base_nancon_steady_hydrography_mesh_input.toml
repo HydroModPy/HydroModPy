@@ -1,15 +1,16 @@
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
 
 [workspace]
-project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/shared_workspace"
 root = "../../"
 
 [simulation]
 name = "nancon_steady_hydrography_shared_case"
 description = "Nancon steady comparison case with observed hydrography and a precomputed river-constrained mesh."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2020-01-01 00:00:00"

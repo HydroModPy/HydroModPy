@@ -17,7 +17,7 @@ Gives
 Step 6 computes the recharge instead of reading it. A daily soil reservoir turns the rain
 and the evapotranspiration (ETP) of the SIM2 reanalysis into a recharge that falls to
 zero in a dry summer, and MODFLOW builds the slow response of the aquifer itself. The file
-explains why: the SIM2 drainage keeps about 0.3 mm/day all summer from 2016 on, a slow
+explains why: the SIM2 drainage keeps about 0.3 mm/day all summer from 31 July 2015 on, a slow
 groundwater memory that the aquifer model would then count twice. The run is daily over
 2015-2020. 2015 settles the soil and the aquifer, and the figures score 2016-2020.
 

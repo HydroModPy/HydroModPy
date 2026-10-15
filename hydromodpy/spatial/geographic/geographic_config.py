@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.tracking import InputFile
@@ -176,12 +177,12 @@ class OutletCatchDef(_CatchDefBase):
     x_outlet: Annotated[float, Profile.USER] = Field(
         description="Easting of the watershed outlet in the projected CRS of the project, in metres.",
         examples=[352400.0],
-        json_schema_extra={"unit": "m"},
+        json_schema_extra=field_metadata(unit="m", site_scoped=True),
     )
     y_outlet: Annotated[float, Profile.USER] = Field(
         description="Northing of the watershed outlet in the projected CRS of the project, in metres.",
         examples=[6788300.0],
-        json_schema_extra={"unit": "m"},
+        json_schema_extra=field_metadata(unit="m", site_scoped=True),
     )
     snap_dist: Annotated[LengthMeters, Profile.USER] = Field(
         gt=0.0,
@@ -215,6 +216,7 @@ class PolygonCatchDef(_CatchDefBase):
     ] = Field(
         description="Path to the watershed polygon shapefile.",
         examples=["watershed.shp"],
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     buff_area: Annotated[str | float, Profile.USER] = Field(
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]

@@ -345,11 +345,11 @@ capacity, see {toml}`ru|flow.sinks_sources.recharge.soil.ru`.
   the run is not represented.
 - **First period.** A steady first stress period is refused, since it would
   hold the recharge of one day only.
-- **SIM2 drainage is not a summer reference across 2016.** Over the catchment of
-  example 04, the SIM2 drainage (DRAINC) never falls below about 0.2 mm/day from
-  2016 on: its 30-day minimum is 0.29, 0.23 and 0.30 mm/day in 2016, 2017 and
-  2018, against 0.00 to 0.04 mm/day in 2012 to 2015, on all nine cells of the
-  grid alike. A recharge from this reservoir falls to zero in a dry summer;
+- **SIM2 drainage is not a summer reference across 31 July 2015.** Over the catchment of
+  example 04, the SIM2 drainage (DRAINC) jumps from 0.000 to exactly 0.300 mm/day
+  on 31 July 2015 and never falls below about 0.16 mm/day after: its 30-day
+  minimum is 0.29, 0.23 and 0.30 mm/day in 2016, 2017 and 2018, against 0.00
+  mm/day in the summers 2008 to 2015, on the four extents tested alike. A recharge from this reservoir falls to zero in a dry summer;
   compare it with the SIM2 drainage period by period, never across that step.
 - **No other runoff.** Water that leaves saturated ground is not a term of
   this model. In a run, it leaves through the drains of MODFLOW 6.

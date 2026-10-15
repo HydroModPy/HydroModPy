@@ -149,7 +149,6 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{project_root.as_posix()}"',
                 "",
                 "[simulation]",
                 'run_id = "structured_demo_run"',

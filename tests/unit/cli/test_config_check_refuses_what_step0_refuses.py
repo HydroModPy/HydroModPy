@@ -13,7 +13,6 @@ from tests._helpers.cli_runner import CliRunner
 
 _BODY = """\
 [workspace]
-project_root = "{root}"
 
 [workflow]
 mode = "simulation"

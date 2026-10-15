@@ -1,46 +1,41 @@
-"""Workflow dispatch helpers."""
+"""Which workflow a configuration file runs.
+
+A file names its workflow with ``[workflow] mode``. Left unwritten, the mode
+follows from the sections the file carries: ``[calibration]`` calibrates,
+``[overview]`` without ``[simulation]`` draws the data overview, anything else
+simulates. :func:`infer_workflow` is the one place that rule is written, and
+:func:`resolve_workflow` applies it to a file, so ``hmp run`` and ``hmp.run``
+read a file the same way.
+
+The modes of the retired orchestrators (``comparison``, ``testbed``,
+``site_selection``) are refused with their replacement, the same sentence the
+configuration model gives (:data:`hydromodpy.config.hydromodpy_config.RETIRED_WORKFLOW_MODES`).
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, get_args
 
+from hydromodpy.config.hydromodpy_config import RETIRED_WORKFLOW_MODES, WorkflowMode
 from hydromodpy.core.exceptions import ConfigError
 
-WorkflowName = Literal[
-    "simulation",
-    "calibration",
-    "overview",
-    "comparison",
-    "testbed",
-    "site_selection",
-]
+WorkflowName = WorkflowMode
 
-KNOWN_WORKFLOWS: tuple[str, ...] = (
-    "simulation",
-    "calibration",
-    "overview",
-    "comparison",
-    "testbed",
-    "site_selection",
-)
+KNOWN_WORKFLOWS: tuple[str, ...] = get_args(WorkflowMode)
 
 
 class WorkflowError(ConfigError):
     """Base class for workflow-dispatch errors."""
 
 
-class WorkflowMissingError(WorkflowError):
-    """TOML lacks the workflow mode field."""
-
-
 class WorkflowUnknownError(WorkflowError):
-    """TOML declares an unknown workflow value."""
+    """The file declares a workflow mode that does not exist."""
 
 
 class WorkflowMismatchError(WorkflowError):
-    """Requested workflow and TOML workflow field disagree."""
+    """The requested workflow and the one the file declares disagree."""
 
 
 def load_raw_toml(config_path: Path) -> dict[str, Any]:
@@ -50,8 +45,8 @@ def load_raw_toml(config_path: Path) -> dict[str, Any]:
     return load_toml_with_base_config(config_path)
 
 
-def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
-    """Return `[workflow].mode`."""
+def extract_workflow_field(raw_toml: Mapping[str, Any]) -> str | None:
+    """Return ``[workflow] mode``, or None when the file leaves it unwritten."""
     section = raw_toml.get("workflow")
     if section is None:
         return None
@@ -67,55 +62,74 @@ def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
     return value
 
 
-def resolve_workflow(
-    config_path: Path,
-    *,
-    cli_workflow: str | None,
-    require_toml_field: bool,
-) -> str:
-    """Resolve and validate the workflow selected by config and caller."""
-    raw = load_raw_toml(config_path)
-    toml_workflow = extract_workflow_field(raw)
+def infer_workflow(*, calibration: bool, overview: bool, simulation: bool) -> WorkflowName:
+    """Return the workflow the sections of a file imply.
 
-    if toml_workflow is not None and toml_workflow not in KNOWN_WORKFLOWS:
+    ``[calibration]`` wins, then ``[overview]`` when no ``[simulation]`` table
+    says otherwise, then a simulation.
+    """
+    if calibration:
+        return "calibration"
+    if overview and not simulation:
+        return "overview"
+    return "simulation"
+
+
+def workflow_of_sections(raw_toml: Mapping[str, Any]) -> WorkflowName:
+    """Return the workflow a raw TOML document implies by its sections."""
+    return infer_workflow(
+        calibration="calibration" in raw_toml,
+        overview="overview" in raw_toml,
+        simulation="simulation" in raw_toml,
+    )
+
+
+def check_workflow_name(value: str) -> WorkflowName:
+    """Return *value* as a workflow name, or refuse it with the replacement when retired."""
+    if value in RETIRED_WORKFLOW_MODES:
+        raise WorkflowUnknownError(RETIRED_WORKFLOW_MODES[value])
+    if value not in KNOWN_WORKFLOWS:
         raise WorkflowUnknownError(
-            f"TOML 'workflow.mode' value {toml_workflow!r} is not one of "
+            f"TOML 'workflow.mode' value {value!r} is not one of "
             f"{', '.join(repr(w) for w in KNOWN_WORKFLOWS)}"
         )
+    return value  # type: ignore[return-value]
 
-    if require_toml_field and toml_workflow is None:
-        raise WorkflowMissingError(
-            f"{config_path.name} must declare a [workflow] section with "
-            f"'mode = \"...\"'.\n"
-            f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
-        )
 
-    if cli_workflow is not None and toml_workflow is not None and cli_workflow != toml_workflow:
-        raise WorkflowMismatchError(
-            f"CLI subcommand selected workflow={cli_workflow!r} but "
-            f"{config_path.name} declares workflow={toml_workflow!r}. "
-            f"Fix one of the two so they agree."
-        )
+def resolve_workflow(config_path: Path, *, cli_workflow: str | None = None) -> WorkflowName:
+    """Return the workflow of a file: its declared mode, or the one its sections imply.
+
+    A caller that already chose a workflow (``cli_workflow``) must agree with
+    the file when the file declares one.
+    """
+    raw = load_raw_toml(config_path)
+    declared = extract_workflow_field(raw)
+    toml_workflow = check_workflow_name(declared) if declared is not None else None
 
     if cli_workflow is not None:
-        return cli_workflow
-    if toml_workflow is None:
-        raise WorkflowMissingError(
-            f"{config_path.name} must declare a [workflow] section with "
-            f"'mode = \"...\"'.\n"
-            f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
-        )
-    return toml_workflow
+        requested = check_workflow_name(cli_workflow)
+        if toml_workflow is not None and requested != toml_workflow:
+            raise WorkflowMismatchError(
+                f"CLI subcommand selected workflow={requested!r} but "
+                f"{config_path.name} declares workflow={toml_workflow!r}. "
+                f"Fix one of the two so they agree."
+            )
+        return requested
+    if toml_workflow is not None:
+        return toml_workflow
+    return workflow_of_sections(raw)
 
 
 __all__ = (
     "KNOWN_WORKFLOWS",
     "WorkflowError",
     "WorkflowMismatchError",
-    "WorkflowMissingError",
     "WorkflowName",
     "WorkflowUnknownError",
+    "check_workflow_name",
     "extract_workflow_field",
+    "infer_workflow",
     "load_raw_toml",
     "resolve_workflow",
+    "workflow_of_sections",
 )

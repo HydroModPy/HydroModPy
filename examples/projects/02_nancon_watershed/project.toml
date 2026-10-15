@@ -23,19 +23,17 @@
 # Workspace
 # ----------------------------------------------------------------------
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
 
-[workspace]
 # Project root. "." means the folder that contains this TOML.
 # All relative paths (data, figures) are resolved against it.
-project_root = "."
-
-
 # ----------------------------------------------------------------------
 # Geographic - watershed delineation
 # ----------------------------------------------------------------------
-
 [geographic]
 # `standard` uses a real DEM. `synthetic` would build an analytical
 # domain (academic toy cases). We rely on a real DEM here.
@@ -254,7 +252,6 @@ name = "nancon_base"
 description = "Nançon watershed - shared base config for runs."
 # `replace` overwrites a run with the same name in the catalog. Useful
 # when you keep iterating on the same configuration.
-if_exists = "replace"
 
 
 [simulation.time]

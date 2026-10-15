@@ -19,7 +19,6 @@ from hydromodpy.cli.commands import config as config_cmd
 _TOML = textwrap.dedent(
     """
     [workspace]
-    project_root = "PROJECT_ROOT"
 
     [workflow]
     mode = "simulation"
@@ -124,7 +123,6 @@ def test_an_unresolvable_parameter_name_still_prints_the_catalogue(tmp_path, cap
 _LAKE_TOML = textwrap.dedent(
     """
     [workspace]
-    project_root = "PROJECT_ROOT"
 
     [workflow]
     mode = "calibration"

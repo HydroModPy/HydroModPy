@@ -79,15 +79,13 @@
 #      bassin, donc le symptome se lit sans relire ce commentaire.
 # ======================================================================
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "calibration"
 
-[workspace]
-project_root = "."
-
-
 # ---------------------------------------------------------------------- geographic
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
@@ -205,7 +203,6 @@ value = 1e-5
 [simulation]
 name = "nancon_ref_ex04"
 description = "Nancon - replique MF6 de example_04_calibration.py, K puis Sy par Nelder-Mead."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "1995-01-01"

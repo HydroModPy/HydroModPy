@@ -184,3 +184,19 @@ def test_bilinear_sampling_is_exact_on_a_plane() -> None:
 def test_a_background_finer_than_the_floor_is_refused() -> None:
     with pytest.raises(MeshRequestError, match="finer than the floor"):
         build_size_field(_grid(), h0=5.0, h_floor=10.0, terms=[], outside=None, max_slope=0.5)
+
+
+def test_term_finer_than_the_floor_warns_with_requested_and_effective_size(caplog):
+    """A term below the pixel floor is clipped, and a WARNING names both sizes (C-06)."""
+    sill = box(1500.0, 5500.0, 1520.0, 5520.0)
+    with caplog.at_level("WARNING", logger="hydromodpy.spatial.mesh.sizing.size_field"):
+        build_size_field(
+            _grid(),
+            h0=100.0,
+            h_floor=30.0,
+            terms=[SizeTerm(name="sill:a-b", region=sill, size_m=9.12, ramp_m=40.0)],
+            outside=None,
+            max_slope=0.3,
+        )
+    messages = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("sill:a-b" in m and "9.12" in m and "30" in m for m in messages), messages

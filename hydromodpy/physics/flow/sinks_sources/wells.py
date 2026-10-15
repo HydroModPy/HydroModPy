@@ -8,7 +8,7 @@ unified as the discriminated union :data:`FlowWellForcingConfig`.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from math import isfinite
 from numbers import Real
 from pathlib import Path
@@ -650,3 +650,57 @@ class FlowWellConfig(HydroModelBase):
         if col < 0 or col >= int(grid.ncol) or row < 0 or row >= int(grid.nrow):
             raise ValueError("well coordinates could not be resolved to a structured grid cell.")
         return (int(location.layer), row, col)
+
+
+WELL_THROTTLE_WARNING_FRACTION = 0.1
+"""Share of a requested pumping volume above which a cut is reported."""
+
+
+def throttled_well_report(
+    requested: Mapping[object, float],
+    applied: Mapping[object, float],
+    *,
+    threshold: float = WELL_THROTTLE_WARNING_FRACTION,
+) -> list[dict[str, float | object]]:
+    """List the wells whose applied volume falls short of the requested one.
+
+    ``requested`` and ``applied`` map a well cell to a volume in m3 (pumping is
+    negative, the sign is ignored). MODFLOW 6 ``AUTO_FLOW_REDUCE`` cuts the
+    extraction of a well whose cell is nearly dry, and the budget only
+    publishes what was applied. A well is reported when the cut exceeds
+    ``threshold`` of what was requested. Each row holds ``cell``,
+    ``requested``, ``applied`` and ``cut_fraction``.
+    """
+    rows: list[dict[str, float | object]] = []
+    for cell, wanted in requested.items():
+        wanted_abs = abs(float(wanted))
+        if wanted_abs <= 0.0:
+            continue
+        got_abs = abs(float(applied.get(cell, 0.0)))
+        cut = max(0.0, 1.0 - got_abs / wanted_abs)
+        if cut > float(threshold):
+            rows.append(
+                {
+                    "cell": cell,
+                    "requested": wanted_abs,
+                    "applied": got_abs,
+                    "cut_fraction": cut,
+                }
+            )
+    return rows
+
+
+def throttled_well_message(rows: Sequence[Mapping[str, object]]) -> str:
+    """Return the warning that names the wells AUTO_FLOW_REDUCE throttled."""
+    parts = [
+        f"cell {row['cell']}: {float(row['applied']):.6g} of {float(row['requested']):.6g} m3 "  # type: ignore[arg-type]
+        f"({100.0 * (1.0 - float(row['cut_fraction'])):.0f} % pumped)"  # type: ignore[arg-type]
+        for row in rows
+    ]
+    return (
+        "MODFLOW 6 AUTO_FLOW_REDUCE cut the pumping of "
+        f"{len(rows)} well cell(s) by more than "
+        f"{100.0 * WELL_THROTTLE_WARNING_FRACTION:.0f} %: "
+        + "; ".join(parts)
+        + ". The cell is nearly dry. Put the well in a deeper layer or lower its rate."
+    )

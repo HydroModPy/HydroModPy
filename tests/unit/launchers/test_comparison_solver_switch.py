@@ -17,7 +17,6 @@ _BASE = """
 mode = "simulation"
 
 [workspace]
-project_root = "."
 
 [geographic.catchment]
 catch_def = "dem"

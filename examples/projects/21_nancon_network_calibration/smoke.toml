@@ -20,17 +20,15 @@
 #   - la ligne `streambed profile:` du log
 #   - pas de cycle binaire sur le permanent
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 # ----------------------------------------------------------------------
 # Geographic - delimitation et surface de routage
 # ----------------------------------------------------------------------
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"
@@ -211,7 +209,6 @@ value = "2 m"
 [simulation]
 name = "nancon_smoke"
 description = "Smoke permanent: verifie mesh_hash, profil de lit et convergence."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

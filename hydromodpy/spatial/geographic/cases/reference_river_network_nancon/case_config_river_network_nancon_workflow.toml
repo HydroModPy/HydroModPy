@@ -6,8 +6,8 @@
 [workflow]
 mode = "overview"
 
-[workspace]
-project_root = "."
+[site]
+name = "nancon"
 
 [geographic]
 crs_project = "EPSG:2154"

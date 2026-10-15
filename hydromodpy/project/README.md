@@ -34,9 +34,8 @@ import every layer, itself included. Today it imports `analysis`,
    edge in `layer_matrix.yaml`) and `cli` do. A lower layer that needs a
    `Project` declares a Protocol and receives the adapter at start-up.
 2. The adapters are wired in `hydromodpy/_bootstrap.py`:
-   `ProjectTrialPromotionProvider` into the calibration runners,
-   `ProjectRerunProvider` into `results.run.rerun_contract`, and
-   `ProjectTestbedRunnerProvider` into the analysis testbed. A new adapter
+   `ProjectTrialPromotionProvider` into the calibration runners and
+   `ProjectRerunProvider` into `results.run.rerun_contract`. A new adapter
    gets a hook there.
 
 No `project_layout.yaml` orders the modules inside the package. The shape is

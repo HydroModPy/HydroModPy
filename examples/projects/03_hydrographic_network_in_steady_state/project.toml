@@ -8,17 +8,15 @@
 #
 #   hmp run examples/projects/03_hydrographic_network_in_steady_state/project.toml
 
+[site]
+name = "canut"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "canut_steady_mf6"
 description = "Canut catchment, steady-state MODFLOW 6, five-layer 50 m aquifer, observed and simulated stream networks."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

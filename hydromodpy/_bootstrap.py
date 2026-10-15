@@ -177,19 +177,6 @@ def _register_solver_registry_provider() -> None:
     solver_registry.set_solver_registry_provider(_RegistryProvider())
 
 
-def _register_analysis_contracts() -> None:
-    """Wire testbed runner provider into the analysis layer.
-
-    Testbed child workflow execution is injected through
-    ``TestbedRunnerProvider`` so the analysis package never imports the
-    workflow package.
-    """
-    from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
-    from hydromodpy.project.dispatch.workflow import ProjectTestbedRunnerProvider
-
-    register_testbed_runner_provider(ProjectTestbedRunnerProvider())
-
-
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
@@ -204,7 +191,6 @@ def _register_root_config_contracts() -> None:
 
     from hydromodpy.config.config_migration import migrate_config_doc_on_load
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
-    from hydromodpy.config.stored_config_migration import migrate_stored_config
     from hydromodpy.core.config_kit import root_config_protocol
 
     class _RootConfigProvider:
@@ -224,11 +210,6 @@ def _register_root_config_contracts() -> None:
             self, payload: dict[str, Any], *, source: str | Path | None = None
         ) -> list[str]:
             return migrate_config_doc_on_load(payload, source=source)
-
-        def migrate_stored(
-            self, payload: dict[str, Any], *, source: str | Path | None = None
-        ) -> dict[str, Any]:
-            return migrate_stored_config(payload, source=source)
 
     root_config_protocol.set_root_config_provider(_RootConfigProvider())
 
@@ -254,7 +235,6 @@ _BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
     _register_calibration_contracts,
     _register_rerun_provider,
     _register_solver_registry_provider,
-    _register_analysis_contracts,
     _rebuild_forward_refs,
     _register_root_config_contracts,
     _register_dynamic_flow_examples_contract,

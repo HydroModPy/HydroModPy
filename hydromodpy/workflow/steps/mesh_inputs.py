@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from shapely.geometry import Point, Polygon, box
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from hydromodpy.core.exceptions import MeshError
@@ -223,10 +224,29 @@ def hydraulic_feature_geometries(setup: object, lake_cfg: object) -> list[LakeSt
             continue  # overlapping or touching footprints cannot be separated by refinement
         sill_size = max(5.0, min(dam_cell_size, 0.4 * gap))
         margin = max(1.5 * gap, dam_cell_size)
-        sill_zone = first.buffer(margin).intersection(second.buffer(margin))
+        sill_zone = _sill_zone(first, second, margin, sill_size=sill_size)
         if not sill_zone.is_empty:
             features.append((f"sill:{first_id}-{second_id}", sill_zone, sill_size, margin))
     return features
+
+
+def _sill_zone(
+    first: BaseGeometry, second: BaseGeometry, margin: float, *, sill_size: float
+) -> BaseGeometry:
+    """The overlap of the two lakes dilated by *margin*, from simplified outlines.
+
+    A DEM-traced reservoir holds some 17 000 vertices, and its raw buffer cost
+    16 to 20 s per build. The outlines are simplified first at a tenth of the
+    sill size, far below the cells placed there, so the zone moves by less than
+    that tolerance.
+    """
+    tolerance = 0.1 * float(sill_size)
+    dilated = [
+        geometry.simplify(tolerance, preserve_topology=True).buffer(margin)
+        for geometry in (first, second)
+    ]
+    zone = dilated[0].intersection(dilated[1])
+    return zone.simplify(tolerance, preserve_topology=True)
 
 
 def _geology_contacts(

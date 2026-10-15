@@ -213,29 +213,56 @@ def resolve_well_forcing_paths(
     base_dir: Path,
     workspace_data_dir: Path | None = None,
 ) -> dict[str, object]:
-    """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
-    payload = dict(raw_sinks_sources)
-    wells = payload.get("wells")
-    if not isinstance(wells, Mapping):
-        return payload
+    """Resolve relative CSV paths declared in ``flow.sinks_sources``.
 
-    resolved_wells: dict[str, object] = {}
-    for well_id, raw_well in wells.items():
-        if not isinstance(raw_well, Mapping):
-            resolved_wells[str(well_id)] = raw_well
-            continue
-        well_payload = dict(raw_well)
-        forcing = well_payload.get("forcing")
-        if isinstance(forcing, Mapping):
-            well_payload["forcing"] = _resolve_forcing_path(
-                forcing,
+    Wells, lakes (rainfall, evaporation, runoff, inflow, withdrawal, outlet) and
+    SFR forcings all resolve like every other ``InputFile`` field: against the
+    TOML folder, then ``<workspace>/data/<section>/`` and ``<workspace>/data/``.
+    """
+    payload = dict(raw_sinks_sources)
+    for section_key, section in list(payload.items()):
+        payload[section_key] = _resolve_csv_paths_in(
+            section,
+            base_dir=base_dir,
+            role=str(section_key),
+            workspace_data_dir=workspace_data_dir,
+        )
+    return payload
+
+
+def _resolve_csv_paths_in(
+    node: object,
+    *,
+    base_dir: Path,
+    role: str,
+    workspace_data_dir: Path | None,
+) -> object:
+    """Return ``node`` with every nested CSV forcing ``path_file`` resolved."""
+    if isinstance(node, Mapping):
+        resolved: dict[str, object] = {}
+        for key, value in node.items():
+            resolved[str(key)] = _resolve_csv_paths_in(
+                value,
                 base_dir=base_dir,
-                role="wells",
+                role=role,
                 workspace_data_dir=workspace_data_dir,
             )
-        resolved_wells[str(well_id)] = well_payload
-    payload["wells"] = resolved_wells
-    return payload
+        if resolved.get("kind", "csv") == "csv" and isinstance(resolved.get("path_file"), str):
+            return _resolve_forcing_path(
+                resolved,
+                base_dir=base_dir,
+                role=role,
+                workspace_data_dir=workspace_data_dir,
+            )
+        return resolved
+    if isinstance(node, (list, tuple)):
+        return [
+            _resolve_csv_paths_in(
+                item, base_dir=base_dir, role=role, workspace_data_dir=workspace_data_dir
+            )
+            for item in node
+        ]
+    return node
 
 
 def _mapping_section(flow_section: Mapping[str, object], name: str) -> Mapping[str, object]:

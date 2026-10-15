@@ -212,6 +212,15 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "is inside. A subprocess inherits it and works in the same folder.",
     ),
     EnvVar(
+        "HMP_SCRATCH_ROOT",
+        "runs/<case>/.hmp/scratch/ inside each run",
+        "user",
+        "Machine scratch root that replaces the scratch folder inside each run, for "
+        "example ``$SLURM_TMPDIR`` on a cluster node. A run then works in "
+        "``<root>/<project>/<case>.a<attempt>/``. It is never an author key and "
+        "never part of the config hash.",
+    ),
+    EnvVar(
         "HMP_WHITEBOX_REDIRECT_NATIVE_STDIO",
         "redirect outside pytest, not under pytest",
         "dev",

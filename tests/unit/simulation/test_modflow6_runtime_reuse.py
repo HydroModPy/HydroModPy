@@ -88,11 +88,12 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
         }
     )
 
-    # Solver-model reuse is disabled (proven not output-equivalent): the flag now
-    # raises instead of silently returning stale objectives.
+    # Solver-model reuse was removed: the key is refused with a message.
     import pytest
 
-    with pytest.raises(NotImplementedError, match="reuse_solver_model.*disabled"):
+    from hydromodpy.core.exceptions import ConfigError
+
+    with pytest.raises(ConfigError, match="reuse_solver_model.*removed"):
         adapter.execute(ctx)
     assert build_calls == []
 

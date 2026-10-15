@@ -9,7 +9,7 @@ import pytest
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 
-_HEAD = '[workspace]\nproject_root = "."\n\n[workflow]\nmode = "simulation"\n\n'
+_HEAD = '[workspace]\n\n[workflow]\nmode = "simulation"\n\n'
 _SYNTHETIC = '[geographic]\nsource_mode = "synthetic"\n\n'
 
 

@@ -9,14 +9,12 @@
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "."
-
+[site]
+name = "conceptual_demo"
 
 [simulation]
 name = "conceptual_dem_mf6"
 description = "Conceptual DEM domain, steady MODFLOW 6, full standard figure set."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

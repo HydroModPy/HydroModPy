@@ -307,7 +307,6 @@ mode = "simulation"
 
 [workspace]
 root = "{tmp_path.as_posix()}"
-project_root = "{tmp_path.as_posix()}"
 
 [geographic]
 source_mode = "synthetic"

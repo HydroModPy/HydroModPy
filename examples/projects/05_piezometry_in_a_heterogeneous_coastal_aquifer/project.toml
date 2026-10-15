@@ -11,17 +11,15 @@
 #
 #   hmp run examples/projects/05_piezometry_in_a_heterogeneous_coastal_aquifer/project.toml
 
+[site]
+name = "gouville"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "gouville_coastal_mf6"
 description = "Gouville coastal aquifer, daily transient 2016, MODFLOW 6, two parameter zones and a tidal sea level."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2016-01-01"

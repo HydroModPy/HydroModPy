@@ -1,9 +1,8 @@
-"""``hmp run`` - execute a workflow declared by the TOML.
+"""``hmp run`` - execute the workflow of a TOML file.
 
-Single CLI entry point. The TOML must carry a top-level
-``[workflow] mode = "..."`` field (one of ``simulation``, ``calibration``,
-``overview``, ``comparison``, ``testbed``, ``site_selection``). Absence
-raises ``WorkflowMissingError``.
+Single CLI entry point. The file names its workflow with ``[workflow] mode``
+(``simulation``, ``calibration`` or ``overview``) or leaves it to its sections
+(:func:`hydromodpy.workflow.dispatch.resolve_workflow`).
 
 Overrides are merged as defaults < base_config < --overlay < --set < env.
 """
@@ -34,6 +33,7 @@ from hydromodpy.cli.helpers import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import display_path, resolve_project_root
+from hydromodpy.core.toml_io.paths import assign, parse
 
 logger = get_logger(__name__)
 
@@ -253,9 +253,8 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
-    The TOML MUST declare ``[workflow] mode = "..."`` - otherwise
-    :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
-    the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
+    The workflow is the declared ``[workflow] mode`` or the one the sections
+    imply; a retired mode exits with ``EXIT_CONFIG`` and names its replacement.
     """
     import hydromodpy as hmp
     from hydromodpy.cli.banner import print_hydromodpy
@@ -294,18 +293,11 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     dry_run = bool(getattr(args, "dry_run", False))
     try:
-        workflow = resolve_workflow(
-            run_path,
-            cli_workflow=None,
-            require_toml_field=True,
-        )
+        workflow = resolve_workflow(run_path, cli_workflow=None)
     except WorkflowError as exc:
-        if dry_run:
-            workflow = _infer_workflow_from_sections(raw_toml)
-        else:
-            print(str(exc), file=sys.stderr)
-            _cleanup_effective_toml(effective_path, source=config_path)
-            sys.exit(EXIT_CONFIG)
+        print(str(exc), file=sys.stderr)
+        _cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(EXIT_CONFIG)
 
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
@@ -845,7 +837,7 @@ def _parse_cli_set_overrides(items: list[str]) -> dict[str, Any]:
         if "=" not in item:
             raise ValueError("--set expects PATH=VALUE")
         dotted_path, raw_value = item.split("=", 1)
-        _assign_dotted_value(payload, dotted_path.strip(), _parse_override_value(raw_value))
+        assign(payload, parse(dotted_path.strip()), _parse_override_value(raw_value))
     return payload
 
 
@@ -860,7 +852,7 @@ def _parse_env_set_overrides(env: Mapping[str, str]) -> dict[str, Any]:
         # are case-sensitive, so normalize the override path back to the
         # lowercase key convention used by HydroModPy config files.
         dotted_path = name[len(prefix) :].lower().replace("__", ".")
-        _assign_dotted_value(payload, dotted_path, _parse_override_value(raw_value))
+        assign(payload, parse(dotted_path), _parse_override_value(raw_value))
     return payload
 
 
@@ -873,40 +865,6 @@ def _parse_override_value(raw_value: str) -> Any:
         return tomllib.loads(f"value = {text}\n")["value"]
     except tomllib.TOMLDecodeError:
         return raw_value
-
-
-def _assign_dotted_value(payload: dict[str, Any], dotted_path: str, value: Any) -> None:
-    """Assign a value into a nested mapping using a dotted path."""
-    parts = [part.strip() for part in dotted_path.split(".") if part.strip()]
-    if not parts:
-        raise ValueError("override path cannot be empty")
-    cursor = payload
-    for part in parts[:-1]:
-        existing = cursor.setdefault(part, {})
-        if not isinstance(existing, dict):
-            raise ValueError(f"override path {dotted_path!r} collides at {part!r}")
-        cursor = existing
-    cursor[parts[-1]] = value
-
-
-def _infer_workflow_from_sections(raw_toml: dict) -> str:
-    """Infer the workflow from the TOML sections present.
-
-    Mirrors the dispatch table in :mod:`hydromodpy.project.dispatch.workflow` -
-    used only when ``--dry-run`` is set and the user has not declared
-    ``[workflow] mode = "..."``.
-    """
-    if "calibration" in raw_toml:
-        return "calibration"
-    if "overview" in raw_toml and "simulation" not in raw_toml:
-        return "overview"
-    if "comparison" in raw_toml:
-        return "comparison"
-    if "testbed" in raw_toml:
-        return "testbed"
-    if "site_selection" in raw_toml:
-        return "site_selection"
-    return "simulation"
 
 
 def _print_dry_run(

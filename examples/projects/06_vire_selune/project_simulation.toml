@@ -1,9 +1,9 @@
 
+[site]
+name = "selune"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
 
 [geographic]
 crs_project = "EPSG:2154"

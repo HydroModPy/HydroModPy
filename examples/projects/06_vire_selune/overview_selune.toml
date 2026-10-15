@@ -1,7 +1,9 @@
 base_config = "overview_common.toml"
 
+[site]
+name = "selune"
+
 [workspace]
-project_root = "outputs/selune_overview"
 root = "../.."
 
 [geographic.catchment]

@@ -41,18 +41,16 @@
 # Workspace
 # ----------------------------------------------------------------------
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "overview"
 
-[workspace]
 # Project root resolved relative to this TOML.
-project_root = "."
-
-
 # ----------------------------------------------------------------------
 # Geographic - watershed delineation (same outlet as project.toml)
 # ----------------------------------------------------------------------
-
 [geographic]
 source_mode = "standard"
 crs_project = "EPSG:2154"

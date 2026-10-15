@@ -83,7 +83,6 @@ def _write_tmp_config(tmp_path: Path) -> Path:
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{out_path}"',
                 f'root = "{out_path}"',
                 "",
                 "[geographic]",

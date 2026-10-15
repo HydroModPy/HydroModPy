@@ -290,6 +290,10 @@ def _routed_outflow_by_timestep(
     a lake outlet (stations ``sfr:*`` / ``lake:*``, extracted from the MF6 obs
     CSVs in m3/s). Both extractors store it with the same positive-outflow
     convention. Returns None when no such series exists (no SFR / LAK run).
+
+    Same definition as ``routed_outflow_series`` in the MODFLOW 6 SFR extractor
+    (reach ext-outflow plus lake-outlet ext-outflow): one routed discharge, two
+    readers (the run files for the calibration, the store here).
     """
     try:
         rows = store.connection.execute(

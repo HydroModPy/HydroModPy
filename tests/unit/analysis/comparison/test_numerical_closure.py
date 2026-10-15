@@ -128,7 +128,7 @@ def test_open_result_store_for_write_returns_a_writable_catalog(tmp_path: Path) 
 
     config_path = tmp_path / "child.toml"
     config_path.write_text(
-        f'[workspace]\nproject_root = "{project_root.as_posix()}"\n',
+        "[workspace]\n",
         encoding="utf-8",
     )
 
@@ -163,7 +163,7 @@ def test_open_result_store_for_write_never_creates_an_index(tmp_path: Path) -> N
     project_root = tmp_path / "never_ran"
     config_path = tmp_path / "child.toml"
     config_path.write_text(
-        f'[workspace]\nproject_root = "{project_root.as_posix()}"\n',
+        "[workspace]\n",
         encoding="utf-8",
     )
 

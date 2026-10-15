@@ -6,17 +6,15 @@
 #
 #   hmp run examples/projects/01_simplified_example_presented_in_the_paper/project.toml
 
+[site]
+name = "canut"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "canut_paper_mf6"
 description = "Canut catchment, steady MODFLOW 6, depth-decaying five-layer aquifer with particle tracking."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

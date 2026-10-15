@@ -30,7 +30,6 @@ type = "flow"
 solvers = ["modflow_nwt"]
 
 [workspace]
-project_root = "{root}"
 
 [geographic]
 source_mode = "synthetic"

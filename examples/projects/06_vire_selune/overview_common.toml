@@ -1,9 +1,9 @@
 
+[site]
+name = "selune"
+
 [workflow]
 mode = "overview"
-
-[workspace]
-project_root = "."
 
 [geographic]
 source_mode = "standard"

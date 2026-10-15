@@ -23,7 +23,6 @@ from hydromodpy.config import HydroModPyConfig
 
 _BASE = """
 [workspace]
-project_root = "PROJECT_ROOT"
 
 [workflow]
 mode = "calibration"

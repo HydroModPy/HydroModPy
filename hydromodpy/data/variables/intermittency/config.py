@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
@@ -37,7 +38,11 @@ class IntermittencySourceConfig(
         Path | None,
         Profile.USER,
         InputFile(role="intermittency", category="data"),
-    ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
+    ] = Field(
+        default=None,
+        description="Directory containing location file and chronicle CSVs.",
+        json_schema_extra=field_metadata(site_scoped=True),
+    )
 
     # --- API source fields ---
     code_departement: Annotated[list[str] | None, Profile.USER] = Field(

@@ -307,6 +307,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Gauge whose cost drives stage two. Required when several stations are loaded.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
         default=None,
@@ -493,6 +494,7 @@ class ScoresAnObservedRecord:
         "output and the single-metric route read the same cell and their costs are "
         "comparable; a station the project cannot locate is refused by name rather "
         "than scored on another quantity.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
 
     @model_validator(mode="after")
@@ -939,6 +941,7 @@ class CalibOutputNetwork(HydroModelBase):
         "here: the criterion resolves no geometry of its own and does not reuse the "
         "one the hydrography data family loaded. The way out of 'observed_network' "
         "when neither of its two sources is the one you want scored.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     minimal_stream_geometry_path: Annotated[OptionalPath, Profile.USER] = Field(
         default=None,
@@ -1739,6 +1742,7 @@ class CalibPhaseDecl(HydroModelBase):
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -2280,6 +2284,7 @@ class CalibrationConfig(HydroModelBase):
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,

@@ -3,13 +3,13 @@
 #
 #   hmp run step1_minimal.toml
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "simulation"
 # verbosity = "quiet" | "normal" (default) | "verbose" | "debug".
 # `hmp run -q | -v | --debug` wins over the key.
-
-[workspace]
-project_root = "."
 
 [simulation]
 name = "nancon_step1_minimal"

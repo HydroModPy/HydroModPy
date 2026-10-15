@@ -20,9 +20,6 @@ substeps_per_period = 4
 id = "flow_validation"
 type = "flow"
 
-[workspace]
-project_root = "."
-
 [geographic]
 source_mode = "synthetic"
 

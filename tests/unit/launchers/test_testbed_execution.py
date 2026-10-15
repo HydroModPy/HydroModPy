@@ -308,7 +308,6 @@ def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
                 '[workflow]\nmode = "testbed"',
                 "",
                 "[workspace]",
-                'project_root = "mesh_outputs/base"',
                 "",
                 "[mesh]",
                 'engine = "voronoi"',

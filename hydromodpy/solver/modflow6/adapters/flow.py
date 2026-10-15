@@ -14,7 +14,7 @@ from typing import Any, ClassVar
 import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
-from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.exceptions import ConfigError, ObservableNotAvailableError
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
@@ -205,13 +205,10 @@ class Modflow6FlowAdapter:
 
         state = ctx.state
         if self._reuse_solver_model_enabled(state):
-            raise NotImplementedError(
-                "flow_runtime_overrides['reuse_solver_model'] is disabled: solver-model reuse "
-                "was validated as NOT output-equivalent (identical parameters produced different "
-                "objectives). Profiling (2026-07) also found the per-trial model build is small "
-                "(a lightweight trial builds in ~0.1 s; the solve dominates), so reuse trades a "
-                "real correctness risk for a negligible speedup. Re-enable it only behind an "
-                "integration test that asserts objective equality versus a full rebuild."
+            raise ConfigError(
+                "flow_runtime_overrides['reuse_solver_model'] was removed: the reuse code was "
+                "never reachable and reusing a built model was not output-equivalent to a "
+                "rebuild. Remove the key; every trial builds its own model."
             )
         preprocess_options = build_preprocess_options(state)
         model_name = resolve_run_model_name(ctx)

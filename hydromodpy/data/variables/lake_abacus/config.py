@@ -9,6 +9,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
@@ -32,6 +33,7 @@ class CustomLakeAbacusSource(HydroModelBase):
     ] = Field(
         ...,
         description="Path to a custom lake-abacus table file (CSV with stage,volume,sarea).",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     lake_id: Annotated[str | None, Profile.USER] = Field(
         default=None,

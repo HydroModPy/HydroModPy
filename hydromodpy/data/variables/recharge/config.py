@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.managers.base_config import BaseVariableConfig
@@ -38,6 +39,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     ] = Field(
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -48,6 +50,7 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
 
     # --- Synthetic source fields ---

@@ -151,7 +151,6 @@ def render_gallery(
     and could not produce is reported here exactly as it is on the run path.
     """
     from hydromodpy.config.config_migration import migrate_config_doc_on_load
-    from hydromodpy.config.stored_config_migration import migrate_stored_config
     from hydromodpy.core.state.paths import is_sealed_run_config
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.display.config import DisplayConfig
@@ -169,13 +168,8 @@ def render_gallery(
 
     raw_toml = load_toml_with_base_config(target_path)
     # The same in-memory migration `hmp run` applies, so an old key loads and
-    # is reported the same way on both commands. A config a run froze in its
-    # run directory takes the stored migration first, as HydroModPyConfig.from_toml
-    # does: its message must not send the user to `hmp doctor` for a file they
-    # do not own.
+    # is reported the same way on both commands.
     sealed = is_sealed_run_config(target_path)
-    if sealed:
-        raw_toml = migrate_stored_config(raw_toml, source=target_path)
     migrate_config_doc_on_load(raw_toml, source=target_path)
     display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
     if no_show:

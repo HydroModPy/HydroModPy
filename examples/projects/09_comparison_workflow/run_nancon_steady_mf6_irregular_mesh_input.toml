@@ -4,13 +4,11 @@ base_config = "base_nancon_steady_hydrography_mesh_input.toml"
 mode = "simulation"
 
 [workspace]
-project_root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
 root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
 
 [simulation]
 name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_input_ref"
 description = "MODFLOW 6 Nancon steady reference on the precomputed irregular mesh-input bundle."
-if_exists = "replace"
 
 [modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"

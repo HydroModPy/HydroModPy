@@ -34,7 +34,6 @@ type = "flow"
 solvers = ["modflow_nwt"]
 
 [workspace]
-project_root = "{root}"
 
 [geographic]
 crs_project = "EPSG:2154"

@@ -16,23 +16,17 @@ from __future__ import annotations
 from hydromodpy.project.dispatch.calibration import ProjectTrialPromotionProvider
 from hydromodpy.project.dispatch.workflow import (
     DISPATCH,
-    ProjectTestbedRunnerProvider,
     dispatch_workflow,
     run_calibration,
-    run_comparison,
     run_overview,
     run_simulation,
-    run_testbed,
 )
 
 __all__ = [
     "DISPATCH",
-    "ProjectTestbedRunnerProvider",
     "ProjectTrialPromotionProvider",
     "dispatch_workflow",
     "run_calibration",
-    "run_comparison",
     "run_overview",
     "run_simulation",
-    "run_testbed",
 ]

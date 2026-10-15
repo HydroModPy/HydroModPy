@@ -143,7 +143,6 @@ def _config_body(*, active_bc: list[str], flow_extra: str, data_toml: str) -> st
 mode = "simulation"
 
 [workspace]
-project_root = "."
 
 [geographic]
 crs_project = "{_PROJECT_CRS}"

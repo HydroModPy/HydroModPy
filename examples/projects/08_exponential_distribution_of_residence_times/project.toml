@@ -13,14 +13,9 @@
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "."
-
-
 [simulation]
 name = "hillslope_rtd_mf6"
 description = "Synthetic 1D aquifer, steady MODFLOW 6 with PRT tracking, residence times against the exponential law."
-if_exists = "replace"
 
 [[simulation.process]]
 id = "flow_main"

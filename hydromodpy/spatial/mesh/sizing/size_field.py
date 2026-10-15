@@ -22,7 +22,10 @@ from scipy.ndimage import distance_transform_edt, map_coordinates
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.request import RasterGridSpec, SizeField
+
+logger = get_logger(__name__)
 
 __all__ = [
     "MAX_SIZE_FIELD_PIXELS",
@@ -114,6 +117,16 @@ def build_size_field(
     for term in terms:
         if term.size_m >= h0:
             continue
+        if term.size_m < h_floor:
+            # The floor is the DEM pixel: a finer request is clipped, so say it.
+            logger.warning(
+                "mesh size term %r asks for %.2f m, finer than the %.2f m floor "
+                "(DEM pixel); cells there are %.2f m at best",
+                term.name,
+                term.size_m,
+                h_floor,
+                h_floor,
+            )
         distance = _distance_to(term.region, grid)
         if distance is None:
             continue

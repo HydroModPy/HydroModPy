@@ -9,6 +9,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
@@ -32,6 +33,7 @@ class CustomLakeGeometrySource(HydroModelBase):
     ] = Field(
         ...,
         description="Path to a custom lake-geometry vector file (SHP, GPKG, GeoJSON).",
+        json_schema_extra=field_metadata(site_scoped=True),
     )
     default_crs: Annotated[str, Profile.USER] = Field(
         default="EPSG:2154",

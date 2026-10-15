@@ -1,15 +1,19 @@
-"""Contract of the runs-first output layout.
+"""Contract of the project and run layout.
 
-One solved run must produce exactly one directory, named after the run, and
-nothing else anywhere in the project. This is the test that fails loudly if
-an output ever regrows an opaque identifier, a container suffix, or a
-project-root dumping ground.
+A project root holds what its author wrote and seven output roots. A run is
+one directory named after the run, holding only the names the storage
+contract declares. This test fails loudly if an output regrows an opaque
+identifier, a container suffix or a dumping ground at the project root.
+
+The guard is on outputs, not on the author's files: any ``.toml``, ``.csv``
+or ``.md`` at the project root belongs to the author and is never flagged.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -22,20 +26,31 @@ from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     CONFIGS_DIRNAME,
     INTERNAL_DIRNAME,
+    JOBS_DIRNAME,
+    LAUNCHER_LEASE_FILENAME,
+    MESH_CACHE_DIRNAME,
+    PLAN_DIRNAME,
     PROJECT_MARKER_FILENAME,
     RUNS_DIRNAME,
     SESSIONS_DIRNAME,
-    SHARE_DIRNAME,
+    SITE_OVERRIDES_DIRNAME,
+    SUMMARY_DIRNAME,
+    TRASH_DIRNAME,
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME, read_manifest
+from hydromodpy.results.catalog.lifecycle import IDENTITY_NOTICE_FILENAME
+from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
+    README_FILENAME,
     REQUIRED_RUN_ENTRIES,
+    RUN_INPUTS_FILENAME,
+    RUN_LOGS_DIRNAME,
+    RUN_OUTCOME_FILENAME,
     TABLES_DIRNAME,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
@@ -44,40 +59,94 @@ from tests._helpers.regular_cell_meshes import regular_cell_mesh
 
 RUN_NAME = "cheze_baseline"
 
-ALLOWED_PROJECT_ENTRIES = frozenset(
+OUTPUT_ROOTS = frozenset(
     {
-        PROJECT_MARKER_FILENAME,
-        CONFIGS_DIRNAME,
         RUNS_DIRNAME,
         SESSIONS_DIRNAME,
-        SHARE_DIRNAME,
+        SUMMARY_DIRNAME,
+        PLAN_DIRNAME,
+        JOBS_DIRNAME,
+        TRASH_DIRNAME,
         INTERNAL_DIRNAME,
-        # Input-side pin of the workspace data cache, written by `hmp run` and
-        # verified by `hmp run --frozen` before anything is computed. Declared,
-        # not tolerated: see hydromodpy/project/lockfile.py for why the per-run
-        # `inputs` block of the manifest does not replace it.
+    }
+)
+"""The only places a gesture of HydroModPy writes to inside a project."""
+
+AUTHOR_FILE_SUFFIXES = (".toml", ".csv", ".md")
+"""A file at the project root with one of these suffixes is the author's."""
+
+ALLOWED_PROJECT_ENTRIES = OUTPUT_ROOTS | frozenset(
+    {
+        PROJECT_MARKER_FILENAME,
+        README_FILENAME,
+        CONFIGS_DIRNAME,
+        SITE_OVERRIDES_DIRNAME,
+        # Pin of the workspace input cache, an input of the project verified by
+        # `hmp run --frozen` (hydromodpy/project/lockfile.py).
         LOCKFILE_NAME,
+        "sites.csv",
     }
 )
 
-FORBIDDEN_PROJECT_ENTRIES = (
-    "simulations",
-    "exports",
-    "figures",
-    "reports",
-    ".solver_scratch",
-    "catalog.duckdb",
+FORBIDDEN_PROJECT_ENTRIES = frozenset(
+    {
+        "share",
+        "outputs",
+        "catalog.duckdb",
+        "simulations",
+        "exports",
+        "figures",
+        "reports",
+        ".solver_scratch",
+    }
 )
+
+PROJECT_LOGS_DIRNAME = "logs"
+"""Debug log folder under the project ``.hmp/`` (``hydromodpy/core/logging.py``)."""
+
+REBUILDABLE_INTERNAL_ENTRIES = frozenset(
+    {
+        CATALOG_FILENAME,
+        f"{CATALOG_FILENAME}.wal",
+        f"{CATALOG_FILENAME}.lock",
+        PROJECT_LOGS_DIRNAME,
+        LAUNCHER_LEASE_FILENAME,
+        MESH_CACHE_DIRNAME,
+        IDENTITY_NOTICE_FILENAME,
+    }
+)
+"""What the project ``.hmp/`` may hold: an index, its companions, a cache, disposable markers."""
 
 FORBIDDEN_PATH_SUFFIXES = (".parquet.d", ".zarr.zip")
 
 
+def unexpected_project_entries(project: Path) -> set[str]:
+    """Return the entries of a project root the layout does not allow.
+
+    A forbidden name is always reported. Any other name is allowed when it is
+    declared, or when it is a file the author wrote (``.toml``, ``.csv``,
+    ``.md``).
+    """
+    offenders: set[str] = set()
+    for entry in project.iterdir():
+        if entry.name in FORBIDDEN_PROJECT_ENTRIES:
+            offenders.add(entry.name)
+        elif entry.name in ALLOWED_PROJECT_ENTRIES:
+            continue
+        elif entry.is_file() and entry.suffix in AUTHOR_FILE_SUFFIXES:
+            continue
+        else:
+            offenders.add(entry.name)
+    return offenders
+
+
 @pytest.fixture
 def solved_run(tmp_path):
-    """Register, fill and finalize one run; yield ``(project, sim_id)``."""
+    """Register, fill and finalize one run; yield ``(project, sim_id, author_entries)``."""
     project = tmp_path / "project"
     project.mkdir()
     (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    author_entries = {entry.name for entry in project.iterdir()}
     sim_id = str(uuid.uuid4())
 
     with Catalog(project) as catalog:
@@ -109,11 +178,14 @@ def solved_run(tmp_path):
         catalog.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
         catalog.finalize(sim_id, status="completed")
 
-    return project, sim_id
+    return project, sim_id, author_entries
+
+
+# -- the run directory -------------------------------------------------------
 
 
 def test_run_writes_one_directory_named_after_the_run(solved_run):
-    project, _ = solved_run
+    project, _, _ = solved_run
 
     runs_dir = project / RUNS_DIRNAME
     assert [entry.name for entry in sorted(runs_dir.iterdir())] == [RUN_NAME]
@@ -128,8 +200,25 @@ def test_run_writes_one_directory_named_after_the_run(solved_run):
     assert (run_dir / TABLES_DIRNAME).is_dir()
 
 
+def test_a_completed_run_carries_its_outcome_readme_inputs_and_logs(solved_run):
+    project, _, _ = solved_run
+    run_dir = project / RUNS_DIRNAME / RUN_NAME
+
+    assert (run_dir / RUN_OUTCOME_FILENAME).is_file()
+    assert (run_dir / README_FILENAME).is_file()
+    assert (run_dir / RUN_INPUTS_FILENAME).is_file()
+    assert (run_dir / RUN_LOGS_DIRNAME).is_dir()
+
+
+def test_a_completed_run_keeps_no_internal_directory(solved_run):
+    """The state of the attempt (scratch, locks, checkpoints) is consumed by the seal."""
+    project, _, _ = solved_run
+
+    assert not (project / RUNS_DIRNAME / RUN_NAME / INTERNAL_DIRNAME).exists()
+
+
 def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_run):
-    project, _ = solved_run
+    project, _, _ = solved_run
     run_dir = project / RUNS_DIRNAME / RUN_NAME
     root = zarr.open_group(str(run_dir / FIELDS_STORE_NAME), mode="r")
     kept = kept_budget(root)
@@ -141,7 +230,7 @@ def test_the_field_store_and_the_manifest_say_what_budget_the_run_kept(solved_ru
 
 
 def test_tabular_payloads_are_plain_parquet_files_in_one_directory(solved_run):
-    project, _ = solved_run
+    project, _, _ = solved_run
 
     tables_dir = project / RUNS_DIRNAME / RUN_NAME / TABLES_DIRNAME
     payloads = sorted(path.name for path in tables_dir.iterdir())
@@ -158,40 +247,77 @@ def test_tabular_payloads_are_plain_parquet_files_in_one_directory(solved_run):
     assert all((tables_dir / name).is_file() for name in payloads)
 
 
-def test_index_is_the_only_thing_under_the_internal_directory(solved_run):
-    project, _ = solved_run
+# -- the project root --------------------------------------------------------
+
+
+def test_the_index_lives_under_the_internal_directory(solved_run):
+    project, _, _ = solved_run
 
     assert (project / INTERNAL_DIRNAME / CATALOG_FILENAME).is_file()
     assert not (project / CATALOG_FILENAME).exists()
 
 
-def test_project_root_grows_no_dumping_ground(solved_run):
-    project, _ = solved_run
+def test_the_internal_directory_holds_only_rebuildable_entries(solved_run):
+    project, _, _ = solved_run
 
-    entries = {entry.name for entry in project.iterdir()}
-    assert entries <= ALLOWED_PROJECT_ENTRIES, (
-        f"unexpected project-root entries: {entries - ALLOWED_PROJECT_ENTRIES}"
+    entries = {entry.name for entry in (project / INTERNAL_DIRNAME).iterdir()}
+
+    assert entries <= REBUILDABLE_INTERNAL_ENTRIES, (
+        f"state that is not rebuildable under {INTERNAL_DIRNAME}/: "
+        f"{entries - REBUILDABLE_INTERNAL_ENTRIES}"
     )
+
+
+def test_a_run_writes_nothing_outside_the_output_roots(solved_run):
+    project, _, author_entries = solved_run
+
+    written = {entry.name for entry in project.iterdir()} - author_entries
+
+    assert written <= OUTPUT_ROOTS, f"outputs outside the output roots: {written - OUTPUT_ROOTS}"
+
+
+def test_project_root_grows_no_dumping_ground(solved_run):
+    project, _, _ = solved_run
+
+    assert unexpected_project_entries(project) == set()
     for forbidden in FORBIDDEN_PROJECT_ENTRIES:
-        assert not (project / forbidden).exists(), f"legacy layout entry reappeared: {forbidden}"
+        assert not (project / forbidden).exists(), f"removed layout entry reappeared: {forbidden}"
 
 
-def test_the_reproducibility_lock_is_a_declared_project_entry(solved_run):
-    """A lockfile next to the project marker does not break the layout.
+def test_author_files_at_the_root_are_never_flagged(tmp_path):
+    for name in (
+        PROJECT_MARKER_FILENAME,
+        README_FILENAME,
+        "sites.csv",
+        "k2e-5.toml",
+        "calage.toml",
+        "notes.md",
+        "stations.csv",
+        LOCKFILE_NAME,
+    ):
+        (tmp_path / name).write_text("", encoding="utf-8")
+    for name in (CONFIGS_DIRNAME, SITE_OVERRIDES_DIRNAME, *OUTPUT_ROOTS):
+        (tmp_path / name).mkdir()
 
-    It is an input of the project, like ``project.toml`` and ``configs/``, not
-    an output of a run: the run's own input provenance lives in its manifest.
-    """
-    project, _ = solved_run
-    (project / LOCKFILE_NAME).write_text("[hydromodpy]\n", encoding="utf-8")
+    assert unexpected_project_entries(tmp_path) == set()
 
-    entries = {entry.name for entry in project.iterdir()}
-    assert LOCKFILE_NAME in entries
-    assert entries <= ALLOWED_PROJECT_ENTRIES
+
+@pytest.mark.parametrize("name", sorted(FORBIDDEN_PROJECT_ENTRIES))
+def test_a_removed_entry_is_flagged(tmp_path, name):
+    (tmp_path / name).mkdir()
+
+    assert unexpected_project_entries(tmp_path) == {name}
+
+
+def test_an_output_file_at_the_root_is_flagged(tmp_path):
+    (tmp_path / "heads.nc").write_bytes(b"")
+    (tmp_path / "maps").mkdir()
+
+    assert unexpected_project_entries(tmp_path) == {"heads.nc", "maps"}
 
 
 def test_no_output_path_carries_an_opaque_identifier(solved_run):
-    project, sim_id = solved_run
+    project, sim_id, _ = solved_run
 
     short_id = sim_id.replace("-", "")[:8]
     offenders = [
@@ -204,7 +330,7 @@ def test_no_output_path_carries_an_opaque_identifier(solved_run):
 
 
 def test_no_output_path_carries_a_container_suffix(solved_run):
-    project, _ = solved_run
+    project, _, _ = solved_run
 
     offenders = [
         str(path.relative_to(project))
@@ -214,30 +340,11 @@ def test_no_output_path_carries_a_container_suffix(solved_run):
     assert offenders == []
 
 
-def test_versioned_rerun_is_a_sibling_directory(solved_run):
-    project, _ = solved_run
-
-    with Catalog(project) as catalog:
-        second = catalog.register_simulation(
-            str(uuid.uuid4()),
-            project="demo",
-            solver="modflow6",
-            name=RUN_NAME,
-            n_cells=4,
-            n_layers=1,
-        )
-        if second.zarr is not None:
-            second.zarr.close()
-
-    assert second.name == f"{RUN_NAME}.v2"
-    assert sorted(path.name for path in (project / RUNS_DIRNAME).iterdir()) == [
-        RUN_NAME,
-        f"{RUN_NAME}.v2",
-    ]
+# -- payloads written after the seal ----------------------------------------
 
 
 def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
-    project, sim_id = solved_run
+    project, sim_id, _ = solved_run
 
     assert "soil_budget" in PARQUET_VIEW_NAMES
 
@@ -278,7 +385,7 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
 
 
 def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(solved_run):
-    project, sim_id = solved_run
+    project, sim_id, _ = solved_run
     cell_mesh = dataclasses.replace(
         regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2),
         cell_chains=(CellChain(family="rivers", chain_id=0, cell_ids=[2, 0, 1]),),

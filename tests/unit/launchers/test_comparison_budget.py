@@ -30,7 +30,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
-    config_path.write_text('[workspace]\nproject_root = "."\n', encoding="utf-8")
+    config_path.write_text("[workspace]\n", encoding="utf-8")
     _patch_result_store(monkeypatch, {config_path.resolve(): store})
     artifacts, rows = write_budget_exports(
         comparison_root=comparison_root,
@@ -106,7 +106,7 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
-    config_path.write_text('[workspace]\nproject_root = "."\n', encoding="utf-8")
+    config_path.write_text("[workspace]\n", encoding="utf-8")
     _patch_result_store(monkeypatch, {config_path.resolve(): store})
     _, rows = write_budget_exports(
         comparison_root=comparison_root,

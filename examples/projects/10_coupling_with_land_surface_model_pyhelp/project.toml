@@ -11,17 +11,15 @@
 # The K below is the one the legacy dichotomy converged on. run_calibration_k.toml
 # searches it again from the observed stream network.
 
+[site]
+name = "urse"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 [simulation]
 name = "urse_pyhelp_mf6"
 description = "Urse catchment, steady MODFLOW 6 forced by a PyHELP recharge grid."
-if_exists = "replace"
 
 # The three years PyHELP covers: a gridded forcing is selected on the run
 # window, so a steady run still has to say which window it averages. It is one

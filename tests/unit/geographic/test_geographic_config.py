@@ -78,7 +78,6 @@ def test_hydromodpy_config_accepts_synthetic_geographic(
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",

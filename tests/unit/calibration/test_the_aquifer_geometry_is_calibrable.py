@@ -239,7 +239,6 @@ class TestWhatIsNotSearchableIsRefusedByItsKind:
 _TOML = textwrap.dedent(
     """
     [workspace]
-    project_root = "PROJECT_ROOT"
 
     [workflow]
     mode = "simulation"

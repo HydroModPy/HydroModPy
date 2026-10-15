@@ -18,9 +18,11 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{tmp_path / "demo"}"',
                 "",
                 "[geographic]",
+                "",
+                "[site]",
+                'name = "site_a"',
                 "",
                 "[geographic.catchment]",
                 'catch_def = "dem"',
@@ -55,7 +57,7 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
 
     payload = load_toml_with_base_config(child_path)
 
-    assert payload["workspace"]["project_root"] == str(tmp_path / "demo")
+    assert payload["geographic"]["catchment"]["catch_def"] == "dem"
     assert payload["flow"]["active_bc"] == ["ocean", "drainage"]
     assert payload["flow"]["bc"]["ocean"]["data_value"] is True
     assert payload["flow"]["bc"]["drainage"]["application_domain"] == "top"
@@ -73,10 +75,12 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                f'project_root = "{tmp_path / "demo"}"',
                 f'root = "{tmp_path}"',
                 "",
                 "[geographic]",
+                "",
+                "[site]",
+                'name = "site_a"',
                 "",
                 "[geographic.catchment]",
                 'catch_def = "dem"',
@@ -106,7 +110,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
 
     cfg = HydroModPyConfig.from_toml(child_path)
 
-    assert cfg.workspace.catch_name == "demo"
+    assert cfg.workspace.catch_name == tmp_path.name
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 

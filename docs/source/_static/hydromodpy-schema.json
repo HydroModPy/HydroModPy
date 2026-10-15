@@ -468,6 +468,7 @@
           ],
           "default": null,
           "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -536,6 +537,7 @@
           ],
           "default": null,
           "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -914,6 +916,7 @@
           ],
           "default": null,
           "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
+          "site_scoped": true,
           "title": "Observes",
           "x-hmp-profile": "user"
         },
@@ -1059,6 +1062,7 @@
           ],
           "default": null,
           "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
+          "site_scoped": true,
           "title": "Observes",
           "x-hmp-profile": "user"
         },
@@ -1283,6 +1287,7 @@
           ],
           "default": null,
           "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
+          "site_scoped": true,
           "title": "Observes",
           "x-hmp-profile": "user"
         },
@@ -1478,6 +1483,7 @@
           ],
           "default": null,
           "description": "Vector file holding the mapped stream network, read only from here: the criterion resolves no geometry of its own and does not reuse the one the hydrography data family loaded. The way out of 'observed_network' when neither of its two sources is the one you want scored.",
+          "site_scoped": true,
           "title": "Stream Geometry Path",
           "x-hmp-profile": "user"
         },
@@ -1865,6 +1871,7 @@
           ],
           "default": null,
           "description": "Station whose loaded record this output is scored against. The record is aligned on the simulated timestamps, so a weighted block scores dated observations rather than a vector typed into the file. The data family follows 'variable': discharge from hydrometry, head from piezometry, stage from lake_levels. Mutually exclusive with 'observed_values'. The station is located by its own record and not by coordinates written beside it, so this output and the single-metric route read the same cell and their costs are comparable; a station the project cannot locate is refused by name rather than scored on another quantity.",
+          "site_scoped": true,
           "title": "Observes",
           "x-hmp-profile": "user"
         },
@@ -2528,6 +2535,7 @@
           ],
           "default": null,
           "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
+          "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
         },
@@ -3249,6 +3257,7 @@
           ],
           "default": null,
           "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
+          "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
         },
@@ -5032,6 +5041,7 @@
           ],
           "default": null,
           "description": "SHP/GPKG/GeoJSON/TIF whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         }
@@ -5190,6 +5200,7 @@
           ],
           "default": null,
           "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -5268,6 +5279,7 @@
           ],
           "default": null,
           "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -5420,6 +5432,7 @@
             "data/input.csv"
           ],
           "format": "path",
+          "site_scoped": true,
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5469,6 +5482,7 @@
             "data/input.csv"
           ],
           "format": "path",
+          "site_scoped": true,
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5514,6 +5528,7 @@
             "data/input.csv"
           ],
           "format": "path",
+          "site_scoped": true,
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -6817,6 +6832,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -6860,6 +6876,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -6973,6 +6990,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -7949,7 +7967,7 @@
             "units": "1/s"
           },
           "default": null,
-          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Mutually exclusive with k + thickness.",
+          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it when XT3D is active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
           "title": "Hydchr",
           "x-hmp-profile": "user"
         },
@@ -11739,10 +11757,10 @@
           "x-hmp-profile": "user"
         },
         "route_drainage": {
-          "default": false,
-          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost.",
+          "default": true,
+          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost (about 6 % of the water of the basin of D on the Nancon). On by default; set False only to study the network alone.",
           "examples": [
-            false
+            true
           ],
           "title": "Route Drainage",
           "type": "boolean",
@@ -14253,6 +14271,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -14296,6 +14315,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -14408,6 +14428,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -14459,6 +14480,7 @@
           ],
           "default": null,
           "description": "SHP/GPKG/GeoJSON/TIF whose shape the network is clipped to and whose bounds are the box the API sources are asked over. A project run has it filled in from the delineated watershed; a standalone call names it.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         }
@@ -14779,6 +14801,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -14822,6 +14845,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -14935,6 +14959,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -15019,6 +15044,7 @@
           ],
           "default": null,
           "description": "Vector polygon file (shp, gpkg or GeoJSON) whose extent this source is requested over. A project run fills it with the delineated watershed.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -15498,6 +15524,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -15541,6 +15568,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -15653,6 +15681,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -16027,6 +16056,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -16070,6 +16100,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -16179,6 +16210,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -16292,6 +16324,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -16335,6 +16368,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -16444,6 +16478,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -16557,6 +16592,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -16600,6 +16636,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -16709,6 +16746,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -16946,6 +16984,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -16989,6 +17028,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -17098,6 +17138,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -17573,6 +17614,7 @@
           ],
           "default": null,
           "description": "Gauge whose cost drives stage two. Required when several stations are loaded.",
+          "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
         },
@@ -18115,6 +18157,90 @@
         }
       },
       "title": "MeshVoronoiConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "MetricsConfig": {
+      "additionalProperties": false,
+      "description": "The station and the window the scores of a run are computed on.",
+      "properties": {
+        "station": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station the run is scored at. Unset, it is [site] gauge.",
+          "examples": [
+            "J0014010"
+          ],
+          "title": "Station",
+          "x-hmp-profile": "user"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricsWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dates the run is scored on, as {start, end}. Unset, the scores are left empty: a score over an overlap the data happen to give is not comparable.",
+          "examples": [
+            {
+              "end": "2002-12-31",
+              "start": "2001-01-01"
+            }
+          ],
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "MetricsConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "MetricsWindow": {
+      "additionalProperties": false,
+      "description": "The dates a run is scored on, both included.",
+      "properties": {
+        "start": {
+          "description": "First day the scores count, as an ISO 8601 date.",
+          "examples": [
+            "2001-01-01"
+          ],
+          "format": "date",
+          "title": "Start",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "end": {
+          "description": "Last day the scores count, included, as an ISO 8601 date.",
+          "examples": [
+            "2002-12-31"
+          ],
+          "format": "date",
+          "title": "End",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "MetricsWindow",
       "type": "object",
       "patternProperties": {
         "^.+__delete$": {
@@ -18727,6 +18853,21 @@
           "default": null,
           "description": "IMS inner-iteration flow-residual closure (L^3/T in run units). None keeps the complexity-preset default.",
           "title": "Mf6 Inner Rclose",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_backtracking_number": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IMS residual-reduction backtracking: maximum number of backtracking steps tried per outer iteration (BACKTRACKING_NUMBER). Zero turns backtracking off. None keeps the complexity-preset default (20 for COMPLEX). Backtracking can stall the outer loop when a boundary package feeds flow back to another (DRN to MVR to SFR); setting 0 then often converges faster.",
+          "title": "Mf6 Backtracking Number",
           "x-hmp-profile": "expert"
         },
         "mf6_linear_acceleration": {
@@ -19708,6 +19849,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -19751,6 +19893,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -19864,6 +20007,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -19972,6 +20116,7 @@
           "examples": [
             352400.0
           ],
+          "site_scoped": true,
           "title": "X Outlet",
           "type": "number",
           "unit": "m",
@@ -19982,6 +20127,7 @@
           "examples": [
             6788300.0
           ],
+          "site_scoped": true,
           "title": "Y Outlet",
           "type": "number",
           "unit": "m",
@@ -20832,6 +20978,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -20875,6 +21022,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -20991,6 +21139,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -21113,6 +21262,7 @@
             "watershed.shp"
           ],
           "format": "path",
+          "site_scoped": true,
           "title": "Polyg Shp Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -21231,6 +21381,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -21274,6 +21425,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -21410,6 +21562,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file. For source = 'explore2', the local DRIAS Explore2 NetCDF to read.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -21450,6 +21603,80 @@
           }
         },
         "^station_ids__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PublicationConfig": {
+      "additionalProperties": false,
+      "description": "The licence and the authorship written into every publication.",
+      "properties": {
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Licence of the published results, as an SPDX identifier or a licence name (CC-BY-4.0, etalab-2.0). Required by hmp publish --public.",
+          "examples": [
+            "etalab-2.0"
+          ],
+          "title": "License",
+          "x-hmp-profile": "user"
+        },
+        "creators": {
+          "description": "People or bodies credited as creators of the published results.",
+          "examples": [
+            [
+              "A. Author"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Creators",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "attribution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attribution text the publication carries, for the data it was built on.",
+          "examples": [
+            "Contains data from Hub'Eau."
+          ],
+          "title": "Attribution",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "PublicationConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^creators__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^creators__merge$": {
           "type": "array",
           "items": {
             "type": "string"
@@ -21647,6 +21874,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -21690,6 +21918,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -21826,6 +22055,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -22099,6 +22329,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -22142,6 +22373,7 @@
           ],
           "default": null,
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -22255,6 +22487,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -22404,6 +22637,42 @@
           "items": {
             "type": "number"
           }
+        }
+      }
+    },
+    "RecipeSpec": {
+      "additionalProperties": false,
+      "description": "A recipe written inline: a TOML file and the keys it sets on top of it.",
+      "properties": {
+        "file": {
+          "description": "TOML file the recipe starts from, relative to the project root. The resolved file is the case before the keys of 'set' are applied.",
+          "examples": [
+            "project.toml"
+          ],
+          "format": "path",
+          "title": "File",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "set": {
+          "additionalProperties": true,
+          "description": "Keys this recipe writes on top of its file, as quoted dotted paths (\"flow.param.K.field.value\" = 2e-5), the grammar of hmp run --set, without index. They are the recipe's own keys: they win over the site table and the site overlays.",
+          "examples": [
+            {
+              "flow.param.K.field.value": 2e-05
+            }
+          ],
+          "title": "Set",
+          "type": "object",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RecipeSpec",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -23968,6 +24237,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -24011,6 +24281,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -24123,6 +24394,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -24173,17 +24445,20 @@
         },
         "if_exists": {
           "default": "version",
-          "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``version`` (default) mints the next ``stem.vN`` and keeps every run addressable; ``replace`` trashes the predecessor (restorable, keeps its own name and version) and registers the new run under the next free ``stem.vN``; ``fail`` raises an error.",
+          "description": "What a run does when its name is already taken in this project. ``version`` (default) writes the run under the next free ``stem.vN`` and keeps every run addressable; ``fail`` stops before the run starts. A name is never reused, so a run is never replaced: delete the old one with hmp catalog delete.",
           "enum": [
-            "replace",
             "fail",
             "version"
           ],
           "examples": [
-            "replace"
+            "fail"
           ],
           "title": "If Exists",
           "type": "string",
+          "value_docs": {
+            "fail": "Refuse to start when the name is taken.",
+            "version": "Write the run under the next free <name>.vN."
+          },
           "x-hmp-profile": "user"
         },
         "description": {
@@ -24236,50 +24511,6 @@
           "default": null,
           "description": "DOI or reference identifier for the simulation metadata.",
           "title": "Doi",
-          "x-hmp-profile": "user"
-        },
-        "study_area_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Name of the study area, recorded in the run metadata and the catalog.",
-          "title": "Study Area Name",
-          "x-hmp-profile": "user"
-        },
-        "outlet_x": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Easting of the declared study outlet, in metres in the project CRS. It is recorded in the run manifest; the delineation reads [geographic.catchment].",
-          "title": "Outlet X",
-          "unit": "m",
-          "x-hmp-profile": "user"
-        },
-        "outlet_y": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Northing of the declared study outlet, in metres in the project CRS. It is recorded in the run manifest; the delineation reads [geographic.catchment].",
-          "title": "Outlet Y",
-          "unit": "m",
           "x-hmp-profile": "user"
         },
         "time": {
@@ -24540,6 +24771,82 @@
         }
       }
     },
+    "SiteConfig": {
+      "additionalProperties": false,
+      "description": "The catchment a project models, declared once for every key that needs it.",
+      "properties": {
+        "name": {
+          "description": "Name of the catchment: letters, digits and underscores, case kept. It is the identity of the site inside the workspace, the value of the site column of the index and of every exported table. A real catchment (geographic.catchment.catch_def from_outlet_coord, from_polyg_shp or dem) is refused without it. The dash is reserved: it separates the site from the recipe in a case id.",
+          "examples": [
+            "nancon"
+          ],
+          "pattern": "^[A-Za-z0-9_]+$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Readable name of the catchment, shown in reports, figure footers and tables. Free text; unset, the name is shown.",
+          "examples": [
+            "Le Nan\u00e7on \u00e0 L\u00e9cousse"
+          ],
+          "title": "Label",
+          "x-hmp-profile": "user"
+        },
+        "gauge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station that measures the catchment: the gauge of the site, used as the default station of every series source and of the calibration.",
+          "examples": [
+            "J0014010"
+          ],
+          "title": "Gauge",
+          "x-hmp-profile": "user"
+        },
+        "uri": {
+          "anyOf": [
+            {
+              "pattern": "^(hubeau|bdtopage):[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identifier of the catchment in a public registry, written hubeau:<station code> or bdtopage:<code>. It is the only key that names the same catchment in two workspaces.",
+          "examples": [
+            "hubeau:J0014010"
+          ],
+          "title": "Uri",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SiteConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "SiteSelectionConfig": {
       "additionalProperties": false,
       "description": "Top-level site-selection workflow configuration.",
@@ -24755,6 +25062,582 @@
         }
       }
     },
+    "SitesConfig": {
+      "additionalProperties": false,
+      "description": "The catchments of a project and the recipes run on each of them.",
+      "properties": {
+        "table": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site table, one row per catchment: CSV, Parquet or GeoPackage, relative to the project root. Its columns are free and reach the config through [sites.bind]. Unset, the plan reads data/sites/catalog.csv of the workspace, whose columns are fixed and need no bind.",
+          "examples": [
+            "sites.csv"
+          ],
+          "title": "Table",
+          "x-hmp-profile": "user"
+        },
+        "recipes_table": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Recipe table, one row per recipe: a CSV with a mandatory 'recipe' column; its other columns are bound by [sites.bind] like the site table. A column present in both tables is refused.",
+          "examples": [
+            "recipes.csv"
+          ],
+          "title": "Recipes Table",
+          "x-hmp-profile": "user"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boolean column of the site table; unset, every row is a site of the plan.",
+          "examples": [
+            "enabled"
+          ],
+          "title": "Enabled",
+          "x-hmp-profile": "user"
+        },
+        "include": {
+          "description": "Site names the plan keeps; empty, every site.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Include",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "exclude": {
+          "description": "Site names the plan leaves out.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "overrides": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Folder of per-site overlays, relative to the project root: <folder>/<site>.toml is applied to every case of that site when it exists.",
+          "examples": [
+            "site_overrides/"
+          ],
+          "title": "Overrides",
+          "x-hmp-profile": "user"
+        },
+        "recipes": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/RecipeSpec"
+              }
+            ]
+          },
+          "description": "Recipes run on every site, by name: a TOML file, or an inline table { file = \"...\", set = { \"<dotted.key>\" = value } }. The case of a site and a recipe is named <site>-<recipe>. A name is letters, digits and underscores. Unset, the file that declares [sites] is the only recipe.",
+          "examples": [
+            {
+              "base": "project.toml",
+              "calibration": "calibration.toml"
+            }
+          ],
+          "title": "Recipes",
+          "type": "object",
+          "x-hmp-profile": "user",
+          "patternProperties": {
+            "^.+__delete$": {
+              "const": true,
+              "description": "Remove the inherited key. Only the literal true is accepted."
+            },
+            "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
+            }
+          }
+        },
+        "bind": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "description": "Config keys filled from table columns: a quoted dotted path, the grammar of hmp run --set without index, mapped to a column, or to a list of columns for a list key. The cell is read by the type of the target field; an empty cell leaves the key unbound.",
+          "examples": [
+            {
+              "geographic.catchment.x_outlet": "x_outlet"
+            }
+          ],
+          "title": "Bind",
+          "type": "object",
+          "x-hmp-profile": "user",
+          "patternProperties": {
+            "^.+__delete$": {
+              "const": true,
+              "description": "Remove the inherited key. Only the literal true is accepted."
+            },
+            "^.+__append$": {
+              "type": "array"
+            },
+            "^.+__merge$": {
+              "type": "array"
+            }
+          }
+        },
+        "run": {
+          "$ref": "#/$defs/SitesRunConfig",
+          "description": "How the cases run side by side.",
+          "x-hmp-profile": "user"
+        },
+        "summary": {
+          "$ref": "#/$defs/SitesSummaryConfig",
+          "description": "What summary/ tabulates and draws.",
+          "x-hmp-profile": "user"
+        },
+        "export": {
+          "description": "Exports of the project, one [[sites.export]] block each, under summary/exports/.",
+          "items": {
+            "$ref": "#/$defs/SitesExportRequest"
+          },
+          "title": "Export",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SitesConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^exclude__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^exclude__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^export__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SitesExportRequest"
+          }
+        },
+        "^export__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SitesExportRequest"
+          }
+        },
+        "^include__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^include__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "SitesExportRequest": {
+      "additionalProperties": false,
+      "description": "One export of a ``[sites]`` project, the vocabulary of ``[[export]]``.",
+      "properties": {
+        "table": {
+          "anyOf": [
+            {
+              "enum": [
+                "by_site",
+                "by_case",
+                "catalog"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Summary table to export. Write table or runs, not both.",
+          "title": "Table",
+          "value_docs": {
+            "by_case": "One row per case.",
+            "by_site": "One row per site, its best case.",
+            "catalog": "The site table the plan resolved."
+          },
+          "x-hmp-profile": "user"
+        },
+        "runs": {
+          "anyOf": [
+            {
+              "const": "best",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Runs whose variables are exported: the best case of each site.",
+          "title": "Runs",
+          "x-hmp-profile": "user"
+        },
+        "variables": {
+          "description": "Variables exported from each run, with runs = 'best'.",
+          "examples": [
+            [
+              "discharge"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "format": {
+          "default": "csv",
+          "description": "File format of the export, csv unless another is named.",
+          "examples": [
+            "csv"
+          ],
+          "title": "Format",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "File name under summary/exports/; unset, it is named after the request.",
+          "title": "File",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SitesExportRequest",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^variables__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "SitesRunConfig": {
+      "additionalProperties": false,
+      "description": "How the cases of a ``[sites]`` project are run side by side.",
+      "properties": {
+        "parallel": {
+          "default": 4,
+          "description": "Total budget of solves that run side by side. A case whose [calibration] parallel is 5 takes 5 of it. Above 8 the launcher refuses without --force until the launch measurements set the real ceiling; a campaign of calibrations runs with 1.",
+          "examples": [
+            4
+          ],
+          "minimum": 1,
+          "title": "Parallel",
+          "type": "integer",
+          "unit": "-",
+          "x-hmp-profile": "user"
+        },
+        "on_error": {
+          "default": "warn",
+          "description": "What a failed case does to the launch.",
+          "enum": [
+            "warn",
+            "raise"
+          ],
+          "examples": [
+            "warn"
+          ],
+          "title": "On Error",
+          "type": "string",
+          "value_docs": {
+            "raise": "The launch stops at the first failed case.",
+            "warn": "The failure is recorded and the other cases go on."
+          },
+          "x-hmp-profile": "user"
+        },
+        "threads_per_case": {
+          "default": 1,
+          "description": "Threads one case may use, applied by the case process itself to its numerical libraries and its child processes. Shown by --dry-run.",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Threads Per Case",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "keep_attempts": {
+          "default": 1,
+          "description": "Earlier attempts of a case kept under runs/<case>/attempts/ when a fresh attempt starts. Shown by --dry-run.",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "title": "Keep Attempts",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "prepare_parallel": {
+          "default": 4,
+          "description": "Cases prepared side by side before the solves: the geography and the data of each case, the only phase that writes the shared data cache.",
+          "examples": [
+            4
+          ],
+          "minimum": 1,
+          "title": "Prepare Parallel",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "SitesRunConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
+    "SitesSummaryConfig": {
+      "additionalProperties": false,
+      "description": "What ``summary/`` of a ``[sites]`` project tabulates and draws.",
+      "properties": {
+        "metrics": {
+          "description": "Metrics of each case put in the summary tables, scored by the metric rule.",
+          "examples": [
+            [
+              "nse",
+              "kge"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "parameters": {
+          "description": "Parameters of each case put in the summary tables, calibrated or set.",
+          "examples": [
+            [
+              "K",
+              "Sy"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "figures": {
+          "description": "Cohort figures drawn under summary/figures/, by their registered names.",
+          "examples": [
+            [
+              "map",
+              "distribution"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Figures",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "variables": {
+          "description": "Metrics or parameters the cohort figures map and distribute.",
+          "examples": [
+            [
+              "K",
+              "nse"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "best": {
+          "default": "calibrated",
+          "description": "Which case of a site the by-site table keeps as its best.",
+          "enum": [
+            "calibrated",
+            "any"
+          ],
+          "examples": [
+            "calibrated"
+          ],
+          "title": "Best",
+          "type": "string",
+          "value_docs": {
+            "any": "The best case of the site, calibrated or not.",
+            "calibrated": "The best calibrated case of the site."
+          },
+          "x-hmp-profile": "user"
+        },
+        "columns": {
+          "description": "Extra columns read from the manifest.json of each run, as dotted paths without index (checks.budget_pct, metrics.nse).",
+          "examples": [
+            [
+              "checks.budget_pct",
+              "checks.converged"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SitesSummaryConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^columns__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^columns__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^figures__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^figures__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^metrics__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^metrics__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^parameters__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^parameters__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__append$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "^variables__merge$": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "SoilCapacityConfig": {
       "additionalProperties": false,
       "description": "Soil available water capacity raster, read by the soil reservoir.\n\nExample TOML::\n\n    [[data.soil_capacity.sources]]\n    source = \"custom\"\n    path = \"soil/ru_mm.tif\"",
@@ -24880,6 +25763,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -24923,6 +25807,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -25035,6 +25920,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -25303,7 +26189,7 @@
         },
         "spinup": {
           "default": "first_year",
-          "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last one year at least. \"none\" starts from a full soil, the state of a soil in a wet winter.",
+          "description": "State of the soil on the first day. \"first_year\" repeats the first 365 days of the run until the storage at the end of that year moves by less than 0.1 mm, 20 times at most; the run must last 364 days (52 weeks) at least, and a 364-day run repeats those 364 days. \"none\" starts from a full soil, the state of a soil in a wet winter.",
           "enum": [
             "first_year",
             "none"
@@ -26242,6 +27128,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -26285,6 +27172,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -26397,6 +27285,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -26583,876 +27472,6 @@
           "items": {
             "type": "string"
           }
-        }
-      }
-    },
-    "TestbedCaseConfig": {
-      "additionalProperties": false,
-      "description": "One concrete executable testbed case.",
-      "properties": {
-        "id": {
-          "description": "Name of the case, unique in the testbed and stable from run to run.",
-          "examples": [
-            "k_1e-5"
-          ],
-          "title": "Id",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "label": {
-          "description": "Label of the case shown in the testbed tables and figures.",
-          "examples": [
-            "K = 1e-5 m/s"
-          ],
-          "title": "Label",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "axis": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional axis tag used to group cases in reports.",
-          "title": "Axis",
-          "x-hmp-profile": "user"
-        },
-        "enabled": {
-          "default": true,
-          "description": "Toggle to skip a case without removing it from the config.",
-          "examples": [
-            true
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "overlay": {
-          "additionalProperties": true,
-          "description": "TOML overlay merged into the child-runner base config.",
-          "title": "Overlay",
-          "type": "object",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TestbedCaseConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TestbedCatalogCaseConfig": {
-      "additionalProperties": false,
-      "description": "One case-generation rule applied to rows from a testbed catalog.",
-      "properties": {
-        "id_template": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Format string evaluated against catalog row fields to derive the case id.",
-          "title": "Id Template",
-          "x-hmp-profile": "user"
-        },
-        "label_template": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Format string used to derive the case label.",
-          "title": "Label Template",
-          "x-hmp-profile": "user"
-        },
-        "axis_template": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Format string used to derive the optional axis tag.",
-          "title": "Axis Template",
-          "x-hmp-profile": "user"
-        },
-        "enabled": {
-          "default": true,
-          "description": "Toggle to skip the rule without removing it from the config.",
-          "examples": [
-            true
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "overlay": {
-          "additionalProperties": true,
-          "description": "TOML overlay rendered against each catalog row.",
-          "title": "Overlay",
-          "type": "object",
-          "x-hmp-profile": "user"
-        },
-        "required_fields": {
-          "default": [],
-          "description": "Catalog columns that must be present and non-empty per row.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Fields",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "field_equals": {
-          "default": [],
-          "description": "Per-field equality filters applied while expanding rows.",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          },
-          "title": "Field Equals",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "tags": {
-          "default": [],
-          "description": "Whitelist of tags applied during rule expansion.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Tags",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "exclude_tags": {
-          "default": [],
-          "description": "Blacklist of tags applied during rule expansion.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Exclude Tags",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "limit": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Most cases the rule generates. Unset, there is no cap. A count.",
-          "title": "Limit",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TestbedCatalogCaseConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^exclude_tags__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^exclude_tags__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^field_equals__append$": {
-          "type": "array",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          }
-        },
-        "^field_equals__merge$": {
-          "type": "array",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          }
-        },
-        "^required_fields__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^required_fields__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^tags__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^tags__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "TestbedCatalogConfig": {
-      "additionalProperties": false,
-      "description": "Catalog source used to generate testbed cases.",
-      "properties": {
-        "path": {
-          "description": "Resolved path to the case catalog (CSV or JSONL).",
-          "examples": [
-            "cases.csv"
-          ],
-          "format": "path",
-          "title": "Path",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "format": {
-          "default": "auto",
-          "description": "Catalog format. 'auto' infers from the file suffix.",
-          "examples": [
-            "auto"
-          ],
-          "title": "Format",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "id_field": {
-          "default": "case_id",
-          "description": "Name of the catalog column that holds the case names.",
-          "examples": [
-            "case_id"
-          ],
-          "title": "Id Field",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "label_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "case_label",
-          "description": "Column carrying a human-readable case label.",
-          "examples": [
-            "case_label"
-          ],
-          "title": "Label Field",
-          "x-hmp-profile": "user"
-        },
-        "axis_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "axis",
-          "description": "Column carrying the optional axis tag.",
-          "examples": [
-            "axis"
-          ],
-          "title": "Axis Field",
-          "x-hmp-profile": "user"
-        },
-        "enabled_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "enabled",
-          "description": "Column flagging whether a row is active.",
-          "examples": [
-            "enabled"
-          ],
-          "title": "Enabled Field",
-          "x-hmp-profile": "user"
-        },
-        "tags_field": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "tags",
-          "description": "Column carrying free-form tags joined by tag_separator.",
-          "examples": [
-            "tags"
-          ],
-          "title": "Tags Field",
-          "x-hmp-profile": "user"
-        },
-        "required_fields": {
-          "default": [],
-          "description": "Columns that must be present and non-empty per row.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Required Fields",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "path_fields": {
-          "default": [],
-          "description": "Columns whose values are resolved as filesystem paths.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Path Fields",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "tag_separator": {
-          "default": ";",
-          "description": "Separator splitting the tags column into individual tags.",
-          "examples": [
-            ";"
-          ],
-          "title": "Tag Separator",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "field_equals": {
-          "default": [],
-          "description": "Per-field equality filters applied during catalog selection.",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          },
-          "title": "Field Equals",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "tags": {
-          "default": [],
-          "description": "Whitelist of tags. Empty disables the filter.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Tags",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "exclude_tags": {
-          "default": [],
-          "description": "Blacklist of tags applied after the whitelist.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Exclude Tags",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "include_disabled": {
-          "default": false,
-          "description": "When true, rows flagged as disabled are kept.",
-          "examples": [
-            false
-          ],
-          "title": "Include Disabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "limit": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Most catalog rows kept. Unset, every selected row is kept. A count.",
-          "title": "Limit",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "from_site_selection_manifest": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional site-selection manifest whose output names the catalog. Exclusive with path.",
-          "title": "From Site Selection Manifest"
-        },
-        "output": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Output of the site-selection manifest read as the catalog. Defaults to regional_lab_sites_csv.",
-          "title": "Output"
-        }
-      },
-      "title": "TestbedCatalogConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^exclude_tags__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^exclude_tags__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^field_equals__append$": {
-          "type": "array",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          }
-        },
-        "^field_equals__merge$": {
-          "type": "array",
-          "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
-          }
-        },
-        "^path_fields__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^path_fields__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^required_fields__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^required_fields__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^tags__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^tags__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "TestbedConfig": {
-      "additionalProperties": false,
-      "description": "Validated configuration for one method testbed.",
-      "properties": {
-        "config_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Resolved path of the TOML file that produced this config. Set by the parser.",
-          "title": "Config Path",
-          "x-hmp-profile": "expert"
-        },
-        "base_dir": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Directory used to resolve relative paths. Set by the parser.",
-          "title": "Base Dir",
-          "x-hmp-profile": "expert"
-        },
-        "id": {
-          "description": "Stable testbed identifier. Left out, the TOML file name without its extension is used.",
-          "examples": [
-            "k_sensitivity"
-          ],
-          "title": "Id",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "profile": {
-          "default": "generic",
-          "description": "Testbed profile: 'generic' runs the declared cases, 'regional_lab' runs them over every site of a site catalog.",
-          "examples": [
-            "generic"
-          ],
-          "title": "Profile",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "subject": {
-          "default": "mesh",
-          "description": "What the cases vary: 'flow', 'mesh' or 'transport'.",
-          "examples": [
-            "mesh"
-          ],
-          "title": "Subject",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "purpose": {
-          "default": "robustness",
-          "description": "Stated purpose of the testbed, written in its report (robustness, sensitivity...).",
-          "examples": [
-            "robustness"
-          ],
-          "title": "Purpose",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "output_root": {
-          "description": "Directory where testbed artifacts are written, relative to the TOML file. Left out, testbed/<id> next to the TOML file.",
-          "examples": [
-            "testbed_output"
-          ],
-          "format": "path",
-          "title": "Output Root",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "execute": {
-          "default": true,
-          "description": "When false, child configs are materialized but not executed.",
-          "examples": [
-            true
-          ],
-          "title": "Execute",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "continue_on_error": {
-          "default": true,
-          "description": "When false, the first failure aborts the testbed.",
-          "examples": [
-            true
-          ],
-          "title": "Continue On Error",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "base_config": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Child workflow TOML every case starts from, relative to this file. Required when subject is flow or transport.",
-          "title": "Base Config"
-        },
-        "runner": {
-          "$ref": "#/$defs/TestbedRunnerConfig",
-          "description": "Child-runner selection for every case.",
-          "x-hmp-profile": "user"
-        },
-        "case": {
-          "default": [],
-          "description": "Explicit executable cases declared in the TOML.",
-          "items": {
-            "$ref": "#/$defs/TestbedCaseConfig"
-          },
-          "title": "Case",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "catalog": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TestbedCatalogConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional catalog source used to expand cases from rows.",
-          "x-hmp-profile": "user"
-        },
-        "case_from_catalog": {
-          "default": [],
-          "description": "Case-generation rules applied to catalog rows.",
-          "items": {
-            "$ref": "#/$defs/TestbedCatalogCaseConfig"
-          },
-          "title": "Case From Catalog",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "metrics": {
-          "default": [],
-          "description": "Metrics extracted from each child-runner summary.",
-          "items": {
-            "$ref": "#/$defs/TestbedMetricConfig"
-          },
-          "title": "Metrics",
-          "type": "array",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TestbedConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        },
-        "^case__append$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedCaseConfig"
-          }
-        },
-        "^case__merge$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedCaseConfig"
-          }
-        },
-        "^case_from_catalog__append$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedCatalogCaseConfig"
-          }
-        },
-        "^case_from_catalog__merge$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedCatalogCaseConfig"
-          }
-        },
-        "^metrics__append$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedMetricConfig"
-          }
-        },
-        "^metrics__merge$": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/TestbedMetricConfig"
-          }
-        }
-      }
-    },
-    "TestbedMetricConfig": {
-      "additionalProperties": false,
-      "description": "One metric extracted from a child-runner summary.",
-      "properties": {
-        "name": {
-          "description": "Name of the metric column in the testbed results table.",
-          "examples": [
-            "outlet_discharge_mean"
-          ],
-          "title": "Name",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "description": "Dotted path into the child-runner summary.",
-          "examples": [
-            "example"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "required": {
-          "default": false,
-          "description": "When true, a missing metric fails the case.",
-          "examples": [
-            false
-          ],
-          "title": "Required",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TestbedMetricConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
-        }
-      }
-    },
-    "TestbedRunnerConfig": {
-      "additionalProperties": false,
-      "description": "Child-runner selection for one testbed.",
-      "properties": {
-        "type": {
-          "default": "simulation",
-          "description": "Workflow every case runs: 'simulation', 'comparison' or 'calibration'. Which ones a subject accepts: mesh takes simulation; transport takes simulation and comparison; flow takes all three.",
-          "examples": [
-            "simulation"
-          ],
-          "title": "Type",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "no_display": {
-          "default": true,
-          "description": "Disable interactive display in child runners.",
-          "examples": [
-            true
-          ],
-          "title": "No Display",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "TestbedRunnerConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -28201,6 +28220,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -28244,6 +28264,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -28387,6 +28408,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         },
@@ -28546,6 +28568,7 @@
           ],
           "default": null,
           "description": "Explicit station identifiers to select, whether stations are read from a custom source or fetched from an API source such as Hub'Eau.",
+          "site_scoped": true,
           "title": "Station Ids",
           "x-hmp-profile": "user"
         },
@@ -28589,6 +28612,7 @@
           ],
           "default": null,
           "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "site_scoped": true,
           "title": "Mask Path",
           "x-hmp-profile": "user"
         },
@@ -28701,6 +28725,7 @@
           ],
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
+          "site_scoped": true,
           "title": "Path",
           "x-hmp-profile": "user"
         }
@@ -28731,27 +28756,26 @@
       "description": "Workflow selector configuration.",
       "properties": {
         "mode": {
-          "description": "Workflow mode dispatched by `hmp run`.",
-          "enum": [
-            "simulation",
-            "calibration",
-            "overview",
-            "comparison",
-            "testbed",
-            "site_selection"
+          "anyOf": [
+            {
+              "enum": [
+                "simulation",
+                "calibration",
+                "overview"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "examples": [
-            "simulation"
-          ],
+          "default": null,
+          "description": "What `hmp run` does with the file. Unset, it follows from the sections: [calibration] calibrates, [overview] without [simulation] draws the overview, anything else simulates.",
           "title": "Mode",
-          "type": "string",
           "value_docs": {
             "calibration": "Repeatedly proposes parameters, runs candidate simulations, and records the calibration history.",
-            "comparison": "Runs several child simulations from one shared base config and compares their observables.",
             "overview": "Loads geographic and data context and renders review maps without running a solver.",
-            "simulation": "Runs one forward simulation and persists solver outputs, catalog rows, and result stores.",
-            "site_selection": "Selects or rejects candidate catchments and produces an auditable HTML review report.",
-            "testbed": "Expands a case matrix, delegates each case to a runner, and collects evidence artifacts."
+            "simulation": "Runs one forward simulation and writes its run directory."
           },
           "x-hmp-profile": "user"
         },
@@ -28807,7 +28831,7 @@
     },
     "WorkspaceConfig": {
       "additionalProperties": false,
-      "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        workspace.toml\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                project.toml   <- TOML lives here when using scaffold\n                runs/<run>/\n                share/\n                .hmp/index.duckdb\n\nFields under ``[workspace]``:\n\n``project_root`` (required)\n    Directory of the project TOML. Usually auto-derived from the TOML\n    location by the loader.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``runs_dir``\n    Per-component explicit overrides. ``catalog_path`` and ``runs_dir``\n    are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.hmp/scratch/`` and the\n    published ``share/`` tree). Defaults to ``project_root``.",
+      "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        workspace.toml\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                project.toml   <- TOML lives here when using scaffold\n                runs/<run>/\n                share/\n                .hmp/index.duckdb\n\nFields under ``[workspace]``:\n\n``project_root`` (runtime only)\n    Directory of the project. Set by the loader from the location of the\n    file; refused when a file writes it.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``runs_dir``\n    Per-component explicit overrides. ``catalog_path`` and ``runs_dir``\n    are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.hmp/scratch/`` and the\n    published ``share/`` tree). Defaults to ``project_root``.",
       "properties": {
         "project_root": {
           "anyOf": [
@@ -28852,12 +28876,10 @@
               }
             }
           ],
-          "description": "Path to the project directory. Required in TOML configs.",
-          "examples": [
-            "."
-          ],
+          "description": "Folder of the project, set by the loader: the folder that holds project.toml, else the folder of the file. Never written in a file.",
           "title": "Project Root",
-          "x-hmp-profile": "user"
+          "toml_exclude": true,
+          "x-hmp-profile": "dev"
         },
         "root": {
           "anyOf": [
@@ -29177,7 +29199,7 @@
   "properties": {
     "workflow": {
       "$ref": "#/$defs/WorkflowConfig",
-      "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
+      "description": "Workflow configuration: `workflow.mode` ('simulation', 'calibration' or 'overview'), the console verbosity and the profiler. The mode is optional; unset, the sections of the file say what `hmp run` does.",
       "examples": [
         {
           "mode": "simulation"
@@ -29187,10 +29209,93 @@
     },
     "workspace": {
       "$ref": "#/$defs/WorkspaceConfig",
-      "description": "Configuration block for the project workspace and folder structure.",
+      "description": "Where the shared input data of the project are read and cached. The project root is the folder that holds project.toml, never a key of the file.",
       "examples": [
         {
-          "project_root": "."
+          "root": "../.."
+        }
+      ],
+      "x-hmp-profile": "dev"
+    },
+    "site": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SiteConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The catchment this project models: its name, label, gauge and registry URI. Required when geographic.catchment.catch_def declares a real catchment (from_outlet_coord, from_polyg_shp or dem); a synthetic domain has none. Refused beside [sites], where each case takes its site from a row of the site table.",
+      "examples": [
+        {
+          "gauge": "J0014010",
+          "name": "nancon",
+          "uri": "hubeau:J0014010"
+        }
+      ],
+      "x-hmp-profile": "user"
+    },
+    "sites": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SitesConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The catchments of a campaign and the recipes run on each of them: the plan is sites x recipes, one case <site>-<recipe> per pair. Refused beside [site].",
+      "examples": [
+        {
+          "recipes": {
+            "base": "project.toml"
+          },
+          "table": "sites.csv"
+        }
+      ],
+      "x-hmp-profile": "user"
+    },
+    "metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MetricsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Where and when a run is scored after it ends: the station (default [site] gauge) and the window. Without a window the scores are left empty.",
+      "examples": [
+        {
+          "window": {
+            "end": "2002-12-31",
+            "start": "2001-01-01"
+          }
+        }
+      ],
+      "x-hmp-profile": "user"
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicationConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Licence, creators and attribution written into every copy hmp publish makes of a result. hmp publish --public refuses a project without a licence.",
+      "examples": [
+        {
+          "creators": [
+            "A. Author"
+          ],
+          "license": "etalab-2.0"
         }
       ],
       "x-hmp-profile": "user"
@@ -29341,19 +29446,6 @@
       ],
       "default": null,
       "description": "Optional cyclic spin-up settings loaded from the [spinup] section. Drives 'hmp spinup': repeat a forcing window, restart each cycle from the previous state, until the heads and the lake stage converge.",
-      "x-hmp-profile": "user"
-    },
-    "testbed": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/TestbedConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Optional method-testbed settings loaded from the [testbed] section. Drives the orchestration layer over child runners (comparison or simulation) and is dispatched when workflow.mode='testbed'.",
       "x-hmp-profile": "user"
     },
     "site_selection": {

@@ -49,10 +49,10 @@ def test_a_required_key_takes_its_example_then_its_default_then_its_first_value(
 
 
 def test_the_three_required_sections_make_a_valid_file(tmp_path: Path) -> None:
-    """The smallest file the grammar page names: workflow, workspace, geographic."""
+    """The smallest file the grammar page names: workflow, workspace, site, geographic."""
     path = tmp_path / "minimal.toml"
     path.write_text(
-        '[workflow]\nmode = "simulation"\n\n[workspace]\nproject_root = "."\n\n'
+        '[workflow]\nmode = "simulation"\n\n[workspace]\n\n[site]\nname = "site_a"\n\n'
         '[geographic.catchment]\ncatch_def = "dem"\ndem_init_path = "dem.tif"\n'
     )
     HydroModPyConfig.from_toml(path)

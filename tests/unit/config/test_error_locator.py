@@ -25,7 +25,6 @@ def test_locate_loc_finds_assignment_under_section() -> None:
     text = textwrap.dedent(
         """\
         [workspace]
-        project_root = "/tmp/foo"
 
         [flow]
         flow_regime = "steady"

@@ -15,11 +15,11 @@
 # ======================================================================
 
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "overview"
-
-[workspace]
-project_root = "."
 
 [geographic]
 source_mode = "standard"

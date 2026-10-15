@@ -27,7 +27,6 @@ def test_simulation_comparison_launcher_infers_completed_run_folder_from_declare
             [
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
-                'project_root = "project/demo"',
                 f'solver_scratch_folder = "{scratch.as_posix()}"',
                 "",
                 "[simulation]",

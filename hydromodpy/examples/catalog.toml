@@ -27,8 +27,8 @@ sha256 = "31f31caa949343bb814cd331994c73fb8408b1549b5b57e481aea0803ca049ba"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 4953
-sha256 = "e0f38fe7269529c36a0258b211cd2ede231a2cecfa3f43f9c08fbde5cae4b0b4"
+size = 4923
+sha256 = "339d9c71e652ad9a3f117061e1686754b62fe9badf1af6ca79364a849d986777"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
@@ -105,8 +105,8 @@ sha256 = "ce8aaf2aa732321edc4df48265edce2530083e95a3f26024c3810d253f831f72"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"
-size = 2637
-sha256 = "f2ecfa62e5124f782321ca8343b69bc32c7e2482ea7b2b91b0ecbdf3414c9cd3"
+size = 2629
+sha256 = "ac1f97b629af8a3ff48e84cf289f7edad91e95b2d3f075cad4d8e7ee74d19c6a"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step2_local_data.toml"

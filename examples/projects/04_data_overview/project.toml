@@ -4,11 +4,11 @@
 #
 #   hmp run examples/projects/04_data_overview/project.toml
 
+[site]
+name = "nancon"
+
 [workflow]
 mode = "overview"
-
-[workspace]
-project_root = "."
 
 [geographic]
 crs_project = "EPSG:2154"

@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "PublicationSource": {
+      "additionalProperties": false,
+      "description": "The run or summary a copy was made from.",
+      "properties": {
+        "project": {
+          "description": "Project of the source",
+          "examples": [
+            "example"
+          ],
+          "title": "Project",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "rel_dir": {
+          "description": "Directory of the source, relative to the project root; summary for a summary",
+          "examples": [
+            "example"
+          ],
+          "title": "Rel Dir",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "sim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Id of the run; none for a summary",
+          "title": "Sim Id",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "project",
+        "rel_dir"
+      ],
+      "title": "PublicationSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``PUBLICATION.json``: what a published copy is.",
+  "properties": {
+    "files": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Relative path of each copied file to its sha256",
+      "title": "Files",
+      "type": "object",
+      "x-hmp-profile": "user"
+    },
+    "format": {
+      "description": "dir or tar",
+      "enum": [
+        "dir",
+        "tar"
+      ],
+      "examples": [
+        "dir"
+      ],
+      "title": "Format",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "hydromodpy_version": {
+      "description": "Version that published",
+      "examples": [
+        "example"
+      ],
+      "title": "Hydromodpy Version",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "label": {
+      "anyOf": [
+        {
+          "enum": [
+            "exploratory",
+            "calibrated",
+            "evaluated",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Label of the source on the day",
+      "title": "Label",
+      "x-hmp-profile": "user"
+    },
+    "label_date": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Day the label was computed",
+      "title": "Label Date",
+      "x-hmp-profile": "user"
+    },
+    "manifest_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Digest of the sealed manifest",
+      "title": "Manifest Sha256",
+      "x-hmp-profile": "user"
+    },
+    "published_at": {
+      "description": "Instant of the copy, UTC",
+      "format": "date-time",
+      "title": "Published At",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "schema": {
+      "default": "hydromodpy.publication.v1",
+      "description": "Schema id",
+      "title": "Schema",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/PublicationSource",
+      "x-hmp-profile": "user"
+    },
+    "with": {
+      "description": "What was taken along",
+      "items": {
+        "enum": [
+          "results",
+          "inputs"
+        ],
+        "type": "string"
+      },
+      "title": "With",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source",
+    "hydromodpy_version",
+    "published_at",
+    "format"
+  ],
+  "title": "Publication",
+  "type": "object"
+}

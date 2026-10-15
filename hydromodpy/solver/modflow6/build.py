@@ -78,6 +78,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow6.support.computational_top import (
     disv_grid_kwargs,
+    set_simulation_float_precision,
     well_flow_reduce_fraction,
     write_ground_sidecar,
 )
@@ -87,11 +88,6 @@ from hydromodpy.solver.modflow6.support.property_mapping import (
     resolve_flow_property_arrays,
     resolve_k33_field,
     resolve_required_flow_properties,
-)
-from hydromodpy.solver.modflow6.support.runtime_reuse import (
-    can_refresh_runtime_reuse,
-    refresh_reused_runtime_property_packages,
-    runtime_reuse_signature,
 )
 from hydromodpy.solver.modflow6.support.time_series import attach_time_series
 from hydromodpy.solver.modflow_common import (
@@ -815,27 +811,6 @@ def run_pre_processing(  # noqa: PLR0915
     model.model_output_name = mf6_output_name(model)
 
     model.flow_regime = resolve_flow_regime(model) or "transient"
-    reuse_signature = runtime_reuse_signature(
-        model,
-        flow=flow,
-        domain=domain,
-        options=active_options,
-        cell_mesh=cell_mesh,
-    )
-    if can_refresh_runtime_reuse(
-        model,
-        flow=flow,
-        domain=domain,
-        options=active_options,
-        cell_mesh=cell_mesh,
-        flow_runtime_overrides=flow_runtime_overrides,
-    ):
-        model._runtime_dirty_packages = refresh_reused_runtime_property_packages(
-            model,
-            flow_runtime_overrides=flow_runtime_overrides,
-        )
-        model._calibration_runtime_reuse_signature = reuse_signature
-        return
     launcher_time_grid = model.time_grid
     temporal = build_temporal_discretization_from_time_grid(
         time_grid=launcher_time_grid,
@@ -905,6 +880,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.sim = flopy.mf6.MFSimulation(
         sim_name=sim_name, sim_ws=model.full_path, exe_name=model.exe
     )
+    set_simulation_float_precision(model.sim)
     # MF6 TDIS START_DATE_TIME is a free-form ISO 8601 string (flopy rejects a
     # datetime object). None means no calendar anchor is written.
     start_date_time = (
@@ -1378,9 +1354,11 @@ def run_pre_processing(  # noqa: PLR0915
             solver_mesh=solver_mesh,
             lake_cell_ids_by_lake=lake_cell_ids_by_lake,
             occupied_layers_by_cell=getattr(model, "_lake_occupied_layers_by_cell", None),
-            # DRN movers always target SFR by design (never a direct DRN -> LAK
-            # record), so only the SFR movers can feed a lake externally.
-            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records),
+            # A lake is fed by a mover from SFR, or from DRN when the descent of a
+            # drain cell meets the lake before any reach. LAK must announce MOVER
+            # for either, or MODFLOW 6 stops at the first DRN-to-LAK record.
+            external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records)
+            or any(str(row[2]).upper() == "LAK" for row in drainage_mover_rows),
             downstream_reach_by_lake=downstream_reach_by_lake,
         )
         if lak_args is not None:
@@ -1513,4 +1491,3 @@ def run_pre_processing(  # noqa: PLR0915
         **output_control_records(print_head=model.modflow_config.runtime.print_head),
     )
     model._runtime_dirty_packages = ()
-    model._calibration_runtime_reuse_signature = reuse_signature

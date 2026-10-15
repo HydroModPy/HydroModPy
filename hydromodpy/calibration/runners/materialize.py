@@ -118,6 +118,10 @@ def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
     coerced = _coerce_for_toml(payload)
     if not isinstance(coerced, dict):
         raise TypeError("write_overlay_toml expects a mapping payload")
+    # A file never holds project_root: the loader takes it from where the file sits.
+    workspace = coerced.get("workspace")
+    if isinstance(workspace, dict):
+        workspace.pop("project_root", None)
     with open(path, "wb") as fh:
         dump_toml(coerced, fh)
 

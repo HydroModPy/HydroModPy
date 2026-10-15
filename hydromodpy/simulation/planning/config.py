@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
@@ -333,6 +334,12 @@ def _coerce_process_entry(value: Any) -> Any:
 class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "study_area_name": "name the catchment in [site] name, and its readable name in [site] label.",
+        "outlet_x": "the outlet is geographic.catchment.x_outlet, read by the delineation.",
+        "outlet_y": "the outlet is geographic.catchment.y_outlet, read by the delineation.",
+    }
+
     @classmethod
     def transient(
         cls,
@@ -397,18 +404,21 @@ class SimulationConfig(HydroModelBase):
         default_factory=list,
         description="Free-text tags attached at registration; editable later via 'hmp catalog tag'.",
     )
-    if_exists: Annotated[
-        Literal["replace", "fail", "version"],
-        Profile.USER,
-    ] = Field(
+    if_exists: Annotated[Literal["fail", "version"], Profile.USER] = Field(
         default="version",
         description=(
-            "Behavior when registering a simulation whose ``name`` already exists "
-            "in this project. ``version`` (default) mints the next ``stem.vN`` and "
-            "keeps every run addressable; ``replace`` trashes the predecessor "
-            "(restorable, keeps its own name and version) and registers the new "
-            "run under the next free ``stem.vN``; ``fail`` raises an error."
+            "What a run does when its name is already taken in this project. "
+            "``version`` (default) writes the run under the next free ``stem.vN`` and "
+            "keeps every run addressable; ``fail`` stops before the run starts. A name is never "
+            "reused, so a run is never replaced: delete the old one with "
+            "hmp catalog delete."
         ),
+        json_schema_extra={
+            "value_docs": {
+                "version": "Write the run under the next free <name>.vN.",
+                "fail": "Refuse to start when the name is taken.",
+            }
+        },
     )
     description: Annotated[str, Profile.USER] = Field(
         default="",
@@ -425,26 +435,6 @@ class SimulationConfig(HydroModelBase):
     doi: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="DOI or reference identifier for the simulation metadata.",
-    )
-    study_area_name: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Name of the study area, recorded in the run metadata and the catalog.",
-    )
-    outlet_x: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Easting of the declared study outlet, in metres in the project CRS. It is "
-            "recorded in the run manifest; the delineation reads [geographic.catchment]."
-        ),
-        json_schema_extra={"unit": "m"},
-    )
-    outlet_y: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Northing of the declared study outlet, in metres in the project CRS. It is "
-            "recorded in the run manifest; the delineation reads [geographic.catchment]."
-        ),
-        json_schema_extra={"unit": "m"},
     )
     time: Annotated[SimulationTimeConfig | None, Profile.USER] = Field(
         default=None,
@@ -483,6 +473,18 @@ class SimulationConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "-"},
     )
+
+    @field_validator("if_exists", mode="before")
+    @classmethod
+    def _refuse_replace(cls, value: object) -> object:
+        """Refuse ``if_exists = "replace"`` with what to write instead."""
+        if value == "replace":
+            raise ValueError(
+                "if_exists = 'replace' is gone: it moved the earlier run to the trash and "
+                "wrote a new version anyway. Write 'version' (the default) or 'fail', and "
+                "delete a run with hmp catalog delete."
+            )
+        return value
 
     @field_validator("process", mode="before")
     @classmethod

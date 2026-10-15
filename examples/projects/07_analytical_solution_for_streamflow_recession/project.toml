@@ -13,14 +13,9 @@
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "."
-
-
 [simulation]
 name = "hillslope_recession_mf6"
 description = "Synthetic 1D hillslope, transient MODFLOW 6, recession against the Boussinesq 1904 late-time solution."
-if_exists = "replace"
 
 [simulation.time]
 start_datetime = "2000-01-01"

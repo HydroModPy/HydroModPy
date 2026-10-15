@@ -24,7 +24,6 @@ mode = "simulation"
 name = "naizin_rebuild"
 
 [workspace]
-project_root = "{root}"
 
 [geographic]
 crs_project = "EPSG:2154"

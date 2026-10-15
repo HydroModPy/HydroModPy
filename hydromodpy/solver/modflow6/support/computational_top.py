@@ -94,6 +94,19 @@ def model_computational_top(model: Any) -> np.ndarray:
     )
 
 
+#: Decimals of every float flopy writes. The flopy default (8) keeps about
+#: 1 cm on Lambert-93 vertices, which skews the faces of a few centimetres
+#: the Voronoi generator produces. 15 decimals keep them below 1e-6 m.
+FLOAT_PRECISION = 15
+FLOAT_CHARACTERS = 24
+
+
+def set_simulation_float_precision(sim: Any) -> None:
+    """Write every float of *sim* with :data:`FLOAT_PRECISION` decimals."""
+    sim.simulation_data.float_precision = FLOAT_PRECISION
+    sim.simulation_data.float_characters = FLOAT_CHARACTERS
+
+
 def disv_grid_kwargs(model: Any) -> dict[str, Any]:
     """Return the DISV keyword arguments of every MODFLOW 6 model of a run.
 

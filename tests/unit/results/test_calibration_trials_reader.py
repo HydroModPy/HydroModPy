@@ -23,7 +23,6 @@ mode = "simulation"
 
 [workspace]
 root = "{root}"
-project_root = "{root}"
 
 [geographic]
 source_mode = "synthetic"

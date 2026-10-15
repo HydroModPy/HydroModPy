@@ -11,17 +11,15 @@
 # ----------------------------------------------------------------------
 
 
+[site]
+name = "canut"
+
 [workflow]
 mode = "simulation"
-
-[workspace]
-project_root = "."
-
 
 # ----------------------------------------------------------------------
 # Geographic configuration for watershed delineation.
 # ----------------------------------------------------------------------
-
 [geographic]
 # Geographic runtime mode.
 # 'standard' keeps the historical DEM/outlet/polygon workflow.

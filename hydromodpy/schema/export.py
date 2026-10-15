@@ -112,9 +112,16 @@ def build_config_meta() -> dict[str, Any]:
 
 
 def _infer_validator_type(field_schema: dict[str, Any]) -> str:
-    """Map a JSON Schema field entry to a high-level validator type."""
+    """Map a JSON Schema field entry to a high-level validator type.
+
+    An optional field is an ``anyOf`` of its type and ``null``: the validator
+    type is the one of the non-null branch, so an optional enum stays an enum.
+    """
     if "enum" in field_schema:
         return "enum"
+    branches = [b for b in field_schema.get("anyOf", []) if b.get("type") != "null"]
+    if len(branches) == 1 and "anyOf" not in branches[0]:
+        return _infer_validator_type(branches[0])
     json_type = field_schema.get("type")
     if isinstance(json_type, list):
         json_type = next((t for t in json_type if t != "null"), json_type[0])

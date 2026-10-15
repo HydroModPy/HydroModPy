@@ -26,11 +26,7 @@ id = "flow"
 type = "flow"
 solvers = ["modflow_nwt"]
 
-[workspace]
-project_root = "."
-
 # --- Domaine géographique (synthétique, hors-ligne) ------------------
-
 [geographic]
 source_mode = "synthetic"
 

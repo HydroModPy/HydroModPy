@@ -64,7 +64,7 @@ class TestDispatchCalibrationEnriched:
 
     def test_rich_toml_resolves_to_calibration(self, tmp_path: Path):
         path = _write_rich_calibration_toml(tmp_path / "calib.toml")
-        resolved = resolve_workflow(path, cli_workflow=None, require_toml_field=True)
+        resolved = resolve_workflow(path, cli_workflow=None)
         assert resolved == "calibration"
 
     def test_rich_calibration_section_parses_through_pydantic(self, tmp_path: Path):
@@ -85,13 +85,19 @@ class TestDispatchCalibrationEnriched:
         data = load_raw_toml(path)
         assert extract_workflow_field(data) == "calibration"
 
-    def test_toml_without_workflow_field_requires_it(self, tmp_path: Path):
+    def test_toml_without_workflow_field_follows_its_sections(self, tmp_path: Path):
         path = tmp_path / "no_workflow.toml"
         path.write_text("[calibration]\nmethod = 'grid'\n", encoding="utf-8")
-        from hydromodpy.workflow.dispatch import WorkflowMissingError
 
-        with pytest.raises(WorkflowMissingError):
-            resolve_workflow(path, cli_workflow=None, require_toml_field=True)
+        assert resolve_workflow(path, cli_workflow=None) == "calibration"
+
+    def test_a_retired_mode_names_its_replacement(self, tmp_path: Path):
+        path = tmp_path / "old.toml"
+        path.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
+        from hydromodpy.workflow.dispatch import WorkflowUnknownError
+
+        with pytest.raises(WorkflowUnknownError, match="hmp report compare"):
+            resolve_workflow(path, cli_workflow=None)
 
 
 def _write_analytic_bowl_toml(path: Path) -> Path:

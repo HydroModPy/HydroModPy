@@ -191,7 +191,9 @@ mode = "simulation"
 
 [workspace]
 root = "{project}"
-project_root = "{project}"
+
+[site]
+name = "site_a"
 
 [geographic.catchment]
 catch_def = "dem"

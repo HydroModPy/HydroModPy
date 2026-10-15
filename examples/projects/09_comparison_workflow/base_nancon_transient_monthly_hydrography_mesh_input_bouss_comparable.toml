@@ -14,13 +14,11 @@ base_config = "base_nancon_transient_monthly_hydrography_mesh_input.toml"
 mode = "simulation"
 
 [workspace]
-project_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/shared_workspace"
 root = "../../"
 
 [simulation]
 name = "nancon_transient_monthly_hydrography_mesh_input_bouss_comparable"
 description = "Nancon monthly transient MF6/Boussinesq comparability pilot on one precomputed mesh."
-if_exists = "replace"
 
 [flow]
 runtime_max_iterations = 320

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -40,6 +41,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     PER_RUN_CONFIG_KEYS,
     RUNS_DIRNAME,
+    parse_rel_dir,
+    runs_dir_for,
+    sessions_dir_for,
     to_workspace_relative,
 )
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
@@ -53,6 +57,7 @@ from hydromodpy.results.catalog.lifecycle import stamp_trash_marker
 from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.trash import list_trash, read_tombstones
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
 logger = get_logger(__name__)
@@ -193,6 +198,95 @@ def split_stem_version(name: str) -> tuple[str, int | None]:
     if match:
         return name[: match.start()], int(match.group(1))
     return name, None
+
+
+_RESERVE_ATTEMPTS = 1000
+
+
+class VersionPairingError(FileExistsError):
+    """The run directory a session is paired with is already taken."""
+
+
+def reserve_version_dirname(
+    project_root: Path,
+    kind: Literal["run", "session"],
+    name: str,
+    *,
+    pair_with: Path | None = None,
+) -> Path:
+    """Create and return the directory of the next version of ``name``.
+
+    The version is computed on disk and ``os.mkdir`` only makes the claim
+    atomic. ``N`` is one more than the highest version of ``name`` found
+    among the live directories of ``runs/`` and ``sessions/``, the trashed
+    directories (by the relative directory they came from) and the
+    tombstones of ``trash/tombstones.txt``. A deleted name is therefore
+    never given out again. The bare name is version 1. Runs and sessions
+    share one version space, so a run and a session of one name never hold
+    the same ``N`` by accident.
+
+    When another process wins the ``mkdir``, the version is computed again,
+    so a version is never given twice. ``kind`` picks the tree the claim is
+    made in. ``name`` is a bare directory name: a name that already carries
+    ``.vN`` is refused.
+
+    A calibration session and its promoted run are paired: the session
+    reserves ``N`` first, and the run is reserved with ``pair_with`` naming
+    the session directory. The run then takes the very same directory name
+    under ``runs/``, whatever the version space says, and the claim fails
+    with :class:`VersionPairingError` when that directory already exists.
+    """
+    stem, version = split_stem_version(name)
+    if version is not None:
+        raise ValueError(f"reserve the bare name {stem!r}, not the version {name!r}")
+    if run_dirname(name) != name:
+        raise ValueError(f"{name!r} is not a directory name; use {run_dirname(name)!r}")
+    root = Path(project_root)
+    parent = runs_dir_for(root) if kind == "run" else sessions_dir_for(root)
+    parent.mkdir(parents=True, exist_ok=True)
+    if pair_with is not None:
+        paired_stem, _ = split_stem_version(pair_with.name)
+        if paired_stem != name:
+            raise ValueError(f"{pair_with.name!r} is not a version of {name!r}")
+        target = parent / pair_with.name
+        try:
+            os.mkdir(target)
+        except FileExistsError as exc:
+            raise VersionPairingError(
+                f"{target} already exists: the run paired with {pair_with} cannot take "
+                f"its version. Trash or rename the existing directory first."
+            ) from exc
+        return target
+    for _ in range(_RESERVE_ATTEMPTS):
+        highest = max(_taken_versions(root, name), default=0)
+        dirname = name if highest == 0 else f"{name}.v{highest + 1}"
+        target = parent / dirname
+        try:
+            os.mkdir(target)
+        except FileExistsError:
+            continue
+        return target
+    raise RuntimeError(f"no version of {name!r} could be reserved under {parent}")
+
+
+def _taken_versions(project_root: Path, name: str) -> list[int]:
+    """Versions of ``name`` held by a live, trashed or tombstoned directory."""
+    names: list[str] = []
+    for tree in (runs_dir_for(project_root), sessions_dir_for(project_root)):
+        if tree.is_dir():
+            names.extend(entry.name for entry in tree.iterdir())
+    for rel_dir in [entry.rel_dir for entry in list_trash(project_root)] + [
+        tombstone.rel_dir for tombstone in read_tombstones(project_root)
+    ]:
+        parsed = parse_rel_dir(rel_dir)
+        if parsed.kind in ("run", "session"):
+            names.append(parsed.name)
+    versions: list[int] = []
+    for candidate in names:
+        stem, version = split_stem_version(candidate)
+        if stem == name:
+            versions.append(1 if version is None else version)
+    return versions
 
 
 _MEMORABLE_ADJECTIVES = (
