@@ -116,7 +116,12 @@ class FlowBarrierConfig(HydroModelBase):
         description=(
             "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. "
             "A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. "
-            "Mutually exclusive with k + thickness."
+            "Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr "
+            "under XT3D, so the build refuses it when XT3D is active (XT3D turns "
+            "itself on for triangle and strongly non-orthogonal meshes). "
+            "Each face of the barrier receives hydchr times trace length over the "
+            "summed face length, so a zigzag chain of faces keeps the declared "
+            "conductance. Mutually exclusive with k + thickness."
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")

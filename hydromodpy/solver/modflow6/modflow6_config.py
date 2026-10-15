@@ -116,6 +116,18 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "None keeps the complexity-preset default."
         ),
     )
+    mf6_backtracking_number: Annotated[int | None, Profile.EXPERT] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "IMS residual-reduction backtracking: maximum number of backtracking "
+            "steps tried per outer iteration (BACKTRACKING_NUMBER). Zero turns "
+            "backtracking off. None keeps the complexity-preset default (20 for "
+            "COMPLEX). Backtracking can stall the outer loop when a boundary "
+            "package feeds flow back to another (DRN to MVR to SFR); setting 0 "
+            "then often converges faster."
+        ),
+    )
     mf6_linear_acceleration: Annotated[Literal["CG", "BICGSTAB"] | None, Profile.EXPERT] = Field(
         default=None,
         description=(

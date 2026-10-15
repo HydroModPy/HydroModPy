@@ -45,7 +45,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core import progress
-from hydromodpy.core.exceptions import SolverError
+from hydromodpy.core.exceptions import SolverDivergedError, SolverError, SolverInputError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_library
 
@@ -291,6 +291,74 @@ def _read_nper(sim: Any) -> int | None:
         return None
 
 
+def _tdis_uses_ats(workspace: Path) -> bool:
+    """Return whether the TDIS file of ``mfsim.nam`` declares an ATS6 file.
+
+    The modflowapi loop calls ``solve`` directly and never runs the ATS
+    retry of ``Mf6DoTimestep``. ATS is then silently inert, so the API path
+    refuses it.
+    """
+    try:
+        lines = (workspace / "mfsim.nam").read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return False
+    tdis_name = None
+    for line in lines:
+        tokens = line.split()
+        if len(tokens) >= 2 and tokens[0].upper() == "TDIS6":
+            tdis_name = tokens[1].strip("'\"")
+            break
+    if tdis_name is None:
+        return False
+    try:
+        tdis_lines = (
+            (workspace / tdis_name).read_text(encoding="utf-8", errors="ignore").splitlines()
+        )
+    except OSError:
+        return False
+    for line in tdis_lines:
+        tokens = line.split()
+        if tokens and tokens[0].upper() == "ATS6":
+            return True
+    return False
+
+
+def _solution_status(sim: Any) -> tuple[bool, int | None]:
+    """Return (converged, max outer iterations) for the solution group.
+
+    Reads ``ICNVG`` and ``MXITER`` of each solution in the group. These are
+    set by the last ``solve`` call. An unreadable flag counts as converged so
+    a library without the address keeps the old behavior.
+    """
+    converged = True
+    mxiter: int | None = None
+    for sol_id in getattr(sim, "solutions", {}) or {}:
+        path = f"SLN_{sol_id}"
+        try:
+            flag = sim.mf6.get_value(sim.mf6.get_var_address("ICNVG", path)).ravel()[0]
+        except Exception:
+            continue
+        if int(flag) == 0:
+            converged = False
+        try:
+            mxiter = int(sim.mf6.get_value(sim.mf6.get_var_address("MXITER", path)).ravel()[0])
+        except Exception:
+            pass
+    return converged, mxiter
+
+
+def _finalize_quietly(mf6: Any) -> None:
+    """Finalize libmf6 after a failure, ignoring a second error.
+
+    Without it the library keeps its state and the next run in the same
+    process aborts in Fortran (forrtl severe 151).
+    """
+    try:
+        mf6.finalize()
+    except Exception:  # pragma: no cover - best effort cleanup
+        logger.debug("libmf6 finalize after failure raised", exc_info=True)
+
+
 def run_mf6_api(
     sim_ws: str | os.PathLike[str],
     callback: Callable[[Mf6ApiContext], None],
@@ -334,6 +402,11 @@ def run_mf6_api(
         When the optional ``modflowapi`` package is not installed.
     SolverError
         When the developer callback raises (re-raised with step context).
+    SolverInputError
+        When the TDIS file uses ATS, which the API loop does not honor.
+    SolverDivergedError
+        When a time step fails to converge. Raised at the first failed step,
+        like the exe path, with the period, step and iteration count.
     """
     workspace = Path(sim_ws).expanduser()
     nam = workspace / "mfsim.nam"
@@ -359,6 +432,13 @@ def run_mf6_api(
     else:
         resolved_lib = ensure_solver_library("libmf6").resolve()
 
+    if _tdis_uses_ats(workspace):
+        raise SolverInputError(
+            "ATS is not supported on the MF6 API path: the modflowapi loop skips "
+            "the ATS step retry, so the time step would never be cut. Remove the "
+            "ATS6 file from TDIS or run with the mf6 executable."
+        )
+
     callbacks = modflowapi.Callbacks
     phase_by_callback = {
         callbacks.initialize: Mf6ApiStep.initialize,
@@ -371,8 +451,18 @@ def run_mf6_api(
         logger.debug("Running MF6 API on %s with %s", workspace, resolved_lib.name)
 
     with progress.task("Solving stress periods") as handle:
+        state: dict[str, Any] = {"mf6": None, "iterations": 0, "finalizing": False}
 
         def _native_callback(sim: Any, mf_step: Any) -> None:
+            if state["mf6"] is None:
+                state["mf6"] = getattr(sim, "mf6", None)
+            if mf_step == callbacks.iteration_end:
+                state["iterations"] += 1
+                return
+            if mf_step == callbacks.timestep_start:
+                state["iterations"] = 0
+            elif mf_step == callbacks.finalize:
+                state["finalizing"] = True
             phase = phase_by_callback.get(mf_step)
             if phase is None:
                 return
@@ -394,6 +484,9 @@ def run_mf6_api(
                 totim=totim,
                 _sim=sim,
             )
+            converged, mxiter = (True, None)
+            if phase is Mf6ApiStep.timestep_end:
+                converged, mxiter = _solution_status(sim)
             try:
                 callback(ctx)
             except Exception as exc:
@@ -401,8 +494,23 @@ def run_mf6_api(
                     f"MF6 API callback failed at {phase.name} "
                     f"(kper={ctx.kper}, kstp={ctx.kstp}, totim={ctx.totim}): {exc}"
                 ) from exc
+            if not converged:
+                limit = f" (maximum {mxiter})" if mxiter is not None else ""
+                raise SolverDivergedError(
+                    f"[HMPY.E401] MF6 API solve did not converge at stress period "
+                    f"{kper + 1}, time step {kstp + 1} (totim={totim}) after "
+                    f"{state['iterations']} outer iterations{limit}. "
+                    f"See {workspace / 'mfsim.lst'} and the model listing."
+                )
 
-        success = modflowapi.run_simulation(
-            str(resolved_lib), str(workspace), _native_callback, verbose=verbose
-        )
+        try:
+            success = modflowapi.run_simulation(
+                str(resolved_lib), str(workspace), _native_callback, verbose=verbose
+            )
+        except BaseException:
+            # modflowapi never finalizes on error. Finalize here so the next
+            # run in this process starts from a clean library.
+            if state["mf6"] is not None and not state["finalizing"]:
+                _finalize_quietly(state["mf6"])
+            raise
     return _resolve_api_success(success, workspace)

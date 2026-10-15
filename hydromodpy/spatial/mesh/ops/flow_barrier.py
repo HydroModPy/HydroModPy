@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
-__all__ = ["BarrierFace", "barrier_faces_from_line"]
+__all__ = ["BarrierFace", "barrier_faces_from_line", "mesh_footprint", "trace_end_gaps"]
 
 
 @dataclass(frozen=True)
@@ -33,11 +33,13 @@ class BarrierFace:
     ``cell_a`` / ``cell_b`` are the two adjacent cell2d ids sharing the face,
     ``cell_a < cell_b``; ``s`` is the normalized position [0, 1] of the crossing
     along the line, used to interpolate a per-vertex depth onto the face.
+    ``length`` is the face length [m], used to weight the face conductance.
     """
 
     cell_a: int
     cell_b: int
     s: float
+    length: float = 0.0
 
 
 def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list[BarrierFace]:
@@ -70,6 +72,36 @@ def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list
     order = np.argsort(stations, kind="stable")
     cells = geometry.edge_cells[edges]
     return [
-        BarrierFace(cell_a=int(cells[k, 0]), cell_b=int(cells[k, 1]), s=float(stations[k]))
+        BarrierFace(
+            cell_a=int(cells[k, 0]),
+            cell_b=int(cells[k, 1]),
+            s=float(stations[k]),
+            length=float(geometry.edge_length[edges[k]]),
+        )
         for k in order
     ]
+
+
+def mesh_footprint(cell_mesh: PlanarCellMesh) -> shapely.Geometry:
+    """Return the union of the cell polygons (the planar model domain)."""
+    rows = np.asarray(cell_mesh.connectivity_rows)
+    verts = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    polygons = [shapely.Polygon(verts[row[row >= 0]]) for row in rows]
+    return shapely.union_all(polygons)
+
+
+def trace_end_gaps(footprint: shapely.Geometry, line: LineString) -> tuple[float, float]:
+    """Return the open length [m] left at the start and at the end of a trace.
+
+    The open length is the distance from the trace end to the domain outline,
+    when that end lies inside the domain. Flow can go around the barrier
+    through this gap. An end on or outside the outline leaves no gap.
+    """
+    coords = shapely.get_coordinates(line)
+    outline = footprint.boundary
+    gaps = []
+    for xy in (coords[0], coords[-1]):
+        point = shapely.Point(float(xy[0]), float(xy[1]))
+        inside = footprint.contains(point)
+        gaps.append(float(outline.distance(point)) if inside else 0.0)
+    return gaps[0], gaps[1]

@@ -619,9 +619,18 @@ def guard_newton_linear_acceleration(runtime) -> None:
         )
 
 
-def optional_ims_kwargs(runtime) -> dict[str, object]:
-    """Return the optional IMS knobs that are set; None values keep flopy presets."""
+def optional_ims_kwargs(runtime, *, csv_outer_output: str | None = None) -> dict[str, object]:
+    """Return the optional IMS knobs that are set; None values keep flopy presets.
+
+    ``csv_outer_output`` names a CSV file for the per-outer-iteration record
+    (CSV_OUTER_OUTPUT). It lives in the solver folder, which the flow cleanup
+    removes unless ``keep_solver_files`` is set.
+    """
     kwargs: dict[str, object] = {}
+    if csv_outer_output:
+        kwargs["csv_outer_output_filerecord"] = [str(csv_outer_output)]
+    if getattr(runtime, "mf6_backtracking_number", None) is not None:
+        kwargs["backtracking_number"] = int(runtime.mf6_backtracking_number)
     if runtime.mf6_inner_rclose is not None:
         # flopy exposes inner_rclose only through the rcloserecord record
         # (inner_rclose + rclose_option). The empty option keeps MF6's default
@@ -937,7 +946,11 @@ def run_pre_processing(  # noqa: PLR0915
         inner_maximum=int(runtime.mf6_inner_maximum),
         filename=f"{model.model_name_mf6}_gwf.ims",
         pname="IMS_GWF",
-        **optional_ims_kwargs(runtime),
+        # The flow cleanup removes the whole solver folder unless
+        # keep_solver_files is set, so this record survives only then.
+        **optional_ims_kwargs(
+            runtime, csv_outer_output=f"{model.model_name_mf6}_gwf.ims.outer.csv"
+        ),
     )
     newtonoptions = newton_options(runtime)
     model.gwf = flopy.mf6.ModflowGwf(

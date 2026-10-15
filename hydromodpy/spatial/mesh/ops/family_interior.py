@@ -30,6 +30,9 @@ __all__ = ["family_regions", "interior_cells", "polygon_overlap"]
 _INTERIOR_SHARE = 0.5
 """A region belongs to the polygon that covers more than this share of its area."""
 
+_MIN_OVERLAP_SHARE = 1e-6
+"""An overlap below this share of the cell area is a sliver, not a reach."""
+
 
 def polygon_overlap(
     cell_mesh: PlanarCellMesh, polygon: BaseGeometry
@@ -37,12 +40,15 @@ def polygon_overlap(
     """Return the sorted ids of the cells ``polygon`` overlaps, and the overlap areas.
 
     A cell that only touches the polygon along an edge or at a point has no
-    positive overlap and is left out.
+    positive overlap and is left out. A sliver smaller than
+    ``_MIN_OVERLAP_SHARE`` of the cell area is left out too: it is a rounding
+    artefact of the outline, not a reach.
     """
     polygons = cell_polygons(cell_mesh.mesh.vertices, cell_mesh.geometry.padded_connectivity)
     candidates = np.sort(STRtree(polygons).query(polygon, predicate="intersects"))
     areas = shapely.area(shapely.intersection(polygons[candidates], polygon))
-    keep = areas > 0.0
+    cell_areas = np.asarray(cell_mesh.geometry.areas, dtype=float)[candidates]
+    keep = areas > _MIN_OVERLAP_SHARE * cell_areas
     return candidates[keep].astype(np.int64), np.asarray(areas[keep], dtype=float)
 
 

@@ -776,6 +776,32 @@ def _watershed_mean_rates(
     return [float(v) for v in resolved.series]
 
 
+def _lake_runoff_areas_m2(
+    lake_ids: list[str],
+    catchment_area_m2: float,
+    contributing_areas_m2: Mapping[str, float] | None,
+) -> dict[str, float]:
+    """Return the area whose runoff each lake receives, summing to the basin at most."""
+    if not lake_ids or catchment_area_m2 <= 0.0:
+        return {}
+    known = dict(contributing_areas_m2 or {})
+    if all(lake_id in known for lake_id in lake_ids):
+        areas = {lake_id: max(float(known[lake_id]), 0.0) for lake_id in lake_ids}
+        total = sum(areas.values())
+        if total > catchment_area_m2:
+            scale = catchment_area_m2 / total
+            areas = {lake_id: area * scale for lake_id, area in areas.items()}
+        return areas
+    share = catchment_area_m2 / len(lake_ids)
+    if len(lake_ids) > 1:
+        logger.warning(
+            "No contributing area per lake: the basin runoff is split evenly "
+            "between %d lakes.",
+            len(lake_ids),
+        )
+    return dict.fromkeys(lake_ids, share)
+
+
 def apply_lake_meteo_forcings_to_flow(
     *,
     flow: Flow,
@@ -784,6 +810,7 @@ def apply_lake_meteo_forcings_to_flow(
     runoff: LoadResultProto | None = None,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     catchment_area_m2: float | None = None,
+    lake_contributing_areas_m2: Mapping[str, float] | None = None,
 ) -> bool:
     """Attach SIM2-derived rainfall / evaporation / runoff onto each lake payload.
 
@@ -801,6 +828,12 @@ def apply_lake_meteo_forcings_to_flow(
     the network is coupled to the lake. Rainfall and evaporation stay on the
     lake surface in every mode.
 
+    Without SFR, the basin runoff is fed once, not once per lake. Each lake
+    takes the runoff of its own contributing area when
+    ``lake_contributing_areas_m2`` gives it (scaled down when the areas sum
+    above the basin). Otherwise the basin area is split evenly between the
+    lakes, so the lakes together receive the basin runoff exactly once.
+
     Returns True if at least one forcing was attached, False otherwise.
     """
     if simulation_window is None or all(r is None for r in (precipitation, etp, runoff)):
@@ -816,18 +849,24 @@ def apply_lake_meteo_forcings_to_flow(
     # from the live stage. The lumped runoff VOLUME stays a direct lake feed only
     # when no SFR network routes it.
     runoff_rate = _watershed_mean_rates(runoff, "lake_runoff", simulation_window)
-    runoff_vol: list[float] | None = None
+    lake_areas: dict[str, float] = {}
     if not sfr_routes_catchment_runoff(flow) and runoff_rate is not None and catchment_area_m2:
-        area = float(catchment_area_m2)
-        runoff_vol = [v * area for v in runoff_rate]
+        lake_areas = _lake_runoff_areas_m2(
+            list(payloads), float(catchment_area_m2), lake_contributing_areas_m2
+        )
 
-    derived = (
-        ("rainfall", rain, "m/s"),
-        ("evaporation", evap, "m/s"),
-        ("runoff", runoff_vol, "m3/s"),
-    )
     attached = False
-    for payload in payloads.values():
+    for lake_id, payload in payloads.items():
+        runoff_vol = (
+            [v * lake_areas[lake_id] for v in runoff_rate]
+            if lake_id in lake_areas and runoff_rate is not None
+            else None
+        )
+        derived = (
+            ("rainfall", rain, "m/s"),
+            ("evaporation", evap, "m/s"),
+            ("runoff", runoff_vol, "m3/s"),
+        )
         for keyword, values, unit in derived:
             if values is not None and payload.get(keyword) is None:
                 payload[keyword] = {"kind": "values", "values": values, "units": unit}
