@@ -6,15 +6,17 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.cli.main import main
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
     catalog_path_for,
     runs_dir_for,
     scratch_dir_for,
+    trash_dir_for,
 )
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.trash import parse_trashed_dirname
+from tests._helpers.sealed_runs import seal_run
 
 
 def _seed_workspace(root: Path) -> None:
@@ -26,9 +28,10 @@ def _seed_workspace(root: Path) -> None:
     (root / INTERNAL_DIRNAME).mkdir()
     project = root / "projects" / "demo"
     project.mkdir(parents=True)
+    (project / "project.toml").write_text("", encoding="utf-8")
     catalog_path_for(project).parent.mkdir(parents=True, exist_ok=True)
     catalog_path_for(project).write_bytes(b"duckdb")
-    (runs_dir_for(project) / "demo_run" / FIELDS_STORE_NAME).mkdir(parents=True)
+    seal_run(project, "demo_run")
     scratch_dir_for(project).mkdir(parents=True, exist_ok=True)
 
 
@@ -49,7 +52,7 @@ def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys
     assert (tmp_path / "data" / "cache.duckdb").exists()
 
 
-def test_workspace_clean_all_deletes_generated_artifacts(
+def test_workspace_clean_all_trashes_the_runs_and_deletes_the_caches(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -63,7 +66,9 @@ def test_workspace_clean_all_deletes_generated_artifacts(
 
     project = tmp_path / "projects" / "demo"
     assert not catalog_path_for(project).exists()
-    assert not runs_dir_for(project).exists()
+    assert not (runs_dir_for(project) / "demo_run").exists()
+    trashed = [parse_trashed_dirname(path.name)[0] for path in trash_dir_for(project).iterdir()]
+    assert "runs/demo_run" in trashed
     assert not (tmp_path / "data" / "cache.duckdb").exists()
     assert not (tmp_path / "data" / "blobs").exists()
     assert not (tmp_path / INTERNAL_DIRNAME).exists()

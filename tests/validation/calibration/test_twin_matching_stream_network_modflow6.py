@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pyproj
 import pytest
 
 from hydromodpy.core.stream_geometry import neighbour_spacing_m
@@ -656,7 +657,7 @@ def _metrics_of(report: Any, k_value: float) -> dict[str, float]:
     """Return the published components of the trial evaluated at ``k_value``."""
     rows = report.iterations
     for _, row in rows.iterrows():
-        if math.isclose(float(row["parameters"]["K"]["value"]), k_value, rel_tol=1e-12):
+        if math.isclose(float(row["params"]["K"]["value"]), k_value, rel_tol=1e-12):
             return dict(row["metrics"])
     raise AssertionError(f"no trial at K = {k_value!r} among {len(rows)} iterations.")
 
@@ -682,7 +683,8 @@ def test_the_mapped_network_projects_back_onto_the_cells_it_was_written_from(
 
     mismatched = np.flatnonzero(truth.projected_back != truth.network)
     assert mismatched.size == 0, f"cells differing after the round trip: {mismatched.tolist()}"
-    assert truth.mesh_crs == CRS
+    # The seal writes the projection as WKT: compare the projections, not the text.
+    assert pyproj.CRS.from_user_input(truth.mesh_crs) == pyproj.CRS.from_user_input(CRS)
     assert math.isclose(
         truth.recharge_m_s, RECHARGE_M_S, rel_tol=RECHARGE_REL.get(solver, RECHARGE_REL_DEFAULT)
     )

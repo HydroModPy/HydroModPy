@@ -24,6 +24,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
+        "-w",
         "--workspace",
         default=None,
         help="Single workspace root to manage directly",

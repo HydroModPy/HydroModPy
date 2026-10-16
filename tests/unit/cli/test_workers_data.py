@@ -16,8 +16,9 @@ def test_list_data_cache_uses_workspace_cache_and_filters(monkeypatch, tmp_path)
     calls: dict[str, object] = {}
 
     class FakeDataCatalog:
-        def __init__(self, path: Path) -> None:
+        def __init__(self, path: Path, *, read_only: bool = False) -> None:
             calls["db_path"] = path
+            calls["read_only"] = read_only
 
         def __enter__(self):
             return self
@@ -40,6 +41,7 @@ def test_list_data_cache_uses_workspace_cache_and_filters(monkeypatch, tmp_path)
     assert result == "rows"
     assert calls == {
         "db_path": db_path,
+        "read_only": True,
         "filters": {"variable": "dem", "source": "ign"},
         "closed": True,
     }

@@ -120,6 +120,7 @@ class PrepareSolverStep:
         "config_hash",
         "ctx",
         "lineage",
+        "promotion",
         "run_dir",
         "run_overrides",
         "skip_display",
@@ -154,11 +155,16 @@ class PrepareSolverStep:
             )
             workspace = ctx.setup.workspace
             persistence = ctx.cfg.simulation.results.persistence
+            facts = initial_facts(
+                ctx, run_overrides=run_overrides, config_hash=state.get("config_hash")
+            )
+            # A promoted run carries what its session says about it.
+            promotion = state.get("promotion")
+            if promotion is not None:
+                facts.apply_promotion(promotion)
             with RunStore.open(
                 ctx.run_dir,
-                facts=initial_facts(
-                    ctx, run_overrides=run_overrides, config_hash=state.get("config_hash")
-                ),
+                facts=facts,
                 persistence=persistence,
                 workspace=None if workspace is None else workspace.project_root,
             ) as store:

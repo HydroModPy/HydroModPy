@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Examples:\n  hmp data ls\n  hmp data ls --variable dem --provider ign_geoplateforme_dem",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument("--variable", default=None, help="Filter by variable")
     parser.add_argument("--provider", default=None, help="Filter by provider")
     parser.set_defaults(_handler=run)

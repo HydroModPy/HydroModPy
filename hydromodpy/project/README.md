@@ -13,15 +13,17 @@ rules, how a run goes through it, and where to add what.
 
 | part | answers |
 |---|---|
-| `facade.py` | the public verbs of `Project`: `prepare`, `execute`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the read-only views, `close` |
+| `facade.py` | the public verbs of `Project`: `prepare`, `execute`, `simulate`, `calibrate`, `spinup`, `rerun`, the model-phase verbs, the launch verbs of a `[sites]` project (`plan`, `run`, `status`, `collect`, `publish`), the read-only views, `close`; `open_project`, what `hmp.open` calls on a project folder |
 | `state.py` | where the runtime state of a `Project` lives (`ProjectState`), and which attribute names `Project` forwards to it (`PROJECT_ATTR_TO_STATE_FIELD`) |
 | `phases.py` | the model-phase verbs as free functions: `configure`, `setup_workspace`, `build_geographic`, `load_data`, `reload_data`, `rebuild_geographic`, `build_mesh`, `open_catalog` (the index, read only, and only when it exists) |
 | `attempt.py` | `run_attempt`: the attempt protocol around one run (claim of the directory under `runs/`, heartbeat, outcome closed as `completed`, `partial`, `failed` or `aborted` on exit); `SealedRun`, what a worker returns |
 | `runner.py` | `ProjectRunner`: one run through the workflow `Pipeline` (step window, resume, dry run, overrides, run naming); `execute` is the worker verb, `run` adds the index and the `Run` view |
 | `catalog.py` | `ProjectCatalog`: the index binding of a project (`store`, `data`, `runs`) and its `close` |
-| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`) |
+| `accessors.py` | the read-only views `project.data` (`ProjectDataAccessor`) and `project.runs` (`ProjectRunsAccessor`), the campaign reads behind `project.cases`, `.sites`, `.best` and `.sessions` (`ProjectSessions`), and `Workspace`, what `hmp.open` returns on a workspace root; the index itself is `project.store`, a `Catalog`, and `project[ref]` is one `Run` |
 | `spinup.py` | `run_spinup`: repeat a forcing window, each cycle restarting from the last, until heads and lake stages stop moving |
-| `lockfile.py` | `write_project_lockfile`: the `hydromodpy.lock` a Python-driven run writes |
+| `lockfile.py` | `write_project_lockfile`: the `hydromodpy.lock` of the project |
+| `launch/` | the launcher of a `[sites]` project: `local.py` (`plan_project`, `run_plan`: plan, prepare, one process per case, count, index), `prepare.py` (the data of every case before any solve, the private caches merged, `hydromodpy.lock` written once), `lease.py` (`.hmp/launcher.lease`, one launcher per project), `journal.py` (`jobs/<stamp>-<scheduler>/` and its `journal.jsonl`), `children.py` (the worker processes and their outcome when they die silent), `env.py` (the environment and the thread budget of a case), `status.py` (`project_status`, read from the plan and the outcomes, never the index), `slurm.py` and `templates/` (the frozen scripts of `hmp project array`) |
+| `summary.py` | `collect_project`: `summary/` of a project of N cases (tables by case and by site, map, cohort figures, exports, report, `README.md`), regenerated from the run directories |
 | `dispatch/` | the adapters that need `Project` and that lower layers must not import: `workflow.py` (`DISPATCH`, `dispatch_workflow`, one `run_*` per workflow, `completed_identical_run` read from the manifests), `rerun.py` (`ProjectRerunProvider`) |
 
 ## Import rules
@@ -50,8 +52,10 @@ which import it inside a function.
 hydromodpy/project/
   __init__.py       Project, ProjectRunner, ProjectCatalog, the two accessors
   facade.py  state.py  phases.py  runner.py  attempt.py  catalog.py  accessors.py
-  spinup.py  lockfile.py
+  spinup.py  lockfile.py  summary.py
   dispatch/         workflow.py  rerun.py
+  launch/           local.py  prepare.py  lease.py  journal.py  children.py  env.py
+                    status.py  slurm.py  templates/
 ```
 
 ## How a run goes through it
@@ -88,6 +92,12 @@ with the workflow the file declares. `run_simulation` opens a `Project`,
 skips a plain run whose resolved config already sealed under the same name
 (read from the manifests, unless `force`), and calls `Project.execute`; the
 CLI indexes the new directory once the worker has returned.
+
+A file that declares `[sites]` goes through `launch/` instead: `run_plan`
+takes the lease, writes the plan when the current one is out of date, runs
+the prepare phase, then starts one `hmp run plan/<hash>/<case>.toml --frozen`
+process per case within the budget of `[sites.run] parallel`, writes the
+journal of the launch and indexes each case when it ends.
 
 ## Where to add what
 

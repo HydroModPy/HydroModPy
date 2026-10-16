@@ -17,15 +17,13 @@ from hydromodpy.core.solver_diagnostics import (
     VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
 )
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
+from hydromodpy.results.storage.run_store import SOLVER_DIAGNOSTICS_DIRNAME
 
 from .base import _completed_simulation_summaries, _slug_token, _write_csv
 from .budget import (
     BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS,
     _load_boussinesq_obstacle_diagnostic_rows,
 )
-
-SOLVER_DIAGNOSTICS_DIRNAME = "solver_diagnostics"
-"""Folder of the solver diagnostics a run exports, ``exports/solver_diagnostics/``."""
 
 
 def write_boussinesq_obstacle_diagnostics_export(

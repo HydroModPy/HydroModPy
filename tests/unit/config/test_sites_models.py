@@ -28,10 +28,10 @@ def test_the_three_forms_of_a_recipe_are_read() -> None:
     assert sites.recipes_table == Path("recipes.csv")
 
 
-def test_the_defaults_hold_the_budget_until_measured() -> None:
+def test_the_defaults_are_the_measured_budget() -> None:
     run = SitesConfig().run
-    assert (run.parallel, run.on_error, run.threads_per_case) == (4, "warn", 1)
-    assert (run.keep_attempts, run.prepare_parallel) == (1, 4)
+    assert (run.parallel, run.on_error, run.threads_per_case) == (8, "warn", 1)
+    assert (run.keep_attempts, run.prepare_parallel) == (1, 2)
     assert SitesConfig().summary.metrics == ["nse"]
 
 

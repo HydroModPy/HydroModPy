@@ -41,8 +41,11 @@ RECIPE_NAME_PATTERN = SITE_NAME_PATTERN
 _RECIPE_NAME_RE = re.compile(RECIPE_NAME_PATTERN)
 _VERSION_SUFFIX_RE = re.compile(r"\.v\d+$")
 
-PARALLEL_CEILING = 8
-"""Highest ``[sites.run] parallel`` accepted without ``--force`` until measured."""
+PARALLEL_CEILING = 16
+"""Highest ``[sites.run] parallel`` accepted without ``--force`` (16 runs held 14 GiB)."""
+
+PREPARE_PARALLEL_CEILING = 8
+"""Highest ``[sites.run] prepare_parallel`` accepted without ``--force``."""
 
 
 def _check_dotted_keys(table: dict[str, Any], *, where: str) -> None:
@@ -101,15 +104,16 @@ class SitesRunConfig(HydroModelBase):
     """How the cases of a ``[sites]`` project are run side by side."""
 
     parallel: Annotated[int, Profile.USER] = Field(
-        default=4,
+        default=8,
         ge=1,
         description=(
             "Total budget of solves that run side by side. A case whose "
-            "[calibration] parallel is 5 takes 5 of it. Above 8 the launcher refuses "
-            "without --force until the launch measurements set the real ceiling; a "
-            "campaign of calibrations runs with 1."
+            "[calibration] parallel is 5 takes 5 of it. The default is 8 because the "
+            "throughput levelled off from 8 runs side by side on 22 cores, each run "
+            "holding up to 1.2 GiB. Above 16 the launcher refuses without --force "
+            "(16 runs held 14 GiB), and above 2 for a campaign that holds a calibration."
         ),
-        examples=[4],
+        examples=[8],
         json_schema_extra=field_metadata(unit="-"),
     )
     on_error: Annotated[Literal["warn", "raise"], Profile.USER] = Field(
@@ -127,7 +131,9 @@ class SitesRunConfig(HydroModelBase):
         ge=1,
         description=(
             "Threads one case may use, applied by the case process itself to its "
-            "numerical libraries and its child processes. Shown by --dry-run."
+            "numerical libraries and its child processes. Shown by --dry-run. The "
+            "default is 1: one run already kept about 1.8 cores busy, and parallel "
+            "times threads_per_case above the cores is refused without --force."
         ),
     )
     keep_attempts: Annotated[int, Profile.DEV] = Field(
@@ -139,11 +145,13 @@ class SitesRunConfig(HydroModelBase):
         ),
     )
     prepare_parallel: Annotated[int, Profile.DEV] = Field(
-        default=4,
+        default=2,
         ge=1,
         description=(
             "Cases prepared side by side before the solves: the geography and the "
-            "data of each case, the only phase that writes the shared data cache."
+            "data of each case. Two cases of one site are never prepared together, "
+            "since they write the same data files. Above 8 the launcher refuses "
+            "without --force: 16 runs writing the data cache at once lost a write."
         ),
     )
 
@@ -163,7 +171,9 @@ class SitesSummaryConfig(HydroModelBase):
     )
     figures: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
-        description="Cohort figures drawn under summary/figures/, by their registered names.",
+        description=(
+            "Cohort figures drawn under summary/figures/<figure>_<variable>.png: map, distribution."
+        ),
         examples=[["map", "distribution"]],
     )
     variables: Annotated[list[str], Profile.USER] = Field(
@@ -228,7 +238,10 @@ class SitesExportRequest(HydroModelBase):
     )
     file: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="File name under summary/exports/; unset, it is named after the request.",
+        description=(
+            "For a table, the file name under summary/exports/ (unset: <table>.<format>); "
+            "for runs = 'best', the folder of the series (unset: best)."
+        ),
     )
 
     @model_validator(mode="after")
@@ -357,6 +370,7 @@ class SitesConfig(HydroModelBase):
 
 __all__ = [
     "PARALLEL_CEILING",
+    "PREPARE_PARALLEL_CEILING",
     "RECIPE_NAME_PATTERN",
     "RecipeDecl",
     "RecipeSpec",

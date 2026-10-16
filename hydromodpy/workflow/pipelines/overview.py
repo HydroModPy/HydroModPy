@@ -6,6 +6,11 @@ Orchestrates four phases:
 2. **Geographic** - delineate watershed from outlet coordinates.
 3. **Data loading** - download / load all requested data families.
 4. **Report** - generate overview PNGs (one per panel).
+
+An overview is a run like any other: the caller claims ``runs/<name>/``
+through the attempt protocol and hands the claim over; the launcher writes
+its panels and pages there, then seals the directory with a record that
+holds no solver table (:meth:`DataOverviewLauncher.seal`).
 """
 
 from __future__ import annotations
@@ -19,8 +24,12 @@ from hydromodpy.core import progress
 from hydromodpy.core.contracts.overview import DataOverviewState
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage.attempt import RunClaim
 
 logger = get_logger(__name__)
+
+OVERVIEW_SOLVER = "overview"
+"""What the seal of an overview names as its solver: it solves nothing."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,8 +67,14 @@ class DataOverviewLauncher:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self) -> dict[str, Any]:
-        """Execute the full overview pipeline and return a result summary."""
+    def run(
+        self, claim: RunClaim | None = None, *, config_hash: str | None = None
+    ) -> dict[str, Any]:
+        """Execute the full overview pipeline and return a result summary.
+
+        With the *claim* of its run directory, the overview seals that
+        directory once its report is drawn.
+        """
         state = DataOverviewState(cfg=self.cfg, config_path=self.config_path)
 
         # Phase 1: Workspace
@@ -89,15 +104,72 @@ class DataOverviewLauncher:
         from hydromodpy.display.overview import overview_web_report_path
 
         web_report = overview_web_report_path(state) if report_paths else None
+        if claim is not None:
+            self.seal(state, claim, config_hash=config_hash)
         return {
             "mode": "data_overview",
-            "name": getattr(self.cfg.overview, "name", None) or None,
+            "name": claim.name if claim is not None else getattr(self.cfg.overview, "name", None),
+            "run_dir": None if claim is None else str(claim.run_dir),
             "catchment_area_km2": (
                 state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
             ),
             "report_paths": [str(p) for p in report_paths],
             "web_report": str(web_report) if web_report and web_report.is_file() else None,
         }
+
+    def seal(self, state: DataOverviewState, claim: RunClaim, *, config_hash: str | None) -> Any:
+        """Seal the run directory of the overview and return its record.
+
+        The record carries the identity of the overview (site, configuration,
+        period, catchment) and no solver table: no field store, no budget, no
+        series. ``config.toml`` is frozen first, ``manifest.json`` is written
+        last, then ``README.md``; the attempt protocol flips the outcome.
+        """
+        from hydromodpy.core.io.atomic_replace import staged_path
+        from hydromodpy.results.catalog.registration import portable_config_source
+        from hydromodpy.results.outcome import read_outcome
+        from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+        from hydromodpy.results.storage.run_facts import RunFacts
+        from hydromodpy.results.storage.run_store import RunStore
+        from hydromodpy.results.storage.sealing import seal_completed
+        from hydromodpy.workflow.steps.prepare_solver.dispatch import (
+            planned_recipe,
+            portable_config_document,
+        )
+        from hydromodpy.workflow.steps.prepare_solver.validate import site_block
+
+        run_dir = claim.run_dir
+        project_root = Path(self.cfg.workspace.project_root)
+        with staged_path(run_dir / RUN_CONFIG_FILENAME) as staged:
+            staged.write_text(
+                portable_config_document(self.cfg, run_dir, project_root), encoding="utf-8"
+            )
+        outcome = read_outcome(run_dir)
+        overview = self.cfg.overview
+        area = state.domain_geographic.catchment_area_km2 if state.domain_geographic else None
+        case_id = outcome.case_id if outcome is not None else claim.name
+        facts = RunFacts(
+            sim_id=claim.sim_id,
+            name=claim.name,
+            case_id=case_id,
+            recipe=planned_recipe(project_root, case_id),
+            project=(outcome.project if outcome is not None else None) or project_root.name,
+            attempt=claim.attempt,
+            attempt_id=claim.attempt_id,
+            created_at=claim.started_at,
+            started_at=claim.started_at,
+            solver=OVERVIEW_SOLVER,
+            config_hash=config_hash,
+            config_source=portable_config_source(project_root, str(self.config_path)),
+            config_file=RUN_CONFIG_FILENAME,
+            description=getattr(overview, "name", None) if overview is not None else None,
+            period_start=_instant(getattr(overview, "date_start", None)),
+            period_end=_instant(getattr(overview, "date_end", None)),
+            site=site_block(state),
+            geographic_metadata={} if area is None else {"catchment_area_km2": float(area)},
+        )
+        store = RunStore.open(run_dir, facts=facts, workspace=project_root)
+        return seal_completed(store)
 
     # ------------------------------------------------------------------
     # Phase 1 - Workspace
@@ -353,3 +425,16 @@ class DataOverviewLauncher:
         from hydromodpy.display.overview import generate_overview_report
 
         return generate_overview_report(state)
+
+
+def _instant(value: Any) -> Any:
+    """Return a date of the overview window as a UTC instant, or None."""
+    if value is None:
+        return None
+    from datetime import UTC, datetime
+
+    import pandas as pd
+
+    stamp = pd.Timestamp(value)
+    moment: datetime = stamp.to_pydatetime()
+    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)

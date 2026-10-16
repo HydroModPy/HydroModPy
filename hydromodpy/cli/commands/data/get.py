@@ -75,6 +75,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--source", default=None, help="source to ask, when the variable has several"
     )
     parser.add_argument(
+        "-w",
         "--workspace",
         default=None,
         help="workspace whose data cache is read and filled (default: an in-memory cache)",

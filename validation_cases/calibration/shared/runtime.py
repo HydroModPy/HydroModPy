@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.state.paths import (
+    PROJECT_MARKER_FILENAME,
     data_cache_path_for,
     internal_dir,
     runs_dir_for,
@@ -40,6 +41,12 @@ from validation_cases.shared.runtime import _dump_toml, resolve_validation_resul
 # lookup, so a Run and its solver output directory always resolve the same
 # component.
 OUTLET_BUDGET_COMPONENTS: tuple[str, ...] = ("drain", "constant_head")
+
+CALIBRATION_PROJECT_DIRNAME = "project"
+"""Project folder of the searches, under the benchmark root."""
+
+TRUTH_PROJECT_DIRNAME = "project_truth"
+"""Project folder of the truth run, kept apart from the searches."""
 
 BOUSSINESQ_STATE_HISTORY = "_boussinesq_state_history.npz"
 """File a Boussinesq trial leaves in its solver folder, in place of MODFLOW files."""
@@ -128,6 +135,21 @@ def _resolve_twin_benchmark_root(
     )
 
 
+def _open_project_folder(benchmark_root: Path, name: str) -> Path:
+    """Create one project folder under the benchmark root and return it.
+
+    The folder holds an empty ``project.toml``. Every config written in it
+    then resolves its project root there, so runs, sessions and the index
+    of that project land beside it.
+    """
+    project_root = benchmark_root / name
+    project_root.mkdir(parents=True, exist_ok=True)
+    marker = project_root / PROJECT_MARKER_FILENAME
+    if not marker.is_file():
+        marker.write_text("", encoding="utf-8")
+    return project_root
+
+
 def _remove_artifact_path(path: Path, *, removed: list[str]) -> None:
     """Remove one heavy artifact path when it exists."""
     try:
@@ -161,7 +183,7 @@ def _prune_benchmark_artifacts(
     if data_root.is_dir() and not any(data_root.iterdir()):
         _remove_artifact_path(data_root, removed=removed)
 
-    for project_name in ("project", "project_truth"):
+    for project_name in (CALIBRATION_PROJECT_DIRNAME, TRUTH_PROJECT_DIRNAME):
         project_root = benchmark_root / project_name
         # Everything a run produces lives inside the project: runs/ holds the
         # run directories and their exports, sessions/ the calibration sessions
@@ -1306,17 +1328,16 @@ def _normalise_outputs_for_extraction(
 
 def _write_calibration_toml_for_project(
     *,
-    benchmark_root: Path,
+    project_root: Path,
     method_instance_name: str,
     payload: dict[str, Any],
     simulation_config_name: str,
-    workspace_root: Path,
 ) -> Path:
-    """Materialise the calibration TOML on disk next to the simulation."""
-    calibration_path = benchmark_root / f"calibration_case_{method_instance_name}.toml"
+    """Materialise the calibration TOML in the project, next to the simulation."""
+    calibration_path = project_root / f"calibration_case_{method_instance_name}.toml"
     rendered: dict[str, Any] = {
         "base_config": str(simulation_config_name),
-        "workspace": {"root": str(workspace_root)},
+        "workspace": {"root": str(project_root)},
         "calibration": payload["calibration"],
     }
     _write_toml(calibration_path, rendered)
@@ -1357,9 +1378,9 @@ def _assess_method_result_from_report(
     )
     params_best: dict[str, float] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective_value"].astype(float).idxmin()
+        best_idx = completed_df["objective"].astype(float).idxmin()
         best_row = iterations_df.loc[best_idx]
-        params_best = _normalize_parameter_payload(best_row.get("parameters"))
+        params_best = _normalize_parameter_payload(best_row.get("params"))
     param_abs_error = _param_abs_error(
         truth_params=truth_params,
         params_best=params_best,
@@ -1405,7 +1426,7 @@ def _assess_method_result_from_report(
     block_reference_scale: dict[str, float] = {}
     block_n_values: dict[str, int] = {}
     if not completed_df.empty:
-        best_idx = completed_df["objective_value"].astype(float).idxmin()
+        best_idx = completed_df["objective"].astype(float).idxmin()
         metrics_payload = iterations_df.loc[best_idx].get("metrics")
         if isinstance(metrics_payload, str):
             try:
@@ -1432,16 +1453,15 @@ def _assess_method_result_from_report(
     if method_profile.persist_model_distribution and not completed_df.empty:
         samples: list[dict[str, Any]] = []
         for _, row in completed_df.iterrows():
-            params_named = _normalize_parameter_payload(row.get("parameters"))
+            params_named = _normalize_parameter_payload(row.get("params"))
             samples.append(
                 {
-                    "sample_id": f"iter_{int(row['iteration']):04d}",
+                    "sample_id": f"iter_{int(row['trial']):04d}",
                     "params_named": params_named,
                     "objective_total": (
                         None
-                        if row["objective_value"] is None
-                        or not math.isfinite(float(row["objective_value"]))
-                        else float(row["objective_value"])
+                        if row["objective"] is None or not math.isfinite(float(row["objective"]))
+                        else float(row["objective"])
                     ),
                 }
             )
@@ -1575,16 +1595,21 @@ def _summarize_candidate_timings_for_report(
 
 
 def _candidate_timing_values_from_iterations(iterations_df: Any) -> list[dict[str, float]]:
-    """Build candidate timing summaries from persisted iteration durations."""
+    """Build candidate timing summaries from the trial journal.
+
+    A journal line stores when the trial started and ended; the duration is
+    their difference.
+    """
+    import pandas as pd
+
     columns = getattr(iterations_df, "columns", ())
-    if "duration_s" not in columns:
+    if "started_at" not in columns or "ended_at" not in columns:
         return []
+    started = pd.to_datetime(iterations_df["started_at"], utc=True, errors="coerce")
+    ended = pd.to_datetime(iterations_df["ended_at"], utc=True, errors="coerce")
     values: list[dict[str, float]] = []
-    for raw_value in iterations_df["duration_s"].tolist():
-        try:
-            duration = float(raw_value)
-        except (TypeError, ValueError):
-            continue
+    for raw_value in (ended - started).dt.total_seconds().tolist():
+        duration = float(raw_value)
         if not math.isfinite(duration):
             continue
         values.append(
@@ -1606,14 +1631,14 @@ def _write_iteration_history_jsonl(
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():
-            params_named = _normalize_parameter_payload(row.get("parameters"))
+            params_named = _normalize_parameter_payload(row.get("params"))
             metrics_payload = row.get("metrics") or {}
             if isinstance(metrics_payload, str):
                 try:
                     metrics_payload = json.loads(metrics_payload)
                 except json.JSONDecodeError:
                     metrics_payload = {}
-            obj = row.get("objective_value")
+            obj = row.get("objective")
             try:
                 obj_value = None if obj is None or not math.isfinite(float(obj)) else float(obj)
             except (TypeError, ValueError):
@@ -1626,7 +1651,7 @@ def _write_iteration_history_jsonl(
             stream.write(
                 json.dumps(
                     {
-                        "iteration_id": f"iter_{int(row['iteration']):04d}",
+                        "iteration_id": f"iter_{int(row['trial']):04d}",
                         "params_named": params_named,
                         "params_vector": [float(v) for v in params_named.values()],
                         "objective_total": obj_value,
@@ -1683,7 +1708,9 @@ def synthesize_truth_observations_via_project_api(
         declarations[str(name)] = decl
     space = ParameterSpace.from_toml_mapping(declarations)
 
-    truth_root = benchmark_root / "truth_candidate"
+    # The overlay sits in the truth project, so its run lands there.
+    truth_project_root = _open_project_folder(benchmark_root, TRUTH_PROJECT_DIRNAME)
+    truth_root = truth_project_root / "truth_candidate"
     truth_root.mkdir(parents=True, exist_ok=True)
     overlay_path = materialize_candidate(
         truth_simulation_config_path,
@@ -1691,7 +1718,7 @@ def synthesize_truth_observations_via_project_api(
         space,
         truth_root,
         candidate_label="truth",
-        workspace_root=benchmark_root / "project_truth",
+        workspace_root=truth_project_root,
         extra_sections={
             "display": {"enabled": False, "show": False, "save": False},
             "simulation": {"name": "twin_truth"},
@@ -1775,20 +1802,16 @@ def run_twin_benchmark_case(
 
     benchmark_root = _resolve_twin_benchmark_root(definition)
     benchmark_root.mkdir(parents=True, exist_ok=True)
-    simulation_config_path = benchmark_root / "simulation.toml"
-    definition.build_simulation_config(
-        simulation_config_path,
-        benchmark_root / "project",
-    )
+    project_root = _open_project_folder(benchmark_root, CALIBRATION_PROJECT_DIRNAME)
+    simulation_config_path = project_root / "simulation.toml"
+    definition.build_simulation_config(simulation_config_path)
     truth_builder = definition.build_truth_simulation_config
     if truth_builder is None:
         truth_simulation_config_path = simulation_config_path
     else:
-        truth_simulation_config_path = benchmark_root / "truth_simulation.toml"
-        truth_builder(
-            truth_simulation_config_path,
-            benchmark_root / "project_truth",
-        )
+        truth_project_root = _open_project_folder(benchmark_root, TRUTH_PROJECT_DIRNAME)
+        truth_simulation_config_path = truth_project_root / "truth_simulation.toml"
+        truth_builder(truth_simulation_config_path)
 
     synthesized_observations = synthesize_truth_observations_via_project_api(
         definition=definition,
@@ -1846,11 +1869,10 @@ def run_twin_benchmark_case(
             method_profile=effective_profile,
         )
         calibration_path = _write_calibration_toml_for_project(
-            benchmark_root=benchmark_root,
+            project_root=project_root,
             method_instance_name=method_instance_name,
             payload=payload,
             simulation_config_name=simulation_config_path.name,
-            workspace_root=benchmark_root / "project",
         )
 
         output_decls = _normalise_outputs_for_extraction(
@@ -1868,16 +1890,15 @@ def run_twin_benchmark_case(
         report = run_calibration_cli(
             calibration_path,
             metric_fn=custom_metric_fn,
-            workspace=benchmark_root / "project",
+            workspace=project_root,
             project=str(definition.case_id),
             return_report=True,
         )
         session_prepare_time_seconds = float(time.perf_counter() - session_prepare_t0)
 
-        from hydromodpy.results.catalog import Catalog
-
-        with Catalog(benchmark_root / "project") as catalog:
-            iterations_df = catalog.calibration_iterations(report.session_id)
+        # The trials are read from the session journal on disk: a calibration
+        # never writes the index.
+        iterations_df = report.iterations
         candidate_timing_values = _candidate_timing_values_from_iterations(iterations_df)
 
         assessed_result = _assess_method_result_from_report(

@@ -17,7 +17,6 @@ class TestSimulationMetadata:
         assert sim.name == "run1"
         assert sim.project == "test"
         assert sim.solver == "modflow6"
-        assert sim.solver_category == "distributed"
         assert sim.flow_regime == "transient"
         assert sim.status == "completed"
 

@@ -14,7 +14,7 @@ for the same base config.
 hmp run examples/projects/02_nancon_watershed/run_transient_nwt.toml
 hmp run examples/projects/02_nancon_watershed/run_hydrographic_network_comparison.toml
 hmp config check examples/projects/02_nancon_watershed/<file>.toml  # validate without running
-hmp viz gallery examples/projects/02_nancon_watershed/run_transient_nwt.toml
+hmp viz regen <run>  # draw the figures of a sealed run again
 python examples/projects/02_nancon_watershed/run_full_python.py    # same run, Python API
 python examples/projects/02_nancon_watershed/run_cellular.py       # lazy Project, phase by phase
 ```

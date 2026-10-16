@@ -47,6 +47,10 @@ start_datetime = "2000-01-01"
 end_datetime = "2000-12-31"
 step_value = "1 month"
 
+# project.toml scores 2001-2002, outside this one-year record.
+[metrics]
+window = { start = "2000-02-01", end = "2000-12-31" }
+
 [mesh.regular]
 shape = [30, 30]
 

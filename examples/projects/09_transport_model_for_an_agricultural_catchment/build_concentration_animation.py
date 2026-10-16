@@ -23,14 +23,14 @@ HERE = Path(__file__).resolve().parent
 
 # %% ---- READ THE LAST RUN BACK, RENDER, STITCH
 #
-# Everything stays inside the catalog context: a Run reads its rows through the
-# catalog connection, so it stops answering the moment the context closes.
+# Everything stays inside the project context: a Run reads its rows through the
+# index connection, so it stops answering the moment the context closes.
 
-with hmp.open(HERE) as catalog:
+with hmp.open(HERE) as proj:
     # The run is read back rather than replayed: the animation is a view on
     # results that already exist.
-    run = catalog.latest()
-    out = catalog.run_dir_for(run.sim_id) / "figures" / "animation"
+    run = proj.store.latest()
+    out = run.dir / "figures" / "animation"
     out.mkdir(parents=True, exist_ok=True)
 
     n_steps = int(run.n_timesteps or 0)

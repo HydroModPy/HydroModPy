@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.cli.main import main
 from hydromodpy.project.dispatch import workflow as project_workflow
 
 

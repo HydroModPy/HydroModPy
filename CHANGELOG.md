@@ -34,6 +34,40 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Outputs and orchestration, closing pass of 2026-10-16 (adverse review of the whole campaign, seven
+  high findings, all fixed):
+  - A run name that already carries `.vN` (`--case a.v2`, `[simulation] name = "a.v2"`) no longer
+    bypasses the trash and the tombstones: `[simulation] name` refuses a version suffix by name, a
+    versioned reference on the command line is accepted only for a live version (`--resume a.v2`
+    resumes it in place), and a held name is never given again.
+  - A dead calibration worker of a `[sites]` campaign closes its session as well as its outcome
+    (`failed`, exit code and signal), so `hmp project status` reads `failed` and the case is relaunched;
+    a relaunched calibration reopens its session (`--resume`) when the session recorded the plan's
+    hash, and `--fresh` opens `sessions/<case>.v2`; `hmp run` accepts a bare `--resume` on a
+    calibration file.
+  - The solve budget of a launch counts the width of a calibration case (the widest `[calibration]
+    parallel` of its phases): a case wider than `[sites.run] parallel`, than the measured ceiling or
+    than the cores is refused without `--force`.
+  - `hmp project plan` refuses to rewrite the plan while a calibration session is `running`, as it
+    already did for a run.
+  - `hmp publish` never copies `summary/published.jsonl`; `_refuse_leaks` scans `.jsonl`, `.csv`,
+    `.tsv`, `.toml`, `.md`, `.html`, `.txt` and `.json`; CSV and TSV cells go through `redact()`; a
+    Parquet column that holds an absolute path refuses the publication by file and column;
+    `summary/by_case` and `by_site` write paths relative to the project root; `hmp publish .` stages
+    every run and the summary together and moves them at once (`publish_project`), so a refused
+    member leaves nothing behind.
+  - `simulation.parquet` and `parameters.parquet` of the seal carry the same footer as every other
+    table of the run (`run_parquet_footer()`: identity, licence, `sim_id`, `hydromodpy_version`,
+    extent); the seal resolves the projection of the catchment into `crs_wkt` and `crs_epsg`, lost
+    since the writer of the index left.
+  - The evaluator contract and the step-artefact characterization follow the current surface
+    (`run_calibration_core` with an open session, the run journal read before the seal); the twin
+    calibration benchmarks of `validation_cases/` no longer write `[workspace] project_root`, read
+    the session journal instead of the index, compare projections with `pyproj` and read the trial
+    `params` column.
+  - The local CI doctest list no longer names `core/state/global_index.py`; `hmp workspace clean
+    --scratch` aims at the project scratch folders only; the default `[sites.run] parallel` bends to
+    the cores of the machine instead of being refused.
 - Lake-river stack, correction of the audit of 2026-10-14 (seven lots integrated on 2026-10-15):
   - MODFLOW 6 API path: a solve that does not converge raises `SolverDivergedError`
     [HMPY.E401] like the executable path, libmf6 is finalized on every exception,
@@ -65,6 +99,71 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- The local launcher of a `[sites]` project (`hydromodpy/project/launch/`): `hmp run project.toml`
+  takes the lease `.hmp/launcher.lease` (one `O_EXCL` file with host, pid and date, taken over when
+  its process is dead or under `--force`), prepares the data once per data request with a pool of
+  `prepare_parallel` (`hmp run <case> --until load_data`, the only writer of `cache.duckdb`,
+  `hydromodpy.lock` written once at the end), then runs one process per case
+  (`hmp run plan/<hash>/<case>.toml --frozen`) within a budget of `parallel` solves (a case at
+  `[calibration] parallel = 5` counts five), journals every event in `jobs/<stamp>-local/journal.jsonl`,
+  merges the private data cache of each child and indexes after every end; `--only` (status words,
+  case ids, globs), `--site`, `--parallel`, `--until data`, bare `--resume`, `--fresh`, `--force`,
+  `-w`; exit 23 when a case did not complete. `hmp project plan | status | log | case` read the plan,
+  the outcomes and the heartbeats, never the index; `project_status()` computes `planned`,
+  `invalid`, `skipped` and `stale_plan` from the plan and reads the attempt states from disk.
+  `HMP_THREADS_PER_CASE` bounds the threads of a worker (`threadpoolctl` and the BLAS variables),
+  `HMP_RUN_SCRATCH` and `HMP_SET_*` leave the environment of the children. Budgets measured on 22
+  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the machine when the key is not written),
+  refuses more than 16 without `--force`, two concurrent calibrations at most;
+  `prepare_parallel` defaults to 2, 8 at most, and one case per site is prepared at a time.
+- `hmp project array . --scheduler slurm` (`project/launch/slurm.py`, templates under
+  `project/launch/templates/`): writes `jobs/<stamp>-slurm/{prepare.sh, array.sh, cases.txt}`
+  frozen from the plan, `--signal=B:TERM@600`, `--cpus-per-task` from `threads_per_case`,
+  `HMP_SCRATCH_ROOT=$SLURM_TMPDIR`, a trap that writes `failed` with the exit code, the signal, the
+  log tail and `written_by = "trap"`; each task takes its `hmp run` flags from the launcher at
+  start; `hmp project case <job> N` names the case of a task; `hmp project status` reads `sacct`
+  when it is there and marks a task the scheduler ended without an outcome as `failed`. Never run on
+  a real cluster: the scripts are checked by `bash -n`, by their content and by a stand-in `hmp`.
+- `hmp project collect` (`project/summary.py`): `summary/{by_case, by_site}.{parquet,csv}`,
+  `by_site.gpkg`, `catalog.csv` (`--write-sites`), cohort figures `map` and `distribution` under
+  `summary/figures/` with `index.json`, `[[sites.export]]` with the vocabulary of `[[export]]` under
+  `summary/exports/`, `report/index.html`, a dated `README.md` and `ro-crate-metadata.json`;
+  `best = "calibrated"` by default, mixed scoring windows refused without `--mixed-windows`;
+  `hmp catalog ls --by site`, `--best METRIC`, the `overrides` column; `hmp report compare --by site`.
+- `hmp.open(path)` returns a `Project` (root or `project.toml`), a `Run` (sealed directory, read
+  without the index), a `Session` (session directory) or a `Workspace` (workspace root);
+  `Project.cases`, `.sites`, `.best(metric, by="site")`, `.runs(site=)`, `.sessions[...]`,
+  `.plan()`, `.run(parallel=, only=)`, `.status()`, `.collect()`, `.publish(to=)`, `.store`
+  (the reader `Catalog`); `Session.trials`, `.best`, `.phases`, `.config`, `.dir`;
+  `hmp.index()` returns the `Workspace` above the current directory and `.runs(site=)` reads the
+  sealed tables of every project; `Run.site`, `Run.checks`, `Run.inputs`, `Run.exports`,
+  `Run.figures`. The API reference is generated from these objects.
+- `hmp project promote <case> --trial N [--as NAME]`, `hmp project prune <case> --keep best`,
+  `hmp project new | list | show | delete`, `hmp replay <ref> --into DIR` (a published copy and the
+  command that replays it), `hmp catalog show` prints the README and the annotations of a run;
+  every verb that takes a workspace offers `-w` and none falls back on `~/hydromodpy`;
+  `tests/unit/cli/test_cli_surface_matches_the_target.py` lists the verbs of the target.
+- The overview mode runs through the attempt protocol: `runs/<name>/` claimed, `outcome.json`,
+  heartbeat, frozen `config.toml`, a `RunRecord` without solver tables (`solver = "overview"`),
+  README, `.vN` on a second overview.
+- `hmp run <copy>/config.toml --frozen` replays a published copy from its `inputs/<sha256><suffix>`
+  (every tracked input of the seal checked by digest; a missing, tampered or API-loaded input is
+  refused by name); `hmp publish --with inputs` copies the files the configuration declared;
+  `tests/e2e/test_replay_from_archive_without_workspace.py` with its tolerance row.
+- `[flow] restart_from` accepts the table form `{ sim_id = ..., path = ... }` (`RestartReference`);
+  the frozen `config.toml` writes it. Boussinesq VI diagnostics land in
+  `runs/<run>/exports/solver_diagnostics/`. A promoted run closes its attempt, carries its recipe,
+  its objective, `calibrated = true` on the calibrated parameter, `converged`, `bounds_hit` and the
+  window of its calibration.
+- Example `19_many_catchments` (two Breton catchments from the APIs, recipes `base` and
+  `calibration`, `sites.csv`, `site_overrides/`, `[sites.summary]`, `[[sites.export]]`); example 09
+  listed with it as a campaign; example 04 declares `[site]` and `[metrics]`, its scripts read
+  `runs/<run>/exports/` and `hmp.open(HERE).cases`, `py4_sweep_k.py` is three `hmp.run` lines;
+  `tests/unit/examples/test_example_sites_projects.py`.
+- Documentation: `get-started/concepts.md` on the six words of the target, the pages
+  `many-catchments` and `cluster`, the glossary entries attempt, case, gauge, plan, recipe, run,
+  run label, session, site, summary; the generated reference marks a `site_scoped` field as
+  « varies by site »; the site selection file has its own parameter page.
 - The run writes itself without the index (`hydromodpy/results/storage/`): `RunStore(run_dir)` holds
   the Zarr and Parquet writers of the former Catalog, its facts in `<run>/.hmp/checkpoints/facts.json`
   and the identity and licence in every Parquet footer; `claim_run_directory()` claims `runs/<name>`
@@ -122,9 +221,8 @@ Each release section includes the following standard categories:
 - The sites x recipes plan (`hydromodpy/config/sites/`): `expand_plan()` resolves `[sites]` and
   `[sites.recipes]` into immutable `plan/<hash>/` drafts with cell-level errors (`hmp config check`
   groups them), `bind`, `site_scoped` precedence, `--set` and `HMP_SET_*` through
-  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()` and
-  `check_run_budget(force=)`; `hmp run --dry-run` prints the plan of a `[sites]` project, and a
-  `[sites]` project without `--dry-run` is refused until the launcher of the next wave;
+  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
+  (the local launcher above);
   `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
 - The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
   `write_catalog`, `nearest_site`, `hmp site add | import | select | ls | show`; `apply_site_gauge()`
@@ -295,7 +393,20 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
-- `hmp.open(workspace)` returns a reader `Catalog` (no `create`, no `read_only`); `Run.export`,
+- `[sites.run] parallel`, `prepare_parallel` and `threads_per_case` carry the measured budgets in
+  their descriptions; `hmp run --until data` prepares without solving; `hmp project status` after
+  a failed prepare shows the case `failed`; a re-run of `hmp run project.toml` leaves a finished
+  calibration alone (the session hash is compared, not the promoted run's).
+- `Project` carries eighteen methods (the launch verbs of D6); `Run` stays at fifty public
+  attributes and loses `summary`, `created_at`, `duration_s`, `solver_category` and `parent`
+  (`Run.record` holds them); `lineage_of(run)` reads where a run comes from.
+- `hmp catalog reindex`, `hmp catalog watch` and `hmp doctor --cross-catalog` take `-w`; `hmp
+  workspace clean --results` moves the runs and sessions of every project to their trash (names
+  stay taken); `hmp catalog watch` shows `dead` for a local attempt whose process is gone.
+- The private data cache of a launched case lives under `jobs/<stamp>-local/caches/<case>.<phase>/`
+  and is merged by the launcher; `cache.duckdb` retries on a WAL lock (`TransactionException`).
+- The capability layer keeps its three descriptions without an invocation block.
+- `Catalog(project_root)` is a reader (no `create`, no `read_only`), reached as `Project.store`; `Run.export`,
   `Run.delete`, `Run.tag`, `Run.note` work on the run directory; `Run.input_entries` is `Run.inputs`;
   `Run.metrics` has the column `metric` (was `metric_name`) and reads sealed runs only; an id that
   is no UUID is not found rather than a conversion error; `RunNotSealedError` lives in
@@ -316,8 +427,6 @@ Each release section includes the following standard categories:
 - Example 09 is a `[sites] x [sites.recipes]` project of three cases compared by `hmp report compare`;
   example 04 reads its exports under `runs/<run>/exports/` and writes its own figures under
   `summary/figures/`; example 14 carries its base configuration.
-- `hmp run --frozen` refuses every run until the replay from a published copy lands with the
-  launcher of the next wave.
 - `[workflow] mode` is optional and limited to `simulation`, `calibration` and `overview`; left unset it
   follows from the sections (`hydromodpy.workflow.dispatch.infer_workflow`, one helper for `hmp run` and
   `hmp.run`). A retired mode (`comparison`, `testbed`, `site_selection`) is refused with its replacement.
@@ -333,11 +442,8 @@ Each release section includes the following standard categories:
 - `[mesh.lake_refinement] enabled` is refused: the table being present switches the refinement
   on. Both `enabled = true` and `enabled = false` raise "[mesh.lake_refinement] has no
   'enabled' key: the table being present switches the lake refinement on. Remove the key, or
-  remove the table to mesh without lake refinement." Migration: `migrate_stored_config` drops
-  `mesh.lake_refinement.enabled` at the root, in comparison overlays and in analysis overlays
-  (one log line per place), and the translation of a retired `[mesh_catchment]` keeps the lake
-  table without copying the key. A stored config that holds the key reloads through
-  `HydroModPyConfig.from_snapshot`; `HydroModPyConfig.model_validate` refuses it. The
+  remove the table to mesh without lake refinement." A stored configuration is read as it was
+  written (no stored-configuration migration): one that holds the key is refused the same way. The
   `run_identity_hash` of a run that has a `[mesh.lake_refinement]` table changes once, because
   the dump no longer holds `enabled = true`; a rerun of such a run is a new run.
 - `BoussinesqMesh` always holds a cell mesh. `BoussinesqMesh.from_bundle` reads a bundle as a
@@ -446,11 +552,18 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `examples/projects/09_capability_gallery/` (figures and manifests of the retired documentation
+  gallery, whose producers no longer exist; a copy lives outside the tree) and the always-skipped
+  `tests/unit/solver/test_boussinesq_stationary_robust_solver_matrix.py`, which loaded a script of the
+  retired example 10.
+- `hmp doctor --fix-config` and `fix_config_file`, the `~/hydromodpy` fallback of every verb,
+  `cli/commands/site/_workspace.py`, the `results` group of `hmp workspace clean` that deleted
+  `runs/` without a tombstone, `open_indexed_run` (network metrics open the run from its directory).
 - The DuckDB-bound writer of the Catalog (`results/catalog/{writes,writes_zarr,writes_parquet,
   writes_helpers,writes_duckdb,lifecycle,reindex,package_io,audit}.py`, `register_simulation`,
   `finalize`, `if_exists = "replace"`, the `audit_log` table, `trash.json`, `trash_marker.py`,
   `session_journal.py`, `results/catalog/migrations/`, `core/state/migrations/`,
-  `core/state/global_index.py`, `hmp.index()`, `HMP_AUTO_REGISTER_PROJECT` and `hmp workspace
+  `core/state/global_index.py`, `HMP_AUTO_REGISTER_PROJECT` and `hmp workspace
   register | forget | prune | search`), the index-bound heartbeat and event stream
   (`workflow/tracking/{heartbeat,events}.py`, `workflow/run_catalog.py`), `MANIFEST_SCHEMA_VERSION`
   and the v1 manifest writer, `WorkflowContext.attempt_id`, `ProjectRunner.sweep`, the post-run
@@ -481,8 +594,8 @@ Each release section includes the following standard categories:
 - `[mesh_catchment]`, `[mesh_catchment_batch]`, `[mesh_input]`, `[modflow6.sgrid.planar]`,
   `[modflownwt.sgrid.planar]`, `grid_dual`, `linear_constraint_snap_tolerance`,
   `rivers.snap_tolerance`: a TOML that declares one is refused with its replacement (the message
-  of `[mesh_catchment]` and `[mesh_catchment_batch]` names `[mesh]`); a stored configuration is
-  migrated (`migrate_stored_config`). The K of a gmsh bundle no longer fills invalid cells: K
+  of `[mesh_catchment]` and `[mesh_catchment_batch]` names `[mesh]`); a stored configuration that
+  declares one is refused the same way. The K of a gmsh bundle no longer fills invalid cells: K
   comes from `[flow.param.K]` only.
 - The batch mesh launcher and its configuration: `spatial/mesh/launcher/`,
   `workflow/pipelines/mesh.py`,

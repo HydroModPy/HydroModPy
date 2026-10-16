@@ -1,8 +1,8 @@
 """``hmp run`` and ``hmp calibrate`` on a ``[sites]`` project, and on one ``[site]``.
 
-A ``[sites]`` project is a plan of cases, launched by ``hmp project run`` (wave
-2). Until then ``hmp run --dry-run`` prints the plan and writes nothing, and
-``hmp run`` without it refuses by name. A case of a written plan refuses the
+A ``[sites]`` project is a plan of cases. ``hmp run --dry-run`` prints the plan
+and writes nothing; ``hmp run`` writes the plan and launches it, one worker per
+case (:mod:`hydromodpy.project.launch`). A case of a written plan refuses the
 ``HMP_SET_*`` overrides: the plan rendered them, and the hash of the case is the
 hash of the plan. A one-site project whose ``[site] name`` the workspace
 catalog knows under another outlet is refused before anything runs.
@@ -12,12 +12,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_CONFIG
+import pytest
+
+from hydromodpy.cli.helpers import EXIT_CASES_FAILED, EXIT_CONFIG, EXIT_USAGE
 from hydromodpy.config.sites.expansion import expand_plan
 from hydromodpy.config.sites.plan import write_plan_draft
 from hydromodpy.core.site import SiteRow
 from hydromodpy.data.sites.catalog import write_catalog
 from tests._helpers.cli_runner import CliRunner
+from tests.unit.project._launch_fakes import (
+    fake_worker,  # noqa: F401 - fixture
+    write_behaviour,
+)
 
 _COMMON = """\
 [workspace]
@@ -103,15 +109,48 @@ def test_a_dry_run_prints_the_plan_and_writes_nothing(tmp_path: Path) -> None:
     assert sorted(path.name for path in project.iterdir()) == before
 
 
-def test_a_run_without_dry_run_is_refused_by_name(tmp_path: Path) -> None:
+@pytest.mark.allow_subprocess
+@pytest.mark.usefixtures("fake_worker")
+def test_a_run_without_dry_run_plans_and_launches_every_case(tmp_path: Path) -> None:
+    project = _sites_project(tmp_path)
+    write_behaviour(project, {"beta-k2e_5": {"run": "fail"}})
+
+    result = CliRunner().invoke(["run", str(project / "project.toml"), "-q", "--parallel", "2"])
+
+    assert result.exit_code == EXIT_CASES_FAILED, result.stderr
+    assert "4 case(s) started, 3 completed, 1 not completed" in result.stdout
+    assert "beta-k2e_5: failed (SolverError: boom)" in result.stderr
+    assert (project / "plan" / "current").is_file()
+    assert sorted(path.name for path in (project / "runs").iterdir()) == [
+        "alpha-base",
+        "alpha-k2e_5",
+        "beta-base",
+        "beta-k2e_5",
+    ]
+    assert len(list((project / "jobs").glob("*-local/journal.jsonl"))) == 1
+
+
+@pytest.mark.allow_subprocess
+@pytest.mark.usefixtures("fake_worker")
+def test_until_data_on_a_sites_project_stops_after_the_prepare_phase(tmp_path: Path) -> None:
     project = _sites_project(tmp_path)
 
-    result = CliRunner().invoke(["run", str(project / "project.toml"), "-q"])
+    result = CliRunner().invoke(["run", str(project / "project.toml"), "-q", "--until", "data"])
 
-    assert result.exit_code == EXIT_CONFIG
-    assert "hmp project run" in result.stderr
-    assert "--dry-run" in result.stderr
+    assert result.exit_code == 0, result.stderr
     assert not (project / "runs").exists()
+
+
+def test_resume_takes_no_case_name_on_a_sites_project(tmp_path: Path) -> None:
+    project = _sites_project(tmp_path)
+
+    result = CliRunner().invoke(
+        ["run", str(project / "project.toml"), "-q", "--resume", "alpha-base"]
+    )
+
+    assert result.exit_code == EXIT_USAGE
+    assert "--only" in result.stderr
+    assert not (project / "plan").exists()
 
 
 def test_a_set_override_reaches_every_case_of_the_dry_run(tmp_path: Path) -> None:

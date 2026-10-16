@@ -8,7 +8,8 @@ Sub-actions:
 - ``hmp workspace init [<path>]``: scaffold a HydroModPy workspace.
 - ``hmp workspace list [<path>]``: list the sealed runs of every project under
   a workspace, read from their directories.
-- ``hmp workspace clean [--dry-run]``: remove generated workspace artefacts.
+- ``hmp workspace clean [--dry-run]``: move the runs and sessions to the
+  trash of their project (``--results``) and remove the rebuildable caches.
 """
 
 from __future__ import annotations

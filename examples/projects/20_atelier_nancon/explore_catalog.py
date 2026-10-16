@@ -9,9 +9,9 @@ import hydromodpy as hmp
 here = Path(__file__).resolve().parent
 workspace = here.parents[1]  # examples/  (la racine du workspace)
 
-# 1) Le catalog du projet : lister tous les runs, puis filtrer.
-catalog = hmp.open(here)
-sims = catalog.frame
+# 1) The index of the project: list every run, then filter.
+proj = hmp.open(here)
+sims = proj.store.frame
 sims = sims[sims["name"].notna()]
 print("tous les runs du projet :")
 print(sims[["name", "solver", "status"]].to_string(index=False))

@@ -14,8 +14,8 @@ NAME: str = "add"
 HELP: str = "Fetch one example's files, verify them, and write them into a workspace"
 
 _EPILOG = f"""\
---workspace takes a workspace root and defaults to ~/hydromodpy; the workspace
-has to exist already, so run `hmp workspace init` before the first add.
+-w takes a workspace root or a project inside it; without it, the workspace that
+holds the current directory. It has to exist: run `hmp workspace init` first.
 
 Files are cached by content under <cache>/examples/blobs/, so the 90 MiB
 regional DEM is downloaded once and every later example that reads it costs
@@ -27,7 +27,7 @@ prefix with another URL or a local directory, for an offline install or a test
 against a checkout; when it is set, --ref no longer applies.
 
 Example:
-  hmp example add example_id --workspace ~/hydromodpy
+  hmp example add example_id -w ~/hydromodpy
 """
 
 

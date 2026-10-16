@@ -1,0 +1,38 @@
+# The calibration recipe: K on the gauge of each site, three values in log
+# space between the bounds of its row of sites.csv. Short on purpose: three
+# monthly runs per site.
+#
+#   hmp config check calibration.toml
+#   hmp run calibration.toml               this recipe alone, on every site
+
+base_config = "project.toml"
+
+# The bind lines of a recipe hold for its own cases. The bounds of K and the
+# station the hydrograph is scored on come from the row of each site.
+[sites.bind]
+"calibration.parameters.K.bounds" = ["k_low", "k_high"]
+"calibration.outputs.hydrograph.observes" = "gauge"
+
+[calibration]
+
+[calibration.outputs.hydrograph]
+support = "point"
+variable = "discharge"
+
+# NSE on log discharge, which weights the recessions where storage shows.
+[[calibration.objective_blocks]]
+name = "hydrograph"
+metric = "nse_log"
+uses_outputs = ["hydrograph"]
+
+# A regular grid, not a search: three runs, whatever the cost. The window of
+# [metrics] is the scoring window.
+[[calibration.phases]]
+name = "conductivity_grid"
+description = "K on three values, monthly transient, ranked on the Hub'Eau discharge from 2012 on."
+parameters = ["K"]
+regime = "transient"
+objective_blocks = ["hydrograph"]
+method = "grid"
+max_iter = 3
+method_options = { points_per_dim = 3 }

@@ -1,10 +1,13 @@
-"""Write the reproducibility lockfile from a resolved config.
+"""Write the reproducibility lockfile of a project from the workspace data cache.
 
-The CLI writes ``hydromodpy.lock`` after ``hmp run`` (see
-``cli/commands/run.py``). This helper mirrors that write from a resolved
-:class:`~hydromodpy.config.HydroModPyConfig`, so a Python-driven run
-(``hmp.run`` / :class:`~hydromodpy.project.Project`) records the same
-reproducibility provenance instead of silently skipping it.
+Who writes it
+-------------
+The launcher of a ``[sites]`` project writes ``hydromodpy.lock`` once, at
+the end of the prepare phase, from the shared cache every prepared case
+filled (:mod:`hydromodpy.project.launch.prepare`). The workers then run
+``--frozen`` against it. No run rewrites it: a lockfile rewritten by every
+run was a writer of the cache in every run. ``hmp dev lock`` writes it by
+hand for a single project.
 
 Why the file stays at the project root
 --------------------------------------
@@ -42,24 +45,22 @@ carries the project root instead of guessing it from the cache database.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import data_cache_path_for
 
-if TYPE_CHECKING:
-    from hydromodpy.config import HydroModPyConfig
-
 logger = get_logger(__name__)
 
 
-def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> Path | None:
-    """Write ``hydromodpy.lock`` next to the project from a resolved config.
+def write_project_lockfile(
+    project_root: Path, data_dir: Path, *, quiet: bool = True
+) -> Path | None:
+    """Write ``hydromodpy.lock`` of *project_root* from the cache under *data_dir*.
 
-    Best-effort: returns the lockfile path on success, or ``None`` when no
-    workspace data cache exists yet or the write fails (the run output stays
-    the source of truth). The solver-binary section is left empty; the value
-    is the data provenance plus the storage-schema versions.
+    The cache is opened read-only. Returns the lockfile path, or ``None``
+    when the workspace has no data cache yet or the write fails: the runs
+    stay the source of truth. The solver-binary section is left empty; the
+    value is the data provenance plus the storage-schema versions.
     """
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
@@ -68,24 +69,24 @@ def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> P
     from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
-    project_root = Path(config.workspace.project_root)
-    db_path = data_cache_path_for(Path(config.workspace.data_dir))
+    root = Path(project_root)
+    db_path = data_cache_path_for(Path(data_dir))
     if not db_path.is_file():
         return None
 
-    dest = project_lockfile_path(project_root)
+    dest = project_lockfile_path(root)
     try:
-        with DataCatalogDuckDB(db_path) as catalog:
+        with DataCatalogDuckDB(db_path, read_only=True) as catalog:
             write_lockfile(
                 catalog,
                 dest,
-                project_root=project_root,
+                project_root=root,
                 solvers={},
                 schema_sha256=schema_sha256(),
                 zarr_schema_version=str(ZARR_SCHEMA_VERSION),
                 parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
             )
-    except Exception as exc:  # best-effort provenance, never fails the run
+    except Exception as exc:  # noqa: BLE001 - best-effort provenance, never fails the launch
         logger.warning("hydromodpy.lock write failed: %s", exc)
         return None
     if not quiet:

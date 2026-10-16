@@ -110,7 +110,6 @@ def case_id_for(base_case_id: str, column: str) -> str:
 
 def write_variant_config(
     path: Path,
-    project_root: Path,
     *,
     column: str,
     case_dir: Path,
@@ -120,6 +119,9 @@ def write_variant_config(
     bundle_dir: Path | None = None,
 ) -> None:
     """Write the simulation config of one solver column.
+
+    The file names no project root: the caller writes it in a project folder,
+    beside the ``project.toml`` that anchors the runs.
 
     Parameters
     ----------
@@ -143,7 +145,6 @@ def write_variant_config(
     payload: dict[str, Any] = {}
     for name in (*common_files, variant.config_file):
         payload = _merge_toml_payloads(payload, _read_toml(case_dir / name))
-    payload.setdefault("workspace", {})["project_root"] = str(project_root)
     payload.setdefault("simulation", {})["name"] = str(run_id)
     # The truth is read back from the catalog and the trials from the solver
     # files. Compact storage rounds a field to 16 mantissa bits, about 1e-4 m
@@ -190,8 +191,8 @@ def config_builder(
     run_id: str,
     planar: tuple[int, int] | None = None,
     bundle_dir: Path | None = None,
-) -> Callable[[Path, Path], None]:
-    """Return the ``build_simulation_config(path, project_root)`` of one column."""
+) -> Callable[[Path], None]:
+    """Return the ``build_simulation_config(path)`` of one column."""
     return partial(
         write_variant_config,
         column=column,

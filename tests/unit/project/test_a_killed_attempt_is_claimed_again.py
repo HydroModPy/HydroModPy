@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import hydromodpy.results.outcome as outcome_module
 import hydromodpy.results.storage.attempt as attempt_module
 from hydromodpy.results.outcome import read_outcome, write_outcome
 from hydromodpy.results.storage.attempt import CaseAliveError, claim_run_directory
@@ -31,9 +32,11 @@ def _written_by_another_worker(run_dir: Path, *, host: str | None = None) -> Non
 
 
 def _process_table(monkeypatch: pytest.MonkeyPatch, *, alive: bool) -> None:
-    monkeypatch.setattr(
-        attempt_module, "process_is_alive", lambda pid: alive if pid == WORKER_PID else True
-    )
+    # The claim and the reader of the outcome both ask the process table.
+    for module in (attempt_module, outcome_module):
+        monkeypatch.setattr(
+            module, "process_is_alive", lambda pid: alive if pid == WORKER_PID else True
+        )
 
 
 def _claim_again(project: Path):

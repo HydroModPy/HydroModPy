@@ -20,8 +20,19 @@ step_value = "1 day"
 
 # The monthly series carries one rate per month, so a daily run reading it sees
 # a staircase and no storm. `NANCON_REA` is the daily areal mean over the same
-# catchment, 1990-2020. A list of tables replaces the parent's list whole, so
-# each source is written in full.
+# catchment, 1990-2020: a product of its own, not the gauge. A [site] gauge keys
+# every series by itself, so this run drops it and names its stations: the
+# discharge reads NANCON, the one station loaded, which makes it the gauge the
+# run records. A list of tables replaces the parent's list whole, so each source
+# is written in full.
+[site]
+gauge__delete = true
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
+
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"

@@ -137,7 +137,7 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     calibration overlay of two lines failed on "No [calibration] section".
 
     The legacy keys are migrated in memory first, as the project loader does,
-    so a file ``hmp doctor --fix-config`` would fix also runs unfixed.
+    so a file written for an earlier schema runs as it is.
     """
     from pydantic import ValidationError
 
@@ -1711,7 +1711,6 @@ def promote_and_close(
             phase=phase,
             session_status=calibrated_status(status),
             override_paths=resolve_override_paths(cfg),
-            objective_window=objective_window_of(cfg),
         )
     final_status: SessionStatus = status
     error: str | None = None
@@ -1846,7 +1845,6 @@ def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
         project_root=scope.project_root,
         phase=pointed,
         override_paths=resolve_override_paths(scope.cfg),
-        objective_window=objective_window_of(scope.cfg),
     )
     if promotion.best_sim_id is not None:
         persistence.set_best(best_pointer(persistence.best_trial(pointed)))
@@ -2142,7 +2140,7 @@ def open_calibration_session(
     if reopened:
         persistence.resume_session()
         return persistence, True
-    freeze_session_config(session_dir, raw)
+    freeze_session_config(session_dir, raw, cfg)
     persistence.start_session(
         session_id=uuid.uuid4().hex,
         case_id=case,
@@ -2153,7 +2151,7 @@ def open_calibration_session(
         method=session_method(cfg),
         objective_name=session_objective_name(cfg),
         search_space=search_space_payload(space),
-        objective_window=objective_window_of(cfg),
+        objective_window=objective_window_of(cfg, raw),
     )
     return persistence, False
 

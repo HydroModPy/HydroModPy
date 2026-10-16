@@ -138,11 +138,13 @@ def _lock_workspace_root(workspace: Any) -> Path:
     ``sys.exit`` on a missing root. A worker the Python API calls too must
     raise instead, and leave the exit code to ``cli/commands/``.
     """
-    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
+    from hydromodpy.cli.helpers import find_workspace
 
-    root = Path(workspace).expanduser().resolve() if workspace else DEFAULT_ROOT
-    if not root.is_dir():
-        raise FileNotFoundError(f"Workspace not found: {root}. Run 'hmp workspace init' first.")
+    root = find_workspace(str(workspace) if workspace else None)
+    if root is None:
+        raise FileNotFoundError(
+            "No HydroModPy workspace found. Name one with -w, or run hmp workspace init."
+        )
     return root
 
 
@@ -162,7 +164,7 @@ def _lock_cache_workspace(project_root: Path) -> Path:
     """Return the workspace whose cache the lockfile of *project_root* pins.
 
     The workspace holding the project, the project itself when it carries the
-    ``data/`` directory of a flat layout, else the default workspace.
+    ``data/`` directory of a flat layout, else the workspace above the cwd.
     """
     from hydromodpy.cli.helpers import find_data_workspace
 

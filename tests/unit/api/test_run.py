@@ -78,45 +78,26 @@ def _fake_cfg(root: Path, name: str = "") -> SimpleNamespace:
 
 
 def test_run_with_config_object_uses_project(monkeypatch, tmp_path: Path) -> None:
-    """A non-path config object opens a ``Project`` and calls ``project.simulate``."""
+    """A non-path config object opens a ``Project`` and returns what ``simulate`` read."""
     captured: dict = {}
     verb_result = SimpleNamespace(name="from_object", sim_id="sim-001")
     monkeypatch.setattr(
         "hydromodpy.project.Project",
         make_capturing_project(captured, result=verb_result, verb="simulate"),
     )
-    rebound = object()
-    opened: dict = {}
 
-    def fake_open_run(root, sim_id):
-        opened["args"] = (root, sim_id)
-        return rebound
+    def never_opened(root, run_dir):
+        raise AssertionError("the runner already read the run from its directory")
 
-    monkeypatch.setattr("hydromodpy._api._open_run", fake_open_run)
+    monkeypatch.setattr("hydromodpy._api._open_run", never_opened)
 
     fake_cfg = _fake_cfg(tmp_path)
     result = hmp.run(fake_cfg, name="alpha", headless=True)
-    assert result is rebound
-    assert opened["args"] == (tmp_path, "sim-001")
+    assert result is verb_result
     assert captured["init_cfg"] is fake_cfg
     assert captured["init_headless"] is True
     assert captured["verb_kwargs"] == {"name": "alpha"}
     assert captured["closed"] is True
-
-
-def test_a_finished_run_without_a_readable_catalog_raises(monkeypatch, tmp_path: Path) -> None:
-    """``None`` means a dry run; a finished run whose catalog fails says so."""
-    from hydromodpy.core.exceptions import CatalogError
-
-    captured: dict = {}
-    monkeypatch.setattr(
-        "hydromodpy.project.Project",
-        make_capturing_project(
-            captured, result=SimpleNamespace(name="x", sim_id="sim-001"), verb="simulate"
-        ),
-    )
-    with pytest.raises(CatalogError, match="finished, but the catalog"):
-        hmp.run(_fake_cfg(tmp_path / "nowhere"), name="x")
 
 
 def test_force_is_not_a_parameter_override(monkeypatch, tmp_path: Path) -> None:
@@ -150,16 +131,19 @@ def test_an_identical_completed_run_is_returned_not_recomputed(monkeypatch, tmp_
     monkeypatch.setattr(
         "hydromodpy.project.dispatch.workflow.completed_identical_run", fake_identical
     )
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
+    monkeypatch.setattr(
+        "hydromodpy._api._open_run", lambda root, run_dir: ("opened", Path(run_dir).name)
+    )
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x")) == "old-sim"
+    # The completed run is read from runs/x, nothing is computed.
+    assert hmp.run(_fake_cfg(tmp_path, name="x")) == ("opened", "x")
     assert asked["name"] == "x"
     assert "verb_kwargs" not in captured
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), force=True) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), force=True).sim_id == "new"
     # A parameter override is another run: never skipped.
     captured.clear()
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5).sim_id == "new"
     assert captured["verb_kwargs"] == {"K": 1e-5}
 
 
@@ -176,9 +160,10 @@ def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path
         return {"name": "x", "sim_id": "sid", "project_root": str(tmp_path)}
 
     monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: (root, sid))
+    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, run_dir: (root, run_dir))
 
-    assert hmp.run(config, name="x") == (str(tmp_path), "sid")
+    # The run is read from its directory, runs/<name> under the project root.
+    assert hmp.run(config, name="x") == (tmp_path, tmp_path / "runs" / "x")
     assert captured["kwargs"] == {"name": "x"}
 
     with pytest.raises(TypeError, match="takes no parameter override"):
@@ -199,7 +184,7 @@ def test_a_step_zero_window_is_never_skipped(monkeypatch, tmp_path: Path, window
         "hydromodpy.project.dispatch.workflow.completed_identical_run",
         lambda config, *, name: ("x", "old-sim"),
     )
-    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
+    monkeypatch.setattr("hydromodpy._api._open_run", lambda root, run_dir: ("opened", run_dir))
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), **window) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), **window).sim_id == "new"
     assert captured["verb_kwargs"] == window

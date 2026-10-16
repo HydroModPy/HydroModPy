@@ -56,6 +56,7 @@ from hydromodpy.results.session.phase import (
     read_phase,
     write_phase,
 )
+from hydromodpy.results.storage.attempt import scheduler_job_id_from_env
 
 PersistDetail = Literal["none", "summary", "full"]
 
@@ -144,6 +145,7 @@ class CalibrationPersistence:
             started_at=now,
             host=socket.gethostname(),
             pid=os.getpid(),
+            scheduler_job_id=scheduler_job_id_from_env(),
         )
         write_outcome(self._directory, self._outcome)
         return descriptor
@@ -165,6 +167,7 @@ class CalibrationPersistence:
             started_at=datetime.now(UTC),
             host=socket.gethostname(),
             pid=os.getpid(),
+            scheduler_job_id=scheduler_job_id_from_env(),
         )
         write_outcome(self._directory, self._outcome)
         return descriptor

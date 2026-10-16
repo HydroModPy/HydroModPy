@@ -29,7 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--station", default=None, help="Rank the scores of one station only (default: all)"
     )
-    parser.add_argument("--workspace", default=None, help="Project root")
+    parser.add_argument("-w", "--workspace", default=None, help="Project root")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Show the N best simulations")
     group.add_argument("--bottom", type=int, default=None, help="Show the N worst simulations")

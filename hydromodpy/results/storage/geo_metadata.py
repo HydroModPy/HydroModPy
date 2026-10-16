@@ -2,14 +2,23 @@
 
 The extent of a run in WGS84 degrees for the ACDD attributes, the EPSG code
 of a CRS token, the description of a vector layer the indexer and the
-writer share, and the type word a catchment metadata value is stored with.
+writer share, the type word a catchment metadata value is stored with, and
+the footer every Parquet table of a run carries.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+from hydromodpy.core.version import __version__ as HMP_VERSION
+from hydromodpy.results.storage.arrow_tables import isoformat_instant
+from hydromodpy.results.storage.parquet_schemas import CF_CONVENTIONS, PARQUET_SCHEMA_VERSION
+
+if TYPE_CHECKING:
+    from hydromodpy.results.identity import Identity
 
 
 def python_value_type(value: object) -> str:
@@ -128,9 +137,76 @@ def wgs84_bounds(
     return {"lat_min": lat_min, "lat_max": lat_max, "lon_min": lon_min, "lon_max": lon_max}
 
 
+def run_parquet_footer(
+    *,
+    sim_id: str,
+    project: str,
+    name: str,
+    solver: str | None,
+    config_hash: str | None,
+    licence: str,
+    scientific_objective: str | None,
+    doi: str | None,
+    identity: Identity,
+    created_at: datetime,
+    crs_epsg: int | None,
+    crs_wkt: str | None,
+    bbox: tuple[float, float, float, float] | None,
+    period_start: datetime | None,
+    period_end: datetime | None,
+) -> dict[str, str]:
+    """Return the footer every Parquet table of one run carries.
+
+    The run store writes it on the tables a step leaves, the seal on the
+    tables of the record. One function, so both halves of a run state the
+    same identity, licence and extent.
+    """
+    written_at = period_end or created_at
+    kv: dict[str, str] = {
+        "sim_id": sim_id,
+        "project": project,
+        "name": name,
+        "solver": solver or "",
+        "config_hash": config_hash or "",
+        "hydromodpy_version": HMP_VERSION,
+        "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+        "Conventions": CF_CONVENTIONS,
+        "license": licence,
+        "scientific_objective": scientific_objective or "",
+        "doi": doi or "",
+        "written_at": isoformat_instant(written_at),
+    }
+    for key, value in identity.as_parquet_metadata().items():
+        kv[key.decode("utf-8")] = value.decode("utf-8")
+    crs_token = f"EPSG:{crs_epsg}" if crs_epsg is not None else crs_wkt
+    if bbox is not None:
+        xmin, ymin, xmax, ymax = bbox
+        kv["hmp.bbox_xmin"] = str(xmin)
+        kv["hmp.bbox_ymin"] = str(ymin)
+        kv["hmp.bbox_xmax"] = str(xmax)
+        kv["hmp.bbox_ymax"] = str(ymax)
+        if crs_token:
+            kv["hmp.bbox_crs"] = crs_token
+        degrees = wgs84_bounds(bbox, crs_token)
+        if degrees is not None:
+            kv["geospatial_lon_min"] = str(degrees["lon_min"])
+            kv["geospatial_lon_max"] = str(degrees["lon_max"])
+            kv["geospatial_lat_min"] = str(degrees["lat_min"])
+            kv["geospatial_lat_max"] = str(degrees["lat_max"])
+            kv["geospatial_bounds_crs"] = "EPSG:4326"
+    if crs_token:
+        kv["geospatial_crs"] = crs_token
+    if period_start is not None:
+        kv["time_coverage_start"] = isoformat_instant(period_start)
+    if period_end is not None:
+        kv["time_coverage_end"] = isoformat_instant(period_end)
+    return kv
+
+
 __all__ = [
     "epsg_from_crs",
     "geographic_feature_description",
     "python_value_type",
+    "run_parquet_footer",
     "wgs84_bounds",
 ]

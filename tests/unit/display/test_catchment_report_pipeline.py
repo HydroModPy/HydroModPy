@@ -49,10 +49,18 @@ transient_config_name = "run_test.toml"
 
 
 def _write_catalog_run(workspace: Path, name: str) -> None:
-    """Seal one run with a discharge series, what the report reads, and index it."""
+    """Seal one run with a discharge series, what the report reads, and index it.
+
+    A versioned *name* (``test_run.v2``) is reached the way the disk gives it: the
+    bare name is claimed again and takes the next free version, which must be the
+    one asked for.
+    """
+    from hydromodpy.results.catalog.registration import split_stem_version
     from tests._helpers.sealed_run import seal_demo_run
 
-    seal_demo_run(workspace, name)
+    stem, _version = split_stem_version(name)
+    run_dir, _sim_id = seal_demo_run(workspace, stem)
+    assert run_dir.name == name, f"the disk gave {run_dir.name}, the test asked for {name}"
 
 
 def _write_transient_config(root: Path) -> None:
@@ -408,19 +416,17 @@ def test_pipeline_writes_postflight_report_after_html(
     assert captured["strict"] is True
 
 
-def test_rerun_after_a_failed_run_reads_the_newest_completed_version(
+def test_a_rerun_reads_the_newest_completed_version(
     monkeypatch,
     tmp_path,
 ) -> None:
-    # A failed run keeps its name, so the rerun lands under `test_run.v2`.
-    # The report must describe that run, not look for the failed one's figures.
+    # A completed run keeps its name, so the rerun lands under `test_run.v2`.
+    # The report must describe that run, not the first one's figures.
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
     workspace = tmp_path / "sim_workspace"
-    failed = runs_dir_for(workspace) / "test_run"
-    failed.mkdir(parents=True)
-    (failed / "README.md").write_text("failed\n", encoding="utf-8")
+    _write_catalog_run(workspace, "test_run")
     _write_catalog_run(workspace, "test_run.v2")
     figures = _make_run_figures_dir(workspace, "test_run.v2")
 

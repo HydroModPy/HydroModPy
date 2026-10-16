@@ -20,8 +20,9 @@ Python reference (:doc:`/reference/python/index`). The verbs:
 
    * - Symbol
      - Role
-   * - ``hmp.open(workspace, ...)``
-     - Open a project catalog. Returns a read-only ``Catalog`` over
+   * - ``hmp.open(path)``
+     - Open what a path stands for: a ``Project``, a ``Run``, a ``Session`` or a
+       ``Workspace``. ``project.store`` is the read-only ``Catalog`` over
        ``.hmp/index.duckdb``, the index derived from the run directories.
    * - ``hmp.read(sim, var, ...)``
      - Read a variable of a run. The name is resolved against the field registry, then

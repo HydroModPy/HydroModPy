@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Example:\n  hmp data remove --variable precipitation --provider sim2 --delete-files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument("--variable", default=None, help="Remove the entries of this variable")
     parser.add_argument("--provider", default=None, help="Remove the entries of this provider")
     parser.add_argument(

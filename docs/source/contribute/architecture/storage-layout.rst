@@ -85,10 +85,12 @@ with a recipe, named ``<site>-<recipe>``:
 **The guard is on outputs, not on the author's files.** A gesture of HydroModPy writes only under
 ``runs/``, ``sessions/``, ``summary/``, ``plan/``, ``jobs/``, ``trash/`` and ``.hmp/``. Every
 ``.toml``, ``.csv`` and ``.md`` file at the project root belongs to the author, as do
-``configs/`` and ``site_overrides/``. These entries never exist at a project root: ``share/``,
-``outputs/``, ``catalog.duckdb``, ``simulations/``, ``exports/``, ``figures/``, ``reports/``,
-``.solver_scratch/``. No path carries the ``.parquet.d`` or ``.zarr.zip`` suffix, and no
-directory is named after an identifier.
+``configs/`` and ``site_overrides/``. The entries of the older layouts never exist at a project
+root: ``outputs/``, ``catalog.duckdb``, ``simulations/``, ``exports/``, ``figures/``,
+``reports/``, ``.solver_scratch/`` and the old publication folder, all listed in
+``FORBIDDEN_PROJECT_ENTRIES`` of ``tests/unit/results/test_run_layout_contract.py``. No path
+carries the ``.parquet.d`` or ``.zarr.zip`` suffix, and no directory is named after an
+identifier.
 
 The project config file is ``project.toml``, and
 :func:`~hydromodpy.core.state.paths.resolve_project_root` anchors on it, never on a database file:
@@ -174,7 +176,7 @@ Classes of artefacts
      - no
      - no
    * - diagnostic
-     - ``logs/``: ``run.<n>.log``, solver listing, ``heartbeat.json``, ``job-<id>.out``
+     - ``logs/``: ``run.log``, solver listing, ``heartbeat.json``, ``job-<id>.out``
      - ``logs/``
      - ``.hmp/logs/``
      - no
@@ -205,9 +207,11 @@ A run folder
    ├── figures/            index.json + the figures of this run
    ├── exports/            index.json + the files of each [[export]]
    ├── report/             index.html
-   ├── logs/               run.<n>.log, solver listing, heartbeat.json
+   ├── logs/               run.log, solver listing, heartbeat.json
    ├── published.jsonl     one line per publication of this run; absent until published
    ├── attempts/<n>/       outcome.json and logs/ of an earlier attempt; absent at the first
+   ├── solver/             the solver folder, kept only with keep_solver_files = true
+   ├── ro-crate-metadata.json, stac-item.json, prov.jsonld: views rendered from the seal
    └── .hmp/               state of the attempt in progress; removed by the seal of a completed run
 
 Those names are the whole vocabulary: ``ALLOWED_RUN_ENTRIES`` in
@@ -431,9 +435,12 @@ of the ``outcome.json`` and ``session.json`` files.
 **A schema change is a full reindex.** There are no SQL migrations: the index is derived, so it is
 rebuilt from the directories. Besides the run tables, the index holds ``sites``, ``cases`` and
 ``attempts``, and the view ``v_cases`` joins cases, runs, parameters and the metric at the gauge
-of the site within the declared window. ``cases.status`` is one of ``planned``, ``invalid``,
-``running``, ``stale``, ``completed``, ``failed``, ``aborted``, ``partial``, ``skipped``,
-``trashed`` and ``stale_plan``.
+of the site within the declared window. ``cases.status`` holds only what the disk says of an
+attempt, the effective status at indexing time: ``running``, ``completed``, ``partial``,
+``failed``, ``aborted`` or ``stale``. The states of the plan (``planned``, ``invalid``,
+``skipped`` and ``stale_plan``, a case whose config hash no longer matches the current plan)
+are computed by ``hmp project status`` from ``plan/current`` and the outcomes, and never
+written in the index.
 
 **What the reindex loses is not needed.** The whole index is losable. The tables with no
 directory behind them have their replacement on disk: ``exports/index.json`` and
@@ -662,9 +669,10 @@ Concurrency and atomic writes
 - A run directory and an attempt are claimed with ``os.mkdir``, which fails for the loser.
 - The launcher of a project holds ``.hmp/launcher.lease``, created with ``O_EXCL``; a lease of a
   dead process is taken over by the same proof of death as an attempt.
-- The ``prepare`` phase of a case is the only writer of the workspace input cache. A worker opens
-  it read-only, one request at a time, and a residual miss goes to its private
-  ``runs/<case>/.hmp/data-cache.duckdb``, which the launcher merges after the case.
+- The workspace input cache has one writer, the launcher. A case, in its ``prepare`` phase or in
+  its solve, opens it read-only, one request at a time, and registers what it fetched in a
+  private cache (``runs/<case>/.hmp/data-cache.duckdb`` for a worker), which the launcher merges
+  when the case ends.
 - The index is written as a staging file next to it and installed with one atomic rename. The
   invariant is that ``index.duckdb`` is never absent nor half-written: a reader that was reading
   keeps reading the file it opened, and the next opener gets the new one. ``os.replace`` delivers
@@ -806,7 +814,7 @@ neighbouring cells it never uses. A cell-major layout, or a second copy laid out
 make it cheap, and neither exists.
 
 **A network file system is not supported.** ``os.mkdir``, ``rename`` and the file locks depend on
-the mount options. The layout reduces the shared writers to one (the ``prepare`` phase) and proves
+the mount options. The layout reduces the shared writers to one (the launcher) and proves
 death through the scheduler, but it does not make DuckDB safe on NFS.
 
 See also

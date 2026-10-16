@@ -1017,13 +1017,15 @@ def run_hmp_cli(
     config_path: Path,
     out_path: Path,
     extra_env: dict | None = None,
+    extra_args: tuple[str, ...] = (),
     timeout: int = 1200,
     cwd: Path = REPO_ROOT,
 ) -> None:
     """Run ``hmp run <config>`` as a subprocess.
 
     Uses ``python -m hydromodpy run`` which invokes
-    :class:`Simulation` - the production entry point.
+    :class:`Simulation` - the production entry point. ``extra_args`` follow
+    the config path on the command line (``--until export``).
     """
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
@@ -1041,6 +1043,7 @@ def run_hmp_cli(
             "hydromodpy",
             "run",
             str(config_path),
+            *extra_args,
         ]
     else:
         command = [
@@ -1049,6 +1052,7 @@ def run_hmp_cli(
             "hydromodpy",
             "run",
             str(config_path),
+            *extra_args,
         ]
 
     completed = subprocess.run(

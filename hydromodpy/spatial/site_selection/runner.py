@@ -51,7 +51,7 @@ from hydromodpy.spatial.site_selection._runner_paths import (
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
 )
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig, SiteSelectionFile
 from hydromodpy.spatial.site_selection.evaluation.selection import (
     SelectionResult,
     select_delineated_catchments,
@@ -124,7 +124,7 @@ def load_site_selection_config(path: str | Path) -> SiteSelectionConfig:
     section = raw.get("site_selection")
     if not isinstance(section, dict):
         raise ConfigMissingError("TOML file must contain a [site_selection] section.")
-    cfg = SiteSelectionConfig.model_validate(section)
+    cfg = SiteSelectionFile.model_validate({"site_selection": section}).site_selection
     return _resolve_paths(cfg, base_dir=config_path.parent)
 
 

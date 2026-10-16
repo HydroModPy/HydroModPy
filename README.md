@@ -83,8 +83,8 @@ projects/getting_started/
 ```
 
 `figures/` appears once a figure is rendered, and a tagged run also carries
-an `annotations.json`. On-demand exports and reports go to `share/`,
-calibration sessions to `sessions/`.
+an `annotations.json`. On-demand exports go to `runs/<run>/exports/`, the tables and
+figures of a campaign to `summary/`, calibration sessions to `sessions/`.
 
 Browse it from the command line:
 
@@ -99,8 +99,8 @@ Or read it from Python:
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("projects/getting_started")
-run = catalog.latest()
+proj = hmp.open("projects/getting_started")
+run = proj.store.latest()
 
 head = hmp.read(run, "head")  # lazy xarray.DataArray
 water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array

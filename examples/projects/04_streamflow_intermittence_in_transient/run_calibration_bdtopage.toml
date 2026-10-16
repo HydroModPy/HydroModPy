@@ -7,7 +7,7 @@
 #   2. Sy alone, monthly transient, K frozen, on the gauged discharge.
 # Needs network access at the first run, the download is cached after it.
 #
-#   hmp calibrate run_calibration_bdtopage.toml --check         every problem at once
+#   hmp config check run_calibration_bdtopage.toml              every problem at once
 #   hmp calibrate run_calibration_bdtopage.toml --list-phases   both phases, before any solve
 #   hmp run       run_calibration_bdtopage.toml                 about one hour: 24 to 32 runs, then 30
 
@@ -57,11 +57,11 @@ visible_flow = "1 L/s"
 minimal = 0.5
 maximal = 0.5
 
-# The loaded record of station NANCON, on the simulated months.
+# The record of the gauge of [site], on the simulated months: a point output
+# that names no station observes the gauge.
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"
-observes = "NANCON"
 
 # Eq. 1 on each bound: the gap in metres, zero where the simulated extent
 # reaches as far as its map.

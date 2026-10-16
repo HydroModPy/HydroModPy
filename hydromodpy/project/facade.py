@@ -21,6 +21,14 @@ The facade is composed of three cohesive helpers:
 - :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
   ``load_data``, ``build_mesh``).
+- :mod:`hydromodpy.project.accessors`: the reads of a project directory
+  (``cases``, ``sites``, ``best``, ``runs``, ``sessions``).
+
+A project is also opened on its directory, read only, by ``hmp.open``
+(:func:`open_project`). It then reads its plan, its runs and its sessions
+from the disk, and launches its cases with the words of ``hmp project``:
+``plan``, ``run``, ``status``, ``collect``, ``publish``. Its configuration is
+read from ``project.toml`` only when a model verb needs it.
 
 Example
 -------
@@ -37,24 +45,49 @@ Example
         project.simulate(name=f"sy_{sy}", Sy=sy)
 
     project.close()
+
+    proj = hmp.open("projects/bretagne_k")  # a [sites] project, read only
+    proj.cases  # the plan joined to the outcomes
+    proj.best("nse", by="site")  # the best calibrated run of each site
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import run_scratch
-from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
+from hydromodpy.core.state.paths import (
+    PROJECT_MARKER_FILENAME,
+    resolve_project_root,
+    run_scratch,
+    summary_dir_for,
+)
+from hydromodpy.project.accessors import (
+    BEST_LABEL,
+    ProjectDataAccessor,
+    ProjectRunsAccessor,
+    ProjectSessions,
+    best_frame,
+    cases_frame,
+    sites_frame,
+)
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id, scratch_of_resumed_run
-from hydromodpy.project.state import PROJECT_ATTR_TO_STATE_FIELD, ProjectState
+from hydromodpy.project.state import (
+    CONFIGURED_STATE_FIELDS,
+    PROJECT_ATTR_TO_STATE_FIELD,
+    ProjectState,
+)
 
 if TYPE_CHECKING:
+    import geopandas as gpd
+    import pandas as pd
+
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.config.sites.expansion import PlanDraft
     from hydromodpy.core.state.data import LoadedDataContext
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.core.time.window import (
@@ -62,10 +95,13 @@ if TYPE_CHECKING:
         ResolvedSteadySimulationTimeGrid,
     )
     from hydromodpy.project.attempt import SealedRun
+    from hydromodpy.project.launch import LaunchReport, StatusReport
     from hydromodpy.project.spinup import SpinupResult
+    from hydromodpy.project.summary import SummaryPaths
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.checks import CalibratedBy
     from hydromodpy.results.lineage import Lineage
+    from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.run import Run
     from hydromodpy.simulation.spinup_config import SpinupConfig
     from hydromodpy.spatial.domain import Domain
@@ -186,13 +222,48 @@ class Project:
         object.__setattr__(self, name, value)
 
     def __getattr__(self, name: str) -> Any:
-        """Forward unknown attribute reads to :attr:`_state` when applicable."""
+        """Forward unknown attribute reads to :attr:`_state` when applicable.
+
+        A project opened on its directory configures itself on the first read
+        of a field only a configuration fills (:data:`CONFIGURED_STATE_FIELDS`).
+        """
         target = PROJECT_ATTR_TO_STATE_FIELD.get(name)
         if target is not None:
             state = self.__dict__.get("_state")
             if state is not None:
+                if target in CONFIGURED_STATE_FIELDS and state.cfg is None and state.root:
+                    self._configure_opened()
                 return getattr(state, target)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+
+    def _configure_opened(self) -> None:
+        """Configure a project opened on its directory from its ``project.toml``.
+
+        A ``[sites]`` project has one configuration per case, written by its
+        plan; it is read and launched, never configured as one model.
+        """
+        from hydromodpy.config.sites.expansion import SitesProjectError, find_sites_file
+        from hydromodpy.core.toml_io.loader import read_toml_chain
+        from hydromodpy.project import phases as project_phases
+
+        state = self.__dict__["_state"]
+        marker = state.root / PROJECT_MARKER_FILENAME
+        if not marker.is_file():
+            raise ConfigMissingError(
+                f"{state.root} holds no {PROJECT_MARKER_FILENAME}: an opened project builds "
+                "its model from it. Open a configuration with hmp.Project(<file>.toml)."
+            )
+        if find_sites_file(read_toml_chain(marker)) is not None:
+            raise SitesProjectError(
+                f"{marker} is a [sites] project: each case is configured by its plan. Read "
+                "it with proj.cases, launch it with proj.run(), or build one case with "
+                "hmp.Project('plan/<hash>/<case>.toml')."
+            )
+        try:
+            project_phases.configure(self, marker, solver=None, headless=False, no_display=False)
+        except BaseException:
+            state.cfg = None
+            raise
 
     @classmethod
     def rerun(
@@ -334,14 +405,16 @@ class Project:
 
     @property
     def runs(self) -> ProjectRunsAccessor:
-        """Accessor for the simulation catalog scoped to this project."""
-        self._ensure_model_built()
+        """The runs of this project: call it for a RunSet, ``runs(site="J0014010")``.
+
+        Reads the index, refreshed from the run directories; builds nothing.
+        """
+        self._index()
         return self._catalog.runs
 
-    def __getitem__(self, sim_id: str) -> Run:
-        """Return the Run view associated with ``sim_id``."""
-        self._ensure_model_built()
-        return self._catalog.get(sim_id)
+    def __getitem__(self, ref: str) -> Run:
+        """Return the run a reference names: a case, a run name, an id, ``runs/<name>``."""
+        return self._index()[ref]
 
     # -- Public properties (context state) --------------------------------
 
@@ -358,10 +431,9 @@ class Project:
         return self._ctx.setup.domain
 
     @property
-    def store(self) -> Catalog | None:
-        """Open Catalog for direct queries across all runs. Triggers build."""
-        self._ensure_model_built()
-        return self._catalog.store
+    def store(self) -> Catalog:
+        """The index of this project, refreshed from the run directories, read only."""
+        return self._index()
 
     @property
     def time_grid(
@@ -380,6 +452,173 @@ class Project:
     def workflow_context(self) -> WorkflowContext:
         """Mutable workflow runtime state threaded through workflow steps."""
         return self._ctx
+
+    # -- Project directory: reads and launch (hmp project) -----------------
+
+    @property
+    def root(self) -> Path:
+        """The project directory, the folder of ``project.toml``."""
+        root = self._state.root
+        if root is not None:
+            return root
+        return Path(self._cfg.workspace.project_root).expanduser().resolve()
+
+    def _index(self) -> Catalog:
+        """Bring the index up to date with the run directories and return it, open.
+
+        The index is derived from the disk: a pass that finds nothing new
+        writes nothing and keeps the open handle.
+        """
+        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog.indexer import index_new_runs
+
+        root = self.root
+        report = index_new_runs(root)
+        store = self._store
+        if store is not None and not store.closed and report.unchanged:
+            return store
+        if store is not None:
+            store.close()
+        self._store = Catalog(root)
+        return self._store
+
+    @property
+    def cases(self) -> pd.DataFrame:
+        """The cases of the project: the plan joined to the outcomes, one row each.
+
+        Status (planned, invalid, skipped, stale_plan for a case of the plan
+        that has no directory; running, completed, partial, failed, aborted,
+        stale for one that has), label, headline metric with its window, and
+        one column per global parameter.
+        """
+        return cases_frame(self._index(), self.root)
+
+    @property
+    def sites(self) -> gpd.GeoDataFrame:
+        """The sites of the project, one row each, with the outlet as a point."""
+        return sites_frame(self._index(), self.root)
+
+    @property
+    def sessions(self) -> ProjectSessions:
+        """The calibration sessions of the project, by directory name."""
+        return ProjectSessions(self.root)
+
+    def best(
+        self,
+        metric: str = "nse",
+        *,
+        by: Literal["site", "recipe"] | None = "site",
+        label: str | None = BEST_LABEL,
+        mixed_windows: bool = False,
+    ) -> pd.DataFrame:
+        """Return the best completed run of each site, one row each.
+
+        The metric is read at the gauge of each run, in the window of its
+        rule; best follows its direction. The calibrated runs are ranked by
+        default; ``label=None`` ranks every completed run. ``by=None`` gives
+        the single best run of the project.
+
+        Returns
+        -------
+        pandas.DataFrame
+            ``site`` (or ``recipe``), ``case_id``, ``rel_dir``, ``sim_id``,
+            ``label``, the global parameters (``K`` ...), the metric under
+            its own name, ``station``, ``nse_window_start``, ``nse_window_end``.
+
+        Examples
+        --------
+        >>> proj = hmp.open("projects/bretagne_k")  # doctest: +SKIP
+        >>> proj.best("nse", by="site")  # doctest: +SKIP
+        """
+        return best_frame(self._index(), metric, by=by, label=label, mixed_windows=mixed_windows)
+
+    def plan(
+        self, *, set_overrides: Mapping[str, Any] | None = None, force: bool = False
+    ) -> PlanDraft:
+        """Resolve the cases of a ``[sites]`` project and write ``plan/<hash>/``.
+
+        The words of ``hmp project plan``. A plan is not rewritten while one
+        of its cases runs, unless ``force``.
+        """
+        from hydromodpy.project.launch import plan_project
+
+        return plan_project(self.root, set_overrides=set_overrides, force=force)
+
+    def run(
+        self,
+        *,
+        parallel: int | None = None,
+        only: str | Sequence[str] = (),
+        site: str | None = None,
+        until: str | None = None,
+        fresh: bool = False,
+        force: bool = False,
+        resume: bool = False,
+        prepare_parallel: int | None = None,
+    ) -> LaunchReport:
+        """Launch the cases of the plan, one process per case.
+
+        The words of ``hmp run project.toml``: ``only`` keeps the cases in
+        those states (``"failed"``, ``("failed", "stale")``), ``site`` the
+        cases of one site, ``until="data"`` stops after the data phase.
+        ``parallel`` is the budget of solves side by side; a calibration case
+        counts its own ``[calibration] parallel``.
+        """
+        from hydromodpy.project.launch import run_plan
+
+        states = (only,) if isinstance(only, str) else tuple(only)
+        report = run_plan(
+            self.root,
+            parallel=parallel,
+            prepare_parallel=prepare_parallel,
+            only=states,
+            site=site,
+            until=until,
+            fresh=fresh,
+            force=force,
+            resume=resume,
+        )
+        self._index()
+        return report
+
+    def status(self) -> StatusReport:
+        """Return where each case of the plan stands, read from the disk."""
+        from hydromodpy.project.launch import project_status
+
+        return project_status(self.root)
+
+    def collect(self, *, write_sites: bool = False, mixed_windows: bool = False) -> SummaryPaths:
+        """Write ``summary/``: one table per case and per site, figures, report, README.
+
+        The words of ``hmp project collect``.
+        """
+        from hydromodpy.project.summary import collect_project
+
+        return collect_project(self.root, write_sites=write_sites, mixed_windows=mixed_windows)
+
+    def publish(
+        self,
+        to: str | Path,
+        *,
+        format: PublicationFormat = "dir",
+        with_: Sequence[PublicationExtra] = (),
+        public: bool = False,
+    ) -> Path:
+        """Copy ``summary/`` out of the tree, for a reader without HydroModPy.
+
+        The words of ``hmp publish . --to DEST``. Returns the copy. Raises
+        ``FileNotFoundError`` before :meth:`collect` wrote ``summary/``.
+        """
+        from hydromodpy.results.export.publish import publish
+
+        summary = summary_dir_for(self.root)
+        if not summary.is_dir():
+            raise FileNotFoundError(
+                f"{summary} does not exist: write it with proj.collect() before publishing"
+            )
+        return publish(
+            summary, to, project_root=self.root, format=format, with_=with_, public=public
+        )
 
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
@@ -505,7 +744,7 @@ class Project:
         Examples
         --------
         >>> run = project.simulate(Sy=0.05, name="probe")  # doctest: +SKIP
-        >>> run.summary()  # doctest: +SKIP
+        >>> run.label()  # doctest: +SKIP
 
         See Also
         --------
@@ -789,6 +1028,8 @@ class Project:
         self.close()
 
     def __repr__(self) -> str:
+        if self._state.root is not None:
+            return f"Project({str(self._state.root)!r})"
         source = self._config_path.name if self._config_path else "<in-memory>"
         return f"Project({source!r})"
 
@@ -805,8 +1046,8 @@ class Project:
         rows: list[tuple[str, str]] = [
             ("config", f"<code>{source_label}</code>"),
             ("project", project_name),
-            ("solver", str(getattr(self, "_solver", "") or "&mdash;")),
-            ("headless", "yes" if getattr(self, "_headless", False) else "no"),
+            ("solver", str(self._state.solver or "&mdash;")),
+            ("headless", "yes" if self._state.headless else "no"),
             ("runs", str(n_runs)),
             (
                 "last run",
@@ -824,3 +1065,20 @@ class Project:
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
+
+
+def open_project(path: str | Path) -> Project:
+    """Open the project a directory, or a file inside it, belongs to, read only.
+
+    The project root is the folder of ``project.toml`` at or above *path*.
+    Nothing is validated or built: the project reads its plan, its runs and
+    its sessions from the disk, and reads ``project.toml`` only when a model
+    verb (``simulate``, ``prepare``, ``config`` ...) needs a configuration.
+    """
+    start = Path(path).expanduser().resolve()
+    root = resolve_project_root(start.parent if start.is_file() else start).resolve()
+    project = object.__new__(Project)
+    object.__setattr__(project, "_state", ProjectState(root=root))
+    object.__setattr__(project, "_runner", ProjectRunner(project))
+    object.__setattr__(project, "_catalog", ProjectCatalog(project))
+    return project

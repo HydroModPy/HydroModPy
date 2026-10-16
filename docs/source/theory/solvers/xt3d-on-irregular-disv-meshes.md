@@ -139,4 +139,4 @@ hydromodpy.spatial.mesh.ops.mesh_orthogonality
 
 - {doc}`../mesh`: the mesh engines, the Voronoi cells and the angle of a connection.
 - {doc}`../solvers`: the packages MODFLOW 6 writes.
-- {doc}`../../reference/parameters/analysis/comparison`: compare a run with XT3D and one without.
+- {doc}`../../reference/cli/report`: `hmp report compare`, a run with XT3D against one without.

@@ -10,7 +10,6 @@ to test for. Nothing is read from the index.
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -19,30 +18,11 @@ import pandas as pd
 
 from hydromodpy.core.state.paths import parse_rel_dir
 from hydromodpy.results.run.sealed import lineage_of
-from hydromodpy.results.run.view import Run
-from hydromodpy.results.session.descriptor import find_session_dir, read_session
-from hydromodpy.results.session.journal import read_trials, trial_row
-from hydromodpy.results.session.phase import list_phases
-from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
+from hydromodpy.results.run.view import Run, project_root_of
+from hydromodpy.results.session.descriptor import find_session_dir
+from hydromodpy.results.session.view import Session
 
 __all__ = ("calibration_sessions", "calibration_trials", "session_dir_of")
-
-TRIAL_COLUMNS: tuple[str, ...] = (
-    "session_id",
-    "phase",
-    "restart",
-    "iteration",
-    "sim_id",
-    "rel_dir",
-    "params_hash",
-    "parameters",
-    "objective_value",
-    "metrics",
-    "status",
-    "from_cache",
-    "duration_s",
-)
-"""Columns of the trial frame; ``iteration`` is the trial number, unique in the session."""
 
 
 def _rows_carried_by(source: Any) -> pd.DataFrame | None:
@@ -59,25 +39,6 @@ def _run_dir_of(source: Any) -> Path | None:
     return Path(directory) if directory is not None else None
 
 
-def _split_project_root(run_dir: Path) -> tuple[Path, str] | None:
-    """Return the project root a run directory sits in and its relative form, or None.
-
-    The two forms a run directory takes are those ``parse_rel_dir`` knows:
-    the trailing parts of the path are tried against them, the shorter first.
-    """
-    parts = run_dir.resolve().parts
-    for depth in (2, 4):
-        if len(parts) < depth:
-            continue
-        rel = "/".join(parts[-depth:])
-        try:
-            parse_rel_dir(rel)
-        except ValueError:
-            continue
-        return Path(*parts[:-depth]), rel
-    return None
-
-
 def session_dir_of(source: Any, *, session_id: str | None = None) -> Path | None:
     """Return the session directory a run was promoted from, or None.
 
@@ -90,7 +51,7 @@ def session_dir_of(source: Any, *, session_id: str | None = None) -> Path | None
     run_dir = _run_dir_of(source)
     if run_dir is None:
         return None
-    split = _split_project_root(run_dir)
+    split = project_root_of(run_dir)
     if split is None:
         return None
     project_root, rel = split
@@ -106,16 +67,6 @@ def session_dir_of(source: Any, *, session_id: str | None = None) -> Path | None
     if wanted is None:
         return None
     return find_session_dir(project_root, str(wanted))
-
-
-def _trial_frame(session_dir: Path) -> pd.DataFrame:
-    """Return the trials of one session as the frame the figures read."""
-    descriptor = read_session(session_dir)
-    rows = [
-        {"session_id": descriptor.session_id, **trial_row(line)}
-        for line in read_trials(session_dir)
-    ]
-    return pd.DataFrame(rows, columns=list(TRIAL_COLUMNS))
 
 
 def calibration_trials(
@@ -148,7 +99,7 @@ def calibration_trials(
                 f"no calibration trial can be read from {type(source).__name__}: it names no "
                 "session and carries no calibration_iterations."
             )
-        frame = _trial_frame(session_dir)
+        frame = Session(session_dir).trials
     elif session_id is not None and "session_id" in frame.columns:
         wanted = str(session_id).replace("-", "").lower()
         frame = frame[frame["session_id"].map(lambda v: str(v).replace("-", "").lower()) == wanted]
@@ -160,21 +111,12 @@ def calibration_trials(
     return frame.reset_index(drop=True)
 
 
-def _session_config(session_dir: Path) -> dict[str, Any]:
-    """Return the ``[calibration]`` table of the frozen configuration of a session."""
-    target = session_dir / SESSION_CONFIG_FILENAME
-    if not target.is_file():
-        return {}
-    with target.open("rb") as handle:
-        document = tomllib.load(handle)
-    calibration = document.get("calibration")
-    return dict(calibration) if isinstance(calibration, Mapping) else {}
-
-
 def _session_frame(session_dir: Path) -> pd.DataFrame:
     """Return one row per phase of a session, or one row when it ran no phase."""
-    descriptor = read_session(session_dir)
-    config = _session_config(session_dir)
+    session = Session(session_dir)
+    descriptor = session.descriptor
+    calibration = session.config.get("calibration")
+    config = dict(calibration) if isinstance(calibration, Mapping) else {}
     base = {
         "session_id": descriptor.session_id,
         "case_id": descriptor.case_id,
@@ -190,7 +132,7 @@ def _session_frame(session_dir: Path) -> pd.DataFrame:
         "search_space": descriptor.search_space,
         "config": config,
     }
-    phases = list_phases(session_dir)
+    phases = session.phases
     if not phases:
         return pd.DataFrame([{**base, "phase_name": None, "phase_index": None, "frozen": {}}])
     return pd.DataFrame(

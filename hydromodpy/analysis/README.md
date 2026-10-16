@@ -38,7 +38,7 @@ and groups the runs with `comparison/runs.py`, runs `run_comparison` once per
 group, then renders the page. A run directory is read alone: a comparison
 never opens the project index for the fields, the tables or the seal, and
 never writes into a run. The network metrics read a run through `Run`, opened
-from the index of the project holding the run (`open_indexed_run`); without an
+from its sealed directory (`open_run`, through `hmp.open`); without a
 index they are skipped with the reason written beside them.
 
 ## Import rules

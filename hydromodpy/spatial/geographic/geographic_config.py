@@ -611,15 +611,15 @@ class CappedBreachConfig(HydroModelBase):
         description=(
             "Largest cumulative lowering, in metres, of one breach path (the "
             "'max_cost' of Whitebox): the lowering summed over the cells of the "
-            "path, not the depth of one cell. Measured on the Flume at 25 m with "
-            "8-cell paths, the realised maximum lowering of a cell follows it within "
-            "0.01 m. On a finer grid a thick embankment spreads the cost over more "
-            "cells, so it is filled instead of dug: the same value does not give the "
-            "same landscape at every resolution. A depression whose cheapest breach "
-            "costs more is filled. Paths overlap, so the lowering of a cell can "
-            "exceed it (Nancon 75 m: 0.56 m for 0.5 m). The realised depth is "
-            "measured after the call, logged, and warned about when it exceeds "
-            "this value. Accepts inline units (e.g. 0.5, '0.5 m')."
+            "path, not the depth of one cell. With short paths the realised maximum "
+            "lowering of a cell stays close to it. On a finer grid a thick embankment "
+            "spreads the cost over more cells, so it is filled instead of dug: the "
+            "same value does not give the same landscape at every resolution. A "
+            "depression whose cheapest breach costs more is filled. Paths overlap, so "
+            "the lowering of a cell can exceed it (0.56 m for a value of 0.5 m, on a "
+            "75 m grid). The realised depth is measured after the call, logged, and "
+            "warned about when it exceeds this value. Accepts inline units (e.g. 0.5, "
+            "'0.5 m')."
         ),
     )
     max_distance: Annotated[LengthMeters, Profile.USER] = Field(

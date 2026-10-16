@@ -23,9 +23,8 @@ Positioning
   ``config.toml`` its frozen configuration
   (``analysis/comparison/runtime/run_source.py``). The project index is not
   opened, and nothing is written into a run.
-- The network metrics read a run through ``Run``, opened from the index of the
-  project that holds the run. Without an index those metrics are skipped and the
-  reason is written beside them; the rest of the comparison does not need it.
+- The network metrics read a run through ``Run``, opened by ``hmp.open`` on the run
+  directory itself, so they need no index either.
 
 References
 ----------

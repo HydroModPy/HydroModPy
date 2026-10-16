@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 177 tolerances enforced today. Every tolerance
+The table below records the 178 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -205,6 +205,7 @@ must carry a rationale before it is merged.
 | 175 | Patch test skewed triangles, MODFLOW 6 on a generated Voronoi mesh | Head RMSE, max abs error | 5.2e-8 m, 1.3e-7 m | Twice the measurement (2.58e-8, 6.35e-8 m, 2026-10-14) | The engine generates the cells of the 100 x 40 m strip, with a mirror-pair face on the contact at x = 50 m between two zones of the same K. Orthogonal cells make the two-point flux exact for a uniform gradient, as in row 136; held x on the seeds of the sides (`tolerances_modflow6_voronoi_generated.toml`) |
 | 176 | Boussinesq circular-island piecewise-K 2D (MF6 on a generated Voronoi mesh, Newton) | radial RMSE / max-abs / azimuthal spread / min freeboard | `< 0.123 m` / `< 0.2 m` / `< 0.126 m` / `>= 0.14 m` | Twice the measurement (0.0614 / 0.0999 / 0.0626 m, 2026-10-14), half the measured freeboard 0.2816 m (`tolerances_modflow6_voronoi_generated.toml`) | 3 721 cells over the square of the 10 m raster, one face on each K ring (70 m and 140 m), so no cell straddles two zones: 0.0614 m against the 0.1205 m of the dual of a triangulation (row 109), where the rings cross cells. What is left is the upstream saturation of row 108. The spread is that of a mesh without the symmetry of node rings; the freeboard is lower than the structured 0.91 m because a generated cell can sit a few decimetres above the coast |
 | 177 | Two lakes + HFB + SFR routed drainage + WEIR mover on a generated Voronoi mesh (MF6 solve) | GWF listing `PERCENT DISCREPANCY` (worst of 8 steps) / solver failure text / bank `belev` vs carved bed | `abs <= 1 %` (row 44, no new band); no `FAILED TO MEET SOLVER CONVERGENCE`; every bank `belev >= carved bed - 1e-9 m` | Same IMS basis as row 44; the bank rule is an exact geometric inequality, so no band (`tests/integration/test_two_lake_voronoi_stack_e2e.py`) | Written on the target behavior of the stack (audit 2026-10-14). The bank assertion is `xfail(strict=True)` named C-01 until the lake fix is merged; it is never loosened |
+| 178 | Replay of a published run | Head of the last step, replay against the published copy, relative | `rtol 2**-10` | **By construction.** The replay runs the same frozen configuration on the same bytes (`inputs/` checked by digest), so the solve is the same arithmetic; the stored fields are float32 rounded to 16 significant bits, whose relative step is 2**-10 | `tests/e2e/test_replay_from_archive_without_workspace.py`. Measured bit-identical on step 1 of example 04 (21406 cells) |
 
 ## Update policy
 

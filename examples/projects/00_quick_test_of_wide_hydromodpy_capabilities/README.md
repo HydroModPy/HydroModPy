@@ -18,8 +18,7 @@ hmp run examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.
 # via the Python API (same config, same results)
 python examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/run_manual.py
 
-# re-render the figures without re-simulating
-hmp viz gallery examples/projects/00_quick_test_of_wide_hydromodpy_capabilities/project.toml
+hmp viz regen <run>  # draw the figures of a sealed run again
 ```
 
 Runtime: about 5 s (980 cells, 12 stress periods).

@@ -6,8 +6,13 @@ stays minimal.
 
 The run-management CLI verbs (``hmp catalog delete/restore/trash/tag/note/
 rename/rerun/diff/reindex/gc/watch``) are intentionally not mirrored as
-top-level ``hmp.*`` symbols. The index is read through the :class:`Catalog`
-handle :func:`open` returns (``cat.diff(...)``, ``cat.latest()``...); a run
+top-level ``hmp.*`` symbols. :func:`open` hands back the object a path
+stands for: a :class:`~hydromodpy.project.Project` (its cases, sites, runs,
+sessions, and ``plan``, ``run``, ``collect``, ``publish``), a
+:class:`~hydromodpy.results.run.Run`, a calibration
+:class:`~hydromodpy.results.session.view.Session`, or a
+:class:`~hydromodpy.project.accessors.Workspace`; ``proj.store`` is the index
+:class:`Catalog` (``diff``, ``sql``...). A run
 directory is changed by the run itself (``Run.tag``, ``Run.note``,
 ``Run.delete``) or by :mod:`hydromodpy.results.trash` and
 :mod:`hydromodpy.results.annotations`, and the index is rebuilt by
@@ -43,9 +48,11 @@ if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
+    from hydromodpy.project.accessors import Workspace
+    from hydromodpy.project.facade import Project
     from hydromodpy.project.spinup import SpinupResult
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
+    from hydromodpy.results.session.view import Session
 
     # A file or folder path, as text or as a pathlib.Path.
     PathLike = str | os.PathLike[str]
@@ -54,116 +61,168 @@ if TYPE_CHECKING:
     Readable = xr.DataArray | np.ndarray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace: PathLike) -> Catalog:
-    """Open the index of a HydroModPy project.
+def open(path: PathLike) -> Project | Run | Session | Workspace:
+    """Open what a path stands for: a project, a run, a session or a workspace.
 
-    The single door to the index of a project: returns a
-    :class:`hydromodpy.results.catalog.Catalog` reading
-    ``<project>/.hmp/index.duckdb``. It exposes object access (``latest``, ``best``,
-    ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
-    ``list_simulations``), schema discovery (``describe``, ``tables``,
-    ``columns``, ``variables``, ``metrics``, ``stations``), and per-id reads
-    (``read``).
+    The single door to read results from Python, with the words of the CLI:
 
-    The index is a reader: opening it never writes, never migrates and never
-    contends with a running solve. It is derived from the run directories;
-    ``hmp catalog reindex`` (or
-    :func:`hydromodpy.results.catalog.indexer.rebuild_index`) builds it.
+    - a project directory, its ``project.toml`` or any folder inside it gives
+      a :class:`~hydromodpy.project.Project`, read only: ``proj.cases``,
+      ``proj.sites``, ``proj.best("nse", by="site")``,
+      ``proj.runs(site=...)``, ``proj.sessions[...]``, ``proj[ref]``, and
+      ``proj.plan()``, ``proj.run(parallel=, only=)``, ``proj.collect()``,
+      ``proj.publish(to=)``. Its index is brought up to date with the run
+      directories when it is read;
+    - a sealed run directory (``runs/<name>`` or a kept trial) gives a
+      :class:`~hydromodpy.results.run.Run` read from its own files, without
+      the index;
+    - a session directory (``sessions/<name>``) gives a
+      :class:`~hydromodpy.results.session.view.Session`;
+    - a workspace root (``workspace.toml`` or ``projects/``) gives a
+      :class:`~hydromodpy.project.accessors.Workspace`.
 
     Parameters
     ----------
-    workspace
-        The project directory, or any folder inside it, as a ``str`` or a
-        :class:`pathlib.Path`. The project root is the folder holding
-        ``project.toml`` at or above it.
+    path
+        The directory or file, as a ``str`` or a :class:`pathlib.Path`.
 
     Returns
     -------
-    hydromodpy.results.catalog.Catalog
-        Index handle for the project.
+    Project or Run or Session or Workspace
+        What the path stands for.
 
     Raises
     ------
     FileNotFoundError
-        If the project has no index yet.
-    hydromodpy.results.errors.SchemaVersionMismatchError
-        If the index was written under another schema version.
-    hydromodpy.core.exceptions.CatalogUnreadableError
-        If the index file exists but DuckDB cannot open it.
+        If the path does not exist, or stands for none of the above.
+    hydromodpy.results.errors.RunNotSealedError
+        If the path is a run directory that never completed.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
-    >>> cat.latest()  # doctest: +SKIP
+    >>> proj = hmp.open("~/ws/projects/bretagne_k")  # doctest: +SKIP
+    >>> proj.best("nse", by="site")  # doctest: +SKIP
+    >>> run = proj["J0014010-base"]  # doctest: +SKIP
+    >>> run = hmp.open("~/ws/projects/bretagne_k/runs/J0014010-base")  # doctest: +SKIP
 
     See Also
     --------
-    hydromodpy.results.catalog.federation.read_workspace_runs
-        The sealed runs of several projects, read from their directories.
+    index
+        The sealed runs of every project of a workspace.
     """
-    from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.core.state.paths import (
+        PROJECT_MARKER_FILENAME,
+        is_workspace_root,
+        resolve_project_root,
+        runs_dir_for,
+        sessions_dir_for,
+    )
+    from hydromodpy.project.accessors import Workspace
+    from hydromodpy.project.facade import open_project
+    from hydromodpy.results.run.view import open_run_dir, project_root_of
+    from hydromodpy.results.session.descriptor import session_descriptor_path
+    from hydromodpy.results.session.view import Session
+    from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
 
-    ws = Path(workspace).expanduser().resolve()
-    root = resolve_project_root(ws)
-    catalog_file = catalog_path_for(root)
-    if not catalog_file.is_file():
-        raise FileNotFoundError(
-            f"No index at {catalog_file}. Run a workflow there first, or "
-            f"`hmp catalog reindex` to build it from the run directories."
-            + _projects_hint(ws, catalog_file)
+    target = Path(path).expanduser().resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"{target} does not exist")
+    if target.is_dir():
+        holds_a_run = any(
+            (target / name).is_file() for name in (RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME)
         )
-    return Catalog(root)
+        if holds_a_run and project_root_of(target) is not None:
+            return open_run_dir(target)
+        if session_descriptor_path(target).is_file():
+            return Session(target)
+        if not (target / PROJECT_MARKER_FILENAME).is_file() and is_workspace_root(target):
+            return Workspace(target)
+    root = resolve_project_root(target.parent if target.is_file() else target)
+    anchors = (root / PROJECT_MARKER_FILENAME, runs_dir_for(root), sessions_dir_for(root))
+    if not any(anchor.exists() for anchor in anchors):
+        raise FileNotFoundError(
+            f"{target} is no project (no {PROJECT_MARKER_FILENAME} at or above it), no run, "
+            "no session and no workspace." + _projects_hint(target)
+        )
+    return open_project(root)
 
 
-def _projects_hint(folder: Path, missing: Path) -> str:
-    """Name the projects with a catalog under ``folder``, when it holds some.
+def index(workspace: PathLike | None = None) -> Workspace:
+    """Read the sealed runs of every project of a workspace, without any index.
 
-    A workspace root holds no index of its own; the projects under it do.
+    ``hmp.index().runs(site="nancon")`` lists the runs of one site across the
+    projects of the workspace, from the ``simulation.parquet`` row each
+    sealed run carries.
+
+    Parameters
+    ----------
+    workspace
+        The workspace root, or any folder inside it. Defaults to the nearest
+        workspace root at or above the working directory; there is no other
+        default.
+
+    Returns
+    -------
+    hydromodpy.project.accessors.Workspace
+        The workspace, read only.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no workspace root (``workspace.toml`` or ``projects/``) is found.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.index("~/ws").runs(site="nancon")  # doctest: +SKIP
     """
-    from hydromodpy.results.catalog.discovery import iter_project_catalog_roots
+    from hydromodpy.core.state.paths import is_workspace_root
+    from hydromodpy.project.accessors import Workspace
 
-    try:
-        roots = [r for r in iter_project_catalog_roots(folder) if r != missing.parent.parent]
-    except Exception:
+    start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
+    for folder in (start, *start.parents):
+        if is_workspace_root(folder):
+            return Workspace(folder)
+    raise FileNotFoundError(
+        f"No workspace at or above {start} (no workspace.toml, no projects/). "
+        "Name it: hmp.index('<workspace root>')."
+    )
+
+
+def _projects_hint(folder: Path) -> str:
+    """Name the projects one or two levels under ``folder``, when it holds some."""
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+
+    if not folder.is_dir():
         return ""
+    markers = [
+        *folder.glob(f"*/{PROJECT_MARKER_FILENAME}"),
+        *folder.glob(f"*/*/{PROJECT_MARKER_FILENAME}"),
+    ]
+    roots = sorted({marker.parent for marker in markers if marker.is_file()})
     if not roots:
         return ""
     names = ", ".join(str(r) for r in roots[:5])
     more = f" and {len(roots) - 5} more" if len(roots) > 5 else ""
-    return f" This folder holds projects with a catalog: {names}{more}. Open one of them."
+    return f" This folder holds projects: {names}{more}. Open one of them."
 
 
-def _open_run(project_root: PathLike, sim_id: str | None) -> Run | None:
-    """Return the :class:`Run` for ``sim_id`` bound to an open catalog.
+def _open_run(project_root: PathLike, run_dir: PathLike) -> Run:
+    """Return the :class:`Run` of a sealed run directory, read from its own files.
 
     Both :func:`run` branches expose the ``simulation`` workflow as a ``Run``
     so :func:`read` / :func:`export` accept the result directly. The worker
     never opens the index, so the index is refreshed from the run directories
-    first. The catalog is intentionally **not** context-managed here: the Run
-    reads through it, so it must stay open after :func:`run` returns (matching
-    ``cat = hmp.open(...); cat[ref]``). Returns ``None`` when there is no
-    ``sim_id`` (a dry run persists nothing). A finished run whose catalog
-    cannot be opened raises :class:`~hydromodpy.core.exceptions.CatalogError`
-    rather than passing for a dry run.
+    first, for the readers that list runs. The run itself is read from its
+    directory: an index handle opened earlier in this process keeps the
+    snapshot it opened on, so a run indexed since is not found through it.
     """
-    if not sim_id:
-        return None
     from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.results.run.view import open_run_dir
 
-    try:
-        index_new_runs(Path(project_root))
-        return open(project_root)[sim_id]
-    except Exception as exc:
-        from hydromodpy.core.exceptions import CatalogError
-
-        raise CatalogError(
-            f"The run [{str(sim_id)[:8]}] finished, but the catalog at {project_root} "
-            f"cannot be opened to hand it back: {exc}. Open it with "
-            f"hmp.open({str(project_root)!r}) and read the run by its id.",
-            sim_id=str(sim_id),
-        ) from exc
+    index_new_runs(Path(project_root))
+    return open_run_dir(run_dir)
 
 
 def _report_identical_run(summary: Mapping[str, Any]) -> None:
@@ -296,6 +355,8 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
     hydromodpy.project.Project.simulate
         Object-oriented form for repeated runs from one project.
     """
+    from hydromodpy.core.state.paths import runs_dir_for
+
     headless = bool(kwargs.pop("headless", False))
 
     if isinstance(config, (str, Path)):
@@ -312,8 +373,9 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         if workflow == "simulation":
             if not isinstance(summary, dict) or not summary.get("sim_id"):
                 return None
-            root = summary.get("project_root") or config_path.parent
-            run_obj = _open_run(root, summary["sim_id"])
+            root = Path(summary.get("project_root") or config_path.parent)
+            run_dir = summary.get("run_dir") or runs_dir_for(root) / str(summary["name"])
+            run_obj = _open_run(root, run_dir)
             if summary.get("skipped"):
                 _report_identical_run(summary)
             return run_obj
@@ -340,14 +402,11 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
             existing = completed_identical_run(project.config, name=name) if plain else None
             result = None if existing is not None else project.simulate(**kwargs)
         if existing is not None:
-            run_obj = _open_run(root, existing[1])
+            run_obj = _open_run(root, runs_dir_for(Path(root)) / str(existing[0]))
             _report_identical_run({"name": existing[0], "sim_id": existing[1]})
             return run_obj
-        if result is None:
-            return None
-        # Re-bind to a freshly opened catalog so hmp.read works after the
-        # project context (and its catalog connection) has closed.
-        return _open_run(root, result.sim_id)
+        # The runner read the run from its directory: it outlives the project.
+        return result
 
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
 
@@ -791,13 +850,14 @@ def read(
     for a field with no time dimension.
 
     To read by reference (id / unique prefix / name) instead of a ``Run``, use
-    ``cat.read(ref, var)`` on a :class:`hydromodpy.catalog.Catalog`.
+    ``proj.store.read(ref, var)`` on the :class:`hydromodpy.catalog.Catalog`
+    of a project.
 
     Parameters
     ----------
     sim
-        A :class:`~hydromodpy.results.run.Run` (e.g. ``cat.latest()`` or
-        ``cat[ref]``).
+        A :class:`~hydromodpy.results.run.Run` (e.g. ``proj[ref]`` or
+        ``hmp.open(<run dir>)``).
     var
         Variable name, resolved against the field registry, then the DuckDB
         ``timeseries`` table, then the geographic features.
@@ -836,8 +896,8 @@ def read(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
-    >>> run = cat.latest()  # doctest: +SKIP
+    >>> proj = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
+    >>> run = proj["baseline"]  # doctest: +SKIP
     >>> da = hmp.read(run, "head")  # lazy DataArray  # doctest: +SKIP
     >>> arr = hmp.read(run, "head", time=-1, layer=0)  # ndarray  # doctest: +SKIP
     >>> oct02 = hmp.read(run, "head", time="2002-10-15")  # doctest: +SKIP
@@ -871,7 +931,7 @@ def figure(
     Parameters
     ----------
     sim
-        A :class:`~hydromodpy.results.run.Run` (e.g. ``cat.latest()``).
+        A :class:`~hydromodpy.results.run.Run` (e.g. ``proj[ref]``).
     name
         Registered figure name, for example ``"piezometric_map"``.
     save
@@ -905,8 +965,8 @@ def figure(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> cat = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
-    >>> run = cat.latest()  # doctest: +SKIP
+    >>> proj = hmp.open("~/ws/projects/my_project")  # doctest: +SKIP
+    >>> run = proj["baseline"]  # doctest: +SKIP
     >>> hmp.figure(run, "cross_section", orientation="sn")  # doctest: +SKIP
     >>> hmp.figure(run, "seepage_map", time="2002-10-15")  # doctest: +SKIP
     """
@@ -947,12 +1007,12 @@ def export(
     leaves the tree by ``hmp publish``.
 
     ``sim`` must be a :class:`~hydromodpy.results.run.Run`, as returned by
-    ``hmp.open(workspace)[ref]`` or ``catalog.latest()``.
+    ``hmp.open(project)[ref]`` or ``hmp.open(<run dir>)``.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> run = hmp.open("~/hmp_workspace")["transient_nwt"]  # doctest: +SKIP
+    >>> run = hmp.open("~/ws/projects/my_project")["transient_nwt"]  # doctest: +SKIP
     >>> hmp.export(run, "all")  # doctest: +SKIP
     >>> hmp.export(
     ...     run, ["head", "watertable_depth"], time="2001-08-15"
@@ -966,7 +1026,7 @@ def export(
     if not isinstance(sim, Run):
         raise TypeError(
             f"hmp.export expects a Run object as first argument, got {type(sim).__name__}. "
-            f"Obtain one with hmp.open(workspace)[ref] or catalog.latest()."
+            f"Obtain one with hmp.open(project)[ref] or hmp.open(<run dir>)."
         )
     return sim.export(
         variables,

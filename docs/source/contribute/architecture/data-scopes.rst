@@ -37,6 +37,14 @@ Exposed through:
 Each row carries a workspace-relative POSIX ``file_path``, so a cache
 stays portable between machines.
 
+**One writer at a time.** When a project launches its cases, the ``prepare``
+phase runs each case up to its data (``hmp run <case>.toml --until
+load_data``). A case opens the shared cache read-only, one request at a time,
+and registers what it fetched in a private cache, which the launcher merges
+into the shared one when the case ends: the launcher is the one writer. The
+workers that solve do the same with ``runs/<case>/.hmp/data-cache.duckdb``.
+``hmp data`` reads and ``hmp run --frozen`` check the cache read-only.
+
 Project index: ``<project>/.hmp/index.duckdb``
 -----------------------------------------------
 
@@ -57,7 +65,8 @@ Exposed through:
 - :class:`hydromodpy.results.catalog.Catalog`, a read-only view
 - :class:`hydromodpy.results.run.Run`
 - :class:`hydromodpy.results.run.group.RunSet`
-- ``hmp.open(project_path)``, which returns the ``Catalog``
+- ``hmp.open(project_path)``, which returns the ``Project``; its reads go
+  through ``Catalog``
 - CLI verb ``hmp catalog ...``
 - :func:`hydromodpy.results.catalog.federation.read_workspace_runs`, the read
   across the projects of a workspace, on the ``simulation.parquet`` of each
@@ -173,10 +182,12 @@ One set of patterns governs the two databases.
   ``INDEX_SCHEMA_VERSION`` and a rebuild. The reader refuses an index written
   under another version and names the command that rebuilds it.
 - **Per-scope doors**: one entry point per database.
-  ``hmp.open(project_path)`` opens the project directory holding
-  ``project.toml`` and ``.hmp/index.duckdb``, and returns its
-  ``Catalog``; and :class:`hydromodpy.catalog.InputsNamespace`, opened on a
-  workspace root, reaches the input cache.
+  ``hmp.open(path)`` returns a ``Project`` for the directory holding
+  ``project.toml``, a ``Run`` for a run directory received alone and a
+  ``Workspace`` for a workspace root; the project reads its
+  ``.hmp/index.duckdb`` through ``Catalog``.
+  :class:`hydromodpy.catalog.InputsNamespace`, opened on a workspace root,
+  reaches the input cache.
 - **Backend Protocol**:
   :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
   ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /

@@ -43,7 +43,7 @@ layout is `storage/contract.py`; the full contract is
 | `readme.py` | the generated `README.md` of a run, a session or a summary, with the digest of the manifest in its footer |
 | `metric_rule.py` | `MetricRule` (station, window, version), `MetricRule.from_config` ([metrics] station, else [site] gauge; [metrics] window), `score()` and `score_run()`: a metric on the declared window only, with its sample count and where it was read; without a window there is no score |
 | `fit_metrics.py` | the scores of a run under its rule, from its own timeseries table: `fit_metrics(run_dir, rule=...)` returns the manifest rows and the headline NSE at the rule station |
-| `session/` | the formats of `sessions/<case>/`: `session.json` (`descriptor.py`), `trials.jsonl` with one trial number per session (`journal.py`), `phases/<phase>/session.json` (`phase.py`) |
+| `session/` | the formats of `sessions/<case>/`: `session.json` (`descriptor.py`), `trials.jsonl` with one trial number per session (`journal.py`), `phases/<phase>/session.json` (`phase.py`); `view.py` is `Session`, the read-only view of one session directory |
 | `plan_store.py` | `plan/<hash>/` written once (plan.json, sites.parquet, cases.parquet, one TOML per case) and `plan/current`; a different content under an existing hash is refused |
 | `publication.py` | `PUBLICATION.json` of a published copy, `published.jsonl` of its source, and `redact()`, the one function that removes host, user and absolute paths from anything that leaves the tree |
 | `storage/json_io.py` | the atomic JSON writer of every document above; the durable variant (fsync) for the seal and the outcome |
@@ -123,7 +123,8 @@ hydromodpy/results/
    `inputs.json`, then `manifest.json`, last and durable. A run directory
    without a manifest never finished.
 4. **Find.** `Catalog.find(**filters)` returns a `RunSet`; `catalog[ref]`
-   returns a `Run`. `hmp.open` is the door from Python.
+   returns a `Run`. `hmp.open` is the door from Python: it returns a `Project`
+   whose `store` is the `Catalog`, `proj[ref]` is a `Run` and `proj.runs()` a `RunSet`.
 5. **Read.** `Run` and its providers read the Zarr and Parquet files.
    `derive/reading.py` is the single dispatch behind `hmp.read` and
    `Catalog.read`: a Zarr field gives an `xarray.DataArray`, a series a

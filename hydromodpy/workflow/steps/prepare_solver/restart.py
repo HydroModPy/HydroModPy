@@ -14,7 +14,11 @@ What a reference may be
 - a path to a field store or to a run directory, absolute or relative to the
   project root;
 - a run name, with or without its ``.vN`` (the latest version without);
-- the ``sim_id`` of a sealed run, or an unambiguous prefix of it.
+- the ``sim_id`` of a sealed run, or an unambiguous prefix of it;
+- the table ``{sim_id, path}`` a frozen ``config.toml`` writes
+  (:class:`~hydromodpy.physics.flow.flow_config.RestartReference`): the
+  ``sim_id`` is looked up first, among the runs of this project, then the
+  ``path``, so a replay in another project still finds its store.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.state.paths import run_dir_rel, runs_dir_for
+from hydromodpy.physics.flow.flow_config import RestartReference
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
@@ -43,13 +48,15 @@ class RestartSource:
     """``runs/<name>`` of the source run, for the lineage hint."""
 
 
-def resolve_restart_source(project_root: Path, reference: str) -> RestartSource:
+def resolve_restart_source(project_root: Path, reference: str | RestartReference) -> RestartSource:
     """Return the store a ``restart_from`` reference names.
 
     Raises :class:`~hydromodpy.core.exceptions.ConfigError` when nothing under
     the project matches the reference.
     """
     root = Path(project_root)
+    if isinstance(reference, RestartReference):
+        return _from_reference(root, reference)
     text = str(reference).strip()
     if not text:
         raise ConfigError("flow.restart_from is empty: name a run or a field store.")
@@ -69,6 +76,31 @@ def resolve_restart_source(project_root: Path, reference: str) -> RestartSource:
             f"flow.restart_from = {text!r}: {run_dir.name} has no {FIELDS_STORE_NAME}."
         )
     return RestartSource(sim_id=_sim_id_of(run_dir), path=store, rel_dir=run_dir_rel(run_dir.name))
+
+
+def _from_reference(root: Path, reference: RestartReference) -> RestartSource:
+    """The table form: the ``sim_id`` among the runs of the project, else the ``path``."""
+    if reference.sim_id:
+        run_dir = _run_dir_by_sim_id(root, reference.sim_id)
+        if run_dir is not None and (run_dir / FIELDS_STORE_NAME).is_dir():
+            return RestartSource(
+                sim_id=_sim_id_of(run_dir),
+                path=run_dir / FIELDS_STORE_NAME,
+                rel_dir=run_dir_rel(run_dir.name),
+            )
+    if reference.path:
+        as_path = Path(reference.path).expanduser()
+        candidate = as_path if as_path.is_absolute() else root / as_path
+        if candidate.exists():
+            found = _from_path(candidate)
+            return RestartSource(
+                sim_id=found.sim_id or reference.sim_id, path=found.path, rel_dir=found.rel_dir
+            )
+    raise ConfigError(
+        f"flow.restart_from = {{sim_id = {reference.sim_id!r}, path = {reference.path!r}}}: no "
+        f"sealed run of this project has that sim_id and the path names no field store under "
+        f"{root}."
+    )
 
 
 def _from_path(path: Path) -> RestartSource:

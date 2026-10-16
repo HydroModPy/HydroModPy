@@ -45,7 +45,13 @@ class LedgerEntry(HydroModelBase):
     hydromodpy_version: str = Field(description="Version that wrote the file")
     at: datetime = Field(description="Instant the file was written, UTC")
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="Digest of the file")
-    identity: Identity = Field(description="Identity block posed in the file")
+    identity: Identity | None = Field(
+        default=None,
+        description=(
+            "Identity block posed in the file; none for a file drawn from many runs "
+            "(summary/ tables and cohort figures)"
+        ),
+    )
 
     @model_validator(mode="after")
     def _relative(self) -> LedgerEntry:

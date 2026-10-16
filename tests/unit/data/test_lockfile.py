@@ -1,10 +1,9 @@
 """P9 lockfile contract tests.
 
 Cover the four mandatory sections, atomicity, and the strict verify path that
-``hmp dev lock verify --strict`` relies on. The two ``--no-lock`` tests
-drive the real ``hmp run`` code path with only the workflow engine stubbed,
-and assert on the file on disk. The last section pins the one address of
-``hydromodpy.lock``: the project root a run wrote it to.
+``hmp dev lock verify --strict`` relies on. The lock is written once by the
+launcher (``lock_update``), never by a run; the last section pins the one
+address of ``hydromodpy.lock``: the project root it was written to.
 """
 
 from __future__ import annotations
@@ -633,15 +632,13 @@ def test_lock_update_outside_any_workspace_raises_instead_of_exiting(
     resolver used to raise from inside the worker.
     """
     from hydromodpy.cli._workers.dev import lock_update
-    from hydromodpy.data.workspace import scaffold
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    monkeypatch.setattr(scaffold, "DEFAULT_ROOT", tmp_path / "no_default_workspace")
     orphan = tmp_path / "orphan"
     orphan.mkdir()
     monkeypatch.chdir(orphan)
 
-    with pytest.raises(FileNotFoundError, match="no_default_workspace"):
+    with pytest.raises(FileNotFoundError, match="-w"):
         lock_update(output=str(orphan / "custom.lock"))
 
 

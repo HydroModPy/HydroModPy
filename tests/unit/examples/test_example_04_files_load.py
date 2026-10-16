@@ -8,6 +8,7 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.sites.check import check_project
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 pytestmark = pytest.mark.fast
 
@@ -66,3 +67,30 @@ def test_each_calibration_passes_the_preflight(name: str) -> None:
     report = check_project(EXAMPLE_04 / name)
     assert report.kind == "calibration"
     assert report.ok, report.errors
+
+
+def test_the_project_names_its_catchment_and_its_window_once() -> None:
+    """[site] carries the gauge, [metrics] the window; no station is written twice."""
+    raw = load_toml_with_base_config(EXAMPLE_04 / "project.toml")
+    assert "workspace" not in raw
+    for variable in ("hydrometry", "recharge", "runoff"):
+        assert "station_ids" not in raw["data"][variable]["sources"][0]
+
+    cfg = HydroModPyConfig.from_toml(EXAMPLE_04 / "project.toml")
+    assert cfg.site is not None and cfg.site.name == "nancon"
+    assert cfg.site.gauge == "NANCON"
+    assert cfg.metrics is not None and cfg.metrics.window is not None
+    assert (str(cfg.metrics.window.start), str(cfg.metrics.window.end)) == (
+        "2001-01-01",
+        "2002-12-31",
+    )
+    for variable in ("hydrometry", "recharge", "runoff"):
+        assert getattr(cfg.data, variable).sources[0].station_ids == ["NANCON"]
+
+
+@pytest.mark.parametrize("name", FILES)
+def test_no_file_writes_a_retired_key(name: str) -> None:
+    raw = load_toml_with_base_config(EXAMPLE_04 / name)
+    assert "workspace" not in raw
+    assert raw.get("simulation", {}).get("if_exists") != "replace"
+    assert "rerun_best_with_outputs" not in raw.get("calibration", {})

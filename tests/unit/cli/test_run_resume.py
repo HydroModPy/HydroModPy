@@ -124,3 +124,28 @@ def test_force_is_rejected_outside_the_simulation_workflow(tmp_path, monkeypatch
 
     assert exit_info.value.code == EXIT_CONFIG
     assert "--force is only supported for the 'simulation' workflow" in capsys.readouterr().err
+
+
+def test_a_calibration_takes_a_bare_resume_and_reopens_its_session(tmp_path, monkeypatch, capsys):
+    """A launched calibration started again reopens its session instead of a new version."""
+    import hydromodpy
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    config = workspace / "cal.toml"
+    config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
+    monkeypatch.chdir(workspace)
+    calls: list[tuple[Path, dict]] = []
+    monkeypatch.setattr(
+        hydromodpy, "calibrate", lambda path, **kw: calls.append((Path(path), kw)) or {}
+    )
+    monkeypatch.setattr(hydromodpy, "run", lambda path, **kw: pytest.fail("hmp.run was called"))
+
+    run_cmd._run_toml(config, args=_args(resume="", dry_run=False, verbosity="quiet"))
+
+    assert len(calls) == 1 and calls[0][1] == {"resume": True, "return_report": False}
+
+    with pytest.raises(SystemExit) as exit_info:
+        run_cmd._run_toml(config, args=_args(resume="other", dry_run=False))
+    assert exit_info.value.code == EXIT_CONFIG
+    assert "pass a bare --resume" in capsys.readouterr().err

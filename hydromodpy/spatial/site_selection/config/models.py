@@ -1491,6 +1491,14 @@ class SiteSelectionConfig(HydroModelBase):
         return "custom"
 
 
+class SiteSelectionFile(HydroModelBase):
+    """The site selection file read by ``hmp site select``."""
+
+    site_selection: Annotated[SiteSelectionConfig, Profile.USER] = Field(
+        ..., description="The selection: territory, DEM, criteria and outputs."
+    )
+
+
 __all__ = [
     "AreaCriteriaConfig",
     "AreaRangeConfig",
@@ -1520,6 +1528,7 @@ __all__ = [
     "SelectionPrinciple",
     "SiteSelectionInputConfig",
     "SiteSelectionConfig",
+    "SiteSelectionFile",
     "SpatialSelectionConfig",
     "SpatialQuotaMode",
     "StationInfluenceCriteriaConfig",

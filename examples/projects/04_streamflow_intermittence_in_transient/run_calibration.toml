@@ -6,7 +6,7 @@
 #
 #   hmp calibrate run_calibration.toml --list-phases   each stage, before any solve
 #   hmp calibrate run_calibration.toml --expand        the same stages, as TOML
-#   hmp calibrate run_calibration.toml --check         every problem at once
+#   hmp config check run_calibration.toml              every problem at once
 #   hmp run       run_calibration.toml                 both stages, in order
 
 base_config = "project.toml"
@@ -29,7 +29,7 @@ bounds = [1e-7, 1e-3]
 bounds = [5e-3, 0.35]
 
 # The map stage one is scored on: the permanent reaches of BD TOPO, 181.7 km.
-# The gauge needs no declaration: the protocol reads NANCON from [data.hydrometry].
+# Stage two is scored on the gauge of [site].
 [calibration.outputs.seepage_network]
 support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"

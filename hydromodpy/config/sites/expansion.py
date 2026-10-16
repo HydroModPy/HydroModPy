@@ -777,7 +777,7 @@ def _resolve_case(
         return None
     config_hash = _config_hash(cfg)
     kind: CaseKind = "calibration" if cfg.calibration is not None else "simulation"
-    solves = int(cfg.calibration.parallel) if kind == "calibration" else 1
+    solves = _calibration_width(cfg.calibration) if cfg.calibration is not None else 1
     kept = int(cfg.calibration.save_best_n) if kind == "calibration" else 1
     return DraftCase(
         case_id=case_id,
@@ -788,8 +788,16 @@ def _resolve_case(
         kind=kind,
         solves=max(1, solves),
         kept_solves=max(1, kept),
-        done=_already_done(root, case_id, config_hash, kind),
+        done=case_is_done(root, case_id, config_hash, kind),
     )
+
+
+def _calibration_width(calibration: Any) -> int:
+    """Return the trials a calibration solves side by side at its widest phase."""
+    phases = list(calibration.phases or [])
+    if not phases:
+        return int(calibration.parallel)
+    return max(calibration.parallel_for(phase) for phase in phases)
 
 
 def _validate_case(
@@ -867,8 +875,13 @@ def _config_hash(cfg: Any) -> str | None:
     return run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
 
 
-def _already_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKind) -> bool:
-    """Whether a sealed run (or a completed session) of this case holds this hash."""
+def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKind) -> bool:
+    """Whether a sealed run (or a completed session) of this case holds this hash.
+
+    A calibration compares the hash of its sessions, never the one of the run
+    it promoted, whose parameters the best trial replaced. ``--dry-run`` and
+    the launcher both ask this question, so they say the same thing.
+    """
     if config_hash is None:
         return False
     from hydromodpy.results.catalog.registration import split_stem_version
@@ -911,6 +924,7 @@ __all__ = [
     "ResolvedRecipe",
     "ResolvedSite",
     "SitesProjectError",
+    "case_is_done",
     "declares_sites",
     "expand_plan",
     "find_sites_file",

@@ -49,3 +49,15 @@ def test_run_keeps_canonical_field_readers() -> None:
     assert hasattr(Run, "field")
     # ``array`` is initialised in ``__init__`` so check via __init__
     assert callable(Run.__init__)
+
+
+def test_run_answers_with_the_words_of_the_target() -> None:
+    """D9: ``site``, ``checks``, ``inputs``, ``exports``, ``figures``, ``label()`` and ``dir``.
+
+    The lineage is read by ``results.run.sealed.lineage_of`` (H36), the
+    summary by the README and ``record``: neither is an attribute of ``Run``.
+    """
+    for name in ("site", "checks", "inputs", "exports", "figures", "label", "dir", "record"):
+        assert hasattr(Run, name), name
+    for name in ("lineage", "summary", "parent", "solver_category", "input_entries"):
+        assert not hasattr(Run, name), name

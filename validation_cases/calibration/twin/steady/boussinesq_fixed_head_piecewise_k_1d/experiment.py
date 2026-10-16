@@ -27,14 +27,14 @@ CASE_DIR = (
 )
 
 
-def build_simulation_config(path: Path, project_root: Path) -> None:
+def build_simulation_config(path: Path) -> None:
     """Write one MODFLOW 6 simulation config for the steady piecewise-K benchmark."""
     config_builder(
         "modflow6",
         case_dir=CASE_DIR,
         common_files=("config_modflownwt.toml",),
         run_id="steady_piecewise_k_truth",
-    )(path, project_root)
+    )(path)
 
 
 def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:

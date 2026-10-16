@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.state.paths import catalog_path_for, parse_rel_dir
 from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.record import RunRecord
@@ -37,7 +36,7 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.run import Run
 
 BUDGETS_TABLE_NAME = "budgets"
 """Parquet table of the water budget of a run, ``tables.parquet/budgets.parquet``."""
@@ -182,34 +181,24 @@ def open_run_source(summary: Mapping[str, Any]) -> RunSource | None:
         return None
 
 
-def open_indexed_run(summary: Mapping[str, Any]) -> tuple[Catalog | None, str | None]:
-    """Open the project index read-only for the network metrics of one compared run.
+def open_run(summary: Mapping[str, Any]) -> Run | None:
+    """Open the run a simulation summary of a comparison names, as a ``Run``, or None.
 
     The network metrics and the network figures read a run through
-    :class:`~hydromodpy.results.run.Run`, which is opened from the index of
-    the project that holds the run (``<project>/runs/<name>``). The index is
-    derived from the run directories and is never written here. Without it, a
-    run copied out of its project or a project never indexed, this returns
-    ``(None, None)`` and the caller records why the run was skipped. The caller
-    closes the catalog.
+    :class:`~hydromodpy.results.run.Run`. It is opened on its sealed directory,
+    the way ``hmp.open(<run dir>)`` opens it: the index of the project is never
+    read, so a run copied out of its project or a project never indexed reads
+    the same. A summary without a sealed ``run_dir`` has nothing to read.
     """
-    source = open_run_source(summary)
-    if source is None:
-        return None, None
-    with source:
-        sim_id = source.sim_id
-        run_dir = source.run_dir
-    try:
-        if parse_rel_dir(f"{run_dir.parent.name}/{run_dir.name}").kind != "run":
-            return None, None
-    except ValueError:
-        return None, None
-    project_root = run_dir.parent.parent
-    if not catalog_path_for(project_root).is_file():
-        return None, None
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.run.view import open_run_dir
 
-    return Catalog(project_root), sim_id
+    raw = summary.get("run_dir")
+    if raw in (None, ""):
+        return None
+    directory = Path(str(raw))
+    if not is_sealed(directory):
+        return None
+    return open_run_dir(directory)
 
 
 __all__ = (
@@ -217,6 +206,6 @@ __all__ = (
     "TIMESERIES_TABLE_NAME",
     "RunNotComparableError",
     "RunSource",
-    "open_indexed_run",
+    "open_run",
     "open_run_source",
 )

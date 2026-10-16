@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -492,6 +493,91 @@ def test_a_running_case_refuses_a_new_plan_without_force(tmp_path: Path) -> None
     with pytest.raises(RunningCaseError, match="nancon-base"):
         write_plan_draft(project, draft)
     assert write_plan_draft(project, draft, force=True).is_dir()
+
+
+def _session(project: Path, case_id: str, status: str, *, host: str, pid: int) -> Path:
+    """Write a calibration session of *case_id* with a running outcome."""
+    from hydromodpy.results.outcome import Outcome, write_outcome
+    from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
+
+    session_dir = project / "sessions" / case_id
+    session_dir.mkdir(parents=True)
+    now = datetime.now(UTC)
+    write_session(
+        session_dir,
+        SessionDescriptor(
+            session_id="s1",
+            case_id=case_id,
+            config_hash="h1",
+            hydromodpy_version="0",
+            method="grid",
+            objective_name="nse",
+            status=status,
+            started_at=now,
+            ended_at=None if status == "running" else now,
+        ),
+    )
+    write_outcome(
+        session_dir,
+        Outcome(
+            case_id=case_id,
+            attempt=1,
+            attempt_id="a1",
+            status="running",
+            written_by="worker",
+            started_at=now,
+            host=host,
+            pid=pid,
+        ),
+    )
+    return session_dir
+
+
+def test_a_running_calibration_session_refuses_a_new_plan_without_force(tmp_path: Path) -> None:
+    from hydromodpy.config.sites.plan import running_cases
+
+    project = write_sites_project(tmp_path)
+    draft = expand_plan(project, project / "project.toml")
+    first = write_plan_draft(project, draft)
+    session = _session(project, "nancon-base", "running", host="here", pid=os.getpid())
+    assert running_cases(project, ["nancon-base"]) == ["sessions/nancon-base"]
+
+    project_toml = project / "project.toml"
+    project_toml.write_text(
+        project_toml.read_text(encoding="utf-8").replace("2000-03-31", "2000-04-30"),
+        encoding="utf-8",
+    )
+    changed = expand_plan(project, project_toml)
+    with pytest.raises(RunningCaseError, match="sessions/nancon-base"):
+        write_plan_draft(project, changed)
+    assert current_plan_hash(project) == first.name
+
+    # A session closed, or whose worker is dead, holds nothing.
+    shutil.rmtree(session)
+    _session(project, "nancon-base", "failed", host="here", pid=os.getpid())
+    assert running_cases(project, ["nancon-base"]) == []
+    shutil.rmtree(project / "sessions" / "nancon-base")
+    _session(project, "nancon-base", "running", host=socket.gethostname(), pid=2**22 + 7)
+    assert running_cases(project, ["nancon-base"]) == []
+    assert write_plan_draft(project, changed).name != first.name
+
+
+def test_the_plan_counts_a_calibration_at_its_widest_phase(tmp_path: Path) -> None:
+    project = write_sites_project(tmp_path)
+    _add_recipe(
+        project,
+        "calib",
+        "calib.toml",
+        "[calibration]\nparallel = 2\n\n[calibration.parameters.K]\nbounds = [1e-6, 1e-4]\n\n"
+        '[[calibration.phases]]\nname = "narrow"\nparameters = ["K"]\n'
+        'variable = "discharge"\nobjective = "nse"\n\n'
+        '[[calibration.phases]]\nname = "wide"\nparameters = ["K"]\nparallel = 6\n'
+        'variable = "discharge"\nobjective = "nse"\n',
+    )
+    draft = expand_plan(project, project / "project.toml")
+    assert not draft.errors, group_issues(draft.errors)
+
+    assert _case(draft, "nancon-calib").solves == 6
 
 
 def test_dry_run_counts_cases_solves_and_scratch(tmp_path: Path) -> None:

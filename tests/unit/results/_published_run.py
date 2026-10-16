@@ -7,7 +7,7 @@ import socket
 from pathlib import Path
 
 from hydromodpy.results.ledger import sha256_of
-from hydromodpy.results.manifest import InputEntry
+from hydromodpy.results.manifest import InputEntry, TrackedInput
 from tests.unit.results._run_record_factory import make_record
 
 RUN_NAME = "J0014010-base.v2"
@@ -40,7 +40,19 @@ def make_sealed_run(project: Path, *, license: str | None = "etalab-2.0") -> Pat
         bytes=observed.stat().st_size,
         license="etalab-2.0",
     )
-    record = make_record(inputs=[entry])
+    dem = workspace / "data" / "dem" / "bdalti_25m.tif"
+    dem.parent.mkdir(parents=True, exist_ok=True)
+    dem.write_bytes(b"II*\x00 a DEM the configuration declared")
+    tracked = TrackedInput(
+        role="dem",
+        category="raster",
+        path="data/dem/bdalti_25m.tif",
+        declared_path="data/dem/bdalti_25m.tif",
+        sha256=sha256_of(dem),
+        bytes=dem.stat().st_size,
+        portable=True,
+    )
+    record = make_record(inputs=[entry], tracked_inputs=[tracked])
     run_dir = project / "runs" / RUN_NAME
     run_dir.mkdir(parents=True)
     record.write(run_dir)
@@ -83,3 +95,50 @@ def make_sealed_run(project: Path, *, license: str | None = "etalab-2.0") -> Pat
     (run_dir / "fields.zarr").mkdir()
     (run_dir / "fields.zarr" / "zarr.json").write_text('{"zarr_format": 3, "node_type": "group"}')
     return run_dir
+
+
+def make_summary(project: Path, *, error_message: str, parquet_error: str | None = None) -> Path:
+    """Write a ``summary/`` whose failed case names *error_message*, journal included.
+
+    ``by_case.csv`` carries *error_message*; ``by_case.parquet`` carries
+    *parquet_error*, a neutral message when it is not given. ``published.jsonl``
+    holds the absolute destination of an earlier publication.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from hydromodpy.results.publication import PublishedLine, append_published
+
+    summary = project / "summary"
+    (summary / "report" / "compare" / "a-vs-b").mkdir(parents=True)
+    (summary / "by_case.csv").write_text(
+        "case_id,status,error_message\n"
+        "J0014010-base,completed,\n"
+        f'J0014010-wet,failed,"{error_message}"\n',
+        encoding="utf-8",
+    )
+    pq.write_table(
+        pa.table(
+            {
+                "case_id": ["J0014010-base", "J0014010-wet"],
+                "status": ["completed", "failed"],
+                "error_message": [None, parquet_error or "MODFLOW 6 did not converge"],
+            }
+        ),
+        summary / "by_case.parquet",
+    )
+    (summary / "report" / "compare" / "a-vs-b" / "observables.csv").write_text(
+        f"observable,source_path,run_folder\nQ,{project}/runs/a/tables.parquet,{project}/runs/a\n",
+        encoding="utf-8",
+    )
+    (summary / "README.md").write_text("# Summary of bretagne_k\n", encoding="utf-8")
+    append_published(
+        summary,
+        PublishedLine(
+            to=str(project.parent.parent.parent / "deliverables" / "first"),
+            format="dir",
+            published_at="2026-10-15T00:00:00Z",
+            publication_sha256="0" * 64,
+        ),
+    )
+    return summary

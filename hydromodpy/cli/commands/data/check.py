@@ -20,7 +20,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Examples:\n  hmp data check\n  hmp data check --variable dem --fix",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--workspace", default=None, help="Workspace root")
+    parser.add_argument("-w", "--workspace", default=None, help="Workspace root")
     parser.add_argument(
         "--variable", default=None, help="Restrict to one variable (e.g. piezometry)"
     )

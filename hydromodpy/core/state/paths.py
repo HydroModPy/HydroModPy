@@ -123,13 +123,19 @@ RUN_INTERNAL_CHECKPOINTS_DIRNAME = "checkpoints"
 """Step checkpoints of the attempt in progress, ``runs/<case>/.hmp/checkpoints/``."""
 
 RUN_DATA_CACHE_FILENAME = "data-cache.duckdb"
-"""Private data cache of a worker, ``runs/<case>/.hmp/data-cache.duckdb``, merged by the launcher."""
+"""Private data cache of a launched case, merged by the launcher.
+
+``jobs/<stamp>-local/caches/<case>.<phase>/data-cache.duckdb``.
+"""
 
 SCRATCH_ROOT_ENV = "HMP_SCRATCH_ROOT"
-"""Machine scratch root that replaces ``runs/<case>/.hmp/scratch/`` (``$SLURM_TMPDIR``).
+"""Machine scratch root that replaces the scratch inside the project (``$SLURM_TMPDIR``).
 
-Under it a run works in ``<project>/<case>.a<attempt>/``. It is read from the
-environment only: it is never an author key and never enters the config hash.
+Under it the solver of a run works in ``<project>/<case>.a<attempt>/`` (in
+place of ``runs/<case>/.hmp/scratch/``) and its preprocessing in
+``<project>/<case>.p<pid>/`` (in place of ``<project>/.hmp/scratch/``). It is
+read from the environment only: it is never an author key and never enters
+the config hash.
 """
 
 CATALOG_FILENAME = "index.duckdb"
@@ -346,7 +352,15 @@ _run_scratch_depth = 0
 
 
 def scratch_root_for(project_root: Path) -> Path:
-    """Return ``<root>/.hmp/scratch``, which holds the scratch folder of every run."""
+    """Return the folder that holds the scratch folder of every run of a project.
+
+    ``<root>/.hmp/scratch`` by default. Under :data:`SCRATCH_ROOT_ENV` it is
+    ``$HMP_SCRATCH_ROOT/<project>``, beside the solver folders of the attempts,
+    so the preprocessing of a run lands on the machine scratch too.
+    """
+    machine = os.environ.get(SCRATCH_ROOT_ENV, "").strip()
+    if machine:
+        return Path(machine).expanduser() / Path(project_root).resolve().name
     return internal_dir(project_root) / "scratch"
 
 

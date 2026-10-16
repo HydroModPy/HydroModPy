@@ -64,6 +64,34 @@ def produced_run(tmp_path_factory: pytest.TempPathFactory) -> ProducedRun:
 
 
 @pytest.fixture(scope="session")
+def run_before_its_seal(tmp_path_factory: pytest.TempPathFactory) -> ProducedRun:
+    """Run the same project through the real CLI and stop it right before the seal.
+
+    The seal of a completed run removes ``<run>/.hmp/`` and the step journal
+    with it. A run stopped after ``export`` keeps its attempt state, so the
+    journal of every step but the seal is still on disk to be read.
+    """
+    assert_required_executables(require_modflow=True, require_modpath=False)
+    workspace = tmp_path_factory.mktemp("characterization_unsealed")
+    run_hmp_cli(
+        config_path=CHARACTERIZATION_PROJECT,
+        out_path=workspace,
+        extra_args=("--until", "export"),
+        timeout=900,
+    )
+    run_dir = workspace / "runs" / CHARACTERIZATION_RUN_NAME
+    if not run_dir.is_dir():
+        produced = sorted(path.name for path in (workspace / "runs").glob("*"))
+        raise AssertionError(f"run directory {run_dir} not produced; runs/ holds {produced}")
+    return ProducedRun(
+        workspace=workspace,
+        run_dir=run_dir,
+        run_name=CHARACTERIZATION_RUN_NAME,
+        config=CHARACTERIZATION_PROJECT,
+    )
+
+
+@pytest.fixture(scope="session")
 def live_project(tmp_path_factory: pytest.TempPathFactory):
     """Drive the same project in process and hand back the live ``Project``.
 

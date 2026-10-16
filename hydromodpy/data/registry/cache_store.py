@@ -413,7 +413,8 @@ def register(
                 )
                 row = backend.fetch_one("SELECT currval('entries_seq')")
                 return row[0]
-        except duckdb.IOException:
+        except (duckdb.IOException, duckdb.TransactionException):
+            # A lock held by another writer, or a write-write conflict at commit.
             if attempt < _RETRY - 1:
                 time.sleep(_BACKOFF * (2**attempt))
             else:

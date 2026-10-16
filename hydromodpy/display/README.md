@@ -46,10 +46,9 @@ rules.
    is the one place a date meets a run: it calls `run.periods.step_at` and hands the
    figure the step as `timestep`, the internal channel the maps read. The user
    never writes `timestep`. In a TOML the old key is renamed to `time` on load
-   by `config/config_migration.py` (INFO line, `hmp doctor --fix-config`
-   persists it); a `DisplayConfig` built from a dict renames it in its own
-   before-validator, with a `ConfigKeyRenamedWarning`. A date
-   the run does not hold skips the figure with its reason.
+   by `config/config_migration.py` (INFO line); a `DisplayConfig` built from a
+   dict renames it in its own before-validator, with a `ConfigKeyRenamedWarning`.
+   A date the run does not hold skips the figure with its reason.
 4. **An option is a parameter.** The keys `[display.overrides.<figure>]` takes
    are the named parameters of the figure's `plot` and `render`, read along the
    MRO while a `**` parameter forwards them (`figure.option_names_of`). A key
@@ -215,6 +214,11 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
                       png_metadata.stamp_png_identity: footer + identity text chunk
                 ->  runs/<run>/figures/<name>.png, recorded in runs/<run>/figures/index.json
 ```
+
+**Cohort figures.** `figures/cohort_map.py` and `figures/cohort_distribution.py`
+draw one table with one row per site, not a run; `figures/cohort_table.py` reads
+the columns they share. `hmp project collect` (`project/summary.py`) draws them
+under `summary/figures/` for each name of `[sites.summary] figures`.
 
 `hmp viz regen <run>` replays `figures/index.json` (`runs.regen_figures`).
 `hmp viz show` and `hmp.figure(...)` go through `runs.render_figure`, which

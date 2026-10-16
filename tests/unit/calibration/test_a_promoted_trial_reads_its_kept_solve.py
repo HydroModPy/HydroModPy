@@ -582,7 +582,6 @@ def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
             phase="main",
             session_status="completed",
             override_paths={},
-            objective_window=None,
         )
 
     assert (outcome.count, outcome.failures) == (2, [])

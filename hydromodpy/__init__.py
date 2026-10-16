@@ -18,6 +18,7 @@ from hydromodpy._api import (
     example_show,
     export,
     figure,
+    index,
     open,
     read,
     report,
@@ -49,6 +50,7 @@ log_manager = _log_manager
 
 _DIRECT_EXPORTS = [
     "open",
+    "index",
     "catalog",
     "read",
     "example_add",

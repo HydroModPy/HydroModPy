@@ -2,7 +2,7 @@
 
 The protocol declares the key with the paper's value, so the Methods
 paragraph names it only when a file moves it off that value. The key lives
-under [geographic], so the run and ``hmp calibrate --check`` read it there,
+under [geographic], so the run and ``hmp config check`` read it there,
 and only when the file wrote it. The solvers fall back on the same default.
 """
 

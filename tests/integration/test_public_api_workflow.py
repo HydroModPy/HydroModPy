@@ -29,9 +29,9 @@ def _project(tmp_path: Path, scores: dict[str, float] | None = None) -> tuple[Pa
 
 
 def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
-    """``hmp.open`` on an indexed project without run yields an empty simulations table."""
+    """The index of an opened project without run yields an empty simulations table."""
     root, _ = _project(tmp_path)
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         assert isinstance(catalog, hmp.Catalog)
         df = catalog.simulations
         assert isinstance(df, pd.DataFrame)
@@ -40,17 +40,19 @@ def test_open_returns_catalog_with_empty_dataframe(tmp_path: Path) -> None:
         assert "project" in df.columns
 
 
-def test_open_without_an_index_names_the_command_that_builds_it(tmp_path: Path) -> None:
-    """A reader never creates an index: the refusal says how to build one."""
+def test_open_reads_a_project_never_indexed(tmp_path: Path) -> None:
+    """The index is derived: reading an opened project builds it from the run directories."""
     root = make_project(tmp_path / "demo")
-    with pytest.raises(FileNotFoundError, match="hmp catalog reindex"):
-        hmp.open(root)
+    sim_id = seal_run(root, "only", nse=0.5)
+    with hmp.open(root) as proj:
+        assert isinstance(proj, hmp.Project)
+        assert list(proj.cases["sim_id"].astype(str)) == [sim_id]
 
 
 def test_catalog_supports_context_manager(tmp_path: Path) -> None:
     """The catalog can be used as a ``with`` block (no leaked DB handle)."""
     root, _ = _project(tmp_path)
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         assert catalog.workspace_path == root.resolve()
     assert catalog.closed
 
@@ -58,7 +60,7 @@ def test_catalog_supports_context_manager(tmp_path: Path) -> None:
 def test_sealed_runs_read_back_through_the_index(tmp_path: Path) -> None:
     """Two sealed runs are listed with their project and their status."""
     root, sim_ids = _project(tmp_path, {"run_a": 0.92, "run_b": 0.45})
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         df = catalog.simulations
         assert {str(x) for x in df["sim_id"]} == set(sim_ids.values())
         assert set(df["project"]) == {"demo"}
@@ -68,7 +70,7 @@ def test_sealed_runs_read_back_through_the_index(tmp_path: Path) -> None:
 def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> None:
     """``catalog.find(project=..., nse_gt=...)`` returns a RunSet."""
     root, sim_ids = _project(tmp_path, {"good": 0.92, "bad": 0.45})
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         group = catalog.find(project="demo", nse_gt=0.7)
         assert isinstance(group, hmp.RunSet)
         assert group.sim_ids == [sim_ids["good"]]
@@ -78,7 +80,7 @@ def test_find_returns_simulation_group_filtered_by_metric(tmp_path: Path) -> Non
 def test_best_returns_simulation_view_with_public_methods(tmp_path: Path) -> None:
     """``catalog.best`` returns a Run exposing sim_id, project and its sealed scores."""
     root, sim_ids = _project(tmp_path, {"good": 0.92, "bad": 0.45})
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         best = catalog.best("demo", metric="nse")
         assert best.sim_id == sim_ids["good"]
         assert best.project == "demo"
@@ -119,7 +121,7 @@ def test_a_rebuilt_index_reads_the_same_run(tmp_path: Path) -> None:
     rebuild_index(root)
     rebuild_index(root)
 
-    with hmp.open(root) as catalog:
+    with hmp.open(root).store as catalog:
         sims = catalog.list_simulations(project="lifecycle_demo")
         assert len(sims) == 1
         assert sims.iloc[0]["solver"] == "modflow_nwt"

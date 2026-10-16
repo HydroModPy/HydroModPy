@@ -328,7 +328,7 @@ class FlowReachNetworkConfig(HydroModelBase):
             "This is the surface re-infiltration / runon convergence of drained "
             "water towards the river; without it only the reach cells' streambed "
             "captures baseflow and the rest of the catchment discharge is lost "
-            "(about 6 % of the water of the basin of D on the Nancon). "
+            "(a few per cent of the water of a catchment). "
             "On by default; set False only to study the network alone."
         ),
     )

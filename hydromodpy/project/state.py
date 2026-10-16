@@ -9,6 +9,11 @@ typed view of the state and removes the dunder-attribute sprawl on
 ``Project`` proxies private attribute reads and writes (``project._config_path``,
 ``project._cfg``, ...) to this dataclass via ``__getattr__`` / ``__setattr__``.
 The public read-only view of the config is ``Project.config``.
+
+A project opened on its directory (``hmp.open``) carries its ``root`` and no
+configuration yet: the first read of a field of
+:data:`CONFIGURED_STATE_FIELDS` configures it from ``project.toml``, so
+reading the runs of a project never validates, plans or builds a model.
 """
 
 from __future__ import annotations
@@ -55,6 +60,8 @@ class ProjectState:
     phase: str = "uninitialized"
     data_loaded: set[str] = field(default_factory=set)
     run_history: list[Run] = field(default_factory=list)
+    root: Path | None = None
+    """Project directory of a project opened on its directory, ``None`` otherwise."""
 
 
 PROJECT_ATTR_TO_STATE_FIELD: dict[str, str] = {
@@ -84,4 +91,18 @@ its :class:`ProjectState` container.
 """
 
 
-__all__ = ["PROJECT_ATTR_TO_STATE_FIELD", "ProjectState"]
+CONFIGURED_STATE_FIELDS: frozenset[str] = frozenset(
+    {
+        "cfg",
+        "ctx",
+        "solver",
+        "time_grid",
+        "spatial_support_registry",
+        "requested_support_ids",
+        "requested_domain_supports",
+    }
+)
+"""State fields a project opened on its directory fills when it configures itself."""
+
+
+__all__ = ["CONFIGURED_STATE_FIELDS", "PROJECT_ATTR_TO_STATE_FIELD", "ProjectState"]

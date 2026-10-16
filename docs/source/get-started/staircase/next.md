@@ -28,10 +28,10 @@ the {doc}`list of data sources <../../reference/data-sources>` says what each on
 ## The calibration files
 
 Example 04 ships five files that calibrate the model of `project.toml`. Check one before you
-run it: `--check` loads the file, prints what each phase will do and runs nothing.
+run it: `hmp config check` loads the file, prints what each phase will do and runs nothing.
 
 ```bash
-hmp calibrate run_calibration.toml --check
+hmp config check run_calibration.toml
 hmp calibrate run_calibration.toml --list-phases
 hmp run run_calibration.toml
 ```
@@ -90,5 +90,7 @@ results back as pandas and xarray objects. The
 | Know what a key does | {doc}`../../reference/parameters/index` |
 | Write the results as files | {doc}`../../reference/parameters/export` |
 | Find, compare or delete runs, rebuild the index | {doc}`../../reference/cli/catalog` |
+| Run the model on many catchments | {doc}`../many-catchments` |
+| Run them on a Slurm cluster | {doc}`../cluster` |
 | Read what an exit code means | {doc}`../../reference/cli/exit-codes` |
 | Read how the equations work | {doc}`../../theory/index` |

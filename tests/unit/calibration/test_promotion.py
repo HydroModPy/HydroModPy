@@ -176,7 +176,6 @@ def _promote(project: Path, persistence, *, cfg: CalibrationConfig, status: str 
         phase="main",
         session_status=status,
         override_paths={"K": K_PATH},
-        objective_window=DateWindow(start="2001-01-01", end="2002-12-31"),
     )
 
 
@@ -395,7 +394,6 @@ class TestThePromotionAfterAnInterruption:
             project_root=project,
             phase="main",
             override_paths={"K": K_PATH},
-            objective_window=None,
         )
 
     def test_the_best_trial_is_promoted_from_its_kept_solve_as_aborted(
@@ -594,3 +592,190 @@ class TestAfterTheFact:
         ]
         assert list(trials_root.iterdir()) == []
         assert read_session(persistence.directory).best.trial == 2
+
+
+FROZEN_STAGED = """\
+[site]
+name = "nancon"
+
+[calibration]
+use_cache = false
+
+[calibration.parameters.K]
+bounds = [1e-6, 1e-3]
+target = "flow.param.K.field.value"
+
+[calibration.parameters.Sy]
+bounds = [0.01, 0.3]
+target = "flow.param.Sy.field.value"
+
+[calibration.outputs.q]
+variable = "discharge"
+support = "boundary"
+boundary_id = "outlet"
+observed_values = [1.0, 2.0]
+
+[[calibration.objective_blocks]]
+name = "q_block"
+metric = "rmse"
+uses_outputs = ["q"]
+
+[[calibration.phases]]
+name = "steady_k"
+method = "bisection"
+max_iter = 12
+parameters = ["K"]
+objective_blocks = ["q_block"]
+
+[[calibration.phases]]
+name = "transient_sy"
+method = "grid"
+max_iter = 3
+parameters = ["Sy"]
+objective_blocks = ["q_block"]
+depends_on = "steady_k"
+"""
+
+K_FROZEN = 2.5e-5
+
+
+def _staged_prepare(
+    cfg_path, *, override_paths, steps=None, parameter_space=None, config_overrides=None
+):
+    """A prepared pipeline whose baseline holds the declared K, as a fresh load does."""
+    declared_k = SimpleNamespace(field=SimpleNamespace(value=1e-4))
+    base = SimpleNamespace(flow=SimpleNamespace(param=SimpleNamespace(K=declared_k)))
+    return TrialContext(
+        base_cfg=base,
+        ctx=None,
+        earliest=0,
+        downstream_steps=(),
+        override_paths=dict(override_paths),
+        workspace=cfg_path.parent,
+        cfg_path=cfg_path,
+        parameter_space=parameter_space,
+    )
+
+
+def _phase_marker(**kwargs) -> dict[str, Any]:
+    """The parts of the hash context a phase changes: its configuration and its baseline."""
+    cfg, trial_ctx = kwargs["cfg"], kwargs["trial_ctx"]
+    return {
+        "whole": cfg.phases is not None,
+        "parameters": sorted(cfg.parameters),
+        "method": cfg.method,
+        "K": trial_ctx.base_cfg.flow.param.K.field.value,
+    }
+
+
+class TestATrialOfAStagedSessionIsReplayedOnItsPhase:
+    def _staged_session(self, project: Path) -> CalibrationPersistence:
+        from hydromodpy.calibration.persistence import PhaseContext
+
+        persistence = _session(project, costs={})
+        phase = PhaseContext("transient_sy", 1, 0)
+        persistence.start_phase(
+            phase,
+            frozen={
+                "K": {"value": K_FROZEN, "path": K_PATH, "mode": "replace", "from": "steady_k"}
+            },
+        )
+        recorded = params_hash(
+            {"Sy": 0.05},
+            context={"whole": False, "parameters": ["Sy"], "method": "grid", "K": K_FROZEN},
+        )
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=1, values={"Sy": 0.05}),
+            EvaluationResult(
+                trial_id=1,
+                sim_id=None,
+                objective_value=0.3,
+                status="completed",
+                metadata={"params_hash": recorded},
+            ),
+            phase=phase,
+        )
+        persistence.finalize_session(status="completed", best=None)
+        (persistence.directory / "config.toml").write_text(FROZEN_STAGED, encoding="utf-8")
+        return persistence
+
+    def test_its_params_hash_is_reproduced_and_it_is_replayed(
+        self, tmp_path, recorder, monkeypatch
+    ) -> None:
+        from hydromodpy.calibration.runners import staged_runner as staged_module
+
+        self._staged_session(tmp_path)
+        monkeypatch.setattr(staged_module, "prepare_trials", _staged_prepare)
+        monkeypatch.setattr(state_module, "build_cache_context", _phase_marker)
+
+        target = promote_trial_from_session(tmp_path, "calage", 1)
+
+        assert target == tmp_path / "runs" / "calage"
+        (call,) = recorder.calls
+        assert call["values"] == {"Sy": pytest.approx(0.05)}
+        assert call["lineage"].phase == "transient_sy"
+
+    def test_a_baseline_without_the_frozen_value_is_another_model(
+        self, tmp_path, recorder, monkeypatch
+    ) -> None:
+        from hydromodpy.calibration.runners import staged_runner as staged_module
+
+        self._staged_session(tmp_path)
+        monkeypatch.setattr(staged_module, "prepare_trials", _staged_prepare)
+        monkeypatch.setattr(staged_module, "_freeze_into_baseline", lambda *args: None)
+        monkeypatch.setattr(state_module, "build_cache_context", _phase_marker)
+
+        with pytest.raises(CalibrationError, match="scored on another model"):
+            promote_trial_from_session(tmp_path, "calage", 1)
+        assert recorder.calls == []
+
+
+class TestWhatThePromotedRunIsToldOfItsSession:
+    def test_the_best_carries_the_objective_and_the_parameters_it_set(
+        self, tmp_path, recorder
+    ) -> None:
+        persistence = _session(tmp_path, costs={1: 0.9, 2: 0.1, 3: 0.5})
+
+        _promote(tmp_path, persistence, cfg=_cfg(save_best_n=2))
+
+        best, other = recorder.calls
+        promotion = best["promotion"]
+        assert (promotion.objective_name, promotion.objective_value) == ("nse", 0.1)
+        assert promotion.objective_window == DateWindow(start="2001-01-01", end="2002-12-31")
+        assert promotion.converged is True
+        assert [item.name for item in promotion.calibrated] == ["K"]
+        assert other["promotion"] is None
+
+    def test_a_value_on_a_bound_is_named(self) -> None:
+        descriptor = SimpleNamespace(
+            objective_name="nse_log",
+            objective_window=DateWindow(start="2001-01-01", end="2002-12-31"),
+        )
+        row = {
+            "status": "completed",
+            "objective_value": 0.4,
+            "parameters": {
+                "K": {
+                    "value": 1e-6,
+                    "transformed_value": -6.0,
+                    "bounds": [1e-6, 1e-4],
+                    "transformed_bounds": [-6.0, -4.0],
+                    "target": K_PATH,
+                },
+                "Sy": {
+                    "value": 0.05,
+                    "transformed_value": -1.30103,
+                    "bounds": [0.01, 0.3],
+                    "transformed_bounds": [-2.0, -0.52288],
+                    "target": "flow.param.Sy.field.values_by_key.granite",
+                },
+            },
+        }
+
+        promotion = promotion_module.promotion_facts(descriptor, row)
+
+        assert promotion.bounds_hit == ["K"]
+        assert [(item.name, item.zone) for item in promotion.calibrated] == [
+            ("K", None),
+            ("Sy", "granite"),
+        ]

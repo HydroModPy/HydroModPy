@@ -485,11 +485,10 @@ value = "0.12 -"
 figures = ["mesh_map", "piezometric_map", "watertable_depth_map", "water_budget"]
 on_error = "warn"  # log a figure that fails to render and keep going
 
-[export]
-# Writes a GeoTIFF next to the run's other outputs so the first result is
-# something you can open in QGIS, not just numbers in a log.
-# variables defaults to ["head"], which is exactly what the demo needs.
-geotiff = true
+[[export]]
+# Writes the head as a GeoTIFF under runs/<run>/exports/, so the first result
+# is something you can open in QGIS, not just numbers in a log.
+variables = "head"
 """
 
 RUN_TOML_TEMPLATE = """\

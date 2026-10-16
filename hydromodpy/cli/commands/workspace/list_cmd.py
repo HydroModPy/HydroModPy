@@ -11,6 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "list"
@@ -31,11 +32,18 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        epilog="Examples:\n  hmp workspace list\n  hmp workspace list ~/hydromodpy --json",
+        parents=[workspace_parser()],
+        epilog=(
+            "Examples:\n  hmp workspace list\n  hmp workspace list ~/hydromodpy --json\n"
+            "  hmp workspace list -w ~/hydromodpy/projects/demo"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "path", nargs="?", default=None, help="Workspace or project root (default: current dir)"
+        "path",
+        nargs="?",
+        default=None,
+        help="Workspace or project root (default: -w, else the current directory)",
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
     parser.set_defaults(_handler=run)
@@ -45,7 +53,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.workspace import list_workspace_runs
 
-    root = Path(args.path).expanduser().resolve() if args.path else Path.cwd().resolve()
+    named = args.path or args.workspace
+    root = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
     if not root.is_dir():
         print(f"Not a directory: {root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

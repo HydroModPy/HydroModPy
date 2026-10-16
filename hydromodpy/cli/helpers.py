@@ -16,7 +16,7 @@ from hydromodpy.core.logging import get_logger
 
 # ---------------------------------------------------------------------------
 # Standardised exit codes for the hmp CLI. The shared grammar that emits them
-# lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..19 map onto
+# lives in ``hydromodpy/cli/_conventions.py``. Typed codes 10..23 map onto
 # specific exception classes; 0/1/2 keep their POSIX-conventional meaning;
 # 130 is the standard SIGINT termination code.
 # ---------------------------------------------------------------------------
@@ -34,15 +34,11 @@ EXIT_VALIDATION = 16
 EXIT_CROSS_PROJECTS = 17
 EXIT_BACKUP_FAILED = 18
 EXIT_MIGRATION_FAILED = 19
-# The 10..19 band is fully assigned above, so the categories added since take
-# the following slots. CLAUDE.md documents the band as 10..21.
 EXIT_AMBIGUOUS_REFERENCE = 20
 EXIT_CALIBRATION = 21
-# 10..21 is now fully assigned too: this one goes one past the band CLAUDE.md
-# still documents as 10..21, same way 20/21 once did.
 EXIT_CATALOG_UNREADABLE = 22
-# A testbed or a regional lab that ran and wrote its evidence, with at least
-# one case failed. Apart from a crash (1), so a CI job can tell the two.
+# A launch of several cases that ran to its end with at least one case
+# failed. Apart from a crash (1), so a CI job can tell the two.
 EXIT_CASES_FAILED = 23
 EXIT_SIGINT = 130
 
@@ -113,6 +109,9 @@ def exit_code_for(exc: BaseException) -> int:
         (AttemptClaimedError, EXIT_WRITE_CONFLICT),
         (CaseAliveError, EXIT_WRITE_CONFLICT),
         (DirectoryWithoutOutcomeError, EXIT_WRITE_CONFLICT),
+        # The directory a move or a reservation targets is already there: a
+        # paired run directory taken, a restore onto a live name.
+        (FileExistsError, EXIT_WRITE_CONFLICT),
         (ConfigError, EXIT_CONFIG),
         (ConfigMissingError, EXIT_CONFIG),
         (SolverError, EXIT_SOLVER_ERROR),
@@ -194,18 +193,84 @@ def find_data_workspace(start: Path) -> Path | None:
     return None
 
 
-def resolve_workspace(workspace_arg: str | None) -> Path:
-    """Resolve the workspace root from an optional CLI argument."""
-    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
+def find_workspace(workspace_arg: str | None) -> Path | None:
+    """Return the workspace named by ``-w``, by ``HMP_WORKSPACE``, or above the cwd.
 
-    root = Path(workspace_arg).expanduser().resolve() if workspace_arg else DEFAULT_ROOT
-    if not root.is_dir():
+    A named project directory resolves to the workspace that holds it; a named
+    directory that carries ``data/``, ``projects/`` or ``workspace.toml`` is
+    the workspace. Returns ``None`` when nothing answers: there is no default
+    folder such as ``~/hydromodpy``.
+    """
+    from hydromodpy.core.state.paths import is_workspace_root
+
+    named = workspace_arg or os.environ.get("HMP_WORKSPACE")
+    start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
+    if not start.is_dir():
+        return None
+    found = find_data_workspace(start)
+    if found is None and (is_workspace_root(start) or (named and (start / "data").is_dir())):
+        found = start
+    return found
+
+
+def resolve_workspace(workspace_arg: str | None) -> Path:
+    """Return :func:`find_workspace`, or stop with :data:`EXIT_NOT_FOUND` naming ``-w``."""
+    found = find_workspace(workspace_arg)
+    if found is not None:
+        return found
+    named = workspace_arg or os.environ.get("HMP_WORKSPACE")
+    start = Path(named).expanduser().resolve() if named else Path.cwd().resolve()
+    if not start.is_dir():
         print(
-            f"Workspace {root} does not exist. Run 'hmp workspace init' first.",
+            f"Workspace {start} does not exist. Run 'hmp workspace init {start}' first.",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"No HydroModPy workspace at or above {start}. Name one with -w, "
+            "or run 'hmp workspace init' first.",
+            file=sys.stderr,
+        )
+    sys.exit(EXIT_NOT_FOUND)
+
+
+def resolve_project(workspace_arg: str | None) -> Path:
+    """Return the project named by ``-w``, or the one that holds the cwd.
+
+    The project is the directory that carries ``project.toml`` (or an index).
+    Without one, the command stops with :data:`EXIT_NOT_FOUND`.
+    """
+    from hydromodpy.core.state.paths import (
+        PROJECT_MARKER_FILENAME,
+        is_project_root,
+        resolve_project_root,
+    )
+
+    start = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
+    root = resolve_project_root(start)
+    if not is_project_root(root):
+        print(
+            f"No {PROJECT_MARKER_FILENAME} at or above {start}. Name the project with -w.",
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)
     return root
+
+
+def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
+    """Return ``projects/<name>`` of the workspace, or the project of ``-w`` without a name.
+
+    Stops with :data:`EXIT_NOT_FOUND` when the directory does not exist.
+    """
+    if name is None:
+        return resolve_project(workspace_arg)
+    from hydromodpy.core.state.paths import PROJECTS_DIRNAME
+
+    project_dir = resolve_workspace(workspace_arg) / PROJECTS_DIRNAME / name
+    if not project_dir.is_dir():
+        print(f"No such project: {project_dir}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    return project_dir
 
 
 # ---------------------------------------------------------------------------
@@ -399,14 +464,19 @@ __all__ = (
     "EXIT_BACKUP_FAILED",
     "EXIT_MIGRATION_FAILED",
     "EXIT_AMBIGUOUS_REFERENCE",
+    "EXIT_CALIBRATION",
     "EXIT_CATALOG_UNREADABLE",
+    "EXIT_CASES_FAILED",
     "EXIT_SIGINT",
     "exit_code_for",
     "exit_if_promotion_failed",
     "find_project_root",
     "find_workspace_root",
     "find_data_workspace",
+    "find_workspace",
     "resolve_workspace",
+    "resolve_project",
+    "resolve_named_project",
     "apply_verbosity",
     "auto_scan_workspace",
     "profile_arg_from_toml",

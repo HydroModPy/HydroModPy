@@ -205,6 +205,16 @@ class TestWhatItWrites:
 
         assert expanded["outputs"]["hydrograph"]["observes"] == "OTHER"
 
+    def test_the_gauge_of_the_site_is_the_station_when_none_is_named(self) -> None:
+        """Several stations loaded, none named: the gauge of [site] decides (D6)."""
+        doc = _doc()
+        doc["site"] = {"name": "nancon", "gauge": "NANCON"}
+        doc["data"]["hydrometry"]["sources"][0]["station_ids"] = ["NANCON", "OTHER"]
+
+        expanded = expand_calibration_protocol(doc)["calibration"]
+
+        assert expanded["outputs"]["hydrograph"]["observes"] == "NANCON"
+
     def test_an_ambiguous_station_falls_back_to_the_single_metric_route(self) -> None:
         """Several stations named: not B11's to guess, so it keeps the old route."""
         doc = _doc()

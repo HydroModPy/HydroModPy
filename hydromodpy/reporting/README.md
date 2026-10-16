@@ -62,8 +62,8 @@ hydromodpy/reporting/
 |---|---|
 | calibration session | `sessions/<session>/report/index.html`, figures in `sessions/<session>/figures/` |
 | comparison | `<project>/summary/report/compare/<refs>/[<site>/]web/index.html`, or under `--out` |
-| site selection | `<output_root>/review/index.html` of the manifest |
-| site-selection plan | `<output_root>/review/index.html` of the plan manifest |
+| site selection | `review/index.html` under the `[site_selection] output_root` of the manifest |
+| site-selection plan | `review/index.html` under the `[site_selection] output_root` of the plan manifest |
 
 Nothing a report writes is a source of truth. A report is regenerated from
 the runs, the sessions and the manifests it reads.

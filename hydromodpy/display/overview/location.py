@@ -3,7 +3,10 @@
 An overview is a producer of the project: its panels go to
 ``runs/<overview>/figures/`` and its web pages to
 ``runs/<overview>/report/``. ``<overview>`` is the ``[site] name`` of the
-configuration, else ``[overview] name``.
+configuration, else ``[overview] name``. An overview claims its directory
+through the attempt protocol, so a second overview of the same name is
+``runs/<overview>.v2/``: the directory of an overview is the latest version
+of its name.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from typing import Any
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.results.storage.attempt import latest_version_dir
 from hydromodpy.results.storage.contract import (
     REPORT_INDEX_FILENAME,
     RUN_FIGURES_DIRNAME,
@@ -54,8 +58,9 @@ def overview_run_dir_of(state: Any) -> Path:
 
 
 def overview_run_dir(project_root: Path, name: str) -> Path:
-    """Return ``runs/<name>/``, the directory of one overview."""
-    return runs_dir_for(Path(project_root)) / name
+    """Return the directory of the overview *name*: its latest version, else ``runs/<name>/``."""
+    latest = latest_version_dir(Path(project_root), name)
+    return latest if latest is not None else runs_dir_for(Path(project_root)) / name
 
 
 def overview_figures_dir(run_dir: Path) -> Path:

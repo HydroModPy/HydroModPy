@@ -24,7 +24,7 @@ import pyarrow as pa
 from hydromodpy.config.sites.expansion import DraftCase, PlanDraft
 from hydromodpy.config.sites.issues import PlanError
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.state.paths import PLAN_DIRNAME, runs_dir_for
+from hydromodpy.core.state.paths import PLAN_DIRNAME, runs_dir_for, sessions_dir_for
 from hydromodpy.core.toml_io.overrides import env_set_names
 from hydromodpy.core.version import __version__
 from hydromodpy.results.outcome import effective_status
@@ -131,18 +131,28 @@ def build_plan(draft: PlanDraft) -> tuple[Plan, pa.Table, list[PlanCase], dict[s
 
 
 def running_cases(project_root: Path, case_ids: Iterable[str]) -> list[str]:
-    """Return the cases whose run directory says ``running``."""
-    from hydromodpy.results.catalog.registration import split_stem_version
+    """Return the cases whose run directory, or calibration session, says ``running``.
 
-    runs = runs_dir_for(project_root)
-    if not runs.is_dir():
-        return []
+    A calibration case holds no run directory before its promotion: its
+    session counts while its descriptor says ``running`` and its outcome is
+    alive, the rule of a run (a dead or silent worker reads ``stale``).
+    """
+    from hydromodpy.results.catalog.registration import split_stem_version
+    from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
+
     wanted = set(case_ids)
     running: list[str] = []
-    for entry in sorted(runs.iterdir()):
-        stem, _ = split_stem_version(entry.name)
-        if stem in wanted and entry.is_dir() and effective_status(entry) == "running":
-            running.append(entry.name)
+    for tree in (runs_dir_for(project_root), sessions_dir_for(project_root)):
+        if not tree.is_dir():
+            continue
+        for entry in sorted(tree.iterdir()):
+            stem, _ = split_stem_version(entry.name)
+            if stem not in wanted or not entry.is_dir():
+                continue
+            if session_descriptor_path(entry).is_file() and read_session(entry).status != "running":
+                continue
+            if effective_status(entry) == "running":
+                running.append(f"{tree.name}/{entry.name}")
     return running
 
 

@@ -40,7 +40,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "(sim_id, unique prefix, name or @-selector)"
         ),
     )
-    parser.add_argument("--workspace", default=None, help="Project catalog root (with --run)")
+    parser.add_argument("-w", "--workspace", default=None, help="Project catalog root (with --run)")
     parser.set_defaults(_handler=run)
     return parser
 

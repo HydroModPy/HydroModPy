@@ -36,7 +36,7 @@ def write_simulated_active_network_reference_figure_export(
     """
     import matplotlib.pyplot as plt
 
-    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run
     from hydromodpy.display import get as get_figure
 
     rows: list[dict[str, Any]] = []
@@ -49,12 +49,12 @@ def write_simulated_active_network_reference_figure_export(
 
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        store, sim_id = open_indexed_run(summary)
-        if store is None or sim_id in (None, ""):
+        run = open_run(summary)
+        if run is None:
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "run_not_indexed",
+                    "reason": "run_not_sealed",
                     "source_variable": variable,
                     "network_role": network_role,
                 }
@@ -62,7 +62,6 @@ def write_simulated_active_network_reference_figure_export(
             continue
 
         try:
-            run = store[str(sim_id)]
             if not run.has_field(variable):
                 log_missing_field(
                     logger, run, variable, f"network overlay figures for {simulation_id}"
@@ -126,11 +125,6 @@ def write_simulated_active_network_reference_figure_export(
                 simulation_id,
                 exc_info=True,
             )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
 
     artifacts: list[dict[str, Any]] = list(rows)
     if skipped_simulations:

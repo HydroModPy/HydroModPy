@@ -989,6 +989,58 @@ def _frozen_by_the_session(
     return frozen
 
 
+@dataclass(frozen=True, slots=True)
+class PhaseReplay:
+    """The model one phase of a session scored its trials under, prepared again.
+
+    ``config`` is the configuration of the phase, the one the params hash of
+    its trials reads; ``space`` the parameters it moved; ``trial_ctx`` the
+    prepared pipeline, with the phase overrides and the values earlier phases
+    passed on written into its baseline.
+    """
+
+    config: CalibrationConfig
+    space: ParameterSpace
+    trial_ctx: TrialContext
+
+
+def replay_phase(
+    cfg: CalibrationConfig,
+    raw: Mapping[str, Any],
+    cfg_path: Path,
+    phase: str,
+    frozen: Mapping[str, Any],
+) -> PhaseReplay:
+    """Prepare the trials of ``phase`` the way the staged search prepared them.
+
+    *frozen* is what the phase descriptor of the session recorded, the values
+    the phase held fixed (:func:`_frozen_payload`). The steps are those of
+    :func:`run_staged_calibration`: the phase configuration and its overrides,
+    the trial pipeline, then the held values written into its baseline. A
+    trial replayed on it reproduces its ``params_hash``.
+    """
+    selected = [(index, decl) for index, decl in enumerate(cfg.phases or ()) if decl.name == phase]
+    if not selected:
+        raise CalibrationError(f"the calibration declares no phase {phase!r}.")
+    plan = _phase_plans(cfg, selected, raw)[0]
+    declared = space_from_config(cfg)
+    held = [
+        FrozenParameter(
+            parameter=declared[name], value=float(entry["value"]), phase=str(entry.get("from"))
+        )
+        for name, entry in frozen.items()
+        if name in declared.names and isinstance(entry, Mapping)
+    ]
+    trial_ctx = prepare_trials(
+        cfg_path,
+        override_paths=_injected_paths(plan.config, held),
+        config_overrides=dict(plan.overrides),
+        parameter_space=plan.space,
+    )
+    _freeze_into_baseline(trial_ctx, held)
+    return PhaseReplay(config=plan.config, space=plan.space, trial_ctx=trial_ctx)
+
+
 def _frozen_payload(held: Sequence[FrozenParameter]) -> dict[str, Any]:
     """Return the frozen values of a phase as its descriptor writes them."""
     return {
@@ -1722,9 +1774,11 @@ def _methods_paragraph_for(
 
 __all__ = [
     "FrozenParameter",
+    "PhaseReplay",
     "PhaseRun",
     "StagedCalibrationReport",
     "objective_comparison_table",
     "phase_summaries",
+    "replay_phase",
     "run_staged_calibration",
 ]

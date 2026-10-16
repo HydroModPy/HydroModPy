@@ -416,13 +416,29 @@ class TestAWholeSearchRunsOnIt:
         is not deterministic, and for a report that loses the candidate it scored
         -- and it needs no knowledge of what the evaluator computes.
         """
-        from hydromodpy.calibration.runners.cli_runner import run_calibration_core
+        from hydromodpy.calibration.runners.cli_runner import (
+            open_calibration_session,
+            run_calibration_core,
+        )
 
+        cfg = _config(evaluator=evaluator_id)
+        space = _space()
+        persistence, _ = open_calibration_session(
+            tmp_path,
+            "contract",
+            resume=False,
+            raw={"calibration": cfg.model_dump(mode="json", exclude_none=True)},
+            cfg=cfg,
+            space=space,
+            trial_ctx=None,
+            project=None,
+        )
         report = run_calibration_core(
-            _config(evaluator=evaluator_id),
+            cfg,
             None,
-            workspace=tmp_path,
-            space=_space(),
+            persistence=persistence,
+            space=space,
+            project_root=tmp_path,
         ).to_dict()
 
         assert report["n_iterations"] == 9

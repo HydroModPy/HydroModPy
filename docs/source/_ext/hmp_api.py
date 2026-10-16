@@ -1011,8 +1011,8 @@ def python_index(verbs: list[str], results: list[dict], engines: list[dict]) -> 
         'head = hmp.read(run, "head")           # a lazy xarray.DataArray',
         f'hmp.figure(run, "{fig}")   # draw one registered figure',
         "",
-        'cat = hmp.open("path/to/project")      # reopen the catalog of the project later',
-        "run = cat.latest()                     # the newest run in it",
+        'proj = hmp.open("path/to/project")     # reopen the project later, read only',
+        'run = proj["baseline"]                 # one of its runs, by name',
         "```",
         "",
         "How these objects relate, and what `hmp.read` returns for each kind of variable, is on "
@@ -1087,8 +1087,8 @@ rebuilt with `hmp catalog reindex`. The objects below are the ways Python looks 
 ```{hmp-api-relations}
 ```
 
-`hmp.open` opens the index read-only. A `Run` reads the folder it names, and the seal in it says what the
-run is; the index only finds it.
+`hmp.open` gives what a path stands for: a `Project`, a `Run`, a `Session` or a `Workspace`. A `Run`
+reads the folder it names, and the seal in it says what the run is; the index only finds it.
 
 ## What `hmp.read` returns
 
@@ -1098,15 +1098,15 @@ among its geographic features. The type that comes back follows the kind of vari
 ```{hmp-api-read}
 ```
 
-To read by reference (id, unique prefix or name) instead of from a `Run`, call `cat.read(ref, name)`
-on the {doc}`Catalog <Catalog>`.
+To read by reference (id, unique prefix or name) instead of from a `Run`, call
+`proj.store.read(ref, name)` on the {doc}`Catalog <Catalog>` of the project.
 
 ## Going from one object to the next
 
 ```python
-cat = hmp.open("path/to/project")   # Catalog
-run = cat.latest()                  # Run
-runs = cat.find(tags="paper")       # RunSet: the runs of this catalog that match
+proj = hmp.open("path/to/project")  # Project
+run = proj["baseline"]              # Run
+runs = proj.runs(site="nancon")     # RunSet: the completed runs of one site
 best = runs.best("nse")             # Run, by a metric
 ```
 """

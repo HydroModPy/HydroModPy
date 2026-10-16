@@ -85,3 +85,4 @@ public:
   - hydromodpy.calibration.runners.staged_runner
   - hydromodpy.calibration.runners.programmatic_runner
   - hydromodpy.calibration.runners.contracts
+  - hydromodpy.calibration.runners.promotion

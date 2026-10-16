@@ -251,8 +251,16 @@
           "x-hmp-profile": "user"
         },
         "identity": {
-          "$ref": "#/$defs/Identity",
-          "description": "Identity block posed in the file",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Identity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identity block posed in the file; none for a file drawn from many runs (summary/ tables and cohort figures)",
           "x-hmp-profile": "user"
         },
         "options": {
@@ -287,8 +295,7 @@
         "producer",
         "hydromodpy_version",
         "at",
-        "sha256",
-        "identity"
+        "sha256"
       ],
       "title": "LedgerEntry",
       "type": "object"

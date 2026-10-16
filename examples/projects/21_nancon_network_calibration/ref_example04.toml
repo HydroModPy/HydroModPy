@@ -9,7 +9,7 @@
 # La methode est le protocole nomme `matching_hydrographic_network` (Abherve
 # et al., 2023 ; 2024 ; 2025), ramene par options aux deux choix du script qui
 # ont un equivalent direct : `distance_mean` (eq. 2) au lieu de `distance_gap`
-# (eq. 1), Nelder-Mead au lieu de la dichotomie. `hmp calibrate --check`
+# (eq. 1), Nelder-Mead au lieu de la dichotomie. `hmp config check`
 # imprime les deux.
 #
 # Trois options ci-dessous n'ont PAS d'equivalent dans le script et ne sont
@@ -93,7 +93,7 @@ crs_project = "EPSG:2154"
 # depuis la version 1.2 du protocole. "breach" est garde explicite, comme
 # `diagonal_neighbors = false`, pour que les neuf essais et le
 # `best_objective` mesures restent reproductibles ; la sortie Methods et
-# `hmp calibrate --check` le nomment comme un ecart au papier.
+# `hmp config check` le nomment comme un ecart au papier.
 dem_correc_type = "breach"
 reuse_existing_outputs = true
 
