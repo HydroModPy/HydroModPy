@@ -8,7 +8,7 @@ from pathlib import Path
 
 from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "import"
 HELP: str = "Import a run written by 'hmp publish' (directory or tar), digests checked first"
@@ -53,8 +53,8 @@ def run(args: argparse.Namespace) -> None:
     except Exception as exc:  # noqa: BLE001 - map digest, conflict and IO errors
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
-    if catalog_path_for(root).is_file():
-        from hydromodpy.results.catalog.indexer import index_new_runs
+    # Like ``hmp run``: the import builds the index when the project has none yet.
+    from hydromodpy.results.catalog.indexer import index_new_runs
 
-        index_new_runs(root)
+    index_new_runs(root)
     print(f"imported {args.source} as {rel_dir}")

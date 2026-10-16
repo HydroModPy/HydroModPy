@@ -58,7 +58,6 @@ from hydromodpy.core.toml_io.overrides import (
     parse_override_value,
     set_overrides,
 )
-from hydromodpy.results.storage.contract import RUN_INPUTS_FILENAME
 
 logger = get_logger(__name__)
 
@@ -70,6 +69,28 @@ PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
 
 INDEXED_WORKFLOWS = ("simulation", "overview")
 """Workflows whose run directory the command indexes once the worker has returned."""
+
+
+HEAD_ONLY_MESSAGE = (
+    "window stops before setup_process: no run directory is written, the input cache is filled"
+)
+"""Said when ``--until`` ends the window before the model phase: nothing else tells it."""
+
+
+def _stops_before_setup_process(until_step: str | None) -> bool:
+    """Return whether ``--until`` ends the window before ``setup_process``."""
+    if until_step is None:
+        return False
+    from hydromodpy.core.exceptions import ConfigError
+    from hydromodpy.project.runner import _model_phase_index, _resolve_step_index
+    from hydromodpy.workflow.orchestrator import standard_steps
+
+    steps = standard_steps()
+    try:
+        return _resolve_step_index(until_step, steps) < _model_phase_index(steps)
+    except ConfigError:
+        # The runner refuses an unknown step by itself; here only the message is at stake.
+        return False
 
 
 def _step_choices() -> list[str]:
@@ -375,15 +396,6 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
     from hydromodpy.project.launch.replay import ReplayInputError, replay_payload
 
     root = _replay_project_root()
-    if (copy_dir / RUN_INPUTS_FILENAME).is_file():
-        loaded = _loaded_input_providers(copy_dir)
-        if loaded:
-            print(
-                f"--frozen: {copy_dir.name} was fed by {', '.join(loaded)}, inputs a replay does not "
-                "read from inputs/ yet; replay it without --frozen to fetch them again.",
-                file=sys.stderr,
-            )
-            sys.exit(EXIT_CONFIG)
     try:
         payload = replay_payload(copy_dir, load_toml_with_base_config(config_path))
     except ReplayInputError as exc:
@@ -406,13 +418,6 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
             os.environ.pop(PROJECT_ROOT_ENV, None)
         else:
             os.environ[PROJECT_ROOT_ENV] = previous
-
-
-def _loaded_input_providers(copy_dir: Path) -> list[str]:
-    """Return the providers of the loaded inputs ``inputs.json`` of a copy lists."""
-    from hydromodpy.results.record import read_inputs
-
-    return sorted({str(entry.provider) for entry in read_inputs(copy_dir).inputs})
 
 
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
@@ -641,6 +646,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         sid = str(summary.get("sim_id") or "")
         print(identical_run_message(summary.get("name"), sid), file=sys.stderr)
         print("Re-run with --force to run it again.", file=sys.stderr)
+        return
+
+    if workflow == "simulation" and _stops_before_setup_process(until_step):
+        print(HEAD_ONLY_MESSAGE, file=sys.stderr)
         return
 
     # A simulation has already said its name, its id and its duration through

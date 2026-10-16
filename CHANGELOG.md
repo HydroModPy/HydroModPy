@@ -34,6 +34,32 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Outputs and orchestration, real user tour of 2026-10-16 (129 commands of the documented path run
+  from an empty home; the defects it found):
+  - The seal no longer records a product of the run scratch (`_preprocessing/`) as an input, so
+    `hmp publish --with inputs` and `hmp replay` work for a run that loaded the hydrographic
+    network; a declared folder input is copied whole under `inputs/<sha256>/`; the replay points
+    the inputs of `[[data.*.sources]]` lists too, refuses by name an input that `inputs/` does not
+    hold, and `hmp replay` prints the full command with `-w <project>`; the `--frozen` pre-check of
+    `hmp run` that refused every custom input is gone (the rule lives in the replay payload).
+  - The directory digest of the identity hash leaves out the provenance sidecars a load writes next
+    to a file, so `hmp.run(cfg)` and `hmp run` on an unchanged configuration return the sealed run
+    instead of computing a `.v2`.
+  - `mesh_engine` of the index comes from the seal (schema 4, rebuilt by `hmp catalog reindex`);
+    `hmp catalog import` builds the missing index; `hmp catalog show --format json` writes `null`
+    for a missing score; `summary/by_case` and `by_site` carry every parameter of the seal under
+    its own name and the overrides of the recipe; `by_site` carries `best_reason`, and
+    `Project.best()` and `hmp catalog ls --best` say why a site has no best run (on stderr for a
+    machine format); `hmp project show .` reads the project of the current directory; a campaign
+    copy written by `hmp publish .` carries a root `PUBLICATION.json` of kind `project` listing its
+    members, `hmp publish --verify` checks them one by one and names a missing one, and
+    `hmp catalog import` refuses a project copy by name; the complete `hmp config template` passes
+    `hmp config check` up to the catchment it cannot invent (a field with a default factory is
+    written with its value, a required field of a disabled section is written commented).
+  - `HMP_SET_<key>` keeps the case of the key (`HMP_SET_flow__param__K__field__value`); a window
+    that stops before `setup_process` says that no run directory is written; `hmp config template`
+    writes no `[sites]` unless asked; a reference answered by a missing index names `-w`; the SLURM
+    scripts call `"$HMP_PYTHON" -m hydromodpy`, never a bare `hmp`.
 - Outputs and orchestration, closing pass of 2026-10-16 (adverse review of the whole campaign, seven
   high findings, all fixed):
   - A run name that already carries `.vN` (`--case a.v2`, `[simulation] name = "a.v2"`) no longer

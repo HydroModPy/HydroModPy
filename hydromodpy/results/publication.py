@@ -11,10 +11,12 @@ every absolute path from any document on its way out.
 
 Format
 ------
-``PUBLICATION.json`` in the copy is :class:`Publication`: the source by
-project, directory and id, the digest of the manifest and of each copied
-file, the label of the day, the version, the instant, the format and what
-was taken along. ``published.jsonl`` in the source is one
+``PUBLICATION.json`` in the copy is :class:`Publication`: what it copies
+(a run, the summary or a whole project), the source by project, directory
+and id, the digest of the manifest and of each copied file, the label of the
+day, the version, the instant, the format and what was taken along. The copy
+of a project lists its members, each by name and by the digest of its own
+``PUBLICATION.json``. ``published.jsonl`` in the source is one
 :class:`PublishedLine` per copy, appended.
 """
 
@@ -51,8 +53,12 @@ REDACTED_KEYS: Final[frozenset[str]] = frozenset(
 )
 """Keys removed from any published document, at any depth."""
 
+PROJECT_REL_DIR: Final[str] = "."
+"""``rel_dir`` of the source of a project copy: the project root itself."""
+
 PublicationFormat = Literal["dir", "tar"]
 PublicationExtra = Literal["results", "inputs"]
+PublicationKind = Literal["run", "summary", "project"]
 
 
 class PublicationSource(HydroModelBase):
@@ -60,9 +66,45 @@ class PublicationSource(HydroModelBase):
 
     project: str = Field(description="Project of the source")
     rel_dir: str = Field(
-        description="Directory of the source, relative to the project root; summary for a summary"
+        description=(
+            "Directory of the source, relative to the project root; summary for a summary, "
+            ". for a whole project"
+        )
     )
-    sim_id: str | None = Field(default=None, description="Id of the run; none for a summary")
+    sim_id: str | None = Field(
+        default=None, description="Id of the run; none for a summary or a project"
+    )
+
+    @field_validator("rel_dir")
+    @classmethod
+    def _rel_dir(cls, value: str) -> str:
+        if value in (SUMMARY_DIRNAME, PROJECT_REL_DIR):
+            return value
+        return checked_rel_dir(value)
+
+
+class PublicationMember(HydroModelBase):
+    """One copy a project copy holds: a run or the summary, a folder or a tar."""
+
+    name: str = Field(description="Folder or .tar of the member, directly under the copy")
+    rel_dir: str = Field(
+        description="Directory of the member's source, relative to the project root"
+    )
+    manifest_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Digest of the sealed manifest of the run; none for the summary",
+    )
+    publication_sha256: str = Field(
+        pattern=r"^[0-9a-f]{64}$", description="Digest of the member's own PUBLICATION.json"
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        if not value or value in (".", "..") or "/" in value or "\\" in value:
+            raise ValueError(f"{value!r} is not an entry name directly under the copy")
+        return value
 
     @field_validator("rel_dir")
     @classmethod
@@ -78,6 +120,9 @@ class Publication(HydroModelBase):
     model_config = ConfigDict(populate_by_name=True)
 
     schema_: str = Field(default=PUBLICATION_SCHEMA, alias="schema", description="Schema id")
+    kind: PublicationKind = Field(
+        default="run", description="What the copy is: one run, the summary or a whole project"
+    )
     source: PublicationSource
     manifest_sha256: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$", description="Digest of the sealed manifest"
@@ -93,6 +138,10 @@ class Publication(HydroModelBase):
     with_: list[PublicationExtra] = Field(
         default_factory=list, alias="with", description="What was taken along"
     )
+    members: list[PublicationMember] = Field(
+        default_factory=list,
+        description="The copies a project copy holds, one per run and one for the summary",
+    )
 
     @model_validator(mode="after")
     def _schema(self) -> Publication:
@@ -100,6 +149,23 @@ class Publication(HydroModelBase):
             raise ValueError(
                 f"schema is {self.schema_!r}, this module reads {PUBLICATION_SCHEMA!r}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _kind(self) -> Publication:
+        rel_dir = self.source.rel_dir
+        expected = {"summary": SUMMARY_DIRNAME, "project": PROJECT_REL_DIR}.get(self.kind)
+        if expected is not None and rel_dir != expected:
+            raise ValueError(f"a {self.kind} copy has source.rel_dir {expected!r}, not {rel_dir!r}")
+        if self.kind == "run" and rel_dir in (SUMMARY_DIRNAME, PROJECT_REL_DIR):
+            raise ValueError(
+                f"a run copy names its run directory in source.rel_dir, not {rel_dir!r}"
+            )
+        if self.kind != "project" and self.members:
+            raise ValueError(f"only a project copy lists members, not a {self.kind} copy")
+        names = [member.name for member in self.members]
+        if len(set(names)) != len(names):
+            raise ValueError("a project copy lists each member once")
         return self
 
 
@@ -223,12 +289,15 @@ def _relative_or_redacted(path: PurePosixPath | PureWindowsPath, root: Path | No
 
 __all__ = [
     "PUBLICATION_SCHEMA",
+    "PROJECT_REL_DIR",
     "PUBLISHED_SCHEMA",
     "REDACTED_KEYS",
     "REDACTED_PATH",
     "Publication",
     "PublicationExtra",
     "PublicationFormat",
+    "PublicationKind",
+    "PublicationMember",
     "PublicationSource",
     "PublishedLine",
     "append_published",

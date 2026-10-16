@@ -52,12 +52,12 @@ def env_set_names(env: Mapping[str, str]) -> list[str]:
 def env_overrides(env: Mapping[str, str]) -> dict[str, Any]:
     """Return the payload of the ``HMP_SET_*`` variables of *env*.
 
-    Windows upper-cases the name of a variable and TOML keys are case
-    sensitive, so the key is lower-cased: the keys of a project file are.
+    The case of the name after the prefix is the case of the key: ``K`` stays
+    ``K``. A platform that upper-cases variable names cannot spell such a key.
     """
     payload: dict[str, Any] = {}
     for name in env_set_names(env):
-        dotted_path = name[len(ENV_SET_PREFIX) :].lower().replace(ENV_PATH_SEPARATOR, ".")
+        dotted_path = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
         assign(payload, parse(dotted_path), parse_override_value(env[name]))
     return payload
 

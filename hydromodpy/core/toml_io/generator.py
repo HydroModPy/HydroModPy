@@ -474,6 +474,24 @@ def _declared_default(field_info: FieldInfo) -> Any:
         return _UNDEFINED
 
 
+def _factory_value(field_info: FieldInfo) -> Any:
+    """Return what a ``default_factory`` gives on its own, ``None`` for any other field."""
+    if field_info.default_factory is None:
+        return None
+    declared = _declared_default(field_info)
+    return None if declared is _UNDEFINED else declared
+
+
+def _is_disabled(model_cls: type[BaseModel], values: dict | None) -> bool:
+    """Return True when the section has an ``enabled`` switch that is off."""
+    field_info = model_cls.model_fields.get("enabled")
+    if field_info is None:
+        return False
+    if values is not None and values.get("enabled") is not None:
+        return values["enabled"] is False
+    return _default_value(field_info) is False
+
+
 def _declares_nothing(field_info: FieldInfo) -> bool:
     """Return True when the model leaves this repeated table empty by itself."""
     declared = _declared_default(field_info)
@@ -871,7 +889,9 @@ def _render_field_comment(
     meta_parts.extend(_constraints_from_field(field_info))
 
     default = _default_value(field_info)
-    if default is _UNDEFINED:
+    if default is _UNDEFINED and _factory_value(field_info) is not None:
+        meta_parts.append(f"Default: {_fmt(_factory_value(field_info))}")
+    elif default is _UNDEFINED:
         meta_parts.append("REQUIRED")
     elif default is None:
         meta_parts.append("Optional")
@@ -1070,6 +1090,10 @@ def _section(
     def _line(text: str) -> str:
         return f"# {text}" if _commented else text
 
+    # A required field of a disabled section is written commented: the
+    # section validates without it, and a placeholder would be refused.
+    disabled = _is_disabled(model_cls, values)
+
     # Emit [section_name] when there are scalar fields (or nothing at all)
     if scalar_fields:
         lines.append("")
@@ -1111,6 +1135,10 @@ def _section(
                     lines.append(f"# {name}: entries go under [{section_name}.{name}.<id>]")
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
+            elif _factory_value(field_info) is not None:
+                lines.append(_line(f"{name} = {_fmt(_factory_value(field_info))}"))
+            elif level == Profile.USER and default is _UNDEFINED and disabled:
+                lines.append(f"# {name} = {_placeholder(field_info)}")
             elif level == Profile.USER and default is _UNDEFINED:
                 # User-level *required* field - emit an uncommented
                 # placeholder so the user knows to fill it in.

@@ -55,7 +55,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     tpl.add_argument(
         "--modules",
         nargs="+",
-        help="Module sections to include (default: all)",
+        help="Module sections to include (default: all but sites, a campaign section)",
     )
     tpl.add_argument(
         "--list-modules",
@@ -269,6 +269,19 @@ def _warn_about_suffix_only_parameters(path: Path, targets: list[CalibrationTarg
             )
 
 
+def _run_file_modules(modules: list[str] | None) -> list[str]:
+    """Return *modules*, or every module a run file can carry when none is named.
+
+    ``[sites]`` is the section of a campaign ``project.toml``: a run file that
+    holds it is read as a project. It is written only when asked for.
+    """
+    from hydromodpy.core.toml_io.generator import available_modules
+
+    if modules is not None:
+        return modules
+    return [name for name in available_modules() if name != "sites"]
+
+
 def _cmd_config_template(args: argparse.Namespace) -> None:
     from hydromodpy.core.toml_io.generator import available_modules, generate_toml
 
@@ -283,7 +296,7 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
 
     content = generate_toml(
         output_path=output,
-        modules=getattr(args, "modules", None),
+        modules=_run_file_modules(getattr(args, "modules", None)),
         profile=getattr(args, "profile", "user"),
     )
 
@@ -459,6 +472,6 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
 
     dest = Path(output).expanduser().resolve()
     dest.parent.mkdir(parents=True, exist_ok=True)
-    generate_toml(output_path=str(dest), modules=None, profile=profile)
+    generate_toml(output_path=str(dest), modules=_run_file_modules(None), profile=profile)
     print(f"Written: {dest}", file=sys.stderr)
     print(f"Try: hmp run {dest}")

@@ -659,3 +659,69 @@ def test_a_failed_case_names_its_paths_from_the_project_root(tmp_path: Path) -> 
     assert by_case.loc["J0014010-base", "error_message"] == expected
     csv_rows = pd.read_csv(root / "summary" / "by_case.csv").set_index("case_id")
     assert csv_rows.loc["J0014010-base", "error_message"] == expected
+
+
+RECIPES_TOML = """\
+[sites]
+table = "sites.csv"
+
+[sites.recipes]
+k_low = { file = "project.toml", set = { "flow.param.K.field.value" = 1e-5 } }
+k_mid = "project.toml"
+"""
+
+
+def test_by_case_names_every_parameter_and_the_set_of_its_recipe(tmp_path: Path) -> None:
+    root = tmp_path / "comparison"
+    root.mkdir()
+    (root / "project.toml").write_text(RECIPES_TOML, encoding="utf-8")
+    _plan(root, ["nancon-k_low", "nancon-k_mid"])
+    for recipe, k in (("k_low", 1e-5), ("k_mid", 5e-5)):
+        seal_run(
+            root,
+            f"nancon-{recipe}",
+            project=root.name,
+            site="nancon",
+            recipe=recipe,
+            nse=None,
+            window=None,
+            parameters={"K": k, "Sy": 0.05, "thickness": 30.0},
+        )
+
+    collect_project(root)
+
+    by_case = pd.read_csv(root / "summary" / "by_case.csv").set_index("case_id")
+    # Not listed under [sites.summary] parameters: every global parameter is a column.
+    assert by_case.loc["nancon-k_low", "K"] == pytest.approx(1e-5)
+    assert by_case.loc["nancon-k_mid", "K"] == pytest.approx(5e-5)
+    assert by_case.loc["nancon-k_mid", "Sy"] == pytest.approx(0.05)
+    assert by_case.loc["nancon-k_low", "thickness"] == pytest.approx(30.0)
+    assert by_case.loc["nancon-k_low", "overrides"] == "flow.param.K.field.value=1e-05"
+    assert pd.isna(by_case.loc["nancon-k_mid", "overrides"])
+
+
+def test_a_site_without_a_scored_run_says_why_it_has_no_best_case(tmp_path: Path) -> None:
+    root = _project(tmp_path, summary_extra='best = "any"')
+    seal_run(root, "J0014010-base", project=root.name, site="J0014010", recipe="base", nse=None)
+    _seal(root, "J0170000", "base", nse=0.81)
+
+    collect_project(root)
+
+    by_site = pd.read_csv(root / "summary" / "by_site.csv").set_index("site")
+    assert pd.isna(by_site.loc["J0014010", "best_case"])
+    assert by_site.loc["J0014010", "best_reason"] == (
+        "no sealed run of J0014010 is scored: declare [metrics] window"
+    )
+    assert by_site.loc["J0170000", "best_case"] == "J0170000-base"
+    assert pd.isna(by_site.loc["J0170000", "best_reason"])
+
+
+def test_a_scored_site_without_a_calibrated_case_says_so(campaign: Path) -> None:
+    _seal(campaign, "J0200000", "base", nse=0.5)
+
+    collect_project(campaign)
+
+    by_site = pd.read_parquet(campaign / "summary" / "by_site.parquet").set_index("site")
+    assert by_site.loc["J0200000", "best_reason"] == (
+        'no calibrated case of J0200000 is scored; best = "any" ranks every case'
+    )

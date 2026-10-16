@@ -40,18 +40,23 @@ def test_an_item_without_a_value_is_refused() -> None:
         set_overrides(["flow.param"])
 
 
-def test_env_names_are_lowercased_and_double_underscores_are_dots() -> None:
+def test_env_names_keep_their_case_and_double_underscores_are_dots() -> None:
     env = {
-        "HMP_SET_FLOW__PARAM__K__FIELD__VALUE": "1e-6",
+        "HMP_SET_flow__param__K__field__value": "3e-5",
         "HOME": "/x",
         "HMP_SET_simulation__name": '"y"',
     }
     assert env_set_names(env) == [
-        "HMP_SET_FLOW__PARAM__K__FIELD__VALUE",
+        "HMP_SET_flow__param__K__field__value",
         "HMP_SET_simulation__name",
     ]
     assert env_overrides(env) == {
-        "flow": {"param": {"k": {"field": {"value": 1e-6}}}},
+        "flow": {"param": {"K": {"field": {"value": 3e-5}}}},
         "simulation": {"name": "y"},
     }
     assert env_overrides({"HOME": "/x"}) == {}
+
+
+def test_an_env_override_and_a_set_item_name_the_same_key() -> None:
+    env = {"HMP_SET_flow__param__K__field__value": "3e-5"}
+    assert env_overrides(env) == set_overrides(["flow.param.K.field.value=3e-5"])

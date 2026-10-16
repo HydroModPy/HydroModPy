@@ -255,8 +255,10 @@ def render_summary_readme(facts: SummaryFacts, *, digests: Mapping[str, str]) ->
         "",
         "## How to read",
         "",
-        "- `by_case.*`: one row per case: status, label, checks, parameters, score and window",
-        f"- `by_site.*`: one row per site: {_best_words(facts.best)}; `by_site.gpkg` is the map",
+        "- `by_case.*`: one row per case: status, label, checks, parameters, overrides, "
+        "score and window",
+        f"- `by_site.*`: one row per site: {_best_words(facts.best)}, or in `best_reason` why "
+        "it has none; `by_site.gpkg` is the map",
     ]
     if facts.catalog_written:
         lines.append("- `catalog.csv`: the sites as a table, replayable as an input")

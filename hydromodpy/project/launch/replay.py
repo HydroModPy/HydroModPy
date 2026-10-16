@@ -9,15 +9,14 @@ publication redacts. A replay elsewhere, without that workspace and without
 its data cache, finds each file by content instead: every input the seal
 records (``manifest.json``, ``inputs``) has a role and a digest; the field of
 the configuration marked with that role (:class:`~hydromodpy.core.tracking.
-input_file.InputFile`) is pointed at ``inputs/<sha256><suffix>``, after the
-digest of those bytes is checked. ``--frozen`` on a copy means exactly this
+input_file.InputFile`) is pointed at ``inputs/<sha256><suffix>`` (a declared
+folder at ``inputs/<sha256>/``), after the digest of those bytes is checked. ``--frozen`` on a copy means exactly this
 check: every input of the seal is in ``inputs/`` with the digest the run
 sealed, or the replay is refused before anything runs.
 """
 
 from __future__ import annotations
 
-import hashlib
 import types
 import typing
 from collections.abc import Mapping
@@ -31,6 +30,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.results.export.publish import INPUTS_DIRNAME
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
 
 
 class ReplayInputError(ConfigError):
@@ -46,11 +46,10 @@ def published_copy_of(config_path: Path) -> Path | None:
 
 
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    """Return the digest of a file, or of a directory tree as the seal hashes it."""
+    if path.is_dir():
+        return sha256_directory(path)
+    return sha256_streaming(path)
 
 
 def input_files_by_role(copy_dir: Path) -> dict[str, Path]:
@@ -96,6 +95,11 @@ def _models_of(annotation: Any) -> list[type[BaseModel]]:
     origin = typing.get_origin(annotation)
     if origin is typing.Annotated:
         return _models_of(typing.get_args(annotation)[0])
+    if origin in (list, tuple):
+        out_items: list[type[BaseModel]] = []
+        for arg in typing.get_args(annotation):
+            out_items.extend(_models_of(arg))
+        return out_items
     if origin in (typing.Union, types.UnionType):
         out: list[type[BaseModel]] = []
         for arg in typing.get_args(annotation):
@@ -118,6 +122,41 @@ def _point_inputs(
                 payload[key] = str(files[role])
             elif isinstance(value, dict):
                 _point_inputs(value, _models_of(field.annotation), files)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        _point_inputs(item, _models_of(field.annotation), files)
+
+
+def _refuse_fetched_inputs(copy_dir: Path, files: Mapping[str, Path]) -> None:
+    """Refuse a copy fed by a loaded input the files of ``inputs/`` do not hold.
+
+    A user file (provider ``custom``) is read again from the declared file or
+    folder the replay points at ``inputs/``: its digest must be one of a
+    declared file or of a file inside a declared folder. An input a provider
+    delivered is fetched again by a replay, which ``--frozen`` cannot promise.
+    """
+    from hydromodpy.results.record import read_inputs
+    from hydromodpy.results.storage.contract import RUN_INPUTS_FILENAME
+
+    if not (Path(copy_dir) / RUN_INPUTS_FILENAME).is_file():
+        return
+    held: set[str] = set()
+    for path in files.values():
+        members = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
+        held.update(sha256_streaming(member) for member in members)
+    fetched = sorted(
+        {
+            str(entry.provider)
+            for entry in read_inputs(copy_dir).inputs
+            if entry.provider != "custom" or entry.sha256 not in held
+        }
+    )
+    if fetched:
+        raise ReplayInputError(
+            f"--frozen: {Path(copy_dir).name} was fed by {', '.join(fetched)}, inputs a replay "
+            "does not read from inputs/ yet; replay it without --frozen to fetch them again."
+        )
 
 
 def replay_payload(copy_dir: Path, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -131,6 +170,7 @@ def replay_payload(copy_dir: Path, payload: Mapping[str, Any]) -> dict[str, Any]
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
     files = input_files_by_role(copy_dir)
+    _refuse_fetched_inputs(copy_dir, files)
     document = copy.deepcopy(dict(payload))
     if files:
         _point_inputs(document, [HydroModPyConfig], files)

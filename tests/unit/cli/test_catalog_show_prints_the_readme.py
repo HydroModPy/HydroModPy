@@ -50,3 +50,23 @@ def test_show_of_a_name_the_project_lacks_exits_not_found(monkeypatch, capsys, t
 
     assert code == 10
     assert "beta" in capsys.readouterr().err
+
+
+def test_show_of_last_outside_a_workspace_names_dash_w(monkeypatch, capsys, tmp_path) -> None:
+    monkeypatch.chdir(make_project(tmp_path / "demo"))
+
+    code = _run(monkeypatch, ["hmp", "catalog", "show", "@last"])
+
+    assert code == 10
+    err = capsys.readouterr().err
+    assert "'@last' is answered by the index" in err
+    assert "with -w" in err
+
+
+def test_show_of_last_with_dash_w_does_not_repeat_the_hint(monkeypatch, capsys, tmp_path) -> None:
+    project = make_project(tmp_path / "demo")
+
+    code = _run(monkeypatch, ["hmp", "catalog", "show", "@last", "-w", str(project)])
+
+    assert code == 10
+    assert "with -w" not in capsys.readouterr().err

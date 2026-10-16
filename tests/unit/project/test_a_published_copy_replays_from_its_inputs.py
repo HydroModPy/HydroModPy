@@ -136,3 +136,92 @@ def test_hmp_run_frozen_on_a_copy_without_its_inputs_is_refused(tmp_path: Path) 
     assert result.exit_code == EXIT_CONFIG
     assert "--with inputs" in result.stderr
     assert not (project / "runs").exists()
+
+
+_FOLDER_CONFIG = """\
+[data]
+types = ["hydrometry"]
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "<absolute path>"
+station_ids = ["NANCON"]
+"""
+
+
+def _folder_copy(tmp_path: Path, *, provider: str = "custom") -> tuple[Path, str]:
+    """A copy whose seal declares a folder of station files, loaded by ``provider``."""
+    from hydromodpy.results.storage.digests import sha256_directory
+
+    folder = tmp_path / "data" / "hydrometry"
+    folder.mkdir(parents=True)
+    station = folder / "hydrometry_custom_NANCON_20000101_20001231_D.csv"
+    station.write_text("datetime,value\n2000-01-01,1.0\n", encoding="utf-8")
+    (folder / f"{station.name}.json").write_text('{"source": "custom"}', encoding="utf-8")
+    sha256 = sha256_directory(folder)
+    copy = tmp_path / "published" / "nancon_step5_export"
+    copy.mkdir(parents=True)
+    (copy / "config.toml").write_text(_FOLDER_CONFIG, encoding="utf-8")
+    (copy / "PUBLICATION.json").write_text("{}", encoding="utf-8")
+    (copy / "manifest.json").write_text(
+        json.dumps(
+            {
+                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
+                "inputs": [
+                    {
+                        "role": "hydrometry",
+                        "category": "data",
+                        "path": "<absolute path>",
+                        "declared_path": "<absolute path>",
+                        "sha256": sha256,
+                        "portable": True,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (copy / "inputs.json").write_text(
+        json.dumps(
+            {
+                "schema": "hydromodpy.inputs.v1",
+                "sim_id": "5ac4a80e-4674-4edc-9289-16abf79acb75",
+                "inputs": [
+                    {
+                        "variable": "hydrometry:discharge",
+                        "provider": provider,
+                        "request": {"station": "NANCON"},
+                        "path": "<absolute path>",
+                        "sha256": hashlib.sha256(station.read_bytes()).hexdigest(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (copy / "inputs").mkdir()
+    import shutil
+
+    shutil.copytree(folder, copy / "inputs" / sha256)
+    return copy, sha256
+
+
+def test_a_declared_folder_in_a_list_of_sources_points_at_its_copy(tmp_path: Path) -> None:
+    import tomllib
+
+    copy, sha256 = _folder_copy(tmp_path)
+
+    payload = replay_payload(copy, tomllib.loads(_FOLDER_CONFIG))
+
+    (source,) = payload["data"]["hydrometry"]["sources"]
+    assert Path(source["path"]) == copy / "inputs" / sha256
+    assert source["station_ids"] == ["NANCON"]
+
+
+def test_an_input_a_provider_delivered_refuses_the_frozen_replay(tmp_path: Path) -> None:
+    import tomllib
+
+    copy, _ = _folder_copy(tmp_path, provider="hubeau")
+
+    with pytest.raises(ReplayInputError, match="fed by hubeau"):
+        replay_payload(copy, tomllib.loads(_FOLDER_CONFIG))

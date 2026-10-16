@@ -29,8 +29,9 @@ Index table              Rebuilt from
 =======================  =======================================================
 cases, attempts          ``outcome.json``, ``attempts/<n>/outcome.json``,
                          ``logs/heartbeat.json``, the presence of the seal
-simulations              ``tables.parquet/simulation.parquet`` and ``manifest.json``;
-                         ``config.toml`` for the frozen configuration
+simulations              ``tables.parquet/simulation.parquet`` and ``manifest.json``
+                         (``geometry.mesh_engine``); ``config.toml`` for the
+                         frozen configuration
 parameters, metrics      ``manifest.json`` (``parameters``, ``metrics``)
 tracked_files            ``manifest.json`` (``inputs``)
 geographic_metadata      ``manifest.json`` (``geometry.catchment``)
@@ -605,6 +606,9 @@ class _IndexWriter:
         row.update(_label_columns(manifest, label_date=self._at.date()))
         row.update(_score_columns(manifest))
         row["session_id"] = manifest.lineage.session_id
+        # The engine that built the mesh is a fact of the seal: a config
+        # without a [mesh] section ran on the default engine of its release.
+        row["mesh_engine"] = manifest.geometry.mesh_engine
         self.insert("simulations", row)
         counts = {"simulations": 1}
         counts["parameters"] = self._insert_parameters(sim_id, manifest)

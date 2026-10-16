@@ -127,3 +127,32 @@ def test_a_record_written_twice_is_one_input(tmp_path: Path) -> None:
         step_write_provenance(_ctx(store.sim_id, loaded, workspace), store=store)
         step_write_provenance(_ctx(store.sim_id, loaded, workspace), store=store)
         assert len(store.facts.inputs) == 1
+
+
+def test_a_product_of_the_run_scratch_is_no_input(tmp_path: Path, monkeypatch) -> None:
+    from hydromodpy.core.state.paths import SCRATCH_ROOT_ENV
+
+    workspace = tmp_path / "ws"
+    project = workspace / "projects" / "demo"
+    monkeypatch.setenv(SCRATCH_ROOT_ENV, str(tmp_path / "scratch"))
+    csv = _series_file(workspace / "data" / "hydrometry" / "hubeau_J0014010.csv")
+    product = _series_file(
+        tmp_path / "scratch" / "demo" / "run.p1" / "_preprocessing" / "streams.csv"
+    )
+    loaded = _Loaded(
+        hydrometry=LoadResult(
+            points=[_record(csv, source="hubeau", station="J0014010", variable="discharge")]
+        ),
+        recharge=LoadResult(
+            points=[_record(product, source="hydrography", station="basin", variable="streams")]
+        ),
+    )
+    ctx = _ctx("", loaded, workspace)
+    ctx.setup.workspace.project_root = project
+
+    with open_run_store(project, "run", n_cells=4) as store:
+        ctx.sim_id = store.sim_id
+        step_write_provenance(ctx, store=store)
+        providers = [entry.provider for entry in store.facts.inputs]
+
+    assert providers == ["hubeau"]

@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "3"
+INDEX_SCHEMA_VERSION: Final[str] = "4"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -207,6 +207,7 @@ CREATE TABLE simulations (
     flow_regime_id                SMALLINT REFERENCES flow_regimes(id),
     mesh_topology_id              SMALLINT REFERENCES mesh_topologies(id),
     mesh_hash                     VARCHAR,
+    mesh_engine                   VARCHAR,
     n_cells                       INTEGER,
     n_layers                      INTEGER,
     n_timesteps                   INTEGER,

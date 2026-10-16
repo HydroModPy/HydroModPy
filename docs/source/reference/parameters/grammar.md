@@ -80,12 +80,13 @@ last.
 ```bash
 hmp run run.toml --overlay daily.toml
 hmp run run.toml --set simulation.name=my_run
-HMP_SET_SIMULATION__NAME=my_run hmp run run.toml
+HMP_SET_simulation__name=my_run hmp run run.toml
 ```
 
 A `--set` value is read as TOML when it can be, and as a plain string otherwise: `200` is
 a number and `my_run` is a string. In an environment variable name, two underscores stand
-for a dot.
+for a dot and the case is the case of the key: `HMP_SET_flow__param__K__field__value=3e-5`
+sets `flow.param.K.field.value`.
 
 ## Merging: tables, lists, `__append`, `__merge`, `__delete`
 

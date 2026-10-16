@@ -237,3 +237,50 @@ def test_a_renamed_run_no_longer_answers_to_its_old_name(tmp_path: Path) -> None
     (root / "runs" / "baseline").rename(root / "runs" / "renamed")
     assert completed_identical_run(config, name="baseline") is None
     assert completed_identical_run(config, name="renamed") == ("renamed", sid)
+
+
+class _Workflow(BaseModel):
+    mode: str = "simulation"
+
+
+class _FolderConfig(BaseModel):
+    """A configuration that names a folder of station files, as ``[data.recharge]`` does."""
+
+    workspace: _Workspace
+    workflow: _Workflow = _Workflow()
+    simulation: dict
+    recharge: Annotated[Path | None, InputFile(role="recharge", category="data")] = None
+
+
+def test_two_identical_hmp_run_calls_give_the_same_run(monkeypatch, tmp_path: Path) -> None:
+    """The first run writes the sidecar of a station file it read: the second still matches."""
+    import hydromodpy as hmp
+    from tests._helpers.api_doubles import make_capturing_project
+
+    root = tmp_path / "ws"
+    station = root / "data" / "recharge" / "recharge_custom_NANCON_20000101_20021231_M.csv"
+    station.parent.mkdir(parents=True)
+    station.write_text("datetime,value\n2000-01-31,1.0\n", encoding="utf-8")
+    config = _FolderConfig(
+        workspace=_Workspace(project_root=str(root)),
+        simulation={"name": "demo"},
+        recharge=Path("data/recharge"),
+    )
+    sid = _seal_as_a_run(config)  # hashed before the run, as the run does
+    station.with_name(station.name + ".json").write_text('{"source": "custom"}', encoding="utf-8")
+
+    captured: dict = {}
+    monkeypatch.setattr(
+        "hydromodpy.project.Project",
+        make_capturing_project(
+            captured, result=SimpleNamespace(name="demo.v2", sim_id="new"), verb="simulate"
+        ),
+    )
+    monkeypatch.setattr(
+        "hydromodpy._api._open_run", lambda root, run_dir: ("opened", Path(run_dir).name)
+    )
+
+    assert hmp.run(config, name="demo") == ("opened", "demo")
+    assert hmp.run(config, name="demo") == ("opened", "demo")
+    assert "verb_kwargs" not in captured
+    assert completed_identical_run(config, name="demo") == ("demo", sid)

@@ -130,3 +130,26 @@ def test_a_source_rel_dir_is_a_result_directory_or_the_summary():
     assert PublicationSource(project="p", rel_dir="summary").rel_dir == "summary"
     with pytest.raises(ValidationError, match="not a result directory"):
         PublicationSource(project="p", rel_dir="/home/bb/runs/x")
+
+
+def test_a_project_copy_lists_members_and_only_it_does():
+    member = {
+        "name": "calibration",
+        "rel_dir": "runs/calibration",
+        "manifest_sha256": "ab" * 32,
+        "publication_sha256": "cd" * 32,
+    }
+    source = PublicationSource(project="nancon", rel_dir=".")
+    project = _publication(
+        kind="project", source=source, manifest_sha256=None, files={}, members=[member]
+    )
+    assert project.members[0].name == "calibration"
+    assert _publication().kind == "run"
+    with pytest.raises(ValidationError, match="only a project copy lists members"):
+        _publication(members=[member])
+    with pytest.raises(ValidationError, match="a project copy has source.rel_dir '.'"):
+        _publication(kind="project", members=[member])
+    with pytest.raises(ValidationError, match="each member once"):
+        _publication(kind="project", source=source, members=[member, member])
+    with pytest.raises(ValidationError, match="not an entry name"):
+        _publication(kind="project", source=source, members=[{**member, "name": "a/b"}])

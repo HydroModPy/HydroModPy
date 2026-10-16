@@ -11,7 +11,9 @@ published whole or not at all.
 
 from __future__ import annotations
 
+import io
 import json
+import shutil
 import tarfile
 
 import pytest
@@ -196,11 +198,86 @@ def test_a_project_is_published_member_by_member_in_one_move(tmp_path) -> None:
     written = publish_project(project, destination)
 
     assert written == [destination.resolve() / RUN_NAME, destination.resolve() / "summary"]
-    assert {entry.name for entry in destination.iterdir()} == {RUN_NAME, "summary"}
+    assert {entry.name for entry in destination.iterdir()} == {
+        RUN_NAME,
+        "summary",
+        "PUBLICATION.json",
+    }
     assert verify(destination / RUN_NAME) == []
     assert verify(destination / "summary") == []
     assert read_published(run_dir)[-1].to == str(destination.resolve() / RUN_NAME)
     assert read_published(summary)[-1].to == str(destination.resolve() / "summary")
+
+
+def test_a_project_copy_lists_its_members_in_its_own_publication(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    make_summary(project, error_message="ok")
+    destination = tmp_path / "out" / "bretagne"
+
+    publish_project(project, destination)
+
+    root = read_publication(destination)
+    assert root.kind == "project"
+    assert root.source.rel_dir == "."
+    assert root.source.project == project.name
+    assert root.files == {}
+    assert [(m.name, m.rel_dir) for m in root.members] == [
+        (RUN_NAME, f"runs/{RUN_NAME}"),
+        ("summary", "summary"),
+    ]
+    run_member, summary_member = root.members
+    assert run_member.manifest_sha256 == sha256_of(run_dir / "manifest.json")
+    assert summary_member.manifest_sha256 is None
+    assert run_member.publication_sha256 == sha256_of(destination / RUN_NAME / "PUBLICATION.json")
+    assert read_publication(destination / RUN_NAME).kind == "run"
+    assert read_publication(destination / "summary").kind == "summary"
+    assert verify(destination) == []
+
+
+def test_verify_of_a_project_copy_names_a_member_gone_changed_or_added(tmp_path) -> None:
+    project = make_project(tmp_path)
+    make_sealed_run(project)
+    make_summary(project, error_message="ok")
+    destination = tmp_path / "out" / "bretagne"
+    publish_project(project, destination)
+
+    shutil.rmtree(destination / RUN_NAME)
+    (destination / "summary" / "by_case.csv").write_text("changed\n", encoding="utf-8")
+    (destination / "extra").mkdir()
+
+    assert verify(destination) == [
+        f"{RUN_NAME}: missing",
+        "summary/by_case.csv: digest differs",
+        "extra: not listed in PUBLICATION.json",
+    ]
+
+
+def test_verify_of_a_project_copy_names_a_member_whose_publication_changed(tmp_path) -> None:
+    project = make_project(tmp_path)
+    make_sealed_run(project)
+    make_summary(project, error_message="ok")
+    destination = tmp_path / "out" / "bretagne"
+    publish_project(project, destination, format="tar")
+
+    assert {e.name for e in destination.iterdir()} == {
+        f"{RUN_NAME}.tar",
+        "summary.tar",
+        "PUBLICATION.json",
+    }
+    assert verify(destination) == []
+    publication = destination / "summary.tar"
+    with tarfile.open(publication, "r") as archive:
+        members = [(m, archive.extractfile(m).read()) for m in archive.getmembers() if m.isfile()]
+    publication.unlink()
+    with tarfile.open(publication, "w") as archive:
+        for member, data in members:
+            if member.name.endswith("/PUBLICATION.json"):
+                data = data.replace(b'"format": "tar"', b'"format": "tar" ')
+                member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+
+    assert verify(destination) == ["summary.tar: PUBLICATION.json digest differs"]
 
 
 def test_a_refused_member_leaves_nothing_of_the_project(tmp_path) -> None:
@@ -217,3 +294,61 @@ def test_a_refused_member_leaves_nothing_of_the_project(tmp_path) -> None:
     assert list((tmp_path / "out").iterdir()) == []
     assert read_published(run_dir) == []
     assert len(read_published(summary)) == 1
+
+
+def _declare_a_folder(run_dir, folder) -> str:
+    """Add ``folder`` to the tracked inputs of the seal of ``run_dir``; return its digest."""
+    from hydromodpy.results.manifest import TrackedInput
+    from hydromodpy.results.record import RunRecord
+    from hydromodpy.results.storage.digests import sha256_directory
+
+    record = RunRecord.read(run_dir)
+    sha256 = sha256_directory(folder)
+    tracked = TrackedInput(
+        role="hydrometry",
+        category="data",
+        path="data/hydrometry",
+        declared_path="data/hydrometry",
+        sha256=sha256,
+        portable=True,
+    )
+    record.model_copy(update={"tracked_inputs": [*record.tracked_inputs, tracked]}).write(run_dir)
+    return sha256
+
+
+def test_a_declared_folder_is_copied_whole_under_its_digest(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    folder = project.parent.parent / "data" / "hydrometry"
+    sha256 = _declare_a_folder(run_dir, folder)
+    # The loader describes a user file the first time it reads it: the
+    # folder digest leaves that sidecar out, so the copy still matches.
+    (folder / "J0014010.csv.json").write_text('{"source": "custom"}', encoding="utf-8")
+
+    copy = publish(run_dir, tmp_path / "out" / "nancon", project_root=project, with_=("inputs",))
+
+    assert (copy / INPUTS_DIRNAME / sha256 / "J0014010.csv").read_bytes() == (
+        folder / "J0014010.csv"
+    ).read_bytes()
+    assert verify(copy) == []
+
+
+def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    inputs = json.loads((run_dir / "inputs.json").read_text(encoding="utf-8"))
+    product = tmp_path / "scratch" / "nancon.p1" / "_preprocessing" / "hydrography" / "streams.tif"
+    inputs["inputs"].append(
+        {
+            "variable": "hydrography:hydrography_streams",
+            "provider": "hydrography",
+            "request": {},
+            "path": str(product),
+            "sha256": "0" * 64,
+        }
+    )
+    (run_dir / "inputs.json").write_text(json.dumps(inputs), encoding="utf-8")
+
+    with pytest.raises(ExportError, match="a product the run derived in its scratch"):
+        publish(run_dir, tmp_path / "out" / "nancon", project_root=project, with_=("inputs",))
+    assert not (tmp_path / "out" / "nancon").exists()

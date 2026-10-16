@@ -1,10 +1,12 @@
 """The trap of a SLURM task writes ``failed`` when the worker left ``running`` behind.
 
 The array script is run by bash as a node would run it, with SLURM's
-variables set and a stand-in ``hmp`` on the PATH: the stand-in claims the
-run directory like a worker, then crashes, is terminated through the shell,
-or ends properly. The flags it receives come from the real ``task-flags``
-step; only ``write-lock`` goes through a stand-in interpreter. After it, the trap step closes the directory: ``failed``
+variables set and a stand-in interpreter in ``HMP_PYTHON``, with no ``hmp`` on
+the PATH: the scripts reach the CLI through ``$HMP_PYTHON -m hydromodpy``, and
+the stand-in sends that to a stand-in ``hmp`` that claims the run directory
+like a worker, then crashes, is terminated through the shell, or ends
+properly. The flags it receives come from the real ``task-flags`` step; only
+``write-lock`` goes through the stand-in too. After it, the trap step closes the directory: ``failed``
 with the exit code, the signal, the log tail and ``written_by = "trap"``
 when the worker said nothing, nothing at all when it wrote its own exit.
 """
@@ -84,6 +86,10 @@ if [ "$3" = "write-lock" ]; then
     echo "pinned" > "$PWD/hydromodpy.lock"
     exit 0
 fi
+if [ "$1" = "-m" ] && [ "$2" = "hydromodpy" ]; then
+    shift 2
+    exec {hmp} "$@"
+fi
 exec {python} "$@"
 """
 
@@ -91,11 +97,11 @@ exec {python} "$@"
 def _bin(tmp_path: Path) -> Path:
     folder = tmp_path / "bin"
     folder.mkdir()
-    hmp = folder / "hmp"
+    hmp = folder / "worker-hmp"
     hmp.write_text(FAKE_HMP.format(python=sys.executable))
     hmp.chmod(0o755)
     python = folder / "python"
-    python.write_text(FAKE_PYTHON.format(python=sys.executable))
+    python.write_text(FAKE_PYTHON.format(python=sys.executable, hmp=hmp))
     python.chmod(0o755)
     return folder
 
@@ -104,7 +110,6 @@ def _env(tmp_path: Path, mode: str) -> dict[str, str]:
     env = dict(os.environ)
     folder = _bin(tmp_path)
     env.update(
-        PATH=f"{folder}{os.pathsep}{env['PATH']}",
         HMP_PYTHON=str(folder / "python"),
         SLURM_ARRAY_JOB_ID="42",
         SLURM_ARRAY_TASK_ID="1",

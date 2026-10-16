@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     PROJECTS_DIRNAME,
@@ -42,6 +43,8 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
     from hydromodpy.results.run.group import RunSet
+
+logger = get_logger(__name__)
 
 CASE_KINDS: tuple[str, ...] = ("run", "session")
 """Kinds of result directory that stand for a case; a kept trial is not one."""
@@ -245,20 +248,30 @@ def best_frame(
     ``sim_id``, ``label``, the global parameters of the run, the metric
     under its own name, and the window it was scored on
     (``nse_window_start``, ``nse_window_end``, ``station``).
+
+    A group of completed runs that yields no row is named once in a
+    warning of the logger, with the reason: no run scored (no ``[metrics]
+    window``), none with the metric, or none of ``label``.
     """
     from hydromodpy.results.run.group import RunSet
 
     metric_sense(metric)
     rows = case_rows(catalog)
     rows = rows[(rows["kind"] == "run") & (rows["status"] == "completed")]
-    if label is not None:
-        rows = rows[rows["label"] == label]
+    if rows.empty:
+        logger.warning("best(%r): no completed run in the index of this project.", metric)
     groups = [(None, rows)] if by is None else list(rows.groupby(by, dropna=False, sort=True))
     out: list[dict[str, Any]] = []
-    for key, group in groups:
+    left_out: list[tuple[str, pd.DataFrame, bool]] = []
+    for key, completed in groups:
+        group = completed if label is None else completed[completed["label"] == label]
         sim_ids = [str(sid) for sid in group["sim_id"]]
         ranked = RunSet(sim_ids, catalog).compare(metric, mixed_windows=mixed_windows)
         if ranked.empty:
+            every = [str(sid) for sid in completed["sim_id"]]
+            scored = not RunSet(every, catalog).compare(metric, mixed_windows=True).empty
+            name = "the project" if by is None else str(key)
+            left_out.append((name, completed, scored))
             continue
         top = ranked.iloc[0]
         case = group[group["sim_id"].astype(str) == str(top["sim_id"])].iloc[0]
@@ -279,7 +292,30 @@ def best_frame(
             }
         )
         out.append(row)
+    _warn_left_out(metric, left_out, label)
     return pd.DataFrame(out)
+
+
+def _warn_left_out(
+    metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str | None
+) -> None:
+    """Name once the groups :func:`best_frame` left out, by reason."""
+    from hydromodpy.project.summary import names_text, unscored_reason
+
+    unscored = [(name, frame) for name, frame, scored in left_out if not scored]
+    reasons: list[str] = []
+    if unscored:
+        names = names_text([name for name, _ in unscored])
+        frame = pd.concat([frame for _, frame in unscored], ignore_index=True)
+        reasons.append(unscored_reason(names, frame, metric))
+    unlabelled = [name for name, _, scored in left_out if scored]
+    if unlabelled:
+        reasons.append(
+            f"no {label} run of {names_text(unlabelled)} is scored; label=None ranks every "
+            "completed run"
+        )
+    if reasons:
+        logger.warning("best(%r): %s.", metric, "; ".join(reasons))
 
 
 def _parameters_of(case: pd.Series) -> dict[str, Any]:

@@ -17,8 +17,8 @@ a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
 ``fields.zarr/``, ``tables.parquet/`` and ``mesh/``; ``with_ = ("inputs",)``
 adds the bytes of every loaded input and every file the configuration
-declared under ``inputs/<sha256><suffix>``,
-addressed by content. Never: ``.hmp/``, ``logs/``, ``attempts/``,
+declared under ``inputs/<sha256><suffix>`` (a declared directory under
+``inputs/<sha256>/``), addressed by content. Never: ``.hmp/``, ``logs/``, ``attempts/``,
 ``outcome.json``, ``published.jsonl``.
 
 Every JSON, JSON Lines and TOML document and every cell of a CSV or TSV
@@ -32,7 +32,10 @@ names the machine is refused before it is moved into place.
 The source gets one line in its ``published.jsonl``, and that journal never
 enters a copy. ``publish_project`` stages every sealed run and the summary
 side by side and renames the whole at once: a refused member leaves nothing
-in the destination and no line in any journal.
+in the destination and no line in any journal. The project copy carries its
+own ``PUBLICATION.json`` (kind ``project``) that lists each member by name
+and by the digest of the member's ``PUBLICATION.json``, so :func:`verify`
+checks the whole copy and names a member that is missing or was added.
 """
 
 from __future__ import annotations
@@ -70,11 +73,13 @@ from hydromodpy.results.export.run_identity import label_of, read_sealed_manifes
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
+    PROJECT_REL_DIR,
     PUBLICATION_SCHEMA,
     REDACTED_PATH,
     Publication,
     PublicationExtra,
     PublicationFormat,
+    PublicationMember,
     PublicationSource,
     PublishedLine,
     append_published,
@@ -83,6 +88,7 @@ from hydromodpy.results.publication import (
     write_publication,
 )
 from hydromodpy.results.record import read_inputs
+from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PUBLICATION_FILENAME,
@@ -98,6 +104,7 @@ from hydromodpy.results.storage.contract import (
     RUN_REPORT_DIRNAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.json_io import check_sealed
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE, OCTET_STREAM_MEDIA_TYPE
@@ -192,7 +199,8 @@ def publish_project(
     The members are staged together beside *to* and renamed into place at
     once. A member that is refused leaves nothing in *to* and no line in any
     ``published.jsonl``. With ``format = "tar"`` each member is an archive
-    ``<member>.tar`` under *to*.
+    ``<member>.tar`` under *to*. *to* gets its own ``PUBLICATION.json``, of
+    kind ``project``, that lists every member.
 
     Raises
     ------
@@ -212,7 +220,9 @@ def publish_project(
     destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name)
     staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
+    extras = list(dict.fromkeys(with_))
     lines: list[tuple[Path, PublishedLine]] = []
+    members: list[PublicationMember] = []
     try:
         for source, manifest in checked:
             name = f"{source.name}.tar" if format == "tar" else source.name
@@ -222,10 +232,32 @@ def publish_project(
                 root=root,
                 manifest=manifest,
                 format=format,
-                extras=tuple(with_),
+                extras=tuple(extras),
                 recorded_as=destination / name,
             )
             lines.append((source, line))
+            members.append(
+                PublicationMember(
+                    name=name,
+                    rel_dir=_source_rel_dir(source, manifest),
+                    manifest_sha256=None
+                    if manifest is None
+                    else sha256_of(source / RUN_MANIFEST_FILENAME),
+                    publication_sha256=line.publication_sha256,
+                )
+            )
+        write_publication(
+            staging,
+            Publication(
+                kind="project",
+                source=PublicationSource(project=root.name, rel_dir=PROJECT_REL_DIR),
+                hydromodpy_version=HYDROMODPY_VERSION,
+                published_at=datetime.now(UTC),
+                format=format,
+                with_=extras,
+                members=members,
+            ),
+        )
         os.replace(staging, destination)
     finally:
         if staging.exists():
@@ -289,9 +321,10 @@ def _publish_one(
             _write_crate(staging)
         _refuse_leaks(staging, prefixes)
         publication = Publication(
+            kind="summary" if is_summary else "run",
             source=PublicationSource(
                 project=root.name,
-                rel_dir=SUMMARY_DIRNAME if is_summary else run_dir_rel(source_dir.name),
+                rel_dir=_source_rel_dir(source_dir, manifest),
                 sim_id=None if manifest is None else manifest.run.sim_id,
             ),
             manifest_sha256=None if is_summary else sha256_of(source_dir / RUN_MANIFEST_FILENAME),
@@ -317,18 +350,29 @@ def _publish_one(
     )
 
 
+def _source_rel_dir(source_dir: Path, manifest: Any) -> str:
+    """Return ``source.rel_dir`` of a copy: ``summary`` or ``runs/<run>``."""
+    return SUMMARY_DIRNAME if manifest is None else run_dir_rel(source_dir.name)
+
+
 def verify(copy: str | Path) -> list[str]:
     """Compare a published copy with its ``PUBLICATION.json``; return every difference.
 
     An empty list means every file listed is present with its digest and no
     file is present that the publication does not list. A tar is read in
-    place.
+    place. A project copy is verified member by member: each difference of a
+    member is prefixed with ``<member>/``, a member gone or whose
+    ``PUBLICATION.json`` changed is named, and so is an entry the project
+    copy does not list.
     """
     target = Path(copy).expanduser().resolve()
     if target.is_file() and tarfile.is_tarfile(target):
         found, recorded = _tar_digests(target)
     else:
-        recorded = read_publication(target).files
+        publication = read_publication(target)
+        if publication.kind == "project":
+            return _verify_project(target, publication)
+        recorded = publication.files
         found = _digests(target)
     problems = [f"{name}: missing" for name in sorted(recorded) if name not in found] + [
         f"{name}: digest differs"
@@ -341,6 +385,44 @@ def verify(copy: str | Path) -> list[str]:
         if name not in recorded
     ]
     return problems
+
+
+def _verify_project(target: Path, publication: Publication) -> list[str]:
+    """Verify every member of a project copy against the list its ``PUBLICATION.json`` holds."""
+    problems: list[str] = []
+    listed = {member.name for member in publication.members}
+    for member in publication.members:
+        entry = target / member.name
+        if not entry.exists():
+            problems.append(f"{member.name}: missing")
+            continue
+        if not entry.is_dir() and not tarfile.is_tarfile(entry):
+            problems.append(f"{member.name}: not a published copy")
+            continue
+        if _member_publication_sha256(entry) != member.publication_sha256:
+            problems.append(f"{member.name}: {PUBLICATION_FILENAME} digest differs")
+        problems += [f"{member.name}/{problem}" for problem in verify(entry)]
+    problems += [
+        f"{entry.name}: not listed in {PUBLICATION_FILENAME}"
+        for entry in sorted(target.iterdir())
+        if entry.name not in listed and entry.name != PUBLICATION_FILENAME
+    ]
+    return problems
+
+
+def _member_publication_sha256(entry: Path) -> str | None:
+    """Return the digest of the ``PUBLICATION.json`` of a member folder or tar."""
+    import hashlib
+
+    if entry.is_dir():
+        path = entry / PUBLICATION_FILENAME
+        return sha256_of(path) if path.is_file() else None
+    with tarfile.open(entry, "r") as archive:
+        for item in archive.getmembers():
+            if item.isfile() and item.name.partition("/")[2] == PUBLICATION_FILENAME:
+                handle = archive.extractfile(item)
+                return None if handle is None else hashlib.sha256(handle.read()).hexdigest()
+    return None
 
 
 def _require_licence(source: Path, *, is_summary: bool) -> None:
@@ -475,12 +557,28 @@ def _redacted_text(text: str, prefixes: tuple[str, ...]) -> str:
     return text
 
 
+class MissingInputError(ExportError):
+    """An input of a run is not on disk any more, so a copy cannot carry its bytes.
+
+    ``detail`` says which input and why; the message adds what to do on a
+    publication. ``hmp replay`` prints ``detail`` with its own advice.
+    """
+
+    def __init__(self, detail: str, *, derived: bool = False) -> None:
+        self.detail = detail
+        advice = "Publish without --with inputs" + ("." if derived else ", or fetch it again.")
+        super().__init__(f"{detail} {advice}")
+
+
 def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
     """Copy every loaded input and every file the configuration declared under ``inputs/``.
 
     Each file is named by its sha256, so a file both loaded and declared is
-    one copy. A published copy replays from these bytes (``hmp run
-    <copy>/config.toml --frozen``).
+    one copy. A declared directory (a folder of station files) is copied
+    whole under ``inputs/<sha256>/``, its digest being the one of the tree. A
+    published copy replays from these bytes (``hmp run <copy>/config.toml
+    --frozen``). A missing input raises :class:`MissingInputError`; one the
+    run derived in its scratch says so.
     """
     document = read_inputs(source)
     roots = (source, project_root, *(p for p in project_root.parents if is_workspace_root(p)))
@@ -492,40 +590,54 @@ def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
             )
         located = _locate(entry.path, roots)
         if located is None:
-            raise ExportError(
-                f"input {entry.variable}: {entry.path} is not on disk any more, so it cannot be "
-                "copied. Publish without --with inputs, or fetch it again."
-            )
-        if sha256_of(located) != entry.sha256:
-            raise ExportError(
-                f"input {entry.variable}: {located.name} no longer has the digest the run sealed."
-            )
-        dest = staging / INPUTS_DIRNAME / f"{entry.sha256}{located.suffix}"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(located, dest)
+            raise _missing(entry.variable, entry.path, project_root)
+        _copy_by_content(located, entry.variable, entry.sha256, staging)
     seal = read_sealed_manifest(source)
     for tracked in seal.inputs if seal is not None else ():
         located = _locate(tracked.path, roots)
         if located is None:
+            raise _missing(tracked.role, tracked.path, project_root)
+        _copy_by_content(located, tracked.role, tracked.sha256, staging)
+
+
+def _missing(name: str, path: str, project_root: Path) -> MissingInputError:
+    """Say that the input ``name`` at ``path`` is gone, and whether the run derived it."""
+    if is_run_product(path, project_root):
+        return MissingInputError(
+            f"input {name}: {path} is a product the run derived in its scratch, which the "
+            "seal removed. It is no input: the run was sealed by a release that recorded "
+            "it as one. Run the configuration again to seal it with its real inputs.",
+            derived=True,
+        )
+    return MissingInputError(
+        f"input {name}: {path} is not on disk any more, so it cannot be copied."
+    )
+
+
+def _copy_by_content(located: Path, name: str, sha256: str, staging: Path) -> None:
+    """Copy a file or a directory under ``inputs/``, named by the digest the run sealed."""
+    if located.is_dir():
+        if sha256_directory(located) != sha256:
             raise ExportError(
-                f"input {tracked.role}: {tracked.path} is not on disk any more, so it cannot be "
-                "copied. Publish without --with inputs."
+                f"input {name}: {located.name}/ no longer has the digest the run sealed."
             )
-        if sha256_of(located) != tracked.sha256:
-            raise ExportError(
-                f"input {tracked.role}: {located.name} no longer has the digest the run sealed."
-            )
-        dest = staging / INPUTS_DIRNAME / f"{tracked.sha256}{located.suffix}"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(located, dest)
+        dest = staging / INPUTS_DIRNAME / sha256
+        if not dest.exists():
+            shutil.copytree(located, dest)
+        return
+    if sha256_of(located) != sha256:
+        raise ExportError(f"input {name}: {located.name} no longer has the digest the run sealed.")
+    dest = staging / INPUTS_DIRNAME / f"{sha256}{located.suffix}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(located, dest)
 
 
 def _locate(path: str, roots: Sequence[Path]) -> Path | None:
-    """Return the file an inputs entry names, relative to the run, the project or the workspace."""
+    """Return the file or directory an input names, relative to the run, the project or the workspace."""
     candidate = Path(path)
     if candidate.is_absolute():
-        return candidate if candidate.is_file() else None
-    return next((root / candidate for root in roots if (root / candidate).is_file()), None)
+        return candidate if candidate.exists() else None
+    return next((root / candidate for root in roots if (root / candidate).exists()), None)
 
 
 def _write_crate(staging: Path) -> None:
@@ -675,6 +787,7 @@ def _tar_digests(archive_path: Path) -> tuple[dict[str, str], dict[str, str]]:
 __all__ = [
     "INPUTS_DIRNAME",
     "RESULTS_ENTRIES",
+    "MissingInputError",
     "RUN_COPY_ENTRIES",
     "project_members",
     "publish",
