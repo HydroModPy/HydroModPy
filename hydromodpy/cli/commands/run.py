@@ -410,10 +410,9 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
 
 def _loaded_input_providers(copy_dir: Path) -> list[str]:
     """Return the providers of the loaded inputs ``inputs.json`` of a copy lists."""
-    import json
+    from hydromodpy.results.record import read_inputs
 
-    document = json.loads((copy_dir / RUN_INPUTS_FILENAME).read_text(encoding="utf-8"))
-    return sorted({str(entry.get("provider")) for entry in document.get("inputs") or ()})
+    return sorted({str(entry.provider) for entry in read_inputs(copy_dir).inputs})
 
 
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:

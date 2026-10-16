@@ -45,7 +45,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.contract import RUN_ANNOTATIONS_FILENAME
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 
 ANNOTATIONS_VERSION: Final[int] = 1
 """Schema version of the annotations file."""
@@ -84,7 +84,9 @@ def read_annotations(run_dir: Path | str) -> Annotations:
     target = annotations_path(run_dir)
     if not target.is_file():
         return Annotations()
-    return Annotations.model_validate(read_json(target))
+    return Annotations.model_validate(
+        read_sealed_json(target, ANNOTATIONS_VERSION, key="annotations_version")
+    )
 
 
 def write_annotations(run_dir: Path | str, annotations: Annotations) -> Path:

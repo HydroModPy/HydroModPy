@@ -137,7 +137,7 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     calibration overlay of two lines failed on "No [calibration] section".
 
     The legacy keys are migrated in memory first, as the project loader does,
-    so a file written for an earlier schema runs as it is.
+    so a file ``hmp doctor --fix-config <file>`` would fix also runs unfixed.
     """
     from pydantic import ValidationError
 

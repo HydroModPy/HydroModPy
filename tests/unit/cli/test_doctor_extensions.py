@@ -1,4 +1,4 @@
-"""Tests for the ``hmp doctor`` extension flags (--cross-catalog, --lifecycle, --prt)."""
+"""Tests for the ``hmp doctor`` flags (--cross-catalog, --lifecycle, --prt, --fix-config)."""
 
 from __future__ import annotations
 
@@ -53,6 +53,7 @@ def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
     assert "--cross-catalog" in out
     assert "--lifecycle" in out
     assert "--prt" in out
+    assert "--fix-config" in out
     assert "--migrate" not in out
 
 
@@ -172,3 +173,40 @@ def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
 
     assert code in (0, 1)
     assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"
+
+
+def test_doctor_fix_config_rewrites_a_v1_file_in_place_and_says_what_changed(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(
+        '# my project\n[simulation]\nrun_id = "cheze"\non_collision = "replace"\n',
+        encoding="utf-8",
+    )
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(path)])
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert f"Migrated {path}:" in out
+    assert "on_collision -> if_exists" in out
+    assert "run_id -> name" in out
+    text = path.read_text(encoding="utf-8")
+    assert "# my project" in text
+    assert 'name = "cheze"' in text
+    assert 'if_exists = "version"' in text
+    assert "run_id" not in text and "on_collision" not in text
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(path)])
+
+    assert code == 0
+    assert "already up to date" in capsys.readouterr().out
+
+
+def test_doctor_fix_config_names_a_missing_file(monkeypatch, tmp_path, capsys) -> None:
+    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--fix-config", str(tmp_path / "absent.toml")])
+
+    assert code == EXIT_NOT_FOUND
+    assert "absent.toml" in capsys.readouterr().err

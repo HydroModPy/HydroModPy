@@ -21,6 +21,7 @@ from hydromodpy.project.launch.replay import (
     published_copy_of,
     replay_payload,
 )
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from tests._helpers.cli_runner import CliRunner
 
 _CONFIG = """\
@@ -52,6 +53,7 @@ def _copy(tmp_path: Path, *, dem: bytes = b"the dem bytes", store: bool = True) 
     (copy / "manifest.json").write_text(
         json.dumps(
             {
+                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
                 "inputs": [
                     {
                         "role": "dem",
@@ -61,7 +63,7 @@ def _copy(tmp_path: Path, *, dem: bytes = b"the dem bytes", store: bool = True) 
                         "sha256": sha256,
                         "portable": True,
                     }
-                ]
+                ],
             }
         ),
         encoding="utf-8",

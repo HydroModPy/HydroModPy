@@ -39,7 +39,7 @@ from hydromodpy.results.manifest import (
     TrackedInput,
 )
 from hydromodpy.results.metric_rule import DateWindow, MetricScore
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
 
 FACTS_FILENAME: Final[str] = "facts.json"
 """Name of the facts document under ``<run>/.hmp/checkpoints/``."""
@@ -312,7 +312,7 @@ def write_facts(run_dir: str | Path, facts: RunFacts) -> Path:
 def read_facts(run_dir: str | Path) -> RunFacts | None:
     """Return the facts of an attempt, or ``None`` when none were written yet."""
     try:
-        payload = read_json(facts_path(run_dir))
+        payload = read_transient_json(facts_path(run_dir), FACTS_SCHEMA)
     except FileNotFoundError:
         return None
     return RunFacts.model_validate(payload)

@@ -63,6 +63,7 @@ def exit_code_for(exc: BaseException) -> int:
         JobUsageError,
         MigrationFailedError,
         ReadOnlyError,
+        SchemaVersionMismatchError,
         SolverError,
         StepError,
         TerrainError,
@@ -72,7 +73,6 @@ def exit_code_for(exc: BaseException) -> int:
         AmbiguousReferenceError,
         SimulationNotFoundError,
     )
-    from hydromodpy.results.errors import SchemaVersionMismatchError
     from hydromodpy.results.storage.attempt import (
         AttemptClaimedError,
         CaseAliveError,

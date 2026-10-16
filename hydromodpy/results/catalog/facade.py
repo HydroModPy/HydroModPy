@@ -23,6 +23,7 @@ import duckdb
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.io.document_version import check_version
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
@@ -36,7 +37,6 @@ from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.schema import SchemaDiscoveryMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
-from hydromodpy.results.errors import SchemaVersionMismatchError
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -62,7 +62,7 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
     ------
     FileNotFoundError
         If the project has no index yet.
-    hydromodpy.results.errors.SchemaVersionMismatchError
+    hydromodpy.core.exceptions.SchemaVersionMismatchError
         If the index was written under another schema version.
     hydromodpy.core.exceptions.CatalogUnreadableError
         If the index file exists but DuckDB cannot open it.
@@ -92,9 +92,12 @@ class Catalog(ReadsMixin, DiscoveryMixin, SchemaDiscoveryMixin):
         version = read_index_schema_version(connection)
         if version != INDEX_SCHEMA_VERSION:
             connection.close()
-            raise SchemaVersionMismatchError(
-                f"The index at {self._db_path} was written under schema version "
-                f"{version!r}; this version reads {INDEX_SCHEMA_VERSION!r}. {REINDEX_HINT}"
+            check_version(
+                version,
+                INDEX_SCHEMA_VERSION,
+                document=self._db_path,
+                key="schema_version",
+                remedy=REINDEX_HINT,
             )
         # The payload views name the run directories of this project, so they
         # are session-local and installed on the connection, never in the file.

@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 
@@ -296,8 +297,7 @@ def read_data_description(run_dir: Path) -> dict[str, Any] | None:
     except (OSError, ValueError) as exc:
         logger.warning("data.description_unreadable path=%s err=%s", path, exc)
         return None
-    if not isinstance(payload, dict) or payload.get("schema") != SCHEMA_VERSION:
-        return None
+    check_document(payload, SCHEMA_VERSION, document=path, remedy=TRANSIENT_REMEDY)
     return payload
 
 

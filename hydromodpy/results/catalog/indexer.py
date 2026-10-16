@@ -101,7 +101,7 @@ from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.manifest import Manifest, read_manifest
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
-from hydromodpy.results.record import RunProvenance
+from hydromodpy.results.record import read_provenance
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
@@ -723,7 +723,7 @@ class _IndexWriter:
         target = path / RUN_PROVENANCE_FILENAME
         if not target.is_file():
             return 0
-        provenance = RunProvenance.model_validate(read_json(target))
+        provenance = read_provenance(path)
         host = provenance.platform
         git = provenance.git
         solver = provenance.solver

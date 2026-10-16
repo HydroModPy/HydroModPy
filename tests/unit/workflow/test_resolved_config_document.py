@@ -51,13 +51,20 @@ def test_the_document_holds_exactly_what_the_checkpoint_digest_signs(tmp_path: P
     )
 
 
-def test_a_document_of_another_schema_reads_as_absent(tmp_path: Path) -> None:
-    """A future schema is a clean miss, never a half-understood document."""
+def test_a_document_of_another_schema_is_refused_by_name(tmp_path: Path) -> None:
+    """A future schema is refused with the version read, never half understood."""
+    import pytest
+
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+
     path = resolved_config_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"schema": "hydromodpy.resolved_config.v99", "config": {}}', encoding="utf-8")
 
-    assert read_resolved_config(tmp_path) is None
+    with pytest.raises(
+        SchemaVersionMismatchError, match="resolved_config.v99.*delete it and run again"
+    ):
+        read_resolved_config(tmp_path)
 
 
 def test_an_unreadable_document_reads_as_absent(tmp_path: Path) -> None:

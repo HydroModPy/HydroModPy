@@ -113,7 +113,8 @@ Each release section includes the following standard categories:
   `invalid`, `skipped` and `stale_plan` from the plan and reads the attempt states from disk.
   `HMP_THREADS_PER_CASE` bounds the threads of a worker (`threadpoolctl` and the BLAS variables),
   `HMP_RUN_SCRATCH` and `HMP_SET_*` leave the environment of the children. Budgets measured on 22
-  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the machine when the key is not written),
+  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the
+  machine when the key is not written),
   refuses more than 16 without `--force`, two concurrent calibrations at most;
   `prepare_parallel` defaults to 2, 8 at most, and one case per site is prepared at a time.
 - `hmp project array . --scheduler slurm` (`project/launch/slurm.py`, templates under
@@ -221,7 +222,8 @@ Each release section includes the following standard categories:
 - The sites x recipes plan (`hydromodpy/config/sites/`): `expand_plan()` resolves `[sites]` and
   `[sites.recipes]` into immutable `plan/<hash>/` drafts with cell-level errors (`hmp config check`
   groups them), `bind`, `site_scoped` precedence, `--set` and `HMP_SET_*` through
-  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
+  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run
+  --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
   (the local launcher above);
   `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
 - The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
@@ -300,7 +302,8 @@ Each release section includes the following standard categories:
   relaxes it with a weighted Lloyd iteration (25 iterations at most, developer key
   `[mesh.voronoi] lloyd_tolerance`). GEOS tessellates in a local frame, so Lambert-93
   magnitudes no longer reach the geometry code, and seven gates (one cell per seed, Berge balls, mirror
-  faces, chain continuity, area, degenerate cells, short faces) stop an invalid mesh instead of warning. One request and
+  faces, chain continuity, area, degenerate cells, short faces) stop an invalid mesh instead of
+  warning. One request and
   one seed give one mesh, bit for bit; the engine asks for no cache. `[mesh.voronoi] seeds =
   "triangulation"`, the default when `[mesh.triangle] path` is given, takes the generators from
   that triangulation and keeps its dual, with the same faces as the former Voronoi mesh. At equal
@@ -393,6 +396,11 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- Every stored document carries its version (`version` or `schema` id) and a reader refuses an
+  unknown one naming the version it read and what to do (`hmp catalog reindex` for the index, the
+  HydroModPy version that wrote a sealed document); `hmp doctor --fix-config <file>` rewrites a
+  TOML of the previous grammar in place (`config_migration.py` is the one migration kept: a
+  configuration file, never stored data).
 - `[sites.run] parallel`, `prepare_parallel` and `threads_per_case` carry the measured budgets in
   their descriptions; `hmp run --until data` prepares without solving; `hmp project status` after
   a failed prepare shows the case `failed`; a re-run of `hmp run project.toml` leaves a finished
@@ -556,8 +564,8 @@ Each release section includes the following standard categories:
   gallery, whose producers no longer exist; a copy lives outside the tree) and the always-skipped
   `tests/unit/solver/test_boussinesq_stationary_robust_solver_matrix.py`, which loaded a script of the
   retired example 10.
-- `hmp doctor --fix-config` and `fix_config_file`, the `~/hydromodpy` fallback of every verb,
-  `cli/commands/site/_workspace.py`, the `results` group of `hmp workspace clean` that deleted
+- The `~/hydromodpy` fallback of every verb, `cli/commands/site/_workspace.py`, the `results` group
+  of `hmp workspace clean` that deleted
   `runs/` without a tombstone, `open_indexed_run` (network metrics open the run from its directory).
 - The DuckDB-bound writer of the Catalog (`results/catalog/{writes,writes_zarr,writes_parquet,
   writes_helpers,writes_duckdb,lifecycle,reindex,package_io,audit}.py`, `register_simulation`,

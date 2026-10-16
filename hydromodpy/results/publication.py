@@ -34,11 +34,14 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.state.paths import SUMMARY_DIRNAME
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_PUBLISHED_FILENAME
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import check_sealed, read_sealed_json, write_json_atomic
 from hydromodpy.results.validity_rules import Label
 
 PUBLICATION_SCHEMA: Final[str] = "hydromodpy.publication.v1"
 """Schema id of ``PUBLICATION.json``."""
+
+PUBLISHED_SCHEMA: Final[str] = "hydromodpy.published.v1"
+"""Schema id of one line of ``published.jsonl``."""
 
 REDACTED_PATH: Final[str] = "<absolute path>"
 """What an absolute path outside the project becomes."""
@@ -103,6 +106,9 @@ class Publication(HydroModelBase):
 class PublishedLine(HydroModelBase):
     """One line of ``published.jsonl``: where a copy went."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: str = Field(default=PUBLISHED_SCHEMA, alias="schema", description="Schema id")
     to: str = Field(description="Destination of the copy, as given")
     format: PublicationFormat
     published_at: datetime = Field(description="Instant of the copy, UTC")
@@ -125,7 +131,9 @@ def write_publication(directory: str | Path, publication: Publication) -> Path:
 
 def read_publication(directory: str | Path) -> Publication:
     """Read ``PUBLICATION.json`` of a copy."""
-    return Publication.model_validate(read_json(publication_path(directory)))
+    return Publication.model_validate(
+        read_sealed_json(publication_path(directory), PUBLICATION_SCHEMA)
+    )
 
 
 def published_path(source_dir: str | Path) -> Path:
@@ -137,7 +145,7 @@ def append_published(source_dir: str | Path, line: PublishedLine) -> Path:
     """Append one line to ``published.jsonl`` of a source and return its path."""
     target = published_path(source_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(line.model_dump(mode="json"), ensure_ascii=False) + "\n"
+    text = json.dumps(line.model_dump(mode="json", by_alias=True), ensure_ascii=False) + "\n"
     fd = os.open(target, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
         os.write(fd, text.encode("utf-8"))
@@ -152,7 +160,13 @@ def read_published(source_dir: str | Path) -> list[PublishedLine]:
     if not target.is_file():
         return []
     complete = target.read_text(encoding="utf-8").split("\n")[:-1]
-    return [PublishedLine.model_validate(json.loads(text)) for text in complete if text.strip()]
+    return [
+        PublishedLine.model_validate(
+            check_sealed(json.loads(text), PUBLISHED_SCHEMA, path=target, line=number)
+        )
+        for number, text in enumerate(complete, start=1)
+        if text.strip()
+    ]
 
 
 _POSIX_ABSOLUTE = re.compile(r"(?<![\w:/])/(?:[^\s\"'<>|/]+)(?:/[^\s\"'<>|/]*)*")
@@ -209,6 +223,7 @@ def _relative_or_redacted(path: PurePosixPath | PureWindowsPath, root: Path | No
 
 __all__ = [
     "PUBLICATION_SCHEMA",
+    "PUBLISHED_SCHEMA",
     "REDACTED_KEYS",
     "REDACTED_PATH",
     "Publication",

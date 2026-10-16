@@ -11,7 +11,8 @@ and ``--trial 4`` name one thing.
 
 Format
 ------
-See :class:`TrialLine`. A trial number appearing twice is one trial written
+See :class:`TrialLine`; every line carries the schema id
+:data:`TRIAL_SCHEMA`. A trial number appearing twice is one trial written
 twice (started, then completed): the last line wins. A trailing line without
 its newline is the remnant of a crash and is ignored; any other unreadable
 line is an error.
@@ -23,13 +24,17 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_TRIALS_FILENAME
+from hydromodpy.results.storage.json_io import check_sealed
+
+TRIAL_SCHEMA: Final[str] = "hydromodpy.trial.v1"
+"""Schema id of one line of ``trials.jsonl``."""
 
 TrialStatus = Literal["running", "completed", "failed", "crashed", "aborted"]
 """Where a trial stands."""
@@ -38,6 +43,9 @@ TrialStatus = Literal["running", "completed", "failed", "crashed", "aborted"]
 class TrialLine(HydroModelBase):
     """One evaluated trial, one line of the journal."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: str = Field(default=TRIAL_SCHEMA, alias="schema", description="Schema id")
     trial: int = Field(ge=1, description="Trial number, unique in the session")
     phase: str = Field(description="Phase the trial belongs to")
     restart: int = Field(default=0, ge=0, description="Restart of that phase")
@@ -70,7 +78,7 @@ def append_trial(session_dir: str | Path, line: TrialLine) -> Path:
     """Append one line to the journal, in one write, and return its path."""
     target = trials_path(session_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(line.model_dump(mode="json"), ensure_ascii=False) + "\n"
+    text = json.dumps(line.model_dump(mode="json", by_alias=True), ensure_ascii=False) + "\n"
     fd = os.open(target, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     try:
         os.write(fd, text.encode("utf-8"))
@@ -94,7 +102,9 @@ def read_trials(session_dir: str | Path) -> list[TrialLine]:
             payload = json.loads(text)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{target}:{number} is not a trial line: {exc}") from exc
-        line = TrialLine.model_validate(payload)
+        line = TrialLine.model_validate(
+            check_sealed(payload, TRIAL_SCHEMA, path=target, line=number)
+        )
         latest[line.trial] = line
     return [latest[number] for number in sorted(latest)]
 
@@ -130,6 +140,7 @@ def trial_row(line: TrialLine) -> dict[str, Any]:
 
 
 __all__ = [
+    "TRIAL_SCHEMA",
     "TrialLine",
     "TrialStatus",
     "append_trial",

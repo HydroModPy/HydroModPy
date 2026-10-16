@@ -32,7 +32,6 @@ hash.
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -57,6 +56,7 @@ from hydromodpy.results.storage.contract import (
     RUN_SCRATCH_ENTRIES,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.json_io import read_sealed_json
 from hydromodpy.schema.generated_views import GENERATED_VIEWS
 
 RUN_RECORD_MANIFEST_VERSION = 2
@@ -317,13 +317,17 @@ def read_manifest(run_dir: Path | str) -> dict[str, Any]:
     ------
     FileNotFoundError
         When the directory carries no manifest, i.e. the run never completed.
+    hydromodpy.core.exceptions.SchemaVersionMismatchError
+        When its ``manifest_version`` is missing or is not
+        :data:`RUN_RECORD_MANIFEST_VERSION`; the message names the version
+        that wrote it.
     """
     path = Path(run_dir) / RUN_MANIFEST_FILENAME
     if not path.is_file():
         raise FileNotFoundError(
             f"No {RUN_MANIFEST_FILENAME} in {run_dir}: this run directory is incomplete."
         )
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_sealed_json(path, RUN_RECORD_MANIFEST_VERSION, key="manifest_version")
 
 
 def is_sealed(run_dir: Path | str) -> bool:

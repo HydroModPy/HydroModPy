@@ -39,4 +39,4 @@ def test_a_user_file_keeps_the_user_migration(tmp_path: Path, caplog) -> None:
 
     lines = _migration_lines(user, caplog)
 
-    assert any("rename them in" in line for line in lines)
+    assert any("hmp doctor --fix-config" in line for line in lines)

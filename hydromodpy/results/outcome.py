@@ -47,7 +47,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
-from hydromodpy.results.storage.json_io import read_json, write_json_durable
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
 
 OUTCOME_SCHEMA: Final[str] = "hydromodpy.outcome.v1"
 """Schema id of the document."""
@@ -125,7 +125,7 @@ def write_outcome(run_dir: str | Path, outcome: Outcome) -> Path:
 def read_outcome(run_dir: str | Path) -> Outcome | None:
     """Return the outcome of a directory, or ``None`` when it has none."""
     try:
-        payload = read_json(outcome_path(run_dir))
+        payload = read_sealed_json(outcome_path(run_dir), OUTCOME_SCHEMA)
     except FileNotFoundError:
         return None
     return Outcome.model_validate(payload)

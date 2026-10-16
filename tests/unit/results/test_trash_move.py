@@ -18,6 +18,7 @@ from hydromodpy.core.state.paths import (
     TOMBSTONES_FILENAME,
     TRASH_DIRNAME,
 )
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.session.descriptor import SessionDescriptor, write_session
 from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
@@ -44,7 +45,10 @@ def _make_run(project: Path, name: str, *, sim_id: str | None = None) -> Path:
     (run_dir / "tables.parquet" / "simulation.parquet").write_bytes(b"PAR1-demo-bytes")
     (run_dir / "config.toml").write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
     if sim_id is not None:
-        manifest = {"run": {"sim_id": sim_id, "name": name}}
+        manifest = {
+            "manifest_version": RUN_RECORD_MANIFEST_VERSION,
+            "run": {"sim_id": sim_id, "name": name},
+        }
         (run_dir / RUN_MANIFEST_FILENAME).write_text(json.dumps(manifest), encoding="utf-8")
     return run_dir
 

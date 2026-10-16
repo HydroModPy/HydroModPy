@@ -205,11 +205,14 @@ if mode == "fail":
     sys.exit(15)
 import pyarrow.parquet as pq
 
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
+
 # The seal holds the hash of the plan, as a real worker of the plan seals it.
 planned = {row["case_id"]: row["config_hash"]
            for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
 (run_dir / "manifest.json").write_text(
-    json.dumps({"identity": {"config_hash": planned[case_id]}})
+    json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION,
+                "identity": {"config_hash": planned[case_id]}})
 )
 outcome.update(status="completed", ended_at=now, exit_code=0)
 (run_dir / "outcome.json").write_text(json.dumps(outcome))

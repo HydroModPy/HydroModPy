@@ -34,7 +34,7 @@ from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel, sessions
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
-from hydromodpy.results.storage.json_io import read_json, write_json_durable
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
 
 SESSION_SCHEMA: Final[str] = "hydromodpy.session.v3"
 """Schema id of the descriptor."""
@@ -106,7 +106,9 @@ def write_session(session_dir: str | Path, descriptor: SessionDescriptor) -> Pat
 
 def read_session(session_dir: str | Path) -> SessionDescriptor:
     """Read the descriptor of a session directory."""
-    return SessionDescriptor.model_validate(read_json(session_descriptor_path(session_dir)))
+    return SessionDescriptor.model_validate(
+        read_sealed_json(session_descriptor_path(session_dir), SESSION_SCHEMA)
+    )
 
 
 def list_session_dirs(project_root: str | Path) -> list[Path]:

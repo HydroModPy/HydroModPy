@@ -1,8 +1,10 @@
 """``hmp doctor`` - diagnose the local environment.
 
-It reads and reports; it never rewrites a file. The workspace is the one
-``-w`` names or the one that holds the current directory, never a default
-folder: without one, the workspace checks say so and name ``-w``.
+It reads and reports. The one file it rewrites is the TOML that
+``--fix-config`` names, migrated in place to the current grammar. The
+workspace is the one ``-w`` names or the one that holds the current
+directory, never a default folder: without one, the workspace checks say so
+and name ``-w``.
 """
 
 from __future__ import annotations
@@ -55,7 +57,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         parents=[workspace_parser()],
         epilog=(
             "Examples:\n  hmp doctor\n  hmp doctor -w ~/hydromodpy --json\n"
-            "  hmp doctor --toml run.toml"
+            "  hmp doctor --toml run.toml\n  hmp doctor --fix-config run.toml"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -76,11 +78,28 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Check that the resolved MODFLOW 6 build supports particle tracking (PRT)",
     )
+    parser.add_argument(
+        "--fix-config",
+        default=None,
+        metavar="FILE.toml",
+        help=(
+            "Migrate a project TOML to the current schema in place "
+            "(simulation.on_collision -> if_exists, run_id -> name, "
+            "[simulation.results.export] -> [export], and drop the dead "
+            "solver_scratch / save_lock options). "
+            "Preserves comments and layout."
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
+    fix_config = getattr(args, "fix_config", None)
+    if fix_config is not None:
+        _fix_config(fix_config)
+        return
+
     workspace = find_workspace(args.workspace)
     report = _build_report(workspace, args.workspace, toml=args.toml)
 
@@ -100,6 +119,29 @@ def run(args: argparse.Namespace) -> None:
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(EXIT_GENERIC)
+
+
+def _fix_config(toml_path: str) -> None:
+    """Migrate a project TOML to the current simulation-management schema."""
+    from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+    from hydromodpy.config.config_migration import fix_config_file
+
+    path = Path(toml_path).expanduser()
+    try:
+        changes = fix_config_file(path)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except Exception as exc:  # noqa: BLE001 - surface a clean parse error
+        print(f"Could not migrate {path}: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    if not changes:
+        print(f"{path} is already up to date.")
+        return
+    print(f"Migrated {path}:")
+    for change in changes:
+        print(f"  - {change}")
 
 
 def _build_report(

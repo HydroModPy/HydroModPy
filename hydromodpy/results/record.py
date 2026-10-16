@@ -84,7 +84,11 @@ from hydromodpy.results.storage.contract import (
     UNSEALED_RUN_ENTRIES,
 )
 from hydromodpy.results.storage.geo_metadata import run_parquet_footer
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic, write_json_durable
+from hydromodpy.results.storage.json_io import (
+    read_sealed_json,
+    write_json_atomic,
+    write_json_durable,
+)
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, SIMULATION_SCHEMA
 
@@ -129,6 +133,24 @@ class InputsDocument(HydroModelBase):
         if self.schema_ != INPUTS_SCHEMA:
             raise ValueError(f"schema is {self.schema_!r}, this module reads {INPUTS_SCHEMA!r}")
         return self
+
+
+def read_provenance(run_dir: str | Path) -> RunProvenance:
+    """Read ``provenance.json`` of a sealed run."""
+    return RunProvenance.model_validate(
+        read_sealed_json(
+            Path(run_dir) / RUN_PROVENANCE_FILENAME,
+            RUN_RECORD_MANIFEST_VERSION,
+            key="provenance_version",
+        )
+    )
+
+
+def read_inputs(run_dir: str | Path) -> InputsDocument:
+    """Read ``inputs.json`` of a sealed run or of a published copy."""
+    return InputsDocument.model_validate(
+        read_sealed_json(Path(run_dir) / RUN_INPUTS_FILENAME, INPUTS_SCHEMA)
+    )
 
 
 class RunRecord(HydroModelBase):
@@ -376,8 +398,8 @@ class RunRecord(HydroModelBase):
         """Read a record back from a sealed directory."""
         directory = Path(run_dir)
         manifest = Manifest.model_validate(read_manifest(directory))
-        provenance = RunProvenance.model_validate(read_json(directory / RUN_PROVENANCE_FILENAME))
-        inputs = InputsDocument.model_validate(read_json(directory / RUN_INPUTS_FILENAME))
+        provenance = read_provenance(directory)
+        inputs = read_inputs(directory)
         return cls(
             run=manifest.run,
             site=manifest.site,
@@ -413,4 +435,12 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
     ]
 
 
-__all__ = ["INPUTS_SCHEMA", "InputsDocument", "RunProvenance", "RunRecord", "sealed_artifacts"]
+__all__ = [
+    "INPUTS_SCHEMA",
+    "InputsDocument",
+    "RunProvenance",
+    "RunRecord",
+    "read_inputs",
+    "read_provenance",
+    "sealed_artifacts",
+]

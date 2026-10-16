@@ -137,7 +137,7 @@ def normalize_bc_payloads(
                 f"[flow.bc.{key}.<id>] is no longer supported: a boundary is keyed by what it "
                 f"IS, not by the family it belongs to, which the registry already owns. Write "
                 f"[flow.bc.<id>] and, only to depart from the registry default, kind = "
-                f"'{key}'. Rewrite the block in the file."
+                f"'{key}'. Run 'hmp doctor --fix-config <file>' to rewrite it."
             )
         if raw_payload is None:
             continue

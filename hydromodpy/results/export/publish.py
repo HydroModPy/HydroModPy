@@ -70,6 +70,7 @@ from hydromodpy.results.export.run_identity import label_of, read_sealed_manifes
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
+    PUBLICATION_SCHEMA,
     REDACTED_PATH,
     Publication,
     PublicationExtra,
@@ -81,7 +82,7 @@ from hydromodpy.results.publication import (
     redact,
     write_publication,
 )
-from hydromodpy.results.record import InputsDocument
+from hydromodpy.results.record import read_inputs
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PUBLICATION_FILENAME,
@@ -97,6 +98,7 @@ from hydromodpy.results.storage.contract import (
     RUN_REPORT_DIRNAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.json_io import check_sealed
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE, OCTET_STREAM_MEDIA_TYPE
 
@@ -480,9 +482,7 @@ def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
     one copy. A published copy replays from these bytes (``hmp run
     <copy>/config.toml --frozen``).
     """
-    document = InputsDocument.model_validate(
-        json.loads((source / RUN_INPUTS_FILENAME).read_text(encoding="utf-8"))
-    )
+    document = read_inputs(source)
     roots = (source, project_root, *(p for p in project_root.parents if is_workspace_root(p)))
     for entry in document.inputs:
         if entry.sha256 is None:
@@ -663,7 +663,10 @@ def _tar_digests(archive_path: Path) -> tuple[dict[str, str], dict[str, str]]:
             data = handle.read()
             _, _, name = member.name.partition("/")
             if name == PUBLICATION_FILENAME:
-                recorded = Publication.model_validate(json.loads(data)).files
+                payload = check_sealed(
+                    json.loads(data), PUBLICATION_SCHEMA, path=archive_path / member.name
+                )
+                recorded = Publication.model_validate(payload).files
                 continue
             found[name] = hashlib.sha256(data).hexdigest()
     return found, recorded
