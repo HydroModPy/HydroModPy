@@ -36,6 +36,7 @@ def _ctx(cell_mesh: object, z_interfaces: tuple[float, ...] = (0.0, -10.0)) -> S
             flow=SimpleNamespace(flow_regime="steady"),
             simulation=None,
             geographic=SimpleNamespace(crs_project="EPSG:2154"),
+            site=None,
             model_dump=lambda mode="json": {},
         ),
         setup=SimpleNamespace(
@@ -50,15 +51,14 @@ def _ctx(cell_mesh: object, z_interfaces: tuple[float, ...] = (0.0, -10.0)) -> S
 def test_the_registration_hashes_the_padded_rows_of_a_polygon_mesh() -> None:
     cell_mesh = cell_mesh_of(_square_and_pentagon())
 
-    kwargs = validate_module.collect_registration_kwargs(_ctx(cell_mesh))
+    facts = validate_module.collect_run_facts(_ctx(cell_mesh))
 
     expected = hashlib.sha256(
         cell_mesh.mesh.vertices.tobytes() + PADDED.astype(np.int32).tobytes()
     ).hexdigest()
-    assert kwargs["mesh_hash"] == expected
-    assert kwargs["n_cells"] == 2
-    assert kwargs["mesh_type"] == "polygon"
-    assert kwargs["cell_types"] == ["polygon"]
+    assert facts["mesh_hash"] == expected
+    assert facts["n_cells"] == 2
+    assert facts["mesh_topology"] == "polygon"
 
 
 def test_a_polygon_mesh_is_persisted_as_padded_rows(tmp_path: Path) -> None:

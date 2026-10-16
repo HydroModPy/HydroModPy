@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -10,7 +10,12 @@ from uuid import UUID
 import pandas as pd
 
 from hydromodpy.cli._workers.catalog import delete_simulation_artifacts
-from hydromodpy.core.state.paths import CATALOG_FILENAME, catalog_path_for, runs_dir_for
+from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
+    catalog_path_for,
+    data_cache_path_for,
+    runs_dir_for,
+)
 from hydromodpy.results.storage.diagnostics import (
     diagnose_result_storage,
     is_run_directory,
@@ -75,6 +80,17 @@ def _json_value(value: Any) -> Any:
     return str(value)
 
 
+def _purge_run_directory(project_root: Path, path: Path) -> None:
+    """Remove a run directory for good, leaving a tombstone that keeps its name taken."""
+    from hydromodpy.core.state.paths import run_dir_rel
+    from hydromodpy.results.trash import list_trash, purge_trashed, trash_run
+
+    now = datetime.now(UTC)
+    trashed = trash_run(project_root, run_dir_rel(path.name), now=now, force=True)
+    entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
+    purge_trashed(project_root, [entry], now=now)
+
+
 def _is_relative_to(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root.resolve())
@@ -122,7 +138,7 @@ class _WorkspaceManagerBackend:
                     "path": str(path),
                     "label": _workspace_label(path, self.scan_root),
                     "catalog_exists": (catalog_path_for(path)).is_file(),
-                    "cache_exists": (path / "data" / "cache.duckdb").is_file(),
+                    "cache_exists": data_cache_path_for(path / "data").is_file(),
                 }
             )
         return {
@@ -137,7 +153,7 @@ class _WorkspaceManagerBackend:
         orphans = self.list_orphans(workspace_ref)["rows"]
         diagnostics = self.result_diagnostics(workspace_ref)["rows"]
         catalog_path = catalog_path_for(workspace_root)
-        cache_path = workspace_root / "data" / "cache.duckdb"
+        cache_path = data_cache_path_for(workspace_root / "data")
         return {
             "workspace": str(workspace_root),
             "workspace_label": _workspace_label(workspace_root, self.scan_root),
@@ -202,6 +218,7 @@ class _WorkspaceManagerBackend:
         sim_ids: list[str],
     ) -> dict[str, Any]:
         from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.catalog.indexer import index_new_runs
 
         workspace_root = self._resolve_workspace(workspace_ref)
         deleted: list[dict[str, Any]] = []
@@ -213,10 +230,12 @@ class _WorkspaceManagerBackend:
                     {
                         "sim_id": sim_id,
                         "name": run.name or sim_id,
-                        "freed_bytes": int(result["freed_bytes"]),
-                        "removed_paths": list(result["removed_paths"]),
+                        "freed_bytes": int(result["bytes"]),
+                        "removed_paths": [str(result["trashed_to"])],
                     }
                 )
+        if deleted:
+            index_new_runs(workspace_root)
         return {
             "deleted": deleted,
             "freed_bytes": sum(int(item["freed_bytes"]) for item in deleted),
@@ -230,8 +249,9 @@ class _WorkspaceManagerBackend:
         if catalog_path.exists():
             from hydromodpy.results.catalog import Catalog
 
-            with Catalog(workspace_root, read_only=True) as catalog:
-                registered = catalog.list_run_dirnames()
+            with Catalog(workspace_root) as catalog:
+                rows = catalog.connection.execute("SELECT rel_dir FROM simulations").fetchall()
+            registered = {Path(str(rel_dir)).name for (rel_dir,) in rows}
 
         artefacts: list[dict[str, Any]] = []
         if not runs_dir.is_dir():
@@ -265,7 +285,9 @@ class _WorkspaceManagerBackend:
             if not path.exists():
                 continue
             freed_bytes = _path_size(path)
-            if path.is_dir():
+            if path.is_dir() and path.parent == runs_dir:
+                _purge_run_directory(workspace_root, path)
+            elif path.is_dir():
                 import shutil
 
                 shutil.rmtree(path, ignore_errors=True)
@@ -348,7 +370,7 @@ class _WorkspaceManagerBackend:
         if database == "catalog":
             return catalog_path_for(workspace_root)
         if database == "cache":
-            return workspace_root / "data" / "cache.duckdb"
+            return data_cache_path_for(workspace_root / "data")
         raise ValueError(f"Unsupported database '{database}'")
 
     @staticmethod

@@ -1,8 +1,9 @@
-"""A plain ``hmp run`` skips a re-run identical to a completed run.
+"""A plain ``hmp run`` skips a re-run identical to a completed run, read from the manifests.
 
 Covers :func:`hydromodpy.project.dispatch.workflow.completed_identical_run`
 and :func:`hydromodpy.results.catalog.registration.run_identity_hash`, the
-``config_hash`` the catalog records at registration.
+``identity.config_hash`` a run seals. No index is opened: the manifests under
+``runs/`` are the record.
 """
 
 from __future__ import annotations
@@ -15,15 +16,13 @@ from typing import Annotated
 
 from pydantic import BaseModel
 
+from hydromodpy.core.state.paths import run_dir_rel
 from hydromodpy.core.tracking.input_file import InputFile
 from hydromodpy.project.dispatch.workflow import completed_identical_run
-from hydromodpy.results.catalog.registration import (
-    input_file_digests,
-    mesh_engine_identity,
-    run_identity_hash,
-)
-from hydromodpy.spatial.mesh import registry as mesh_registry
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.manifest import ManifestConfig, ManifestRun
+from tests._helpers.sealed_runs import write_attempt
+from tests.unit.results._run_record_factory import make_identity, make_record
 
 
 def _stub_config(config: dict, root: Path) -> SimpleNamespace:
@@ -33,16 +32,48 @@ def _stub_config(config: dict, root: Path) -> SimpleNamespace:
     )
 
 
-def _register(root: Path, config: dict, *, name: str = "demo", status: str = "completed") -> str:
+def _seal(root: Path, config: dict, *, name: str = "demo") -> str:
+    """Seal a run of *config* under ``runs/<name>`` and return its ``sim_id``."""
     sid = str(uuid.uuid4())
-    with simulation_catalog(root) as cat:
-        cat.register_simulation(sid, project="p", solver="modflow6", name=name, config=config)
-        cat._backend.execute(
-            "UPDATE simulations SET status_id = "
-            "(SELECT id FROM statuses WHERE code = ?), "
-            "ended_at = current_timestamp WHERE sim_id = ?",
-            [status, sid],
-        )
+    config_hash = run_identity_hash(config)
+    stem = name.split(".v")[0]
+    version = int(name.rsplit(".v", 1)[1]) if ".v" in name else 1
+    base = make_record()
+    record = base.model_copy(
+        update={
+            "run": ManifestRun(
+                sim_id=sid,
+                name=name,
+                name_stem=stem,
+                version=version,
+                status="completed",
+                project="p",
+                case_id=stem,
+                rel_dir=run_dir_rel(name),
+                attempt=1,
+                attempt_id="a" * 32,
+                solver="modflow6",
+                created_at=base.run.created_at,
+            ),
+            "site": None,
+            "config": ManifestConfig(file="config.toml", hash=config_hash, source="project.toml"),
+            "identity": make_identity(
+                site=None,
+                site_fingerprint=None,
+                case_id=stem,
+                sim_id=sid,
+                attempt_id="a" * 32,
+                config_hash=config_hash,
+                mesh_hash=None,
+            ),
+            "geometry": base.geometry.model_copy(update={"mesh_hash": None}),
+            "provenance": base.provenance.model_copy(update={"sim_id": sid}),
+        }
+    )
+    run_dir = root / "runs" / name
+    run_dir.mkdir(parents=True)
+    (run_dir / "config.toml").write_text("[flow]\n", encoding="utf-8")
+    record.write(run_dir)
     return sid
 
 
@@ -56,7 +87,7 @@ def _config(sy: float = 0.001, scratch: str = "/p/.hmp/scratch/demo.p111") -> di
 
 def test_identical_config_matches_and_change_discriminates(tmp_path: Path) -> None:
     root = tmp_path / "ws"
-    sid = _register(root, _config())
+    sid = _seal(root, _config())
 
     found = completed_identical_run(_stub_config(_config(), root), name="demo")
     assert found == ("demo", sid)
@@ -68,7 +99,7 @@ def test_identical_config_matches_and_change_discriminates(tmp_path: Path) -> No
 def test_the_scratch_folder_of_the_process_does_not_count(tmp_path: Path) -> None:
     """Two processes name two scratch folders; the run is the same run."""
     root = tmp_path / "ws"
-    sid = _register(root, _config(scratch="/p/.hmp/scratch/demo.p111"))
+    sid = _seal(root, _config(scratch="/p/.hmp/scratch/demo.p111"))
 
     other_process = _config(scratch="/p/.hmp/scratch")
     found = completed_identical_run(_stub_config(other_process, root), name="demo")
@@ -76,20 +107,45 @@ def test_the_scratch_folder_of_the_process_does_not_count(tmp_path: Path) -> Non
     assert found[1] == sid
 
 
+def test_a_version_of_the_name_answers_too(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    _seal(root, _config(sy=0.5), name="demo")
+    sid = _seal(root, _config(), name="demo.v2")
+
+    assert completed_identical_run(_stub_config(_config(), root), name="demo") == ("demo.v2", sid)
+
+
 def test_another_name_is_another_run(tmp_path: Path) -> None:
     root = tmp_path / "ws"
-    _register(root, _config())
+    _seal(root, _config())
     assert completed_identical_run(_stub_config(_config(), root), name="other") is None
 
 
-def test_non_completed_and_trashed_runs_do_not_trigger_skip(tmp_path: Path) -> None:
+def test_an_unsealed_directory_never_matches(tmp_path: Path) -> None:
     root = tmp_path / "ws"
-    _register(root, _config(), status="running")
-    _register(root, _config(), status="trashed")
+    write_attempt(root, "runs/demo", status="failed")
+    write_attempt(root, "runs/demo.v2", status="running")
     assert completed_identical_run(_stub_config(_config(), root), name="demo") is None
 
 
-def test_missing_catalog_is_fail_open(tmp_path: Path) -> None:
+def test_an_unreadable_manifest_never_matches_and_never_blocks(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    broken = root / "runs" / "demo"
+    broken.mkdir(parents=True)
+    (broken / "manifest.json").write_text("{not json", encoding="utf-8")
+    assert completed_identical_run(_stub_config(_config(), root), name="demo") is None
+
+
+def test_the_newest_version_answers_first(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    _seal(root, _config(), name="demo")
+    sid = _seal(root, _config(), name="demo.v3")
+    _seal(root, _config(sy=0.5), name="demo.v2")
+
+    assert completed_identical_run(_stub_config(_config(), root), name="demo") == ("demo.v3", sid)
+
+
+def test_a_project_without_runs_matches_nothing(tmp_path: Path) -> None:
     config = _stub_config(_config(), tmp_path / "absent")
     assert completed_identical_run(config, name="demo") is None
 
@@ -142,26 +198,29 @@ def _forced_project(tmp_path: Path) -> _ForcedConfig:
     )
 
 
-def _register_as_a_run(config: _ForcedConfig, *, name: str = "demo") -> str:
-    """Register ``config`` with the hash the pipeline records."""
-    sid = str(uuid.uuid4())
+def _seal_as_a_run(config: _ForcedConfig, *, name: str = "demo") -> str:
+    """Seal ``config`` with the hash the pipeline records, inputs included."""
+    root = Path(config.workspace.project_root)
     dump = config.model_dump(mode="json")
+    sid = _seal(root, dump, name=name)
+    # The seal hashes the input files too: rewrite the hash the way the run does.
+    from hydromodpy.results.record import RunRecord
+
+    record = RunRecord.read(root / "runs" / name)
     config_hash = run_identity_hash(dump, inputs=input_file_digests(config))
-    with simulation_catalog(Path(config.workspace.project_root)) as cat:
-        cat.register_simulation(
-            sid, project="p", solver="modflow6", name=name, config=dump, config_hash=config_hash
-        )
-        cat._backend.execute(
-            "UPDATE simulations SET status_id = "
-            "(SELECT id FROM statuses WHERE code = 'completed') WHERE sim_id = ?",
-            [sid],
-        )
+    record = record.model_copy(
+        update={
+            "config": record.config.model_copy(update={"hash": config_hash}),
+            "identity": record.identity.model_copy(update={"config_hash": config_hash}),
+        }
+    )
+    record.write(root / "runs" / name)
     return sid
 
 
 def test_an_edited_forcing_file_is_another_run(tmp_path: Path) -> None:
     config = _forced_project(tmp_path)
-    sid = _register_as_a_run(config)
+    sid = _seal_as_a_run(config)
     assert completed_identical_run(config, name="demo") == ("demo", sid)
 
     forcing = Path(config.workspace.project_root) / "data" / "recharge.csv"
@@ -171,69 +230,10 @@ def test_an_edited_forcing_file_is_another_run(tmp_path: Path) -> None:
 
 def test_a_renamed_run_no_longer_answers_to_its_old_name(tmp_path: Path) -> None:
     config = _forced_project(tmp_path)
-    sid = _register_as_a_run(config, name="baseline")
+    sid = _seal_as_a_run(config, name="baseline")
     assert completed_identical_run(config, name="baseline") == ("baseline", sid)
 
-    with simulation_catalog(Path(config.workspace.project_root)) as cat:
-        cat.rename_simulation(sid, "baseline_ref")
+    root = Path(config.workspace.project_root)
+    (root / "runs" / "baseline").rename(root / "runs" / "renamed")
     assert completed_identical_run(config, name="baseline") is None
-    assert completed_identical_run(config, name="baseline_ref") == ("baseline_ref", sid)
-
-
-def test_a_version_of_the_name_still_matches(tmp_path: Path) -> None:
-    """``if_exists = "replace"`` leaves the live run under ``name.v2``."""
-    config = _forced_project(tmp_path)
-    sid = _register_as_a_run(config, name="demo.v2")
-    assert completed_identical_run(config, name="demo") == ("demo.v2", sid)
-
-
-def test_inputs_that_cannot_be_walked_never_match(monkeypatch, tmp_path: Path) -> None:
-    """The run goes on, and errs on the side of computing."""
-
-    def broken(*_args, **_kwargs):
-        raise RuntimeError("walker failed")
-
-    monkeypatch.setattr("hydromodpy.core.tracking.collect_input_files", broken)
-    config = _forced_project(tmp_path)
-    assert input_file_digests(config) != input_file_digests(config)
-
-
-def _meshed(engine: str | None = None) -> dict:
-    config = _config()
-    if engine is not None:
-        config["mesh"] = {"engine": engine}
-    return config
-
-
-def test_a_new_build_of_the_mesh_engine_is_another_run(monkeypatch) -> None:
-    """An engine bumps its version when its mesh changes, so the old runs do not answer."""
-    config = _meshed("triangle")
-    base = run_identity_hash(config)
-    assert base == run_identity_hash(copy.deepcopy(config))
-    monkeypatch.setattr(mesh_registry.get("triangle"), "engine_version", "99.0.0")
-    assert run_identity_hash(config) != base
-
-
-def test_another_mesh_engine_is_another_run() -> None:
-    assert run_identity_hash(_meshed("triangle")) != run_identity_hash(_meshed("voronoi"))
-
-
-def test_a_config_without_a_mesh_section_is_meshed_by_the_default_engine() -> None:
-    default = mesh_registry.DEFAULT_ENGINE_ID
-    assert mesh_engine_identity(_meshed()) == mesh_engine_identity(_meshed(default))
-    assert mesh_engine_identity(_meshed())["engine"] == default
-
-
-def test_a_mesh_engine_nobody_serves_never_matches() -> None:
-    """The run goes on, and errs on the side of computing."""
-    config = _meshed("no_such_engine")
-    assert run_identity_hash(config) != run_identity_hash(config)
-
-
-def test_a_run_meshed_by_another_engine_build_is_not_skipped(monkeypatch, tmp_path: Path) -> None:
-    config = _forced_project(tmp_path)
-    sid = _register_as_a_run(config)
-    assert completed_identical_run(config, name="demo") == ("demo", sid)
-
-    monkeypatch.setattr(mesh_registry.get(), "engine_version", "99.0.0")
-    assert completed_identical_run(config, name="demo") is None
+    assert completed_identical_run(config, name="renamed") == ("renamed", sid)

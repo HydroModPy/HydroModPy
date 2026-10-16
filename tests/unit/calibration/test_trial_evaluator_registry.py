@@ -37,6 +37,29 @@ from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialEvaluator, evaluator_members
 from hydromodpy.core.exceptions import CalibrationError
 
+
+def _session(project_root: Path):
+    """An open session journal under ``project_root``, for a search run without a file."""
+    from hydromodpy.calibration.persistence import CalibrationPersistence
+
+    session_dir = project_root / "sessions" / "probe"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    persistence = CalibrationPersistence(session_dir)
+    persistence.start_session(
+        session_id="a" * 32,
+        case_id="probe",
+        site=None,
+        project=project_root.name,
+        config_hash="c" * 64,
+        hydromodpy_version="2.0.0a5",
+        method="grid",
+        objective_name="rmse",
+        search_space={},
+        objective_window=None,
+    )
+    return persistence
+
+
 pytestmark = pytest.mark.fast
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -283,8 +306,9 @@ class TestASearchRunsOnANamedEvaluator:
         report = run_calibration_core(
             cfg,
             None,
-            workspace=tmp_path,
+            persistence=_session(tmp_path),
             space=space_from_config(cfg),
+            project_root=tmp_path,
         ).to_dict()
 
         assert report["n_iterations"] == 5
@@ -325,18 +349,17 @@ class TestASearchRunsOnANamedEvaluator:
     ) -> None:
         """Without a prepared context there is nothing to read the root off, so the file is asked.
 
-        Falling through to the file's directory would put the session journal of
-        a model-free run somewhere else than the same document run on the
-        pipeline evaluator, over the same declared root.
+        The project root is the directory that holds ``project.toml`` above the
+        document, the same root the pipeline evaluator resolves for the same
+        file: the session of a model-free run sits where every other does.
         """
         from hydromodpy.calibration.runners.cli_runner import run_calibration_cli
 
         root = tmp_path / "declared_root"
-        root.mkdir()
-        document = tmp_path / "rooted.toml"
+        (root / "configs").mkdir(parents=True)
+        (root / "project.toml").write_text("", encoding="utf-8")
+        document = root / "configs" / "rooted.toml"
         document.write_text(
-            "[workspace]\n"
-            f'project_root = "{root.as_posix()}"\n'
             "[calibration]\n"
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
@@ -421,7 +444,13 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
 
         cfg = _config(evaluator="test_quadratic", save_runs="best_n", save_best_n=1)
         with pytest.raises(CalibrationError) as excinfo:
-            run_calibration_core(cfg, None, workspace=tmp_path, space=space_from_config(cfg))
+            run_calibration_core(
+                cfg,
+                None,
+                persistence=_session(tmp_path),
+                space=space_from_config(cfg),
+                project_root=tmp_path,
+            )
 
         assert "save_runs" in str(excinfo.value)
 

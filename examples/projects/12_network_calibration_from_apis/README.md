@@ -39,7 +39,7 @@ figures in `runs/<run>/figures/`: the catchment card, the BD Topage map with
 its permanence, the water table depth, the confusion map and the downslope
 distances of the simulated network against the map, and the calibration card.
 
-`share/<run>/` holds the catchment and the BD Topage network as GeoPackage,
+`runs/<run>/exports/` holds the catchment and the BD Topage network as GeoPackage,
 the water table depth, the seepage cells and the seepage flux as GeoTIFF, the
 simulated and gauged discharge as CSV, and the budget as CSV. Anything else
 the run stores, `hmp export <run> --list` names it.

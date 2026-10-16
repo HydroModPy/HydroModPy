@@ -18,7 +18,10 @@ useful when the calibration loop is driven from Python code.
 
 from __future__ import annotations
 
+import io
+import os
 import re
+import uuid
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
@@ -27,6 +30,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.writer import dump as dump_toml
 
@@ -107,12 +111,13 @@ def _coerce_for_toml(value: Any) -> Any:
 
 
 def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
-    """Render *payload* to TOML at *path*.
+    """Render *payload* to TOML at *path*, whole or not at all.
 
-    Public helper kept so callers that need to drop a calibration overlay
-    next to a TOML file (for example the Python-mode of
-    :meth:`Project.calibrate`) can rely on a stable serialisation entry
-    point rather than reaching into a private symbol.
+    The document is rendered in memory, written to a sibling temporary file,
+    flushed to the disk and renamed onto *path* in one step: a reader, or a
+    replay after a crash, sees the previous document or the new one, never a
+    truncated one. The frozen ``config.toml`` of a session and the document
+    of a Python-mode calibration are written here.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     coerced = _coerce_for_toml(payload)
@@ -122,8 +127,18 @@ def write_overlay_toml(path: Path, payload: Mapping[str, Any]) -> None:
     workspace = coerced.get("workspace")
     if isinstance(workspace, dict):
         workspace.pop("project_root", None)
-    with open(path, "wb") as fh:
-        dump_toml(coerced, fh)
+    rendered = io.BytesIO()
+    dump_toml(coerced, rendered)
+    staged = path.with_name(f"{path.name}.tmp-{uuid.uuid4().hex}")
+    try:
+        with open(staged, "wb") as fh:
+            fh.write(rendered.getvalue())
+            fh.flush()
+            os.fsync(fh.fileno())
+        rename_over_open_file(staged, path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
 
 
 def _load_base_payload(

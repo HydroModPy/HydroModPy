@@ -35,7 +35,7 @@ from hydromodpy.analysis.comparison.runtime.series import (
 from hydromodpy.core.nodata import NODATA_SENTINELS
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.analysis.comparison.runtime.run_source import RunSource
 
 
 _PERIOD_VALUE_VARIABLES = {
@@ -521,11 +521,10 @@ def extract_observable_rows(
     simulation: ComparisonSimulation,
     run_folder: Path,
     observables: tuple[ComparisonObservable, ...],
-    config_path: Path | None = None,
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Extract all observable rows for one completed/reused simulation."""
+    """Extract all observable rows for one sealed run."""
     rows: list[dict[str, Any]] = []
     cells: CellCentroidTable | None = None
     for observable in observables:
@@ -547,7 +546,6 @@ def extract_observable_rows(
             first_slice_size = int(series.slices[0].values.size) if series.slices else None
             cells = resolve_bundle_cells(
                 run_folder,
-                config_path=config_path,
                 expected_size=(
                     None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),

@@ -1,24 +1,18 @@
-"""Tests for results/catalog.py - Catalog integration."""
+"""A run written through its store and sealed reads back through the index."""
 
 from __future__ import annotations
-
-from uuid import uuid4
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.core.field_precision import MAX_RELATIVE_ERROR
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from tests._helpers.fixtures_catalog import simulation_catalog
 
+from ._test_simulation_api_builders import runs
 
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+__all__ = ["runs"]
 
 
 def _make_mesh():
@@ -46,309 +40,143 @@ def _make_mesh():
 
 
 class TestFullCycle:
-    """register → write_mesh → write_field → finalize → query_field"""
+    """open -> write_mesh -> write_field -> seal -> index -> query_field"""
 
-    def test_field_roundtrip(self, catalog):
-        sid = str(uuid4())
+    def test_field_roundtrip(self, runs):
         n_cells, n_layers, n_ts = 4, 2, 5
         verts, conn, z = _make_mesh()
-
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="modflow_nwt",
-            name="test_run",
-            n_cells=n_cells,
-            n_layers=n_layers,
-            n_timesteps=n_ts,
+        store = runs.open(
+            "test_run", solver="modflow_nwt", n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts
         )
-        if reg.zarr is not None:
-            reg.zarr.close()
-        catalog.write_mesh(sid, verts, conn, z)
-
+        sid = store.sim_id
+        store.write_mesh(sid, verts, conn, z)
         rng = np.random.default_rng(42)
         all_vals = rng.random((n_ts, n_layers, n_cells))
         for t in range(n_ts):
-            catalog.write_field(sid, "head", t, all_vals[t], n_timesteps=n_ts if t == 0 else None)
+            store.write_field(sid, "head", t, all_vals[t], n_timesteps=n_ts if t == 0 else None)
 
-        catalog.finalize(sid, status="completed")
+        catalog = runs.catalog()
 
         # Stored in the compact precision: equal within its relative bound.
         result = catalog.query_field(sid, "head", 2)
         np.testing.assert_allclose(result, all_vals[2], rtol=MAX_RELATIVE_ERROR, atol=0.0)
-
         result_layer = catalog.query_field(sid, "head", 2, layer=0)
         np.testing.assert_allclose(result_layer, all_vals[2, 0], rtol=MAX_RELATIVE_ERROR, atol=0.0)
 
-    def test_finalize_flushes_open_zarr_handles(self, catalog):
-        sid = str(uuid4())
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="boussinesq",
-            name="open_handles",
-            n_cells=4,
-            n_layers=1,
-            n_timesteps=1,
+    def test_the_seal_flushes_open_zarr_handles(self, runs):
+        store = runs.open("open_handles", solver="boussinesq", n_cells=4, n_layers=1, n_timesteps=1)
+        sid = store.sim_id
+        handle = store.open_zarr(sid)
+        handle.root["mesh"].create_array(
+            "topography", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True
         )
-        assert reg.zarr is not None
-
-        sz = catalog.open_zarr(sid)
-        mesh = sz.root["mesh"]
-        mesh.create_array("topography", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
-
         values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
-        catalog.write_field(sid, "head", 0, values, n_timesteps=1)
+        store.write_field(sid, "head", 0, values, n_timesteps=1)
 
-        catalog.finalize(sid, status="completed")
+        catalog = runs.catalog()
 
         zarr_path = catalog.fields_path_for(sid)
         assert zarr_path.name == FIELDS_STORE_NAME
         assert zarr_path.is_dir()
-
         sz = catalog.open_zarr(sid)
         try:
-            np.testing.assert_array_equal(
-                sz.root["mesh"]["topography"][:],
-                [10.0, 10.0, 10.0, 10.0],
-            )
+            np.testing.assert_array_equal(sz.root["mesh"]["topography"][:], [10.0] * 4)
             np.testing.assert_array_equal(sz.read_field("head", 0), values)
         finally:
             sz.close()
 
-    def test_transient_zarr_handles_are_untracked_after_close(self, catalog):
-        sid = str(uuid4())
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="modflow_nwt",
-            name="transient_handles",
-            n_cells=4,
-            n_layers=2,
-            n_timesteps=1,
-        )
-        assert reg.zarr is not None
-        assert len(catalog._open_zarr_handles) == 1
+    def test_list_simulations(self, runs):
+        runs.open("run_A")
+        df = runs.catalog().list_simulations()
+        assert list(df["name"]) == ["run_A"]
+        assert runs.catalog().list_simulations(solver="gr4j").empty
 
-        reg.zarr.close()
-        assert catalog._open_zarr_handles == []
-
-        verts, conn, z = _make_mesh()
-        catalog.write_mesh(sid, verts, conn, z)
-        assert catalog._open_zarr_handles == []
-
-        values = np.ones((2, 4), dtype="float64")
-        catalog.write_field(sid, "head", 0, values, n_timesteps=1)
-        assert catalog._open_zarr_handles == []
-
-        result = catalog.query_field(sid, "head", 0)
-        np.testing.assert_array_equal(result, values)
-        assert catalog._open_zarr_handles == []
-
-    def test_list_simulations(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflow6", name="run_A")
-        catalog.finalize(sid, status="completed")
-
-        df = catalog.list_simulations()
-        assert len(df) == 1
-        assert df.iloc[0]["name"] == "run_A"
-
-        df_f = catalog.list_simulations(solver="gr4j")
-        assert len(df_f) == 0
-
-    def test_list_simulations_named_only_drops_technical_rows(self, catalog):
-        real = str(uuid4())
-        catalog.register_simulation(real, project="test", solver="modflow6", name="real_run")
-        catalog.finalize(real, status="completed")
-
-        # Effective-config snapshot keeps a dotted name; named_only drops it.
-        snap = str(uuid4())
-        catalog.register_simulation(
-            snap, project="test", solver="modflow6", name=".real_run.effective.abc123"
-        )
-        catalog.finalize(snap, status="completed")
-
-        # Default if_exists='version': the bare name stays with the first run
-        # and re-registering mints '<stem>.v2'. Both stay live and named.
-        old = str(uuid4())
-        catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
-        catalog.finalize(old, status="completed")
-        new = str(uuid4())
-        catalog.register_simulation(new, project="test", solver="modflow6", name="dup")
-        catalog.finalize(new, status="completed")
-
-        assert len(catalog.list_simulations()) == 4
-
-        named = catalog.list_simulations(named_only=True)
-        assert set(named["name"]) == {"real_run", "dup", "dup.v2"}
-
-    def test_replace_keeps_the_predecessor_named(self, catalog):
-        # if_exists='replace' trashes the predecessor: it keeps its name and
-        # version, only its status becomes 'trashed'.
-        old = str(uuid4())
-        catalog.register_simulation(old, project="test", solver="modflow6", name="dup")
-        catalog.finalize(old, status="completed")
-        new = str(uuid4())
-        reg = catalog.register_simulation(
-            new, project="test", solver="modflow6", name="dup", if_exists="replace"
-        )
-        catalog.finalize(new, status="completed")
-
-        assert reg.replaced_sim_id == old
-        assert reg.name == "dup.v2"
-
-        # Both rows still exist: the trashed predecessor keeps 'dup' and the
-        # successor takes the next version.
-        all_rows = catalog.list_simulations()
-        assert len(all_rows) == 2
-        trashed = all_rows[all_rows["sim_id"].astype(str) == old].iloc[0]
-        assert trashed["name"] == "dup"
-        assert trashed["status"] == "trashed"
-
-        # No name is ever dropped: both runs stay addressable by name.
-        named = catalog.list_simulations(named_only=True)
-        assert set(named["name"]) == {"dup", "dup.v2"}
+    def test_every_version_of_a_name_stays_listed(self, runs):
+        runs.open("dup")
+        runs.catalog()
+        runs.open("dup")
+        assert set(runs.catalog().list_simulations()["name"]) == {"dup", "dup.v2"}
 
 
 class TestTimeseriesCycle:
-    """register → write_timeseries → query_timeseries"""
+    """write_timeseries -> seal -> query_timeseries"""
 
-    def test_roundtrip(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-
+    def test_roundtrip(self, runs):
+        store = runs.open(solver="gr4j")
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
         ts = pd.Series(np.random.default_rng(7).random(30), index=idx, name="discharge")
-        catalog.write_timeseries(sid, "EXU", "discharge", ts, unit="m3/s")
+        store.write_timeseries(store.sim_id, "EXU", "discharge", ts, unit="m3/s")
 
-        result = catalog.query_timeseries(sid, "EXU", "discharge")
+        result = runs.catalog().query_timeseries(store.sim_id, "EXU", "discharge")
         assert len(result) == 30
         np.testing.assert_array_almost_equal(result.values, ts.values)
 
-    def test_period_filter(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="gr4j")
-
+    def test_period_filter(self, runs):
+        store = runs.open(solver="gr4j")
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
-        ts = pd.Series(range(30), index=idx, dtype=float)
-        catalog.write_timeseries(sid, "S1", "head", ts)
+        store.write_timeseries(
+            store.sim_id, "S1", "head", pd.Series(range(30), index=idx, dtype=float)
+        )
 
-        result = catalog.query_timeseries(
-            sid,
-            "S1",
-            "head",
-            period=("2020-01-10", "2020-01-20"),
+        result = runs.catalog().query_timeseries(
+            store.sim_id, "S1", "head", period=("2020-01-10", "2020-01-20")
         )
         assert len(result) == 11
 
 
 class TestBudgetAndMassBalance:
-    def test_budget_roundtrip(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-
+    def test_budget_roundtrip(self, runs):
+        store = runs.open(solver="modflow_nwt")
         for t in range(5):
-            catalog.write_budget(sid, t, "0", "recharge", 100.0 + t, 0.0)
-            catalog.write_budget(sid, t, "0", "drain", 0.0, 80.0 + t)
+            store.write_budget(store.sim_id, t, "0", "recharge", 100.0 + t, 0.0)
+            store.write_budget(store.sim_id, t, "0", "drain", 0.0, 80.0 + t)
 
-        df = catalog.query_budget(sid)
-        assert len(df) == 10
+        catalog = runs.catalog()
+        assert len(catalog.query_budget(store.sim_id)) == 10
+        assert len(catalog.query_budget(store.sim_id, zone_id="0", period=(1, 3))) == 6
 
-        df_zone = catalog.query_budget(sid, zone_id="0", period=(1, 3))
-        assert len(df_zone) == 6
-
-    def test_mass_balance_roundtrip(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-
+    def test_mass_balance_roundtrip(self, runs):
+        store = runs.open(solver="modflow_nwt")
         for t in range(3):
-            catalog.write_mass_balance(sid, t, 1000.0, 995.0, 0.5)
+            store.write_mass_balance(store.sim_id, t, 1000.0, 995.0, 0.5)
 
-        df = catalog.query_mass_balance(sid)
+        df = runs.catalog().query_mass_balance(store.sim_id)
         assert len(df) == 3
         assert df.iloc[0]["percent_error"] == pytest.approx(0.5)
 
 
 class TestProvenance:
-    def test_roundtrip_and_verify(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-
+    def test_roundtrip_and_verify(self, runs):
+        store = runs.open(solver="modflow_nwt")
         data = np.random.default_rng(99).random((365, 100))
-        catalog.write_provenance(sid, "recharge", "recharge/sim2", data)
+        store.write_provenance(store.sim_id, "recharge", "recharge/sim2", data)
 
-        df = catalog.get_provenance(sid, "recharge")
+        df = runs.catalog().get_provenance(store.sim_id, "recharge")
         assert len(df) == 1
         assert df.iloc[0]["source_ref"] == "recharge/sim2"
 
         # Verify provenance via fingerprint comparison
         stored_checksum = df.iloc[0]["payload_sha256"]
         assert fingerprint(data)["checksum"] == stored_checksum
-
         altered = data.copy()
         altered[0, 0] += 0.001
         assert fingerprint(altered)["checksum"] != stored_checksum
 
 
-class TestDeleteSimulation:
-    def test_cleans_all_stores(self, catalog):
-        sid = str(uuid4())
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="modflow_nwt",
-            n_cells=4,
-            n_layers=2,
-            n_timesteps=1,
-        )
-        if reg.zarr is not None:
-            reg.zarr.close()
-        verts, conn, z = _make_mesh()
-        catalog.write_mesh(sid, verts, conn, z)
-        catalog.write_field(sid, "head", 0, np.zeros((2, 4)), n_timesteps=1)
-        catalog.finalize(sid, status="completed")
-
-        run_dir = catalog.run_dir_for(sid)
-        fields_path = catalog.fields_path_for(sid)
-        assert fields_path.is_dir()
-        assert fields_path.name == FIELDS_STORE_NAME
-
-        catalog.delete(sid)
-
-        assert len(catalog.list_simulations()) == 0
-        assert not fields_path.exists()
-        assert not run_dir.exists()
-
-
 class TestCompare:
-    def test_diff_stats(self, catalog):
-        sid_a = str(uuid4())
-        sid_b = str(uuid4())
+    def test_diff_stats(self, runs):
         n_cells, n_layers = 10, 1
+        first = runs.open(n_cells=n_cells, n_layers=n_layers, n_timesteps=1)
+        second = runs.open(n_cells=n_cells, n_layers=n_layers, n_timesteps=1)
+        first.write_field(first.sim_id, "head", 0, np.ones((n_layers, n_cells)), n_timesteps=1)
+        second.write_field(
+            second.sim_id, "head", 0, np.ones((n_layers, n_cells)) * 2.0, n_timesteps=1
+        )
 
-        for sid in (sid_a, sid_b):
-            reg = catalog.register_simulation(
-                sid,
-                project="test",
-                solver="modflow6",
-                n_cells=n_cells,
-                n_layers=n_layers,
-                n_timesteps=1,
-            )
-            if reg.zarr is not None:
-                reg.zarr.close()
-
-        vals_a = np.ones((n_layers, n_cells))
-        vals_b = np.ones((n_layers, n_cells)) * 2.0
-        catalog.write_field(sid_a, "head", 0, vals_a, n_timesteps=1)
-        catalog.write_field(sid_b, "head", 0, vals_b, n_timesteps=1)
-
-        arr_a = catalog.query_field(sid_a, "head", 0).ravel()
-        arr_b = catalog.query_field(sid_b, "head", 0).ravel()
-        diff = arr_a - arr_b
-        mean_diff = float(diff.mean())
-        rmse = float(np.sqrt((diff**2).mean()))
-
-        assert mean_diff == pytest.approx(-1.0)
-        assert rmse == pytest.approx(1.0)
+        catalog = runs.catalog()
+        diff = (
+            catalog.query_field(first.sim_id, "head", 0).ravel()
+            - catalog.query_field(second.sim_id, "head", 0).ravel()
+        )
+        assert float(diff.mean()) == pytest.approx(-1.0)
+        assert float(np.sqrt((diff**2).mean())) == pytest.approx(1.0)

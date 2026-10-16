@@ -1,10 +1,10 @@
-"""Programmatic entry point ``hmp.calibrate(project, cfg)``.
+"""Programmatic entry point ``Project.calibrate(parameters=...)``.
 
 Used by ``Project.calibrate`` to drive a calibration **without** a stand-alone
 calibration TOML. The simulation TOML attached to the project is reused as
-``cfg_path`` for :func:`prepare_trials` so promotion and overlay materialization
-keep working. Pure in-memory projects materialize a temporary overlay TOML so
-the trial pipeline can locate the source declaration.
+``cfg_path`` for :func:`prepare_trials` so promotion keeps working. Pure
+in-memory projects materialize a base TOML so the trial pipeline can locate
+the source declaration.
 
 A ``cfg`` that declares ``phases`` cannot run through the single-search loop
 below: a staged calibration forks each phase's configuration from a file, and
@@ -21,18 +21,25 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
-from hydromodpy.calibration.persistence import CalibrationStoreFactory
+from hydromodpy.calibration.persistence import DEFAULT_PHASE, PhaseContext
 from hydromodpy.calibration.runners.cli_runner import (
+    SessionScope,
+    _keep_trial_solves,
+    closing_session,
+    open_calibration_session,
+    promote_and_close,
     refuse_an_objective_that_is_not_an_entry_point,
-    run_calibration_core,
+    run_one_search,
 )
+from hydromodpy.calibration.runners.promotion import promotion_name_check
 from hydromodpy.calibration.runners.state import (
     override_paths as resolve_override_paths,
 )
 from hydromodpy.calibration.runners.state import space_from_config
 from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
+from hydromodpy.core.state.paths import sessions_dir_for
 from hydromodpy.core.workspace.path_registry import in_run_scratch
 
 if TYPE_CHECKING:
@@ -48,42 +55,24 @@ def _write_python_mode_document(
     Embeds ``project.config`` (already resolved: every relative path it
     declared was resolved against the project's own file when ``Project``
     validated it, eagerly, at construction) rather than pointing at the
-    source file through ``base_config``. ``HydroModPyConfig.from_toml``
-    resolves a relative path against the file it is given, so a document
-    inheriting one through ``base_config`` would re-anchor it on wherever
-    this document sits (``sessions/``), not on the project: a ``project_root
-    = "."`` inherited that way silently becomes ``<project>/sessions/``, and
-    every other relative path in the project along with it. Embedding a
-    config whose paths are already absolute makes this document mean the
-    same thing wherever it is read from.
+    source file through ``base_config``, so the document means the same
+    thing wherever it is read from.
 
     ``[calibration]`` is a plain overwrite, never a merge, on both a
     file-backed and a pure in-memory project: a phases= call declares its
     own parameters, outputs and blocks, and none of the project's own
-    ``[calibration]`` (if any) carries over. Written beside ``sessions/``:
-    :func:`resolve_stream_geometry_paths` and the parameter-name resolution
-    both anchor on the document that declares them, and a document one
-    level below the project root resolves a path relative to that root the
-    same way a hand-written calibration TOML does.
-
-    A file-backed project's own directory, not ``ws_root``, anchors
-    ``sessions/``: the heavy model phase is lazy (see the module docstring
-    of :mod:`hydromodpy.project.facade`), so ``ws_root`` may still be the
-    caller's working directory the first time ``calibrate`` runs. The source
-    file is always known, so :func:`resolve_project_root` finds the real
-    project directory from it directly.
+    ``[calibration]`` (if any) carries over. Written beside ``sessions/``,
+    under the project root the source file resolves to.
 
     A relative ``stream_geometry_path`` in ``cfg`` is meant relative to the
     project, the same as in TOML mode: :func:`resolve_stream_geometry_paths`
     is called here, anchored on the project's own file, before ``cfg`` is
     dumped, so the document carries an absolute path like the rest of the
-    embedded config. Anchoring on the document instead (one level below,
-    under ``sessions/``) stops the search one directory short.
+    embedded config.
     """
     from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
     from hydromodpy.calibration.runners.materialize import write_overlay_toml
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.results.session_journal import sessions_dir_for
 
     if src_path is not None:
         anchor_path = Path(src_path).expanduser().resolve()
@@ -100,7 +89,7 @@ def _write_python_mode_document(
     payload["calibration"] = cfg.model_dump(mode="json", exclude_none=True)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    doc_path = sessions_dir_for(sessions_root) / f"{stamp}-python-{uuid4().hex[:8]}.toml"
+    doc_path = sessions_dir_for(sessions_root) / f"python-{stamp}-{uuid4().hex[:8]}.toml"
     write_overlay_toml(doc_path, payload)
     return doc_path
 
@@ -121,6 +110,40 @@ def _project_root(project: Any, workspace: Path | str | None) -> Path:
     return Path.cwd()
 
 
+def _case_name(project: Any, cfg_path: Path) -> str:
+    """Return the case a Python-mode calibration names: the simulation name, else the stem."""
+    simulation = getattr(getattr(project, "config", None), "simulation", None)
+    name = str(getattr(simulation, "name", "") or "").strip()
+    return name or cfg_path.stem
+
+
+def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
+    """Return the resolved document the session freezes: the project config, else the file."""
+    config = getattr(project, "config", None)
+    if config is not None and hasattr(config, "model_dump"):
+        return dict(config.model_dump(mode="json", exclude_none=True))
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    return dict(load_toml_with_base_config(cfg_path))
+
+
+def _with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationConfig:
+    """Write ``[site] gauge`` and ``[metrics] window`` of the project into ``cfg``."""
+    config = getattr(project, "config", None)
+    site = getattr(config, "site", None)
+    metrics = getattr(config, "metrics", None)
+    window = getattr(metrics, "window", None)
+    gauge = getattr(site, "gauge", None)
+    if gauge is None and window is None:
+        return cfg
+    section = apply_project_defaults(
+        cfg.model_dump(mode="json", exclude_none=True),
+        site_gauge=gauge,
+        metrics_window=window.model_dump(mode="json") if window is not None else None,
+    )
+    return CalibrationConfig.model_validate(section)
+
+
 @in_run_scratch(
     lambda cfg, **kw: _project_root(kw["project"], kw.get("workspace")),
     lambda cfg, **_kw: "calibration",
@@ -135,8 +158,8 @@ def run_calibration_programmatic(
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
     return_report: bool = True,
-    store_factory: CalibrationStoreFactory | None = None,
     phase: str | None = None,
+    resume: bool = False,
 ) -> CalibrationReport | StagedCalibrationReport | dict:
     """Run calibration without a stand-alone calibration TOML.
 
@@ -155,8 +178,8 @@ def run_calibration_programmatic(
     refuse_an_objective_that_is_not_an_entry_point(objective)
 
     ws_root = _project_root(project, workspace)
-
     src_path = getattr(project, "_config_path", None)
+    cfg = _with_project_defaults(cfg, project)
 
     if cfg.phases:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
@@ -165,9 +188,9 @@ def run_calibration_programmatic(
             cfg, project=project, ws_root=ws_root, src_path=src_path
         )
         # Not ws_root: a caller override still wins, but otherwise the staged
-        # runner resolves its own workspace from the document it just read
-        # (prepare_trials), which stays correct even when ws_root above fell
-        # back to the caller's working directory.
+        # runner resolves its own project root from the document it just read,
+        # which stays correct even when ws_root above fell back to the
+        # caller's working directory.
         return run_staged_calibration(
             doc_path,
             phase=phase,
@@ -175,8 +198,8 @@ def run_calibration_programmatic(
             workspace=workspace,
             project=project_label,
             metric_fn=metric_fn,
-            store_factory=store_factory,
             return_report=return_report,
+            resume=resume,
         )
 
     space = space_from_config(cfg)
@@ -198,18 +221,48 @@ def run_calibration_programmatic(
         if evaluation_registry.needs_prepared_model(cfg.evaluator)
         else None
     )
-
-    report = run_calibration_core(
-        cfg,
-        trial_ctx,
-        workspace=ws_root,
+    case = _case_name(project, cfg_path)
+    promotion_name_check(case)
+    raw = _document_of(project, cfg_path)
+    raw["calibration"] = cfg.model_dump(mode="json", exclude_none=True)
+    persistence, _reopened = open_calibration_session(
+        ws_root,
+        case,
+        resume=resume,
+        raw=raw,
+        cfg=cfg,
         space=space,
-        project_label=project_label,
-        cfg_path=cfg_path,
-        metric_fn=metric_fn,
-        objective=objective,
-        store_factory=store_factory,
+        trial_ctx=trial_ctx,
+        project=project_label,
     )
+    _keep_trial_solves(cfg, trial_ctx)
+    scope = SessionScope(
+        cfg=cfg, project_root=ws_root, persistence=persistence, trial_ctx=trial_ctx
+    )
+    with closing_session(scope):
+        report, _spread = run_one_search(
+            cfg,
+            trial_ctx,
+            persistence=persistence,
+            space=space,
+            project_root=ws_root,
+            cfg_path=cfg_path,
+            metric_fn=metric_fn,
+            objective=objective,
+            phase=PhaseContext(DEFAULT_PHASE, 0, 0),
+        )
+        report = promote_and_close(
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            persistence=persistence,
+            project_root=ws_root,
+            report=report,
+            phase=DEFAULT_PHASE,
+            status=str(report.extra.get("search_status", "completed")),
+            root_search={
+                key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
+            },
+        )
     if return_report:
         return report
     return report.to_dict()

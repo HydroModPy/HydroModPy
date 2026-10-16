@@ -94,7 +94,7 @@ step 1: {ref}`they are explained there <staircase-warnings>`.
 | `downslope_distance_map` | How far each simulated cell must descend before it reaches the mapped network, in four classes: 0 to 75 m, 75 to 500 m, 500 to 1000 m, and more than 1000 m |
 
 Step 1's three exports are inherited. `[[export__append]]` adds a fourth block: the mapped
-network, as a GeoPackage. Five files land in `share/nancon_step2_local/`.
+network, as a GeoPackage. Five files land in `runs/nancon_step2_local/exports/`.
 
 ## Key fields
 

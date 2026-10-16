@@ -15,6 +15,10 @@ A figure that draws one instant is asked for it by ``time``: a date, "first"
 or "last". :func:`_resolve_time` turns it into the stress period this run
 stored, the one place a date meets a run, so the same date names the same
 month on a monthly, a daily or a one-period steady run.
+
+A figure of a run is written under ``runs/<run>/figures/``. Each file carries
+the identity block of the run (a visible footer and a PNG text chunk) and an
+entry in ``figures/index.json``, which :func:`regen_figures` replays.
 """
 
 from __future__ import annotations
@@ -32,7 +36,14 @@ from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.display import get as _get_figure
 from hydromodpy.display import list_figures as _list_figures
 from hydromodpy.display.figure import FigureNotApplicable
+from hydromodpy.display.png_metadata import stamp_png_identity
 from hydromodpy.display.style import apply_theme
+from hydromodpy.results.export.ledgers import record_derived_file
+from hydromodpy.results.export.run_identity import identity_of_run_dir
+from hydromodpy.results.identity import Identity
+from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
@@ -42,6 +53,9 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
+
+FIGURE_PRODUCER_PREFIX = "display:"
+"""What a figure ledger entry names as producer, followed by the figure name."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -362,6 +376,7 @@ def render_figure(
     *,
     save: str | Path | None = None,
     dpi: int | None = None,
+    run_dir: Path | None = None,
     **opts: Any,
 ) -> MplFigure:
     """Render one figure registered in :mod:`hydromodpy.display` and return it.
@@ -371,7 +386,9 @@ def render_figure(
     in the same words. ``save`` may be a directory (one ``<figure_name>.png``
     is written into it) or a full file path. ``opts`` are the figure's own
     options, as in ``[display.overrides]``: ``time`` names the instant a
-    map draws, a date, ``"first"`` or ``"last"``.
+    map draws, a date, ``"first"`` or ``"last"``. ``run_dir`` is the
+    directory of the run: a PNG saved with it is stamped with the identity of
+    the run (a visible footer and a text chunk).
 
     Raises
     ------
@@ -401,7 +418,65 @@ def render_figure(
         save_path = target / f"{figure_name}.png" if target.suffix == "" else target
     if dpi is not None:
         opts["dpi"] = dpi
-    return fig.plot(sim, save_path=save_path, **opts)
+    figure = fig.plot(sim, save_path=save_path, **opts)
+    if save_path is not None and run_dir is not None and save_path.suffix.lower() == ".png":
+        identity = figure_identity(sim, run_dir)
+        if identity is not None:
+            stamp_png_identity(save_path, identity)
+    return figure
+
+
+def figure_identity(sim: Run, run_dir: Path) -> Identity | None:
+    """Return the identity block a figure of *run_dir* carries, with the period of the run.
+
+    A sealed run states its period in its seal; a run still being computed
+    gets it from its time grid. ``None`` when the directory does not say
+    which run it is.
+    """
+    identity = identity_of_run_dir(run_dir)
+    if identity is None or identity.period is not None:
+        return identity
+    return identity.model_copy(update={"period": _period_of(sim)})
+
+
+def _period_of(sim: Run) -> DateWindow | None:
+    """Return the simulated period of a run from its time grid; ``None`` when it has none.
+
+    A run-shaped object without a time grid (the calibration report draws
+    from a session journal) has no period.
+    """
+    periods = getattr(sim, "periods", None)
+    if periods is None:
+        return None
+    try:
+        edges = periods.edges
+    except (RuntimeError, KeyError, ValueError, OSError):
+        return None
+    if edges is None or len(edges) < 2:
+        return None
+    return DateWindow(start=edges[0].date(), end=edges[-1].date())
+
+
+def record_figure(
+    path: Path, *, name: str, options: Mapping[str, Any], sim: Run, figures_dir: Path
+) -> None:
+    """Stamp a figure written under ``figures/`` with the identity of its run and record it.
+
+    ``options`` are the options the figure was drawn with, as a user writes
+    them (``time`` as a date, not the period index): the ledger replays them.
+    """
+    identity = figure_identity(sim, figures_dir.parent)
+    if identity is None:
+        logger.debug("Figure %s written outside an identified run directory: %s", name, path)
+        return
+    stamp_png_identity(path, identity)
+    record_derived_file(
+        figures_dir,
+        path,
+        producer=f"{FIGURE_PRODUCER_PREFIX}{name}",
+        options=options,
+        identity=identity,
+    )
 
 
 def figure_options_from_run(sim: Run, figure_name: str) -> dict[str, Any]:
@@ -455,24 +530,57 @@ def figure_availability(sim: Run) -> list[tuple[FigureSpec, str | None]]:
     return [(spec, unavailable_reason(_get_figure(spec.name), sim)) for spec in _list_figures()]
 
 
-def resolve_run_output_dir(
-    display_cfg: DisplayConfig,
-    *,
-    project_root: Path,
-    run_name: str | None,
-    sim_id: str,
-) -> Path:
-    """Return the directory where figures for one run should be saved.
+def figures_dir_of(run_dir: Path) -> Path:
+    """Return ``runs/<run>/figures/``, where the figures of one run are saved.
 
-    Layout: ``<project_root>/runs/<run>/<display.output_dir>/``. Figures
-    live inside the run they describe, so moving or deleting a run takes
-    them along.
+    Figures live inside the run they describe, so moving, publishing or
+    deleting a run takes them along.
     """
-    from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.catalog.storage_paths import run_dirname
+    return Path(run_dir) / RUN_FIGURES_DIRNAME
 
-    label = run_name if run_name else sim_id[:8]
-    return runs_dir_for(project_root) / run_dirname(label) / display_cfg.output_dir
+
+def regen_figures(sim: Run, run_dir: Path, *, dpi: int = 150) -> FigureRenderReport:
+    """Draw again every figure ``figures/index.json`` of a run records.
+
+    Each entry is drawn with the options it was recorded with, into the same
+    file, and recorded again.
+    """
+    figures_dir = figures_dir_of(run_dir)
+    entries = [
+        entry
+        for entry in Ledger.read(figures_dir).entries
+        if entry.producer.startswith(FIGURE_PRODUCER_PREFIX)
+    ]
+    if not entries:
+        raise ValueError(
+            f"{figures_dir} records no figure to draw again. Draw one with "
+            "'hmp viz show <run> <figure> --save' or list figures in [display]."
+        )
+    rendered: list[str] = []
+    written: list[Path] = []
+    skipped: list[SkippedFigure] = []
+    with matplotlib_backend(dpi=dpi):
+        for entry in entries:
+            name = entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX)
+            target = figures_dir / entry.file
+            fig = _get_figure(name)
+            options = dict(entry.options)
+            reason = unavailable_reason(fig, sim) or _resolve_time(sim, options)
+            if reason is not None:
+                skipped.append(SkippedFigure(name=name, reason=reason))
+                continue
+            fig.plot(sim, dpi=dpi, save_path=target, **options)
+            record_figure(
+                target, name=name, options=entry.options, sim=sim, figures_dir=figures_dir
+            )
+            rendered.append(name)
+            written.append(target)
+    return FigureRenderReport(
+        requested=tuple(entry.producer.removeprefix(FIGURE_PRODUCER_PREFIX) for entry in entries),
+        rendered=tuple(rendered),
+        written=tuple(written),
+        skipped=tuple(skipped),
+    )
 
 
 def render_figures_for_run(
@@ -483,6 +591,10 @@ def render_figures_for_run(
     figure_names: list[str] | None = None,
 ) -> FigureRenderReport:
     """Render the figures listed in ``display_cfg`` for one :class:`Run`.
+
+    ``output_dir`` is the ``figures/`` directory of the run
+    (:func:`figures_dir_of`): each file written there is stamped with the
+    identity of the run and recorded in its ledger.
 
     Honors ``display_cfg.enabled`` and ``display_cfg.save``. A figure whose
     declared requirements are not met by this run (no particle process, no
@@ -511,6 +623,7 @@ def render_figures_for_run(
         for name in wanted:
             fig = _get_figure(name)
             options = _figure_options(display_cfg, name)
+            recorded = dict(options)
             reason = unavailable_reason(fig, sim) or _resolve_time(sim, options)
             if reason is not None:
                 actionable = _log_skipped_figure(name, fig, sim, reason)
@@ -544,6 +657,9 @@ def render_figures_for_run(
 
                 plt.show()
             if save_path is not None:
+                record_figure(
+                    save_path, name=name, options=recorded, sim=sim, figures_dir=output_dir
+                )
                 written.append(save_path)
                 logger.debug("Rendered figure '%s' -> %s", name, save_path)
     return FigureRenderReport(

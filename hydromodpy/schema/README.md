@@ -3,9 +3,9 @@
 The contracts that something outside the Python code relies on. Two kinds.
 The first is for a front end: the JSON Schema of the whole configuration and a
 validator for one field at a time, so a form can check a value without loading
-a project. The second is for an orchestrator: the job directory a capability is
-invoked through as an external process, the declaration of each capability, its
-generated description, and the licence of each data source.
+a project. The second is for an orchestrator: the job directory a capability
+writes, the declaration of each capability, its generated description, and the
+licence of each data source.
 This file is the map of the package: what each part answers, the import
 rules, how a job directory is written, and where to add what.
 
@@ -44,13 +44,12 @@ itself. Today it imports `core`, and `config` at two places only:
 
 1. `job/` and `capability.py` stay readable by a layer that owns no engine.
    `capability.py` carries the request model as an opaque type, and `job/chain.py`
-   takes the registry that pairs a declaration with a body as an argument,
-   because that registry lives in `cli`.
+   takes the declarations and the runner that executes a step as arguments, so
+   it names no engine.
 2. A capability is declared next to the code that serves it, not here:
    `data/request/job.py` (`DATA_REQUEST`),
    `spatial/domain/capability.py` (`DOMAIN_BUILD`) and
    `spatial/site_selection/hydrology/capability.py` (`TERRAIN_DELINEATE`).
-   `cli/_workers/process.py` pairs each declaration with its body.
 3. The schema export stays deterministic: no side effect, no field that
    depends on the environment.
 
@@ -85,15 +84,9 @@ There is no HTTP server. A consumer ships the JSON over its own transport.
 Per-field annotations come from `json_schema_extra` of the Pydantic models;
 the keys a model may use are listed in `core/config_kit/field_metadata.py`.
 
-For an orchestrator:
-
-```
-hmp process list
-hmp process describe <id>
-hmp process run <id> --job DIR
-hmp process chain --root DIR
-hmp process verify --job DIR
-```
+For an orchestrator, the contract is the job directory described below. A
+capability is a function `run(job, *, exit_code_for)` in the layer that owns the
+logic; no `hmp` verb starts one.
 
 ## How a job directory is written
 
@@ -114,7 +107,7 @@ PROV) may be added after the seal and is not inventoried by it.
 
 | to add | where |
 |---|---|
-| a capability | a `CapabilityDecl` and its body in the layer that owns the logic, a registry entry in `cli/_workers/process.py`, then regenerate the description with `python -m tools.processes` |
+| a capability | a `CapabilityDecl` and its body in the layer that owns the logic, then regenerate the description with `python -m tools.processes` |
 | a field annotation | a key in `core/config_kit/field_metadata.py`, then use it in the model; see `docs/source/contribute/architecture/how-to/add-a-config-field.rst` |
 | a validator type for a front end | `_infer_validator_type` in `export.py` |
 | a data source licence | an entry in `_ENTRIES` of `sources.py`, with the basis for it; a source whose licence is not known says so with `_undetermined` |

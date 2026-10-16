@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from uuid import uuid4
 
 import numpy as np
 import pytest
 
 from hydromodpy.core.budget_terms import BudgetKeep, kept_budget
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.solver.boussinesq.assembly import assemble_steady_residual
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from tests._helpers.boussinesq_cell_meshes import placeholder_cell_mesh
+from tests._helpers.run_stores import claim_run, facts_of
 
 
 def _two_cell_mesh() -> BoussinesqMesh:
@@ -100,30 +100,38 @@ def _write_transient_payload(output_dir: Path) -> None:
     )
 
 
-def _extract_transient(tmp_path: Path, **kwargs: object) -> tuple[Catalog, str]:
+def _open_store(tmp_path: Path, n_timesteps: int) -> RunStore:
+    """Open the store of a fresh two-cell Boussinesq run; fields kept exact."""
+    project = tmp_path / "project"
+    claim = claim_run(project, "bouss")
+    store = RunStore.open(
+        claim.run_dir,
+        facts=facts_of(
+            claim,
+            project=project.name,
+            solver="boussinesq",
+            n_cells=2,
+            n_layers=1,
+            n_timesteps=n_timesteps,
+        ),
+        # Exact precision: this checks the extractor numbers, not the storage rounding.
+        persistence=PersistenceConfig(field_precision="exact"),
+        workspace=project,
+    )
+    store.create_zarr(n_cells=2, n_layers=1)
+    return store
+
+
+def _extract_transient(tmp_path: Path, **kwargs: object) -> tuple[RunStore, str]:
     output_dir = tmp_path / "solver"
     _write_transient_payload(output_dir)
-    # Exact precision: this checks the extractor numbers, not the storage rounding.
-    catalog = Catalog(
-        tmp_path / "workspace", persistence=PersistenceConfig(field_precision="exact")
-    )
-    sim_id = str(uuid4())
-    registration = catalog.register_simulation(
-        sim_id,
-        project="test",
-        solver="boussinesq",
-        n_cells=2,
-        n_layers=1,
-        n_timesteps=2,
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
+    store = _open_store(tmp_path, n_timesteps=2)
     try:
-        BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog, **kwargs)
+        BoussinesqOutputAdapter().extract(store.sim_id, output_dir, store, **kwargs)
     except BaseException:
-        catalog.close()
+        store.close()
         raise
-    return catalog, sim_id
+    return store, store.sim_id
 
 
 _ALL_COMPONENTS = ["constant_head", "drain", "recharge", "surface_excess", "well"]
@@ -132,9 +140,9 @@ _ALL_COMPONENTS = ["constant_head", "drain", "recharge", "surface_excess", "well
 def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
     tmp_path: Path,
 ) -> None:
-    catalog, sim_id = _extract_transient(tmp_path)
+    store, sim_id = _extract_transient(tmp_path)
     try:
-        zarr_store = catalog.open_zarr(sim_id)
+        zarr_store = store.open_zarr(sim_id)
         try:
             # One slice per period, stamped at its end: the initial state closes
             # no period and stays in the state group only.
@@ -177,15 +185,15 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         finally:
             zarr_store.close()
     finally:
-        catalog.close()
+        store.close()
 
 
 def test_boussinesq_extractor_keeps_only_the_planned_terms(tmp_path: Path) -> None:
     """The consumers policy writes the planned terms and records them, produced or not."""
     keep = BudgetKeep.of_terms({"surface_excess", "drain", "stream"})
-    catalog, sim_id = _extract_transient(tmp_path, budget_terms=keep)
+    store, sim_id = _extract_transient(tmp_path, budget_terms=keep)
     try:
-        zarr_store = catalog.open_zarr(sim_id)
+        zarr_store = store.open_zarr(sim_id)
         try:
             budget = zarr_store.root["budget"]
             assert sorted(budget.array_keys()) == ["drain", "surface_excess"]
@@ -197,17 +205,17 @@ def test_boussinesq_extractor_keeps_only_the_planned_terms(tmp_path: Path) -> No
         finally:
             zarr_store.close()
         # The lumped table holds every term, whatever the per-cell policy.
-        table = catalog.query_budget(sim_id)
+        table = store.read_table("budgets")
         assert sorted(set(table["component"])) == _ALL_COMPONENTS
     finally:
-        catalog.close()
+        store.close()
 
 
 def test_boussinesq_extractor_declares_an_empty_budget_group(tmp_path: Path) -> None:
     """A run that keeps no per-cell term still says so on the budget group."""
-    catalog, sim_id = _extract_transient(tmp_path, budget_terms=BudgetKeep.of_terms(()))
+    store, sim_id = _extract_transient(tmp_path, budget_terms=BudgetKeep.of_terms(()))
     try:
-        zarr_store = catalog.open_zarr(sim_id)
+        zarr_store = store.open_zarr(sim_id)
         try:
             assert "head" in zarr_store.root
             assert list(zarr_store.root["budget"].array_keys()) == []
@@ -215,7 +223,7 @@ def test_boussinesq_extractor_declares_an_empty_budget_group(tmp_path: Path) -> 
         finally:
             zarr_store.close()
     finally:
-        catalog.close()
+        store.close()
 
 
 def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path) -> None:
@@ -228,21 +236,10 @@ def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path)
     )
     (output_dir / "_boussinesq_summary.json").write_text("{invalid", encoding="utf-8")
 
-    catalog = Catalog(tmp_path / "workspace")
-    sim_id = str(uuid4())
-    registration = catalog.register_simulation(
-        sim_id,
-        project="test",
-        solver="boussinesq",
-        n_cells=2,
-        n_layers=1,
-        n_timesteps=1,
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
+    store = _open_store(tmp_path, n_timesteps=1)
 
     try:
         with pytest.raises(RuntimeError, match="Could not parse Boussinesq summary"):
-            BoussinesqOutputAdapter().extract(sim_id, output_dir, catalog)
+            BoussinesqOutputAdapter().extract(store.sim_id, output_dir, store)
     finally:
-        catalog.close()
+        store.close()

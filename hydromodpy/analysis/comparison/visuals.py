@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
+from hydromodpy.analysis.comparison.config import ComparisonSpec
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
     _build_case_configuration_payload,
@@ -25,8 +25,8 @@ from hydromodpy.analysis.comparison.visuals_render_maps import (
 )
 from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_storage_comparison_dashboard,
-    _write_timeseries_figure,
     _write_total_input_output_dashboard,
+    write_timeseries_figure,
 )
 from hydromodpy.analysis.comparison.visuals_style import _slug
 
@@ -79,7 +79,7 @@ def _representative_map_observable_names(observables: list[Any]) -> set[str]:
 
 def generate_comparison_figures(
     *,
-    cfg: RuntimeComparisonConfig,
+    cfg: ComparisonSpec,
     simulation_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
@@ -105,12 +105,10 @@ def generate_comparison_figures(
         for summary in simulation_summaries
         if summary.get("status") in {"completed", "reused"}
     }
-    simulations = {
-        simulation.id: simulation for simulation in cfg.comparison.simulation if simulation.enabled
-    }
+    simulations = {simulation.id: simulation for simulation in cfg.simulation}
 
     artifacts: list[dict[str, Any]] = []
-    fine_raster = cfg.comparison.fine_raster
+    fine_raster = cfg.fine_raster
     try:
         case_payload = _build_case_configuration_payload(
             cfg=cfg,
@@ -130,9 +128,9 @@ def generate_comparison_figures(
                 }
             )
 
-    representative_map_names = _representative_map_observable_names(list(cfg.comparison.observable))
-    point_labels = observable_point_label_map(tuple(cfg.comparison.observable))
-    for observable in cfg.comparison.observable:
+    representative_map_names = _representative_map_observable_names(list(cfg.observable))
+    point_labels = observable_point_label_map(tuple(cfg.observable))
+    for observable in cfg.observable:
         if observable.support != "map":
             continue
         if observable.name not in representative_map_names:
@@ -241,7 +239,7 @@ def generate_comparison_figures(
     for (observable_name, unit), grouped in sorted(grouped_rows.items()):
         series_path = figure_root / f"{_slug(observable_name)}__timeseries.png"
         point_label = point_labels.get(observable_name, "")
-        if _write_timeseries_figure(
+        if write_timeseries_figure(
             path=series_path,
             observable_name=observable_name,
             unit=unit,

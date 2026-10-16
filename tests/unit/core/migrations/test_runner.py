@@ -243,7 +243,6 @@ def test_a_failing_migration_names_the_repair_command(versions_dir: Path) -> Non
 
 def test_every_component_has_a_repair_hint() -> None:
     assert "hmp catalog reindex" in repair_hint_for("catalog")
-    assert "hmp workspace register" in repair_hint_for("index")
     assert "restore" in repair_hint_for("data_cache")
     assert "delete the widgets database" in repair_hint_for("widgets")
 
@@ -355,7 +354,7 @@ def test_no_alter_table_runs_outside_a_migration_script() -> None:
         and "ALTER TABLE" in path.read_text(encoding="utf-8")
     )
 
-    assert offenders == ["results/catalog/migrations/0003_calibration_session_phases.sql"], (
+    assert offenders == [], (
         "an ALTER TABLE outside a migration script needs its own CHECKPOINT, "
         "or a process killed afterwards leaves a database nobody can open"
     )

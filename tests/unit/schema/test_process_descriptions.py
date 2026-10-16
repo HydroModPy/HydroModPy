@@ -2,37 +2,48 @@
 
 A generated artefact without a gate drifts. So the first assertion here is the
 byte comparison, and everything after it is about what the document may not
-claim.
+claim. The capabilities are the three declarations the descriptions are
+generated from; no CLI verb runs a capability by its id.
 """
 
 from __future__ import annotations
 
-from typing import Any, get_args
+from pathlib import Path
+from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator
 
-from hydromodpy.cli._workers.process import capability_decls, capability_ids, describe_capability
+import hydromodpy.schema.processes as processes_package
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.core.exceptions import JobUsageError
 from hydromodpy.schema.capability import NAMES_THE_JOB_DOES_NOT_PRODUCE
-from hydromodpy.schema.job.outcome import (
-    DISMISSED_STATUS,
-    UNIDENTIFIED_JOB,
-    JobStatus,
-    dismissed,
-    now,
-)
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     described_ids,
     description_filename,
     read_description,
+    read_description_text,
     read_index,
 )
-from tools.processes.generate import DESCRIPTIONS_DIR, render_all
 
 REFRESH = "python -m tools.processes"
+DESCRIPTIONS_DIR = Path(processes_package.__file__).resolve().parent
+
+
+def capability_decls() -> tuple[Any, ...]:
+    """Return the declarations the descriptions are generated from."""
+    from hydromodpy.data.request.job import DATA_REQUEST
+    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
+    from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
+
+    return (DATA_REQUEST, DOMAIN_BUILD, TERRAIN_DELINEATE)
+
+
+def _render_all() -> dict[str, str]:
+    from tools.processes.generate import render_all
+
+    return render_all()
 
 
 def _committed(name: str) -> str:
@@ -53,22 +64,22 @@ def _nodes_with_examples(node: Any) -> list[dict[str, Any]]:
     return found
 
 
-@pytest.mark.parametrize("name", sorted(render_all()))
+@pytest.mark.parametrize("name", sorted(path.name for path in DESCRIPTIONS_DIR.glob("*.json")))
 def test_the_committed_file_is_what_the_generator_writes(name: str) -> None:
-    assert _committed(name) == render_all()[name], (
+    assert _committed(name) == _render_all()[name], (
         f"hydromodpy/schema/processes/{name} is stale. Run `{REFRESH}` to refresh."
     )
 
 
 def test_the_generator_owns_every_json_file_that_is_committed() -> None:
     on_disk = {path.name for path in DESCRIPTIONS_DIR.glob("*.json")}
-    assert on_disk == set(render_all()), (
+    assert on_disk == set(_render_all()), (
         f"a JSON file under hydromodpy/schema/processes/ has no generator. Run `{REFRESH}`."
     )
 
 
 def test_the_index_names_every_capability_this_build_declares() -> None:
-    assert described_ids() == capability_ids()
+    assert described_ids() == tuple(sorted(decl.id for decl in capability_decls()))
 
 
 def test_every_index_entry_points_at_a_file_that_reads() -> None:
@@ -133,88 +144,22 @@ def test_the_description_declares_the_paths_the_capability_declares(decl) -> Non
 
 
 @pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
-def test_the_invocation_block_names_the_verb_that_runs_it(decl) -> None:
-    invocation = read_description(decl.id)["hmp:invocation"]
-    assert invocation["argv"][:4] == ["hmp", "process", "run", decl.id]
-    assert invocation["env"] == list(decl.env)
-    assert invocation["cancellation"]["status"] in get_args(JobStatus)
+def test_the_description_names_no_command_to_invoke_it(decl) -> None:
+    """No CLI verb runs a capability by its id, so the document names none."""
+    assert "hmp:invocation" not in read_description(decl.id)
 
 
-@pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
-def test_the_writable_locations_are_a_list_and_not_a_boolean(decl) -> None:
-    """``false`` was published once, and it was false.
-
-    A boolean answers "does it write elsewhere"; what an orchestrator mounting
-    everything but the job directory read-only needs is "*where*". An empty list
-    is the honest spelling of "nowhere", and it stays falsy for a caller who only
-    asked the first question.
-    """
-    declared = read_description(decl.id)["hmp:invocation"]["writes_outside_jobdir"]
-    assert declared == list(decl.writes_outside_jobdir)
-    assert isinstance(declared, list)
-
-
-def test_the_cancelled_status_the_generator_writes_is_the_one_a_job_really_writes() -> None:
-    """Against the writer, not against the type.
-
-    The constant now lives in ``schema/job/outcome.py`` and is annotated
-    ``JobStatus``, so checking it against the type is a tautology a type checker
-    already refuses to let fail. What can still drift is the document: this
-    builds a cancelled outcome and reads the status off it.
-    """
-    assert DISMISSED_STATUS in get_args(JobStatus)
-    cancelled = dismissed(
-        job_id=UNIDENTIFIED_JOB,
-        process_id="demo-delineate",
-        process_version="1.2.3",
-        started_at=now(),
-        exc=KeyboardInterrupt(),
-    )
-
-    assert cancelled.to_document()["status"] == DISMISSED_STATUS
-
-
-@pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
-def test_the_invocation_block_promises_nothing_this_tree_does_not_do(decl) -> None:
-    """Two members of the specification stay out until something makes them true.
-
-    ``progress_file`` names ``progress.ndjson``, which no code path writes yet,
-    and ``concurrency`` is enforced by nothing. A description is read by a
-    caller who cannot check it, so an unbacked claim there is worse than a
-    missing member.
-
-    ``network`` was in this list until a gate started recording every name the
-    process resolves and every address it connects to, and comparing both to
-    the declaration. It moved to the test below.
-    """
-    invocation = read_description(decl.id)["hmp:invocation"]
-    assert not {"progress_file", "concurrency"} & set(invocation)
-
-
-@pytest.mark.parametrize("decl", capability_decls(), ids=lambda decl: decl.id)
-def test_the_invocation_block_names_the_hosts_the_declaration_names(decl) -> None:
-    """The egress a caller has to allow, in the shape a firewall rule is written.
-
-    A list and not a boolean: what an orchestrator needs is which hosts, and an
-    empty list is the honest spelling of a capability that runs with no egress
-    at all.
-    """
-    invocation = read_description(decl.id)["hmp:invocation"]
-
-    assert invocation["network"] == list(decl.reaches_network)
-
-
-def test_describing_an_unknown_capability_is_an_invocation_error() -> None:
+def test_reading_an_unknown_capability_is_an_invocation_error() -> None:
     with pytest.raises(JobUsageError, match="no process description for 'nope'"):
-        describe_capability("nope")
+        read_description_text("nope")
 
 
-def test_describing_a_major_this_build_does_not_serve_is_an_invocation_error() -> None:
+def test_reading_a_major_this_build_does_not_serve_is_an_invocation_error() -> None:
     with pytest.raises(JobUsageError, match="at major 99"):
-        describe_capability(capability_ids()[0], 99)
+        read_description_text(described_ids()[0], 99)
 
 
-def test_the_worker_reads_the_committed_bytes_and_does_not_re_render_them() -> None:
-    capability_id = capability_ids()[0]
+def test_the_reader_returns_the_committed_bytes_and_does_not_re_render_them() -> None:
+    capability_id = described_ids()[0]
     entry = next(e for e in read_index()["processes"] if e["id"] == capability_id)
-    assert describe_capability(capability_id) == _committed(entry["file"])
+    assert read_description_text(capability_id) == _committed(entry["file"])

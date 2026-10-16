@@ -65,6 +65,92 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- The run writes itself without the index (`hydromodpy/results/storage/`): `RunStore(run_dir)` holds
+  the Zarr and Parquet writers of the former Catalog, its facts in `<run>/.hmp/checkpoints/facts.json`
+  and the identity and licence in every Parquet footer; `claim_run_directory()` claims `runs/<name>`
+  by one `mkdir` (`.vN` after a completed run, a stale claim reclaimed when its process is dead or
+  under `--force`, a name held by the trash or a tombstone never given again, `if_exists = "fail"`
+  honoured); `seal_completed()` writes the record, the tables, the README and `manifest.json` last,
+  then `close_sealed_attempt()` removes `<run>/.hmp/`; a failed, aborted or partial attempt keeps its
+  outcome, README and tables and never a manifest, and `Project.run(until_step=...)` reads such a
+  run from its directory. The pipeline gains a 13th step, `SealStep`, journals under the run
+  directory (`WorkflowJournal(run_dir)`, `ResolvedRunManifest` and the data description beside the
+  checkpoints) and resumes a killed run from that journal; `project/attempt.py` drives the claim,
+  the heartbeat and the outcome; `Project.execute()` is the worker verb and `Project.run()` indexes
+  afterwards. `[simulation.results] keep_solver_files` keeps the solver folder under
+  `runs/<run>/solver/`, outside the manifest inventory. `hmp run --fresh`, `--case`, `--force`.
+- The index is derived (`hydromodpy/results/catalog/indexer.py`): `rebuild_index()` and
+  `index_new_runs()` diff the run and session directories by `rel_dir`, key and mtime into a staged
+  DuckDB file renamed over the open one; attempts, outcomes without a manifest (`effective_status`),
+  annotations and the label of the day are indexed; `Catalog(project_root)` is a reader only;
+  `hmp catalog reindex` rebuilds `.hmp/index.duckdb`, `hmp catalog status` and `hmp catalog watch`
+  never open it; `read_workspace_runs()` reads several projects at once; `hmp doctor
+  --cross-catalog` compares the sealed runs with the index rows.
+- Names and the trash on disk (`results/catalog/registration.py`, `discovery.py`, `results/trash.py`):
+  a bare name is `runs/<name>` exactly, `@last`, `@best:<metric>` and ids resolve on the index,
+  `hmp catalog delete` moves to `trash/` and lists what it moves (`--now` leaves a tombstone),
+  `restore`, `rename` (run and session), `gc` reads the tree (dead attempts marked aborted, old
+  versions trashed, expired trash removed); `hmp catalog import <DIR|TAR>` imports a run written by
+  `hmp publish`; `next_version_dirname()` names the `.vN` a dry run would take. `Run.tag`,
+  `Run.note`, `hmp catalog tag` and `hmp catalog note` write `runs/<run>/annotations.json`
+  (`hydromodpy/results/annotations.py`). The identity hash of a run is computed on project-relative
+  paths, so two copies of one project share their `config_hash`.
+- Outputs in the run (`results/exporters/request.py`, `results/export/`): a `[[export]]` request
+  writes under `runs/<run>/exports/` and records `exports/index.json`, a variable the run does not
+  hold is refused with what it holds, read from the run directory; figures land in
+  `runs/<run>/figures/` with `figures/index.json`; every file carries the identity block of its run
+  (`run_identity.py`, `ledgers.py`); `hmp publish <run|summary|project> [--format dir|tar]
+  [--with results]` copies out of the tree with `PUBLICATION.json` and the redaction rules of
+  `[publication]`; `hmp.export()` and `hmp.render_figure()` follow. A `Run` opened on a run
+  directory reads its tables (`results/run/tables.py`), periods and time axis there, never from the
+  index. The calibration report is `sessions/<session>/report/index.html`.
+- Calibration sessions on disk (`hydromodpy/calibration/`, `results/session/`): the search writes
+  `sessions/<case>/session.json`, `phases/<p>/session.json` and `trials.jsonl`, numbers the trials
+  of a batch in the order of the optimiser, resumes from them (`hmp calibrate --resume`, `--phase`),
+  promotes a trial by moving it under `runs/` with the version of its session (`pair_with`) and seals
+  it with `lineage` and `calibrated_by`; `hmp report` reads a session directory; SIGTERM promotes the
+  best trial then aborts. A calibration never opens the index. `lineage_of(run)` reads where a run
+  comes from (facts while it runs, the seal afterwards).
+- The metric rule (`results/metric_rule.py`, `results/fit_metrics.py`): `MetricRule.from_config()`
+  takes `[metrics] station`, else `[site] gauge`, else the gauge deduced from the single station of
+  the run, and `[metrics] window`; `fit_metrics(run_dir, rule=...)` scores a run from its own
+  `timeseries.parquet` on the declared window only, writes the rows of the manifest and the headline
+  NSE at the rule station (`nse_station`, `nse_variable` in `simulation.parquet` and in the index);
+  the seal records the gauge the run used; `Run.metrics` and `RunSet.metrics` read the seal, named
+  by metric, without a station suffix; `@best` and `metric_sense()` rank on the headline under the
+  rule.
+- The sites x recipes plan (`hydromodpy/config/sites/`): `expand_plan()` resolves `[sites]` and
+  `[sites.recipes]` into immutable `plan/<hash>/` drafts with cell-level errors (`hmp config check`
+  groups them), `bind`, `site_scoped` precedence, `--set` and `HMP_SET_*` through
+  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()` and
+  `check_run_budget(force=)`; `hmp run --dry-run` prints the plan of a `[sites]` project, and a
+  `[sites]` project without `--dry-run` is refused until the launcher of the next wave;
+  `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
+- The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
+  `write_catalog`, `nearest_site`, `hmp site add | import | select | ls | show`; `apply_site_gauge()`
+  fills the station sources from `[site] gauge` and refuses a conflicting station list;
+  `gauge_of_run()` is written in the seal. Site selection runs by `hmp site select <file>`
+  (`spatial/site_selection/runner.py`), its HTML report by `write_report_html`.
+- `hmp report compare <run>...` (`reporting/comparison/compare.py`): a comparison over sealed runs
+  (tables, figures, network metrics) written under `summary/compare/<stamp>/`, no launcher.
+- Tests named by the target: `test_run_store`, `test_sealing`, `test_two_workers_one_case`,
+  `test_a_failed_run_is_sealed`, `test_a_refused_claim_leaves_the_live_run_alone`,
+  `test_a_deleted_name_is_never_claimed_again`, `test_a_killed_attempt_is_claimed_again`,
+  `test_a_partial_run_is_read_from_its_directory`, `test_kept_solver_files_outlive_the_seal`,
+  `test_reindex`, `test_internal_dir_is_reconstructible` (by `hmp catalog reindex`),
+  `test_discovery`, `test_registration`, `test_a_bare_name_skips_the_trash`,
+  `test_a_purge_never_guesses_between_live_and_trash`, `test_two_copies_of_a_project_hash_alike`,
+  `test_identity`, `test_publish_contents`, `test_publish_redaction`,
+  `test_a_run_store_exports_without_the_index`, `test_the_ledgers_replay`, `test_metric_rule`,
+  `test_fit_metrics`, `test_group`, `test_the_seal_names_the_gauge_the_run_used`,
+  `test_a_tie_names_the_same_trial_in_a_replay`, `test_sites_plan`, `test_sites_tables`,
+  `test_single_site_against_the_catalog`, `test_toml_overrides`, `test_run_guards_a_sites_project`,
+  `test_gauge_is_the_single_source`, `test_report_compare_over_runs`,
+  `tests/e2e/test_a_run_never_opens_the_index.py`, `test_every_writer_targets_the_run.py`,
+  `test_a_calibration_never_opens_the_index.py`, `test_a_promoted_trial_is_not_solved_again_e2e.py`.
+  The unit tests of results, simulation, display, launchers, calibration and the integration and
+  regression tiers write their runs through `RunStore` and seal them (`tests/_helpers/run_stores.py`,
+  `sealed_runs.py`).
 - `[site]`, `[sites]`, `[metrics]` and `[publication]` root sections (`hydromodpy/core/site/`,
   `hydromodpy/config/sites/models.py`, `config/metrics_config.py`, `config/publication_config.py`):
   a real catchment names its site (`name`, `label`, `gauge`, `uri`), a project of N sites declares its
@@ -209,6 +295,29 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `hmp.open(workspace)` returns a reader `Catalog` (no `create`, no `read_only`); `Run.export`,
+  `Run.delete`, `Run.tag`, `Run.note` work on the run directory; `Run.input_entries` is `Run.inputs`;
+  `Run.metrics` has the column `metric` (was `metric_name`) and reads sealed runs only; an id that
+  is no UUID is not found rather than a conversion error; `RunNotSealedError` lives in
+  `hydromodpy.results.errors`.
+- `hmp workspace` is `init`, `list` (a scan of the tree) and `clean`; `hmp catalog ls`, `show`,
+  `delete`, `restore`, `rename`, `gc`, `import` read and move directories; `hmp doctor` has no
+  `--migrate*`; `hmp viz gallery` is `hmp viz regen`; `hmp calibrate --check` is `hmp config check`;
+  `hmp report catchment` has no `--with-lock` and `[pipeline] no_lock` is refused.
+- `[calibration] save_runs` / `save_best_n` replace `rerun_best_with_outputs`; candidates live in
+  `sessions/<case>/candidates/` (`candidates_root` refused); `hmp calibrate --resume` replaces
+  `reuse_completed_phases`; `objective_block_fractions` replaces `objective_block_shares`.
+- `[workspace]` keeps `root`, `catalog_path`, `data_dir` and the DEV keys; `output_root`,
+  `solver_scratch_folder`, `share_folder` and `catch_name` are refused with their replacement (the
+  solver scratch is `HMP_SCRATCH_ROOT`, outputs live in `runs/<run>/`, the catchment name is
+  `[site] name`); `[analysis]`, `[site_selection]` and a root `[hydrometry]` are refused by name.
+- The capability descriptions (`hydromodpy/schema/processes/*.json`) carry no invocation block: a
+  capability is driven by `hmp data get`, the domain step of `hmp run` and `hmp site select`.
+- Example 09 is a `[sites] x [sites.recipes]` project of three cases compared by `hmp report compare`;
+  example 04 reads its exports under `runs/<run>/exports/` and writes its own figures under
+  `summary/figures/`; example 14 carries its base configuration.
+- `hmp run --frozen` refuses every run until the replay from a published copy lands with the
+  launcher of the next wave.
 - `[workflow] mode` is optional and limited to `simulation`, `calibration` and `overview`; left unset it
   follows from the sections (`hydromodpy.workflow.dispatch.infer_workflow`, one helper for `hmp run` and
   `hmp.run`). A retired mode (`comparison`, `testbed`, `site_selection`) is refused with its replacement.
@@ -337,6 +446,32 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The DuckDB-bound writer of the Catalog (`results/catalog/{writes,writes_zarr,writes_parquet,
+  writes_helpers,writes_duckdb,lifecycle,reindex,package_io,audit}.py`, `register_simulation`,
+  `finalize`, `if_exists = "replace"`, the `audit_log` table, `trash.json`, `trash_marker.py`,
+  `session_journal.py`, `results/catalog/migrations/`, `core/state/migrations/`,
+  `core/state/global_index.py`, `hmp.index()`, `HMP_AUTO_REGISTER_PROJECT` and `hmp workspace
+  register | forget | prune | search`), the index-bound heartbeat and event stream
+  (`workflow/tracking/{heartbeat,events}.py`, `workflow/run_catalog.py`), `MANIFEST_SCHEMA_VERSION`
+  and the v1 manifest writer, `WorkflowContext.attempt_id`, `ProjectRunner.sweep`, the post-run
+  lockfile and `hmp run --no-lock`, `hmp audit`.
+- `share/`, `reports/`, `figures/` at a project root, `SHARE_DIRNAME`, `REPORTS_DIRNAME`,
+  `share_dir_for`, `reports_dir_for`, `running_sidecar_*`, `INDEX_FILENAME`, the `.hmp` exchange
+  package (`exporters/hmp_package.py`, `importers/hmp_package_inputs.py`, `hmp data import`,
+  `hmp export --format package`), the capability gallery hook and `[analysis.capability_gallery]`,
+  `[analysis]` as a root section, `OUTLET_STATION` and the `<metric>_<station>` pivot.
+- The `testbed` and `comparison` launchers (`hydromodpy/analysis/testbed/`, `analysis/comparison/
+  {dispatch,experiment_config,experiment_launcher,child_materialization,run_backend,descriptions,
+  stability}.py`, `analysis/comparison/audit/`, `workflow/regional_lab_materialization.py`,
+  `reporting/comparison/compact_network/`), the `hmp process` family, the `regional_lab` CSV,
+  `hmp site-selection` and the `workflow/site_selection*.py` modules, `[site_selection]` and
+  `[hydrometry]` as root sections, `hmp calibrate --check`, the in-memory GR4J path
+  (`simulation/extraction/calibration_bridge.py`), `simulation/extraction/derivation/fit_metrics.py`,
+  `simulation/extraction/ARCHITECTURE.md`.
+- Examples `10_testbed_workflow`, `17_site_selection_workflow`, `18_site_selection_to_testbed` and the
+  former `09_comparison_workflow` left the repository (runnable copies in the HydroModPy workspace
+  `workspace-anciens-exemples/` outside the tree).
+- The `analysis -> reporting` tolerance of the layer matrix.
 - `[testbed]`, `[simulation] study_area_name`, `outlet_x`, `outlet_y`, `if_exists = "replace"`,
   `[workspace] project_root` in a file, the `testbed`, `comparison` and `site_selection` workflow modes and
   their `DISPATCH` routes, `ProjectTestbedRunnerProvider`.

@@ -65,7 +65,7 @@ TAUGHT = [
     (FieldHeterogeneousSection, ("values_csv_file", "csv_key_column", "csv_value_column")),
     (CalibrationConfig, ("persist_trial_series", "persist_iteration_detail")),
     (MeshConfig, ("engine", "cell_size", "river_cell_size", "river_band", "families")),
-    (HydroModPyConfig, ("mesh", "modflow6", "modflownwt", "analysis")),
+    (HydroModPyConfig, ("mesh", "modflow6", "modflownwt")),
 ]
 
 

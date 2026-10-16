@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import RUNS_DIRNAME, catalog_path_for
-from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.core.state.paths import TOMBSTONES_FILENAME, catalog_path_for, trash_dir_for
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
 def _load_main():
@@ -26,43 +26,16 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 
 def _make_workspace_with_project(tmp_path: Path) -> tuple[Path, Path]:
-    from hydromodpy.results.catalog import Catalog
-
     workspace = tmp_path / "ws"
-    workspace.mkdir()
-    project = workspace / "projects" / "demo"
-    project.mkdir(parents=True)
-    with Catalog(project):
-        pass
+    project = make_project(workspace / "projects" / "demo")
     return workspace, project
 
 
 def _seed_simulation(project: Path, sim_id: str = "00000000-0000-0000-0000-000000000010") -> str:
-    import duckdb
+    from hydromodpy.results.catalog.indexer import rebuild_index
 
-    conn = duckdb.connect(str(catalog_path_for(project)))
-    try:
-        conn.execute(
-            """
-            INSERT INTO simulations
-                (sim_id, name, project, solver_id, status_id, zarr_path,
-                 storage_basename, mesh_topology_id)
-            VALUES (?, ?, ?,
-                    (SELECT id FROM solvers WHERE code = 'modflow6'),
-                    (SELECT id FROM statuses WHERE code = 'completed'),
-                    ?, ?,
-                    (SELECT id FROM mesh_topologies WHERE code = 'structured_3d'))
-            """,
-            [
-                sim_id,
-                "to-be-purged",
-                "demo",
-                f"{RUNS_DIRNAME}/to-be-purged/{FIELDS_STORE_NAME}",
-                "to-be-purged",
-            ],
-        )
-    finally:
-        conn.close()
+    seal_run(project, "to_be_purged", sim_id=sim_id)
+    rebuild_index(project)
     return sim_id
 
 
@@ -192,29 +165,37 @@ def test_privacy_purge_archive_pii_opt_in(monkeypatch, tmp_path) -> None:
         assert mode == 0o600
 
 
-def test_privacy_purge_removes_simulation_row(monkeypatch, tmp_path) -> None:
+def test_privacy_purge_removes_the_directory_and_keeps_its_name(monkeypatch, tmp_path) -> None:
     import duckdb
 
-    workspace, project = _make_workspace_with_project(tmp_path)
+    from hydromodpy.results.trash import read_tombstones
+
+    _workspace, project = _make_workspace_with_project(tmp_path)
     sim_id = _seed_simulation(project)
 
     code = _run(
         monkeypatch,
-        [
-            "hmp",
-            "privacy",
-            "purge",
-            sim_id,
-            "--workspace",
-            str(project),
-            "-y",
-        ],
+        ["hmp", "privacy", "purge", sim_id, "--workspace", str(project), "-y"],
     )
     assert code == 0
 
+    assert not (project / "runs" / "to_be_purged").exists()
+    assert (trash_dir_for(project) / TOMBSTONES_FILENAME).is_file()
+    assert [t.rel_dir for t in read_tombstones(project)] == ["runs/to_be_purged"]
     conn = duckdb.connect(str(catalog_path_for(project)), read_only=True)
     try:
         row = conn.execute("SELECT 1 FROM simulations WHERE sim_id = ?", [sim_id]).fetchone()
     finally:
         conn.close()
     assert row is None
+
+
+def test_privacy_purge_of_an_unknown_reference_exits_not_found(monkeypatch, tmp_path) -> None:
+    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+
+    _workspace, project = _make_workspace_with_project(tmp_path)
+    code = _run(
+        monkeypatch,
+        ["hmp", "privacy", "purge", "nothing_here", "--workspace", str(project), "-y"],
+    )
+    assert code == EXIT_NOT_FOUND

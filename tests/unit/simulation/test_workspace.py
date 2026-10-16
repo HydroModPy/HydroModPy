@@ -1,10 +1,13 @@
+import re
 from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
 
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
     RUNS_DIRNAME,
-    SHARE_DIRNAME,
 )
 from hydromodpy.core.workspace import (
     Workspace,
@@ -55,7 +58,6 @@ def test_workspace_exposes_canonical_path_registry(tmp_path) -> None:
 
     assert isinstance(workspace.paths, WorkspacePathRegistry)
     assert workspace.paths.project_root == workspace.project_root
-    assert workspace.paths.figures_folder == workspace.figure_folder
 
 
 def test_workspace_creates_folder_structure(tmp_path) -> None:
@@ -110,12 +112,6 @@ def test_workspace_standalone_project_falls_back_to_project_root(tmp_path, monke
     assert cfg.resolution_source == "project"
 
 
-def test_workspace_catch_name_is_project_dir_name(tmp_path) -> None:
-    project = _scaffold(tmp_path / "ws", project="my_project")
-    cfg = WorkspaceConfig(project_root=project)
-    assert cfg.catch_name == "my_project"
-
-
 def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
     ws_root = tmp_path / "myworkspace"
     project = _scaffold(ws_root)
@@ -123,13 +119,22 @@ def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
     assert cfg.data_path == (ws_root / "data").resolve()
     assert cfg.catalog_path == (project / INTERNAL_DIRNAME / CATALOG_FILENAME).resolve()
     assert cfg.runs_dir == (project / RUNS_DIRNAME).resolve()
-    assert cfg.share_folder == (project / SHARE_DIRNAME).resolve()
 
 
-def test_workspace_folder_derivation(tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("key", "replacement"),
+    [
+        ("solver_scratch_folder", "HMP_SCRATCH_ROOT"),
+        ("share_folder", "runs/<run>/"),
+        ("catch_name", "[site] name"),
+    ],
+)
+def test_a_retired_workspace_key_is_refused_with_its_replacement(
+    tmp_path, key: str, replacement: str
+) -> None:
     project = _scaffold(tmp_path / "ws")
-    cfg = WorkspaceConfig(project_root=project)
-    assert cfg.solver_scratch_folder == project / INTERNAL_DIRNAME / "scratch"
+    with pytest.raises(ValidationError, match=re.escape(replacement)):
+        WorkspaceConfig(project_root=project, **{key: "x"})
 
 
 def test_workspace_component_override(tmp_path) -> None:

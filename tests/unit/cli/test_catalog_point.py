@@ -5,11 +5,15 @@ from __future__ import annotations
 import importlib
 import json
 import sys
-import uuid
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 VERTICES = np.array(
     [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]],
@@ -30,24 +34,22 @@ def _run_cli(monkeypatch, argv: list[str]) -> int:
     return 0
 
 
-def _seal(catalog, name: str, *, offset: float = 0.0) -> str:
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        flow_regime="transient",
+def _seal(project: Path, name: str, *, offset: float = 0.0) -> str:
+    """Write a two-cell head run under ``runs/<name>`` and seal it; return its id."""
+    store = open_run_store(
+        project,
+        name,
         n_cells=N_CELLS,
         n_layers=1,
         n_timesteps=N_STEPS,
-        bbox=[0.0, 0.0, 2.0, 1.0],
-        crs="EPSG:2154",
-        config={"flow": {"hk": 1e-5}},
+        flow_regime="transient",
+        bbox=(0.0, 0.0, 2.0, 1.0),
+        crs_wkt="EPSG:2154",
+        crs_epsg=2154,
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    store_zarr = catalog.open_zarr(sid)
+    sid = store.sim_id
+    (store.run_dir / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n", encoding="utf-8")
+    store_zarr = store.open_zarr(sid)
     try:
         store_zarr.write_mesh(
             VERTICES,
@@ -59,21 +61,17 @@ def _seal(catalog, name: str, *, offset: float = 0.0) -> str:
         store_zarr.close()
     for step in range(N_STEPS):
         values = np.array([[1.0 + step + offset, 2.0 + step + offset]], dtype="float64")
-        catalog.write_field(sid, "head", step, values, n_timesteps=N_STEPS if step == 0 else None)
-    catalog.finalize(sid, status="completed")
+        store.write_field(sid, "head", step, values, n_timesteps=N_STEPS if step == 0 else None)
+    seal_completed(store)
     return sid
 
 
 @pytest.fixture
 def project(tmp_path) -> Path:
-    from hydromodpy.results.catalog import Catalog
-
     root = tmp_path / "demo"
-    (root).mkdir(parents=True)
-    (root / "project.toml").write_text("[workspace]\n")
-    with Catalog(root) as catalog:
-        _seal(catalog, "base")
-        _seal(catalog, "scenario", offset=10.0)
+    _seal(root, "base")
+    _seal(root, "scenario", offset=10.0)
+    rebuild_index(root)
     return root
 
 

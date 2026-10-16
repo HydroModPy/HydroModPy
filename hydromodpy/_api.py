@@ -4,12 +4,14 @@ Mirrors the CLI verbs so ``hmp run config.toml`` and ``hmp.run("config.toml")``
 execute the same workflow. Kept as a private module so the package facade
 stays minimal.
 
-The run-management CLI verbs (``hmp catalog trash/restore/tag/note/rename/
-rerun/diff/reindex/gc/watch``) are intentionally not mirrored as top-level
-``hmp.*`` symbols. Their Python surface is the :class:`Catalog` handle returned
-by :func:`open`: ``cat.trash(ref)``, ``cat.restore(ref)``, ``cat.add_tag(...)``,
-``cat.rename_simulation(...)``, ``cat.diff(...)``, plus
-:func:`hydromodpy.results.catalog.reindex.rebuild_index`. The
+The run-management CLI verbs (``hmp catalog delete/restore/trash/tag/note/
+rename/rerun/diff/reindex/gc/watch``) are intentionally not mirrored as
+top-level ``hmp.*`` symbols. The index is read through the :class:`Catalog`
+handle :func:`open` returns (``cat.diff(...)``, ``cat.latest()``...); a run
+directory is changed by the run itself (``Run.tag``, ``Run.note``,
+``Run.delete``) or by :mod:`hydromodpy.results.trash` and
+:mod:`hydromodpy.results.annotations`, and the index is rebuilt by
+:func:`hydromodpy.results.catalog.indexer.rebuild_index`. The
 ``hmp.cli._workers`` package is a CLI-private implementation detail, not a
 public API.
 """
@@ -39,7 +41,6 @@ if TYPE_CHECKING:
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
     from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.state.global_index import GlobalIndex
     from hydromodpy.examples.install import InstallReport
     from hydromodpy.examples.manifest import ExampleEntry
     from hydromodpy.project.spinup import SpinupResult
@@ -53,47 +54,42 @@ if TYPE_CHECKING:
     Readable = xr.DataArray | np.ndarray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
-def open(workspace: PathLike, *, create: bool = False, read_only: bool = True) -> Catalog:
-    """Open a HydroModPy project catalog.
+def open(workspace: PathLike) -> Catalog:
+    """Open the index of a HydroModPy project.
 
-    The single door to a workspace catalog: returns a
-    :class:`hydromodpy.results.catalog.Catalog` backed by
+    The single door to the index of a project: returns a
+    :class:`hydromodpy.results.catalog.Catalog` reading
     ``<project>/.hmp/index.duckdb``. It exposes object access (``latest``, ``best``,
     ``find``, ``cat[ref]``), tabular access (``frame``, ``sql``,
     ``list_simulations``), schema discovery (``describe``, ``tables``,
     ``columns``, ``variables``, ``metrics``, ``stations``), and per-id reads
     (``read``).
 
-    The default open is **read-only**: inspecting a catalog never migrates it,
-    never rewrites a view, and never touches its mtime, so an archived project
-    can be browsed without leaving a trace and a reader never contends with a
-    running solve. Pass ``read_only=False`` (or ``create=True``) for the
-    writable handle used to initialise or annotate a catalog.
+    The index is a reader: opening it never writes, never migrates and never
+    contends with a running solve. It is derived from the run directories;
+    ``hmp catalog reindex`` (or
+    :func:`hydromodpy.results.catalog.indexer.rebuild_index`) builds it.
 
     Parameters
     ----------
     workspace
-        Project directory holding ``.hmp/index.duckdb`` (or a direct path to
-        the ``.duckdb`` file), as a ``str`` or a :class:`pathlib.Path`.
-    create
-        ``False`` (default) raises :class:`FileNotFoundError` when no catalog
-        exists yet (no phantom catalog is created). ``True`` opens a writable
-        handle and initialises an empty catalog.
-    read_only
-        ``True`` (default) opens the catalog read-only. Ignored when
-        ``create=True`` (initialisation requires a writable handle).
+        The project directory, or any folder inside it, as a ``str`` or a
+        :class:`pathlib.Path`. The project root is the folder holding
+        ``project.toml`` at or above it.
 
     Returns
     -------
     hydromodpy.results.catalog.Catalog
-        Catalog handle for the project.
+        Index handle for the project.
 
     Raises
     ------
     FileNotFoundError
-        If no index database is found and ``create`` is ``False``.
-    hydromodpy.core.exceptions.CatalogError
-        If the DuckDB catalog file is locked, corrupted, or unreadable.
+        If the project has no index yet.
+    hydromodpy.results.errors.SchemaVersionMismatchError
+        If the index was written under another schema version.
+    hydromodpy.core.exceptions.CatalogUnreadableError
+        If the index file exists but DuckDB cannot open it.
 
     Examples
     --------
@@ -103,26 +99,22 @@ def open(workspace: PathLike, *, create: bool = False, read_only: bool = True) -
 
     See Also
     --------
-    hydromodpy.index
-        Machine-wide federation across registered projects.
+    hydromodpy.results.catalog.federation.read_workspace_runs
+        The sealed runs of several projects, read from their directories.
     """
     from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
     from hydromodpy.results.catalog import Catalog
 
     ws = Path(workspace).expanduser().resolve()
-    if ws.suffix == ".duckdb":
-        catalog_file = ws
-    else:
-        catalog_file = catalog_path_for(resolve_project_root(ws))
-    if not create and not catalog_file.is_file():
+    root = resolve_project_root(ws)
+    catalog_file = catalog_path_for(root)
+    if not catalog_file.is_file():
         raise FileNotFoundError(
-            f"No catalog at {catalog_file.parent}. Run a workflow there first, "
-            f"or pass create=True to initialise an empty catalog."
+            f"No index at {catalog_file}. Run a workflow there first, or "
+            f"`hmp catalog reindex` to build it from the run directories."
             + _projects_hint(ws, catalog_file)
         )
-    if create:
-        return Catalog(ws)
-    return Catalog(ws, read_only=read_only)
+    return Catalog(root)
 
 
 def _projects_hint(folder: Path, missing: Path) -> str:
@@ -143,68 +135,14 @@ def _projects_hint(folder: Path, missing: Path) -> str:
     return f" This folder holds projects with a catalog: {names}{more}. Open one of them."
 
 
-def index(db_path: PathLike | None = None, *, read_only: bool = True) -> GlobalIndex:
-    """Open the machine-wide global index that federates registered projects.
-
-    One row is one project root, since a project root is what owns an index
-    database. Registering a workspace root expands it into the project roots
-    it holds.
-
-    Read-only by default, mirroring :func:`open`: browsing the federation index
-    never migrates it or touches its mtime, and a reader never contends with a
-    concurrent solve. Pass ``read_only=False`` for the writable handle used to
-    ``register`` / ``unregister`` / ``prune``.
-
-    Parameters
-    ----------
-    db_path
-        Optional path to the index DuckDB file. ``None`` uses the default
-        machine-state location.
-    read_only
-        Open the index in read-only mode (default ``True``). Writes
-        (``register``, ``unregister``, ``prune``) will raise. Pure reads
-        (``search``, ``find``, ``list_projects``) keep working while another
-        process holds the write-lock.
-
-    Returns
-    -------
-    GlobalIndex
-        Index object exposing ``register``, ``unregister``, ``list_projects``,
-        ``find``, ``search`` and ``prune``.
-
-    Raises
-    ------
-    RuntimeError
-        If a mutating method is called on a read-only handle.
-    duckdb.IOException
-        If the index database cannot be opened due to non-lock I/O errors.
-
-    Examples
-    --------
-    >>> import hydromodpy as hmp
-    >>> idx = hmp.index(read_only=True)  # doctest: +SKIP
-    >>> idx.list_projects()  # doctest: +SKIP
-
-    See Also
-    --------
-    hydromodpy.core.state.global_index.GlobalIndex
-        Underlying federation implementation.
-    """
-    from pathlib import Path as _Path
-
-    from hydromodpy.core.state.global_index import GlobalIndex
-
-    resolved = _Path(db_path).expanduser().resolve() if db_path is not None else None
-    return GlobalIndex(resolved, read_only=read_only)
-
-
 def _open_run(project_root: PathLike, sim_id: str | None) -> Run | None:
     """Return the :class:`Run` for ``sim_id`` bound to an open catalog.
 
     Both :func:`run` branches expose the ``simulation`` workflow as a ``Run``
-    so :func:`read` / :func:`export` accept the result directly. The catalog
-    is intentionally **not** context-managed here: the Run reads through it,
-    so it must stay open after :func:`run` returns (matching
+    so :func:`read` / :func:`export` accept the result directly. The worker
+    never opens the index, so the index is refreshed from the run directories
+    first. The catalog is intentionally **not** context-managed here: the Run
+    reads through it, so it must stay open after :func:`run` returns (matching
     ``cat = hmp.open(...); cat[ref]``). Returns ``None`` when there is no
     ``sim_id`` (a dry run persists nothing). A finished run whose catalog
     cannot be opened raises :class:`~hydromodpy.core.exceptions.CatalogError`
@@ -212,7 +150,10 @@ def _open_run(project_root: PathLike, sim_id: str | None) -> Run | None:
     """
     if not sim_id:
         return None
+    from hydromodpy.results.catalog.indexer import index_new_runs
+
     try:
+        index_new_runs(Path(project_root))
         return open(project_root)[sim_id]
     except Exception as exc:
         from hydromodpy.core.exceptions import CatalogError
@@ -267,29 +208,6 @@ def _refuse_overrides_on_a_path(config_path: Path, kwargs: dict[str, Any]) -> No
         )
 
 
-def _write_lock_for_run(config_source: ConfigLike, *, no_lock: bool) -> None:
-    """Write ``hydromodpy.lock`` after a Python-driven simulation.
-
-    Mirrors the CLI post-run lock write so ``hmp.run`` records the same
-    reproducibility provenance the terminal does. Best-effort and silent on
-    failure. ``config_source`` is a TOML path or a resolved config object.
-    """
-    if no_lock:
-        return
-    try:
-        from hydromodpy.project.lockfile import write_project_lockfile
-
-        if isinstance(config_source, (str, Path)):
-            from hydromodpy.config import HydroModPyConfig
-
-            cfg = HydroModPyConfig.from_toml(config_source)
-        else:
-            cfg = config_source
-        write_project_lockfile(cfg)
-    except Exception:
-        pass
-
-
 @contextmanager
 def _materialized_config(config: HydroModPyConfig) -> Iterator[Path]:
     """Write a resolved config to a temp TOML in its project_root and yield it.
@@ -315,8 +233,8 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
 
     Path and config-object inputs converge on the same dispatch. Simulation
     workflows return a :class:`~hydromodpy.results.run.Run` (or ``None`` when
-    nothing was persisted, e.g. ``dry_run``). Overview, calibration,
-    comparison and testbed workflows return their adapter ``dict`` summary.
+    nothing was persisted, e.g. ``dry_run``). Overview and calibration
+    workflows return their adapter ``dict`` summary.
 
     A simulation is named ``name=`` when given, else ``[simulation] name``
     of the configuration (a TOML file defaults it to its own stem). Like
@@ -339,16 +257,14 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         (``K=1e-5``), as in :meth:`~hydromodpy.project.Project.simulate`. The
         ``headless`` keyword is honored on both branches (path and config
         object) and controls the underlying ``Project`` interactive side
-        effects. Set ``no_lock=True`` to skip the post-run
-        ``hydromodpy.lock`` write (a successful simulation writes the
-        reproducibility lock by default, matching ``hmp run``).
+        effects.
 
     Returns
     -------
     Run or None or dict
         ``Run`` instance for the ``simulation`` workflow, ``None`` for a dry
-        run. ``dict`` summary for ``overview``, ``calibration``,
-        ``comparison`` and ``testbed`` workflows.
+        run. ``dict`` summary for the ``overview`` and ``calibration``
+        workflows.
 
     Raises
     ------
@@ -381,7 +297,6 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
         Object-oriented form for repeated runs from one project.
     """
     headless = bool(kwargs.pop("headless", False))
-    no_lock = bool(kwargs.pop("no_lock", False))
 
     if isinstance(config, (str, Path)):
         from hydromodpy.project.dispatch.workflow import dispatch_workflow
@@ -401,8 +316,6 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
             run_obj = _open_run(root, summary["sim_id"])
             if summary.get("skipped"):
                 _report_identical_run(summary)
-            else:
-                _write_lock_for_run(config_path, no_lock=no_lock)
             return run_obj
         return summary
 
@@ -432,7 +345,6 @@ def run(config: ConfigLike, **kwargs: Any) -> Run | dict | None:
             return run_obj
         if result is None:
             return None
-        _write_lock_for_run(config, no_lock=no_lock)
         # Re-bind to a freshly opened catalog so hmp.read works after the
         # project context (and its catalog connection) has closed.
         return _open_run(root, result.sim_id)
@@ -807,66 +719,49 @@ def compare_pair(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -
     return _compare_pair(sim_a, sim_b, workspace=workspace)
 
 
-def report(session_id_or_prefix: str | None = None, *, workspace: PathLike | None = None) -> Path:
-    """Render the HTML report for a calibration session.
+def report(session: str | None = None, *, workspace: PathLike | None = None) -> Path:
+    """Render the HTML report of a calibration session.
 
-    ``session_id_or_prefix`` accepts a full UUID or a unique hex prefix
-    of either a calibration session or one of its runs (an iteration or the
-    promoted best run, as printed by ``hmp catalog ls``); the run reference is
-    mapped to its parent session. ``None`` falls back to the most recently
-    started session. ``workspace`` defaults to the nearest ancestor of the
-    current working directory holding a project index database.
-
-    When ``workspace`` is a workspace root, the lookup federates across every
-    ``projects/<name>`` catalog, matching how ``hmp catalog ls`` lists runs.
+    ``session`` names one session of the project by its directory:
+    ``<case>[.vN]`` or ``sessions/<case>[.vN]``. ``None`` selects the session
+    that started last. The report reads the session directory alone, never
+    the index, and is written to ``sessions/<session>/report/index.html``.
 
     Parameters
     ----------
-    session_id_or_prefix
-        Full UUID or unique hex prefix of a session or one of its runs, or
-        ``None`` for the latest session.
+    session
+        Directory name of the session, or ``None`` for the latest one.
     workspace
-        Optional workspace root or project directory.
+        The project directory, or a folder inside it. Defaults to the
+        current working directory.
 
     Returns
     -------
     pathlib.Path
-        The ``report.html`` written for the session.
+        The ``report/index.html`` written for the session.
 
     Raises
     ------
-    hydromodpy.results.errors.RunNotFoundError
-        If no calibration session matches ``session_id_or_prefix``.
+    hydromodpy.core.exceptions.ConfigMissingError
+        If no calibration session matches ``session``.
     hydromodpy.core.exceptions.DisplayError
         If the report template or one of its figures fails to render.
 
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> hmp.report()  # latest session in the current workspace  # doctest: +SKIP
-    >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")  # doctest: +SKIP
+    >>> hmp.report()  # latest session of the current project  # doctest: +SKIP
+    >>> hmp.report(
+    ...     "calibration.v2", workspace="~/ws/projects/my_project"
+    ... )  # doctest: +SKIP
     """
-    from hydromodpy.calibration.report import resolve_session_in_workspace
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.results.session.descriptor import resolve_session_dir
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
-    if workspace is None:
-        workspace_root = Path.cwd()
-        for parent in [workspace_root] + list(workspace_root.parents):
-            if (catalog_path_for(parent)).exists():
-                workspace_root = parent
-                break
-    else:
-        workspace_root = Path(workspace).expanduser().resolve()
-
-    catalog_root, full_id = resolve_session_in_workspace(workspace_root, session_id_or_prefix)
-    with Catalog(catalog_root) as catalog:
-        return step_render_calibration_report(
-            catalog=catalog,
-            session_id=full_id,
-            workspace_root=catalog_root,
-        )
+    start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
+    session_dir = resolve_session_dir(resolve_project_root(start), session)
+    return step_render_calibration_report(session_dir=session_dir)
 
 
 def read(
@@ -1019,7 +914,9 @@ def figure(
 
     if time is not None:
         opts["time"] = time
-    return render_figure(name, sim, save=save, dpi=dpi, **opts)
+    return render_figure(
+        name, sim, save=save, dpi=dpi, run_dir=sim.dir if save is not None else None, **opts
+    )
 
 
 def export(
@@ -1045,8 +942,9 @@ def export(
     extension of ``file`` names one: a field at one date goes to GeoTIFF, one
     file per variable; over several dates to one NetCDF; a series or the
     budget to CSV; a vector layer (``watershed``, a network) to GeoPackage; a
-    raster layer (``watershed_dem``) to GeoTIFF. ``format="package"`` writes
-    the portable ``.hmp`` archive of the run. Files land in ``share/<run>/``.
+    raster layer (``watershed_dem``) to GeoTIFF. Files land in
+    ``runs/<run>/exports/`` and are recorded in ``exports/index.json``; a run
+    leaves the tree by ``hmp publish``.
 
     ``sim`` must be a :class:`~hydromodpy.results.run.Run`, as returned by
     ``hmp.open(workspace)[ref]`` or ``catalog.latest()``.
@@ -1062,7 +960,6 @@ def export(
     >>> hmp.export(
     ...     run, "discharge", period=("2001-01-01", "2002-12-31")
     ... )  # doctest: +SKIP
-    >>> hmp.export(run, "all", format="package")  # doctest: +SKIP
     """
     from hydromodpy.results.run import Run
 

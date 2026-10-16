@@ -46,6 +46,10 @@ class TrialLine(HydroModelBase):
     objective: float | None = Field(default=None, description="Objective value")
     metrics: dict[str, Any] = Field(default_factory=dict, description="Other metrics of the trial")
     status: TrialStatus
+    from_cache: bool = Field(
+        default=False,
+        description="True when the cost came from an earlier trial with the same hash",
+    )
     started_at: datetime = Field(description="Start of the trial, UTC")
     ended_at: datetime | None = Field(default=None, description="End of the trial, UTC")
     sim_id: str | None = Field(default=None, description="Run of a promoted or kept trial")
@@ -101,11 +105,36 @@ def next_trial_number(session_dir: str | Path) -> int:
     return 1 if not trials else trials[-1].trial + 1
 
 
+def trial_row(line: TrialLine) -> dict[str, Any]:
+    """Return one trial line as the plain row the promotion, the report and the figures read.
+
+    ``iteration`` repeats the trial number under the name the readers of the
+    row have always used; ``duration_s`` is the time between its two stamps.
+    """
+    duration = (line.ended_at - line.started_at).total_seconds() if line.ended_at else 0.0
+    return {
+        "iteration": line.trial,
+        "trial": line.trial,
+        "phase": line.phase,
+        "restart": line.restart,
+        "sim_id": line.sim_id,
+        "rel_dir": line.rel_dir,
+        "params_hash": line.params_hash,
+        "parameters": dict(line.params),
+        "objective_value": line.objective,
+        "metrics": dict(line.metrics) if line.metrics else None,
+        "status": line.status,
+        "from_cache": line.from_cache,
+        "duration_s": duration,
+    }
+
+
 __all__ = [
     "TrialLine",
     "TrialStatus",
     "append_trial",
     "next_trial_number",
     "read_trials",
+    "trial_row",
     "trials_path",
 ]

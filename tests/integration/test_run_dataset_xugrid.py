@@ -14,6 +14,8 @@ the stored array.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -22,14 +24,28 @@ import xugrid as xu
 
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run import Run
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 
 @pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+def sealed(tmp_path: Path) -> Iterator[Callable[..., Run]]:
+    """Seal one run of the mesh given, index the project, return the run read back."""
+    project = tmp_path / "project"
+    readers: list[Catalog] = []
+
+    def _open(*, topology: str, vertices: np.ndarray, fnc: np.ndarray) -> Run:
+        sid = _persist(project, topology=topology, vertices=vertices, fnc=fnc)
+        rebuild_index(project)
+        reader = Catalog(project)
+        readers.append(reader)
+        return Run(sid, reader)
+
+    yield _open
+    for reader in readers:
+        reader.close()
 
 
 def _quad_mesh(nrow: int = 2, ncol: int = 3):
@@ -100,20 +116,19 @@ def _triangle_mesh():
     return vertices, fnc
 
 
-def _persist(catalog, *, topology: str, vertices: np.ndarray, fnc: np.ndarray) -> str:
-    sid = str(uuid4())
+def _persist(project: Path, *, topology: str, vertices: np.ndarray, fnc: np.ndarray) -> str:
     n_cells = int(fnc.shape[0])
     n_timesteps = 2
-    catalog.register_simulation(
-        sid,
-        project="dataset_xugrid",
-        solver="modflow6",
+    store = open_run_store(
+        project,
+        f"run_{uuid4().hex[:8]}",
         mesh_topology=topology,
         n_cells=n_cells,
         n_layers=1,
         n_timesteps=n_timesteps,
     )
-    catalog.write_mesh(
+    sid = store.sim_id
+    store.write_mesh(
         sid,
         vertices=vertices,
         face_node_connectivity=fnc,
@@ -121,7 +136,8 @@ def _persist(catalog, *, topology: str, vertices: np.ndarray, fnc: np.ndarray) -
     )
     for t in range(n_timesteps):
         head = np.full((1, n_cells), float(t + 1), dtype="float64")
-        catalog.write_field(sid, "head", t, head, n_timesteps=n_timesteps)
+        store.write_field(sid, "head", t, head, n_timesteps=n_timesteps)
+    seal_completed(store)
     return sid
 
 
@@ -133,10 +149,9 @@ def _persist(catalog, *, topology: str, vertices: np.ndarray, fnc: np.ndarray) -
         ("unstructured_3d", _triangle_mesh),
     ],
 )
-def test_dataset_returns_ugriddataset(catalog, topology, build_mesh):
+def test_dataset_returns_ugriddataset(sealed, topology, build_mesh):
     vertices, fnc = build_mesh()
-    sid = _persist(catalog, topology=topology, vertices=vertices, fnc=fnc)
-    run = Run(sid, catalog)
+    run = sealed(topology=topology, vertices=vertices, fnc=fnc)
 
     ds = run.array.dataset()
 
@@ -157,29 +172,26 @@ def test_dataset_returns_ugriddataset(catalog, topology, build_mesh):
     assert head.attrs["units"] == "m"
 
 
-def test_dataset_variable_filter(catalog):
+def test_dataset_variable_filter(sealed):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
-    run = Run(sid, catalog)
+    run = sealed(topology="structured_3d", vertices=vertices, fnc=fnc)
 
     ds = run.array.dataset(variable="head")
 
     assert list(ds.data_vars) == ["head"]
 
 
-def test_dataset_unknown_variable_raises(catalog):
+def test_dataset_unknown_variable_raises(sealed):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
-    run = Run(sid, catalog)
+    run = sealed(topology="structured_3d", vertices=vertices, fnc=fnc)
 
     with pytest.raises(UnknownFieldError, match="not registered"):
         run.array.dataset(variable="not_a_field")
 
 
-def test_dataset_missing_variable_raises(catalog):
+def test_dataset_missing_variable_raises(sealed):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
-    run = Run(sid, catalog)
+    run = sealed(topology="structured_3d", vertices=vertices, fnc=fnc)
 
     with pytest.raises(KeyError, match="not found"):
         run.array.dataset(variable="watertable_depth")

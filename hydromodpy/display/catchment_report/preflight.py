@@ -42,9 +42,9 @@ def validate_catchment_report_preflight(
     if run_simulation or build_context_artifacts or build_report_html:
         _require_file(missing, "simulation config", inputs.transient_config)
 
-    if build_context_artifacts:
-        if not run_simulation:
-            _require_simulation_run(missing, inputs)
+    # The context and the page are written into the run: it must exist first.
+    if (build_context_artifacts or build_report_html) and not run_simulation:
+        _require_simulation_run(missing, inputs)
 
     if build_report_html:
         if not build_context_artifacts:
@@ -68,17 +68,14 @@ def _require_simulation_run(
     inputs: CatchmentReportInputs,
 ) -> None:
     """Require the run itself, which is what the report reads its series from."""
-    from hydromodpy.display.catchment_report.simulation_source import (
-        catalog_file,
-        simulation_run_exists,
-    )
+    from hydromodpy.display.catchment_report.simulation_source import simulation_run_exists
 
     if not simulation_run_exists(inputs):
         missing.append(
             MissingCatchmentReportInput(
                 f"simulation run '{inputs.simulation_name}'",
-                catalog_file(inputs),
-                "catalog run",
+                inputs.run_dir,
+                "completed run",
             )
         )
 

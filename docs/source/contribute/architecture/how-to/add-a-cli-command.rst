@@ -7,14 +7,15 @@ The ``hmp`` and ``hydromodpy`` CLIs share the same dispatcher in
 ``cli/commands/__init__.py``.
 
 Today's verbs, in ``ALL_COMMANDS`` order: ``workspace``, ``project``,
-``catalog``, ``data``, ``viz``, ``config``, ``dev``, ``audit``,
-``privacy``, ``run``, ``calibrate``, ``spinup``, ``site-selection``,
-``test``, ``report``, ``doctor``, ``install-binaries``. That tuple is
-the inventory; anything not in it is not a verb.
+``example``, ``catalog``, ``data``, ``export``, ``publish``, ``viz``,
+``config``, ``dev``, ``privacy``, ``run``, ``calibrate``, ``spinup``,
+``site``, ``test``, ``report``, ``doctor``, ``install-binaries``. That
+tuple is the inventory; anything not in it is not a verb.
 
-Six of them are families, not leaves: ``workspace``, ``project``,
-``catalog``, ``data``, ``viz`` and ``dev`` are sub-packages whose
-``__init__.py`` carries ``NAME``, ``HELP`` and an ``ACTIONS`` tuple.
+Eight of them are families, not leaves: ``workspace``, ``project``,
+``example``, ``catalog``, ``data``, ``viz``, ``dev`` and ``site`` are
+sub-packages whose ``__init__.py`` carries ``NAME``, ``HELP`` and an
+``ACTIONS`` tuple.
 
 Contract
 --------
@@ -142,8 +143,8 @@ A verb with a whole lifecycle becomes a **family**: a sub-package under
 an ``ACTIONS`` tuple, with one module per action following the same
 four-symbol shape. ``hmp catalog`` (``ls``, ``query``, ``show``,
 ``point``, ``gc``, ``reindex``, ``delete``, ``restore``, ``trash``,
-``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``export``,
-``import``, ``rerun``) is the reference. Attach the group with
+``tag``, ``note``, ``rename``, ``diff``, ``watch``, ``import``,
+``rerun``) is the reference. Attach the group with
 ``add_action_subparsers`` so a bare ``hmp catalog`` is a usage error and
 exits 2.
 

@@ -25,7 +25,7 @@ def test_overview_web_report_uses_canonical_blocks(tmp_path: Path) -> None:
     output = write_overview_web_report(state, figure_paths=[figure])
 
     html = output.read_text(encoding="utf-8")
-    assert output == tmp_path / "web" / "index.html"
+    assert output == tmp_path / "runs" / "Test basin" / "report" / "index.html"
     assert "Location" in html
     assert "Data inventory" in html
     assert "Recharge and pumping" in html
@@ -74,9 +74,9 @@ def test_overview_review_pages_write_three_levels(tmp_path: Path) -> None:
     paths = write_overview_review_web_reports(state, figure_paths=[])
 
     assert paths == [
-        tmp_path / "web_review" / "compact" / "index.html",
-        tmp_path / "web_review" / "standard" / "index.html",
-        tmp_path / "web_review" / "audit" / "index.html",
+        tmp_path / "runs" / "Test basin" / "report" / "review" / "compact" / "index.html",
+        tmp_path / "runs" / "Test basin" / "report" / "review" / "standard" / "index.html",
+        tmp_path / "runs" / "Test basin" / "report" / "review" / "audit" / "index.html",
     ]
     for level, path in zip(("compact", "standard", "audit"), paths, strict=True):
         html = path.read_text(encoding="utf-8")
@@ -137,10 +137,7 @@ def _overview_state(tmp_path: Path) -> DataOverviewState:
             )
         ),
     )
-    workspace = SimpleNamespace(
-        project_root=tmp_path,
-        paths=SimpleNamespace(figures_folder=tmp_path / "figures"),
-    )
+    workspace = SimpleNamespace(project_root=tmp_path)
     domain_geographic = SimpleNamespace(
         catchment_area_km2=12.3,
         x_outlet=1.0,

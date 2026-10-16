@@ -5,7 +5,8 @@ Hosts the helpers that write inputs to disk before the solver runs:
 - parameter writes via :func:`step_persist_params`
 - mesh persistence via :func:`step_persist_mesh`
 - geographic raster persistence via :func:`step_persist_geographic`
-- provenance fingerprints via :func:`step_write_provenance`
+- provenance fingerprints and the loaded inputs of ``inputs.json`` via
+  :func:`step_write_provenance`
 - forcings persistence via :func:`step_persist_forcings`
 
 The functions stay free-standing so notebook helpers and the orchestrator
@@ -16,15 +17,21 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.results.manifest import InputEntry
+from hydromodpy.results.storage.digests import path_size_bytes
+from hydromodpy.schema.sources import input_licence, licence_for_source
 from hydromodpy.spatial.field.zone_fractions import zone_fractions
 from hydromodpy.workflow.internals.data_description import (
+    LoadedRecord,
     iter_loaded_records,
     read_data_description,
     record_source_path,
@@ -197,20 +204,20 @@ def _digests_the_load_already_computed(ctx: WorkflowContext) -> dict[str, str]:
     helper on its own, a pipeline that skipped the load - simply finds nothing
     here and hashes what it needs.
     """
-    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
-    run_id = getattr(ctx.setup, "run_id", None)
-    if project_root is None or not run_id:
+    run_dir = getattr(ctx, "run_dir", None)
+    if run_dir is None:
         return {}
-    return source_digests(read_data_description(Path(project_root), str(run_id)))
+    return source_digests(read_data_description(Path(run_dir)))
 
 
 def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> None:
-    """Record provenance fingerprints for each loaded data variable.
+    """Record provenance fingerprints and the ``inputs.json`` entry of each loaded variable.
 
     The walk over the loaded scopes is the one ``load_data`` used to describe
     itself, and the source digests are the ones it computed, so the rows
     written here and the document it left cannot name a different set of inputs
-    nor disagree on their bytes.
+    nor disagree on their bytes. The same walk fills the inputs of the seal:
+    provider, request, path, digest, size and licence of every loaded record.
     """
     if ctx.sim_id is None:
         return
@@ -218,6 +225,8 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
     import numpy as np
 
     known_digests = _digests_the_load_already_computed(ctx)
+    workspace_root = getattr(getattr(ctx, "setup", None), "workspace", None)
+    anchor = getattr(workspace_root, "root", None)
     written = 0
     for item in iter_loaded_records(ctx.loaded_data):
         rec = item.record
@@ -233,17 +242,22 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
                 if arr is None:
                     continue
             digest = known_digests.get(str(source_path)) if source_path is not None else None
+            digest = digest or sha256_file_or_none(source_path)
             store.write_provenance(
                 ctx.sim_id,
                 variable=label,
                 source_ref=str(getattr(rec, "source", "")),
                 data=arr,
                 source_type="data_manager",
-                source_sha256=digest or sha256_file_or_none(source_path),
+                source_sha256=digest,
                 loader_name=item.loader_name,
                 loader_version="v1",
                 period_start=getattr(rec, "date_start", None),
                 period_end=getattr(rec, "date_end", None),
+            )
+            store.record_input(
+                ctx.sim_id,
+                loaded_input_entry(item, source_path=source_path, sha256=digest, anchor=anchor),
             )
             written += 1
         except Exception as exc:
@@ -254,6 +268,68 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
 
     if written:
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
+
+
+def loaded_input_entry(
+    item: LoadedRecord,
+    *,
+    source_path: Path | None,
+    sha256: str | None,
+    anchor: Path | str | None,
+) -> InputEntry:
+    """Return the ``inputs.json`` entry of one loaded record.
+
+    The provider is the source slug of the record; its licence comes from the
+    registry of sources, or from the sidecar of the file for a user file. The
+    request is what the record covers: its station, its period, its box. The
+    path is written relative to the workspace when the file sits under it.
+    """
+    rec = item.record
+    source = str(getattr(rec, "source", "") or "")
+    request: dict[str, Any] = {}
+    station = getattr(rec, "station_id", None)
+    if station not in (None, ""):
+        request["station"] = str(station)
+    start, end = getattr(rec, "date_start", None), getattr(rec, "date_end", None)
+    if start is not None or end is not None:
+        request["period"] = [_iso_or_none(start), _iso_or_none(end)]
+    bbox = getattr(rec, "bbox", None)
+    if bbox is not None:
+        request["bbox"] = [float(value) for value in bbox]
+    if source == "custom" and source_path is not None:
+        licence = input_licence(source_path).spdx
+    else:
+        licence = licence_for_source(source).spdx
+    exists = source_path is not None and source_path.exists()
+    return InputEntry(
+        variable=f"{item.scope}:{item.variable}",
+        provider=source or "unknown",
+        request=request,
+        fetched_at=(
+            datetime.fromtimestamp(source_path.stat().st_mtime, tz=UTC) if exists else None
+        ),
+        path=_portable_path(source_path, anchor),
+        sha256=sha256,
+        bytes=path_size_bytes(source_path) if exists else None,
+        license=licence,
+    )
+
+
+def _iso_or_none(value: Any) -> str | None:
+    isoformat = getattr(value, "isoformat", None)
+    return None if value is None else (isoformat() if callable(isoformat) else str(value))
+
+
+def _portable_path(source_path: Path | None, anchor: Path | str | None) -> str:
+    """The location of the bytes, relative to the workspace when it holds them."""
+    if source_path is None:
+        return ""
+    if anchor is None:
+        return str(source_path)
+    try:
+        return encode_workspace_path(Path(anchor), source_path)
+    except ValueError:
+        return str(source_path)
 
 
 # Gridded forcing families reduced to a watershed-mean station series at
@@ -693,4 +769,5 @@ __all__ = (
     "step_persist_mesh",
     "step_persist_params",
     "step_write_provenance",
+    "loaded_input_entry",
 )

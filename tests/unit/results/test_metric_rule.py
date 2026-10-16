@@ -11,12 +11,14 @@ from pydantic import ValidationError
 
 from hydromodpy.core import metrics as kernels
 from hydromodpy.results.metric_rule import (
+    HEADLINE_METRICS,
     METRIC_NAMES,
     METRIC_RULE_VERSION,
     DateWindow,
     MetricRule,
     MetricScore,
     score,
+    score_run,
 )
 
 INDEX = pd.date_range("2015-01-01", "2016-12-31", freq="D")
@@ -109,7 +111,7 @@ def test_every_known_metric_scores_under_the_rule(metric):
 
 def test_an_unknown_metric_is_refused_with_the_known_ones():
     with pytest.raises(ValueError, match="nse, kge, rmse, nse_log"):
-        score(_series(1), _series(2), RULE, "pbias")
+        score(_series(1), _series(2), RULE, "r2")
 
 
 def test_a_series_without_time_index_is_refused():
@@ -128,6 +130,67 @@ def test_the_window_is_ordered_and_the_rule_refuses_unknown_keys():
 def test_the_score_columns_are_the_ones_of_the_simulation_table():
     from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
 
-    columns = set(MetricScore.model_fields) - {"metric", "value"}
+    columns = set(MetricScore.model_fields) - {"metric", "value", "station", "variable"}
     assert columns == {"nse_window_start", "nse_window_end", "nse_n", "metric_rule_version"}
     assert columns <= set(SIMULATION_SCHEMA.names)
+
+
+def _config(**sections):
+    """The two sections a rule is read from, as a configuration exposes them."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(metrics=sections.get("metrics"), site=sections.get("site"))
+
+
+def test_the_rule_of_a_configuration_takes_the_gauge_of_the_site():
+    from hydromodpy.config.metrics_config import MetricsConfig
+    from hydromodpy.core.site import SiteConfig
+
+    config = _config(
+        site=SiteConfig(name="nancon", gauge="J0014010"),
+        metrics=MetricsConfig(window={"start": "2016-01-01", "end": "2016-12-31"}),
+    )
+
+    assert MetricRule.from_config(config) == MetricRule(station="J0014010", window=WINDOW)
+
+
+def test_the_metrics_station_wins_over_the_gauge_of_the_site():
+    from hydromodpy.config.metrics_config import MetricsConfig
+    from hydromodpy.core.site import SiteConfig
+
+    config = _config(
+        site=SiteConfig(name="nancon", gauge="J0014010"),
+        metrics=MetricsConfig(station="J0014020"),
+    )
+
+    rule = MetricRule.from_config(config)
+    assert rule.station == "J0014020"
+    assert rule.window is None
+
+
+def test_a_configuration_without_metrics_nor_site_scores_nothing():
+    rule = MetricRule.from_config(_config())
+    assert rule == MetricRule()
+    assert score(_series(1), _series(2), rule, "nse").value is None
+
+
+def test_score_run_keeps_the_order_and_names_where_it_read():
+    observed = _series(3)
+    scores = score_run(
+        observed * 1.05, observed, RULE, ("rmse", "nse"), station="J0014010", variable="discharge"
+    )
+
+    assert [item.metric for item in scores] == ["rmse", "nse"]
+    assert {(item.station, item.variable) for item in scores} == {("J0014010", "discharge")}
+    assert {item.nse_n for item in scores} == {366}
+
+
+def test_score_run_defaults_to_the_four_headline_metrics():
+    observed = _series(3)
+    assert [item.metric for item in score_run(observed, observed, RULE)] == list(HEADLINE_METRICS)
+
+
+def test_the_log_nse_of_a_negative_series_is_no_value():
+    observed = _series(3)
+    simulated = observed - 10.0
+    assert score(simulated, observed, RULE, "nse_log").value is None

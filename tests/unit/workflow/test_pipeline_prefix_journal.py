@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
@@ -61,18 +60,14 @@ class _Terminal:
         return state.advance(step_index=state.step_index + 1, step_name=self.name)
 
 
-def _rows(workspace: Path, run_id: str):
-    catalog = Catalog(workspace)
-    try:
-        return WorkflowJournal(catalog).list_steps(run_id)
-    finally:
-        catalog.close()
+def _rows(run_dir: Path, run_id: str):
+    return WorkflowJournal(run_dir).list_steps(run_id)
 
 
 def test_a_prebuilt_prefix_is_journalled(tmp_path: Path) -> None:
     """A step skipped because the context already carries it still gets a row."""
     steps = [_Prebuilt("head"), _Prebuilt("middle"), _Terminal()]
-    pipeline = Pipeline(steps, workspace=tmp_path)
+    pipeline = Pipeline(steps, workspace=tmp_path, run_dir=tmp_path)
     pipeline.run(PipelineState(run_id="prebuilt"), resume_from=2, model_phase_ready=True)
 
     rows = _rows(tmp_path, "prebuilt")
@@ -86,7 +81,7 @@ def test_a_prebuilt_prefix_is_journalled(tmp_path: Path) -> None:
 def test_a_rebuilt_prefix_row_carries_what_the_step_declares(tmp_path: Path) -> None:
     """The row of a re-executed prefix step names its artefacts and digests them."""
     writer = _Writer("_preprocessing/head.txt")
-    pipeline = Pipeline([writer, _Terminal()], workspace=tmp_path)
+    pipeline = Pipeline([writer, _Terminal()], workspace=tmp_path, run_dir=tmp_path)
     pipeline.run(PipelineState(run_id="declared", data={"workspace": str(tmp_path)}), resume_from=1)
 
     assert writer.run_calls == 1
@@ -99,10 +94,10 @@ def test_a_row_written_by_a_real_execution_is_never_replaced(tmp_path: Path) -> 
     """A resume keeps the evidence the planner verified instead of re-measuring it."""
     writer = _Writer("_preprocessing/head.txt")
     state = PipelineState(run_id="kept", data={"workspace": str(tmp_path)})
-    Pipeline([writer, _Terminal()], workspace=tmp_path).run(state)
+    Pipeline([writer, _Terminal()], workspace=tmp_path, run_dir=tmp_path).run(state)
     executed = next(row for row in _rows(tmp_path, "kept") if row.step_order == 0)
 
-    Pipeline([writer, _Terminal()], workspace=tmp_path).run(state, resume_from=1)
+    Pipeline([writer, _Terminal()], workspace=tmp_path, run_dir=tmp_path).run(state, resume_from=1)
     resumed = next(row for row in _rows(tmp_path, "kept") if row.step_order == 0)
 
     assert resumed.step_id == executed.step_id
@@ -112,19 +107,24 @@ def test_a_row_written_by_a_real_execution_is_never_replaced(tmp_path: Path) -> 
 
 def test_the_suffix_chains_its_inputs_hash_onto_the_prefix(tmp_path: Path) -> None:
     """A resumed step hashes the same upstream sequence a full run would give it."""
-    full = Pipeline([_Writer("_preprocessing/head.txt"), _Terminal()], workspace=tmp_path)
+    full_dir = tmp_path / "runs" / "full"
+    full = Pipeline(
+        [_Writer("_preprocessing/head.txt"), _Terminal()], workspace=tmp_path, run_dir=full_dir
+    )
     full.run(PipelineState(run_id="full", data={"workspace": str(tmp_path)}))
-    from_scratch = next(row for row in _rows(tmp_path, "full") if row.step_order == 1)
+    from_scratch = next(row for row in _rows(full_dir, "full") if row.step_order == 1)
 
+    resumed_dir = tmp_path / "runs" / "resumed"
     resumed_pipeline = Pipeline(
         [_Writer("_preprocessing/head.txt"), _Terminal()],
         workspace=tmp_path,
+        run_dir=resumed_dir,
     )
     resumed_pipeline.run(
         PipelineState(run_id="resumed", data={"workspace": str(tmp_path)}),
         resume_from=1,
     )
-    resumed = next(row for row in _rows(tmp_path, "resumed") if row.step_order == 1)
+    resumed = next(row for row in _rows(resumed_dir, "resumed") if row.step_order == 1)
 
     assert resumed.inputs_hash == from_scratch.inputs_hash
 
@@ -140,8 +140,10 @@ def test_a_rerun_of_the_same_name_does_not_keep_its_invalidated_head(tmp_path: P
 
     steps = [_Prebuilt("head"), _Prebuilt("middle"), _Terminal()]
     state = PipelineState(run_id="rerun")
-    Pipeline(steps, workspace=tmp_path).run(state)
-    Pipeline(steps, workspace=tmp_path).run(state, resume_from=2, model_phase_ready=True)
+    Pipeline(steps, workspace=tmp_path, run_dir=tmp_path).run(state)
+    Pipeline(steps, workspace=tmp_path, run_dir=tmp_path).run(
+        state, resume_from=2, model_phase_ready=True
+    )
 
     rows = _rows(tmp_path, "rerun")
     assert [(r.step_order, r.status) for r in rows] == [
@@ -150,13 +152,9 @@ def test_a_rerun_of_the_same_name_does_not_keep_its_invalidated_head(tmp_path: P
         (2, "completed"),
     ]
 
-    catalog = Catalog(tmp_path)
-    try:
-        plan = ResumePlanner(WorkflowJournal(catalog), tmp_path).compute(
-            run_id="rerun",
-            current_config_sha256=None,
-            steps_blueprint=("head", "middle", "terminal"),
-        )
-    finally:
-        catalog.close()
+    plan = ResumePlanner(WorkflowJournal(tmp_path), tmp_path).compute(
+        run_id="rerun",
+        current_config_sha256=None,
+        steps_blueprint=("head", "middle", "terminal"),
+    )
     assert plan.restart_index == 3

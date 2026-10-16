@@ -60,8 +60,13 @@ class SiteConfig(HydroModelBase):
     gauge: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Station that measures the catchment: the gauge of the site, used as the "
-            "default station of every series source and of the calibration."
+            "Station that measures the catchment, written once for every key that "
+            "names it. A station source of [data.hydrometry], [data.recharge] or "
+            "[data.runoff] (custom chronicles or hubeau) with no station_ids reads "
+            "this station; a station_ids that leaves it out is refused by name. "
+            "calibration.observed_station_id and [metrics] station default to it. "
+            "Unset, a run that loads exactly one discharge station takes that station "
+            "as its gauge and writes it in its manifest."
         ),
         examples=["J0014010"],
     )

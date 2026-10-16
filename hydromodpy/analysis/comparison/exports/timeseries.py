@@ -1,4 +1,4 @@
-"""Native postprocess timeseries CSV exports."""
+"""Native simulated series of the compared runs, as CSV exports."""
 
 from __future__ import annotations
 
@@ -7,12 +7,57 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from .base import (
     _as_float,
     _completed_simulation_summaries,
     _write_csv,
 )
-from .observables import _load_simulated_timeseries_csv
+
+GLOBAL_STATION = "__global__"
+"""Station of a series that covers the whole domain."""
+
+
+def _native_rows(summary: Mapping[str, Any]) -> tuple[list[dict[str, Any]], str] | None:
+    """Return the simulated series of one run, one row per timestep, and its table path."""
+    from hydromodpy.analysis.comparison.runtime.run_source import (
+        TIMESERIES_TABLE_NAME,
+        open_run_source,
+    )
+
+    source = open_run_source(summary)
+    if source is None:
+        return None
+    with source:
+        frame = source.read_table(TIMESERIES_TABLE_NAME)
+        source_path = str(source.table_path(TIMESERIES_TABLE_NAME))
+    if frame.empty or not {"variable", "timestep", "value"}.issubset(frame.columns):
+        return None
+    if "qflag" in frame.columns:
+        frame = frame.loc[frame["qflag"].fillna("simulated") == "simulated"]
+    stations = (
+        frame["station_id"].fillna(GLOBAL_STATION).astype(str)
+        if "station_id" in frame.columns
+        else pd.Series(GLOBAL_STATION, index=frame.index)
+    )
+    frame = frame.assign(
+        column=[
+            variable if station == GLOBAL_STATION else f"{variable}@{station}"
+            for variable, station in zip(frame["variable"].astype(str), stations, strict=True)
+        ]
+    )
+    wide = frame.pivot_table(index="timestep", columns="column", values="value", aggfunc="first")
+    if wide.empty:
+        return None
+    times = frame.groupby("timestep")["time"].first() if "time" in frame.columns else None
+    rows: list[dict[str, Any]] = []
+    for timestep, values in wide.sort_index().iterrows():
+        label = timestep if times is None else times.get(timestep, timestep)
+        row: dict[str, Any] = {"date": str(label)}
+        row.update({str(key): value for key, value in values.items() if pd.notna(value)})
+        rows.append(row)
+    return rows, source_path
 
 
 def write_native_timeseries_exports(
@@ -27,15 +72,13 @@ def write_native_timeseries_exports(
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
-    """Write CSV exports from `_postprocess/_timeseries/_simulated_timeseries.csv` when present."""
+    """Write CSV exports from the ``timeseries.parquet`` table of each compared run."""
     tables: dict[str, dict[str, Any]] = {}
     for summary in _completed_simulation_summaries(simulation_summaries):
-        run_folder = Path(str(summary.get("run_folder", "")))
-        source_path = run_folder / "_postprocess" / "_timeseries" / "_simulated_timeseries.csv"
-        loaded = _load_simulated_timeseries_csv(source_path)
+        loaded = _native_rows(summary)
         if loaded is None:
             continue
-        raw_rows, _ = loaded
+        raw_rows, source_path = loaded
         numeric_columns = {
             key
             for key in raw_rows[0].keys()
@@ -46,7 +89,7 @@ def write_native_timeseries_exports(
             "simulation_label": str(summary.get("label", summary.get("id", ""))),
             "rows": raw_rows,
             "numeric_columns": numeric_columns,
-            "source_path": str(source_path),
+            "source_path": source_path,
         }
 
     if len(tables) < 2:

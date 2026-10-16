@@ -1,16 +1,10 @@
-"""Analysis layer for HydroModPy.
+"""Readings across sealed runs.
 
-The legacy ``display`` and ``postprocess`` subpackages were removed in P08:
-
-- Figures live in :mod:`hydromodpy.display` (catalog of registered classes).
-- Metrics live in :mod:`hydromodpy.core.metrics`.
-- Derived fields live in :mod:`hydromodpy.results.derive.derived`.
-- The launcher-managed postprocess workflow is now part of the simulation
-  pipeline (see :mod:`hydromodpy.workflow.steps`).
-
-The legacy ``calibration`` subpackage was removed in P09 - calibration now
-lives at :mod:`hydromodpy.calibration` (Optuna-first, lightweight, TOML-
-simplified). Comparison, testbed and capability-gallery helpers remain here.
+:mod:`hydromodpy.analysis.comparison` compares N sealed runs of one case: it
+reads their directories, extracts the observables, computes the differences,
+the stability checks and the budget closure, and draws the maps and series.
+``hmp report compare`` renders the page on top of it, from
+:mod:`hydromodpy.reporting.comparison`.
 """
 
 from __future__ import annotations
@@ -20,7 +14,6 @@ from typing import Any
 
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
-    "testbed": "hydromodpy.analysis.testbed",
 }
 
 

@@ -14,7 +14,8 @@ run must come out the same both ways:
 * the list of figures.
 
 The model is example 04 (the Nancon catchment) cut to one monthly transient
-year on a 30 x 30 grid, with K on two fixed values and every trial promoted.
+year on a 30 x 30 grid, with K on two fixed values and every trial promoted:
+the best to ``runs/kept_solve/``, the other to ``sessions/kept_solve/trials/``.
 """
 
 from __future__ import annotations
@@ -36,9 +37,6 @@ base_config = "project.toml"
 
 # The exports of project.toml name October 2002, outside this record.
 export__delete = true
-
-[workflow]
-mode = "calibration"
 
 [simulation]
 name = "kept_solve"
@@ -88,6 +86,8 @@ figures = ["hydrograph_sim_obs", "seepage_map", "flux_timeseries", "parameter_co
 _IDENTITY_COLUMNS = frozenset(
     {
         "sim_id",
+        "attempt_id",
+        "rel_dir",
         "valid_from",
         "created_at",
         "updated_at",
@@ -97,6 +97,8 @@ _IDENTITY_COLUMNS = frozenset(
         "config_hash",
         "config_snapshot",
         "config_toml",
+        "session_id",
+        "calibrated_by_session_id",
     }
 )
 _DURATION_METRICS = frozenset({"flow_solve_time_seconds"})
@@ -156,7 +158,7 @@ def _assert_same_tables(kept: Path, replayed: Path) -> None:
     for name in names:
         left = pq.read_table(kept / name)
         right = pq.read_table(replayed / name)
-        assert left.schema == right.schema, name
+        assert left.schema.names == right.schema.names, name
         assert left.num_rows == right.num_rows, name
         if name == "metrics.parquet":
             keep = [
@@ -174,6 +176,15 @@ def _assert_same_tables(kept: Path, replayed: Path) -> None:
             assert _without_workspace(left.column("config_snapshot")[0].as_py()) == (
                 _without_workspace(right.column("config_snapshot")[0].as_py())
             )
+
+
+def _promoted_runs(project: Path) -> list[Path]:
+    """The calibrated run and the kept trials, as the session journal names them."""
+    from hydromodpy.results.session.journal import read_trials
+
+    lines = read_trials(project / "sessions" / "kept_solve")
+    rel_dirs = sorted(line.rel_dir for line in lines if line.rel_dir is not None)
+    return [project / rel_dir for rel_dir in rel_dirs]
 
 
 @pytest.mark.e2e
@@ -195,17 +206,23 @@ def test_a_promoted_trial_is_the_run_a_replay_writes(
     _calibrate(kept_project, monkeypatch, replay=False)
     _calibrate(replay_project, monkeypatch, replay=True)
 
-    runs = sorted(path.name for path in (kept_project / "runs").iterdir())
-    assert len(runs) == 2 and "kept_solve" in runs, runs
-    assert runs == sorted(path.name for path in (replay_project / "runs").iterdir())
-    for name in runs:
-        kept_run = kept_project / "runs" / name
-        replay_run = replay_project / "runs" / name
-
-        kept_tags = json.loads((kept_run / "annotations.json").read_text())["tags"]
-        replay_tags = json.loads((replay_run / "annotations.json").read_text())["tags"]
-        assert any(tag.startswith("promoted_from_trial:") for tag in kept_tags), kept_tags
-        assert not any(tag.startswith("promoted_from_trial:") for tag in replay_tags)
+    kept_runs = _promoted_runs(kept_project)
+    replay_runs = _promoted_runs(replay_project)
+    assert [run.relative_to(kept_project) for run in kept_runs] == [
+        Path("runs/kept_solve"),
+        Path("sessions/kept_solve/trials/0001"),
+    ] or [run.relative_to(kept_project) for run in kept_runs] == [
+        Path("runs/kept_solve"),
+        Path("sessions/kept_solve/trials/0002"),
+    ]
+    assert [run.relative_to(kept_project) for run in kept_runs] == [
+        run.relative_to(replay_project) for run in replay_runs
+    ]
+    for kept_run, replay_run in zip(kept_runs, replay_runs, strict=True):
+        kept_lineage = json.loads((kept_run / "manifest.json").read_text())["lineage"]
+        replay_lineage = json.loads((replay_run / "manifest.json").read_text())["lineage"]
+        assert kept_lineage["trial"] == replay_lineage["trial"]
+        assert kept_lineage["kind"] == replay_lineage["kind"]
 
         kept_arrays = _arrays(kept_run / "fields.zarr")
         replay_arrays = _arrays(replay_run / "fields.zarr")

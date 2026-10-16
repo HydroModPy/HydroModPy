@@ -27,7 +27,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.analysis.comparison.runtime.run_source import RunSource
 
 logger = get_logger(__name__)
 
@@ -260,8 +260,8 @@ def _flux_factor_to_m3_s(unit: str) -> float:
         return 1.0
 
 
-def _catalog_budget_factor_to_m3_s(*, solver: str, unit: str) -> float:
-    """Return the catalog budget conversion factor for one solver row."""
+def _table_budget_factor_to_m3_s(*, solver: str, unit: str) -> float:
+    """Return the budget-table conversion factor for one solver row."""
     unit_text = str(unit or "").strip().lower()
     solver_key = str(solver or "").strip().lower()
     if solver_key == "modflow6" and unit_text in {"m3/d", "m3/day", "m^3/day"}:
@@ -327,10 +327,10 @@ def _storage_change_series_m3_s(
 
 
 def _load_boussinesq_state_from_store(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
 ) -> Mapping[str, Any] | None:
-    """Try reading Boussinesq state arrays from the Catalog Zarr group.
+    """Try reading Boussinesq state arrays from the ``fields.zarr`` of the run.
 
     Returns a dict-like mapping of array names to numpy arrays (same
     interface as ``np.load(...)``), or ``None`` if unavailable.
@@ -373,7 +373,7 @@ def _load_boussinesq_state_from_store(
 
 def _load_boussinesq_budget_rows(
     summary: Mapping[str, Any],
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     run_folder = Path(str(summary.get("run_folder", "")))
@@ -384,18 +384,14 @@ def _load_boussinesq_budget_rows(
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"Catalog(sim_id={sim_id})"
+            source_label = f"fields.zarr(sim_id={sim_id})"
             logger.debug(
-                "Loaded Boussinesq state from Catalog for budget (sim_id=%s).",
+                "Loaded Boussinesq state from fields.zarr for budget (sim_id=%s).",
                 sim_id,
             )
 
     if payload is None:
-        npz_path = run_folder / "_boussinesq_state_history.npz"
-        if not npz_path.exists():
-            return []
-        payload = np.load(npz_path, allow_pickle=True)
-        source_label = str(npz_path)
+        return []
 
     recharge_history = _history_matrix(payload, "recharge_rate_history_m_s")
     well_history = _history_matrix(payload, "well_flux_history_m3_s")
@@ -460,11 +456,8 @@ def _load_boussinesq_budget_rows(
         0,
     )
     if n_cells > 0:
-        # Boussinesq has no structured-grid TOML section, so solver_name is
-        # dropped: the function falls back to the exchange-bundle path.
         cells = resolve_bundle_cells(
             run_folder,
-            config_path=config_path,
             expected_size=n_cells,
             store=store,
             sim_id=sim_id,
@@ -683,12 +676,12 @@ def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: fl
     return float(flux_in) - float(flux_out)
 
 
-def _load_catalog_budget_rows(
+def _load_table_budget_rows(
     summary: Mapping[str, Any],
-    store: Catalog | None,
+    store: RunSource | None,
     sim_id: str | None,
 ) -> list[dict[str, Any]]:
-    """Load generic catalog budget rows and normalize them to comparison terms."""
+    """Load the budgets.parquet rows of a run and normalize them to comparison terms."""
     if store is None or sim_id in (None, ""):
         return []
     try:
@@ -717,7 +710,7 @@ def _load_catalog_budget_rows(
             continue
         try:
             timestep = int(raw_row.get("timestep"))
-            factor = _catalog_budget_factor_to_m3_s(
+            factor = _table_budget_factor_to_m3_s(
                 solver=str(summary.get("solver", "")),
                 unit=str(raw_row.get("unit", "m3/s")),
             )
@@ -780,7 +773,7 @@ def _load_catalog_budget_rows(
                     "time_label": time_label,
                     "is_initial_state": False,
                     "value": float(value),
-                    "source": f"Catalog budgets(sim_id={sim_id})",
+                    "source": f"budgets.parquet(sim_id={sim_id})",
                 }
             )
     return rows
@@ -811,27 +804,21 @@ BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
 
 def _load_boussinesq_obstacle_diagnostic_rows(
     summary: Mapping[str, Any],
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Load lower/upper obstacle diagnostics from Boussinesq state histories."""
     run_folder = Path(str(summary.get("run_folder", "")))
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
 
     payload: Mapping[str, Any] | None = None
     source_label = ""
     if store is not None and sim_id is not None:
         payload = _load_boussinesq_state_from_store(store, sim_id)
         if payload is not None:
-            source_label = f"Catalog(sim_id={sim_id})"
+            source_label = f"fields.zarr(sim_id={sim_id})"
 
     if payload is None:
-        npz_path = run_folder / "_boussinesq_state_history.npz"
-        if not npz_path.exists():
-            return []
-        payload = np.load(npz_path, allow_pickle=True)
-        source_label = str(npz_path)
+        return []
 
     head_history = _history_matrix(payload, "head_history_m")
     if head_history is None or head_history.ndim != 2:
@@ -840,7 +827,6 @@ def _load_boussinesq_obstacle_diagnostic_rows(
     n_snapshots, n_cells = int(head_history.shape[0]), int(head_history.shape[1])
     cells = resolve_bundle_cells(
         run_folder,
-        config_path=config_path,
         expected_size=n_cells,
         store=store,
         sim_id=sim_id,
@@ -939,31 +925,17 @@ def write_budget_exports(
     comparison_root: Path,
     simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write budget diagnostics derived from Boussinesq state histories."""
-    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
+    """Write budget diagnostics: the budget table of each run and its Boussinesq states."""
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
 
     rows: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
-        try:
-            catalog_rows = _load_catalog_budget_rows(summary, store, sim_id)
-            if catalog_rows:
-                rows.extend(catalog_rows)
-            rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
-        finally:
-            if store is not None:
-                try:
-                    store.close()
-                except Exception:
-                    pass
+        source = open_run_source(summary)
+        if source is None:
+            continue
+        with source:
+            rows.extend(_load_table_budget_rows(summary, source, source.sim_id))
+            rows.extend(_load_boussinesq_budget_rows(summary, store=source, sim_id=source.sim_id))
 
     rows = _with_comparable_outflow_rows(rows)
 

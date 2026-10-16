@@ -1,67 +1,73 @@
-"""A name a live and a trashed run both hold is never purged by a guess.
+"""A purge names one directory: never a guess between a live run and the trash.
 
-``if_exists = "replace"`` trashes the old ``x`` and registers ``x.v2``. The
-trash lists the old run as ``x``, while a bare ``x`` resolves to the live
-``x.v2``. ``hmp catalog delete x --now`` purged the live run.
+``hmp catalog delete x --now`` once purged the live ``x.v2`` because a bare
+``x`` meant "the latest version". Now ``x`` is ``runs/x`` exactly, a bare name
+with other versions is refused with the list, and a trashed directory is
+purged only by the trash verbs.
 """
 
 from __future__ import annotations
 
-import uuid
+import importlib
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
-import pytest
+from hydromodpy.cli.helpers import EXIT_AMBIGUOUS_REFERENCE, EXIT_NOT_FOUND
+from hydromodpy.results.trash import list_trash, read_tombstones, trash_run
 
-from hydromodpy.cli._workers.catalog import delete_simulation, restore_simulation
-from hydromodpy.results.catalog.discovery import AmbiguousReferenceError
-from tests._helpers.fixtures_catalog import simulation_catalog
-
-
-def _run(cat, name: str, *, if_exists: str = "version") -> str:
-    sid = str(uuid.uuid4())
-    cat.register_simulation(sid, project="p", solver="modflow6", name=name, if_exists=if_exists)
-    cat.finalize(sid, "completed")
-    return sid
+AT = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
 
 
-def _replaced(root: Path) -> tuple[str, str]:
-    with simulation_catalog(root) as cat:
-        old = _run(cat, "x")
-        new = _run(cat, "x", if_exists="replace")
-    return old, new
+def _hmp(monkeypatch, *argv: str) -> int:
+    main = importlib.import_module("hydromodpy.cli.main")
+    monkeypatch.setattr(sys, "argv", ["hmp", *argv])
+    try:
+        main.main()
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
 
 
-def test_a_purge_by_a_shared_name_is_refused_with_both_ids(tmp_path: Path) -> None:
-    root = tmp_path / "ws"
-    old, new = _replaced(root)
-
-    with pytest.raises(AmbiguousReferenceError) as caught:
-        delete_simulation("x", workspace=root)
-    assert {sid for sid, _ in caught.value.candidates} == {old, new}
-
-    with simulation_catalog(root) as cat:
-        assert cat.resolve(new) == new
-        assert cat.resolve(old) == old
+def _project(tmp_path: Path, *names: str) -> Path:
+    project = tmp_path / "p"
+    project.mkdir()
+    (project / "project.toml").write_text('[site]\nname = "p"\n', encoding="utf-8")
+    for name in names:
+        (project / "runs" / name).mkdir(parents=True)
+    return project
 
 
-def test_a_purge_by_id_still_works(tmp_path: Path) -> None:
-    root = tmp_path / "ws"
-    old, new = _replaced(root)
-    assert delete_simulation(old, workspace=root)["sim_id"] == old
-    with simulation_catalog(root) as cat:
-        assert cat.resolve("x") == new
+def test_a_purge_of_a_trashed_name_touches_neither_the_trash_nor_the_live_run(
+    tmp_path: Path, monkeypatch
+) -> None:
+    project = _project(tmp_path, "x", "x.v2")
+    trash_run(project, "runs/x", now=AT)
+
+    code = _hmp(monkeypatch, "catalog", "delete", "x", "--now", "-y", "-w", str(project))
+
+    assert code == EXIT_NOT_FOUND
+    assert (project / "runs" / "x.v2").is_dir()
+    assert [entry.rel_dir for entry in list_trash(project)] == ["runs/x"]
+    assert read_tombstones(project) == []
 
 
-def test_restore_by_name_reads_the_trash(tmp_path: Path) -> None:
-    root = tmp_path / "ws"
-    old, _new = _replaced(root)
-    assert restore_simulation("x", workspace=root)["sim_id"] == old
+def test_a_purge_of_a_bare_name_with_versions_is_refused(tmp_path: Path, monkeypatch) -> None:
+    project = _project(tmp_path, "x", "x.v2")
+
+    code = _hmp(monkeypatch, "catalog", "delete", "x", "--now", "-y", "-w", str(project))
+
+    assert code == EXIT_AMBIGUOUS_REFERENCE
+    assert (project / "runs" / "x").is_dir()
+    assert (project / "runs" / "x.v2").is_dir()
 
 
-def test_restore_finds_a_run_trashed_by_hand(tmp_path: Path) -> None:
-    """``Catalog.trash`` frees the name; the trash still lists it as ``original_name``."""
-    root = tmp_path / "ws"
-    with simulation_catalog(root) as cat:
-        sid = _run(cat, "y")
-        cat.trash(sid)
-    assert restore_simulation("y", workspace=root)["sim_id"] == sid
+def test_a_purge_by_the_full_path_takes_exactly_that_directory(tmp_path: Path, monkeypatch) -> None:
+    project = _project(tmp_path, "x", "x.v2")
+
+    code = _hmp(monkeypatch, "catalog", "delete", "runs/x", "--now", "-y", "-w", str(project))
+
+    assert code == 0
+    assert not (project / "runs" / "x").exists()
+    assert (project / "runs" / "x.v2").is_dir()
+    assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/x"]

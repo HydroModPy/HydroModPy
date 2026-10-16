@@ -29,11 +29,11 @@ if TYPE_CHECKING:
 # to text via JOIN (solver, status, flow_regime); the bare names below are kept
 # in the output dataset so downstream ML pipelines see stable column labels.
 _SIM_META_SELECT = (
-    "s.sim_id, s.name, s.project, "
+    "s.sim_id, s.name, s.project, s.site, s.case_id, s.rel_dir, s.label, "
     "sv.code AS solver, sv.category AS solver_category, "
     "fr.code AS flow_regime, st.code AS status, "
     "s.n_cells, s.n_layers, s.n_timesteps, "
-    "s.config_hash, s.scientific_objective, s.study_area_name, "
+    "s.config_hash, s.scientific_objective, s.nse, s.nse_station, s.nse_variable, "
     "s.created_at, s.duration_s"
 )
 
@@ -192,22 +192,22 @@ class DatasetLoader:
         return wide
 
     def _select_metrics(self, sim_ids: list[str]) -> pd.DataFrame:
+        """One ``metric_<name>`` column per metric, read at the station of the run's rule."""
         placeholders = ", ".join(["?"] * len(sim_ids))
         df = self._catalog.backend.query(
-            f"SELECT sim_id, station_id, metric_name, value "
-            f"FROM metrics WHERE sim_id IN ({placeholders})",
+            f"SELECT m.sim_id, m.metric_name, m.value "
+            f"FROM metrics m JOIN simulations s ON s.sim_id = m.sim_id "
+            f"WHERE m.sim_id IN ({placeholders}) "
+            f"AND m.station_id IS NOT DISTINCT FROM s.nse_station "
+            f"AND m.variable IS NOT DISTINCT FROM s.nse_variable",
             sim_ids,
         )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
-        df["key"] = df["metric_name"].where(
-            df["station_id"].isna() | (df["station_id"] == "__outlet__"),
-            df["metric_name"] + "_" + df["station_id"].astype(str),
-        )
         wide = df.pivot_table(
             index="sim_id",
-            columns="key",
+            columns="metric_name",
             values="value",
             aggfunc="first",
         ).reset_index()

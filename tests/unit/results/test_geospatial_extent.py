@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.results.catalog.writes_helpers import wgs84_bounds
+from hydromodpy.results.storage.geo_metadata import wgs84_bounds
 
 # A real catchment of the corpus, in Lambert-93.
 _NANCON_L93 = (319987.5, 6776662.5, 330000.0, 6790000.0)

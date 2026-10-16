@@ -5,10 +5,11 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.core.state.paths import CATALOG_FILENAME, INTERNAL_DIRNAME, RUNS_DIRNAME
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.catalog.storage_paths import (
     MAX_DIRNAME_LEN,
     RunNameTooLongError,
+    StoragePathResolver,
     run_dirname,
 )
 from hydromodpy.results.storage.contract import (
@@ -41,40 +42,36 @@ def test_storage_layer_templates_describe_the_runs_first_tree():
     )
 
 
-def test_index_is_project_scoped_and_artefacts_live_in_the_run_directory(tmp_path):
+class _Backend:
+    """The one read the resolver makes: ``rel_dir`` of a ``sim_id``."""
+
+    def __init__(self, rows: dict[str, str]) -> None:
+        self._rows = rows
+
+    def fetch_one(self, sql: str, params: list):
+        assert "rel_dir" in sql
+        rel_dir = self._rows.get(params[0])
+        return None if rel_dir is None else (rel_dir,)
+
+
+def test_the_resolver_reads_the_relative_directory_of_the_index(tmp_path):
     project = tmp_path / "project"
-    sid = "00000000-0000-4000-8000-000000000001"
+    run_sid = "00000000-0000-4000-8000-000000000001"
+    trial_sid = "00000000-0000-4000-8000-000000000002"
+    resolver = StoragePathResolver(
+        _Backend({run_sid: "runs/Run_One", trial_sid: "sessions/cal/trials/0004"}), project
+    )
 
-    with Catalog(project) as catalog:
-        assert catalog.catalog_path == project.resolve() / INTERNAL_DIRNAME / CATALOG_FILENAME
-        assert catalog.runs_dir == project.resolve() / RUNS_DIRNAME
-
-        reg = catalog.register_simulation(
-            sid,
-            project="Project A",
-            solver="modflow6",
-            name="Run One",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
-
-        dirname = run_dirname(reg.name)
-        run_dir = catalog.runs_dir / dirname
-
-        assert catalog.run_dir_for(sid) == run_dir
-        assert catalog.fields_path_for(sid) == run_dir / FIELDS_STORE_NAME
-        assert catalog.tables_dir_for(sid) == run_dir / TABLES_DIRNAME
-
-        row = catalog.connection.execute(
-            "SELECT zarr_path, storage_basename FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row == (
-            f"{RUNS_DIRNAME}/{dirname}/{FIELDS_STORE_NAME}",
-            dirname,
-        )
+    run_dir = project / RUNS_DIRNAME / "Run_One"
+    assert resolver.run_dir_for(run_sid) == run_dir
+    assert resolver.fields_path_for(run_sid) == run_dir / FIELDS_STORE_NAME
+    assert resolver.tables_dir_for(run_sid) == run_dir / TABLES_DIRNAME
+    assert resolver.table_path_for(run_sid, "budget") == (
+        run_dir / TABLES_DIRNAME / f"budget{PARQUET_FILE_SUFFIX}"
+    )
+    assert resolver.run_dir_for(trial_sid) == project / "sessions" / "cal" / "trials" / "0004"
+    with pytest.raises(KeyError):
+        resolver.run_dir_for("00000000-0000-4000-8000-00000000000f")
 
 
 def test_an_over_long_name_is_refused_instead_of_truncated():
@@ -87,43 +84,17 @@ def test_an_over_long_name_is_refused_instead_of_truncated():
     assert run_dirname("a" * MAX_DIRNAME_LEN) == "a" * MAX_DIRNAME_LEN
 
 
-def test_registration_refuses_two_long_names_sharing_a_prefix(tmp_path):
+def test_a_reservation_refuses_two_long_names_sharing_a_prefix(tmp_path):
     """Truncation used to map both names onto one directory: the second died."""
     project = tmp_path / "project"
     stem = "cheze_preretenue_chronicle_" * 4
 
-    with Catalog(project) as catalog:
-        for suffix in ("alpha", "beta"):
-            with pytest.raises(RunNameTooLongError):
-                catalog.register_simulation(
-                    "00000000-0000-4000-8000-00000000000" + suffix[0],
-                    project="Cheze",
-                    solver="modflow6",
-                    name=f"{stem}{suffix}",
-                    n_cells=1,
-                    n_layers=1,
-                )
-        assert not (catalog.runs_dir).exists() or list(catalog.runs_dir.iterdir()) == []
+    for suffix in ("alpha", "beta"):
+        with pytest.raises(RunNameTooLongError):
+            reserve_version_dirname(project, "run", f"{stem}{suffix}")
+    assert not (project / RUNS_DIRNAME).exists() or list((project / RUNS_DIRNAME).iterdir()) == []
 
 
 def test_run_directory_is_named_after_the_run_not_after_an_opaque_id(tmp_path):
-    project = tmp_path / "project"
-    sid = "00000000-0000-4000-8000-000000000002"
-
-    with Catalog(project) as catalog:
-        reg = catalog.register_simulation(
-            sid,
-            project="Cheze",
-            solver="modflow6",
-            name="cheze_baseline",
-            n_cells=1,
-            n_layers=1,
-        )
-        assert reg.zarr is not None
-        reg.zarr.close()
-
-        run_dir = catalog.run_dir_for(sid)
-
-    assert run_dir.name == "cheze_baseline"
-    assert sid[:8] not in str(run_dir)
-    assert sid not in str(run_dir)
+    run_dir = reserve_version_dirname(tmp_path / "project", "run", "cheze_baseline")
+    assert run_dir == tmp_path / "project" / RUNS_DIRNAME / "cheze_baseline"

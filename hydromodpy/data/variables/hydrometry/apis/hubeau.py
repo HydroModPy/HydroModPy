@@ -200,17 +200,20 @@ def fetch_for_config(
 # ---------------------------------------------------------------------------
 
 
-def _discover_stations_in_bbox(
+def discover_stations(
     bbox: tuple,
     *,
     date_start: datetime | None = None,
     date_end: datetime | None = None,
     require_observations: bool = False,
-) -> list[str]:
-    """Query Hub'Eau referentiel to find station codes inside *bbox*.
+) -> list[dict]:
+    """Return the Hub'Eau reference rows of the stations inside a WGS84 *bbox*.
 
-    If require_observations is True, only returns stations that have
-    data overlapping the requested period (based on station metadata dates).
+    Each row is the raw ``referentiel/stations`` record: ``code_station``,
+    ``code_site``, ``libelle_station``, ``longitude_station``,
+    ``latitude_station``, ``date_ouverture_station``, ``date_fermeture_station``
+    and the rest. With ``require_observations`` only the stations whose service
+    period overlaps the requested one are kept.
     """
     xmin, ymin, xmax, ymax = bbox
     payload = get_json(
@@ -223,24 +226,34 @@ def _discover_stations_in_bbox(
     )
     if payload is None:
         return []
-    data = payload.get("data", [])
-
-    ids: list[str] = []
-    for row in data:
-        sid = row.get("code_station")
-        if not sid:
+    rows: list[dict] = []
+    for row in payload.get("data", []):
+        if not row.get("code_station"):
             continue
-
         if require_observations and date_start and date_end:
-            # Check station active period overlap
             station_start = row.get("date_ouverture_station")
             station_end = row.get("date_fermeture_station")
             if not station_period_overlaps(station_start, station_end, date_start, date_end):
                 continue
+        rows.append(row)
+    return rows
 
-        ids.append(str(sid))
 
-    return ids
+def _discover_stations_in_bbox(
+    bbox: tuple,
+    *,
+    date_start: datetime | None = None,
+    date_end: datetime | None = None,
+    require_observations: bool = False,
+) -> list[str]:
+    """Return the codes of the stations inside *bbox* (see :func:`discover_stations`)."""
+    rows = discover_stations(
+        bbox,
+        date_start=date_start,
+        date_end=date_end,
+        require_observations=require_observations,
+    )
+    return [str(row["code_station"]) for row in rows]
 
 
 def _fetch_station_location(station_id: str) -> StationLocation | None:

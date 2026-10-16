@@ -1,4 +1,4 @@
-"""Catchment-aggregated timeseries from spatial fields in the Catalog."""
+"""Catchment-aggregated timeseries from the spatial fields of one run."""
 
 from __future__ import annotations
 
@@ -58,12 +58,12 @@ VARIABLE_UNITS: dict[str, str] = {
 # (source_variable, output_variable, reducer)
 # source_variable is looked up in derived/ then budget/ then root.
 #
-# The catalog only materialises timeseries that downstream figures and
+# The run only materialises timeseries that downstream figures and
 # calibration pipelines consume as-is. Catchment-scale reductions of
 # spatial fields (drainage density, saturated fraction, water-table
 # means, recharge means) are computed lazily on demand through
 # ``hydromodpy.core.metrics`` / ``Run`` methods, so the
-# catalog stays focused on observation-comparable point series.
+# timeseries table stays focused on observation-comparable point series.
 _AGGREGATION_SPEC: list[tuple[str, str, str]] = [
     # Direct drain outflow (m3/s) - sum of |drain flux| over the catchment.
     # The MVR-routed share lives in the separate DRN-TO-MVR budget record and
@@ -96,8 +96,8 @@ def aggregate_catchment_timeseries(
     ----------
     sim_id : str
         Simulation UUID.
-    store : Catalog
-        Store containing spatial fields from extract + derive phases.
+    store : RunStore
+        Store of the run, holding the fields of the extract phase.
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
     """
@@ -217,30 +217,35 @@ def aggregate_catchment_timeseries(
 _ROUTED_RUNOFF_WARNING_EMITTED: set[str] = set()
 
 
-def _catalog_window(store: Any, sim_id: str) -> tuple[Any, Any, Any] | None:
-    """Return ``(period_start, period_end, time_unit)`` from the catalog row.
+def _run_window(store: Any) -> tuple[pd.Timestamp, pd.Timestamp, Any] | None:
+    """Return ``(period_start, period_end, time_unit)`` from the facts of the run.
 
-    The bounds come back on the wall clock they were written with. The catalog
-    receives them as naive strings, which DuckDB reads in its session time
-    zone, so the zone is dropped rather than converted.
+    The bounds are stored in UTC; they come back as naive UTC, the clock of
+    the stored series.
     """
-    row = store.connection.execute(
-        "SELECT period_start, period_end, time_unit FROM simulations WHERE sim_id = ?",
-        [str(sim_id)],
-    ).fetchone()
-    if row is None or row[0] is None or row[1] is None:
+    facts = store.facts
+    if facts.period_start is None or facts.period_end is None:
         return None
-    return _wall_clock(row[0]), _wall_clock(row[1]), row[2]
+    return _naive_utc(facts.period_start), _naive_utc(facts.period_end), facts.time_unit
 
 
-def _wall_clock(value: Any) -> pd.Timestamp:
+def _naive_utc(value: Any) -> pd.Timestamp:
     ts = pd.Timestamp(value)
-    return ts.tz_localize(None) if ts.tz is not None else ts
+    return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts
+
+
+def _station_rows(frame: pd.DataFrame, variable: str) -> pd.DataFrame:
+    """Rows of one variable at the SFR reaches and the lake outlets."""
+    if frame.empty:
+        return frame
+    stations = frame["station_id"].astype(str)
+    network = stations.str.startswith("sfr:") | stations.str.startswith("lake:")
+    return frame[(frame["variable"] == variable) & network]
 
 
 def _read_period_start(store: Any, sim_id: str, index: pd.DatetimeIndex) -> pd.Timestamp | None:
     """Return the run window start when it precedes the first stamp, else None."""
-    window = _catalog_window(store, sim_id)
+    window = _run_window(store)
     if window is None or len(index) == 0:
         return None
     first_stamp = pd.Timestamp(index.min())
@@ -262,15 +267,7 @@ def _warn_routed_without_runoff(store: Any, sim_id: str, grp: Any) -> None:
     forcing = grp.get("forcing")
     if forcing is None or "runoff" not in forcing:
         return
-    try:
-        row = store.connection.execute(
-            "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = 'runoff' "
-            "AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') LIMIT 1",
-            [str(sim_id)],
-        ).fetchone()
-    except Exception:
-        return
-    if row is None:
+    if _station_rows(store.read_table("timeseries"), "runoff").empty:
         logger.warning(
             "catchment discharge: runoff forcing is present for sim %s but no runoff was "
             "routed into SFR/LAK; the routed discharge excludes the runoff component.",
@@ -295,26 +292,17 @@ def _routed_outflow_by_timestep(
     (reach ext-outflow plus lake-outlet ext-outflow): one routed discharge, two
     readers (the run files for the calibration, the store here).
     """
-    try:
-        rows = store.connection.execute(
-            "SELECT timestep, SUM(value) FROM timeseries "
-            "WHERE sim_id = ? AND variable = 'ext_outflow' "
-            "  AND (station_id LIKE 'sfr:%' OR station_id LIKE 'lake:%') "
-            "GROUP BY timestep",
-            [str(sim_id)],
-        ).fetchall()
-    except Exception:
-        logger.debug("No readable timeseries table for sim %s", sim_id, exc_info=True)
+    outflow = _station_rows(store.read_table("timeseries"), "ext_outflow")
+    if outflow.empty:
         return None
-    if not rows:
-        return None
+    totals = outflow.groupby("timestep")["value"].sum(min_count=1)
     # NaN, not zero, for timesteps with no ext_outflow row: a genuine zero
     # outflow still arrives as a row (total=0.0), so only true gaps stay missing
     # and are excluded from metrics instead of biasing them toward zero flow.
     values = np.full(n_timesteps, np.nan, dtype="float64")
-    for timestep, total in rows:
+    for timestep, total in totals.items():
         t = int(timestep)
-        if 0 <= t < n_timesteps and total is not None:
+        if 0 <= t < n_timesteps and pd.notna(total):
             values[t] = float(total)
     return values
 
@@ -418,15 +406,11 @@ def _runoff_area_m2(store: Any, sim_id: str, grp: Any) -> float:
 
 
 def _read_catchment_area_m2(store: Any, sim_id: str) -> float:
-    """Return the catchment area in m² from ``geographic_metadata``."""
-    conn = store.connection
-    row = conn.execute(
-        "SELECT value FROM geographic_metadata WHERE sim_id = ? AND key = 'catch_area'",
-        [str(sim_id)],
-    ).fetchone()
-    if row is not None and row[0] is not None:
-        return float(row[0]) * 1e6
-    return 0.0
+    """Return the catchment area in m² from the geographic metadata of the run."""
+    value = store.read_geographic_metadata(sim_id).get("catch_area")
+    if not value:
+        return 0.0
+    return float(value) * 1e6
 
 
 def _aggregate_variable(
@@ -480,21 +464,23 @@ def _aggregate_variable(
 
 
 def _lumped_budget_rows(
-    conn: Any,
-    sim_id: str,
+    budgets: pd.DataFrame,
     component: str,
     zone: str | None,
 ) -> list[tuple[Any, Any, Any]]:
     """One component's lumped budget, restricted to one zone when asked."""
-    sql = (
-        "SELECT timestep, SUM(flux_in), SUM(flux_out) FROM budgets "
-        "WHERE sim_id = ? AND component = ?"
-    )
-    params: list[Any] = [str(sim_id), component]
+    if budgets.empty:
+        return []
+    rows = budgets[budgets["component"] == component]
     if zone is not None:
-        sql += " AND zone_id = ?"
-        params.append(zone)
-    return list(conn.execute(sql + " GROUP BY timestep", params).fetchall())
+        rows = rows[rows["zone_id"] == zone]
+    if rows.empty:
+        return []
+    sums = rows.groupby("timestep")[["flux_in", "flux_out"]].sum(min_count=1)
+    return [
+        (timestep, None if pd.isna(fin) else fin, None if pd.isna(fout) else fout)
+        for timestep, fin, fout in sums.itertuples(name=None)
+    ]
 
 
 def _catchment_fraction(
@@ -577,28 +563,23 @@ def _aggregate_from_lumped_budget(
     """
     if reducer not in ("abs_sum", "sum"):
         return None
-    conn = store.connection
+    try:
+        budgets = store.read_table("budgets")
+    except Exception as exc:
+        # The lumped budget is the only source left once the per-cell budget
+        # stopped being persisted: an unreadable table silently empties
+        # discharge, so it must fail loudly.
+        raise ExtractError(
+            f"Cannot read the lumped budget of sim {sim_id}: the catchment "
+            f"'{store_var}' series cannot be built ({exc})."
+        ) from exc
     for candidate in (s.strip() for s in store_var.split("|")):
-        try:
-            rows = _lumped_budget_rows(conn, sim_id, candidate, CATCHMENT_BUDGET_ZONE)
-        except Exception:
-            # A store predating the zone column must degrade to the domain-wide
-            # read below, not die on the probe.
-            rows = []
+        rows = _lumped_budget_rows(budgets, candidate, CATCHMENT_BUDGET_ZONE)
         on_catchment = bool(rows)
         if not rows and catchment_only:
             continue
         if not rows:
-            try:
-                rows = _lumped_budget_rows(conn, sim_id, candidate, None)
-            except Exception as exc:
-                # The lumped budget is the only source left once the per-cell
-                # budget stopped being persisted: an unreadable table silently
-                # empties discharge, so it must fail loudly.
-                raise ExtractError(
-                    f"Cannot read the lumped budget of component '{candidate}' for sim "
-                    f"{sim_id}: the catchment '{store_var}' series cannot be built ({exc})."
-                ) from exc
+            rows = _lumped_budget_rows(budgets, candidate, None)
         if not rows:
             continue
         if not on_catchment:
@@ -625,14 +606,15 @@ def _resolve_time_index(store: Any, sim_id: str, n_timesteps: int) -> pd.Datetim
     keeps the derived catchment series on the same clock as the native solver
     series (head, stage, budgets) instead of re-deriving a
     ``date_range(..., periods=n)`` that drifts (n-1 intervals over the window).
-    Falls back to the catalog ``period_start/period_end`` only when the axis is
-    unavailable, and then stamps each period at its end, as the solvers do.
+    Falls back to the ``period_start/period_end`` of the run facts only when
+    the axis is unavailable, and then stamps each period at its end, as the
+    solvers do.
     """
     times = _read_solver_time_axis(store, sim_id)
     if times is not None and len(times) == n_timesteps:
         return pd.DatetimeIndex(times)
 
-    window = _catalog_window(store, sim_id)
+    window = _run_window(store)
     if window is not None:
         start, end, unit = window
         return period_end_stamps(start, end, n_timesteps, step_unit=unit)

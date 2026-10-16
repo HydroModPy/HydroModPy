@@ -247,7 +247,7 @@ STEP_CLASSES = _step_classes()
 HELPERS = _workflow_helpers()
 
 
-def test_the_steps_package_holds_the_twelve_known_steps() -> None:
+def test_the_steps_package_holds_the_thirteen_known_steps() -> None:
     """The set the gate covers is the set the pipeline runs, plus display."""
     assert set(STEP_CLASSES) == {
         "BuildGeographicStep",
@@ -260,6 +260,7 @@ def test_the_steps_package_holds_the_twelve_known_steps() -> None:
         "PrepareSolverStep",
         "ResolveStep",
         "RunSolverStep",
+        "SealStep",
         "SetupProcessStep",
         "ValidateStep",
     }
@@ -289,16 +290,16 @@ def test_a_step_declares_the_payload_keys_it_touches(step_name: str) -> None:
 def test_every_step_but_the_first_reads_the_one_key_f8_removes() -> None:
     """The measurement F8 exists for, kept as a fact instead of a paragraph.
 
-    Eleven of the twelve steps read ``ctx`` and write it back: the shared payload
-    is a handle to ``WorkflowContext`` plus a dozen scalars. When this assertion
-    starts failing because a step stopped needing ``ctx``, F8 has made progress,
-    and the number here is the one to lower.
+    Twelve of the thirteen steps read ``ctx`` and write it back: the shared
+    payload is a handle to ``WorkflowContext`` plus a dozen scalars. When this
+    assertion starts failing because a step stopped needing ``ctx``, F8 has
+    made progress, and the number here is the one to lower.
     """
     readers = {name for name, cls in STEP_CLASSES.items() if "ctx" in _measured(cls, HELPERS)[0]}
     writers = {name for name, cls in STEP_CLASSES.items() if "ctx" in _measured(cls, HELPERS)[1]}
     assert "ValidateStep" not in readers
-    assert len(readers) == 11, sorted(readers)
-    assert len(writers) == 11, sorted(writers)
+    assert len(readers) == 12, sorted(readers)
+    assert len(writers) == 12, sorted(writers)
 
 
 # ---------------------------------------------------------------------------

@@ -36,7 +36,7 @@ def write_simulated_active_network_reference_figure_export(
     """
     import matplotlib.pyplot as plt
 
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
     from hydromodpy.display import get as get_figure
 
     rows: list[dict[str, Any]] = []
@@ -49,20 +49,12 @@ def write_simulated_active_network_reference_figure_export(
 
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
+        store, sim_id = open_indexed_run(summary)
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "result_store_unavailable",
+                    "reason": "run_not_indexed",
                     "source_variable": variable,
                     "network_role": network_role,
                 }

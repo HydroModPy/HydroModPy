@@ -26,7 +26,10 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     parser.add_argument("project", help="Project label")
     parser.add_argument("--metric", default="nse", help="Metric name (default: nse)")
-    parser.add_argument("--workspace", default=None, help="Project catalog root")
+    parser.add_argument(
+        "--station", default=None, help="Rank the scores of one station only (default: all)"
+    )
+    parser.add_argument("--workspace", default=None, help="Project root")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Show the N best simulations")
     group.add_argument("--bottom", type=int, default=None, help="Show the N worst simulations")
@@ -47,7 +50,12 @@ def run(args: argparse.Namespace) -> None:
 
     try:
         df = rank_simulations(
-            args.project, workspace=args.workspace, metric=args.metric, best=best, n=n
+            args.project,
+            workspace=args.workspace,
+            metric=args.metric,
+            station=args.station,
+            best=best,
+            n=n,
         )
     except UnrankedMetricError as exc:
         print(str(exc), file=sys.stderr)
@@ -63,5 +71,5 @@ def run(args: argparse.Namespace) -> None:
         display = row.name or str(row.sim_id)[:8]
         print(
             f"{label}#{idx}: {display}  sim_id={row.sim_id}  solver={row.solver}  "
-            f"{args.metric}={row.value:.4f}"
+            f"station={row.station}  {args.metric}={row.value:.4f}"
         )

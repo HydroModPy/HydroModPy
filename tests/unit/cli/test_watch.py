@@ -1,74 +1,74 @@
-"""Tests for the ``hmp catalog watch`` worker (running-run heartbeat health)."""
+"""``hmp catalog watch`` reads the outcomes and the pulses, never the index."""
 
 from __future__ import annotations
 
-import uuid
+import importlib
+import json
+import sys
 from pathlib import Path
 
 from hydromodpy.cli._workers.catalog import watch_running
-from hydromodpy.results.catalog import Catalog
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 
-def _running(catalog, name: str, *, heartbeat_sql: str) -> str:
-    sid = str(uuid.uuid4())
-    catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
-    catalog._backend.execute(
-        "INSERT INTO workflow_events (run_id, step_name, event_type, ts) "
-        f"VALUES (?, 'pipeline', 'heartbeat', {heartbeat_sql})",
-        [sid],
+def _run(monkeypatch, argv: list[str]) -> int:
+    module = importlib.import_module("hydromodpy.cli.main")
+    monkeypatch.setattr(sys, "argv", argv)
+    try:
+        module.main()
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
+
+
+def test_watch_flags_stale_and_live_attempts(tmp_path: Path) -> None:
+    root = make_project(tmp_path / "demo")
+    write_attempt(root, "runs/stale_run", status="running", heartbeat_age_s=3600)
+    write_attempt(root, "runs/live_run", status="running", heartbeat_age_s=3)
+
+    rows = {row["rel_dir"]: row for row in watch_running(root)}
+
+    assert rows["runs/stale_run"]["stale"] is True
+    assert rows["runs/live_run"]["stale"] is False
+    assert rows["runs/live_run"]["age_s"] is not None
+    assert rows["runs/live_run"]["step"] == "run_solver"
+
+
+def test_watch_lists_nothing_when_nothing_runs(tmp_path: Path) -> None:
+    root = make_project(tmp_path / "demo")
+    seal_run(root, "done")
+    write_attempt(root, "runs/broken", status="failed")
+
+    assert watch_running(root) == []
+
+
+def test_a_pulse_without_a_heartbeat_file_ages_from_the_outcome(tmp_path: Path) -> None:
+    root = make_project(tmp_path / "demo")
+    write_attempt(root, "runs/silent", status="running")
+
+    (row,) = watch_running(root, stale_minutes=60)
+
+    assert row["age_s"] is None
+    assert row["stale"] is False
+
+
+def test_the_threshold_is_a_display_choice(tmp_path: Path) -> None:
+    root = make_project(tmp_path / "demo")
+    write_attempt(root, "runs/slow", status="running", heartbeat_age_s=120)
+
+    assert watch_running(root, stale_minutes=1)[0]["stale"] is True
+    assert watch_running(root, stale_minutes=10)[0]["stale"] is False
+
+
+def test_the_command_answers_without_an_index(monkeypatch, tmp_path: Path, capsys) -> None:
+    root = make_project(tmp_path / "demo")
+    write_attempt(root, "runs/live_run", status="running", heartbeat_age_s=3)
+
+    code = _run(
+        monkeypatch, ["hmp", "catalog", "watch", "--workspace", str(root), "--format", "json"]
     )
-    return sid
 
-
-def test_watch_flags_stale_and_live_runs(tmp_path: Path) -> None:
-    workspace = tmp_path / "ws"
-    with Catalog(workspace) as catalog:
-        _running(catalog, "stale_run", heartbeat_sql="TIMESTAMP '2000-01-01 00:00:00+00'")
-        _running(catalog, "live_run", heartbeat_sql="current_timestamp")
-
-    rows = {r["name"]: r for r in watch_running(workspace)}
-    assert rows["stale_run"]["stale"] is True
-    assert rows["live_run"]["stale"] is False
-    assert rows["live_run"]["age_s"] is not None
-
-
-def test_watch_empty_when_nothing_running(tmp_path: Path) -> None:
-    workspace = tmp_path / "ws"
-    with Catalog(workspace) as catalog:
-        sid = str(uuid.uuid4())
-        catalog.register_simulation(sid, project="p", solver="modflow6", name="done")
-        catalog._backend.execute(
-            "UPDATE simulations SET status_id = (SELECT id FROM statuses WHERE code = 'completed') "
-            "WHERE sim_id = ?",
-            [sid],
-        )
-    assert watch_running(workspace) == []
-
-
-def test_watch_reports_from_sidecar_when_catalog_unreadable(tmp_path: Path) -> None:
-    from hydromodpy.workflow.tracking.heartbeat import write_sidecar
-
-    # No catalog on disk: watch must still surface the live run from its sidecar.
-    workspace = tmp_path / "ws"
-    sid = "11111111-2222-3333-4444-555555555555"
-    write_sidecar(workspace, sid, run_id=sid, step_name="pipeline")
-
-    rows = watch_running(workspace)
-    assert len(rows) == 1
-    assert rows[0]["sim_id"] == sid
-    assert rows[0]["stale"] is False
-
-
-def test_watch_fresh_sidecar_overrides_db_stale(tmp_path: Path) -> None:
-    from hydromodpy.workflow.tracking.heartbeat import write_sidecar
-
-    workspace = tmp_path / "ws"
-    with Catalog(workspace) as catalog:
-        sid = _running(
-            catalog, "live_by_sidecar", heartbeat_sql="TIMESTAMP '2000-01-01 00:00:00+00'"
-        )
-    # The DB heartbeat is ancient, but a fresh sidecar proves the run is alive.
-    write_sidecar(workspace, sid, run_id=sid, step_name="pipeline")
-
-    rows = {r["sim_id"]: r for r in watch_running(workspace)}
-    assert rows[sid]["stale"] is False
+    assert code == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert [row["rel_dir"] for row in rows] == ["runs/live_run"]
+    assert not (root / ".hmp").exists()

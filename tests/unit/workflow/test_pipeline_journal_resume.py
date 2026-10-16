@@ -1,8 +1,8 @@
-"""Pipeline resume driven by the workflow_steps journal.
+"""Pipeline resume driven by the step journal of the run directory.
 
-Replaces the legacy pickle-based checkpoint tests. Each scenario exercises
-a small synthetic pipeline against a real :class:`Catalog`, then
-asserts the journal rows and the absence of pickle artefacts.
+Each scenario exercises a small synthetic pipeline whose run directory is the
+temporary folder, then asserts the journal rows and the absence of pickle
+artefacts.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import StepError
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
@@ -58,68 +57,59 @@ class _RecoveredCrash:
         )
 
 
-def _journal_for(workspace: Path) -> tuple[WorkflowJournal, Catalog]:
-    catalog = Catalog(workspace)
-    return WorkflowJournal(catalog), catalog
+def _pipeline(steps, root: Path) -> Pipeline:
+    return Pipeline(steps, workspace=root, run_dir=root)
+
+
+def _rows(root: Path, run_id: str):
+    return WorkflowJournal(root).list_steps(run_id)
 
 
 def test_full_run_records_completed_rows(tmp_path: Path) -> None:
-    pipeline = Pipeline([_AddOne(), _AddOne(), _Double()], workspace=tmp_path)
+    pipeline = _pipeline([_AddOne(), _AddOne(), _Double()], tmp_path)
     state = PipelineState(run_id="r1", data={"counter": 0})
     final = pipeline.run(state)
     assert final.data["counter"] == 4
 
-    journal, catalog = _journal_for(tmp_path)
-    try:
-        rows = journal.list_steps("r1")
-        assert [r.step_name for r in rows] == ["add_one", "add_one", "double"]
-        assert all(r.status == "completed" for r in rows)
-    finally:
-        catalog.close()
+    rows = _rows(tmp_path, "r1")
+    assert [r.step_name for r in rows] == ["add_one", "add_one", "double"]
+    assert all(r.status == "completed" for r in rows)
 
 
 def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
     state = PipelineState(run_id="crash-1", data={"counter": 5})
-    crashing = Pipeline([_AddOne(), _Crash(), _Double()], workspace=tmp_path)
+    crashing = _pipeline([_AddOne(), _Crash(), _Double()], tmp_path)
     with pytest.raises(StepError) as info:
         crashing.run(state)
     assert info.value.step_name == "crash"
 
-    journal, catalog = _journal_for(tmp_path)
-    try:
-        rows = journal.list_steps("crash-1")
-        statuses = [(r.step_order, r.status) for r in rows]
-        assert statuses == [(0, "completed"), (1, "failed")]
-    finally:
-        catalog.close()
+    rows = _rows(tmp_path, "crash-1")
+    statuses = [(r.step_order, r.status) for r in rows]
+    assert statuses == [(0, "completed"), (1, "failed")]
 
     # State-from-artifacts: in-memory step 0 is re-executed from the supplied
     # initial state. We pass the same input (counter=5) so step 0 re-runs to 6,
     # then the recovered step bumps to 7, and double yields 14.
-    fixed = Pipeline([_AddOne(), _RecoveredCrash(), _Double()], workspace=tmp_path)
+    fixed = _pipeline([_AddOne(), _RecoveredCrash(), _Double()], tmp_path)
     final = fixed.run(PipelineState(run_id="crash-1", data={"counter": 5}), resume_from=1)
     assert final.step_name == "double"
     assert final.data["counter"] == 14
 
-    journal, catalog = _journal_for(tmp_path)
-    try:
-        rows = journal.list_steps("crash-1")
-        assert [r.status for r in rows] == ["completed", "completed", "completed"]
-    finally:
-        catalog.close()
+    rows = _rows(tmp_path, "crash-1")
+    assert [r.status for r in rows] == ["completed", "completed", "completed"]
 
 
 def test_resume_without_journal_starts_from_scratch(tmp_path: Path) -> None:
-    pipeline = Pipeline([_AddOne()], workspace=tmp_path)
+    pipeline = _pipeline([_AddOne()], tmp_path)
     state = PipelineState(run_id="fresh", data={"counter": 99})
     final = pipeline.run(state, resume_from=0)
     assert final.data["counter"] == 100
 
 
 def test_no_pickle_files_produced(tmp_path: Path) -> None:
-    pipeline = Pipeline([_AddOne(), _AddOne()], workspace=tmp_path)
+    pipeline = _pipeline([_AddOne(), _AddOne()], tmp_path)
     pipeline.run(PipelineState(run_id="no-pkl", data={"counter": 0}))
-    pickle_dir = tmp_path / ".hmp" / "checkpoints" / "no-pkl"
+    pickle_dir = tmp_path / ".hmp" / "checkpoints"
     if pickle_dir.exists():
         for entry in pickle_dir.iterdir():
             assert entry.suffix not in (".pkl", ".pkl.zst")
@@ -137,15 +127,15 @@ def test_model_phase_ready_rerun_survives_config_change(tmp_path: Path) -> None:
     from hydromodpy.core.exceptions import ResumeError
 
     steps = [_AddOne(), _AddOne(), _Double()]
-    Pipeline(steps, workspace=tmp_path).run(
+    _pipeline(steps, tmp_path).run(
         PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.001}}})
     )
 
     changed = PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.0001}}})
-    final = Pipeline(steps, workspace=tmp_path).run(changed, resume_from=2, model_phase_ready=True)
+    final = _pipeline(steps, tmp_path).run(changed, resume_from=2, model_phase_ready=True)
     assert final.data["counter"] == 4
 
     # A genuine resume still verifies the checkpoint and rejects the change.
     stale = PipelineState(run_id="r", data={"counter": 0, "raw_toml": {"flow": {"sy": 0.5}}})
     with pytest.raises(ResumeError):
-        Pipeline(steps, workspace=tmp_path).run(stale, resume_from=2, model_phase_ready=False)
+        _pipeline(steps, tmp_path).run(stale, resume_from=2, model_phase_ready=False)

@@ -90,7 +90,7 @@ ax2.set_xlabel("K (m/s)")
 ax2.set_ylabel("discharge score at the gauge")
 ax2.legend()
 
-out = HERE / "share" / "figures" / "sweep_k.png"
+out = HERE / "summary" / "figures" / "sweep_k.png"
 out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=150)
 print(out)

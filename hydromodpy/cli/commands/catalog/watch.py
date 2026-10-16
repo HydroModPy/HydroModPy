@@ -1,4 +1,4 @@
-"""``hmp catalog watch`` - snapshot of running runs and heartbeat health."""
+"""``hmp catalog watch`` - the running attempts of a project and the age of their pulse."""
 
 from __future__ import annotations
 
@@ -11,24 +11,29 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "watch"
-HELP: str = "Show running simulations with heartbeat age and staleness"
+HELP: str = "Show the running attempts with the age of their heartbeat"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+    from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        description=(
+            "Read the outcome.json and logs/heartbeat.json of every run directory and list "
+            "the attempts that are running. The index is never opened: this answers while "
+            "a solve is going on and on a project that has no index yet."
+        ),
         epilog="Example:\n  hmp catalog watch --stale-minutes 5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--stale-minutes",
-        type=int,
-        default=STALE_HEARTBEAT_MINUTES,
-        help="Heartbeat age (minutes) beyond which a run is flagged stale",
+        type=float,
+        default=DEFAULT_STALE_AFTER_S / 60.0,
+        help="Heartbeat age (minutes) beyond which a running attempt is flagged stale",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -48,14 +53,13 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import watch_running
 
-    workspace_root = resolve_project_root(
+    project_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    try:
-        rows = watch_running(workspace_root, stale_minutes=args.stale_minutes)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+    if not project_root.is_dir():
+        print(f"No project at {project_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+    rows = watch_running(project_root, stale_minutes=args.stale_minutes)
 
     if args.format == "json":
         import json
@@ -64,10 +68,13 @@ def run(args: argparse.Namespace) -> None:
         return
 
     if not rows:
-        print("no running simulations.")
+        print("no running attempt.")
         return
     print(f"# running ({len(rows)})")
     for entry in rows:
         flag = "STALE" if entry["stale"] else "live"
-        name = entry["name"] or "(no name)"
-        print(f"  [{flag}]  {name}  [{entry['sim_id'][:8]}]  heartbeat {_age(entry['age_s'])}")
+        step = f"  step={entry['step']}" if entry["step"] else ""
+        print(
+            f"  [{flag}]  {entry['rel_dir']}  attempt {entry['attempt']}  "
+            f"{entry['host']}:{entry['pid']}{step}  heartbeat {_age(entry['age_s'])}"
+        )

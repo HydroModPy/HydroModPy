@@ -2,7 +2,7 @@
 
 Subparsers:
   - ``hmp config template [OUTPUT]``  : generate a TOML template
-  - ``hmp config check FILE.toml``    : validate a TOML against the Pydantic schema
+  - ``hmp config check FILE.toml``    : validate a run, a calibration or a [sites] project
   - ``hmp config resolve FILE.toml``  : print the file its base_config chain resolves to
   - ``hmp config schema ...``         : export the JSON Schema, or with ``--editor``
                                         the editor schema of one TOML file
@@ -17,10 +17,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
-
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.targets import CalibrationTarget
@@ -67,8 +65,17 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     chk = sub.add_parser(
         "check",
-        help="Validate a TOML against the Pydantic schema",
-        epilog="Example:\n  hmp config check run.toml",
+        help="Validate a run, a calibration or a whole [sites] project",
+        parents=[verbosity_parser()],
+        epilog=(
+            "Examples:\n"
+            "  hmp config check run.toml\n"
+            "  hmp config check calibration.toml -v\n"
+            "  hmp config check project.toml\n"
+            "A calibration is read by its preflight and says which published method it\n"
+            "runs and where it departs from it (-v adds the stages and the references).\n"
+            "The last one expands a [sites] project and checks every case."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     chk.add_argument("file", help="Path to the TOML configuration")
@@ -314,118 +321,59 @@ def _cmd_config_resolve(args: argparse.Namespace) -> None:
 
 
 def _cmd_config_check(args: argparse.Namespace) -> None:
-    """Validate a TOML file against the HydroModPy Pydantic schema.
+    """Validate a run, a calibration or a ``[sites]`` project with one verb.
 
-    Honours ``base_config`` inheritance: overlay files are merged with their
-    base before validation so ``hmp config check`` sees the same resolved
-    payload as ``hmp run``.
-
-    Dispatches on ``[workflow] mode`` so comparison TOMLs are validated by
-    ``SimulationComparisonConfig`` and testbed TOMLs by ``TestbedConfig``
-    (or ``RegionalLabConfig`` for the ``regional_lab`` profile) instead of
-    ``HydroModPyConfig``.
+    The check is :func:`hydromodpy.config.sites.check.check_project`: a run is
+    loaded and goes through the checks of step 0 of ``hmp run``; a calibration
+    is loaded and read by its preflight; a ``[sites]`` project is expanded
+    case by case, and the errors come back grouped, each at the cell or the
+    file it comes from.
     """
-    import tomllib
-
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.config.sites.check import check_project, report_lines
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
         print(f"File not found: {path}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
+    verbosity = apply_verbosity(args, {})
+    report = check_project(path)
+    if report.kind == "calibration" and verbosity != "quiet":
+        for line in _calibration_notes(path, verbose=verbosity in ("verbose", "debug")):
+            print(line, file=sys.stderr)
+    summary, *findings = report_lines(report)
+    if report.ok:
+        print(summary)
+        for line in findings:
+            print(line, file=sys.stderr)
+        return
+    print(summary, file=sys.stderr)
+    for line in findings:
+        print(line, file=sys.stderr)
+    sys.exit(EXIT_CONFIG)
+
+
+def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
+    """Return what a calibration file runs: its published method, its departures, its comparisons.
+
+    These lines inform, they never refuse: a file that does not load prints
+    none, its refusal is already a finding of the check.
+    """
+    import warnings
+
+    from hydromodpy.calibration.preflight import comparison_lines, protocol_lines
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.exceptions import ConfigError
+
     try:
-        raw_toml = load_toml_with_base_config(path)
-    except tomllib.TOMLDecodeError as exc:
-        print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except ValueError as exc:
-        print(f"Invalid base_config chain: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-
-    workflow_section = raw_toml.get("workflow") if isinstance(raw_toml, dict) else None
-    mode = workflow_section.get("mode") if isinstance(workflow_section, dict) else None
-
-    try:
-        if mode == "comparison":
-            from hydromodpy.analysis.comparison.experiment_config import (
-                SimulationComparisonConfig,
-            )
-
-            SimulationComparisonConfig.from_toml(raw_toml, config_path=path)
-        elif mode == "testbed":
-            from hydromodpy.analysis.testbed.config import TestbedConfig
-            from hydromodpy.analysis.testbed.profiles import (
-                GENERIC_TESTBED_PROFILE,
-                REGIONAL_LAB_PROFILE,
-                resolve_testbed_profile,
-            )
-
-            profile = resolve_testbed_profile(raw_toml)
-            if profile == REGIONAL_LAB_PROFILE:
-                from hydromodpy.analysis.testbed.regional_lab_config import (
-                    RegionalLabConfig,
-                )
-
-                RegionalLabConfig.from_toml(raw_toml, config_path=path)
-            elif profile == GENERIC_TESTBED_PROFILE:
-                TestbedConfig.from_toml(raw_toml, config_path=path)
-            else:
-                raise ValueError(f"Unsupported testbed profile: {profile}")
-        elif mode == "site_selection":
-            from hydromodpy.workflow.site_selection import (
-                load_hydrometry_config_for_site_selection,
-                load_site_selection_config,
-            )
-
-            load_site_selection_config(path)
-            if "hydrometry" in raw_toml:
-                load_hydrometry_config_for_site_selection(path)
-        else:
-            from hydromodpy.workflow.steps.validate import (
-                check_export_variables,
-                check_time_selectors,
-            )
-
+        with warnings.catch_warnings():
+            # The warnings of loading are findings of the check already.
+            warnings.simplefilter("ignore")
             cfg = HydroModPyConfig.from_toml(path)
-            # The checks step 0 of `hmp run` makes, so a date or an export name
-            # is refused here and not after the solve.
-            check_export_variables(cfg)
-            check_time_selectors(cfg)
-    except tomllib.TOMLDecodeError as exc:
-        print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except ValidationError as exc:
-        print(f"Config invalid: {path}", file=sys.stderr)
-        for err in exc.errors():
-            loc = ".".join(str(p) for p in err.get("loc", ()))
-            msg = err.get("msg", "")
-            if "input" in err:
-                print(f"  {loc}: {msg} (input={err.get('input')!r})", file=sys.stderr)
-            else:
-                print(f"  {loc}: {msg}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except (KeyError, FileNotFoundError) as exc:
-        print(f"Config invalid: {path}", file=sys.stderr)
-        print(f"  {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except ValueError as exc:
-        # base_config is already resolved above, so a ValueError here comes from
-        # a loader this branch calls directly. `from_toml` no longer raises one:
-        # it refuses with ConfigValidationError, caught below.
-        print(f"Config invalid: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except ConfigError as exc:
-        # A typed config refusal is an invalid config, not a crashed check: it
-        # already carries the TOML path and the key to change.
-        print(f"Config invalid: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-    except Exception as exc:
-        print(f"Config check failed: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-
-    print(f"OK: {path}")
+    except (ConfigError, ValueError, KeyError, FileNotFoundError):
+        return []
+    normal, detailed = protocol_lines(cfg)
+    return [*normal, *(detailed if verbose else ()), *comparison_lines(cfg, path)]
 
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:

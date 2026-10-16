@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.runners.materialize import materialize_candidate
+from hydromodpy.calibration.runners import materialize as materialize_module
+from hydromodpy.calibration.runners.materialize import materialize_candidate, write_overlay_toml
 
 
 @pytest.fixture()
@@ -367,8 +368,8 @@ class TestMaterializeHookFromCli:
         from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
         from hydromodpy.calibration.runners.materialize import materialize_candidate
 
-        candidates_root = tmp_path / "overlays"
-        candidates_root.mkdir(parents=True, exist_ok=True)
+        overlays_dir = tmp_path / "overlays"
+        overlays_dir.mkdir(parents=True, exist_ok=True)
         space = ParameterSpace(
             [
                 CalibParameter(
@@ -387,7 +388,7 @@ class TestMaterializeHookFromCli:
                 base_config_path,
                 dict(sugg.values),
                 space,
-                candidates_root,
+                overlays_dir,
                 iteration_index=sugg.trial_id,
             )
             meta["materialized_overlay"] = str(overlay_path)
@@ -400,10 +401,40 @@ class TestMaterializeHookFromCli:
             )
 
         result = wrapped_evaluator(ParamSuggestion(trial_id=0, values={"K": 2.5e-4}))
-        overlay_dir = candidates_root / "iter_0000"
+        overlay_dir = overlays_dir / "iter_0000"
         overlay_path = overlay_dir / "candidate_override.toml"
         assert overlay_path.is_file()
         assert result.metadata["materialized_overlay"] == str(overlay_path)
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
         assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(2.5e-4)
+
+
+class TestTheOverlayIsWrittenWholeOrNotAtAll:
+    """The frozen ``config.toml`` of a session is read by a later replay: never half written."""
+
+    def test_the_document_lands_in_one_rename_and_leaves_no_staging_file(self, tmp_path):
+        target = tmp_path / "sessions" / "calage" / "config.toml"
+
+        write_overlay_toml(target, {"calibration": {"method": "grid", "max_iter": 3}})
+
+        assert tomllib.loads(target.read_text(encoding="utf-8")) == {
+            "calibration": {"method": "grid", "max_iter": 3}
+        }
+        assert [path.name for path in target.parent.iterdir()] == ["config.toml"]
+
+    def test_a_write_that_fails_leaves_the_previous_document_intact(self, tmp_path, monkeypatch):
+        target = tmp_path / "config.toml"
+        write_overlay_toml(target, {"calibration": {"method": "grid"}})
+
+        def _refuse(source, destination):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(materialize_module, "rename_over_open_file", _refuse)
+        with pytest.raises(OSError, match="disk full"):
+            write_overlay_toml(target, {"calibration": {"method": "cma"}})
+
+        assert tomllib.loads(target.read_text(encoding="utf-8")) == {
+            "calibration": {"method": "grid"}
+        }
+        assert [path.name for path in tmp_path.iterdir()] == ["config.toml"]

@@ -1,11 +1,9 @@
 [report]
 site_label = "Vire"
 station_label = "Vire a Saint-Lo"
-output_dir = "outputs/vire_catchment_report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "outputs/vire_context"
 data_overview_project_dir = "outputs/vire_overview"
 simulation_workspace_dir = "outputs/vire_nwt"
 simulation_name = "vire_nwt_report"

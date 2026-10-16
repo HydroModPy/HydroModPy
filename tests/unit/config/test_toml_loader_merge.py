@@ -110,7 +110,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
 
     cfg = HydroModPyConfig.from_toml(child_path)
 
-    assert cfg.workspace.catch_name == tmp_path.name
+    assert cfg.workspace.project_root == tmp_path.resolve()
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 

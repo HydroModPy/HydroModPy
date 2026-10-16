@@ -14,8 +14,7 @@ Four words name the things on disk. This page is the whole mental model you need
     ├── example/                       a project: the synthetic demo
     │   ├── project.toml               marks the root of the project
     │   ├── run_demo.toml              a file you run
-    │   ├── runs/demo/                 a run
-    │   ├── share/demo/                its exports
+    │   ├── runs/demo/                 a run: its stores, figures/, exports/, report/
     │   └── .hmp/index.duckdb          the catalog
     └── 04_streamflow_intermittence_in_transient/
         ├── project.toml
@@ -50,7 +49,7 @@ run without HydroModPy. Running an unchanged file again does nothing; an edited 
 ## Reading a TOML file
 
 - {toml}`workflow.mode` is required. It picks the operation that `hmp run` starts:
-  `simulation`, `calibration`, `overview`, `comparison`, `testbed` or `site_selection`.
+  `simulation`, `calibration` or `overview`.
 - Each section is a request: what to model or produce, when, where. The
   {doc}`parameter reference <../reference/parameters/index>` groups the sections by the
   question they answer, and marks each key for the user, the developer or the expert (the

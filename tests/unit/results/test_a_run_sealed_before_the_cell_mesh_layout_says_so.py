@@ -4,26 +4,31 @@ The new layout stores the cell centres, the families, the edges and the engine o
 ``mesh/``. A run sealed before has the vertices and the connectivity only: its mesh
 reads as ``legacy``, its CRS comes from the catalog, and the readers that need what
 it lacks refuse with the reason rather than guess.
+
+Each run is written by its store, sealed and indexed, as the pipeline leaves it.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging
-import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
 from hydromodpy.results.derive.reading import read_variable
 from hydromodpy.results.errors import FieldNotFoundError
-from hydromodpy.results.manifest import build_manifest
+from hydromodpy.results.record import RunRecord
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.contracts import LEGACY_MESH_NOTE
 from hydromodpy.results.run.mesh_families import mesh_families
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.results.zarr_store.mesh_layout import (
     cell_family_rows,
     face_family_rows,
@@ -31,6 +36,7 @@ from hydromodpy.results.zarr_store.mesh_layout import (
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, PlanarCellMesh
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
+from tests._helpers.run_stores import open_run_store
 
 Z_INTERFACES = np.array([0.0, -10.0])
 CRS = "EPSG:2154"
@@ -45,25 +51,19 @@ def _grid(*, with_river: bool = True) -> PlanarCellMesh:
     return dataclasses.replace(base, cell_chains=(chain,))
 
 
-def _register(catalog: Catalog, cell_mesh: PlanarCellMesh, *, engine: str | None = None) -> str:
-    sid = str(uuid.uuid4())
-    config = None if engine is None else {"mesh": {"engine": engine}}
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        config=config,
-        n_cells=cell_mesh.n_cells,
-        n_layers=1,
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    return sid
-
-
-def _write(catalog: Catalog, sid: str, cell_mesh: PlanarCellMesh, *, layout: bool) -> None:
+def _seal(
+    project: Path,
+    name: str,
+    cell_mesh: PlanarCellMesh,
+    *,
+    layout: bool,
+    crs: str | None = None,
+) -> str:
+    """Seal a run on *cell_mesh*, with the cell-mesh layout or without it; return its id."""
+    store = open_run_store(project, name, n_cells=cell_mesh.n_cells, n_layers=1)
+    sid = store.sim_id
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)
-    catalog.write_mesh(
+    store.write_mesh(
         sid,
         np.column_stack([xy, np.zeros(xy.shape[0])]),
         cell_mesh.connectivity_rows,
@@ -72,30 +72,41 @@ def _write(catalog: Catalog, sid: str, cell_mesh: PlanarCellMesh, *, layout: boo
         layout=mesh_layout_from_cell_mesh(cell_mesh) if layout else None,
     )
     if layout:
-        catalog.write_view(sid, "mesh_cell_families", cell_family_rows(cell_mesh))
-        catalog.write_view(sid, "mesh_face_families", face_family_rows(cell_mesh))
+        store.write_view(sid, "mesh_cell_families", cell_family_rows(cell_mesh))
+        store.write_view(sid, "mesh_face_families", face_family_rows(cell_mesh))
+    if crs is not None:
+        store.write_geographic_metadata(sid, {"crs_proj": crs})
+    seal_completed(store)
+    return sid
+
+
+@contextmanager
+def _indexed(project: Path) -> Iterator[Catalog]:
+    rebuild_index(project)
+    with Catalog(project) as catalog:
+        yield catalog
 
 
 @pytest.fixture
-def catalog(tmp_path: Path):
-    with Catalog(tmp_path / "demo") as opened:
-        yield opened
+def runs(tmp_path: Path) -> Iterator[tuple[Catalog, str, str]]:
+    """A run sealed with the layout and one sealed before it, in one indexed project."""
+    project = tmp_path / "demo"
+    new = _seal(project, "new", _grid(), layout=True)
+    old = _seal(project, "old", _grid(), layout=False)
+    with _indexed(project) as catalog:
+        yield catalog, new, old
 
 
 @pytest.fixture
-def new_run(catalog: Catalog) -> Run:
-    cell_mesh = _grid()
-    sid = _register(catalog, cell_mesh, engine="regular")
-    _write(catalog, sid, cell_mesh, layout=True)
-    return Run(sid, catalog)
+def new_run(runs: tuple[Catalog, str, str]) -> Run:
+    catalog, new, _ = runs
+    return Run(new, catalog)
 
 
 @pytest.fixture
-def old_run(catalog: Catalog) -> Run:
-    cell_mesh = _grid()
-    sid = _register(catalog, cell_mesh)
-    _write(catalog, sid, cell_mesh, layout=False)
-    return Run(sid, catalog)
+def old_run(runs: tuple[Catalog, str, str]) -> Run:
+    catalog, _, old = runs
+    return Run(old, catalog)
 
 
 def test_a_mesh_stored_with_the_layout_names_its_engine_and_its_crs(new_run):
@@ -112,10 +123,11 @@ def test_a_mesh_stored_with_the_layout_names_its_engine_and_its_crs(new_run):
     assert mesh.structured_shape == (3, 4)
 
 
-def test_a_mesh_stored_before_the_layout_reads_as_legacy_with_the_catalog_crs(catalog, old_run):
-    catalog.write_geographic_metadata(old_run.sim_id, {"crs_proj": CRS})
-
-    mesh = old_run.mesh
+def test_a_mesh_stored_before_the_layout_reads_as_legacy_with_the_catalog_crs(tmp_path):
+    project = tmp_path / "demo"
+    sid = _seal(project, "old", _grid(), layout=False, crs=CRS)
+    with _indexed(project) as catalog:
+        mesh = Run(sid, catalog).mesh
 
     assert mesh.layout == "legacy"
     assert mesh.layout_note == LEGACY_MESH_NOTE
@@ -162,12 +174,11 @@ def test_the_families_of_a_new_run_come_back_from_the_tables(new_run):
     assert "face_row" in families.faces
 
 
-def test_a_new_run_with_no_family_has_two_empty_tables(catalog):
-    cell_mesh = _grid(with_river=False)
-    sid = _register(catalog, cell_mesh, engine="regular")
-    _write(catalog, sid, cell_mesh, layout=True)
-
-    families = mesh_families(Run(sid, catalog))
+def test_a_new_run_with_no_family_has_two_empty_tables(tmp_path):
+    project = tmp_path / "demo"
+    sid = _seal(project, "new", _grid(with_river=False), layout=True)
+    with _indexed(project) as catalog:
+        families = mesh_families(Run(sid, catalog))
 
     assert families.cells.empty
     assert families.faces.empty
@@ -208,15 +219,14 @@ def test_hmp_read_refuses_a_centre_field_of_a_legacy_run_with_the_reason(old_run
         read_variable(old_run, "mesh_center_offset")
 
 
-def test_the_manifest_names_the_engine_of_a_new_run_and_nothing_for_an_old_one(
-    catalog, new_run, old_run
-):
-    new = build_manifest(catalog, new_run.sim_id)["geometry"]
-    old = build_manifest(catalog, old_run.sim_id)["geometry"]
+def test_the_manifest_names_the_engine_of_a_new_run_and_nothing_for_an_old_one(runs):
+    catalog, new_sid, old_sid = runs
+    new = RunRecord.read(catalog.run_dir_for(new_sid)).geometry
+    old = RunRecord.read(catalog.run_dir_for(old_sid)).geometry
 
-    assert (new["mesh_engine"], new["mesh_engine_version"]) == ("regular", "0")
-    assert "mesh_engine" not in old
-    assert "mesh_engine_version" not in old
+    assert (new.mesh_engine, new.mesh_engine_version) == ("regular", "0")
+    assert old.mesh_engine is None
+    assert old.mesh_engine_version is None
 
 
 def test_the_dataset_of_a_new_run_keeps_the_stored_edge_numbering(new_run):

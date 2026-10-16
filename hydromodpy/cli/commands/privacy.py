@@ -1,14 +1,14 @@
-"""``hmp privacy`` - thin wrappers around :func:`hydromodpy.purge_simulation` and ``verify_purge_certificate``."""
+"""``hmp privacy`` - remove a run for good with a purge certificate, and verify one."""
 
 from __future__ import annotations
 
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_OK
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_OK, exit_code_for
 
 NAME: str = "privacy"
-HELP: str = "Privacy-preserving operations (purge a sim with audit certificate)"
+HELP: str = "Remove a run for good with a purge certificate, and verify one"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -17,12 +17,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     purge = sub.add_parser(
         "purge",
-        help="Hard-delete a simulation + emit a JSON purge certificate",
+        help="Remove a run for good (its name stays taken) and write a JSON purge certificate",
         epilog='Example:\n  hmp privacy purge ab12cd34 --reason "data withdrawn" -y',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    purge.add_argument("sim_ref", help="Full sim_id, unique prefix, or simulation name")
-    purge.add_argument("--workspace", default=None, help="Project catalog root")
+    purge.add_argument("sim_ref", help="Run directory name, rel_dir, sim_id or unique prefix")
+    purge.add_argument("--workspace", default=None, help="Project root")
     purge.add_argument(
         "--reason", default="unspecified", help="Free-form reason recorded in the certificate"
     )
@@ -66,7 +66,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
             print("Refusing to purge without -y in non-interactive mode.", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         try:
-            resp = input(f"Purge simulation {args.sim_ref!r}? [y/N] ").strip().lower()
+            resp = input(f"Purge {args.sim_ref!r} for good? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
@@ -81,11 +81,11 @@ def _cmd_purge(args: argparse.Namespace) -> None:
             reason=args.reason,
             archive_pii=args.archive_pii,
         )
-    except FileNotFoundError as exc:
+    except Exception as exc:  # noqa: BLE001 - map resolver, in-use and IO errors
         print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        sys.exit(exit_code_for(exc))
 
-    print(f"Purged simulation {result['sim_id']}")
+    print(f"Purged {result['rel_dir']} ({result['sim_id']}); its name stays taken")
     for path in result["removed_paths"]:
         print(f"  removed: {path}")
     print(f"Certificate: {result['certificate']}")

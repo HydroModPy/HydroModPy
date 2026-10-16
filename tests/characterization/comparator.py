@@ -725,9 +725,8 @@ def _run_once(config: Path, run_name: str, *, timeout: int) -> float:
         "-m",
         "hydromodpy",
         "run",
-        "--no-lock",
         "--no-display",
-        # Exports land in share/, which deleting the run leaves behind.
+        # The comparison reads no export: skip writing them.
         "--set",
         "export=[]",
         "--set",

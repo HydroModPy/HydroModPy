@@ -12,7 +12,7 @@ from hydromodpy.calibration.optim.adapters.scipy_adapter import ScipyNelderMead
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.persistence import _build_trial
+from hydromodpy.calibration.persistence import PhaseContext, _build_trial
 
 pytestmark = pytest.mark.unit
 
@@ -40,7 +40,7 @@ def test_unused_candidates_are_marked_in_the_journal_and_not_counted() -> None:
             pass
 
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
-        journal.append(_build_trial(sugg, result, "summary").metrics or {})
+        journal.append(_build_trial(1, PhaseContext(), sugg, result, "summary").metrics or {})
 
     engine = CalibrationEngine(
         space=_space(),

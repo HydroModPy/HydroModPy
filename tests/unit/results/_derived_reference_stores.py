@@ -1,6 +1,6 @@
 """Small synthetic run stores the derived fields are checked on.
 
-Each store is built with store calls that exist at d5f485f88 and at HEAD, and
+Each store is built with Zarr calls that exist at d5f485f88 and at HEAD, and
 is deterministic on every platform: the base code and the current code read
 the very same store.
 ``fixtures/derived_at_d5f485f88/<kind>.npz`` holds what the base code derived
@@ -13,12 +13,14 @@ sees the values it wrote.
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.descent import build_descent
+from hydromodpy.results.storage.run_store import RunStore
+from tests._helpers.run_stores import claim_run, facts_of
 
 NROW = 5
 NCOL = 7
@@ -43,11 +45,6 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures" / "derived_at_d5f485f88"
 def fixture_path(kind: str) -> Path:
     """Return the file holding what the base code derived on store ``kind``."""
     return FIXTURE_DIR / f"{kind}.npz"
-
-
-def sim_id_of(kind: str) -> str:
-    """Return the fixed run id of store ``kind``."""
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"hmp-derived-reference/{kind}"))
 
 
 def _uniform(
@@ -142,8 +139,8 @@ def _write_descent(store, top: np.ndarray) -> None:
     )
 
 
-def build_store(kind: str, catalog) -> str:
-    """Write store ``kind`` in ``catalog`` and return its run id.
+def build_store(kind: str, project: Path) -> RunStore:
+    """Write store ``kind`` as the run ``runs/<kind>`` of *project* and return it open.
 
     ``mf6`` is a two-layer MODFLOW 6 run with its mesh, its D, a drain, a
     drain-to-mover, a stream and a constant-head term, and a drain band.
@@ -153,6 +150,10 @@ def build_store(kind: str, catalog) -> str:
     falls back to the geometric criterion. ``transport`` is ``mf6`` with a
     concentration. ``no_route`` has no D and no mesh topology, and takes its
     surface from ``z_interfaces``.
+
+    The run is claimed and written the way the pipeline writes it, in
+    ``exact`` precision, and left unsealed: the store is the reader the tests
+    pass, and the caller closes it.
     """
     if kind not in STORE_KINDS:
         raise ValueError(f"unknown store {kind!r}: expected one of {STORE_KINDS}")
@@ -160,23 +161,28 @@ def build_store(kind: str, catalog) -> str:
     boussinesq = kind.startswith("boussinesq")
     n_layers = 1 if boussinesq else 2
     top = _top(rng)
-    sim_id = sim_id_of(kind)
-    registered = catalog.register_simulation(
-        sim_id,
-        project="derived-reference",
-        solver="boussinesq" if boussinesq else "modflow6",
-        n_cells=N_CELLS,
-        n_layers=n_layers,
-        n_timesteps=N_STEPS,
+    claim = claim_run(project, kind)
+    run_store = RunStore.open(
+        claim.run_dir,
+        facts=facts_of(
+            claim,
+            project="derived-reference",
+            solver="boussinesq" if boussinesq else "modflow6",
+            n_cells=N_CELLS,
+            n_layers=n_layers,
+            n_timesteps=N_STEPS,
+        ),
+        persistence=PersistenceConfig(field_precision="exact"),
+        workspace=project,
     )
-    registered.zarr.close()
+    run_store.create_zarr(n_cells=N_CELLS, n_layers=n_layers)
     # Without a top, the surface is z_interfaces[0]: put it where some heads reach it.
     surface = top.mean() if kind == "no_route" else top.max() + 1.0
     z_interfaces = surface - 10.0 * np.arange(n_layers + 1)
     head = _heads(rng, top, n_layers)
     budget = _budget(rng, n_layers, solver_terms=not boussinesq)
 
-    store = catalog.open_zarr(sim_id)
+    store = run_store.open_zarr(run_store.sim_id)
     try:
         if boussinesq:
             store.write_topography(top, z_interfaces=z_interfaces, n_cells=N_CELLS, n_layers=1)
@@ -211,4 +217,4 @@ def build_store(kind: str, catalog) -> str:
             store.write_field_stack("concentration", concentration)
     finally:
         store.close()
-    return sim_id
+    return run_store

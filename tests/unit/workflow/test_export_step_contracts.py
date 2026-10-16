@@ -12,40 +12,33 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
 
 
-class _RecordingStore:
-    def __init__(self) -> None:
-        self.finalize_calls: list[dict[str, object]] = []
-        self.close_calls = 0
+@pytest.fixture
+def sealed(tmp_path):
+    """Return a factory of contexts naming a sealed run directory."""
+    from tests.unit.results._run_record_factory import make_record
 
-    def finalize(self, sim_id: str, *, status: str) -> None:
-        self.finalize_calls.append({"sim_id": sim_id, "status": status})
+    def make(*, duration_s: float | None = 42.0, nse: float | None = 0.4567) -> SimpleNamespace:
+        record = make_record()
+        run = record.run.model_copy(update={"name": "nancon_step1", "duration_s": duration_s})
+        score = None if nse is None else record.score.model_copy(update={"value": nse})
+        run_dir = tmp_path / "runs" / "nancon_step1"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        make_record(run=run, score=score).write(run_dir)
+        return SimpleNamespace(
+            sim_id="0123456789abcdef", run_dir=run_dir, cfg=SimpleNamespace(export=[])
+        )
 
-    def close(self) -> None:
-        self.close_calls += 1
-
-
-def test_step_seal_store_finalizes_through_the_handle_it_was_given() -> None:
-    store = _RecordingStore()
-    ctx = SimpleNamespace(sim_id="sim-123")
-
-    export_module.step_seal_store(ctx, store=store, wall_seconds=12.5, status="failed")
-
-    assert store.finalize_calls == [{"sim_id": "sim-123", "status": "failed"}]
-    # Sealing does not close: the scope that opened the handle owns its end.
-    assert store.close_calls == 0
+    return make
 
 
 def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) -> None:
     calls: list[tuple[str, object, bool | None]] = []
 
-    def fail_save(*_args, **_kwargs) -> None:
-        raise AssertionError("step_save_run_artifacts should not run without an index")
-
     def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
         del spare
         calls.append(("cleanup", ctx, keep_solver_files))
 
-    monkeypatch.setattr(export_module, "step_save_run_artifacts", fail_save)
+    monkeypatch.setattr(export_module, "run_store", _refuse_the_store)
     monkeypatch.setattr(export_module, "step_cleanup_scratch", fake_cleanup)
     results_cfg = SimpleNamespace(
         keep_solver_files=True, persistence=SimpleNamespace(save_catalog=False)
@@ -65,17 +58,18 @@ def test_an_uncatalogued_run_skips_store_work_but_cleans_scratch(monkeypatch) ->
     assert advanced.get("ctx") is ctx
 
 
-def test_a_lightweight_run_never_opens_the_index(monkeypatch) -> None:
-    calls: list[str] = []
+def _refuse_the_store(_ctx):
+    raise AssertionError("this run must not open its store")
 
-    def fail_open(_ctx):
-        raise AssertionError("a lightweight run must not open the index")
+
+def test_a_lightweight_run_never_opens_its_store(monkeypatch) -> None:
+    calls: list[str] = []
 
     def fake_cleanup(ctx, *, keep_solver_files: bool, spare=()) -> None:
         del spare
         calls.append(f"cleanup:{keep_solver_files}")
 
-    monkeypatch.setattr(export_module, "run_catalog", fail_open)
+    monkeypatch.setattr(export_module, "run_store", _refuse_the_store)
     monkeypatch.setattr(export_module, "step_cleanup_scratch", fake_cleanup)
     results_cfg = SimpleNamespace(
         keep_solver_files=False, persistence=SimpleNamespace(save_catalog=True)
@@ -127,20 +121,6 @@ def test_export_artifacts_filters_to_existing_workspace_relative_paths(tmp_path:
     assert export_module.ExportStep().artifacts(state) == ("exports/head.parquet",)
 
 
-class _IndexedStore(_RecordingStore):
-    """A store whose index answers the two questions the recap asks."""
-
-    def __init__(self, duration_s: float | None = 42.0) -> None:
-        super().__init__()
-        self._duration_s = duration_s
-        self.backend = SimpleNamespace(fetch_one=self._fetch_one)
-
-    def _fetch_one(self, sql: str, _params: list) -> tuple | None:
-        if "FROM simulations" in sql:
-            return ("nancon_step1", self._duration_s)
-        return (0.4567,)
-
-
 def _recap_lines(caplog) -> list[str]:
     return [
         r.getMessage()
@@ -149,56 +129,44 @@ def _recap_lines(caplog) -> list[str]:
     ]
 
 
-def test_the_run_recap_waits_for_the_export_phase_to_close(caplog) -> None:
-    """Package and cleanup run after the seal: the recap must come after them."""
+def test_the_run_recap_waits_for_the_export_phase_to_close(caplog, sealed) -> None:
+    """The views and the cleanup run after the seal: the recap comes after them."""
     from hydromodpy.core import progress
 
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    store = _IndexedStore()
-    ctx = SimpleNamespace(sim_id="0123456789abcdef")
-    with progress.phase("export"):
-        export_module.step_seal_store(ctx, store=store, wall_seconds=42.0)
+    ctx = sealed()
+    with progress.phase("seal"):
+        export_module.step_after_seal(ctx, wall_seconds=42.0)
         assert _recap_lines(caplog) == []
-        get_logger("hydromodpy.test").info("package written")
+        get_logger("hydromodpy.test").info("views written")
     lines = _recap_lines(caplog)
     assert lines == [
         "Run completed: nancon_step1 [01234567] 42s nse=0.46",
-        "next: hmp catalog show nancon_step1 | hmp catalog diff nancon_step1 <other> "
+        "next: hmp catalog show nancon_step1 | hmp publish nancon_step1 --to <folder> "
         "| hmp export nancon_step1 --list",
     ]
     messages = [r.getMessage() for r in caplog.records]
-    assert messages.index("package written") < messages.index(lines[0])
+    assert messages.index("views written") < messages.index(lines[0])
 
 
-def test_the_run_recap_prints_at_once_outside_a_phase(caplog) -> None:
+def test_the_run_recap_prints_at_once_outside_a_phase(caplog, sealed) -> None:
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_seal_store(
-        SimpleNamespace(sim_id="0123456789abcdef"),
-        store=_IndexedStore(duration_s=None),
-        wall_seconds=0.0,
-    )
+    export_module.step_after_seal(sealed(duration_s=None))
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] nse=0.46"
 
 
-def test_the_recap_duration_is_the_catalogs_wall_time_not_the_solver_step_time(
-    caplog,
-) -> None:
-    """D14d: wall_seconds only times run_solver and undercounts the run.
+def test_the_recap_duration_is_the_seals_wall_time_not_the_solver_step_time(caplog, sealed) -> None:
+    """wall_seconds only times run_solver and undercounts the run.
 
-    ``finalize`` has already stamped ``simulations.duration_s`` from
-    ``started_at``/``ended_at`` - the same figure the catalog reports - and
-    the recap must print that, not the much shorter solver-only timer.
+    The seal carries ``duration_s`` from ``started_at``/``ended_at``, the
+    figure the catalog reports; the recap prints that, not the solver timer.
     """
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_seal_store(
-        SimpleNamespace(sim_id="0123456789abcdef"),
-        store=_IndexedStore(duration_s=26.0),
-        wall_seconds=6.0,
-    )
+    export_module.step_after_seal(sealed(duration_s=26.0), wall_seconds=6.0)
     assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 26s nse=0.46"
 
 
-def test_a_recap_the_index_cannot_answer_is_skipped(caplog) -> None:
+def test_a_run_without_a_score_says_no_nse(caplog, sealed) -> None:
     caplog.set_level(logging.INFO, logger="hydromodpy")
-    export_module.step_seal_store(SimpleNamespace(sim_id="sim-123"), store=_RecordingStore())
-    assert _recap_lines(caplog) == []
+    export_module.step_after_seal(sealed(nse=None), wall_seconds=3.0)
+    assert _recap_lines(caplog)[0] == "Run completed: nancon_step1 [01234567] 42s"

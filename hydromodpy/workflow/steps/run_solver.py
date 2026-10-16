@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
+from hydromodpy.workflow.run_store import run_is_persisted, run_store
 
 if TYPE_CHECKING:
     from hydromodpy.workflow.launcher_protocol import Launcher
@@ -48,12 +48,12 @@ class RunSolverStep:
         from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
 
         ctx = state.get("ctx")
-        if ctx is None or not run_is_catalogued(ctx):
+        if ctx is None or not run_is_persisted(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
-        if not sim_id:
+        if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
-        with run_catalog(ctx) as store:
+        with run_store(ctx) as store:
             return _store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(
@@ -65,28 +65,21 @@ class RunSolverStep:
     ) -> PipelineState:
         """Rebuild the state without re-running the solver.
 
-        Reads ``runs_environment.duration_s`` from the catalog to restore
-        ``wall_seconds``. ``solver_result`` stays ``None``: downstream steps
-        (extract, derive, export) read directly from the Zarr / solver
-        workdir and do not need a live :class:`RunResult` object.
+        ``wall_seconds`` is read back from the runtime metrics the solve
+        recorded in the facts of the run. ``solver_result`` stays ``None``:
+        downstream steps (extract, derive, export) read directly from the
+        Zarr / solver workdir and do not need a live :class:`RunResult` object.
         """
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("RunSolverStep.rebuild_state requires 'ctx' in state.data")
         wall_seconds: float | None = None
         sim_id = getattr(ctx, "sim_id", None)
-        if sim_id is not None and run_is_catalogued(ctx):
-            with run_catalog(ctx) as store:
-                try:
-                    row = store.backend.fetch_one(
-                        "SELECT duration_s FROM runs_environment WHERE sim_id = ? "
-                        "ORDER BY recorded_at DESC LIMIT 1",
-                        [sim_id],
-                    )
-                except Exception:
-                    row = None
-            if row is not None and row[0] is not None:
-                wall_seconds = float(row[0])
+        if sim_id is not None and run_is_persisted(ctx) and getattr(ctx, "run_dir", None):
+            with run_store(ctx) as store:
+                for row in store.facts.metrics:
+                    if row.variable == "runtime" and row.metric == "duration_s":
+                        wall_seconds = row.value
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -118,11 +111,11 @@ class RunSolverStep:
 
         t0 = time.monotonic()
         launcher = self.launcher if self.launcher is not None else SimulationRunner()
-        if run_is_catalogued(ctx):
+        if run_is_persisted(ctx):
             # One handle for the whole solve: the adapters reach the run's
-            # catalog through the ``RunContext`` the launcher builds, and the
+            # store through the ``RunContext`` the launcher builds, and the
             # metrics of every executed run are written before it closes.
-            with run_catalog(ctx) as store:
+            with run_store(ctx) as store:
                 executed_results = (
                     launcher.execute(plan, ctx, callbacks=callbacks, store=store) or ()
                 )

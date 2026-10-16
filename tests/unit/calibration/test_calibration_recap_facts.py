@@ -1,25 +1,19 @@
 """The facts the console recap of a calibration reads off the run.
 
 The CLI cannot reach the configuration, so the runner records the unit of each
-parameter, the metric the cost is and the session folder, and writes the
-methods paragraph to a file the recap names.
+parameter and the metric the cost is, and writes the methods paragraph to a
+file of the session the recap names.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from types import SimpleNamespace
-
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.recap import (
-    METHODS_FILENAME,
     cost_metric_label,
     parameter_units,
-    session_directory,
     write_methods,
 )
-from hydromodpy.results.session_journal import session_dir_name, sessions_dir_for
+from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 
 _PARAMETERS = {
     "K": {
@@ -53,33 +47,8 @@ def test_each_parameter_carries_its_declared_unit() -> None:
     assert parameter_units(_cfg()) == {"K": "m/s", "Sy": "-"}
 
 
-def test_the_session_folder_is_found_by_its_short_id(tmp_path) -> None:
-    session_id = "099012a076844fd1bd4801166063392c"
-    folder = sessions_dir_for(tmp_path) / session_dir_name(
-        session_id, "bisection", datetime(2026, 9, 28, 3, 38, 25, tzinfo=UTC)
-    )
-    folder.mkdir(parents=True)
-    (folder / "session.json").write_text("{}", encoding="utf-8")
-
-    assert session_directory(tmp_path, session_id) == folder
-    assert session_directory(tmp_path, "ffffffff") is None
-
-
-def test_the_methods_paragraph_is_written_beside_the_root_session(tmp_path) -> None:
-    session_id = "099012a076844fd1bd4801166063392c"
-    folder = sessions_dir_for(tmp_path) / f"20260928-033825-bisection-{session_id[:8]}"
-    folder.mkdir(parents=True)
-    (folder / "session.json").write_text("{}", encoding="utf-8")
-    runs = [SimpleNamespace(report=SimpleNamespace(workspace=tmp_path))]
-
-    path = staged_runner._write_methods_beside_the_root(runs, session_id, "Hydraulic ...")
-
-    assert path == folder / METHODS_FILENAME
-    assert path.read_text(encoding="utf-8") == "# Methods\n\nHydraulic ...\n"
-    assert staged_runner._write_methods_beside_the_root(runs, session_id, None) is None
-
-
 def test_write_methods_returns_the_file_it_wrote(tmp_path) -> None:
     path = write_methods(tmp_path, "  text  ")
 
+    assert path == tmp_path / SESSION_METHODS_FILENAME
     assert path.read_text(encoding="utf-8") == "# Methods\n\ntext\n"

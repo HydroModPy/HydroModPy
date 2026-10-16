@@ -6,8 +6,9 @@ written into the run directory by ``prepare_solver``, step six, so a run that
 died while building its model left no resolved configuration anywhere, and a
 resume refused with "the configuration changed" without being able to say what.
 
-``validate`` now writes the payload that digest is taken over, beside the
-manifest, and declares it. The refusal names the sections that moved.
+``validate`` writes the payload that digest is taken over, beside the
+manifest under ``<run>/.hmp/checkpoints/``, and declares it. The refusal names
+the sections that moved.
 """
 
 from __future__ import annotations
@@ -25,14 +26,24 @@ from pydantic import BaseModel
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import PER_RUN_CONFIG_KEYS
+from hydromodpy.core.state.paths import (
+    INTERNAL_DIRNAME,
+    PER_RUN_CONFIG_KEYS,
+    RUN_INTERNAL_CHECKPOINTS_DIRNAME,
+)
 from hydromodpy.workflow.internals.state import PipelineState
 
 logger = get_logger(__name__)
 
 SCHEMA_VERSION = "hydromodpy.resolved_run_manifest.v1"
+RESOLVED_MANIFEST_FILENAME = "resolved_manifest.json"
 RESOLVED_CONFIG_FILENAME = "resolved_config.json"
 RESOLVED_CONFIG_SCHEMA = "hydromodpy.resolved_config.v1"
+
+
+def checkpoints_dir(run_dir: Path) -> Path:
+    """Return ``<run>/.hmp/checkpoints``, the attempt state the documents live in."""
+    return Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_CHECKPOINTS_DIRNAME
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,8 +86,8 @@ class ResolvedRunManifest:
         )
 
     @classmethod
-    def read(cls, workspace: Path, run_id: str) -> ResolvedRunManifest | None:
-        path = cls.path_for(workspace, run_id)
+    def read(cls, run_dir: Path) -> ResolvedRunManifest | None:
+        path = cls.path_for(run_dir)
         if not path.is_file():
             return None
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -94,11 +105,11 @@ class ResolvedRunManifest:
         )
 
     @staticmethod
-    def path_for(workspace: Path, run_id: str) -> Path:
-        return Path(workspace) / ".hmp" / "checkpoints" / str(run_id) / "resolved_manifest.json"
+    def path_for(run_dir: Path) -> Path:
+        return checkpoints_dir(run_dir) / RESOLVED_MANIFEST_FILENAME
 
-    def write_atomic(self, workspace: Path) -> Path:
-        path = self.path_for(workspace, self.run_id)
+    def write_atomic(self, run_dir: Path) -> Path:
+        path = self.path_for(run_dir)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(
@@ -113,15 +124,15 @@ class ResolvedRunManifest:
         state: PipelineState,
         steps: Sequence[object],
         *,
-        workspace: Path | None = None,
+        run_dir: Path | None = None,
     ) -> None:
         """Raise :class:`ResumeError` when the checkpoint cannot drive this run.
 
         The step sequences must agree on their common prefix; a shorter one is
         a partial execution (``--until``), not a divergence. The recorded
         ``workspace`` is provenance only: the manifest is read from inside the
-        project it belongs to, so a project that was moved or copied still
-        resumes. ``workspace`` names where to look for the resolved
+        run it belongs to, so a project that was moved or copied still
+        resumes. ``run_dir`` names where to look for the resolved
         configuration this manifest signs, so the refusal can say which
         sections moved instead of only that something did.
         """
@@ -140,7 +151,7 @@ class ResolvedRunManifest:
         config_payload = _state_config_payload(state)
         if config_payload and self.config_sha256 is not None:
             current_hash = _sha256_payload(config_payload)
-            stored = read_resolved_config(workspace, self.run_id) if workspace else None
+            stored = read_resolved_config(run_dir) if run_dir is not None else None
             if current_hash != self.config_sha256 and not self._signs_the_same_config(
                 stored, config_payload
             ):
@@ -186,9 +197,9 @@ class ResolvedRunManifest:
         )
 
 
-def resolved_config_path(workspace: Path, run_id: str) -> Path:
+def resolved_config_path(run_dir: Path) -> Path:
     """Return where a run keeps the resolved configuration it was launched on."""
-    return Path(workspace) / ".hmp" / "checkpoints" / str(run_id) / RESOLVED_CONFIG_FILENAME
+    return checkpoints_dir(run_dir) / RESOLVED_CONFIG_FILENAME
 
 
 def state_config_payload(state: PipelineState) -> Any:
@@ -196,7 +207,7 @@ def state_config_payload(state: PipelineState) -> Any:
     return _state_config_payload(state)
 
 
-def write_resolved_config(workspace: Path, run_id: str, payload: Any) -> Path | None:
+def write_resolved_config(run_dir: Path, run_id: str, payload: Any) -> Path | None:
     """Write the resolved configuration of a run, atomically, best-effort.
 
     A configuration that cannot be written is still a usable configuration for
@@ -204,7 +215,7 @@ def write_resolved_config(workspace: Path, run_id: str, payload: Any) -> Path | 
     read it back, which is exactly what the declaration says when it comes back
     empty.
     """
-    path = resolved_config_path(workspace, run_id)
+    path = resolved_config_path(run_dir)
     document = {"schema": RESOLVED_CONFIG_SCHEMA, "config": _json_ready(payload)}
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,9 +228,9 @@ def write_resolved_config(workspace: Path, run_id: str, payload: Any) -> Path | 
     return path
 
 
-def read_resolved_config(workspace: Path, run_id: str) -> Any | None:
+def read_resolved_config(run_dir: Path) -> Any | None:
     """Return the resolved configuration a run was launched on, or None."""
-    path = resolved_config_path(workspace, run_id)
+    path = resolved_config_path(run_dir)
     if not path.is_file():
         return None
     try:
@@ -276,10 +287,10 @@ def _step_name(step: object) -> str:
 def _strip_observability_keys(payload: Any) -> Any:
     """Drop config keys that never change what the run computes.
 
-    ``workflow.profile`` only observes the run. The per-run scratch folder
-    (``PER_RUN_CONFIG_KEYS``) carries the process id and the run label, so a
-    resume in another process, or under another label, names another folder.
-    Neither may invalidate an existing checkpoint.
+    ``workflow.profile`` only observes the run. ``PER_RUN_CONFIG_KEYS`` names
+    the project root, filled from where the project sits on disk: a project
+    moved or copied elsewhere resumes the same run. Neither may invalidate an
+    existing checkpoint.
     """
     if not isinstance(payload, Mapping):
         return payload
@@ -361,8 +372,10 @@ def _string_or_none(value: object) -> str | None:
 __all__ = [
     "RESOLVED_CONFIG_FILENAME",
     "RESOLVED_CONFIG_SCHEMA",
+    "RESOLVED_MANIFEST_FILENAME",
     "SCHEMA_VERSION",
     "ResolvedRunManifest",
+    "checkpoints_dir",
     "config_sections_that_moved",
     "read_resolved_config",
     "resolved_config_path",

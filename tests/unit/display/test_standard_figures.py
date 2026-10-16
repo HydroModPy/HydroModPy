@@ -28,16 +28,6 @@ from hydromodpy.display.figures.water_budget import WaterBudget, _budget_unit_la
 from hydromodpy.display.png_metadata import read_png_metadata
 
 
-class _CatalogBackend:
-    def query(self, sql, params):
-        del sql, params
-        return pd.DataFrame({"crs_epsg": [2154]})
-
-
-class _Catalog:
-    backend = _CatalogBackend()
-
-
 class _Run:
     def __init__(
         self,
@@ -51,7 +41,6 @@ class _Run:
         self._sim_id = sim_id
         self.name = name
         self.n_timesteps = 3
-        self._catalog = _Catalog()
         self.mesh = SimpleNamespace(
             vertices=np.asarray(
                 [
@@ -71,6 +60,10 @@ class _Run:
             index=pd.date_range("2020-01-01", periods=6, freq="D"),
             name="discharge",
         )
+
+    def _load_row(self) -> dict:
+        """The simulations row of the run, as the seal records it."""
+        return {"crs_epsg": 2154}
 
     def timeseries(self, variable: str, *, station: str = "_catchment") -> pd.Series:
         if variable != "discharge" or station != "_catchment":

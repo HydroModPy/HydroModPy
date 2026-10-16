@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from hydromodpy.workflow.site_selection import plan_site_selection
+from hydromodpy.spatial.site_selection.runner import plan_site_selection
 
 
 @pytest.mark.fast
@@ -47,7 +47,6 @@ def test_plan_site_selection_loads_toml_and_resolves_paths(tmp_path):
     assert plan.manifest["strategy"]["effective_profile"] == "area_only"
     assert plan.manifest["criteria"]["area_mode"] == "hard_reject"
     assert "selected" in plan.manifest["planned_outputs"]
-    assert "regional_lab_csv" in plan.manifest["planned_outputs"]
     assert "geoparquet" not in plan.manifest["planned_outputs"]
     assert "report_md" not in plan.manifest["planned_outputs"]
     assert "report_html" not in plan.manifest["planned_outputs"]

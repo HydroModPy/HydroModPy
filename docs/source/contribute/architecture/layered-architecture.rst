@@ -58,7 +58,7 @@ Special layers
 --------------
 
 ``catalog``
-   Public V1 facade over cache, project catalog and global index. It may import
+   Public V1 facade over cache and project catalog. It may import
    ``data`` and ``results`` to wrap their stores. The reverse edge is forbidden.
 
 ``project``

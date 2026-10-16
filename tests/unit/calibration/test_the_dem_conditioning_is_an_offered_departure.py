@@ -111,7 +111,7 @@ class TestTheCheckReadsWhatTheFileWrote:
     def test_a_written_breach_is_reported(self) -> None:
         from types import SimpleNamespace
 
-        from hydromodpy.cli.commands.calibrate import _values_this_file_set
+        from hydromodpy.calibration.preflight import _values_this_file_set
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
         cfg = SimpleNamespace(
@@ -124,7 +124,7 @@ class TestTheCheckReadsWhatTheFileWrote:
     def test_the_default_left_unwritten_is_not_reported(self) -> None:
         from types import SimpleNamespace
 
-        from hydromodpy.cli.commands.calibrate import _values_this_file_set
+        from hydromodpy.calibration.preflight import _values_this_file_set
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
         geographic = GeographicConfig.model_construct(crs_project="EPSG:2154")

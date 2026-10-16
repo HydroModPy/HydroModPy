@@ -16,13 +16,13 @@ Three public entry points:
   artefacts are written, extract the objective in RAM, and return a
   :class:`TrialResult`.
 - :func:`promote_prepared_trial` - run the persistent downstream pipeline
-  from the prepared context, writing Zarr + Parquet + catalog rows for
-  the top-N iterations without repeating setup work. Given the solve a
-  trial kept, it reads that solve instead of solving again.
+  from the prepared context, writing the run of one trial into the
+  directory the promotion reserved, without repeating setup work. Given
+  the solve a trial kept, it reads that solve instead of solving again.
 
 The storage contract is strict: ``run_trial_light`` never writes to the
-store. Only promotion creates simulation artefacts. A trial the session
-may promote leaves its solver folder in the run scratch
+store. Only promotion creates run artefacts. A trial the session may
+promote leaves its solver folder in the run scratch
 (:mod:`~hydromodpy.calibration.runners.kept_solves`).
 
 Workflow access goes through :func:`get_trial_pipeline_provider` so the
@@ -47,7 +47,6 @@ from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
-    get_trial_promotion_provider,
 )
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
@@ -65,6 +64,8 @@ from hydromodpy.core.state.execution import ExecutionRegistry
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
+    from hydromodpy.results.checks import CalibratedBy
+    from hydromodpy.results.lineage import Lineage
 
 
 logger = get_logger(__name__)
@@ -459,9 +460,9 @@ def run_trial_light(
     provider = get_trial_pipeline_provider()
     base_setup = getattr(getattr(trial_ctx, "ctx", None), "setup", None)
     base_model_name = str(getattr(base_setup, "run_id", "") or "trial") or "trial"
-    _scratch = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
+    scratch_root = getattr(getattr(base_setup, "workspace", None), "solver_scratch_folder", None)
     sandbox = (
-        TrialSandbox(base_model_name, trial_id, solver_scratch_folder=_scratch)
+        TrialSandbox(base_model_name, trial_id, scratch_root=scratch_root)
         if trial_id is not None
         else None
     )
@@ -614,9 +615,10 @@ def promote_prepared_trial(
     values: Mapping[str, float],
     *,
     name: str | None = None,
-    tags: Sequence[str] = (),
-    session_id: str | None = None,
     sim_id: str | None = None,
+    run_dir: Path | None = None,
+    lineage: Lineage | None = None,
+    calibrated_by: CalibratedBy | None = None,
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
     keep_per_cell_budget: bool | None = None,
@@ -624,14 +626,18 @@ def promote_prepared_trial(
     """Run a full promoted simulation from an already prepared trial context.
 
     ``sim_id`` reserves the id of the promoted run instead of letting the
-    pipeline mint one. A caller can then write everything keyed on that id
-    before the run reaches its last step, which renders the figures.
+    pipeline mint one. ``run_dir`` is the directory the promotion reserved for
+    the run (``runs/<case>`` paired with the session, or a kept trial under
+    ``sessions/<case>/trials/<n>``): the pipeline is built on it and writes
+    the run there. ``lineage`` and ``calibrated_by`` are the blocks of its
+    seal that name the session, the phase and the trial; they travel in the
+    pipeline state under their own names, where the run steps read them.
 
-    ``kept`` is the solve the trial of ``values`` left on disk. The run is then
-    registered as usual and goes on from extraction on that solve: the solver
-    step hands it over instead of writing inputs and solving, so the store, the
-    tables, the figures and the seal are those a replay writes. The run is
-    tagged ``promoted_from_trial:<id>``. Without it, the run is solved again.
+    ``kept`` is the solve the trial of ``values`` left on disk. The run then
+    goes on from extraction on that solve: the solver step hands it over
+    instead of writing inputs and solving, so the store, the tables, the
+    figures and the seal are those a replay writes. Without it, the run is
+    solved again.
 
     ``spared`` names the solver folders of other kept trials, which the export
     step of this run must leave in the run scratch for their own promotion.
@@ -663,6 +669,8 @@ def promote_prepared_trial(
             "raw_toml": dict(forked.raw_toml),
             "ctx": ctx,
             "skip_display": False,
+            "lineage": lineage,
+            "calibrated_by": calibrated_by,
             # The geographic preprocessing tree is shared by every promotion of
             # the session. Dropped by the export step of the first one, it left
             # the next ones with no watershed to ingest, so their catchment
@@ -682,11 +690,7 @@ def promote_prepared_trial(
     if kept is not None:
         downstream_slice = provider.with_solver_launcher(downstream_slice, KeptSolveLauncher(kept))
 
-    try:
-        final = provider.make_pipeline(downstream_slice).run(state)
-    except Exception:
-        _finalize_failed_context(ctx)
-        raise
+    final = provider.make_pipeline(downstream_slice, run_dir=run_dir).run(state)
 
     final_ctx = final.get("ctx") if final is not None else None
     produced = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -697,94 +701,7 @@ def promote_prepared_trial(
             f"Promoted run took the id {produced} instead of the reserved {sim_id}; "
             "everything written against the reservation would name another run."
         )
-
-    tag_list: list[str] = list(tags)
-    if session_id:
-        tag_list.append(f"calibration:{session_id}")
-    if kept is not None:
-        tag_list.append(f"promoted_from_trial:{kept.trial_id}")
-    if tag_list:
-        _attach_tags_to_simulation(final_ctx, produced, tag_list)
-
     return str(produced)
-
-
-def promote_trial(
-    cfg_path: Path | str,
-    values: Mapping[str, float],
-    *,
-    paths: Mapping[str, str] | None = None,
-    name: str | None = None,
-    tags: Sequence[str] = (),
-    session_id: str | None = None,
-) -> str:
-    """Run the full simulation pipeline with calibration values baked in.
-
-    Delegates to the registered promotion provider, which deep-copies the
-    simulation config with
-    ``values`` injected via their dotted ``paths``, runs the full plan,
-    and returns the resulting ``sim_id``. Zarr + Parquet + catalog rows
-    are written exactly like a normal ``hmp run``.
-
-    Parameters
-    ----------
-    cfg_path
-        Path to the TOML that was used for calibration.
-    values
-        Parameter sample to bake into the promoted run.
-    paths
-        Parameter name → dotted config path mapping. When omitted the
-        caller must have already configured the values via
-        ``Project.simulate(**values)`` conventions (flat Flow.parameters).
-    name
-        Run name (falls back to ``"promoted_<short sid>"``).
-    tags
-        Extra tags, usually including ``"calibration:<session_id>"``.
-    session_id
-        Optional calibration session UUID; added as
-        ``"calibration:<sid>"`` tag when supplied.
-    """
-    provider = get_trial_promotion_provider()
-    return provider.promote_trial(
-        cfg_path,
-        values,
-        paths=paths,
-        name=name,
-        tags=tags,
-        session_id=session_id,
-    )
-
-
-def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence[str]) -> None:
-    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
-    if workspace is None:
-        return
-    from hydromodpy.results.catalog import Catalog
-
-    with Catalog.from_workspace(workspace) as catalog:
-        writer = getattr(catalog, "write_tags", None)
-        if callable(writer):
-            writer(sim_id, list(tags))
-
-
-def _finalize_failed_context(ctx: WorkflowContext) -> None:
-    """Mark the run this context was driving as failed, if it has a row.
-
-    Gated on the same persistence switch the run wrote under: opening the
-    index here for a run that never registered would create the very file
-    ``save_catalog = false`` says not to write.
-    """
-    from hydromodpy.results.catalog import Catalog
-
-    sim_id = getattr(ctx, "sim_id", None)
-    workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
-    if sim_id is None or workspace is None or ctx.execution.lightweight:
-        return
-    persistence = ctx.cfg.simulation.results.persistence
-    if not persistence.save_catalog:
-        return
-    with Catalog.from_workspace(workspace, persistence=persistence) as catalog:
-        catalog.finalize(sim_id, status="failed")
 
 
 def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:
@@ -805,5 +722,4 @@ __all__ = (
     "prepare_trials",
     "run_trial_light",
     "promote_prepared_trial",
-    "promote_trial",
 )

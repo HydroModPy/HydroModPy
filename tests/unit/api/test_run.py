@@ -95,7 +95,7 @@ def test_run_with_config_object_uses_project(monkeypatch, tmp_path: Path) -> Non
     monkeypatch.setattr("hydromodpy._api._open_run", fake_open_run)
 
     fake_cfg = _fake_cfg(tmp_path)
-    result = hmp.run(fake_cfg, name="alpha", headless=True, no_lock=True)
+    result = hmp.run(fake_cfg, name="alpha", headless=True)
     assert result is rebound
     assert opened["args"] == (tmp_path, "sim-001")
     assert captured["init_cfg"] is fake_cfg
@@ -116,7 +116,7 @@ def test_a_finished_run_without_a_readable_catalog_raises(monkeypatch, tmp_path:
         ),
     )
     with pytest.raises(CatalogError, match="finished, but the catalog"):
-        hmp.run(_fake_cfg(tmp_path / "nowhere"), name="x", no_lock=True)
+        hmp.run(_fake_cfg(tmp_path / "nowhere"), name="x")
 
 
 def test_force_is_not_a_parameter_override(monkeypatch, tmp_path: Path) -> None:
@@ -128,7 +128,7 @@ def test_force_is_not_a_parameter_override(monkeypatch, tmp_path: Path) -> None:
         ),
     )
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
-    hmp.run(_fake_cfg(tmp_path, name="x"), force=True, no_lock=True)
+    hmp.run(_fake_cfg(tmp_path, name="x"), force=True)
     assert captured["verb_kwargs"] == {}
 
 
@@ -152,14 +152,14 @@ def test_an_identical_completed_run_is_returned_not_recomputed(monkeypatch, tmp_
     )
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), no_lock=True) == "old-sim"
+    assert hmp.run(_fake_cfg(tmp_path, name="x")) == "old-sim"
     assert asked["name"] == "x"
     assert "verb_kwargs" not in captured
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), force=True, no_lock=True) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), force=True) == "new"
     # A parameter override is another run: never skipped.
     captured.clear()
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5, no_lock=True) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), K=1e-5) == "new"
     assert captured["verb_kwargs"] == {"K": 1e-5}
 
 
@@ -178,7 +178,7 @@ def test_a_path_takes_a_name_and_refuses_an_override(monkeypatch, tmp_path: Path
     monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: (root, sid))
 
-    assert hmp.run(config, name="x", no_lock=True) == (str(tmp_path), "sid")
+    assert hmp.run(config, name="x") == (str(tmp_path), "sid")
     assert captured["kwargs"] == {"name": "x"}
 
     with pytest.raises(TypeError, match="takes no parameter override"):
@@ -201,5 +201,5 @@ def test_a_step_zero_window_is_never_skipped(monkeypatch, tmp_path: Path, window
     )
     monkeypatch.setattr("hydromodpy._api._open_run", lambda root, sid: sid)
 
-    assert hmp.run(_fake_cfg(tmp_path, name="x"), no_lock=True, **window) == "new"
+    assert hmp.run(_fake_cfg(tmp_path, name="x"), **window) == "new"
     assert captured["verb_kwargs"] == window

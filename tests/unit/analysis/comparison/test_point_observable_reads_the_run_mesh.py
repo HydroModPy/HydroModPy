@@ -22,7 +22,7 @@ class _Handle:
 
 
 class _Store:
-    """The part of a Catalog the lookup uses: ``open_zarr``."""
+    """The part of a RunSource the lookup uses: ``open_zarr``."""
 
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -87,6 +87,6 @@ def test_a_size_mismatch_is_not_taken(tmp_path: Path) -> None:
 def test_a_run_without_fields_gives_none() -> None:
     class _Empty:
         def open_zarr(self, sim_id: str):
-            raise KeyError(sim_id)
+            raise FileNotFoundError(sim_id)
 
     assert cells_from_run_mesh(_Empty(), "missing") is None

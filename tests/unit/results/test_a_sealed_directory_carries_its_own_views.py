@@ -1,9 +1,9 @@
 """A sealed run or job directory renders its FAIR views by itself, inside itself.
 
-The three exporters used to need the catalog, and wrote under ``share/``,
-outside the directory the contract calls the run. These tests build each
-profile by hand, with no workspace and no index, and check that the views
-land beside the seal, resolve against it, and say only what it says.
+A view renders the directory alone: there is no catalog context to build
+from. These tests build each profile by hand, with no workspace and no
+index, and check that the views land beside the seal, resolve against it,
+and say only what it says.
 """
 
 from __future__ import annotations
@@ -14,10 +14,6 @@ from typing import Any
 
 import pytest
 
-import hydromodpy.results.export.context as context_module
-import hydromodpy.results.export.prov as prov_module
-import hydromodpy.results.export.rocrate as rocrate_module
-import hydromodpy.results.export.stac as stac_module
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.export import (
     context_from_directory,
@@ -52,17 +48,6 @@ JOB_ID = "sha256:" + "7" * 64
 SEALED_AT = "2026-09-11T00:40:16.903833+00:00"
 # The Nancon catchment in Lambert-93, as a real run seal records it.
 NANCON_BBOX_L93 = [385087.5, 6814387.5, 396862.5, 6827287.5]
-
-
-@pytest.fixture(autouse=True)
-def _no_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fail loudly if any view reaches for the catalog constructor."""
-
-    def _refuse(*_args: Any, **_kwargs: Any) -> None:
-        raise AssertionError("a directory view must not build a catalog context")
-
-    for module in (context_module, prov_module, rocrate_module, stac_module):
-        monkeypatch.setattr(module, "build_context", _refuse)
 
 
 def _run_directory(

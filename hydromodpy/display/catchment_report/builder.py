@@ -1,4 +1,4 @@
-"""Generic catchment report assembly."""
+"""Generic catchment report assembly, written under ``report/`` of the run it describes."""
 
 from __future__ import annotations
 
@@ -31,10 +31,12 @@ from hydromodpy.display.catchment_report.presets import (
     CatchmentReportPreset,
     preset_from_name,
 )
+from hydromodpy.display.overview.location import REVIEW_DIRNAME
 from hydromodpy.display.report_blocks import (
     write_report_page,
     write_report_page_with_block_variants,
 )
+from hydromodpy.results.storage.contract import REPORT_INDEX_FILENAME, RUN_FIGURES_DIRNAME
 
 
 @dataclass(frozen=True)
@@ -99,10 +101,15 @@ class CatchmentReportConfig:
 
 
 def build_catchment_report(config: CatchmentReportConfig) -> Path:
+    """Write the report pages under ``config.output_dir``; return the standard page.
+
+    ``output_dir`` is ``report/`` of the run the report describes. The page is
+    ``report/index.html``, the review pages ``report/review/<level>/index.html``
+    and the gathered figures ``report/figures/``.
+    """
     output_dir = config.output_dir
     title = config.title or f"{config.site_label} - catchment report"
-    web_dir = output_dir / "web"
-    figures_dir = web_dir / "figures"
+    figures_dir = output_dir / RUN_FIGURES_DIRNAME
     if figures_dir.exists():
         shutil.rmtree(figures_dir)
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -148,7 +155,9 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         overview_config=config.overview_config,
     )
     geology_rows = geology_legend_rows(config.geographic_scratch, config.geology_path)
-    level_links = {level: output_dir / "web_review" / level / "index.html" for level in PAGE_MODES}
+    level_links = {
+        level: output_dir / REVIEW_DIRNAME / level / REPORT_INDEX_FILENAME for level in PAGE_MODES
+    }
     blocks_by_level = {
         level: build_blocks(
             summary=summary,
@@ -167,7 +176,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
     block_variants = block_variants_by_id(blocks_by_level)
 
     html_path = write_report_page(
-        output_path=web_dir / "index.html",
+        output_path=output_dir / REPORT_INDEX_FILENAME,
         title=title,
         subtitle=_subtitle("standard", site_label=config.site_label),
         blocks=blocks_by_level["standard"],

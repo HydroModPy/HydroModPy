@@ -3,20 +3,21 @@
 A read-only view over the input cache of a workspace. The package is one class,
 `InputsNamespace`, which answers "what did this workspace download or convert,
 and for which extent?" from `<workspace>/data/cache.duckdb`. It is exposed as
-`hmp.catalog`. This file is the map of the package, and of the two other DuckDB
-scopes people confuse it with.
+`hmp.catalog`. This file is the map of the package, and of the other DuckDB
+scope people confuse it with.
 
-## Three DuckDB scopes, three doors
+## Two DuckDB scopes, two doors, and one read without any
 
 | scope | file | door | returns |
 |---|---|---|---|
 | input cache of a workspace | `<workspace>/data/cache.duckdb` | `hydromodpy.catalog.InputsNamespace(workspace)` | `InputsNamespace` (this package) |
-| runs of a project | `<project>/.hmp/index.duckdb` | `hmp.open(...)` | `hydromodpy.results.catalog.Catalog` |
-| projects of the machine | the global index | `hmp.index(...)` | `hydromodpy.core.state.global_index.GlobalIndex` |
+| runs of a project | `<project>/.hmp/index.duckdb` | `hmp.open(...)` | `hydromodpy.results.catalog.Catalog`, read-only |
+| runs of several projects | none: the `simulation.parquet` of each run | `hydromodpy.results.catalog.read_workspace_runs(...)` | a `DataFrame` |
 
 The index of a project is derived: the run folders (`runs/`, `sessions/`) are the
-truth, and `hmp catalog reindex` rebuilds it. The `hmp catalog` CLI family works
-on the second scope, not on this package.
+truth, the indexer (`hydromodpy/results/catalog/indexer.py`) writes it, and
+`hmp catalog reindex` rebuilds it. There is no machine-wide registry. The
+`hmp catalog` CLI family works on the second scope, not on this package.
 
 ## Parts
 
@@ -36,21 +37,6 @@ inputs = InputsNamespace("~/ws")
 inputs.list(variable="recharge")
 ```
 
-## Writes to the run catalog
-
-The write surface of the run catalog is not in this package. It lives in
-`hydromodpy/results/catalog/writes_duckdb.py` (`WritesMixinDuckDB`, consumed by
-`Catalog`). Four mutators edit what a run already has. Each is audited, wrapped
-in `with_lock_retry` so concurrent CLI calls serialise, and returns early when
-`PersistenceConfig.save_catalog` is false, so one switch governs the DuckDB sink.
-
-| mutator | effect |
-|---|---|
-| `rename_simulation(sim_id, new_name)` | moves the run directory and updates the row; raises `DuplicateSimulationNameError` when the name slot or the directory is taken |
-| `remove_tag(sim_id, tag)` | drops one tag; returns `True` when a row was removed |
-| `update_parameter(sim_id, param_name, value, *, zone_id=None, unit=None, parameterization=None)` | updates an existing parameter row; raises `KeyError` when the `(sim_id, param_name, zone_id)` row is absent |
-| `remove_tracked_file(sim_id, role, canonical_path)` | drops one row of `tracked_files`; returns `True` when a row was removed |
-
 ## Import rules
 
 `catalog` imports `core`, `schema`, `data` and `results`
@@ -66,4 +52,5 @@ facade import it. The reverse edge is forbidden: `data` and `results` never impo
    `DataCatalogDuckDB`. The query itself goes in `hydromodpy/data/registry/`.
 2. **A read or a write of the run catalog.** In `hydromodpy/results/catalog/`,
    not here.
-3. **A machine-wide read.** In `hydromodpy/core/state/global_index.py`.
+3. **A read across projects.** `hydromodpy/results/catalog/federation.py`, on the
+   `simulation.parquet` files, never on an index.

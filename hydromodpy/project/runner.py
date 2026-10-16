@@ -1,23 +1,28 @@
 """Run-phase orchestration for :class:`hydromodpy.project.Project`.
 
-Holds the internal run-phase entry points backing the facade: ``run`` (the
-engine method that ``Project.simulate`` delegates to) and ``sweep``. The
-facade verb is :meth:`Project.simulate`.
+Holds the run-phase entry points backing the facade: :meth:`ProjectRunner.execute`
+runs one attempt of a case through the workflow Pipeline and returns what its
+directory says; :meth:`ProjectRunner.run` is the same followed by the index
+refresh and the :class:`~hydromodpy.results.run.Run` view ``Project.simulate``
+returns. The worker side (``hmp run``) stops at ``execute``: it never opens
+the index, the launcher indexes after it.
 
-TOML-driven workflows that do not benefit from setup-once state (overview,
-mesh, comparison) are reached through :func:`hydromodpy.run` on the
-``[workflow] mode``, not through ``Project``.
+The attempt protocol (claim of ``runs/<case>/``, pulse, outcome) is
+:mod:`hydromodpy.project.attempt`; the seal is the last step of the pipeline.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
+from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
+from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -107,7 +112,31 @@ def _model_phase_index(steps: tuple) -> int:
     return 0
 
 
+def scratch_of_resumed_run(project_root: Path, run_name: str) -> str | None:
+    """Return the scratch folder the completed steps of ``run_name`` journalled, or None.
+
+    A run journals its preprocessing under the project folder
+    ``.hmp/scratch/<run>.p<pid>/``. The resume works in that folder again, or
+    the sweep of killed runs would delete what the resume is meant to reuse.
+    The journal is read from the run directory (``runs/<name>``, the latest
+    version for a bare name), never from the index.
+    """
+    from hydromodpy.core.state.paths import run_scratch_of
+    from hydromodpy.results.storage.attempt import run_dir_for_name
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
+
+    run_dir = run_dir_for_name(Path(project_root), run_name)
+    if run_dir is None:
+        return None
+    rows = WorkflowJournal(run_dir).list_steps(run_name)
+    completed = sorted(
+        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
+    )
+    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
+
+
 def _resolve_resume_step_index(
+    run_dir: Path,
     workspace: Path,
     run_id: str,
     *,
@@ -115,34 +144,19 @@ def _resolve_resume_step_index(
 ) -> int:
     """Locate the next step index to execute for a previously interrupted run.
 
-    The workflow journal in the project index is the single source of truth:
-    when no row exists for ``run_id`` the run is treated as fresh and starts
-    from step 0.
+    The step journal under ``<run>/.hmp/checkpoints/`` is the single source of
+    truth: when no row exists for ``run_id`` the run is treated as fresh and
+    starts from step 0.
     """
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
     from hydromodpy.workflow.tracking.resume import ResumePlanner
 
-    try:
-        catalog = Catalog(workspace)
-    except Exception as exc:
-        raise ResumeError(
-            f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
-        ) from exc
-
-    try:
-        journal = WorkflowJournal(catalog)
-        planner = ResumePlanner(journal, workspace)
-        plan = planner.compute(
-            run_id=run_id,
-            current_config_sha256=None,
-            steps_blueprint=steps_blueprint or (),
-        )
-    finally:
-        try:
-            catalog.close()
-        except Exception:
-            pass
+    planner = ResumePlanner(WorkflowJournal(run_dir), workspace)
+    plan = planner.compute(
+        run_id=run_id,
+        current_config_sha256=None,
+        steps_blueprint=steps_blueprint or (),
+    )
 
     # Make a degraded resume visible: a snapshot-rebuilt config or a changed
     # pipeline can force a full restart, which otherwise looks like a normal run.
@@ -168,35 +182,6 @@ def _resolve_resume_step_index(
     return plan.restart_index
 
 
-def _scratch_of_resumed_run(workspace: Path, run_id: str) -> str | None:
-    """Return the scratch folder the completed steps of ``run_id`` journalled, or None.
-
-    A run journals its preprocessing under its own ``.hmp/scratch/<run>/``. The
-    resume works in that folder again, or the sweep of killed runs would delete
-    what the resume is meant to reuse.
-    """
-    from hydromodpy.core.state.paths import catalog_path_for, run_scratch_of
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
-
-    if not catalog_path_for(workspace).is_file():
-        return None
-    try:
-        catalog = Catalog(workspace)
-    except Exception as exc:
-        raise ResumeError(
-            f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
-        ) from exc
-    try:
-        rows = WorkflowJournal(catalog).list_steps(run_id)
-    finally:
-        catalog.close()
-    completed = sorted(
-        (row for row in rows if row.status == "completed"), key=lambda row: row.step_order
-    )
-    return run_scratch_of(uri for row in completed for uri in row.artifact_uris)
-
-
 def _print_dry_run_plan(
     *,
     run_id: str,
@@ -210,15 +195,6 @@ def _print_dry_run_plan(
     print("[dry-run] steps     :")
     for idx, step in enumerate(steps):
         print(f"  {idx:02d}  {type(step).__name__}")
-
-
-def _rebind_run_history_catalog(project: Project) -> None:
-    """Bind previously returned Run handles to the current project catalog."""
-    store = project._store
-    if store is None:
-        return
-    for run in project._run_history:
-        run._catalog = store
 
 
 def _identity_overrides(
@@ -239,13 +215,28 @@ def _identity_overrides(
     return payload or None
 
 
+def _unsealed_run_view(sealed: SealedRun) -> Run | None:
+    """Return the view of a run that stopped before its seal, read from its directory.
+
+    The index lists sealed runs only, so a partial run is read through its
+    own store. A run that wrote no facts has nothing to read: ``None``.
+    """
+    from hydromodpy.results.run.view import Run
+    from hydromodpy.results.storage.run_facts import read_facts
+    from hydromodpy.results.storage.run_store import RunStore
+
+    if read_facts(sealed.run_dir) is None:
+        return None
+    store = RunStore.open(sealed.run_dir, workspace=sealed.project_root)
+    return Run(sealed.sim_id, store)
+
+
 class ProjectRunner:
     """Run-phase methods bound to a :class:`Project` instance.
 
     Composed by :class:`Project` (``project._runner``). Holds no state of
-    its own besides the back-reference to ``project`` and a delegate for
-    the prepared-run primitives; every call reads or mutates the
-    project's workflow context directly.
+    its own besides the back-reference to ``project``; every call reads or
+    mutates the project's workflow context directly.
     """
 
     def __init__(self, project: Project) -> None:
@@ -264,17 +255,86 @@ class ProjectRunner:
         frozen: bool = False,
         no_display: bool = False,
         parallel: bool = True,
+        fresh: bool = False,
+        force: bool = False,
+        lineage: Any = None,
+        calibrated_by: Any = None,
         **overrides,
     ) -> Run | None:
-        """Run the simulation through the canonical workflow Pipeline.
+        """Run one attempt and return the :class:`Run` view of its directory.
 
-        ``parallel`` (default True) lets the Pipeline dispatch independent
-        Kahn cohorts through a thread pool. Pass ``parallel=False`` to
-        force the legacy sequential path (useful for debugging).
+        The index of the project is refreshed from the run directory first,
+        so the view of a sealed run answers through it. A run that stopped
+        before its seal (``until_step``) is not in the index: its view reads
+        the run directory itself. A run that wrote no directory, or no facts
+        to read, returns ``None``.
         """
-        from hydromodpy.workflow.internals.state import PipelineState
+        sealed = self.execute(
+            name=name,
+            resume=resume,
+            from_step=from_step,
+            until_step=until_step,
+            dry_run=dry_run,
+            frozen=frozen,
+            no_display=no_display,
+            parallel=parallel,
+            fresh=fresh,
+            force=force,
+            lineage=lineage,
+            calibrated_by=calibrated_by,
+            **overrides,
+        )
+        if sealed is None:
+            return None
+        from hydromodpy.project import phases as project_phases
+        from hydromodpy.results.catalog.indexer import index_new_runs
+        from hydromodpy.results.manifest import is_sealed
+
+        project = self._project
+        index_new_runs(sealed.project_root)
+        project_phases.open_catalog(project)
+        if is_sealed(sealed.run_dir):
+            if project._store is None:
+                return None
+            run_view = project._store[sealed.sim_id]
+        else:
+            run_view = _unsealed_run_view(sealed)
+            if run_view is None:
+                return None
+        project._run_history.append(run_view)
+        return run_view
+
+    def execute(
+        self,
+        *,
+        name: str | None = None,
+        resume: str | None = None,
+        from_step: str | int | None = None,
+        until_step: str | int | None = None,
+        dry_run: bool = False,
+        frozen: bool = False,
+        no_display: bool = False,
+        parallel: bool = True,
+        fresh: bool = False,
+        force: bool = False,
+        lineage: Any = None,
+        calibrated_by: Any = None,
+        **overrides,
+    ) -> SealedRun | None:
+        """Run one attempt of the case through the workflow Pipeline.
+
+        Returns what the run directory says once the attempt is closed, or
+        ``None`` for a dry run and for a window that owns no run record.
+        Never opens the index: the worker writes its directory, the caller
+        indexes it afterwards.
+
+        ``resume`` names the case to continue; the attempt resumes in place
+        from the journal of its directory. ``fresh`` files everything the
+        previous attempt left under ``attempts/<k>/`` and starts over.
+        ``force`` claims a stale case whose death cannot be proven. ``lineage``
+        and ``calibrated_by`` are the blocks a promotion seals its run with.
+        """
         from hydromodpy.workflow.orchestrator import standard_steps
-        from hydromodpy.workflow.runner import Pipeline
         from hydromodpy.workflow.steps.planning import resolve_run_config, step_build_plan
         from hydromodpy.workflow.steps.setup import rebuild_domain_if_stale
 
@@ -286,6 +346,8 @@ class ProjectRunner:
         first_clim = overrides.pop("first_clim", None)
         properties = overrides.pop("properties", None)
 
+        if resume is not None:
+            name = resume
         if name is None:
             # The configuration names its run: ``[simulation] name``, which a
             # TOML file defaults to its own stem. The counter only names a run
@@ -308,8 +370,7 @@ class ProjectRunner:
             steps = tuple(all_steps[: until_idx + 1])
 
         # A window that stops before ``setup_process`` reaches no step able to
-        # register a simulation, so it is not a run and writes no run record -
-        # see the Pipeline workspace below.
+        # open a run, so it is not a run and claims no directory.
         model_phase_index = _model_phase_index(all_steps)
         head_only = until_idx is not None and until_idx < model_phase_index
         if head_only and resume is not None:
@@ -321,15 +382,8 @@ class ProjectRunner:
         # The Pipeline owns the model phase: it executes ``build_geographic``,
         # ``load_data`` and ``build_mesh`` itself, so each of them gets a
         # journal row and a process death inside one of them leaves a trace.
-        # Building them here first would put that work before the Pipeline has
-        # started, where nothing records it.
-        #
         # One run still needs the model built up front: ``step_build_plan``
-        # below patches an existing model when the caller overrides it - it
-        # rebuilds the domain on a new thickness and replays the data binders
-        # on the loaded forcings. Such a run is always a repeat on a Project
-        # whose model phase is already there (``sweep`` builds it explicitly),
-        # so this only covers a hand-written override on an untouched Project.
+        # below patches an existing model when the caller overrides it.
         plan_patches_model_phase = (
             bool(overrides) or thickness is not None or first_clim is not None
         )
@@ -337,47 +391,23 @@ class ProjectRunner:
             project._ensure_model_built()
 
         workspace_path = self._resolve_workspace_path()
-
-        # A model-phase-ready run reuses the model built in this process; its
-        # resume_from > 0 is an in-process skip, not a journal resume of a prior
-        # same-name run (which would otherwise abort on an edited config).
-        model_phase_ready = False
-        if from_idx is not None:
-            resume_from: int | None = from_idx
-            run_id = resume or name
-        elif resume is not None:
-            resume_from = _resolve_resume_step_index(
-                workspace_path,
-                resume,
-                steps_blueprint=tuple(getattr(step, "name", "") for step in all_steps),
-            )
-            run_id = resume
-        elif needs_model_phase and self._is_model_phase_ready():
-            resume_from = model_phase_index
-            run_id = name
-            model_phase_ready = True
-        else:
-            resume_from = None
-            run_id = name
+        persisted = bool(project._cfg.simulation.results.persistence.save_catalog)
+        claims = not head_only and not dry_run and persisted
+        model_phase_ready = needs_model_phase and self._is_model_phase_ready()
 
         if dry_run:
-            _print_dry_run_plan(
-                run_id=run_id,
-                steps=steps,
-                resume_from=resume_from,
-            )
+            resume_from = from_idx if from_idx is not None else None
+            if resume_from is None and model_phase_ready:
+                resume_from = model_phase_index
+            _print_dry_run_plan(run_id=name, steps=steps, resume_from=resume_from)
             return None
 
         # The configuration this run is defined by, overrides included. It is
         # what the Pipeline signs, what the run archives, and what every
-        # builder reads, including the prefix a resume reconstructs in another
-        # process. ``project._cfg`` stays the configuration the project
-        # declares; the context carries the one of the run in flight. A dry run
-        # never gets here: a preview changes nothing.
+        # builder reads. ``project._cfg`` stays the configuration the project
+        # declares; the context carries the one of the run in flight.
         cfg_run = resolve_run_config(project._cfg, thickness=thickness)
         project._ctx.cfg = cfg_run
-        # A Project builds its model phase once; this run may be defined by
-        # another configuration than the one that built it.
         rebuild_domain_if_stale(project._ctx)
 
         step_build_plan(
@@ -398,13 +428,128 @@ class ProjectRunner:
             project._ctx.setup.flow_runtime_overrides = None
 
         project._ctx.setup.run_id = name
-
         if project._store is not None:
             project._store.close()
             project._store = None
 
+        site = getattr(getattr(cfg_run, "site", None), "name", None)
+        run_overrides = _identity_overrides(overrides, first_clim=first_clim, properties=properties)
+        # The identity of this run, computed once: the claim compares it to
+        # the one of the previous attempt, the facts of the run record it.
+        config_hash = (
+            run_identity_hash(
+                cfg_run.model_dump(mode="json"),
+                overrides=run_overrides,
+                inputs=input_file_digests(cfg_run),
+            )
+            if claims
+            else None
+        )
+        bracket = (
+            run_attempt(
+                workspace_path,
+                name,
+                case_id=name,
+                project=workspace_path.name,
+                site=site,
+                fresh=fresh,
+                force=force,
+                config_hash=config_hash,
+                if_exists=cfg_run.simulation.if_exists,
+            )
+            if claims
+            else nullcontext(None)
+        )
+        with bracket as handle:
+            sim_id = self._execute_attempt(
+                handle,
+                name=name,
+                steps=steps,
+                all_steps=all_steps,
+                cfg_run=cfg_run,
+                workspace_path=workspace_path,
+                resume=resume,
+                from_idx=from_idx,
+                model_phase_ready=model_phase_ready,
+                model_phase_index=model_phase_index,
+                skip_display=skip_display,
+                frozen=frozen,
+                parallel=parallel,
+                run_overrides=run_overrides,
+                config_hash=config_hash,
+                lineage=lineage,
+                calibrated_by=calibrated_by,
+            )
+        # The bracket has closed the outcome: what the directory says is final.
+        if handle is None or sim_id is None:
+            return None
+        return sealed_run_of(handle.claim, workspace_path)
+
+    def _execute_attempt(
+        self,
+        handle: AttemptHandle | None,
+        *,
+        name: str,
+        steps: tuple,
+        all_steps: tuple,
+        cfg_run: Any,
+        workspace_path: Path,
+        resume: str | None,
+        from_idx: int | None,
+        model_phase_ready: bool,
+        model_phase_index: int,
+        skip_display: bool,
+        frozen: bool,
+        parallel: bool,
+        run_overrides: dict[str, Any] | None,
+        config_hash: str | None,
+        lineage: Any,
+        calibrated_by: Any,
+    ) -> str | None:
+        """Drive the Pipeline inside the attempt bracket and return the ``sim_id`` of the run."""
+        from hydromodpy.workflow.internals.state import PipelineState
+        from hydromodpy.workflow.runner import Pipeline
+
+        project = self._project
+        run_dir = None if handle is None else handle.run_dir
+        resumes = handle is not None and handle.claim.resumed
+        if resume is not None and handle is not None and not resumes:
+            if handle.claim.attempt == 1:
+                raise ResumeError(
+                    f"resume {resume!r}: {run_dir} holds no interrupted attempt to continue."
+                )
+            # The claim started this attempt over: the previous one ran another
+            # configuration, or --fresh was asked. There is nothing to resume.
+            logger.info(
+                "resume %r: attempt %d of %s starts over from step 0",
+                resume,
+                handle.claim.attempt,
+                run_dir.name if run_dir is not None else name,
+            )
+
+        self._bind_attempt(handle, workspace_path)
+
+        # A model-phase-ready run reuses the model built in this process; its
+        # resume_from > 0 is an in-process skip, not a journal resume of a prior
+        # attempt (which would otherwise abort on an edited config).
+        in_process_skip = False
+        if from_idx is not None:
+            resume_from: int | None = from_idx
+        elif resumes and run_dir is not None:
+            resume_from = _resolve_resume_step_index(
+                run_dir,
+                workspace_path,
+                name,
+                steps_blueprint=tuple(getattr(step, "name", "") for step in all_steps),
+            )
+        elif model_phase_ready:
+            resume_from = model_phase_index
+            in_process_skip = True
+        else:
+            resume_from = None
+
         initial = PipelineState(
-            run_id=run_id,
+            run_id=name,
             data={
                 "ctx": project._ctx,
                 "cfg": cfg_run,
@@ -423,18 +568,19 @@ class ProjectRunner:
                 # the caller named differently.
                 "run_name": name,
                 # What this run changes on top of its configuration. It enters
-                # the identity hash the catalog records, so a run with an
+                # the identity hash the seal records, so a run with an
                 # override never passes for the run of the bare configuration.
-                "run_overrides": _identity_overrides(
-                    overrides, first_clim=first_clim, properties=properties
-                ),
+                "run_overrides": run_overrides,
+                "config_hash": config_hash,
+                "run_dir": run_dir,
+                "lineage": lineage,
+                "calibrated_by": calibrated_by,
             },
         )
 
-        # A head-only window registers no simulation, so it owns no run record.
-        # Handing it the workspace would let it overwrite the manifest of the
-        # run that carries this name and invalidate that run's journal.
-        pipeline = Pipeline(steps, workspace=None if head_only else workspace_path)
+        # A head-only window owns no run record: handing it a directory would
+        # let it overwrite the checkpoints of the run that carries this name.
+        pipeline = Pipeline(steps, workspace=workspace_path, run_dir=run_dir)
         restore_frozen_root: Path | None = None
         if frozen:
             from hydromodpy.data.provenance.lockfile import frozen_project_root, set_frozen_mode
@@ -447,32 +593,10 @@ class ProjectRunner:
                 initial,
                 resume_from=resume_from,
                 parallel=parallel,
-                model_phase_ready=model_phase_ready,
+                model_phase_ready=in_process_skip,
+                heartbeat=None if handle is None else handle.heartbeat,
             )
-        except BaseException:
-            # BaseException on purpose: Ctrl+C and SIGTERM (a scheduler stop, a
-            # plain kill) unwind as KeyboardInterrupt and must not leave the
-            # run "running" in the index.
-            from hydromodpy.project import phases as project_phases
-
-            project_phases.open_catalog(project)
-            failed_sim_id = getattr(project._ctx, "sim_id", None)
-            if failed_sim_id is not None and project._store is not None:
-                try:
-                    project._store.finalize(failed_sim_id, status="failed")
-                except Exception:
-                    logger.debug(
-                        "Could not mark failed simulation %s after pipeline error",
-                        failed_sim_id,
-                        exc_info=True,
-                    )
-            raise
         finally:
-            from hydromodpy.project import phases as project_phases
-
-            if project._store is None:
-                project_phases.open_catalog(project)
-            _rebind_run_history_catalog(project)
             if frozen:
                 from hydromodpy.data.provenance.lockfile import set_frozen_mode
 
@@ -481,7 +605,7 @@ class ProjectRunner:
                     project_root=restore_frozen_root,
                 )
 
-        if not model_phase_ready:
+        if not in_process_skip:
             # The Pipeline built the model phase on the Project's own ctx - a
             # head-only window, a fresh run, or a resume that reconstructed its
             # prefix. The phase marker has to say so or the next call rebuilds
@@ -494,41 +618,22 @@ class ProjectRunner:
 
         final_ctx = final.get("ctx") if final is not None else None
         sim_id = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
-        if sim_id is None or project._store is None:
-            return None
-        run_view = project._store[sim_id]
-        project._run_history.append(run_view)
-        _rebind_run_history_catalog(project)
-        return run_view
+        return None if sim_id is None else str(sim_id)
 
-    def sweep(
-        self,
-        parameters: dict[str, list[float] | dict],
-        *,
-        strategy: str = "enumerate",
-        name_template: str = "{param}_{value:.4g}",
-        parallel: int = 1,
-    ):
-        """Run N simulations from a parameter table.
-
-        ``parallel > 1`` enables the thread-pool backend in
-        :func:`hydromodpy.workflow.parallel.run_sweep`. Threads are
-        chosen over processes because the live ``Project`` (DuckDB
-        catalog, Zarr store, in-memory ``WorkflowContext``) is not
-        pickle-safe.
-        """
-        from hydromodpy.results.run.group import RunSet
-        from hydromodpy.workflow.parallel import run_sweep
-
-        self._project._ensure_model_built()
-        sim_ids = run_sweep(
-            cast(Any, self._project),
-            parameters=parameters,
-            strategy=strategy,
-            name_template=name_template,
-            parallel=parallel,
-        )
-        return RunSet(sim_ids, self._project._store)
+    def _bind_attempt(self, handle: AttemptHandle | None, workspace_path: Path) -> None:
+        """Tell the context which directory and attempt it runs in."""
+        ctx = self._project._ctx
+        if handle is None:
+            ctx.run_dir = None
+            return
+        claim = handle.claim
+        ctx.run_dir = claim.run_dir
+        ctx.attempt = claim.attempt
+        workspace = ctx.setup.workspace
+        if workspace is not None:
+            workspace.solver_scratch_folder = scratch_dir_for_attempt(
+                workspace_path, claim.run_dir, claim.attempt
+            )
 
     # -- Helpers ----------------------------------------------------------
 
@@ -541,12 +646,8 @@ class ProjectRunner:
             and setup.domain is not None
         )
 
-    def resumed_run_scratch(self, run_id: str) -> str | None:
-        """Return the scratch folder of the run ``run_id`` a resume continues, or None."""
-        return _scratch_of_resumed_run(self._resolve_workspace_path(), run_id)
-
     def _resolve_workspace_path(self) -> Path:
-        """Return the project runtime root used for checkpoints and ledger.
+        """Return the project root used for the run directories and checkpoints.
 
         The runtime workspace only exists once the model phase has been built.
         A run that stops before ``setup_process`` never builds it, so the

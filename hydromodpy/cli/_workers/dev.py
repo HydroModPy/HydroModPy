@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.paths import data_cache_path_for
+
 
 def export_schema(output_dir: Any) -> dict:
     """Export the HydroModPy JSON Schema + companion files for frontend hooks."""
@@ -27,38 +29,45 @@ def rank_simulations(
     *,
     workspace: Any = None,
     metric: str = "nse",
+    station: str | None = None,
     best: bool = True,
     n: int = 5,
 ) -> Any:
-    """Rank the completed runs of one project by an outlet metric. Returns a DataFrame.
+    """Rank the scores of the completed runs of one project. Returns a DataFrame.
 
-    Same rows as :meth:`hydromodpy.results.catalog.Catalog.rank`. ``best=True`` puts the best values first, ``best=False`` the worst ones.
-    The direction of the metric comes from
+    One row per run and station scored on ``metric``; ``station`` keeps the
+    rows of one station only. ``best=True`` puts the best values first,
+    ``best=False`` the worst ones. The direction of the metric comes from
     :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: a metric missing
     from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
     A missing or non-finite value never ranks.
     """
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.constants import OUTLET_STATION, metric_rank_sql
+    from hydromodpy.results.catalog.constants import metric_rank_sql
 
     order = metric_rank_sql(metric, best=best)
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with Catalog(workspace_root, read_only=True) as catalog:
+    station_clause = "" if station is None else "AND m.station_id = ? "
+    with Catalog(workspace_root) as catalog:
         sql = (
-            "SELECT s.sim_id, s.name, sv.code AS solver, m.metric_name, m.value "
+            "SELECT s.sim_id, s.name, sv.code AS solver, m.station_id AS station, "
+            "m.metric_name, m.value "
             "FROM simulations s "
             "JOIN solvers sv ON s.solver_id = sv.id "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE s.project = ? AND st.code = 'completed' "
-            "AND m.metric_name = ? AND m.station_id = ? "
+            f"AND m.metric_name = ? {station_clause}"
             "AND m.value IS NOT NULL AND isfinite(m.value) "
             f"ORDER BY {order} LIMIT ?"
         )
-        params = [project, metric, OUTLET_STATION, int(n)]
+        params: list[Any] = [project, metric]
+        if station is not None:
+            params.append(station)
+        params.append(int(n))
         return catalog.connection.execute(sql, params).fetchdf()
 
 
@@ -143,7 +152,7 @@ def _lock_cache_database(workspace_root: Path) -> Path:
     Locking an empty cache would pin nothing, so a missing database is an
     error instead of a file DuckDB creates on the way past.
     """
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(workspace_root / "data")
     if not db_path.is_file():
         raise FileNotFoundError(f"Data cache not found: {db_path}")
     return db_path
@@ -194,8 +203,8 @@ def _lock_targets(workspace: Any, project: Any, lockfile: Any) -> tuple[Path, Pa
 def lock_update(workspace: Any = None, *, project: Any = None, output: Any = None) -> Path:
     """Scan the cache and write/update the lockfile of one project.
 
-    ``project_root`` travels with the write so this file carries the same
-    ``[hydromodpy].project_git_commit`` as the one ``hmp run`` produces.
+    ``project_root`` travels with the write so the file carries the
+    ``[hydromodpy].project_git_commit`` of the project it describes.
     """
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB

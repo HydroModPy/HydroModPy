@@ -345,20 +345,23 @@ def _render_figures(
     return "\n".join(blocks)
 
 
-def _audit_block(audit: Mapping[str, Any]) -> str:
-    status = str(audit.get("status", ""))
-    issues = audit.get("issues", [])
+def _case_check_block(case_check: Mapping[str, Any]) -> str:
+    status = str(case_check.get("status", ""))
+    issues = case_check.get("issues", [])
     if not isinstance(issues, list):
         issues = []
-    klass = "warning" if status == "warn" else ""
+    klass = "warning" if status == "different_mesh_allowed" else ""
     lines = [f'<p>Status: <strong class="{klass}">{safe(status or "unknown")}</strong></p>']
-    lines.append(f"<p>Issues: <strong>{safe(len(issues))}</strong></p>")
+    lines.append(f"<p>Site: <strong>{safe(case_check.get('site') or 'n/a')}</strong></p>")
+    lines.append(
+        f"<p>Site fingerprint: <code>{safe(case_check.get('site_fingerprint') or 'n/a')}</code></p>"
+    )
+    mesh_hashes = case_check.get("mesh_hashes", {})
+    if isinstance(mesh_hashes, Mapping):
+        for name, mesh_hash in mesh_hashes.items():
+            lines.append(f'<p class="muted">{safe(name)}: mesh <code>{safe(mesh_hash)}</code></p>')
     for issue in issues[:5]:
-        if isinstance(issue, Mapping):
-            message = issue.get("message", issue.get("description", issue))
-        else:
-            message = issue
-        lines.append(f'<p class="muted">- {safe(short(message, limit=170))}</p>')
+        lines.append(f'<p class="muted">- {safe(short(issue, limit=170))}</p>')
     return "\n".join(lines)
 
 

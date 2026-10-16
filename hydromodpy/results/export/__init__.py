@@ -17,7 +17,7 @@ dependencies.
 
 from __future__ import annotations
 
-from hydromodpy.results.export.context import FairExportContext, build_context
+from hydromodpy.results.export.context import FairExportContext
 from hydromodpy.results.export.directory import context_from_directory, write_views
 from hydromodpy.results.export.prov import build_prov_document, write_prov_view
 from hydromodpy.results.export.rocrate import (
@@ -37,7 +37,6 @@ from hydromodpy.results.export.stac import (
 
 __all__ = [
     "FairExportContext",
-    "build_context",
     "context_from_directory",
     "build_prov_document",
     "build_ro_crate",

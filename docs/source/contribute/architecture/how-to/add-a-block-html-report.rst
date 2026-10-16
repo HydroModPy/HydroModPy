@@ -161,9 +161,10 @@ it. Existing reports use these patterns:
 - ``review/index.html`` for site-selection review reports;
 - ``review/compact/index.html``, ``review/standard/index.html`` and
   ``review/audit/index.html`` for global detail levels;
-- ``web/index.html`` for the catchment report's standard page;
-- ``web_review/by_block/index.html`` for a catchment report page where each
-  block can choose its own detail level.
+- ``runs/<run>/report/index.html`` for the catchment report's standard page,
+  written into the run it describes;
+- ``runs/<run>/report/review/by_block/index.html`` for a catchment report page
+  where each block can choose its own detail level.
 
 Do not make generated HTML the source of truth. The source of truth is the
 manifest, TOML, run catalog, and regenerated figure artifacts.
@@ -198,8 +199,8 @@ the committed PNG or a small derived screenshot, while the manifest and source
 TOML remain the traceable inputs.
 
 For ``catchment_report``, the minimum updateable illustration should come from
-a tiny report fixture or one short basin example that writes
-``web/index.html``, ``web_review/by_block/index.html`` and
+a tiny report fixture or one short basin example that writes, under
+``runs/<run>/report/``, ``index.html``, ``review/by_block/index.html`` and
 ``block_report_postflight.json``. Keep the screenshot or mosaic under
 ``docs/source/_static/`` only if it can be regenerated from the fixture.
 
@@ -240,4 +241,4 @@ See also
 
 - :doc:`../packages/display` for ownership of ``display/report_blocks``.
 - :doc:`/reference/cli/report` for the user-facing catchment report.
-- :doc:`/reference/cli/site-selection` for the site-selection report.
+- :doc:`/reference/cli/site` for the site-selection report.

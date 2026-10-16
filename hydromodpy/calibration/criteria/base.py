@@ -28,6 +28,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from hydromodpy.results.checks import Validity
+
 SERIES_SUPPORTS: tuple[str, ...] = ("point", "boundary", "cell", "lake")
 """The supports whose output is a series of values through time.
 
@@ -88,24 +90,6 @@ class CriterionRequirements:
 
 
 @dataclass(frozen=True)
-class Validity:
-    """One check that qualifies a result without penalising it.
-
-    ``passed`` is the verdict, ``message`` is the sentence a reader who is not a
-    hydrogeologist needs: what the failure does to the number that was returned.
-    A validity never enters the cost. That is the rule, and it is why a
-    calibration under a coarse agreement still returns a value.
-    """
-
-    name: str
-    passed: bool
-    value: float | None
-    message: str
-    fatal: bool = False
-    """True for the few checks that make the number a fiction rather than coarse."""
-
-
-@dataclass(frozen=True)
 class CriterionResult:
     """What a criterion found.
 
@@ -153,5 +137,4 @@ __all__ = [
     "Criterion",
     "CriterionRequirements",
     "CriterionResult",
-    "Validity",
 ]

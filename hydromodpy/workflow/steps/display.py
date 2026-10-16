@@ -1,9 +1,9 @@
 """Step 11 - auto-render the figures listed in ``[display].figures``.
 
 Runs after :class:`DeriveStep` and before :class:`ExportStep`, which seals
-the store. Figures open the catalog for their own span. Each figure declared
-in the TOML is written into
-``<project_root>/runs/<run>/<display.output_dir>/``.
+the store. Figures open the store for their own span. Each figure declared
+in the TOML is written into ``runs/<run>/figures/``, stamped with the
+identity of the run and recorded in ``figures/index.json``.
 
 Skipped silently when ``display.enabled`` is false, when ``display.figures``
 is empty, or when the pipeline was set to headless via
@@ -29,10 +29,9 @@ from hydromodpy.core import progress
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
+from hydromodpy.workflow.run_store import run_is_persisted, run_store
 
 if TYPE_CHECKING:
-    from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.display.config import DisplayConfig
     from hydromodpy.results.run import Run
 
@@ -72,55 +71,6 @@ def _render_figures_tracked(
     return list(report.written)
 
 
-def step_render_figures(
-    ctx: WorkflowContext,
-    run: Run,
-    *,
-    sim_id: str,
-    run_name: str | None,
-    headless: bool = False,
-    no_display: bool = False,
-    figures: list[str] | None = None,
-) -> list[Path]:
-    """Render the figures declared in [display].figures.
-
-    Returns the list of files produced (possibly empty). Exits early if the
-    caller is headless, if display is disabled, or if no figures are declared.
-    Rendering errors are logged but do not propagate.
-    """
-    if headless or no_display:
-        return []
-    display_cfg = getattr(ctx.cfg, "display", None)
-    if display_cfg is None or not display_cfg.enabled:
-        return []
-    requested = figures or display_cfg.figures
-    if not requested:
-        return []
-
-    from hydromodpy.display.runs import resolve_run_output_dir
-
-    workspace = ctx.setup.workspace
-    if workspace is None:
-        raise ConfigError("Workspace is required to render display figures.")
-    project_root = workspace.project_root
-    out_dir = resolve_run_output_dir(
-        display_cfg,
-        project_root=project_root,
-        run_name=run_name,
-        sim_id=sim_id,
-    )
-    try:
-        return _render_figures_tracked(
-            run,
-            display_cfg,
-            output_dir=out_dir,
-            figure_names=list(requested),
-        )
-    except Exception:
-        logger.exception("Auto-render of figures failed for sim %s", sim_id)
-        return []
-
-
 class DisplayStep:
     """Render the figures declared in ``[display].figures`` before export."""
 
@@ -145,30 +95,18 @@ class DisplayStep:
         workspace: Path,
         run_id: str,
     ) -> PipelineState:
-        """List the previously rendered PNGs from the display output dir."""
+        """List the figures ``figures/index.json`` of the run records."""
+        from hydromodpy.display.runs import figures_dir_of
+        from hydromodpy.results.ledger import Ledger
+
         ctx = prior_state.get("ctx")
         if ctx is None:
             raise ConfigError("DisplayStep.rebuild_state requires 'ctx' in state.data")
         rendered: list[Path] = []
-        display_cfg = getattr(ctx.cfg, "display", None)
-        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
-        project_root = getattr(ws, "project_root", None)
-        sim_id = getattr(ctx, "sim_id", None)
-        if display_cfg is not None and project_root is not None and sim_id is not None:
-            try:
-                from hydromodpy.display.runs import resolve_run_output_dir
-
-                run_name = getattr(getattr(ctx, "setup", None), "run_id", None)
-                out_dir = resolve_run_output_dir(
-                    display_cfg,
-                    project_root=project_root,
-                    run_name=run_name,
-                    sim_id=sim_id,
-                )
-                if Path(out_dir).is_dir():
-                    rendered = sorted(Path(out_dir).glob("*.png"))
-            except Exception:
-                rendered = []
+        run_dir = getattr(ctx, "run_dir", None)
+        if run_dir is not None:
+            figures_dir = figures_dir_of(Path(run_dir))
+            rendered = [figures_dir / entry.file for entry in Ledger.read(figures_dir).entries]
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -177,7 +115,7 @@ class DisplayStep:
         )
 
     def run(self, state: PipelineState) -> PipelineState:
-        from hydromodpy.display.runs import resolve_run_output_dir
+        from hydromodpy.display.runs import figures_dir_of
 
         ctx = state.get("ctx")
         if ctx is None:
@@ -190,8 +128,8 @@ class DisplayStep:
         else:
             display_cfg = getattr(ctx.cfg, "display", None)
             sim_id = getattr(ctx, "sim_id", None)
-            if display_cfg is None or sim_id is None or not run_is_catalogued(ctx):
-                logger.debug("DisplayStep: no display config, no sim_id or no index, skipping")
+            if display_cfg is None or sim_id is None or not run_is_persisted(ctx):
+                logger.debug("DisplayStep: no display config, no sim_id or no store, skipping")
             elif not display_cfg.enabled or not display_cfg.figures:
                 # At info, not debug: a run that draws nothing looks exactly
                 # like a run whose figure list silently emptied, and the second
@@ -204,15 +142,11 @@ class DisplayStep:
                     len(display_cfg.figures),
                 )
             else:
-                project_root = ctx.setup.workspace.project_root
-                with run_catalog(ctx) as store:
-                    sim = store[sim_id]
-                    out_dir = resolve_run_output_dir(
-                        display_cfg,
-                        project_root=project_root,
-                        run_name=sim.name,
-                        sim_id=sim_id,
-                    )
+                from hydromodpy.results.run import Run
+
+                with run_store(ctx) as store:
+                    sim = Run(sim_id, store)
+                    out_dir = figures_dir_of(Path(ctx.run_dir))
                     rendered = _render_figures_tracked(
                         sim,
                         display_cfg,

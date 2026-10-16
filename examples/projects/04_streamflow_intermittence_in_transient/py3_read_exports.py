@@ -1,12 +1,12 @@
 """A figure made from the exported files alone, without importing HydroModPy:
 pandas, geopandas, rasterio and xarray are enough. This is what a colleague
-can do when you send the share/<run>/ folder.
+can do when you send the exports/ folder of a run.
 
 The exports of step 5 come first:
 
     hmp run step5_export.toml
-    python py3_read_exports.py                    # the last share/nancon_step5_export*
-    python py3_read_exports.py path/to/share/<run>
+    python py3_read_exports.py                    # the last runs/nancon_step5_export*/exports
+    python py3_read_exports.py path/to/runs/<run>/exports
 """
 
 import sys
@@ -28,9 +28,11 @@ HERE = Path(__file__).resolve().parent
 if len(sys.argv) > 1:
     folder = Path(sys.argv[1])
 else:
-    # Running an edited step 5 again writes a new folder (.v2, .v3...). An
-    # unchanged file is not computed again. Take the most recent folder.
-    folder = max((HERE / "share").glob("nancon_step5_export*"), key=lambda p: p.stat().st_mtime)
+    # Running an edited step 5 again writes a new run (.v2, .v3...). An
+    # unchanged file is not computed again. Take the most recent exports folder.
+    folder = max(
+        (HERE / "runs").glob("nancon_step5_export*/exports"), key=lambda p: p.stat().st_mtime
+    )
 print(folder)
 
 # %% Reading
@@ -126,7 +128,7 @@ ax.plot(shallow, color="tab:green")
 ax.set_ylabel("catchment with water table within 1 m (%)")
 ax.sharex(axes["q"])
 
-out = HERE / "share" / "figures" / f"{folder.name}_overview.png"
+out = HERE / "summary" / "figures" / f"{folder.parent.name}_overview.png"
 out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=150)
 print(out)

@@ -7,8 +7,8 @@ Walks the chain a new user would follow:
    its CRS, ``hmp data check`` + ``hmp data add`` ingest a local file
    dropped in ``data/dem/`` under the naming convention, and a request
    document serves that DEM cut to a smaller box.
-4. Seed a minimal simulation via the public Python API so the catalog
-   carries a real Zarr field. This stands in for a full solver run on the
+4. Seed a minimal run through the store of a run, seal it and index it, so
+   the project carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
 5. Open the catalog via ``hmp.open`` and read a field via ``hmp.read``.
@@ -27,7 +27,6 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -54,42 +53,50 @@ def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
     )
 
 
-def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> tuple[Path, Path]:
-    """Register one finalised sim with Zarr field + timeseries + metric.
+def _seed_minimal_simulation(workspace: Path, *, project: str) -> tuple[str, Path, Path, Path]:
+    """Write, seal and index one run with a mesh, a head field and a series.
 
-    Returns the Zarr and Parquet paths from the source catalog so the
-    caller can assert they exist on disk.
+    The run is written the way the pipeline writes it: claimed under
+    ``projects/<project>/runs/``, filled through its store, sealed, its
+    attempt closed, then the index rebuilt from disk. Returns the ``sim_id``,
+    the project directory, and the field store and tables of the run.
     """
-    import hydromodpy as hmp
+    from hydromodpy.results.catalog.indexer import index_new_runs
+    from hydromodpy.results.storage.attempt import close_sealed_attempt
+    from hydromodpy.results.storage.sealing import seal_completed
+    from tests._helpers.run_stores import open_run_store
 
-    with hmp.open(workspace, create=True) as catalog:
-        reg = catalog.register_simulation(
-            sim_id=sim_id,
-            project=project,
-            solver="modflow_nwt",
-            name="from_scratch_sim",
-            flow_regime="steady",
-            n_cells=4,
-            n_layers=1,
-        )
-        sz = reg.zarr
-        assert sz is not None, "register_simulation must open a Zarr store"
-        sz.write_field(
-            variable="head",
-            timestep=0,
-            values=np.full((1, 4), 7.5, dtype="float32"),
-            n_timesteps=1,
-        )
-        idx = pd.date_range("2024-01-01", periods=4, freq="D")
-        catalog.write_timeseries(
-            sim_id,
-            station_id="P01",
-            variable="head",
-            ts=pd.Series([10.0, 10.1, 10.2, 10.3], index=idx),
-        )
-        catalog.write_metric(sim_id, station_id="P01", metric_name="nse", value=0.91)
-        catalog.finalize(sim_id, status="completed")
-        return catalog.fields_path_for(sim_id), catalog.tables_dir_for(sim_id)
+    project_dir = workspace / "projects" / project
+    store = open_run_store(
+        project_dir,
+        "from_scratch_sim",
+        n_cells=4,
+        n_layers=1,
+        n_timesteps=1,
+        solver="modflow_nwt",
+        flow_regime="steady",
+        crs_epsg=2154,
+        crs_wkt="EPSG:2154",
+    )
+    sim_id = store.sim_id
+    x0, y0, step = 385000.0, 6814000.0, 500.0
+    verts = np.array(
+        [[x0 + i * step, y0 + j * step] for j in range(3) for i in range(3)], dtype="float64"
+    )
+    conn = np.array([[0, 1, 4, 3], [1, 2, 5, 4], [3, 4, 7, 6], [4, 5, 8, 7]], dtype="int32")
+    store.write_mesh(sim_id, verts, conn, np.array([50.0, 0.0]))
+    store.write_crs(sim_id, crs_wkt="EPSG:2154", epsg_code=2154)
+    stamp = pd.to_datetime(["2024-01-01"]).values.astype("datetime64[s]").astype("int64")
+    store.write_time(sim_id, stamp)
+    store.write_field(sim_id, "head", 0, np.full((1, 4), 7.5, dtype="float32"), n_timesteps=1)
+    idx = pd.date_range("2024-01-01", periods=4, freq="D")
+    store.write_timeseries(sim_id, "P01", "head", pd.Series([10.0, 10.1, 10.2, 10.3], index=idx))
+    run_dir = store.run_dir
+    fields, tables = store.fields_path, store.tables_dir
+    seal_completed(store)
+    close_sealed_attempt(run_dir)
+    index_new_runs(project_dir)
+    return sim_id, project_dir, fields, tables
 
 
 @pytest.mark.e2e
@@ -194,28 +201,21 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     # produce can be queried back via the user-facing API.
     import hydromodpy as hmp
 
-    sim_id = str(uuid4())
-    zarr_path, parquet_dir = _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
+    sim_id, project_dir, zarr_path, parquet_dir = _seed_minimal_simulation(workspace, project="foo")
 
-    # ----- Step 6: catalog + artefacts on disk are visible ------------------
-    catalog_db = catalog_path_for(workspace)
-    assert catalog_db.is_file(), f"{CATALOG_FILENAME} must be created in the project"
+    # ----- Step 6: index + artefacts on disk are visible --------------------
+    catalog_db = catalog_path_for(project_dir)
+    assert catalog_db.is_file(), f"{CATALOG_FILENAME} must be built in the project"
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
-    with hmp.open(workspace, create=True) as catalog:
-        rows = catalog.connection.execute(
-            "SELECT component, version FROM _schema_version WHERE component = 'catalog'"
-        ).fetchall()
-        assert rows, "catalog schema_version row missing"
-        assert int(rows[0][1]) >= 1, f"expected catalog schema_version >= 1, got {rows[0][1]}"
-
-        sims = catalog.list_simulations(project="foo")
+    with hmp.open(project_dir) as catalog:
+        sims = catalog.list_simulations()
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
     # ----- Step 7: hmp.open + hmp.read return a real field ------------------
-    with hmp.open(workspace, create=True) as catalog:
+    with hmp.open(project_dir) as catalog:
         run = catalog[sim_id]
         data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
@@ -224,11 +224,9 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
 @pytest.mark.e2e
 def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
-    """Export a finalised sim to NetCDF and check ACDD / CF attrs survive.
+    """Export a sealed run to NetCDF and check ACDD / CF attrs survive.
 
-    Skipped when the sim has no UGRID mesh attached (the synthetic fixture
-    above does not seed one); a full solver run with mesh extraction is
-    covered by the regression tier.
+    The file lands under ``runs/<run>/exports/`` and carries the id of the run.
     """
     import hydromodpy as hmp
 
@@ -246,22 +244,16 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     )
     assert init.returncode == 0
 
-    sim_id = str(uuid4())
-    _seed_minimal_simulation(workspace, project="foo", sim_id=sim_id)
+    sim_id, project_dir, _zarr, _tables = _seed_minimal_simulation(workspace, project="foo")
 
-    nc_out = tmp_path / "head.nc"
     from hydromodpy.core.config_kit.export_spec import ExportRequest
+    from hydromodpy.results.exporters.request import export_run
 
-    try:
-        with hmp.open(workspace, create=True) as catalog:
-            catalog.export(sim_id, ExportRequest(variables="head", file=nc_out))
-    except KeyError as exc:
-        # export_netcdf raises KeyError (not ValueError) when the store has no
-        # UGRID mesh; the synthetic fixture seeds a head field but no mesh.
-        # Any other exception is a real failure and must not be swallowed.
-        pytest.skip(f"NetCDF export needs a UGRID mesh, not present on this synthetic sim: {exc}")
+    with hmp.open(project_dir) as catalog:
+        written = export_run(catalog, sim_id, ExportRequest(variables="head", file="head.nc"))
 
-    assert nc_out.is_file(), "NetCDF file should be produced"
+    nc_out = project_dir / "runs" / "from_scratch_sim" / "exports" / "head.nc"
+    assert written == [nc_out], "NetCDF file should be produced under the run"
     import xarray as xr
 
     with xr.open_dataset(nc_out) as ds:
@@ -305,7 +297,6 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
     out_path.mkdir(parents=True, exist_ok=True)
     env = {
         "HMP_PROJECT_ROOT": str(out_path),
-        "HMP_WORKSPACE": str(out_path),
         "MPLBACKEND": "Agg",
     }
     # Filter out any env that would lock to a host-bound output, then merge.
@@ -315,7 +306,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
     merged.update(env)
 
     completed = subprocess.run(
-        [sys.executable, "-m", "hydromodpy", "run", "--no-lock", str(run_toml)],
+        [sys.executable, "-m", "hydromodpy", "run", str(run_toml)],
         cwd=str(out_path),
         env=merged,
         capture_output=True,
@@ -338,7 +329,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
 
     import hydromodpy as hmp
 
-    with hmp.open(out_path, create=True) as catalog:
+    with hmp.open(out_path) as catalog:
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])

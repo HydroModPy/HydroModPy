@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,83 +11,84 @@ import pytest
 from hydromodpy.core.config_kit.export_spec import ExportRequest
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.exporters.request import export_run
 from hydromodpy.results.importers import (
     import_csv_timeseries,
     import_netcdf_fields,
     import_zarr_field,
 )
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 
 @pytest.fixture
 def catalog_with_data(tmp_path):
     """A catalog with mesh, head field, and a discharge timeseries."""
-    with simulation_catalog(tmp_path / "workspace") as c:
-        sid = str(uuid4())
+    project = tmp_path / "workspace"
+    n_cells, n_layers, n_ts = 6, 2, 3
+    c = open_run_store(
+        project, "demo", n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts, solver="modflow_nwt"
+    )
+    sid = c.sim_id
 
-        n_cells, n_layers, n_ts = 6, 2, 3
-        reg = c.register_simulation(
-            sid,
-            project="test",
-            solver="modflow_nwt",
-            n_cells=n_cells,
-            n_layers=n_layers,
-            n_timesteps=n_ts,
-        )
-        if reg.zarr is not None:
-            reg.zarr.close()
+    verts = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 0.8],
+            [1.5, 0.8],
+            [0.8, 1.8],
+            [2.0, 0.4],
+            [1.8, 1.6],
+        ],
+        dtype="float64",
+    )
+    conn = np.array(
+        [
+            [0, 1, 2, -1],
+            [1, 3, 2, -1],
+            [2, 3, 4, -1],
+            [1, 5, 3, -1],
+            [3, 6, 4, -1],
+            [3, 5, 6, -1],
+        ],
+        dtype="int32",
+    )
+    z_intf = np.array([10.0, 5.0, 0.0])
+    c.write_mesh(sid, verts, conn, z_intf)
+    c.write_time(
+        sid,
+        np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
+        units="seconds since 1970-01-01T00:00:00Z",
+    )
 
-        verts = np.array(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [0.5, 0.8],
-                [1.5, 0.8],
-                [0.8, 1.8],
-                [2.0, 0.4],
-                [1.8, 1.6],
-            ],
-            dtype="float64",
-        )
-        conn = np.array(
-            [
-                [0, 1, 2, -1],
-                [1, 3, 2, -1],
-                [2, 3, 4, -1],
-                [1, 5, 3, -1],
-                [3, 6, 4, -1],
-                [3, 5, 6, -1],
-            ],
-            dtype="int32",
-        )
-        z_intf = np.array([10.0, 5.0, 0.0])
-        c.write_mesh(sid, verts, conn, z_intf)
-        c.write_time(
-            sid,
-            np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
-            units="seconds since 1970-01-01T00:00:00Z",
-        )
+    rng = np.random.default_rng(42)
+    for t in range(n_ts):
+        head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
+        c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
-        rng = np.random.default_rng(42)
-        for t in range(n_ts):
-            head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
-            c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+    idx = pd.date_range("2020-01-01", periods=10, freq="D")
+    q = pd.Series(rng.random(10), index=idx, name="recharge")
+    c.write_timeseries(sid, "outlet", "recharge", q, unit="m s-1")
 
-        idx = pd.date_range("2020-01-01", periods=10, freq="D")
-        q = pd.Series(rng.random(10), index=idx, name="recharge")
-        c.write_timeseries(sid, "outlet", "recharge", q, unit="m s-1")
-
-        yield c, sid, tmp_path
+    run_dir = c.run_dir
+    seal_completed(c)
+    rebuild_index(project)
+    with Catalog(project) as catalog:
+        yield catalog, sid, run_dir / "exports"
 
 
 class TestImportCSVTimeseries:
     def test_roundtrip(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "ts.csv"
-        catalog.export(sid, ExportRequest(variables="recharge", file=out))
+        catalog, sid, exports = catalog_with_data
+        out = exports / "ts.csv"
+        export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
 
         df = import_csv_timeseries(out)
         assert list(df.columns) == [
+            "site",
+            "case_id",
             "datetime",
             "station_id",
             "variable",
@@ -101,23 +102,24 @@ class TestImportCSVTimeseries:
         assert df["datetime"].dt.tz is not None
 
     def test_filter_variable(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "ts.csv"
-        catalog.export(sid, ExportRequest(variables="recharge", file=out))
+        catalog, sid, exports = catalog_with_data
+        out = exports / "ts.csv"
+        export_run(catalog, sid, ExportRequest(variables="recharge", file=out.name))
 
         df = import_csv_timeseries(out, variable="recharge")
         assert (df["variable"] == "recharge").all()
 
     def test_unknown_variable_raises(self, tmp_path):
         out = tmp_path / "ts.csv"
-        out.write_text("datetime,station_id,variable,value,unit\n")
+        out.write_text("site,case_id,datetime,station_id,variable,value,unit\n")
         with pytest.raises(UnknownFieldError):
             import_csv_timeseries(out, variable="not_a_field")
 
     def test_unknown_variable_in_file_raises(self, tmp_path):
         out = tmp_path / "ts.csv"
         out.write_text(
-            "datetime,station_id,variable,value,unit\n2020-01-01,outlet,bogus_variable,1.0,m\n"
+            "site,case_id,datetime,station_id,variable,value,unit\n"
+            "n,n_run,2020-01-01,outlet,bogus_variable,1.0,m\n"
         )
         with pytest.raises(UnknownFieldError):
             import_csv_timeseries(out)
@@ -134,34 +136,34 @@ class TestImportCSVTimeseries:
 
     def test_empty_file_returns_empty_frame(self, tmp_path):
         out = tmp_path / "empty.csv"
-        out.write_text("datetime,station_id,variable,value,unit\n")
+        out.write_text("site,case_id,datetime,station_id,variable,value,unit\n")
         df = import_csv_timeseries(out)
         assert df.empty
 
 
 class TestImportNetCDFFields:
     def test_roundtrip_head(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "fields.nc"
-        catalog.export(sid, ExportRequest(variables="head", file=out))
+        catalog, sid, exports = catalog_with_data
+        out = exports / "fields.nc"
+        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
 
         fields = import_netcdf_fields(out, ["head"])
         assert "head" in fields
         assert fields["head"].shape == (3, 2, 6)
 
     def test_default_loads_registered_only(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "fields.nc"
-        catalog.export(sid, ExportRequest(variables="head", file=out))
+        catalog, sid, exports = catalog_with_data
+        out = exports / "fields.nc"
+        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
 
         fields = import_netcdf_fields(out)
         assert "head" in fields
         assert "node_x" not in fields
 
     def test_timestep_subset(self, catalog_with_data):
-        catalog, sid, tmp_path = catalog_with_data
-        out = tmp_path / "fields.nc"
-        catalog.export(sid, ExportRequest(variables="head", file=out))
+        catalog, sid, exports = catalog_with_data
+        out = exports / "fields.nc"
+        export_run(catalog, sid, ExportRequest(variables="head", file=out.name))
 
         fields = import_netcdf_fields(out, ["head"], timesteps=[0, 2])
         assert fields["head"].shape == (2, 2, 6)

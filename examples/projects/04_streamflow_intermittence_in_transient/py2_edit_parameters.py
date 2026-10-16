@@ -76,8 +76,8 @@ ax1.set_ylabel("discharge (m³/s)")
 ax1.legend(fontsize="small")
 ax2.set_ylabel("seepage area (km²)")
 
-# A figure that compares two runs belongs to neither of them: share/figures.
-out = HERE / "share" / "figures" / "reference_vs_variant.png"
+# A figure that compares two runs belongs to neither of them: summary/figures.
+out = HERE / "summary" / "figures" / "reference_vs_variant.png"
 out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=150)
 print(out)

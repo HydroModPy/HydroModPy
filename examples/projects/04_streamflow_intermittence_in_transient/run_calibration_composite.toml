@@ -16,7 +16,6 @@ description = "Nancon, K and Sy together, monthly transient, network and hydrogr
 
 [calibration]
 seed = 42
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

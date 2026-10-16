@@ -12,8 +12,7 @@ For each page (Markdown or reStructuredText under docs/source):
   validates against ``HydroModPyConfig`` once merged onto ``step1_minimal.toml``
   of example 04. A block whose first line is ``# not checked: <reason>`` is
   skipped, for a block that shows a mistake on purpose. A whole file of the
-  catchment report, of a testbed or of a comparison (``workflow.mode``), is read
-  by its own model, as ``hmp report catchment`` and ``hmp config check`` read it;
+  catchment report is read by its own model, as ``hmp report catchment`` reads it;
 - no French, no em dash, no wording of the mock-up.
 
 Reads ``docs/source/_data/registry.json``, written by the last build. Exit
@@ -178,9 +177,6 @@ def validate_toml(text: str, reg: Registry) -> list[str]:
         fragment = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         return [f"TOML syntax: {exc}"]
-    workflow = fragment.get("workflow")
-    if isinstance(workflow, dict) and workflow.get("mode") in CHECKED_BY_CONFIG_CHECK:
-        return validate_testbed_block(text)
     if not any(key in reg.roots for key in fragment):
         return validate_file_block(fragment, reg)
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
@@ -200,39 +196,6 @@ def validate_toml(text: str, reg: Registry) -> list[str]:
         finally:
             tmp.unlink(missing_ok=True)
     return [first] if first else []
-
-
-#: The workflow modes whose files have a schema of their own, which ``hmp config check``
-#: picks by ``workflow.mode``. The project loader would refuse them.
-CHECKED_BY_CONFIG_CHECK = ("testbed", "comparison")
-
-
-def validate_testbed_block(text: str) -> list[str]:
-    """Problems of a testbed or comparison file, read by ``hmp config check`` as a user would.
-
-    The check reads the tables of the mode only. It opens neither the base file,
-    nor the catalog, nor the overlays.
-    """
-    import argparse
-    import contextlib
-    import io
-
-    from hydromodpy.cli.commands.config import _cmd_config_check
-
-    tmp = EX04 / f".check_page_{os.getpid()}_{uuid.uuid4().hex[:8]}.toml"
-    tmp.write_text(text, encoding="utf-8")
-    said = io.StringIO()
-    try:
-        with contextlib.redirect_stderr(said), contextlib.redirect_stdout(said):
-            _cmd_config_check(argparse.Namespace(file=tmp))
-    except SystemExit as stop:
-        if stop.code in (0, None):
-            return []
-        message = " ".join(said.getvalue().replace(str(tmp), "the block").split())
-        return [f"refused by hmp config check: {message[:400]}"]
-    finally:
-        tmp.unlink(missing_ok=True)
-    return []
 
 
 def validate_file_block(fragment: dict, reg: Registry) -> list[str]:

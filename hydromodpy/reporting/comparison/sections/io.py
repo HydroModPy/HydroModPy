@@ -18,17 +18,12 @@ from .templates import (
 
 
 def _base_config_payload(ctx: ComparisonWebContext) -> dict[str, Any]:
-    raw_path = ctx.manifest.get("base_simulation_config")
-    if raw_path in (None, ""):
-        return {}
-    config_path = _existing_config_path(Path(str(raw_path)), ctx=ctx)
-    if config_path is None:
-        return {}
-    try:
-        payload = load_toml_with_base_config(config_path)
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
+    """Return the frozen configuration of the reference run."""
+    reference = str(ctx.manifest.get("reference_simulation", ""))
+    for simulation, payload in _simulation_config_payloads(ctx):
+        if str(simulation.get("id", "")) == reference:
+            return payload
+    return {}
 
 
 def _simulation_config_payloads(
@@ -65,19 +60,9 @@ def _flow_payload_for_solver(
 
 
 def _existing_config_path(path: Path, *, ctx: ComparisonWebContext) -> Path | None:
-    """Return an existing local path for a manifest config path."""
-    candidates = [path]
-    text = str(path).replace("\\", "/")
-    if text.startswith("/mnt/") and len(text) > 6 and text[6] == "/":
-        drive = text[5].upper()
-        candidates.append(Path(f"{drive}:/" + text[7:]))
-    if not path.is_absolute():
-        candidates.append((ctx.root / path).resolve())
-        candidates.append((ctx.root.parent / path).resolve())
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
+    """Return the frozen configuration a run summary names, when it is on disk."""
+    del ctx
+    return path if path.is_file() else None
 
 
 def _is_synthetic_patchy(ctx: ComparisonWebContext) -> bool:

@@ -72,13 +72,6 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "``AutoMigrationDisabled``.",
     ),
     EnvVar(
-        "HMP_AUTO_REGISTER_PROJECT",
-        "on",
-        "user",
-        "``0``, ``false``, ``no`` or ``off`` stops the registration of project roots in "
-        "the global index of the machine.",
-    ),
-    EnvVar(
         "HMP_BIN",
         "``bin/`` under the cache folder",
         "user",

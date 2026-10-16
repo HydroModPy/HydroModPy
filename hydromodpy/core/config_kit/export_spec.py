@@ -5,8 +5,10 @@ build the same :class:`ExportRequest`, so the words and the refusals are the
 same on the three surfaces. Only ``variables`` is required. The other keys say
 when (``time`` or ``period``), in which format (``format``, or the extension of
 ``file``) and where (``folder``, ``file``). Left out, each takes the natural
-answer: the whole simulation, the natural format of each data, and
-``share/<run>/``.
+answer: the whole simulation, the natural format of each data, and the
+``exports/`` directory of the run. Every file lands under that directory: an
+absolute ``folder`` or ``file``, or one that climbs out with ``..``, is
+refused. Publishing a copy out of the project is ``hmp publish``.
 
 The model refuses what it can decide alone, without the run and without the
 kind of each name. :func:`plan_outputs` finishes the job once the kind of each
@@ -25,7 +27,7 @@ import datetime as _dt
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PurePath, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Annotated, Any
 
 from pydantic import Field, TypeAdapter, field_validator, model_validator
@@ -49,7 +51,6 @@ class ExportFormat(StrEnum):
     geopackage = "geopackage"
     shapefile = "shapefile"
     vtu = "vtu"
-    package = "package"
     stac = "stac"
     rocrate = "rocrate"
     prov = "prov"
@@ -74,7 +75,6 @@ _SUFFIX_TO_FORMAT: dict[str, ExportFormat] = {
     ".gpkg": ExportFormat.geopackage,
     ".shp": ExportFormat.shapefile,
     ".vtu": ExportFormat.vtu,
-    ".hmp": ExportFormat.package,
     ".jsonld": ExportFormat.prov,
 }
 
@@ -85,7 +85,6 @@ FORMAT_SUFFIX: dict[ExportFormat, str] = {
     ExportFormat.geopackage: ".gpkg",
     ExportFormat.shapefile: ".shp",
     ExportFormat.vtu: ".vtu",
-    ExportFormat.package: ".hmp",
 }
 """The extension of the files a data format writes."""
 
@@ -94,9 +93,7 @@ SINGLE_INSTANT_FORMATS = frozenset(
 )
 """Formats holding one instant of a field per file: several dates write one file per date."""
 
-RUN_FORMATS = frozenset(
-    {ExportFormat.package, ExportFormat.stac, ExportFormat.rocrate, ExportFormat.prov}
-)
+RUN_FORMATS = frozenset({ExportFormat.stac, ExportFormat.rocrate, ExportFormat.prov})
 """Formats that describe the whole run, not a variable: they take ``variables = "all"``."""
 
 NON_REPROJECTING_FORMATS = frozenset({ExportFormat.netcdf, ExportFormat.vtu, ExportFormat.csv})
@@ -130,6 +127,15 @@ In a GeoPackage they share one file, a layer each; a Shapefile holds one layer p
 
 # The stem of a file that holds several names of one kind.
 _GROUP_STEM: dict[ExportKind, str] = {ExportKind.field: "fields", ExportKind.series: "series"}
+
+RETIRED_FORMATS: dict[str, str] = {
+    "package": (
+        'format = "package" is retired: the portable archive of a run is '
+        "'hmp publish <run> --to DEST --format tar --with results --with inputs'. "
+        "Drop this [[export]] block."
+    ),
+}
+"""Format names no longer written, and the sentence that names what replaces them."""
 
 _KEYWORDS = ("first", "last")
 _TIME_HELP = 'a date "YYYY-MM-DD", "first", "last", or a list of them'
@@ -245,9 +251,9 @@ class ExportRequest(HydroModelBase):
         default=None,
         description=(
             "The file format. Left out, each data takes its natural format, or the one "
-            "the extension of 'file' names. 'package' writes the portable .hmp archive "
-            "of the run; 'stac', 'rocrate' and 'prov' write its metadata. Those four "
-            'describe the whole run and take variables = "all" only.'
+            "the extension of 'file' names. 'stac', 'rocrate' and 'prov' write the "
+            'metadata of the run; those three describe the whole run and take variables = "all" '
+            "only. The portable archive of a run is written by 'hmp publish --format tar'."
         ),
         json_schema_extra={
             "value_docs": {
@@ -260,7 +266,6 @@ class ExportRequest(HydroModelBase):
                 ),
                 "shapefile": "An ESRI Shapefile (.shp), one file per date.",
                 "vtu": "A VTK unstructured grid (.vtu) of the mesh, one file per date.",
-                "package": "The portable .hmp archive of the run.",
                 "stac": "The STAC metadata of the run.",
                 "rocrate": "The RO-Crate metadata of the run.",
                 "prov": "The PROV provenance record of the run.",
@@ -270,17 +275,19 @@ class ExportRequest(HydroModelBase):
     folder: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            "The folder the files are written to, with automatic names. A relative "
-            "folder is read from the project's share/ directory. Defaults to "
-            "share/<run>/."
+            "A folder under the exports/ directory of the run, where the files are written "
+            "with automatic names. Relative to runs/<run>/exports/; an absolute folder or "
+            "one that climbs out with '..' is refused. Left out, the files go to "
+            "runs/<run>/exports/."
         ),
     )
     file: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
-            "One exact file to write; its extension gives the format. A relative file "
-            "is read from 'folder'. Only for a request that writes one file: several "
-            "files need 'folder' and automatic names."
+            "One exact file to write; its extension gives the format. Relative to 'folder' "
+            "under runs/<run>/exports/; an absolute file or one that climbs out with '..' "
+            "is refused. Only for a request that writes one file: several files need "
+            "'folder' and automatic names."
         ),
     )
     crs: Annotated[str | None, Profile.USER] = Field(
@@ -322,6 +329,34 @@ class ExportRequest(HydroModelBase):
                 'variables = ["head", "discharge"], or variables = "all".'
             )
         return data
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def _refuse_retired_format(cls, value: Any) -> Any:
+        """Name what replaces a format that is no longer written."""
+        if isinstance(value, str) and value.strip().lower() in RETIRED_FORMATS:
+            raise ValueError(RETIRED_FORMATS[value.strip().lower()])
+        return value
+
+    @field_validator("folder", "file")
+    @classmethod
+    def _inside_the_exports(cls, value: Path | None, info: Any) -> Path | None:
+        """Keep every file under the exports directory of the run."""
+        if value is None:
+            return None
+        if value.is_absolute() or PureWindowsPath(str(value)).is_absolute():
+            raise ValueError(
+                f"{info.field_name} = {value.as_posix()!r} is absolute. Exports are written "
+                f"under runs/<run>/exports/: write a {info.field_name} relative to it, or "
+                "copy the run out of the project with 'hmp publish <run> --to DEST'."
+            )
+        if ".." in value.parts:
+            raise ValueError(
+                f"{info.field_name} = {value.as_posix()!r} climbs out of runs/<run>/exports/ "
+                "with '..'. Write a path inside it, or copy the run out of the project with "
+                "'hmp publish <run> --to DEST'."
+            )
+        return value
 
     @field_validator("variables")
     @classmethod
@@ -512,8 +547,7 @@ class ExportRequest(HydroModelBase):
 class PlannedFile:
     """One file an export request writes.
 
-    ``path`` is relative to ``share/`` when the request names no absolute
-    folder. It is spelled with forward slashes on every OS, as a TOML writes
+    ``path`` is relative to the ``exports/`` directory of the run. It is spelled with forward slashes on every OS, as a TOML writes
     it: the step 0 check compares and reports it, and the exporter turns it
     into a native path only to write the file. It holds
     :data:`STEP_DATE_TOKEN` when one file is written per step and the steps
@@ -595,8 +629,7 @@ def plan_outputs(
     kinds
         The kind of every name the request exports.
     run_label
-        The name of the run, the default folder and the stem of a file that
-        holds several variables.
+        The name of the run: the stem of a file that holds several variables.
     names
         What ``variables = "all"`` stands for on this run. Ignored for a
         request that lists its names. Without it, a data request for "all"
@@ -609,14 +642,12 @@ def plan_outputs(
         ``resolution`` no planned file can carry, or a ``file`` on a request
         that writes several files.
     """
-    native = request.folder if request.folder is not None else PurePath(run_label)
+    native = request.folder if request.folder is not None else PurePath()
     folder = _posix(native)
-    # Joined natively first: an absolute file (a drive on Windows) replaces the folder.
     file = None if request.file is None else _posix(native / request.file)
     fmt = request.output_format
     if fmt in RUN_FORMATS:
-        default = _RUN_FORMAT_FILES.get(fmt, f"{run_label}{FORMAT_SUFFIX.get(fmt, '')}")
-        path = file if file is not None else folder / default
+        path = file if file is not None else folder / _RUN_FORMAT_FILES[fmt]
         return (PlannedFile(path=path, format=fmt, variables=()),)
 
     selected = request.names if not request.exports_all else list(names or ())
@@ -737,6 +768,7 @@ __all__ = [
     "KIND_FORMATS",
     "MESH_LAYERS",
     "NON_REPROJECTING_FORMATS",
+    "RETIRED_FORMATS",
     "RUN_FORMATS",
     "SINGLE_INSTANT_FORMATS",
     "STEP_DATE_TOKEN",

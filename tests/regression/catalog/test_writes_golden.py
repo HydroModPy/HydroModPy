@@ -1,17 +1,17 @@
-"""Golden regression test for WritesMixin.
+"""Golden regression test for the writes of a run store, read back from the index.
 
-Pins the data surface of the most-used write methods against a fixed
-baseline. The goal is to make the mixin-split refactor (DuckDB / Parquet /
-Zarr) byte-equivalent on stable columns. Non-deterministic clock fields
-(``valid_from``, ``created_at``, ``ended_at``, ``written_at`` parquet kv)
-are excluded.
+Pins the data surface of the most-used write methods of
+:class:`~hydromodpy.results.storage.run_store.RunStore` against a fixed
+baseline: a run is claimed, written, sealed and indexed, and the rows the
+index holds are compared. Non-deterministic clock fields (``valid_from``,
+``created_at``, ``ended_at``, ``written_at`` parquet kv) and the run id, drawn
+at claim time, are excluded.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,9 @@ import pyarrow.parquet as pq
 
 from hydromodpy import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.fixtures_catalog import simulation_catalog
+from tests._helpers.run_stores import open_run_store
 
 # Fields whose value depends on wall-clock time. Strip before snapshotting.
 _NON_DETERMINISTIC_FIELDS: frozenset[str] = frozenset(
@@ -50,16 +53,16 @@ def _render_value(value: Any) -> Any:
 
 
 def _table_data_sha256(parquet_path: Path) -> str:
-    """Hash the row data of a parquet file (schema-aware, metadata-free)."""
+    """Hash the row data of a parquet file (schema-aware, metadata-free), run id left out."""
     table = pq.read_table(parquet_path)
-    payload = table.to_pylist()
+    payload = [{k: v for k, v in row.items() if k != "sim_id"} for row in table.to_pylist()]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
 
 
 def _capture_state(catalog: Catalog, sim_id: str) -> dict[str, Any]:
-    """Capture deterministic state after the standard write sequence."""
+    """Capture deterministic state after the standard write sequence, run id masked."""
     parameters = catalog.connection.execute(
         "SELECT sim_id, param_name, zone_id, value, unit, parameterization "
         "FROM parameters WHERE sim_id = ? ORDER BY param_name",
@@ -76,95 +79,77 @@ def _capture_state(catalog: Catalog, sim_id: str) -> dict[str, Any]:
         [sim_id],
     ).fetchall()
     objective = catalog.connection.execute(
-        "SELECT sim_id, scientific_objective, study_area_name, outlet_x, outlet_y "
-        "FROM simulations WHERE sim_id = ?",
+        "SELECT sim_id, scientific_objective FROM simulations WHERE sim_id = ?",
         [sim_id],
     ).fetchall()
-    return {
+    state = {
         "parameters": _row_tuple_text(parameters),
         "metrics": _row_tuple_text(metrics),
         "run_env": _row_tuple_text(run_env),
         "objective": _row_tuple_text(objective),
     }
+    return {key: text.replace(sim_id, SIM_ID_MASK) for key, text in state.items()}
 
 
-def _run_standard_writes(catalog: Catalog) -> str:
-    """Apply a fixed set of write calls and return the new sim_id."""
-    sid = str(uuid.UUID("12345678-1234-5678-1234-567812345678"))
-    reg = catalog.register_simulation(
-        sid,
-        name="golden-sim",
-        project="golden",
-        solver="modflow6",
+def _run_standard_writes(project: Path) -> str:
+    """Apply a fixed set of write calls, seal the run and return its sim_id."""
+    store = open_run_store(
+        project,
+        "golden-sim",
         n_cells=4,
         n_layers=1,
+        scientific_objective="calibration of K field",
     )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    catalog.write_parameters(
+    sid = store.sim_id
+    store.write_parameters(
         sid,
         [
             {"param_name": "K", "value": 1.5, "unit": "m/d"},
             {"param_name": "S", "value": 1e-4, "unit": "1/m"},
         ],
     )
-    catalog.write_metric(sid, "P01", "nse", 0.91)
-    catalog.write_run_environment(sid, solver_name="modflow6", rng_seed=42)
-    catalog.write_scientific_objective(
-        sid,
-        "calibration of K field",
-        study_area_name="Test catchment",
-        outlet_x=1.0,
-        outlet_y=2.0,
-    )
+    store.write_metric(sid, "P01", "nse", 0.91)
+    store.write_run_environment(sid, solver_name="modflow6", rng_seed=42)
     idx = pd.date_range("2020-01-01", periods=3, freq="D", tz="UTC")
-    catalog.write_timeseries(
+    store.write_timeseries(
         sid,
         "P01",
         "head",
         pd.Series(np.array([10.0, 11.0, 12.0]), index=idx),
     )
+    seal_completed(store)
     return sid
 
 
-# Golden constants captured against the writes.py implementation at
-# commit a89658f85 (parent of the mixin split). Updating these is allowed
-# only when an intentional data change is shipped together.
+SIM_ID_MASK = "<sim_id>"
+"""Stands for the run id in the captured rows: the id is drawn when the run is claimed."""
+
+# Golden constants. The rows are the ones the catalog writer produced at
+# commit a89658f85, less the columns the run record no longer carries
+# (study_area_name, outlet_x, outlet_y). The timeseries hash is the one of
+# that writer's file with the sim_id column left out (measured at 062358279).
+# Updating these is allowed only when an intentional data change is shipped
+# together.
 GOLDEN_PARAMETERS = (
-    '[["12345678-1234-5678-1234-567812345678", "K", "__global__", '
-    '1.5, "m/d", null], '
-    '["12345678-1234-5678-1234-567812345678", "S", "__global__", '
-    '0.0001, "1/m", null]]'
+    '[["<sim_id>", "K", "__global__", 1.5, "m/d", null], '
+    '["<sim_id>", "S", "__global__", 0.0001, "1/m", null]]'
 )
-GOLDEN_METRICS = '[["12345678-1234-5678-1234-567812345678", "P01", "head", "nse", 0.91, null]]'
+GOLDEN_METRICS = '[["<sim_id>", "P01", "head", "nse", 0.91, null]]'
 GOLDEN_RUN_ENV = json.dumps(
-    [
-        [
-            "12345678-1234-5678-1234-567812345678",
-            HYDROMODPY_VERSION,
-            "modflow6",
-            42,
-        ]
-    ],
+    [[SIM_ID_MASK, HYDROMODPY_VERSION, "modflow6", 42]],
     sort_keys=True,
 )
-GOLDEN_OBJECTIVE = (
-    '[["12345678-1234-5678-1234-567812345678", '
-    '"calibration of K field", "Test catchment", 1.0, 2.0]]'
-)
-GOLDEN_TIMESERIES_SHA256 = "9b63e82da82f5bdabaf8fc1becaaee8f3496555bda6e0d35e48e6d52826dd559"
+GOLDEN_OBJECTIVE = '[["<sim_id>", "calibration of K field"]]'
+GOLDEN_TIMESERIES_SHA256 = "e99498a28699ca8dfcd666d5730622366f26bf452937f8a2dc79d229986d6485"
 
 
 def test_writes_golden(tmp_path: Path) -> None:
     """Pin the deterministic surface of the write API to a known baseline."""
-    catalog = Catalog(tmp_path / "ws")
-    try:
-        sid = _run_standard_writes(catalog)
+    project = tmp_path / "ws"
+    sid = _run_standard_writes(project)
+    with simulation_catalog(project) as catalog:
         state = _capture_state(catalog, sid)
-        ts_path = catalog._paths.table_path_for(sid, "timeseries")
-        ts_sha = _table_data_sha256(ts_path)
-    finally:
-        catalog.close()
+        ts_sha = _table_data_sha256(catalog.tables_dir_for(sid) / "timeseries.parquet")
 
     assert state["parameters"] == GOLDEN_PARAMETERS
     assert state["metrics"] == GOLDEN_METRICS

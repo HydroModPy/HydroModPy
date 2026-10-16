@@ -1,4 +1,4 @@
-"""Tests for newer top-level CLI verbs: calibrate, audit, viz, privacy verify."""
+"""Tests for newer top-level CLI verbs: calibrate, viz, report render, privacy verify."""
 
 from __future__ import annotations
 
@@ -74,34 +74,20 @@ def test_calibrate_success_forwards_resolved_path_and_prints_summary(
     assert code == 0
     assert captured["path"] == config.resolve()
     assert captured["phase"] is None
-    # hmp.calibrate returns the report object by default, so the CLI asks nothing.
-    assert captured["kwargs"] == {}
+    # hmp.calibrate returns the report object by default: the CLI asks a plain run.
+    assert captured["kwargs"] == {"resume": False, "dry_run": False}
     err = capsys.readouterr().err
     assert "Calibration finished: calib.toml" in err
     assert "K = 0.00021" in err
     assert "cost: 0.25" in err
 
 
-def test_audit_family_help_lists_actions(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "audit", "--help"])
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "list" in out and "verify" in out
-
-
-def test_audit_list_without_catalog_exits_clean(monkeypatch, tmp_path) -> None:
-    empty = tmp_path / "empty_ws"
-    empty.mkdir()
-    code = _run(monkeypatch, ["hmp", "audit", "list", "--workspace", str(empty)])
-    assert code == 10
-
-
-def test_audit_prune_is_gone(monkeypatch, capsys) -> None:
-    """``hmp audit prune`` was removed with the never-written retention table."""
-    code = _run(monkeypatch, ["hmp", "audit", "prune"])
+def test_the_audit_family_is_gone(monkeypatch, capsys) -> None:
+    """``audit_log`` is not a table of the index any more: nothing to list or verify."""
+    code = _run(monkeypatch, ["hmp", "audit", "list"])
 
     assert code == 2
-    assert "invalid choice: 'prune'" in capsys.readouterr().err
+    assert "invalid choice: 'audit'" in capsys.readouterr().err
 
 
 def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
@@ -109,7 +95,8 @@ def test_viz_family_help_lists_actions(monkeypatch, capsys) -> None:
     assert code == 0
     out = capsys.readouterr().out
     assert "show" in out
-    assert "gallery" in out
+    assert "regen" in out
+    assert "gallery" not in out
     assert "serve" not in out
 
 
@@ -146,53 +133,6 @@ def test_report_render_calls_api_and_opens_browser_after_success(
     assert Path(calls["workspace"]) == tmp_path
     assert calls["opened"] == html.as_uri()
     assert f"wrote {html}" in capsys.readouterr().err
-
-
-def test_report_compare_filters_metric_name_without_changing_api_call(
-    monkeypatch,
-    tmp_path,
-    capsys,
-) -> None:
-    import hydromodpy as hmp
-
-    catalog_path = catalog_path_for(tmp_path)
-    catalog_path.parent.mkdir(parents=True, exist_ok=True)
-    catalog_path.write_bytes(b"")
-    calls: dict[str, object] = {}
-
-    def fake_compare_pair(ref_a: str, ref_b: str, *, workspace: Path):
-        calls["args"] = (ref_a, ref_b, workspace)
-        return pd.DataFrame(
-            {
-                "metric_name": ["nse", "rmse", "kge"],
-                "a": [0.8, 1.2, 0.7],
-                "b": [0.9, 1.0, 0.6],
-            }
-        )
-
-    monkeypatch.setattr(hmp, "compare_pair", fake_compare_pair)
-
-    code = _run(
-        monkeypatch,
-        [
-            "hmp",
-            "report",
-            "compare",
-            "sim-a",
-            "sim-b",
-            "--workspace",
-            str(tmp_path),
-            "--variables",
-            "nse,kge",
-        ],
-    )
-
-    assert code == 0
-    assert calls["args"] == ("sim-a", "sim-b", tmp_path.resolve())
-    out = capsys.readouterr().out
-    assert "nse" in out
-    assert "kge" in out
-    assert "rmse" not in out
 
 
 def test_privacy_verify_missing_certificate_returns_not_found(monkeypatch, tmp_path) -> None:

@@ -14,8 +14,8 @@
   - `mf6` for MODFLOW 6 / GWT
   - `nwt` for MODFLOW-NWT / MODPATH / MT3DMS
 - Solver intercomparison tests use the `intercomparison` marker. They compare
-  compact metrics produced by a `[workflow].mode = "comparison"` run, not figure files
-  or full solver workspaces.
+  the compact profiles two solvers give on one validation case, not figure
+  files or full solver workspaces.
 
 Current non-regression tests:
 
@@ -23,7 +23,8 @@ Current non-regression tests:
 - `fast/test_simulation_regression_fast_boussinesq_divide_regression.py`
 - `fast/test_simulation_regression_fast_mf6_regression.py`
 - `fast/test_simulation_regression_fast_nwt_regression.py`
-- `fast/intercomparison/test_solver_intercomparison_fast_regression.py`
+- `fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py`
+- `fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py`
 - `extensive/test_simulation_regression_extensive_mf6_regression.py`
 - `extensive/test_simulation_regression_extensive_nwt_regression.py`
 - `extensive/test_launcher_data_overview_regression.py`
@@ -97,7 +98,7 @@ python -m pytest tests/regression/fast/test_simulation_regression_fast_boussines
 python -m pytest tests/regression/fast/test_simulation_regression_fast_boussinesq_divide_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_simulation_regression_fast_mf6_regression.py -q -n 1
 python -m pytest tests/regression/fast/test_simulation_regression_fast_nwt_regression.py -q -n 1
-python -m pytest tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py -q -n 1
+python -m pytest tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py -q -n 1
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_mf6_regression.py -q -n 1
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q -n 1
 ```
@@ -196,7 +197,7 @@ python -m pytest tests/regression/fast/test_simulation_regression_fast_boussines
 python -m pytest tests/regression/fast/test_simulation_regression_fast_boussinesq_divide_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_simulation_regression_fast_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/fast/test_simulation_regression_fast_nwt_regression.py -q --update-goldens
-python -m pytest tests/regression/fast/intercomparison/test_solver_intercomparison_fast_regression.py -q --update-goldens
+python -m pytest tests/regression/fast/intercomparison/test_mf6_support_intercomparison_fast_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_mf6_regression.py -q --update-goldens
 python -m pytest tests/regression/extensive/test_simulation_regression_extensive_nwt_regression.py -q --update-goldens
 ```

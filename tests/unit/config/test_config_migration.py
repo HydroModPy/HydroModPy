@@ -140,47 +140,6 @@ def test_flattens_a_family_keyed_boundary(tmp_path: Path) -> None:
     assert fix_config_file(path) == []
 
 
-def test_flattens_the_overlay_of_every_comparison_and_testbed_entry(tmp_path: Path) -> None:
-    """A comparison or testbed file patches flow per case, under ``overlay``.
-
-    Those overlays reach the same loader and are refused by the same rule, so a
-    migration that only looked at the root ``[flow]`` left the file broken and
-    reported nothing to fix.
-    """
-    path = _write(
-        tmp_path,
-        '[[comparison.simulation]]\nid = "low_k"\n'
-        '[comparison.simulation.overlay.flow.bc.cauchy.drainage]\nvalue = "1e-7 m2/s"\n\n'
-        '[[comparison.simulation]]\nid = "high_k"\n'
-        '[comparison.simulation.overlay.flow.bc.robin.drainage]\nvalue = "3e-3 m2/s"\n\n'
-        '[[testbed.case]]\nid = "patchy"\n'
-        "[testbed.case.overlay.flow.bc.dirichlet.east_side]\nvalue = 2.5\n",
-    )
-
-    changes = fix_config_file(path)
-    parsed = tomllib.loads(path.read_text(encoding="utf-8"))
-    simulations = parsed["comparison"]["simulation"]
-    case = parsed["testbed"]["case"][0]
-
-    first = simulations[0]["overlay"]["flow"]["bc"]
-    assert "cauchy" not in first
-    assert first["drainage"] == {"value": "1e-7 m2/s", "kind": "cauchy"}
-
-    # A robin drainage departs from the registry default, so the kind it gains
-    # is the whole point: dropping it would silently make it a cauchy one.
-    second = simulations[1]["overlay"]["flow"]["bc"]
-    assert "robin" not in second
-    assert second["drainage"] == {"value": "3e-3 m2/s", "kind": "robin"}
-
-    overlay_bc = case["overlay"]["flow"]["bc"]
-    assert "dirichlet" not in overlay_bc
-    assert overlay_bc["east_side"] == {"value": 2.5, "kind": "dirichlet"}
-
-    assert len(changes) == 3
-    assert all("overlay.flow.bc" in change for change in changes)
-    assert fix_config_file(path) == []
-
-
 def test_a_flat_entry_already_there_wins_over_the_nested_one(tmp_path: Path) -> None:
     """A flat mapping cannot hold the same id twice, so the nested one is dropped."""
     path = _write(
@@ -201,45 +160,6 @@ def test_a_file_with_no_flow_section_is_left_alone(tmp_path: Path) -> None:
     assert fix_config_file(path) == []
 
 
-def test_a_single_comparison_table_migrates_like_an_array_of_one(tmp_path: Path) -> None:
-    """``[comparison.simulation]`` instead of ``[[comparison.simulation]]`` still migrates.
-
-    Writing the single-table form is a common slip. The loader has its own
-    opinion about it; the migration's job is to reach the boundary either way
-    rather than skip the file and report nothing to fix.
-    """
-    path = _write(
-        tmp_path,
-        '[comparison.simulation]\nid = "only"\n'
-        '[comparison.simulation.overlay.flow.bc.cauchy.drainage]\nvalue = "1e-7 m2/s"\n',
-    )
-
-    changes = fix_config_file(path)
-    bc = tomllib.loads(path.read_text(encoding="utf-8"))["comparison"]["simulation"]["overlay"][
-        "flow"
-    ]["bc"]
-
-    assert bc["drainage"] == {"value": "1e-7 m2/s", "kind": "cauchy"}
-    assert len(changes) == 1
-
-
-def test_a_case_that_patches_nothing_is_skipped(tmp_path: Path) -> None:
-    """An entry with no overlay must not stop the ones that follow it."""
-    path = _write(
-        tmp_path,
-        '[[testbed.case]]\nid = "control"\n\n'
-        '[[testbed.case]]\nid = "patched"\n'
-        "[testbed.case.overlay.flow.bc.dirichlet.east_side]\nvalue = 2.5\n",
-    )
-
-    changes = fix_config_file(path)
-    cases = tomllib.loads(path.read_text(encoding="utf-8"))["testbed"]["case"]
-
-    assert "overlay" not in cases[0]
-    assert cases[1]["overlay"]["flow"]["bc"]["east_side"] == {"value": 2.5, "kind": "dirichlet"}
-    assert len(changes) == 1
-
-
 def test_drops_both_solver_time_grids_at_the_root(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -255,30 +175,6 @@ def test_drops_both_solver_time_grids_at_the_root(tmp_path: Path) -> None:
     assert "tgrid" not in parsed["modflow6"]
     assert "tgrid" not in parsed["modflownwt"]
     assert parsed["modflow6"]["relax_steady"] is True
-
-
-def test_drops_a_solver_time_grid_hidden_in_a_comparison_overlay(tmp_path: Path) -> None:
-    """A comparison file patches its solver sections under overlay, not at the root."""
-    path = _write(
-        tmp_path,
-        "[[comparison.simulation]]\n"
-        'label = "nwt"\n\n'
-        "[comparison.simulation.overlay.modflownwt.tgrid]\n"
-        "nper = 12\n\n"
-        "[[comparison.simulation]]\n"
-        'label = "mf6"\n\n'
-        "[comparison.simulation.overlay.modflow6.tgrid]\n"
-        "nper = 12\n",
-    )
-
-    changes = fix_config_file(path)
-
-    assert any("comparison.simulation[0].overlay.modflownwt.tgrid dropped" in c for c in changes)
-    assert any("comparison.simulation[1].overlay.modflow6.tgrid dropped" in c for c in changes)
-    # The overlays held nothing else, so the emptied tables go with the key.
-    parsed = tomllib.loads(path.read_text())["comparison"]["simulation"]
-    assert parsed[0] == {"label": "nwt"}
-    assert parsed[1] == {"label": "mf6"}
 
 
 def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
@@ -366,13 +262,14 @@ def test_each_format_toggle_becomes_one_request_in_the_order_it_ran() -> None:
         },
         {"variables": ["head", "watertable_depth"], "file": "fields.nc", "folder": "deliver"},
         {"variables": "all", "format": "csv", "file": "series.csv", "folder": "deliver"},
-        {"variables": "all", "format": "package", "file": "run.hmp", "folder": "deliver"},
-        {"variables": "all", "format": "package", "folder": "deliver"},
     ]
-    assert changes == [
-        "[export] toggles and artifacts -> 6 [[export]] block(s) "
-        "(csv, geotiff, by extension, csv, package, package)"
-    ]
+    # The archive (package = true, fmt = "hmp") is not an export: hmp publish writes it.
+    assert len(changes) == 2
+    assert changes[0].startswith("[export] archive request(s) dropped")
+    assert "hmp publish --format tar" in changes[0]
+    assert changes[1] == (
+        "[export] toggles and artifacts -> 4 [[export]] block(s) (csv, geotiff, by extension, csv)"
+    )
 
 
 def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
@@ -398,14 +295,8 @@ def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
     assert requests[1].time == 33
 
 
-def test_an_archive_artifact_naming_a_variable_loads_as_the_whole_run() -> None:
-    """The old spec wrote the whole run whatever an archive named; the request says so."""
-    from hydromodpy.core.config_kit.export_spec import (
-        EXPORT_ALL,
-        ExportFormat,
-        load_export_requests,
-    )
-
+def test_an_archive_artifact_is_dropped_and_names_hmp_publish() -> None:
+    """No export writes the archive of a run: the artifacts asking for it are dropped."""
     doc = tomllib.loads(
         "[export]\n\n"
         '[[export.artifacts]]\nvar = "head"\nfmt = "hmp"\ndest = "run.hmp"\ntime = 3\n\n'
@@ -413,18 +304,21 @@ def test_an_archive_artifact_naming_a_variable_loads_as_the_whole_run() -> None:
         "resolution = 25.0\n"
     )
 
-    migrate_config_doc(doc)
+    changes = migrate_config_doc(doc)
 
+    assert "export" not in doc
+    assert len(changes) == 2 and "hmp publish --format tar" in changes[0]
+    # One archive beside a real export: the export stays, the archive goes.
+    doc = tomllib.loads(
+        "[export]\nnetcdf = true\npackage = true\n\n"
+        '[[export.artifacts]]\nvar = "*"\nfmt = "csv"\ndest = "series.csv"\n'
+    )
+    changes = migrate_config_doc(doc)
     assert doc["export"] == [
-        {"variables": "all", "format": "package", "file": "run.hmp"},
-        {"variables": "all", "file": "copy.hmp"},
+        {"variables": ["head"], "format": "netcdf", "time": "last"},
+        {"variables": "all", "format": "csv", "file": "series.csv"},
     ]
-    requests = load_export_requests(doc["export"])
-    assert [request.output_format for request in requests] == [
-        ExportFormat.package,
-        ExportFormat.package,
-    ]
-    assert all(request.variables == EXPORT_ALL for request in requests)
+    assert changes[0].startswith("[export] archive request(s) dropped")
 
 
 def test_a_table_with_every_format_off_is_dropped_without_a_word(

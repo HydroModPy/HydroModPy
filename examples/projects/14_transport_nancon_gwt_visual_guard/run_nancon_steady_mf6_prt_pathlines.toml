@@ -1,4 +1,4 @@
-base_config = "../09_comparison_workflow/base_nancon_steady_hydrography_mesh_input.toml"
+base_config = "base_nancon_steady_hydrography_mesh_input.toml"
 
 [workflow]
 mode = "simulation"

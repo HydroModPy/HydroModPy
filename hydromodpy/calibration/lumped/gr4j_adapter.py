@@ -1,11 +1,11 @@
 """Calibration-side adapter for the lumped GR4J catchment model.
 
-GR4J runs in-memory through ``simulation.extraction.calibration_bridge``: it
-never writes solver binaries, and ``execute`` is therefore not wired into the
-staged flow runner. The class exposes ``extract_observables`` so the
-calibration engine can read the catalogued series back from the cold-path
-``store`` after ``promote_trial`` has persisted the best run, using the same
-contract as the MODFLOW backend adapters.
+GR4J runs in memory, its series kept in the RAM cache of
+:mod:`hydromodpy.calibration.lumped.ram_cache`: it never writes solver binaries, and
+``execute`` is therefore not wired into the staged flow runner. The class
+exposes ``extract_observables`` so the calibration engine can read the series
+of a promoted run back from its store, using the same contract as the MODFLOW
+backend adapters.
 """
 
 from __future__ import annotations
@@ -46,12 +46,12 @@ class Gr4jAdapter:
     def execute(self, ctx: RunContext) -> RunExecutionResult:
         """GR4J does not run through the staged flow runner.
 
-        Calibration drives GR4J through ``make_hot_simulator`` /
-        ``promote_trial`` instead of the ``ProcessRun`` lifecycle.
+        Calibration drives GR4J in memory instead of the ``ProcessRun``
+        lifecycle.
         """
         raise NotImplementedError(
-            "Gr4jAdapter does not implement execute(); GR4J is driven by "
-            "simulation.extraction.calibration_bridge.make_hot_simulator."
+            "Gr4jAdapter does not implement execute(); GR4J runs in memory and keeps "
+            "its series in hydromodpy.calibration.lumped.ram_cache."
         )
 
     def cleanup(self, ctx: RunContext) -> None:
@@ -72,10 +72,9 @@ class Gr4jAdapter:
         - **Lightweight (``store=None``)**: read the series the GR4J runner
           stashed in the per-trial :class:`LumpedRamCache`. This skips every
           DuckDB / Parquet write so calibration trials stay strictly in memory.
-        - **Cold (``store`` non-None)**: query the ``Catalog``.
-          ``promote_trial`` writes the best GR4J trial under
-          ``station_id="outlet"`` (or the id carried by the request ``key``)
-          and this method reads it back for full-fidelity reporting.
+        - **Cold (``store`` non-None)**: read the latest GR4J run of the
+          store, at ``station_id="outlet"`` (or the id carried by the request
+          ``key``), for full-fidelity reporting.
 
         GR4J is lumped, so every observable sits on the ``domain`` support and
         the request ``key`` names the station when it is not the outlet.

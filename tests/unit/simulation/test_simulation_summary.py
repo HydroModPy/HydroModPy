@@ -6,16 +6,15 @@ import pytest
 
 from hydromodpy.results.run import Run
 
-from ._test_simulation_api_builders import _register, catalog
+from ._test_simulation_api_builders import MISSING_SIM_ID, runs
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
 class TestSimulationSummary:
-    def test_dict_keys(self, catalog):
-        sid = _register(catalog, name="run1", flow_regime="transient", n_timesteps=12)
-        sim = Run(sid, catalog)
-        info = sim.summary()
+    def test_dict_keys(self, runs):
+        sid = runs.open("run1", flow_regime="transient", n_timesteps=12).sim_id
+        info = Run(sid, runs.catalog()).summary()
         assert isinstance(info, dict)
         expected = {
             "sim_id",
@@ -42,22 +41,21 @@ class TestSimulationSummary:
         assert info["n_cells"] == 10
         assert info["n_timesteps"] == 12
 
-    def test_json_roundtrip(self, catalog):
-        sid = _register(catalog, name="run-json", tags=["a", "b"])
-        catalog.finalize(sid, "completed")
-        sim = Run(sid, catalog)
-        payload = sim.summary(json=True)
+    def test_json_roundtrip(self, runs):
+        sid = runs.open("run-json", tags=["a", "b"]).sim_id
+        payload = Run(sid, runs.catalog()).summary(json=True)
         assert isinstance(payload, str)
         parsed = json.loads(payload)
         assert parsed["sim_id"] == sid
         assert parsed["name"] == "run-json"
         assert parsed["status"] == "completed"
         assert parsed["duration_s"] > 0.0
-        assert parsed["tags"] == ["a", "b"]
+        assert sorted(parsed["tags"]) == ["a", "b"]
         # created_at must serialise (datetime -> string)
         assert isinstance(parsed["created_at"], str)
 
-    def test_not_found(self, catalog):
-        sim = Run("nonexistent-uuid", catalog)
+    def test_not_found(self, runs):
+        runs.open()
+        sim = Run(MISSING_SIM_ID, runs.catalog())
         with pytest.raises(KeyError):
             sim.summary()

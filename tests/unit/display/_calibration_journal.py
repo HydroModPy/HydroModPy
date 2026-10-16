@@ -1,12 +1,13 @@
-"""A run-shaped carrier whose session lives in a real journal on disk.
+"""A run-shaped carrier whose session lives in a real session directory on disk.
 
-The index row of a calibration session keeps no trial number, no root search
-record and no search space; ``session.json`` keeps all three. A figure drawn
-from a promoted run reads them from the journal of the project that holds the
-run, which it finds through ``[workspace] project_root`` of the run's config
-snapshot. The carrier here is built the same way: the journal is written by
-:class:`hydromodpy.results.session_journal.SessionJournal`, and the session
-row the carrier hands out holds only the columns the index has.
+The rows of ``calibration_sessions`` carry one phase each; ``session.json``
+keeps the best trial, the root search record and the search space of the
+session. A figure drawn from a promoted run reads them from the session
+directory the run was promoted from, found from the directory of the run.
+The carrier here is built the same way: the session is written by
+:class:`hydromodpy.calibration.persistence.CalibrationPersistence` under
+``sessions/<name>/``, and the carrier sits at ``runs/<name>`` of the same
+project.
 """
 
 from __future__ import annotations
@@ -19,7 +20,9 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.results.session_journal import SessionJournal
+from hydromodpy.calibration.persistence import CalibrationPersistence
+from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
+from hydromodpy.results.session.descriptor import BestTrial
 
 STARTED = datetime(2026, 9, 28, 12, 28, 25, tzinfo=UTC)
 
@@ -34,49 +37,45 @@ def journal_run(
     search_space: dict[str, Any],
     best_trial: int | None,
     root_search: dict[str, Any] | None = None,
-    name: str = "nancon",
+    name: str = "calibration",
 ) -> SimpleNamespace:
-    """Write one session journal under ``project`` and return a run carrying its trials."""
+    """Write one session directory under ``project`` and return a run carrying its trials."""
     session_id = uuid.uuid4().hex
-    journal = SessionJournal.start(
-        project,
+    persistence = CalibrationPersistence(project / session_dir_rel(name))
+    persistence.directory.mkdir(parents=True, exist_ok=True)
+    persistence.start_session(
         session_id=session_id,
-        project="nancon",
+        case_id=name,
+        site=None,
+        project="demo",
+        config_hash="c0ffee",
+        hydromodpy_version="2.0.0a5",
         method=method,
         objective_name="nse",
         search_space=search_space,
-        config=config,
-        started_at=STARTED,
-        root_session_id=session_id,
-        phase_name=phase,
-        phase_index=0,
+        objective_window=None,
     )
-    journal.finish(
+    persistence.finalize_session(
         status="completed",
-        duration_s=1.0,
-        ended_at=STARTED,
-        best_trial=best_trial,
-        best_objective=None,
+        best=None if best_trial is None else BestTrial(trial=best_trial),
         root_search=root_search,
     )
-    # The columns of the index: no best trial, no root search, no search space.
-    index_row = {
-        "session_id": str(uuid.UUID(session_id)),
+    # One row per phase: the session as a whole lives in session.json.
+    session_row = {
+        "session_id": session_id,
         "method": method,
         "phase_name": phase,
         "phase_index": 0,
-        "root_session_id": str(uuid.UUID(session_id)),
-        "parent_session_id": None,
         "started_at": STARTED.isoformat(),
         "config": config,
     }
-    trials = [{**row, "session_id": str(uuid.UUID(session_id))} for row in rows]
+    trials = [{**row, "session_id": session_id} for row in rows]
     return SimpleNamespace(
-        sim_id="sim-nancon",
+        sim_id="sim-demo",
         name=name,
+        dir=project / run_dir_rel(name),
         calibration_iterations=pd.DataFrame(trials),
-        calibration_sessions=pd.DataFrame([index_row]),
-        config_snapshot={"workspace": {"project_root": str(project)}},
+        calibration_sessions=pd.DataFrame([session_row]),
         has_table=lambda table: table == "calibration_iterations",
         has_field=lambda field: False,
     )

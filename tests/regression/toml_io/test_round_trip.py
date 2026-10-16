@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.config.sites.expansion import is_sites_project
 from hydromodpy.core.toml_io.generator import generate_toml_from_instances
 from hydromodpy.core.toml_io.io import dump_toml_with_comments
 
@@ -12,17 +14,25 @@ _DESIGN_DRAFT_PROJECTS = {"03_groundwater_1d"}
 
 
 def _example_project_tomls() -> list[Path]:
+    """Return the project files of the examples that load as one configuration.
+
+    A ``[sites]`` project is a plan: it loads case by case, once expanded.
+    """
     root = Path(__file__).resolve().parents[3]
     project_root = root / "examples" / "projects"
     return [
         path
         for path in sorted(project_root.glob("*/project.toml"))
         if path.parent.name not in _DESIGN_DRAFT_PROJECTS
+        and not is_sites_project(tomllib.loads(path.read_text(encoding="utf-8")))
     ]
 
 
 def _json_payload(cfg: HydroModPyConfig) -> dict:
-    return cfg.model_dump(mode="json", exclude_none=True)
+    """Return the payload a file carries: ``project_root`` is where the file was read."""
+    payload = cfg.model_dump(mode="json", exclude_none=True)
+    payload.get("workspace", {}).pop("project_root", None)
+    return payload
 
 
 def _root_instances(cfg: HydroModPyConfig) -> dict[str, BaseModel | list[BaseModel]]:

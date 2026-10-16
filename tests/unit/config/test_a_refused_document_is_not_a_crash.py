@@ -182,7 +182,8 @@ MALFORMED = {
     "a nested table that is a scalar": "[flow]\nsinks_sources = 3\n",
     "a protocol nobody registered": "[calibration]\nprotocol = 'nope'\n",
     "an inference mode that is not one": "[data]\ninference_mode = 'nope'\n",
-    "a sub-section that is a scalar": "[analysis]\nbatch = 3\n",
+    "a sub-section that is a scalar": "[mesh]\nfamilies = 3\n",
+    "a retired root section": "[analysis]\nbatch = 3\n",
 }
 
 

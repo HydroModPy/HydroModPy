@@ -44,8 +44,9 @@ def _inputs(tmp_path: Path) -> SimpleNamespace:
     transient = tmp_path / "transient.toml"
     transient.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
     return SimpleNamespace(
+        context_dir=tmp_path / "context",
         context_summary=tmp_path / "context" / "context_summary.json",
-        context_assets=tmp_path / "web" / "assets",
+        context_assets=tmp_path / "context" / "web" / "assets",
         transient_config=transient,
         observed_discharge_path=None,
         observed_discharge_station_id=None,
@@ -62,14 +63,14 @@ def test_the_cell_count_is_the_one_of_the_simulated_run(monkeypatch, tmp_path, n
 
     @contextmanager
     def open_run(inputs):
-        yield object(), SimpleNamespace(n_cells=n_cells)
+        yield SimpleNamespace(facts=SimpleNamespace(n_cells=n_cells))
 
     discharge = pd.DataFrame(
         {"datetime": pd.date_range("2020-01-01", periods=3, freq="D"), "value": [1.0, 2.0, 3.0]}
     )
     monkeypatch.setattr(context_module, "open_simulation_run", open_run)
-    monkeypatch.setattr(context_module, "read_simulated_discharge", lambda run: discharge)
-    monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda catalog, run: None)
+    monkeypatch.setattr(context_module, "read_simulated_discharge", lambda store: discharge)
+    monkeypatch.setattr(context_module, "simulation_parquet_dir", lambda store: None)
 
     summary_path = context_module.build_context(_inputs(tmp_path))
 

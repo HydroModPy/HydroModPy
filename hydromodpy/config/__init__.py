@@ -2,7 +2,7 @@
 
 ``HydroModPyConfig`` assembles the full user-facing TOML tree, so it sits above
 ``core``. Per-layer sub-section configs live in their own packages (e.g.
-``hydromodpy.analysis.config:AnalysisConfig``).
+``hydromodpy.calibration.config:CalibrationConfig``).
 """
 
 from __future__ import annotations

@@ -58,8 +58,8 @@ class TestCalibrationConfigMinimalPayload:
         # Unwritten, the method follows from the criteria when the run starts.
         assert cfg.method is None
         assert cfg.max_iter == "auto"
-        assert cfg.save_runs == "none"
-        assert cfg.save_best_n == 10
+        assert cfg.save_runs == "best_n"
+        assert cfg.save_best_n == 1
         assert cfg.use_cache is True
         assert cfg.objective == "nse"
         assert cfg.variable == "head"

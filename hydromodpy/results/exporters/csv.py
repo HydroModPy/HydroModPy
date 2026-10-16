@@ -3,6 +3,14 @@
 Times are written as naive ISO text on the run's clock, ``2002-10-01 00:00:00``:
 the catalog stores them in UTC, and a session zone never shifts them. A
 spreadsheet reads the file as the run wrote it.
+
+Every row starts with the ``site`` and the ``case_id`` of the run, so rows of
+several runs concatenated still say where each one comes from. The full
+identity block goes to the ``.meta.json`` sidecar the caller writes.
+
+The series are read from the ``timeseries`` payload of the run directory
+(``tables.parquet/timeseries.parquet``), never from the project index: a run
+exports what its own directory holds.
 """
 
 from __future__ import annotations
@@ -16,7 +24,7 @@ import pandas as pd
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    import duckdb
+    from hydromodpy.results.identity import Identity
 
 logger = get_logger(__name__)
 
@@ -36,62 +44,64 @@ _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 Window = tuple[Any, Any]
 """A ``(start, end)`` pair of naive timestamps on the run clock."""
 
-
-def _station_expression() -> tuple[str, list[str]]:
-    """Return the SQL that renames the internal station ids, and its parameters."""
-    if not EXPORTED_STATION_NAMES:
-        return "station_id", []
-    cases = " ".join("WHEN station_id = ? THEN ?" for _ in EXPORTED_STATION_NAMES)
-    params = [item for pair in EXPORTED_STATION_NAMES.items() for item in pair]
-    return f"CASE {cases} ELSE station_id END", params
+IDENTITY_COLUMNS = ("site", "case_id")
+"""The columns every exported row starts with: where the row comes from."""
 
 
-def _window_filter(windows: Sequence[Window]) -> tuple[str, list[Any]]:
-    """Return the SQL keeping the rows of a series inside ``windows``.
+def _identity_values(identity: Identity) -> tuple[str, str]:
+    """Return the ``site`` and ``case_id`` a row carries; the case stands for a run without site."""
+    return (identity.site or identity.case_id, identity.case_id)
+
+
+SERIES_COLUMNS = (*IDENTITY_COLUMNS, "datetime", "station_id", "variable", "value", "unit")
+"""The columns of a series CSV, one row per value."""
+
+
+def _in_windows(frame: pd.DataFrame, windows: Sequence[Window]) -> pd.Series:
+    """Return the mask of the rows of a series inside ``windows``.
 
     A simulated value is stamped at the end of its period, so a window keeps
     ``(start, end]``. An observation is stamped when it was taken, so a window
     keeps ``[start, end)``. Each keeps what falls in the periods of the window.
     No window keeps no row, as an empty ``variables`` list does.
     """
-    if not windows:
-        return "FALSE", []
-    clock = "timezone('UTC', time)"
-    clauses: list[str] = []
-    params: list[Any] = []
+    keep = pd.Series(False, index=frame.index)
+    observed = frame["variable"].str.endswith(OBSERVED_SUFFIX)
+    clock = frame["_clock"]
     for start, end in windows:
-        clauses.append(
-            f"((ends_with(variable, ?) AND {clock} >= ? AND {clock} < ?) "
-            f"OR (NOT ends_with(variable, ?) AND {clock} > ? AND {clock} <= ?))"
+        lo, hi = pd.Timestamp(start), pd.Timestamp(end)
+        keep |= (observed & (clock >= lo) & (clock < hi)) | (
+            ~observed & (clock > lo) & (clock <= hi)
         )
-        start_ts = pd.Timestamp(start).to_pydatetime()
-        end_ts = pd.Timestamp(end).to_pydatetime()
-        params.extend([OBSERVED_SUFFIX, start_ts, end_ts, OBSERVED_SUFFIX, start_ts, end_ts])
-    return "(" + " OR ".join(clauses) + ")", params
+    return keep
 
 
 def export_csv(
-    conn: duckdb.DuckDBPyConnection,
+    timeseries_path: str | Path,
     sim_id: str,
     output_path: str | Path,
     *,
+    identity: Identity,
     station_id: str | None = None,
     variables: Sequence[str] | None = None,
     windows: Sequence[Window] | None = None,
 ) -> Path:
     """Export the series of a simulation to a CSV file.
 
-    The rows stream from DuckDB straight to disk through ``COPY``. Columns are
-    ``datetime, station_id, variable, value, unit``, one row per value.
+    Columns are ``site, case_id, datetime, station_id, variable, value,
+    unit``, one row per value, ordered by station, variable and step.
 
     Parameters
     ----------
-    conn : duckdb.DuckDBPyConnection
-        Open connection to the project index database.
+    timeseries_path : str or Path
+        The ``timeseries`` Parquet payload of the run. A run without one
+        writes the header only.
     sim_id : str
         Simulation UUID.
     output_path : str or Path
         Destination ``.csv`` file.
+    identity : Identity
+        The identity block of the run: its site and case start every row.
     station_id : str, optional
         Keep one station. ``None`` keeps them all.
     variables : sequence of str, optional
@@ -109,49 +119,54 @@ def export_csv(
     Examples
     --------
     >>> export_csv(
-    ...     catalog.connection, run.sim_id, "discharge.csv", variables=["discharge"]
+    ...     run_dir / "tables.parquet" / "timeseries.parquet",
+    ...     run.sim_id,
+    ...     "discharge.csv",
+    ...     identity=identity,
+    ...     variables=["discharge"],
     ... )  # doctest: +SKIP
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    station_sql, station_params = _station_expression()
-    params: list[Any] = [*station_params, sim_id]
-    filters = ["sim_id = ?"]
+    frame = _read_series(Path(timeseries_path), sim_id)
     if station_id is not None:
-        filters.append("station_id = ?")
-        params.append(station_id)
+        frame = frame[frame["station_id"] == station_id]
     if variables is not None:
-        names = list(variables)
-        if not names:
-            filters.append("FALSE")
-        else:
-            filters.append(f"variable IN ({', '.join('?' for _ in names)})")
-            params.extend(names)
+        frame = frame[frame["variable"].isin(list(variables))]
     if windows is not None:
-        clause, window_params = _window_filter(windows)
-        filters.append(clause)
-        params.extend(window_params)
-
-    target = str(output_path).replace("'", "''")
-    query = (
-        "COPY ("
-        f"SELECT strftime(timezone('UTC', time), '{_TIME_FORMAT}') AS datetime, "
-        f"{station_sql} AS station_id, variable, value, unit "
-        "FROM timeseries WHERE " + " AND ".join(filters) + " "
-        "ORDER BY station_id, variable, timestep"
-        f") TO '{target}' (FORMAT CSV, HEADER)"
-    )
-    row = conn.execute(query, params).fetchone()
-    n_rows = int(row[0]) if row else 0
-    if n_rows:
-        logger.info("Exported CSV: %s (%d rows)", output_path, n_rows)
+        frame = frame[_in_windows(frame, windows)]
+    frame = frame.assign(station_id=frame["station_id"].replace(EXPORTED_STATION_NAMES))
+    frame = frame.sort_values(["station_id", "variable", "timestep"], kind="stable")
+    frame = frame.assign(datetime=frame["_clock"].dt.strftime(_TIME_FORMAT))
+    frame["site"], frame["case_id"] = _identity_values(identity)
+    frame.loc[:, list(SERIES_COLUMNS)].to_csv(output_path, index=False)
+    if len(frame):
+        logger.info("Exported CSV: %s (%d rows)", output_path, len(frame))
     else:
         logger.debug("No timeseries found for sim=%s", sim_id)
     return output_path
 
 
+def _read_series(path: Path, sim_id: str) -> pd.DataFrame:
+    """Return the rows of one run from its ``timeseries`` payload, times on the UTC clock.
+
+    ``_clock`` holds each time as a naive UTC timestamp, the run clock. A run
+    without a payload has no row.
+    """
+    columns = ["sim_id", "station_id", "variable", "timestep", "time", "value", "unit"]
+    if path.is_file():
+        frame = pd.read_parquet(path, columns=columns)
+        frame = frame[frame["sim_id"] == sim_id].copy()
+    else:
+        frame = pd.DataFrame({column: pd.Series(dtype=object) for column in columns})
+    times = pd.to_datetime(frame["time"], utc=True)
+    frame["_clock"] = times.dt.tz_convert("UTC").dt.tz_localize(None)
+    return frame
+
+
 BUDGET_COLUMNS = (
+    *IDENTITY_COLUMNS,
     "period_start",
     "period_end",
     "timestep",
@@ -168,6 +183,7 @@ def export_budget_csv(
     budget: pd.DataFrame,
     output_path: str | Path,
     *,
+    identity: Identity,
     timesteps: Sequence[int] | None = None,
     edges: Sequence[Any] | None = None,
 ) -> Path:
@@ -179,6 +195,8 @@ def export_budget_csv(
         The ``budgets`` rows of one run, as ``Run.budget()`` returns them.
     output_path : str or Path
         Destination ``.csv`` file.
+    identity : Identity
+        The identity block of the run: its site and case start every row.
     timesteps : sequence of int, optional
         Keep these periods. ``None`` keeps them all.
     edges : sequence of timestamps, optional
@@ -203,6 +221,7 @@ def export_budget_csv(
     else:
         frame["period_start"] = ""
         frame["period_end"] = ""
+    frame["site"], frame["case_id"] = _identity_values(identity)
     for column in BUDGET_COLUMNS:
         if column not in frame.columns:
             frame[column] = None

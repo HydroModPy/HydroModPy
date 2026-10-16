@@ -926,7 +926,7 @@ extent = "watershed"
 
 [overview]
 # Watershed name displayed on report panels.
-# Defaults to workspace catch_name.
+# Defaults to [site] name.
 # Type: string | Default: ""
 name = "Nancon"
 

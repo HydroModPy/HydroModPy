@@ -29,18 +29,25 @@ class ProjectRerunProvider:
     ) -> str:
         """Rebuild the config, apply dotted-path overrides, and simulate.
 
-        ``source_sim_id`` is pinned as the child's ``parent_sim_id`` so rerun
-        lineage is preserved.
+        ``source_sim_id`` is pinned as the child's ``parent_sim_id`` and the
+        seal of the child carries ``lineage.kind = "rerun"`` with the dotted
+        paths that changed.
         """
         from hydromodpy.calibration.optim.parameters import set_by_path
         from hydromodpy.project import Project
         from hydromodpy.project.runner import _pin_parent_sim_id
+        from hydromodpy.results.lineage import Lineage
 
         project = Project(snapshot)
         for dotted, value in overrides.items():
             set_by_path(project.config, dotted, value)
+        lineage = Lineage(
+            parent_sim_id=source_sim_id,
+            kind="rerun" if source_sim_id else None,
+            overrides={str(key): value for key, value in overrides.items()},
+        )
         with _pin_parent_sim_id(project._ctx, source_sim_id):
-            run = project.simulate(name=name)
+            run = project.simulate(name=name, lineage=lineage)
         if run is None:
             raise RuntimeError("Rerun did not produce a run.")
         return run.sim_id

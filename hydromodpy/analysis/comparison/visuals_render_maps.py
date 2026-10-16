@@ -822,8 +822,7 @@ def _write_geotiff(
     """Write a regridded array as GeoTIFF.
 
     ``crs`` is the projected CRS string (e.g. ``"EPSG:2154"``) or an EPSG int.
-    When ``None``, the catalog default ``EPSG:2154`` is used as a documented
-    fallback for legacy Lambert-93 testbeds.
+    When ``None``, ``EPSG:2154`` (Lambert-93) is written.
     """
     if rasterio is None:
         return False

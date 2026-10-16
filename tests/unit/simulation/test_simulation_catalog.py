@@ -1,218 +1,153 @@
+"""A run writes its own directory; the index states what the sealed directories hold."""
+
 from __future__ import annotations
 
 import time
-import uuid
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog import registration as registration_mod
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.lineage import Lineage
+from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
+
+from ._test_simulation_api_builders import runs
+
+__all__ = ["runs"]
 
 
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
-
-
-def _sim_id():
-    return str(uuid.uuid4())
-
-
-def _register(catalog, sim_id=None, **kwargs):
-    sid = sim_id or _sim_id()
-    defaults = dict(project="test_project", solver="modflow6")
-    defaults.update(kwargs)
-    reg = catalog.register_simulation(sid, **defaults)
-    return sid, reg.zarr
-
-
-def test_zarr_is_created_at_its_final_path_without_staging(catalog):
-    """The store is written where readers expect it: no staging, no promotion."""
-    sid = _sim_id()
-    reg = catalog.register_simulation(
-        sid,
-        project="test_project",
-        solver="modflow6",
-        name="direct_write",
-        n_cells=8,
-        n_layers=1,
-    )
-    assert reg.zarr is not None
-    try:
-        run_dir = catalog.run_dir_for(sid)
-        fields_path = catalog.fields_path_for(sid)
-
-        assert Path(reg.zarr.path) == fields_path
-        assert fields_path.is_dir()
-        assert fields_path.parent == run_dir
-        assert not any(child.name.startswith(".staging") for child in run_dir.iterdir())
-    finally:
-        reg.zarr.close()
-
-    assert catalog.fields_path_for(sid).is_dir()
-
-
-_V2_SIM_SELECT = (
+_SIM_SELECT = (
     "SELECT s.project, sv.code AS solver, st.code AS status, "
     "sv.category AS solver_category, s.duration_s "
     "FROM simulations s "
     "JOIN solvers sv ON s.solver_id = sv.id "
     "JOIN statuses st ON s.status_id = st.id "
-    "WHERE s.sim_id = ?"
+    "WHERE CAST(s.sim_id AS VARCHAR) = ?"
 )
 
 
-class TestRegisterAndFinalize:
-    def test_register_creates_row(self, catalog):
-        sid, _ = _register(catalog)
-        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
-        assert row[0] == "test_project"
-        assert row[1] == "modflow6"
-        assert row[2] == "running"
+def _one(catalog: Catalog, sql: str, sid: str) -> tuple:
+    return catalog.connection.execute(sql, [sid]).fetchone()
 
-    def test_register_with_zarr(self, catalog):
-        sid, sz = _register(catalog, n_cells=50, n_layers=2)
-        assert sz is not None
-        assert "mesh" in sz.root
-        zarr_dir = catalog.fields_path_for(sid)
-        assert zarr_dir.exists()
-        sz.close()
 
-    def test_register_without_zarr(self, catalog):
-        _, sz = _register(catalog)
-        assert sz is None
+def test_zarr_is_created_at_its_final_path_without_staging(runs):
+    """The store is written where readers expect it: no staging, no promotion."""
+    store = runs.open("direct_write", n_cells=8, n_layers=1)
+    fields_path = store.fields_path
 
-    def test_solver_category_auto_distributed(self, catalog):
-        sid, _ = _register(catalog, solver="modflow_nwt")
-        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
-        assert row[3] == "distributed"
+    assert fields_path.is_dir()
+    assert fields_path.parent == store.run_dir
+    assert not any(child.name.startswith(".staging") for child in store.run_dir.iterdir())
 
-    def test_solver_category_auto_integrated(self, catalog):
-        sid, _ = _register(catalog, solver="boussinesq")
-        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
-        assert row[3] == "integrated"
+    catalog = runs.catalog()
+    assert catalog.fields_path_for(store.sim_id) == fields_path
+    assert fields_path.is_dir()
 
-    def test_solver_category_unknown(self, catalog):
-        # v2 enforces solver_id NOT NULL via FK to ``solvers.code``; an
-        # unknown name resolves to NULL via the INSERT subselect and the
-        # NOT NULL constraint rejects the row. This is a behavioural change
-        # from the v1 schema where the ``solver`` column was free-text.
-        with pytest.raises(Exception):
-            _register(catalog, solver="exotic_solver")
 
-    def test_finalize_updates(self, catalog):
-        """The sealed row states its status and how long the run really took.
+class TestSealAndIndex:
+    def test_a_sealed_run_is_indexed_completed(self, runs):
+        sid = runs.open(project="test_project").sim_id
+        row = _one(runs.catalog(), _SIM_SELECT, sid)
+        assert row[:3] == ("test_project", "modflow6", "completed")
 
-        ``duration_s`` used to be whatever the caller passed, which was the
-        solver's own figure, sitting between two wall timestamps it
-        contradicted on 78 of 78 manifests. Measuring an interval this test
-        controls is the only way to tell a derived duration from a stored one:
-        comparing it to the timestamps of the same row proves nothing, because
-        both come out of the same SQL statement.
+    def test_the_field_store_holds_the_mesh_of_the_grid(self, runs):
+        store = runs.open(n_cells=50, n_layers=2)
+        handle = store.open_zarr(store.sim_id)
+        try:
+            assert "mesh" in handle.root
+        finally:
+            handle.close()
+
+    def test_a_run_without_fields_writes_no_field_store(self, runs):
+        store = runs.open(create_zarr=False)
+        assert not store.fields_path.exists()
+
+    def test_solver_category_auto_distributed(self, runs):
+        sid = runs.open(solver="modflow_nwt").sim_id
+        assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "distributed"
+
+    def test_solver_category_auto_integrated(self, runs):
+        sid = runs.open(solver="boussinesq").sim_id
+        assert _one(runs.catalog(), _SIM_SELECT, sid)[3] == "integrated"
+
+    def test_a_run_of_an_unknown_solver_is_skipped_by_name(self, runs):
+        store = runs.open(solver="exotic_solver")
+        runs.seal(store)
+
+        report = rebuild_index(runs.project_root)
+
+        assert [entry.rel_dir for entry in report.skipped] == [f"runs/{store.run_dir.name}"]
+        assert "exotic_solver" in report.skipped[0].reason
+
+    def test_the_duration_is_the_measured_interval(self, runs):
+        """The sealed row states how long the run really took.
+
+        Measuring an interval this test controls is the only way to tell a
+        derived duration from a stored one.
         """
-        sid, _ = _register(catalog)
+        store = runs.open()
         time.sleep(0.25)
         before = time.monotonic()
-        catalog.finalize(sid, status="completed")
+        runs.seal(store)
         sealing = time.monotonic() - before
 
-        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
+        row = _one(runs.catalog(), _SIM_SELECT, store.sim_id)
         assert row[2] == "completed"
         assert 0.25 <= row[4] <= 0.25 + sealing + 1.0
 
-    def test_config_hash_computed(self, catalog):
-        sid, _ = _register(catalog, config={"flow": {"K": 1.5}})
-        row = catalog.connection.execute(
-            "SELECT config_hash FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row[0] is not None
-        assert len(row[0]) == 64  # SHA-256 hex
+    def test_a_taken_name_gets_the_next_version(self, runs):
+        """The bare name is version 1 for good: ``r1``, ``r1.v2``, ``r1.v3``."""
+        first = runs.open("r1").sim_id
+        runs.catalog()
+        runs.open("r1")
+        runs.catalog()
+        third = runs.open("r1").sim_id
+        catalog = runs.catalog()
 
-    def test_if_exists_version_is_default(self, catalog):
-        """``if_exists='version'`` (default) mints ``stem.vN`` and keeps every run.
-
-        The bare name is version 1 for good: the first run is never renamed,
-        so the stem grows as ``r1``, ``r1.v2``, ``r1.v3``.
-        """
-        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
-        _register(catalog, name="r1", n_cells=10, n_layers=1)
-        sid3, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
-        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
-        assert count == 3
         names = {
             r[0] for r in catalog.connection.execute("SELECT name FROM simulations").fetchall()
         }
         assert names == {"r1", "r1.v2", "r1.v3"}
-        first = catalog.connection.execute(
+        assert _one(
+            catalog,
             "SELECT name, version_int FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
-            [sid1],
-        ).fetchone()
-        assert first == ("r1", 1)
-        latest = catalog.connection.execute(
-            "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE name = 'r1.v3'"
-        ).fetchone()
-        assert latest[0] == sid3
+            first,
+        ) == ("r1", 1)
+        assert _one(
+            catalog, "SELECT name FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?", third
+        ) == ("r1.v3",)
 
-    def test_registering_a_second_run_leaves_the_first_untouched(self, catalog):
-        """A sealed run keeps its name, version and ``updated_at``."""
-        sid1, _ = _register(catalog, name="r1", n_cells=10, n_layers=1)
-        before = catalog.connection.execute(
-            "SELECT name, version_int, updated_at FROM simulations "
+    def test_a_second_run_leaves_the_first_sealed_directory_untouched(self, runs):
+        first = runs.open("r1")
+        runs.catalog()
+        manifest = first.run_dir / RUN_MANIFEST_FILENAME
+        before = manifest.read_bytes()
+
+        runs.open("r1")
+        runs.catalog()
+
+        assert manifest.read_bytes() == before
+
+    def test_parent_sim_id(self, runs):
+        parent = runs.open().sim_id
+        child = runs.open(lineage=Lineage(parent_sim_id=parent, kind="rerun")).sim_id
+        row = _one(
+            runs.catalog(),
+            "SELECT CAST(parent_sim_id AS VARCHAR) FROM simulations "
             "WHERE CAST(sim_id AS VARCHAR) = ?",
-            [sid1],
-        ).fetchone()
-        _register(catalog, name="r1", n_cells=10, n_layers=1)
-        after = catalog.connection.execute(
-            "SELECT name, version_int, updated_at FROM simulations "
-            "WHERE CAST(sim_id AS VARCHAR) = ?",
-            [sid1],
-        ).fetchone()
-        assert after == before
-
-    def test_if_exists_replace_trashes_predecessor(self, catalog):
-        """``if_exists='replace'`` trashes the predecessor, name and version kept."""
-        sid1, _ = _register(catalog, name="solo", n_cells=10, n_layers=1)
-        sid2, _ = _register(catalog, name="solo", if_exists="replace", n_cells=10, n_layers=1)
-        successor = catalog.connection.execute(
-            "SELECT name, version_int FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
-            [sid2],
-        ).fetchone()
-        assert successor == ("solo.v2", 2)
-        predecessor = catalog.connection.execute(
-            "SELECT s.name, s.version_int, st.code, s.original_name "
-            "FROM simulations s JOIN statuses st ON s.status_id = st.id "
-            "WHERE CAST(s.sim_id AS VARCHAR) = ?",
-            [sid1],
-        ).fetchone()
-        assert predecessor == ("solo", 1, "trashed", "solo")
-
-    def test_if_exists_fail_raises(self, catalog):
-        _register(catalog, name="solo", n_cells=10, n_layers=1)
-        with pytest.raises(registration_mod.DuplicateSimulationNameError):
-            _register(catalog, name="solo", if_exists="fail", n_cells=10, n_layers=1)
-
-    def test_parent_sim_id(self, catalog):
-        sid1, _ = _register(catalog)
-        sid2, _ = _register(catalog, parent_sim_id=sid1)
-        row = catalog.connection.execute(
-            "SELECT parent_sim_id FROM simulations WHERE sim_id = ?",
-            [sid2],
-        ).fetchone()
-        assert str(row[0]) == sid1
+            child,
+        )
+        assert row[0] == parent
 
 
 class TestWriteMethods:
-    def test_write_parameters_bulk(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_parameters(
-            sid,
+    def test_write_parameters_bulk(self, runs):
+        store = runs.open()
+        store.write_parameters(
+            store.sim_id,
             [
                 {
                     "param_name": "K",
@@ -230,178 +165,146 @@ class TestWriteMethods:
                 },
             ],
         )
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM parameters WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
+        count = _one(
+            runs.catalog(),
+            "SELECT COUNT(*) FROM parameters WHERE CAST(sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )[0]
         assert count == 3
 
-    def test_parameters_global_zone_default(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_parameters(
-            sid,
-            [
-                {"param_name": "K", "value": 1.0},
-            ],
+    def test_parameters_global_zone_default(self, runs):
+        store = runs.open()
+        store.write_parameters(store.sim_id, [{"param_name": "K", "value": 1.0}])
+        row = _one(
+            runs.catalog(),
+            "SELECT zone_id FROM parameters WHERE CAST(sim_id AS VARCHAR) = ? AND param_name = 'K'",
+            store.sim_id,
         )
-        row = catalog.connection.execute(
-            "SELECT zone_id FROM parameters WHERE sim_id = ? AND param_name = 'K'",
-            [sid],
-        ).fetchone()
         assert row[0] == GLOBAL_ZONE
 
-    def test_write_timeseries(self, catalog):
-        sid, _ = _register(catalog)
+    def test_write_timeseries(self, runs):
+        store = runs.open()
         idx = pd.date_range("2020-01-01", periods=30, freq="D")
-        ts = pd.Series(np.arange(30, dtype="float64"), index=idx, name="head")
-        catalog.write_timeseries(sid, "P01", "head", ts, unit="m")
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
+        series = pd.Series(np.arange(30, dtype="float64"), index=idx, name="head")
+        store.write_timeseries(store.sim_id, "P01", "head", series, unit="m")
+        count = _one(
+            runs.catalog(),
+            "SELECT COUNT(*) FROM timeseries WHERE CAST(sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )[0]
         assert count == 30
 
-    def test_write_timeseries_empty(self, catalog):
-        sid, _ = _register(catalog)
-        ts = pd.Series(dtype="float64")
-        catalog.write_timeseries(sid, "P01", "head", ts)
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
+    def test_write_timeseries_empty(self, runs):
+        store = runs.open()
+        store.write_timeseries(store.sim_id, "P01", "head", pd.Series(dtype="float64"))
+        count = _one(
+            runs.catalog(),
+            "SELECT COUNT(*) FROM timeseries WHERE CAST(sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )[0]
         assert count == 0
 
-    def test_write_budget(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_budget(sid, 0, "zone_1", "recharge", 100.0, 0.0)
-        catalog.write_budget(sid, 0, "zone_1", "drain", 0.0, 80.0)
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM budgets WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
+    def test_write_budget(self, runs):
+        store = runs.open()
+        store.write_budget(store.sim_id, 0, "zone_1", "recharge", 100.0, 0.0)
+        store.write_budget(store.sim_id, 0, "zone_1", "drain", 0.0, 80.0)
+        count = _one(
+            runs.catalog(),
+            "SELECT COUNT(*) FROM budgets WHERE CAST(sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )[0]
         assert count == 2
 
-    def test_write_mass_balance(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_mass_balance(sid, 0, 100.0, 95.0, 5.0)
-        catalog.write_mass_balance(sid, 1, 110.0, 108.0, 1.8)
-        rows = catalog.connection.execute(
-            "SELECT timestep, percent_error FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
-            [sid],
-        ).fetchall()
+    def test_write_mass_balance(self, runs):
+        store = runs.open()
+        store.write_mass_balance(store.sim_id, 0, 100.0, 95.0, 5.0)
+        store.write_mass_balance(store.sim_id, 1, 110.0, 108.0, 1.8)
+        rows = (
+            runs.catalog()
+            .connection.execute(
+                "SELECT timestep, percent_error FROM mass_balance "
+                "WHERE CAST(sim_id AS VARCHAR) = ? ORDER BY timestep",
+                [store.sim_id],
+            )
+            .fetchall()
+        )
         assert len(rows) == 2
         assert rows[0] == (0, 5.0)
 
-    def test_write_mass_balance_separates_water_and_solute(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_mass_balances(sid, [{"timestep": 0, "percent_error": 1.0}])
-        catalog.write_mass_balances(
-            sid, [{"timestep": 0, "percent_error": 2.0, "quantity": "solute", "unit": "kg/s"}]
+    def test_write_mass_balance_separates_water_and_solute(self, runs):
+        store = runs.open()
+        store.write_mass_balances(store.sim_id, [{"timestep": 0, "percent_error": 1.0}])
+        store.write_mass_balances(
+            store.sim_id,
+            [{"timestep": 0, "percent_error": 2.0, "quantity": "solute", "unit": "kg/s"}],
         )
-        rows = catalog.connection.execute(
-            "SELECT quantity, unit, percent_error FROM mass_balance "
-            "WHERE sim_id = ? ORDER BY quantity",
-            [sid],
-        ).fetchall()
+        rows = (
+            runs.catalog()
+            .connection.execute(
+                "SELECT quantity, unit, percent_error FROM mass_balance "
+                "WHERE CAST(sim_id AS VARCHAR) = ? ORDER BY quantity",
+                [store.sim_id],
+            )
+            .fetchall()
+        )
         # Both budgets coexist on the same (sim_id, timestep); no collision.
         assert rows == [("solute", "kg/s", 2.0), ("water", "m3/s", 1.0)]
 
-    def test_update_simulation_grid_metadata_backfills_nulls(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.update_simulation_grid_metadata(
-            sid,
+    def test_update_simulation_grid_metadata_backfills_nulls(self, runs):
+        store = runs.open()
+        store.update_simulation_grid_metadata(
+            store.sim_id,
             n_cells=3600,
             n_layers=2,
             mesh_hash="abc123",
             mesh_topology="structured_3d",
             bbox=[10.0, 20.0, 110.0, 220.0],
         )
-        row = catalog.connection.execute(
+        # A later update with None keeps the values already recorded.
+        store.update_simulation_grid_metadata(store.sim_id, n_cells=None, mesh_hash=None)
+        row = _one(
+            runs.catalog(),
             "SELECT s.n_cells, s.n_layers, s.mesh_hash, mt.code, s.bbox_xmin, s.bbox_ymax "
             "FROM simulations s LEFT JOIN mesh_topologies mt ON mt.id = s.mesh_topology_id "
-            "WHERE s.sim_id = ?",
-            [sid],
-        ).fetchone()
+            "WHERE CAST(s.sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )
         assert row == (3600, 2, "abc123", "structured_3d", 10.0, 220.0)
-        # COALESCE keeps existing values when None is passed.
-        catalog.update_simulation_grid_metadata(sid, n_cells=None, mesh_hash=None)
-        kept = catalog.connection.execute(
-            "SELECT n_cells, mesh_hash FROM simulations WHERE sim_id = ?", [sid]
-        ).fetchone()
-        assert kept == (3600, "abc123")
 
-    def test_write_metric_upsert(self, catalog):
-        sid, _ = _register(catalog)
-        catalog.write_metric(sid, "P01", "nse", 0.7)
-        catalog.write_metric(sid, "P01", "nse", 0.85)
-        count = catalog.connection.execute(
-            "SELECT COUNT(*) FROM metrics WHERE sim_id = ?", [sid]
-        ).fetchone()[0]
-        assert count == 1
-        val = catalog.connection.execute(
-            "SELECT value FROM metrics WHERE sim_id = ? AND metric_name = 'nse'",
-            [sid],
-        ).fetchone()[0]
-        assert val == pytest.approx(0.85)
+    def test_write_metric_upsert(self, runs):
+        store = runs.open()
+        store.write_metric(store.sim_id, "P01", "nse", 0.7)
+        store.write_metric(store.sim_id, "P01", "nse", 0.85)
+        rows = (
+            runs.catalog()
+            .connection.execute(
+                "SELECT value FROM metrics "
+                "WHERE CAST(sim_id AS VARCHAR) = ? AND metric_name = 'nse'",
+                [store.sim_id],
+            )
+            .fetchall()
+        )
+        assert len(rows) == 1
+        assert rows[0][0] == pytest.approx(0.85)
 
-    def test_write_provenance(self, catalog):
-        sid, _ = _register(catalog)
+    def test_write_provenance(self, runs):
+        store = runs.open()
         data = np.random.default_rng(0).random(100)
-        catalog.write_provenance(sid, "recharge", "/data/recharge.nc", data)
-        row = catalog.connection.execute(
-            "SELECT payload_sha256, n_records FROM provenance WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
+        store.write_provenance(store.sim_id, "recharge", "/data/recharge.nc", data)
+        row = _one(
+            runs.catalog(),
+            "SELECT payload_sha256, n_records FROM provenance WHERE CAST(sim_id AS VARCHAR) = ?",
+            store.sim_id,
+        )
         assert row[0] is not None
         assert row[1] == 100
 
 
-class TestDelete:
-    def test_delete_cascades(self, catalog):
-        sid, sz = _register(catalog, n_cells=10, n_layers=1)
-        sz.close()
-
-        catalog.write_parameters(sid, [{"param_name": "K", "value": 1.0}])
-        idx = pd.date_range("2020-01-01", periods=5, freq="D")
-        catalog.write_timeseries(sid, "P01", "head", pd.Series(np.ones(5), index=idx))
-        catalog.write_budget(sid, 0, "z1", "recharge", 10.0, 0.0)
-        catalog.write_mass_balance(sid, 0, 10.0, 9.5, 5.0)
-        catalog.write_metric(sid, "P01", "nse", 0.8)
-        catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
-
-        zarr_dir = catalog.fields_path_for(sid)
-        assert zarr_dir.exists()
-
-        catalog.delete(sid)
-
-        for table in (
-            "simulations",
-            "parameters",
-            "timeseries",
-            "budgets",
-            "mass_balance",
-            "metrics",
-            "provenance",
-        ):
-            count = catalog.connection.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE sim_id = ?", [sid]
-            ).fetchone()[0]
-            assert count == 0, f"Rows remaining in {table}"
-
-        assert not zarr_dir.exists()
-
-
 class TestContextManager:
-    def test_enter_exit(self, tmp_path):
-        with Catalog(tmp_path / "ws") as cat:
-            sid, _ = _register(cat)
-            row = cat.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()
-            assert row[0] == 1
-
-
-class TestMultipleProjects:
-    def test_two_projects_same_db(self, catalog):
-        sid1, _ = _register(catalog, project="canut")
-        sid2, _ = _register(catalog, project="nancon")
-        count = catalog.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
-        assert count == 2
-        projects = catalog.connection.execute(
-            "SELECT DISTINCT project FROM simulations ORDER BY project"
-        ).fetchall()
-        assert [r[0] for r in projects] == ["canut", "nancon"]
+    def test_enter_exit(self, runs):
+        runs.open()
+        runs.catalog()
+        runs.close_catalog()
+        with Catalog(runs.project_root) as cat:
+            assert cat.connection.execute("SELECT COUNT(*) FROM simulations").fetchone()[0] == 1
+        assert cat.closed

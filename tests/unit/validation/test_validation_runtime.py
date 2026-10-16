@@ -122,7 +122,6 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
 
     def _fake_subprocess_run(*args, **kwargs):
         del args
-        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_PROJECT")
         return SimpleNamespace(
             returncode=0,
             stdout="ok",
@@ -144,7 +143,6 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     result = run_launcher_validation_case(case_dir=case_dir, test_file=__file__, solver=solver)
 
     assert captured["run_name"] == expected_run_name
-    assert captured["auto_register"] == "0"
     assert result.solver_name == expected_solver_name
     assert result.model_ws == model_ws
 

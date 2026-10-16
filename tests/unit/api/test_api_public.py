@@ -7,11 +7,13 @@ etc. Regressions here usually mean a refactor broke the import contract.
 
 from __future__ import annotations
 
-import tempfile
+from pathlib import Path
 
 import pytest
 
 import hydromodpy as hmp
+from hydromodpy.results.catalog.indexer import rebuild_index
+from tests._helpers.sealed_runs import make_project
 
 EXPECTED_TOP_LEVEL = [
     # Entry points
@@ -55,24 +57,28 @@ def test_removed_batch_api_is_not_exposed() -> None:
         hmp.batch  # noqa: B018
 
 
-def test_open_returns_simulation_catalog() -> None:
-    with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp, create=True)
-        try:
-            assert isinstance(cat, hmp.Catalog)
-        finally:
-            cat.close()
+def _empty_index(tmp_path: Path) -> Path:
+    project = make_project(tmp_path / "p")
+    rebuild_index(project)
+    return project
 
 
-def test_simulation_catalog_repr_html() -> None:
-    with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp, create=True)
-        try:
-            html = cat._repr_html_()
-            assert "<b>Catalog</b>" in html
-            assert "<table" in html
-        finally:
-            cat.close()
+def test_open_returns_simulation_catalog(tmp_path: Path) -> None:
+    cat = hmp.open(_empty_index(tmp_path))
+    try:
+        assert isinstance(cat, hmp.Catalog)
+    finally:
+        cat.close()
+
+
+def test_simulation_catalog_repr_html(tmp_path: Path) -> None:
+    cat = hmp.open(_empty_index(tmp_path))
+    try:
+        html = cat._repr_html_()
+        assert "<b>Catalog</b>" in html
+        assert "<table" in html
+    finally:
+        cat.close()
 
 
 def test_simulation_group_fluent_methods_present() -> None:
@@ -92,17 +98,14 @@ def test_simulation_view_fluent_methods_present() -> None:
     assert hasattr(Run, "_repr_html_")
 
 
-def test_catalog_export_import_method_names() -> None:
-    """Public catalog API exposes export_package() and import_package() (P10 rename)."""
-    with tempfile.TemporaryDirectory() as tmp:
-        cat = hmp.open(tmp, create=True)
-        try:
-            assert callable(getattr(cat, "export_package", None))
-            assert callable(getattr(cat, "import_package", None))
-            assert not hasattr(cat, "export_simulation")
-            assert not hasattr(cat, "import_simulation")
-        finally:
-            cat.close()
+def test_the_catalog_is_a_reader(tmp_path: Path) -> None:
+    """The index is written by the indexer alone: the handle carries no writer."""
+    cat = hmp.open(_empty_index(tmp_path))
+    try:
+        for name in ("register_simulation", "export_package", "import_package", "delete"):
+            assert not hasattr(cat, name), name
+    finally:
+        cat.close()
 
 
 def test_doctor_returns_dict() -> None:

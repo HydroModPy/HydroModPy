@@ -1,18 +1,14 @@
-"""Read-side queries against the catalog.
+"""Read-side queries against the index.
 
 Tabular ``query_*``, ``list_*``, ``read_geographic_*`` accessors plus a
-DataFrame property over ``simulations`` and the ``export`` dispatch. All
-methods are pure reads and never mutate DuckDB or the on-disk artefacts.
-
-Everything here therefore works on a catalog opened with ``read_only=True``,
-and that is how inspection paths open one: listing, showing, querying or
-plotting a project leaves its index file untouched.
+DataFrame property over ``simulations``. Every method is a pure read: the
+index is opened read-only, and listing, showing, querying or plotting a
+project leaves its file untouched.
 """
 
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -25,17 +21,22 @@ from hydromodpy.results.catalog.constants import MESH_ENGINE_SQL
 if TYPE_CHECKING:
     import geopandas as gpd
 
-    from hydromodpy.core.config_kit.export_spec import ExportRequest
-
-# Most pixels a raster export may default to; above it the caller names a resolution.
-_MAX_DEFAULT_PIXELS = 100_000_000
-
 # Filter columns that map to a real simulations.* column (no dim join).
 _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     {
         "sim_id",
         "name",
+        "name_stem",
         "project",
+        "site",
+        "site_fingerprint",
+        "recipe",
+        "case_id",
+        "rel_dir",
+        "attempt_id",
+        "label",
+        "session_id",
+        "hydromodpy_version",
         "mesh_hash",
         "n_cells",
         "n_layers",
@@ -49,14 +50,9 @@ _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
         "config_source",
         "parent_sim_id",
         "lineage_kind",
-        "zarr_packed",
-        "storage_basename",
-        "geographic_fingerprint",
         "duration_s",
         "created_at",
-        "updated_at",
         "scientific_objective",
-        "study_area_name",
         "doi",
     }
 )
@@ -79,6 +75,8 @@ _SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozens
     {
         "started_at",
         "ended_at",
+        "nse",
+        "objective_value",
         "bbox_xmin",
         "bbox_ymin",
         "bbox_xmax",
@@ -112,9 +110,8 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
 
 
 _SIMULATIONS_VIEW_SELECT = (
-    # Listing/search path: never pull the two heavy config JSON blobs (per-sim
-    # config access goes through Run._load_row's own query). Dropping them at the
-    # SQL layer keeps `ls` memory bounded on large, federated workspaces.
+    # Listing path: never pull the two config blobs (a run reads its own row
+    # through Run._load_row), so `ls` stays cheap on a project of many runs.
     "SELECT s.* EXCLUDE (config_toml, config_snapshot), "
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
@@ -133,10 +130,9 @@ class ReadsMixin:
     """Read-only queries for :class:`Catalog`.
 
     Relies on attributes provided by the facade: ``self._backend``
-    (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
-    exporters that take a raw cursor), and ``self._paths``
-    (StoragePathResolver), plus ``self.open_zarr`` and
-    ``self.fields_path_for`` for field reads / exports.
+    (CatalogBackend port), ``self._workspace`` (the project root) and
+    ``self._paths`` (StoragePathResolver), plus ``self.open_zarr`` for the
+    field reads.
     """
 
     def query_field(
@@ -315,13 +311,11 @@ class ReadsMixin:
             params.append(variable)
         return self._backend.query(query, params)
 
-    def list_simulations(self, *, named_only: bool = False, **filters) -> pd.DataFrame:
-        """Return one DataFrame row per simulation matching ``filters``.
+    def list_simulations(self, **filters) -> pd.DataFrame:
+        """Return one DataFrame row per sealed run matching ``filters``.
 
         ``order_by`` accepts only whitelisted simulation columns, with an
-        optional ``ASC`` or ``DESC`` direction. ``named_only=True`` drops the
-        technical rows: runs whose name was cleared on a replace collision
-        (``name IS NULL``) and effective-config snapshots (dotted names).
+        optional ``ASC`` or ``DESC`` direction.
         """
         order_by = filters.pop("order_by", None)
         query = _SIMULATIONS_VIEW_SELECT
@@ -335,9 +329,6 @@ class ReadsMixin:
             else:
                 clauses.append(f"s.{key} = ?")
             params.append(val)
-        if named_only:
-            clauses.append("s.name IS NOT NULL")
-            clauses.append("s.name NOT LIKE '.%'")
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         clause = _order_clause(order_by)
@@ -432,29 +423,55 @@ class ReadsMixin:
 
     @property
     def simulations(self) -> pd.DataFrame:
-        """Every run of the catalog, newest first, as a DataFrame.
+        """Every sealed run of the project, newest first, as a DataFrame.
 
         The same columns as :meth:`list_simulations`, without a filter.
         """
         return self._backend.query(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC")
 
     @property
+    def cases(self) -> pd.DataFrame:
+        """Every result directory of the project, one row each, through ``v_cases``.
+
+        A sealed run carries its label and its headline metric; a running,
+        failed or aborted attempt carries the status its outcome says.
+        """
+        return self._backend.query("SELECT * FROM v_cases ORDER BY started_at DESC NULLS LAST")
+
+    @property
+    def sites(self) -> pd.DataFrame:
+        """The sites named by the runs and sessions of the project, with their counts."""
+        return self._backend.query("SELECT * FROM sites ORDER BY site")
+
+    def attempts(self, rel_dir: str) -> pd.DataFrame:
+        """Return every attempt of one case, by attempt number."""
+        return self._backend.query(
+            "SELECT * FROM attempts WHERE rel_dir = ? ORDER BY attempt", [rel_dir]
+        )
+
+    @property
     def calibration_sessions(self) -> pd.DataFrame:
         """Return every calibration session row as a DataFrame."""
         return self._backend.query("SELECT * FROM calibration_sessions ORDER BY started_at DESC")
 
+    def calibration_phases(self, session_id: str) -> pd.DataFrame:
+        """Return the phases of one session, by rank."""
+        return self._backend.query(
+            "SELECT * FROM calibration_phases WHERE session_id = ? ORDER BY phase_index",
+            [str(session_id)],
+        )
+
     def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
-        """Return the iteration history for one session as a DataFrame."""
-        sid = UUID(str(session_id)) if len(str(session_id).replace("-", "")) == 32 else session_id
+        """Return the trials of one session, by trial number."""
         return self._backend.query(
             """
-            SELECT iteration, sim_id, params_hash, parameters,
-                   objective_value, metrics, status, from_cache, duration_s
+            SELECT trial, phase, restart, sim_id, rel_dir, params_hash, params,
+                   objective, metrics, status, started_at, ended_at
               FROM calibration_iterations
              WHERE session_id = ?
-             ORDER BY iteration
+             ORDER BY trial
             """,
-            [sid],
+            [str(session_id)],
         )
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
@@ -467,145 +484,3 @@ class ReadsMixin:
         if params:
             return self._backend.query(query, params)
         return self._backend.query(query)
-
-    def export(
-        self, ref: str | UUID, request: ExportRequest, *, default_folder: Path | str | None = None
-    ) -> list[Path]:
-        """Write what one export request asks of run *ref*; return the files written.
-
-        *ref* is resolved through :meth:`resolve` (full UUID, prefix, or a
-        unique name). The request names data and the format follows it: a
-        field at one date goes to GeoTIFF, over several dates to one NetCDF,
-        a series or the budget to CSV, a vector layer to GeoPackage, a raster
-        layer to GeoTIFF (see :mod:`hydromodpy.results.exporters.request`).
-        Files land in ``default_folder`` when the request names no folder,
-        ``share/<run>/`` when that is None too. Each file is recorded in
-        ``export_log``.
-        """
-        from hydromodpy.core.config_kit.export_spec import format_from_path
-        from hydromodpy.core.state.paths import share_dir_for
-        from hydromodpy.results.exporters.request import ExportTarget, export_request
-
-        sid = self.resolve(ref)
-        share = share_dir_for(self.project_path)
-        if default_folder is None:
-            row = self._backend.fetch_one("SELECT name FROM simulations WHERE sim_id = ?", [sid])
-            default_folder = share / ((row[0] if row and row[0] else None) or sid[:8])
-        target = ExportTarget(
-            default_folder=Path(default_folder),
-            share_folder=share,
-            model_crs=lambda: self._export_crs_for(sid),
-            default_resolution=lambda: self._default_resolution(sid),
-            global_attrs=lambda: self._export_global_attrs(sid),
-        )
-        written = export_request(self, sid, request, target)
-        for path in written:
-            fmt = format_from_path(path) or request.output_format
-            kind = fmt.value if fmt is not None else path.suffix.lstrip(".")
-            self.record_export(sid, kind=kind, path=path)
-        return written
-
-    def _export_global_attrs(self, sim_id: str) -> dict:
-        """The ACDD block the seal writes, composed for a file exported before the seal.
-
-        The same composition as :meth:`finalize`: the run row, its environment,
-        the licence of its inputs, the identity ``workspace.toml`` declares and
-        the extent in degrees. Nothing is written to the store.
-        """
-        from hydromodpy.results.catalog.lifecycle import (
-            _declared_bounds_in_degrees,
-            _declared_identity,
-        )
-        from hydromodpy.results.catalog.writes_helpers import run_licence
-        from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
-
-        sim_row = self._fetch_simulation_row(sim_id)  # type: ignore[attr-defined]
-        return compose_acdd_root_attrs(
-            sim_row={
-                **(sim_row or {}),
-                "license": run_licence(self._backend, sim_id, self._workspace),
-            },
-            runs_env=self._fetch_runs_environment_row(sim_id),  # type: ignore[attr-defined]
-            project_table=_declared_identity(self._workspace),
-            geographic_bounds=_declared_bounds_in_degrees(sim_row),
-        )
-
-    def list_exports(self, ref: str | UUID) -> list[dict]:
-        """Return the artefacts recorded for *ref* in ``export_log``.
-
-        Each entry has ``kind``, ``rel_path``, ``bytes``, ``sha256`` and
-        ``created_at``. Lets ``show``/``gc`` see exports without globbing.
-        """
-        sid = self.resolve(ref)
-        rows = self._backend.fetch_all(
-            "SELECT kind, rel_path, bytes, sha256, created_at "
-            "FROM export_log WHERE sim_id = ? ORDER BY created_at",
-            [sid],
-        )
-        return [
-            {"kind": r[0], "rel_path": r[1], "bytes": r[2], "sha256": r[3], "created_at": r[4]}
-            for r in rows
-        ]
-
-    def _export_crs_for(self, sim_id: str) -> str | None:
-        row = self._backend.fetch_one(
-            "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
-            [sim_id],
-        )
-        if row is not None:
-            epsg, wkt = row
-            if epsg is not None:
-                return f"EPSG:{int(epsg)}"
-            if wkt:
-                return str(wkt)
-        try:
-            sz = self.open_zarr(sim_id)
-            try:
-                crs = sz.root.get("crs")
-                if crs is None:
-                    return None
-                attrs = dict(crs.attrs)
-            finally:
-                sz.close()
-        except Exception:
-            return None
-        epsg_attr = attrs.get("epsg_code")
-        if epsg_attr is not None:
-            return f"EPSG:{int(epsg_attr)}"
-        wkt_attr = attrs.get("crs_wkt")
-        return str(wkt_attr) if wkt_attr else None
-
-    def _default_resolution(self, sim_id: str) -> float:
-        """Native pixel size for raster exports when the caller omits one.
-
-        The side of a square of the smallest cell of the run's own mesh, so no
-        cell is thinner than a pixel. It reads the mesh, never the DEM: a mesh
-        is not obliged to follow the DEM pixels (cells of a regular run still
-        give the DEM pixel size).
-
-        Raises
-        ------
-        ValueError
-            If the default would give more than ``_MAX_DEFAULT_PIXELS`` pixels
-            over the extent of the mesh, as on a mesh refined to a few metres
-            over a large domain. The caller then names a ``resolution``.
-        """
-        from hydromodpy.results.run import Run
-
-        mesh = Run(sim_id, self).mesh
-        areas = mesh.cell_areas()
-        areas = areas[np.isfinite(areas) & (areas > 0.0)]
-        if areas.size == 0:
-            raise ValueError(f"Run '{sim_id}' has no cell with a positive area in its mesh.")
-        resolution = math.sqrt(float(areas.min()))
-        width = float(np.ptp(mesh.vertices[:, 0]))
-        height = float(np.ptp(mesh.vertices[:, 1]))
-        n_pixels = math.ceil(width / resolution) * math.ceil(height / resolution)
-        if n_pixels > _MAX_DEFAULT_PIXELS:
-            raise ValueError(
-                f"The default GeoTIFF resolution of run '{sim_id}' is {resolution:.3g} m "
-                f"(the side of its smallest cell), which gives {n_pixels:,} pixels over the "
-                f"mesh extent, above the {_MAX_DEFAULT_PIXELS:,} allowed. "
-                "Give a coarser resolution (resolution=...)."
-            )
-        return resolution

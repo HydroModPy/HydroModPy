@@ -238,14 +238,21 @@ def test_the_session_records_the_model_the_document_named(tmp_path: Path) -> Non
     the model nor a spelling of the evaluator, because a run that recorded the
     empty field it was given would say nothing about what actually answered.
     """
-    from hydromodpy.results.session_journal import read_descriptor, session_dirs_for
+    import tomllib
+
+    from hydromodpy.results.session.descriptor import list_session_dirs, read_session
 
     report, text = _calibrate(tmp_path, "recorded", names_the_model=False)
 
     assert "forward_model =" not in text, "the document says nothing, and the default runs"
-    sessions = session_dirs_for(tmp_path)
-    assert len(sessions) == 1
-    descriptor = read_descriptor(sessions[0])
+    sessions = list_session_dirs(tmp_path)
+    assert [directory.name for directory in sessions] == ["recorded"]
+    descriptor = read_session(sessions[0])
     assert descriptor.session_id == report["session_id"]
-    assert descriptor.config["forward_model"] == "linear_reservoir"
-    assert descriptor.config["evaluator"] == "scored_forward_model"
+    assert descriptor.status == "completed"
+    with (sessions[0] / "config.toml").open("rb") as handle:
+        frozen = tomllib.load(handle)["calibration"]
+    # The frozen document carries what the file wrote; the search ran the
+    # default forward model behind the default evaluator.
+    assert "forward_model" not in frozen
+    assert frozen["evaluator"] == "scored_forward_model"

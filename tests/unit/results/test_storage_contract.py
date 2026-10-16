@@ -11,15 +11,16 @@ from __future__ import annotations
 
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
-    INDEX_FILENAME,
     INTERNAL_DIRNAME,
     PROJECT_MARKER_FILENAME,
     RUNS_DIRNAME,
-    SHARE_DIRNAME,
+    SESSIONS_DIRNAME,
+    TRASH_DIRNAME,
     WORKSPACE_TOML_FILENAME,
     catalog_path_for,
     runs_dir_for,
-    share_dir_for,
+    sessions_dir_for,
+    trash_dir_for,
 )
 
 
@@ -30,22 +31,20 @@ def test_catalog_filename_is_canonical():
 def test_project_directory_names_are_canonical():
     assert PROJECT_MARKER_FILENAME == "project.toml"
     assert RUNS_DIRNAME == "runs"
-    assert SHARE_DIRNAME == "share"
+    assert SESSIONS_DIRNAME == "sessions"
+    assert TRASH_DIRNAME == "trash"
     assert INTERNAL_DIRNAME == ".hmp"
 
 
 def test_project_path_helpers_build_the_runs_first_tree(tmp_path):
     assert catalog_path_for(tmp_path) == tmp_path / ".hmp" / "index.duckdb"
     assert runs_dir_for(tmp_path) == tmp_path / "runs"
-    assert share_dir_for(tmp_path) == tmp_path / "share"
+    assert sessions_dir_for(tmp_path) == tmp_path / "sessions"
+    assert trash_dir_for(tmp_path) == tmp_path / "trash"
 
 
 def test_workspace_toml_filename_is_canonical():
     assert WORKSPACE_TOML_FILENAME == "workspace.toml"
-
-
-def test_index_filename_is_canonical():
-    assert INDEX_FILENAME == "index.duckdb"
 
 
 def test_storage_contract_module_does_not_redefine_catalog_filename():

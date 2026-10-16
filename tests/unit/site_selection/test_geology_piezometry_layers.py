@@ -20,7 +20,7 @@ from hydromodpy.spatial.site_selection.evidence.context import (
     write_geology_evidence_geojson,
 )
 from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
-from hydromodpy.workflow.site_selection import select_delineated_catchments_from_csv
+from hydromodpy.spatial.site_selection.runner import select_delineated_catchments_from_csv
 
 
 @pytest.mark.fast

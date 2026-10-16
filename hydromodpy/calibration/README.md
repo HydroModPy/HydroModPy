@@ -21,8 +21,8 @@ root of the package.
 | `criteria/` | how one simulated series is scored against one observed series: the scoring kernels (`METRICS` in `series.py`), their conventions, and the network distance |
 | `optim/` | how the search runs: parameter space, objective, optimizer protocol and registry, engine, stopping, params-hash cache, uncertainty (FOSM, tolerance) |
 | `optim/adapters/` | the search methods themselves: grid, random, scipy, CMA-ES, Optuna, bisection, GP mapping, DA-MH-GP |
-| `persistence.py` | how a session is written: the journal first, then the DuckDB index |
-| `report.py` | how a finished session is read back for the report |
+| `persistence.py` | how a session is written: `sessions/<case>/` and its journal, nothing else |
+| `report.py` | how a finished session is read back for the report, from its directory |
 | `evaluation/` | what one trial must answer: the evaluator port and the forward-model port, their registries, and the two evaluators that need nothing from the calibration document |
 | `config.py` | what the modeller wrote: every `[calibration.*]` table, protocol options included |
 | `protocols/` | which published recipe a calibration follows, and how it expands into phases and objective blocks |
@@ -30,7 +30,7 @@ root of the package.
 | `metrics/` | how the outputs of one trial are extracted and paired with observations, and the evaluator that scores a forward model |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
 | `reporting/` | the diagnostic page of the B0 network validation case |
-| `preflight.py` | `hmp calibrate --check`: every check before the first solve |
+| `preflight.py` | `hmp config check` on a calibration file: every check before the first solve |
 | `cases/` | two demonstrators kept as regression fixtures |
 
 ## Import rules
@@ -54,7 +54,7 @@ cycle. Every part may import the layers `layer_matrix.yaml` gives calibration.
 | `metrics` | `config`, `criteria`, `evaluation`, `observations`, `optim` |
 | `runners` | `config`, `criteria`, `evaluation`, `metrics`, `optim`, `parameter_resolution`, `persistence`, `protocols`, `report` |
 | `reporting` | `observations` |
-| `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `runners`, `targets` |
+| `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `protocols`, `runners`, `targets` |
 | `__init__.py` | `config`, `optim`, `report`, `runners` |
 | `cases` | `__init__.py`, `optim` |
 
@@ -103,7 +103,8 @@ hydromodpy/calibration/
                 trial.py  contracts.py  sandbox.py  verdict.py  materialize.py
                 phase_regime.py (steady or transient, as config overrides)
                 pipeline_evaluator.py  promotion.py  recap.py  restarts.py  resume.py
-                state.py (store and params-hash context)  failure_watch.py
+                session.py (case name, session directory, frozen config)
+                state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
   reporting/    network_transient_html.py  network_transient/
   lumped/  cases/
@@ -152,12 +153,16 @@ is read rather than inside the adapter.
    An unknown search method is refused when the run starts
    (`CalibrationConfig.validate_registry`), which also resolves a method left
    unwritten, through `method_for` (`optim.optimizer.choose_method`).
-2. **Check.** `hmp calibrate --check` runs `preflight.py`: every check, one
-   report, no solve.
+2. **Check.** `hmp config check` runs `preflight.check_calibration_file`:
+   every check, one report, no solve.
 3. **Start.** `runners/cli_runner.py` (one search), `staged_runner.py`
-   (phases) or `programmatic_runner.py` (from Python) builds the
-   `ParameterSpace`, the optimizer (`optim.optimizer.build_optimizer`), the
-   evaluator (`evaluation.registry`) and the `CalibrationEngine`.
+   (phases) or `programmatic_runner.py` (from Python) names the case
+   (`runners/session.py`: the stem of the file that carries `[calibration]`,
+   unless it writes `[simulation] name` itself), reserves `sessions/<case>/`
+   with `reserve_version_dirname`, freezes the resolved document there as
+   `config.toml`, then builds the `ParameterSpace`, the optimizer
+   (`optim.optimizer.build_optimizer`), the evaluator (`evaluation.registry`)
+   and the `CalibrationEngine`.
 4. **Prepare once.** `runners/trial.py` prepares the model once: geography,
    mesh and data are built a single time, through the provider registered in
    `runners/contracts.py` by the workflow layer. The provider finds the first
@@ -176,39 +181,68 @@ is read rather than inside the adapter.
 6. **Score.** `optim/objective.py` turns the paired series into one cost with
    the kernels of `criteria/`, block by block, and the engine tells the
    optimizer.
-7. **Write.** Each trial goes to the session journal, then to the DuckDB index
-   (`persistence.py`).
-8. **Promote.** `runners/promotion.py` replays the best trials through the full
-   pipeline and links each to its simulation id. The best one is named
-   `<simulation name>_<phase>`, or the simulation name alone for one phase.
-   A trial the session may promote keeps its solver folder
-   (`runners/kept_solves.py`), and its promotion goes on from extraction on
-   that folder instead of solving again; the run is tagged
-   `promoted_from_trial:<id>`. A trial with no kept solve is solved again.
-   `runners/recap.py` records what the console recap of `hmp run` prints
-   (units, cost metric, session folder) and writes `methods.md`.
-9. **Report.** `report.py` reads the session back;
-   `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
+7. **Write.** Each trial goes to `sessions/<case>/trials.jsonl`
+   (`persistence.py`), with a number unique in the session across phases and
+   restarts. Nothing opens the index: it is rebuilt from the session files.
+8. **Promote.** Once per phase, after its last restart, `runners/promotion.py`
+   promotes what `save_runs` names: the best trial of the last phase to
+   `runs/<case>/`, the directory paired with the session (same version), with
+   `lineage` and `checks.calibrated_by` naming the session, the phase and the
+   trial; the other kept trials to `sessions/<case>/trials/<n>/`; with
+   `promote_phases`, the best of each earlier phase to
+   `sessions/<case>/phases/<phase>/best/`. A trial the session may promote
+   keeps its solver folder (`runners/kept_solves.py`), and its promotion goes
+   on from extraction on that folder instead of solving again. The journal
+   line of a promoted trial receives the `sim_id` and the `rel_dir` of its run.
+   `hmp project promote <case> --trial N` replays a trial after the fact from
+   `sessions/<case>/config.toml` and the frozen values of its phase
+   (`promote_trial_from_session`; a trial kept under `trials/<n>/` is moved,
+   with the seal it was written with); `hmp project prune <case> --keep best`
+   trashes the other kept trials (`prune_session`). A reopened session
+   promotes once more at its end: a trial already written is not written
+   again, and the paired `runs/<case>/` is never overwritten; when it holds
+   another trial of the session, the new best is reported as a promotion
+   failure, the session closes `partial`, and `hmp project promote` writes it
+   under the next version.
+9. **Close.** `session.json` takes the status (`completed`, `partial`,
+   `failed`, `aborted`) and the best trial, `outcome.json` the issue,
+   `README.md` the summary. A promotion failure closes a completed search
+   `partial`, never `failed`. The three runners close their session through
+   one scope (`closing_session`): SIGTERM or SIGINT writes `aborted`, marks
+   the cut phase and points at the best trial of the last completed phase
+   (or of the cut phase) in under a second, then promotes that trial from
+   its kept solve when it has one, with `calibrated_by.session_status =
+   aborted`; an error of the search writes `failed`. `hmp calibrate --resume`
+   reopens the latest session of the case: a phase that completed with the
+   same fingerprint is read back (`runners/resume.py`), the cut phase is
+   solved again with its trials preloading the cache.
+10. **Report.** `report.py` reads the session directory back;
+    `hydromodpy/reporting/calibration_report.py` (another layer) renders it.
 
 ## Storage rule
 
-What a trial writes depends on `save_runs` (`CalibrationConfig`, `none` by
-default, `best_n` or `all`).
+A calibration occupies two sibling directories of one name: `sessions/<case>/`
+(what the search evaluated) and `runs/<case>/` (the calibrated run). What a
+trial writes depends on `save_runs` (`CalibrationConfig`: `best_n` with
+`save_best_n = 1` by default, `all`, or `none`).
 
 - Inside the loop a trial lives in RAM: the aligned simulated series and the
   scalar metrics. `run_trial_light` never writes to the store of runs.
-- Every trial leaves one row in `calibration_iterations` of the DuckDB index, and
-  one line in the session journal under `sessions/<name>/`, which is written
-  first and is the truth the index is rebuilt from. The row carries a `sim_id`
-  only for a trial that became a simulation.
-- Zarr and Parquet exist only for promoted trials (`save_runs = "best_n"`, the
-  best `save_best_n`, or `"all"`), each linked to its row by `sim_id`.
+- Every trial leaves one line in `sessions/<case>/trials.jsonl`
+  (`results/session/journal.py`), numbered once across phases and restarts.
+  `session.json` is the descriptor, `phases/<phase>/session.json` one per
+  phase, `outcome.json` the issue, `config.toml` the frozen document the
+  promotion replays from. The index is rebuilt from these files; the
+  calibration never opens it.
+- Zarr and Parquet exist only for promoted trials: the best under
+  `runs/<case>/`, the others under `sessions/<case>/trials/<n>/`, each linked
+  to its journal line by `sim_id` and `rel_dir`.
 
 The params hash (`optim/cache.py`: SHA-256 of the canonical JSON of the rounded
 parameter values and of a context that fingerprints the inputs) keys the cache.
-With `use_cache = true` (the default) a run preloads the hashes already stored in
-`calibration_iterations` (`runners/state.py:preload_hash_cache`), so a point
-evaluated in an earlier session of the same project is not solved again.
+With `use_cache = true` (the default) a run preloads the hashes of every
+`trials.jsonl` of the project (`runners/state.py:preload_hash_cache`), so a
+point evaluated in an earlier session of the same project is not solved again.
 
 ## Protocols and phases
 
@@ -252,8 +286,8 @@ A spin-up is left out by dates: `scoring_window.start` on the phase (or on
 keeps its stamps inside the window. A network output reads one state, dated
 at the stamp that closes its period: `time = "last"` (the default),
 `"first"`, or a date such as `"2002-10-15"`, which reads the period that
-holds it. The window has to hold that stamp, and `hmp calibrate --check` says
-so before any solve when it does not. `warmup` and `warmup_periods` count
+holds it. The window has to hold that stamp, and `hmp config check` says so
+before any solve when it does not. `warmup` and `warmup_periods` count
 samples, so their span follows the time step; they still load, for older
 files.
 
@@ -365,9 +399,10 @@ or one whose source only discovers its station once the data step runs, keeps
 the protocol's older form instead: `variable` and `objective` written on the
 phase, naming no output.
 
-**From Python.** The same keys, as dictionaries. The call writes the document
-it ran into the project's `sessions/` (named `<timestamp>-python-<hex>.toml`),
-so a Python run can be replayed from a file.
+**From Python.** The same keys, as dictionaries. A call with phases writes
+the document it ran into the project's `sessions/` (named
+`python-<timestamp>-<hex>.toml`), so a Python run can be replayed from a file;
+the case takes the `[simulation] name` of the project.
 
 ```python
 import hydromodpy as hmp
@@ -417,7 +452,7 @@ Each phase also says how wide its answer is (`uncertainty`, same keys as
 `[calibration.uncertainty]`, which stays the default for every phase). Left
 unwritten, the width follows what the phase scores: a phase scored only by
 network distances takes one mesh cell, in metres (a stream cannot move by
-less); any other phase takes 5 % of its best cost. `hmp calibrate --check`
+less); any other phase takes 5 % of its best cost. `hmp config check`
 refuses `mode = "relative"` on a phase scored only by network distances. The
 interval never moves the calibrated value; it says which values the search
 could not tell apart from it.
@@ -542,7 +577,10 @@ satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
   sum to one over the blocks of that phase.
 - **re-opened parameter**: one a phase moves again after an earlier phase
   calibrated it; the search starts from the earlier value when it can.
-- **session**: one calibration run on disk, its journal and its index rows.
+- **session**: one calibration of a case on disk, `sessions/<case>/`: its
+  journal, its phases and its frozen configuration.
+- **case**: the name a calibration file gives its session and its calibrated
+  run, the stem of the file that carries `[calibration]`.
 - **params hash**: the key that lets a search skip a point it already ran.
-- **promotion**: replaying a best trial through the full pipeline, so it gets
-  a simulation of its own.
+- **promotion**: running the pipeline on a trial, from its kept solve when
+  there is one, so it gets a run of its own: the best to `runs/<case>/`.

@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.workflow.site_selection import (
+from hydromodpy.spatial.site_selection.runner import (
     load_data_dem_config_for_site_selection,
     select_delineated_catchments_from_csv,
 )

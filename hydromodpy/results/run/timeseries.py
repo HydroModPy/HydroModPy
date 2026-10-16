@@ -1,9 +1,12 @@
 """Tabular and time-aligned accessors for :class:`hydromodpy.results.run.Run`.
 
-Mixin grouping the catalog-backed tabular reads (parameters, metrics,
-budgets, mass balance, provenance) and the time-resolved series accessors
-(``timeseries``, ``observed``, ``time_index``, ``recharge_forcing``).
-Mixed into :class:`Run`; reads ``self._sim_id`` and ``self._catalog``.
+Mixin grouping the tabular reads (parameters, metrics, budgets, mass
+balance) and the time-resolved series accessors (``timeseries``,
+``observed``, ``time_index``, ``recharge_forcing``). Every row is read from
+the Parquet tables of the run directory
+(:mod:`hydromodpy.results.run.tables`), never from the index. The inputs a
+run loaded are read from its seal (``run.record.inputs``). Mixed into
+:class:`Run`; reads ``self._sim_id`` and ``self._catalog``.
 """
 
 from __future__ import annotations
@@ -19,6 +22,11 @@ from hydromodpy.results.derive.downsample import (
     should_downsample,
 )
 from hydromodpy.results.derive.time_alignment import normalize_period_bounds, solver_time_index
+from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.run.sealed import metrics_frame
+from hydromodpy.results.run.tables import has_rows, read_run_table
+
+_GLOBAL_ZONE = "__global__"
 
 
 class RunTimeseriesMixin:
@@ -34,71 +42,46 @@ class RunTimeseriesMixin:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog.backend.query(
-            "SELECT param_name, zone_id, value, unit, parameterization "
-            "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
-            [self._sim_id],
+        df = read_run_table(
+            self,
+            "parameters",
+            columns=("param_name", "zone_id", "value", "unit", "parameterization"),
         )
-        # Homogeneous params have zone_id=NULL in the DB (stored as
-        # "__global__" by the writer); hide that column from the canonical
-        # view unless zonal rows are present.
+        # Homogeneous params are stored under "__global__"; hide that column
+        # from the canonical view unless zonal rows are present.
         if df.empty:
             return df.set_index("param_name")
-        is_zonal = df["zone_id"].fillna("__global__") != "__global__"
+        df = df.sort_values(["param_name", "zone_id"], na_position="first", ignore_index=True)
+        is_zonal = df["zone_id"].fillna(_GLOBAL_ZONE) != _GLOBAL_ZONE
         if is_zonal.any():
-            df["zone_id"] = df["zone_id"].fillna("__global__")
+            df["zone_id"] = df["zone_id"].fillna(_GLOBAL_ZONE)
             return df.set_index(["param_name", "zone_id"])
         return df.drop(columns=["zone_id"]).set_index("param_name")
 
     @property
     def metrics(self) -> pd.DataFrame:
-        """Performance and diagnostic metrics recorded for this run.
+        """Every score the seal of this run records, read from ``manifest.json``.
 
         Returns
         -------
         pandas.DataFrame
-            Long-form table with ``station_id``, ``metric_name``, and ``value``.
+            Long-form table: ``station``, ``variable``, ``metric``, ``value``
+            and the window each score was computed on (``nse_window_start``,
+            ``nse_window_end``, ``nse_n``, ``metric_rule_version``). A run scored
+            without a window carries no row, and a run that never completed
+            has no seal and no row.
         """
-        return self._catalog.backend.query(
-            "SELECT station_id, metric_name, value "
-            "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
-            [self._sim_id],
-        )
-
-    @property
-    def provenance(self) -> pd.DataFrame:
-        """Input-data provenance rows consumed by this run.
-
-        Returns
-        -------
-        pandas.DataFrame
-            Long-form table with source references, checksums, periods, and
-            record counts.
-        """
-        return self._catalog.backend.query(
-            "SELECT variable, source_type, source_ref, "
-            "payload_sha256 AS checksum, "
-            "period_start, period_end, n_records "
-            "FROM provenance WHERE sim_id = ?",
-            [self._sim_id],
-        )
+        return metrics_frame(self._record() if is_sealed(self.dir) else None)
 
     def has_table(self, table: str) -> bool:
-        """Return True when the catalog holds at least one row of ``table`` for this run.
+        """Return True when the run holds at least one row of ``table``.
 
         Used by the display layer to decide whether a figure can render
         before calling it, so a run that never produced (for example)
         calibration iterations reports the figure as unavailable instead of
         raising mid-render.
         """
-        try:
-            result = self._catalog.backend.query(
-                f"SELECT 1 FROM {table} WHERE sim_id = ? LIMIT 1",  # noqa: S608 - fixed table names
-                [self._sim_id],
-            )
-        except Exception:
-            return False
-        return not result.empty
+        return has_rows(self, table)
 
     def stations(self, variable: str) -> list[str]:
         """Return the sorted station ids carrying one simulated variable.
@@ -107,11 +90,10 @@ class RunTimeseriesMixin:
         station per SFR reach, gauge ids, ...) before fetching each series with
         :meth:`timeseries`.
         """
-        result = self._catalog.backend.query(
-            "SELECT DISTINCT station_id FROM timeseries WHERE sim_id = ? AND variable = ?",
-            [self._sim_id, variable],
+        result = read_run_table(
+            self, "timeseries", where={"variable": variable}, columns=("station_id",)
         )
-        return sorted(str(value) for value in result["station_id"])
+        return sorted({str(value) for value in result["station_id"]})
 
     def timeseries(
         self,
@@ -154,41 +136,36 @@ class RunTimeseriesMixin:
             Raised when no matching time series exists.
         """
         if station is None:
-            stations = self._catalog.backend.query(
-                "SELECT DISTINCT station_id FROM timeseries WHERE sim_id = ? AND variable = ?",
-                [self._sim_id, variable],
-            )
-            if stations.empty:
+            stations = self.stations(variable)
+            if not stations:
                 raise KeyError(f"No timeseries for sim={self._sim_id}, var={variable}")
             if len(stations) > 1:
-                names = ", ".join(sorted(stations["station_id"].astype(str)))
                 raise KeyError(
-                    f"Variable '{variable}' has multiple stations ({names}); "
+                    f"Variable '{variable}' has multiple stations ({', '.join(stations)}); "
                     "pass station= explicitly."
                 )
-            station = str(stations["station_id"].iloc[0])
-        query = (
-            "SELECT time, timestep, value FROM timeseries "
-            "WHERE sim_id = ? AND station_id = ? AND variable = ?"
-        )
-        params: list = [self._sim_id, station, variable]
+            station = stations[0]
+        result = read_run_table(
+            self,
+            "timeseries",
+            where={"station_id": station, "variable": variable},
+            columns=("time", "timestep", "value"),
+        ).sort_values("timestep", kind="stable")
+        # The table stores instants in UTC; the simulation time_index is
+        # tz-naive, so strip the tz here to keep both aligned.
+        idx = _naive_utc(result["time"])
         if period is not None:
             lo, hi, hi_inclusive = normalize_period_bounds(period)
-            query += " AND time >= ? AND time " + ("<= ?" if hi_inclusive else "< ?")
-            params.extend([lo, hi])
-        query += " ORDER BY timestep"
-        result = self._catalog.backend.query(query, params)
+            keep = (idx >= _naive(lo)) & (
+                (idx <= _naive(hi)) if hi_inclusive else (idx < _naive(hi))
+            )
+            result, idx = result[keep], idx[keep]
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
             )
-        # The catalog stores datetimes as TIMESTAMPTZ (UTC); simulation
-        # time_index is tz-naive, so strip the tz here to keep both aligned.
-        idx = pd.DatetimeIndex(result["time"])
-        if idx.tz is not None:
-            idx = idx.tz_convert("UTC").tz_localize(None)
         series = pd.Series(
-            result["value"].values,
+            result["value"].to_numpy(),
             index=idx,
             name=variable,
         )
@@ -204,7 +181,7 @@ class RunTimeseriesMixin:
     ) -> pd.DataFrame:
         """Return observed timeseries ingested for this simulation.
 
-        Observation series are persisted in the catalog ``timeseries`` table
+        Observation series are persisted in the ``timeseries`` table of the run
         with an ``_obs`` suffix on the variable name (see
         :func:`hydromodpy.simulation.extraction.derivation.observation_ingest.ingest_observations`).
         This accessor strips that suffix on read so callers query with the
@@ -231,30 +208,25 @@ class RunTimeseriesMixin:
         ValueError
             When no observation rows match the filter.
         """
-        obs_variable = f"{variable}_obs"
-        query = (
-            "SELECT station_id, time AS datetime, value FROM timeseries "
-            "WHERE sim_id = ? AND variable = ?"
-        )
-        params: list = [self._sim_id, obs_variable]
+        where = {"variable": f"{variable}_obs"}
         if station is not None:
-            query += " AND station_id = ?"
-            params.append(station)
+            where["station_id"] = station
+        df = read_run_table(
+            self, "timeseries", where=where, columns=("station_id", "timestep", "time", "value")
+        )
+        df = df.sort_values(["station_id", "timestep"], kind="stable", ignore_index=True)
+        idx = _naive_utc(df["time"])
         if period is not None:
-            query += " AND time >= ? AND time <= ?"
-            params.extend([period[0], period[1]])
-        query += " ORDER BY station_id, timestep"
-        df = self._catalog.backend.query(query, params)
+            keep = (idx >= _naive(period[0])) & (idx <= _naive(period[1]))
+            df, idx = df[keep].reset_index(drop=True), idx[keep]
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
             raise ValueError(
                 f"No observations for sim={self._sim_id}, variable={variable}{station_msg}"
             )
-        idx = pd.DatetimeIndex(df["datetime"])
-        if idx.tz is not None:
-            idx = idx.tz_convert("UTC").tz_localize(None)
-        df["datetime"] = idx
-        return df
+        return pd.DataFrame(
+            {"station_id": df["station_id"], "datetime": idx, "value": df["value"].to_numpy()}
+        )
 
     def budget(
         self,
@@ -278,26 +250,21 @@ class RunTimeseriesMixin:
         pandas.DataFrame
             Budget rows matching the filters.
         """
-        query = "SELECT * FROM budgets WHERE sim_id = ?"
-        params: list = [self._sim_id]
+        where: dict[str, str] = {}
         if component is not None:
-            query += " AND component = ?"
-            params.append(component)
+            where["component"] = component
         if zone_id is not None:
-            query += " AND zone_id = ?"
-            params.append(zone_id)
+            where["zone_id"] = zone_id
+        df = read_run_table(self, "budgets", where=where)
         if period is not None:
-            query += " AND timestep >= ? AND timestep <= ?"
-            params.extend(period)
-        return self._catalog.backend.query(query, params)
+            df = df[(df["timestep"] >= period[0]) & (df["timestep"] <= period[1])]
+        return df.reset_index(drop=True)
 
     @property
     def mass_balance(self) -> pd.DataFrame:
         """Mass-balance diagnostics ordered by timestep."""
-        return self._catalog.backend.query(
-            "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
-            [self._sim_id],
-        )
+        df = read_run_table(self, "mass_balance")
+        return df.sort_values("timestep", kind="stable", ignore_index=True)
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -305,9 +272,9 @@ class RunTimeseriesMixin:
 
         Length matches ``run.n_timesteps``. Each stamp is the END of its
         period, as the solvers write it. The solver's CF ``/time`` axis is read
-        first; without it the stamps are rebuilt from ``period_start``,
-        ``period_end`` and ``time_unit`` stored in the catalog. Raises if the
-        bounds are missing or the simulation has no timesteps.
+        first; without it the stamps are rebuilt from the ``period_start``,
+        ``period_end`` and ``time_unit`` the run states about itself. Raises
+        if the bounds are missing or the simulation has no timesteps.
         """
         row = self._load_row()
         n = row.get("n_timesteps")
@@ -316,7 +283,7 @@ class RunTimeseriesMixin:
                 f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
             )
         # Prefer the solver's persisted CF /time axis so this index matches the
-        # field arrays exactly (no drift). Fall back to the catalog period bounds.
+        # field arrays exactly (no drift). Fall back to the period bounds of the run.
         idx = solver_time_index(self._catalog, self._sim_id, n)
         if idx is not None:
             if idx.tz is not None:
@@ -325,15 +292,10 @@ class RunTimeseriesMixin:
         start, end = row.get("period_start"), row.get("period_end")
         if start is None or end is None or pd.isna(start) or pd.isna(end):
             raise RuntimeError(
-                f"Simulation '{self._sim_id}' missing period_start/period_end "
-                "in catalog - cannot build a time index."
+                f"Simulation '{self._sim_id}' states no period_start/period_end "
+                "- cannot build a time index."
             )
-        # The bounds keep the wall clock they were written with: the catalog
-        # receives naive strings, read in the DuckDB session zone.
-        start, end = pd.Timestamp(start), pd.Timestamp(end)
-        start = start.tz_localize(None) if start.tz is not None else start
-        end = end.tz_localize(None) if end.tz is not None else end
-        return period_end_stamps(start, end, int(n), step_unit=row.get("time_unit"))
+        return period_end_stamps(_naive(start), _naive(end), int(n), step_unit=row.get("time_unit"))
 
     @cached_property
     def params(self) -> dict[str, float]:
@@ -343,12 +305,12 @@ class RunTimeseriesMixin:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.backend.fetch_all(
-            "SELECT param_name, value FROM parameters "
-            "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
-            [self._sim_id, "__global__"],
-        )
-        return {name: float(val) for name, val in rows}
+        df = read_run_table(self, "parameters", columns=("param_name", "zone_id", "value"))
+        glob = df[df["zone_id"].isna() | (df["zone_id"] == _GLOBAL_ZONE)]
+        return {
+            str(name): float(val)
+            for name, val in zip(glob["param_name"], glob["value"], strict=True)
+        }
 
     def recharge_forcing(self) -> pd.Series:
         """Lazy input recharge forcing per stress period."""
@@ -356,18 +318,17 @@ class RunTimeseriesMixin:
 
         return views.recharge_forcing(self)
 
-    def input_entries(self) -> pd.DataFrame:
-        """Return cache entries consumed by this run via the SHA-256 bridge.
 
-        Joins ``tracked_files`` (in the project catalog) with
-        ``entries`` (in the workspace cache DB) on ``sha256`` through a
-        DuckDB ATTACH read-only context. Returns an empty DataFrame when
-        the cache DB cannot be located next to the workspace or when no
-        tracked file matches a cache entry.
-        """
-        from hydromodpy.results.catalog.cross_db import run_input_entries
+def _naive(value: object) -> pd.Timestamp:
+    """Return *value* as a naive UTC instant."""
+    ts = pd.Timestamp(value)
+    return ts.tz_convert("UTC").tz_localize(None) if ts.tz is not None else ts
 
-        return run_input_entries(self._catalog, self._sim_id)
+
+def _naive_utc(values: pd.Series) -> pd.DatetimeIndex:
+    """Return a column of instants as a naive UTC index."""
+    idx = pd.DatetimeIndex(pd.to_datetime(values))
+    return idx.tz_convert("UTC").tz_localize(None) if idx.tz is not None else idx
 
 
 def _apply_downsample(

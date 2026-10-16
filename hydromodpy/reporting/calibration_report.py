@@ -2,9 +2,9 @@
 
 Consumes the structural payload produced by
 :func:`hydromodpy.calibration.report.load_session_report_data` and turns
-it into a self-contained HTML report at
-``<project>/share/reports/<session_name>/report.html``, under the same
-readable name the session carries in ``sessions/``. Renders the six
+it into a self-contained HTML report inside the session directory it
+describes: ``sessions/<session>/report/index.html``, its figures under
+``sessions/<session>/figures/``. Renders the six
 calibration figures registered in :mod:`hydromodpy.display.figures`
 plus a best-run obs-vs-sim panel when a promoted run is available.
 
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import reports_dir_for
+from hydromodpy.core.state.paths import sessions_dir_for
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import names as _figure_names
@@ -33,7 +33,12 @@ from hydromodpy.results.derive.time_alignment import (
     observed_on_simulation_index,
     time_method_for,
 )
-from hydromodpy.results.session_journal import read_root_search
+from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.storage.contract import (
+    REPORT_INDEX_FILENAME,
+    RUN_FIGURES_DIRNAME,
+    RUN_REPORT_DIRNAME,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -98,7 +103,7 @@ def render_session(
     session_data: SessionReportPayload,
     *,
     figure_names: list[str] | tuple[str, ...] | None = None,
-    output_dir: Path | None = None,
+    session_dir: Path | None = None,
 ) -> list[Path]:
     """Render a calibration-session HTML report.
 
@@ -111,24 +116,24 @@ def render_session(
     figure_names
         Iterable of registered figure names to render. Defaults to the
         six built-in ``calibration_*`` figures.
-    output_dir
-        Directory the report is written into. Defaults to
-        ``<session_data.workspace_root>/share/reports/<session_name>``, the
-        same readable name the session carries under ``sessions/``.
+    session_dir
+        The session directory the report describes. Defaults to
+        ``sessions/<session_name>`` of ``session_data.workspace_root``.
 
     Returns
     -------
     list[Path]
-        Paths of files written: each rendered figure PNG followed by
-        ``report.html``. Empty figure list still produces the HTML.
+        Paths of files written: each rendered figure PNG under
+        ``figures/`` followed by ``report/index.html``. Empty figure list
+        still produces the HTML.
     """
     requested = tuple(figure_names) if figure_names is not None else _DEFAULT_FIGURE_NAMES
-    out_dir = (
-        Path(output_dir)
-        if output_dir is not None
-        else reports_dir_for(session_data.workspace_root) / session_data.session_name
+    directory = (
+        Path(session_dir)
+        if session_dir is not None
+        else sessions_dir_for(session_data.workspace_root) / session_data.session_name
     )
-    figures_dir = out_dir / "figures"
+    figures_dir = directory / RUN_FIGURES_DIRNAME
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []
@@ -137,7 +142,7 @@ def render_session(
         iterations=session_data.iterations,
         figure_names=requested,
         figures_dir=figures_dir,
-        roots=_two_roots(session_data),
+        roots=_two_roots(directory),
     )
     written.extend(path for _, path in rendered)
 
@@ -163,7 +168,8 @@ def render_session(
             rendered.append((panel_name, panel_path))
             written.append(panel_path)
 
-    html_path = out_dir / "report.html"
+    html_path = directory / RUN_REPORT_DIRNAME / REPORT_INDEX_FILENAME
+    html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(
         _render_html(session_data.session, session_data.iterations, rendered),
         encoding="utf-8",
@@ -219,13 +225,16 @@ def _float_or_nan(value: Any) -> float:
         return float("nan")
 
 
-def _two_roots(session_data: SessionReportPayload) -> Mapping[str, Any] | None:
-    """Return the two roots the session's chain journalled, or None.
+def _two_roots(session_dir: Path) -> Mapping[str, Any] | None:
+    """Return the two roots the session journalled, or None.
 
     Only ``session.json`` holds them: the trials carry each bound's bracket,
     not ``Delta`` nor the combined value.
     """
-    record = read_root_search(session_data.workspace_root, session_data.session_id)
+    try:
+        record = read_session(session_dir).root_search
+    except FileNotFoundError:
+        return None
     roots = (record or {}).get("roots")
     return roots if isinstance(roots, Mapping) else None
 
@@ -510,7 +519,7 @@ def _render_html(
         figure_blocks.append(
             f'<section class="figure">'
             f"<h2>{html.escape(name)}</h2>"
-            f'<img src="figures/{filename}" alt="{html.escape(name)}"></section>'
+            f'<img src="../{RUN_FIGURES_DIRNAME}/{filename}" alt="{html.escape(name)}"></section>'
         )
     figures_html = "\n  ".join(figure_blocks) or "<p><em>No figures rendered.</em></p>"
 

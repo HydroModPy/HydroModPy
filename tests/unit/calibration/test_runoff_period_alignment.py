@@ -96,14 +96,6 @@ class _FakeRootGroup:
         return self._forcing if key == "forcing" else None
 
 
-class _AreaConnection:
-    def __init__(self, area_km2: float) -> None:
-        self._area_km2 = area_km2
-
-    def execute(self, sql: str, params):
-        return SimpleNamespace(fetchone=lambda: (self._area_km2,))
-
-
 def _derived_paths_inputs(runoff: pd.Series):
     station = _FakeNode(
         {
@@ -112,7 +104,9 @@ def _derived_paths_inputs(runoff: pd.Series):
         }
     )
     grp = _FakeRootGroup(_FakeNode({"runoff": _FakeRunoffGroup({"station0": station})}))
-    store = SimpleNamespace(connection=_AreaConnection(_CATCH_AREA_KM2))
+    store = SimpleNamespace(
+        read_geographic_metadata=lambda _sim_id: {"catch_area": _CATCH_AREA_KM2}
+    )
     return store, grp
 
 

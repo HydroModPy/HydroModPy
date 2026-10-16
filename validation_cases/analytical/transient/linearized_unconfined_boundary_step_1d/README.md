@@ -31,7 +31,6 @@ Run manually:
 ```powershell
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case
 python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_case --solver boussinesq --show
-python -m validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.run_comparison
 ```
 
 Reference used by the documentation:

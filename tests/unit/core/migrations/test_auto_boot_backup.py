@@ -15,7 +15,7 @@ from hydromodpy.core.exceptions import BackupFailedError
 from hydromodpy.core.io.filesystem import native_io_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.migrations import auto_boot, ensure_schema_safe, list_backups
-from hydromodpy.core.migrations.auto_boot import MAX_BACKUPS, NO_BACKUP_COMPONENTS, backup_path_for
+from hydromodpy.core.migrations.auto_boot import MAX_BACKUPS, backup_path_for
 from hydromodpy.core.migrations.runner import current_version
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
@@ -99,9 +99,7 @@ def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path)
 def test_a_failed_migration_rolls_the_database_back(tmp_path: Path, versions_dir: Path) -> None:
     """A migration that raises restores the snapshot instead of leaving a half-migrated file.
 
-    This is the only exercise of the restore-on-failure branch, and it must target a
-    backed-up component: `catalog` and `index` are in NO_BACKUP_COMPONENTS, so with
-    those there is no snapshot to roll back to and the branch is never reached.
+    This is the only exercise of the restore-on-failure branch.
     """
     db_path = tmp_path / "cache.duckdb"
     conn = duckdb.connect(str(db_path))
@@ -136,38 +134,6 @@ def test_a_failed_migration_rolls_the_database_back(tmp_path: Path, versions_dir
         assert restored.execute("SELECT count(*) FROM payload").fetchone()[0] == 1
     finally:
         restored.close()
-
-
-@pytest.mark.parametrize(
-    ("component", "filename"),
-    [("catalog", CATALOG_FILENAME), ("index", "index.duckdb")],
-)
-def test_an_index_component_skips_backup(
-    tmp_path: Path, versions_dir: Path, component: str, filename: str
-) -> None:
-    """An index is rebuilt, never restored: no snapshot, even populated."""
-    assert component in NO_BACKUP_COMPONENTS
-    db_path = tmp_path / filename
-    conn = duckdb.connect(str(db_path))
-    try:
-        conn.execute("CREATE TABLE payload (id INTEGER)")
-        conn.execute("CHECKPOINT")
-        ensure_schema_safe(
-            conn,
-            db_path=db_path,
-            versions_dir=versions_dir,
-            component=component,
-        )
-    finally:
-        conn.close()
-
-    assert list_backups(db_path) == []
-
-
-def test_only_the_source_data_cache_is_backed_up() -> None:
-    """The cache is the one database a rebuild cannot reproduce."""
-    assert NO_BACKUP_COMPONENTS == frozenset({"catalog", "index"})
-    assert _CACHE_COMPONENT not in NO_BACKUP_COMPONENTS
 
 
 def _refuse_to_copy(*args: object, **kwargs: object) -> None:

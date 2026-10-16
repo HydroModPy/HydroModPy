@@ -1,29 +1,21 @@
-"""Strict v2 vocabulary checks for solver codes and mesh topologies.
+"""Strict vocabulary of solver codes.
 
-The catalog accepts only the canonical ``solvers.code`` values seeded in
-``catalog/migrations/versions/0001_initial_v2_schema.sql``. Legacy aliases
-like ``modflow6gwt`` and ``modflownwt`` are rejected eagerly.
+The index seeds ``solvers.code`` from ``index_schema.py`` and accepts those
+codes only. Legacy aliases like ``modflow6gwt`` and ``modflownwt`` are
+refused by :func:`validate_solver_code`, and a seal naming one is left out
+of the index with the reason in the report.
 """
 
 from __future__ import annotations
 
-import uuid
-from pathlib import Path
-
 import pytest
 
+from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.catalog.constants import (
     VALID_SOLVER_CODES,
     validate_solver_code,
 )
-from hydromodpy.results.catalog.facade import Catalog
-from tests._helpers.fixtures_catalog import simulation_catalog
-
-
-@pytest.fixture
-def catalog(tmp_path: Path):
-    with simulation_catalog(tmp_path) as cat:
-        yield cat
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
 def test_validate_solver_code_accepts_canonical_codes() -> None:
@@ -54,20 +46,14 @@ def test_validate_solver_code_lists_known_codes() -> None:
         assert known in msg
 
 
-def test_register_simulation_rejects_legacy_solver_name(catalog) -> None:
-    sid = str(uuid.uuid4())
-    with pytest.raises(ValueError, match="Unknown solver code"):
-        catalog.register_simulation(sid, project="test", solver="modflow6gwt")
+def test_a_seal_naming_a_solver_outside_the_vocabulary_is_left_out_of_the_index(tmp_path):
+    root = make_project(tmp_path / "demo")
+    seal_run(root, "canonical", solver="modflow_nwt")
+    seal_run(root, "legacy", solver="modflownwt")
 
+    report = rebuild_index(root)
 
-def test_register_simulation_rejects_modflownwt_alias(catalog) -> None:
-    sid = str(uuid.uuid4())
-    with pytest.raises(ValueError, match="Unknown solver code"):
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
-
-
-def test_register_simulation_accepts_canonical_modflow_nwt(catalog) -> None:
-    sid = str(uuid.uuid4())
-    reg = catalog.register_simulation(sid, project="test", solver="modflow_nwt")
-    if reg.zarr is not None:
-        reg.zarr.close()
+    assert [item.rel_dir for item in report.skipped] == ["runs/legacy"]
+    assert "unknown solver code" in report.skipped[0].reason
+    with Catalog(root) as catalog:
+        assert list(catalog.list_simulations()["name"]) == ["canonical"]

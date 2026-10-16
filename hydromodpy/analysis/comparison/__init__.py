@@ -1,5 +1,6 @@
-"""Post-hoc and external simulation-comparison tooling.
+"""Comparison of N sealed runs of one case.
 
-The package contains configuration, execution, metrics, exports, and reporting
-helpers used to compare solver variants or external simulation outputs.
+``runs.py`` resolves the references and checks the case, ``runtime/`` reads
+one run from its directory, ``run_comparison.py`` writes the comparison folder
+through ``output_pipeline.py``. ``hmp report compare`` is the entry point.
 """

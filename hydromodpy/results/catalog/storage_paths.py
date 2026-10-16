@@ -1,14 +1,16 @@
 """Filesystem path resolution for run artefacts.
 
-A run owns one directory, ``runs/<name>``, named after the run itself
-(``my_run``, ``my_run.v2`` ...). Everything the run produced lives
-inside it: ``fields.zarr``, ``tables.parquet/<view>.parquet``,
-``config.toml``, ``figures/``. The layout is therefore readable without the
-index, and deleting a run is deleting one directory.
+A run owns one directory, ``runs/<name>`` or a kept trial
+``sessions/<name>/trials/<nnnn>``, named after the run itself (``my_run``,
+``my_run.v2`` ...). Everything the run produced lives inside it:
+``fields.zarr``, ``tables.parquet/<view>.parquet``, ``config.toml``,
+``figures/``. The layout is therefore readable without the index, and
+deleting a run is moving one directory to the trash.
 
-The run name is mutable: renaming a run moves its directory, so the index
-and the tree never disagree. :meth:`StoragePathResolver.move` performs that
-move and is the only place allowed to do so.
+The index holds the relative directory of each run (``rel_dir``), and
+:class:`StoragePathResolver` reads it back. Moving a directory is never done
+here: :func:`hydromodpy.results.catalog.registration.rename_case` renames,
+:mod:`hydromodpy.results.trash` trashes and restores.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.core.state.paths import parse_rel_dir
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
@@ -95,75 +98,43 @@ def run_dirname(name: str | None) -> str:
 
 
 class StoragePathResolver:
-    """Resolve and cache the on-disk directory of each run.
+    """Resolve and cache the on-disk directory of each indexed run.
 
-    Holds the ``runs/`` root and an in-memory ``sim_id → dirname`` cache so
-    per-run paths can be computed without a fresh DuckDB lookup on every
-    access.
+    Holds the project root and an in-memory ``sim_id -> rel_dir`` cache, so
+    per-run paths are computed without a fresh DuckDB lookup on every access.
     """
 
-    def __init__(self, backend: CatalogBackend, runs_dir: Path) -> None:
+    def __init__(self, backend: CatalogBackend, project_root: Path) -> None:
         self._backend = backend
-        self._runs_dir = runs_dir
-        self._dirname_cache: dict[str, str] = {}
+        self._project_root = Path(project_root)
+        self._rel_dir_cache: dict[str, str] = {}
 
-    @property
-    def runs_dir(self) -> Path:
-        """Root directory holding one sub-directory per run."""
-        return self._runs_dir
+    def rel_dir_for(self, sim_id: str | UUID) -> str:
+        """Return the relative directory the index holds for ``sim_id``.
 
-    def dirname_for(self, sim_id: str | UUID) -> str:
-        """Return the directory name of ``sim_id``.
-
-        Reads the run name through the catalog backend port. A trashed run
-        has a NULL ``name`` (the bare name is freed on trash) but keeps
-        ``original_name``, so its directory stays resolvable and deletable.
-        An unknown ``sim_id`` falls back to its short id, which keeps path
-        computation total.
+        Raises ``KeyError`` for a ``sim_id`` the index does not know: a path
+        made up for an unknown run would point at another run, or at nothing.
         """
         sid = str(sim_id)
-        cached = self._dirname_cache.get(sid)
+        cached = self._rel_dir_cache.get(sid)
         if cached is not None:
             return cached
         row = self._backend.fetch_one(
-            "SELECT COALESCE(name, original_name) FROM simulations WHERE sim_id = ?",
-            [sid],
+            "SELECT rel_dir FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?", [sid]
         )
-        name = row[0] if row and row[0] else sid[:8]
-        dirname = run_dirname(name)
-        self._dirname_cache[sid] = dirname
-        return dirname
-
-    def cache_dirname(self, sim_id: str | UUID, dirname: str) -> None:
-        """Pre-populate the cache for a freshly registered run."""
-        self._dirname_cache[str(sim_id)] = dirname
+        if row is None or not row[0]:
+            raise KeyError(f"No run with sim_id={sid[:8]} in the index")
+        rel_dir = parse_rel_dir(str(row[0])).as_posix()
+        self._rel_dir_cache[sid] = rel_dir
+        return rel_dir
 
     def forget(self, sim_id: str | UUID) -> None:
-        """Drop the cached directory name for ``sim_id`` (used on delete)."""
-        self._dirname_cache.pop(str(sim_id), None)
-
-    def move(self, sim_id: str | UUID, new_dirname: str) -> Path:
-        """Move the run directory to ``new_dirname`` and return the new path.
-
-        Called by a rename so the tree follows the name. A missing source
-        directory is not an error (the run has not written anything yet);
-        an already-taken destination is, since two runs must never share a
-        directory.
-        """
-        source = self.run_dir_for(sim_id)
-        target = self._runs_dir / new_dirname
-        if source != target:
-            if target.exists():
-                raise FileExistsError(f"Run directory already exists: {target}")
-            if source.is_dir():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                source.rename(target)
-        self.cache_dirname(sim_id, new_dirname)
-        return target
+        """Drop the cached directory of ``sim_id`` (its row changed or went away)."""
+        self._rel_dir_cache.pop(str(sim_id), None)
 
     def run_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the run directory (may not yet exist)."""
-        return self._runs_dir / self.dirname_for(sim_id)
+        return self._project_root / self.rel_dir_for(sim_id)
 
     def fields_path_for(self, sim_id: str | UUID) -> Path:
         """Return the Zarr directory store of the run."""

@@ -194,7 +194,7 @@ class FieldHeterogeneousSection(HydroModelBase):
         default=None,
         description=(
             "CSV file that maps each zone key to its value. A relative path is read "
-            "from the folder of the TOML file."
+            "from the project root (the folder of project.toml)."
         ),
         examples=["k_by_unit.csv"],
     )

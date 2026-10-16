@@ -79,7 +79,7 @@ class BaseVariableConfig(HydroModelBase):
         """Load config from a TOML file.
 
         Relative paths (``path``, ``mask_path``) in the TOML are resolved
-        relative to the TOML file's directory, not the CWD.
+        from the project root (the folder of ``project.toml``), not the CWD.
         """
         if cls._TOML_SECTION is None:
             raise NotImplementedError(f"{cls.__name__} must define _TOML_SECTION")

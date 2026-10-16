@@ -87,11 +87,11 @@ def test_kahn_duplicate_name_raises() -> None:
         WorkflowDAG(steps).topological_order()
 
 
-def test_standard_steps_dag_has_12_singleton_cohorts() -> None:
-    """The canonical 12-step pipeline currently produces 12 singleton cohorts."""
+def test_standard_steps_dag_has_13_singleton_cohorts() -> None:
+    """The canonical 13-step pipeline produces 13 singleton cohorts."""
     from hydromodpy.workflow.orchestrator import standard_steps
 
     dag = WorkflowDAG(standard_steps())
     cohorts = dag.topological_order()
-    assert len(cohorts) == 12
+    assert len(cohorts) == 13
     assert all(len(cohort) == 1 for cohort in cohorts)

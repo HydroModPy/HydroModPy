@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.workflow.site_selection import (
+from hydromodpy.spatial.site_selection.runner import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,
 )

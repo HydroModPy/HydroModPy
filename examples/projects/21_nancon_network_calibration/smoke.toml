@@ -260,7 +260,6 @@ enabled = true
 preset = "default"
 show = false
 save = true
-output_dir = "figures"
 on_error = "warn"
 
 

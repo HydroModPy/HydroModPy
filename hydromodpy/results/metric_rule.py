@@ -20,21 +20,32 @@ keep the ``nse_`` prefix whatever the metric, because that is their name in
 Without a window there is no score: ``value`` is ``None`` and ``nse_n`` is 0.
 A window is inclusive of both days. The kernels are the ones of
 :mod:`hydromodpy.core.metrics`; a value they cannot compute (constant
-observations, empty overlap) is ``None`` too, never ``NaN``.
+observations, empty overlap, a log of a negative value) is ``None`` too,
+never ``NaN``.
+
+The rule of a run comes from its configuration
+(:meth:`MetricRule.from_config`): ``[metrics] station``, else ``[site]
+gauge``, else the gauge the run deduced, and ``[metrics] window``. A score names the station and the variable
+it was read at when the caller knows them, so a reader can find the row the
+headline NSE stands for.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, time, timedelta
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
+import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 
 from hydromodpy.core import metrics as kernels
 from hydromodpy.core.config_kit.base import HydroModelBase
+
+if TYPE_CHECKING:
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 METRIC_RULE_VERSION: Final[str] = "1"
 """Version of the scoring rule. Bump it when a score stops being comparable."""
@@ -66,36 +77,88 @@ class MetricRule(HydroModelBase):
     )
     version: str = Field(default=METRIC_RULE_VERSION, description="Version of the scoring rule")
 
+    @classmethod
+    def from_config(cls, config: HydroModPyConfig, *, gauge: str | None = None) -> MetricRule:
+        """Return the rule a configuration declares.
+
+        The station is ``[metrics] station``, else ``[site] gauge``, else
+        *gauge*, the gauge the run deduced (its single hydrometric station,
+        :func:`~hydromodpy.data.sites.gauge.gauge_of_run`). The window is
+        ``[metrics] window``; without it the rule scores nothing.
+        """
+        metrics = config.metrics
+        site = config.site
+        station = metrics.station if metrics is not None else None
+        if station is None and site is not None:
+            station = site.gauge
+        if station is None:
+            station = gauge
+        declared = metrics.window if metrics is not None else None
+        window = None if declared is None else DateWindow(start=declared.start, end=declared.end)
+        return cls(station=station, window=window)
+
 
 class MetricScore(HydroModelBase):
     """One score and the facts that make it comparable."""
 
-    metric: str = Field(description="Metric name: nse, kge, rmse or nse_log")
+    metric: str = Field(description="Metric name, one of METRIC_NAMES")
     value: float | None = Field(description="The score, or null when it could not be computed")
+    station: str | None = Field(default=None, description="Station the score was read at")
+    variable: str | None = Field(default=None, description="Variable the score was read on")
     nse_window_start: date | None = Field(description="First day scored, null without a window")
     nse_window_end: date | None = Field(description="Last day scored, null without a window")
     nse_n: int = Field(ge=0, description="Samples the score used")
     metric_rule_version: str = Field(description="Version of the rule the score follows")
 
 
-_KERNELS: dict[str, Callable[[pd.Series, pd.Series], float]] = {
+def _log_nse(sim: np.ndarray, obs: np.ndarray) -> float:
+    """NSE of the logs, undefined (NaN) on a series that holds a negative value."""
+    if (sim < 0).any() or (obs < 0).any():
+        return math.nan
+    return kernels.log_nse(sim, obs)
+
+
+_KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": kernels.nse,
     "kge": lambda sim, obs: kernels.kge(sim, obs)["kge"],
     "rmse": kernels.rmse,
-    "nse_log": kernels.log_nse,
+    "nse_log": _log_nse,
+    "mae": kernels.mae,
+    "bias": kernels.bias,
+    "pbias": kernels.pbias,
+    "correlation": kernels.correlation,
+    "kge_r": lambda sim, obs: kernels.kge(sim, obs)["r"],
+    "kge_alpha": lambda sim, obs: kernels.kge(sim, obs)["alpha"],
+    "kge_beta": lambda sim, obs: kernels.kge(sim, obs)["beta"],
 }
 
 METRIC_NAMES: Final[tuple[str, ...]] = tuple(_KERNELS)
-"""The metrics :func:`score` knows."""
+"""The metrics :func:`score` knows: the four headline scores, then the panel of a run.
+
+The ``kge_*`` entries are the decomposition of the KGE: ``r`` tells timing,
+``alpha`` amplitude and ``beta`` volume, which a bare score cannot separate.
+"""
+
+HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
+"""The metrics :func:`score_run` computes unless told otherwise."""
 
 
-def score(simulated: pd.Series, observed: pd.Series, rule: MetricRule, metric: str) -> MetricScore:
+def score(
+    simulated: pd.Series,
+    observed: pd.Series,
+    rule: MetricRule,
+    metric: str,
+    *,
+    station: str | None = None,
+    variable: str | None = None,
+) -> MetricScore:
     """Score *simulated* against *observed* under *rule*.
 
     Both series are indexed by time. Only the days of ``rule.window`` count,
     and only the instants both series carry a finite value at. Without a
     window the score is ``None`` with zero samples: a run nobody declared a
-    window for has no rank.
+    window for has no rank. *station* and *variable* name where the series
+    were read; they are recorded, not checked.
     """
     kernel = _KERNELS.get(metric)
     if kernel is None:
@@ -104,6 +167,8 @@ def score(simulated: pd.Series, observed: pd.Series, rule: MetricRule, metric: s
         return MetricScore(
             metric=metric,
             value=None,
+            station=station,
+            variable=variable,
             nse_window_start=None,
             nse_window_end=None,
             nse_n=0,
@@ -120,11 +185,33 @@ def score(simulated: pd.Series, observed: pd.Series, rule: MetricRule, metric: s
     return MetricScore(
         metric=metric,
         value=value,
+        station=station,
+        variable=variable,
         nse_window_start=rule.window.start,
         nse_window_end=rule.window.end,
         nse_n=n,
         metric_rule_version=rule.version,
     )
+
+
+def score_run(
+    simulated: pd.Series,
+    observed: pd.Series,
+    rule: MetricRule,
+    metrics: Sequence[str] = HEADLINE_METRICS,
+    *,
+    station: str | None = None,
+    variable: str | None = None,
+) -> list[MetricScore]:
+    """Score one simulated series against its observations on every metric of *metrics*.
+
+    Each score follows :func:`score`: same window, same samples, same rule
+    version. The order of *metrics* is kept.
+    """
+    return [
+        score(simulated, observed, rule, metric, station=station, variable=variable)
+        for metric in metrics
+    ]
 
 
 def _within(series: pd.Series, window: DateWindow) -> pd.Series:
@@ -142,10 +229,12 @@ def _within(series: pd.Series, window: DateWindow) -> pd.Series:
 
 
 __all__ = [
+    "HEADLINE_METRICS",
     "METRIC_NAMES",
     "METRIC_RULE_VERSION",
     "DateWindow",
     "MetricRule",
     "MetricScore",
     "score",
+    "score_run",
 ]

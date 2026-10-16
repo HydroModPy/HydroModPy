@@ -50,7 +50,10 @@ class MetricsConfig(HydroModelBase):
 
     station: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description=("Station the run is scored at. Unset, it is [site] gauge."),
+        description=(
+            "Station the run is scored at. Unset, it is [site] gauge; without a gauge, "
+            "the only discharge station the run loads, when it loads exactly one."
+        ),
         examples=["J0014010"],
     )
     window: Annotated[MetricsWindow | None, Profile.USER] = Field(

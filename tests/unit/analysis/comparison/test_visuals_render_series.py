@@ -15,7 +15,7 @@ from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_native_flux_panel,
     _write_point_dashboard,
     _write_runtime_bar_figure,
-    _write_timeseries_figure,
+    write_timeseries_figure,
 )
 
 
@@ -43,7 +43,7 @@ def test_write_timeseries_figure_creates_png(tmp_path: Path) -> None:
         for i in range(5)
     )
     out = tmp_path / "ts.png"
-    ok = _write_timeseries_figure(
+    ok = write_timeseries_figure(
         path=out, observable_name="hydraulic_head", unit="m", grouped_rows=rows
     )
     assert ok is True
@@ -56,7 +56,7 @@ def test_write_timeseries_figure_returns_false_when_too_few_points(
     rows = [{"simulation_id": "ref", "value": 1.0, "time_index": 0, "value_index": 0}]
     out = tmp_path / "ts.png"
     assert (
-        _write_timeseries_figure(path=out, observable_name="head", unit="m", grouped_rows=rows)
+        write_timeseries_figure(path=out, observable_name="head", unit="m", grouped_rows=rows)
         is False
     )
 

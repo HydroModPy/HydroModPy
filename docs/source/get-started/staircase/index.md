@@ -144,7 +144,8 @@ shows the examples your version ships and `hmp example show 04` lists the files 
 ## Run a step
 
 Run any step from that folder. Each run writes its figures to `runs/<name>/figures/` and
-its exports to `share/<name>/`, where `<name>` is the {toml}`simulation.name` of the file.
+its exports to `runs/<name>/exports/`, where `<name>` is the {toml}`simulation.name` of the
+file. `hmp publish <name> --to <folder>` copies a run out of the project.
 
 ::::{tab-set}
 :sync-group: api
@@ -189,8 +190,9 @@ and logs a warning, and `hmp.run(path, force=True)` computes it again.
 
 Edit the file, even one value, and the second run is a new one. It lands next to the first,
 as `runs/nancon_step1_minimal.v2/`, then `.v3`, because {toml}`simulation.if_exists` is
-`"version"` by default. Set it to `"replace"` and the older run goes to the trash instead.
-{doc}`hmp catalog <../../reference/cli/catalog>` lists, compares and deletes them.
+`"version"` by default. Set it to `"fail"` and the second run stops instead. A name is never
+given out again: {doc}`hmp catalog <../../reference/cli/catalog>` lists, compares and deletes
+the versions, and a deleted run goes to the project trash.
 
 ```{toctree}
 :hidden:

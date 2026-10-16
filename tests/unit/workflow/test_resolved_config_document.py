@@ -33,16 +33,16 @@ def test_the_document_round_trips_under_the_run_it_belongs_to(tmp_path: Path) ->
     """What is written is what is read, and another run reads nothing."""
     written = write_resolved_config(tmp_path, "run_a", PAYLOAD)
 
-    assert written == resolved_config_path(tmp_path, "run_a")
-    assert read_resolved_config(tmp_path, "run_a") == PAYLOAD
-    assert read_resolved_config(tmp_path, "run_b") is None
+    assert written == resolved_config_path(tmp_path)
+    assert read_resolved_config(tmp_path) == PAYLOAD
+    assert read_resolved_config(tmp_path / "other_run") is None
 
 
 def test_the_document_holds_exactly_what_the_checkpoint_digest_signs(tmp_path: Path) -> None:
     """A digest whose document says something else would be worse than none."""
     write_resolved_config(tmp_path, "run_a", PAYLOAD)
 
-    stored = json.loads(resolved_config_path(tmp_path, "run_a").read_text(encoding="utf-8"))
+    stored = json.loads(resolved_config_path(tmp_path).read_text(encoding="utf-8"))
 
     assert stored["schema"] == RESOLVED_CONFIG_SCHEMA
     assert (
@@ -53,20 +53,20 @@ def test_the_document_holds_exactly_what_the_checkpoint_digest_signs(tmp_path: P
 
 def test_a_document_of_another_schema_reads_as_absent(tmp_path: Path) -> None:
     """A future schema is a clean miss, never a half-understood document."""
-    path = resolved_config_path(tmp_path, "run_a")
+    path = resolved_config_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"schema": "hydromodpy.resolved_config.v99", "config": {}}', encoding="utf-8")
 
-    assert read_resolved_config(tmp_path, "run_a") is None
+    assert read_resolved_config(tmp_path) is None
 
 
 def test_an_unreadable_document_reads_as_absent(tmp_path: Path) -> None:
     """Truncated JSON sends the caller to the generic refusal, not to a crash."""
-    path = resolved_config_path(tmp_path, "run_a")
+    path = resolved_config_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"schema": "hydro', encoding="utf-8")
 
-    assert read_resolved_config(tmp_path, "run_a") is None
+    assert read_resolved_config(tmp_path) is None
 
 
 def test_the_sections_that_moved_are_named_at_the_top_level() -> None:
@@ -96,6 +96,6 @@ def test_a_nan_does_not_make_a_section_look_moved(tmp_path: Path) -> None:
     payload = {"flow": {"threshold": float("nan")}, "simulation": {"name": "n"}}
     write_resolved_config(tmp_path, "run_a", payload)
 
-    stored = read_resolved_config(tmp_path, "run_a")
+    stored = read_resolved_config(tmp_path)
 
     assert config_sections_that_moved(stored, payload) == ()

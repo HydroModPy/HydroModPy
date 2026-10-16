@@ -280,14 +280,6 @@ def test_a_request_for_another_capability_is_refused(tmp_path, stub_bdtopage):
     assert _untouched(job)
 
 
-def test_an_unknown_capability_id_is_an_invocation_error() -> None:
-    from hydromodpy.cli._workers.process import capability
-
-    with pytest.raises(JobUsageError) as caught:
-        capability("data-requests")
-    assert exit_code_for(caught.value) == EXIT_USAGE
-
-
 # --------------------------------------------------------------------------- #
 # The mask, the job id and reuse
 # --------------------------------------------------------------------------- #

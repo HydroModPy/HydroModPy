@@ -40,7 +40,6 @@ drawn beside the scored map and never mixed into its verdict.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -54,8 +53,11 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, OutputName, ParameterUnits
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
+    bare_id,
+    chosen_session,
     completed_descriptor,
     returned_row,
+    session_config,
     two_roots,
 )
 from hydromodpy.display.figures._stream_comparison import (
@@ -263,8 +265,8 @@ class MatchingHydrographicNetworkCard(BaseFigure):
         session_id: Annotated[
             str | None,
             Opt(
-                "Any session of the calibration chain to draw, by id: the card reads "
-                "every phase sharing its root. Left out, every session of the run's trials."
+                "The calibration session to draw, by id: the card reads every phase of "
+                "it. Left out, the session the run was promoted from."
             ),
         ] = None,
         output: OutputName = None,
@@ -831,78 +833,101 @@ class MatchingHydrographicNetworkCard(BaseFigure):
 
 
 def _stage_chain(sim: Run, *, session_id: str | None) -> list[_Stage]:
-    """Return the phases of one calibration, first phase first.
+    """Return the phases of one calibration session, first phase first.
 
-    The order is the one the sessions declare through ``phase_index``, never
-    the order the trials happen to sit in the table. A run whose trials name
-    no session is one phase.
+    A stage is a phase of the session: its trials are grouped by ``phase``
+    and ordered by the ``phase_index`` the session declares for that phase,
+    never by the order the trials sit in the table. Trials that name no
+    phase are one stage.
 
-    A promoted run carries the trials of the phase it came from only. The
-    other phases of its chain, the sessions sharing its root, are read by
-    session id, so the run promoted from the second phase still draws the
-    first one.
+    A promoted run names its session in its seal, and the session journals
+    the trials of every phase, so the run promoted from the second phase
+    still draws the first one.
     """
-    frame = _iterations_frame(sim)
-    known = _session_rows(sim)
-    seen: list[str] = []
-    if "session_id" in frame.columns:
-        named = (_text_or_none(value) for value in frame["session_id"])
-        seen = list(dict.fromkeys(value for value in named if value is not None))
-    if session_id is not None:
-        target = str(session_id)
-        root = _root_id(known.get(target, {}), target)
-        seen = [sid for sid in seen if _root_id(known.get(sid, {}), sid) == root] or [target]
-    tables = {sid: trial_table(sim, session_id=sid) for sid in seen}
-    roots = {_root_id(known.get(sid, {}), sid) for sid in seen}
-    for sid, row in known.items():
-        if sid in tables or _root_id(row, sid) not in roots:
-            continue
-        table = _chained_table(sim, sid)
-        if table is not None:
-            seen.append(sid)
-            tables[sid] = table
-    if not seen:
+    target = chosen_session(sim, session_id)
+    frame = calibration_trials(sim, session_id=target)
+    rows = _phase_rows(sim, target)
+    phases: list[str] = []
+    if "phase" in frame.columns:
+        named = (_text_or_none(value) for value in frame["phase"])
+        phases = list(dict.fromkeys(value for value in named if value is not None))
+    if not phases:
+        row = rows.get(None) or next(iter(rows.values()), {})
+        descriptor = _phase_descriptor(sim, target, row)
+        label = _text_or_none(descriptor.get("phase_name")) or _STAGE_LABELS[0]
         return [
             _Stage(
-                session_id=None,
-                label=_STAGE_LABELS[0],
-                table=trial_table(sim),
-                descriptor={},
-            )
-        ]
-
-    position = {sid: index for index, sid in enumerate(seen)}
-    ordered = sorted(seen, key=lambda sid: (_phase_index(known.get(sid, {}), position[sid]), sid))
-    stages: list[_Stage] = []
-    for index, sid in enumerate(ordered):
-        # The index keeps no trial number and no root search record; the
-        # journal of the session holds both.
-        descriptor = completed_descriptor(sim, sid, known.get(sid, {}))
-        label = _text_or_none(descriptor.get("phase_name")) or _STAGE_LABELS[min(index, 1)]
-        stages.append(
-            _Stage(
-                session_id=sid,
+                session_id=target,
                 label=label,
-                table=tables[sid],
+                table=trial_table(sim, session_id=target),
                 descriptor=descriptor,
             )
+        ]
+    position = {phase: index for index, phase in enumerate(phases)}
+    ordered = sorted(
+        phases, key=lambda phase: (_phase_index(rows.get(phase, {}), position[phase]), phase)
+    )
+    return [
+        _Stage(
+            session_id=target,
+            label=phase,
+            table=trial_table(sim, session_id=target, phase=phase),
+            descriptor=_phase_descriptor(sim, target, rows.get(phase, {})),
         )
-    return stages
+        for phase in ordered
+    ]
 
 
-def _chained_table(sim: Run, session_id: str) -> TrialTable | None:
-    """Return the trials of another phase of the chain, or None when it has none.
+def _phase_rows(sim: Run, session_id: str | None) -> dict[str | None, dict[str, Any]]:
+    """Return the session rows of one session, keyed by phase name.
 
-    A phase that recorded no trial yet, or a run-shaped adapter that carries
-    only its own phase, is not a stage the card can draw; the stages it does
-    hold still draw.
+    A session that ran no phase has one row, keyed ``None``.
     """
-    try:
-        return trial_table(sim, session_id=session_id)
-    except ValueError:
-        # calibration_trials raises ValueError for "no trial recorded", which
-        # here means only that this phase has nothing to draw.
-        return None
+    frame = calibration_sessions(sim)
+    if frame.empty:
+        return {}
+    rows: dict[str | None, dict[str, Any]] = {}
+    for row in frame.to_dict("records"):
+        if (
+            session_id is not None
+            and "session_id" in row
+            and bare_id(row["session_id"]) != bare_id(session_id)
+        ):
+            continue
+        rows.setdefault(_text_or_none(row.get("phase_name")), dict(row))
+    return rows
+
+
+_PHASE_KEYS: tuple[str, ...] = (
+    "phase_name",
+    "phase_index",
+    "status",
+    "best_trial",
+    "best_sim_id",
+    "frozen",
+)
+"""Keys a phase row holds for its own phase, which the session journal must not override."""
+
+
+def _phase_descriptor(sim: Run, session_id: str | None, row: Mapping[str, Any]) -> dict[str, Any]:
+    """Return what the session recorded, with what the phase row says of its own phase.
+
+    The session journal holds the root search record and the frozen
+    configuration; the phase row holds the name, rank, status and best trial
+    of the phase, and those win when the row gives them.
+    """
+    descriptor = completed_descriptor(sim, session_id, row) if session_id else dict(row)
+    for key in _PHASE_KEYS:
+        value = row.get(key)
+        if isinstance(value, Mapping) or _text_or_none(value) is not None:
+            descriptor[key] = value
+    return descriptor
+
+
+def _phase_index(descriptor: Mapping[str, Any], fallback: int) -> int:
+    """Return the declared rank of a phase, or where it showed up."""
+    rank = _int_or_none(descriptor.get("phase_index"))
+    return fallback if rank is None else rank
 
 
 def _next_declared_phase(sim: Run, stages: list[_Stage]) -> str | None:
@@ -922,25 +947,22 @@ def _next_declared_phase(sim: Run, stages: list[_Stage]) -> str | None:
     return _text_or_none(name) or _STAGE_LABELS[1]
 
 
-def _session_config(descriptor: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return the configuration a session recorded, parsed from the index text."""
-    config = descriptor.get("config")
-    if isinstance(config, str):
-        try:
-            config = json.loads(config)
-        except json.JSONDecodeError:
-            return {}
-    return config if isinstance(config, Mapping) else {}
-
-
 def _objective_label(descriptor: Mapping[str, Any]) -> str:
     """Return the metric a phase scored on, as its objective blocks name it.
 
-    A phase scored through ``objective_blocks`` records the calibration's
-    default ``objective`` as its session objective name, which is not the
-    metric it used; the blocks are.
+    The blocks of a phase are those of its ``[[calibration.phases]]`` entry
+    in the frozen configuration of the session, else those of
+    ``[calibration]``. A phase scored through ``objective_blocks`` records
+    the calibration's default ``objective`` as its objective name, which is
+    not the metric it used; the blocks are.
     """
-    blocks = _session_config(descriptor).get("objective_blocks")
+    config = session_config(descriptor)
+    name = _text_or_none(descriptor.get("phase_name"))
+    blocks = config.get("objective_blocks")
+    for phase in config.get("phases") or ():
+        if isinstance(phase, Mapping) and name is not None and phase.get("name") == name:
+            blocks = phase.get("objective_blocks") or blocks
+            break
     metrics = [
         str(block["metric"])
         for block in blocks or ()
@@ -953,43 +975,10 @@ def _objective_label(descriptor: Mapping[str, Any]) -> str:
 
 def _declared_units(stage: _Stage, parameter: str) -> str:
     """Return the units the session declared for ``parameter``, ``-`` when none."""
-    parameters = _session_config(stage.descriptor).get("parameters")
+    parameters = session_config(stage.descriptor).get("parameters")
     declared = parameters.get(parameter) if isinstance(parameters, Mapping) else None
     units = declared.get("units") if isinstance(declared, Mapping) else None
     return _text_or_none(units) or "-"
-
-
-def _iterations_frame(sim: Run) -> pd.DataFrame:
-    """Return the raw trial rows of a run, before any flattening."""
-    return calibration_trials(sim)
-
-
-def _session_rows(sim: Run) -> dict[str, dict[str, Any]]:
-    """Return the session rows reachable from a run, keyed by session id.
-
-    A run does not carry its sessions, the catalog it comes from does; rows
-    of other calibrations are harmless, since only the ids named by this
-    run's trials are ever looked up.
-    """
-    frame = calibration_sessions(sim)
-    if frame.empty or "session_id" not in frame.columns:
-        return {}
-    return {str(row["session_id"]): dict(row) for row in frame.to_dict("records")}
-
-
-def _root_id(descriptor: dict[str, Any], session_id: str) -> str:
-    """Return the id of the chain a session belongs to."""
-    return (
-        _text_or_none(descriptor.get("root_session_id"))
-        or _text_or_none(descriptor.get("parent_session_id"))
-        or session_id
-    )
-
-
-def _phase_index(descriptor: dict[str, Any], fallback: int) -> int:
-    """Return the declared rank of a phase, or where it showed up."""
-    rank = _int_or_none(descriptor.get("phase_index"))
-    return fallback if rank is None else rank
 
 
 def _int_or_none(value: Any) -> int | None:

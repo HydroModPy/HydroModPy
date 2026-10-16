@@ -55,9 +55,18 @@ Sections live close to the package they configure:
    * - ``[display]``
      - ``DisplayConfig``
      - ``hydromodpy/display/config.py``
-   * - ``[analysis]``
-     - ``AnalysisConfig``
-     - ``hydromodpy/analysis/config.py``
+   * - ``[site]``
+     - ``SiteConfig``
+     - ``hydromodpy/core/site/config.py``
+   * - ``[sites]``
+     - ``SitesConfig``
+     - ``hydromodpy/config/sites/models.py``
+   * - ``[metrics]``
+     - ``MetricsConfig``
+     - ``hydromodpy/config/metrics_config.py``
+   * - ``[publication]``
+     - ``PublicationConfig``
+     - ``hydromodpy/config/publication_config.py``
    * - ``[overview]``
      - ``OverviewConfig``
      - ``hydromodpy/display/overview/config.py``

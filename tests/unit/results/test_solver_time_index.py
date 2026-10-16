@@ -9,6 +9,7 @@ solver's persisted CF ``/time`` axis instead of re-deriving a drifting
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -131,21 +132,13 @@ class TestSolverTimeIndex:
 # ---------------------------------------------------------------------------
 
 
-class _Conn:
-    def __init__(self, row):
-        self._row = row
-
-    def execute(self, *_a, **_k):
-        return self
-
-    def fetchone(self):
-        return self._row
-
-
 class _Store:
-    def __init__(self, sz, row):
+    """A run store reduced to its field store and the period its facts record."""
+
+    def __init__(self, sz, window):
         self._sz = sz
-        self.connection = _Conn(row)
+        start, end, unit = window
+        self.facts = SimpleNamespace(period_start=start, period_end=end, time_unit=unit)
 
     @contextmanager
     def open_zarr(self, sim_id):
@@ -159,7 +152,7 @@ class TestCatchmentResolveTimeIndex:
             _resolve_time_index,
         )
 
-        store = _Store(_SzWithTime(_axis(5)), row=("2019-01-01", "2019-12-31", "DAYS"))
+        store = _Store(_SzWithTime(_axis(5)), window=("2019-01-01", "2019-12-31", "DAYS"))
         idx = _resolve_time_index(store, "sim", 5)
         # Solver axis (clean 86400s), not the drifting date_range over the window.
         assert set(idx.to_series().diff().dropna().dt.total_seconds()) == {86400.0}
@@ -172,7 +165,7 @@ class TestCatchmentResolveTimeIndex:
         # The window end is exclusive and each period is stamped at its end,
         # as the solvers write it. The fallback used to put the first stamp on
         # the window start.
-        store = _Store(_SzWithTime(None), row=("2019-01-01", "2019-01-06", "day"))
+        store = _Store(_SzWithTime(None), window=("2019-01-01", "2019-01-06", "day"))
         idx = _resolve_time_index(store, "sim", 5)
         assert len(idx) == 5
         assert idx[0] == pd.Timestamp("2019-01-02")
@@ -183,7 +176,7 @@ class TestCatchmentResolveTimeIndex:
             _resolve_time_index,
         )
 
-        store = _Store(_SzWithTime(None), row=(None, None, None))
+        store = _Store(_SzWithTime(None), window=(None, None, None))
         with pytest.raises(RuntimeError, match="period_start/period_end"):
             _resolve_time_index(store, "sim", 5)
 

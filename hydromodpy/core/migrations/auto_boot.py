@@ -12,13 +12,10 @@ with three guarantees that the bare runner does not provide:
   (oldest removed on overflow).
 
 One database is worth that backup: the source-data cache (``cache.duckdb``),
-which records downloads nothing on disk can reproduce. Every index is
-excluded, because an index is rebuilt, not restored: the per-project catalog
-comes back with ``hmp catalog reindex`` and the machine-wide index with
-``hmp workspace register``. Their components are listed in
-:data:`NO_BACKUP_COMPONENTS` and skip the snapshot entirely. A database that
-holds no table yet is never backed up either: copying it produces an empty
-shell that restores nothing.
+which records downloads nothing on disk can reproduce. It is the only database
+migrated here: the project index is rebuilt with ``hmp catalog reindex``, never
+migrated. A database that holds no table yet is never backed up: copying it
+produces an empty shell that restores nothing.
 
 The opt-out ``HMP_AUTO_MIGRATE=0`` raises :class:`AutoMigrationDisabled`
 when a pending migration is detected, leaving the on-disk file untouched.
@@ -64,11 +61,6 @@ _BACKUP_TS_RE = re.compile(r"^(?P<stem>.+)\.bak-(?P<ts>\d{8}T\d{6}Z)$")
 _WINDOWS_MAX_PATH = 259
 """Usable path length without extended-length support. DuckDB ignores the prefix."""
 _ENV_OPT_OUT = "HMP_AUTO_MIGRATE"
-
-# Components whose database is a reconstructible index rather than a primary
-# record. Backing them up before a migration protects nothing that a rebuild
-# cannot produce, so they opt out.
-NO_BACKUP_COMPONENTS = frozenset({"catalog", "index"})
 
 
 class AutoMigrationDisabled(MigrationError):
@@ -217,20 +209,8 @@ def _base_table_count(connection: duckdb.DuckDBPyConnection) -> int:
     return int(row[0]) if row is not None else 0
 
 
-def _should_backup(
-    connection: duckdb.DuckDBPyConnection,
-    db_path: Path,
-    *,
-    component: str,
-) -> bool:
+def _should_backup(connection: duckdb.DuckDBPyConnection, db_path: Path) -> bool:
     """Return whether a pre-migration snapshot of ``db_path`` is worth writing."""
-    if component in NO_BACKUP_COMPONENTS:
-        logger.debug(
-            "No pre-migration backup for component %r at %s (reconstructible index).",
-            component,
-            db_path,
-        )
-        return False
     if not os.path.isfile(native_io_path(db_path)):
         return False
     if _base_table_count(connection) == 0:
@@ -305,9 +285,8 @@ def ensure_schema_safe(
       processes serialise their migrations against the same file.
     - when migrations are pending, writes a backup
       ``.hmp/backups/<db name>.bak-<ISO8601Z>`` first, then calls
-      :func:`ensure_schema`. Components in :data:`NO_BACKUP_COMPONENTS` and
-      databases that hold no table yet are skipped: the snapshot would restore
-      nothing. When a snapshot is due but cannot land on disk, the migration
+      :func:`ensure_schema`. A database that holds no table yet is skipped:
+      the snapshot would restore nothing. When a snapshot is due but cannot land on disk, the migration
       is aborted with a :class:`hydromodpy.core.exceptions.BackupFailedError`
       rather than run unprotected.
     - on success prunes old backups so at most :data:`MAX_BACKUPS` remain.
@@ -316,7 +295,7 @@ def ensure_schema_safe(
       migrations raise :class:`AutoMigrationDisabled` instead of running.
 
     ``db_path`` is resolved from the live connection when omitted so every
-    scope (catalog, global index, data cache) can share this safe path. A
+    caller can share this safe path. A
     database in memory belongs to this process alone: it takes no lock and no
     backup, so nothing is written to disk for it, and ``HMP_AUTO_MIGRATE=0``
     still applies to it.
@@ -351,7 +330,7 @@ def ensure_schema_safe(
             )
 
         backup: Path | None = None
-        if db_path is not None and _should_backup(connection, db_path, component=component):
+        if db_path is not None and _should_backup(connection, db_path):
             backup = backup_path_for(db_path)
             _copy_backup(db_path, backup, connection=connection)
             logger.debug("Pre-migration backup written: %s", backup)
@@ -387,7 +366,6 @@ __all__ = [
     "AutoMigrationDisabled",
     "BACKUP_SUFFIX",
     "MAX_BACKUPS",
-    "NO_BACKUP_COMPONENTS",
     "backup_path_for",
     "ensure_schema_safe",
     "list_backups",

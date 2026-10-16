@@ -162,8 +162,8 @@ def test_run_solver_step_uses_injected_launcher() -> None:
     assert out.get("wall_seconds") is not None
 
 
-def test_run_solver_step_hands_the_run_catalog_to_the_launcher(monkeypatch) -> None:
-    """A catalogued run passes its open handle down; the adapters read it there."""
+def test_run_solver_step_hands_the_run_store_to_the_launcher(monkeypatch) -> None:
+    """A persisted run passes its open store down; the adapters write through it."""
     from contextlib import contextmanager
 
     import hydromodpy.workflow.steps.run_solver as run_solver_module
@@ -196,7 +196,7 @@ def test_run_solver_step_hands_the_run_catalog_to_the_launcher(monkeypatch) -> N
     def _fake_scope(_ctx):
         yield handle
 
-    monkeypatch.setattr(run_solver_module, "run_catalog", _fake_scope)
+    monkeypatch.setattr(run_solver_module, "run_store", _fake_scope)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.prepare_solver.dispatch.refresh_run_environment",
         lambda _ctx, *, store: None,

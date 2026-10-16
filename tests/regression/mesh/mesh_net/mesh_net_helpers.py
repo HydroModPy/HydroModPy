@@ -273,15 +273,12 @@ def run_fixture(config_name: str, out_dir: Path, *, timeout: int = 600) -> None:
     """Run ``hydromodpy run <fixture>`` in a subprocess, as the regression tier does."""
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_dir)
-    env["HMP_WORKSPACE"] = str(out_dir)
-    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
-        "--no-lock",
         str(FIXTURE_DIR / config_name),
     ]
     completed = subprocess.run(

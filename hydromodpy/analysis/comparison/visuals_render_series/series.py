@@ -37,7 +37,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 
-def _write_timeseries_figure(
+def write_timeseries_figure(
     *,
     path: Path,
     observable_name: str,

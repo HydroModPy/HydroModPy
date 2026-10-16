@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, share_dir_for
+from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, scratch_root_for
 from tests._helpers.cli_runner import CliRunner
 
 
@@ -48,9 +48,9 @@ def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     runner = CliRunner()
     runner.invoke(["hmp", "workspace", "init", "--path", str(workspace)])
-    share = share_dir_for(workspace)
-    share.mkdir(exist_ok=True)
-    (share / "stale.txt").write_text("artifact")
+    scratch = scratch_root_for(workspace)
+    scratch.mkdir(parents=True, exist_ok=True)
+    (scratch / "stale.txt").write_text("artifact")
 
     result = runner.invoke(
         [
@@ -59,11 +59,11 @@ def test_workspace_clean_dry_run_lists_targets(tmp_path: Path) -> None:
             "clean",
             "--workspace",
             str(workspace),
-            "--share",
+            "--scratch",
             "--dry-run",
         ]
     )
     assert result.ok, result.stderr
     assert "Dry-run" in result.stdout
-    assert str(share) in result.stdout
-    assert share.is_dir()
+    assert str(scratch) in result.stdout
+    assert scratch.is_dir()

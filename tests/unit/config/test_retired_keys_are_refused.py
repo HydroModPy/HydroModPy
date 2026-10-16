@@ -111,3 +111,38 @@ def test_the_project_root_is_out_of_the_config_hash(tmp_path: Path) -> None:
 def test_the_mesh_catchment_batch_section_stays_refused() -> None:
     with pytest.raises(ValidationError, match="no replacement"):
         HydroModPyConfig.model_validate({**SYNTHETIC, "mesh_catchment_batch": {}})
+
+
+@pytest.mark.parametrize(
+    ("section", "advice"),
+    [
+        ("analysis", "hmp report compare over sealed runs"),
+        ("site_selection", "hmp site select <file>, not by hmp run"),
+        ("hydrometry", r"\[data.hydrometry\]"),
+    ],
+)
+def test_a_retired_root_section_names_its_replacement(
+    tmp_path: Path, section: str, advice: str
+) -> None:
+    path = _write(tmp_path, f"[{section}]\nx = 1\n")
+    with pytest.raises(ConfigValidationError, match=advice):
+        HydroModPyConfig.from_toml(path)
+    with pytest.raises(ValidationError, match=advice):
+        HydroModPyConfig.model_validate({**SYNTHETIC, section: {}})
+
+
+@pytest.mark.parametrize(
+    ("key", "advice"),
+    [
+        ("output_root", r"runs/<run>/"),
+        ("solver_scratch_folder", "HMP_SCRATCH_ROOT"),
+        ("share_folder", r"runs/<run>/"),
+        ("catch_name", r"\[site\] name"),
+    ],
+)
+def test_a_retired_workspace_key_names_its_replacement(
+    tmp_path: Path, key: str, advice: str
+) -> None:
+    path = _write(tmp_path, f'[workspace]\n{key} = "x"\n')
+    with pytest.raises(ConfigValidationError, match=advice):
+        HydroModPyConfig.from_toml(path)

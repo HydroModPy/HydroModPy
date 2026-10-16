@@ -1,7 +1,7 @@
 """Reusable context-manager doubles for the functional facade tests.
 
-The ``hmp`` verbs open a ``Project`` or a ``Catalog`` as a context
-manager and forward kwargs. These doubles record what they receive so a test
+The ``hmp`` verbs open a ``Project`` as a context manager and forward
+kwargs. These doubles record what they receive so a test
 can assert the wiring without a real backend. Import them with an absolute
 path: ``from tests._helpers.api_doubles import CapturingProject``.
 """
@@ -42,37 +42,3 @@ def make_capturing_project(
 
     setattr(CapturingProject, verb, CapturingProject._verb)
     return CapturingProject
-
-
-def make_capturing_catalog(captured: dict[str, Any]) -> type:
-    """Build a Catalog double recording ``workspace_root``.
-
-    ``captured`` collects ``workspace_root`` (the constructor arg) and
-    ``closed`` (set on context exit).
-    """
-
-    class CapturingCatalog:
-        def __init__(self, workspace_root: Any) -> None:
-            captured["workspace_root"] = workspace_root
-
-        def __enter__(self) -> CapturingCatalog:
-            return self
-
-        def __exit__(self, *exc: object) -> None:
-            captured["closed"] = True
-
-    return CapturingCatalog
-
-
-def make_capturing_index(captured: dict[str, Any]) -> type:
-    """Build a GlobalIndex double recording ``db_path`` and ``read_only``."""
-
-    class CapturingIndex:
-        def __init__(self, db_path: Any, *, read_only: bool = False) -> None:
-            captured["db_path"] = db_path
-            captured["read_only"] = read_only
-
-        def close(self) -> None:
-            captured["closed"] = True
-
-    return CapturingIndex

@@ -82,7 +82,7 @@ Five figures, in `runs/nancon_step1_minimal/figures/`, listed by {toml}`display.
 | `cross_section` | The land surface, the water table and the seepage segments along a line. Here the line runs south to north through the outlet, so it cuts the tributaries across |
 | `water_budget` | One bar per component of the budget, inflow and outflow |
 
-Three {toml}`[[export]] blocks|export` write four files, in `share/nancon_step1_minimal/`:
+Three {toml}`[[export]] blocks|export` write four files, in `runs/nancon_step1_minimal/exports/`:
 
 | Block | Files |
 |---|---|

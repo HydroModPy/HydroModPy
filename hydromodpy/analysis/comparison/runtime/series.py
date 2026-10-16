@@ -17,7 +17,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.history_contract import history_has_initial_snapshot
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.analysis.comparison.runtime.run_source import RunSource
 
 logger = get_logger(__name__)
 
@@ -160,7 +160,7 @@ def _store_variable_mapping(variable_name: str) -> str | None:
 
 
 def _virtual_field_slices(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
     store_field: str,
     n_slices: int,
@@ -190,7 +190,7 @@ def _virtual_field_slices(
 
 
 def _load_store_series(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
     *,
     variable_name: str,
@@ -287,7 +287,7 @@ def _load_store_series(
 
 
 def _load_store_boussinesq_state_series(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
     *,
     variable_name: str,
@@ -374,7 +374,7 @@ def _load_store_boussinesq_state_series(
 
 
 def _load_store_surface_excess_total_series(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
     *,
     variable_name: str,
@@ -467,13 +467,13 @@ def _load_store_surface_excess_total_series(
     )
 
 
-def _store_source_path(store: Catalog, sim_id: str) -> Path:
+def _store_source_path(store: RunSource, sim_id: str) -> Path:
     """Return the Zarr directory store backing one run."""
     return store.fields_path_for(sim_id)
 
 
 def _load_store_dry_deficit_total_series(
-    store: Catalog,
+    store: RunSource,
     sim_id: str,
     *,
     variable_name: str,
@@ -565,12 +565,12 @@ def load_variable_series(
     *,
     run_folder: Path,
     variable: str,
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> VariableSeries:
-    """Load one variable series from the DuckDB+Zarr result store."""
+    """Load one variable series from the ``fields.zarr`` of a sealed run."""
     if store is None or sim_id is None:
-        raise ValueError("load_variable_series requires a Catalog and sim_id.")
+        raise ValueError("load_variable_series requires a RunSource and sim_id.")
 
     searched: list[str] = []
     for variable_name in _variable_candidates(variable):
@@ -578,7 +578,7 @@ def load_variable_series(
         series = _load_store_series(store, sim_id, variable_name=variable_name)
         if series is not None:
             logger.debug(
-                "Loaded '%s' from Catalog (sim_id=%s).",
+                "Loaded '%s' from fields.zarr (sim_id=%s).",
                 variable_name,
                 sim_id,
             )
@@ -610,7 +610,7 @@ def load_variable_series(
             )
         if series is not None:
             logger.debug(
-                "Loaded '%s' from Catalog boussinesq_state (sim_id=%s).",
+                "Loaded '%s' from fields.zarr boussinesq_state (sim_id=%s).",
                 variable_name,
                 sim_id,
             )
@@ -618,7 +618,7 @@ def load_variable_series(
 
     searched_text = ", ".join(searched)
     raise FileNotFoundError(
-        f"Could not find variable '{variable}' in Catalog sim_id={sim_id}. "
+        f"Could not find variable '{variable}' in the fields of run {sim_id}. "
         f"Tried variables: {searched_text}"
     )
 
@@ -627,7 +627,7 @@ def mask_depth_series_from_head_nodata(
     *,
     run_folder: Path,
     series: VariableSeries,
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> VariableSeries:
     """Mask `watertable_depth` where the companion head series carries nodata."""

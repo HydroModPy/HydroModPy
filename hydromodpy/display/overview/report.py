@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.display.overview.location import overview_figures_dir, overview_run_dir_of
 from hydromodpy.display.overview.panels import (
     render_climatic_summary,
     render_dem_map,
@@ -256,12 +257,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
 
 
 def _resolve_output_dir(state: DataOverviewState) -> Path:
-    """Return the overview figures output directory."""
-    if state.workspace is not None and hasattr(state.workspace, "paths"):
-        return state.workspace.paths.figures_folder / "overview"
-    if state.workspace is not None:
-        return Path(getattr(state.workspace, "figure_folder", "figures")) / "overview"
-    return Path("overview_report")
+    """Return the panels folder of the overview: ``runs/<overview>/figures/``."""
+    return overview_figures_dir(overview_run_dir_of(state))
 
 
 def _render_panel(save_path: Path, *, figsize: tuple[float, float], render_fn, **kwargs) -> Path:

@@ -23,6 +23,7 @@ from hydromodpy.workflow.steps.mesh import BuildMeshStep
 from hydromodpy.workflow.steps.prepare_solver import PrepareSolverStep
 from hydromodpy.workflow.steps.resolve import ResolveStep
 from hydromodpy.workflow.steps.run_solver import RunSolverStep
+from hydromodpy.workflow.steps.seal import SealStep
 from hydromodpy.workflow.steps.setup import BuildGeographicStep, SetupProcessStep
 from hydromodpy.workflow.steps.validate import ValidateStep
 
@@ -37,6 +38,7 @@ __all__ = (
     "PrepareSolverStep",
     "ResolveStep",
     "RunSolverStep",
+    "SealStep",
     "SetupProcessStep",
     "ValidateStep",
 )

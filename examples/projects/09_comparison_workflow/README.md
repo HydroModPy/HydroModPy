@@ -1,52 +1,33 @@
-# 09 - Comparison workflow
+# Example 09: compare three recipes of one catchment
 
-Solver and mesh intercomparison, using `workflow.mode = "comparison"` to run
-two or more simulation legs from one shared base case and diff their outputs.
-Cases range from a synthetic 1D Dupuit sanity check to the Nancon and Vire
-catchments (EPSG:2154), steady and transient, comparing MODFLOW 6 against
-MODFLOW-NWT and against Boussinesq, and structured grids against DISV and
-generated mesh-catchment discretizations at several target cell sizes.
+The Nançon catchment (Ille-et-Vilaine), in steady state with MODFLOW 6, solved with three
+values of the hydraulic conductivity K. The three runs are three recipes of one project;
+`hmp report compare` reads them once they are sealed and writes one page: the differences to
+the reference run, the maps of the head and of the depth to the water table, the head at the
+outlet, the water-budget closure of each run.
 
-## Run
+## The files
+
+- `project.toml`: the model, the site table and the three recipes. `k_mid` is the file as it
+  is; `k_low` and `k_high` set `flow.param.K.field.value` on top of it.
+- `sites.csv`: the one site, its label and its outlet. `[sites.bind]` copies each column into
+  every case.
+
+## Commands
+
+From this folder, in a HydroModPy workspace that holds `data/dem/DEM_armorican_massif.tif`:
 
 ```bash
-hmp run examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml
-hmp run examples/projects/09_comparison_workflow/compare_vire_natural_mf6_nwt.toml
-hmp run examples/projects/09_comparison_workflow/compare_nancon_steady_mf6_disv_vs_nwt.toml
-
-# named cases through the Python launcher, writes a report and figures
-python examples/projects/09_comparison_workflow/run_comparison_example.py --case synthetic --show
-python examples/projects/09_comparison_workflow/run_comparison_example.py --case all --show
-
-# check materialized outputs against locked thresholds, no solver involved
-python examples/projects/09_comparison_workflow/check_comparison_stability.py
+hmp config check project.toml          # the three cases, every error at its cell
+hmp run project.toml --dry-run         # the plan: cases, solves, scratch; nothing written
+hmp run project.toml                   # runs/nancon-k_low, runs/nancon-k_mid, runs/nancon-k_high
+hmp report compare k_mid k_low k_high  # summary/report/compare/k_mid-vs-k_low-vs-k_high/
 ```
 
-`--case` accepts `synthetic`, `natural`, `natural-bouss`,
-`natural-bouss-recharge`, `natural-bouss-transient-pulse`, `nancon-seasonal`,
-`nancon-seasonal-hydrography`, `nancon-monthly-bouss-comparable`,
-`nancon-seasonal-high-k-hydrography`, `nancon-seasonal-high-k-hydrography-mf6`,
-or `all`. Every other `compare_*.toml` in this folder runs only through
-`hmp run <file>` directly.
+The first reference of `hmp report compare` is the reference of the differences. A recipe
+names the latest run of each of its cases; a run name (`nancon-k_low`) or a run directory
+works too. The three runs share the site and the mesh, so they compare as one case; runs on
+two meshes need `--allow-different-mesh`, runs of several sites `--by site`.
 
-Each comparison runs one MODFLOW 6/NWT/Boussinesq solve per leg, so runtime is
-unmeasured here; it was not timed in this pass.
-
-## Data
-
-| Source | Family | Role |
-|---|---|---|
-| `dem/DEM_armorican_massif.tif` | dem | shared Armorican massif DEM, both catchments |
-| BD Topage, provider `bdtopage` | hydrography | observed network, compared against each leg's generated network |
-| synthetic recharge | recharge | generated in-config, no shared file |
-
-## What it shows
-
-Every comparison keeps geometry, boundary conditions and forcing fixed across
-its legs and varies exactly one thing: the solver backend or the mesh
-discretization. `comparison_figures/case_configuration.png` documents the
-shared support first, then the `*triptych*.png` figures line up the reference
-head field, the candidate head field, and their difference. The PETSc
-variants of the Nancon monthly Boussinesq-comparable case (`_petsc_*` files)
-isolate one variational-inequality solver option at a time against the same
-MODFLOW 6 reference.
+The comparison opens `summary/report/compare/<refs>/web/index.html`. Nothing is written into
+the runs.

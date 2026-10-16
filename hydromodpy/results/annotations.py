@@ -1,20 +1,21 @@
-"""Run annotations: the tags and notes that outlive the index.
+"""Run annotations: the tags and notes a human adds after the seal.
 
 Why
 ---
-``.hmp/index.duckdb`` is rebuildable from the run directories, so anything
-that lives only in SQL is lost the day it is deleted. Tags and notes are
+``.hmp/index.duckdb`` is rebuilt from the run directories, so anything that
+lived only in SQL would be lost the day it is deleted. Tags and notes are
 written by a human after the run is sealed, and no other file can give them
-back: without a sidecar, ``hmp catalog reindex`` silently drops a ``pinned``
-flag or a "keep, best fit" note.
+back. They live in the run directory, and the index reads them from there
+when it indexes the run.
 
 What
 ----
 ``runs/<name>/annotations.json`` holds them, next to ``manifest.json``. It is
 the only file of a run directory that changes after the seal, so the manifest
-neither lists nor sizes it. The index stays authoritative while it exists:
-every mutation writes the DuckDB row first, then rewrites this file from the
-rows, so the file is a projection and never a second source of truth.
+neither lists nor sizes it. :func:`add_tag`, :func:`remove_tag` and
+:func:`add_note` read the file, change it and write it back atomically;
+``Run.tag``, ``Run.note``, ``hmp catalog tag`` and ``hmp catalog note`` go
+through them.
 
 Format
 ------
@@ -34,115 +35,126 @@ Format
 
 from __future__ import annotations
 
-import json
-import os
-import uuid
-from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
-from uuid import UUID
+from typing import Final, Literal
 
+from pydantic import ConfigDict, Field
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.contract import RUN_ANNOTATIONS_FILENAME
+from hydromodpy.results.storage.json_io import read_json, write_json_atomic
 
-ANNOTATIONS_VERSION = 1
-"""Schema version of the annotations sidecar."""
+ANNOTATIONS_VERSION: Final[int] = 1
+"""Schema version of the annotations file."""
 
 
-@dataclass(frozen=True, slots=True)
-class RunNote:
+class Note(HydroModelBase):
     """One timestamped note attached to a run."""
 
-    note: str
-    added_at: str
-    added_by: str | None = None
+    text: str = Field(alias="note", description="The note, as its author wrote it")
+    author: str | None = Field(default=None, alias="added_by", description="Who wrote it")
+    at: datetime = Field(alias="added_at", description="When it was written, UTC")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
-@dataclass(frozen=True, slots=True)
-class RunAnnotations:
+class Annotations(HydroModelBase):
     """Tags and notes of one run."""
 
+    annotations_version: Literal[1] = ANNOTATIONS_VERSION
+    sim_id: str | None = Field(default=None, description="Id of the run the file belongs to")
     tags: tuple[str, ...] = ()
-    notes: tuple[RunNote, ...] = ()
-
-    @property
-    def is_empty(self) -> bool:
-        """True when the run carries neither a tag nor a note."""
-        return not self.tags and not self.notes
+    notes: tuple[Note, ...] = ()
 
 
 def annotations_path(run_dir: Path | str) -> Path:
-    """Return the annotations sidecar path of a run directory."""
+    """Return ``<run>/annotations.json``."""
     return Path(run_dir) / RUN_ANNOTATIONS_FILENAME
 
 
-def read_annotations(run_dir: Path | str) -> RunAnnotations:
+def read_annotations(run_dir: Path | str) -> Annotations:
     """Read ``annotations.json``, empty when the run carries none.
 
-    A malformed file raises: the rebuild reports the run instead of dropping
+    A malformed file raises: the indexer reports the run instead of dropping
     annotations it cannot parse.
     """
     target = annotations_path(run_dir)
     if not target.is_file():
-        return RunAnnotations()
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"{target} does not hold an annotations object")
-    return RunAnnotations(
-        tags=tuple(str(tag) for tag in payload.get("tags", ())),
-        notes=tuple(_note_from_payload(item, target) for item in payload.get("notes", ())),
-    )
+        return Annotations()
+    return Annotations.model_validate(read_json(target))
 
 
-def write_annotations(
-    run_dir: Path | str,
-    annotations: RunAnnotations,
-    *,
-    sim_id: str | UUID,
-) -> Path | None:
-    """Write the sidecar atomically, or remove it when nothing is left.
+def write_annotations(run_dir: Path | str, annotations: Annotations) -> Path:
+    """Write ``annotations.json`` atomically and return its path.
 
-    Returns the written path, or ``None`` when the last tag and note were
-    removed and the file was deleted with them.
+    The file names the run it belongs to: a missing ``sim_id`` is read from
+    the outcome or the seal of the directory.
     """
-    target = annotations_path(run_dir)
-    if annotations.is_empty:
-        target.unlink(missing_ok=True)
-        return None
-    payload = {
-        "annotations_version": ANNOTATIONS_VERSION,
-        "sim_id": str(sim_id),
-        "tags": list(annotations.tags),
-        "notes": [
-            {"note": note.note, "added_at": note.added_at, "added_by": note.added_by}
-            for note in annotations.notes
-        ],
-    }
-    tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex[:8]}")
-    try:
-        tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-        os.replace(tmp, target)
-    finally:
-        tmp.unlink(missing_ok=True)
-    return target
+    directory = Path(run_dir)
+    if annotations.sim_id is None:
+        annotations = annotations.model_copy(update={"sim_id": _sim_id_of(directory)})
+    payload = annotations.model_dump(mode="json", by_alias=True)
+    return write_json_atomic(annotations_path(directory), payload)
 
 
-def _note_from_payload(item: Any, target: Path) -> RunNote:
-    """Build one :class:`RunNote` from its JSON object."""
-    if not isinstance(item, dict) or "note" not in item:
-        raise ValueError(f"{target} holds a note without its text")
-    added_by = item.get("added_by")
-    return RunNote(
-        note=str(item["note"]),
-        added_at=str(item.get("added_at", "")),
-        added_by=None if added_by is None else str(added_by),
-    )
+def add_tag(run_dir: Path | str, tag: str) -> Annotations:
+    """Add *tag* to the run, once; return the annotations written."""
+    current = read_annotations(run_dir)
+    if tag in current.tags:
+        return current
+    updated = current.model_copy(update={"tags": (*current.tags, tag)})
+    write_annotations(run_dir, updated)
+    return updated
+
+
+def remove_tag(run_dir: Path | str, tag: str) -> Annotations:
+    """Remove *tag* from the run when it carries it; return the annotations."""
+    current = read_annotations(run_dir)
+    if tag not in current.tags:
+        return current
+    updated = current.model_copy(update={"tags": tuple(t for t in current.tags if t != tag)})
+    write_annotations(run_dir, updated)
+    return updated
+
+
+def add_note(
+    run_dir: Path | str,
+    text: str,
+    *,
+    author: str | None = None,
+    now: datetime | None = None,
+) -> Annotations:
+    """Append a note to the run, stamped *now* (UTC by default); return the annotations."""
+    current = read_annotations(run_dir)
+    note = Note(text=text, author=author, at=now or datetime.now(UTC))
+    updated = current.model_copy(update={"notes": (*current.notes, note)})
+    write_annotations(run_dir, updated)
+    return updated
+
+
+def _sim_id_of(run_dir: Path) -> str | None:
+    """Return the ``sim_id`` the outcome or the seal of *run_dir* declares."""
+    outcome = read_outcome(run_dir)
+    if outcome is not None and outcome.sim_id:
+        return str(outcome.sim_id)
+    if is_sealed(run_dir):
+        sim_id = read_manifest(run_dir).get("run", {}).get("sim_id")
+        if sim_id:
+            return str(sim_id)
+    return None
 
 
 __all__ = [
     "ANNOTATIONS_VERSION",
-    "RunAnnotations",
-    "RunNote",
+    "Annotations",
+    "Note",
+    "add_note",
+    "add_tag",
     "annotations_path",
     "read_annotations",
+    "remove_tag",
     "write_annotations",
 ]

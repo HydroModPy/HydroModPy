@@ -91,7 +91,7 @@ watertable outcrops it is set by recharge, past 1e-5 m/s the aquifer routes
 the flow underground and it drops along with the network.
 
 The script writes three figures specific to the example under
-`share/hydraulic_conductivity_sweep/`, plus the table above as a CSV:
+`summary/figures/hydraulic_conductivity_sweep/`, plus the table above as a CSV:
 
 | Figure | What it shows |
 |---|---|

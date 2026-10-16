@@ -65,12 +65,12 @@ Spyder or VS Code.
    its own, the seepage area of the catchment against the discharge.
 2. `py2_edit_parameters.py`: loads `project.toml` as a Python object, changes K and Sy, runs
    the variant and compares it with the reference.
-3. `py3_read_exports.py`: redraws a figure from the files of `share/` alone (GeoPackage,
-   GeoTIFF, CSV, NetCDF), without importing HydroModPy. It needs the exports of
+3. `py3_read_exports.py`: redraws a figure from the files of `runs/<name>/exports/` alone
+   (GeoPackage, GeoTIFF, CSV, NetCDF), without importing HydroModPy. It needs the exports of
    `step5_export.toml`.
 4. `py4_sweep_k.py`: five values of K on one `Project`, which builds the mesh once. The
    discharge does not tell the K values apart, the seepage area does.
-5. `py5_catalog.py`: opens the catalog of the project, compares the scores of the runs,
+5. `py5_catalog.py`: opens the catalog of the project, reads the scores of the runs,
    redraws a figure of the catalog at other dates and exports a state the TOML did not ask
    for.
 6. `py6_monthly_maps.py`: the twelve months of 2002 on one sheet and the 36 months as a GIF,
@@ -87,8 +87,8 @@ empty list (`export__delete`). The calibration files write the exports of `proje
 each promoted run. The API calibration has its own, dated 2019.
 
 - figures: `runs/<name>/figures/`
-- exports: `share/<name>/`
-- figures of the scripts that compare several runs: `share/figures/`
+- exports: `runs/<name>/exports/`
+- figures of the scripts that compare several runs: `summary/figures/`
 
 `<name>` is the name of the run: the `[simulation] name` of the file you ran, for example
 `nancon_step5_export`, followed by the name of the phase for a calibration in several phases.

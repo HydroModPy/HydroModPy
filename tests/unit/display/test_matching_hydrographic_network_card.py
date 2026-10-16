@@ -1,8 +1,8 @@
 """The one-page card of a two-stage downslope-distance calibration.
 
 The card is driven exactly as a staged session drives it: one row per trial
-in ``calibration_iterations``, the phases chained through
-``calibration_sessions``. The tests read the panels, the artists, the
+in ``calibration_iterations``, each naming its phase, and one row per phase
+of the session in ``calibration_sessions``. The tests read the panels, the artists, the
 annotations and the refusals, never pixels.
 """
 
@@ -22,8 +22,9 @@ from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from ._render_helpers import relative_luminance
 
 OUTPUT = "net"
-ROOT_ID = "s-root"
-STORAGE_ID = "s-storage"
+SESSION_ID = "s-cal"
+ROOT_PHASE = "root search"
+STORAGE_PHASE = "storage"
 
 # The sweep of the sibling bracket figure: it changes sign once, then two
 # bisection steps close on [3.2e-05, 1e-04]. The end carrying the smaller
@@ -107,9 +108,12 @@ def _root_rows(
     residuals: list[float] | None = None,
     diagnostics: dict[str, float] | None = None,
     values: list[float] | None = None,
-    session_id: str | None = ROOT_ID,
+    session_id: str | None = SESSION_ID,
 ) -> list[dict]:
-    """Stage one: the root search on the ratio, with its criterion diagnostics."""
+    """Stage one: the root search on the ratio, with its criterion diagnostics.
+
+    Rows of a session name their phase; rows with no session name none.
+    """
     published = dict(PUBLISHED)
     if diagnostics is not None:
         published = dict(diagnostics)
@@ -131,6 +135,7 @@ def _root_rows(
         }
         if session_id is not None:
             row["session_id"] = session_id
+            row["phase"] = ROOT_PHASE
         rows.append(row)
     return rows
 
@@ -138,13 +143,15 @@ def _root_rows(
 def _storage_rows(
     *,
     objectives: list[float] | None = None,
-    session_id: str = STORAGE_ID,
+    session_id: str = SESSION_ID,
+    phase: str = STORAGE_PHASE,
 ) -> list[dict]:
-    """Stage two: the storage parameter against the objective of its session."""
+    """Stage two: the storage parameter against the objective of its phase."""
     return [
         {
             "iteration": index,
             "session_id": session_id,
+            "phase": phase,
             "parameters": {"specific_yield": {"value": value}},
             "metrics": {},
             "objective_value": objective,
@@ -159,11 +166,9 @@ def _storage_rows(
 def _sessions(*, staged: bool = True) -> pd.DataFrame:
     rows = [
         {
-            "session_id": ROOT_ID,
-            "phase_name": "root search",
+            "session_id": SESSION_ID,
+            "phase_name": ROOT_PHASE,
             "phase_index": 0,
-            "parent_session_id": None,
-            "root_session_id": ROOT_ID,
             "objective_name": "distance_gap",
             "best_trial": 3,
             "best_objective": 40.0,
@@ -172,11 +177,9 @@ def _sessions(*, staged: bool = True) -> pd.DataFrame:
     if staged:
         rows.append(
             {
-                "session_id": STORAGE_ID,
-                "phase_name": "storage",
+                "session_id": SESSION_ID,
+                "phase_name": STORAGE_PHASE,
                 "phase_index": 1,
-                "parent_session_id": ROOT_ID,
-                "root_session_id": ROOT_ID,
                 "objective_name": "nse",
                 "best_trial": 1,
                 "best_objective": 0.11,
@@ -619,9 +622,9 @@ def test_a_run_without_a_session_table_reads_its_trials_as_one_phase(mpl) -> Non
 def test_a_chain_longer_than_two_phases_says_which_one_is_drawn(mpl) -> None:
     sessions = _sessions()
     third = sessions.iloc[1].to_dict()
-    third.update({"session_id": "s-third", "phase_index": 2, "phase_name": "polish"})
+    third.update({"phase_index": 2, "phase_name": "polish"})
     run = _run(
-        _root_rows() + _storage_rows() + _storage_rows(session_id="s-third"),
+        _root_rows() + _storage_rows() + _storage_rows(phase="polish"),
         pd.concat([sessions, pd.DataFrame([third])], ignore_index=True),
     )
 
@@ -748,7 +751,7 @@ def _two_bound_rows(*, weights: tuple[float, float] = (0.5, 0.5)) -> list[dict]:
         rows.append(
             {
                 "iteration": index,
-                "session_id": ROOT_ID,
+                "session_id": SESSION_ID,
                 "parameters": {"K_over_R": {"value": value}},
                 "metrics": metrics,
                 "objective_value": 1.0,

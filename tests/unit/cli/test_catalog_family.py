@@ -24,15 +24,15 @@ def _run(monkeypatch, argv: list[str]) -> int:
 
 
 def _make_workspace_with_catalog(tmp_path: Path) -> Path:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog import rebuild_index
+    from tests._helpers.sealed_runs import make_project, seal_run
 
     workspace = tmp_path / "ws"
     workspace.mkdir()
-    project = workspace / "projects" / "demo"
-    project.mkdir(parents=True)
+    project = make_project(workspace / "projects" / "demo")
     (workspace / "data").mkdir()
-    with Catalog(project):
-        pass
+    seal_run(project, "alpha")
+    rebuild_index(project)
     return workspace
 
 

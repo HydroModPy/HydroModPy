@@ -15,7 +15,6 @@ name = "nancon_intermittence_mf6_by_hand"
 description = "Nancon, K from the mapped network then Sy from the gauge."
 
 [calibration]
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

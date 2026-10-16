@@ -76,7 +76,7 @@ Subsystems
       :link: simulation/toml-to-solver-walkthrough
       :link-type: doc
 
-      From TOML to solver outputs. The comparison workflow and the testbed workflow follow.
+      From TOML to solver outputs. The comparison of sealed runs follows.
 
    .. grid-item-card:: Solver backends
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -144,7 +144,6 @@ Subsystems
 
    simulation/toml-to-solver-walkthrough
    simulation/comparison-workflow
-   simulation/testbed-workflow-architecture
    solver/backends
    solver/boussinesq-engines
    solver/boussinesq-uml-diagrams

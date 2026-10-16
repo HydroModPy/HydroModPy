@@ -73,7 +73,8 @@ def test_the_report_pages_are_english(tmp_path: Path, monkeypatch) -> None:
 
     html_path = build_catchment_report(config)
 
-    for page in (html_path, *(config.output_dir / "web_review").glob("*/index.html")):
+    assert html_path == config.output_dir / "index.html"
+    for page in (html_path, *(config.output_dir / "review").glob("*/index.html")):
         html = page.read_text(encoding="utf-8")
         text = re.sub(r"<style>.*?</style>|<script>.*?</script>|<[^>]+>", " ", html, flags=re.S)
         assert '<html lang="en">' in html

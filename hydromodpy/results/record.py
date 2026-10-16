@@ -251,6 +251,8 @@ class RunRecord(HydroModelBase):
             "doi": run.doi,
             **self.checks.flatten(),
             "nse": None if score is None else score.value,
+            "nse_station": None if score is None else score.station,
+            "nse_variable": None if score is None else score.variable,
             "nse_window_start": None if score is None else score.nse_window_start,
             "nse_window_end": None if score is None else score.nse_window_end,
             "nse_n": None if score is None else score.nse_n,

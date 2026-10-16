@@ -106,7 +106,7 @@ scoring_window = ["2016-01-01", "2020-12-31"]
 [display.overrides.flow_intermittence_map]
 cycle = "2019"
 
-# What the run writes to share/nancon_soil_reservoir_daily/.
+# What the run writes to runs/nancon_soil_reservoir_daily/exports/.
 
 # The catchment and the mapped network: GeoPackage.
 [[export]]

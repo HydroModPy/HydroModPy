@@ -12,15 +12,12 @@ import rasterio
 from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import catalog_path_for
-from hydromodpy.core.workspace.resolve import locate_workspace_root
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.workflow.internals.state import PipelineState
-from hydromodpy.workflow.run_catalog import run_catalog, run_is_catalogued
+from hydromodpy.workflow.run_store import run_is_persisted, run_store
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.results.catalog.protocol import SimulationStore
 
 logger = get_logger(__name__)
 
@@ -30,11 +27,11 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: SimulationStore) -> None:
+def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: RunStore) -> None:
     """Ingest observation timeseries associated with this simulation.
 
     Observation ingestion is part of the scientific record. Failures abort
-    the run instead of leaving the catalog half populated.
+    the run instead of leaving its store half populated.
     """
     from hydromodpy.simulation.extraction.derivation.observation_ingest import (
         ingest_observations,
@@ -53,11 +50,11 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str, *, store: Simula
 
 
 def restore_seepage_raster_from_store(
-    project_root: str | Path,
+    run_dir: str | Path,
     base_raster_path: str | Path,
     seepage_tif_path: str | Path,
 ) -> bool:
-    """Rebuild the seepage GeoTIFF from the Catalog.
+    """Rebuild the seepage GeoTIFF from the store of the run in *run_dir*.
 
     Returns ``True`` when the raster has been written, ``False`` otherwise.
     """
@@ -65,21 +62,10 @@ def restore_seepage_raster_from_store(
     if not base_raster.is_file():
         return False
 
-    project_root = Path(project_root)
-    catalog_root = project_root if (catalog_path_for(project_root)).exists() else None
-    workspace_root = catalog_root or locate_workspace_root(project_root) or project_root
-
     seepage_tif = Path(seepage_tif_path)
     try:
-        catalog = Catalog(workspace_root)
-        try:
-            sims = catalog.list_simulations()
-            if sims.empty:
-                return False
-            sim_id = str(sims.iloc[-1]["sim_id"])
-            arr = catalog.query_field(sim_id, "seepage_mask", 0)
-        finally:
-            catalog.close()
+        with RunStore.open(run_dir) as store:
+            arr = store.query_field(store.sim_id, "seepage_mask", 0)
 
         seepage_flat = np.asarray(arr, dtype=float).ravel()
         with rasterio.open(base_raster) as src:
@@ -88,7 +74,7 @@ def restore_seepage_raster_from_store(
         os.makedirs(seepage_tif.parent, exist_ok=True)
         export_tif(str(base_raster), seepage_array, str(seepage_tif), -9999.0)
     except Exception as exc:
-        logger.debug("Failed to rebuild seepage from Catalog: %s", exc)
+        logger.debug("Failed to rebuild seepage from the run store: %s", exc)
         return False
 
     return seepage_tif.is_file()
@@ -120,7 +106,7 @@ class ExtractStep:
         ctx: WorkflowContext | None = state.get("ctx")
         if ctx is None:
             raise ConfigError("ExtractStep requires 'ctx' in state.data")
-        if ctx.sim_id is None or not run_is_catalogued(ctx):
+        if ctx.sim_id is None or not run_is_persisted(ctx):
             return state.advance(
                 step_index=state.step_index + 1,
                 step_name=self.name,
@@ -152,7 +138,7 @@ class ExtractStep:
             ctx.budget_terms = budget_terms
 
         extracted = 0
-        with run_catalog(ctx) as store:
+        with run_store(ctx) as store:
             for run in plan.runs:
                 if not run.is_solver_backed:
                     continue
@@ -181,12 +167,12 @@ class ExtractStep:
         from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
 
         ctx = state.get("ctx")
-        if ctx is None or not run_is_catalogued(ctx):
+        if ctx is None or not run_is_persisted(ctx):
             return ()
         sim_id = getattr(ctx, "sim_id", None)
-        if not sim_id:
+        if not sim_id or getattr(ctx, "run_dir", None) is None:
             return ()
-        with run_catalog(ctx) as store:
+        with run_store(ctx) as store:
             return _store_sim_artifacts(ctx, sim_id, store=store)
 
     def rebuild_state(

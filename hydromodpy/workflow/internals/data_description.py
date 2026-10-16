@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 
 logger = get_logger(__name__)
 
@@ -64,9 +65,11 @@ class LoadedRecord:
         return f"{self.scope}:{type(self.record).__name__}"
 
 
-def description_path(workspace: Path, run_id: str) -> Path:
+def description_path(run_dir: Path) -> Path:
     """Return the description path of one run, beside its resume checkpoint."""
-    return Path(workspace) / ".hmp" / "checkpoints" / str(run_id) / DESCRIPTION_FILENAME
+    return (
+        Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_CHECKPOINTS_DIRNAME / DESCRIPTION_FILENAME
+    )
 
 
 def record_source_path(record: object) -> Path | None:
@@ -223,7 +226,7 @@ def source_digests(payload: Mapping[str, Any] | None) -> dict[str, str]:
 
 
 def write_data_description(
-    workspace: Path,
+    run_dir: Path,
     run_id: str,
     payload: Mapping[str, Any],
 ) -> Path | None:
@@ -234,7 +237,7 @@ def write_data_description(
     document read back at resume would be a digest over a half-written file,
     which is worse than no document at all.
     """
-    path = description_path(workspace, run_id)
+    path = description_path(run_dir)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
@@ -283,9 +286,9 @@ def changed_sources(
     return tuple(sorted(key for key in old.keys() | new.keys() if old.get(key) != new.get(key)))
 
 
-def read_data_description(workspace: Path, run_id: str) -> dict[str, Any] | None:
+def read_data_description(run_dir: Path) -> dict[str, Any] | None:
     """Return the description a previous load wrote for this run, or None."""
-    path = description_path(workspace, run_id)
+    path = description_path(run_dir)
     if not path.is_file():
         return None
     try:

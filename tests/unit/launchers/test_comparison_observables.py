@@ -1,47 +1,37 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
-from hydromodpy.analysis.comparison.runtime import (
-    _resolve_recorded_output_path,
-    extract_observable_rows,
-)
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.analysis.comparison.runtime import extract_observable_rows
 
 from ._comparison_builders import (
     OUTLET_CELL_AREA_M2,
     SIM_ID,
     _expected_outlet_flux,
-    _FakeCatalog,
+    _FakeSource,
+    _spec_from_toml,
     _write_direct_outlet_run_folder,
     _write_fake_run_folder,
     _write_simulation_comparison_config,
-    _write_structured_xy_simulation_comparison_config,
 )
 
 
 def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
     run_folder = tmp_path / "run"
-    bundle_dir = tmp_path / "bundle"
-    store = _write_fake_run_folder(run_folder, bundle_dir)
+    store = _write_fake_run_folder(run_folder)
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
-    simulation = cfg.comparison.simulation[0]
+    cfg = _spec_from_toml(config_path)
+    simulation = cfg.simulation[0]
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
         simulation=simulation,
         run_folder=run_folder,
-        observables=tuple(cfg.comparison.observable),
+        observables=tuple(cfg.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -69,8 +59,7 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
     tmp_path: Path,
 ) -> None:
     run_folder = tmp_path / "run_seepage_alias"
-    bundle_dir = tmp_path / "bundle_seepage_alias"
-    store = _write_fake_run_folder(run_folder, bundle_dir)
+    store = _write_fake_run_folder(run_folder)
     config_path = tmp_path / "config_seepage_alias.toml"
     config_path.write_text(
         "\n".join(
@@ -97,16 +86,13 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
         + "\n",
         encoding="utf-8",
     )
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
+    cfg = _spec_from_toml(config_path)
 
     rows = extract_observable_rows(
         comparison_id="demo_seepage_alias",
-        simulation=cfg.comparison.simulation[0],
+        simulation=cfg.simulation[0],
         run_folder=run_folder,
-        observables=tuple(cfg.comparison.observable),
+        observables=tuple(cfg.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -116,101 +102,6 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
     assert [float(row["value"]) for row in rows] == pytest.approx([1.0, 1.0, 0.0])
 
 
-def test_extract_observable_rows_resolves_structured_xy_from_config(
-    tmp_path: Path,
-) -> None:
-    import rasterio
-    from rasterio.transform import from_origin
-
-    from hydromodpy.core.state.paths import preprocessing_dir
-
-    PREPROCESSING_DIR = preprocessing_dir(Path())
-
-    project_root = tmp_path / "structured_project"
-    geographic_dir = project_root / PREPROCESSING_DIR / "geographic"
-    geographic_dir.mkdir(parents=True, exist_ok=True)
-    raster_path = geographic_dir / "watershed_box_buff_dem.tif"
-    with rasterio.open(
-        raster_path,
-        "w",
-        driver="GTiff",
-        height=2,
-        width=2,
-        count=1,
-        dtype="float32",
-        crs="EPSG:2154",
-        transform=from_origin(0.0, 2.0, 1.0, 1.0),
-    ) as dataset:
-        dataset.write(np.asarray([[1.0, 1.0], [1.0, 1.0]], dtype="float32"), 1)
-
-    simulation_config = tmp_path / "run_structured_nwt.toml"
-    simulation_config.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                "",
-                "[simulation]",
-                'run_id = "structured_demo_run"',
-                "",
-                "[[simulation.process]]",
-                'id = "flow_main"',
-                'type = "flow"',
-                'solvers = ["modflow_nwt"]',
-                "",
-                "[mesh.regular]",
-                "shape = [2, 2]",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    run_folder = tmp_path / "structured_run"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    store = _FakeCatalog(
-        run_folder / "simulation.zarr",
-        {
-            "watertable_elevation": np.asarray(
-                [[10.0, 20.0, 30.0, 40.0], [11.0, 21.0, 31.0, 41.0]],
-                dtype=float,
-            ),
-            "accumulation_flux": np.asarray(
-                [[0.1, 0.4, 0.2, 0.3], [0.3, 0.8, 0.5, 0.6]],
-                dtype=float,
-            ),
-        },
-    )
-
-    comparison_config = tmp_path / "config_structured_xy.toml"
-    _write_structured_xy_simulation_comparison_config(
-        comparison_config,
-        run_folder=run_folder,
-        simulation_config_path=simulation_config,
-    )
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(comparison_config),
-        config_path=comparison_config,
-    )
-
-    rows = extract_observable_rows(
-        comparison_id="demo_structured_xy",
-        simulation=cfg.comparison.simulation[0],
-        run_folder=run_folder,
-        observables=tuple(cfg.comparison.observable),
-        config_path=cfg.resolve_simulation_config_path(cfg.comparison.simulation[0]),
-        store=store,
-        sim_id=SIM_ID,
-    )
-
-    head = next(row for row in rows if row["observable"] == "head_xy_point")
-    outlet = next(row for row in rows if row["observable"] == "outlet_flux_xy")
-    assert head["value"] == 21.0
-    assert head["selected_cell_index"] == "1"
-    assert outlet["value"] == pytest.approx(0.8 / 86400.0)
-    assert outlet["selected_cell_index"] == "1"
-
-
 def test_extract_observable_rows_reads_direct_scalar_outlet_flux(
     tmp_path: Path,
 ) -> None:
@@ -218,16 +109,13 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
     store = _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
+    cfg = _spec_from_toml(config_path)
 
     rows = extract_observable_rows(
         comparison_id="demo_compare",
-        simulation=cfg.comparison.simulation[0],
+        simulation=cfg.simulation[0],
         run_folder=run_folder,
-        observables=(cfg.comparison.observable[1],),
+        observables=(cfg.observable[1],),
         store=store,
         sim_id=SIM_ID,
     )
@@ -241,21 +129,10 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(
     assert outlet["conversion_applied"] == ""
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX keeps WSL mount paths unchanged")
-def test_resolve_recorded_output_path_keeps_wsl_mount_path_on_posix() -> None:
-    path = _resolve_recorded_output_path(
-        "/mnt/c/codes/HydroModPy/examples",
-        base_dir=Path("/tmp"),
-    )
-
-    assert path is not None
-    assert path.as_posix() == "/mnt/c/codes/HydroModPy/examples"
-
-
 def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -> None:
     run_folder = tmp_path / "run_depth_mask"
     run_folder.mkdir(parents=True, exist_ok=True)
-    store = _FakeCatalog(
+    store = _FakeSource(
         run_folder / "simulation.zarr",
         {
             "watertable_elevation": np.asarray(
@@ -294,16 +171,13 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
         + "\n",
         encoding="utf-8",
     )
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
+    cfg = _spec_from_toml(config_path)
 
     rows = extract_observable_rows(
         comparison_id="demo_depth_mask",
-        simulation=cfg.comparison.simulation[0],
+        simulation=cfg.simulation[0],
         run_folder=run_folder,
-        observables=tuple(cfg.comparison.observable),
+        observables=tuple(cfg.observable),
         store=store,
         sim_id=SIM_ID,
     )
@@ -338,7 +212,4 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
     )
 
     with pytest.raises(ValueError, match="outlet observables require"):
-        RuntimeComparisonConfig.from_toml(
-            load_toml_with_base_config(config_path),
-            config_path=config_path,
-        )
+        _spec_from_toml(config_path)

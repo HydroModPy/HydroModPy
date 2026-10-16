@@ -1,3 +1,11 @@
+"""The run directory is bound once, by the step that opens the run.
+
+``bind_run_directory`` reads the identity of the attempt off the outcome of
+the directory it is handed, or claims the directory of the case when it is
+handed none; the facts of the attempt are built from the context, written by
+the store that opens on them, and no handle survives the step.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,69 +14,57 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.workflow.run_catalog import run_catalog
+from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+from hydromodpy.results.catalog.registration import reserve_version_dirname
+from hydromodpy.results.lineage import Lineage
+from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.storage.attempt import claim_run_directory
 from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
+from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 
 
-class _FakeZarr:
-    def __init__(self) -> None:
-        self.close_calls = 0
-
-    def close(self) -> None:
-        self.close_calls += 1
-
-
-def _fake_catalog_class(registration, opened: list):
-    """Return a Catalog stand-in recording what it was asked to register."""
-
-    class FakeCatalog:
-        def __init__(self, workspace_root, *, persistence=None) -> None:
-            self.workspace_root = workspace_root
-            self.persistence = persistence
-            self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
-            self.closed = 0
-            opened.append(self)
-
-        @classmethod
-        def from_workspace(cls, workspace, *, persistence=None):
-            return cls(workspace.project_root, persistence=persistence)
-
-        def register_simulation(self, *args, **kwargs):
-            self.calls.append((args, kwargs))
-            return registration
-
-        def close(self) -> None:
-            self.closed += 1
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc) -> None:
-            self.close()
-
-    return FakeCatalog
+def _project(tmp_path: Path) -> Path:
+    root = tmp_path / "demo_project"
+    root.mkdir()
+    (root / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    return root
 
 
-def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
-    """A context shaped the way ``step_register_run`` expects to find it."""
+def _ctx(project: Path, *, reserved_sim_id: str | None = None) -> SimpleNamespace:
+    """A context shaped the way ``bind_run_directory`` and ``initial_facts`` read it."""
     return SimpleNamespace(
         parent_sim_id="parent-456",
         sim_id=None,
+        run_dir=None,
+        attempt=1,
+        attempt_id=None,
+        lineage=None,
+        calibrated_by=None,
         reserved_sim_id=reserved_sim_id,
+        config_path=project / "requested_name.toml",
         cfg=SimpleNamespace(
             simulation=SimpleNamespace(
                 results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=True)),
-                if_exists="replace",
+                description="",
+                scientific_objective=None,
+                contact_email=None,
+                doi=None,
+                time=None,
+                rng_seed=None,
             ),
+            flow=SimpleNamespace(flow_regime="steady"),
+            geographic=SimpleNamespace(crs_project="EPSG:2154"),
+            site=None,
             domain=None,
+            model_dump=lambda mode="json": {"flow": {"k": 1e-5}},
         ),
         setup=SimpleNamespace(
-            workspace=SimpleNamespace(
-                root=tmp_path / "workspace",
-                project_root=tmp_path / "demo_project",
-            ),
+            workspace=SimpleNamespace(root=project.parent, project_root=project),
             run_id="requested_name",
             flow=None,
+            cell_mesh=None,
+            domain=None,
+            time_grid=None,
         ),
         execution=SimpleNamespace(
             simulation_plan=SimpleNamespace(
@@ -78,68 +74,86 @@ def _open_store_ctx(tmp_path: Path, *, reserved_sim_id: str | None = None) -> Si
     )
 
 
-def _silence_store_writes(monkeypatch, catalog_class) -> None:
-    """Neutralise everything ``step_register_run`` persists besides the id."""
-    import hydromodpy.results.catalog as catalog_module
+def test_without_a_directory_the_step_claims_the_case_of_the_context(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    ctx = _ctx(project)
 
-    monkeypatch.setattr(catalog_module, "Catalog", catalog_class)
-    monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
-    monkeypatch.setattr(
-        prepare_solver_module, "_register_tracked_input_files", lambda *args, **kwargs: None
-    )
-    monkeypatch.setattr(prepare_solver_module, "step_persist_params", lambda *args, **kwargs: None)
-    monkeypatch.setattr(prepare_solver_module, "step_persist_mesh", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        prepare_solver_module, "step_persist_geographic", lambda *args, **kwargs: None
+    run_dir = bind_run_directory(
+        ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides=None
     )
 
-
-def test_step_register_run_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Path) -> None:
-    fake_zarr = _FakeZarr()
-    registration = SimpleNamespace(name="run_0002", replaced_sim_id=None, zarr=fake_zarr)
-    ctx = _open_store_ctx(tmp_path)
-    opened: list = []
-
-    _silence_store_writes(monkeypatch, _fake_catalog_class(registration, opened))
-
-    with run_catalog(ctx) as store:
-        prepare_solver_module.step_register_run(ctx, store=store)
-
-    assert ctx.sim_id is not None
-    assert ctx.setup.run_id == "run_0002"
-    assert opened[0].calls[0][1]["parent_sim_id"] == "parent-456"
-    assert fake_zarr.close_calls == 1
-    # The scope that opened the handle is the one that closed it.
-    assert opened[0].closed == 1
+    assert run_dir == project / "runs" / "requested_name"
+    outcome = read_outcome(run_dir)
+    assert outcome is not None and outcome.status == "running" and outcome.attempt == 1
+    assert ctx.run_dir == run_dir
+    assert ctx.sim_id == outcome.sim_id
+    assert ctx.attempt == outcome.attempt
+    assert ctx.lineage == Lineage(parent_sim_id="parent-456", kind="rerun")
     assert not hasattr(ctx, "store")
 
 
-def test_step_register_run_takes_the_reserved_id_once(monkeypatch, tmp_path: Path) -> None:
-    """A reserved id becomes the run id, and is not handed to a second run.
+def test_a_reserved_directory_takes_the_reserved_id_once(tmp_path: Path) -> None:
+    """A promotion reserves the directory and the id; the step writes the first outcome.
 
-    Calibration promotion reserves the id so it can link the run to its
-    session before the pipeline reaches the step that draws the figures. The
-    reservation is consumed here: a context replayed for another run must mint
-    a fresh id rather than register twice under the same one.
+    The reservation is consumed here: a context replayed for another run must
+    mint a fresh id rather than open twice under the same one.
     """
-    registration = SimpleNamespace(name="run_0003", replaced_sim_id=None, zarr=None)
+    project = _project(tmp_path)
     reserved = "0e6a5f5c-6f3c-4a6b-9c2f-2f0f5c1b7a11"
-    ctx = _open_store_ctx(tmp_path, reserved_sim_id=reserved)
-    opened: list = []
+    ctx = _ctx(project, reserved_sim_id=reserved)
+    run_dir = reserve_version_dirname(project, "run", "promoted")
 
-    _silence_store_writes(monkeypatch, _fake_catalog_class(registration, opened))
+    bound = bind_run_directory(
+        ctx,
+        run_dir=run_dir,
+        lineage=Lineage(kind="promoted"),
+        calibrated_by=None,
+        run_overrides=None,
+    )
 
-    with run_catalog(ctx) as store:
-        prepare_solver_module.step_register_run(ctx, store=store)
-
+    assert bound == run_dir
     assert ctx.sim_id == reserved
-    assert opened[0].calls[0][0][0] == reserved
     assert ctx.reserved_sim_id is None
+    assert ctx.lineage == Lineage(kind="promoted")
+    assert read_outcome(run_dir).sim_id == reserved
 
-    with run_catalog(ctx) as store:
-        prepare_solver_module.step_register_run(ctx, store=store)
-
+    ctx.run_dir = None
+    ctx.setup.run_id = "second"
+    bind_run_directory(ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides=None)
     assert ctx.sim_id != reserved
+
+
+def test_a_directory_claimed_before_the_pipeline_is_read_not_claimed_again(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    claim = claim_run_directory(project, "requested_name", case_id="requested_name", project="demo")
+    ctx = _ctx(project)
+
+    bind_run_directory(
+        ctx, run_dir=claim.run_dir, lineage=None, calibrated_by=None, run_overrides=None
+    )
+
+    assert ctx.sim_id == claim.sim_id
+    assert ctx.attempt == claim.attempt
+    assert read_outcome(claim.run_dir).attempt == 1
+
+
+def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    ctx = _ctx(project)
+    bind_run_directory(
+        ctx, run_dir=None, lineage=None, calibrated_by=None, run_overrides={"K": 1e-5}
+    )
+
+    facts = initial_facts(ctx, run_overrides={"K": 1e-5})
+
+    assert facts.sim_id == ctx.sim_id
+    assert facts.name == "requested_name"
+    assert facts.case_id == "requested_name"
+    assert facts.project == "demo_project"
+    assert facts.solver == "boussinesq"
+    assert facts.config_hash
+    assert facts.config_source == "requested_name.toml"
+    assert facts.lineage.kind == "rerun"
 
 
 class _Dumpable:
@@ -282,6 +296,14 @@ def test_step_drop_empty_scratch_only_removes_an_empty_folder(tmp_path: Path) ->
 @dataclass
 class _LoadedForcings:
     recharge: object | None = None
+
+
+class _FakeZarr:
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
 
 
 def test_step_persist_forcings_closes_zarr_when_no_forcings() -> None:

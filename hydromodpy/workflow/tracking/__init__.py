@@ -1,1 +1,1 @@
-"""Run tracking: step journal, event stream, resume planner, heartbeat."""
+"""Run tracking: the step journal of a run directory and the resume planner."""

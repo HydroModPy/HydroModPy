@@ -1,10 +1,10 @@
-"""The export step writes the data requests before the seal and the run requests after it.
+"""The data requests are written before the seal and the metadata views after it.
 
-A data request (a field, a series, a layer) reads the fields of the run, so it
-runs first. The package and the metadata views read the seal, so they run
-after it. Nothing is dropped from the store in between: the run keeps what it
-wrote. The console says once, for the
-whole run, how many files were written and where.
+A data request (a field, a series, a layer) reads the fields of the run, so
+the export step writes it. A metadata view (STAC, RO-Crate, PROV) renders the
+seal, so :func:`step_after_seal` writes it once the run is sealed, from the
+directory alone. Every file lands under ``runs/<run>/exports/`` and the
+console says how many files were written and where.
 """
 
 from __future__ import annotations
@@ -14,65 +14,78 @@ from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
+import hydromodpy.results.exporters.request as request_module
 import hydromodpy.simulation.extraction.post_run as post_run_module
 import hydromodpy.workflow.steps.export as export_module
 from hydromodpy.core.config_kit.export_spec import load_export_requests
+from hydromodpy.results.identity import read_identity_from
+from hydromodpy.results.ledger import Ledger
 from hydromodpy.workflow.internals.state import PipelineState
+from tests.unit.results._run_record_factory import make_record
 
 
-def test_data_requests_run_before_the_seal_and_the_package_after(
-    monkeypatch, tmp_path: Path, caplog
-) -> None:
-    order: list[str] = []
-    requests = load_export_requests(
-        [{"variables": "head", "time": "last"}, {"variables": "all", "format": "package"}]
-    )
-
-    def no_zarr(_sim_id):
-        raise AssertionError("the export step must not touch the fields of the run")
-
-    store = SimpleNamespace(project_path=tmp_path, open_zarr=no_zarr)
-
-    @contextmanager
-    def fake_catalog(_ctx):
-        yield store
-
-    def fake_results(**kwargs):
-        order.append("data")
-        assert kwargs["export_requests"] == requests
-        return [tmp_path / "share" / "run-1" / "head_last.tif"]
-
-    def fake_package(**kwargs):
-        order.append("package")
-        return [tmp_path / "share" / "run-1" / "run-1.hmp"]
-
-    monkeypatch.setattr(export_module, "run_is_catalogued", lambda _ctx: True)
-    monkeypatch.setattr(export_module, "run_catalog", fake_catalog)
-    monkeypatch.setattr(export_module, "step_save_run_artifacts", lambda *_a, **_k: None)
-    monkeypatch.setattr(export_module, "step_seal_store", lambda *_a, **_k: order.append("seal"))
-    monkeypatch.setattr(export_module, "step_cleanup_scratch", lambda *_a, **_k: None)
-    monkeypatch.setattr(export_module, "step_cleanup_preprocessing", lambda *_a, **_k: 0)
-    monkeypatch.setattr(export_module, "step_drop_empty_scratch", lambda *_a, **_k: None)
-    monkeypatch.setattr(post_run_module, "auto_export_results", fake_results)
-    monkeypatch.setattr(post_run_module, "auto_export_package", fake_package)
-    monkeypatch.setattr(post_run_module, "cleanup_solver_outputs", lambda **_k: None)
-
+def _ctx(run_dir: Path, requests) -> SimpleNamespace:
     results_cfg = SimpleNamespace(
         keep_solver_files=True, persistence=SimpleNamespace(save_catalog=True)
     )
-    ctx = SimpleNamespace(
+    return SimpleNamespace(
         sim_id="0123456789abcdef",
+        run_dir=run_dir,
         cfg=SimpleNamespace(simulation=SimpleNamespace(results=results_cfg), export=requests),
-        execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=())),
+        execution=SimpleNamespace(simulation_plan=SimpleNamespace(runs=()), lightweight=False),
         setup=SimpleNamespace(run_id="run-1", workspace=None),
     )
-    caplog.set_level(logging.INFO, logger=post_run_module.logger.name)
 
-    export_module.ExportStep().run(
-        PipelineState(run_id="run-1", step_index=7, data={"ctx": ctx, "wall_seconds": 1.0})
+
+def test_the_export_step_writes_the_data_requests_only(monkeypatch, tmp_path: Path) -> None:
+    seen: list = []
+    requests = load_export_requests(
+        [{"variables": "head", "time": "last"}, {"variables": "all", "format": "rocrate"}]
     )
 
-    assert order == ["data", "seal", "package"]
+    @contextmanager
+    def fake_store(_ctx):
+        yield SimpleNamespace()
+
+    def fake_results(_store, _sim_id, requests):
+        seen.append(requests)
+        return [tmp_path / "runs" / "run-1" / "exports" / "head_last.tif"]
+
+    monkeypatch.setattr(export_module, "run_store", fake_store)
+    monkeypatch.setattr(export_module, "step_cleanup_scratch", lambda *_a, **_k: None)
+    monkeypatch.setattr(export_module, "step_cleanup_preprocessing", lambda *_a, **_k: 0)
+    monkeypatch.setattr(export_module, "step_drop_empty_scratch", lambda *_a, **_k: None)
+    monkeypatch.setattr(request_module, "export_data_requests", fake_results)
+    monkeypatch.setattr(post_run_module, "cleanup_solver_outputs", lambda **_k: None)
+
+    export_module.ExportStep().run(
+        PipelineState(run_id="run-1", step_index=7, data={"ctx": _ctx(tmp_path, requests)})
+    )
+
+    assert seen == [requests]
+
+
+def test_the_views_are_written_after_the_seal_from_the_directory(tmp_path: Path, caplog) -> None:
+    record = make_record()
+    run_dir = tmp_path / record.run.rel_dir
+    run_dir.mkdir(parents=True)
+    record.write(run_dir)
+    requests = load_export_requests(
+        [
+            {"variables": "head", "time": "last"},
+            {"variables": "all", "format": "rocrate", "folder": "crate"},
+        ]
+    )
+    caplog.set_level(logging.INFO, logger=export_module.logger.name)
+
+    written = export_module.step_after_seal(_ctx(run_dir, requests))
+
+    crate = run_dir / "exports" / "crate" / "ro-crate-metadata.json"
+    assert written == [crate]
+    assert read_identity_from(crate).sim_id == record.run.sim_id
+    assert [entry.file for entry in Ledger.read(run_dir / "exports").entries] == [
+        "crate/ro-crate-metadata.json"
+    ]
     announced = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Exported")]
-    assert len(announced) == 1
-    assert announced[0].startswith("Exported 2 file(s) -> ")
+    assert announced == [announced[0]]
+    assert announced[0].startswith("Exported 1 file(s) -> ")

@@ -38,7 +38,6 @@ def write_core_site_selection_outputs(
         region_id=region_id,
         write_selected=config.output.write_csv and config.output.write_selected,
         write_rejected=config.output.write_csv and config.output.write_rejected,
-        write_regional_lab_csv_output=config.output.write_regional_lab_csv,
         write_geojson=config.output.write_geojson,
         write_geoparquet=config.output.write_geoparquet,
         write_geopackage=config.output.write_geopackage,

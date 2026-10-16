@@ -1,14 +1,29 @@
-"""TOML loading helpers with optional hierarchical ``base_config`` support."""
+"""TOML loading with ``base_config`` inheritance, and the base of relative paths.
+
+A file inherits another with ``base_config = "project.toml"``; the chain is
+read root first and merged by :mod:`hydromodpy.core.toml_io.merge`.
+:func:`read_toml_chain` returns the files of the chain with the keys each one
+writes itself, :func:`load_toml_with_base_config` the merged document.
+
+Every relative path a project file declares is read from one base, the
+project root: the folder that holds ``project.toml`` above the file, or,
+outside a project, the folder of the root file of the chain.
+:func:`config_base_dir` returns it. A file two folders down (``plan/<hash>/
+<case>.toml``, ``runs/<case>/config.toml``) therefore names the same
+``dem_init_path`` as ``project.toml`` does.
+"""
 
 from __future__ import annotations
 
 import re
 import tomllib
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
@@ -113,33 +128,80 @@ def _strip_empty_strings(data: dict[str, Any], *, _path: str = "") -> dict[str, 
     return cleaned
 
 
-def load_toml_with_base_config(
-    toml_path: str | Path,
-    *,
-    _stack: tuple[Path, ...] = (),
-) -> dict[str, Any]:
-    """Load one TOML file with recursive ``base_config`` inheritance."""
-    resolved = Path(toml_path).resolve()
-    if resolved in _stack:
-        cycle = " -> ".join(str(path) for path in (*_stack, resolved))
-        raise ValueError(f"Detected circular base_config chain: {cycle}")
+BASE_CONFIG_KEY = "base_config"
+"""Key of a file that names the file it inherits."""
 
-    raw = _read_toml(resolved)
-    base_config_name = raw.get("base_config")
-    current = dict(raw)
-    current.pop("base_config", None)
 
-    if base_config_name in (None, ""):
-        return _strip_empty_strings(current)
-    if not isinstance(base_config_name, str):
+@dataclass(frozen=True, slots=True)
+class ChainFile:
+    """One file of a ``base_config`` chain and the keys it writes itself."""
+
+    path: Path
+    own: dict[str, Any]
+    """The document of the file, ``base_config`` removed, directives kept."""
+
+
+def _base_config_of(path: Path, raw: Mapping[str, Any]) -> Path | None:
+    """Return the file *raw* inherits, resolved from the folder of *path*."""
+    name = raw.get(BASE_CONFIG_KEY)
+    if name in (None, ""):
+        return None
+    if not isinstance(name, str):
         raise TypeError("base_config must be a TOML string path when provided")
-
-    base_path = Path(base_config_name).expanduser()
+    base_path = Path(name).expanduser()
     if not is_declared_absolute_path(base_path):
-        base_path = (resolved.parent / base_path).resolve()
+        base_path = (path.parent / base_path).resolve()
+    return base_path
 
-    base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))
-    return _strip_empty_strings(merge_toml_payloads(base_payload, current))
+
+def read_toml_chain(toml_path: str | Path) -> tuple[ChainFile, ...]:
+    """Return the files of the ``base_config`` chain of *toml_path*, root first.
+
+    The last element is *toml_path* itself. A cycle raises ``ValueError``.
+    """
+    files: list[ChainFile] = []
+    seen: list[Path] = []
+    current: Path | None = Path(toml_path).resolve()
+    while current is not None:
+        if current in seen:
+            cycle = " -> ".join(str(path) for path in (*seen, current))
+            raise ValueError(f"Detected circular base_config chain: {cycle}")
+        seen.append(current)
+        raw = _read_toml(current)
+        own = dict(raw)
+        own.pop(BASE_CONFIG_KEY, None)
+        files.append(ChainFile(path=current, own=own))
+        current = _base_config_of(current, raw)
+    files.reverse()
+    return tuple(files)
+
+
+def merge_toml_chain(files: tuple[ChainFile, ...] | list[ChainFile]) -> dict[str, Any]:
+    """Merge the files of a chain, root first, and strip the empty placeholders."""
+    merged: dict[str, Any] = {}
+    for item in files:
+        merged = merge_toml_payloads(merged, item.own)
+    return _strip_empty_strings(merged)
+
+
+def load_toml_with_base_config(toml_path: str | Path) -> dict[str, Any]:
+    """Load one TOML file with recursive ``base_config`` inheritance."""
+    return merge_toml_chain(read_toml_chain(toml_path))
+
+
+def config_base_dir(toml_path: str | Path) -> Path:
+    """Return the folder relative paths of *toml_path* are read from.
+
+    It is the project root: the folder holding ``project.toml`` at or above
+    the file. Outside a project it is the folder of the root file of the
+    ``base_config`` chain, so a file that inherits another reads its paths
+    where that other file does.
+    """
+    resolved = Path(toml_path).resolve()
+    root = resolve_project_root(resolved.parent)
+    if (root / PROJECT_MARKER_FILENAME).is_file():
+        return root
+    return read_toml_chain(resolved)[0].path.parent
 
 
 def validate_toml(
@@ -169,10 +231,11 @@ def validate_toml(
     context
         Optional context dict forwarded to :meth:`model_validate`.
     base_dir_resolver
-        Optional callback invoked with ``(instance, toml_dir)`` after
-        validation. Returning a new instance overrides the default; returning
-        ``None`` keeps the original. Used by callers that resolve relative
-        paths post-validation.
+        Optional callback invoked with ``(instance, base_dir)`` after
+        validation, *base_dir* being :func:`config_base_dir` of the file: the
+        project root. Returning a new instance overrides the default;
+        returning ``None`` keeps the original. Used by callers that resolve
+        relative paths post-validation.
     """
     resolved = Path(path).expanduser().resolve()
     payload: Any = load_toml_with_base_config(resolved)
@@ -186,7 +249,7 @@ def validate_toml(
             payload = {}
     cfg = model_cls.model_validate(payload, context=context)
     if base_dir_resolver is not None:
-        replaced = base_dir_resolver(cfg, resolved.parent)
+        replaced = base_dir_resolver(cfg, config_base_dir(resolved))
         if replaced is not None:
             cfg = replaced
     return cfg

@@ -39,7 +39,6 @@ description = "Urse catchment, K from the hydrographic-network criterion, PyHELP
 seed = 42
 save_runs = "best_n"
 save_best_n = 1
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-4]

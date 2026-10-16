@@ -5,12 +5,12 @@ and instantiates the Pydantic ``HydroModPyConfig``. If ``state.data["cfg"]``
 is already a Pydantic config, it is re-validated to ensure immutability.
 
 The resolved configuration is then written beside the run's resume checkpoint,
-in the workspace the pipeline says it owns a record in. It is the step's
-product: the user TOML says a fraction of it, and everything downstream reads
-the resolved form. The only frozen copy used to be written into the run
-directory by ``prepare_solver``, step six, so a run that died while building
-its model left none - and the digest the resume checkpoint carries pointed at
-a document nobody held.
+under the run directory the pipeline says it owns. It is the step's product:
+the user TOML says a fraction of it, and everything downstream reads the
+resolved form. The only frozen copy used to be written into the run directory
+by ``prepare_solver``, step six, so a run that died while building its model
+left none - and the digest the resume checkpoint carries pointed at a document
+nobody held.
 
 Inputs
 ------
@@ -20,7 +20,7 @@ Outputs
 -------
 ``cfg`` : HydroModPyConfig
 ``config_path`` : Path
-``<project_root>/.hmp/checkpoints/<run_id>/resolved_config.json``
+``<run>/.hmp/checkpoints/resolved_config.json``
 """
 
 from __future__ import annotations
@@ -37,19 +37,19 @@ from hydromodpy.workflow.internals.manifest import (
 from hydromodpy.workflow.internals.state import PipelineState
 
 
-def _run_workspace_for(state: PipelineState) -> Path | None:
-    """Return the workspace this run owns a record in, or None.
+def _run_dir_for(state: PipelineState) -> Path | None:
+    """Return the run directory this run owns, or None.
 
     The pipeline decides, never the config: a window that stops before
-    ``setup_process`` registers no simulation and is handed no workspace, and a
-    calibration prefix runs with none at all. Either of them writing where the
-    config points would overwrite the documents of the run that carries the
-    same name.
+    ``setup_process`` registers no simulation and is handed no directory, and
+    a calibration prefix runs with none at all. Either of them writing where
+    the config points would overwrite the documents of the run that carries
+    the same name.
     """
-    workspace = state.get("run_workspace")
-    if workspace is None:
+    run_dir = state.get("run_dir")
+    if run_dir is None:
         return None
-    path = Path(str(workspace))
+    path = Path(str(run_dir))
     return path if path.is_dir() else None
 
 
@@ -199,7 +199,7 @@ class ValidateStep:
         "cfg",
         "config_path",
         "raw_toml",
-        "run_workspace",
+        "run_dir",
     )
     writes: ClassVar[tuple[str, ...]] = (
         "cfg",
@@ -222,10 +222,10 @@ class ValidateStep:
 
     def artifacts(self, state_out: PipelineState) -> tuple[str, ...]:
         """Return the resolved configuration this step wrote, when it wrote one."""
-        workspace = _run_workspace_for(state_out)
-        if workspace is None:
+        run_dir = _run_dir_for(state_out)
+        if run_dir is None:
             return ()
-        path = resolved_config_path(workspace, state_out.run_id)
+        path = resolved_config_path(run_dir)
         return (str(path),) if path.is_file() else ()
 
     def run(self, state: PipelineState) -> PipelineState:
@@ -252,7 +252,7 @@ class ValidateStep:
             cfg=cfg,
             config_path=Path(config_path) if config_path is not None else None,
         )
-        workspace = _run_workspace_for(out)
-        if workspace is not None:
-            write_resolved_config(workspace, out.run_id, state_config_payload(out))
+        run_dir = _run_dir_for(out)
+        if run_dir is not None:
+            write_resolved_config(run_dir, out.run_id, state_config_payload(out))
         return out

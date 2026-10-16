@@ -35,7 +35,6 @@ class _PipelineOverrides:
     run_simulation: bool | None
     build_context_artifacts: bool | None
     build_report_html: bool | None
-    no_lock: bool | None
     stream_run_logs: bool | None
     strict_figure_postflight: bool | None
 
@@ -46,7 +45,6 @@ class _PipelineOptions:
     run_simulation: bool
     build_context_artifacts: bool
     build_report_html: bool
-    no_lock: bool
     stream_run_logs: bool
     strict_figure_postflight: bool
 
@@ -59,7 +57,6 @@ def run_catchment_report_pipeline(
     run_simulation: bool | None = None,
     build_context_artifacts: bool | None = None,
     build_report_html: bool | None = None,
-    no_lock: bool | None = None,
     stream_run_logs: bool | None = None,
     strict_figure_postflight: bool | None = None,
 ) -> CatchmentReportPipelineResult:
@@ -72,7 +69,6 @@ def run_catchment_report_pipeline(
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
             build_report_html=build_report_html,
-            no_lock=no_lock,
             stream_run_logs=stream_run_logs,
             strict_figure_postflight=strict_figure_postflight,
         ),
@@ -108,7 +104,6 @@ def _resolve_pipeline_options(
             overrides.build_report_html,
             inputs.pipeline_build_report_html,
         ),
-        no_lock=_override_or_default(overrides.no_lock, inputs.pipeline_no_lock),
         stream_run_logs=_override_or_default(
             overrides.stream_run_logs,
             inputs.pipeline_stream_run_logs,
@@ -160,7 +155,6 @@ def _run_pipeline_steps(
 def _run_overview(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
     _run_hydromodpy(
         inputs.overview_config,
-        no_lock=options.no_lock,
         stream_logs=options.stream_run_logs,
     )
 
@@ -168,7 +162,6 @@ def _run_overview(inputs: CatchmentReportInputs, options: _PipelineOptions) -> N
 def _run_simulation(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
     _run_hydromodpy(
         inputs.transient_config,
-        no_lock=options.no_lock,
         stream_logs=options.stream_run_logs,
     )
     _validate_simulation_outputs(_newest_report_run(inputs))
@@ -200,10 +193,8 @@ def _build_report_html(
     return html_report, postflight_report
 
 
-def _run_hydromodpy(config_path: Path, *, no_lock: bool, stream_logs: bool) -> None:
+def _run_hydromodpy(config_path: Path, *, stream_logs: bool) -> None:
     command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
-    if no_lock:
-        command.append("--no-lock")
     if stream_logs:
         subprocess.run(command, check=True)
         return
@@ -234,16 +225,11 @@ def _print_subprocess_tail(text: str | None, label: str, *, max_lines: int = 80)
 
 
 def _validate_simulation_outputs(inputs: CatchmentReportInputs) -> None:
-    from hydromodpy.display.catchment_report.simulation_source import (
-        catalog_file,
-        simulation_run_exists,
-    )
+    from hydromodpy.display.catchment_report.simulation_source import simulation_run_exists
 
     missing = []
     if not simulation_run_exists(inputs):
-        missing.append(
-            f"simulation run '{inputs.simulation_name}' in catalog: {catalog_file(inputs)}"
-        )
+        missing.append(f"completed simulation run '{inputs.simulation_name}': {inputs.run_dir}")
     if not inputs.simulation_figures.exists():
         missing.append(f"simulation figures directory: {inputs.simulation_figures}")
     if missing:

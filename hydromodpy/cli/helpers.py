@@ -77,6 +77,11 @@ def exit_code_for(exc: BaseException) -> int:
         SimulationNotFoundError,
     )
     from hydromodpy.results.errors import SchemaVersionMismatchError
+    from hydromodpy.results.storage.attempt import (
+        AttemptClaimedError,
+        CaseAliveError,
+        DirectoryWithoutOutcomeError,
+    )
 
     if isinstance(exc, KeyboardInterrupt):
         return EXIT_SIGINT
@@ -102,6 +107,12 @@ def exit_code_for(exc: BaseException) -> int:
         # that --force or --as resolves, not a concurrent writer.
         (ImportConflictError, EXIT_WRITE_CONFLICT),
         (ReadOnlyError, EXIT_READ_ONLY),
+        # The directory of the case is held by another worker, or says
+        # nothing about itself: a conflict with what is on disk, which the
+        # worker reports in one sentence and never repairs.
+        (AttemptClaimedError, EXIT_WRITE_CONFLICT),
+        (CaseAliveError, EXIT_WRITE_CONFLICT),
+        (DirectoryWithoutOutcomeError, EXIT_WRITE_CONFLICT),
         (ConfigError, EXIT_CONFIG),
         (ConfigMissingError, EXIT_CONFIG),
         (SolverError, EXIT_SOLVER_ERROR),

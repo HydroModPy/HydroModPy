@@ -34,7 +34,6 @@ def test_project_drops_removed_surface() -> None:
         "from_toml",
         "from_json",
         "from_dict",
-        "execute",
         "ingest",
         "render",
         "cleanup",
@@ -44,7 +43,7 @@ def test_project_drops_removed_surface() -> None:
 
 def test_project_keeps_canonical_run_phase_verbs() -> None:
     """``Project`` keeps the high-level run-phase verbs."""
-    for name in ("simulate", "calibrate", "prepare", "rerun"):
+    for name in ("execute", "simulate", "calibrate", "prepare", "rerun"):
         assert hasattr(Project, name), f"Project lost canonical verb {name!r}"
 
 

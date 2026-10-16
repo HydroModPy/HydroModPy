@@ -42,7 +42,7 @@ data cache before the run?
 | Whether the data cache is still the one that was used | A check of the cache against the lockfile. | `hmp dev lock verify` |
 | To replay a run with exactly the same data | A run that refuses any fresh download and stops on a checksum that does not match. | `hmp run --frozen <file>` |
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. | `hmp catalog rerun <run> --set path=value` |
-| Whether the log of operations was altered | A check of its chain of hashes. | `hmp audit verify` |
+| To hand a run to someone | A copy that stands alone: the README, the frozen configuration, the provenance with the machine and the user removed, and the checksum of every file. | `hmp publish <run> --to <folder>` |
 
 The options of each command are in the {doc}`command reference <../reference/cli/index>`.
 
@@ -52,8 +52,8 @@ A record shows what was run. It does not show that the run was a good idea. Two 
 mean two identical computations, and a correct computation can still rest on a poor assumption or
 a poor dataset. For that, read {doc}`what-validated-means` and {doc}`where-the-data-come-from`.
 
-A note on recorded data: the record contains the name of the machine and the user. Remove them
-before you share a run folder outside your organisation if that matters to you.
+A note on recorded data: the record contains the name of the machine and the user. `hmp publish`
+removes them from the copy it writes. A run folder copied by hand still carries them.
 
 ## Where to go next
 

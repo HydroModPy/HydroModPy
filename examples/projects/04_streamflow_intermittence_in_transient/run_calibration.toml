@@ -20,7 +20,6 @@ description = "Nancon, K from the mapped network then Sy from the gauge."
 
 [calibration]
 # The best trial of each stage is replayed as a full run, with its figures.
-rerun_best_with_outputs = true
 
 # The search ranges, both in log space by default.
 [calibration.parameters.K]

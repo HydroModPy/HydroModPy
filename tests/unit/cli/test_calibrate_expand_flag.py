@@ -51,7 +51,14 @@ def _write(tmp_path: Path, content: str) -> Path:
 
 
 def _run(path: Path, **overrides) -> None:
-    fields = {"config": path, "check": False, "list_phases": False, "phase": None, "expand": False}
+    fields = {
+        "config": path,
+        "list_phases": False,
+        "phase": None,
+        "expand": False,
+        "resume": False,
+        "dry_run": False,
+    }
     fields.update(overrides)
     calibrate_cmd.run(argparse.Namespace(**fields))
 
@@ -115,7 +122,8 @@ def test_expand_prints_pasteable_toml(tmp_path, capsys) -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"check": True},
+        {"resume": True},
+        {"dry_run": True},
         {"list_phases": True},
         {"phase": "steady_conductivity"},
     ],

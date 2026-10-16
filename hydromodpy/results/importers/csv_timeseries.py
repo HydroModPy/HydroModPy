@@ -13,10 +13,9 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
+from hydromodpy.results.exporters.csv import SERIES_COLUMNS
 
 logger = get_logger(__name__)
-
-REQUIRED_COLUMNS = ("datetime", "station_id", "variable", "value", "unit")
 
 
 def import_csv_timeseries(
@@ -41,9 +40,9 @@ def import_csv_timeseries(
     Returns
     -------
     pandas.DataFrame
-        Columns: ``datetime`` (timezone-aware UTC), ``station_id``,
-        ``variable``, ``value`` (float64), ``unit``. Empty when the input file
-        contains only the header.
+        Columns: ``site``, ``case_id``, ``datetime`` (timezone-aware UTC),
+        ``station_id``, ``variable``, ``value`` (float64), ``unit``. Empty
+        when the input file contains only the header.
     """
     if variable is not None:
         field_registry.get(variable)
@@ -54,16 +53,18 @@ def import_csv_timeseries(
 
     df = pd.read_csv(input_path)
 
-    missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    missing = [col for col in SERIES_COLUMNS if col not in df.columns]
     if missing:
         raise ValueError(
             f"CSV {input_path} is missing required columns: {missing}. "
-            f"Expected: {list(REQUIRED_COLUMNS)}"
+            f"Expected: {list(SERIES_COLUMNS)}"
         )
 
     if df.empty:
         return df.astype(
             {
+                "site": "object",
+                "case_id": "object",
                 "station_id": "object",
                 "variable": "object",
                 "value": "float64",

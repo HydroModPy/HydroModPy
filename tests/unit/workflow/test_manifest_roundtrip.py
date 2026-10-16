@@ -133,10 +133,10 @@ def test_disk_roundtrip_identity(tmp_path):
     original = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
 
     written = original.write_atomic(workspace)
-    assert written == ResolvedRunManifest.path_for(workspace, "run-42")
+    assert written == ResolvedRunManifest.path_for(workspace)
     assert written.is_file()
 
-    parsed = ResolvedRunManifest.read(workspace, "run-42")
+    parsed = ResolvedRunManifest.read(workspace)
     # Frozen dataclass equality: every field round-trips byte-for-byte.
     assert parsed == original
 
@@ -144,11 +144,12 @@ def test_disk_roundtrip_identity(tmp_path):
 def test_write_atomic_path_layout(tmp_path):
     state = _make_state()
     workspace = tmp_path / "ws"
+    run_dir = workspace / "runs" / "run-42"
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
-    path = manifest.write_atomic(workspace)
+    path = manifest.write_atomic(run_dir)
 
-    rel = path.relative_to(workspace)
-    assert rel.parts == (".hmp", "checkpoints", "run-42", "resolved_manifest.json")
+    rel = path.relative_to(run_dir)
+    assert rel.parts == (".hmp", "checkpoints", "resolved_manifest.json")
     # No leftover temp file after the atomic replace.
     assert not path.with_suffix(path.suffix + ".tmp").exists()
 
@@ -168,18 +169,18 @@ def test_write_atomic_emits_sorted_json_with_trailing_newline(tmp_path):
 
 
 def test_read_missing_returns_none(tmp_path):
-    assert ResolvedRunManifest.read(tmp_path, "nope") is None
+    assert ResolvedRunManifest.read(tmp_path / "nope") is None
 
 
 def test_read_tolerates_missing_optional_keys(tmp_path):
     """A minimal manifest (only required keys) still parses with defaults."""
-    path = ResolvedRunManifest.path_for(tmp_path, "min")
+    path = ResolvedRunManifest.path_for(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps({"schema_version": SCHEMA_VERSION, "run_id": "min"}),
         encoding="utf-8",
     )
-    parsed = ResolvedRunManifest.read(tmp_path, "min")
+    parsed = ResolvedRunManifest.read(tmp_path)
     assert parsed is not None
     assert parsed.run_id == "min"
     assert parsed.config_sha256 is None
@@ -193,7 +194,7 @@ def test_roundtrip_preserves_none_config_fields(tmp_path):
     workspace = tmp_path / "ws"
     original = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
     original.write_atomic(workspace)
-    parsed = ResolvedRunManifest.read(workspace, "run-42")
+    parsed = ResolvedRunManifest.read(workspace)
     assert parsed == original
     assert parsed.config_sha256 is None
     assert parsed.config_path is None
@@ -277,7 +278,7 @@ def test_pydantic_config_roundtrips_on_disk(tmp_path):
     workspace = tmp_path / "ws"
     original = ResolvedRunManifest.from_state(state, _steps(), workspace=workspace)
     original.write_atomic(workspace)
-    parsed = ResolvedRunManifest.read(workspace, "model")
+    parsed = ResolvedRunManifest.read(workspace)
     assert parsed == original
 
 
@@ -427,5 +428,5 @@ def test_with_state_roundtrips_after_write(tmp_path):
     assert updated.workspace == str(workspace)
 
     updated.write_atomic(workspace)
-    parsed = ResolvedRunManifest.read(workspace, "run-42")
+    parsed = ResolvedRunManifest.read(workspace)
     assert parsed == updated

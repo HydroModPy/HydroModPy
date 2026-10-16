@@ -1,78 +1,18 @@
 """Catalog constants and small solver helpers.
 
-Hosts string sentinels reused across the catalog write path (``GLOBAL_ZONE``,
-``OUTLET_STATION``), the canonical table-name lists, and the solver
-category resolver. The DDL itself lives in the SQL migration scripts under
-``catalog/migrations/``.
+Hosts the string sentinel of the stored tables (``GLOBAL_ZONE``), the
+Parquet view names, the solver vocabulary and the direction of every metric. The DDL of the index lives in
+:mod:`hydromodpy.results.catalog.index_schema`.
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from hydromodpy.spatial.mesh.registry import DEFAULT_ENGINE_ID
 
 GLOBAL_ZONE = "__global__"
 """Sentinel parameter zone used when no spatial zoning applies."""
-
-OUTLET_STATION = "__outlet__"
-"""Sentinel station id for the catchment outlet."""
-
-TRASH_RETENTION_DAYS = 30
-"""Days a trashed run stays restorable before ``gc --apply`` may hard-purge it."""
-
-STALE_HEARTBEAT_MINUTES = 10
-"""Minutes without a heartbeat before a ``running`` sim is treated as stale."""
-
-# v2 catalog table names (DuckDB). Kept in sync with
-# ``catalog/migrations/0001_initial.sql``.
-TABLE_NAMES: tuple[str, ...] = (
-    "_schema_version",
-    "schema_migrations",
-    "solvers",
-    "statuses",
-    "flow_regimes",
-    "mesh_topologies",
-    "dim_variables",
-    "dim_stations",
-    "dim_metrics",
-    "dim_projects",
-    "dim_study_areas",
-    "stations",
-    "simulations",
-    "parameters",
-    "metrics",
-    "metric_definitions",
-    "runs_environment",
-    "provenance",
-    "observations",
-    "audit_log",
-    "deletions",
-    "tracked_files",
-    "geographic_features",
-    "geographic_metadata",
-    "tags",
-    "sim_notes",
-    "export_log",
-    "purge_journal",
-    "calibration_sessions",
-    "calibration_iterations",
-    "workflow_steps",
-)
-
-# Per-simulation DuckDB tables (used by lifecycle deletion and hmp_package).
-# ``purge_journal`` is deliberately excluded: it is the two-phase hard-purge
-# journal cleared by the purge process itself, not part of the normal cascade.
-PER_SIM_TABLE_NAMES: tuple[str, ...] = (
-    "parameters",
-    "metrics",
-    "provenance",
-    "geographic_features",
-    "geographic_metadata",
-    "runs_environment",
-    "tags",
-    "sim_notes",
-    "export_log",
-    "tracked_files",
-)
 
 # Per-simulation Parquet view aliases. Files live at
 # ``runs/<run>/tables.parquet/<view>.parquet`` in the project.
@@ -107,8 +47,7 @@ expression reads the ``simulations`` table under the alias ``s``.
 """
 
 
-# Canonical v2 solver codes, mirroring ``solvers.code`` rows in
-# ``catalog/migrations/0001_initial.sql``.
+# Canonical solver codes, the ``solvers.code`` rows of the index schema.
 VALID_SOLVER_CODES: frozenset[str] = frozenset(
     {
         "boussinesq",
@@ -174,14 +113,15 @@ def validate_solver_code(solver_name: str) -> str:
 # ``hmp dev rank`` and the calibration criteria read it, so "best" means the
 # best fit whatever the metric, and a score becomes a cost the same way
 # everywhere.
-# The seeded ``metric_definitions`` rows of the catalog agree with it
-# (``higher_is_better`` TRUE is "max", FALSE is "min", NULL is "zero").
 #
 # - ``max``: a higher value is better (efficiency scores).
 # - ``min``: a lower value is better (errors, costs).
 # - ``zero``: the value closest to zero is better (signed biases).
 # - ``one``: the value closest to one is better (KGE ratios).
-METRIC_SENSE: dict[str, str] = {
+MetricSense = Literal["max", "min", "zero", "one"]
+"""Which value of a metric is the good one."""
+
+METRIC_SENSE: dict[str, MetricSense] = {
     "nse": "max",
     "nse_log": "max",
     "nse_delta": "max",
@@ -212,10 +152,9 @@ METRIC_SENSE: dict[str, str] = {
 
 
 RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
-"""Metric names the catalog no longer stores, each with the name to write.
+"""Metric names the catalog no longer knows, each with the name to write.
 
-Rows stored under a retired name are renamed by the catalog migration and by
-``hmp catalog reindex``; a query naming one is refused with the new name.
+A query naming one is refused with the new name.
 """
 
 
@@ -223,12 +162,12 @@ class UnrankedMetricError(ValueError):
     """Raised when a metric has no declared direction, so best is undefined."""
 
 
-def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
-    """Return the ``ORDER BY`` expression that puts the best (or worst) value first.
+def metric_sense(metric: str) -> MetricSense:
+    """Return the direction of ``metric`` from :data:`METRIC_SENSE`.
 
-    Raises :class:`UnrankedMetricError` for a metric missing from
-    :data:`METRIC_SENSE`: taking the highest value of an error would hand back
-    the worst run under the name of the best one.
+    Raises :class:`UnrankedMetricError` for a retired name, with the name to
+    write, and for a metric without a declared direction: taking the highest
+    value of an error would hand back the worst run under the name of the best.
     """
     key = str(metric).strip().lower()
     if key in RETIRED_METRIC_NAMES:
@@ -242,6 +181,15 @@ def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
             f"Metric '{metric}' has no declared direction, so best and worst are "
             f"undefined for it. Metrics with a direction: {known}."
         )
+    return sense
+
+
+def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
+    """Return the ``ORDER BY`` expression that puts the best (or worst) value first.
+
+    The direction is :func:`metric_sense`, which refuses a metric without one.
+    """
+    sense = metric_sense(metric)
     if sense == "max":
         return f"{column} {'DESC' if best else 'ASC'}"
     if sense == "min":
@@ -253,19 +201,16 @@ def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
 __all__ = [
     "GLOBAL_ZONE",
     "METRIC_SENSE",
-    "OUTLET_STATION",
     "MESH_ENGINE_SQL",
     "PARQUET_VIEW_NAMES",
-    "PER_SIM_TABLE_NAMES",
     "RETIRED_METRIC_NAMES",
     "SOLVER_ALIASES",
-    "STALE_HEARTBEAT_MINUTES",
-    "TABLE_NAMES",
-    "TRASH_RETENTION_DAYS",
+    "MetricSense",
     "UnrankedMetricError",
     "VALID_SOLVER_CODES",
     "canonical_solver_code",
     "metric_rank_sql",
+    "metric_sense",
     "solver_category",
     "validate_solver_code",
 ]

@@ -505,9 +505,6 @@ base_config = "project.toml"
 [workflow]
 mode = "simulation"
 
-[workspace]
-project_root = "."
-
 [simulation]
 name = "{run_name}"
 description = "Scaffolded synthetic steady-flow run."
@@ -554,7 +551,6 @@ PROJECT_GITIGNORE = """\
 .hmp/
 runs/
 sessions/
-share/
 """
 
 

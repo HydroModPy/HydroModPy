@@ -1,64 +1,51 @@
-"""The summary view carries the metrics a run recorded, wherever it scored them.
+"""The summary views carry the headline score of a run under its metric rule.
 
-A run scored against a gauge on discharge stores its metrics under that gauge.
-The view used to read the outlet station on variable ``head`` only, so its
-``nse`` was NULL for every such run, here and in the federated view.
+``v_simulation_summary.nse`` is the NSE the run sealed at the declared station
+over the declared window, with that window beside it; a run sealed without a
+window has no score and the view says NULL.
 """
 
 from __future__ import annotations
 
-import uuid
+from datetime import date
 
-import pytest
-
-from hydromodpy.results.catalog.constants import OUTLET_STATION
-from tests._helpers.fixtures_catalog import simulation_catalog
-
-
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "ws") as cat:
-        yield cat
+from hydromodpy.results.catalog import Catalog, rebuild_index
+from hydromodpy.results.metric_rule import DateWindow
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
-def _run(cat, name: str, rows: list[tuple[str, str, str, float]]) -> str:
-    sid = str(uuid.uuid4())
-    cat.register_simulation(sid, project="p", solver="modflow6", name=name)
-    for station, variable, metric, value in rows:
-        cat.write_metric(sid, station, metric, value, variable=variable)
-    cat.finalize(sid, "completed")
-    return sid
+def _summary(root, name: str) -> tuple:
+    with Catalog(root) as cat:
+        return cat.backend.fetch_one(
+            "SELECT nse, nse_window_start, nse_window_end, nse_n, metric_rule_version "
+            "FROM v_simulation_summary WHERE name = ?",
+            [name],
+        )
 
 
-def _summary(cat, sid: str) -> dict[str, float | None]:
-    row = cat.backend.fetch_one(
-        "SELECT nse, kge, rmse FROM v_simulation_summary WHERE sim_id = ?", [sid]
-    )
-    return dict(zip(("nse", "kge", "rmse"), row, strict=True))
+def test_a_scored_run_shows_its_score_and_its_window(tmp_path) -> None:
+    root = make_project(tmp_path / "demo")
+    window = DateWindow(start=date(2018, 1, 1), end=date(2019, 12, 31))
+    seal_run(root, "scored", nse=0.7, window=window)
+    rebuild_index(root)
+
+    assert _summary(root, "scored") == (0.7, window.start, window.end, 1827, "1")
 
 
-def test_a_run_scored_on_one_gauge_shows_its_scores(catalog) -> None:
-    sid = _run(
-        catalog,
-        "gauged",
-        [("GAUGE", "discharge", "nse", 0.7), ("GAUGE", "discharge", "rmse", 0.02)],
-    )
-    assert _summary(catalog, sid) == {"nse": 0.7, "kge": None, "rmse": 0.02}
+def test_a_run_without_a_window_has_no_score(tmp_path) -> None:
+    root = make_project(tmp_path / "demo")
+    seal_run(root, "unscored", nse=None, window=None)
+    rebuild_index(root)
+
+    assert _summary(root, "unscored") == (None, None, None, None, None)
 
 
-def test_the_outlet_wins_over_another_station(catalog) -> None:
-    sid = _run(
-        catalog,
-        "both",
-        [(OUTLET_STATION, "head", "nse", 0.9), ("GAUGE", "discharge", "nse", 0.4)],
-    )
-    assert _summary(catalog, sid)["nse"] == 0.9
+def test_the_best_per_project_follows_the_headline_score(tmp_path) -> None:
+    root = make_project(tmp_path / "demo")
+    seal_run(root, "low", nse=0.3)
+    best = seal_run(root, "high", nse=0.9)
+    rebuild_index(root)
 
-
-def test_two_gauges_and_no_outlet_give_no_single_value(catalog) -> None:
-    sid = _run(
-        catalog,
-        "two",
-        [("A", "discharge", "nse", 0.6), ("B", "discharge", "nse", 0.3)],
-    )
-    assert _summary(catalog, sid)["nse"] is None
+    with Catalog(root) as cat:
+        row = cat.backend.fetch_one("SELECT CAST(sim_id AS VARCHAR), nse FROM v_best_per_project")
+    assert row == (best, 0.9)

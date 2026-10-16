@@ -109,7 +109,7 @@ def test_a_window_below_the_process_phase_builds_no_model_phase(
     assert len([line for line in plan.splitlines() if line.startswith("  ")]) == expected_steps
 
 
-@pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export", 11])
+@pytest.mark.parametrize("until_step", [None, "setup_process", "run_solver", "export", 12])
 def test_a_window_reaching_the_process_phase_leaves_it_to_the_pipeline(
     tmp_path: Path, until_step: str | int | None
 ) -> None:
@@ -168,7 +168,7 @@ def test_a_model_phase_ready_project_still_skips_forward_on_a_full_run(
 @pytest.mark.parametrize("bound", ["until_step", "from_step"])
 def test_a_step_outside_the_pipeline_is_refused(tmp_path: Path, bound: str) -> None:
     """An index past either end names no step, and no longer runs an empty plan."""
-    for out_of_range in (-1, 12, 99):
+    for out_of_range in (-1, 13, 99):
         with pytest.raises(ConfigError, match="outside the"):
             _dry_run(_StubProject(tmp_path), **{bound: out_of_range})
 
@@ -279,10 +279,12 @@ def test_a_partial_run_leaves_the_record_of_a_real_run_alone(
     _isolate_workspace(monkeypatch, tmp_path)
 
     run_id = "getting_started_dupuit"
-    finished = PipelineState(run_id=run_id, step_index=11, step_name="export", data={})
-    ResolvedRunManifest.from_state(finished, standard_steps(), tmp_path).write_atomic(tmp_path)
-    before = ResolvedRunManifest.read(tmp_path, run_id)
-    assert before is not None and len(before.steps) == 12
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    finished = PipelineState(run_id=run_id, step_index=12, step_name="seal", data={})
+    ResolvedRunManifest.from_state(finished, standard_steps(), tmp_path).write_atomic(run_dir)
+    before = ResolvedRunManifest.read(run_dir)
+    assert before is not None and len(before.steps) == 13
 
     project = Project(SYNTHETIC_PROJECT, headless=True, no_display=True)
     try:
@@ -290,7 +292,8 @@ def test_a_partial_run_leaves_the_record_of_a_real_run_alone(
     finally:
         project.close()
 
-    after = ResolvedRunManifest.read(tmp_path, run_id)
+    after = ResolvedRunManifest.read(run_dir)
     assert after is not None
     assert after.steps == before.steps, "the partial window rewrote a manifest it does not own"
     assert after.updated_at == before.updated_at
+    assert not (run_dir / "outcome.json").exists(), "a head-only window claims no directory"

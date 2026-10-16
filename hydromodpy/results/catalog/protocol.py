@@ -1,18 +1,10 @@
-"""SimulationStore Protocol for result-catalog backends.
+"""SimulationStore Protocol: what a run writes and what a reader reads.
 
-The default in-tree implementation is
-:class:`hydromodpy.results.catalog.Catalog`, backed by DuckDB
-for tabular state and Zarr / Parquet for field arrays and timeseries.
-
-Conforming alternative backends (PostgreSQL, Parquet-only, in-memory for
-tests, remote object storage) can be plugged behind this same contract
-without changing the workflow steps that consume it. Implementations
-conform structurally - no base class to inherit from.
-
-The contract is the minimal write/read surface that workflow steps,
-solver adapters, and post-run extractors actually call. Methods absent
-from this Protocol stay implementation-specific to ``Catalog``
-(``find``, ``rank``, archive package_io ...).
+The writes are implemented by the run store of a run directory
+(:mod:`hydromodpy.results.storage.run_store`), without any index; the reads
+by :class:`hydromodpy.results.catalog.Catalog`, from the index. Workflow
+steps, solver adapters and post-run extractors depend on this surface only.
+Implementations conform structurally, there is no base class to inherit.
 """
 
 from __future__ import annotations
@@ -26,7 +18,6 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
-    from hydromodpy.results.catalog.registration import RegistrationResult
     from hydromodpy.results.run import Run
     from hydromodpy.results.zarr_store import SimulationZarr
     from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
@@ -34,36 +25,22 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class SimulationStore(Protocol):
-    """Minimal write/read contract for a simulation results catalog.
+    """Minimal write/read contract of a simulation results store.
 
-    The Protocol covers four concerns:
+    The Protocol covers three concerns:
 
-    - registration: ``register_simulation``;
     - per-simulation writes: ``write_parameters``, ``write_timeseries``,
       ``write_field``, ``write_time``, ``write_crs``, ``write_mesh``, ``write_provenance``,
       ``write_metric``, ``write_run_environment``, ``register_tracked_files``;
     - reads / queries: ``query_field``, ``query_timeseries``,
       ``list_simulations``, ``__getitem__``, ``open_zarr``;
-    - lifecycle: ``finalize``, ``close`` (plus ``__enter__`` / ``__exit__``).
+    - lifetime: ``close`` (plus ``__enter__`` / ``__exit__``).
 
-    Concrete backends are free to expose richer surfaces (discovery,
-    ranking, ML splits, archive import/export). Workflow consumers must
-    only depend on what is declared here.
+    Concrete stores are free to expose richer surfaces (discovery, ranking,
+    ML splits). Workflow consumers depend only on what is declared here.
     """
 
     workspace_path: Path
-
-    def register_simulation(
-        self,
-        sim_id: str | UUID,
-        project: str,
-        solver: str,
-        *,
-        name: str | None = None,
-        if_exists: str = "version",
-        **kwargs: Any,
-    ) -> RegistrationResult:
-        """Allocate a new simulation row and return its registration result."""
 
     def write_parameters(
         self,
@@ -167,32 +144,6 @@ class SimulationStore(Protocol):
         inverse_flattening: float | None = None,
     ) -> None:
         """Persist the CF CRS grid mapping for ``sim_id``."""
-
-    def write_observations(
-        self,
-        station_id: str,
-        variable_type: str,
-        ts: Any,
-        unit: str = "",
-        quality: str | None = None,
-    ) -> None:
-        """Persist observed station timeseries in the workspace observation table."""
-
-    def write_station(
-        self,
-        station_id: str,
-        variable_type: str,
-        *,
-        name: str | None = None,
-        latitude: float | None = None,
-        longitude: float | None = None,
-        elevation: float | None = None,
-        source: str | None = None,
-        first_valid: Any = None,
-        last_valid: Any = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        """Persist station metadata for an observed timeseries."""
 
     def write_mesh(
         self,
@@ -316,12 +267,8 @@ class SimulationStore(Protocol):
     ) -> pd.Series:
         """Read a per-station simulated timeseries for ``sim_id``."""
 
-    def list_simulations(self, *, named_only: bool = False, **filters: Any) -> pd.DataFrame:
-        """Return one DataFrame row per simulation matching ``filters``.
-
-        ``named_only=True`` drops technical rows: replaced runs whose name was
-        cleared (``name IS NULL``) and effective-config snapshots (dotted names).
-        """
+    def list_simulations(self, **filters: Any) -> pd.DataFrame:
+        """Return one DataFrame row per sealed run matching ``filters``."""
 
     def run_dir_for(self, sim_id: str | UUID) -> Path:
         """Return the directory holding everything ``sim_id`` produced."""
@@ -334,12 +281,6 @@ class SimulationStore(Protocol):
 
     def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
         """Open the per-simulation Zarr store for ``sim_id``."""
-
-    def finalize(self, sim_id: str | UUID, status: str = "completed") -> None:
-        """Mark ``sim_id`` final, set its status, and pack on-disk artefacts.
-
-        The run's duration is derived from its own timestamps, never passed in.
-        """
 
     def close(self) -> None:
         """Release every open resource (DB connection, Zarr handles)."""

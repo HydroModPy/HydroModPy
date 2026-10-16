@@ -19,8 +19,6 @@ The asserts target genuine invariants derived from the science:
 
 from __future__ import annotations
 
-from uuid import uuid4
-
 import numpy as np
 import pytest
 
@@ -28,31 +26,18 @@ from hydromodpy.core.field_routing import (
     drain_budget_to_positive_outflow,
     positive_cell_flux_stack,
 )
-from tests._helpers.fixtures_catalog import simulation_catalog
+
+from ._test_simulation_api_builders import RunBuilder, runs
+
+__all__ = ["runs"]
 
 
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+def _register(runs: RunBuilder, *, n_ts, n_layers, n_cells):
+    store = runs.open(solver="modflow_nwt", n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts)
+    return store.sim_id
 
 
-def _register(catalog, *, n_ts, n_layers, n_cells):
-    sid = str(uuid4())
-    reg = catalog.register_simulation(
-        sid,
-        project="test",
-        solver="modflow_nwt",
-        n_cells=n_cells,
-        n_layers=n_layers,
-        n_timesteps=n_ts,
-    )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    return sid
-
-
-def _write_mesh(catalog, sid, *, n_cells):
+def _write_mesh(runs, sid, *, n_cells):
     """Minimal UGRID mesh so seepage/topography branches have data."""
     verts = np.random.default_rng(0).random((n_cells + 2, 2))
     conn = np.column_stack(
@@ -63,28 +48,30 @@ def _write_mesh(catalog, sid, *, n_cells):
         ]
     ).astype("int32")
     z_intf = np.array([10.0, 5.0, 0.0])
-    catalog.write_mesh(sid, verts, conn, z_intf)
+    runs.store(sid).write_mesh(sid, verts, conn, z_intf)
 
 
-def _write_head(catalog, sid, head_stack, *, n_ts):
+def _write_head(runs, sid, head_stack, *, n_ts):
     for t in range(n_ts):
-        catalog.write_field(sid, "head", t, head_stack[t], n_timesteps=n_ts if t == 0 else None)
+        runs.store(sid).write_field(
+            sid, "head", t, head_stack[t], n_timesteps=n_ts if t == 0 else None
+        )
 
 
 class TestMassSeepageConservation:
     """The full transport chain: concentration -> mass -> accumulated mass."""
 
-    def _seed(self, catalog, *, n_ts, n_cells, conc_stack, drn_stack, seep_stack):
+    def _seed(self, runs, *, n_ts, n_cells, conc_stack, drn_stack, seep_stack):
         """Seed head, mesh, concentration, drain budget and seepage mask."""
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
 
         # The head only gives the run its shape; it is irrelevant to the transport math.
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
 
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "concentration",
                 t,
@@ -92,7 +79,7 @@ class TestMassSeepageConservation:
                 n_timesteps=n_ts if t == 0 else None,
             )
             # Drain budget is signed: negative = outflow to the drain.
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -101,7 +88,7 @@ class TestMassSeepageConservation:
                 subgroup="budget",
             )
             # A seepage mask an earlier run stored: it decides the seepage cells.
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "seepage_mask",
                 t,
@@ -111,7 +98,7 @@ class TestMassSeepageConservation:
             )
         return sid
 
-    def test_concentration_then_mass_then_accumulated_closure(self, catalog):
+    def test_concentration_then_mass_then_accumulated_closure(self, runs):
         n_ts, n_cells = 4, 6
         rng = np.random.default_rng(7)
 
@@ -128,7 +115,7 @@ class TestMassSeepageConservation:
         stable[:3] = True
 
         sid = self._seed(
-            catalog,
+            runs,
             n_ts=n_ts,
             n_cells=n_cells,
             conc_stack=conc,
@@ -138,7 +125,7 @@ class TestMassSeepageConservation:
 
         # 1) concentration_seepage = conc where seepage active, NaN otherwise.
         for t in range(n_ts):
-            cs = catalog.query_field(sid, "concentration_seepage", t)
+            cs = runs.reader().query_field(sid, "concentration_seepage", t)
             active = seep[t] > 0
             assert np.allclose(cs[active], conc[t][active])
             assert np.all(np.isnan(cs[~active]))
@@ -147,7 +134,7 @@ class TestMassSeepageConservation:
         #    Units: (mass/m3) * (m3/s) = mass/s.
         mass = np.full((n_ts, n_cells), np.nan)
         for t in range(n_ts):
-            ms = catalog.query_field(sid, "mass_seepage", t)
+            ms = runs.reader().query_field(sid, "mass_seepage", t)
             active = seep[t] > 0
             pos_out = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
             expected = np.where(active, conc[t] * pos_out, np.nan)
@@ -162,7 +149,7 @@ class TestMassSeepageConservation:
         #    cumul[t] = cumul[t-1] + mass_seepage[t] cell by cell (NaN-aware).
         prev = np.zeros(n_cells)
         for t in range(n_ts):
-            ma = catalog.query_field(sid, "mass_accumulated", t)
+            ma = runs.reader().query_field(sid, "mass_accumulated", t)
             expected_cumul = prev + mass[t]
             assert np.allclose(ma, expected_cumul, equal_nan=True)
             prev = ma
@@ -173,31 +160,31 @@ class TestMassSeepageConservation:
         partial = np.zeros(np.count_nonzero(stable))
         prev_partial = np.zeros(np.count_nonzero(stable))
         for t in range(n_ts):
-            ma = catalog.query_field(sid, "mass_accumulated", t)[stable]
+            ma = runs.reader().query_field(sid, "mass_accumulated", t)[stable]
             partial = partial + mass[t][stable]
             assert np.allclose(ma, partial)
             assert np.all(ma + 1e-12 >= prev_partial)
             prev_partial = ma
 
-    def test_mass_seepage_is_the_concentration_when_the_run_has_no_drain(self, catalog):
+    def test_mass_seepage_is_the_concentration_when_the_run_has_no_drain(self, runs):
         """Without a drain budget key, flux defaults to ones -> mass == conc."""
         n_ts, n_cells = 2, 4
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
 
         conc = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
         seep = np.array([[1, 1, 0, 0], [1, 0, 1, 0]], dtype="float64")
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "concentration",
                 t,
                 conc[t],
                 n_timesteps=n_ts if t == 0 else None,
             )
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "seepage_mask",
                 t,
@@ -207,7 +194,7 @@ class TestMassSeepageConservation:
             )
             # Non-drain budget key so find_drain_budget_key returns None but
             # budget_grp is not None (mass_seepage uses flux=ones fallback).
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "surface_excess",
                 t,
@@ -217,7 +204,7 @@ class TestMassSeepageConservation:
             )
 
         for t in range(n_ts):
-            ms = catalog.query_field(sid, "mass_seepage", t)
+            ms = runs.reader().query_field(sid, "mass_seepage", t)
             active = seep[t] > 0
             # flux=1 fallback -> mass == concentration at seepage cells.
             assert np.allclose(ms[active], conc[t][active])
@@ -227,19 +214,19 @@ class TestMassSeepageConservation:
 class TestReleaseFluxNonNegative:
     """release_flux combines drain and surface-excess positive outflow."""
 
-    def test_release_equals_sum_of_positive_components(self, catalog):
+    def test_release_equals_sum_of_positive_components(self, runs):
         n_ts, n_cells = 3, 5
         rng = np.random.default_rng(11)
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
 
         drn = -rng.uniform(0.0, 2.0, (n_ts, n_cells))
         # surface_excess is a positive per-cell outflow (already a release).
         sexc = rng.uniform(0.0, 1.5, (n_ts, n_cells))
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -247,7 +234,7 @@ class TestReleaseFluxNonNegative:
                 n_timesteps=n_ts if t == 0 else None,
                 subgroup="budget",
             )
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "surface_excess",
                 t,
@@ -257,7 +244,7 @@ class TestReleaseFluxNonNegative:
             )
 
         for t in range(n_ts):
-            rf = catalog.query_field(sid, "release_flux", t)
+            rf = runs.reader().query_field(sid, "release_flux", t)
             pos_drn = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
             # The surface excess is already a non-negative release.
             expected = pos_drn + np.maximum(sexc[t], 0.0)
@@ -270,27 +257,27 @@ class TestReleaseFluxNonNegative:
 class TestTheChainFromTheHead:
     """The seepage cells come from the stored head when no mask was stored."""
 
-    def test_full_transport_chain_is_read_from_the_stored_terms(self, catalog):
+    def test_full_transport_chain_is_read_from_the_stored_terms(self, runs):
         n_ts, n_cells = 3, 5
         rng = np.random.default_rng(99)
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
 
         # heads above topography (top=10) on first cells -> non-empty seepage.
         head = rng.uniform(8.0, 12.0, (n_ts, 1, n_cells))
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
 
         conc = rng.uniform(1.0, 4.0, (n_ts, n_cells))
         drn = -rng.uniform(0.0, 2.0, (n_ts, n_cells))
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "concentration",
                 t,
                 conc[t],
                 n_timesteps=n_ts if t == 0 else None,
             )
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -303,10 +290,10 @@ class TestTheChainFromTheHead:
         # mass_seepage (NaN-aware).
         mass = np.full((n_ts, n_cells), np.nan)
         for t in range(n_ts):
-            mass[t] = catalog.query_field(sid, "mass_seepage", t)
+            mass[t] = runs.reader().query_field(sid, "mass_seepage", t)
         prev = np.zeros(n_cells)
         for t in range(n_ts):
-            ma = catalog.query_field(sid, "mass_accumulated", t)
+            ma = runs.reader().query_field(sid, "mass_accumulated", t)
             assert np.allclose(ma, prev + mass[t], equal_nan=True)
             # finite accumulated values are non-negative (sources >= 0).
             assert np.all(ma[np.isfinite(ma)] >= 0.0)
@@ -316,14 +303,14 @@ class TestTheChainFromTheHead:
 class TestSoluteChainDependencies:
     """A solute field that cannot be rebuilt is not served."""
 
-    def test_a_flow_only_store_serves_no_solute_field(self, catalog):
+    def test_a_flow_only_store_serves_no_solute_field(self, runs):
         # The flow run of a flow-then-transport plan holds no concentration.
         n_ts, n_cells = 2, 4
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
-        _write_head(catalog, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
+        _write_head(runs, sid, np.full((n_ts, 1, n_cells), 9.0), n_ts=n_ts)
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -334,24 +321,24 @@ class TestSoluteChainDependencies:
 
         for variable in ("concentration_seepage", "mass_seepage", "mass_accumulated"):
             with pytest.raises(KeyError):
-                catalog.query_field(sid, variable, 0)
+                runs.reader().query_field(sid, variable, 0)
 
 
 class TestDrainRoutingChain:
     """outflow_drain and the accumulation/release routing fallbacks.
 
-    The catalog mesh carries no ``topography`` array and no stored descent, so
+    The stored mesh carries no ``topography`` array and no stored descent, so
     there is nothing to route on: the accumulation fields are not served, and
     never replaced by the local flux under the routed name.
     """
 
-    def _seed_drain(self, catalog, *, n_ts, n_cells, drn_stack, surface_excess=None):
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
-        _write_mesh(catalog, sid, n_cells=n_cells)
+    def _seed_drain(self, runs, *, n_ts, n_cells, drn_stack, surface_excess=None):
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        _write_mesh(runs, sid, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -360,7 +347,7 @@ class TestDrainRoutingChain:
                 subgroup="budget",
             )
             if surface_excess is not None:
-                catalog.write_field(
+                runs.store(sid).write_field(
                     sid,
                     "surface_excess",
                     t,
@@ -370,48 +357,46 @@ class TestDrainRoutingChain:
                 )
         return sid
 
-    def test_outflow_drain_equals_positive_outflow(self, catalog):
+    def test_outflow_drain_equals_positive_outflow(self, runs):
         n_ts, n_cells = 3, 5
         rng = np.random.default_rng(21)
         # mix signed outflow with some nodata to exercise the sign convention.
         drn = -rng.uniform(0.0, 4.0, (n_ts, n_cells))
         drn[0, 0] = -99999.0  # nodata sentinel -> treated as zero outflow
-        sid = self._seed_drain(catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn)
+        sid = self._seed_drain(runs, n_ts=n_ts, n_cells=n_cells, drn_stack=drn)
 
         for t in range(n_ts):
-            od = catalog.query_field(sid, "outflow_drain", t)
+            od = runs.reader().query_field(sid, "outflow_drain", t)
             expected = drain_budget_to_positive_outflow(drn[t], n_cells=n_cells)
             assert np.allclose(od, expected)
             # outflow is a positive volumetric flux (m3/s), non-negative, finite.
             assert np.all(od >= 0.0)
             assert np.all(np.isfinite(od))
         # nodata cell has zero outflow at t=0.
-        assert catalog.query_field(sid, "outflow_drain", 0)[0] == 0.0
+        assert runs.reader().query_field(sid, "outflow_drain", 0)[0] == 0.0
 
-    def test_no_accumulation_is_served_without_a_route(self, catalog):
+    def test_no_accumulation_is_served_without_a_route(self, runs):
         n_ts, n_cells = 2, 4
         rng = np.random.default_rng(22)
         drn = -rng.uniform(0.1, 3.0, (n_ts, n_cells))
         sexc = rng.uniform(0.0, 1.0, (n_ts, n_cells))
-        sid = self._seed_drain(
-            catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, surface_excess=sexc
-        )
+        sid = self._seed_drain(runs, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, surface_excess=sexc)
 
         for variable in ("accumulation_flux", "release_accumulation_flux"):
             with pytest.raises(KeyError):
-                catalog.query_field(sid, variable, 0)
+                runs.reader().query_field(sid, variable, 0)
         # The local fluxes stay readable.
-        assert np.all(catalog.query_field(sid, "release_flux", 0) >= 0.0)
+        assert np.all(runs.reader().query_field(sid, "release_flux", 0) >= 0.0)
 
-    def test_outflow_drain_is_not_served_without_budget(self, catalog):
+    def test_outflow_drain_is_not_served_without_budget(self, runs):
         """No budget group -> outflow_drain is not served."""
         n_ts, n_cells = 2, 3
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
 
         with pytest.raises(KeyError):
-            catalog.query_field(sid, "outflow_drain", 0)
+            runs.reader().query_field(sid, "outflow_drain", 0)
 
 
 class TestMeshGraphRouting:
@@ -422,8 +407,8 @@ class TestMeshGraphRouting:
     source mass: the outlet carries the full basin input.
     """
 
-    def _seed_routable(self, catalog, *, n_ts, n_cells, drn_stack, topo):
-        sid = _register(catalog, n_ts=n_ts, n_layers=1, n_cells=n_cells)
+    def _seed_routable(self, runs, *, n_ts, n_cells, drn_stack, topo):
+        sid = _register(runs, n_ts=n_ts, n_layers=1, n_cells=n_cells)
         # Strip of quads sharing vertical edges -> a real downhill line graph.
         # Bottom row nodes 0..n_cells, top row nodes n_cells+1..2*n_cells+1.
         bottom = np.column_stack([np.arange(n_cells + 1, dtype="float64"), np.zeros(n_cells + 1)])
@@ -434,13 +419,13 @@ class TestMeshGraphRouting:
             dtype="int32",
         )
         z_intf = np.array([float(topo.max()) + 1.0, 0.0])
-        catalog.write_mesh(sid, verts, conn, z_intf)
+        runs.store(sid).write_mesh(sid, verts, conn, z_intf)
         # Inject topography directly into the mesh subgroup so the descent can be rebuilt.
-        catalog.write_field(sid, "topography", 0, topo, n_timesteps=1, subgroup="mesh")
+        runs.store(sid).write_field(sid, "topography", 0, topo, n_timesteps=1, subgroup="mesh")
         head = np.full((n_ts, 1, n_cells), 9.0)
-        _write_head(catalog, sid, head, n_ts=n_ts)
+        _write_head(runs, sid, head, n_ts=n_ts)
         for t in range(n_ts):
-            catalog.write_field(
+            runs.store(sid).write_field(
                 sid,
                 "drain",
                 t,
@@ -450,15 +435,15 @@ class TestMeshGraphRouting:
             )
         return sid
 
-    def test_routed_accumulation_conserves_total_mass(self, catalog):
+    def test_routed_accumulation_conserves_total_mass(self, runs):
         n_ts, n_cells = 1, 5
         # strictly decreasing topography -> single downhill chain to last cell.
         topo = np.array([50.0, 40.0, 30.0, 20.0, 10.0])
         drn = -np.array([[1.0, 1.0, 1.0, 1.0, 1.0]])  # 1 m3/s released per cell
-        sid = self._seed_routable(catalog, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, topo=topo)
+        sid = self._seed_routable(runs, n_ts=n_ts, n_cells=n_cells, drn_stack=drn, topo=topo)
 
         local = drain_budget_to_positive_outflow(drn[0], n_cells=n_cells)
-        acc = catalog.query_field(sid, "accumulation_flux", 0)
+        acc = runs.reader().query_field(sid, "accumulation_flux", 0)
         acc_finite = acc[np.isfinite(acc)]
         # The routed field differs from the local field (routing actually ran).
         assert not np.allclose(acc, local)

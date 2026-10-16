@@ -5,18 +5,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from hydromodpy.reporting.comparison.compact_network.io import (
-    SimulationMeta,
-    SimulationRecord,
-    resolve_recorded_path,
-)
-from hydromodpy.reporting.comparison.compact_network.sections import (
-    configuration_cell,
-    figure_preview,
-    metric_bar,
-    metric_grid,
-    solver_summary,
-)
 from hydromodpy.reporting.comparison.figures import (
     categorize_figures,
     configuration_figures,
@@ -103,71 +91,3 @@ def test_categorize_figures_filters_and_orders_report_figures(tmp_path) -> None:
         "case_configuration.png"
     ]
     assert include_in_comparison_report({"path": "native_solver_detail.png"}) is False
-
-
-def test_resolve_recorded_path_normalizes_windows_and_relative_paths(tmp_path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    windows_path = resolve_recorded_path(r"C:\tmp\run_a")
-    relative_path = resolve_recorded_path("outputs/run_b")
-
-    if os.name == "nt":
-        assert windows_path == Path(r"C:\tmp\run_a").resolve()
-    else:
-        assert windows_path.as_posix() == "/mnt/c/tmp/run_a"
-    assert relative_path == (tmp_path / "outputs" / "run_b").resolve()
-
-
-def test_compact_network_sections_escape_labels_and_render_missing_figures(tmp_path) -> None:
-    page = tmp_path / "web" / "compact.html"
-    figure_root = tmp_path / "field_figures"
-    figure = figure_root / "sim-a" / "release_flux_log_intensity.png"
-    figure.parent.mkdir(parents=True)
-    figure.write_bytes(b"png")
-    record = SimulationRecord(
-        meta=SimulationMeta(
-            simulation_id="sim-a",
-            label="<MF6 & ref>",
-            group="regular",
-            mesh_summary="regular_grid",
-        ),
-        solver="modflow6",
-        release_distance={"catchment_cell_count": "1234"},
-    )
-
-    html = figure_preview(page, figure_root, record, "release_flux", "<Release & flux>")
-    missing = figure_preview(page, figure_root, record, "missing", "Missing")
-    config = configuration_cell(record)
-
-    assert "field_figures/sim-a/release_flux_log_intensity.png" in html
-    assert "data-lightbox-src" in html
-    assert "&lt;MF6 &amp; ref&gt; - &lt;Release &amp; flux&gt;" in html
-    assert missing == '<div class="figure-missing">figure not available</div>'
-    assert "&lt;MF6 &amp; ref&gt;" in config
-    assert "regular grid" in config
-    assert "1 234 computation cells" in config
-    assert solver_summary(record) == "MODFLOW 6"
-
-
-def test_compact_network_metric_bars_clamp_and_format_values() -> None:
-    row = {
-        "sim_to_network_distance_mean_m": "1234",
-        "network_to_sim_distance_mean_m": "9",
-        "planar_distance_ratio": "1.234",
-        "bidirectional_distance_mean_m": "200",
-    }
-
-    assert metric_bar({"bidirectional_distance_mean_m": "1"}, max_distance=100.0) == (
-        '<div class="bar" style="width:4.0%"></div>'
-    )
-    assert metric_bar({"bidirectional_distance_mean_m": "200"}, max_distance=100.0) == (
-        '<div class="bar" style="width:100.0%"></div>'
-    )
-    assert metric_bar({"bidirectional_distance_mean_m": "bad"}, max_distance=100.0) == (
-        '<div class="bar" style="width:0.0%"></div>'
-    )
-
-    html = metric_grid(row, max_distance=100.0)
-    assert "1 234 m" in html
-    assert "1.23" in html
-    assert "width:100.0%" in html

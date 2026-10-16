@@ -30,63 +30,13 @@ def _fingerprints(root: Path) -> dict[str, tuple[int, str]]:
     }
 
 
-def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None:
-    inputs = NANCON_REPORT_INPUTS
-    config_path.write_text(
-        "\n".join(
-            [
-                "[report]",
-                f'site_label = "{inputs.site_label}"',
-                f'station_label = "{inputs.station_label}"',
-                f'output_dir = "{output_dir.as_posix()}"',
-                "",
-                "[layout]",
-                f'watershed_project_dir = "{inputs.watershed_project_dir.as_posix()}"',
-                f'context_outputs_dir = "{inputs.context_outputs_dir.as_posix()}"',
-                f'data_overview_project_dir = "{inputs.data_overview_project_dir.as_posix()}"',
-                f'simulation_workspace_dir = "{inputs.simulation_workspace_dir.as_posix()}"',
-                f'simulation_name = "{inputs.simulation_name}"',
-                f'context_summary_name = "{inputs.context_summary.name}"',
-                f'transient_config_name = "{inputs.transient_config.name}"',
-                f'overview_config_name = "{inputs.overview_config.name}"',
-                "",
-                "[pipeline]",
-                f"run_overview = {str(inputs.pipeline_run_overview).lower()}",
-                f"run_simulation = {str(inputs.pipeline_run_simulation).lower()}",
-                f"build_context_artifacts = {str(inputs.pipeline_build_context_artifacts).lower()}",
-                f"build_report_html = {str(inputs.pipeline_build_report_html).lower()}",
-                f"strict_figure_postflight = {str(inputs.pipeline_strict_figure_postflight).lower()}",
-                "",
-                "[context.observed_discharge]",
-                f'path = "{inputs.observed_discharge_path.as_posix()}"',
-                f'station_id = "{inputs.observed_discharge_station_id}"',
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-
 def test_nancon_example_report_config_uses_generic_contract() -> None:
     config = CatchmentReportConfig.from_inputs(NANCON_REPORT_INPUTS)
 
-    assert NANCON_REPORT_INPUTS.output_dir == (
-        REPO_ROOT
-        / "examples"
-        / "projects"
-        / "16_nancon_natural_calibration"
-        / "outputs"
-        / "nancon_real_figures"
-    )
+    run = REPO_ROOT / "examples" / "projects" / "02_nancon_watershed" / "runs" / "transient_nwt"
+    assert NANCON_REPORT_INPUTS.output_dir == run / "report"
     assert NANCON_REPORT_INPUTS.context_summary == (
-        REPO_ROOT
-        / "examples"
-        / "projects"
-        / "16_nancon_natural_calibration"
-        / "outputs"
-        / "nancon_context"
-        / "context"
-        / "nancon_catchment_context_summary.json"
+        run / "report" / "context" / "nancon_catchment_context_summary.json"
     )
     assert NANCON_REPORT_INPUTS.preset_name is None
     assert config.preset is GENERIC_REPORT_PRESET
@@ -155,16 +105,9 @@ def test_generated_report_ignore_policy_is_not_basin_specific() -> None:
 
 def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
     derived = CatchmentReportInputs.from_project_layout(
-        output_dir=NANCON_REPORT_INPUTS.output_dir,
         site_label=NANCON_REPORT_INPUTS.site_label,
         station_label=NANCON_REPORT_INPUTS.station_label,
         watershed_project_dir=REPO_ROOT / "examples" / "projects" / "02_nancon_watershed",
-        context_outputs_dir=REPO_ROOT
-        / "examples"
-        / "projects"
-        / "16_nancon_natural_calibration"
-        / "outputs"
-        / "nancon_context",
         data_overview_project_dir=REPO_ROOT / "examples" / "projects" / "02_nancon_watershed",
         simulation_workspace_dir=REPO_ROOT / "examples" / "projects" / "02_nancon_watershed",
         simulation_name="transient_nwt",
@@ -223,30 +166,38 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     assert config.preset is GENERIC_REPORT_PRESET
 
 
-def _write_synthetic_report_config(config_path: Path, root: Path, output_dir: Path) -> None:
+def _write_synthetic_report_config(config_path: Path, root: Path) -> Path:
     """Lay out the smallest project the report pipeline accepts, on tmp_path.
 
-    The real Nancon inputs live under ``examples/**/outputs/``, which
-    ``.gitignore`` excludes, so a test that reads them can only ever skip.
-    Everything the builder needs is either a directory it globs for figures
-    (empty is legal) or one small JSON, so the whole thing fits in tmp_path.
+    The real Nancon inputs are not in the repository, so a test that reads them
+    can only ever skip. The run the report describes is sealed under
+    ``runs/t/``; its context summary sits in ``report/context/`` of that run.
+    Everything else the builder needs is a directory it globs for figures
+    (empty is legal), so the whole thing fits in tmp_path. Returns the
+    ``report/`` folder of the run.
     """
+    from tests._helpers.sealed_run import seal_demo_run
+
     watershed = root / "watershed"
-    context = root / "context"
     data_overview = root / "data_overview"
     simulation = root / "sim_workspace"
     for directory in (watershed, data_overview, simulation):
         directory.mkdir(parents=True, exist_ok=True)
-    (context / "context").mkdir(parents=True, exist_ok=True)
+    report = runs_dir_for(simulation) / "t" / "report"
+    if not report.parent.is_dir():
+        seal_demo_run(simulation, "t")
+    context = report / "context"
     (context / "web" / "assets").mkdir(parents=True, exist_ok=True)
-    (context / "context" / "site_gauged_context_summary.json").write_text(
+    (context / "site_gauged_context_summary.json").write_text(
         json.dumps({"configuration": {"site": "synthetic", "epsg": 2154}}),
         encoding="utf-8",
     )
     # CatchmentReportInputs resolves these two against watershed_project_dir
     # and data_overview_project_dir, not against the simulation workspace.
     (watershed / "transient.toml").write_text('[simulation]\nname = "t"\n', encoding="utf-8")
-    (data_overview / "overview.toml").write_text('[simulation]\nname = "o"\n', encoding="utf-8")
+    (data_overview / "overview.toml").write_text(
+        '[site]\nname = "o"\n\n[simulation]\nname = "o"\n', encoding="utf-8"
+    )
 
     config_path.write_text(
         "\n".join(
@@ -254,11 +205,9 @@ def _write_synthetic_report_config(config_path: Path, root: Path, output_dir: Pa
                 "[report]",
                 'site_label = "synthetic"',
                 'station_label = "S1"',
-                f'output_dir = "{output_dir.as_posix()}"',
                 "",
                 "[layout]",
                 f'watershed_project_dir = "{watershed.as_posix()}"',
-                f'context_outputs_dir = "{context.as_posix()}"',
                 f'data_overview_project_dir = "{data_overview.as_posix()}"',
                 f'simulation_workspace_dir = "{simulation.as_posix()}"',
                 'simulation_name = "t"',
@@ -270,28 +219,28 @@ def _write_synthetic_report_config(config_path: Path, root: Path, output_dir: Pa
         ),
         encoding="utf-8",
     )
+    return report
 
 
 REPORT_PAGES = (
-    Path("web") / "index.html",
-    Path("web_review") / "compact" / "index.html",
-    Path("web_review") / "standard" / "index.html",
-    Path("web_review") / "audit" / "index.html",
-    Path("web_review") / "by_block" / "index.html",
+    Path("index.html"),
+    Path("review") / "compact" / "index.html",
+    Path("review") / "standard" / "index.html",
+    Path("review") / "audit" / "index.html",
+    Path("review") / "by_block" / "index.html",
 )
 
 
 def test_report_catchment_cli_builds_every_page(tmp_path) -> None:
-    """`hmp report catchment --report-only` emits the five documented pages.
+    """`hmp report catchment --report-only` emits the five pages under report/ of the run.
 
     This is the only test in the suite that reaches ``build_catchment_report``
     without a monkeypatch: every other report test stubs the builder out.
     """
     from hydromodpy.cli.main import main as hmp_cli_main
 
-    output_dir = tmp_path / "report"
     config_path = tmp_path / "catchment_report.toml"
-    _write_synthetic_report_config(config_path, tmp_path / "project", output_dir)
+    output_dir = _write_synthetic_report_config(config_path, tmp_path / "project")
 
     hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
 
@@ -311,18 +260,16 @@ def test_report_catchment_cli_regeneration_is_byte_identical(tmp_path) -> None:
     from hydromodpy.cli.main import main as hmp_cli_main
 
     config_path = tmp_path / "catchment_report.toml"
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-
-    _write_synthetic_report_config(config_path, tmp_path / "project", first)
+    report = _write_synthetic_report_config(config_path, tmp_path / "project")
     hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
+    first = {page: (report / page).read_text(encoding="utf-8") for page in REPORT_PAGES}
+    first_figures = _fingerprints(report / "figures")
 
-    _write_synthetic_report_config(config_path, tmp_path / "project", second)
+    _write_synthetic_report_config(config_path, tmp_path / "project")
     hmp_cli_main(["report", "catchment", str(config_path), "--report-only"])
 
     for page in REPORT_PAGES:
-        assert (second / page).read_text(encoding="utf-8") == (first / page).read_text(
-            encoding="utf-8"
-        ), f"non-deterministic report page: {page}"
-
-    assert _fingerprints(second / "web" / "figures") == _fingerprints(first / "web" / "figures")
+        assert (report / page).read_text(encoding="utf-8") == first[page], (
+            f"non-deterministic report page: {page}"
+        )
+    assert _fingerprints(report / "figures") == first_figures

@@ -92,7 +92,7 @@ the three years that step 4 simulates.
 | `downslope_distance_map` | As in step 2 |
 
 The exports are step 2's four, plus the permanent reaches as a GeoPackage of their own:
-six files in `share/nancon_step3_api/`.
+six files in `runs/nancon_step3_api/exports/`.
 
 ## Key fields
 

@@ -48,7 +48,7 @@ def test_extract_step_extracts_solver_outputs(monkeypatch, tmp_path: Path) -> No
     def _fake_scope(_ctx):
         yield "store"
 
-    monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_catalog", _fake_scope)
+    monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_store", _fake_scope)
 
     ctx = SimpleNamespace(
         # A real registry, not a namespace: the step builds its run contexts
@@ -121,7 +121,7 @@ def _stub_extraction(monkeypatch) -> list[BudgetKeep]:
     def _fake_scope(_ctx):
         yield "store"
 
-    monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_catalog", _fake_scope)
+    monkeypatch.setattr("hydromodpy.workflow.steps.extract.run_store", _fake_scope)
     return seen
 
 

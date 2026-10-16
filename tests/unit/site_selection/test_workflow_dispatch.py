@@ -1,51 +1,124 @@
+"""``hmp site select`` runs a selection file; the workflow mode is gone.
+
+The ``[workflow] mode = "site_selection"`` route of ``hmp run`` is retired: a
+site selection is run by ``hmp site select <file>``, which writes under the
+``output_root`` the file declares and, with ``--into-catalog``, declares the
+selected sites in the workspace catalog.
+"""
+
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.commands.run import _infer_workflow_from_sections
-from hydromodpy.project.dispatch import workflow as project_workflow
-from hydromodpy.workflow.dispatch import KNOWN_WORKFLOWS, resolve_workflow
+from hydromodpy.cli.commands import site
+from hydromodpy.config.hydromodpy_config import WorkflowConfig
+from hydromodpy.data.sites.catalog import read_catalog
 
 
-@pytest.mark.fast
-def test_site_selection_is_registered_workflow(tmp_path: Path):
-    config_path = tmp_path / "selection.toml"
-    config_path.write_text(
+def _hmp_site(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="hmp")
+    site.register(parser.add_subparsers(dest="command"))
+    args = parser.parse_args(["site", *argv])
+    args._handler(args)
+
+
+def _selection(tmp_path: Path, mode: str = "delineated_catchments") -> Path:
+    (tmp_path / "catchments.csv").write_text(
+        "site_id,x,y,area_km2\nsite_ok,350000,6800000,100\nsite_bad,360000,6810000,50\n",
+        encoding="utf-8",
+    )
+    path = tmp_path / "selection.toml"
+    path.write_text(
         "\n".join(
             [
-                "[workflow]",
-                'mode = "site_selection"',
-                "",
                 "[site_selection]",
                 'selection_id = "demo"',
                 'output_root = "out"',
+                "",
+                "[site_selection.input]",
+                f'mode = "{mode}"',
+                'catchments_csv = "catchments.csv"',
+                "",
+                "[site_selection.strategy]",
+                'principle = "criteria_crossing"',
+                'profile = "area_only"',
+                'primary_axes = ["area"]',
+                "",
+                "[site_selection.territory]",
+                'mode = "admin_regions"',
+                'country = "FR"',
+                'regions = ["Bretagne"]',
+                "",
+                "[site_selection.criteria.area]",
+                'mode = "hard_reject"',
+                "hard_min_area_km2 = 75.0",
+                "hard_max_area_km2 = 125.0",
             ]
         ),
         encoding="utf-8",
     )
-
-    assert "site_selection" in KNOWN_WORKFLOWS
-    assert "site_selection" in project_workflow.DISPATCH
-    assert resolve_workflow(config_path, cli_workflow=None, require_toml_field=True) == (
-        "site_selection"
-    )
+    return path
 
 
-@pytest.mark.fast
-def test_site_selection_dry_run_inference():
-    assert _infer_workflow_from_sections({"site_selection": {}}) == "site_selection"
+def _workspace(tmp_path: Path) -> Path:
+    root = tmp_path / "ws"
+    (root / "data").mkdir(parents=True)
+    (root / "projects").mkdir()
+    return root
 
 
 @pytest.mark.fast
-def test_workflow_resolution_accepts_utf8_bom(tmp_path: Path):
-    config_path = tmp_path / "selection_bom.toml"
-    config_path.write_text(
-        '[workflow]\nmode = "site_selection"\n',
-        encoding="utf-8-sig",
-    )
+def test_the_site_selection_workflow_mode_is_refused_with_its_replacement(tmp_path):
+    with pytest.raises(ValueError, match="hmp site select"):
+        WorkflowConfig.model_validate({"mode": "site_selection"})
 
-    assert resolve_workflow(config_path, cli_workflow=None, require_toml_field=True) == (
-        "site_selection"
-    )
+
+@pytest.mark.fast
+def test_hmp_site_select_writes_under_the_declared_output_root(tmp_path, capsys):
+    config = _selection(tmp_path)
+
+    _hmp_site(["select", str(config)])
+
+    out = capsys.readouterr().out
+    assert "selected=1 rejected=1" in out
+    assert (tmp_path / "out" / "selected_sites.csv").is_file()
+    assert (tmp_path / "out" / "site_selection_manifest.json").is_file()
+
+
+@pytest.mark.fast
+def test_hmp_site_select_dry_run_writes_nothing(tmp_path, capsys):
+    config = _selection(tmp_path)
+
+    _hmp_site(["select", str(config), "--dry-run"])
+
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["selection_id"] == "demo"
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.fast
+def test_hmp_site_select_into_catalog_declares_the_selected_sites(tmp_path, capsys):
+    config = _selection(tmp_path)
+    workspace = _workspace(tmp_path)
+
+    _hmp_site(["select", str(config), "--into-catalog", "-w", str(workspace)])
+
+    rows = read_catalog(workspace)
+    assert [row.site for row in rows] == ["site_ok"]
+    assert rows[0].x_outlet == pytest.approx(350000.0)
+    assert "site_selection" in rows[0].tags
+    assert "[written] 1 site(s)" in capsys.readouterr().out
+
+
+@pytest.mark.fast
+def test_into_catalog_and_dry_run_are_refused_together(tmp_path):
+    config = _selection(tmp_path)
+
+    with pytest.raises(SystemExit) as stop:
+        _hmp_site(["select", str(config), "--dry-run", "--into-catalog"])
+
+    assert stop.value.code == 2

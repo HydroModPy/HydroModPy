@@ -34,8 +34,8 @@ def compute_overview_summary(state: DataOverviewState) -> OverviewSummary:
     name = ""
     if overview is not None and overview.name:
         name = overview.name
-    elif state.workspace is not None and hasattr(state.workspace, "paths"):
-        name = state.workspace.paths.catch_name
+    elif getattr(state.cfg, "site", None) is not None:
+        name = state.cfg.site.label or state.cfg.site.name
 
     outlet: tuple[float, float] | None = None
     if dg is not None and dg.x_outlet is not None and dg.y_outlet is not None:

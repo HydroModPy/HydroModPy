@@ -49,11 +49,11 @@ def test_locate_loc_falls_back_to_header_for_missing_key() -> None:
 def test_locate_loc_returns_header_for_root_index() -> None:
     text = textwrap.dedent(
         """\
-        [analysis.batch]
-        runs = []
+        [mesh.families]
+        rivers = "cell"
         """
     )
-    assert locate_loc(text, ("analysis", "batch", "0", "kind")) == 1
+    assert locate_loc(text, ("mesh", "families", "0", "kind")) == 1
 
 
 def test_format_validation_error_includes_file_and_line(tmp_path: Path) -> None:

@@ -12,9 +12,11 @@ End-to-end chain
 
 1. ``hmp run <file>`` enters at ``hydromodpy/cli/commands/run.py``.
    ``hydromodpy.run`` in ``hydromodpy/_api.py`` takes the same path from Python.
-2. ``[workflow].mode`` selects the launcher through ``DISPATCH`` in
-   ``hydromodpy/project/dispatch/workflow.py``: ``simulation``, ``overview``,
-   ``calibration``, ``comparison``, ``testbed`` or ``site_selection``.
+2. The workflow of the file selects the launcher through ``DISPATCH`` in
+   ``hydromodpy/project/dispatch/workflow.py``: ``simulation``, ``overview`` or
+   ``calibration``. ``[workflow].mode`` names it; left unwritten, the sections
+   of the file say it (``[calibration]`` calibrates, ``[overview]`` without
+   ``[simulation]`` draws the overview, anything else simulates).
 3. For ``simulation``, ``run_simulation`` opens ``Project``
    (``hydromodpy/project/facade.py``), which validates the file into a
    ``HydroModPyConfig`` and calls ``Project.simulate``.
@@ -159,6 +161,5 @@ The time cycle
 See also
 --------
 
-- :doc:`comparison-workflow` and :doc:`testbed-workflow-architecture` for the two
-  workflows that run simulations as children.
+- :doc:`comparison-workflow` for the comparison of sealed runs.
 - :doc:`../solver/backends` for the solver backends.

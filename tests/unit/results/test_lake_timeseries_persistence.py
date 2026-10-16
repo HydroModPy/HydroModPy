@@ -3,27 +3,28 @@
 The per-lake series reuse the existing TIMESERIES_SCHEMA with
 ``station_id = lake:<id>``, so the primary key ``(sim_id, station_id, variable,
 timestep)`` already encodes ``(lake_id, totim)`` and needs no schema migration.
-The test round-trips a batch of lake records through a real Catalog and
-asserts the query returns them and that the PK de-duplicates a re-write of the
-same ``(lake_id, variable, timestep)``.
+The test round-trips a batch of lake records through the store of a run, then
+through the index once the run is sealed, and asserts the query returns them and
+that the PK de-duplicates a re-write of the same ``(lake_id, variable, timestep)``.
 """
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.solver.modflow6.extractors.lake import lake_station_id
+from tests._helpers.run_stores import open_run_store
 
 
-def _register(catalog: Catalog, name: str = "lake_sim") -> str:
-    sid = str(uuid.uuid4())
-    catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
-    return sid
+def _store(project: Path, name: str = "lake_sim") -> RunStore:
+    return open_run_store(project, name, create_zarr=False)
 
 
 def _lake_records(station: str) -> list[dict]:
@@ -58,12 +59,12 @@ def _lake_records(station: str) -> list[dict]:
 
 def test_lake_timeseries_round_trip(tmp_path: Path) -> None:
     station = lake_station_id("lac0")
-    with Catalog(tmp_path) as cat:
-        sid = _register(cat)
-        cat.write_timeseries_batch(sid, _lake_records(station))
+    with _store(tmp_path) as store:
+        sid = store.sim_id
+        store.write_timeseries_batch(sid, _lake_records(station))
 
-        stage = cat.query_timeseries(sid, station, "stage")
-        exchange = cat.query_timeseries(sid, station, "gwf_exchange")
+        stage = store.query_timeseries(sid, station, "stage")
+        exchange = store.query_timeseries(sid, station, "gwf_exchange")
 
     assert list(stage.values) == pytest.approx([95.0, 94.0, 93.5])
     # The lake-aquifer exchange is negative at every step (lake losing water).
@@ -73,18 +74,21 @@ def test_lake_timeseries_round_trip(tmp_path: Path) -> None:
 
 def test_lake_timeseries_primary_key_dedupes(tmp_path: Path) -> None:
     station = lake_station_id("lac0")
-    with Catalog(tmp_path) as cat:
-        sid = _register(cat)
-        cat.write_timeseries_batch(sid, _lake_records(station))
-        # Re-write the same (lake, variable, timestep) with corrected stages: the
-        # PK (sim_id, station_id, variable, timestep) must overwrite, not append.
-        corrected = [
-            dict(record, value=record["value"] + 1.0)
-            for record in _lake_records(station)
-            if record["variable"] == "stage"
-        ]
-        cat.write_timeseries_batch(sid, corrected)
+    store = _store(tmp_path)
+    sid = store.sim_id
+    store.write_timeseries_batch(sid, _lake_records(station))
+    # Re-write the same (lake, variable, timestep) with corrected stages: the
+    # PK (sim_id, station_id, variable, timestep) must overwrite, not append.
+    corrected = [
+        dict(record, value=record["value"] + 1.0)
+        for record in _lake_records(station)
+        if record["variable"] == "stage"
+    ]
+    store.write_timeseries_batch(sid, corrected)
+    seal_completed(store)
+    rebuild_index(tmp_path)
 
+    with Catalog(tmp_path) as cat:
         count = cat.connection.execute(
             "SELECT COUNT(*) FROM timeseries WHERE sim_id = ? AND station_id = ? "
             "AND variable = 'stage'",

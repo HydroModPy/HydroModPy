@@ -39,6 +39,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path
+from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -132,13 +133,21 @@ def _mesh_fingerprint(run: Run, mesh: Any) -> str:
     return digest.hexdigest()
 
 
+def _cell_index_cache(run: Run) -> Path | None:
+    """Where the resolved points of the project of *run* are cached, if it is known."""
+    from hydromodpy.results.spatial_index import cell_index_cache_dir
+
+    root = run._catalog.workspace_path
+    return None if root is None else cell_index_cache_dir(root)
+
+
 def resolve_point(run: Run, request: PointRequest) -> ResolvedPoint:
     """Bind a :class:`PointRequest` to one run's mesh.
 
     Raises :class:`PointOutsideMeshError` when the coordinates miss the mesh,
     and ``IndexError`` when an explicit cell or layer index is out of range.
     """
-    from hydromodpy.results.spatial_index import cell_index_cache_dir, locator_for
+    from hydromodpy.results.spatial_index import locator_for
 
     mesh = run.mesh
     n_cells = int(np.asarray(mesh.face_node_connectivity).shape[0])
@@ -153,7 +162,7 @@ def resolve_point(run: Run, request: PointRequest) -> ResolvedPoint:
             mesh.vertices,
             mesh.face_node_connectivity,
             fingerprint=_mesh_fingerprint(run, mesh),
-            cache_dir=cell_index_cache_dir(run._catalog.project_path),
+            cache_dir=_cell_index_cache(run),
         )
         found = locator.locate(
             {request.name: (float(request.x), float(request.y))}, warn_outside=False
@@ -345,11 +354,9 @@ class RunPointProvider:
         """
         frames = []
         for run in self._owner._iter_runs():
-            frame = run._catalog.backend.query(
-                "SELECT station_id, x, y, cell_id, layer FROM observation_points "
-                "WHERE sim_id = ? ORDER BY station_id",
-                [run.sim_id],
-            )
+            frame = read_run_table(
+                run, "observation_points", columns=("station_id", "x", "y", "cell_id", "layer")
+            ).sort_values("station_id", ignore_index=True)
             frame.insert(0, "run", run.name or run.sim_id[:8])
             frames.append(frame)
         if not frames:

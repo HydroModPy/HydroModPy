@@ -12,7 +12,6 @@ or ``.md`` at the project root belongs to the author and is never flagged.
 from __future__ import annotations
 
 import dataclasses
-import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,10 +37,9 @@ from hydromodpy.core.state.paths import (
     TRASH_DIRNAME,
 )
 from hydromodpy.data.provenance.lockfile import LOCKFILE_NAME
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
-from hydromodpy.results.catalog.lifecycle import IDENTITY_NOTICE_FILENAME
 from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.storage.attempt import close_sealed_attempt
 from hydromodpy.results.storage.contract import (
     ALLOWED_RUN_ENTRIES,
     FIELDS_STORE_NAME,
@@ -53,9 +51,12 @@ from hydromodpy.results.storage.contract import (
     RUN_OUTCOME_FILENAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import IDENTITY_NOTICE_FILENAME, seal_completed
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_mesh
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
+from tests._helpers.run_stores import open_run_store
 
 RUN_NAME = "cheze_baseline"
 
@@ -142,41 +143,40 @@ def unexpected_project_entries(project: Path) -> set[str]:
 
 @pytest.fixture
 def solved_run(tmp_path):
-    """Register, fill and finalize one run; yield ``(project, sim_id, author_entries)``."""
+    """Claim, fill and seal one run through its store; yield ``(project, sim_id, author_entries)``.
+
+    The run writes its directory alone and seals itself; the index is derived
+    afterwards by the indexer, which this fixture runs the way the launcher
+    does once the worker has returned.
+    """
+    from hydromodpy.results.catalog.indexer import index_new_runs
+
     project = tmp_path / "project"
     project.mkdir()
     (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
     author_entries = {entry.name for entry in project.iterdir()}
-    sim_id = str(uuid.uuid4())
 
-    with Catalog(project) as catalog:
-        reg = catalog.register_simulation(
-            sim_id,
-            project="demo",
-            solver="modflow6",
-            name=RUN_NAME,
-            n_cells=4,
-            n_layers=1,
-            n_timesteps=3,
-            config={"flow": {"k": 1e-5}},
-        )
-        assert reg.name == RUN_NAME
-        if reg.zarr is not None:
-            reg.zarr.close()
-        catalog.write_parameters(sim_id, [{"param_name": "K", "value": 1e-5}])
-        index = pd.date_range("2020-01-01", periods=3, freq="D")
-        catalog.write_timeseries(sim_id, "P01", "head", pd.Series(np.ones(3), index=index))
-        catalog.write_budget(sim_id, 0, "z1", "recharge", 10.0, 0.0)
-        catalog.write_field_stack(sim_id, "recharge", np.ones((3, 1, 4)), subgroup="budget")
-        sz = catalog.open_zarr(sim_id)
-        try:
-            sz.write_budget_policy(BudgetKeep.everything(), ["recharge"])
-        finally:
-            sz.close()
-        catalog.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
-        catalog.write_metric(sim_id, "P01", "nse", 0.8)
-        catalog.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
-        catalog.finalize(sim_id, status="completed")
+    store = open_run_store(project, RUN_NAME, n_cells=4, n_layers=1, n_timesteps=3)
+    sim_id = store.sim_id
+    assert store.run_dir.name == RUN_NAME
+    (store.run_dir / "config.toml").write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
+    (store.run_dir / RUN_LOGS_DIRNAME).mkdir(exist_ok=True)
+    store.write_parameters(sim_id, [{"param_name": "K", "value": 1e-5}])
+    index = pd.date_range("2020-01-01", periods=3, freq="D")
+    store.write_timeseries(sim_id, "P01", "head", pd.Series(np.ones(3), index=index))
+    store.write_budget(sim_id, 0, "z1", "recharge", 10.0, 0.0)
+    store.write_field_stack(sim_id, "recharge", np.ones((3, 1, 4)), subgroup="budget")
+    sz = store.open_zarr(sim_id)
+    try:
+        sz.write_budget_policy(BudgetKeep.everything(), ["recharge"])
+    finally:
+        sz.close()
+    store.write_mass_balance(sim_id, 0, 10.0, 9.5, 5.0)
+    store.write_metric(sim_id, "P01", "nse", 0.8)
+    store.write_provenance(sim_id, "dem", "dem.tif", np.ones(4))
+    seal_completed(store)
+    close_sealed_attempt(store.run_dir)
+    index_new_runs(project)
 
     return project, sim_id, author_entries
 
@@ -348,8 +348,8 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
 
     assert "soil_budget" in PARQUET_VIEW_NAMES
 
-    with Catalog(project) as catalog:
-        catalog.write_view(
+    with RunStore.open(project / RUNS_DIRNAME / RUN_NAME) as store:
+        store.write_view(
             sim_id,
             "soil_budget",
             [
@@ -384,8 +384,14 @@ def test_the_soil_budget_is_a_plain_parquet_file_of_the_run(solved_run):
     )
 
 
-def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(solved_run):
-    project, sim_id, _ = solved_run
+def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(tmp_path):
+    """The mesh is persisted before the seal, as ``prepare_solver`` does it."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / PROJECT_MARKER_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    store = open_run_store(project, RUN_NAME, n_cells=4, n_layers=1, n_timesteps=3)
+    sim_id = store.sim_id
+    (store.run_dir / "config.toml").write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
     cell_mesh = dataclasses.replace(
         regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=2),
         cell_chains=(CellChain(family="rivers", chain_id=0, cell_ids=[2, 0, 1]),),
@@ -400,8 +406,9 @@ def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(solved_run):
 
     assert {"mesh_cell_families", "mesh_face_families"} <= set(PARQUET_VIEW_NAMES)
 
-    with Catalog(project) as catalog:
-        step_persist_mesh(ctx, sim_id, store=catalog)
+    step_persist_mesh(ctx, sim_id, store=store)
+    seal_completed(store)
+    close_sealed_attempt(store.run_dir)
 
     run_dir = project / RUNS_DIRNAME / RUN_NAME
     tables_dir = run_dir / TABLES_DIRNAME
@@ -412,7 +419,7 @@ def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(solved_run):
     assert chain.sort_values("position")["cell_id"].tolist() == [2, 0, 1]
     assert chain["offset_m"].isna().all()
     assert {entry.name for entry in run_dir.iterdir()} <= ALLOWED_RUN_ENTRIES
-    # The fixture sealed (and consolidated) the store before the mesh was written.
+    # The seal consolidated the store with the mesh in it.
     mesh_dir = run_dir / FIELDS_STORE_NAME / "mesh"
     assert zarr.open_group(str(mesh_dir), mode="r").attrs["engine"] == "regular"
     assert zarr.open_array(str(mesh_dir / "face_x"), mode="r").shape == (4,)

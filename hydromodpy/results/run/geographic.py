@@ -54,19 +54,13 @@ def crs_proj_from_metadata(metadata: Mapping[str, object]) -> str | None:
 
 
 def crs_epsg(run: Run) -> int | None:
-    """Return the EPSG code the catalog recorded for ``run``, ``None`` when unknown.
+    """Return the EPSG code the run recorded, ``None`` when unknown.
 
     A module function rather than a ``Run`` attribute: ``Run`` is capped at 50
     public attributes (``tests/unit/results/test_run_surface.py``).
     """
-    frame = run._catalog.backend.query(
-        "SELECT crs_epsg FROM simulations WHERE sim_id = ?",
-        [run.sim_id],
-    )
-    if frame.empty:
-        return None
-    value = frame.iloc[0]["crs_epsg"]
-    return None if pd.isna(value) else int(value)
+    value = run._load_row().get("crs_epsg")
+    return None if value is None or pd.isna(value) else int(value)
 
 
 def geographic_metadata(run: Run) -> dict[str, str]:

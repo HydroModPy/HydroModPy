@@ -44,7 +44,6 @@ def _make_ctx(
         figures=figures,
         save=True,
         dpi=150,
-        output_dir=RUN_FIGURES_DIRNAME,
     )
     cfg = SimpleNamespace(
         display=display,
@@ -56,6 +55,7 @@ def _make_ctx(
     return SimpleNamespace(
         cfg=cfg,
         setup=setup,
+        run_dir=runs_dir_for(project_root) / "baseline",
         sim_id="deadbeef-dead-beef-dead-beefdeadbeef",
         execution=SimpleNamespace(lightweight=False),
     )
@@ -63,7 +63,7 @@ def _make_ctx(
 
 @pytest.fixture
 def catalog_handle(monkeypatch):
-    """Hand the step a stand-in for the catalog it opens for its own span."""
+    """Hand the step a stand-in for the run store it opens for its own span."""
     from contextlib import contextmanager
 
     handle = MagicMock()
@@ -72,7 +72,7 @@ def catalog_handle(monkeypatch):
     def _fake_scope(_ctx):
         yield handle
 
-    monkeypatch.setattr(display_step_module, "run_catalog", _fake_scope)
+    monkeypatch.setattr(display_step_module, "run_store", _fake_scope)
     return handle
 
 
@@ -135,8 +135,9 @@ def test_display_step_says_out_loud_that_it_drew_nothing(monkeypatch, tmp_path, 
 
 
 def test_display_step_invokes_renderer_when_enabled(monkeypatch, tmp_path, catalog_handle):
-    # The figures open the catalog for their own span and read the live run,
-    # before the export step drops the intermediates and seals it.
+    # The figures open the run store for their own span and read the live run,
+    # before the export step drops the intermediates and seals it. They land
+    # in the figures directory of the run the context names.
     catalog_handle.__getitem__.return_value = SimpleNamespace(name="baseline")
     ctx = _make_ctx(
         enabled=True,
@@ -224,10 +225,10 @@ def test_display_step_summary_names_a_figure_the_run_could_not_produce(
     ]
 
 
-def test_display_step_renders_before_the_export_step_seals_the_run():
-    # Figures draw through their own catalog scope, then export seals and
-    # packs the Zarr.
+def test_display_step_renders_before_the_export_step_and_the_seal():
+    # Figures draw from the store of the run, export writes its views, then
+    # the seal is the last write of the run.
     from hydromodpy.workflow.orchestrator import standard_steps
 
     names = [type(s).__name__ for s in standard_steps()]
-    assert names[-2:] == ["DisplayStep", "ExportStep"]
+    assert names[-3:] == ["DisplayStep", "ExportStep", "SealStep"]

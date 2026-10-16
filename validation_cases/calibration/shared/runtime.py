@@ -14,7 +14,12 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.state.paths import internal_dir, runs_dir_for, share_dir_for
+from hydromodpy.core.state.paths import (
+    data_cache_path_for,
+    internal_dir,
+    runs_dir_for,
+    sessions_dir_for,
+)
 from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 from hydromodpy.solver.modflow_common.budget_components import canonical_budget_component
@@ -150,10 +155,8 @@ def _prune_benchmark_artifacts(
 
     removed: list[str] = []
     data_root = benchmark_root / "data"
-    for data_artifact in (
-        data_root / "cache.duckdb",
-        data_root / "cache.duckdb.wal",
-    ):
+    cache = data_cache_path_for(data_root)
+    for data_artifact in (cache, cache.with_name(f"{cache.name}.wal")):
         _remove_artifact_path(data_artifact, removed=removed)
     if data_root.is_dir() and not any(data_root.iterdir()):
         _remove_artifact_path(data_root, removed=removed)
@@ -161,11 +164,11 @@ def _prune_benchmark_artifacts(
     for project_name in ("project", "project_truth"):
         project_root = benchmark_root / project_name
         # Everything a run produces lives inside the project: runs/ holds the
-        # run directories, share/ the published exports, .hmp/ the rebuildable
-        # index plus the solver scratch and the trash.
+        # run directories and their exports, sessions/ the calibration sessions
+        # and their kept trials, .hmp/ the rebuildable index.
         for project_artifact in (
             runs_dir_for(project_root),
-            share_dir_for(project_root),
+            sessions_dir_for(project_root),
             internal_dir(project_root),
             project_root / "results_stable",
             project_root / "hydromodpy_debug.log",

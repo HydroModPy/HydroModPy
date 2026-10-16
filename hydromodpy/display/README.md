@@ -59,7 +59,7 @@ rules.
    `[display].figures`, `hmp viz show <run> <name>` and `hmp.figure(run, "<name>")`.
    A renamed figure keeps its old name in `former_names`, so project files that
    use it still load. `[display]` fields are `USER` when they choose what to
-   show and where (`figures`, `output_dir`, `overrides`), `DEV` when they tune
+   show (`figures`, `overrides`), `DEV` when they tune
    rendering (`backend`, `dpi`).
 
 Two figures need a second run, which `spec` cannot declare yet: `difference_map`
@@ -82,7 +82,7 @@ never in a figure.
 | `figures` | `figure`, `figure_registry`, `maps`, `style` |
 | `config` | `figure_registry` |
 | `<init>` (the `__init__.py` facade) | `figure`, `figure_registry` |
-| `runs` | `<init>`, `config`, `figure`, `style` |
+| `runs` | `<init>`, `config`, `figure`, `png_metadata`, `style` |
 | `overview` | `report_blocks`, `style` |
 | `catchment_report` | `overview`, `report_blocks` |
 
@@ -118,7 +118,8 @@ hydromodpy/display/
 │                          figure_availability (what a run supports, and why not the rest),
 │                          matplotlib_backend (Agg or interactive for the length of a render);
 │                          _resolve_time turns a date into the stress period the run stored
-├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version)
+├── png_metadata.py        provenance written into each PNG (sim_id, field, step, EPSG, version,
+│                          identity block of the run and its visible footer)
 │
 │   shared tools
 ├── style.py               how every figure looks: default, print and dark themes (apply_theme),
@@ -211,17 +212,20 @@ finished run    ->  runs.render_figures_for_run(run, DisplayConfig)
                       for each name: figure_registry.get(name)
                       unavailable_reason(run)? skipped, reason kept in FigureRenderReport
                       else BaseFigure.plot(run) -> render(run, ax) -> PNG + provenance
-                ->  runs/<run>/<display.output_dir>/<name>.png
+                      png_metadata.stamp_png_identity: footer + identity text chunk
+                ->  runs/<run>/figures/<name>.png, recorded in runs/<run>/figures/index.json
 ```
 
-`hmp viz gallery` takes the same path. `hmp viz show`, `hmp.figure(...)` and the
-export step go through `runs.render_figure`, which renders one figure after the
-same applicability check. `hmp viz list --run <ref>` calls
+`hmp viz regen <run>` replays `figures/index.json` (`runs.regen_figures`).
+`hmp viz show` and `hmp.figure(...)` go through `runs.render_figure`, which
+renders one figure after the same applicability check and stamps a saved PNG
+with the identity of its run. `hmp viz list --run <ref>` calls
 `runs.figure_availability(run)`.
 
 **Overview.** `workflow/pipelines/overview.py` builds a `DataOverviewState`
 (geography and loaded data, no run); `overview.generate_overview_report` renders
-one PNG per panel enabled in `[overview.panels]`.
+one PNG per panel enabled in `[overview.panels]`, under `runs/<overview>/figures/`,
+and its web pages under `runs/<overview>/report/` (`overview/location.py`).
 
 **Catchment report.** `hmp report catchment <toml>` (options in
 `hydromodpy/cli/commands/report.py`) calls
@@ -229,7 +233,11 @@ one PNG per panel enabled in `[overview.panels]`.
 runs the overview and the simulation (subprocess `hydromodpy run`). It then builds
 the context (`context.py`), copies the expected figures (`artifacts.py`), fills the
 blocks (`block_specs.py`, `blocks.py`) and writes the page with `report_blocks`. A
-context figure that cannot be drawn is logged with its reason.
+context figure that cannot be drawn is logged with its reason. Everything lands in
+the run the report describes, read on disk without the index
+(`simulation_source.py`): `runs/<run>/report/index.html`, its review pages under
+`report/review/`, the gathered figures under `report/figures/` and the context
+under `report/context/` (`inputs.py`).
 
 ## Where to add what
 

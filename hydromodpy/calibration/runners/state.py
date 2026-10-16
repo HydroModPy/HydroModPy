@@ -1,23 +1,15 @@
-"""Shared state primitives reused by both calibration runners.
+"""Shared state primitives reused by the calibration runners.
 
-The functions in this module deal with the *out-of-loop* concerns:
-
-- params_hash cache preload from DuckDB,
-- input-file fingerprinting feeding the params_hash context,
-- helpers to translate a TOML calibration declaration into a runtime
-  :class:`ParameterSpace`,
-- :class:`SessionChain`, the place one session holds in a chain of phases.
-
-They are intentionally decoupled from the ask/tell loop so the CLI and
-programmatic runners can share the same plumbing.
+The functions in this module deal with the out-of-loop concerns: the params
+hash cache preloaded from the journals of the project, the input-file
+fingerprints that enter the params hash context, and the helpers that turn a
+TOML calibration declaration into a runtime :class:`ParameterSpace`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib
-import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -27,28 +19,14 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.session.descriptor import list_session_dirs
+from hydromodpy.results.session.journal import read_trials
+from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.runners.trial import TrialContext, TrialMetricFn
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class SessionChain:
-    """Where one calibration session sits in a chain of phases.
-
-    A staged calibration writes one session per phase. These values travel
-    unchanged to ``CalibrationPersistence.start_session``, which records them
-    in ``session.json`` and in the index, so a rebuild gives the chain back.
-    The first phase of a chain is its own root and has no parent.
-    """
-
-    session_id: str
-    root_session_id: str
-    phase_name: str
-    phase_index: int
-    parent_session_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -104,51 +82,36 @@ def load_metric_fn_entry_point(spec: str) -> TrialMetricFn:
 # ---------------------------------------------------------------------------
 
 
-def preload_hash_cache(catalog_conn, cache: ParamsHashCache) -> int:
-    """Populate ``cache`` from previously-promoted calibration iterations.
+def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
+    """Populate ``cache`` from the trial journals of every session of the project.
 
-    Wrapped by DuckDB's lock-retry decorator so concurrent ``hmp`` sessions on
-    the same workspace do not surface ``IOException``.
+    A completed trial with a scoped params hash (``v2:`` prefix) is a point
+    already solved: a search of the same project that proposes it again reads
+    its cost from the cache. The hash embeds the code version and the model
+    fingerprint, so a trial of another build or another model never matches.
     """
-    from hydromodpy.core.io.db_retry import with_lock_retry
-
-    @with_lock_retry()
-    def _run() -> list[tuple[str, str | None, float, str, str | None]]:
-        return catalog_conn.execute(
-            """
-            SELECT params_hash, sim_id, objective_value, status, metrics
-              FROM calibration_iterations
-             WHERE params_hash IS NOT NULL
-               AND params_hash LIKE 'v2:%'
-               AND status      = 'completed'
-               AND objective_value IS NOT NULL
-            """
-        ).fetchall()
-
-    rows = _run()
     n_before = len(cache)
-    for params_hash, sim_id, objective_value, status, metrics_json in rows:
-        if not params_hash:
-            continue
-        components = None
-        if metrics_json:
-            try:
-                components = json.loads(metrics_json)
-            except (TypeError, ValueError):
-                components = None
-        cache.put(
-            str(params_hash),
-            str(sim_id) if sim_id is not None else None,
-            objective_value=float(objective_value),
-            status=str(status),
-            components=components,
-        )
+    for session_dir in list_session_dirs(project_root):
+        for line in read_trials(session_dir):
+            params_hash = line.params_hash
+            if (
+                not params_hash
+                or not params_hash.startswith("v2:")
+                or line.status != "completed"
+                or line.objective is None
+            ):
+                continue
+            cache.put(
+                str(params_hash),
+                line.sim_id,
+                objective_value=float(line.objective),
+                status="completed",
+                components=dict(line.metrics) if line.metrics else None,
+            )
     added = len(cache) - n_before
     if added:
-        # The hash embeds the code version, so entries from a different HydroModPy
-        # build simply miss; still surface preloading so a cached run is not silent.
         logger.info(
-            "Preloaded %d params_hash cache entries from prior calibration iterations; "
+            "Preloaded %d params_hash cache entries from the sessions of the project; "
             "matching trials will be reused without re-solving.",
             added,
         )
@@ -167,7 +130,6 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
     ``None`` when there is no mesh, which is the honest answer for a lumped model:
     keying on a placeholder would claim an identity that does not exist.
     """
-    import hashlib
 
     cell_mesh = getattr(getattr(ctx, "setup", None), "cell_mesh", None)
     if cell_mesh is None:
@@ -233,11 +195,7 @@ def build_cache_context(
         "persistence",
         "persist_iteration_detail",
         "materialize_candidates",
-        "candidates_root",
-        "rerun_best_with_outputs",
-        # Turning the reuse on for the resume attempt must not change the hash
-        # the reuse is compared against, or the flag would make itself inert.
-        "reuse_completed_phases",
+        "promote_phases",
         # How wide the answer is gets read off the trials after the search and
         # changes no trial's cost, so a new width re-solves nothing.
         "uncertainty",
@@ -328,34 +286,15 @@ def _input_file_fingerprints(config: object) -> list[dict[str, object]]:
         }
         if path.is_file():
             payload["kind"] = "file"
-            payload["sha256"] = _sha256_file(path)
+            payload["sha256"] = sha256_streaming(path)
             payload["size_bytes"] = path.stat().st_size
         elif path.is_dir():
             payload["kind"] = "directory"
-            payload["sha256"] = _sha256_directory(path)
+            payload["sha256"] = sha256_directory(path)
         else:
             payload["kind"] = "missing"
         fingerprints.append(payload)
     return sorted(fingerprints, key=lambda item: (str(item["role"]), str(item["path"])))
-
-
-def _sha256_file(path: Path, *, chunk_size: int = 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(chunk_size), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _sha256_directory(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in sorted(item for item in root.rglob("*") if item.is_file()):
-        rel = path.relative_to(root).as_posix()
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(_sha256_file(path).encode("ascii"))
-        digest.update(b"\0")
-    return digest.hexdigest()
 
 
 __all__ = [

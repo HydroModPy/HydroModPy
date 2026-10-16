@@ -1,47 +1,19 @@
 Data scopes and schema evolution
 ================================
 
-HydroModPy splits SQL state across three scopes: machine, workspace,
-project. Each scope owns a DuckDB file with a focused role and an
-independent lifecycle. This page states the role of each scope, how their
-schemas evolve, and which formats are canonical.
+HydroModPy splits SQL state across two scopes: workspace and project. Each
+owns a DuckDB file with a focused role and an independent lifecycle. This page
+states the role of each scope, how their schemas evolve, and which formats are
+canonical.
 
-**None of the three is a place where irreplaceable results live.** Every
-one of them is an index or a cache over something else: registered
-projects for the machine scope, upstream sources for the workspace
-cache, the project's run directories for the project index. The disk is
-the source of truth; the databases make it queryable.
+**Neither is a place where irreplaceable results live.** Both are an index or
+a cache over something else: upstream sources for the workspace cache, the
+project's run directories for the project index. The disk is the source of
+truth; the databases make it queryable. No file on the machine registers
+projects: a workspace is read by walking its tree.
 
 The full on-disk contract, the three classes of data and the rebuild
 invariants live in :doc:`storage-layout`.
-
-Machine global index: ``$XDG_STATE_HOME/hydromodpy/index.duckdb``
------------------------------------------------------------------
-
-Federates every registered project and answers cross-project queries
-through read-only ``ATTACH``. Recreated from the registered projects
-alone: it carries no science output of its own.
-
-It stores one table, ``projects``, plus its migration ledger. **One row is
-one project root**, because a project root is what owns an index database
-at ``.hmp/index.duckdb``. A workspace root owns none, so it is never a row:
-registering one expands it into the project roots it holds, and a workspace
-with no project yet registers nothing.
-
-The federated view ``all_simulations`` is not stored: it is rebuilt at
-attach time as a ``UNION ALL`` over each project's ``v_simulation_summary``,
-stamped with the ``project_id`` of its row, and a project whose index file
-is missing is skipped with a warning.
-
-Exposed through:
-
-- :class:`hydromodpy.core.state.global_index.GlobalIndex`, whose
-  ``register`` / ``unregister`` / ``list_projects`` / ``prune`` surface
-  speaks in :class:`~hydromodpy.core.state.global_index.ProjectRecord`
-- ``hmp.index()`` for machine-wide discovery
-- CLI verbs ``hmp workspace register / list / search / forget / prune``
-- :func:`hydromodpy.core.state.paths.project_roots_under`, the single place
-  that turns a directory into the project roots it stands for
 
 Workspace input cache: ``<workspace>/data/cache.duckdb``
 ---------------------------------------------------------
@@ -68,61 +40,68 @@ stays portable between machines.
 Project index: ``<project>/.hmp/index.duckdb``
 -----------------------------------------------
 
-Indexes the runs of one project: identity, parameters, metrics,
-provenance, calibration trace and workflow trace. It is the query layer
-over ``runs/`` and ``sessions/``, not their owner. It lives under
-``.hmp/`` precisely because that directory is disposable.
+Indexes the runs of one project: identity, parameters, metrics, the label of
+the day, the sites and the cases. It is the query layer over ``runs/`` and
+``sessions/``, not their owner. It lives under ``.hmp/`` precisely because
+that directory is disposable.
 
 The project index is explicitly **not** a store of irreplaceable output.
 What a run needs in order to be read, replayed, resumed or compared is
-written into its run folder, and the index is derived from it. A change
-that makes a result reachable only through SQL is a regression of this
+written into its run folder, and the index is derived from it. A run and a
+calibration never open it: the indexer writes it, and ``Catalog`` reads it. A
+change that makes a result reachable only through SQL is a regression of this
 contract.
 
 Exposed through:
 
-- :class:`hydromodpy.results.catalog.Catalog`
+- :class:`hydromodpy.results.catalog.Catalog`, a read-only view
 - :class:`hydromodpy.results.run.Run`
 - :class:`hydromodpy.results.run.group.RunSet`
 - ``hmp.open(project_path)``, which returns the ``Catalog``
 - CLI verb ``hmp catalog ...``
+- :func:`hydromodpy.results.catalog.federation.read_workspace_runs`, the read
+  across the projects of a workspace, on the ``simulation.parquet`` of each
+  run and never on an index
+- :func:`hydromodpy.core.state.paths.project_roots_under`, the single place
+  that turns a directory into the project roots it stands for
 
 Rebuilding it
 ~~~~~~~~~~~~~
 
-``hmp catalog reindex`` reads every sealed run under ``runs/`` and every
-calibration session under ``sessions/``, and rebuilds the index from
-them. Per run it reads ``manifest.json`` (the seal of a complete run),
-then ``tables.parquet/simulation.parquet``, ``parameters.parquet``,
-``metrics.parquet``, ``provenance.parquet``, the ``geographic_*.parquet``
-features, ``provenance.json``, ``annotations.json`` and ``trash.json``.
-Per session it reads ``session.json`` and ``trials.jsonl``. The rebuild
-fills a staging database next to the index and installs it with one
-atomic rename, so ``index.duckdb`` is never absent nor half-written: a
-reader that was reading keeps reading the file it opened, the next
-opener gets the rebuilt one, and two rebuilds describe the project
-identically. That rename is
-:func:`hydromodpy.core.io.atomic_replace.rename_over_open_file`, the
+``hmp catalog reindex`` reads every run directory under ``runs/`` and every
+calibration session under ``sessions/``, and rebuilds the index from them.
+Per run it reads ``tables.parquet/simulation.parquet``, ``parameters.parquet``,
+``metrics.parquet``, the geographic payloads, ``manifest.json``,
+``provenance.json`` and ``annotations.json``. A directory with an
+``outcome.json`` and no manifest is indexed too, with its effective status, so
+a failed case is visible. Per session it reads ``session.json``,
+``phases/*/session.json`` and ``trials.jsonl``. After a launch the same
+indexer applies a diff keyed by the relative directory, instead of a full
+rebuild. Both write a staging database next to the index and install it with
+one atomic rename, so ``index.duckdb`` is never absent nor half-written: a
+reader that was reading keeps reading the file it opened, the next opener gets
+the new one, and building it twice describes the project identically. That
+rename is :func:`hydromodpy.core.io.atomic_replace.rename_over_open_file`, the
 only publishing path: ``os.replace`` on POSIX, and on Windows, where
-``MoveFileEx`` refuses as soon as another handle is on the index, the
-same rename asked of the kernel with ``FILE_RENAME_POSIX_SEMANTICS``.
-There is no non-atomic fallback: where the kernel supports neither, the
-rebuild fails, the previous index stays untouched and readable, and the
-fix is to close the processes reading the project and rebuild again.
-:doc:`storage-layout` carries the full statement.
+``MoveFileEx`` refuses as soon as another handle is on the index, the same
+rename asked of the kernel with ``FILE_RENAME_POSIX_SEMANTICS``. There is no
+non-atomic fallback: where the kernel supports neither, the write fails, the
+previous index stays untouched and readable, and the fix is to close the
+processes reading the project and rebuild again. :doc:`storage-layout`
+carries the full statement.
 
-The run **name comes from the directory**, never from the files: a
-rename moves the directory, so the tree is what the name is. A directory
-whose manifest names another run is reported and left out rather than
-indexed under a doubtful identity.
+The run **name comes from the directory**, never from the files: a rename
+moves the directory, so the tree is what the name is. A directory whose
+manifest names another run is reported and left out rather than indexed under
+a doubtful identity.
 
 What survives a rebuild
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The rule is stated once, in :doc:`storage-layout`, and summarised
-here. The authoritative list is the module docstring of
-``hydromodpy/results/catalog/reindex.py``, which is the code that
-performs the rebuild.
+The rule is stated once, in :doc:`storage-layout`, and summarised here. The
+authoritative description is the module docstring of
+``hydromodpy/results/catalog/indexer.py``, which is the code that performs the
+rebuild.
 
 .. list-table::
    :header-rows: 1
@@ -132,74 +111,72 @@ performs the rebuild.
      - Content
      - Rebuild behaviour
    * - Reconstructible
-     - Run identity and geometry, catchment metadata, parameters,
-       metrics, input provenance, run environment, geographic features,
-       tracked files, declared observation points, tags and notes, trash
-       state, calibration sessions and trials. The frozen
-       ``config.toml`` stays in the run folder
-     - Obligation: written in the run or session folder, restored
-       identically by the rebuild
+     - Run identity and geometry, catchment metadata, parameters, metrics,
+       input provenance, run environment, geographic features, declared
+       observation points, tags and notes (``annotations.json``), calibration
+       sessions and trials. The frozen ``config.toml`` stays in the run folder
+     - Obligation: written in the run or session folder, restored identically
+       by the rebuild
    * - Losable
-     - Audit log, export log, workflow journal, deletion tombstones,
-       purge resume state, and the promoted ``sim_id`` back-filled on a
-       trial
-     - Dropped, by an explicit decision. The runs, their results and
-       their lineage are unaffected
+     - The index as a whole, and the tables with no directory behind them. What
+       they recorded has its replacement on disk: ``exports/index.json`` and
+       ``figures/index.json`` for what was produced, ``published.jsonl`` for
+       what left the project, ``jobs/*/journal.jsonl`` for what was launched,
+       ``trials.jsonl`` for the link between a trial and its promoted run
+     - Dropped with the file. The runs, their results and their lineage are
+       unaffected
    * - Input
      - Observation series and station metadata
-     - Out of the results scope. Repopulated from the input cache and
-       the data loaders
+     - Out of the results scope. Repopulated from the input cache and the data
+       loaders
 
-Two consequences are worth naming. Losing the audit log means the
-machine event history of the project is gone, while run identity,
-results and lineage survive because they come from the manifests. Losing
-the workflow journal means an interrupted workflow replans from scratch
-instead of resuming.
+Two consequences are worth naming. A deleted run lives in ``trash/``, not as a
+flag in the index, so a rebuild neither revives it nor forgets it. A deleted
+name is never given out again: the version of a name is computed on disk, over
+the live directories, the trash and the tombstones.
 
 Provenance bridge
 -----------------
 
-Each run records, in its ``provenance`` rows, which input-cache entries
-it consumed. ``run.input_entries()`` walks the bridge to list them by
-joining ``tracked_files.sha256``. Cross-project lookups go through the
-machine index.
+Each run seals, in its own ``inputs.json``, which inputs it loaded: provider,
+product, version, the full request, path, SHA-256 and licence.
+``run.record.inputs`` returns them. The SHA-256 of an entry is the key to the
+matching entry of the workspace input cache, so a run received alone still
+says what it read. Cross-project lookups read the ``simulation.parquet`` of
+each run, never an index.
 
-Why three scopes
-----------------
+Why two scopes
+--------------
 
-- **Machine index**: cross-project discovery without copying data.
 - **Workspace cache**: input sharing between projects covering the same
   geographic area, so a regional DEM is downloaded once.
 - **Project index**: fast queries over one project's runs, scoped so a
   project stays usable while other projects write to the same workspace
   cache.
 
-Three scopes, three rebuild costs: the machine index is recreated from
-the registered projects, the workspace cache from upstream sources
-(network cost), the project index from the project's own run
-directories (local cost). No scope is a single point of loss for a
-scientific result.
+Two scopes, two rebuild costs: the workspace cache from upstream sources
+(network cost), the project index from the project's own run directories
+(local cost). No scope is a single point of loss for a scientific result.
 
 Shared architecture
 -------------------
 
-One set of patterns governs the three databases.
+One set of patterns governs the two databases.
 
-- **Single migrations runner**:
+- **Migrations only where the file is not derived**:
   :mod:`hydromodpy.core.migrations.runner` exposes
   ``apply_migrations(db_path, migrations_dir)``, serialised by a
-  ``<db_path>.lock`` filelock, and is used by all three. Each scope owns
-  a flat ``migrations/`` directory of numbered SQL files starting at
-  ``0001_initial.sql``. Because the project index is rebuildable, a
-  schema change there is a new initial DDL plus a rebuild, not a chain
-  of migrations: its only later file, ``0002``, drops the unused
-  ``retention_policies`` table rather than reshaping one.
+  ``<db_path>.lock`` filelock, and the workspace cache uses it with a flat
+  ``migrations/`` directory of numbered SQL files starting at
+  ``0001_initial.sql``. The project index has none: it is derived, so a schema
+  change there is a new DDL in ``results/catalog/index_schema.py``, a bump of
+  ``INDEX_SCHEMA_VERSION`` and a rebuild. The reader refuses an index written
+  under another version and names the command that rebuilds it.
 - **Per-scope doors**: one entry point per database.
   ``hmp.open(project_path)`` opens the project directory holding
   ``project.toml`` and ``.hmp/index.duckdb``, and returns its
-  ``Catalog``; ``hmp.index()`` federates the machine scope; and
-  :class:`hydromodpy.catalog.InputsNamespace`, opened on a workspace
-  root, reaches the input cache.
+  ``Catalog``; and :class:`hydromodpy.catalog.InputsNamespace`, opened on a
+  workspace root, reaches the input cache.
 - **Backend Protocol**:
   :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
   ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /
@@ -216,26 +193,24 @@ One set of patterns governs the three databases.
 Schema evolution
 ----------------
 
-HydroModPy ships a migration runner for the DuckDB files and pins one version on
-each columnar store. Covered: the three DuckDB databases, the Zarr field store
+HydroModPy ships a migration runner for the workspace cache and pins one version
+on each columnar store and each JSON document. Covered: the workspace cache,
+the project index (rebuilt, never migrated), the Zarr field store
 (``runs/<name>/fields.zarr/``, Zarr format 3), the Parquet 2.6 outputs, and the
-portable ``.hmp`` package. User TOML files are out of scope: Pydantic with
-``extra="forbid"`` handles them.
+JSON documents of a run or a session (``manifest.json``, ``session.json``,
+``annotations.json``, the ledgers, ``PUBLICATION.json``). User TOML files are
+out of scope: Pydantic with ``extra="forbid"`` handles them.
 
 The project index is the exception to the chain-of-migrations model. It is an
 index over the run directories, so its schema moves forward by replacing the
-initial DDL and rebuilding from disk with ``hmp catalog reindex``, which ships
-and is the supported path. The runner still deploys the DDL on a fresh index.
+DDL and rebuilding from disk with ``hmp catalog reindex``, which is the
+supported path.
 
 The migration runner
 ~~~~~~~~~~~~~~~~~~~~
 
-The code is ``hydromodpy/core/migrations/runner.py``, with one migrations folder
-per component:
-
-- ``hydromodpy/results/catalog/migrations/`` for the project index;
-- ``hydromodpy/data/registry/migrations/`` for the workspace cache;
-- ``hydromodpy/core/state/migrations/`` for the machine index.
+The code is ``hydromodpy/core/migrations/runner.py``, with one migrations folder:
+``hydromodpy/data/registry/migrations/`` for the workspace cache.
 
 A migration is a numbered SQL file (``0001_initial.sql``, ``0002_<slug>.sql``, ...).
 The runner keeps a ``schema_migrations`` ledger with one row per applied migration
@@ -243,21 +218,18 @@ and component, reads the highest applied version, applies every newer file in on
 transaction per file, and records a SHA-256 checksum of the SQL. It refuses to go
 on when a recorded checksum no longer matches the file.
 
-``ensure_schema()`` on a backend deploys the latest schema for its component, and
-``hmp.open`` reaches it on first access, so a user never sees a
-half-deployed index. ``hydromodpy/core/migrations/auto_boot.py`` wraps the runner
-for boot-time upgrades: a lock on ``<db>.lock``, and for the workspace cache an
-atomic ``<db>.bak-<timestamp>`` snapshot that is restored on failure, with at
-most five kept. The ``catalog`` and ``index`` components skip the snapshot, listed
-in ``NO_BACKUP_COMPONENTS``, because an index is rebuilt and not restored
-(``hmp catalog reindex`` for a project, ``hmp workspace register`` for the machine).
-``HMP_AUTO_MIGRATE=0`` turns a pending migration into ``AutoMigrationDisabled``
-and leaves the file untouched.
+``ensure_schema()`` on a backend deploys the latest schema for its component, so a
+user never sees a half-deployed cache. ``hydromodpy/core/migrations/auto_boot.py``
+wraps the runner for boot-time upgrades: a lock on ``<db>.lock``, and an atomic
+``<db>.bak-<timestamp>`` snapshot that is restored on failure, with at most five
+kept. ``HMP_AUTO_MIGRATE=0`` turns a pending migration into
+``AutoMigrationDisabled`` and leaves the file untouched.
 
 Rules for a change
 ~~~~~~~~~~~~~~~~~~
 
-1. **One version per component.** Each DuckDB has its own ledger row. Each Zarr
+1. **One version per component.** The workspace cache has its own ledger row, the
+   project index its ``INDEX_SCHEMA_VERSION``. Each Zarr
    store carries ``zarr_schema_version`` in its root attributes. Each Parquet file
    carries ``hmp.schema_version`` in its key-value metadata. SQL and columnar
    versions never share a number.
@@ -274,10 +246,9 @@ Rules for a change
    is the exception: ``float32`` (``field_precision = "compact"``) and ``float64``
    (``"exact"``) is a per-store choice written in each array's metadata, and every
    reader returns ``float64``.
-6. A ``.hmp`` archive carries ``format`` and ``format_version`` in its manifest
-   and a SHA-256 for every file. Import checks the magic and every checksum before
-   it writes anything. It does not gate on ``format_version``, so a package written
-   by a newer library shows up only when a checked file fails to read.
+6. A published copy carries ``PUBLICATION.json`` with a SHA-256 for every file.
+   ``hmp catalog import`` checks every digest before it writes anything into the
+   project.
 
 Do not silently accept an unknown table or column, and do not inject data from
 outside a migration: it works only on the handle it is given.
@@ -293,22 +264,24 @@ The values are in the code. Read them there, not here.
 
    * - What
      - Where
-   * - Project index, workspace cache, machine index
-     - The highest numbered file of each ``migrations/`` folder above.
+   * - Workspace cache
+     - The highest numbered file of ``hydromodpy/data/registry/migrations/``.
+   * - Project index
+     - ``INDEX_SCHEMA_VERSION`` in ``hydromodpy/results/catalog/index_schema.py``
    * - ``ZARR_SCHEMA_VERSION``
      - ``hydromodpy/results/zarr_store/constants.py``
    * - ``PARQUET_SCHEMA_VERSION``
      - ``hydromodpy/results/storage/parquet_schemas.py``
    * - ``GEOPARQUET_SCHEMA_VERSION``
      - ``hydromodpy/core/io/geoparquet.py``
-   * - ``MANIFEST_SCHEMA_VERSION`` (run seal: ``manifest.json``, ``provenance.json``)
+   * - ``RUN_RECORD_MANIFEST_VERSION`` (run seal: ``manifest.json``)
      - ``hydromodpy/results/manifest.py``
-   * - ``SESSION_JOURNAL_VERSION`` (``session.json``, ``trials.jsonl``)
-     - ``hydromodpy/results/session_journal.py``
-   * - ``TRASH_VERSION`` (``trash.json``)
-     - ``hydromodpy/results/trash_marker.py``
-   * - ``HMP_FORMAT_VERSION`` (``.hmp`` package)
-     - ``hydromodpy/results/exporters/hmp_package.py``
+   * - ``SESSION_SCHEMA`` (``session.json``)
+     - ``hydromodpy/results/session/descriptor.py``
+   * - ``ANNOTATIONS_VERSION`` (``annotations.json``)
+     - ``hydromodpy/results/annotations.py``
+   * - ``LEDGER_SCHEMA`` (``figures/index.json``, ``exports/index.json``)
+     - ``hydromodpy/results/ledger.py``
 
 .. _artifact-policy:
 
@@ -327,8 +300,8 @@ when their role is explicit.
      - Contract
    * - Project catalog
      - DuckDB
-     - Index of simulations, metrics, parameters, provenance, audit events and the
-       workflow ledger. Rebuilt from the run folders.
+     - Index of cases, simulations, sites, metrics and parameters. Rebuilt from the
+       run folders.
    * - Input cache
      - DuckDB
      - Cache index of downloaded and custom datasets.
@@ -339,7 +312,7 @@ when their role is explicit.
      - Parquet, GeoParquet
      - Persisted tables and vector layers.
    * - User exports
-     - CSV, NetCDF, GeoTIFF, VTU, Shapefile, STAC, PROV-O, RO-Crate, ``.hmp``
+     - CSV, NetCDF, GeoTIFF, VTU, Shapefile, GeoPackage, STAC, PROV-O, RO-Crate
      - Documented outputs for humans and external tools. Never the source of
        truth.
    * - Input derivatives
@@ -363,7 +336,7 @@ Direct DuckDB access
 
 The normal path is a catalog or cache adapter. A direct ``duckdb.connect`` is
 allowed for migration runners, backend adapters and the concrete catalog and cache
-constructors, read-only diagnostics, ``.hmp`` snapshot export and import, tests and
+constructors, read-only diagnostics, tests and
 benchmarks, and developer-only CLI inspection commands. A new direct call in the public API or in a user-facing command is a
 regression, and ``tests/unit/architecture/test_storage_boundary.py`` fails on it
 unless the file is added to its allowlist with a rationale.

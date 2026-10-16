@@ -42,10 +42,11 @@ allowed:
       report,
     ]
   reporting: [observations]
-  # criteria, metrics, observations, optim, parameter_resolution, runners and
-  # targets only from inside one of its checks, never at module level
-  # (test_preflight_reads_the_other_parts_only_inside_its_checks).
-  preflight: [criteria, metrics, observations, optim, parameter_resolution, runners, targets]
+  # criteria, metrics, observations, optim, parameter_resolution, protocols,
+  # runners and targets only from inside one of its checks, never at module
+  # level (test_preflight_reads_the_other_parts_only_inside_its_checks).
+  preflight:
+    [criteria, metrics, observations, optim, parameter_resolution, protocols, runners, targets]
   "<init>": [config, optim, report, runners]
   cases: ["<init>", optim]
 

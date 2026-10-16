@@ -145,7 +145,7 @@ scoring_window = ["2016-01-01", "2020-12-31"]
 [display.overrides.flow_intermittence_map]
 cycle = "2019"
 
-# What each of the five runs writes to share/<run>/.
+# What each of the five runs writes to runs/<run>/exports/.
 
 # The catchment and both BD Topage maps, all reaches and the permanent ones:
 # GeoPackage.

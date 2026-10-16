@@ -72,8 +72,10 @@ class TimeseriesSelectionMixin(HydroModelBase):
     station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Explicit station identifiers to select, whether stations are read "
-            "from a custom source or fetched from an API source such as Hub'Eau."
+            "Station identifiers to select, whether stations are read from a custom "
+            "source or fetched from an API source such as Hub'Eau. For a station "
+            "source of hydrometry, recharge or runoff, unset means [site] gauge, and "
+            "a list that leaves the gauge out is refused."
         ),
         json_schema_extra=field_metadata(site_scoped=True),
     )

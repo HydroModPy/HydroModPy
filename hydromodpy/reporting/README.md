@@ -2,8 +2,8 @@
 
 Standalone HTML pages that put several results side by side. A calibration
 session becomes one page with its convergence figures and its best fit. A
-comparison of simulations becomes a browsable report. A site selection becomes
-a review page. Figures come from `display`, derived series from `analysis`,
+comparison of sealed runs (`hmp report compare`) becomes a browsable report. A
+site selection becomes a review page. Figures come from `display`, derived series from `analysis`,
 data from `results`; this package composes them and writes the page.
 This file is the map of the package: what each part answers, the import
 rules, who calls it, and where to add what.
@@ -12,12 +12,12 @@ rules, who calls it, and where to add what.
 
 | part | answers |
 |---|---|
-| `calibration_report.py` | the HTML report of one calibration session: `render_session` takes a payload shaped like `SessionReportPayload` (built by `calibration.report.load_session_report_data`), renders the six `calibration_*` figures from the `display` registry and a best-fit panel, and writes `report.html` |
-| `comparison/` | the web report of one comparison output folder: `render.write_comparison_web_report` is the entry point |
-| `comparison/context.py` | what the page reads: the manifest, the metric and budget tables, the audit, the figure list; and the domain head profile figures it regenerates when missing |
+| `calibration_report.py` | the HTML report of one calibration session: `render_session` takes a payload shaped like `SessionReportPayload` (built by `calibration.report.load_session_report_data`), renders the six `calibration_*` figures from the `display` registry and a best-fit panel, and writes `sessions/<session>/report/index.html`, the figures under `sessions/<session>/figures/` |
+| `comparison/compare.py` | `hmp report compare`: `compare_runs` resolves the references to sealed runs, groups them (one group, or one per site under `--by site`), runs `analysis.comparison.run_comparison` per group and renders each page under `summary/report/compare/<refs>/` of the project, or `--out` |
+| `comparison/render.py` | the web report of one comparison folder: `write_comparison_web_report` |
+| `comparison/context.py` | what the page reads: `comparison_manifest.json` (with its `case_check` block), the metric and budget tables, the figure list; and the domain head profile figures it draws from the runs' `fields.zarr` |
 | `comparison/figures.py`, `comparison/html_utils.py` | how the figures are grouped into categories, and small HTML helpers |
 | `comparison/sections/` | one function per section of the page, their templates, and the loaders of config payloads |
-| `comparison/compact_network/` | the compact synthesis page for network-distance comparisons: `build_compact_network_synthesis` runs a `CompactNetworkSynthesisBuilder` over `io.py` (inputs), `network.py`, `maps.py` (figures) and `sections.py` (page) |
 | `site_selection/` | the review reports of a site selection: `html.py` (the report of a manifest, `render_site_selection_html_report`), `plan.py` (the report of a plan manifest), `blocks.py` and `figures.py` (the blocks and the map they use) |
 
 ## Import rules
@@ -29,11 +29,12 @@ rules, who calls it, and where to add what.
 1. `display` never imports `reporting`. The page structure that several
    reports share lives in `display/report_blocks`; `site_selection/` renders
    through it.
-2. `analysis -> reporting` is a documented tolerance, used in one place:
-   `analysis/comparison/experiment_launcher.py` writes the web report at the
-   end of a comparison. It must not expand.
-3. `reporting -> analysis` is allowed and used inside two functions of
-   `comparison/context.py`, to redraw a series figure and to load a series.
+2. `analysis` never imports `reporting`. The comparison is computed in
+   `analysis/comparison` and its page is rendered here, from
+   `comparison/compare.py`.
+3. `reporting -> analysis` is allowed: `comparison/compare.py` runs the
+   comparison, `comparison/context.py` reads the manifest and redraws the head
+   profile series from the runs.
 4. `calibration` does not import `reporting`. The calibration session report
    is rendered by `step_render_calibration_report` in
    `workflow/steps/calibration.py`, which reads the session with
@@ -41,18 +42,17 @@ rules, who calls it, and where to add what.
 
 No `reporting_layout.yaml` orders the parts inside the package.
 
-Who imports reporting: `workflow` (the calibration step and
-`workflow/site_selection.py`), `cli` (`hmp site-selection`) and the one
-`analysis` module above.
+Who imports reporting: `workflow` (the calibration step) and `cli`
+(`hmp report compare`; `hmp site select` hands the site-selection renderers to
+`spatial/site_selection/runner.py`, which never imports reporting).
 
 ## Tree
 
 ```
 hydromodpy/reporting/
   calibration_report.py
-  comparison/       render.py  context.py  figures.py  html_utils.py
+  comparison/       compare.py  render.py  context.py  figures.py  html_utils.py
     sections/       sections.py  templates.py  io.py
-    compact_network/  builder.py  io.py  network.py  maps.py  sections.py
   site_selection/   html.py  plan.py  blocks.py  figures.py
 ```
 
@@ -60,8 +60,8 @@ hydromodpy/reporting/
 
 | report | default output |
 |---|---|
-| calibration session | `<project>/share/reports/<session name>/report.html`, figures beside it in `figures/`; `reports_dir_for` in `core/state/paths.py` gives the folder |
-| comparison | `<comparison folder>/web/index.html` |
+| calibration session | `sessions/<session>/report/index.html`, figures in `sessions/<session>/figures/` |
+| comparison | `<project>/summary/report/compare/<refs>/[<site>/]web/index.html`, or under `--out` |
 | site selection | `<output_root>/review/index.html` of the manifest |
 | site-selection plan | `<output_root>/review/index.html` of the plan manifest |
 
@@ -75,4 +75,4 @@ the runs, the sessions and the manifests it reads.
 | a figure in the calibration report | a registered `calibration_*` figure in `display/figures/`, its name in `_DEFAULT_FIGURE_NAMES` of `calibration_report.py` |
 | a section of the comparison page | a function in `comparison/sections/sections.py` and its entry in `default_sections()` |
 | a report of another workflow | a package or module in `reporting/` built on `display/report_blocks`, called from the workflow; see `docs/source/contribute/architecture/how-to/add-a-block-html-report.rst` |
-| a datum the comparison page reads | `comparison/context.py` (`ComparisonWebContext`), with the file written by `analysis/comparison` |
+| a datum the comparison page reads | `comparison/context.py` (`ComparisonWebContext`), with the file written by `analysis/comparison/run_comparison.py` |

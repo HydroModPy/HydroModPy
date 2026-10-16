@@ -1,9 +1,9 @@
 """Factory entry points on :class:`Catalog`.
 
-S05-10 introduces ``from_toml`` / ``from_json`` / ``from_dict`` so a single
-:class:`HydroModPyConfig` source spawns either a :class:`Project` or a
-:class:`Catalog`. A :class:`Run` view is then created with
-``Catalog(...)`` + ``Run(sim_id, catalog)``.
+``from_toml`` / ``from_json`` / ``from_dict`` open the index of the project a
+configuration names, so one :class:`HydroModPyConfig` source spawns either a
+:class:`Project` or a :class:`Catalog`. A :class:`Run` view is then created
+with ``Catalog(...)`` + ``Run(sim_id, catalog)``.
 """
 
 from __future__ import annotations
@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from hydromodpy.results.catalog import Catalog
+import pytest
+
+from hydromodpy.results.catalog import Catalog, rebuild_index
 from hydromodpy.results.run import Run
+from tests._helpers.sealed_runs import make_project, seal_run
 
 _CATALOG_TOML = """\
 [workflow]
@@ -26,78 +29,64 @@ source_mode = "synthetic"
 """
 
 
-def _write_minimal_toml(tmp_path: Path) -> Path:
-    path = tmp_path / "config.toml"
-    path.write_text(_CATALOG_TOML.format(root=tmp_path.as_posix()), encoding="utf-8")
+@pytest.fixture
+def project(tmp_path: Path) -> tuple[Path, str]:
+    root = make_project(tmp_path / "demo")
+    sid = seal_run(root, "alpha", site=None)
+    rebuild_index(root)
+    return root, sid
+
+
+def _write_minimal_toml(root: Path) -> Path:
+    path = root / "config.toml"
+    path.write_text(_CATALOG_TOML.format(root=root.as_posix()), encoding="utf-8")
     return path
 
 
-def _build_payload(tmp_path: Path) -> dict:
+def _build_payload(root: Path) -> dict:
     return {
         "workflow": {"mode": "simulation"},
-        "workspace": {
-            "project_root": str(tmp_path),
-            "root": str(tmp_path),
-        },
+        "workspace": {"root": str(root)},
         "geographic": {"source_mode": "synthetic"},
     }
 
 
-def test_simulation_catalog_from_toml_opens_workspace(tmp_path: Path) -> None:
-    config_path = _write_minimal_toml(tmp_path)
-    cat = Catalog.from_toml(config_path)
+def test_catalog_from_toml_opens_the_project_index(project) -> None:
+    root, sid = project
+    cat = Catalog.from_toml(_write_minimal_toml(root))
     try:
-        assert cat.workspace_path == tmp_path.resolve()
+        assert cat.workspace_path == root.resolve()
+        assert cat.resolve("alpha") == sid
     finally:
         cat.close()
 
 
-def test_simulation_catalog_from_dict_opens_workspace(tmp_path: Path) -> None:
-    payload = _build_payload(tmp_path)
-    cat = Catalog.from_dict(payload)
+def test_catalog_from_dict_opens_the_project_index(project, monkeypatch) -> None:
+    root, sid = project
+    monkeypatch.chdir(root)
+    cat = Catalog.from_dict(_build_payload(root))
     try:
-        assert cat.workspace_path == tmp_path.resolve()
+        assert cat.resolve("alpha") == sid
     finally:
         cat.close()
 
 
-def test_simulation_catalog_from_json_opens_workspace(tmp_path: Path) -> None:
-    payload = json.dumps(_build_payload(tmp_path))
-    cat = Catalog.from_json(payload)
+def test_catalog_from_json_opens_the_project_index(project, monkeypatch) -> None:
+    root, sid = project
+    monkeypatch.chdir(root)
+    cat = Catalog.from_json(json.dumps(_build_payload(root)))
     try:
-        assert cat.workspace_path == tmp_path.resolve()
+        assert cat.resolve("alpha") == sid
     finally:
         cat.close()
 
 
-def test_run_from_toml_returns_view(tmp_path: Path) -> None:
-    config_path = _write_minimal_toml(tmp_path)
-    cat = Catalog.from_toml(config_path)
+def test_run_from_toml_returns_a_view(project) -> None:
+    root, sid = project
+    cat = Catalog.from_toml(_write_minimal_toml(root))
     try:
-        run = Run("missing-sim", cat)
-        assert run.sim_id == "missing-sim"
-        assert run._catalog.workspace_path == tmp_path.resolve()
-    finally:
-        cat.close()
-
-
-def test_run_from_dict_returns_view(tmp_path: Path) -> None:
-    payload = _build_payload(tmp_path)
-    cat = Catalog.from_dict(payload)
-    try:
-        run = Run("missing-sim", cat)
-        assert run.sim_id == "missing-sim"
-        assert run._catalog.workspace_path == tmp_path.resolve()
-    finally:
-        cat.close()
-
-
-def test_run_from_json_returns_view(tmp_path: Path) -> None:
-    payload = json.dumps(_build_payload(tmp_path))
-    cat = Catalog.from_json(payload)
-    try:
-        run = Run("missing-sim", cat)
-        assert run.sim_id == "missing-sim"
-        assert run._catalog.workspace_path == tmp_path.resolve()
+        run = Run(sid, cat)
+        assert run.name == "alpha"
+        assert run.status == "completed"
     finally:
         cat.close()

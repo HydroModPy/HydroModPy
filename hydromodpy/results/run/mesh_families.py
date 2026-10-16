@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from hydromodpy.results.errors import FieldNotFoundError
+from hydromodpy.results.run.tables import read_run_table
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -49,14 +50,10 @@ def mesh_families(run: Run) -> MeshFamilies:
             sim_id=run.sim_id,
             variable="mesh_families",
         )
-    backend = run._catalog.backend
-    cells = backend.query(
-        "SELECT * FROM mesh_cell_families WHERE sim_id = ? ORDER BY family, chain_id, position",
-        [run.sim_id],
+    cells = read_run_table(run, "mesh_cell_families").sort_values(
+        ["family", "chain_id", "position"], kind="stable"
     )
-    faces = backend.query(
-        "SELECT * FROM mesh_face_families WHERE sim_id = ? ORDER BY face_row", [run.sim_id]
-    )
+    faces = read_run_table(run, "mesh_face_families").sort_values("face_row", kind="stable")
     return MeshFamilies(
         cells=cells.drop(columns="sim_id").reset_index(drop=True),
         faces=faces.drop(columns="sim_id").reset_index(drop=True),

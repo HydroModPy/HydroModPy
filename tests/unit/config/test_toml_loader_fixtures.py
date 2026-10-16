@@ -66,8 +66,7 @@ def test_simulation_regression_mf6_generated_mesh_config_asks_for_voronoi_cells(
     assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert "postprocess" not in payload
-    assert payload["analysis"]["capability_gallery"]["enabled"] is True
-    assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
+    assert "analysis" not in payload
 
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)

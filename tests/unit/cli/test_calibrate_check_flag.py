@@ -1,22 +1,20 @@
-"""``hmp calibrate --check`` refuses before the solver, not during it.
+"""``hmp config check`` refuses a calibration before the solver, not during it.
 
 A calibration is hours of solver time, and the checks used to fire where they
 sat: a typo in a parameter path at the first trial, a missing geometry when the
-criterion first ran. Each one cost the run that had already happened. The flag
+criterion first ran. Each one cost the run that had already happened. The check
 runs them all, solves nothing, and exits on the config code when anything is
-wrong so a script can gate on it.
+wrong so a script can gate on it. It also says which published method the file
+runs and where it departs from it. ``hmp calibrate --check`` was its old name.
 """
 
 from __future__ import annotations
 
-import argparse
 import textwrap
 from pathlib import Path
 
-import pytest
-
-from hydromodpy.cli.commands import calibrate as calibrate_cmd
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from tests._helpers.cli_runner import CliRunner
 
 _TEMPLATE = textwrap.dedent(
     """
@@ -60,38 +58,32 @@ def _write(tmp_path: Path, *, param_path: str) -> Path:
     return path
 
 
-def _check(path: Path, verbosity: str | None = None) -> None:
-    calibrate_cmd.run(
-        argparse.Namespace(
-            config=path,
-            check=True,
-            list_phases=False,
-            phase=None,
-            profile=None,
-            verbosity=verbosity,
-        )
-    )
+def _check(path: Path, verbosity: str | None = None):
+    argv = ["config", "check", str(path)]
+    if verbosity is not None:
+        argv += ["--verbosity", verbosity]
+    return CliRunner().invoke(argv)
 
 
-def test_a_sound_file_passes_and_solves_nothing(tmp_path, capsys) -> None:
-    _check(_write(tmp_path, param_path="flow.param.K.field.value"))
+def test_a_sound_file_passes_and_solves_nothing(tmp_path) -> None:
+    result = _check(_write(tmp_path, param_path="flow.param.K.field.value"))
 
-    assert "ready to run" in capsys.readouterr().err
-
-
-def test_a_path_the_configuration_does_not_carry_exits_on_the_config_code(tmp_path, capsys) -> None:
-    with pytest.raises(SystemExit) as caught:
-        _check(_write(tmp_path, param_path="flow.param.Kh.field.value"))
-
-    assert caught.value.code == EXIT_CONFIG
-    assert "flow.param.Kh.field.value" in capsys.readouterr().err
+    assert result.exit_code == 0, result.stderr
+    assert "OK:" in result.stdout
 
 
-def test_the_summary_counts_what_it_found(tmp_path, capsys) -> None:
-    with pytest.raises(SystemExit):
-        _check(_write(tmp_path, param_path="flow.param.Kh.field.value"))
+def test_a_path_the_configuration_does_not_carry_exits_on_the_config_code(tmp_path) -> None:
+    result = _check(_write(tmp_path, param_path="flow.param.Kh.field.value"))
 
-    assert "1 error(s)" in capsys.readouterr().err
+    assert result.exit_code == EXIT_CONFIG
+    assert "flow.param.Kh.field.value" in result.stderr
+    assert "Config invalid:" in result.stderr
+
+
+def test_hmp_calibrate_has_no_check_flag_any_more(tmp_path) -> None:
+    result = CliRunner().invoke(["calibrate", str(tmp_path / "calib.toml"), "--check"])
+
+    assert result.exit_code == 2
 
 
 _PROTOCOL = textwrap.dedent(
@@ -144,44 +136,41 @@ _PROTOCOL = textwrap.dedent(
 )
 
 
-def test_a_named_method_is_announced_and_its_references_wait_for_verbose(tmp_path, capsys) -> None:
+def test_a_named_method_is_announced_and_its_references_wait_for_verbose(tmp_path) -> None:
     path = tmp_path / "calib.toml"
     path.write_text(_PROTOCOL.replace("PROJECT_ROOT", tmp_path.as_posix()), encoding="utf-8")
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
-    _check(path)
-    normal = capsys.readouterr().err
-    _check(path, verbosity="verbose")
-    verbose = capsys.readouterr().err
+    normal = _check(path)
+    verbose = _check(path, verbosity="verbose")
 
-    assert "matching_hydrographic_network" in normal
-    assert "ready to run" in normal
-    assert "10.5194/hess-27-3221-2023" not in normal
-    assert "stage 1:" not in normal
-    assert "cite: " in verbose
-    assert "10.5194/hess-27-3221-2023" in verbose
-    assert "stage 1:" in verbose
-    assert "ready to run" in verbose
+    assert normal.exit_code == 0, normal.stderr
+    assert "matching_hydrographic_network" in normal.stderr
+    assert "OK:" in normal.stdout
+    assert "10.5194/hess-27-3221-2023" not in normal.stderr
+    assert "stage 1:" not in normal.stderr
+    assert "cite: " in verbose.stderr
+    assert "10.5194/hess-27-3221-2023" in verbose.stderr
+    assert "stage 1:" in verbose.stderr
+    assert "OK:" in verbose.stdout
 
 
-def test_quiet_prints_nothing_for_a_sound_file(tmp_path, capsys) -> None:
+def test_quiet_prints_nothing_for_a_sound_file(tmp_path) -> None:
     path = tmp_path / "calib.toml"
     path.write_text(_PROTOCOL.replace("PROJECT_ROOT", tmp_path.as_posix()), encoding="utf-8")
     (tmp_path / "streams.gpkg").write_bytes(b"")
 
-    _check(path, verbosity="quiet")
+    result = _check(path, verbosity="quiet")
 
-    assert capsys.readouterr().err == ""
+    assert result.exit_code == 0
+    assert result.stderr == ""
 
 
-def test_quiet_keeps_the_findings(tmp_path, capsys) -> None:
-    with pytest.raises(SystemExit) as caught:
-        _check(_write(tmp_path, param_path="flow.param.Kh.field.value"), verbosity="quiet")
+def test_quiet_keeps_the_findings(tmp_path) -> None:
+    result = _check(_write(tmp_path, param_path="flow.param.Kh.field.value"), verbosity="quiet")
 
-    assert caught.value.code == EXIT_CONFIG
-    printed = capsys.readouterr().err
-    assert "flow.param.Kh.field.value" in printed
-    assert "error(s)" not in printed
+    assert result.exit_code == EXIT_CONFIG
+    assert "flow.param.Kh.field.value" in result.stderr
 
 
 def _protocol_file(tmp_path: Path, *, end: str = "2000-12-31", geographic: str = "") -> Path:
@@ -195,43 +184,40 @@ def _protocol_file(tmp_path: Path, *, end: str = "2000-12-31", geographic: str =
     return path
 
 
-def test_a_run_of_one_year_is_told_its_spin_up_year_is_scored(tmp_path, capsys) -> None:
+def test_a_run_of_one_year_is_told_its_spin_up_year_is_scored(tmp_path) -> None:
     """The protocol drops its default window silently; the check says so."""
-    _check(_protocol_file(tmp_path))
+    result = _check(_protocol_file(tmp_path))
 
-    printed = capsys.readouterr().err
-    assert "stage 2 scores the whole run, spin-up year included" in printed
-    assert "ends on 2000-12-31, within one year of its start 2000-01-01" in printed
-    assert "ready to run" in printed
-
-
-def test_a_run_past_its_first_year_gets_no_such_line(tmp_path, capsys) -> None:
-    _check(_protocol_file(tmp_path, end="2002-12-31"))
-
-    assert "spin-up year included" not in capsys.readouterr().err
+    assert "stage 2 scores the whole run, spin-up year included" in result.stderr
+    assert "ends on 2000-12-31, within one year of its start 2000-01-01" in result.stderr
+    assert "OK:" in result.stdout
 
 
-def test_a_breach_written_under_geographic_is_announced(tmp_path, capsys) -> None:
-    _check(_protocol_file(tmp_path, geographic='dem_correc_type = "breach"'))
+def test_a_run_past_its_first_year_gets_no_such_line(tmp_path) -> None:
+    result = _check(_protocol_file(tmp_path, end="2002-12-31"))
 
-    lines = capsys.readouterr().err.splitlines()
+    assert "spin-up year included" not in result.stderr
+
+
+def test_a_breach_written_under_geographic_is_announced(tmp_path) -> None:
+    result = _check(_protocol_file(tmp_path, geographic='dem_correc_type = "breach"'))
+
+    lines = result.stderr.splitlines()
     line = next(line for line in lines if "differs from the paper on dem_correc_type" in line)
     assert line.endswith("this file sets 'breach'")
 
 
-def test_an_unwritten_dem_conditioning_is_not_claimed_by_the_file(tmp_path, capsys) -> None:
-    _check(_protocol_file(tmp_path), verbosity="verbose")
+def test_an_unwritten_dem_conditioning_is_not_claimed_by_the_file(tmp_path) -> None:
+    result = _check(_protocol_file(tmp_path), verbosity="verbose")
 
-    lines = capsys.readouterr().err.splitlines()
+    lines = result.stderr.splitlines()
     line = next(line for line in lines if "as the paper on dem_correc_type" in line)
     assert "this file sets" not in line
 
 
-def test_only_the_departures_print_at_the_normal_verbosity(tmp_path, capsys) -> None:
+def test_only_the_departures_print_at_the_normal_verbosity(tmp_path) -> None:
     """The default fill is the paper's; tau and the heads default are not."""
-    _check(_protocol_file(tmp_path, end="2002-12-31"))
-
-    printed = capsys.readouterr().err
+    printed = _check(_protocol_file(tmp_path, end="2002-12-31")).stderr
     departures = [line for line in printed.splitlines() if "differs from the paper" in line]
     assert len(departures) == 2
     assert any("on tau_specific_ratio" in line for line in departures)
@@ -242,7 +228,7 @@ def test_only_the_departures_print_at_the_normal_verbosity(tmp_path, capsys) -> 
     assert "d_os_support" not in printed
 
 
-def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path, capsys) -> None:
+def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
         'stream_geometry_path = "streams.gpkg"',
@@ -252,17 +238,15 @@ def test_a_value_written_equal_to_the_paper_is_not_a_departure(tmp_path, capsys)
     )
     path.write_text(text, encoding="utf-8")
 
-    _check(path)
-    printed = capsys.readouterr().err
-    _check(path, verbosity="verbose")
-    verbose = capsys.readouterr().err
+    printed = _check(path).stderr
+    verbose = _check(path, verbosity="verbose").stderr
 
     assert "differs from the paper" not in printed
     assert "as the paper on diagonal_neighbors" in verbose
     assert "this file sets True" in verbose
 
 
-def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path, capsys) -> None:
+def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path) -> None:
     """Seven sweep points, one per cent on K and the spin-up window are what the recipe runs."""
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
@@ -273,10 +257,8 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path, 
     )
     path.write_text(text, encoding="utf-8")
 
-    _check(path)
-    printed = capsys.readouterr().err
-    _check(path, verbosity="verbose")
-    verbose = capsys.readouterr().err
+    printed = _check(path).stderr
+    verbose = _check(path, verbosity="verbose").stderr
 
     away = [line for line in printed.splitlines() if "option away from the recipe" in line]
     assert away == ["  option away from the recipe: transient_max_iter = 30 (recipe: 120)"]
@@ -285,7 +267,7 @@ def test_options_written_as_the_recipe_runs_them_are_not_away_from_it(tmp_path, 
     assert "option written as the recipe runs it: scoring_window" in verbose
 
 
-def test_an_old_key_is_a_warning_the_verdict_counts(tmp_path, capsys) -> None:
+def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
     path = _protocol_file(tmp_path, end="2002-12-31")
     text = path.read_text(encoding="utf-8").replace(
         'protocol = "matching_hydrographic_network"',
@@ -294,17 +276,17 @@ def test_an_old_key_is_a_warning_the_verdict_counts(tmp_path, capsys) -> None:
     )
     path.write_text(text, encoding="utf-8")
 
-    _check(path)
+    result = _check(path)
 
-    printed = capsys.readouterr().err
-    assert "WARNING calib.toml: 'steady_engine_options' is now called 'steady_method_options'" in (
-        printed
+    assert result.exit_code == 0, result.stderr
+    warnings = [line for line in result.stderr.splitlines() if "warning:" in line]
+    assert any(
+        "'steady_engine_options' is now called 'steady_method_options'" in line for line in warnings
     )
-    assert "0 error(s), 1 warning(s)" in printed
 
 
 def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(
-    tmp_path, capsys
+    tmp_path,
 ) -> None:
     """It used to pass the check and fail when phase two started."""
     path = _protocol_file(tmp_path, end="2002-12-31")
@@ -315,10 +297,9 @@ def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(
     )
     path.write_text(text, encoding="utf-8")
 
-    with pytest.raises(SystemExit) as caught:
-        _check(path)
+    result = _check(path)
 
-    assert caught.value.code == EXIT_CONFIG
-    printed = capsys.readouterr().err
+    assert result.exit_code == EXIT_CONFIG
+    printed = result.stderr
     assert "transient_method_options" in printed
     assert "'scipy_nelder_mead' does not take sweep_points" in printed

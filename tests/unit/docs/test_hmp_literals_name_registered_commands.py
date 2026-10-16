@@ -2,7 +2,7 @@
 
 A page or a message that names a command the CLI does not register sends the
 reader to a usage error. The scan reads the files git tracks under
-``hydromodpy/`` and ``docs/source/``.
+``hydromodpy/`` and ``docs/source/`` that the working tree still holds.
 """
 
 from __future__ import annotations
@@ -42,7 +42,11 @@ def _tracked_files() -> list[Path]:
         text=True,
         check=True,
     )
-    return [REPO_ROOT / entry for entry in completed.stdout.split("\0") if entry.endswith(SUFFIXES)]
+    # A file deleted in the working tree and not yet in a commit is still listed.
+    paths = (
+        REPO_ROOT / entry for entry in completed.stdout.split("\0") if entry.endswith(SUFFIXES)
+    )
+    return [path for path in paths if path.is_file()]
 
 
 def _registered_actions() -> dict[str, set[str]]:

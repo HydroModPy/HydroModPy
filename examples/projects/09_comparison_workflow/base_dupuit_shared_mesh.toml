@@ -1,5 +1,0 @@
-base_config = "../../../validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
-
-
-[workflow]
-mode = "simulation"

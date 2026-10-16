@@ -86,14 +86,14 @@ class TestTheRequestRefusesWhatItCanDecideAlone:
         with pytest.raises(ValidationError, match="sizes the pixels of a GeoTIFF"):
             ExportRequest(variables="head", format="geopackage", time="last", resolution=10.0)
 
-    @pytest.mark.parametrize("fmt", ["package", "stac", "rocrate", "prov"])
+    @pytest.mark.parametrize("fmt", ["stac", "rocrate", "prov"])
     def test_a_run_format_takes_all_only(self, fmt: str) -> None:
         with pytest.raises(ValidationError, match='Write variables = "all"'):
             ExportRequest(variables="head", format=fmt)
 
     def test_a_run_format_refuses_a_selector(self) -> None:
         with pytest.raises(ValidationError, match="time selects nothing"):
-            ExportRequest(variables="all", format="package", time="last")
+            ExportRequest(variables="all", format="rocrate", time="last")
 
     @pytest.mark.parametrize("fmt", ["netcdf", "vtu", "csv"])
     def test_crs_on_a_format_that_does_not_reproject(self, fmt: str) -> None:
@@ -133,15 +133,15 @@ class TestTheRequestAcceptsWhatItSays:
             variables="head", time=["2001-01-15", "2001-08-15"], format="geotiff"
         )
         assert _plan(request) == [
-            "nancon/head_2001-01-15.tif",
-            "nancon/head_2001-08-15.tif",
+            "head_2001-01-15.tif",
+            "head_2001-08-15.tif",
         ]
 
     def test_the_extension_gives_the_format(self) -> None:
         assert ExportRequest(variables="head", file="fields.nc").output_format is (
             ExportFormat.netcdf
         )
-        assert format_from_path("run.hmp") is ExportFormat.package
+        assert format_from_path("run.hmp") is None
         assert format_from_path(Path("layer.GPKG")) is ExportFormat.geopackage
 
     def test_an_integer_stays_a_step_index(self) -> None:
@@ -156,64 +156,68 @@ class TestTheRequestAcceptsWhatItSays:
         assert request.exports_all
         assert request.names == []
 
-    def test_a_package_of_the_run(self) -> None:
-        request = ExportRequest(variables="all", format="package")
-        assert _plan(request) == ["nancon/nancon.hmp"]
+    def test_the_package_format_is_refused_with_what_replaces_it(self) -> None:
+        with pytest.raises(ValidationError, match="hmp publish <run> --to DEST --format tar"):
+            ExportRequest(variables="all", format="package")
+
+    def test_a_view_of_the_run_lands_at_the_root_of_the_exports(self) -> None:
+        request = ExportRequest(variables="all", format="rocrate", folder="crate")
+        assert _plan(request) == ["crate/ro-crate-metadata.json"]
 
 
 class TestThePlanNamesEveryFile:
     def test_a_field_at_one_date_is_a_geotiff_per_variable(self) -> None:
         request = ExportRequest(variables=["head", "watertable_depth"], time="2001-08-15")
         assert _plan(request) == [
-            "nancon/head_2001-08-15.tif",
-            "nancon/watertable_depth_2001-08-15.tif",
+            "head_2001-08-15.tif",
+            "watertable_depth_2001-08-15.tif",
         ]
 
     def test_a_field_over_the_record_is_one_netcdf(self) -> None:
         request = ExportRequest(variables=["head", "watertable_depth"])
-        assert _plan(request) == ["nancon/nancon_fields.nc"]
+        assert _plan(request) == ["nancon_fields.nc"]
 
     def test_a_period_names_its_window(self) -> None:
         request = ExportRequest(
             variables=["discharge", "discharge_obs"], period=["2001-01-01", "2002-12-31"]
         )
-        assert _plan(request) == ["nancon/nancon_series_2001-01-01_2002-12-31.csv"]
+        assert _plan(request) == ["nancon_series_2001-01-01_2002-12-31.csv"]
 
     def test_layers_and_tables_take_their_natural_format(self) -> None:
         request = ExportRequest(
             variables=["watershed", "hydrographic_network_reference", "watershed_dem", "budget"]
         )
         assert _plan(request) == [
-            "nancon/watershed.gpkg",
-            "nancon/hydrographic_network_reference.gpkg",
-            "nancon/watershed_dem.tif",
-            "nancon/budget.csv",
+            "watershed.gpkg",
+            "hydrographic_network_reference.gpkg",
+            "watershed_dem.tif",
+            "budget.csv",
         ]
 
     def test_a_step_index_and_a_keyword_in_a_name(self) -> None:
-        assert _plan(ExportRequest(variables="head", time=33)) == ["nancon/head_step33.tif"]
-        assert _plan(ExportRequest(variables="head", time="last")) == ["nancon/head_last.tif"]
+        assert _plan(ExportRequest(variables="head", time=33)) == ["head_step33.tif"]
+        assert _plan(ExportRequest(variables="head", time="last")) == ["head_last.tif"]
 
     def test_a_one_instant_format_over_the_record_writes_one_file_per_step(self) -> None:
         (planned,) = plan_outputs(
             ExportRequest(variables="head", format="vtu"), KINDS, run_label="nancon"
         )
         assert planned.per_step
-        assert planned.path == PurePosixPath("nancon", f"head_{STEP_DATE_TOKEN}.vtu")
+        assert planned.path == PurePosixPath(f"head_{STEP_DATE_TOKEN}.vtu")
 
     def test_a_file_replaces_the_automatic_name_inside_the_folder(self) -> None:
         request = ExportRequest(
             variables="watertable_depth", time="last", file="wgs84.tif", crs="EPSG:4326"
         )
-        assert _plan(request) == ["nancon/wgs84.tif"]
+        assert _plan(request) == ["wgs84.tif"]
         request = ExportRequest(variables="head", folder="deliver", file="h.nc")
         assert _plan(request) == ["deliver/h.nc"]
 
     def test_all_with_a_format_takes_what_the_format_holds(self) -> None:
         request = ExportRequest(variables="all", format="csv")
         assert _plan(request, names=list(KINDS)) == [
-            "nancon/nancon_series.csv",
-            "nancon/budget.csv",
+            "nancon_series.csv",
+            "budget.csv",
         ]
 
     def test_all_plans_nothing_before_the_run(self) -> None:
@@ -239,23 +243,32 @@ class TestThePlanSpellsANameAsTheTomlDoes:
         windows = self._on_windows(request, folder="d\\e")
         assert _plan(windows) == _plan(request) == ["d/e/head_last.tif", "d/e/discharge_last.csv"]
 
-    def test_an_absolute_folder_keeps_its_drive(self) -> None:
-        request = self._on_windows(ExportRequest(variables="head", time="last"), folder="C:\\out")
-        assert _plan(request) == ["C:/out/head_last.tif"]
+    def test_an_absolute_windows_folder_is_refused(self) -> None:
+        with pytest.raises(ValidationError, match="is absolute"):
+            ExportRequest(variables="head", time="last", folder="C:\\out")
 
-    def test_an_absolute_file_replaces_the_folder(self) -> None:
+    def test_a_view_in_a_windows_folder(self) -> None:
         request = self._on_windows(
-            ExportRequest(variables="head", time="last", folder="out", file="h.tif"),
-            folder="out",
-            file="D:\\deliver\\h.tif",
+            ExportRequest(variables="all", format="prov", folder="a"), folder="a\\b"
         )
-        assert _plan(request) == ["D:/deliver/h.tif"]
+        assert _plan(request) == ["a/b/prov.jsonld"]
 
-    def test_a_package_in_a_windows_folder(self) -> None:
-        request = self._on_windows(
-            ExportRequest(variables="all", format="package", folder="a"), folder="a\\b"
-        )
-        assert _plan(request) == ["a/b/nancon.hmp"]
+
+class TestEveryFileStaysUnderTheExportsOfTheRun:
+    @pytest.mark.parametrize("key", ["folder", "file"])
+    def test_an_absolute_path_is_refused_with_hmp_publish(self, key: str) -> None:
+        value = "/srv/deliver" if key == "folder" else "/srv/deliver/h.tif"
+        with pytest.raises(ValidationError, match="hmp publish <run> --to DEST"):
+            ExportRequest(variables="head", time="last", **{key: value})
+
+    @pytest.mark.parametrize("key", ["folder", "file"])
+    def test_a_path_that_climbs_out_is_refused(self, key: str) -> None:
+        value = "../elsewhere" if key == "folder" else "../h.tif"
+        with pytest.raises(ValidationError, match="climbs out of runs/<run>/exports/"):
+            ExportRequest(variables="head", time="last", **{key: value})
+
+    def test_without_a_folder_the_files_land_at_the_root_of_the_exports(self) -> None:
+        assert _plan(ExportRequest(variables="head", time="last")) == ["head_last.tif"]
 
 
 class TestThePlanRefusesWhatTheKindsMakeImpossible:
@@ -277,7 +290,7 @@ class TestThePlanRefusesWhatTheKindsMakeImpossible:
 
     def test_crs_on_all_reprojects_what_can_be(self) -> None:
         request = ExportRequest(variables="all", crs="EPSG:4326")
-        assert "nancon/watershed.gpkg" in _plan(request, names=list(KINDS))
+        assert "watershed.gpkg" in _plan(request, names=list(KINDS))
 
     def test_resolution_without_a_raster(self) -> None:
         with pytest.raises(ValueError, match="writes none"):

@@ -7,7 +7,7 @@ import pytest
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.workflow.site_selection import build_observed_site_selection_from_toml
+from hydromodpy.spatial.site_selection.runner import build_observed_site_selection_from_toml
 from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_build_builders import make_wgs84_hubeau_record

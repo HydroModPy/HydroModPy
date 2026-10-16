@@ -41,6 +41,9 @@ _COMMON = """\
 [workflow]
 mode = "simulation"
 
+[site]
+name = "cheze"
+
 [workspace]
 
 [simulation]
@@ -301,7 +304,7 @@ def run_case(root: Path, case: str, *, raised: bool) -> Path:
         f"import run_in_process; run_in_process({str(root)!r}, {case!r}, {raised!r})"
     )
     subprocess.run([sys.executable, "-c", code], cwd=_REPO_ROOT, check=True)
-    folders = [p for p in (root / ".hmp" / "scratch").glob("*/*") if any(p.glob("*.disv"))]
+    folders = [p for p in root.glob("runs/*/solver/*") if any(p.glob("*.disv"))]
     assert len(folders) == 1, folders
     return folders[0]
 

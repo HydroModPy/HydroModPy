@@ -1,27 +1,30 @@
-"""``hmp catalog gc`` - the single workspace maintenance verb.
+"""``hmp catalog gc`` - collect the runs and trash entries a project no longer needs.
 
-Plans by default; ``--apply`` enforces the retention policy, purges expired
-trash, quarantines orphan stores, replays interrupted purges, marks stale
-running runs failed, cleans orphan caches and tmp parquet, and compacts
-DuckDB + Zarr (the absorbed ``vacuum``). Nothing is ever destroyed on the
-spot: a run selected by the retention policy goes to the project trash
-(reversible with ``hmp catalog restore``), and orphan stores and figures are
-moved to ``<project>/.hmp/trash/<stamp>/``.
+Plans by default; ``--apply`` carries the plan out. Every decision reads the
+project tree (:mod:`hydromodpy.results.retention`): a run whose attempt
+stopped beating is marked aborted, the versions beyond the retention window
+and the runs past the age limit go to the trash, and the trash entries older
+than the trash retention are removed, each leaving a tombstone.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, verbosity_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK, apply_verbosity
+from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_OK, apply_verbosity, exit_code_for
+from hydromodpy.core.state.paths import (
+    catalog_path_for,
+    project_roots_under,
+    resolve_project_root,
+)
+from hydromodpy.results.retention import DEFAULT_KEEP_VERSIONS, TRASH_RETENTION_DAYS
 
 NAME: str = "gc"
-HELP: str = (
-    "Maintenance: apply the retention policy, expire trash, quarantine orphan stores, "
-    "replay purges, compact DuckDB + Zarr"
-)
+HELP: str = "Maintenance: mark dead attempts aborted, trash old versions, remove expired trash"
 
 
 def _keep_versions(value: str) -> int | None:
@@ -35,7 +38,7 @@ def _keep_versions(value: str) -> int | None:
             f"expected a positive integer or 'all', got {value!r}"
         ) from exc
     if count < 1:
-        raise argparse.ArgumentTypeError("at least one version per lineage must be kept")
+        raise argparse.ArgumentTypeError("at least one version per name must be kept")
     return count
 
 
@@ -51,19 +54,26 @@ def _positive_days(value: str) -> int:
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.cli._workers.catalog import DEFAULT_KEEP_VERSIONS, PROTECTED_TAG
+    from hydromodpy.results.trash import PROTECTED_TAG
 
-    parser = subparsers.add_parser(NAME, help=HELP, parents=[format_parser(), verbosity_parser()])
-    parser.add_argument(
-        "-w",
-        "--workspace",
-        default=None,
-        help="Workspace root or project directory (default: auto-detect from cwd)",
+    parser = subparsers.add_parser(
+        NAME,
+        help=HELP,
+        parents=[workspace_parser(), format_parser(), verbosity_parser()],
+        epilog=(
+            f"A directory tagged '{PROTECTED_TAG}' is never collected. Trash entries are\n"
+            f"removed {TRASH_RETENTION_DAYS} days after their deletion.\n"
+            "\n"
+            "Examples:\n"
+            "  hmp catalog gc\n"
+            "  hmp catalog gc --keep-versions 3 --max-age-days 180 --apply"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Execute the plan and free resources (default: print the plan only)",
+        help="Carry the plan out (default: print the plan only)",
     )
     parser.add_argument(
         "--keep-versions",
@@ -71,7 +81,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=DEFAULT_KEEP_VERSIONS,
         metavar="N|all",
         help=(
-            f"Versions kept per run lineage; older ones go to the trash "
+            f"Versions kept per run name; older ones go to the trash "
             f"(default: {DEFAULT_KEEP_VERSIONS}, 'all' disables the rule)"
         ),
     )
@@ -80,78 +90,54 @@ def register(subparsers) -> argparse.ArgumentParser:
         type=_positive_days,
         default=None,
         metavar="DAYS",
-        help="Also trash runs created more than DAYS ago (default: no age limit)",
+        help="Also trash runs started more than DAYS ago (default: no age limit)",
     )
-    parser.add_argument(
-        "--purge-figures",
-        action="store_true",
-        help="Also quarantine the regenerable figures/ directory of each run",
-    )
-    parser.epilog = (
-        f"A run tagged '{PROTECTED_TAG}' is exempt from every retention rule.\n\n"
-        "Examples:\n"
-        "  hmp catalog gc\n"
-        "  hmp catalog gc --keep-versions 3 --max-age-days 180 --apply"
-    )
-    parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.set_defaults(_handler=run)
     return parser
 
 
-def _describe(policy: dict) -> str:
-    """Render the retention policy as one readable line."""
-    keep = policy["keep_versions"]
-    age = policy["max_age_days"]
-    return ", ".join(
-        (
-            "every version kept" if keep is None else f"{keep} version(s) per lineage",
-            "no age limit" if age is None else f"trashed after {age} day(s)",
-            "figures swept" if policy["purge_figures"] else "figures kept",
-            f"'{policy['protected_tag']}' exempt",
-        )
-    )
-
-
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.cli._workers.catalog import RetentionPolicy, gc
+    from hydromodpy.results.retention import RetentionPolicy, apply_gc, plan_gc
 
-    # Safe by default: planner unless --apply (mirrors `audit prune`,
-    # the inverse of the old destructive-by-default --dry-run opt-in).
-    dry_run = not args.apply
-    policy = RetentionPolicy(
-        keep_versions=args.keep_versions,
-        max_age_days=args.max_age_days,
-        purge_figures=args.purge_figures,
-    )
+    target = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    if not target.is_dir():
+        print(f"{target} is not a directory.", file=sys.stderr)
+        sys.exit(exit_code_for(FileNotFoundError(str(target))))
+    policy = RetentionPolicy(keep_versions=args.keep_versions, max_age_days=args.max_age_days)
+    now = datetime.now(UTC)
+    report: dict[str, dict] = {}
     try:
-        result = gc(args.workspace, dry_run=dry_run, policy=policy)
-    except FileNotFoundError as exc:
+        for root in project_roots_under(resolve_project_root(target)):
+            plan = plan_gc(root, policy, now=now)
+            summary = apply_gc(plan, now=now) if args.apply else {}
+            if args.apply and catalog_path_for(root).is_file():
+                from hydromodpy.results.catalog.indexer import index_new_runs
+
+                index_new_runs(root)
+            report[str(root)] = {"plan": plan.categories(), "summary": summary}
+    except Exception as exc:  # noqa: BLE001 - map in-use and IO errors to exit codes
         print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
+        sys.exit(exit_code_for(exc))
 
     if args.format == "json":
         import json
 
-        print(json.dumps(result, default=str))
+        print(json.dumps({"apply": args.apply, "projects": report}))
         sys.exit(EXIT_OK)
 
-    label = "[plan] " if dry_run else ""
-    for key, items in result["plan"].items():
-        print(f"{label}{key}: {len(items)} candidate(s)")
-        for item in items:
-            print(f"  - {item}")
-        if key in ("orphan_stores", "regenerable_figures") and items:
-            print("  (moved to <project>/.hmp/trash/<stamp>/, never deleted)")
-        if key in ("superseded_runs", "expired_runs") and items:
-            print("  (moved to the project trash, restorable with 'hmp catalog restore')")
-    print()
-    print(f"Retention policy: {_describe(result['policy'])}")
-    if dry_run:
-        print("\nPlan only. Re-run with --apply to execute.")
-        sys.exit(EXIT_OK)
-    print()
-    print("Summary:")
-    for key, value in result["summary"].items():
-        print(f"  {key}: {value}")
+    label = "" if args.apply else "[plan] "
+    for root, block in report.items():
+        print(f"# {root}")
+        for key, items in block["plan"].items():
+            print(f"{label}{key}: {len(items)}")
+            for item in items:
+                print(f"  - {item}")
+    print(
+        f"\nRetention: {'every version' if policy.keep_versions is None else policy.keep_versions}"
+        f" kept per name, {'no age limit' if policy.max_age_days is None else f'{policy.max_age_days} days'}"
+        f", trash kept {TRASH_RETENTION_DAYS} days."
+    )
+    if not args.apply:
+        print("Plan only. Re-run with --apply to carry it out.")
     sys.exit(EXIT_OK)

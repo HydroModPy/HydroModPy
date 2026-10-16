@@ -125,7 +125,7 @@ def test_the_staged_report_carries_the_protocol_it_followed() -> None:
     report = StagedCalibrationReport(
         phases=(),
         frozen=(),
-        root_session_id="abc",
+        session_id="abc",
         protocol=protocol_record("matching_hydrographic_network"),
     )
 
@@ -137,6 +137,6 @@ def test_the_staged_report_carries_the_protocol_it_followed() -> None:
 def test_a_hand_written_staged_report_says_nothing_about_a_protocol() -> None:
     from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
 
-    summary = StagedCalibrationReport(phases=(), frozen=(), root_session_id="abc").to_dict()
+    summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
 
     assert "protocol" not in summary

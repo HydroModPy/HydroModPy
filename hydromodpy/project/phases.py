@@ -127,8 +127,7 @@ def setup_workspace(project: Project) -> None:
     """Bootstrap shared runtime state for a Project session.
 
     Idempotent: calling twice resets workspace, geographic, domain, and process
-    objects. Opens the catalog as a side effect so later run-phase methods can
-    register simulations.
+    objects. Opens the index for reading as a side effect, when one exists.
     """
     from hydromodpy.workflow.steps.setup import step_setup, step_spatial_supports
 
@@ -258,7 +257,13 @@ def build_mesh(project: Project, **overrides: object) -> None:
 
 
 def open_catalog(project: Project) -> None:
-    """Open the Catalog for this workspace (idempotent)."""
+    """Open the index of the project for reading (idempotent).
+
+    A project reads its index; it never writes it. Without an index yet
+    (a project that has not been indexed since its first run) the store
+    stays ``None`` and the read-only views answer empty.
+    """
+    from hydromodpy.core.state.paths import catalog_path_for
     from hydromodpy.results.catalog import Catalog
 
     if project._store is not None:
@@ -266,8 +271,10 @@ def open_catalog(project: Project) -> None:
     ws = project._ctx.setup.workspace
     if ws is None:
         return
-    project._store = Catalog.from_workspace(ws)
     project._project_name = ws.project_root.name
+    if not catalog_path_for(Path(ws.project_root)).is_file():
+        return
+    project._store = Catalog(Path(ws.project_root))
 
 
 def detect_solver(project: Project) -> str:

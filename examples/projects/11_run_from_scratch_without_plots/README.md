@@ -28,8 +28,8 @@ the Python API (below).
 |---|---|
 | `runs/canut_headless_mf6/fields.zarr` | gridded fields (Zarr 3) |
 | `runs/canut_headless_mf6/tables.parquet/` | series, budgets, metrics (Parquet) |
-| `share/canut_headless_mf6/fields.nc` | NetCDF export of the fields |
-| `share/canut_headless_mf6/*.csv` | catchment series as CSV |
+| `runs/canut_headless_mf6/exports/fields.nc` | NetCDF export of the fields |
+| `runs/canut_headless_mf6/exports/*.csv` | catchment series as CSV |
 | `.hmp/index.duckdb` | catalog index, rebuildable |
 
 Read it back without replaying:

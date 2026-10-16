@@ -7,8 +7,7 @@ import pytest
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
-from hydromodpy.workflow.site_selection_data import (
-    default_site_selection_data_root,
+from hydromodpy.spatial.site_selection.runner_data import (
     load_dem_path,
     load_hydrometry_records,
 )
@@ -54,14 +53,6 @@ def test_load_hydrometry_records_prefers_explicit_project_period():
     load_hydrometry_records(cfg, project_period=explicit, loader=fake_loader)
 
     assert calls["project_period"] == explicit
-
-
-@pytest.mark.fast
-def test_default_site_selection_data_root_uses_workspace_env(monkeypatch, tmp_path):
-    workspace = tmp_path / "workspace"
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(workspace))
-
-    assert default_site_selection_data_root() == (workspace / "data").resolve()
 
 
 @pytest.mark.fast

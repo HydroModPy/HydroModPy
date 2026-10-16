@@ -1,4 +1,11 @@
-"""Mesh, structured-grid, and cell-centroid lookup helpers."""
+"""Cell centroids, areas and elevations of one sealed run.
+
+A sealed run carries its grid twice at most: ``mesh/`` in ``fields.zarr``
+(vertices and faces, face ``i`` is cell ``i`` of every field array) and, when
+the mesh was not reproducible, the exchange bundle the run copied into its own
+``mesh/`` folder (it adds storage and elevations). Both live in the run
+directory; nothing here reads a TOML, a scratch folder or the project index.
+"""
 
 from __future__ import annotations
 
@@ -7,35 +14,23 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime.metadata import (
-    _resolve_project_root_from_config,
-    _resolve_recorded_output_path,
-    discover_result_store,
-    read_json_file,
-)
+from hydromodpy.analysis.comparison.runtime.run_source import RunSource, open_run_source
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import preprocessing_dir
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.results.run.contracts import cell_centers, polygon_areas
 
-try:
-    import rasterio
-except Exception:  # pragma: no cover - optional dependency in lightweight envs
-    rasterio = None
-
-if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
-
 logger = get_logger(__name__)
+
+RUN_MESH_BUNDLE_RELPATH = Path("mesh") / "mesh_catchment_bundle"
+"""Exchange bundle a run copies into its own directory when its mesh is not reproducible."""
 
 
 @dataclass(frozen=True, slots=True)
 class CellCentroidTable:
-    """Minimal cell-centroid lookup loaded from a mesh exchange bundle."""
+    """Minimal cell-centroid lookup of one run."""
 
     cell_ids: np.ndarray
     x: np.ndarray
@@ -52,11 +47,11 @@ class CellCentroidTable:
         """Return the cell id whose centroid is closest to ``(x, y)``."""
         distances = np.hypot(self.x - float(x), self.y - float(y))
         if distances.size == 0 or not np.any(np.isfinite(distances)):
-            raise ValueError("Mesh bundle cells.csv contains no finite centroids")
+            raise ValueError("The mesh of the run has no finite centroid")
         return int(self.cell_ids[int(np.nanargmin(distances))])
 
     def area_for_cell_id(self, cell_id: int) -> float | None:
-        """Return the area for one cell id when the bundle exposes it."""
+        """Return the area for one cell id when the mesh gives it."""
         if self.area_m2 is None or self.area_m2.size != self.cell_ids.size:
             return None
         matches = np.flatnonzero(self.cell_ids == int(cell_id))
@@ -99,190 +94,15 @@ class CellCentroidTable:
         return top, bottom
 
 
-def resolve_structured_shape_from_config(config_path: Path) -> tuple[int, int] | None:
-    """Return `(nrow, ncol)` from ``[mesh.regular] shape`` when the config declares it."""
-    try:
-        payload = load_toml_with_base_config(config_path)
-    except Exception:
+def _finite_or_none(values: list[float], size: int) -> np.ndarray | None:
+    array = np.asarray(values, dtype=float)
+    if array.size != size or not np.any(np.isfinite(array)):
         return None
-    mesh = payload.get("mesh")
-    regular = mesh.get("regular") if isinstance(mesh, Mapping) else None
-    shape = regular.get("shape") if isinstance(regular, Mapping) else None
-    try:
-        nrow, ncol = (int(value) for value in shape)
-    except Exception:
-        return None
-    if nrow > 0 and ncol > 0:
-        return (nrow, ncol)
-    return None
+    return array
 
 
-def triangle_mesh_dir_from_payload(payload: Mapping[str, Any], *, base_dir: Path) -> Path | None:
-    """Return the folder of the file named by ``[mesh.triangle] path``, when set."""
-    mesh = payload.get("mesh")
-    triangle = mesh.get("triangle") if isinstance(mesh, Mapping) else None
-    raw_path = triangle.get("path") if isinstance(triangle, Mapping) else None
-    if not raw_path:
-        return None
-    mesh_file = _resolve_recorded_output_path(str(raw_path), base_dir=base_dir)
-    return None if mesh_file is None else mesh_file.parent
-
-
-def resolve_structured_shape_from_run_folder(run_folder: Path) -> tuple[int, int] | None:
-    """Return `(nrow, ncol)` from one solver grid template written in the run folder."""
-    if rasterio is None:
-        return None
-    raster_path = run_folder / "_solver_grid_template.tif"
-    if not raster_path.exists():
-        return None
-    try:
-        with rasterio.open(raster_path) as dataset:
-            nrow = int(dataset.height)
-            ncol = int(dataset.width)
-    except Exception:
-        return None
-    if nrow <= 0 or ncol <= 0:
-        return None
-    return (nrow, ncol)
-
-
-def _structured_bounds_from_run_folder(
-    run_folder: Path,
-) -> tuple[float, float, float, float] | None:
-    if rasterio is None:
-        return None
-    raster_path = run_folder / "_solver_grid_template.tif"
-    if not raster_path.exists():
-        return None
-    try:
-        with rasterio.open(raster_path) as dataset:
-            bounds = dataset.bounds
-    except Exception:
-        return None
-    return (
-        float(bounds.left),
-        float(bounds.bottom),
-        float(bounds.right),
-        float(bounds.top),
-    )
-
-
-def _candidate_structured_support_rasters(geographic_dir: Path) -> tuple[Path, ...]:
-    return (
-        geographic_dir / "watershed_box_buff_dem.tif",
-        geographic_dir / "watershed_dem.tif",
-        geographic_dir / "watershed_box_buff_fill.tif",
-        geographic_dir / "watershed_fill.tif",
-        geographic_dir / "watershed.tif",
-    )
-
-
-def _structured_bounds_from_config(config_path: Path) -> tuple[float, float, float, float] | None:
-    if rasterio is None:
-        logger.warning(
-            "Cannot rebuild structured cell centroids for %s: rasterio is not installed.",
-            config_path,
-        )
-        return None
-    project_root = _resolve_project_root_from_config(config_path)
-    if project_root is None:
-        logger.warning(
-            "Cannot rebuild structured cell centroids: %s declares no workspace.project_root.",
-            config_path,
-        )
-        return None
-    geographic_dir = preprocessing_dir(project_root) / "geographic"
-    for raster_path in _candidate_structured_support_rasters(geographic_dir):
-        if not raster_path.exists():
-            continue
-        try:
-            with rasterio.open(raster_path) as dataset:
-                bounds = dataset.bounds
-        except Exception:
-            logger.warning("Could not read structured grid bounds from %s", raster_path)
-            continue
-        return (
-            float(bounds.left),
-            float(bounds.bottom),
-            float(bounds.right),
-            float(bounds.top),
-        )
-    logger.warning(
-        "Cannot rebuild structured cell centroids for %s: no geographic support raster under "
-        "%s. Set [geographic] write_intermediates = true and run the simulation again.",
-        config_path,
-        geographic_dir,
-    )
-    return None
-
-
-def _structured_cells_from_config(
-    *,
-    config_path: Path,
-    expected_size: int | None = None,
-) -> CellCentroidTable | None:
-    shape = resolve_structured_shape_from_config(config_path)
-    if shape is None:
-        return None
-    nrow, ncol = shape
-    n_cells = int(nrow) * int(ncol)
-    if expected_size is not None and n_cells != int(expected_size):
-        return None
-    bounds = _structured_bounds_from_config(config_path)
-    if bounds is None:
-        return None
-    xmin, ymin, xmax, ymax = bounds
-    dx = (xmax - xmin) / float(ncol)
-    dy = (ymax - ymin) / float(nrow)
-    if dx <= 0.0 or dy <= 0.0:
-        return None
-    x_values = xmin + (np.arange(ncol, dtype=float) + 0.5) * dx
-    y_values = ymax - (np.arange(nrow, dtype=float) + 0.5) * dy
-    grid_x, grid_y = np.meshgrid(x_values, y_values)
-    area_m2 = np.full(n_cells, float(dx) * float(dy), dtype=float)
-    return CellCentroidTable(
-        cell_ids=np.arange(n_cells, dtype=int),
-        x=grid_x.reshape(-1),
-        y=grid_y.reshape(-1),
-        area_m2=area_m2,
-        storage_coefficient=None,
-    )
-
-
-def _structured_cells_from_run_folder(
-    *,
-    run_folder: Path,
-    expected_size: int | None = None,
-) -> CellCentroidTable | None:
-    shape = resolve_structured_shape_from_run_folder(run_folder)
-    if shape is None:
-        return None
-    nrow, ncol = shape
-    n_cells = int(nrow) * int(ncol)
-    if expected_size is not None and n_cells != int(expected_size):
-        return None
-    bounds = _structured_bounds_from_run_folder(run_folder)
-    if bounds is None:
-        return None
-    xmin, ymin, xmax, ymax = bounds
-    dx = (xmax - xmin) / float(ncol)
-    dy = (ymax - ymin) / float(nrow)
-    if dx <= 0.0 or dy <= 0.0:
-        return None
-    x_values = xmin + (np.arange(ncol, dtype=float) + 0.5) * dx
-    y_values = ymax - (np.arange(nrow, dtype=float) + 0.5) * dy
-    grid_x, grid_y = np.meshgrid(x_values, y_values)
-    area_m2 = np.full(n_cells, float(dx) * float(dy), dtype=float)
-    return CellCentroidTable(
-        cell_ids=np.arange(n_cells, dtype=int),
-        x=grid_x.reshape(-1),
-        y=grid_y.reshape(-1),
-        area_m2=area_m2,
-        storage_coefficient=None,
-    )
-
-
-def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
+def bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
+    """Read ``cells.csv`` of a mesh exchange bundle, or None when it is absent."""
     cells_path = bundle_dir / "cells.csv"
     if not cells_path.exists():
         return None
@@ -295,77 +115,61 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
     z_tops: list[float] = []
     z_bottoms: list[float] = []
     with cells_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
+        for row in csv.DictReader(handle):
             try:
-                cell_ids.append(int(row["cell_id"]))
-                xs.append(float(row["centroid_x"]))
-                ys.append(float(row["centroid_y"]))
-                area_value = row.get("area_m2")
-                areas.append(float(area_value) if area_value not in (None, "") else math.nan)
-                storage_value = row.get("storage_coefficient")
-                storage_coefficients.append(
-                    float(storage_value) if storage_value not in (None, "") else math.nan
-                )
-                top_value = row.get("z_top_centroid") or row.get("z_top_mean") or row.get("z_top")
-                bottom_value = (
+                cell_id = int(row["cell_id"])
+                x = float(row["centroid_x"])
+                y = float(row["centroid_y"])
+            except (KeyError, TypeError, ValueError):
+                # A malformed line names no cell; the others still describe the grid.
+                continue
+            cell_ids.append(cell_id)
+            xs.append(x)
+            ys.append(y)
+            areas.append(_csv_float(row.get("area_m2")))
+            storage_coefficients.append(_csv_float(row.get("storage_coefficient")))
+            z_tops.append(
+                _csv_float(row.get("z_top_centroid") or row.get("z_top_mean") or row.get("z_top"))
+            )
+            z_bottoms.append(
+                _csv_float(
                     row.get("z_bottom_centroid") or row.get("z_bottom_mean") or row.get("z_bottom")
                 )
-                z_tops.append(float(top_value) if top_value not in (None, "") else math.nan)
-                z_bottoms.append(
-                    float(bottom_value) if bottom_value not in (None, "") else math.nan
-                )
-            except Exception:
-                continue
+            )
 
     if not cell_ids:
         return None
-    area_array: Any = np.asarray(areas, dtype=float)
-    if area_array.size != len(cell_ids) or not np.any(np.isfinite(area_array)):
-        area_array = None
-    storage_array: Any = np.asarray(storage_coefficients, dtype=float)
-    if storage_array.size != len(cell_ids) or not np.any(np.isfinite(storage_array)):
-        storage_array = None
-    z_top_array: Any = np.asarray(z_tops, dtype=float)
-    if z_top_array.size != len(cell_ids) or not np.any(np.isfinite(z_top_array)):
-        z_top_array = None
-    z_bottom_array: Any = np.asarray(z_bottoms, dtype=float)
-    if z_bottom_array.size != len(cell_ids) or not np.any(np.isfinite(z_bottom_array)):
-        z_bottom_array = None
+    size = len(cell_ids)
     return CellCentroidTable(
         cell_ids=np.asarray(cell_ids, dtype=int),
         x=np.asarray(xs, dtype=float),
         y=np.asarray(ys, dtype=float),
-        area_m2=area_array,
-        storage_coefficient=storage_array,
-        z_top=z_top_array,
-        z_bottom=z_bottom_array,
+        area_m2=_finite_or_none(areas, size),
+        storage_coefficient=_finite_or_none(storage_coefficients, size),
+        z_top=_finite_or_none(z_tops, size),
+        z_bottom=_finite_or_none(z_bottoms, size),
     )
 
 
-def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
+def _csv_float(value: Any) -> float:
+    if value in (None, ""):
+        return math.nan
     try:
-        payload = load_toml_with_base_config(config_path)
-    except Exception:
-        return None
-    bundle_dir = triangle_mesh_dir_from_payload(payload, base_dir=config_path.parent)
-    if bundle_dir is None:
-        return None
-    return _bundle_cells_from_dir(bundle_dir)
+        return float(value)
+    except (TypeError, ValueError):
+        return math.nan
 
 
-def cells_from_run_mesh(store: Catalog, sim_id: str) -> CellCentroidTable | None:
+def cells_from_run_mesh(store: RunSource, sim_id: str) -> CellCentroidTable | None:
     """Build the cell table from the mesh the run stored in its own ``fields.zarr``.
 
-    Every run of the current layout writes ``mesh/vertices`` and
-    ``mesh/face_node_connectivity``. Face ``i`` is cell ``i`` of the field
-    arrays. Returns ``None`` when the run stored no mesh (a lumped run).
+    Face ``i`` is cell ``i`` of the field arrays. Returns ``None`` when the run
+    stored no mesh (a lumped run).
     """
     try:
         sz = store.open_zarr(sim_id)
-    except Exception:
-        # A run without a fields store (lumped, or failed before writing) has
-        # no grid to read; the caller falls back to the other sources.
+    except FileNotFoundError:
+        # A lumped run has no fields store, so no grid to read.
         return None
     try:
         mesh = sz.root.get("mesh")
@@ -390,99 +194,47 @@ def cells_from_run_mesh(store: Catalog, sim_id: str) -> CellCentroidTable | None
     )
 
 
+def _fits(cells: CellCentroidTable | None, expected_size: int | None) -> bool:
+    return cells is not None and (expected_size is None or cells.cell_ids.size == expected_size)
+
+
 def resolve_bundle_cells(
     run_folder: Path,
     *,
-    config_path: Path | None = None,
     expected_size: int | None = None,
-    store: Catalog | None = None,
+    store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> CellCentroidTable | None:
-    """Load cell centroids for one run.
+    """Load the cell centroids of one run directory.
 
-    Sources, in order: a mesh exchange bundle the run recorded (it also carries
-    storage and elevations), the mesh the run stored in ``fields.zarr`` (when
-    ``store`` and ``sim_id`` are given), then the structured-grid support
-    declared by the config or the run folder. Pass ``store`` and ``sim_id``
-    whenever the run has a catalog: the stored mesh is the one the field arrays
-    are indexed by, the later sources only guess it.
+    The bundle the run copied into ``mesh/`` comes first: it also carries
+    storage and elevations. The mesh stored in ``fields.zarr`` comes next.
+    ``expected_size`` refuses a grid whose cell count is not the field's.
     """
-    metrics = read_json_file(run_folder / "_metrics.json")
-    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir")
-    if not bundle_dir_raw:
-        boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
-        bundle_dir_raw = boussinesq_summary.get("bundle_dir")
-    if bundle_dir_raw:
-        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
-        if bundle_dir is not None and (cells := _bundle_cells_from_dir(bundle_dir)) is not None:
-            return cells
-    generated_bundle_dir = run_folder / "mesh" / "mesh_catchment_bundle"
-    if (cells := _bundle_cells_from_dir(generated_bundle_dir)) is not None:
-        if expected_size is None or cells.cell_ids.size == int(expected_size):
-            return cells
+    bundle_cells = bundle_cells_from_dir(Path(run_folder) / RUN_MESH_BUNDLE_RELPATH)
+    if _fits(bundle_cells, expected_size):
+        return bundle_cells
     if store is not None and sim_id is not None:
         stored_cells = cells_from_run_mesh(store, sim_id)
-        if stored_cells is not None and (
-            expected_size is None or stored_cells.cell_ids.size == int(expected_size)
-        ):
+        if _fits(stored_cells, expected_size):
             return stored_cells
-
-    if config_path is None:
-        return _structured_cells_from_run_folder(
-            run_folder=run_folder,
-            expected_size=expected_size,
-        )
-    config_bundle_cells = _bundle_cells_from_config(config_path)
-    if config_bundle_cells is not None:
-        if expected_size is None or config_bundle_cells.cell_ids.size == int(expected_size):
-            return config_bundle_cells
-    structured_cells = _structured_cells_from_config(
-        config_path=config_path,
-        expected_size=expected_size,
-    )
-    if structured_cells is not None:
-        return structured_cells
-    return _structured_cells_from_run_folder(
-        run_folder=run_folder,
-        expected_size=expected_size,
-    )
+    return None
 
 
 def resolve_summary_cells(summary: Mapping[str, Any]) -> CellCentroidTable | None:
-    """Load the cells of one simulation summary, with the run's stored mesh available.
-
-    ``summary`` carries ``run_folder`` and ``config_path``; its ``sim_id`` and
-    ``run_name`` pick the run in the catalog the config points at. Returns
-    ``None`` when the summary has no run folder or no source gives cells.
-    """
-    run_folder_raw = summary.get("run_folder")
-    if run_folder_raw in (None, ""):
+    """Load the cells of the run a simulation summary names by ``run_dir``."""
+    source = open_run_source(summary)
+    if source is None:
         return None
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-    sim_id_raw = summary.get("sim_id")
-    run_name_raw = summary.get("run_name")
-    store, sim_id = discover_result_store(
-        config_path,
-        preferred_sim_id=None if sim_id_raw in (None, "") else str(sim_id_raw),
-        preferred_name=None if run_name_raw in (None, "") else str(run_name_raw),
-    )
-    try:
-        return resolve_bundle_cells(
-            Path(str(run_folder_raw)),
-            config_path=config_path,
-            store=store,
-            sim_id=sim_id,
-        )
-    finally:
-        if store is not None:
-            store.close()
+    with source:
+        return resolve_bundle_cells(source.run_dir, store=source, sim_id=source.sim_id)
 
 
 __all__ = (
+    "RUN_MESH_BUNDLE_RELPATH",
     "CellCentroidTable",
+    "bundle_cells_from_dir",
     "cells_from_run_mesh",
     "resolve_bundle_cells",
     "resolve_summary_cells",
-    "triangle_mesh_dir_from_payload",
 )

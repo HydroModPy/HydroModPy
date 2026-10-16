@@ -12,7 +12,7 @@ mesh closes to a fraction of a per cent; a transient one with a lake and a route
 stream network legitimately sits higher. Whoever runs the model states what they
 accept, and nothing is rejected until they do.
 
-The verdict is a :class:`~hydromodpy.calibration.criteria.base.Validity`: a name,
+The verdict is a :class:`~hydromodpy.results.checks.Validity`: a name,
 a pass or fail, the value, and a sentence saying what the failure does to the
 number. That last part is the point on a platform, where the reader of a result
 is not the person who produced it.
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from hydromodpy.calibration.criteria.base import Validity
+from hydromodpy.results.checks import Validity
 from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
 
 

@@ -11,7 +11,7 @@ Needs
 : The example files ({doc}`index`). Nothing is downloaded.
 
 Gives
-: Eight figures and fourteen files, from GeoPackage to a portable archive of the run.
+: Eight figures and thirteen files, from GeoPackage to VTU.
 ```
 
 Step 5 does not change the model. It is step 4 with its results written out in every format
@@ -87,7 +87,7 @@ writes more files and returns their paths.
 
 ## What you get
 
-Eleven export blocks write fourteen files, in `share/nancon_step5_export/`. The format
+Ten export blocks write thirteen files, in `runs/nancon_step5_export/exports/`. The format
 follows the data unless the block says otherwise: a vector layer is a GeoPackage, a series
 or a table is a CSV, and a field at one instant is a GeoTIFF.
 
@@ -103,10 +103,12 @@ or a table is a CSV, and a field at one instant is a GeoTIFF.
 | the water budget, monthly | | CSV |
 | `watertable_depth` | 15 October 2002 | GeoTIFF reprojected to `EPSG:4326`, for a web map |
 | `head` | 15 October 2002 | VTU, for ParaView |
-| everything | | a portable archive of the run (`package`) |
 
 The Shapefile is one block and several files (`.shp`, `.dbf`, `.prj`, `.shx`, `.cpg`), which
-the run counts as one export.
+the run counts as one export. Every export carries the identity of the run: a GeoPackage in
+its metadata table, any other file in a `.meta.json` beside it, and `exports/index.json`
+lists them all. The portable archive of the run is a copy out of the project:
+`hmp publish nancon_step5_export --to nancon.tar --format tar --with results --with inputs`.
 
 Eight figures, drawn from the same data: `watershed_id_card`, `flux_timeseries`,
 `hydrograph_sim_obs`, `watertable_depth_map`, `seepage_map`, `seepage_network_confusion_map`,

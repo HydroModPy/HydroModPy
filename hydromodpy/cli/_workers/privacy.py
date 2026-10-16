@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -14,48 +13,45 @@ def purge_simulation(
     reason: str = "unspecified",
     archive_pii: bool = False,
 ) -> dict:
-    """Hard-delete a simulation and emit a JSON purge certificate.
+    """Remove a run directory for good and write a JSON purge certificate.
 
-    Returns a dict with ``sim_id``, ``removed_paths``, ``certificate``,
-    ``archive``, ``sha256_snapshot``.
+    The directory goes through the trash and is removed at once: its name
+    stays taken by a tombstone in ``trash/tombstones.txt``. The index, when
+    the project has one, is brought up to date afterwards.
+
+    Returns a dict with ``sim_id``, ``rel_dir``, ``removed_paths``,
+    ``certificate``, ``archive``, ``sha256_snapshot``.
     """
     import hashlib
     import json
+    from datetime import UTC, datetime
 
     from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.audit import emit_deletion_tombstone
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
+    from hydromodpy.results.trash import identity_of, list_trash, purge_trashed, trash_run
 
-    workspace_root = resolve_project_root(
+    project_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    if not (catalog_path_for(workspace_root)).exists():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
+    rel_dir = resolve_rel_dir(project_root, sim_ref, unambiguous=True)
+    run_dir = project_root / rel_dir
+    snapshot = _purge_collect_snapshot(run_dir, rel_dir)
+    sid = identity_of(run_dir) or rel_dir
+    sha256_snapshot = hashlib.sha256(
+        json.dumps(snapshot, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
 
-    with Catalog(workspace_root) as catalog:
-        sid = catalog.resolve(sim_ref)
-        snapshot = _purge_collect_snapshot(catalog, sid)
-        run_dir = catalog.run_dir_for(sid)
-        existing = [str(run_dir)] if run_dir.is_dir() else []
-        sha256_snapshot = hashlib.sha256(
-            json.dumps(snapshot, sort_keys=True, default=str).encode("utf-8")
-        ).hexdigest()
-        catalog.delete(
-            sid,
-            remove_storage=True,
-            audit_event_type="sim.purge",
-            audit_payload={"reason": reason, "sha256_snapshot": sha256_snapshot},
-        )
-        emit_deletion_tombstone(
-            catalog._db,  # type: ignore[attr-defined]
-            sim_id=sid,
-            sha256_snapshot=sha256_snapshot,
-            reason=reason,
-            components={"removed_paths": existing},
-        )
+    now = datetime.now(UTC)
+    trashed = trash_run(project_root, rel_dir, now=now)
+    entry = next(entry for entry in list_trash(project_root) if entry.path == trashed)
+    purge_trashed(project_root, [entry], now=now)
+    if catalog_path_for(project_root).is_file():
+        from hydromodpy.results.catalog.indexer import index_new_runs
 
-    workspace_top = _purge_resolve_workspace_top(workspace_root)
-    extra_removed = _purge_prune_orphan_geographic_cache(workspace_top)
+        index_new_runs(project_root)
+
+    removed = [str(run_dir)]
+    workspace_top = _purge_resolve_workspace_top(project_root)
     cert_path = _purge_write_certificate(
         workspace_top, sim_id=sid, reason=reason, sha256_snapshot=sha256_snapshot
     )
@@ -66,13 +62,14 @@ def purge_simulation(
             sim_id=sid,
             snapshot=snapshot,
             reason=reason,
-            removed_paths=[*existing, *extra_removed],
+            removed_paths=removed,
             sha256_snapshot=sha256_snapshot,
         )
 
     return {
         "sim_id": sid,
-        "removed_paths": existing + extra_removed,
+        "rel_dir": rel_dir,
+        "removed_paths": removed,
         "certificate": str(cert_path),
         "archive": str(archive_path) if archive_path else None,
         "sha256_snapshot": sha256_snapshot,
@@ -121,74 +118,33 @@ def _purge_resolve_workspace_top(project_root: Path) -> Path:
     return project_root
 
 
-def _purge_collect_snapshot(catalog: Any, sim_id: str) -> dict[str, object]:
-    from datetime import datetime
+def _purge_collect_snapshot(run_dir: Path, rel_dir: str) -> dict[str, object]:
+    """Return what the directory declares about itself, read from its manifest."""
+    from hydromodpy.results.manifest import is_sealed, read_manifest
 
-    row = catalog._db.execute(  # type: ignore[attr-defined]
-        """
-        SELECT sim_id, name, project, config_hash, config_snapshot,
-               geographic_fingerprint, period_start, period_end, created_at
-          FROM simulations
-         WHERE sim_id = ?
-        """,
-        [sim_id],
-    ).fetchone()
-    if row is None:
-        return {"sim_id": sim_id}
-    cols = (
-        "sim_id",
-        "name",
-        "project",
-        "config_hash",
-        "config_snapshot",
-        "geographic_fingerprint",
-        "period_start",
-        "period_end",
-        "created_at",
-    )
-
-    def _coerce(value: object) -> object:
-        if isinstance(value, datetime):
-            return value.isoformat()
-        if hasattr(value, "hex") and not isinstance(value, (bytes, bytearray)):
-            return str(value)
-        return value
-
-    return dict(zip(cols, [_coerce(value) for value in row], strict=False))
-
-
-def _purge_prune_orphan_geographic_cache(workspace: Path) -> list[str]:
-    from hydromodpy.cli._workers.catalog import (
-        _gc_iter_project_roots,
-        _gc_referenced_geographic_fingerprints,
-    )
-    from hydromodpy.results.geographic_cache import CACHE_DIRNAME
-
-    cache_dir = workspace / CACHE_DIRNAME
-    if not cache_dir.is_dir():
-        return []
-    referenced = _gc_referenced_geographic_fingerprints(_gc_iter_project_roots(workspace))
-    removed: list[str] = []
-    for entry in sorted(cache_dir.iterdir()):
-        if not entry.is_dir():
-            continue
-        if entry.name in referenced:
-            continue
-        try:
-            shutil.rmtree(entry)
-            removed.append(str(entry))
-        except OSError:
-            continue
-    return removed
+    if not is_sealed(run_dir):
+        return {"rel_dir": rel_dir}
+    manifest = read_manifest(run_dir)
+    run = manifest.get("run", {})
+    snapshot: dict[str, object] = {
+        "rel_dir": rel_dir,
+        "sim_id": run.get("sim_id"),
+        "name": run.get("name"),
+        "project": run.get("project"),
+        "created_at": run.get("created_at"),
+        "config_hash": manifest.get("config", {}).get("hash"),
+        "site": manifest.get("site"),
+        "period": manifest.get("period"),
+    }
+    return snapshot
 
 
 def _purge_resolve_operator() -> str:
     """Resolve the purge operator through the active ``AuthBackend``.
 
-    Delegates to :func:`hydromodpy.core.auth.get_auth_backend` so the purge
-    certificate, the deletion tombstone, and the audit row all carry the
-    same identity. Falls back to ``"anonymous"`` if the backend itself
-    fails (matches the historical CLI contract).
+    Delegates to :func:`hydromodpy.core.auth.get_auth_backend`. Falls back
+    to ``"anonymous"`` if the backend itself fails: a purge must not stop on
+    an identity probe.
     """
     try:
         from hydromodpy.core.auth import get_auth_backend

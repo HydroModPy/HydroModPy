@@ -2,8 +2,8 @@
 
 Lives at the top level so ``config/`` stays decoupled from sibling
 layers at module-load time: configs from ``physics/``, ``solver/``,
-``spatial/``, ``data/``, ``simulation/``, ``display/``, ``analysis/``,
-``calibration/``, and ``workflow/`` are imported here, never from
+``spatial/``, ``data/``, ``simulation/``, ``display/``, ``calibration/``,
+and ``workflow/`` are imported here, never from
 ``config/``.
 """
 
@@ -22,10 +22,6 @@ def _rebuild_forward_refs() -> None:
     lookup against the defining module's globals, so the sibling classes are
     written into the canonical root-config module globals.
     """
-    from hydromodpy.analysis import config as analysis_module
-    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
-    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data import DataManagersConfig
@@ -40,12 +36,6 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.spatial.domain.domain_config import DomainConfig
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
-    analysis_module.__dict__.update(
-        RegionalLabConfig=RegionalLabConfig,
-        CapabilityGalleryConfig=CapabilityGalleryConfig,
-        ComparisonSection=ComparisonSection,
-    )
-    analysis_module.AnalysisConfig.model_rebuild()
     refs = {
         "CalibrationConfig": CalibrationConfig,
         "DataManagersConfig": DataManagersConfig,
@@ -59,9 +49,6 @@ def _rebuild_forward_refs() -> None:
         "DomainConfig": DomainConfig,
         "GeographicConfig": GeographicConfig,
         "OverviewConfig": OverviewConfig,
-        "RegionalLabConfig": RegionalLabConfig,
-        "CapabilityGalleryConfig": CapabilityGalleryConfig,
-        "ComparisonSection": ComparisonSection,
     }
     cfg_module.__dict__.update(refs)
     cfg_module.HydroModPyConfig.model_rebuild(force=True)
@@ -109,16 +96,11 @@ def _register_calibration_contracts() -> None:
     structural binders through ``TrialPipelineProvider`` so the
     calibration package never imports the workflow package.
     """
-    from hydromodpy.calibration.runners.contracts import (
-        register_trial_promotion_provider,
-    )
-    from hydromodpy.project.dispatch.calibration import ProjectTrialPromotionProvider
     from hydromodpy.workflow.steps.calibration import (
         register_default_trial_pipeline_provider,
     )
 
     register_default_trial_pipeline_provider()
-    register_trial_promotion_provider(ProjectTrialPromotionProvider())
 
 
 def _register_rerun_provider() -> None:
@@ -130,14 +112,13 @@ def _register_rerun_provider() -> None:
 
 
 def _register_solver_registry_provider() -> None:
-    """Wire a single solver-registry provider for simulation and analysis.
+    """Wire a single solver-registry provider for the layers below ``solver``.
 
-    The 15x15 layer matrix forbids ``simulation -> solver`` and
-    ``analysis -> solver``. Both consumers reach the registry through the
+    The layer matrix forbids ``simulation -> solver`` and ``analysis ->
+    solver``. Their consumers reach the registry through the
     ``SolverRegistryProvider`` Protocol declared in
-    :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives
-    in ``core`` so the two consumers share one provider instead of
-    maintaining parallel module-level state.
+    :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives in
+    ``core`` so every consumer shares one provider.
     """
     from hydromodpy.core.contracts import solver_registry
     from hydromodpy.solver.base import registry as _registry

@@ -5,14 +5,14 @@ from __future__ import annotations
 import importlib
 import json
 import sys
-import uuid
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.manifest import RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 
 def _run(monkeypatch, argv: list[str]) -> int:
@@ -25,48 +25,30 @@ def _run(monkeypatch, argv: list[str]) -> int:
     return 0
 
 
-def _seal_run(catalog: Catalog, name: str) -> str:
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        n_cells=32,
-        n_layers=1,
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    catalog.finalize(sid, status="completed")
-    return sid
-
-
 @pytest.fixture
 def project(tmp_path) -> Path:
-    root = tmp_path / "demo"
-    root.mkdir()
-    (root / "project.toml").write_text("[workspace]\n")
-    with Catalog(root) as catalog:
-        _seal_run(catalog, "alpha")
-        _seal_run(catalog, "beta")
+    root = make_project(tmp_path / "demo")
+    seal_run(root, "alpha")
+    seal_run(root, "beta")
     return root
 
 
-def test_reindex_rebuilds_a_deleted_index(monkeypatch, project, capsys) -> None:
-    catalog_path_for(project).unlink()
+def test_reindex_builds_the_index_from_the_directories(monkeypatch, project, capsys) -> None:
+    assert not catalog_path_for(project).exists()
 
     code = _run(monkeypatch, ["hmp", "catalog", "reindex", "--workspace", str(project)])
 
     assert code == 0
     out = capsys.readouterr().out
-    assert "indexed 2 run(s)" in out
+    assert "rebuilt: 2 run(s)" in out
     assert catalog_path_for(project).is_file()
-    with Catalog(project, read_only=True) as catalog:
+    with Catalog(project) as catalog:
         assert set(catalog.list_simulations()["name"]) == {"alpha", "beta"}
 
 
-def test_reindex_reports_an_unsealed_run(monkeypatch, project, capsys) -> None:
+def test_reindex_indexes_an_attempt_without_a_seal_as_a_case(monkeypatch, project, capsys) -> None:
     (runs_dir_for(project) / "beta" / RUN_MANIFEST_FILENAME).unlink()
+    write_attempt(project, "runs/gamma", status="failed")
 
     code = _run(
         monkeypatch,
@@ -75,8 +57,11 @@ def test_reindex_reports_an_unsealed_run(monkeypatch, project, capsys) -> None:
 
     assert code == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["indexed"] == ["alpha"]
-    assert report["skipped"][0]["run"] == "beta"
+    assert report["full"] is True
+    assert sorted(report["indexed"]) == ["runs/alpha", "runs/beta", "runs/gamma"]
+    with Catalog(project) as catalog:
+        cases = dict(catalog.backend.fetch_all("SELECT rel_dir, status FROM cases"))
+    assert cases == {"runs/alpha": "completed", "runs/beta": "partial", "runs/gamma": "failed"}
 
 
 def test_reindex_is_idempotent_on_the_command_line(monkeypatch, project, capsys) -> None:
@@ -90,8 +75,33 @@ def test_reindex_is_idempotent_on_the_command_line(monkeypatch, project, capsys)
 
     assert code == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["indexed"] == ["alpha", "beta"]
+    assert sorted(report["indexed"]) == ["runs/alpha", "runs/beta"]
     assert report["rows"]["simulations"] == 2
+
+
+def test_reindex_incremental_writes_only_what_moved(monkeypatch, project, capsys) -> None:
+    _run(monkeypatch, ["hmp", "catalog", "reindex", "--workspace", str(project)])
+    capsys.readouterr()
+    seal_run(project, "gamma")
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "catalog",
+            "reindex",
+            "--incremental",
+            "--workspace",
+            str(project),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["full"] is False
+    assert report["indexed"] == ["runs/gamma"]
 
 
 def test_reindex_appears_in_the_catalog_help(monkeypatch, capsys) -> None:

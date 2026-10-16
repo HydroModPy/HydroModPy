@@ -50,7 +50,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import run_scratch
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
-from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
+from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id, scratch_of_resumed_run
 from hydromodpy.project.state import PROJECT_ATTR_TO_STATE_FIELD, ProjectState
 
 if TYPE_CHECKING:
@@ -61,8 +61,11 @@ if TYPE_CHECKING:
         ResolvedSimulationTimeGrid,
         ResolvedSteadySimulationTimeGrid,
     )
+    from hydromodpy.project.attempt import SealedRun
     from hydromodpy.project.spinup import SpinupResult
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.checks import CalibratedBy
+    from hydromodpy.results.lineage import Lineage
     from hydromodpy.results.run import Run
     from hydromodpy.simulation.spinup_config import SpinupConfig
     from hydromodpy.spatial.domain import Domain
@@ -380,6 +383,51 @@ class Project:
 
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
 
+    def execute(
+        self,
+        *,
+        name: str | None = None,
+        resume: str | None = None,
+        from_step: str | int | None = None,
+        until_step: str | int | None = None,
+        dry_run: bool = False,
+        frozen: bool = False,
+        no_display: bool = False,
+        parallel: bool = True,
+        fresh: bool = False,
+        force: bool = False,
+        lineage: Lineage | None = None,
+        calibrated_by: CalibratedBy | None = None,
+        **overrides,
+    ) -> SealedRun | None:
+        """Run one attempt of the case and return what its directory says.
+
+        The worker verb: it claims ``runs/<case>/``, runs the Pipeline, seals
+        the run and closes its outcome, and never opens the index of the
+        project. ``hmp run`` stops here and indexes afterwards. The keywords
+        are those of :meth:`simulate`, plus ``lineage`` and ``calibrated_by``,
+        the blocks a promotion or a rerun seals its run with.
+        """
+        label = name or resume or self.config.simulation.name or "run"
+        project_root = Path(self.config.workspace.project_root)
+        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
+        with run_scratch(project_root, label, resumes=resumes):
+            return self._runner.execute(
+                name=name,
+                resume=resume,
+                from_step=from_step,
+                until_step=until_step,
+                dry_run=dry_run,
+                frozen=frozen,
+                no_display=no_display,
+                parallel=parallel,
+                fresh=fresh,
+                force=force,
+                lineage=lineage,
+                calibrated_by=calibrated_by,
+                **overrides,
+            )
+
     def simulate(
         self,
         *,
@@ -391,6 +439,10 @@ class Project:
         frozen: bool = False,
         no_display: bool = False,
         parallel: bool = True,
+        fresh: bool = False,
+        force: bool = False,
+        lineage: Lineage | None = None,
+        calibrated_by: CalibratedBy | None = None,
         **overrides,
     ) -> Run | None:
         """Run one simulation through the configured workflow and return its result.
@@ -402,15 +454,17 @@ class Project:
         Flow parameter overrides (``Sy``, ``K``, ``Ss``) and the special keys
         ``thickness``, ``first_clim``, ``properties`` are applied to the plan
         before the Pipeline runs. Call once per point to sweep a parameter.
+        Once the attempt is closed, the index of the project is refreshed from
+        the run directory and the :class:`Run` view is returned.
 
         Parameters
         ----------
         name
-            Run name persisted in the catalog. Defaults to ``[simulation]
-            name`` of the configuration, and to ``run_0001``, ``run_0002``...
-            only when the configuration names no run.
+            Run name, the case the directory is named after. Defaults to
+            ``[simulation] name`` of the configuration, and to ``run_0001``,
+            ``run_0002``... only when the configuration names no run.
         resume
-            Existing run identifier to resume from the workflow journal.
+            Name of an interrupted case to continue in place from its journal.
         from_step, until_step
             Optional step bounds for partial workflow execution. A step name,
             a class name, or an index inside the pipeline.
@@ -420,14 +474,22 @@ class Project:
             Require frozen input-data references.
         no_display
             Skip display rendering for this run.
+        fresh
+            File everything a previous attempt left under ``attempts/<k>/``
+            and start the case over.
+        force
+            Claim a stale case whose process cannot be proven dead.
+        lineage, calibrated_by
+            The lineage block and the promoting session the run is sealed
+            with; a promotion or a rerun passes them.
         overrides
             Parameter overrides applied to the simulation plan.
 
         Returns
         -------
         Run or None
-            Persisted run view for simulation workflows. Dry runs and some
-            non-simulation workflows may return ``None``.
+            Persisted run view for simulation workflows. Dry runs and
+            head-only windows return ``None``.
 
         Raises
         ------
@@ -452,9 +514,10 @@ class Project:
         hydromodpy.results.run.Run
             Per-simulation result view returned by successful runs.
         """
-        label = name or self.config.simulation.name or "run"
-        resumes = self._runner.resumed_run_scratch(resume) if resume is not None else None
-        with run_scratch(Path(self.config.workspace.project_root), label, resumes=resumes):
+        label = name or resume or self.config.simulation.name or "run"
+        project_root = Path(self.config.workspace.project_root)
+        resumes = scratch_of_resumed_run(project_root, resume) if resume is not None else None
+        with run_scratch(project_root, label, resumes=resumes):
             return self._runner.run(
                 name=name,
                 resume=resume,
@@ -464,6 +527,10 @@ class Project:
                 frozen=frozen,
                 no_display=no_display,
                 parallel=parallel,
+                fresh=fresh,
+                force=force,
+                lineage=lineage,
+                calibrated_by=calibrated_by,
                 **overrides,
             )
 

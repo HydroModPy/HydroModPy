@@ -200,7 +200,7 @@ def test_a_bare_object_with_no_calibration_fields_does_not_crash() -> None:
 def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_shares={
+        objective_block_fractions={
             "mean": {"hydrograph": 0.5625, "network": 0.4375},
             "mean_n_trials": 14,
             "best": {"hydrograph": 0.75, "network": 0.25},
@@ -216,7 +216,7 @@ def test_the_mean_and_best_cost_share_are_printed_for_two_or_more_blocks() -> No
 def test_the_mean_share_falls_back_to_a_plain_label_without_a_trial_count() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_shares={"mean": {"hydrograph": 0.6, "network": 0.4}},
+        objective_block_fractions={"mean": {"hydrograph": 0.6, "network": 0.4}},
     )
 
     lines = "\n".join(_format_calibration_result(report))
@@ -227,10 +227,10 @@ def test_the_mean_share_falls_back_to_a_plain_label_without_a_trial_count() -> N
 def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_shares=None,
+        objective_block_fractions=None,
         extra={
             "reused_from_disk": True,
-            "objective_block_shares_absent_note": (
+            "objective_block_fractions_absent_note": (
                 "reused from a previous run: its persisted trials carry no cost share "
                 "to read back, so it is not recomputed here"
             ),
@@ -246,7 +246,7 @@ def test_a_reused_phase_that_could_not_recompute_its_share_says_so() -> None:
 def test_a_single_block_share_is_not_printed() -> None:
     report = _report(
         best_parameters={"K": 6.4e-5},
-        objective_block_shares={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
+        objective_block_fractions={"mean": {"hydrograph": 1.0}, "best": {"hydrograph": 1.0}},
     )
 
     lines = "\n".join(_format_calibration_result(report))
@@ -255,7 +255,7 @@ def test_a_single_block_share_is_not_printed() -> None:
 
 
 def test_a_report_with_no_computable_share_prints_nothing_about_it() -> None:
-    report = _report(best_parameters={"K": 6.4e-5}, objective_block_shares=None)
+    report = _report(best_parameters={"K": 6.4e-5}, objective_block_fractions=None)
 
     lines = "\n".join(_format_calibration_result(report))
 
@@ -272,7 +272,7 @@ def test_a_staged_result_prints_each_phase_with_its_own_share() -> None:
         report=_report(
             best_parameters={"Sy": 0.06},
             best_objective=0.27,
-            objective_block_shares={
+            objective_block_fractions={
                 "mean": {"hydrograph": 0.36, "network_extension": 0.64},
                 "mean_n_trials": 14,
                 "best": {"hydrograph": 0.37, "network_extension": 0.63},

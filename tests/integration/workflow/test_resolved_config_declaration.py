@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import run_dir_rel
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
@@ -26,6 +28,9 @@ VALIDATE_ORDER = 0
 PROJECT_TOML = """
 [workflow]
 mode = "simulation"
+
+[site]
+name = "naizin"
 
 [simulation]
 name = "naizin_resolved_config"
@@ -124,14 +129,9 @@ def crashed_run(tmp_path_factory: pytest.TempPathFactory):
         finally:
             project.close()
 
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-    catalog = Catalog(root)
-    try:
-        rows = WorkflowJournal(catalog).list_steps(RUN_NAME)
-    finally:
-        catalog.close()
+    rows = WorkflowJournal(root / run_dir_rel(RUN_NAME)).list_steps(RUN_NAME)
     return root, next(r for r in rows if r.step_order == VALIDATE_ORDER)
 
 
@@ -158,9 +158,9 @@ def test_the_document_is_what_the_resume_checkpoint_signs(crashed_run) -> None:
 
     root, _row = crashed_run
 
-    payload = read_resolved_config(root, RUN_NAME)
+    payload = read_resolved_config(root / run_dir_rel(RUN_NAME))
     assert payload is not None
-    manifest = ResolvedRunManifest.read(root, RUN_NAME)
+    manifest = ResolvedRunManifest.read(root / run_dir_rel(RUN_NAME))
     assert manifest is not None
     digest = hashlib.sha256(canonical_dumps(payload).encode("utf-8")).hexdigest()
     assert digest == manifest.config_sha256
@@ -215,7 +215,7 @@ def test_a_head_only_window_does_not_rewrite_the_document_of_a_real_run(
     source, _row = crashed_run
     root = tmp_path / "head_only"
     shutil.copytree(source, root, dirs_exist_ok=True)
-    document = resolved_config_path(root, RUN_NAME)
+    document = resolved_config_path(root / run_dir_rel(RUN_NAME))
     kept = document.read_bytes()
 
     _write_config(root, "9e-5 m/s")

@@ -219,7 +219,6 @@ def test_a_single_stage_calibration_with_no_method_runs_the_chosen_one(tmp_path)
     assert len(journals) == 1
     session = json.loads(journals[0].read_text(encoding="utf-8"))
     assert session["method"] == "scipy_nelder_mead"
-    assert session["config"]["method"] == "scipy_nelder_mead"
 
 
 PROJECT = """

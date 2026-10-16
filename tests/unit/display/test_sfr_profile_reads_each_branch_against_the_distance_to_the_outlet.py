@@ -14,6 +14,7 @@ Every reach is 100 m long.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import matplotlib as mpl
@@ -40,7 +41,10 @@ FLOW = {0: 1.0, 1: 2.0, 2: 3.0, 3: 5.0, 4: 8.0, 5: 9.0}
 """A flow that grows downstream on each branch, so a branch reads as a rising line."""
 
 
-def _run(links: pd.DataFrame = LINKS) -> SimpleNamespace:
+def _run(tables: Path, links: pd.DataFrame = LINKS) -> SimpleNamespace:
+    """A run whose ``sfr_reaches`` table sits in *tables*, as in a run directory."""
+    tables.mkdir(parents=True, exist_ok=True)
+    links.to_parquet(tables / "sfr_reaches.parquet", index=False)
     stations = {ifno: f"sfr:main:{ifno}" for ifno in FLOW}
     return SimpleNamespace(
         sim_id="sim-sfr",
@@ -50,7 +54,7 @@ def _run(links: pd.DataFrame = LINKS) -> SimpleNamespace:
         timeseries=lambda variable, station=None: pd.Series(
             [FLOW[int(station.rsplit(":", 1)[1])]], index=[pd.Timestamp("2000-01-31")]
         ),
-        _catalog=SimpleNamespace(backend=SimpleNamespace(query=lambda *_a, **_k: links)),
+        _catalog=SimpleNamespace(tables_dir_for=lambda _sim_id: tables),
     )
 
 
@@ -81,14 +85,14 @@ def test_a_fork_follows_the_branch_that_takes_the_larger_share_of_the_flow() -> 
     assert distance[("main", 0)] == pytest.approx(50.0 + 100.0 + 100.0)
 
 
-def test_each_branch_is_a_line_that_stops_at_the_reach_it_joins() -> None:
+def test_each_branch_is_a_line_that_stops_at_the_reach_it_joins(tmp_path: Path) -> None:
     pytest.importorskip("matplotlib")
     mpl.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
     try:
-        SfrLongitudinalProfile().render(_run(), ax, variable="downstream_flow", timestep=-1)
+        SfrLongitudinalProfile().render(_run(tmp_path), ax, variable="downstream_flow", timestep=-1)
         segments = {
             tuple(map(tuple, segment.tolist())) for segment in ax.collections[0].get_segments()
         }
@@ -106,20 +110,22 @@ def test_each_branch_is_a_line_that_stops_at_the_reach_it_joins() -> None:
     assert ax.xaxis_inverted(), "the outlet is on the right, as the profile has always read"
 
 
-def test_the_axis_says_what_it_measures() -> None:
+def test_the_axis_says_what_it_measures(tmp_path: Path) -> None:
     pytest.importorskip("matplotlib")
     mpl.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
     try:
-        SfrLongitudinalProfile().render(_run(), ax)
+        SfrLongitudinalProfile().render(_run(tmp_path), ax)
         assert ax.get_xlabel() == "distance to the outlet, along the main path (m)"
     finally:
         plt.close(fig)
 
 
-def test_a_run_sealed_before_the_table_stored_its_links_is_skipped_with_the_remedy() -> None:
+def test_a_run_sealed_before_the_table_stored_its_links_is_skipped_with_the_remedy(
+    tmp_path: Path,
+) -> None:
     pytest.importorskip("matplotlib")
     mpl.use("Agg")
     import matplotlib.pyplot as plt
@@ -128,6 +134,6 @@ def test_a_run_sealed_before_the_table_stored_its_links_is_skipped_with_the_reme
     fig, ax = plt.subplots()
     try:
         with pytest.raises(FigureNotApplicable, match="Run it again"):
-            SfrLongitudinalProfile().render(_run(old), ax)
+            SfrLongitudinalProfile().render(_run(tmp_path, old), ax)
     finally:
         plt.close(fig)

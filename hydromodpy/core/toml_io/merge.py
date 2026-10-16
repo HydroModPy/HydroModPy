@@ -152,9 +152,13 @@ def merge_toml_payloads(
 ) -> dict[str, Any]:
     """Merge TOML payload layers in HydroModPy precedence order.
 
-    Precedence is ``defaults < base_chain < overlays < CLI < env``.
-    Passing a mapping as ``base_chain`` keeps the legacy two-argument
-    ``merge_toml_payloads(base, override)`` call shape.
+    Precedence is ``defaults < base_chain < overlays < CLI < env``, each
+    layer applied by the one merge rule of this module. ``hmp run`` merges
+    the file, its ``--overlay`` files, ``--set`` and ``HMP_SET_*``; the plan
+    of a ``[sites]`` project merges the base of a recipe, the rendered table
+    row, the site overlay and the recipe's own keys the same way. A mapping
+    as ``base_chain`` is the two-argument form ``merge_toml_payloads(base,
+    override)``.
     """
     merged: dict[str, Any] = dict(defaults)
     if isinstance(base_chain, Mapping):

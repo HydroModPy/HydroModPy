@@ -1,29 +1,20 @@
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.simulation.extraction.derivation.observation_ingest import (
     ingest_observations,
 )
-from tests._helpers.fixtures_catalog import simulation_catalog
 
+from ._test_simulation_api_builders import runs
 
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
-
-
-def _sim_id():
-    return str(uuid.uuid4())
+__all__ = ["runs"]
 
 
 @dataclass
@@ -59,64 +50,60 @@ def _point_record(station_id: str, variable: str, n_points: int = 5) -> _StubPoi
     )
 
 
-def _query(catalog: Catalog, sim_id: str) -> pd.DataFrame:
-    return catalog.connection.execute(
-        "SELECT station_id, variable, time AS datetime, value, unit, qflag "
-        "FROM timeseries WHERE sim_id = ? ORDER BY station_id, variable, timestep",
-        [sim_id],
-    ).fetchdf()
+def _query(store: RunStore) -> pd.DataFrame:
+    """The series rows the run wrote, read from its own ``timeseries`` table."""
+    frame = store.read_table("timeseries")
+    if frame.empty:
+        return frame
+    return frame.sort_values(["station_id", "variable", "timestep"], ignore_index=True)
 
 
 class TestIngest:
-    def test_writes_obs_variable_with_suffix(self, catalog):
-        sid = _sim_id()
-        catalog.register_simulation(sid, project="obs_test", solver="modflow6")
+    def test_writes_obs_variable_with_suffix(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         loaded = _StubLoadedData(
             hydrometry=_StubLoadResult(points=[_point_record("NANCON", "discharge")]),
         )
 
-        written = ingest_observations(sid, catalog, loaded)
+        written = ingest_observations(sid, store, loaded)
 
         assert written == 1
-        rows = _query(catalog, sid)
+        rows = _query(store)
         assert list(rows["variable"].unique()) == ["discharge_obs"]
         assert list(rows["station_id"].unique()) == ["NANCON"]
         assert len(rows) == 5
         assert rows["unit"].iloc[0] == "m3/s"
         assert rows["qflag"].unique().tolist() == ["observed"]
-        obs_rows = catalog.connection.execute(
-            "SELECT station_id, variable_type, value, unit FROM observations ORDER BY datetime"
-        ).fetchall()
-        assert obs_rows[0] == ("NANCON", "discharge", 0.0, "m3/s")
-        assert len(obs_rows) == 5
+        assert rows["value"].iloc[0] == 0.0
 
-    def test_handles_multiple_managers(self, catalog):
-        sid = _sim_id()
-        catalog.register_simulation(sid, project="obs_test", solver="modflow6")
+    def test_handles_multiple_managers(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         loaded = _StubLoadedData(
             hydrometry=_StubLoadResult(points=[_point_record("S1", "discharge")]),
             piezometry=_StubLoadResult(points=[_point_record("S2", "water_level")]),
         )
 
-        written = ingest_observations(sid, catalog, loaded)
+        written = ingest_observations(sid, store, loaded)
 
         assert written == 2
-        rows = _query(catalog, sid)
+        rows = _query(store)
         variables = set(rows["variable"].unique())
         assert variables == {"discharge_obs", "water_level_obs"}
 
-    def test_skips_missing_managers(self, catalog):
-        sid = _sim_id()
-        catalog.register_simulation(sid, project="obs_test", solver="modflow6")
+    def test_skips_missing_managers(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         loaded = _StubLoadedData()
 
-        assert ingest_observations(sid, catalog, loaded) == 0
-        rows = _query(catalog, sid)
+        assert ingest_observations(sid, store, loaded) == 0
+        rows = _query(store)
         assert rows.empty
 
-    def test_skips_empty_dataframes(self, catalog):
-        sid = _sim_id()
-        catalog.register_simulation(sid, project="obs_test", solver="modflow6")
+    def test_skips_empty_dataframes(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         empty_rec = _StubPointRecord(
             station_id="S1",
             variable="discharge",
@@ -125,18 +112,18 @@ class TestIngest:
         )
         loaded = _StubLoadedData(hydrometry=_StubLoadResult(points=[empty_rec]))
 
-        assert ingest_observations(sid, catalog, loaded) == 0
-        assert _query(catalog, sid).empty
+        assert ingest_observations(sid, store, loaded) == 0
+        assert _query(store).empty
 
-    def test_run_timeseries_can_query(self, catalog):
-        sid = _sim_id()
-        catalog.register_simulation(sid, project="obs_test", solver="modflow6")
+    def test_run_timeseries_can_query(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         loaded = _StubLoadedData(
             hydrometry=_StubLoadResult(points=[_point_record("NANCON", "discharge")]),
         )
-        ingest_observations(sid, catalog, loaded)
+        ingest_observations(sid, store, loaded)
 
-        run = catalog[sid]
+        run = runs.catalog()[sid]
         series = run.timeseries("discharge_obs", station="NANCON")
         assert isinstance(series, pd.Series)
         assert len(series) == 5

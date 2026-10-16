@@ -37,9 +37,9 @@ DISMISSED_STATUS: JobStatus = "dismissed"
 """What a cancelled job writes, and the only status a signal may publish.
 
 A process that exits on a signal exits 130, and the document it puts on stdout
-has to agree with that. Spelled once here because three places need it: the
-constructor of a dismissed outcome, the runtime that decides what a cancelled
-invocation prints, and the generated process description.
+has to agree with that. Spelled once here because two places need it: the
+constructor of a dismissed outcome and the runtime that decides what a
+cancelled invocation prints.
 """
 
 UNTYPED_ERROR_CODE = "HMPY.E000"

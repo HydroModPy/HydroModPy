@@ -1,8 +1,8 @@
 """Geology polygons or raster a mesh follows, and one geology field definition.
 
 ``[mesh_catchment.geology]`` is read with these models, and so is the mapping
-``GeologyField.from_dict`` takes. The paths are typed ``Path``, so a testbed or
-a comparison child makes them absolute like every other path of its config.
+``GeologyField.from_dict`` takes. The paths are typed ``Path``, so a path is
+resolved from the project root like every other path of its config.
 """
 
 from __future__ import annotations

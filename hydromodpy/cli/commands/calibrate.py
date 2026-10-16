@@ -1,7 +1,7 @@
-"""``hmp calibrate`` - run a calibration workflow from a TOML file.
+"""``hmp calibrate`` - run a calibration from a TOML file.
 
-Thin wrapper around :func:`hydromodpy.calibrate`. The TOML must declare
-``[workflow] mode = "calibration"`` (resolved by the workflow dispatcher).
+Thin wrapper around :func:`hydromodpy.calibrate`. A file declaring
+``[calibration]`` calibrates; ``[workflow] mode`` may say so or be left out.
 """
 
 from __future__ import annotations
@@ -28,10 +28,9 @@ from hydromodpy.cli.helpers import (
     resolve_profile_output,
 )
 from hydromodpy.core.exceptions import CalibrationError, ConfigError
-from hydromodpy.core.state.paths import display_path
 
 NAME: str = "calibrate"
-HELP: str = "Run a calibration workflow from a TOML config"
+HELP: str = "Run a calibration from a TOML config"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -39,15 +38,36 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[profile_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp calibrate calibration.toml\n  hmp calibrate calibration.toml --check\n  hmp calibrate calibration.toml --list-phases\n  hmp calibrate calibration.toml --phase phase_name\n  hmp calibrate calibration.toml --expand",
+        epilog=(
+            "Examples:\n  hmp calibrate calibration.toml\n"
+            "  hmp calibrate calibration.toml --dry-run\n"
+            "  hmp calibrate calibration.toml --resume\n"
+            "  hmp calibrate calibration.toml --list-phases\n"
+            "  hmp calibrate calibration.toml --resume --phase phase_name\n"
+            "  hmp calibrate calibration.toml --expand\n"
+            "Checks before any solve: hmp config check calibration.toml"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("config", type=Path, help="Path to a calibration TOML file")
     parser.add_argument(
         "--phase",
         default=None,
-        help="Run only this phase of a staged calibration. Its dependency must have "
-        "run, otherwise the phase would calibrate against un-frozen parameters.",
+        help="Run only this phase of a staged calibration, in the session of the case. "
+        "Its dependency must have completed there, otherwise the phase would "
+        "calibrate against un-frozen parameters.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reopen the latest session of the case: the phases that completed with the "
+        "same fingerprint are read back, the cut phase is solved again with its "
+        "trials preloading the cache.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Say which case, which session folder and which phases would run, and write nothing.",
     )
     parser.add_argument(
         "--list-phases",
@@ -56,326 +76,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         "without phases gets one line for its single search.",
     )
     parser.add_argument(
-        "--check",
-        action="store_true",
-        help="Check everything the search needs and exit without solving. Reports every "
-        "problem at once rather than the first.",
-    )
-    parser.add_argument(
         "--expand",
         action="store_true",
         help="Print the [calibration] section a protocol writes, as TOML, and exit "
         "without running anything. A file naming no protocol prints its own section. "
-        "Refused together with --phase, --list-phases or --check.",
+        "Refused together with --phase, --list-phases, --resume or --dry-run.",
     )
     parser.set_defaults(_handler=run)
     return parser
-
-
-def _shows(level: str) -> bool:
-    """Say whether the console verbosity in force prints a line of ``level``."""
-    from hydromodpy.core.logging import VERBOSITY_LEVELS, current_verbosity
-
-    return VERBOSITY_LEVELS.index(current_verbosity()) >= VERBOSITY_LEVELS.index(level)
-
-
-def _say(text: str, *, level: str = "normal") -> None:
-    """Print one line of ``--check`` to stderr, when the verbosity asks for it.
-
-    ``normal`` lines are what a reader acts on; ``verbose`` ones are the full
-    record behind them. ``-q`` keeps the findings only, which are printed
-    whatever the level.
-    """
-    if _shows(level):
-        print(text, file=sys.stderr)
-
-
-def _check_only(target: Path) -> None:
-    """Report everything wrong with the calibration in ``target`` and exit.
-
-    Nothing solves, so this costs a second whatever the model. Every check runs,
-    so a file with three mistakes takes one pass to fix rather than three
-    overnight runs. A warning raised while the file loads, a renamed key for
-    instance, is one more finding: it is what the file has to change.
-    """
-    import warnings
-
-    from hydromodpy.calibration.preflight import PreflightFinding, preflight_calibration
-    from hydromodpy.config import HydroModPyConfig
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-
-    with warnings.catch_warnings(record=True) as caught:
-        # Only the categories a file's author acts on are forced through; the
-        # others keep the filters they had, so nothing ignored today is printed.
-        warnings.simplefilter("always", ConfigKeyRenamedWarning)
-        warnings.simplefilter("always", UserWarning)
-        try:
-            cfg = HydroModPyConfig.from_toml(target)
-        except Exception as exc:
-            cfg = None
-            # A file that will not load has nothing else to check: every other
-            # finding would be about a configuration that does not exist.
-            refused = PreflightFinding("error", target.name, f"the file does not load: {exc}")
-    findings = _findings_from_load_warnings(caught, target.name)
-    if cfg is None:
-        findings.append(refused)
-    else:
-        _announce_the_protocol(cfg)
-        _announce_the_comparisons(cfg, target)
-        findings.extend(preflight_calibration(cfg, source=target))
-    if not findings:
-        _say(f"{target.name}: ready to run.")
-        return
-    for finding in findings:
-        print(finding.line(), file=sys.stderr)
-    errors = sum(1 for finding in findings if finding.severity == "error")
-    _say(f"{target.name}: {errors} error(s), {len(findings) - errors} warning(s).")
-    if errors:
-        sys.exit(EXIT_CONFIG)
-
-
-def _findings_from_load_warnings(caught: list[Any], where: str) -> list[Any]:
-    """Turn the warnings this package raised while loading into findings.
-
-    A renamed key warns from a validator, and the console routing would print it
-    as a raw warning line, or not at all. Here it is a finding among the others,
-    counted in the verdict. A warning a dependency raised is handed back to the
-    usual routing, untouched.
-    """
-    import warnings
-
-    import hydromodpy
-    from hydromodpy.calibration.preflight import PreflightFinding
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
-
-    package = Path(hydromodpy.__file__).resolve().parent
-    findings: list[Any] = []
-    seen: set[str] = set()
-    for item in caught:
-        ours = issubclass(item.category, ConfigKeyRenamedWarning) or Path(
-            item.filename
-        ).resolve().is_relative_to(package)
-        if not ours:
-            warnings.showwarning(item.message, item.category, item.filename, item.lineno)
-            continue
-        text = str(item.message)
-        if text in seen:
-            continue
-        seen.add(text)
-        findings.append(PreflightFinding("warning", where, text))
-    return findings
-
-
-def _announce_the_protocol(cfg) -> None:
-    """Say which published method this file runs, and where this run leaves it.
-
-    A calibrated value that came out of a named method carries the method with
-    it. Printing it here is where the reader is already looking, before an
-    overnight run rather than after.
-
-    At the normal verbosity, only what moves this run off the publication: a
-    departure the run makes, and an option set away from what the recipe runs.
-    A value equal to the paper's, or written the way the recipe runs it
-    anyway, is not a departure. ``-v`` adds the stages, the references, and
-    every reading of the paper this implementation makes.
-    """
-    declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
-    if declared is None:
-        return
-    from hydromodpy.calibration.protocols import (
-        options_the_recipe_already_runs,
-        protocol_record,
-        why_the_spin_up_year_is_scored,
-    )
-
-    record = protocol_record(declared.name, declared)
-    time = getattr(getattr(cfg, "simulation", None), "time", None)
-    _say(f"protocol: {record['name']}@{record['version']} - {record['title']}")
-    for index, stage in enumerate(record["stages"], start=1):
-        _say(f"  stage {index}: {stage}", level="verbose")
-    # The protocol drops its default window without a word on a short run, so
-    # this is where the reader learns the spin-up year is scored.
-    whole_run = why_the_spin_up_year_is_scored(cfg.calibration, time)
-    if whole_run is not None:
-        _say(f"  stage 2 scores the whole run, spin-up year included: {whole_run}")
-    for reference in record["references"]:
-        _say(f"  cite: {reference}", level="verbose")
-    # Where this run departs from the publication it cites. A reader comparing a
-    # result to the literature needs this before the run, not after.
-    keys = [item["key"] for item in record["deviations"]]
-    in_force = _values_in_force(cfg, keys)
-    written = _values_this_file_set(cfg, keys)
-    for deviation in record["deviations"]:
-        key = deviation["key"]
-        told = f"{deviation['here']} (paper: {deviation['paper']})"
-        suffix = f" - this file sets {_rendered(written[key])}" if key in written else ""
-        if key not in in_force or (deviation["paper_value"] is None and key not in written):
-            _say(f"  reads the paper on {key}: {told}", level="verbose")
-        elif _departs(deviation, in_force[key], key in written):
-            _say(f"  differs from the paper on {key}: {told}{suffix}")
-        else:
-            _say(f"  as the paper on {key}: {told}{suffix}", level="verbose")
-    # An option moved off the recipe keeps the method but changes what the number
-    # rests on, and only the file knows it moved.
-    same = options_the_recipe_already_runs(declared, cfg.calibration, time)
-    for option in record.get("options_away_from_the_recipe", ()):
-        line = f"{option['key']} = {_rendered(option['here'])}"
-        if option["key"] in same:
-            _say(f"  option written as the recipe runs it: {line}", level="verbose")
-        else:
-            _say(f"  option away from the recipe: {line} (recipe: {_rendered(option['recipe'])})")
-    backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
-    backend = str(getattr(backend, "value", backend) or "")
-    verdict = record["support"].get(backend)
-    if verdict is not None and verdict != "tested":
-        _say(
-            f"  on {backend}: {verdict.replace('_', ' ')} - no case in this repository "
-            "runs the protocol on that backend."
-        )
-
-
-def _departs(deviation: Mapping[str, Any], value: object, written: bool) -> bool:
-    """Say whether the value in force leaves the publication on this deviation.
-
-    A deviation whose paper value is known departs when the value in force is
-    another. One whose paper has no value for the key, the paper being silent
-    on it, departs only when the file sets it.
-    """
-    paper = deviation.get("paper_value")
-    if paper is None:
-        return written and value is not None
-    try:
-        return bool(value != paper)
-    except (TypeError, ValueError):
-        # A length compared with the word 'auto': two different things.
-        return True
-
-
-def _rendered(value: object) -> str:
-    """Return a value as a reader of a terminal would want to see it.
-
-    A quantity reprs as ``<Quantity(50, 'meter')>``, which is the object and not
-    the number the file wrote. An option left unset reads ``unset``.
-    """
-    if value is None:
-        return "unset"
-    if hasattr(value, "magnitude") and hasattr(value, "units"):
-        return f"'{value:~P}'"
-    return repr(value)
-
-
-def _announce_the_comparisons(cfg, source: Path) -> None:
-    """Print what each phase, or the whole section, compares with what.
-
-    One block per line: its criterion, its share, the simulated quantity and
-    what it is compared against. A plain calibration with no
-    ``[[calibration.phases]]`` still runs one search, so it gets one table
-    under ``[calibration]``; ``--list-phases`` has no phase line to print it
-    under, but ``--check`` names its one search here.
-
-    ``source`` anchors a relative ``stream_geometry_path`` the same way the
-    run would, so a network output's source reads the same path here as in
-    ``--list-phases``.
-    """
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
-    from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
-
-    calibration = getattr(cfg, "calibration", None)
-    if calibration is None:
-        return
-    resolve_stream_geometry_paths(calibration, source)
-    for phase in calibration.phases or [None]:
-        label = phase.name if phase is not None else "[calibration]"
-        table = objective_comparison_table(calibration, phase)
-        if not table:
-            continue
-        _say(f"compares ({label}):")
-        for row in table:
-            _say(f"  {_comparison_line(row)}")
-
-
-def _comparison_line(row: dict[str, Any]) -> str:
-    """Return one line of what a block, or the single-metric route, compares.
-
-    ``row`` is one entry of
-    :func:`hydromodpy.calibration.runners.staged_runner.objective_comparison_table`.
-    Its ``source`` keeps the absolute path a network output resolved to; here
-    only, formatting shortens it when it sits under the working directory, so
-    the line does not carry one checkout's full path.
-    """
-    label = row["block"] or "single metric"
-    source = _shortened_if_under_cwd(row["source"])
-    return (
-        f"{label}\t{row['metric']}\tshare {_percent(row['share'])}\t{row['quantity']}\tvs {source}"
-    )
-
-
-def _shortened_if_under_cwd(text: str) -> str:
-    """Return ``text`` relative to the working directory, when it is an absolute path under it.
-
-    ``text`` is usually not a path at all (a station name, a data section, a
-    count of hard-coded values), and those are left untouched: only an
-    absolute path both starts with a root and resolves under the directory
-    the command was run from. It is then spelled as :func:`display_path`
-    spells it, forward slashes on every OS; any other text is left as given.
-    """
-    if not Path(text).is_absolute():
-        return text
-    shown = display_path(text)
-    return text if Path(shown).is_absolute() else shown
-
-
-def _places_the_deviations_are_set(cfg) -> list[Any]:
-    """Return where a file sets the keys a protocol departs on.
-
-    The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge
-    is not the criterion the deviations describe, so it is not read.
-    """
-    calibration = getattr(cfg, "calibration", None)
-    outputs = getattr(calibration, "outputs", None) or {}
-    places = [
-        output for output in outputs.values() if getattr(output, "support", None) == "network"
-    ]
-    geographic = getattr(cfg, "geographic", None)
-    if geographic is not None:
-        places.append(geographic)
-    return places
-
-
-def _declares(place: Any, key: str) -> bool:
-    """Say whether a model has a field ``key``, the way its class declares it."""
-    return key in getattr(type(place), "model_fields", {})
-
-
-def _values_in_force(cfg, keys: list[str]) -> dict[str, object]:
-    """Return, for the keys a protocol departs on, the value the run will use.
-
-    Written or default alike. A key no model of this file carries is left out:
-    the deviation it names is a reading of the paper, not an option.
-    """
-    found: dict[str, object] = {}
-    for key in keys:
-        for place in _places_the_deviations_are_set(cfg):
-            if _declares(place, key):
-                found[key] = getattr(place, key)
-                break
-    return found
-
-
-def _values_this_file_set(cfg, keys: list[str]) -> dict[str, object]:
-    """Return, for the keys a protocol departs on, what this file actually wrote.
-
-    Read from ``model_fields_set``: a value left unset is the default, which the
-    deviation table already states, and saying "this file sets" it would be
-    false.
-    """
-    found: dict[str, object] = {}
-    for key in keys:
-        for place in _places_the_deviations_are_set(cfg):
-            if key in getattr(place, "model_fields_set", set()):
-                found[key] = getattr(place, key)
-                break
-    return found
 
 
 def _expand_only(target: Path) -> None:
@@ -455,6 +163,7 @@ def _print_single_search(target: Path) -> None:
     file leaves it to be chosen, under ``[calibration]`` where a phase line has
     its index and name.
     """
+    from hydromodpy.calibration.preflight import comparison_line
     from hydromodpy.calibration.runners.cli_runner import (
         load_toml_calibration,
         resolve_stream_geometry_paths,
@@ -466,7 +175,7 @@ def _print_single_search(target: Path) -> None:
     print(f"[calibration]\t{method} ({reason})" if reason else f"[calibration]\t{method}")
     resolve_stream_geometry_paths(calibration, target)
     for row in objective_comparison_table(calibration, None):
-        print(f"    {_comparison_line(row)}")
+        print(f"    {comparison_line(row)}")
 
 
 _WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibration.uncertainty]"}
@@ -503,34 +212,9 @@ def _width_text(width: dict[str, Any]) -> str:
 
 def _shares_text(shares: dict[str, float]) -> str:
     """Return one block-per-token rendering of a share mapping, as percentages."""
-    return ", ".join(f"{name} {_percent(value)}" for name, value in shares.items())
+    from hydromodpy.calibration.preflight import percent
 
-
-def _percent(share: float) -> str:
-    """Return a share of the cost as a percentage a reader cannot misread.
-
-    Whole per cents, except near the ends: a share below 1 % keeps one
-    significant digit, so a block weighted 1000 to 1 reads 0.1 % and not 0 %,
-    which would say it is off. A share above 99 % keeps as many decimals as its
-    complement, so the two blocks of that pair still add up to 100 %.
-    """
-    percent = float(share) * 100.0
-    if 0.0 < percent < 1.0:
-        value, decimals = _one_significant_digit(percent)
-        return f"{value:.{decimals}f}%"
-    if 99.0 < percent < 100.0:
-        value, decimals = _one_significant_digit(100.0 - percent)
-        return f"{100.0 - value:.{decimals}f}%"
-    return f"{percent:.0f}%"
-
-
-def _one_significant_digit(value: float) -> tuple[float, int]:
-    """Return ``value`` rounded to one significant digit, and its decimals in plain notation."""
-    import math
-
-    decimals = max(0, -math.floor(math.log10(value)))
-    rounded = round(value, decimals)
-    return rounded, max(0, -math.floor(math.log10(rounded)))
+    return ", ".join(f"{name} {percent(value)}" for name, value in shares.items())
 
 
 def _format_calibration_result(result: Any) -> list[str]:
@@ -545,7 +229,7 @@ def _format_calibration_result(result: Any) -> list[str]:
     each one actually took (with how many trials the mean covers) and its
     share at the best trial. A phase reused from disk that could not
     recompute a share prints why instead
-    (``extra["objective_block_shares_absent_note"]``). A root search on one
+    (``extra["objective_block_fractions_absent_note"]``). A root search on one
     bound prints its final ``bracket``; a root search on two bounds prints
     ``roots`` instead, one line per bound then the spread and the combined
     value (:func:`_roots_lines`). Returns nothing for a
@@ -583,6 +267,9 @@ def _format_calibration_result(result: Any) -> list[str]:
     best_objective = getattr(result, "best_objective", None)
     if best_objective is not None:
         lines.append(f"  cost: {best_objective:.6g}")
+    best_rel_dir = getattr(result, "best_rel_dir", None)
+    if best_rel_dir:
+        lines.append(f"  calibrated run: {best_rel_dir}")
 
     reported_tradeoff = False
     for name, width in widths.items():
@@ -614,7 +301,7 @@ def _format_calibration_result(result: Any) -> list[str]:
     if extra.get("search"):
         lines.append(f"  {_search_line(extra['search'])}")
 
-    shares = getattr(result, "objective_block_shares", None) or {}
+    shares = getattr(result, "objective_block_fractions", None) or {}
     mean_shares = shares.get("mean")
     if mean_shares and len(mean_shares) > 1:
         n_trials = shares.get("mean_n_trials")
@@ -627,8 +314,8 @@ def _format_calibration_result(result: Any) -> list[str]:
         best_shares = shares.get("best")
         if best_shares:
             lines.append(f"  cost share (best trial): {_shares_text(best_shares)}")
-    elif "objective_block_shares_absent_note" in extra:
-        lines.append(f"  cost share: {extra['objective_block_shares_absent_note']}")
+    elif "objective_block_fractions_absent_note" in extra:
+        lines.append(f"  cost share: {extra['objective_block_fractions_absent_note']}")
 
     pairing = extra.get("first_trial_pairing")
     if pairing:
@@ -739,14 +426,29 @@ def _format_staged_calibration_result(result: Any) -> list[str]:
     return lines
 
 
+def _print_dry_run(plan: Mapping[str, Any]) -> None:
+    """Print what a calibration would do, one line per fact."""
+    print(f"case: {plan['case']}", file=sys.stderr)
+    print(f"session: {plan['session_dir']}", file=sys.stderr)
+    print(f"calibrated run: {plan['run_dir']} (save_runs = {plan['save_runs']})", file=sys.stderr)
+    for phase in plan["phases"]:
+        print(
+            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_iter']} trials",
+            file=sys.stderr,
+        )
+    print(f"solves in parallel: {plan['solves_in_parallel']}", file=sys.stderr)
+
+
 def run(args: argparse.Namespace) -> None:
     import hydromodpy as hmp
 
     expand = getattr(args, "expand", False)
-    if expand and (getattr(args, "check", False) or args.list_phases or args.phase is not None):
+    resume = getattr(args, "resume", False)
+    dry_run = getattr(args, "dry_run", False)
+    if expand and (args.list_phases or args.phase is not None or resume or dry_run):
         print(
-            "--expand cannot be combined with --check, --list-phases or --phase: it "
-            "prints what a protocol writes, it runs nothing.",
+            "--expand cannot be combined with --list-phases, --phase, --resume or "
+            "--dry-run: it prints what a protocol writes, it runs nothing.",
             file=sys.stderr,
         )
         sys.exit(EXIT_USAGE)
@@ -767,16 +469,25 @@ def run(args: argparse.Namespace) -> None:
         raw_toml = {}
     apply_verbosity(args, raw_toml)
 
+    from hydromodpy.config.sites.expansion import is_sites_project
+
+    if is_sites_project(raw_toml):
+        print(
+            f"{target.name} belongs to a [sites] project: hmp run {target.name} runs this "
+            "recipe on every site.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
     profile_arg = getattr(args, "profile", None)
     if profile_arg is None:
         profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
-    if getattr(args, "check", False):
-        _check_only(target)
-        return
     if expand:
         _expand_only(target)
         return
     if args.list_phases:
+        from hydromodpy.calibration.preflight import comparison_line
+
         try:
             phases = hmp.calibrate(target, list_phases=True)
         except ConfigError as exc:
@@ -789,13 +500,13 @@ def run(args: argparse.Namespace) -> None:
         for index, phase in enumerate(phases):
             print(_phase_line(index, phase))
             for row in phase.get("comparisons", []):
-                print(f"    {_comparison_line(row)}")
+                print(f"    {comparison_line(row)}")
         return
 
     profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(target, phase=args.phase)
+            result = hmp.calibrate(target, phase=args.phase, resume=resume, dry_run=dry_run)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)
@@ -809,6 +520,9 @@ def run(args: argparse.Namespace) -> None:
         print(f"Calibration failed: {exc}", file=sys.stderr)
         sys.exit(EXIT_CALIBRATION)
 
+    if dry_run:
+        _print_dry_run(result if isinstance(result, Mapping) else {})
+        return
     print(f"Calibration finished: {target.name}", file=sys.stderr)
     if result is None:
         return

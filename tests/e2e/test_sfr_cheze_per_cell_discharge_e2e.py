@@ -47,7 +47,7 @@ def _run(tmp_path: Path) -> Path:
 
 
 def _solver_run(out_path: Path) -> tuple[Path, str]:
-    """Return the scratch directory and model name of the MODFLOW 6 run."""
+    """Return the kept solver folder and model name of the MODFLOW 6 run."""
     budgets = [path for path in out_path.rglob("*.cbc") if "." not in path.stem]
     assert budgets, f"no model budget kept under {out_path}; set keep_solver_files"
     budget = budgets[0]

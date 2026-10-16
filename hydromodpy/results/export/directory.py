@@ -1,12 +1,12 @@
 """FAIR views of a sealed run or job directory, read from the directory alone.
 
-:func:`~hydromodpy.results.export.context.build_context` collects a
-simulation from the catalog, and so needs a workspace, a DuckDB index and a
-``sim_id``. A run or a job directory handed to somebody else carries none of
-them. This module builds the same :class:`FairExportContext` from the seal and
-the documents beside it, and writes the views into that directory.
+:func:`context_from_directory` is the only way a view gets its
+:class:`FairExportContext`: from the seal and the documents beside it, never
+from a workspace, the index or a ``sim_id``. A run or a job directory handed
+to somebody else carries none of those. The views are written into that
+directory.
 
-Three rules, each one a way the catalog path goes wrong for a directory.
+Three rules, each one a way a view could say more than the directory.
 
 **A view renders the seal and nothing else.** It reads ``manifest.json``,
 ``provenance.json`` and, for a job, ``inputset.json`` and ``outcome.json``.
@@ -16,27 +16,34 @@ same bytes, so a view can be deleted and written again at any time.
 
 **Every href is relative to the directory.** The crate root ``./`` of the
 RO-Crate is the directory that holds ``ro-crate-metadata.json``, and the STAC
-assets resolve against ``stac-item.json``. A view written under ``share/``
-names paths that resolve nowhere.
+assets resolve against ``stac-item.json``. A view written anywhere else names
+paths that resolve nowhere.
 
-**Nothing is claimed that the directory does not say.** A run directory
-records no licence, so its views say ``LicenseRef-undetermined`` rather than a
-default. A bounding box is written in WGS84, as STAC and schema.org require,
+**Nothing is claimed that the directory does not say.** The licence and the
+creators of a run come from the ``[publication]`` table of its frozen
+``config.toml``; a run without one says ``LicenseRef-undetermined`` rather
+than a default. A bounding box is written in WGS84, as STAC and schema.org require,
 and only when the directory names the CRS of the box it records.
 """
 
 from __future__ import annotations
 
 import json
+import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
-from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_PROVENANCE_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_MANIFEST_FILENAME,
+    RUN_PROVENANCE_FILENAME,
+)
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.extent import SpatialExtent
@@ -181,6 +188,7 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
         **_bbox_columns(_wgs84_bbox(geometry.get("bbox"), epsg)),
     }
     sim_id = str(run.get("sim_id") or root.name)
+    publication = publication_of(root)
     return FairExportContext(
         sim_id=sim_id,
         sim_row=sim_row,
@@ -190,8 +198,10 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
         },
         workspace_meta={},
         workspace_path=root,
-        license_url=UNDETERMINED.spdx,
-        creator_name=None,
+        license_url=(
+            _licence_reference(publication.license) if publication.license else UNDETERMINED.spdx
+        ),
+        creator_name=", ".join(publication.creators) or None,
         creator_email=_text_or_none(run.get("contact_email")),
         assets=(_seal_asset(root), *_run_assets(manifest.get("artifacts"))),
         inputs=tuple(_run_inputs(manifest.get("inputs"))),
@@ -202,6 +212,20 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
         hydromodpy_version=str(_mapping(provenance.get("tool")).get("version") or "unknown"),
         generated_at=str(manifest.get("sealed_at") or ""),
     )
+
+
+def publication_of(root: Path) -> PublicationConfig:
+    """Return the ``[publication]`` table of the frozen ``config.toml`` of a run directory.
+
+    An empty table when the directory has no frozen config or the config
+    declares none.
+    """
+    config = root / RUN_CONFIG_FILENAME
+    if not config.is_file():
+        return PublicationConfig()
+    with config.open("rb") as handle:
+        table = tomllib.load(handle).get("publication") or {}
+    return PublicationConfig.model_validate(table)
 
 
 def _run_assets(entries: Any) -> list[AssetEntry]:

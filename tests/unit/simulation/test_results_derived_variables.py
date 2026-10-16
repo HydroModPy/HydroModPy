@@ -2,33 +2,19 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
-
 import numpy as np
 import pytest
 
-from tests._helpers.fixtures_catalog import simulation_catalog
+from ._test_simulation_api_builders import RunBuilder, runs
 
-
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+__all__ = ["runs"]
 
 
 class TestVariablesRebuiltOnRead:
-    def _setup_sim_with_head(self, catalog, n_ts=3, n_layers=2, n_cells=10):
-        sid = str(uuid4())
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="modflow_nwt",
-            n_cells=n_cells,
-            n_layers=n_layers,
-            n_timesteps=n_ts,
-        )
-        if reg.zarr is not None:
-            reg.zarr.close()
+    def _setup_sim_with_head(self, runs, n_ts=3, n_layers=2, n_cells=10):
+        sid = runs.open(
+            solver="modflow_nwt", n_cells=n_cells, n_layers=n_layers, n_timesteps=n_ts
+        ).sim_id
         verts = np.random.default_rng(0).random((n_cells + 2, 2))
         conn = np.column_stack(
             [
@@ -38,31 +24,31 @@ class TestVariablesRebuiltOnRead:
             ]
         ).astype("int32")
         z_intf = np.array([10.0, 5.0, 0.0])  # top=10, mid=5, bot=0
-        catalog.write_mesh(sid, verts, conn, z_intf)
+        runs.store(sid).write_mesh(sid, verts, conn, z_intf)
 
         rng = np.random.default_rng(42)
         for t in range(n_ts):
             # Head values between 8 and 12 (some above surface at 10)
             head = rng.uniform(8.0, 12.0, (n_layers, n_cells))
-            catalog.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+            runs.store(sid).write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
         return sid
 
-    def test_watertable_elevation(self, catalog):
-        sid = self._setup_sim_with_head(catalog)
-        wt = catalog.query_field(sid, "watertable_elevation", 0)
+    def test_watertable_elevation(self, runs):
+        sid = self._setup_sim_with_head(runs)
+        wt = runs.reader().query_field(sid, "watertable_elevation", 0)
         assert wt.shape == (10,)
 
-    def test_watertable_depth(self, catalog):
-        sid = self._setup_sim_with_head(catalog)
-        depth = catalog.query_field(sid, "watertable_depth", 0)
+    def test_watertable_depth(self, runs):
+        sid = self._setup_sim_with_head(runs)
+        depth = runs.reader().query_field(sid, "watertable_depth", 0)
         assert depth.shape == (10,)
         # top=10, head~8-12, so depth = 10 - wt should be roughly -2 to 2
         assert np.all(np.isfinite(depth))
 
-    def test_seepage_mask(self, catalog):
-        sid = self._setup_sim_with_head(catalog)
-        seep = catalog.query_field(sid, "seepage_mask", 0)
+    def test_seepage_mask(self, runs):
+        sid = self._setup_sim_with_head(runs)
+        seep = runs.reader().query_field(sid, "seepage_mask", 0)
         assert seep.shape == (10,)
         # Some cells have head > 10 (surface), so seepage > 0
         assert seep.sum() > 0

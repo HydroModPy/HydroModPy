@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime as _dt
 import warnings
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, field_validator
 
@@ -67,6 +67,13 @@ def time_selector(value: Any, where: str) -> str | int | None:
 class DisplayConfig(HydroModelBase):
     """Display behaviour resolved from the ``[display]`` TOML section."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "output_dir": (
+            "figures are always written under figures/ of the run directory "
+            "(runs/<run>/figures/). Delete the line."
+        ),
+    }
+
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Master switch. When False, no figure is rendered or saved.",
@@ -97,14 +104,9 @@ class DisplayConfig(HydroModelBase):
     )
     save: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Write rendered figures to disk under ``output_dir``.",
-    )
-    output_dir: Annotated[str, Profile.USER] = Field(
-        default="figures",
         description=(
-            "Name of the figures directory inside the run directory "
-            "(<project>/runs/<run>/<output_dir>/). Declared as a name, not a "
-            "path, so it stays anchored to the run it describes."
+            "Write rendered figures to disk, under figures/ of the run directory "
+            "(runs/<run>/figures/), each one recorded in figures/index.json."
         ),
     )
     dpi: Annotated[int, Profile.DEV] = Field(
@@ -127,7 +129,8 @@ class DisplayConfig(HydroModelBase):
         default_factory=list,
         description=(
             "Names of registered figures to auto-render at the end of "
-            "`hmp run` (and consumed by `hmp viz gallery`). Every name must "
+            "`hmp run`, written to runs/<run>/figures/ and recorded in "
+            "figures/index.json, which `hmp viz regen` replays. Every name must "
             "exist in the figure registry; list them with `hmp viz list`. "
             "A figure whose requirements the run does not meet is skipped "
             "with an explicit reason. Empty list disables auto-rendering. "

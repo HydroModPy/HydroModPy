@@ -181,17 +181,24 @@ def test_a_route_that_never_reads_a_toml_still_anchors_the_network(
     # Python and embedded modes build the config in memory and reach the runner
     # without going through the TOML loader. Anchoring only there left them
     # reading the working directory.
+    from hydromodpy.calibration.persistence import CalibrationPersistence
+    from hydromodpy.calibration.runners import cli_runner
+
     cfg = _in_memory_config("streams.gpkg")
     monkeypatch.chdir(decoy)
+    # The cache preload is the first thing the core touches after anchoring.
+    monkeypatch.setattr(cli_runner, "preload_hash_cache", _halt)
+    session_dir = project / "sessions" / "calage"
+    session_dir.mkdir(parents=True)
 
     with pytest.raises(_Halt):
         run_calibration_core(
             cfg,
             None,
-            workspace=project,
+            persistence=CalibrationPersistence(session_dir),
             space=space_from_config(cfg),
+            project_root=project,
             cfg_path=project / "project.toml",
-            store_factory=_halt,
         )
 
     assert Path(cfg.outputs["net"].stream_geometry_path).read_bytes() == _PROJECT_NETWORK

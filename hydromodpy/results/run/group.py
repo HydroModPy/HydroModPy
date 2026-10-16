@@ -3,17 +3,19 @@
 What
 ----
 Iterable, filterable view over a list of ``sim_id`` resolved against a single
-``Catalog``. Builds pivoted ``parameters`` and ``metrics`` frames,
-ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
-simulations (``compare``), exports tabular bundles (``to_dataframe``,
+``Catalog``. Builds a pivoted ``parameters`` frame and a ``metrics`` frame
+read from the seal of each run (metrics at the gauge, in the window of the
+run's rule, columns named by metric), ranks runs (``best``, ``worst``,
+``sort_by``), compares one metric across runs (``compare``), exports tabular
+bundles (``to_dataframe``,
 ``to_csv``), stacks field arrays lazily into an ``xarray.DataArray``
 (``to_xarray``, dask-backed), reads one location on every run
 (``probe.series``) and narrows the set with ``filter(**criteria)``.
 
 Why
 ---
-Calibration ensembles, gallery sweeps, and ad hoc cohorts share the same
-"list of runs" abstraction. Centralising it here keeps the per-run loop logic
+Calibration ensembles, recipe sweeps and ad hoc cohorts are all a
+"list of runs". Centralising it here keeps the per-run loop logic
 (sort, pivot, compare) in one place rather than duplicated across notebooks.
 
 Public API
@@ -31,12 +33,18 @@ Cross-refs
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import math
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Final
 
 import pandas as pd
 
 from hydromodpy.core import progress
+from hydromodpy.results.catalog.constants import metric_sense
+from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.metric_rule import METRIC_NAMES
 from hydromodpy.results.run.point import RunPointProvider
+from hydromodpy.results.run.sealed import RULE_COLUMNS, headline_metrics, rule_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -45,6 +53,32 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.run import Run
+
+
+_RUN_COLUMNS: Final[tuple[str, ...]] = ("name", "project", "solver")
+"""Columns that name a run in :meth:`RunSet.compare`."""
+
+
+def _finite(value: Any) -> bool:
+    """Return whether *value* is a finite number."""
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def rank_key(metric: str) -> Callable[[float], float]:
+    """Return the key that puts the best value of ``metric`` lowest.
+
+    The direction is :func:`~hydromodpy.results.catalog.constants.metric_sense`:
+    ``max`` and ``min`` rank the value, ``zero`` and ``one`` its distance to
+    that target. A metric without a direction, or under a retired name, is
+    refused: best would be undefined.
+    """
+    sense = metric_sense(metric)
+    if sense == "max":
+        return lambda value: -value
+    if sense == "min":
+        return lambda value: value
+    target = 0.0 if sense == "zero" else 1.0
+    return lambda value: abs(value - target)
 
 
 def _open_simulation_lazy(catalog: Catalog, sim_id: str) -> xr.Dataset:
@@ -65,8 +99,11 @@ class RunSet:
 
     ``RunSet`` is returned by catalog queries that match more than one
     run. It behaves like a lightweight list of ``Run`` objects and adds cohort
-    utilities: pivot parameter tables, pivot metric tables, rank runs, compare
-    scalar metrics, export a wide DataFrame, and stack fields lazily.
+    utilities: pivot parameter tables, read the metrics of each run under its
+    rule, rank runs, compare one metric, export a wide DataFrame, and stack
+    fields lazily. Runs scored under different rules (station, variable,
+    window, rule version) are not ranked together unless asked
+    (``mixed_windows=True``).
 
     Parameters
     ----------
@@ -96,6 +133,7 @@ class RunSet:
     ) -> None:
         self._sim_ids = sim_ids
         self._catalog_handle = catalog
+        self._score_rows: dict[str, dict[str, Any]] = {}
         self.probe = RunPointProvider(self)
 
     @property
@@ -162,149 +200,161 @@ class RunSet:
 
     @property
     def metrics(self) -> pd.DataFrame:
-        """Wide metric table with one row per simulation."""
+        """One row per run: its metrics at the gauge, in the window of its rule.
+
+        Columns: ``sim_id``, ``station`` and ``variable`` of the headline NSE,
+        the window it was computed on (``nse_window_start``, ``nse_window_end``,
+        ``nse_n``, ``metric_rule_version``), then one column per metric, named
+        by the metric alone (``nse``, ``kge``, ``rmse`` ...). The scores come
+        from each run's ``manifest.json``. A run without a seal, without a
+        window or without a station has empty cells.
+        """
         if not self._sim_ids:
             return pd.DataFrame()
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.backend.query(
-            f"SELECT sim_id, station_id, metric_name, value "
-            f"FROM metrics WHERE sim_id IN ({placeholders})",
-            self._sim_ids,
-        )
-        if df.empty:
-            return df
-        df["key"] = df["metric_name"].where(
-            df["station_id"].isna(),
-            df["metric_name"] + "_" + df["station_id"],
-        )
-        return df.pivot_table(
-            index="sim_id",
-            columns="key",
-            values="value",
-            aggfunc="first",
-        ).reset_index()
+        rows = [{"sim_id": sid, **self._scores(sid)} for sid in self._sim_ids]
+        frame = pd.DataFrame(rows)
+        leading = ["sim_id", *RULE_COLUMNS]
+        known = [name for name in METRIC_NAMES if name in frame.columns]
+        others = sorted(set(frame.columns) - set(leading) - set(known) - set(_RUN_COLUMNS))
+        return frame[[*leading, *known, *others]]
+
+    def _scores(self, sim_id: str) -> dict[str, Any]:
+        """The headline metrics of one run, plus its name, project and solver, read once."""
+        cached = self._score_rows.get(sim_id)
+        if cached is not None:
+            return cached
+        from hydromodpy.results.run import Run
+
+        run = Run(sim_id, self._catalog)
+        row: dict[str, Any] = dict.fromkeys(RULE_COLUMNS)
+        if is_sealed(run.dir):
+            record = run._record()  # noqa: SLF001 - same package
+            row = {
+                "name": record.run.name,
+                "project": record.run.project,
+                "solver": record.run.solver,
+                **headline_metrics(record),
+            }
+        self._score_rows[sim_id] = row
+        return row
 
     # -- Comparison ----------------------------------------------------------
 
-    def _resolve_metric_station(self, metric: str, station: str | None) -> str | None:
-        """Return the station to scope a metric ranking to.
+    def _scored(self, metric: str, *, mixed_windows: bool) -> pd.DataFrame:
+        """Rows of the group that carry a finite ``metric``, under one rule.
 
-        When ``station`` is given it is used verbatim. Otherwise the distinct
-        stations carrying ``metric`` across the group are inspected: a single
-        station (the common case) is used silently, and several stations raise a
-        ``KeyError`` asking the caller to disambiguate, so best/worst/compare
-        never mix stations across runs.
+        Runs scored at different stations, on different variables, on
+        different windows or under different rule versions are not comparable:
+        they are refused unless ``mixed_windows`` is true.
         """
-        if station is not None:
-            return station
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        rows = self._catalog.backend.query(
-            f"SELECT DISTINCT station_id FROM metrics "
-            f"WHERE sim_id IN ({placeholders}) AND metric_name = ?",
-            self._sim_ids + [metric],
-        )
-        stations = sorted(str(value) for value in rows["station_id"].tolist())
-        if len(stations) <= 1:
-            return stations[0] if stations else None
-        raise KeyError(
-            f"Metric '{metric}' exists at multiple stations ({', '.join(stations)}); "
-            "pass station= to disambiguate."
-        )
+        described = (*_RUN_COLUMNS, *RULE_COLUMNS)
+        rows: list[dict[str, Any]] = []
+        for sid in self._sim_ids:
+            scores = self._scores(sid)
+            if _finite(scores.get(metric)):
+                rows.append(
+                    {
+                        "sim_id": sid,
+                        **{column: scores.get(column) for column in described},
+                        "value": scores[metric],
+                    }
+                )
+        frame = pd.DataFrame(rows, columns=["sim_id", *described, "value"])
+        rules = {rule_of(row) for row in rows}
+        if len(rules) > 1 and not mixed_windows:
+            listed = "; ".join(
+                f"{variable} at {station}, {start} to {end} (rule {version})"
+                for station, variable, start, end, version in sorted(rules, key=str)
+            )
+            raise ValueError(
+                f"The runs of this group score '{metric}' under different rules: {listed}. "
+                "Their values are not comparable; pass mixed_windows=True to rank them anyway."
+            )
+        return frame
 
-    def compare(self, metric: str, *, station: str | None = None) -> pd.DataFrame:
-        """Compare one metric across every simulation in the group.
+    def compare(self, metric: str, *, mixed_windows: bool = False) -> pd.DataFrame:
+        """Compare one metric across the runs of the group, best first.
+
+        The metric is read at the gauge of each run, in the window of its rule
+        (:attr:`metrics`). Best follows the direction of the metric.
 
         Parameters
         ----------
         metric
-            Metric name stored in the catalog.
-        station
-            Observation station to scope the comparison to. When omitted and the
-            metric exists at a single station, that station is used; several
-            stations raise a ``KeyError``.
+            Metric name, as in the columns of :attr:`metrics`.
+        mixed_windows
+            Rank runs scored under different rules: another station, variable,
+            window or rule version. Refused by default: such values are not
+            comparable.
 
         Returns
         -------
         pandas.DataFrame
-            Rows ordered from highest to lowest metric value.
+            ``sim_id``, ``name``, ``project``, ``solver``, ``station``,
+            ``variable``, the window columns and ``value``, best first. Runs
+            without the metric are left out.
         """
         if not self._sim_ids:
             return pd.DataFrame()
-        resolved = self._resolve_metric_station(metric, station)
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        query = (
-            f"SELECT s.sim_id, s.name, s.project, sv.code AS solver, "
-            f"m.station_id, m.value "
-            f"FROM simulations s "
-            f"JOIN solvers sv ON s.solver_id = sv.id "
-            f"JOIN metrics m ON s.sim_id = m.sim_id "
-            f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ?"
-        )
-        params = self._sim_ids + [metric]
-        if resolved is not None:
-            query += " AND m.station_id = ?"
-            params.append(resolved)
-        query += " ORDER BY m.value DESC"
-        return self._catalog.backend.query(query, params)
+        return self._ranked(metric, best=True, mixed_windows=mixed_windows)
 
-    def best(self, metric: str, *, station: str | None = None) -> Run:
+    def best(self, metric: str, *, mixed_windows: bool = False) -> Run:
         """Return the run with the best value for ``metric``.
 
         Best follows the direction of the metric: the highest ``nse``, the
-        lowest ``rmse``, the ``pbias`` closest to zero. ``station`` scopes the
-        ranking; when omitted a single-station metric is used silently and a
-        multi-station metric raises ``KeyError``.
+        lowest ``rmse``, the ``pbias`` closest to zero. The metric is read at
+        the gauge of each run, in the window of its rule.
 
         Raises
         ------
         ValueError
-            Raised when the group is empty, or when the metric has no declared
-            direction (:class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`).
+            Raised when the group is empty, when the metric has no declared
+            direction (:class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`),
+            or when the runs were scored under different rules (station,
+            variable, window or rule version) and ``mixed_windows`` is false.
         KeyError
-            Raised when the metric is absent, or ambiguous across stations.
+            Raised when no run of the group carries the metric.
         """
-        return self._extreme(metric, station=station, best=True)
+        return self._extreme(metric, best=True, mixed_windows=mixed_windows)
 
-    def worst(self, metric: str, *, station: str | None = None) -> Run:
+    def worst(self, metric: str, *, mixed_windows: bool = False) -> Run:
         """Return the run with the worst value for ``metric``.
 
         The mirror of :meth:`best`, with the same direction rule and errors.
         """
-        return self._extreme(metric, station=station, best=False)
+        return self._extreme(metric, best=False, mixed_windows=mixed_windows)
 
-    def _extreme(self, metric: str, *, station: str | None, best: bool) -> Run:
-        """Return the run holding the best or worst value of a station-scoped metric."""
-        from hydromodpy.results.catalog.constants import metric_rank_sql
+    def _ranked(self, metric: str, *, best: bool, mixed_windows: bool) -> pd.DataFrame:
+        """Rows carrying ``metric``, best (or worst) first."""
+        key = rank_key(metric)
+        frame = self._scored(metric, mixed_windows=mixed_windows)
+        order = frame["value"].map(key).sort_values(ascending=best, kind="stable").index
+        return frame.loc[order].reset_index(drop=True)
+
+    def _extreme(self, metric: str, *, best: bool, mixed_windows: bool) -> Run:
+        """Return the run holding the best or worst value of ``metric``."""
         from hydromodpy.results.run import Run
 
         if not self._sim_ids:
             raise ValueError("Empty group")
-        order = metric_rank_sql(metric, best=best)
-        resolved = self._resolve_metric_station(metric, station)
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        query = (
-            f"SELECT m.sim_id FROM metrics m "
-            f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ?"
-        )
-        params = self._sim_ids + [metric]
-        if resolved is not None:
-            query += " AND m.station_id = ?"
-            params.append(resolved)
-        query += f" AND m.value IS NOT NULL AND isfinite(m.value) ORDER BY {order} LIMIT 1"
-        row = self._catalog.backend.fetch_one(query, params)
-        if row is None:
+        ranked = self._ranked(metric, best=best, mixed_windows=mixed_windows)
+        if ranked.empty:
             raise KeyError(f"No metric '{metric}' found in group")
-        return Run(str(row[0]), self._catalog)
+        return Run(str(ranked["sim_id"].iloc[0]), self._catalog)
 
-    def sort_by(self, metric: str, ascending: bool = True) -> RunSet:
-        """Return a new group ordered by one metric.
+    def sort_by(
+        self, metric: str, ascending: bool = True, *, mixed_windows: bool = False
+    ) -> RunSet:
+        """Return a new group ordered by the raw value of one metric.
 
         Parameters
         ----------
         metric
-            Metric name used for ordering.
+            Metric name, as in the columns of :attr:`metrics`.
         ascending
             Sort from low to high when true.
+        mixed_windows
+            Order runs scored under different rules. Refused by default.
 
         Returns
         -------
@@ -313,16 +363,9 @@ class RunSet:
         """
         if not self._sim_ids:
             return self
-        placeholders = ", ".join(["?"] * len(self._sim_ids))
-        order = "ASC" if ascending else "DESC"
-        rows = self._catalog.backend.fetch_all(
-            f"SELECT m.sim_id FROM metrics m "
-            f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
-            f"ORDER BY m.value {order}",
-            self._sim_ids + [metric],
-        )
-        sorted_ids = [str(r[0]) for r in rows]
-        return RunSet(sorted_ids, self._catalog)
+        frame = self._scored(metric, mixed_windows=mixed_windows)
+        ordered = frame.sort_values("value", ascending=ascending, kind="stable")
+        return RunSet([str(sid) for sid in ordered["sim_id"]], self._catalog)
 
     # -- ML-ready export -----------------------------------------------------
 

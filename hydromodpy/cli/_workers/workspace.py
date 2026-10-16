@@ -9,9 +9,7 @@ CLEAN_GROUPS: tuple[str, ...] = (
     "results",
     "data_cache",
     "runtime",
-    "share",
     "scratch",
-    "figures",
 )
 """Artefact families ``clean_workspace`` knows how to remove."""
 
@@ -28,7 +26,6 @@ def init_workspace(
 
     Returns a dict with ``path`` and ``workspace_toml``.
     """
-    from hydromodpy.core.state.global_index import auto_register_projects
     from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
     from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT, scaffold
 
@@ -45,88 +42,28 @@ def init_workspace(
         creator_email=creator_email or "",
         force=force,
     )
-    auto_register_projects(result, label=project_name or result.name)
     return {"path": str(result), "workspace_toml": str(workspace_toml)}
 
 
-def list_registered_projects() -> Any:
-    """List the projects registered in the machine-wide global index.
+def list_workspace_runs(root: Any) -> Any:
+    """Return the sealed runs of every project under ``root``, one row each.
 
-    Returns one :class:`pandas.DataFrame` with the columns of
-    :class:`hydromodpy.core.state.global_index.ProjectRecord`, so the listing
-    renders like every other CLI table.
+    ``root`` is a workspace root or a project root. The frame carries the
+    columns of ``simulation.parquet`` plus ``project_root``, newest first.
+    Nothing reads an index.
     """
     import pandas as pd
 
-    from hydromodpy.core.state.global_index import GlobalIndex
+    from hydromodpy.results.catalog.federation import read_workspace_runs
 
-    with GlobalIndex(read_only=True) as gi:
-        records = gi.list_projects()
-    return pd.DataFrame(
-        [record.model_dump() for record in records],
-        columns=["project_id", "project_uri", "label", "last_scanned_at", "created_at"],
-    )
-
-
-def register_projects(uri: str, *, label: str | None = None) -> dict[str, list[str]]:
-    """Register the projects behind ``uri`` in the global index.
-
-    A project root registers as one row; a workspace root expands to the
-    project roots it holds, and any other existing directory is one row too.
-    What counts as either is
-    :meth:`~hydromodpy.core.state.global_index.GlobalIndex.register`'s call,
-    including the ``FileNotFoundError`` on a path that is not a directory at
-    all, which this interactive path lets through for the command to print.
-
-    Returns
-    -------
-    dict[str, list[str]]
-        ``registered``: the ``project_id`` of every row this call inserted.
-        ``known``: the ``project_uri`` of every project the index holds under
-        ``uri`` once the call is done, read back from the index rather than
-        walked again on disk. An empty ``registered`` reads two ways and
-        ``known`` is what separates them: everything was already registered,
-        or there was no project there to register.
-    """
-    from hydromodpy.core.state.global_index import GlobalIndex
-    from hydromodpy.core.state.paths import resolve_workspace
-
-    root = resolve_workspace(uri).expanduser().resolve()
-    with GlobalIndex() as gi:
-        registered = gi.register(uri, label=label)
-        known = [
-            record.project_uri
-            for record in gi.list_projects()
-            if (known_root := Path(record.project_uri)) == root or root in known_root.parents
-        ]
-    return {"registered": registered, "known": known}
-
-
-def search_projects(term: str, *, limit: int = 20) -> Any:
-    """Full-text search across the registered projects."""
-    from hydromodpy.core.state.global_index import GlobalIndex
-
-    with GlobalIndex(read_only=True) as gi:
-        df = gi.search(term)
-    if df is None or df.empty:
-        return df
-    return df.head(limit)
-
-
-def forget_project(project_id: str) -> None:
-    """Drop one project registration from the global index."""
-    from hydromodpy.core.state.global_index import GlobalIndex
-
-    with GlobalIndex() as gi:
-        gi.unregister(project_id)
-
-
-def prune_projects() -> list[str]:
-    """Drop registrations whose project index database is missing."""
-    from hydromodpy.core.state.global_index import GlobalIndex
-
-    with GlobalIndex() as gi:
-        return gi.prune()
+    df = read_workspace_runs(Path(root).expanduser().resolve())
+    if df.empty:
+        return pd.DataFrame()
+    if "sim_id" in df.columns:
+        df["sim_id"] = df["sim_id"].astype(str)
+    if "created_at" in df.columns:
+        df = df.sort_values("created_at", ascending=False, kind="stable")
+    return df.reset_index(drop=True)
 
 
 def clean_workspace(
@@ -139,19 +76,20 @@ def clean_workspace(
 
     ``groups`` selects which artefact families to remove: ``results`` (the
     index database and the ``runs/`` tree), ``data_cache``, ``runtime``
-    (``.hmp/``), ``share`` (the published tree), ``scratch``
-    (``.hmp/scratch``) and ``figures`` (``share/figures``). Default is empty
-    (the caller passes at least one group, or ``{"all"}``).
+    (``.hmp/``) and ``scratch`` (``.hmp/scratch``). Figures, exports and
+    reports live in the run directories, so ``results`` takes them along.
+    Default is empty (the caller passes at least one group, or ``{"all"}``).
     """
     import shutil
 
     from hydromodpy.cli.helpers import find_workspace_root
     from hydromodpy.core.state.paths import (
         CATALOG_FILENAME,
+        DATA_CACHE_FILENAME,
         catalog_path_for,
+        data_cache_path_for,
         runs_dir_for,
         scratch_root_for,
-        share_dir_for,
     )
 
     start = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
@@ -186,24 +124,18 @@ def clean_workspace(
     if "data_cache" in selected:
         targets.extend(
             [
-                workspace_root / "data" / "cache.duckdb",
-                workspace_root / "data" / "cache.duckdb.wal",
+                data_cache_path_for(workspace_root / "data"),
+                data_cache_path_for(workspace_root / "data").with_name(
+                    f"{DATA_CACHE_FILENAME}.wal"
+                ),
                 workspace_root / "data" / "blobs",
             ]
         )
     if "runtime" in selected:
         targets.append(workspace_root / ".hmp")
-    if "share" in selected:
-        targets.append(share_dir_for(workspace_root))
-        targets.extend(share_dir_for(p) for p in sorted(workspace_root.glob("projects/*")))
     if "scratch" in selected:
         targets.extend(scratch_root_for(p) for p in sorted(workspace_root.glob("projects/*")))
         targets.append(scratch_root_for(workspace_root))
-    if "figures" in selected:
-        targets.extend(
-            share_dir_for(p) / "figures" for p in sorted(workspace_root.glob("projects/*"))
-        )
-        targets.append(share_dir_for(workspace_root) / "figures")
 
     seen: set[Path] = set()
     unique: list[Path] = []

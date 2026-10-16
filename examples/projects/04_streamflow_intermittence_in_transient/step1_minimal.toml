@@ -78,7 +78,7 @@ figures = [
 [display.overrides.cross_section]
 orientation = "sn"
 
-# What the run writes to share/nancon_step1_minimal/. A block says what
+# What the run writes to runs/nancon_step1_minimal/exports/. A block says what
 # (variables) and when (time); the format follows the data. The next steps
 # inherit these three blocks.
 

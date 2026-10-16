@@ -99,7 +99,7 @@ Five figures. The instant of the one-instant figures comes from {toml}`display.t
 | `flow_persistence_map` | The share of the three years each cell flows: dark where the channel ran all year, pale where it ran only at the wettest steps |
 | `flow_intermittence_map` | One calendar year, 2002 (`cycle = "2002"`): each cell is perennial, intermittent or dry |
 
-Six export blocks write seven files in `share/nancon_step4_transient/`: the five files of
+Six export blocks write seven files in `runs/nancon_step4_transient/exports/`: the five files of
 the inherited blocks, now of a transient run (the GeoTIFFs hold December 2002, the last
 month), and two more.
 
