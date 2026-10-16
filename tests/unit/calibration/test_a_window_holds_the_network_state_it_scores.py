@@ -2,7 +2,7 @@
 
 That output is dated at the stamp of the state it reads, the stamp that closes
 its period. A window that holds the stamp scores it; one that does not is
-refused, naming both, at the first trial and by ``hmp calibrate --check``
+refused, naming both, at the first trial and by ``hmp config check``
 before any solve. So ``scoring_window.start`` is the one way to leave a spin-up
 out of a composite that scores a hydrograph and a network together.
 """

@@ -3,7 +3,8 @@
 A thin wrapper of :func:`hydromodpy.results.export.publish.publish`. The
 reference is a run (its directory name under ``runs/``, an id or an
 @-selector), ``summary``, or ``.`` for the project: every sealed run and the
-summary, each in its own folder under ``--to``. ``--format tar`` writes the
+summary, each in its own folder under ``--to``, written all at once by
+:func:`hydromodpy.results.export.publish.publish_project`. ``--format tar`` writes the
 same copy as an archive, which ``hmp catalog import`` reads back.
 ``--verify DEST`` compares a copy with its ``PUBLICATION.json``.
 """
@@ -89,25 +90,30 @@ def run(args: argparse.Namespace) -> None:
         print("Name what to publish and where: hmp publish <ref> --to DEST", file=sys.stderr)
         sys.exit(EXIT_USAGE)
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.results.export.publish import publish
+    from hydromodpy.results.export.publish import publish, publish_project
 
     project_root = resolve_project_root(Path(args.workspace or Path.cwd()).expanduser().resolve())
     destination = Path(args.to).expanduser()
     try:
-        sources = _sources(project_root, args.ref)
-        written = [
-            publish(
-                source,
-                destination
-                if args.ref != PROJECT_REF
-                else _project_member(destination, source, args.format),
-                project_root=project_root,
+        if args.ref == PROJECT_REF:
+            written = publish_project(
+                project_root,
+                destination,
                 format=args.format,
                 with_=tuple(args.with_),
                 public=args.public,
             )
-            for source in sources
-        ]
+        else:
+            written = [
+                publish(
+                    _source(project_root, args.ref),
+                    destination,
+                    project_root=project_root,
+                    format=args.format,
+                    with_=tuple(args.with_),
+                    public=args.public,
+                )
+            ]
     except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
@@ -116,20 +122,16 @@ def run(args: argparse.Namespace) -> None:
     print(f"Published {len(written)} copy(ies)", file=sys.stderr)
 
 
-def _sources(project_root: Path, ref: str) -> list[Path]:
-    """Return the directories one reference publishes."""
-    from hydromodpy.core.state.paths import SUMMARY_DIRNAME, runs_dir_for
-    from hydromodpy.results.manifest import is_sealed
+def _source(project_root: Path, ref: str) -> Path:
+    """Return the directory one reference publishes: the summary or a run."""
+    from hydromodpy.core.state.paths import SUMMARY_DIRNAME
 
     summary = project_root / SUMMARY_DIRNAME
-    if ref == PROJECT_REF:
-        runs = sorted(p for p in runs_dir_for(project_root).glob("*") if is_sealed(p))
-        return [*runs, *([summary] if summary.is_dir() else [])]
     if ref == SUMMARY_DIRNAME:
         if not summary.is_dir():
             raise FileNotFoundError(f"{summary} does not exist: run 'hmp project collect' first.")
-        return [summary]
-    return [run_dir_of(project_root, ref)]
+        return summary
+    return run_dir_of(project_root, ref)
 
 
 def run_dir_of(project_root: Path, ref: str) -> Path:
@@ -143,11 +145,6 @@ def run_dir_of(project_root: Path, ref: str) -> Path:
 
     with Catalog(project_root) as catalog:
         return Path(catalog.run_dir_for(catalog.resolve(ref)))
-
-
-def _project_member(destination: Path, source: Path, fmt: str) -> Path:
-    """Return where one member of a project copy goes: a folder, or an archive, per source."""
-    return destination / (f"{source.name}.tar" if fmt == "tar" else source.name)
 
 
 def _verify(copy: Path) -> None:

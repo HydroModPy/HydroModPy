@@ -21,18 +21,25 @@ declared under ``inputs/<sha256><suffix>``,
 addressed by content. Never: ``.hmp/``, ``logs/``, ``attempts/``,
 ``outcome.json``, ``published.jsonl``.
 
-Every JSON and TOML document of the copy goes through
-:func:`hydromodpy.results.publication.redact`: no host, no user, no absolute
-path. Text pages (``.md``, ``.html``, ``.txt``) have the absolute path of the
-project, of the workspace and of the home directory replaced. A copy that
-still names one of them is refused before it is moved into place.
+Every JSON, JSON Lines and TOML document and every cell of a CSV or TSV
+table goes through :func:`hydromodpy.results.publication.redact`: no host,
+no user, no absolute path. Text pages (``.md``, ``.html``, ``.txt``) have the
+absolute path of the project, of the workspace and of the home directory
+replaced. A Parquet file is copied as it is, so a text column holding an
+absolute path refuses the copy, by file and column. A copy whose text still
+names the machine is refused before it is moved into place.
 
-The source gets one line in its ``published.jsonl``.
+The source gets one line in its ``published.jsonl``, and that journal never
+enters a copy. ``publish_project`` stages every sealed run and the summary
+side by side and renames the whole at once: a refused member leaves nothing
+in the destination and no line in any journal.
 """
 
 from __future__ import annotations
 
+import csv
 import dataclasses
+import io
 import json
 import os
 import shutil
@@ -53,6 +60,7 @@ from hydromodpy.core.state.paths import (
     SUMMARY_DIRNAME,
     is_workspace_root,
     run_dir_rel,
+    runs_dir_for,
 )
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.export.context import AssetEntry
@@ -60,6 +68,7 @@ from hydromodpy.results.export.directory import context_from_directory, publicat
 from hydromodpy.results.export.rocrate import write_ro_crate_view
 from hydromodpy.results.export.run_identity import label_of, read_sealed_manifest
 from hydromodpy.results.ledger import sha256_of
+from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     REDACTED_PATH,
     Publication,
@@ -84,6 +93,7 @@ from hydromodpy.results.storage.contract import (
     RUN_MANIFEST_FILENAME,
     RUN_MESH_DIRNAME,
     RUN_PROVENANCE_FILENAME,
+    RUN_PUBLISHED_FILENAME,
     RUN_REPORT_DIRNAME,
     TABLES_DIRNAME,
 )
@@ -109,7 +119,13 @@ RESULTS_ENTRIES: Final[tuple[str, ...]] = (FIELDS_STORE_NAME, TABLES_DIRNAME, RU
 """What ``with results`` adds to the copy of a run."""
 
 _STRUCTURED_SUFFIXES: Final[frozenset[str]] = frozenset({".json", ".jsonld", ".toml"})
+_LINES_SUFFIX: Final[str] = ".jsonl"
+_TABLE_DELIMITERS: Final[dict[str, str]] = {".csv": ",", ".tsv": "\t"}
 _TEXT_SUFFIXES: Final[frozenset[str]] = frozenset({".md", ".html", ".htm", ".txt"})
+_SCANNED_SUFFIXES: Final[frozenset[str]] = (
+    _STRUCTURED_SUFFIXES | _TEXT_SUFFIXES | set(_TABLE_DELIMITERS) | {_LINES_SUFFIX}
+)
+_PARQUET_SUFFIX: Final[str] = ".parquet"
 
 
 def publish(
@@ -152,7 +168,81 @@ def publish(
     """
     source_dir = Path(source).resolve()
     root = Path(project_root).resolve()
-    extras = tuple(dict.fromkeys(with_))
+    manifest = _checked_source(source_dir, root, public=public)
+    target = _target_path(Path(to).expanduser().resolve(), format, source_dir.name)
+    line = _publish_one(
+        source_dir, target, root=root, manifest=manifest, format=format, extras=tuple(with_)
+    )
+    append_published(source_dir, line)
+    return target
+
+
+def publish_project(
+    project_root: str | Path,
+    to: str | Path,
+    *,
+    format: PublicationFormat = "dir",
+    with_: Sequence[PublicationExtra] = (),
+    public: bool = False,
+) -> list[Path]:
+    """Copy every sealed run and the summary of a project, each in its own folder under *to*.
+
+    The members are staged together beside *to* and renamed into place at
+    once. A member that is refused leaves nothing in *to* and no line in any
+    ``published.jsonl``. With ``format = "tar"`` each member is an archive
+    ``<member>.tar`` under *to*.
+
+    Raises
+    ------
+    ExportError
+        A project with nothing to publish, a destination that holds
+        something, a member that would name the machine.
+    ConfigMissingError
+        ``public`` without a licence.
+    """
+    root = Path(project_root).resolve()
+    sources = project_members(root)
+    if not sources:
+        raise ExportError(
+            f"{root} holds no sealed run and no {SUMMARY_DIRNAME}/: nothing to publish."
+        )
+    checked = [(source, _checked_source(source, root, public=public)) for source in sources]
+    destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name)
+    staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex[:8]}"
+    staging.mkdir(parents=True)
+    lines: list[tuple[Path, PublishedLine]] = []
+    try:
+        for source, manifest in checked:
+            name = f"{source.name}.tar" if format == "tar" else source.name
+            line = _publish_one(
+                source,
+                staging / name,
+                root=root,
+                manifest=manifest,
+                format=format,
+                extras=tuple(with_),
+                recorded_as=destination / name,
+            )
+            lines.append((source, line))
+        os.replace(staging, destination)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    for source, line in lines:
+        append_published(source, line)
+    return [Path(line.to) for _, line in lines]
+
+
+def project_members(project_root: str | Path) -> list[Path]:
+    """Return what ``publish_project`` copies: every sealed run, then ``summary/``."""
+    root = Path(project_root)
+    runs = sorted(path for path in runs_dir_for(root).glob("*") if is_sealed(path))
+    summary = root / SUMMARY_DIRNAME
+    return [*runs, *([summary] if summary.is_dir() else [])]
+
+
+def _checked_source(source_dir: Path, root: Path, *, public: bool) -> Any:
+    """Return the seal of a run source, ``None`` for the summary; refuse what cannot leave."""
     is_summary = source_dir == (root / SUMMARY_DIRNAME)
     manifest = None if is_summary else read_sealed_manifest(source_dir)
     if not is_summary and manifest is None:
@@ -162,7 +252,22 @@ def publish(
         )
     if public:
         _require_licence(source_dir if not is_summary else root, is_summary=is_summary)
-    target = _target_path(Path(to).expanduser().resolve(), format, source_dir.name)
+    return manifest
+
+
+def _publish_one(
+    source_dir: Path,
+    target: Path,
+    *,
+    root: Path,
+    manifest: Any,
+    format: PublicationFormat,
+    extras: tuple[PublicationExtra, ...],
+    recorded_as: Path | None = None,
+) -> PublishedLine:
+    """Stage one copy beside *target*, check it, move it into place; return its journal line."""
+    extras = tuple(dict.fromkeys(extras))
+    is_summary = manifest is None
     staging = target.parent / f".{target.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
     try:
@@ -202,16 +307,12 @@ def publish(
     finally:
         if staging.exists():
             shutil.rmtree(staging)
-    append_published(
-        source_dir,
-        PublishedLine(
-            to=str(target),
-            format=format,
-            published_at=publication.published_at,
-            publication_sha256=publication_sha256,
-        ),
+    return PublishedLine(
+        to=str(recorded_as or target),
+        format=format,
+        published_at=publication.published_at,
+        publication_sha256=publication_sha256,
     )
-    return target
 
 
 def verify(copy: str | Path) -> list[str]:
@@ -300,17 +401,25 @@ def _copy_tree(source: Path, dest: Path, *, prefixes: tuple[str, ...], project_r
     """Copy a directory, skipping the internal state, redacting its documents."""
     for path in sorted(source.rglob("*")):
         relative = path.relative_to(source)
-        if INTERNAL_DIRNAME in relative.parts or not path.is_file():
+        if (
+            INTERNAL_DIRNAME in relative.parts
+            or relative.name == RUN_PUBLISHED_FILENAME
+            or not path.is_file()
+        ):
             continue
         _copy_file(path, dest / relative, prefixes=prefixes, project_root=project_root)
 
 
 def _copy_file(source: Path, dest: Path, *, prefixes: tuple[str, ...], project_root: Path) -> None:
-    """Copy one file; a JSON or TOML document is redacted, a text page has its paths replaced."""
+    """Copy one file; documents and tables are redacted, a text page has its paths replaced."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     suffix = source.suffix.lower()
     if suffix in _STRUCTURED_SUFFIXES:
         dest.write_text(_redacted_document(source, project_root), encoding="utf-8")
+    elif suffix == _LINES_SUFFIX:
+        dest.write_text(_redacted_lines(source, project_root), encoding="utf-8")
+    elif suffix in _TABLE_DELIMITERS:
+        _copy_table(source, dest, delimiter=_TABLE_DELIMITERS[suffix], project_root=project_root)
     elif suffix in _TEXT_SUFFIXES:
         dest.write_text(
             _redacted_text(source.read_text(encoding="utf-8"), prefixes), encoding="utf-8"
@@ -330,6 +439,31 @@ def _redacted_document(path: Path, project_root: Path) -> str:
     else:
         cleaned = redact({"items": payload}, project_root=project_root)["items"]
     return json.dumps(cleaned, indent=2, ensure_ascii=False) + "\n"
+
+
+def _redacted_lines(path: Path, project_root: Path) -> str:
+    """Return a JSON Lines document with every line redacted."""
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return "".join(
+        json.dumps(redact({"line": json.loads(line)}, project_root=project_root)["line"]) + "\n"
+        for line in lines
+    )
+
+
+def _copy_table(source: Path, dest: Path, *, delimiter: str, project_root: Path) -> None:
+    """Copy a CSV or TSV table, every cell redacted; a table without a path is copied as is.
+
+    An absolute path under the project becomes relative to it, any other one
+    becomes :data:`REDACTED_PATH`.
+    """
+    text = source.read_text(encoding="utf-8", errors="surrogateescape")
+    if redact({"text": text}, project_root=None)["text"] == text:
+        shutil.copy2(source, dest)
+        return
+    rows = list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
+    cleaned = redact({"rows": rows}, project_root=project_root)["rows"]
+    with dest.open("w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
+        csv.writer(handle, delimiter=delimiter, lineterminator="\n").writerows(cleaned)
 
 
 def _redacted_text(text: str, prefixes: tuple[str, ...]) -> str:
@@ -416,10 +550,15 @@ def _write_crate(staging: Path) -> None:
 
 
 def _refuse_leaks(staging: Path, prefixes: tuple[str, ...]) -> None:
-    """Refuse a copy whose text still names the machine: a private path or the host name."""
+    """Refuse a copy that still names the machine: a private path, the host, a Parquet path."""
     host = socket.gethostname()
     for path in _files(staging):
-        if path.suffix.lower() not in _STRUCTURED_SUFFIXES | _TEXT_SUFFIXES | {".csv"}:
+        suffix = path.suffix.lower()
+        relative = path.relative_to(staging).as_posix()
+        if suffix == _PARQUET_SUFFIX:
+            _refuse_parquet_leaks(path, relative, prefixes)
+            continue
+        if suffix not in _SCANNED_SUFFIXES:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         named = [prefix for prefix in prefixes if prefix in text]
@@ -427,9 +566,60 @@ def _refuse_leaks(staging: Path, prefixes: tuple[str, ...]) -> None:
             named.append(f"host {host}")
         if named:
             raise ExportError(
-                f"{path.relative_to(staging).as_posix()} names {', '.join(named)}: "
+                f"{relative} names {', '.join(named)}: "
                 "a published copy never names the machine. Nothing was published."
             )
+
+
+def _refuse_parquet_leaks(path: Path, relative: str, prefixes: tuple[str, ...]) -> None:
+    """Refuse a Parquet file whose metadata names a private path or whose text holds a path.
+
+    A Parquet file is copied byte for byte, so it is never redacted: the
+    writer of the table writes its paths relative to the project.
+    """
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    import pyarrow.parquet as pq
+
+    schema = pq.read_schema(path)
+    for key, value in (schema.metadata or {}).items():
+        named = [prefix for prefix in prefixes if prefix in value.decode("utf-8", "replace")]
+        if named:
+            raise ExportError(
+                f"{relative}: the metadata {key.decode('utf-8', 'replace')!r} names "
+                f"{', '.join(named)}: a published copy never names the machine. "
+                "Nothing was published."
+            )
+    columns = [field.name for field in schema if _holds_text(field.type)]
+    if not columns:
+        return
+    table = pq.read_table(path, columns=columns)
+    for name in columns:
+        values = pc.unique(table.column(name).cast(pa.string())).to_pylist()
+        leaked = next(
+            (
+                value
+                for value in values
+                if value and redact({"value": value}, project_root=None)["value"] != value
+            ),
+            None,
+        )
+        if leaked is not None:
+            raise ExportError(
+                f"{relative}: the column {name!r} holds an absolute path ({leaked[:80]!r}): "
+                "a published copy never names the machine, and a Parquet file is not "
+                "rewritten. Write the table with paths relative to the project. "
+                "Nothing was published."
+            )
+
+
+def _holds_text(kind: Any) -> bool:
+    """Return True for a string column, plain or dictionary encoded."""
+    import pyarrow as pa
+
+    if pa.types.is_dictionary(kind):
+        kind = kind.value_type
+    return bool(pa.types.is_string(kind) or pa.types.is_large_string(kind))
 
 
 def _files(root: Path) -> Iterator[Path]:
@@ -483,6 +673,8 @@ __all__ = [
     "INPUTS_DIRNAME",
     "RESULTS_ENTRIES",
     "RUN_COPY_ENTRIES",
+    "project_members",
     "publish",
+    "publish_project",
     "verify",
 ]

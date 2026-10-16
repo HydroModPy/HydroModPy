@@ -17,7 +17,10 @@ journal of the latest launch says. On a cluster, a running attempt whose task
 ``sacct`` reports ended is ``failed``: the worker died without a word.
 
 A calibration case is its session ``sessions/<case>/`` until the session is
-completed; then it is the run the session promoted, ``runs/<case>/``.
+completed; then it is the run the session promoted, ``runs/<case>/``. A
+session whose descriptor still says ``running`` reads as its outcome does:
+``stale`` when its worker is dead or silent, ``failed`` or ``aborted`` when
+the outcome was closed and the descriptor was not.
 """
 
 from __future__ import annotations
@@ -70,6 +73,8 @@ class CaseState:
     status: CaseStatus
     rel_dir: str | None = None
     outcome: dict[str, Any] | None = None
+    session_hash: str | None = None
+    """The configuration hash the latest session of a calibration case recorded."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,15 +162,18 @@ def case_state(
     if session_dir is not None and session_descriptor_path(session_dir).is_file():
         descriptor = read_session(session_dir)
         session_rel = session_dir_rel(session_dir.name)
+        session_hash = descriptor.config_hash
         if descriptor.status == "running":
             live = _run_state(session_dir, now=instant, stale_after_s=stale_after_s)
-            status: CaseStatus = "stale" if live == "stale" else "running"
-            return CaseState(status, session_rel, _outcome_document(session_dir))
+            status: CaseStatus = live if live in ("stale", "failed", "aborted") else "running"
+            return CaseState(status, session_rel, _outcome_document(session_dir), session_hash)
         if descriptor.status != "completed":
-            return CaseState(descriptor.status, session_rel, _outcome_document(session_dir))
+            return CaseState(
+                descriptor.status, session_rel, _outcome_document(session_dir), session_hash
+            )
         promoted = runs_dir_for(root) / session_dir.name
         if not promoted.is_dir():
-            return CaseState("partial", session_rel, _outcome_document(session_dir))
+            return CaseState("partial", session_rel, _outcome_document(session_dir), session_hash)
         run_dir = promoted
     if run_dir is None:
         return CaseState("planned")

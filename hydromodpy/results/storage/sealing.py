@@ -11,6 +11,7 @@ states, ``manifest.json`` last.
 
 Order of the seal
 -----------------
+0. The declared projection is resolved to WKT2.
 1. The field store gets its ACDD root attributes, the identity block and
    its consolidated metadata.
 2. The record is written: tables, provenance, inputs, manifest.
@@ -84,6 +85,7 @@ def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunR
     if facts.solver is None:
         raise ValueError("a run seals with its solver named; the facts carry none")
     run_dir = store.run_dir
+    _resolve_declared_crs(facts)
     _seal_field_store(store, when)
     record = build_record(store, ended_at=when)
     record.write(run_dir)
@@ -94,6 +96,39 @@ def seal_completed(store: RunStore, *, ended_at: datetime | None = None) -> RunR
     )
     store.close()
     return record
+
+
+def _resolve_declared_crs(facts: RunFacts) -> None:
+    """Store the projection of the run as WKT2, the form ``crs_wkt`` promises.
+
+    The run declares its projection as a token (``EPSG:2154`` in
+    ``[geographic] crs_project``), or only its catchment records one
+    (``crs_proj``). Resolved once, at the seal, so the field store, the tables
+    and the manifest state the same WKT. A projection pyproj cannot read
+    leaves ``crs_wkt`` empty rather than holding a string no reader parses.
+    """
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    catchment = facts.geographic_metadata
+    candidate = facts.crs_wkt or catchment.get("crs_proj") or catchment.get("crs_epsg")
+    if not candidate:
+        return
+    try:
+        crs = CRS.from_user_input(str(candidate))
+    except CRSError as exc:
+        logger.warning(
+            "Run %s declares the projection %r, which pyproj cannot read: %s",
+            facts.sim_id[:8],
+            str(candidate)[:40],
+            exc,
+        )
+        facts.crs_wkt = None
+        return
+    facts.crs_wkt = crs.to_wkt()
+    epsg = crs.to_epsg()
+    if epsg is not None:
+        facts.crs_epsg = epsg
 
 
 def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:

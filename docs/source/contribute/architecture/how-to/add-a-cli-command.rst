@@ -125,7 +125,7 @@ flags (``--overlay``, ``--set``, ``--frozen``, ``--no-display``,
 ``--from``, ``--until``, ``--resume``) so the override precedence
 (defaults < ``base_config`` chain < overlays < ``--set`` < env) stays
 consistent. ``hmp run`` is the canonical example; it also carries
-``--dry-run``, ``--force``, ``--no-lock``, ``--no-parallel`` and
+``--dry-run``, ``--force``, ``--no-parallel`` and
 ``--profile``.
 
 Subcommands

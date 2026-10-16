@@ -38,7 +38,6 @@ import pyarrow as pa
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
-from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
@@ -54,7 +53,6 @@ from hydromodpy.results.manifest import (
 from hydromodpy.results.storage.array_fingerprint import fingerprint
 from hydromodpy.results.storage.arrow_tables import (
     coerce_timestamp_utc,
-    isoformat_instant,
     merge_with_existing,
     table_from_columns,
     table_from_records,
@@ -68,7 +66,7 @@ from hydromodpy.results.storage.contract import (
 from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory, sha256_streaming
 from hydromodpy.results.storage.geo_metadata import (
     geographic_feature_description,
-    wgs84_bounds,
+    run_parquet_footer,
 )
 from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
 from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
@@ -1006,46 +1004,23 @@ class RunStore:
     def parquet_metadata(self) -> dict[str, str]:
         """Return the footer every Parquet payload of the run carries."""
         facts = self._facts
-        written_at = facts.period_end or facts.created_at
-        kv: dict[str, str] = {
-            "sim_id": facts.sim_id,
-            "project": facts.project,
-            "name": facts.name,
-            "solver": facts.solver or "",
-            "config_hash": facts.config_hash or "",
-            "hydromodpy_version": HMP_VERSION,
-            "hmp.schema_version": PARQUET_SCHEMA_VERSION,
-            "Conventions": "CF-1.11",
-            "license": self.licence(),
-            "scientific_objective": facts.scientific_objective or "",
-            "doi": facts.doi or "",
-            "written_at": isoformat_instant(written_at),
-        }
-        for key, value in self.identity().as_parquet_metadata().items():
-            kv[key.decode("utf-8")] = value.decode("utf-8")
-        crs_token = f"EPSG:{facts.crs_epsg}" if facts.crs_epsg is not None else facts.crs_wkt
-        if facts.bbox is not None:
-            xmin, ymin, xmax, ymax = facts.bbox
-            kv["hmp.bbox_xmin"] = str(xmin)
-            kv["hmp.bbox_ymin"] = str(ymin)
-            kv["hmp.bbox_xmax"] = str(xmax)
-            kv["hmp.bbox_ymax"] = str(ymax)
-            if crs_token:
-                kv["hmp.bbox_crs"] = crs_token
-            degrees = wgs84_bounds(facts.bbox, crs_token)
-            if degrees is not None:
-                kv["geospatial_lon_min"] = str(degrees["lon_min"])
-                kv["geospatial_lon_max"] = str(degrees["lon_max"])
-                kv["geospatial_lat_min"] = str(degrees["lat_min"])
-                kv["geospatial_lat_max"] = str(degrees["lat_max"])
-                kv["geospatial_bounds_crs"] = "EPSG:4326"
-        if crs_token:
-            kv["geospatial_crs"] = crs_token
-        if facts.period_start is not None:
-            kv["time_coverage_start"] = isoformat_instant(facts.period_start)
-        if facts.period_end is not None:
-            kv["time_coverage_end"] = isoformat_instant(facts.period_end)
-        return kv
+        return run_parquet_footer(
+            sim_id=facts.sim_id,
+            project=facts.project,
+            name=facts.name,
+            solver=facts.solver,
+            config_hash=facts.config_hash,
+            licence=self.licence(),
+            scientific_objective=facts.scientific_objective,
+            doi=facts.doi,
+            identity=self.identity(),
+            created_at=facts.created_at,
+            crs_epsg=facts.crs_epsg,
+            crs_wkt=facts.crs_wkt,
+            bbox=facts.bbox,
+            period_start=facts.period_start,
+            period_end=facts.period_end,
+        )
 
     def _write_parquet_records(
         self,

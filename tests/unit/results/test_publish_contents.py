@@ -5,7 +5,8 @@ README, the frozen config, the provenance, the inputs, the manifest, the
 figures, the exports and the report, a generated RO-Crate and
 ``PUBLICATION.json``. ``with results`` adds the stores, ``with inputs`` the
 input bytes by content. Logs, attempts, the outcome and the machine state
-never leave. The source gets one line in ``published.jsonl``.
+never leave. The source gets one line in ``published.jsonl``. A project is
+published whole or not at all.
 """
 
 from __future__ import annotations
@@ -16,10 +17,15 @@ import tarfile
 import pytest
 
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
-from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, verify
+from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, publish_project, verify
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.publication import read_publication, read_published
-from tests.unit.results._published_run import RUN_NAME, make_project, make_sealed_run
+from tests.unit.results._published_run import (
+    RUN_NAME,
+    make_project,
+    make_sealed_run,
+    make_summary,
+)
 
 ALWAYS = {
     "README.md",
@@ -179,3 +185,35 @@ def test_an_unsealed_run_and_a_used_destination_are_refused(tmp_path) -> None:
     with pytest.raises(ExportError, match="not an empty directory"):
         publish(run_dir, used, project_root=project)
     assert (used / "keep.txt").read_text() == "mine"
+
+
+def test_a_project_is_published_member_by_member_in_one_move(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    summary = make_summary(project, error_message=f"See {project}/runs/a/mfsim.lst")
+    destination = tmp_path / "out" / "bretagne"
+
+    written = publish_project(project, destination)
+
+    assert written == [destination.resolve() / RUN_NAME, destination.resolve() / "summary"]
+    assert {entry.name for entry in destination.iterdir()} == {RUN_NAME, "summary"}
+    assert verify(destination / RUN_NAME) == []
+    assert verify(destination / "summary") == []
+    assert read_published(run_dir)[-1].to == str(destination.resolve() / RUN_NAME)
+    assert read_published(summary)[-1].to == str(destination.resolve() / "summary")
+
+
+def test_a_refused_member_leaves_nothing_of_the_project(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    summary = make_summary(
+        project, error_message="did not converge", parquet_error=f"See {project}/runs/a/mfsim.lst"
+    )
+    destination = tmp_path / "out" / "bretagne"
+
+    with pytest.raises(ExportError, match="by_case.parquet: the column 'error_message'"):
+        publish_project(project, destination)
+
+    assert list((tmp_path / "out").iterdir()) == []
+    assert read_published(run_dir) == []
+    assert len(read_published(summary)) == 1

@@ -1749,7 +1749,7 @@ class CalibPhaseDecl(HydroModelBase):
         "them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for "
         "'optuna'. They belong to one method, so a phase that gives them writes "
         "method beside them. A key the method does not take is refused when the "
-        "file loads. hmp calibrate --check names the phase.",
+        "file loads. hmp config check names the phase.",
         json_schema_extra=field_metadata(renamed_from=["calibration.phases.optimizer_kwargs"]),
     )
     regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
@@ -2035,7 +2035,7 @@ class CalibUncertaintyDecl(HydroModelBase):
             "as the stream-network gap, has no fraction of itself to take: state the "
             "width in the unit of the cost with 'absolute', for example 25 metres. "
             "Unset, 'absolute' for a search scored only by network distances and "
-            "'relative' otherwise. hmp calibrate --check refuses 'relative' on a search "
+            "'relative' otherwise. hmp config check refuses 'relative' on a search "
             "scored only by network distances."
         ),
     )

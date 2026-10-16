@@ -214,7 +214,6 @@ jobs:
             hydromodpy/_api.py \
             hydromodpy/core/io/proj_bootstrap.py \
             hydromodpy/core/logging.py \
-            hydromodpy/core/state/global_index.py \
             hydromodpy/core/units/types.py \
             hydromodpy/display/__init__.py \
             hydromodpy/display/quicklook/viz.py \

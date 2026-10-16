@@ -360,6 +360,30 @@ def check_name_free(project_root: Path, name: str) -> None:
         )
 
 
+def live_version_dir(project_root: Path, name: str) -> Path:
+    """Return the live directory of ``runs/`` a versioned name names, or refuse it.
+
+    A ``.vN`` is given by the disk when a version is reserved, never written
+    by hand. A versioned name such as ``nancon.v2`` therefore reaches only a
+    live run directory: a resume or a retry works in it. A version the trash
+    or a tombstone holds, or one nobody holds, is refused with
+    :class:`NameTakenError`, and the refusal names the bare name to use.
+    """
+    stem, version = split_stem_version(name)
+    if version is None:
+        raise ValueError(f"{name!r} carries no version")
+    exact = runs_dir_for(Path(project_root)) / name
+    if exact.is_dir():
+        return exact
+    held = [holder for holder, number in _holders(Path(project_root), stem) if number == version]
+    where = f" ({', '.join(held)})" if held else ""
+    raise NameTakenError(
+        f"{name!r} names no live run directory{where}. A version is given by the disk, "
+        f"never written by hand: name the case {stem!r} and the run takes the next "
+        "free version."
+    )
+
+
 def rename_case(project_root: Path, rel_dir: str, new_name: str) -> tuple[str, ...]:
     """Move a run, and the session of the same name, to ``new_name``.
 

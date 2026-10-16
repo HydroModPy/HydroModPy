@@ -83,8 +83,8 @@ projects/getting_started/
 ```
 
 `figures/` appears once a figure is rendered, and a tagged run also carries
-an `annotations.json`. On-demand exports and reports go to `share/`,
-calibration sessions to `sessions/`.
+an `annotations.json`. On-demand exports go to `runs/<run>/exports/`, the tables and
+figures of a campaign to `summary/`, calibration sessions to `sessions/`.
 
 Browse it from the command line:
 

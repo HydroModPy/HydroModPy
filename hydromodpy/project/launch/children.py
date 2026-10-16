@@ -8,7 +8,8 @@ it. This module reads what the launcher needs from each case file (its
 workflow and how many solves it runs side by side), starts the child with
 the environment of a launched case and its own log file, and closes what
 the child left behind: the outcome of a child that died without writing
-one, and its private data cache.
+one (and the descriptor of its session, for a calibration), and its
+private data cache.
 """
 
 from __future__ import annotations
@@ -21,14 +22,22 @@ import sys
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import RUN_DATA_CACHE_FILENAME
 from hydromodpy.project.launch.env import LAUNCHED_ENV, child_environment
 from hydromodpy.project.launch.journal import CASE_CACHES_DIRNAME, CASE_LOGS_DIRNAME, Journal
 from hydromodpy.project.launch.status import CaseState, case_state
+from hydromodpy.results.outcome import Outcome, OutcomeError, WrittenBy, read_outcome, write_outcome
 from hydromodpy.results.plan_store import StoredPlan
+from hydromodpy.results.session.descriptor import (
+    read_session,
+    session_descriptor_path,
+    write_session,
+)
 from hydromodpy.workflow.dispatch import WorkflowName, workflow_of_sections
 
 logger = get_logger(__name__)
@@ -56,6 +65,18 @@ class PlannedCase:
         return f"{self.path.parent.parent.name}/{self.path.parent.name}/{self.path.name}"
 
 
+def calibration_width(section: Mapping[str, Any]) -> int:
+    """Return the trials a ``[calibration]`` section solves side by side at its widest.
+
+    A phase that writes its own ``parallel`` uses it; the others use the
+    section's. A calibration without phases uses the section's.
+    """
+    own = int(section.get("parallel") or 1)
+    phases = section.get("phases") or []
+    widths = [int(phase.get("parallel") or own) for phase in phases if isinstance(phase, Mapping)]
+    return max(1, own if not widths else max(widths))
+
+
 def planned_cases(stored: StoredPlan) -> list[PlannedCase]:
     """Return the cases of *stored*, in the order of the plan."""
     out: list[PlannedCase] = []
@@ -66,8 +87,7 @@ def planned_cases(stored: StoredPlan) -> list[PlannedCase]:
         workflow = workflow_of_sections(document)
         solves = 1
         if workflow == "calibration":
-            calibration = document.get("calibration") or {}
-            solves = max(1, int(calibration.get("parallel", 1) or 1))
+            solves = calibration_width(document.get("calibration") or {})
         out.append(
             PlannedCase(
                 case_id=case.case_id,
@@ -164,11 +184,53 @@ def log_tail(path: Path, lines: int = LOG_TAIL_LINES) -> list[str]:
     return text.splitlines()[-lines:]
 
 
+def dead_worker_message(exit_code: int | None, signal: int | None) -> str:
+    """Return the error of a worker that ended without writing its outcome."""
+    return f"the worker ended without writing its outcome (exit code {exit_code}, signal {signal})"
+
+
+def close_dead_session(
+    directory: Path,
+    previous: Outcome,
+    exit_code: int | None,
+    signal: int | None,
+    message: str,
+    log_tail: list[str],
+    *,
+    written_by: WrittenBy,
+) -> Outcome:
+    """Write ``failed`` in the descriptor and the outcome of a session whose worker died."""
+    now = datetime.now(UTC)
+    descriptor = read_session(directory)
+    if descriptor.status == "running":
+        write_session(
+            directory,
+            descriptor.model_copy(
+                update={"status": "failed", "ended_at": now, "error_message": message}
+            ),
+        )
+    outcome = previous.model_copy(
+        update={
+            "status": "failed",
+            "ended_at": now,
+            "exit_code": exit_code,
+            "signal": signal,
+            "written_by": written_by,
+            "error": OutcomeError(type="RuntimeError", message=message),
+            "log_tail": log_tail,
+        }
+    )
+    write_outcome(directory, outcome)
+    return outcome
+
+
 def close_dead_child(project_root: Path, child: Child, exit_code: int, signal: int | None) -> None:
     """Write ``failed`` for the attempt of a child that died without writing its outcome.
 
     Only the outcome that names the child itself is closed: a case another
-    worker holds is left as it is.
+    worker holds is left as it is. A calibration case is its session: its
+    descriptor is closed too, so the case reads ``failed`` and is started
+    again.
     """
     from hydromodpy.results.storage.attempt import finish_dead_attempt
     from hydromodpy.results.storage.run_log import read_log_tail
@@ -178,9 +240,28 @@ def close_dead_child(project_root: Path, child: Child, exit_code: int, signal: i
         return
     directory = Path(project_root) / state.rel_dir
     tail = read_log_tail(directory) or log_tail(child.log_path)
+    host = socket.gethostname()
+    if session_descriptor_path(directory).is_file():
+        previous = read_outcome(directory)
+        if (
+            previous is not None
+            and previous.status == "running"
+            and previous.host == host
+            and previous.pid == child.process.pid
+        ):
+            close_dead_session(
+                directory,
+                previous,
+                exit_code,
+                signal,
+                dead_worker_message(exit_code, signal),
+                tail,
+                written_by="launcher",
+            )
+        return
     finish_dead_attempt(
         directory,
-        host=socket.gethostname(),
+        host=host,
         pid=child.process.pid,
         exit_code=exit_code,
         signal=signal,
@@ -227,7 +308,10 @@ def state_of(project_root: Path, case: PlannedCase) -> CaseState:
 __all__ = [
     "Child",
     "PlannedCase",
+    "calibration_width",
     "close_dead_child",
+    "close_dead_session",
+    "dead_worker_message",
     "exit_of",
     "log_tail",
     "merge_child_cache",

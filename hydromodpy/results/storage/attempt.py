@@ -71,6 +71,7 @@ from hydromodpy.core.state.paths import (
 )
 from hydromodpy.results.catalog.registration import (
     check_name_free,
+    live_version_dir,
     next_version_dirname,
     reserve_version_dirname,
     split_stem_version,
@@ -201,7 +202,12 @@ def claim_run_directory(
     not to be a claim in flight.
 
     A claim that needs a new directory never takes a name the trash or a
-    tombstone holds: it takes the next version. With ``if_exists = "fail"``
+    tombstone holds: it takes the next version. A name that carries its
+    version (``nancon.v2``) reaches only that live directory: a version is
+    given by the disk, so one the trash, a tombstone or nobody holds is
+    refused with
+    :class:`~hydromodpy.results.catalog.registration.NameTakenError`, and a
+    completed one gives the next version of the bare name. With ``if_exists = "fail"``
     it takes none and raises
     :class:`~hydromodpy.results.catalog.registration.NameTakenError` when any
     version of *name* is held. A retry of an unfinished attempt reuses its
@@ -215,7 +221,8 @@ def claim_run_directory(
     when = now if now is not None else datetime.now(UTC)
     host = socket.gethostname()
     pid = os.getpid()
-    latest = latest_version_dir(root, name)
+    stem, version = split_stem_version(name)
+    latest = live_version_dir(root, name) if version is not None else latest_version_dir(root, name)
     if latest is None:
         if if_exists == "fail":
             check_name_free(root, name)
@@ -233,8 +240,8 @@ def claim_run_directory(
     status = effective_status(latest, now=when, stale_after_s=stale_after_s)
     if status == "completed":
         if if_exists == "fail":
-            check_name_free(root, name)
-        target = reserve_version_dirname(root, "run", name)
+            check_name_free(root, stem)
+        target = reserve_version_dirname(root, "run", stem)
         return _first_attempt(target, target.name, case_id, project, site, when, host, pid)
     if status == "unknown":
         _refuse_directory_without_outcome(latest, when, stale_after_s)

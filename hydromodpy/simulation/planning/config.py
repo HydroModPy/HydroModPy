@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
@@ -19,6 +20,9 @@ from hydromodpy.core.contracts.solver_registry import get_solver_registry_provid
 from hydromodpy.core.time.window import reject_invalid_step_value_spec
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.simulation.planning.results_config import ResultsConfig
+
+_VERSION_SUFFIX_RE = re.compile(r"\.v(\d+)$")
+"""The ``.vN`` a run directory takes from its reservation."""
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}
 _STEP_UNIT_ALIASES = {
@@ -396,7 +400,8 @@ class SimulationConfig(HydroModelBase):
             "Human-readable simulation name and the run's identity. When empty, "
             "derived from the TOML filename at load time (run_steady_nwt.toml -> "
             "steady_nwt); a programmatic run without a name gets a deterministic "
-            "memorable slug."
+            "memorable slug. It never carries a .vN suffix: the version is given by "
+            "the disk when the run is reserved."
         ),
         examples=["cheze_baseline"],
     )
@@ -473,6 +478,20 @@ class SimulationConfig(HydroModelBase):
         ),
         json_schema_extra={"unit": "-"},
     )
+
+    @field_validator("name")
+    @classmethod
+    def _refuse_version_suffix(cls, value: str) -> str:
+        """Refuse a name that carries ``.vN``: the version is given by the disk."""
+        match = _VERSION_SUFFIX_RE.search(value)
+        if match:
+            stem = value[: match.start()]
+            raise ValueError(
+                f"[simulation] name = {value!r} carries a version. A version is given "
+                f"by the disk when the run is reserved, never written by hand: write "
+                f"name = {stem!r}. To continue runs/{value}, run hmp run --resume {value}."
+            )
+        return value
 
     @field_validator("if_exists", mode="before")
     @classmethod

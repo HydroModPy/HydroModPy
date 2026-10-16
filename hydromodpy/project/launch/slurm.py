@@ -78,6 +78,8 @@ from hydromodpy.core.state.paths import jobs_dir_for, process_is_alive
 from hydromodpy.data.provenance.lockfile import project_lockfile_path
 from hydromodpy.project.launch.children import (
     PlannedCase,
+    close_dead_session,
+    dead_worker_message,
     planned_cases,
     prepare_command,
     state_of,
@@ -95,13 +97,11 @@ from hydromodpy.project.launch.local import sites_run_config, worker_flags
 from hydromodpy.project.launch.prepare import workspace_data_dir
 from hydromodpy.project.launch.status import plan_is_stale
 from hydromodpy.results.catalog.registration import split_stem_version
-from hydromodpy.results.outcome import Outcome, OutcomeError, read_outcome, write_outcome
+from hydromodpy.results.outcome import Outcome, read_outcome, write_outcome
 from hydromodpy.results.plan_store import read_plan
 from hydromodpy.results.session.descriptor import (
     list_session_dirs,
-    read_session,
     session_descriptor_path,
-    write_session,
 )
 from hydromodpy.results.storage.attempt import finish_attempt, latest_version_dir
 from hydromodpy.results.storage.contract import RUN_LOGS_DIRNAME
@@ -303,9 +303,9 @@ def task_flags(project_root: str | Path, case_toml: str | Path, *, phase: str) -
     ``prepare``: the prepare command of the case (geography and data, a
     calibration case run as a simulation). ``solve``: ``--frozen`` when
     ``hydromodpy.lock`` exists, plus ``--resume <case>`` when an earlier
-    attempt of a simulation is unfinished; a calibration takes no attempt
-    flag. The state is read when the task starts, so a task submitted again
-    resumes its case.
+    attempt of a simulation is unfinished, or a bare ``--resume`` when the
+    session of a calibration is. The state is read when the task starts, so
+    a task submitted again resumes its case.
     """
     root = Path(project_root).resolve()
     case = _planned_case(root, Path(case_toml))
@@ -368,9 +368,7 @@ def finish_task(
     case_id = Path(case_toml).stem
     log = Path(log_path) if log_path is not None else None
     signal = exit_code - 128 if exit_code > 128 else None
-    message = (
-        f"the worker ended without writing its outcome (exit code {exit_code}, signal {signal})"
-    )
+    message = dead_worker_message(exit_code, signal)
     closed: Outcome | None = None
     for directory in (_latest_session_dir(root, case_id), latest_version_dir(root, case_id)):
         if directory is None:
@@ -383,7 +381,9 @@ def finish_task(
         if dead is None:
             continue
         if session_descriptor_path(directory).is_file():
-            outcome = _close_session(directory, dead, exit_code, signal, message, _tail(log))
+            outcome = close_dead_session(
+                directory, dead, exit_code, signal, message, _tail(log), written_by="trap"
+            )
         else:
             outcome = finish_attempt(
                 directory,
@@ -458,39 +458,6 @@ def _dead_outcome(directory: Path) -> Outcome | None:
         return None
     if outcome.host != socket.gethostname() or process_is_alive(outcome.pid):
         return None
-    return outcome
-
-
-def _close_session(
-    directory: Path,
-    previous: Outcome,
-    exit_code: int,
-    signal: int | None,
-    message: str,
-    log_tail: list[str],
-) -> Outcome:
-    """Write ``failed`` in the descriptor and the outcome of a session whose worker died."""
-    now = datetime.now(UTC)
-    descriptor = read_session(directory)
-    if descriptor.status == "running":
-        write_session(
-            directory,
-            descriptor.model_copy(
-                update={"status": "failed", "ended_at": now, "error_message": message}
-            ),
-        )
-    outcome = previous.model_copy(
-        update={
-            "status": "failed",
-            "ended_at": now,
-            "exit_code": exit_code,
-            "signal": signal,
-            "written_by": "trap",
-            "error": OutcomeError(type="RuntimeError", message=message),
-            "log_tail": log_tail,
-        }
-    )
-    write_outcome(directory, outcome)
     return outcome
 
 

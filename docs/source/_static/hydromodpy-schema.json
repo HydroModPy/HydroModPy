@@ -2299,7 +2299,7 @@
         },
         "method_options": {
           "additionalProperties": true,
-          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them. A key the method does not take is refused when the file loads. hmp calibrate --check names the phase.",
+          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them. A key the method does not take is refused when the file loads. hmp config check names the phase.",
           "renamed_from": [
             "calibration.phases.optimizer_kwargs"
           ],
@@ -2697,7 +2697,7 @@
             }
           ],
           "default": null,
-          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres. Unset, 'absolute' for a search scored only by network distances and 'relative' otherwise. hmp calibrate --check refuses 'relative' on a search scored only by network distances.",
+          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres. Unset, 'absolute' for a search scored only by network distances and 'relative' otherwise. hmp config check refuses 'relative' on a search scored only by network distances.",
           "title": "Mode",
           "x-hmp-profile": "user"
         }
@@ -21082,7 +21082,7 @@
       "properties": {
         "name": {
           "default": "",
-          "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug.",
+          "description": "Human-readable simulation name and the run's identity. When empty, derived from the TOML filename at load time (run_steady_nwt.toml -> steady_nwt); a programmatic run without a name gets a deterministic memorable slug. It never carries a .vN suffix: the version is given by the disk when the run is reserved.",
           "examples": [
             "cheze_baseline"
           ],

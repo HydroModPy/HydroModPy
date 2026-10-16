@@ -17,7 +17,9 @@ decided here.
 Budget
 ------
 ``[sites.run] parallel`` is the budget of solves side by side: a simulation
-takes one, a calibration takes its ``[calibration] parallel``. The ceilings
+takes one, a calibration takes its ``[calibration] parallel`` (the widest
+of its phases). A case wider than the budget is refused without ``force``,
+so the budget is never passed by one case running alone. The ceilings
 were measured on 22 cores (:mod:`hydromodpy.config.sites.budget`): above
 sixteen solves, or more than two for a campaign that holds a calibration,
 or more than eight cases prepared side by side, the launch is refused
@@ -34,6 +36,12 @@ ids (shell patterns allowed); ``site`` keeps the cases of one site;
 ``resume`` keeps the cases with an unfinished attempt (partial, failed,
 aborted), which resume in place. ``until = "data"`` stops after the prepare
 phase.
+
+A calibration case started again reopens its session (``--resume``) when
+that session ran the configuration of the plan, unless ``fresh``: a rerun
+is not a new version. A calibration session a live worker may still hold
+(running, or stale with its death not proven) is never started again
+without ``force``.
 """
 
 from __future__ import annotations
@@ -79,6 +87,7 @@ from hydromodpy.project.launch.prepare import (
     write_lockfile_once,
 )
 from hydromodpy.project.launch.status import CaseState, case_state, plan_is_stale
+from hydromodpy.results.outcome import death_is_proven
 from hydromodpy.results.plan_store import StoredPlan, current_plan_hash, read_plan
 
 logger = get_logger(__name__)
@@ -199,6 +208,27 @@ def _differs_from_plan(project_root: Path, case: PlannedCase, state: CaseState) 
     return not case_is_done(Path(project_root), case.case_id, case.config_hash, kind)
 
 
+def _death_is_proven(state: CaseState) -> bool:
+    """Whether the outcome of *state* names a process of this host that is gone."""
+    outcome = state.outcome or {}
+    return death_is_proven(outcome.get("host"), outcome.get("pid"))
+
+
+def _session_held(case: PlannedCase, state: CaseState, *, force: bool) -> str | None:
+    """Why a calibration whose session a live worker may hold is not started, or None.
+
+    A simulation worker refuses a live case at its claim; a calibration
+    worker opens its session without that check, so the launcher holds it.
+    """
+    if case.workflow != "calibration" or state.session_hash is None:
+        return None
+    if state.status == "running":
+        return "running"
+    if state.status == "stale" and not force and not _death_is_proven(state):
+        return "stale; its death is not proven, pass --force once it is known dead"
+    return None
+
+
 def select_cases(
     project_root: Path,
     cases: Sequence[PlannedCase],
@@ -206,6 +236,7 @@ def select_cases(
     only: Sequence[str] = (),
     site: str | None = None,
     resume: bool = False,
+    force: bool = False,
 ) -> tuple[list[tuple[PlannedCase, CaseState]], list[tuple[PlannedCase, str]]]:
     """Return the cases to start with their state, and the cases left out with why."""
     tokens = [token for item in only for token in str(item).split(",") if token.strip()]
@@ -217,7 +248,11 @@ def select_cases(
         state = case_state(project_root, case.case_id)
         if tokens:
             if _matches(case, state, tokens):
-                chosen.append((case, state))
+                held = _session_held(case, state, force=force)
+                if held is None:
+                    chosen.append((case, state))
+                else:
+                    left.append((case, held))
             continue
         if resume:
             if state.status in UNFINISHED_STATES:
@@ -241,12 +276,22 @@ def effective_parallel(
     """Return the budget of solves the launch uses, or refuse it.
 
     Raises :class:`~hydromodpy.config.sites.budget.BudgetError` above the
-    ceilings unless *force*.
+    ceilings, or for a case that solves more side by side than the budget,
+    unless *force*.
     """
     if requested < 1:
         raise BudgetError(f"parallel = {requested}: the budget of solves is at least 1")
     if force:
         return requested
+    widest = max(cases, key=lambda case: case.solves, default=None)
+    if widest is not None and widest.solves > requested:
+        # A case wider than the budget would start alone and pass it: refuse it here,
+        # so the ceilings below hold for the widest case too.
+        raise BudgetError(
+            f"[calibration] parallel = {widest.solves} of case {widest.case_id} exceeds "
+            f"[sites.run] parallel = {requested}; lower the one or raise the other, or pass "
+            "--force."
+        )
     if requested > PARALLEL_CEILING:
         raise BudgetError(
             f"parallel = {requested} is above {PARALLEL_CEILING}, the measured ceiling "
@@ -280,11 +325,33 @@ def effective_prepare_parallel(requested: int, *, force: bool) -> int:
     return requested
 
 
+def _resumes_its_session(case: PlannedCase, state: CaseState, *, force: bool) -> bool:
+    """Whether a calibration case reopens its latest session instead of a new version.
+
+    Only a session that ran the configuration of the plan is reopened: a
+    changed configuration is a new version, as for a simulation.
+    """
+    if state.session_hash is None or state.session_hash != case.config_hash:
+        return False
+    if state.status in UNFINISHED_STATES:
+        return True
+    return state.status == "stale" and (force or _death_is_proven(state))
+
+
 def worker_flags(
     case: PlannedCase, state: CaseState, *, frozen: bool, fresh: bool, force: bool
 ) -> list[str]:
-    """Return the flags of the worker of one case; only a simulation takes the attempt flags."""
+    """Return the flags of the worker of one case.
+
+    A simulation takes the attempt flags. A calibration takes a bare
+    ``--resume`` when its unfinished session is reopened; ``fresh`` opens a
+    new version of the session instead.
+    """
     flags = ["--frozen"] if frozen else []
+    if case.workflow == "calibration":
+        if not fresh and _resumes_its_session(case, state, force=force):
+            flags.append("--resume")
+        return flags
     if case.workflow != "simulation":
         return flags
     if fresh:
@@ -322,7 +389,8 @@ def run_plan(
     the cores); the lease of a launcher still alive, which this one takes
     over; and, passed to the worker of each simulation, the skip of an
     identical sealed run and the refusal of a stale case whose death is not
-    proven. :func:`plan_project` takes it too, to plan over a running case.
+    proven; a stale calibration session is reopened under the same rule.
+    :func:`plan_project` takes it too, to plan over a running case.
     """
     if until not in (None, UNTIL_DATA):
         raise ConfigError(
@@ -334,7 +402,7 @@ def run_plan(
     with launcher_lease(root, force=force):
         stored = _current_plan(root)
         cases = planned_cases(stored)
-        chosen, left = select_cases(root, cases, only=only, site=site, resume=resume)
+        chosen, left = select_cases(root, cases, only=only, site=site, resume=resume, force=force)
         requested = run_config.parallel if parallel is None else parallel
         if parallel is None and "parallel" not in run_config.model_fields_set:
             # The default is a default, not a request: it bends to the cores of this

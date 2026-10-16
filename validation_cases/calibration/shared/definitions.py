@@ -263,8 +263,8 @@ class TwinCalibrationCaseDefinition:
     reference_objective_sample_count: int | None = None
     reference_objective_sampling: str = "sobol"
     reference_objective_seed: int = 91
-    build_simulation_config: Callable[[Path, Path], None] | None = None
-    build_truth_simulation_config: Callable[[Path, Path], None] | None = None
+    build_simulation_config: Callable[[Path], None] | None = None
+    build_truth_simulation_config: Callable[[Path], None] | None = None
     parameter_targets: Mapping[str, TwinParameterTarget] | None = None
     output_specs: Mapping[str, TwinOutputSpec] | None = None
     objective_block_specs: tuple[TwinObjectiveBlockSpec, ...] | None = None

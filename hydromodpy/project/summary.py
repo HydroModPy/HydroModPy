@@ -68,6 +68,7 @@ from hydromodpy.core.toml_io.paths import lookup
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE, UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.publication import redact
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     REPORT_INDEX_FILENAME,
@@ -529,8 +530,9 @@ def collect_project(
     with Catalog(root) as catalog:
         cases = catalog.cases
     facts = _facts_of_runs(root, cases)
-    by_case = _by_case(cases, planned, facts, settings.summary)
+    by_case = _relative_paths(_by_case(cases, planned, facts, settings.summary), root)
     by_site, site_rows = _by_site(by_case, facts, settings.summary, mixed_windows=mixed_windows)
+    by_site = _relative_paths(by_site, root)
     _figure_requests(settings.summary, by_site.columns)
     _check_exports(settings.exports)
     collected_at = datetime.now(UTC)
@@ -979,6 +981,20 @@ def _write_table(frame: pd.DataFrame, target: Path, metadata: Mapping[str, str])
 
     table = pa.Table.from_pandas(_portable(frame), preserve_index=False)
     return write_table_atomic(table, target, kv_metadata=metadata)
+
+
+def _relative_paths(frame: pd.DataFrame, root: Path) -> pd.DataFrame:
+    """Return the frame with every absolute path of a text cell written from the project root.
+
+    A path outside the project becomes ``<absolute path>``. The summary is
+    published as it is, and its Parquet tables are never rewritten on the way
+    out. The full error of a failed case stays in its ``outcome.json``.
+    """
+    out = frame.copy()
+    for column in out.columns:
+        if out[column].dtype == object:
+            out[column] = redact({"cells": list(out[column])}, project_root=root)["cells"]
+    return out
 
 
 def _portable(frame: pd.DataFrame) -> pd.DataFrame:

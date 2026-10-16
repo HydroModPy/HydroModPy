@@ -201,12 +201,15 @@ def _case(case_id: str, *, workflow: str = "simulation", solves: int = 1) -> Pla
 
 def test_the_budget_of_solves_is_refused_above_the_ceilings_without_force() -> None:
     simulations = [_case("a-base"), _case("b-base")]
-    calibration = [_case("a-cal", workflow="calibration", solves=5)]
+    calibration = [_case("a-cal", workflow="calibration", solves=2)]
+    wide = [_case("a-cal", workflow="calibration", solves=5)]
 
     assert effective_parallel(16, simulations, threads_per_case=1, force=False, cores=64) == 16
     with pytest.raises(BudgetError, match="above 16"):
         effective_parallel(17, simulations, threads_per_case=1, force=False, cores=64)
     assert effective_parallel(2, calibration, threads_per_case=1, force=False, cores=64) == 2
+    with pytest.raises(BudgetError, match="parallel = 5 of case a-cal exceeds"):
+        effective_parallel(2, wide, threads_per_case=1, force=False, cores=64)
     with pytest.raises(BudgetError, match="calibration"):
         effective_parallel(3, calibration, threads_per_case=1, force=False, cores=64)
     with pytest.raises(BudgetError, match="cores"):

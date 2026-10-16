@@ -1,10 +1,9 @@
 """P9 lockfile contract tests.
 
 Cover the four mandatory sections, atomicity, and the strict verify path that
-``hmp dev lock verify --strict`` relies on. The two ``--no-lock`` tests
-drive the real ``hmp run`` code path with only the workflow engine stubbed,
-and assert on the file on disk. The last section pins the one address of
-``hydromodpy.lock``: the project root a run wrote it to.
+``hmp dev lock verify --strict`` relies on. The lock is written once by the
+launcher (``lock_update``), never by a run; the last section pins the one
+address of ``hydromodpy.lock``: the project root it was written to.
 """
 
 from __future__ import annotations

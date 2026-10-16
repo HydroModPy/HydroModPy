@@ -107,8 +107,9 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Continue an interrupted case in place, from the journal of its directory. "
             "With a TOML config, REF is the case name to continue (bare: the case the "
             "file names); without a config, REF is the case name and the run replays its "
-            "own runs/<name>/config.toml. On a [sites] project, bare --resume starts only "
-            "the cases with an unfinished attempt."
+            "own runs/<name>/config.toml. A calibration takes a bare --resume and reopens "
+            "the latest session of its case. On a [sites] project, bare --resume starts "
+            "only the cases with an unfinished attempt."
         ),
     )
     from_arg = parser.add_argument(
@@ -505,6 +506,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     resume = getattr(args, "resume", None)
+    resume_ref = resume
     if resume == "":
         resume = _case_name(getattr(args, "case", None), raw_toml, config_path)
     from_step = getattr(args, "from_step", None)
@@ -530,9 +532,19 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         return
 
-    if resume is not None and workflow != "simulation":
+    if resume is not None and workflow not in ("simulation", "calibration"):
         print(
-            f"--resume is only supported for the 'simulation' workflow (detected '{workflow}').",
+            "--resume is only supported for the 'simulation' and 'calibration' workflows "
+            f"(detected '{workflow}').",
+            file=sys.stderr,
+        )
+        _cleanup_effective_toml(effective_path, source=config_path)
+        sys.exit(EXIT_CONFIG)
+
+    if resume_ref and workflow == "calibration":
+        print(
+            "A calibration reopens the latest session of the case its file names: "
+            f"pass a bare --resume, not --resume {resume_ref}.",
             file=sys.stderr,
         )
         _cleanup_effective_toml(effective_path, source=config_path)
@@ -602,6 +614,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                     fresh=fresh,
                     overrides=lineage_overrides,
                 )
+            elif workflow == "calibration" and resume is not None:
+                summary = hmp.calibrate(run_path, resume=True, return_report=False)
             else:
                 summary = hmp.run(run_path)
     except KeyboardInterrupt as exc:

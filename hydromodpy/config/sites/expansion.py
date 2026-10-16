@@ -777,7 +777,7 @@ def _resolve_case(
         return None
     config_hash = _config_hash(cfg)
     kind: CaseKind = "calibration" if cfg.calibration is not None else "simulation"
-    solves = int(cfg.calibration.parallel) if kind == "calibration" else 1
+    solves = _calibration_width(cfg.calibration) if cfg.calibration is not None else 1
     kept = int(cfg.calibration.save_best_n) if kind == "calibration" else 1
     return DraftCase(
         case_id=case_id,
@@ -790,6 +790,14 @@ def _resolve_case(
         kept_solves=max(1, kept),
         done=case_is_done(root, case_id, config_hash, kind),
     )
+
+
+def _calibration_width(calibration: Any) -> int:
+    """Return the trials a calibration solves side by side at its widest phase."""
+    phases = list(calibration.phases or [])
+    if not phases:
+        return int(calibration.parallel)
+    return max(calibration.parallel_for(phase) for phase in phases)
 
 
 def _validate_case(

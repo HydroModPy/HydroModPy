@@ -106,7 +106,8 @@ workspace: what each one downloads goes to a private cache that the launcher mer
 shared one, so the cases never compete for it.
 
 {toml}`sites.run.parallel` is the number of solves that run side by side. A calibration
-case that solves five trials at once counts for five. {toml}`sites.run.on_error` says
+case that solves five trials at once counts for five, at its widest phase, and a case wider
+than {toml}`sites.run.parallel` is refused without `--force`. {toml}`sites.run.on_error` says
 whether a failed case stops the launch or lets the others go on.
 
 ## Follow it
@@ -131,11 +132,12 @@ hmp run project.toml --only stale --force
 
 A failed case keeps its folder. `--only failed` starts a new attempt in place: the earlier
 attempt moves under `runs/<case>/attempts/<n>/`, and the new one resumes from what the
-first one left, the checkpoints and the trials of a calibration included. `--fresh` files
-the whole earlier attempt away and starts over. A case whose heartbeat is old may still be
+first one left. A calibration reopens its session `sessions/<case>/` and keeps its
+trials. `--fresh` files the whole earlier attempt away and starts over; for a calibration
+it opens a new session, `sessions/<case>.v2/`. A case whose heartbeat is old may still be
 running on another machine, so a stale case is only rerun with `--force`, when you know
-its process is dead. A rerun never makes a `.v2`: a version is for a changed
-configuration, not for a second try.
+its process is dead. Without `--fresh`, a rerun never makes a `.v2`: a version is for a
+changed configuration, not for a second try.
 
 ## Read the results
 

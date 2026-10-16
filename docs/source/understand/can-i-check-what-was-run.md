@@ -20,7 +20,7 @@ Every finished run has its own folder. In it you find:
   date of the download, the checksum and the licence.
 - **A manifest**, `manifest.json`, written last. It names the catchment, lists the output
   files, the period, the geometry, the scores with the window they were computed on, and the
-  checks of the run (water budget, convergence, coverage of the observations). A run folder
+  checks of the run (water budget, convergence). A run folder
   without a manifest is an incomplete run by construction; its `outcome.json` says how it
   ended.
 - **A `README.md`**, generated from the manifest: the same facts in words, the {term}`run label`

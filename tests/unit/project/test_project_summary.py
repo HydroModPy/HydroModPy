@@ -635,3 +635,27 @@ def test_a_calibration_row_takes_the_time_of_its_session(tmp_path: Path) -> None
     assert pd.Timestamp(row["started_at"]) == pd.Timestamp(started)
     assert pd.Timestamp(row["ended_at"]) == pd.Timestamp("2026-10-01T09:00:00Z")
     assert row["duration_s"] == pytest.approx(3600.0)
+
+
+def test_a_failed_case_names_its_paths_from_the_project_root(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    _plan(root, ["J0014010-base"])
+    write_attempt(
+        root,
+        "runs/J0014010-base",
+        status="failed",
+        case_id="J0014010-base",
+        site="J0014010",
+        error=(
+            "SolverError",
+            f"See {root}/runs/J0014010-base/.hmp/scratch/mfsim.lst and /mnt/lab/dem.tif",
+        ),
+    )
+
+    collect_project(root)
+
+    expected = "See runs/J0014010-base/.hmp/scratch/mfsim.lst and <absolute path>"
+    by_case = pd.read_parquet(root / "summary" / "by_case.parquet").set_index("case_id")
+    assert by_case.loc["J0014010-base", "error_message"] == expected
+    csv_rows = pd.read_csv(root / "summary" / "by_case.csv").set_index("case_id")
+    assert csv_rows.loc["J0014010-base", "error_message"] == expected

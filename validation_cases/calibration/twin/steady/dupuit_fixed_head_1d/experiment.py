@@ -31,7 +31,6 @@ REFINED_BUNDLE_DIR = (
 
 def _build_modflow6_simulation_config(
     path: Path,
-    project_root: Path,
     *,
     run_id: str,
     nx: int,
@@ -44,24 +43,22 @@ def _build_modflow6_simulation_config(
         common_files=("config_common.toml",),
         run_id=run_id,
         planar=(nx, ny),
-    )(path, project_root)
+    )(path)
 
 
-def build_simulation_config(path: Path, project_root: Path) -> None:
+def build_simulation_config(path: Path) -> None:
     """Write one MODFLOW 6 simulation config for the steady twin benchmark."""
     _build_modflow6_simulation_config(
         path,
-        project_root,
         run_id="steady_dupuit_truth",
         nx=40,
     )
 
 
-def build_truth_simulation_config_refined(path: Path, project_root: Path) -> None:
+def build_truth_simulation_config_refined(path: Path) -> None:
     """Write one refined MODFLOW 6 truth config used for perturbed twins."""
     _build_modflow6_simulation_config(
         path,
-        project_root,
         run_id="steady_dupuit_truth_refined",
         nx=80,
     )

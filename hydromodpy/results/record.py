@@ -13,7 +13,7 @@ Files written, in this order
 ----------------------------
 1. ``tables.parquet/simulation.parquet``: the one-row index payload
    (:data:`~hydromodpy.results.storage.parquet_schemas.SIMULATION_SCHEMA`),
-   identity in its schema metadata.
+   with the footer every table of the run carries: identity, licence, extent.
 2. ``tables.parquet/parameters.parquet``: the parameters, when the run has
    some, with their origin.
 3. ``provenance.json``: tool, git, python, platform, packages, solver,
@@ -51,6 +51,7 @@ import pyarrow as pa
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
@@ -82,6 +83,7 @@ from hydromodpy.results.storage.contract import (
     TABLES_DIRNAME,
     UNSEALED_RUN_ENTRIES,
 )
+from hydromodpy.results.storage.geo_metadata import run_parquet_footer
 from hydromodpy.results.storage.json_io import read_json, write_json_atomic, write_json_durable
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, SIMULATION_SCHEMA
@@ -267,9 +269,7 @@ class RunRecord(HydroModelBase):
     def simulation_table(self) -> pa.Table:
         """Return ``simulation.parquet`` as a table, identity in its metadata."""
         table = pa.Table.from_pylist([self.simulation_row()], schema=SIMULATION_SCHEMA)
-        metadata = dict(SIMULATION_SCHEMA.metadata or {})
-        metadata.update(self.identity.as_parquet_metadata())
-        return table.replace_schema_metadata(metadata)
+        return table.replace_schema_metadata(self._footed(SIMULATION_SCHEMA))
 
     def parameters_table(self) -> pa.Table | None:
         """Return ``parameters.parquet`` as a table, or ``None`` without parameters."""
@@ -290,9 +290,35 @@ class RunRecord(HydroModelBase):
             for row in self.parameters
         ]
         table = pa.Table.from_pylist(rows, schema=PARAMETERS_SCHEMA)
-        metadata = dict(PARAMETERS_SCHEMA.metadata or {})
-        metadata.update(self.identity.as_parquet_metadata())
-        return table.replace_schema_metadata(metadata)
+        return table.replace_schema_metadata(self._footed(PARAMETERS_SCHEMA))
+
+    def parquet_footer(self) -> dict[str, str]:
+        """Return the footer of the tables of the record, the one every run table carries."""
+        run, geometry, period = self.run, self.geometry, self.period
+        return run_parquet_footer(
+            sim_id=run.sim_id,
+            project=run.project,
+            name=run.name,
+            solver=run.solver,
+            config_hash=self.config.hash,
+            licence=run.license or UNDETERMINED_LICENSE,
+            scientific_objective=run.scientific_objective,
+            doi=run.doi,
+            identity=self.identity,
+            created_at=run.created_at,
+            crs_epsg=geometry.crs_epsg,
+            crs_wkt=geometry.crs_wkt,
+            bbox=geometry.bbox,
+            period_start=period.start,
+            period_end=period.end,
+        )
+
+    def _footed(self, schema: pa.Schema) -> dict[bytes, bytes]:
+        """Return the metadata of *schema* with the footer of the run on top."""
+        metadata = dict(schema.metadata or {})
+        for key, value in self.parquet_footer().items():
+            metadata[key.encode("utf-8")] = value.encode("utf-8")
+        return metadata
 
     def inputs_document(self) -> InputsDocument:
         """Return ``inputs.json`` as a document."""

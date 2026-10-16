@@ -1,4 +1,4 @@
-"""What the journal knows about the twelve steps of a finished run.
+"""What the journal knows about the twelve steps that precede the seal.
 
 Finding A1 said the six steps that build the model - ``validate``, ``resolve``,
 ``build_geographic``, ``load_data``, ``build_mesh``, ``setup_process`` - declare
@@ -21,6 +21,11 @@ So the assertion is no longer "all six declare". It is: every step of a run has
 a row, every step with a durable product declares it, and the three that leave
 nothing are named here. A step that starts or stops declaring turns this red,
 which is the point - the list is a measurement, not a tolerance.
+
+The journal is ``<run>/.hmp/checkpoints/steps.json``, the attempt state of the
+run, and no longer an index table. The seal of a completed run removes it with
+the rest of ``<run>/.hmp/``, so the run read here is stopped after ``export``,
+the last step before the seal.
 """
 
 from __future__ import annotations
@@ -53,30 +58,33 @@ SOLVE_STEPS = ("prepare_solver", "run_solver", "extract", "derive", "display", "
 EMPTY_DIGEST_PREFIX = "e3b0c44298fc1c14"
 
 
-def _journal_rows(produced_run: ProducedRun) -> dict[str, dict[str, object]]:
+def _journal_rows(run: ProducedRun) -> dict[str, dict[str, object]]:
     """Return the journal row of every step of the run, keyed by step name."""
-    import duckdb
+    from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-    index = produced_run.workspace / ".hmp" / "index.duckdb"
-    assert index.is_file(), f"no index at {index}"
-    connection = duckdb.connect(str(index), read_only=True)
-    try:
-        frame = connection.execute(
-            "SELECT step_name, step_order, outputs_hash, artifact_uris "
-            "FROM workflow_steps WHERE run_id = ?",
-            [produced_run.run_name],
-        ).fetchdf()
-    finally:
-        connection.close()
-    return {row["step_name"]: dict(row) for _, row in frame.iterrows()}
+    journal = WorkflowJournal(run.run_dir)
+    assert journal.path.is_file(), f"no journal at {journal.path}"
+    return {
+        row.step_name: {
+            "step_order": row.step_order,
+            "status": row.status,
+            "outputs_hash": row.outputs_hash,
+            "artifact_uris": row.artifact_uris,
+        }
+        for row in journal.list_steps(run.run_name)
+    }
 
 
-def test_every_step_of_a_run_declares_what_it_left_on_disk(produced_run: ProducedRun) -> None:
+def test_every_step_of_a_run_declares_what_it_left_on_disk(
+    run_before_its_seal: ProducedRun,
+) -> None:
     """The journal records the twelve steps, and each names its durable outputs."""
-    rows = _journal_rows(produced_run)
+    rows = _journal_rows(run_before_its_seal)
 
     missing = [name for name in MODEL_BUILD_STEPS + SOLVE_STEPS if name not in rows]
     assert not missing, f"steps absent from the journal: {missing}"
+    unfinished = [name for name, row in rows.items() if row["status"] != "completed"]
+    assert not unfinished, f"steps the journal does not close: {unfinished}"
 
     without_artifacts = [
         name
@@ -88,10 +96,10 @@ def test_every_step_of_a_run_declares_what_it_left_on_disk(produced_run: Produce
 
 
 def test_the_three_head_steps_that_leave_nothing_are_the_measured_three(
-    produced_run: ProducedRun,
+    run_before_its_seal: ProducedRun,
 ) -> None:
     """The list of steps with no durable product is a measurement, not a tolerance."""
-    rows = _journal_rows(produced_run)
+    rows = _journal_rows(run_before_its_seal)
 
     silent = {
         name
@@ -104,9 +112,11 @@ def test_the_three_head_steps_that_leave_nothing_are_the_measured_three(
     )
 
 
-def test_the_solving_steps_already_declare_their_artefacts(produced_run: ProducedRun) -> None:
+def test_the_solving_steps_already_declare_their_artefacts(
+    run_before_its_seal: ProducedRun,
+) -> None:
     """The half of the pipeline that honours the contract keeps honouring it."""
-    rows = _journal_rows(produced_run)
+    rows = _journal_rows(run_before_its_seal)
     for name in ("prepare_solver", "run_solver", "extract"):
         assert name in rows, f"{name} absent from the journal"
         assert rows[name]["artifact_uris"], f"{name} declares no artefact"

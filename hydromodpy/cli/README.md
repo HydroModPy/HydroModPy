@@ -19,7 +19,7 @@ rest of the code, and where to add what.
 
 ## Verbs
 
-Nineteen top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
+Twenty top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
 options of each one, and the CLI reference of the documentation is generated
 from the same parsers.
 

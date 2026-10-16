@@ -7,7 +7,11 @@ environment) under ``<project>/seen/``, then behaves as ``fake.json`` says
 for its case: ``complete`` writes a seal (the hash of the plan, nothing
 else) and a completed outcome, ``fail``
 writes a failed outcome and exits 15, ``die`` claims the case and exits
-without writing its end, ``refuse`` exits 14 before any claim. A prepare
+without writing its end, ``refuse`` exits 14 before any claim. The
+``session_die`` and ``session_complete`` modes stand in for a calibration:
+the worker opens ``sessions/<case>/`` as the real one does (a bare
+``--resume`` reopens the latest session, else a new version is reserved),
+writes its descriptor and outcome, then dies or completes. A prepare
 child (``--until``) registers one cache entry when ``fake.json`` asks for
 ``register``, through the data catalog of the package, so the layered cache
 is exercised for real; it records when it started and ended, sleeps
@@ -147,6 +151,41 @@ mode = behaviour.get("run", "complete")
 (seen / f"{case_id}.run.json").write_text(json.dumps(record))
 if mode == "refuse":
     sys.exit(14)
+if mode.startswith("session_"):
+    import pyarrow.parquet as pq
+    from hydromodpy.calibration.runners.session import open_session_dir
+    from hydromodpy.results.session.descriptor import (
+        SessionDescriptor, read_session, write_session,
+    )
+
+    planned = {row["case_id"]: row["config_hash"]
+               for row in pq.read_table(case.parent / "cases.parquet").to_pylist()}
+    session_dir, reopened = open_session_dir(root, case_id, resume="--resume" in flags)
+    started = datetime.now(UTC)
+    if reopened:
+        descriptor = read_session(session_dir).model_copy(
+            update={"status": "running", "ended_at": None, "error_message": None}
+        )
+    else:
+        descriptor = SessionDescriptor(
+            session_id=uuid.uuid4().hex, case_id=case_id, config_hash=planned[case_id],
+            hydromodpy_version="0", method="grid", objective_name="nse", started_at=started,
+        )
+    write_session(session_dir, descriptor)
+    outcome = {
+        "schema": "hydromodpy.outcome.v1", "case_id": case_id, "site": case_id.split("-")[0],
+        "project": root.name, "attempt": 1, "attempt_id": uuid.uuid4().hex,
+        "status": "running", "written_by": "worker", "started_at": started.isoformat(),
+        "host": socket.gethostname(), "pid": os.getpid(),
+    }
+    (session_dir / "outcome.json").write_text(json.dumps(outcome))
+    if mode == "session_die":
+        os._exit(9)
+    ended = datetime.now(UTC)
+    write_session(session_dir, descriptor.model_copy(update={"status": "completed", "ended_at": ended}))
+    outcome.update(status="completed", ended_at=ended.isoformat(), exit_code=0)
+    (session_dir / "outcome.json").write_text(json.dumps(outcome))
+    sys.exit(0)
 run_dir = root / "runs" / case_id
 run_dir.mkdir(parents=True, exist_ok=True)
 now = datetime.now(UTC).isoformat()
