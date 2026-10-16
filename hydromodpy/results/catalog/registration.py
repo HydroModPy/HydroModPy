@@ -475,6 +475,11 @@ def import_publication(project_root: Path, source: Path, *, name: str | None = N
     try:
         copy = _stage_copy(origin, staging)
         publication = read_publication(copy)
+        if publication.kind != "run":
+            raise ValueError(
+                f"{origin} is a {publication.kind} copy; only a run is imported. "
+                "Import one of its members."
+            )
         source_rel = parse_rel_dir(publication.source.rel_dir)
         if source_rel.kind != "run":
             raise ValueError(

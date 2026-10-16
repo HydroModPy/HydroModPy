@@ -29,12 +29,6 @@ class ProjectNotFoundError(CatalogError, FileNotFoundError):
     code = "HMPY.E823"
 
 
-class SchemaVersionMismatchError(CatalogError):
-    """Stored schema version differs from the runner's target version."""
-
-    code = "HMPY.E824"
-
-
 class RunNotSealedError(CatalogError, FileNotFoundError):
     """A run has no ``manifest.json``: it never completed, so it has no seal to read."""
 
@@ -47,5 +41,4 @@ __all__ = [
     "RunNotFoundError",
     "ProjectNotFoundError",
     "RunNotSealedError",
-    "SchemaVersionMismatchError",
 ]

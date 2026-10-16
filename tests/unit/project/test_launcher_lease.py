@@ -19,6 +19,7 @@ import pytest
 from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT, exit_code_for
 from hydromodpy.project.launch import local as launch_local
 from hydromodpy.project.launch.lease import (
+    LEASE_SCHEMA,
     LeaseHeldError,
     acquire_lease,
     launcher_lease,
@@ -32,7 +33,14 @@ def _write_lease(project: Path, *, host: str, pid: int) -> Path:
     path = lease_path(project)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps({"host": host, "pid": pid, "started_at": datetime.now(UTC).isoformat()}),
+        json.dumps(
+            {
+                "schema": LEASE_SCHEMA,
+                "host": host,
+                "pid": pid,
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+        ),
         encoding="utf-8",
     )
     return path

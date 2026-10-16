@@ -131,3 +131,53 @@ def test_nothing_around_the_cwd_is_not_found(monkeypatch, tmp_path, capsys) -> N
 
     assert _run(monkeypatch, ["hmp", "catalog", "ls"]) == EXIT_NOT_FOUND
     assert "-w" in capsys.readouterr().err
+
+
+def test_best_names_a_site_without_a_scored_run_and_why(monkeypatch, tmp_path, capsys) -> None:
+    root = make_project(tmp_path / "unscored")
+    seal_run(root, "a-base", project="unscored", site="a", recipe="base", nse=None, window=None)
+    seal_run(root, "b-base", project="unscored", site="b", recipe="base", nse=0.7)
+    rebuild_index(root)
+    argv = ["hmp", "catalog", "ls", "-w", str(root), "--by", "site", "--best", "nse"]
+
+    assert _run(monkeypatch, argv) == 0
+    out = capsys.readouterr().out
+    assert "# site: b" in out
+    assert out.strip().endswith("no sealed run of a is scored: declare [metrics] window")
+
+    assert _run(monkeypatch, [*argv, "--format", "json"]) == 0
+    captured = capsys.readouterr()
+    assert [row["site"] for row in json.loads(captured.out)] == ["b"]
+    assert "no sealed run of a is scored: declare [metrics] window" in captured.err
+
+
+def test_best_on_unscored_runs_only_says_why_nothing_is_listed(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    root = make_project(tmp_path / "steady")
+    seal_run(root, "a-base", project="steady", site="a", recipe="base", nse=None, window=None)
+    rebuild_index(root)
+
+    assert _run(monkeypatch, ["hmp", "catalog", "ls", "-w", str(root), "--best", "nse"]) == 0
+    out = capsys.readouterr().out
+    assert "has a nse)" in out
+    assert "no sealed run of a is scored: declare [metrics] window" in out
+
+
+@pytest.mark.parametrize("fmt", ["json", "csv"])
+def test_best_on_unscored_runs_keeps_stdout_machine_readable(
+    monkeypatch, tmp_path, capsys, fmt
+) -> None:
+    root = make_project(tmp_path / "steady")
+    seal_run(root, "a-base", project="steady", site="a", recipe="base", nse=None, window=None)
+    rebuild_index(root)
+    argv = ["hmp", "catalog", "ls", "-w", str(root), "--best", "nse", "--format", fmt]
+
+    assert _run(monkeypatch, argv) == 0
+    captured = capsys.readouterr()
+    assert "has a nse)" in captured.err
+    assert "no sealed run of a is scored: declare [metrics] window" in captured.err
+    assert "has a nse)" not in captured.out
+    assert "scored" not in captured.out
+    if fmt == "json":
+        assert json.loads(captured.out) == []

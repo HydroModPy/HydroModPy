@@ -672,6 +672,19 @@ class ZarrStoreError(StorageError):
     code = "HMPY.E802"
 
 
+class SchemaVersionMismatchError(StorageError):
+    """A stored document carries no version, or one this version does not read.
+
+    Raised by every reader of a document HydroModPy writes on disk, the index
+    included. The message names the version read, the version this code
+    reads and what to do: rebuild the index, read a sealed document with the
+    version that wrote it, or delete a transient one. Stored data is never
+    migrated.
+    """
+
+    code = "HMPY.E824"
+
+
 # -- Results -------------------------------------------------------------------
 
 
@@ -776,6 +789,7 @@ __all__ = [
     # Storage
     "StorageError",
     "CatalogError",
+    "SchemaVersionMismatchError",
     "ReadOnlyError",
     "WriteConflictError",
     "CrossProjectsError",

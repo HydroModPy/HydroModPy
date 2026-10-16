@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from hydromodpy.core.exceptions import ResumeError
 from hydromodpy.core.io.canonical_json import dumps as canonical_dumps
+from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document, check_version
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
@@ -91,6 +92,9 @@ class ResolvedRunManifest:
         if not path.is_file():
             return None
         payload = json.loads(path.read_text(encoding="utf-8"))
+        check_document(
+            payload, SCHEMA_VERSION, document=path, remedy=TRANSIENT_REMEDY, key="schema_version"
+        )
         return cls(
             schema_version=str(payload["schema_version"]),
             run_id=str(payload["run_id"]),
@@ -136,8 +140,13 @@ class ResolvedRunManifest:
         configuration this manifest signs, so the refusal can say which
         sections moved instead of only that something did.
         """
-        if self.schema_version != SCHEMA_VERSION:
-            raise ResumeError(f"Unsupported run manifest schema: {self.schema_version!r}")
+        check_version(
+            self.schema_version,
+            SCHEMA_VERSION,
+            document=self.path_for(run_dir) if run_dir is not None else "resolved run manifest",
+            key="schema_version",
+            remedy=TRANSIENT_REMEDY,
+        )
         if self.run_id != state.run_id:
             raise ResumeError(
                 f"Resume run_id mismatch: manifest={self.run_id!r}, state={state.run_id!r}"
@@ -238,8 +247,7 @@ def read_resolved_config(run_dir: Path) -> Any | None:
     except (OSError, ValueError) as exc:
         logger.warning("validate.resolved_config_unreadable path=%s err=%s", path, exc)
         return None
-    if not isinstance(document, Mapping) or document.get("schema") != RESOLVED_CONFIG_SCHEMA:
-        return None
+    check_document(document, RESOLVED_CONFIG_SCHEMA, document=path, remedy=TRANSIENT_REMEDY)
     return document.get("config")
 
 

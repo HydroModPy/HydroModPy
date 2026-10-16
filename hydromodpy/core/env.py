@@ -115,7 +115,7 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "unset",
         "user",
         "``hmp run`` reads each variable that starts with ``HMP_SET_`` as a TOML "
-        "override. The rest of the name is the key, lowercased, with ``__`` for a dot: "
+        "override. The rest of the name is the key, in its own case, with ``__`` for a dot: "
         "``HMP_SET_simulation__run_id``. The value is parsed as TOML. It wins over "
         "``--set``.",
         prefix=True,

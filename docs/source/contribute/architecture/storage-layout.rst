@@ -367,6 +367,29 @@ directory in ``trash/tombstones.txt``: ``rel_dir,sim_id,date``. The tombstones a
 flushed before any byte is removed, so a crash can leave a directory with its tombstone, never a
 freed name without one. ``ls runs/`` shows only the living.
 
+Versions of the stored documents
+--------------------------------
+
+Every document HydroModPy writes carries its version: a ``schema`` id (``outcome.json``,
+``inputs.json``, ``session.json``, ``phases/<p>/session.json``, each line of ``trials.jsonl``
+and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``index.json``,
+``<file>.meta.json``, ``logs/heartbeat.json``, ``facts.json``, ``steps.json``,
+``launcher.lease``), an integer (``manifest_version``, ``provenance_version``,
+``annotations_version``), ``[hydromodpy] version`` in ``hydromodpy.lock``, or the
+``schema_version`` row of the index. A reader refuses a document without a version, or with one
+it does not know, and the message names the version read, the version this code reads and what
+to do (:mod:`hydromodpy.core.io.document_version`):
+
+- the index: ``hmp catalog reindex`` rebuilds it from the directories;
+- a sealed document: read it with the HydroModPy version that wrote it, named in the message;
+- a transient one (pulse, facts, step journal, lease): delete it and run again;
+- the lockfile: ``hmp dev lock update`` writes it again.
+
+Stored data is never migrated. The one migration kept is the grammar of a configuration file
+(``config/config_migration.py``, applied on load; ``hmp doctor --fix-config <file>`` rewrites
+the file in place). ``tests/unit/results/test_every_document_carries_its_version.py`` holds the
+rule and lists the exempt files with their reason.
+
 Attempt protocol
 ----------------
 

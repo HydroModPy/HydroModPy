@@ -13,10 +13,12 @@ What ``summary/`` holds
 -----------------------
 ``by_case.parquet`` and ``by_case.csv``: one row per case of the plan (or per
 case found on disk without a plan): status, label, checks, score and window,
-the objective of its session beside it, the parameters and metrics of
-``[sites.summary]``, the dotted ``columns`` read from the manifest.
+the objective of its session beside it, the metrics of ``[sites.summary]``,
+every global parameter of the seal under its own name (``K``, ``Sy``), the
+``overrides`` of the case (the ``set`` of its recipe, then what ``--set``
+changed), the dotted ``columns`` read from the manifest.
 ``by_site.parquet``, ``by_site.csv``, ``by_site.gpkg``: one row per site, its
-best case. ``catalog.csv`` (``write_sites``): the sites as
+best case, or in ``best_reason`` why it has none. ``catalog.csv`` (``write_sites``): the sites as
 :class:`~hydromodpy.core.site.row.SiteRow` lines, replayable as a site table.
 ``figures/`` and ``exports/``, each with its ledger ``index.json``, drawn in a
 staging folder and moved into place once complete; ``report/index.html``;
@@ -27,7 +29,11 @@ Rules
 -----
 - The best case of a site ranks the first metric of ``[sites.summary]
   metrics`` by its direction; ``best = "calibrated"`` keeps the calibrated
-  cases only.
+  cases only. A site without a best case says why in ``best_reason``.
+- ``[sites.summary] parameters`` orders the parameter columns and warns when
+  no sealed run carries one; every other global parameter follows. A
+  parameter whose name is a column of the summary is left out with a warning:
+  read it through ``columns = ["parameters.<name>"]``.
 - Scores computed under different rules (variable, window, rule version, or
   station inside one site) are not ranked together unless ``mixed_windows``
   is true.
@@ -223,6 +229,7 @@ SITE_HEAD_COLUMNS: Final[tuple[str, ...]] = (
     "n_cases",
     "n_completed",
     "best_case",
+    "best_reason",
     "recipe",
     "label",
     "rel_dir",
@@ -497,6 +504,8 @@ class _Settings:
     summary: SitesSummaryConfig
     exports: tuple[SitesExportRequest, ...]
     publication: PublicationConfig
+    recipe_sets: Mapping[str, Mapping[str, Any]]
+    """The ``set`` of each inline recipe of ``[sites.recipes]``, by recipe name."""
 
 
 def collect_project(
@@ -530,8 +539,21 @@ def collect_project(
     with Catalog(root) as catalog:
         cases = catalog.cases
     facts = _facts_of_runs(root, cases)
-    by_case = _relative_paths(_by_case(cases, planned, facts, settings.summary), root)
-    by_site, site_rows = _by_site(by_case, facts, settings.summary, mixed_windows=mixed_windows)
+    parameters = _parameter_names(settings.summary, facts)
+    by_case = _relative_paths(
+        _by_case(
+            cases,
+            planned,
+            facts,
+            settings.summary,
+            parameters=parameters,
+            recipe_sets=settings.recipe_sets,
+        ),
+        root,
+    )
+    by_site, site_rows = _by_site(
+        by_case, facts, settings.summary, parameters=parameters, mixed_windows=mixed_windows
+    )
     by_site = _relative_paths(by_site, root)
     _figure_requests(settings.summary, by_site.columns)
     _check_exports(settings.exports)
@@ -651,22 +673,30 @@ def _read_settings(root: Path) -> _Settings:
     """Read ``[sites.summary]``, ``[[sites.export]]`` and ``[publication]`` of ``project.toml``."""
     from hydromodpy.config.publication_config import PublicationConfig
     from hydromodpy.config.sites.expansion import declares_sites
-    from hydromodpy.config.sites.models import SitesConfig, SitesSummaryConfig
+    from hydromodpy.config.sites.models import RecipeSpec, SitesConfig, SitesSummaryConfig
     from hydromodpy.core.toml_io.loader import merge_toml_chain, read_toml_chain
 
     document = merge_toml_chain(read_toml_chain(root / PROJECT_MARKER_FILENAME))
     summary, exports = SitesSummaryConfig(), ()
+    recipe_sets: dict[str, Mapping[str, Any]] = {}
     if declares_sites(document):
         try:
             sites = SitesConfig.model_validate(document["sites"])
         except ValidationError as exc:
             raise SummaryError(f"{PROJECT_MARKER_FILENAME}: [sites] {exc}") from exc
         summary, exports = sites.summary, tuple(sites.export)
+        recipe_sets = {
+            name: dict(decl.set)
+            for name, decl in sites.recipes.items()
+            if isinstance(decl, RecipeSpec) and decl.set
+        }
     try:
         publication = PublicationConfig.model_validate(document.get("publication") or {})
     except ValidationError as exc:
         raise SummaryError(f"{PROJECT_MARKER_FILENAME}: [publication] {exc}") from exc
-    return _Settings(summary=summary, exports=exports, publication=publication)
+    return _Settings(
+        summary=summary, exports=exports, publication=publication, recipe_sets=recipe_sets
+    )
 
 
 def _planned_cases(root: Path) -> tuple[Any, ...]:
@@ -730,16 +760,56 @@ def _extra_columns(summary: SitesSummaryConfig) -> tuple[list[str], list[str], l
     return metrics, parameters, columns
 
 
+def _parameter_names(summary: SitesSummaryConfig, facts: Mapping[str, RunFacts]) -> list[str]:
+    """Return the parameter columns: those of ``[sites.summary]``, then every other one sealed.
+
+    A global parameter whose name is already a column of the summary is left
+    out with a warning; ``columns = ["parameters.<name>"]`` reads it.
+    """
+    metrics, names, columns = _extra_columns(summary)
+    taken = (
+        set(CASE_COLUMNS)
+        | set(SITE_HEAD_COLUMNS)
+        | set(SITE_SCORE_COLUMNS)
+        | set(SITE_PLACE_COLUMNS)
+        | {*metrics, *columns}
+    )
+    clashes: set[str] = set()
+    for fact in facts.values():
+        for name in fact.parameters:
+            if name in names:
+                continue
+            if name in taken:
+                clashes.add(name)
+                continue
+            names.append(name)
+    for name in sorted(clashes):
+        logger.warning(
+            "[sites.summary]: parameter %r is named like a column of the summary and is left "
+            'out; add columns = ["parameters.%s"] to read it.',
+            name,
+            name,
+        )
+    return names
+
+
 def _by_case(
     cases: pd.DataFrame,
     planned: Sequence[Any],
     facts: Mapping[str, RunFacts],
     summary: SitesSummaryConfig,
+    *,
+    parameters: Sequence[str],
+    recipe_sets: Mapping[str, Mapping[str, Any]],
 ) -> pd.DataFrame:
-    """Return one row per case: the plan joined to the latest run and session of each case."""
+    """Return one row per case: the plan joined to the latest run and session of each case.
+
+    ``overrides`` is the ``set`` of the recipe of the case, with what
+    ``--set`` changed in the run on top.
+    """
     import pandas as pd
 
-    metrics, parameters, columns = _extra_columns(summary)
+    metrics, listed, columns = _extra_columns(summary)
     runs = _latest(cases, "run")
     sessions = _latest(cases, "session")
     plan = {case.case_id: case for case in planned}
@@ -787,14 +857,16 @@ def _by_case(
                 found.add(path)
             except KeyError as exc:
                 missing.setdefault(path, exc)
+        applied = dict(recipe_sets.get(str(row["recipe"]), {}))
         if fact is not None:
-            row["overrides"] = overrides_text(fact.overrides) or None
+            applied.update(fact.overrides)
+        row["overrides"] = overrides_text(applied) or None
         rows.append(row)
     sealed = bool(facts)
     for path, exc in missing.items():
         if path not in found and sealed:
             raise SummaryError(f"[sites.summary] columns: no manifest has {path!r}: {exc}")
-    for name in parameters:
+    for name in listed:
         if name not in found and sealed:
             logger.warning("[sites.summary] parameters: no sealed run has a parameter %r", name)
     return pd.DataFrame(rows, columns=[*CASE_COLUMNS, *metrics, *parameters, *columns])
@@ -857,14 +929,18 @@ def _by_site(
     facts: Mapping[str, RunFacts],
     summary: SitesSummaryConfig,
     *,
+    parameters: Sequence[str],
     mixed_windows: bool,
 ) -> tuple[pd.DataFrame, list[Any]]:
-    """Return one row per site with its best case, and the sites as site rows."""
+    """Return one row per site with its best case, and the sites as site rows.
+
+    A site without a best case says why in ``best_reason``.
+    """
     import pandas as pd
 
     from hydromodpy.core.site.row import SiteRow
 
-    metrics, parameters, columns = _extra_columns(summary)
+    metrics, _, columns = _extra_columns(summary)
     metric_columns = ["nse", *metrics]
     ranked_by = summary.metrics[0] if summary.metrics else "nse"
     candidates = by_case[by_case["status"] == "completed"]
@@ -893,6 +969,8 @@ def _by_site(
                 row[column] = chosen[column]
             for column in [*metric_columns, *SITE_SCORE_COLUMNS, *parameters, *columns]:
                 row[column] = _clean(chosen.get(column))
+        else:
+            row["best_reason"] = _no_best_reason(site, of_site, ranked_by, summary.best)
         if block is not None:
             row["site_label"], row["gauge"], row["uri"] = block.label, block.gauge, block.uri
             row["x_outlet"], row["y_outlet"], row["crs"] = block.x_outlet, block.y_outlet, block.crs
@@ -920,6 +998,36 @@ def _by_site(
         *SITE_PLACE_COLUMNS,
     ]
     return pd.DataFrame(rows, columns=ordered), site_rows
+
+
+def _no_best_reason(site: str, of_site: pd.DataFrame, metric: str, best: str) -> str:
+    """Say why a site has no best case: nothing completed, nothing scored, nothing calibrated."""
+    completed = of_site[of_site["status"] == "completed"]
+    if completed.empty:
+        return f"no completed case of {site}"
+    if metric not in completed.columns or not any(_finite(v) for v in completed[metric]):
+        return unscored_reason(site, completed, metric)
+    if best == "calibrated":
+        return f'no calibrated case of {site} is scored; best = "any" ranks every case'
+    return f"no case of {site} has a {metric} comparable with the others"
+
+
+def unscored_reason(name: str, frame: pd.DataFrame, metric: str) -> str:
+    """Say why no sealed run of *name* in *frame* has a finite *metric*.
+
+    A run without a score window carries no score at all: that is the reason
+    named first. *frame* holds the ``nse_window_start`` column of the index.
+    """
+    windows = frame["nse_window_start"] if "nse_window_start" in frame.columns else ()
+    if not any(_clean(value) is not None for value in windows):
+        return f"no sealed run of {name} is scored: declare [metrics] window"
+    return f"no sealed run of {name} has a {metric}"
+
+
+def names_text(names: Sequence[str], shown: int = 5) -> str:
+    """Return the first *shown* names of a list, then how many more."""
+    more = f" and {len(names) - shown} more" if len(names) > shown else ""
+    return ", ".join(names[:shown]) + more
 
 
 def _any_sited_fact(of_site: pd.DataFrame, facts: Mapping[str, RunFacts]) -> RunFacts | None:
@@ -1488,8 +1596,10 @@ __all__ = [
     "UnreadableManifestError",
     "check_one_rule",
     "collect_project",
+    "names_text",
     "overrides_text",
     "rank_key",
     "rank_rows",
     "read_run_facts",
+    "unscored_reason",
 ]

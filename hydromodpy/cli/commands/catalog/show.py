@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.cli._conventions import (
     add_sim_ref,
@@ -57,7 +59,12 @@ def run(args: argparse.Namespace) -> None:
     project_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if args.format == "table" and not args.detail and _print_readme(project_root, args.sim_ref):
+    named = bool(getattr(args, "workspace", None))
+    if (
+        args.format == "table"
+        and not args.detail
+        and _print_readme(project_root, args.sim_ref, named)
+    ):
         return
     if not catalog_path_for(project_root).is_file():
         print(f"No index at {project_root}; run `hmp catalog reindex` first", file=sys.stderr)
@@ -70,7 +77,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(exit_code_for(exc))
 
     if args.format == "json":
-        print(json.dumps(payload, indent=2, default=str))
+        print(json.dumps(_finite(payload), indent=2, default=str))
         return
 
     name = payload.get("name") or payload["sim_id"][:8]
@@ -138,8 +145,23 @@ def run(args: argparse.Namespace) -> None:
     print(f"next: hmp catalog tag {ref} +pinned | hmp catalog diff {ref} <other>")
 
 
-def _print_readme(project_root: Path, ref: str) -> bool:
-    """Print the README of the run ``ref`` names; ``False`` when it carries none."""
+def _finite(value: Any) -> Any:
+    """Return *value* with every NaN and infinity replaced by ``None``, as strict JSON needs."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_finite(item) for item in value]
+    return value
+
+
+def _print_readme(project_root: Path, ref: str, named: bool) -> bool:
+    """Print the README of the run ``ref`` names; ``False`` when it carries none.
+
+    ``named`` tells that ``-w`` was given. Without it the folder is the cwd, and a
+    refusal says how to name another one.
+    """
     from hydromodpy.results.annotations import read_annotations
     from hydromodpy.results.catalog.discovery import resolve_rel_dir
     from hydromodpy.results.storage.contract import README_FILENAME
@@ -147,7 +169,8 @@ def _print_readme(project_root: Path, ref: str) -> bool:
     try:
         rel_dir = resolve_rel_dir(project_root, ref)
     except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
-        print(str(exc), file=sys.stderr)
+        hint = "" if named else " Name the workspace or the project with -w."
+        print(f"{exc}{hint}", file=sys.stderr)
         sys.exit(exit_code_for(exc))
     run_dir = project_root / rel_dir
     readme = run_dir / README_FILENAME

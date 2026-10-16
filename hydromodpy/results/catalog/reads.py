@@ -57,7 +57,7 @@ _SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     }
 )
 
-# Filter columns resolved via dim-table JOINs, and the one derived from the config.
+# Filter columns resolved via dim-table JOINs, and the engine the seal names.
 _SIMULATION_DIM_FILTERS: dict[str, str] = {
     "solver": "sv.code",
     "solver_category": "sv.category",
@@ -112,7 +112,7 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
 _SIMULATIONS_VIEW_SELECT = (
     # Listing path: never pull the two config blobs (a run reads its own row
     # through Run._load_row), so `ls` stays cheap on a project of many runs.
-    "SELECT s.* EXCLUDE (config_toml, config_snapshot), "
+    "SELECT s.* EXCLUDE (config_toml, config_snapshot, mesh_engine), "
     "sv.code AS solver, sv.category AS solver_category, "
     "st.code AS status, "
     "fr.code AS flow_regime, "

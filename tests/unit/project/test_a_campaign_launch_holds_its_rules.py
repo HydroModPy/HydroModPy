@@ -136,8 +136,10 @@ def test_a_calibration_whose_files_changed_is_started_again(tmp_path: Path) -> N
 
 
 def test_a_case_whose_prepare_failed_is_failed_and_leaves_no_scratch(
-    tmp_path: Path, fake_worker: Path
+    tmp_path: Path, fake_worker: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The machine scratch of the shell must not move the folder this test watches.
+    monkeypatch.delenv("HMP_SCRATCH_ROOT", raising=False)
     project = write_project(tmp_path)
     write_behaviour(project, {"alpha-base": {"prepare": "fail"}})
     plan_project(project)

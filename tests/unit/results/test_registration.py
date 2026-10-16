@@ -25,6 +25,7 @@ from hydromodpy.results.catalog.registration import (
     split_stem_version,
 )
 from hydromodpy.results.ledger import sha256_of
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.outcome import Outcome, write_outcome
 from hydromodpy.results.publication import (
     Publication,
@@ -44,7 +45,10 @@ def _make_run(project: Path, name: str, *, sim_id: str | None = None) -> Path:
     (run_dir / "tables.parquet" / "simulation.parquet").write_bytes(b"PAR1-demo")
     (run_dir / "config.toml").write_text("[flow]\nk = 1e-5\n", encoding="utf-8")
     if sim_id is not None:
-        manifest = {"run": {"sim_id": sim_id, "name": name}}
+        manifest = {
+            "manifest_version": RUN_RECORD_MANIFEST_VERSION,
+            "run": {"sim_id": sim_id, "name": name},
+        }
         (run_dir / RUN_MANIFEST_FILENAME).write_text(json.dumps(manifest), encoding="utf-8")
     return run_dir
 

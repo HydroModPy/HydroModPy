@@ -1,8 +1,9 @@
 """``hmp replay``: a run copied with its inputs, and the line that runs it again.
 
 The verb publishes the run as a directory with ``inputs/``, then prints
-``hmp run DIR/config.toml --frozen`` and the HydroModPy version the run was
-sealed with. A run without a frozen configuration, a destination that holds
+``hmp run DIR/config.toml --frozen -w PROJECT``, runnable from any folder,
+and the HydroModPy version the run was sealed with. An input the run derived
+in its scratch, gone with it, is named as such. A run without a frozen configuration, a destination that holds
 something and an unknown run are refused with their typed exit codes.
 """
 
@@ -44,7 +45,14 @@ def test_the_copy_carries_its_inputs_and_the_replay_line_is_printed(
     assert (into / "config.toml").is_file()
     assert read_publication(into).with_ == ["inputs"]
     command, version = result.stdout.splitlines()
-    assert shlex.split(command) == ["hmp", "run", str(into.resolve() / "config.toml"), "--frozen"]
+    assert shlex.split(command) == [
+        "hmp",
+        "run",
+        str(into.resolve() / "config.toml"),
+        "--frozen",
+        "-w",
+        str(project.resolve()),
+    ]
     sealed = json.loads((project / "runs" / RUN_NAME / "manifest.json").read_text())
     assert version == f"HydroModPy {sealed['identity']['hydromodpy_version']}"
 
@@ -82,4 +90,30 @@ def test_a_run_without_a_frozen_config_is_refused_by_name(project: Path, tmp_pat
 
     assert result.exit_code == EXIT_NOT_FOUND
     assert "config.toml" in result.stderr
+    assert not (tmp_path / "replay").exists()
+
+
+def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(
+    project: Path, tmp_path: Path
+) -> None:
+    run_dir = project / "runs" / RUN_NAME
+    inputs = json.loads((run_dir / "inputs.json").read_text(encoding="utf-8"))
+    product = tmp_path / "scratch" / "demo.p1" / "_preprocessing" / "hydrography" / "streams.tif"
+    inputs["inputs"].append(
+        {
+            "variable": "hydrography:hydrography_streams",
+            "provider": "hydrography",
+            "request": {},
+            "path": str(product),
+            "sha256": "0" * 64,
+        }
+    )
+    (run_dir / "inputs.json").write_text(json.dumps(inputs), encoding="utf-8")
+
+    result = _invoke(RUN_NAME, "--into", str(tmp_path / "replay"), "-w", str(project))
+
+    assert result.exit_code != 0
+    assert "a product the run derived in its scratch" in result.stderr
+    assert "A replay carries the bytes of every input." in result.stderr
+    assert "Publish without" not in result.stderr
     assert not (tmp_path / "replay").exists()

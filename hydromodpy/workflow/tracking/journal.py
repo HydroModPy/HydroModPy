@@ -12,7 +12,8 @@ the rest of ``<run>/.hmp/``.
 Format
 ------
 One JSON document, ``{"schema": ..., "rows": [...]}``, rewritten atomically
-at every change. A row is a :class:`WorkflowStepRow`.
+at every change. A row is a :class:`WorkflowStepRow`. A journal of another
+schema is refused by name: it is attempt state, deleted and started again.
 """
 
 from __future__ import annotations
@@ -26,11 +27,8 @@ from typing import Any, Final
 from uuid import uuid4
 
 from hydromodpy.core.exceptions import JournalError
-from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
-
-logger = get_logger(__name__)
+from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
 
 JOURNAL_FILENAME: Final[str] = "steps.json"
 """Name of the journal under ``<run>/.hmp/checkpoints/``."""
@@ -172,11 +170,8 @@ class WorkflowJournal:
 
     def _rows(self) -> list[WorkflowStepRow]:
         try:
-            payload = read_json(self.path)
+            payload = read_transient_json(self.path, JOURNAL_SCHEMA)
         except FileNotFoundError:
-            return []
-        if not isinstance(payload, dict) or payload.get("schema") != JOURNAL_SCHEMA:
-            logger.warning("journal.unreadable path=%s: ignored", self.path)
             return []
         return [_row_from_json(item) for item in payload.get("rows", ())]
 

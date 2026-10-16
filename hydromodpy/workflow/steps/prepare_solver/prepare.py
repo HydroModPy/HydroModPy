@@ -27,6 +27,7 @@ from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.results.manifest import InputEntry
+from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
 from hydromodpy.schema.sources import input_licence, licence_for_source
 from hydromodpy.spatial.field.zone_fractions import zone_fractions
@@ -218,6 +219,8 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
     written here and the document it left cannot name a different set of inputs
     nor disagree on their bytes. The same walk fills the inputs of the seal:
     provider, request, path, digest, size and licence of every loaded record.
+    A record read from a product of the run (:func:`is_run_product`) keeps its
+    provenance row but is no input of the seal.
     """
     if ctx.sim_id is None:
         return
@@ -227,6 +230,7 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
     known_digests = _digests_the_load_already_computed(ctx)
     workspace_root = getattr(getattr(ctx, "setup", None), "workspace", None)
     anchor = getattr(workspace_root, "root", None)
+    project_root = getattr(workspace_root, "project_root", None)
     written = 0
     for item in iter_loaded_records(ctx.loaded_data):
         rec = item.record
@@ -255,10 +259,11 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
                 period_start=getattr(rec, "date_start", None),
                 period_end=getattr(rec, "date_end", None),
             )
-            store.record_input(
-                ctx.sim_id,
-                loaded_input_entry(item, source_path=source_path, sha256=digest, anchor=anchor),
-            )
+            if not is_run_product(source_path, project_root):
+                store.record_input(
+                    ctx.sim_id,
+                    loaded_input_entry(item, source_path=source_path, sha256=digest, anchor=anchor),
+                )
             written += 1
         except Exception as exc:
             prefix = (

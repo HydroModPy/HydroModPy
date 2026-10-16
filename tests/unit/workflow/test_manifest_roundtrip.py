@@ -299,7 +299,9 @@ def test_verify_state_rejects_unknown_schema():
     state = _make_state(raw_toml={"k": 1})
     manifest = ResolvedRunManifest.from_state(state, _steps(), workspace=None)
     bad = replace(manifest, schema_version="hydromodpy.resolved_run_manifest.v999")
-    with pytest.raises(ResumeError, match="Unsupported run manifest schema"):
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+
+    with pytest.raises(SchemaVersionMismatchError, match="resolved_run_manifest.v999"):
         bad.verify_state(state, _steps())
 
 

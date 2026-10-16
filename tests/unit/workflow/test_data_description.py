@@ -114,13 +114,18 @@ def test_the_document_round_trips_through_disk(tmp_path: Path) -> None:
     assert read_data_description(tmp_path / "other_run") is None
 
 
-def test_a_document_of_another_schema_reads_as_absent(tmp_path: Path) -> None:
-    """A future schema is a clean miss, never a half-understood document."""
+def test_a_document_of_another_schema_is_refused_by_name(tmp_path: Path) -> None:
+    """A future schema is refused with the version read, never half understood."""
+    from hydromodpy.core.exceptions import SchemaVersionMismatchError
+
     path = description_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"schema": "hydromodpy.loaded_data.v99", "records": []}', encoding="utf-8")
 
-    assert read_data_description(tmp_path) is None
+    with pytest.raises(
+        SchemaVersionMismatchError, match="loaded_data.v99.*delete it and run again"
+    ):
+        read_data_description(tmp_path)
 
 
 def test_a_rewritten_source_is_named_as_changed(tmp_path: Path) -> None:

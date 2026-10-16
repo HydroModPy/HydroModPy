@@ -23,6 +23,14 @@ Indented UTF-8 JSON, keys in the order the model dumped them, one trailing
 newline. A payload is JSON-native already: models dump with
 ``model_dump(mode="json")`` before they reach this module, so there is no
 ``default=`` escape hatch and a value that cannot be rendered is a bug.
+
+Versions
+--------
+Every document carries its version, and :func:`read_sealed_json` and
+:func:`read_transient_json` refuse one that carries another, or none, by
+the rule of :mod:`hydromodpy.core.io.document_version`. A sealed document
+names the HydroModPy version that wrote it, read from the document or from
+the seal beside it; a transient one says to delete it.
 """
 
 from __future__ import annotations
@@ -30,10 +38,24 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
+from hydromodpy.core.io.document_version import (
+    TRANSIENT_REMEDY,
+    check_document,
+    check_version,
+    sealed_remedy,
+)
+from hydromodpy.results.storage.contract import (
+    RUN_MANIFEST_FILENAME,
+    SESSION_DESCRIPTOR_FILENAME,
+)
+
+_SEALS: tuple[str, ...] = (RUN_MANIFEST_FILENAME, SESSION_DESCRIPTOR_FILENAME)
+"""Documents beside a sealed one that name the version that wrote the directory."""
 
 
 def render_json(payload: Any) -> str:
@@ -44,6 +66,83 @@ def render_json(payload: Any) -> str:
 def read_json(path: str | Path) -> Any:
     """Read a document back."""
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def read_sealed_json(path: str | Path, expected: object, *, key: str = "schema") -> Any:
+    """Read a sealed document; refuse it unless its *key* is *expected*."""
+    target = Path(path)
+    return check_sealed(read_json(target), expected, path=target, key=key)
+
+
+def check_sealed(
+    payload: Any,
+    expected: object,
+    *,
+    path: str | Path,
+    key: str = "schema",
+    line: int | None = None,
+) -> Any:
+    """Return a sealed *payload* read from *path*; refuse it unless its *key* is *expected*.
+
+    *line* names the line of a JSON Lines document in the message.
+    """
+    found = payload.get(key) if isinstance(payload, Mapping) else None
+    if found != expected:
+        target = Path(path)
+        document = str(target) if line is None else f"{target}:{line}"
+        remedy = sealed_remedy(writer_version(payload, target))
+        check_version(found, expected, document=document, key=key, remedy=remedy)
+    return payload
+
+
+def read_transient_json(path: str | Path, expected: object, *, key: str = "schema") -> Any:
+    """Read a transient document; refuse it unless its *key* is *expected*."""
+    target = Path(path)
+    return check_document(
+        read_json(target), expected, document=target, key=key, remedy=TRANSIENT_REMEDY
+    )
+
+
+def writer_version(payload: Any, path: str | Path) -> str | None:
+    """Return the HydroModPy version that wrote a document, or ``None``.
+
+    Read from the document itself, else from the seal of its run or session
+    (``manifest.json`` or ``session.json``) up to three folders above it.
+    """
+    own = _hydromodpy_version_in(payload)
+    if own is not None:
+        return own
+    target = Path(path)
+    for folder in list(target.parents)[:3]:
+        for name in _SEALS:
+            seal = folder / name
+            if seal == target or not seal.is_file():
+                continue
+            try:
+                found = _hydromodpy_version_in(read_json(seal))
+            except (OSError, ValueError):
+                # The version is a hint of the refusal; an unreadable seal leaves it unknown.
+                continue
+            if found is not None:
+                return found
+    return None
+
+
+def _hydromodpy_version_in(payload: Any) -> str | None:
+    if not isinstance(payload, Mapping):
+        return None
+    identity = payload.get("identity")
+    tool = payload.get("tool")
+    entries = payload.get("entries")
+    candidates = (
+        payload.get("hydromodpy_version"),
+        identity.get("hydromodpy_version") if isinstance(identity, Mapping) else None,
+        tool.get("version") if isinstance(tool, Mapping) else None,
+        entries[0].get("hydromodpy_version")
+        if isinstance(entries, list) and entries and isinstance(entries[0], Mapping)
+        else None,
+    )
+    return next((str(value) for value in candidates if value), None)
 
 
 def _stage(target: Path, payload: Any) -> Path:
@@ -104,4 +203,13 @@ def _fsync_directory(directory: Path) -> None:
         os.close(fd)
 
 
-__all__ = ["read_json", "render_json", "write_json_atomic", "write_json_durable"]
+__all__ = [
+    "check_sealed",
+    "read_json",
+    "read_sealed_json",
+    "read_transient_json",
+    "render_json",
+    "write_json_atomic",
+    "write_json_durable",
+    "writer_version",
+]

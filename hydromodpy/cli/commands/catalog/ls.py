@@ -5,7 +5,11 @@ records (what ``--set`` changed), so a ``.v2`` says how it differs.
 ``--best METRIC`` ranks the runs by that metric, best first; ``--by site``
 groups them by site, and with ``--best`` keeps the best run of each site. The
 ranking rule is the one of ``hmp project collect``: scores computed on
-different windows are refused unless ``--mixed-windows``.
+different windows are refused unless ``--mixed-windows``. A site whose runs
+are all left out by ``--best`` is named once, with why (no ``[metrics]
+window``, or no such metric): on stdout under the table, on stderr beside
+``--format json`` or ``csv``, even when no run is left to list, so stdout
+always parses.
 """
 
 from __future__ import annotations
@@ -150,6 +154,26 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
     return out
 
 
+def _left_out_reasons(listed: Any, ranked: Any, metric: str) -> list[str]:
+    """Name the sites whose runs ``--best`` left out, and why, one line per reason."""
+    from hydromodpy.project.summary import names_text, unscored_reason
+
+    sites = listed["site"].map(_site_of)
+    kept = set(ranked["site"].map(_site_of))
+    windowed = listed["nse_window_start"].notna()
+    groups: dict[bool, list[str]] = {}
+    for site in sorted(set(sites) - kept):
+        groups.setdefault(bool(windowed[sites == site].any()), []).append(site)
+    return [
+        unscored_reason(names_text(names), listed[sites.isin(names)], metric)
+        for _, names in sorted(groups.items())
+    ]
+
+
+def _site_of(value: Any) -> str:
+    return value if isinstance(value, str) and value else "(no site)"
+
+
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
@@ -181,9 +205,12 @@ def run(args: argparse.Namespace) -> None:
         return
 
     df = _with_seal_facts(df, workspace_root, args.best)
+    listed = df
+    reasons: list[str] = []
     try:
         if args.best:
             df = rank_rows(df, args.best, by=args.by, mixed_windows=args.mixed_windows)
+            reasons = _left_out_reasons(listed, df, args.best)
         elif args.by == "site":
             df = df.sort_values("site", kind="stable", na_position="last")
     except UnrankedMetricError as exc:
@@ -194,15 +221,21 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(exit_code_for(exc))
     if args.best and args.limit is not None:
         df = df.head(int(args.limit))
+    machine = args.format in ("json", "csv")
     if df.empty:
-        print(f"(no sealed run under {workspace_root} has a {args.best})")
-        return
+        reasons = [f"(no sealed run under {workspace_root} has a {args.best})", *reasons]
+        if not machine:
+            for line in reasons:
+                print(line)
+            return
 
-    if args.format == "json":
-        print(df.to_json(orient="records", date_format="iso"))
-        return
-    if args.format == "csv":
-        print(df.to_csv(index=False), end="")
+    if machine:
+        if args.format == "json":
+            print(df.to_json(orient="records", date_format="iso"))
+        else:
+            print(df.to_csv(index=False), end="")
+        for line in reasons:
+            print(line, file=sys.stderr)
         return
 
     group = "site" if args.by == "site" else "project"
@@ -233,3 +266,5 @@ def run(args: argparse.Namespace) -> None:
             f"solver={row.get('solver', '')}  mesh={mesh}  label={row.get('label', '')}"
             f"{nse_str}{best_str}{dur_str}{overrides_str}"
         )
+    for line in reasons:
+        print(line)

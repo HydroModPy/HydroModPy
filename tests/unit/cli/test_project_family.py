@@ -160,6 +160,28 @@ def test_project_show_by_name_prints_the_runs_by_status(monkeypatch, capsys, tmp
     assert "missing (hmp catalog reindex builds it)" in out
 
 
+def test_project_show_dot_reads_the_project_of_the_cwd(monkeypatch, capsys, tmp_path) -> None:
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    workspace = _make_workspace(tmp_path)
+    project = make_project(workspace / "projects" / "demo")
+    seal_run(project, "alpha")
+    monkeypatch.chdir(project / "runs")
+
+    assert _run(monkeypatch, ["hmp", "project", "show", "."]) == 0
+    out = capsys.readouterr().out
+    assert "# project: demo" in out
+    assert "runs     : 1 (completed 1)" in out
+
+
+def test_project_show_a_path_without_a_project_is_refused_by_name(
+    monkeypatch, capsys, outside
+) -> None:
+    code = _run(monkeypatch, ["hmp", "project", "show", "."])
+
+    assert code == 10
+    assert f"No project.toml at or above {outside.resolve()}" in capsys.readouterr().err
+
+
 def test_project_delete_removes_project_directory(monkeypatch, tmp_path) -> None:
     workspace = _make_workspace(tmp_path)
     project_dir = workspace / "projects" / "demo"

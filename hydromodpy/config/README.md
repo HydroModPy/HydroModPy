@@ -19,7 +19,7 @@ section model, never to the root.
 | `toml_section_loader.py` | how is one raw section turned into its model, with paths resolved against the project root? `load_standard_section`, `load_geographic_section` |
 | `sites/` | the `[sites]` section and the plan of a campaign: `models.py` (the section as the TOML declares it), `expansion.py` (`expand_plan`: sites x recipes into cases, the precedence of a case, the site scoped keys, the origin of every error), `plan.py` (`write_plan_draft`: `plan/<hash>/` written once), `budget.py` (what a plan costs, the `--dry-run` lines, the ceilings), `check.py` (`check_project`, the one check behind `hmp config check`), `single_site.py` (a `[site]` resolved against the site catalog of the workspace) |
 | `metrics_config.py`, `publication_config.py` | the `[metrics]` and `[publication]` root sections |
-| `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory |
+| `config_migration.py` | how does a file written against an earlier schema still load? `migrate_config_doc_on_load` rewrites the parsed payload in memory; `fix_config_file` (called by `hmp doctor --fix-config <file>`) rewrites the file in place |
 | `schema_export.py` | the JSON Schema of the root or of one section, filtered by profile (`export_schema`, `write_schema`, `schema_sha256`) |
 | `dynamic_flow_examples.py` | the provider that lets the TOML template generator render commented examples for the dynamic `[flow.param.*]`, `[flow.bc.*]` and `[flow.sinks_sources.*]` blocks without importing `physics` or `spatial`. `hydromodpy/_bootstrap.py` wires it |
 

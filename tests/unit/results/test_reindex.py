@@ -10,6 +10,7 @@ import duckdb
 import pytest
 
 import hydromodpy.results.catalog.indexer as indexer_module
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
 from hydromodpy.results.annotations import Annotations, write_annotations
 from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
@@ -23,7 +24,6 @@ from hydromodpy.results.catalog.index_schema import (
 from hydromodpy.results.catalog.indexer import index_is_current, known_issues_digest, scan_tree
 from hydromodpy.results.catalog.views import V_CASES_FIXED_COLUMNS
 from hydromodpy.results.checks import CalibratedBy
-from hydromodpy.results.errors import SchemaVersionMismatchError
 from hydromodpy.results.storage.contract import (
     RUN_ATTEMPTS_DIRNAME,
     RUN_MANIFEST_FILENAME,

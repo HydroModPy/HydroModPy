@@ -25,6 +25,10 @@ why the project root, and not the workspace, owns the file.
 
 Frozen mode is two module variables: one project is frozen per process. The
 runner sets it before a run and clears it after.
+
+Every reader refuses a lockfile whose ``[hydromodpy] version`` is not
+:data:`LOCKFILE_VERSION`, naming the version read and the command that
+writes it again: a lockfile is never migrated.
 """
 
 from __future__ import annotations
@@ -37,9 +41,11 @@ from typing import Any
 import tomlkit
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.io.document_version import check_version
 
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_VERSION = "2.0.0"
+LOCKFILE_REMEDY = "Write it again from the data cache with `hmp dev lock update`."
 
 # Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
 # downloads when a lockfile is authoritative, and to know which project's
@@ -154,22 +160,32 @@ def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
     return hasher.hexdigest()
 
 
-def read_lockfile_schema_sha256(path: Path | str) -> str | None:
-    """Return the ``schema.config_sha256`` recorded in the lockfile, when present.
+def _parse(path: Path | str) -> tomlkit.TOMLDocument:
+    """Parse the lockfile at *path*; refuse it unless it carries :data:`LOCKFILE_VERSION`."""
+    target = Path(path)
+    doc = tomlkit.parse(target.read_text())
+    header = doc.get("hydromodpy")
+    raw = header.get("version") if isinstance(header, dict) else None
+    found = None if raw is None else str(raw)
+    check_version(
+        found, LOCKFILE_VERSION, document=target, key="hydromodpy.version", remedy=LOCKFILE_REMEDY
+    )
+    return doc
 
-    Falls back to ``schema.sha256`` for lockfiles written before P9.
-    """
-    doc = tomlkit.parse(Path(path).read_text())
+
+def read_lockfile_schema_sha256(path: Path | str) -> str | None:
+    """Return the ``schema.config_sha256`` recorded in the lockfile, when present."""
+    doc = _parse(path)
     schema = doc.get("schema")
     if not isinstance(schema, dict):
         return None
-    value = schema.get("config_sha256") or schema.get("sha256")
+    value = schema.get("config_sha256")
     return str(value) if value is not None else None
 
 
 def read_lockfile_inputs(path: Path | str) -> dict[str, dict[str, Any]]:
     """Return the ``[inputs]`` table from the lockfile (rel_path -> payload)."""
-    doc = tomlkit.parse(Path(path).read_text())
+    doc = _parse(path)
     raw = doc.get("inputs")
     if not isinstance(raw, dict):
         return {}
@@ -187,7 +203,7 @@ def read_lockfile_inputs(path: Path | str) -> dict[str, dict[str, Any]]:
 
 def read_lockfile_binaries(path: Path | str) -> dict[str, str | None]:
     """Return ``[binaries]`` payload (``<solver>_sha256`` etc.) as a flat dict."""
-    doc = tomlkit.parse(Path(path).read_text())
+    doc = _parse(path)
     raw = doc.get("binaries")
     if not isinstance(raw, dict):
         return {}
@@ -199,7 +215,7 @@ def read_lockfile_binaries(path: Path | str) -> dict[str, str | None]:
 
 def read_lockfile_meta(path: Path | str) -> dict[str, Any]:
     """Return the ``[hydromodpy]`` header section as a plain dict."""
-    doc = tomlkit.parse(Path(path).read_text())
+    doc = _parse(path)
     raw = doc.get("hydromodpy")
     if not isinstance(raw, dict):
         return {}
@@ -208,7 +224,7 @@ def read_lockfile_meta(path: Path | str) -> dict[str, Any]:
 
 def read_lockfile(path: Path | str) -> list[LockedArtifact]:
     """Load every legacy ``[[artefact]]`` block of the lockfile."""
-    doc = tomlkit.parse(Path(path).read_text())
+    doc = _parse(path)
     out: list[LockedArtifact] = []
     for item in doc.get("artefact", []):
         out.append(
@@ -228,6 +244,7 @@ def read_lockfile(path: Path | str) -> list[LockedArtifact]:
 
 __all__ = [
     "LOCKFILE_NAME",
+    "LOCKFILE_REMEDY",
     "LOCKFILE_VERSION",
     "LockMismatch",
     "LockedArtifact",

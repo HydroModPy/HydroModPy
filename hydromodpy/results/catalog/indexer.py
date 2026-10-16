@@ -29,8 +29,9 @@ Index table              Rebuilt from
 =======================  =======================================================
 cases, attempts          ``outcome.json``, ``attempts/<n>/outcome.json``,
                          ``logs/heartbeat.json``, the presence of the seal
-simulations              ``tables.parquet/simulation.parquet`` and ``manifest.json``;
-                         ``config.toml`` for the frozen configuration
+simulations              ``tables.parquet/simulation.parquet`` and ``manifest.json``
+                         (``geometry.mesh_engine``); ``config.toml`` for the
+                         frozen configuration
 parameters, metrics      ``manifest.json`` (``parameters``, ``metrics``)
 tracked_files            ``manifest.json`` (``inputs``)
 geographic_metadata      ``manifest.json`` (``geometry.catchment``)
@@ -101,7 +102,7 @@ from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.heartbeat import read_heartbeat
 from hydromodpy.results.manifest import Manifest, read_manifest
 from hydromodpy.results.outcome import Outcome, effective_status, read_outcome
-from hydromodpy.results.record import RunProvenance
+from hydromodpy.results.record import read_provenance
 from hydromodpy.results.session.descriptor import SessionDescriptor, read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import list_phases
@@ -605,6 +606,9 @@ class _IndexWriter:
         row.update(_label_columns(manifest, label_date=self._at.date()))
         row.update(_score_columns(manifest))
         row["session_id"] = manifest.lineage.session_id
+        # The engine that built the mesh is a fact of the seal: a config
+        # without a [mesh] section ran on the default engine of its release.
+        row["mesh_engine"] = manifest.geometry.mesh_engine
         self.insert("simulations", row)
         counts = {"simulations": 1}
         counts["parameters"] = self._insert_parameters(sim_id, manifest)
@@ -723,7 +727,7 @@ class _IndexWriter:
         target = path / RUN_PROVENANCE_FILENAME
         if not target.is_file():
             return 0
-        provenance = RunProvenance.model_validate(read_json(target))
+        provenance = read_provenance(path)
         host = provenance.platform
         git = provenance.git
         solver = provenance.solver

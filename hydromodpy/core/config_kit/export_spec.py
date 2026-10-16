@@ -756,7 +756,8 @@ def load_export_requests(data: Any) -> list[ExportRequest]:
         raise ValueError(
             "[export] is written as a table. An export is a request, one block per "
             'request: write [[export]] with variables = "...", and one block more for '
-            "each other export, in place of the old [export] toggles."
+            "each other export. 'hmp doctor --fix-config <file>' rewrites a file written "
+            "for the old [export] toggles."
         )
     return _EXPORT_REQUESTS.validate_python(list(data))
 

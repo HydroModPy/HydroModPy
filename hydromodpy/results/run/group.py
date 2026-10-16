@@ -313,7 +313,8 @@ class RunSet:
             or when the runs were scored under different rules (station,
             variable, window or rule version) and ``mixed_windows`` is false.
         KeyError
-            Raised when no run of the group carries the metric.
+            Raised when no run of the group carries the metric, for instance
+            when no run declares a ``[metrics] window``.
         """
         return self._extreme(metric, best=True, mixed_windows=mixed_windows)
 
@@ -339,7 +340,10 @@ class RunSet:
             raise ValueError("Empty group")
         ranked = self._ranked(metric, best=best, mixed_windows=mixed_windows)
         if ranked.empty:
-            raise KeyError(f"No metric '{metric}' found in group")
+            raise KeyError(
+                f"No run of the group carries '{metric}'. A run is scored only on its "
+                "[metrics] window: a run without one has no score."
+            )
         return Run(str(ranked["sim_id"].iloc[0]), self._catalog)
 
     def sort_by(

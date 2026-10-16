@@ -4,7 +4,7 @@
 # directory when the worker exited without writing its own outcome.
 # The flags of `hmp run` are the local launcher's, read when the task starts.
 cd "$PROJECT_ROOT" || exit 1
-CASE_TOML="$(hmp project case "$JOB" "$SLURM_ARRAY_TASK_ID")" || exit 2
+CASE_TOML="$("$HMP_PYTHON" -m hydromodpy project case "$JOB" "$SLURM_ARRAY_TASK_ID")" || exit 2
 FLAGS_TEXT="$("$HMP_PYTHON" -m hydromodpy.project.launch.slurm task-flags \
     --phase {{PHASE}} --project "$PROJECT_ROOT" --case-toml "$CASE_TOML")" || exit 2
 RUN_FLAGS=()
@@ -25,7 +25,7 @@ forward_term() {
 }
 trap forward_term TERM
 
-hmp run "$CASE_TOML" ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"} &
+"$HMP_PYTHON" -m hydromodpy run "$CASE_TOML" ${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"} &
 worker=$!
 wait "$worker"
 status=$?

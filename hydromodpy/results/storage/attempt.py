@@ -63,11 +63,13 @@ from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
+    PREPROCESSING_DIRNAME,
     RUN_INTERNAL_SCRATCH_DIRNAME,
     SCRATCH_ROOT_ENV,
     process_is_alive,
     run_dir_rel,
     runs_dir_for,
+    scratch_root_for,
 )
 from hydromodpy.results.catalog.registration import (
     check_name_free,
@@ -567,6 +569,27 @@ def scratch_dir_for_attempt(project_root: Path, run_dir: Path, attempt: int) -> 
     return Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_SCRATCH_DIRNAME
 
 
+def is_run_product(path: str | Path | None, project_root: Path | str | None) -> bool:
+    """Whether ``path`` is a file a run wrote for itself, never an input of the run.
+
+    The preprocessing writes its products (the rasterised stream network, a
+    clipped DEM) under the scratch of the run, which the seal removes, and the
+    solver works under a ``.hmp/`` folder, which is disposable. A path under
+    the scratch root of the project, under a ``.hmp/`` folder or under a
+    preprocessing folder is such a product. The inputs of a run are the files
+    the configuration declares and the files a provider delivered; a replay
+    derives the products from them again.
+    """
+    if path is None or not str(path):
+        return False
+    target = Path(path).expanduser()
+    if INTERNAL_DIRNAME in target.parts or PREPROCESSING_DIRNAME in target.parts:
+        return True
+    if project_root is None or not target.is_absolute():
+        return False
+    return target.resolve().is_relative_to(scratch_root_for(Path(project_root)).resolve())
+
+
 def _drop_attempt_state(run_dir: Path) -> None:
     """Remove ``<run>/.hmp/`` once a completed run is sealed."""
     state = run_dir / INTERNAL_DIRNAME
@@ -585,6 +608,7 @@ __all__ = [
     "close_sealed_attempt",
     "finish_attempt",
     "finish_dead_attempt",
+    "is_run_product",
     "latest_version_dir",
     "run_dir_for_name",
     "scheduler_job_id_from_env",

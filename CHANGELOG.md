@@ -34,6 +34,32 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Outputs and orchestration, real user tour of 2026-10-16 (129 commands of the documented path run
+  from an empty home; the defects it found):
+  - The seal no longer records a product of the run scratch (`_preprocessing/`) as an input, so
+    `hmp publish --with inputs` and `hmp replay` work for a run that loaded the hydrographic
+    network; a declared folder input is copied whole under `inputs/<sha256>/`; the replay points
+    the inputs of `[[data.*.sources]]` lists too, refuses by name an input that `inputs/` does not
+    hold, and `hmp replay` prints the full command with `-w <project>`; the `--frozen` pre-check of
+    `hmp run` that refused every custom input is gone (the rule lives in the replay payload).
+  - The directory digest of the identity hash leaves out the provenance sidecars a load writes next
+    to a file, so `hmp.run(cfg)` and `hmp run` on an unchanged configuration return the sealed run
+    instead of computing a `.v2`.
+  - `mesh_engine` of the index comes from the seal (schema 4, rebuilt by `hmp catalog reindex`);
+    `hmp catalog import` builds the missing index; `hmp catalog show --format json` writes `null`
+    for a missing score; `summary/by_case` and `by_site` carry every parameter of the seal under
+    its own name and the overrides of the recipe; `by_site` carries `best_reason`, and
+    `Project.best()` and `hmp catalog ls --best` say why a site has no best run (on stderr for a
+    machine format); `hmp project show .` reads the project of the current directory; a campaign
+    copy written by `hmp publish .` carries a root `PUBLICATION.json` of kind `project` listing its
+    members, `hmp publish --verify` checks them one by one and names a missing one, and
+    `hmp catalog import` refuses a project copy by name; the complete `hmp config template` passes
+    `hmp config check` up to the catchment it cannot invent (a field with a default factory is
+    written with its value, a required field of a disabled section is written commented).
+  - `HMP_SET_<key>` keeps the case of the key (`HMP_SET_flow__param__K__field__value`); a window
+    that stops before `setup_process` says that no run directory is written; `hmp config template`
+    writes no `[sites]` unless asked; a reference answered by a missing index names `-w`; the SLURM
+    scripts call `"$HMP_PYTHON" -m hydromodpy`, never a bare `hmp`.
 - Outputs and orchestration, closing pass of 2026-10-16 (adverse review of the whole campaign, seven
   high findings, all fixed):
   - A run name that already carries `.vN` (`--case a.v2`, `[simulation] name = "a.v2"`) no longer
@@ -113,7 +139,8 @@ Each release section includes the following standard categories:
   `invalid`, `skipped` and `stale_plan` from the plan and reads the attempt states from disk.
   `HMP_THREADS_PER_CASE` bounds the threads of a worker (`threadpoolctl` and the BLAS variables),
   `HMP_RUN_SCRATCH` and `HMP_SET_*` leave the environment of the children. Budgets measured on 22
-  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the machine when the key is not written),
+  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the
+  machine when the key is not written),
   refuses more than 16 without `--force`, two concurrent calibrations at most;
   `prepare_parallel` defaults to 2, 8 at most, and one case per site is prepared at a time.
 - `hmp project array . --scheduler slurm` (`project/launch/slurm.py`, templates under
@@ -221,7 +248,8 @@ Each release section includes the following standard categories:
 - The sites x recipes plan (`hydromodpy/config/sites/`): `expand_plan()` resolves `[sites]` and
   `[sites.recipes]` into immutable `plan/<hash>/` drafts with cell-level errors (`hmp config check`
   groups them), `bind`, `site_scoped` precedence, `--set` and `HMP_SET_*` through
-  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
+  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run
+  --dry-run` prints the plan of a `[sites]` project and `hmp run project.toml` launches it
   (the local launcher above);
   `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
 - The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
@@ -300,7 +328,8 @@ Each release section includes the following standard categories:
   relaxes it with a weighted Lloyd iteration (25 iterations at most, developer key
   `[mesh.voronoi] lloyd_tolerance`). GEOS tessellates in a local frame, so Lambert-93
   magnitudes no longer reach the geometry code, and seven gates (one cell per seed, Berge balls, mirror
-  faces, chain continuity, area, degenerate cells, short faces) stop an invalid mesh instead of warning. One request and
+  faces, chain continuity, area, degenerate cells, short faces) stop an invalid mesh instead of
+  warning. One request and
   one seed give one mesh, bit for bit; the engine asks for no cache. `[mesh.voronoi] seeds =
   "triangulation"`, the default when `[mesh.triangle] path` is given, takes the generators from
   that triangulation and keeps its dual, with the same faces as the former Voronoi mesh. At equal
@@ -393,6 +422,11 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- Every stored document carries its version (`version` or `schema` id) and a reader refuses an
+  unknown one naming the version it read and what to do (`hmp catalog reindex` for the index, the
+  HydroModPy version that wrote a sealed document); `hmp doctor --fix-config <file>` rewrites a
+  TOML of the previous grammar in place (`config_migration.py` is the one migration kept: a
+  configuration file, never stored data).
 - `[sites.run] parallel`, `prepare_parallel` and `threads_per_case` carry the measured budgets in
   their descriptions; `hmp run --until data` prepares without solving; `hmp project status` after
   a failed prepare shows the case `failed`; a re-run of `hmp run project.toml` leaves a finished
@@ -556,8 +590,8 @@ Each release section includes the following standard categories:
   gallery, whose producers no longer exist; a copy lives outside the tree) and the always-skipped
   `tests/unit/solver/test_boussinesq_stationary_robust_solver_matrix.py`, which loaded a script of the
   retired example 10.
-- `hmp doctor --fix-config` and `fix_config_file`, the `~/hydromodpy` fallback of every verb,
-  `cli/commands/site/_workspace.py`, the `results` group of `hmp workspace clean` that deleted
+- The `~/hydromodpy` fallback of every verb, `cli/commands/site/_workspace.py`, the `results` group
+  of `hmp workspace clean` that deleted
   `runs/` without a tombstone, `open_indexed_run` (network metrics open the run from its directory).
 - The DuckDB-bound writer of the Catalog (`results/catalog/{writes,writes_zarr,writes_parquet,
   writes_helpers,writes_duckdb,lifecycle,reindex,package_io,audit}.py`, `register_simulation`,

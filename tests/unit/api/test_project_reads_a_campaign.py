@@ -11,6 +11,7 @@ written by ``Project.plan``.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -196,6 +197,22 @@ def test_best_by_site_ranks_the_calibrated_runs_under_their_rule(tmp_path: Path)
     assert row["nse_window_start"] == WINDOW.start
     assert row["nse_window_end"] == WINDOW.end
     assert list(every["case_id"]) == ["nancon-k2e_5"]
+
+
+def test_best_names_the_sites_it_leaves_out_and_why(tmp_path: Path, caplog) -> None:
+    project = _campaign(tmp_path)
+    hmp.open(project).plan()
+    seal_run(project, "nancon-base", site="nancon", recipe="base", nse=None, window=None)
+    seal_run(project, "couesnon-base", site="couesnon", recipe="base", nse=0.6)
+
+    with hmp.open(project) as proj, caplog.at_level(logging.WARNING):
+        every = proj.best("nse", by="site", label=None)
+        calibrated = proj.best("nse", by="site")
+
+    assert list(every["site"]) == ["couesnon"]
+    assert calibrated.empty
+    assert "no sealed run of nancon is scored: declare [metrics] window" in caplog.text
+    assert "no calibrated run of couesnon is scored; label=None ranks every" in caplog.text
 
 
 def test_best_refuses_two_windows_inside_one_site(tmp_path: Path) -> None:

@@ -45,7 +45,7 @@ from hydromodpy.results.storage.contract import (
     PLAN_FILENAME,
     PLAN_SITES_FILENAME,
 )
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 from hydromodpy.results.storage.parquet_io import write_table_atomic
 
 PLAN_SCHEMA: Final[str] = "hydromodpy.plan.v1"
@@ -187,7 +187,7 @@ def read_plan(project_root: str | Path, plan_hash: str | None = None) -> StoredP
     if chosen is None:
         raise FileNotFoundError(f"no plan under {plan_dir_for(Path(project_root))}")
     directory = plan_path(project_root, chosen)
-    plan = Plan.model_validate(read_json(directory / PLAN_FILENAME))
+    plan = Plan.model_validate(read_sealed_json(directory / PLAN_FILENAME, PLAN_SCHEMA))
     sites = pq.read_table(directory / PLAN_SITES_FILENAME)
     cases = tuple(
         PlanCase.model_validate(row)

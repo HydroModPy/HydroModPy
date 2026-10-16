@@ -516,7 +516,9 @@ class Project:
         The metric is read at the gauge of each run, in the window of its
         rule; best follows its direction. The calibrated runs are ranked by
         default; ``label=None`` ranks every completed run. ``by=None`` gives
-        the single best run of the project.
+        the single best run of the project. A site of completed runs left
+        out is named once in a warning, with why: no run scored (declare
+        ``[metrics] window``), or none of ``label``.
 
         Returns
         -------

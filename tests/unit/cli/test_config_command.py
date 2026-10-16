@@ -176,3 +176,37 @@ def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
     assert result.exit_code == 14
     assert "Traceback" not in result.stderr
     assert "[sites.recipes] bad: " in result.stderr and "invalid TOML" in result.stderr
+
+
+def test_config_template_without_modules_holds_no_sites_section(tmp_path) -> None:
+    template = tmp_path / "tpl.toml"
+
+    result = CliRunner().invoke(["config", "template", str(template)])
+
+    assert result.exit_code == 0, result.stderr
+    assert "[sites" not in template.read_text(encoding="utf-8")
+    checked = CliRunner().invoke(["config", "check", str(template)])
+    assert "[sites]" not in checked.stderr + checked.stdout
+    assert "anchored by project.toml" not in checked.stderr + checked.stdout
+
+
+def test_config_template_writes_sites_only_when_asked(tmp_path) -> None:
+    template = tmp_path / "sites.toml"
+
+    result = CliRunner().invoke(["config", "template", str(template), "--modules", "sites"])
+
+    assert result.exit_code == 0, result.stderr
+    assert "[sites" in template.read_text(encoding="utf-8")
+
+
+def test_the_full_template_fails_its_check_only_on_the_catchment_to_choose(tmp_path) -> None:
+    template = tmp_path / "full.toml"
+    assert CliRunner().invoke(["config", "template", str(template)]).exit_code == 0
+
+    checked = CliRunner().invoke(["config", "check", str(template)])
+
+    output = checked.stderr + checked.stdout
+    assert checked.exit_code != 0
+    assert "1 validation error(s)" in output, output
+    assert "geographic.catchment.catch_def is required" in output
+    assert "crossings" not in output

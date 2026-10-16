@@ -213,20 +213,13 @@ def test_schema_sha256_round_trips(tmp_path: Path) -> None:
     assert read_lockfile_schema_sha256(dest) == "0123abcd"
 
 
-def test_schema_sha256_falls_back_to_legacy_key(tmp_path: Path) -> None:
-    """Pre-P9 lockfiles stored ``schema.sha256``; the reader still honours it."""
-    legacy = tmp_path / "legacy.lock"
-    legacy.write_text('[schema]\ncatalog = 1\nsha256 = "legacysha"\n')
-    assert read_lockfile_schema_sha256(legacy) == "legacysha"
-
-
 def test_schema_sha256_absent_returns_none(tmp_path: Path) -> None:
     no_schema = tmp_path / "noschema.lock"
     no_schema.write_text('[hydromodpy]\nversion = "2.0.0"\n')
     assert read_lockfile_schema_sha256(no_schema) is None
 
     empty_schema = tmp_path / "empty.lock"
-    empty_schema.write_text("[schema]\ncatalog = 1\n")
+    empty_schema.write_text('[hydromodpy]\nversion = "2.0.0"\n\n[schema]\ncatalog = 1\n')
     assert read_lockfile_schema_sha256(empty_schema) is None
 
 

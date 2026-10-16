@@ -11,8 +11,8 @@ attempt take the directory.
 
 Format
 ------
-``{"at": "<UTC instant>", "pid": 4421, "host": "node12", "attempt_id": "...",
-"step": "run_solver"}``, written by a temporary file and one rename, so a
+``{"schema": "hydromodpy.heartbeat.v1", "at": "<UTC instant>", "pid": 4421,
+"host": "node12", "attempt_id": "...", "step": "run_solver"}``, written by a temporary file and one rename, so a
 reader never sees a truncated pulse. :class:`HeartbeatThread` writes it in
 the background; ``beat`` writes it once, at entry and at every step change.
 """
@@ -24,17 +24,24 @@ import socket
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Final
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.storage.contract import HEARTBEAT_FILENAME, RUN_LOGS_DIRNAME
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
+
+HEARTBEAT_SCHEMA: Final[str] = "hydromodpy.heartbeat.v1"
+"""Schema id of ``logs/heartbeat.json``."""
 
 
 class Heartbeat(HydroModelBase):
     """One pulse of a running attempt."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: str = Field(default=HEARTBEAT_SCHEMA, alias="schema", description="Schema id")
     at: datetime = Field(description="Instant of the pulse, UTC")
     pid: int = Field(description="Process of the attempt")
     host: str = Field(description="Host of the attempt")
@@ -49,13 +56,13 @@ def heartbeat_path(run_dir: str | Path) -> Path:
 
 def write_heartbeat(run_dir: str | Path, beat: Heartbeat) -> Path:
     """Write one pulse atomically and return its path."""
-    return write_json_atomic(heartbeat_path(run_dir), beat.model_dump(mode="json"))
+    return write_json_atomic(heartbeat_path(run_dir), beat.model_dump(mode="json", by_alias=True))
 
 
 def read_heartbeat(run_dir: str | Path) -> Heartbeat | None:
     """Return the last pulse, or ``None`` when the attempt never pulsed."""
     try:
-        payload = read_json(heartbeat_path(run_dir))
+        payload = read_transient_json(heartbeat_path(run_dir), HEARTBEAT_SCHEMA)
     except FileNotFoundError:
         return None
     return Heartbeat.model_validate(payload)
@@ -147,6 +154,7 @@ class HeartbeatThread(threading.Thread):
 
 
 __all__ = [
+    "HEARTBEAT_SCHEMA",
     "Heartbeat",
     "HeartbeatThread",
     "heartbeat_age_s",

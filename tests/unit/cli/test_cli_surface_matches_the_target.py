@@ -103,7 +103,6 @@ REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
 )
 REMOVED_OPTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("calibrate",), "--check"),
-    (("doctor",), "--fix-config"),
     (("doctor",), "--migrate"),
     (("doctor",), "--migrate-layout"),
     (("doctor",), "--migrate-sessions"),

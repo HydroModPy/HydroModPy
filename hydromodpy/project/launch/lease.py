@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hydromodpy.core.exceptions import WriteConflictError
+from hydromodpy.core.io.document_version import TRANSIENT_REMEDY, check_document
 from hydromodpy.core.state.paths import LAUNCHER_LEASE_FILENAME, internal_dir, process_is_alive
 
 LEASE_SCHEMA = "hydromodpy.launcher-lease.v1"
@@ -68,7 +69,10 @@ def read_lease(project_root: Path) -> Lease | None:
     """Return the lease of a project, or ``None`` when nobody holds it.
 
     A lease file that cannot be parsed is a lease being written: it is
-    returned with an unknown holder (pid 0) so the caller refuses it.
+    returned with an unknown holder (pid 0) so the caller refuses it. A lease
+    of another schema raises
+    :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`, which
+    says to delete it.
     """
     return _read_lease_file(lease_path(project_root))
 
@@ -80,6 +84,10 @@ def _read_lease_file(path: Path) -> Lease | None:
         return None
     try:
         payload = json.loads(text)
+    except ValueError:
+        return Lease(path=path, host="", pid=0, started_at=datetime.now(UTC))
+    check_document(payload, LEASE_SCHEMA, document=path, remedy=TRANSIENT_REMEDY)
+    try:
         return Lease(
             path=path,
             host=str(payload["host"]),

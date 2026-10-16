@@ -3,8 +3,9 @@
 A thin wrapper of :func:`hydromodpy.results.export.publish.publish`. The run
 is published to ``--into`` as a directory, with the bytes of its inputs. The
 command then prints the line that replays it, ``hmp run DIR/config.toml
---frozen``, and the HydroModPy version the run was sealed with: the replay
-reads its inputs from ``DIR/inputs/`` and needs no workspace of the source.
+--frozen -w PROJECT``, and the HydroModPy version the run was sealed with: the
+replay reads its inputs from ``DIR/inputs/``, needs no workspace of the
+source, and writes its run into the project the line names.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli.commands.publish import run_dir_of
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.results.export.publish import publish
+    from hydromodpy.results.export.publish import MissingInputError, publish
     from hydromodpy.results.export.run_identity import read_sealed_manifest
     from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 
@@ -71,12 +72,16 @@ def run(args: argparse.Namespace) -> None:
             with_=("inputs",),
         )
         seal = read_sealed_manifest(source)
+    except MissingInputError as exc:
+        print(f"{exc.detail} A replay carries the bytes of every input.", file=sys.stderr)
+        sys.exit(exit_code_for(exc))
     except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
     # publish refuses a run without a manifest, so the seal is there.
     version = seal.identity.hydromodpy_version if seal is not None else "unknown"
-    print(f"hmp run {shlex.quote(str(copy / RUN_CONFIG_FILENAME))} --frozen")
+    config = shlex.quote(str(copy.resolve() / RUN_CONFIG_FILENAME))
+    print(f"hmp run {config} --frozen -w {shlex.quote(str(project_root))}")
     print(f"HydroModPy {version}")
     print(
         f"The run was sealed with HydroModPy {version}; replay it with that version.",

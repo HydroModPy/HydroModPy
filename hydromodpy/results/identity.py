@@ -43,7 +43,7 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 from hydromodpy.results.validity_rules import Label
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE
 
@@ -278,7 +278,7 @@ def read_identity_from(path: str | Path) -> Identity | None:
 def _read_sidecar(path: Path) -> Identity | None:
     if not path.is_file():
         return None
-    return MetaSidecar.model_validate(read_json(path)).identity
+    return MetaSidecar.model_validate(read_sealed_json(path, IDENTITY_SCHEMA)).identity
 
 
 def _read_zarr(path: Path) -> Identity | None:

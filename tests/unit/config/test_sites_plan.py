@@ -24,6 +24,7 @@ from hydromodpy.config.sites.plan import (
 )
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.toml_io.paths import lookup
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME
 
@@ -627,7 +628,13 @@ def _seal(project: Path, dirname: str, config_hash: str) -> None:
     run_dir = project / "runs" / dirname
     run_dir.mkdir(parents=True)
     (run_dir / RUN_MANIFEST_FILENAME).write_text(
-        json.dumps({"identity": {"config_hash": config_hash}}), encoding="utf-8"
+        json.dumps(
+            {
+                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
+                "identity": {"config_hash": config_hash},
+            }
+        ),
+        encoding="utf-8",
     )
 
 

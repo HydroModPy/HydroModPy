@@ -12,6 +12,7 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
 from hydromodpy.results.ledger import sha256_of
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.publication import Publication, PublicationSource, write_publication
 
 SIM_ID = "9a4f0c1e-0000-4000-8000-000000000001"
@@ -31,7 +32,10 @@ def _published(tmp_path: Path) -> Path:
     copy = tmp_path / "copy"
     (copy / "tables.parquet").mkdir(parents=True)
     (copy / "tables.parquet" / "simulation.parquet").write_bytes(b"PAR1")
-    (copy / "manifest.json").write_text(json.dumps({"run": {"sim_id": SIM_ID}}), encoding="utf-8")
+    (copy / "manifest.json").write_text(
+        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": SIM_ID}}),
+        encoding="utf-8",
+    )
     files = {
         path.relative_to(copy).as_posix(): sha256_of(path)
         for path in sorted(copy.rglob("*"))

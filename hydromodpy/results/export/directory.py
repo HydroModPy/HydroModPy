@@ -39,11 +39,13 @@ from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION, read_manifest
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_MANIFEST_FILENAME,
     RUN_PROVENANCE_FILENAME,
 )
+from hydromodpy.results.storage.json_io import read_sealed_json
 from hydromodpy.schema.generated_views import VIEW_FILENAMES
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.extent import SpatialExtent
@@ -103,7 +105,7 @@ def context_from_directory(directory: Path | str) -> FairExportContext:
     if manifest.get("profile") == JOB_PROFILE:
         return _job_context(root, manifest)
     if "manifest_version" in manifest:
-        return _run_context(root, manifest)
+        return _run_context(root, read_manifest(root))
     raise ExportError(
         f"{manifest_path} is neither a run manifest nor a job manifest; "
         "no view can be rendered from it"
@@ -162,7 +164,12 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     run = _mapping(manifest.get("run"))
     geometry = _mapping(manifest.get("geometry"))
     period = _mapping(manifest.get("period"))
-    provenance = _optional_object(root / RUN_PROVENANCE_FILENAME)
+    provenance_path = root / RUN_PROVENANCE_FILENAME
+    provenance: Mapping[str, Any] = (
+        read_sealed_json(provenance_path, RUN_RECORD_MANIFEST_VERSION, key="provenance_version")
+        if provenance_path.is_file()
+        else {}
+    )
     solver = _mapping(provenance.get("solver"))
     git = _mapping(provenance.get("git"))
     environment = _mapping(provenance.get("environment"))

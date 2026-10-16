@@ -30,7 +30,7 @@ from pydantic import ConfigDict, Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.storage.contract import LEDGER_FILENAME
-from hydromodpy.results.storage.json_io import read_json, write_json_atomic
+from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atomic
 
 LEDGER_SCHEMA: Final[str] = "hydromodpy.ledger.v1"
 """Schema id of the document."""
@@ -81,7 +81,7 @@ class Ledger(HydroModelBase):
     def read(cls, directory: str | Path) -> Ledger:
         """Return the ledger of a directory, empty when it has none."""
         try:
-            payload = read_json(ledger_path(directory))
+            payload = read_sealed_json(ledger_path(directory), LEDGER_SCHEMA)
         except FileNotFoundError:
             return cls()
         return cls.model_validate(payload)

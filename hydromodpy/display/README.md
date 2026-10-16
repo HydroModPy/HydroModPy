@@ -46,7 +46,8 @@ rules.
    is the one place a date meets a run: it calls `run.periods.step_at` and hands the
    figure the step as `timestep`, the internal channel the maps read. The user
    never writes `timestep`. In a TOML the old key is renamed to `time` on load
-   by `config/config_migration.py` (INFO line); a `DisplayConfig` built from a
+   by `config/config_migration.py` (INFO line, `hmp doctor --fix-config <file>`
+   persists it); a `DisplayConfig` built from a
    dict renames it in its own before-validator, with a `ConfigKeyRenamedWarning`.
    A date the run does not hold skips the figure with its reason.
 4. **An option is a parameter.** The keys `[display.overrides.<figure>]` takes

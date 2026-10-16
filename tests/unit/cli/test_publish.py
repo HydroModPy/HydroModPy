@@ -28,7 +28,11 @@ def test_the_project_is_published_with_its_summary(tmp_path: Path) -> None:
     result = _invoke(".", "--to", str(destination), "-w", str(project))
 
     assert result.exit_code == EXIT_OK, result.stderr
-    assert {entry.name for entry in destination.iterdir()} == {RUN_NAME, "summary"}
+    assert {entry.name for entry in destination.iterdir()} == {
+        RUN_NAME,
+        "summary",
+        "PUBLICATION.json",
+    }
     assert "runs/a/mfsim.lst" in (destination / "summary" / "by_case.csv").read_text()
     assert "Published 2 copy(ies)" in result.stderr
 

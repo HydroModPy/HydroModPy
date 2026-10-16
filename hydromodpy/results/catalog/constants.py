@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-from hydromodpy.spatial.mesh.registry import DEFAULT_ENGINE_ID
-
 GLOBAL_ZONE = "__global__"
 """Sentinel parameter zone used when no spatial zoning applies."""
 
@@ -32,18 +30,13 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
 )
 
 
-MESH_ENGINE_SQL: str = (
-    "CASE WHEN json_exists(s.config_snapshot, '$.mesh') THEN "
-    f"COALESCE(json_extract_string(s.config_snapshot, '$.mesh.engine'), '{DEFAULT_ENGINE_ID}') "
-    "END"
-)
-"""SQL expression of the ``mesh_engine`` column of a run, derived from its config.
+MESH_ENGINE_SQL: str = "s.mesh_engine"
+"""SQL expression of the ``mesh_engine`` column of a run: the engine its seal names.
 
-The engine is not a column of ``simulations``: ``config_snapshot`` carries it, and
-it comes back with ``simulation.parquet`` when the index is rebuilt. A run
-sealed before the ``[mesh]`` section existed has no ``mesh`` key and gets NULL;
-a run whose ``[mesh]`` section is unset ran on the default engine. The
-expression reads the ``simulations`` table under the alias ``s``.
+The indexer copies ``geometry.mesh_engine`` of ``manifest.json`` into the
+column, so a run whose configuration has no ``[mesh]`` section shows the
+default engine it ran on. The expression reads the ``simulations`` table
+under the alias ``s``.
 """
 
 

@@ -11,6 +11,7 @@ import pytest
 
 import hydromodpy
 from hydromodpy.cli.commands.catalog import rerun as rerun_cmd
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.run import rerun_contract
 
 SOURCE_ID = "9a4f0c1e-0000-4000-8000-000000000001"
@@ -46,7 +47,8 @@ def _project(tmp_path: Path) -> Path:
         '[simulation]\nname = "nancon_monthly"\n[flow]\nk = 1e-5\n', encoding="utf-8"
     )
     (run_dir / "manifest.json").write_text(
-        json.dumps({"run": {"sim_id": SOURCE_ID}}), encoding="utf-8"
+        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": SOURCE_ID}}),
+        encoding="utf-8",
     )
     return project
 
@@ -78,7 +80,10 @@ def test_rerun_reads_the_frozen_config_and_keeps_the_name(
             new_dir = project / "runs" / "nancon_monthly.v3"
             new_dir.mkdir()
             (new_dir / "manifest.json").write_text(
-                json.dumps({"run": {"sim_id": NEW_ID}}), encoding="utf-8"
+                json.dumps(
+                    {"manifest_version": RUN_RECORD_MANIFEST_VERSION, "run": {"sim_id": NEW_ID}}
+                ),
+                encoding="utf-8",
             )
             return NEW_ID
 

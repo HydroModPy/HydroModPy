@@ -1,5 +1,61 @@
 {
   "$defs": {
+    "PublicationMember": {
+      "additionalProperties": false,
+      "description": "One copy a project copy holds: a run or the summary, a folder or a tar.",
+      "properties": {
+        "manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Digest of the sealed manifest of the run; none for the summary",
+          "title": "Manifest Sha256",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Folder or .tar of the member, directly under the copy",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "publication_sha256": {
+          "description": "Digest of the member's own PUBLICATION.json",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Publication Sha256",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "rel_dir": {
+          "description": "Directory of the member's source, relative to the project root",
+          "examples": [
+            "example"
+          ],
+          "title": "Rel Dir",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "rel_dir",
+        "publication_sha256"
+      ],
+      "title": "PublicationMember",
+      "type": "object"
+    },
     "PublicationSource": {
       "additionalProperties": false,
       "description": "The run or summary a copy was made from.",
@@ -14,7 +70,7 @@
           "x-hmp-profile": "user"
         },
         "rel_dir": {
-          "description": "Directory of the source, relative to the project root; summary for a summary",
+          "description": "Directory of the source, relative to the project root; summary for a summary, . for a whole project",
           "examples": [
             "example"
           ],
@@ -32,7 +88,7 @@
             }
           ],
           "default": null,
-          "description": "Id of the run; none for a summary",
+          "description": "Id of the run; none for a summary or a project",
           "title": "Sim Id",
           "x-hmp-profile": "user"
         }
@@ -76,6 +132,21 @@
         "example"
       ],
       "title": "Hydromodpy Version",
+      "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "kind": {
+      "default": "run",
+      "description": "What the copy is: one run, the summary or a whole project",
+      "enum": [
+        "run",
+        "summary",
+        "project"
+      ],
+      "examples": [
+        "run"
+      ],
+      "title": "Kind",
       "type": "string",
       "x-hmp-profile": "user"
     },
@@ -127,6 +198,15 @@
       "default": null,
       "description": "Digest of the sealed manifest",
       "title": "Manifest Sha256",
+      "x-hmp-profile": "user"
+    },
+    "members": {
+      "description": "The copies a project copy holds, one per run and one for the summary",
+      "items": {
+        "$ref": "#/$defs/PublicationMember"
+      },
+      "title": "Members",
+      "type": "array",
       "x-hmp-profile": "user"
     },
     "published_at": {
