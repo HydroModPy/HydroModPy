@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.state.paths import data_cache_path_for
+
 if TYPE_CHECKING:
     import pandas as pd
-
-_DATA_CACHE_BASENAME = "cache.duckdb"
 
 
 class InputsNamespace:
@@ -25,7 +25,7 @@ class InputsNamespace:
     @property
     def db_path(self) -> Path:
         """Filesystem path of the underlying cache DuckDB."""
-        return self._workspace / "data" / _DATA_CACHE_BASENAME
+        return data_cache_path_for(self._workspace / "data")
 
     def has_cache(self) -> bool:
         """Return ``True`` when ``<workspace>/data/cache.duckdb`` exists."""

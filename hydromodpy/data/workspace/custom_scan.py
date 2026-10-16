@@ -19,6 +19,7 @@ from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import data_cache_path_for
 from hydromodpy.data.common.io_helpers import is_scaffold_example, parse_chronicle_filename
 from hydromodpy.data.ingest import (
     TimeSeriesValidationError,
@@ -482,7 +483,7 @@ _SCANNERS = {
 def _open_catalog(workspace: Path):
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
-    db_path = Path(workspace) / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(Path(workspace) / "data")
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return DataCatalogDuckDB(db_path)
 

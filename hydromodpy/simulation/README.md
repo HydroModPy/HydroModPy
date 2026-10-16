@@ -20,8 +20,7 @@ how a plan becomes a run and then results, and where to add what.
 | `execution/runner.py` | `SimulationRunner.execute`: when each run executes, which process-family blocks open and close, where each model is kept; `ensure_flow`, `ensure_transport` and `ensure_process_context` build the process objects a block needs |
 | `adapters/` | what the transport adapters of every solver share (`transport_helpers.py`); the solver adapters themselves live in `solver/<backend>/adapters/` |
 | `extraction/post_run.py` | what happens after a solve: extract the solver files, derive outputs, export, clean up the scratch folder |
-| `extraction/derivation/` | what is computed from stored fields: `catchment_aggregation.py`, `observation_ingest.py`, `fit_metrics.py`, and the output-adapter Protocol in `base.py` |
-| `extraction/calibration_bridge.py` | the in-memory path a lumped model takes in a calibration: `make_hot_simulator`, `promote_trial`, `persist_calibration_summary_to_store` |
+| `extraction/derivation/` | what is computed from stored fields: `catchment_aggregation.py`, `observation_ingest.py`, and the output-adapter Protocol in `base.py`; the scores of a run live in `results/fit_metrics.py` |
 | `soil_recharge.py` | the soil reservoir run on loaded forcings: precipitation and ETP grids in, recharge, residual ETP and runoff records out, with the printed water-budget block |
 | `spinup_config.py` | `SpinupConfig` (`[spinup]`): the settings of the cyclic spin-up. The driver is `project/spinup.py` |
 
@@ -56,14 +55,10 @@ hydromodpy/simulation/
   planning/         config.py  results_config.py  observation_config.py  plan.py  planner.py
   execution/        runner.py
   adapters/         transport_helpers.py
-  extraction/       post_run.py  calibration_bridge.py
-    derivation/     base.py  catchment_aggregation.py  observation_ingest.py  fit_metrics.py
+  extraction/       post_run.py
+    derivation/     base.py  catchment_aggregation.py  observation_ingest.py
   soil_recharge.py  spinup_config.py
 ```
-
-`extraction/ARCHITECTURE.md` is an older note of the results store and does
-not describe the code of this package; `results/README.md` and
-`docs/source/contribute/architecture/storage-layout.rst` do.
 
 ## How a plan becomes a run
 
@@ -104,6 +99,6 @@ trials it may promote.
 | a solver for an existing process | in `solver/`, never here; see `docs/source/contribute/architecture/how-to/add-a-solver.rst` |
 | a `[simulation]` or `[simulation.results]` field | the field on its model, with a profile and a description; see `docs/source/contribute/architecture/how-to/add-a-config-field.rst` |
 | a derived field | a row function in `results/derive/virtual_fields.py`: derived fields are rebuilt on read, never written by a run |
-| a fit metric | `write_fit_metrics` in `extraction/derivation/fit_metrics.py` |
+| a fit metric | `fit_metrics` in `hydromodpy/results/fit_metrics.py` |
 | a step after the solve | a function in `extraction/post_run.py` and its call in the matching workflow step (`extract`, `derive` or `export` under `workflow/steps/`) |
 | a callback around a run | a field of `ProcessCallbacks` and its call in `SimulationRunner` |

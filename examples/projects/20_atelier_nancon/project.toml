@@ -308,9 +308,8 @@ enabled = true
 preset = "default"
 # `show = false` garde `hmp run` non interactif (pas de fenetre popup).
 show = false
-# Sauvegarde sur disque sous <project_root>/<output_dir>/<run_name>/.
+# Sauvegarde sur disque sous <project_root>/runs/<run_name>/figures/.
 save = true
-output_dir = "figures"
 
 # Figures rendues automatiquement. Commenter une ligne pour ne pas la
 # rendre. Tout desactiver avec `hmp run --no-display` ou

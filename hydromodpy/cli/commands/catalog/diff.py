@@ -1,4 +1,4 @@
-"""``hmp catalog diff`` - compare two runs' parameters and outlet metrics."""
+"""``hmp catalog diff`` - compare two runs' parameters and metrics."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_fo
 from hydromodpy.core.state.paths import resolve_project_root
 
 NAME: str = "diff"
-HELP: str = "Compare two runs' parameters and outlet metrics"
+HELP: str = "Compare two runs' parameters and metrics"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -41,7 +41,7 @@ def _print_delta(title: str, delta: dict) -> None:
         return
     print(f"{title}:")
     for (name, scope), (a, b) in delta.items():
-        scope_str = "" if scope in (None, "__outlet__", "__global__") else f"@{scope}"
+        scope_str = "" if scope in (None, "", "__global__") else f"@{scope}"
         print(f"  {name}{scope_str}: {a!r} -> {b!r}")
 
 

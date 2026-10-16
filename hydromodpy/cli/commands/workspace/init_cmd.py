@@ -25,7 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-name",
         default=None,
-        help="Project name written to workspace.toml, and label of the registration (default: the workspace folder name)",
+        help="Project name written to workspace.toml (default: the workspace folder name)",
     )
     parser.add_argument(
         "--creator-name", default=None, help="Creator name written to workspace.toml"

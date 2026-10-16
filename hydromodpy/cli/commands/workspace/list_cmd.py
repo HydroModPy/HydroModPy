@@ -1,22 +1,41 @@
-"""``hmp workspace list`` - projects registered in the machine-wide global index."""
+"""``hmp workspace list`` - the sealed runs of every project under a workspace.
+
+Reads the one-row ``simulation.parquet`` each sealed run carries
+(:func:`hydromodpy.results.catalog.federation.read_workspace_runs`): no index
+is opened, and a project whose index was never built is listed all the same.
+"""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_OK
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "list"
-HELP: str = "List the projects registered in the machine-wide global index"
+HELP: str = "List the sealed runs of every project under a workspace, from their directories"
+
+_COLUMNS: tuple[str, ...] = (
+    "project",
+    "name",
+    "site",
+    "solver",
+    "nse",
+    "created_at",
+    "sim_id",
+)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        epilog="Example:\n  hmp workspace list --json",
+        epilog="Examples:\n  hmp workspace list\n  hmp workspace list ~/hydromodpy --json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "path", nargs="?", default=None, help="Workspace or project root (default: current dir)"
     )
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
     parser.set_defaults(_handler=run)
@@ -24,23 +43,20 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.workspace import list_registered_projects
+    from hydromodpy.cli._workers.workspace import list_workspace_runs
 
-    df = list_registered_projects()
-    if df is None or df.empty:
-        print("(no registered projects)")
+    root = Path(args.path).expanduser().resolve() if args.path else Path.cwd().resolve()
+    if not root.is_dir():
+        print(f"Not a directory: {root}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    df = list_workspace_runs(root)
+    if df.empty:
+        print(f"(no sealed run under {root})")
         sys.exit(EXIT_OK)
 
+    columns = [c for c in _COLUMNS if c in df.columns] or list(df.columns)
     if args.json:
-        print(df.to_json(orient="records", date_format="iso", indent=2))
+        print(df[columns].to_json(orient="records", date_format="iso", indent=2))
         sys.exit(EXIT_OK)
-
-    columns = [
-        c
-        for c in ("project_id", "label", "project_uri", "created_at", "last_scanned_at")
-        if c in df.columns
-    ]
-    if not columns:
-        columns = list(df.columns)
     print(df[columns].to_string(index=False))
     sys.exit(EXIT_OK)

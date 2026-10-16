@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import data_cache_path_for
 
 if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
@@ -68,7 +69,7 @@ def write_project_lockfile(config: HydroModPyConfig, *, quiet: bool = True) -> P
     from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     project_root = Path(config.workspace.project_root)
-    db_path = Path(config.workspace.data_dir) / "cache.duckdb"
+    db_path = data_cache_path_for(Path(config.workspace.data_dir))
     if not db_path.is_file():
         return None
 

@@ -1,4 +1,4 @@
-"""Unit tests for the workflow_steps journal."""
+"""Unit tests for the step journal of a run directory."""
 
 from __future__ import annotations
 
@@ -8,20 +8,12 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import JournalError
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.workflow.tracking.journal import WorkflowJournal, WorkflowStepRow
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.workflow.tracking.journal import WorkflowJournal, WorkflowStepRow, journal_path
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> Catalog:
-    with simulation_catalog(tmp_path) as cat:
-        yield cat
-
-
-@pytest.fixture
-def journal(catalog: Catalog) -> WorkflowJournal:
-    return WorkflowJournal(catalog)
+def journal(tmp_path: Path) -> WorkflowJournal:
+    return WorkflowJournal(tmp_path)
 
 
 def test_start_step_inserts_row(journal: WorkflowJournal) -> None:
@@ -136,7 +128,11 @@ def test_invalidate_from_cascades(journal: WorkflowJournal) -> None:
     assert all(r.error_message == "forced" for r in rows if r.status == "aborted")
 
 
-def test_legacy_simulation_heartbeat_writer_removed() -> None:
+def test_the_journal_lives_under_the_attempt_state_of_the_run(tmp_path: Path) -> None:
+    journal = WorkflowJournal(tmp_path)
+    journal.start_step(run_id="r1", step_order=0, step_name="validate", inputs_hash=None)
+    assert journal.path == journal_path(tmp_path)
+    assert journal.path == tmp_path / ".hmp" / "checkpoints" / "steps.json"
     assert not hasattr(WorkflowJournal, "update_heartbeat")
 
 
@@ -189,11 +185,8 @@ def test_row_dataclass_is_frozen() -> None:
 def test_repeated_full_step_cycles_never_corrupt_the_unique_index(
     journal: WorkflowJournal,
 ) -> None:
-    # Re-running the same simulation name replays the same (run_id, step_order)
-    # keys run after run. Deleting and re-inserting that UNIQUE key inside one
-    # transaction corrupts DuckDB's ART index after a few cycles (FATAL
-    # "Failed to append to UNIQUE_workflow_steps"); the journal must therefore
-    # commit the delete before the insert. Ten full cycles stay healthy.
+    # Re-running the same case replays the same (run_id, step_order) keys run
+    # after run: every cycle replaces the rows of the previous one.
     for cycle in range(10):
         for order in range(6):
             step_id = journal.start_step(

@@ -10,7 +10,6 @@ lazy loaders, the enriched KV metadata, and the schema-version enforcement.
 from __future__ import annotations
 
 import time
-import uuid
 from pathlib import Path
 
 import geopandas as gpd
@@ -29,6 +28,7 @@ from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.storage.lazy_loaders import (
     list_field_paths,
@@ -51,12 +51,20 @@ from hydromodpy.results.storage.parquet_schemas import (
     ParquetSchemaVersionError,
     check_schema_version,
 )
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 
-def _register(catalog: Catalog, name: str = "sim") -> str:
-    sid = str(uuid.uuid4())
-    catalog.register_simulation(sid, project="p", solver="modflow6", name=name)
-    return sid
+def _store(project: Path, name: str = "sim") -> RunStore:
+    """Claim ``runs/<name>`` and open its store, without a field store."""
+    return open_run_store(project, name, create_zarr=False)
+
+
+def _seal_and_index(project: Path, *stores: RunStore) -> None:
+    for store in stores:
+        seal_completed(store)
+    rebuild_index(project)
 
 
 def _make_series(n: int = 5, start: str = "2020-01-01") -> pd.Series:
@@ -151,10 +159,10 @@ class TestWriteOptionsForced:
 
 class TestKvMetadataEnriched:
     def test_kv_metadata_enriched(self, tmp_path: Path):
-        with Catalog(tmp_path) as cat:
-            sid = _register(cat, name="rich")
-            cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
+        with _store(tmp_path, name="rich") as store:
+            sid = store.sim_id
+            store.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
+            target = store.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         md = read_kv_metadata(target)
         assert md.get("hmp.schema_version") == PARQUET_SCHEMA_VERSION
         assert md.get("hmp.schema") == "timeseries"
@@ -167,10 +175,10 @@ class TestKvMetadataEnriched:
 
 class TestSchemaVersion:
     def test_parquet_schema_version_stored(self, tmp_path: Path):
-        with Catalog(tmp_path) as cat:
-            sid = _register(cat)
-            cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
-            target = cat.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
+        with _store(tmp_path) as store:
+            sid = store.sim_id
+            store.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
+            target = store.tables_dir_for(sid) / f"timeseries{PARQUET_FILE_SUFFIX}"
         md = read_kv_metadata(target)
         check_schema_version(md)
         assert md["hmp.schema_version"] == PARQUET_SCHEMA_VERSION
@@ -209,14 +217,16 @@ class TestGeoParquetOgc:
         assert any(b"geo" == k for k in raw)
 
     def test_geographic_feature_written_as_geoparquet(self, tmp_path: Path):
+        store = _store(tmp_path)
+        sid = store.sim_id
+        gdf = gpd.GeoDataFrame(
+            {"name": ["domain"]},
+            geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
+            crs="EPSG:4326",
+        )
+        store.write_geographic_feature(sid, "domain", gdf)
+        _seal_and_index(tmp_path, store)
         with Catalog(tmp_path) as cat:
-            sid = _register(cat)
-            gdf = gpd.GeoDataFrame(
-                {"name": ["domain"]},
-                geometry=[Polygon([(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)])],
-                crs="EPSG:4326",
-            )
-            cat.write_geographic_feature(sid, "domain", gdf)
             loaded = cat.read_geographic_feature(sid, "domain")
         assert len(loaded) == 1
         assert loaded.crs.to_epsg() == 4326
@@ -229,42 +239,44 @@ class TestGeoParquetOgc:
 class TestBatchWrite:
     def test_batch_write_timeseries_eliminates_quadratic_merge(self, tmp_path: Path):
         n_records = 200
-        with Catalog(tmp_path) as cat:
-            sid_batch = _register(cat, name="batch")
-            batch_records = [
-                {
-                    "station_id": "P01",
-                    "variable": "head",
-                    "timestep": i,
-                    "time": pd.Timestamp("2020-01-01", tz="UTC") + pd.Timedelta(days=i),
-                    "value": float(i),
-                    "unit": "m",
-                    "qflag": "simulated",
-                }
-                for i in range(n_records)
-            ]
-            t0 = time.perf_counter()
-            cat.write_timeseries_batch(sid_batch, batch_records)
-            t_batch = time.perf_counter() - t0
+        batch = _store(tmp_path, name="batch")
+        sid_batch = batch.sim_id
+        batch_records = [
+            {
+                "station_id": "P01",
+                "variable": "head",
+                "timestep": i,
+                "time": pd.Timestamp("2020-01-01", tz="UTC") + pd.Timedelta(days=i),
+                "value": float(i),
+                "unit": "m",
+                "qflag": "simulated",
+            }
+            for i in range(n_records)
+        ]
+        t0 = time.perf_counter()
+        batch.write_timeseries_batch(sid_batch, batch_records)
+        t_batch = time.perf_counter() - t0
 
-            sid_loop = _register(cat, name="loop")
-            ts = pd.Series(
-                [float(i) for i in range(n_records)],
-                index=pd.date_range("2020-01-01", periods=n_records, freq="D"),
-                name="head",
+        loop = _store(tmp_path, name="loop")
+        ts = pd.Series(
+            [float(i) for i in range(n_records)],
+            index=pd.date_range("2020-01-01", periods=n_records, freq="D"),
+            name="head",
+        )
+        # Force an O(N) merge pattern by writing 20 chunks of 10 rows.
+        t0 = time.perf_counter()
+        for chunk in range(0, n_records, 10):
+            loop.write_timeseries(
+                loop.sim_id,
+                f"P{chunk:02d}",
+                "head",
+                ts.iloc[chunk : chunk + 10],
+                unit="m",
             )
-            # Force an O(N) merge pattern by writing 20 chunks of 10 rows.
-            t0 = time.perf_counter()
-            for chunk in range(0, n_records, 10):
-                cat.write_timeseries(
-                    sid_loop,
-                    f"P{chunk:02d}",
-                    "head",
-                    ts.iloc[chunk : chunk + 10],
-                    unit="m",
-                )
-            t_loop = time.perf_counter() - t0
-            # The batched path must end up with exactly n_records rows.
+        t_loop = time.perf_counter() - t0
+        _seal_and_index(tmp_path, batch, loop)
+        # The batched path must end up with exactly n_records rows.
+        with Catalog(tmp_path) as cat:
             count = cat.connection.execute(
                 "SELECT COUNT(*) FROM timeseries WHERE sim_id = ?", [sid_batch]
             ).fetchone()[0]
@@ -278,11 +290,12 @@ class TestBatchWrite:
 class TestLazyLoaders:
     def test_lazy_loader_scan_timeseries(self, tmp_path: Path):
         pl = pytest.importorskip("polars")
+        first, second = _store(tmp_path, name="a"), _store(tmp_path, name="b")
+        sid1 = first.sim_id
+        first.write_timeseries(sid1, "P01", "head", _make_series(n=4), unit="m")
+        second.write_timeseries(second.sim_id, "P01", "head", _make_series(n=6), unit="m")
+        _seal_and_index(tmp_path, first, second)
         with Catalog(tmp_path) as cat:
-            sid1 = _register(cat, name="a")
-            sid2 = _register(cat, name="b")
-            cat.write_timeseries(sid1, "P01", "head", _make_series(n=4), unit="m")
-            cat.write_timeseries(sid2, "P01", "head", _make_series(n=6), unit="m")
             lf = scan_timeseries(cat)
             assert isinstance(lf, pl.LazyFrame)
             df = lf.collect()
@@ -293,18 +306,20 @@ class TestLazyLoaders:
         assert len(df_sid1) == 4
 
     def test_lazy_loader_scan_field(self, tmp_path: Path):
+        store = _store(tmp_path)
+        store.write_timeseries(store.sim_id, "P01", "head", _make_series(), unit="m")
+        _seal_and_index(tmp_path, store)
         with Catalog(tmp_path) as cat:
-            sid = _register(cat)
-            cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             ds = scan_field(cat)
             # The dataset materialises a path index for downstream consumers.
             df = ds.to_table().to_pandas()
         assert "path" in df.columns
 
     def test_list_parquet_paths_round_trip(self, tmp_path: Path):
+        store = _store(tmp_path)
+        store.write_timeseries(store.sim_id, "P01", "head", _make_series(), unit="m")
+        _seal_and_index(tmp_path, store)
         with Catalog(tmp_path) as cat:
-            sid = _register(cat)
-            cat.write_timeseries(sid, "P01", "head", _make_series(), unit="m")
             paths = list_parquet_paths(cat, "timeseries")
             field_paths = list_field_paths(cat)
         assert len(paths) == 1
@@ -319,9 +334,9 @@ class TestCopyToParquetGone:
         import re
 
         from hydromodpy.results.catalog import parquet_views as views_mod
-        from hydromodpy.results.catalog import writes as writes_mod
+        from hydromodpy.results.storage import run_store as run_store_mod
 
-        for mod in (writes_mod, views_mod):
+        for mod in (run_store_mod, views_mod):
             src = Path(mod.__file__).read_text(encoding="utf-8")
             assert not re.search(r"COPY\s*\(.*?\)\s*TO\s*'.*?'\s*\(FORMAT PARQUET", src, re.DOTALL)
 
@@ -330,6 +345,7 @@ class TestParquetViewNames:
     def test_view_aliased_when_table_collides(self, tmp_path: Path):
         # ``metrics`` and ``provenance`` are DuckDB tables. The Parquet view
         # falls back to ``<view>_parquet`` to avoid clobbering the table.
+        rebuild_index(tmp_path)
         with Catalog(tmp_path) as cat:
             views = cat.connection.execute(
                 "SELECT view_name FROM duckdb_views() WHERE schema_name='main'"

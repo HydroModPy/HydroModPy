@@ -49,15 +49,12 @@ def retention_capacity(cfg: CalibrationConfig) -> int | None:
     """Return how many trial solves a session keeps: ``None`` for all of them.
 
     The count follows what the session promotes. ``save_runs = "all"`` promotes
-    every completed trial, ``"best_n"`` the ``save_best_n`` best, and
-    ``rerun_best_with_outputs`` the best one. Nothing promoted, nothing kept.
+    every completed trial, ``"best_n"`` the ``save_best_n`` best. Nothing
+    promoted, nothing kept.
     """
     if cfg.save_runs == "all":
         return None
-    count = int(cfg.save_best_n) if cfg.save_runs == "best_n" else 0
-    if cfg.rerun_best_with_outputs:
-        count = max(count, 1)
-    return count
+    return int(cfg.save_best_n) if cfg.save_runs == "best_n" else 0
 
 
 @dataclass(frozen=True)

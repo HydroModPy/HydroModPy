@@ -14,7 +14,16 @@ exporter of its kind:
   otherwise;
 - a vector layer: GeoPackage or Shapefile; a raster layer: GeoTIFF;
 - the budget: CSV;
-- the whole run: the ``.hmp`` package, or its STAC, RO-Crate or PROV view.
+- the whole run: its STAC, RO-Crate or PROV view.
+
+Every data file lands under ``runs/<run>/exports/``. Each one carries the
+identity block of the run (:mod:`hydromodpy.results.identity`): a GeoPackage
+in its ``gpkg_metadata`` table, any other file in a ``<file>.meta.json``
+sidecar, and a CSV also in its ``site`` and ``case_id`` columns. Each one gets
+an entry in ``exports/index.json`` (:mod:`hydromodpy.results.ledger`), which
+:func:`regen_exports` replays. A metadata view without ``folder`` or ``file``
+is the crate view of the seal and sits at the root of the run directory, where
+its relative paths resolve (see :func:`_stamp`).
 """
 
 from __future__ import annotations
@@ -27,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.core.config_kit.export_spec import (
+    EXPORT_ALL,
     MESH_LAYERS,
     RUN_FORMATS,
     STEP_DATE_TOKEN,
@@ -45,13 +55,24 @@ from hydromodpy.results.derive.virtual_fields import (
     field_descriptor,
     simulated_active_network_stack,
 )
+from hydromodpy.results.export.ledgers import record_derived_file
+from hydromodpy.results.export.run_identity import identity_of_run_dir, read_sealed_manifest
 from hydromodpy.results.exporters._fields import is_timed
+from hydromodpy.results.exporters._tables import (
+    BUDGETS_TABLE,
+    TIMESERIES_TABLE,
+    read_table,
+    table_path,
+)
 from hydromodpy.results.exporters.vocabulary import (
     describe_export_names,
     describe_exportable,
     export_kind,
     list_exportable,
 )
+from hydromodpy.results.identity import ZARR_IDENTITY_ATTR, Identity
+from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -59,20 +80,198 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+EXPORT_PRODUCER = "results.exporters.request"
+"""The producer an export ledger entry names; its options are the request."""
+
+
 @dataclass(frozen=True, slots=True)
 class ExportTarget:
-    """Where a request writes and what the catalog knows of the run.
+    """Where a request writes and who the run is.
 
-    ``default_folder`` takes the files of a request that names no folder,
-    ``share_folder`` resolves a relative ``folder``. The three callables are
-    read once, on the first file that needs them.
+    ``run_dir`` is the run directory; every file lands under its
+    ``exports/``. ``identity`` is the block each file carries. The three
+    callables are read once, on the first file that needs them.
     """
 
-    default_folder: Path
-    share_folder: Path
+    run_dir: Path
+    identity: Identity
     model_crs: Callable[[], str | None]
     default_resolution: Callable[[], float | None]
     global_attrs: Callable[[], Mapping[str, Any]]
+
+    @classmethod
+    def for_run(
+        cls,
+        run_dir: Path,
+        *,
+        model_crs: Callable[[], str | None],
+        default_resolution: Callable[[], float | None],
+        global_attrs: Callable[[], Mapping[str, Any]],
+    ) -> ExportTarget:
+        """Return the target of one run directory, its identity read from the directory.
+
+        Raises
+        ------
+        ExportError
+            The directory carries neither ``manifest.json`` nor an
+            ``outcome.json`` naming the run: nothing says who the files are of.
+        """
+        identity = identity_of_run_dir(run_dir)
+        if identity is None:
+            raise ExportError(
+                f"{run_dir} carries neither manifest.json nor an outcome.json naming its run: "
+                "an export must say which run it comes from."
+            )
+        return cls(
+            run_dir=Path(run_dir),
+            identity=identity,
+            model_crs=model_crs,
+            default_resolution=default_resolution,
+            global_attrs=global_attrs,
+        )
+
+    @property
+    def exports_dir(self) -> Path:
+        """``runs/<run>/exports/``: the directory every file lands under."""
+        return self.run_dir / RUN_EXPORTS_DIRNAME
+
+
+MAX_DEFAULT_PIXELS = 100_000_000
+"""The most pixels a GeoTIFF of a field gets without a ``resolution`` named."""
+
+CELL_AREA_FIELD = "mesh_cell_area"
+"""The mesh quality field the default GeoTIFF resolution is read from."""
+
+
+def export_run(store: Any, sim_id: str, request: ExportRequest) -> list[Path]:
+    """Write what one export request asks of a run; return the files written.
+
+    *store* is whatever holds the run: the store of a run being computed or
+    the catalog of a project. Every file lands under ``runs/<run>/exports/``,
+    carries the identity of the run and is recorded in ``exports/index.json``.
+    """
+    return export_request(store, sim_id, request, run_export_target(store, sim_id))
+
+
+def export_data_requests(store: Any, sim_id: str, requests: Sequence[ExportRequest]) -> list[Path]:
+    """Write the data requests among *requests*, in the order of the file; return the files.
+
+    The metadata views wait for the seal (:func:`export_views`). A request
+    that fails does not stop the next one; the failures are raised together
+    once every request had its turn.
+    """
+    failures: list[str] = []
+    written: list[Path] = []
+    target: ExportTarget | None = None
+    for index, request in enumerate(requests):
+        if request.output_format in RUN_FORMATS:
+            continue
+        try:
+            target = target or run_export_target(store, sim_id)
+            written.extend(export_request(store, sim_id, request, target))
+        except Exception as exc:  # noqa: BLE001 - every request has its turn, then all raise
+            failures.append(f"export request {index + 1} ({_describe(request)}): {exc}")
+    if failures:
+        raise ExportError(f"Export failed for run {sim_id}: " + "; ".join(failures))
+    return written
+
+
+def run_export_target(store: Any, sim_id: str) -> ExportTarget:
+    """Return the target of one run: its directory, its identity and how its fields read."""
+    return ExportTarget.for_run(
+        Path(store.run_dir_for(sim_id)),
+        model_crs=lambda: _model_crs(store, sim_id),
+        default_resolution=lambda: _default_resolution(store, sim_id),
+        global_attrs=lambda: _global_attrs(store, sim_id),
+    )
+
+
+def _describe(request: ExportRequest) -> str:
+    """Name a request in an error: its variables and its format."""
+    names = request.variables if isinstance(request.variables, str) else ", ".join(request.names)
+    fmt = request.output_format
+    return f"variables = {names}" + (f", format = {fmt.value}" if fmt is not None else "")
+
+
+def _field_root_attrs(store: Any, sim_id: str, group: str | None = None) -> dict[str, Any]:
+    """Return the attributes of the root of the field store, or of one of its groups."""
+    sz = store.open_zarr(sim_id)
+    try:
+        node = sz.root if group is None else sz.root.get(group)
+        return {} if node is None else dict(node.attrs)
+    finally:
+        sz.close()
+
+
+def _model_crs(store: Any, sim_id: str) -> str | None:
+    """Return the CRS of the run: the one its field store records, else the one its seal states.
+
+    ``None`` when neither says one.
+    """
+    attrs = _field_root_attrs(store, sim_id, "crs")
+    epsg = attrs.get("epsg_code")
+    if epsg is not None:
+        return f"EPSG:{int(epsg)}"
+    wkt = attrs.get("crs_wkt")
+    if wkt:
+        return str(wkt)
+    manifest = read_sealed_manifest(Path(store.run_dir_for(sim_id)))
+    if manifest is None:
+        return None
+    if manifest.geometry.crs_epsg is not None:
+        return f"EPSG:{manifest.geometry.crs_epsg}"
+    return manifest.geometry.crs_wkt
+
+
+def _default_resolution(store: Any, sim_id: str) -> float:
+    """Return the native pixel size of a GeoTIFF: the side of the smallest cell of the mesh.
+
+    It reads the mesh of the field store, never the DEM: a mesh is not
+    obliged to follow the DEM pixels (cells of a regular run still give the
+    DEM pixel size).
+
+    Raises
+    ------
+    ValueError
+        If the default gives more than :data:`MAX_DEFAULT_PIXELS` pixels over
+        the extent of the mesh. The caller then names a ``resolution``.
+    """
+    import math
+
+    sz = store.open_zarr(sim_id)
+    try:
+        areas = mesh_quality_values(sz.root, CELL_AREA_FIELD)
+        vertices = np.asarray(sz.root["mesh"]["vertices"][:], dtype=np.float64)
+    finally:
+        sz.close()
+    areas = areas[np.isfinite(areas) & (areas > 0.0)]
+    if areas.size == 0:
+        raise ValueError(f"Run '{sim_id}' has no cell with a positive area in its mesh.")
+    resolution = math.sqrt(float(areas.min()))
+    width = float(np.ptp(vertices[:, 0]))
+    height = float(np.ptp(vertices[:, 1]))
+    n_pixels = math.ceil(width / resolution) * math.ceil(height / resolution)
+    if n_pixels > MAX_DEFAULT_PIXELS:
+        raise ValueError(
+            f"The default GeoTIFF resolution of run '{sim_id}' is {resolution:.3g} m "
+            f"(the side of its smallest cell), which gives {n_pixels:,} pixels over the "
+            f"mesh extent, above the {MAX_DEFAULT_PIXELS:,} allowed. "
+            "Give a coarser resolution (resolution=...)."
+        )
+    return resolution
+
+
+def _global_attrs(store: Any, sim_id: str) -> dict[str, Any]:
+    """Return the ACDD attributes a NetCDF carries: those the seal wrote on the field store.
+
+    A run exported before its seal has none yet; its NetCDF carries the
+    identity block alone.
+    """
+    return {
+        key: value
+        for key, value in _field_root_attrs(store, sim_id).items()
+        if isinstance(value, str | int | float) and not isinstance(value, bool)
+    }
 
 
 def export_request(
@@ -90,22 +289,98 @@ def export_request(
     """
     from hydromodpy.results.run import Run
 
-    run = Run(sim_id, catalog)
-    label = run.name or sim_id[:8]
     fmt = request.output_format
     if fmt in RUN_FORMATS:
-        return [_write_run_format(catalog, sim_id, request, fmt, label, target)]
+        written = [_write_run_format(request, fmt, target)]
+    else:
+        run = Run(sim_id, catalog)
+        label = target.run_dir.name
+        held = list_exportable(run)
+        names = _all_names(held) if request.exports_all else request.names
+        _check_held(run, label, names, held)
+        kinds = {name: held[name] for name in names}
+        planned = plan_outputs(request, kinds, run_label=label, names=names)
+        writer = _Writer(catalog=catalog, run=run, request=request, kinds=kinds, target=target)
+        written = []
+        for item in planned:
+            written.extend(writer.write(item, _destination(item.path, target)))
+    for path in written:
+        _stamp(path, request, target)
+    return written
 
-    held = list_exportable(run)
-    names = _all_names(held) if request.exports_all else request.names
-    _check_held(run, label, names, held)
-    kinds = {name: held[name] for name in names}
-    planned = plan_outputs(request, kinds, run_label=label, names=names)
-    writer = _Writer(catalog=catalog, run=run, request=request, kinds=kinds, target=target)
+
+def export_views(run_dir: Path, requests: Sequence[ExportRequest]) -> list[Path]:
+    """Write the metadata view requests among *requests* for a sealed run; return the files.
+
+    A view (STAC, RO-Crate, PROV) renders the seal and reads nothing else, so
+    it is written from the directory alone, after the seal, without a store.
+    The data requests among *requests* are left out.
+    """
+    target = ExportTarget.for_run(
+        run_dir,
+        model_crs=_read_by_data_only,
+        default_resolution=_read_by_data_only,
+        global_attrs=_read_by_data_only,
+    )
     written: list[Path] = []
-    for item in planned:
-        dest = _destination(item.path, request, label, target)
-        written.extend(writer.write(item, dest))
+    for request in requests:
+        if request.output_format in RUN_FORMATS:
+            written.extend(export_request(None, target.identity.sim_id, request, target))
+    return written
+
+
+def _read_by_data_only() -> Any:
+    raise ExportError("a metadata view renders the seal; it reads no data of the run.")
+
+
+def _stamp(path: Path, request: ExportRequest, target: ExportTarget) -> None:
+    """Pose the identity block in a file under ``exports/`` and record it in the ledger.
+
+    A view written in the run directory itself (STAC, RO-Crate, PROV without
+    ``folder`` or ``file``) is left as it is: it sits at the crate root, where
+    its relative paths resolve, and it renders ``manifest.json``, which already
+    is the identity of the run. It gets no sidecar and no ledger entry;
+    ``hmp export <run> --format <view>`` renders it again from the seal.
+    """
+    try:
+        path.resolve().relative_to(target.exports_dir.resolve())
+    except ValueError:
+        return
+    if path.suffix.lower() == ".gpkg":
+        target.identity.write_gpkg_metadata(path)
+    else:
+        target.identity.write_meta_json(path)
+    record_derived_file(
+        target.exports_dir,
+        path,
+        producer=EXPORT_PRODUCER,
+        options=request.model_dump(mode="json", exclude_none=True),
+        identity=target.identity,
+    )
+
+
+def regen_exports(catalog: Any, sim_id: str, target: ExportTarget) -> list[Path]:
+    """Write again every request the export ledger of a run recorded; return the files.
+
+    Each distinct request of ``exports/index.json`` is replayed once, in the
+    order it was first recorded.
+    """
+    ledger = Ledger.read(target.exports_dir)
+    requests: list[ExportRequest] = []
+    seen: list[dict[str, Any]] = []
+    for entry in ledger.entries:
+        if entry.producer != EXPORT_PRODUCER or entry.options in seen:
+            continue
+        seen.append(entry.options)
+        requests.append(ExportRequest.model_validate(entry.options))
+    if not requests:
+        raise ExportError(
+            f"{target.exports_dir} records no export to write again. Write one with "
+            f"'hmp export <run> {EXPORT_ALL}' or an [[export]] block."
+        )
+    written: list[Path] = []
+    for request in requests:
+        written.extend(export_request(catalog, sim_id, request, target))
     return written
 
 
@@ -117,17 +392,9 @@ def _all_names(held: Mapping[str, Any]) -> list[str]:
     return [name for name in held if name not in MESH_QUALITY_DESCRIPTORS]
 
 
-def _destination(
-    path: PurePosixPath, request: ExportRequest, label: str, target: ExportTarget
-) -> Path:
-    """Return where a planned file lands on disk."""
-    # From the text: a POSIX path object would lose a Windows drive on Python 3.11.
-    candidate = Path(path.as_posix())
-    if candidate.is_absolute():
-        return candidate
-    if request.folder is None:
-        return target.default_folder / candidate.relative_to(label)
-    return target.share_folder / candidate
+def _destination(path: PurePosixPath, target: ExportTarget) -> Path:
+    """Return where a planned file lands: under ``runs/<run>/exports/``."""
+    return target.exports_dir / Path(path.as_posix())
 
 
 def _check_held(run: Run, label: str, names: Sequence[str], held: Mapping[str, Any]) -> None:
@@ -169,31 +436,22 @@ def _network_reason(run: Run) -> str:
     return reason or "unknown"
 
 
-def _write_run_format(
-    catalog: Any,
-    sim_id: str,
-    request: ExportRequest,
-    fmt: ExportFormat,
-    label: str,
-    target: ExportTarget,
-) -> Path:
-    """Write the package of the run, or one of its metadata views.
+def _write_run_format(request: ExportRequest, fmt: ExportFormat, target: ExportTarget) -> Path:
+    """Write one metadata view of the run: STAC, RO-Crate or PROV.
 
-    A view (STAC, RO-Crate, PROV) renders the seal. Without ``folder`` or
-    ``file`` it is written inside the run directory, where its relative paths
-    resolve; a named folder or file gets the same view, whose paths then name
-    the files of the run directory.
+    A view renders the seal. Without ``folder`` or ``file`` it is written
+    inside the run directory, where its relative paths resolve; a named folder
+    or file under ``exports/`` gets the same view, whose paths then name the
+    files of the run directory.
     """
-    if fmt is not ExportFormat.package and request.folder is None and request.file is None:
+    if request.folder is None and request.file is None:
         from hydromodpy.results.export import write_views
 
-        (path,) = write_views(catalog.run_dir_for(sim_id), formats=(fmt.value,))
+        (path,) = write_views(target.run_dir, formats=(fmt.value,))
         return Path(path)
-    (item,) = plan_outputs(request, {}, run_label=label)
-    dest = _destination(item.path, request, label, target)
+    (item,) = plan_outputs(request, {}, run_label=target.run_dir.name)
+    dest = _destination(item.path, target)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if fmt is ExportFormat.package:
-        return Path(catalog.export_package(sim_id, dest))
     from hydromodpy.results.export import context_from_directory, write_ro_crate, write_stac_item
     from hydromodpy.results.export.prov import write_prov
 
@@ -202,8 +460,15 @@ def _write_run_format(
         ExportFormat.rocrate: write_ro_crate,
         ExportFormat.prov: write_prov,
     }
-    context = context_from_directory(catalog.run_dir_for(sim_id))
-    return Path(writers[fmt](catalog, sim_id, dest, context=context))
+    context = context_from_directory(target.run_dir)
+    return Path(writers[fmt](context, dest))
+
+
+def _netcdf_identity_attrs(identity: Identity) -> dict[str, str]:
+    """Return the identity block as NetCDF global attributes, the block itself as JSON text."""
+    attrs = identity.as_zarr_attrs()
+    attrs[ZARR_IDENTITY_ATTR] = identity.as_json()
+    return {key: str(value) for key, value in attrs.items()}
 
 
 def step_token(step: int, edges: Any) -> str:
@@ -319,7 +584,10 @@ class _Writer:
             dest,
             timesteps=steps,
             values=values or None,
-            global_attrs=self._once("global_attrs", self.target.global_attrs),
+            global_attrs={
+                **self._once("global_attrs", self.target.global_attrs),
+                **_netcdf_identity_attrs(self.target.identity),
+            },
         )
 
     def _quality_values(self, names: Sequence[str]) -> dict[str, np.ndarray]:
@@ -479,9 +747,10 @@ class _Writer:
         edges = self.edges
         windows = None if edges is None else contiguous_windows(self.steps, edges)
         return export_csv(
-            self.catalog.connection,
+            table_path(self.catalog, self.sim_id, TIMESERIES_TABLE),
             self.sim_id,
             dest,
+            identity=self.target.identity,
             variables=list(item.variables),
             windows=windows,
         )
@@ -491,8 +760,9 @@ class _Writer:
 
         edges = self.edges
         return export_budget_csv(
-            self.run.budget(),
+            read_table(self.catalog, self.sim_id, BUDGETS_TABLE),
             dest,
+            identity=self.target.identity,
             timesteps=self.steps,
             edges=None if edges is None else list(edges),
         )
@@ -535,8 +805,15 @@ class _Writer:
 
 
 __all__ = [
+    "EXPORT_PRODUCER",
     "ExportTarget",
     "contiguous_windows",
+    "MAX_DEFAULT_PIXELS",
+    "export_data_requests",
     "export_request",
+    "export_run",
+    "export_views",
+    "run_export_target",
+    "regen_exports",
     "step_token",
 ]

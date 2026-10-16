@@ -132,7 +132,7 @@ class DemCatchDef(_CatchDefBase):
     ] = Field(
         description=(
             "Path to the DEM raster that is the model domain. A relative path is read "
-            "from the folder of the TOML file; a bare file name is also looked up in "
+            "from the project root (the folder of project.toml); a bare file name is also looked up in "
             "the dem folder of the workspace data. May be left out only when "
             "[[data.dem.sources]] declares the DEM."
         ),

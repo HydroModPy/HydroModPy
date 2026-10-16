@@ -1,24 +1,20 @@
-"""Post-run hook that ingests solver outputs into the Catalog.
+"""Post-run hook that ingests solver outputs into the store of the run.
 
 Called by ``SimulationRunner`` after each solver execution completes.
-Orchestrates the full results lifecycle: extract → derive → export →
-cleanup → provenance.
+Orchestrates the results lifecycle of a run: extract, derive, cleanup,
+provenance. The exports are the export step of the workflow.
 """
 
 from __future__ import annotations
 
 import inspect
 import math
-from collections.abc import Mapping, Sequence
-from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from hydromodpy.core.budget_terms import BudgetKeep
-from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, ExportRequest
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.progress import MILESTONE
-from hydromodpy.core.state.paths import display_path, share_dir_for
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
@@ -62,12 +58,10 @@ def post_run_results(
     sim_id: str,
     results_config: ResultsConfig,
     store: Any,
-    export_requests: Sequence[ExportRequest] = (),
     keep_solver_files: bool | None = None,
-    run_id: str | None = None,
     budget_terms: BudgetKeep | None = None,
 ) -> None:
-    """Ingest solver outputs into the Catalog after a run completes.
+    """Ingest solver outputs into the store of the run after it completes.
 
     Parameters
     ----------
@@ -79,15 +73,8 @@ def post_run_results(
         Simulation UUID.
     results_config : ResultsConfig
         The ``[simulation.results]`` config block.
-    store : Catalog
-        The open result store.
-    export_requests : sequence of ExportRequest, optional
-        The ``[[export]]`` blocks of the run, in the order of the file. The
-        package and metadata requests are left to :func:`auto_export_package`,
-        which runs on the sealed run.
-    run_id : str, optional
-        Human-readable run identifier used to name export subdirectories.
-        Falls back to the first 8 characters of *sim_id* when absent.
+    store : RunStore
+        The open store of the run.
     budget_terms : BudgetKeep, optional
         The per-cell budget the plan of the run keeps. A direct call without
         a plan keeps every term, which ``keep_per_cell_budget = true`` (the
@@ -118,14 +105,6 @@ def post_run_results(
         results_config=results_config,
         store=store,
     )
-    written = auto_export_results(
-        sim_id=sim_id,
-        store=store,
-        export_requests=export_requests,
-        save_catalog=results_config.persistence.save_catalog,
-        run_id=run_id,
-    )
-    announce_exports(written, share_dir_for(store.project_path) / (run_id or sim_id[:8]))
     cleanup_solver_outputs(
         ctx=ctx,
         results_config=results_config,
@@ -299,9 +278,9 @@ def derive_run_outputs(
 ) -> None:
     """Write what the run derives once its fields are in the store.
 
-    The discharge band of the drains, the catchment aggregates, the declared
-    observation points and the fit metrics. Derived fields are not written:
-    every one is rebuilt on read.
+    The discharge band of the drains and the catchment aggregates. Derived
+    fields are not written: every one is rebuilt on read. The declared
+    observation points and the score are the derive step of the workflow.
     """
     if not ctx.run.is_solver_backed:
         return
@@ -332,84 +311,6 @@ def derive_run_outputs(
         )
 
         aggregate_catchment_timeseries(sim_id, store)
-
-    sample_declared_observation_points(ctx=ctx, sim_id=sim_id, store=store)
-
-    # Score the run against the observations sitting beside it. Last,
-    # because it reads the series the two phases above just wrote.
-    from hydromodpy.simulation.extraction.derivation.fit_metrics import write_fit_metrics
-
-    try:
-        write_fit_metrics(sim_id, store)
-    except Exception:
-        # A run's own results are already in; a missing score must not lose them.
-        logger.warning("Could not score the run against its observations", exc_info=True)
-
-
-def sample_declared_observation_points(*, ctx: RunContext, sim_id: str, store: Any) -> int:
-    """Sample the ``[observation]`` points while the run still holds its fields.
-
-    A point known in advance costs nothing to read later: its series lands in
-    the run timeseries payload and its declaration in the run directory. A
-    failure here is logged, never fatal: the run's own results are already in.
-    """
-    observation = getattr(ctx.state.cfg, "observation", None)
-    declarations = observation.declarations() if observation is not None else []
-    if not declarations:
-        return 0
-    try:
-        return int(store.sample_observation_points(sim_id, declarations))
-    except Exception:
-        logger.warning("Could not sample the declared observation points", exc_info=True)
-        return 0
-
-
-def is_run_request(request: ExportRequest) -> bool:
-    """Return whether a request writes the whole run: the package or a metadata view.
-
-    Those read the seal, so they run after it; every other request runs before.
-    """
-    return request.output_format in RUN_FORMATS
-
-
-def auto_export_results(
-    *,
-    sim_id: str,
-    store: Any,
-    export_requests: Sequence[ExportRequest],
-    save_catalog: bool,
-    run_id: str | None = None,
-) -> list[Path]:
-    """Write the ``[[export]]`` requests of one run that read its data, not its seal.
-
-    Files land in ``share/<run>/`` unless a request names a folder or a file.
-    Returns the files written; :func:`announce_exports` says it on the console.
-    """
-    if not save_catalog:
-        return []
-    requests = [request for request in export_requests if not is_run_request(request)]
-    return _auto_export(sim_id, store, requests, label=run_id or sim_id[:8])
-
-
-def auto_export_package(
-    *,
-    sim_id: str,
-    store: Any,
-    export_requests: Sequence[ExportRequest],
-    save_catalog: bool,
-    run_id: str | None = None,
-) -> list[Path]:
-    """Write the package and metadata requests of one run.
-
-    Called on a *sealed* run, while the store is still open: the archive
-    bundles the run seal (manifest, provenance, frozen config), the views
-    render it, and the packer still needs the index and the live Zarr
-    directory. Returns the files written.
-    """
-    if not save_catalog:
-        return []
-    requests = [request for request in export_requests if is_run_request(request)]
-    return _auto_export(sim_id, store, requests, label=run_id or sim_id[:8])
 
 
 def cleanup_solver_outputs(
@@ -451,67 +352,3 @@ def _accepts_kwarg(callable_obj: Any, name: str) -> bool:
     return name in signature.parameters or any(
         param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
     )
-
-
-def _auto_export(
-    sim_id: str,
-    store: Any,
-    requests: Sequence[ExportRequest],
-    *,
-    label: str,
-) -> list[Path]:
-    """Write each request in the order of the file and say once where they went.
-
-    A request that fails does not stop the next one; the failures are raised
-    together once every request had its turn. Exports are written to
-    ``share/<label>/`` so the published tree is organized by run name, not
-    UUID.
-    """
-    if not requests:
-        return []
-    output_dir = share_dir_for(store.project_path) / label
-    failures: list[str] = []
-    written: list[Path] = []
-    for index, request in enumerate(requests):
-        try:
-            written.extend(store.export(sim_id, request, default_folder=output_dir))
-        except Exception as exc:
-            failures.append(f"export request {index + 1} ({_describe(request)}): {exc}")
-
-    if any(path.parent == output_dir for path in written):
-        _write_run_card(output_dir, sim_id, label)
-    if failures:
-        raise RuntimeError(f"Auto-export failed for sim {sim_id}: " + "; ".join(failures))
-    return written
-
-
-def announce_exports(written: Sequence[Path], output_dir: Path) -> None:
-    """Say on the console how many files the exports of a run wrote, and where.
-
-    The exporters name every file they write, one INFO line each. This is the
-    one line the default verbosity keeps, printed once for the whole run.
-    """
-    if written:
-        logger.info(
-            "Exported %d file(s) -> %s",
-            len(written),
-            display_path(output_dir),
-            extra=MILESTONE,
-        )
-
-
-def _describe(request: ExportRequest) -> str:
-    """Name a request in an error: its variables and its format."""
-    names = request.variables if isinstance(request.variables, str) else ", ".join(request.names)
-    fmt = request.output_format
-    return f"variables = {names}" + (f", format = {fmt.value}" if fmt is not None else "")
-
-
-def _write_run_card(output_dir: Path, sim_id: str, label: str) -> None:
-    """Write a small RUN.txt so a copied export folder stays self-identifying."""
-    try:
-        (output_dir / "RUN.txt").write_text(
-            f"name: {label}\nid: {sim_id[:8]}\nsim_id: {sim_id}\n", encoding="utf-8"
-        )
-    except OSError:
-        pass

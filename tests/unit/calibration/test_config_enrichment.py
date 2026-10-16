@@ -234,16 +234,25 @@ class TestCalibrationConfigEnriched:
             {
                 "persist_iteration_detail": "full",
                 "persist_model_distribution": True,
-                "rerun_best_with_outputs": True,
                 "materialize_candidates": True,
-                "candidates_root": "/tmp/candidates",
             }
         )
         assert cfg.persist_iteration_detail == "full"
         assert cfg.persist_model_distribution is True
-        assert cfg.rerun_best_with_outputs is True
         assert cfg.materialize_candidates is True
-        assert str(cfg.candidates_root) == "/tmp/candidates"
+
+    @pytest.mark.parametrize(
+        ("key", "advice"),
+        [
+            ("rerun_best_with_outputs", "promoted by default"),
+            ("candidates_root", "sessions/<case>/candidates/"),
+            ("reuse_completed_phases", "--resume"),
+        ],
+    )
+    def test_a_retired_key_is_refused_with_what_replaces_it(self, key, advice):
+        with pytest.raises(ValidationError, match=key) as caught:
+            CalibrationConfig.model_validate({key: True})
+        assert advice in str(caught.value)
 
     def test_resume_session_field_is_rejected(self):
         with pytest.raises(ValidationError):
@@ -327,7 +336,6 @@ class TestEnrichedTomlRoundTrip:
         variable = "head"
         persist_iteration_detail = "full"
         materialize_candidates = true
-        candidates_root = "/tmp/cand"
 
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
@@ -455,16 +463,6 @@ class TestCalibrationConfigCrossFieldValidators:
                 }
             )
 
-    def test_candidates_root_required_when_materialize_true(self):
-        with pytest.raises(ValidationError, match="candidates_root"):
-            CalibrationConfig.model_validate({"materialize_candidates": True})
-
-    def test_candidates_root_satisfies_materialize_flag(self):
-        cfg = CalibrationConfig.model_validate(
-            {
-                "materialize_candidates": True,
-                "candidates_root": "/tmp/cand",
-            }
-        )
+    def test_materialize_candidates_needs_no_root(self):
+        cfg = CalibrationConfig.model_validate({"materialize_candidates": True})
         assert cfg.materialize_candidates is True
-        assert str(cfg.candidates_root) == "/tmp/cand"

@@ -37,16 +37,17 @@ time = "last"
 
 Three rules hold for the whole file.
 
-- A file has at most 24 top-level sections. A name that is not one of them is refused:
+- A file has only the top-level sections listed in {doc}`index`. A name that is not one of them is refused:
   `Unknown top-level TOML section(s): flows`.
 - A key that the table does not know is refused, and the message names the table:
   `Unknown TOML key(s) in [flow]: flow_regme`.
-- Three sections are required in every file: `[workflow]` with {toml}`workflow.mode`,
-  `[workspace]` with {toml}`workspace.project_root`, and `[geographic]`.
-  `project_root = "."` means the folder of the file. In its standard mode, `[geographic]`
-  needs `[geographic.catchment]` with {toml}`geographic.catchment.catch_def`, and
-  `catch_def = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these four
-  keys, `hmp config check` accepts the file.
+- Two things are required in every file: a `[site]` with {toml}`site.name` when the file
+  models a real catchment, and `[geographic]`. In its standard mode, `[geographic]` needs
+  `[geographic.catchment]` with {toml}`geographic.catchment.catch_def`, and
+  `catch_def = "dem"` needs {toml}`geographic.catchment.dem_init_path`. With these keys,
+  `hmp config check` accepts the file. `[workflow]` can be left out: the sections of the file
+  say what it does. A file never writes the project root: it is the folder that holds
+  `project.toml`.
 
 (base-config)=
 
@@ -247,19 +248,20 @@ time = "last"
 
 ## Paths
 
-A path in a file is read from **the folder of the file you run**, the last one of the
-chain. It is not read from the folder of the parent that wrote it. A parent in
-`shared/base.toml` that writes `dem_init_path = "dem.tif"` is read in the folder of the
-child that inherits it, `work/child.toml`: the loader merges the files first, then
-resolves the paths. The same holds for a path written in an `--overlay` file or in a `--set` value.
+A path in a file is read from **the project root**, the folder that holds `project.toml`
+at or above the file. Outside a project, it is the folder of the oldest file of the
+`base_config` chain. It is not read from the folder of the file that wrote it: a file in
+`plan/<hash>/` or in `runs/<case>/` names the same `dem_init_path` as `project.toml` does. The
+loader merges the files first, then resolves the paths, so a path written in a parent, in an
+`--overlay` file or in a `--set` value is read from the same root.
 
 | Written as | Read from |
 |---|---|
-| `"dem.tif"`, a bare name, in a field that is an input file | the folder of the file you run; if the file is not there, `<workspace>/data/<role>/`, then `<workspace>/data/` |
-| `"data/dem.tif"` or `"../dem.tif"` | the folder of the file you run |
+| `"dem.tif"`, a bare name, in a field that is an input file | the project root; if the file is not there, `<workspace>/data/<role>/`, then `<workspace>/data/` |
+| `"data/dem.tif"` or `"../dem.tif"` | the project root |
 | `"/data/dem.tif"` or `"~/dem.tif"` | as written, with `~` expanded |
 | the value of `base_config` | the folder of the file that holds it |
-| a relative {toml}`export.folder` | the `share/` folder of the project |
+| {toml}`export.folder` | the `exports/` folder of the run, `runs/<name>/exports/`; an absolute folder is refused |
 | a relative {toml}`export.file` | the `folder` of the same block |
 
 The `<role>` is the kind of data: `dem`, `hydrography`, and so on. The workspace is found in

@@ -1,137 +1,43 @@
-"""Private worker helpers for ``hmp catalog`` actions."""
+"""Private worker helpers for the ``hmp catalog`` verbs that read.
+
+``ls``, ``show``, ``query``, ``point`` and ``diff`` read the index through
+:class:`~hydromodpy.results.catalog.Catalog`. ``reindex`` writes it through
+the indexer. ``watch``, and the counts ``hmp doctor`` prints, read the
+``outcome.json`` and ``logs/heartbeat.json`` of the directories and never
+open the index: a status page must answer while the index is being rebuilt
+or when a project has none.
+"""
 
 from __future__ import annotations
 
-import shutil
-from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydromodpy.core.logging import get_logger
-
-if TYPE_CHECKING:
-    from datetime import datetime
+from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
 logger = get_logger(__name__)
 
+ABANDONED_SESSION_MINUTES = 24 * 60
+"""How long a session may sit ``running`` before it is counted as abandoned.
 
-def delete_simulation_artifacts(
-    catalog: Any,
-    sid: str,
-    *,
-    remove_storage: bool = True,
-) -> dict[str, object]:
-    """Delete one simulation through an already-open catalog.
-
-    Used by ``hydromodpy.cli.commands.dev.manage`` when iterating over many
-    sims inside a single catalog session. ``delete_simulation`` is the
-    open-and-delete variant exposed via ``hmp catalog delete``.
-    """
-    run_dir = catalog.run_dir_for(sid)
-    removed = [run_dir] if remove_storage and run_dir.is_dir() else []
-    freed = sum(_path_size(p) for p in removed)
-    catalog.delete(sid, remove_storage=remove_storage)
-    return {
-        "sim_id": sid,
-        "freed_bytes": freed,
-        "removed_paths": [str(p) for p in removed],
-    }
-
-
-def list_simulations(
-    workspace: Any,
-    *,
-    project: str | None = None,
-    solver: str | None = None,
-    catchment: str | None = None,
-    status: str | None = None,
-    tag: str | None = None,
-    limit: int | None = None,
-) -> Any:
-    """List simulations recorded in a workspace catalog.
-
-    Iterates over the per-project index databases (``<project>/.hmp/index.duckdb``)
-    reachable from ``workspace`` and returns a concatenated DataFrame of
-    simulation rows ordered by ``created_at DESC``. A standalone project (its
-    own index at the root) lists as well as a workspace holding a ``projects/``
-    tree. Filters apply as substring matches on ``solver`` and ``catchment``,
-    exact match on ``project``.
-
-    Parameters
-    ----------
-    workspace
-        Project root, or a workspace directory holding a ``projects/`` tree.
-    project, solver, catchment, limit
-        Optional filters.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Combined simulation rows. Empty when nothing is indexed under
-        ``workspace`` or no row matches the filters.
-    """
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
-
-    workspace_root = Path(workspace).expanduser().resolve()
-    if project:
-        project_roots = [workspace_root / "projects" / project]
-    else:
-        project_roots = iter_project_catalog_roots(workspace_root)
-
-    import pandas as pd
-
-    from hydromodpy.results.errors import SchemaVersionMismatchError
-
-    frames: list[pd.DataFrame] = []
-    for project_dir in project_roots:
-        if not (catalog_path_for(project_dir)).exists():
-            continue
-        tagged_ids: set[str] | None = None
-        try:
-            with Catalog(project_dir, read_only=True) as catalog:
-                sims = catalog.list_simulations(order_by="created_at DESC")
-                if tag:
-                    tagged_ids = catalog.sims_with_tag(tag)
-        except SchemaVersionMismatchError:
-            import sys
-
-            print(
-                f"skipping {project_dir.name}: schema behind (run 'hmp doctor --migrate')",
-                file=sys.stderr,
-            )
-            continue
-        if sims.empty:
-            continue
-        if solver:
-            from hydromodpy.results.catalog.constants import canonical_solver_code
-
-            target = canonical_solver_code(solver)
-            sims = sims[sims["solver"].fillna("").str.lower() == target]
-        if catchment:
-            col = "study_area_name" if "study_area_name" in sims.columns else None
-            if col is not None:
-                sims = sims[sims[col].fillna("").str.contains(catchment, case=False)]
-        if status:
-            sims = sims[sims["status"].fillna("") == status]
-        if tagged_ids is not None:
-            sims = sims[sims["sim_id"].astype(str).isin(tagged_ids)]
-        sims = sims.assign(project=project_dir.name)
-        frames.append(sims)
-    if not frames:
-        return pd.DataFrame()
-    out = pd.concat(frames, ignore_index=True)
-    if limit is not None:
-        out = out.head(int(limit))
-    return _stable_listing_projection(out, drop_trashed=(status != "trashed"))
-
+A day, deliberately generous: a calibration on a daily chronicle runs for
+hours, and counting a live one would be worse than missing a dead one.
+"""
 
 _LISTING_COLUMNS: tuple[str, ...] = (
     "sim_id",
     "name",
     "project",
+    "site",
+    "case_id",
+    "rel_dir",
     "solver",
     "status",
+    "label",
+    "nse",
     "created_at",
     "started_at",
     "duration_s",
@@ -143,16 +49,77 @@ _LISTING_COLUMNS: tuple[str, ...] = (
 )
 
 
-def _stable_listing_projection(df: Any, *, drop_trashed: bool = True) -> Any:
-    """Return a scriptable 13-column projection (string ids, ISO dates).
+def _open_catalog(workspace: Any) -> Any:
+    """Open the index of the project at ``workspace`` or raise ``FileNotFoundError``."""
+    from hydromodpy.results.catalog import Catalog
 
-    Keeps the listing cheap and JSON/CSV safe: ``sim_id`` and timestamps are
-    cast to strings (raw ``uuid.UUID`` objects break ``DataFrame.to_json``) and
-    config blobs are dropped so ``ls`` never moves megabytes to print a page.
-    Trashed runs are hidden unless ``drop_trashed`` is False.
+    root = Path(workspace).expanduser().resolve()
+    if not catalog_path_for(root).is_file():
+        raise FileNotFoundError(
+            f"No index at {catalog_path_for(root)}. Run `hmp catalog reindex` first."
+        )
+    return Catalog(root)
+
+
+def list_simulations(
+    workspace: Any,
+    *,
+    project: str | None = None,
+    solver: str | None = None,
+    site: str | None = None,
+    status: str | None = None,
+    label: str | None = None,
+    tag: str | None = None,
+    limit: int | None = None,
+) -> Any:
+    """List the sealed runs of the projects reachable from ``workspace``.
+
+    Iterates over the per-project indexes (``<project>/.hmp/index.duckdb``)
+    under ``workspace`` and returns one frame ordered by ``created_at DESC``.
+    ``project`` names one project directory; the other filters are exact
+    matches on the listed column.
     """
-    if drop_trashed and "status" in df.columns:
-        df = df[df["status"] != "trashed"]
+    import pandas as pd
+
+    from hydromodpy.results.catalog import Catalog, iter_project_catalog_roots
+    from hydromodpy.results.catalog.constants import canonical_solver_code
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    if project:
+        project_roots = [workspace_root / "projects" / project]
+    else:
+        project_roots = iter_project_catalog_roots(workspace_root)
+
+    frames: list[pd.DataFrame] = []
+    for project_dir in project_roots:
+        if not catalog_path_for(project_dir).is_file():
+            continue
+        with Catalog(project_dir) as catalog:
+            sims = catalog.list_simulations(order_by="created_at DESC")
+            tagged = catalog.sims_with_tag(tag) if tag else None
+        if sims.empty:
+            continue
+        if solver:
+            sims = sims[sims["solver"].fillna("").str.lower() == canonical_solver_code(solver)]
+        if site:
+            sims = sims[sims["site"].fillna("") == site]
+        if status:
+            sims = sims[sims["status"].fillna("") == status]
+        if label:
+            sims = sims[sims["label"].fillna("") == label]
+        if tagged is not None:
+            sims = sims[sims["sim_id"].astype(str).isin(tagged)]
+        frames.append(sims.assign(project=project_dir.name))
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames, ignore_index=True)
+    if limit is not None:
+        out = out.head(int(limit))
+    return _stable_listing_projection(out)
+
+
+def _stable_listing_projection(df: Any) -> Any:
+    """Return a scriptable projection: string ids, ISO dates, no config blob."""
     cols = [c for c in _LISTING_COLUMNS if c in df.columns]
     out = df[cols].copy()
     if "sim_id" in out.columns:
@@ -163,63 +130,53 @@ def _stable_listing_projection(df: Any, *, drop_trashed: bool = True) -> Any:
     return out
 
 
-def show_simulation(
-    sim_ref: str,
-    *,
-    workspace: Any,
-    detail: bool = False,
-) -> dict:
-    """Return a metadata dict describing one simulation.
+def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> dict:
+    """Return the facts of one sealed run: its row, its label and its exports.
 
-    Parameters
-    ----------
-    sim_ref
-        Full sim id, unique prefix (>= 4 chars), or simulation name.
-    workspace
-        Project catalog root.
-    detail
-        When ``True``, also reports the Zarr store layout (groups, paths).
-
-    Returns
-    -------
-    dict
-        Simulation metadata. Includes ``zarr_path``, ``zarr_exists`` and
-        ``zarr_groups`` when ``detail=True``.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the workspace has no project index database.
-    hydromodpy.results.catalog.SimulationNotFoundError
-        If ``sim_ref`` cannot be resolved.
+    Raises ``FileNotFoundError`` without an index and
+    :class:`~hydromodpy.results.catalog.SimulationNotFoundError` when
+    ``sim_ref`` names nothing.
     """
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.ledger import Ledger
+    from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME, RUN_FIGURES_DIRNAME
 
-    workspace_root = Path(workspace).expanduser().resolve()
-    if not (catalog_path_for(workspace_root)).exists():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
-
-    with Catalog(workspace_root, read_only=True) as catalog:
+    with _open_catalog(workspace) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
+        row = catalog.list_simulations(sim_id=sid).iloc[0].to_dict()
+        run_dir = catalog.run_dir_for(sid)
         payload: dict = {
             "sim_id": sim.sim_id,
             "name": sim.name,
             "project": sim.project,
+            "site": row.get("site"),
+            "case_id": row.get("case_id"),
+            "rel_dir": row.get("rel_dir"),
             "solver": sim.solver,
             "status": sim.status,
+            "label": row.get("label"),
+            "label_date": None if row.get("label_date") is None else str(row["label_date"])[:10],
+            "nse": row.get("nse"),
             "duration_s": sim.duration_s,
             "n_cells": sim.n_cells,
             "n_timesteps": sim.n_timesteps,
-            "exports": catalog.list_exports(sid),
+            "version_int": row.get("version_int"),
+            "config_hash": row.get("config_hash"),
+            "exports": [
+                {"file": entry.file, "producer": entry.producer, "sha256": entry.sha256}
+                for entry in Ledger.read(run_dir / RUN_EXPORTS_DIRNAME).entries
+            ],
+            "figures": [
+                {"file": entry.file, "producer": entry.producer}
+                for entry in Ledger.read(run_dir / RUN_FIGURES_DIRNAME).entries
+            ],
         }
         if detail:
             zarr_path = catalog.fields_path_for(sid)
             payload["zarr_path"] = str(zarr_path)
             payload["zarr_exists"] = zarr_path.exists()
             groups: list[str] = []
-            if zarr_path.exists() and zarr_path.is_dir():
+            if zarr_path.is_dir():
                 try:
                     groups = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
                 except OSError:
@@ -228,52 +185,17 @@ def show_simulation(
         return payload
 
 
-def query_catalog(
-    sql: str,
-    *,
-    workspace: Any,
-    limit: int | None = None,
-) -> Any:
-    """Run a read-only SQL statement against the workspace catalog DuckDB.
+def query_catalog(sql: str, *, workspace: Any, limit: int | None = None) -> Any:
+    """Run one read-only SQL statement against the index of a project.
 
-    Parameters
-    ----------
-    sql
-        SQL statement (SELECT, PRAGMA, ...).
-    workspace
-        Project catalog root.
-    limit
-        Optional outer ``LIMIT`` wrapped around the statement.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Result rows.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the workspace has no project index database.
-    duckdb.Error
-        If the SQL statement is invalid or the catalog rejects it.
+    Raises ``FileNotFoundError`` without an index and ``duckdb.Error`` when
+    the statement is refused.
     """
-    import duckdb
-
-    from hydromodpy.core.state.paths import catalog_path_for
-
-    workspace_root = Path(workspace).expanduser().resolve()
-    catalog_path = catalog_path_for(workspace_root)
-    if not catalog_path.exists():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
-
     statement = sql.strip()
     if limit is not None:
         statement = f"SELECT * FROM ({statement}) LIMIT {int(limit)}"
-    conn = duckdb.connect(str(catalog_path), read_only=True)
-    try:
-        return conn.execute(statement).fetchdf()
-    finally:
-        conn.close()
+    with _open_catalog(workspace) as catalog:
+        return catalog.sql(statement)
 
 
 def point_simulations(
@@ -292,37 +214,15 @@ def point_simulations(
 ) -> Any:
     """Read one variable in one precise cell, on one or several runs.
 
-    Parameters
-    ----------
-    sim_refs
-        Run references (id, prefix, name, ``@last`` ...). Several of them
-        stack their answers so scenarios can be compared on one location.
-    workspace
-        Project catalog root.
-    variables
-        Field names, persisted or virtual.
-    x, y
-        Coordinates in the simulation CRS; mutually exclusive with ``cell``.
-    cell
-        Zero-based cell index; mutually exclusive with ``x`` / ``y``.
-    layer, depth
-        Layer index, or metres below the local model top. Mutually exclusive.
-    label
-        Name of the point, reported in the table.
-    timestep
-        Keep one timestep instead of the whole series.
-    output
-        Optional ``.csv`` / ``.parquet`` path written with the table.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Long-format table, one row per run, variable and timestep.
+    ``x, y`` are coordinates in the simulation CRS and exclude ``cell``, a
+    zero-based cell index. ``layer`` and ``depth`` (metres below the local
+    top) exclude each other. ``output`` is an optional ``.csv`` or
+    ``.parquet`` path written with the table.
     """
     from hydromodpy.results.run.point import PointRequest, read_points, write_point_table
 
     request = PointRequest(x=x, y=y, cell=cell, layer=layer, depth=depth, label=label)
-    with _open_project_catalog(workspace, read_only=True) as catalog:
+    with _open_catalog(workspace) as catalog:
         runs = [catalog[catalog.resolve(ref)] for ref in sim_refs]
         frame = read_points(runs, variables, request, timestep=timestep)
     if output is not None:
@@ -330,1174 +230,179 @@ def point_simulations(
     return frame
 
 
-PROTECTED_TAG = "pinned"
-"""Reserved tag that exempts a run from every retention rule."""
-
-DEFAULT_KEEP_VERSIONS = 5
-"""Versions of one lineage ``gc`` keeps by default before trimming the rest."""
-
-
-@dataclass(frozen=True, slots=True)
-class RetentionPolicy:
-    """How much run history ``gc`` keeps in a project.
-
-    Prudent by default: only lineages longer than :attr:`keep_versions` are
-    trimmed, and both age expiry and figure sweeping are opt-in. No rule ever
-    destroys anything. A selected run is moved to the trash, a reversible
-    status flip stamped on disk as ``runs/<name>/trash.json``, and selected
-    figures are quarantined under ``<project>/.hmp/trash/<stamp>/``. Bytes are
-    freed later, by the trash-expiry rule, once the retention window has
-    passed. A run tagged :data:`PROTECTED_TAG` is never selected.
-    """
-
-    keep_versions: int | None = DEFAULT_KEEP_VERSIONS
-    """Newest versions kept per lineage (``name_stem``). ``None`` disables."""
-
-    max_age_days: int | None = None
-    """Age past which a run is trashed. ``None`` (default) disables."""
-
-    purge_figures: bool = False
-    """Sweep the regenerable ``figures/`` directory of each run."""
-
-    def as_dict(self) -> dict[str, Any]:
-        """Return the policy as a JSON-friendly mapping, for the plan report."""
-        return {
-            "keep_versions": self.keep_versions,
-            "max_age_days": self.max_age_days,
-            "purge_figures": self.purge_figures,
-            "protected_tag": PROTECTED_TAG,
-        }
-
-
-def gc(
-    workspace: Any = None,
-    *,
-    dry_run: bool = True,
-    policy: RetentionPolicy | None = None,
-) -> dict:
-    """Garbage-collect orphan caches, tmp parquet, stale sims and old runs.
-
-    Plans by default: nothing is touched unless the caller passes
-    ``dry_run=False``. Nothing is destroyed directly either. Orphan run stores
-    and regenerable figures are moved to ``<project>/.hmp/trash/<stamp>/``, and
-    runs selected by the retention ``policy`` go to the project trash, from
-    which ``hmp catalog restore`` brings them back.
-
-    Returns a dict with ``plan`` (mapping category -> candidate list),
-    ``policy`` (the retention rules applied) and ``summary`` (mapping
-    category -> applied count, empty when ``dry_run``).
-    """
-    retention = policy or RetentionPolicy()
-    workspace_root = _gc_resolve_workspace(workspace)
-    plan = _gc_collect_plan(workspace_root, retention)
-    summary: dict[str, int] = {}
-    if not dry_run:
-        summary = _gc_apply_plan(workspace_root, plan)
-        _emit_gc_audit_events(workspace_root, summary)
-    return {
-        "workspace": str(workspace_root),
-        "policy": retention.as_dict(),
-        "plan": plan,
-        "summary": summary,
-        "dry_run": dry_run,
-    }
-
-
-def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
-    """Emit one ``gc`` audit row per project catalog reflecting the sweep summary."""
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.audit import emit_audit_event
-
-    for project_root in _gc_iter_project_roots(workspace):
-        try:
-            catalog = Catalog(project_root)
-        except Exception:
-            continue
-        try:
-            emit_audit_event(
-                catalog.connection,
-                event_type="gc",
-                actor_kind="cli",
-                project=project_root.name,
-                payload={"summary": dict(summary)},
-            )
-        except Exception:
-            pass
-        finally:
-            catalog.close()
-
-
-def reindex_project(workspace: Any) -> dict:
-    """Rebuild the project index from its run and session directories.
-
-    Returns ``{"index": ..., "indexed": [...], "sessions": [...],
-    "skipped": [...], "rows": {...}}``. Idempotent: the index is rebuilt from
-    what the runs and the calibration sessions declare on disk, so running it
-    twice describes the same project twice.
-    """
-    from hydromodpy.results.catalog.reindex import rebuild_index
-
-    report = rebuild_index(Path(workspace).expanduser().resolve())
-    return {
-        "index": str(report.index_path),
-        "indexed": list(report.indexed),
-        "sessions": list(report.sessions),
-        "skipped": [{"run": item.run, "reason": item.reason} for item in report.skipped],
-        "rows": dict(report.rows),
-    }
-
-
-def delete_simulation(
-    sim_ref: str,
-    *,
-    workspace: Any,
-    keep_storage: bool = False,
-) -> dict:
-    """Delete one simulation row and (optionally) its run directory.
-
-    Returns a dict with ``sim_id``, ``freed_bytes``, ``removed_paths``.
-    """
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
-
-    workspace_root = Path(workspace).expanduser().resolve()
-    if not (catalog_path_for(workspace_root)).exists():
-        raise FileNotFoundError(f"No catalog at {workspace_root}")
-
-    with Catalog(workspace_root) as catalog:
-        # A purge cannot be undone: a name a live and a trashed run both hold
-        # is refused with both ids rather than resolved to the live one.
-        sid = catalog.resolve(sim_ref, unambiguous=True)
-        return delete_simulation_artifacts(catalog, sid, remove_storage=not keep_storage)
-
-
-def _open_project_catalog(workspace: Any, *, read_only: bool = False) -> Any:
-    """Open the project catalog at ``workspace`` or raise."""
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
-
-    root = Path(workspace).expanduser().resolve()
-    if not (catalog_path_for(root)).exists():
-        raise FileNotFoundError(f"No catalog at {root}")
-    return Catalog(root, read_only=read_only)
-
-
-def rerun_simulation(
-    sim_ref: str,
-    *,
-    workspace: Any,
-    overrides: dict | None = None,
-    name: str | None = None,
-) -> dict:
-    """Re-launch a run from its config snapshot with dotted-path overrides.
-
-    Reads the snapshot through a short-lived read-only catalog (closed before
-    launching) so the fresh run's writable catalog never contends in-process.
-    """
-    from hydromodpy.results.run.rerun_contract import get_rerun_provider
-
-    with _open_project_catalog(workspace, read_only=True) as catalog:
-        sid = catalog.resolve(sim_ref)
-        run = catalog[sid]
-        snapshot = run.config_snapshot
-        base_name = run.name
-    if snapshot is None:
-        raise ValueError(f"Run {sid[:8]} has no config snapshot; cannot rerun.")
-    requested_name = name or (f"{base_name}_rerun" if base_name else None)
-    new_sid = str(
-        get_rerun_provider().rerun(
-            snapshot, overrides=overrides or {}, name=requested_name, source_sim_id=sid
-        )
-    )
-    # Registration may auto-version the requested name ('x_rerun' -> 'x_rerun.v2');
-    # re-read the row so the CLI reports the name that actually exists.
-    final_name = requested_name
-    try:
-        with _open_project_catalog(workspace, read_only=True) as catalog:
-            final_name = catalog[new_sid].name or requested_name
-    except Exception:
-        pass
-    return {"sim_id": new_sid, "name": final_name}
-
-
-def tag_simulation(
-    sim_ref: str,
-    *,
-    workspace: Any,
-    add: tuple[str, ...] = (),
-    remove: tuple[str, ...] = (),
-) -> dict:
-    """Add and/or remove tags on the run referenced by ``sim_ref``."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
-        added = [t for t in add if catalog.add_tag(sid, t)]
-        removed = [t for t in remove if catalog.remove_tag(sid, t)]
-        return {"sim_id": sid, "added": added, "removed": removed}
-
-
-def note_simulation(sim_ref: str, *, workspace: Any, note: str) -> dict:
-    """Append a timestamped note to the run referenced by ``sim_ref``."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
-        catalog.add_note(sid, note)
-        return {"sim_id": sid}
-
-
-def rename_simulation(sim_ref: str, *, workspace: Any, new_name: str) -> dict:
-    """Rename the run referenced by ``sim_ref`` to ``new_name``."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
-        catalog.rename_simulation(sid, new_name)
-        return {"sim_id": sid, "name": new_name}
-
-
-def trash_simulation(sim_ref: str, *, workspace: Any, force: bool = False) -> dict:
-    """Move the run referenced by ``sim_ref`` to the trash (storage stays)."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref)
-        catalog.trash(sid, force=force)
-        return {"sim_id": sid}
-
-
-def restore_simulation(sim_ref: str, *, workspace: Any) -> dict:
-    """Restore a trashed run, returning its (possibly versioned) name."""
-    with _open_project_catalog(workspace) as catalog:
-        sid = catalog.resolve(sim_ref, in_trash=True)
-        name = catalog.restore(sid)
-        return {"sim_id": sid, "name": name}
-
-
 def diff_simulations(ref_a: str, ref_b: str, *, workspace: Any) -> dict:
-    """Compare two runs' parameters and outlet metrics."""
-    with _open_project_catalog(workspace, read_only=True) as catalog:
+    """Compare the parameters and metrics of two runs."""
+    with _open_catalog(workspace) as catalog:
         return catalog.diff(ref_a, ref_b)
 
 
-def import_package_run(
-    package_path: Any,
-    *,
-    workspace: Any,
-    force: bool = False,
-    as_project: str | None = None,
-) -> dict:
-    """Import a single- or multi-run ``.hmp`` archive (catalog created if absent).
+def delete_simulation_artifacts(
+    catalog: Any, sid: str, *, force: bool = False
+) -> dict[str, object]:
+    """Move one run of an open catalog to the project trash and return what moved.
 
-    Returns ``{"sim_ids": [...]}`` (one id for a single-run archive, one per run
-    for a multi-run container).
+    Used by ``hmp dev manage`` when iterating over the runs of a project. The
+    bytes stay in ``trash/`` until ``hmp catalog gc --apply`` frees them.
     """
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.trash import trash_run
 
-    root = Path(workspace).expanduser().resolve()
-    pkg = Path(package_path).expanduser()
-    if not pkg.is_file():
-        raise FileNotFoundError(f"No archive at {pkg}")
-    with Catalog(root) as catalog:
-        return {"sim_ids": catalog.import_package_multi(pkg, force=force, as_project=as_project)}
-
-
-def _read_running_sidecars(project_root: Path, cutoff_s: float) -> dict[str, dict]:
-    """Read live-run heartbeat sidecars under ``project_root`` keyed by id8.
-
-    Lets ``watch`` see liveness without touching the DuckDB catalog, which a
-    live solve holds locked.
-    """
-    import json
-    from datetime import UTC, datetime
-
-    from hydromodpy.core.state.paths import running_sidecar_dir
-
-    sidecar_dir = running_sidecar_dir(project_root)
-    out: dict[str, dict] = {}
-    if not sidecar_dir.is_dir():
-        return out
-    now = datetime.now(UTC)
-    for path in sidecar_dir.glob("*.json"):
-        sim_id: str | None = None
-        ts: str | None = None
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            sim_id = data.get("sim_id")
-            ts = data.get("ts")
-            age_s = max(0.0, (now - datetime.fromisoformat(ts)).total_seconds())
-        except (OSError, ValueError, KeyError):
-            try:
-                age_s = max(0.0, now.timestamp() - path.stat().st_mtime)
-            except OSError:
-                continue
-        out[path.stem] = {
-            "sim_id": sim_id,
-            "ts": ts,
-            "age_s": age_s,
-            "stale": age_s > cutoff_s,
-        }
-    return out
-
-
-def watch_running(workspace: Any, *, stale_minutes: int | None = None) -> list[dict]:
-    """Return running runs with heartbeat age and a staleness flag.
-
-    A run is ``stale`` when neither its sidecar nor its newest DB heartbeat is
-    fresher than ``stale_minutes``, which usually means the process died
-    without finalizing. Sidecars are read first so ``watch`` stays usable even
-    while a solve holds the catalog locked.
-    """
-    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
-
-    minutes = STALE_HEARTBEAT_MINUTES if stale_minutes is None else stale_minutes
-    root = Path(workspace).expanduser().resolve()
-    cutoff = minutes * 60
-    sidecars = _read_running_sidecars(root, cutoff)
-    by_id8: dict[str, dict] = {}
-
-    try:
-        with _open_project_catalog(workspace, read_only=True) as catalog:
-            rows = catalog.list_running()
-        for entry in rows:
-            sid = str(entry["sim_id"])
-            name, created_at = entry["name"], entry["created_at"]
-            last_heartbeat, age_s = entry["last_heartbeat"], entry["age_s"]
-            id8 = sid.replace("-", "")[:8]
-            sc = sidecars.get(id8)
-            if sc is not None and not sc["stale"]:
-                stale, eff_age, hb = False, sc["age_s"], sc["ts"]
-            else:
-                stale = age_s is None or float(age_s) > cutoff
-                eff_age = None if age_s is None else float(age_s)
-                hb = last_heartbeat
-            by_id8[id8] = {
-                "sim_id": sid,
-                "name": name,
-                "created_at": created_at,
-                "last_heartbeat": hb,
-                "age_s": eff_age,
-                "stale": stale,
-            }
-    except Exception:
-        # Catalog locked (a live solve) or absent: report from sidecars alone.
-        pass
-
-    for id8, sc in sidecars.items():
-        if id8 in by_id8:
-            continue
-        by_id8[id8] = {
-            "sim_id": sc["sim_id"],
-            "name": None,
-            "created_at": None,
-            "last_heartbeat": sc["ts"],
-            "age_s": sc["age_s"],
-            "stale": sc["stale"],
-        }
-    return list(by_id8.values())
-
-
-def list_trashed(workspace: Any) -> list[dict]:
-    """Return the trashed runs in the workspace catalog."""
-    with _open_project_catalog(workspace, read_only=True) as catalog:
-        return catalog.list_trash()
-
-
-def empty_trashed(workspace: Any, *, force: bool = False) -> list[str]:
-    """Hard-delete trashed runs (pinned skipped unless ``force``)."""
-    with _open_project_catalog(workspace) as catalog:
-        return catalog.empty_trash(force=force)
+    rel_dir = catalog.rel_dir_of(sid)
+    run_dir = catalog.project_path / rel_dir
+    size = _path_size(run_dir)
+    moved = trash_run(catalog.project_path, rel_dir, now=datetime.now(UTC), force=force)
+    return {"sim_id": sid, "rel_dir": rel_dir, "trashed_to": str(moved), "bytes": size}
 
 
 def _path_size(path: Path) -> int:
-    if not path.exists():
-        return 0
-    try:
-        if path.is_file():
-            return int(path.stat().st_size)
-    except OSError:
-        return 0
     total = 0
     try:
         for child in path.rglob("*"):
-            try:
-                if child.is_file():
-                    total += int(child.stat().st_size)
-            except OSError:
-                continue
+            if child.is_file():
+                total += int(child.stat().st_size)
     except OSError:
         return total
     return total
 
 
-def _gc_resolve_workspace(workspace: Any) -> Path:
-    import os
+def reindex_project(workspace: Any, *, incremental: bool = False) -> dict:
+    """Rebuild the index of a project, or bring it up to date with ``incremental``.
 
-    from hydromodpy.cli.helpers import find_workspace_root
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
-
-    if workspace is not None:
-        root = Path(workspace).expanduser().resolve()
-        if not root.is_dir():
-            raise FileNotFoundError(f"Workspace {root} does not exist.")
-        return root
-    # Auto-detect from cwd like the other catalog verbs (ls/show/diff) rather
-    # than defaulting straight to ~/hydromodpy: walk up to the workspace root,
-    # or stay on a bare project directory that carries its own catalog.
-    start = Path(os.environ.get("HMP_WORKSPACE") or Path.cwd()).expanduser().resolve()
-    if (catalog_path_for(start)).is_file():
-        return start
-    found = find_workspace_root(start)
-    if (found / "projects").is_dir() or (found / "data").is_dir():
-        return found
-    default = Path(DEFAULT_ROOT).expanduser().resolve()
-    if not default.is_dir():
-        raise FileNotFoundError(
-            f"No workspace found from {start} and the default {default} does not exist. "
-            "Pass --workspace or run 'hmp workspace init' first."
-        )
-    return default
-
-
-def _gc_iter_project_roots(workspace: Path) -> list[Path]:
-    from hydromodpy.results.catalog import iter_project_catalog_roots
-
-    return iter_project_catalog_roots(workspace)
-
-
-ABANDONED_SESSION_MINUTES = 24 * 60
-"""How long a session may sit ``running`` before it is treated as abandoned.
-
-A day, deliberately generous: a calibration on a daily chronicle runs for hours,
-and closing a live one would be worse than leaving a dead one listed. A session
-has no heartbeat to shorten this with.
-"""
-
-
-def _gc_collect_plan(workspace: Path, policy: RetentionPolicy) -> dict[str, list[str]]:
-    plan: dict[str, list[str]] = {
-        "calibration_sessions": [],
-        "abandoned_calibration_sessions": [],
-        "geographic_cache": [],
-        "tmp_parquet": [],
-        "stale_running_sims": [],
-        "superseded_runs": [],
-        "expired_runs": [],
-        "regenerable_figures": [],
-        "expired_trash": [],
-        "pending_purges": [],
-        "orphan_stores": [],
-    }
-    project_roots = _gc_iter_project_roots(workspace)
-    for project_root in project_roots:
-        plan["calibration_sessions"].extend(_gc_orphan_calibration_sessions(project_root))
-        plan["abandoned_calibration_sessions"].extend(
-            _gc_abandoned_calibration_sessions(project_root)
-        )
-        plan["stale_running_sims"].extend(_gc_stale_running_simulations(project_root))
-        retention = _gc_retention_candidates(project_root, policy)
-        plan["superseded_runs"].extend(retention["superseded_runs"])
-        plan["expired_runs"].extend(retention["expired_runs"])
-        plan["regenerable_figures"].extend(retention["regenerable_figures"])
-        plan["expired_trash"].extend(_gc_expired_trash(project_root))
-        plan["pending_purges"].extend(_gc_pending_purges(project_root))
-        plan["orphan_stores"].extend(_gc_orphan_stores(project_root))
-    plan["geographic_cache"].extend(_gc_orphan_geographic_cache(workspace, project_roots))
-    plan["tmp_parquet"].extend(_gc_tmp_parquet_files(workspace))
-    return plan
-
-
-def _read_only_catalog(project_root: Path) -> Any | None:
-    """Open a read-only catalog at ``project_root`` or return None on failure.
-
-    A read-only open never migrates or locks the file, so it is safe to run
-    against a workspace with live solves. Errors (locked, missing, schema
-    behind) degrade to None so gc planning stays best-effort.
+    Returns ``{"index", "full", "indexed", "sessions", "removed", "skipped",
+    "rows"}``. A full rebuild is idempotent: the index is built from what the
+    directories declare, so running it twice describes the same project.
     """
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.catalog.indexer import index_new_runs, rebuild_index
 
-    try:
-        return Catalog(project_root, read_only=True)
-    except Exception:
-        return None
-
-
-def _gc_expired_trash(project_root: Path) -> list[str]:
-    """Trashed, non-pinned runs older than the retention window."""
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        sids = catalog.list_expired_trash()
-    except Exception:
-        sids = []
-    finally:
-        catalog.close()
-    return [f"{project_root.name}:{sid}" for sid in sids]
-
-
-_RETENTION_SKIPPED_STATUSES: frozenset[str] = frozenset({"running", "trashed"})
-"""Statuses no retention rule may touch: a live solve, or an already-trashed run."""
-
-
-@dataclass(frozen=True, slots=True)
-class _RetentionRun:
-    """One live run of a project, reduced to what a retention rule reads."""
-
-    sim_id: str
-    name_stem: str
-    version: int
-    created_at: Any
-    dirname: str | None
-
-
-def _gc_retention_candidates(project_root: Path, policy: RetentionPolicy) -> dict[str, list[str]]:
-    """Return the retention candidates of one project, by plan category.
-
-    Runs are referenced as ``<project>:<sim_id>`` like the other per-run
-    categories; figures are referenced by path. A run tagged
-    :data:`PROTECTED_TAG` never appears, and a run selected as superseded is
-    not listed again as expired.
-    """
-    empty: dict[str, list[str]] = {
-        "superseded_runs": [],
-        "expired_runs": [],
-        "regenerable_figures": [],
-    }
-    if policy.keep_versions is None and policy.max_age_days is None and not policy.purge_figures:
-        return empty
-    runs, protected = _gc_live_runs(project_root)
-    eligible = [run for run in runs if run.sim_id not in protected]
-
-    superseded: list[_RetentionRun] = []
-    if policy.keep_versions is not None:
-        superseded = _gc_superseded_runs(eligible, policy.keep_versions)
-    taken = {run.sim_id for run in superseded}
-
-    expired: list[_RetentionRun] = []
-    if policy.max_age_days is not None:
-        expired = [
-            run for run in _gc_aged_runs(eligible, policy.max_age_days) if run.sim_id not in taken
-        ]
-
-    figures: list[str] = []
-    if policy.purge_figures:
-        figures = _gc_regenerable_figures(project_root, eligible)
-
+    root = Path(workspace).expanduser().resolve()
+    report = index_new_runs(root) if incremental else rebuild_index(root)
     return {
-        "superseded_runs": [f"{project_root.name}:{run.sim_id}" for run in superseded],
-        "expired_runs": [f"{project_root.name}:{run.sim_id}" for run in expired],
-        "regenerable_figures": figures,
+        "index": str(report.index_path),
+        "full": report.full,
+        "indexed": list(report.indexed),
+        "sessions": list(report.sessions),
+        "removed": list(report.removed),
+        "skipped": [{"rel_dir": item.rel_dir, "reason": item.reason} for item in report.skipped],
+        "rows": dict(report.rows),
     }
 
 
-def _gc_live_runs(project_root: Path) -> tuple[list[_RetentionRun], set[str]]:
-    """Return the retainable runs of a project and the protected sim_ids."""
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return [], set()
-    try:
-        frame = catalog.list_simulations(named_only=True)
-        protected = catalog.sims_with_tag(PROTECTED_TAG)
-    except Exception:
-        return [], set()
-    finally:
-        catalog.close()
-
-    runs: list[_RetentionRun] = []
-    for row in frame.to_dict(orient="records"):
-        if str(row.get("status") or "") in _RETENTION_SKIPPED_STATUSES:
-            continue
-        stem = row.get("name_stem") or row.get("name")
-        if not stem:
-            continue
-        dirname = row.get("storage_basename")
-        runs.append(
-            _RetentionRun(
-                sim_id=str(row["sim_id"]),
-                name_stem=str(stem),
-                version=int(row.get("version_int") or 1),
-                created_at=row.get("created_at"),
-                dirname=None if not dirname else str(dirname),
-            )
-        )
-    return runs, {str(sid) for sid in protected}
+# ---------------------------------------------------------------------------
+# Liveness, from the directories
+# ---------------------------------------------------------------------------
 
 
-def _gc_superseded_runs(runs: list[_RetentionRun], keep: int) -> list[_RetentionRun]:
-    """Return the runs beyond the ``keep`` newest versions of their lineage.
+def _attempt_dirs(project_root: Path) -> list[tuple[str, Path]]:
+    """Return ``(rel_dir, path)`` of every directory carrying an outcome."""
+    from hydromodpy.results.catalog.indexer import scan_tree
 
-    A lineage is a ``name_stem``: ``my_run`` and ``my_run.v2`` are two versions
-    of one run, and registration guarantees the version number orders them.
-    """
-    from collections import defaultdict
-
-    by_stem: dict[str, list[_RetentionRun]] = defaultdict(list)
-    for run in runs:
-        by_stem[run.name_stem].append(run)
-    superseded: list[_RetentionRun] = []
-    for _stem, group in sorted(by_stem.items()):
-        if len(group) <= keep:
-            continue
-        newest_first = sorted(group, key=lambda run: run.version, reverse=True)
-        superseded.extend(newest_first[keep:])
-    return superseded
-
-
-def _gc_aged_runs(runs: list[_RetentionRun], max_age_days: int) -> list[_RetentionRun]:
-    """Return the runs created before the age limit."""
-    from datetime import UTC, datetime, timedelta
-
-    cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
-    aged: list[_RetentionRun] = []
-    for run in runs:
-        created = _gc_as_utc(run.created_at)
-        if created is not None and created < cutoff:
-            aged.append(run)
-    return aged
-
-
-def _gc_as_utc(value: Any) -> datetime | None:
-    """Return a timestamp column as a UTC-aware datetime, or None."""
-    from datetime import UTC, datetime
-
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        stamp = value
-    else:
-        try:
-            stamp = datetime.fromisoformat(str(value))
-        except ValueError:
-            return None
-    return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=UTC)
-
-
-def _gc_regenerable_figures(project_root: Path, runs: list[_RetentionRun]) -> list[str]:
-    """Return the non-empty ``figures/`` directories of a project's runs.
-
-    Figures are rendered from the run outputs, so they are the one artefact a
-    project can always rebuild. They are still quarantined rather than
-    deleted, and a directory younger than the staging grace window is left
-    alone in case a report is being written right now.
-    """
-    from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
-
-    runs_dir = runs_dir_for(project_root)
-    found: list[str] = []
-    for run in runs:
-        if run.dirname is None:
-            continue
-        figures = runs_dir / run.dirname / RUN_FIGURES_DIRNAME
-        if not figures.is_dir():
-            continue
-        try:
-            if not any(figures.iterdir()):
-                continue
-        except OSError:
-            continue
-        if _gc_recent(figures, _GC_STAGING_MIN_AGE_S):
-            continue
-        found.append(str(figures))
-    return found
-
-
-def _gc_pending_purges(project_root: Path) -> list[str]:
-    """Hard purges interrupted by a crash (a ``purge_journal`` row remains)."""
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        sids = catalog.list_pending_purges()
-    except Exception:
-        sids = []
-    finally:
-        catalog.close()
-    return [f"{project_root.name}:{sid}" for sid in sids]
-
-
-# Artefacts younger than this are assumed to belong to a live write and are
-# never swept (atomic parquet .tmp-* files and run directories being written).
-_GC_STAGING_MIN_AGE_S = 3600
-
-
-def _gc_recent(path: Path, min_age_s: float) -> bool:
-    """Return True when ``path`` was modified more recently than ``min_age_s``."""
-    import time
-
-    try:
-        return (time.time() - path.stat().st_mtime) < min_age_s
-    except OSError:
-        return True
-
-
-def _gc_orphan_stores(project_root: Path) -> list[str]:
-    """Run directories on disk with no matching index row.
-
-    Skips sealed runs (a ``manifest.json`` makes the run re-indexable by
-    ``hmp catalog reindex``, so it is missing from the index, never lost),
-    dotfile-prefixed entries, and any directory younger than the staging
-    grace window so an in-flight registration is never swept.
-    """
-    from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.manifest import is_sealed
-    from hydromodpy.results.storage.diagnostics import is_run_directory
-
-    runs_dir = runs_dir_for(project_root)
-    if not runs_dir.is_dir():
-        return []
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        known = catalog.list_run_dirnames()
-    except Exception:
-        known = set()
-    finally:
-        catalog.close()
-
-    orphans: list[str] = []
-    for entry in sorted(runs_dir.iterdir()):
-        if entry.name.startswith(".") or not is_run_directory(entry):
-            continue
-        if entry.name in known:
-            continue
-        if is_sealed(entry):
-            continue
-        if _gc_recent(entry, _GC_STAGING_MIN_AGE_S):
-            continue
-        orphans.append(str(entry))
-    return orphans
-
-
-def _gc_abandoned_calibration_sessions(project_root: Path) -> list[str]:
-    """Return sessions still 'running' long after they opened.
-
-    A session closes in a ``finally``; a SIGKILL or a power cut runs none, so
-    the row stays 'running' with no end date and every listing shows a
-    calibration that is not happening. Unlike a run, a session has no
-    heartbeat, so age since the start is the only signal there is.
-    """
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        sessions = catalog.sessions.abandoned(ABANDONED_SESSION_MINUTES)
-    except Exception:
-        sessions = []
-    finally:
-        catalog.close()
-    return [f"{project_root.name}:{entry['session_id']}" for entry in sessions]
-
-
-def abandoned_calibration_session_count(project_root: Path) -> int:
-    """Count calibration sessions still 'running' long after they opened."""
-    return len(_gc_abandoned_calibration_sessions(project_root))
-
-
-def _gc_orphan_calibration_sessions(project_root: Path) -> list[str]:
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        sessions = catalog.list_orphan_calibration_sessions()
-    except Exception:
-        sessions = []
-    finally:
-        catalog.close()
-    return [f"{project_root.name}:{session}" for session in sessions]
-
-
-def stale_running_sim_ids(project_root: Path, minutes: int | None = None) -> list[str]:
-    """Return sim_ids of runs stale past ``minutes``, reconciled with sidecars.
-
-    Shared by the gc reaper and ``doctor``: reads the catalog (read-only, no
-    lock) then drops any run whose heartbeat sidecar is still fresh (a live run
-    holds the catalog lock, so its DB heartbeat is invisible to a read probe).
-    """
-    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
-
-    window = STALE_HEARTBEAT_MINUTES if minutes is None else minutes
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return []
-    try:
-        stale = catalog.list_stale_running(window)
-    except Exception:
-        stale = []
-    finally:
-        catalog.close()
-    fresh = {
-        id8
-        for id8, sc in _read_running_sidecars(project_root, window * 60).items()
-        if not sc["stale"]
-    }
     return [
-        str(entry["sim_id"])
-        for entry in stale
-        if str(entry["sim_id"]).replace("-", "")[:8] not in fresh
+        (entry.rel_dir, entry.path)
+        for entry in scan_tree(project_root).values()
+        if entry.kind != "session"
     ]
 
 
-def orphan_calibration_session_count(project_root: Path) -> int:
-    """Count calibration sessions whose ``best_sim_id`` no longer exists."""
-    catalog = _read_only_catalog(project_root)
-    if catalog is None:
-        return 0
-    try:
-        return len(catalog.list_orphan_calibration_sessions())
-    except Exception:
-        return 0
-    finally:
-        catalog.close()
+def watch_running(workspace: Any, *, stale_minutes: float | None = None) -> list[dict]:
+    """Return the running attempts of a project with the age of their pulse.
 
-
-def _gc_stale_running_simulations(project_root: Path) -> list[str]:
-    return [f"{project_root.name}:{sid}" for sid in stale_running_sim_ids(project_root)]
-
-
-def _gc_orphan_geographic_cache(workspace: Path, project_roots: list[Path]) -> list[str]:
-    from hydromodpy.results.geographic_cache import CACHE_DIRNAME
-
-    cache_dir = workspace / CACHE_DIRNAME
-    if not cache_dir.is_dir():
-        return []
-    referenced = _gc_referenced_geographic_fingerprints(project_roots)
-    orphans: list[str] = []
-    for entry in sorted(cache_dir.iterdir()):
-        if not entry.is_dir():
-            continue
-        if entry.name in referenced:
-            continue
-        orphans.append(str(entry))
-    return orphans
-
-
-def _gc_referenced_geographic_fingerprints(project_roots: list[Path]) -> set[str]:
-    referenced: set[str] = set()
-    for project_root in project_roots:
-        catalog = _read_only_catalog(project_root)
-        if catalog is None:
-            continue
-        try:
-            referenced |= catalog.list_referenced_geographic_fingerprints()
-        except Exception:
-            pass
-        finally:
-            catalog.close()
-    return referenced
-
-
-def _gc_tmp_parquet_files(workspace: Path) -> list[str]:
-    """Stale ``*.tmp-*`` atomic-write staging files past the grace window.
-
-    ``*.tmp-<uuid>`` is exactly the atomic-write staging name of a parquet write
-    in progress; deleting one mid-write breaks a concurrent run. Only sweep
-    entries older than the staging grace window.
+    Reads ``outcome.json`` and ``logs/heartbeat.json`` only, never the index.
+    An attempt is ``stale`` when its pulse is older than ``stale_minutes``
+    (default :data:`~hydromodpy.results.outcome.DEFAULT_STALE_AFTER_S`),
+    which is a display word: only a proven death lets another attempt take
+    the directory.
     """
-    found: list[str] = []
-    if not workspace.is_dir():
-        return found
-    for tmp in workspace.rglob("*.tmp-*"):
-        try:
-            if not (tmp.is_file() or tmp.is_dir()):
-                continue
-            if _gc_recent(tmp, _GC_STAGING_MIN_AGE_S):
-                continue
-            found.append(str(tmp))
-        except OSError:
+    from hydromodpy.results.heartbeat import read_heartbeat
+    from hydromodpy.results.outcome import effective_status, read_outcome
+
+    root = Path(workspace).expanduser().resolve()
+    stale_after_s = DEFAULT_STALE_AFTER_S if stale_minutes is None else stale_minutes * 60.0
+    now = datetime.now(UTC)
+    rows: list[dict] = []
+    for rel_dir, path in _attempt_dirs(root):
+        status = effective_status(path, now=now, stale_after_s=stale_after_s)
+        if status not in ("running", "stale"):
             continue
+        outcome = read_outcome(path)
+        if outcome is None:
+            continue
+        beat = read_heartbeat(path)
+        age_s = None if beat is None else max(0.0, (now - beat.at).total_seconds())
+        rows.append(
+            {
+                "rel_dir": rel_dir,
+                "case_id": outcome.case_id,
+                "sim_id": outcome.sim_id,
+                "attempt": outcome.attempt,
+                "attempt_id": outcome.attempt_id,
+                "host": outcome.host,
+                "pid": outcome.pid,
+                "step": None if beat is None else beat.step or outcome.step,
+                "started_at": outcome.started_at,
+                "heartbeat_at": None if beat is None else beat.at,
+                "age_s": age_s,
+                "stale": status == "stale",
+            }
+        )
+    rows.sort(key=lambda row: row["rel_dir"])
+    return rows
+
+
+def stale_running_sim_ids(project_root: Path, minutes: float | None = None) -> list[str]:
+    """Return the ``rel_dir`` of every attempt whose pulse is older than ``minutes``."""
+    return [
+        row["rel_dir"] for row in watch_running(project_root, stale_minutes=minutes) if row["stale"]
+    ]
+
+
+def _session_descriptors(project_root: Path) -> list[tuple[Path, Any]]:
+    from hydromodpy.core.state.paths import sessions_dir_for
+    from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
+
+    sessions_dir = sessions_dir_for(Path(project_root))
+    if not sessions_dir.is_dir():
+        return []
+    found = []
+    for path in sorted(sessions_dir.iterdir()):
+        if path.is_dir() and session_descriptor_path(path).is_file():
+            try:
+                found.append((path, read_session(path)))
+            except (OSError, ValueError) as exc:
+                logger.warning("Session %s is unreadable: %s", path.name, exc)
     return found
 
 
-def _gc_trash_stamp() -> str:
-    """UTC stamp naming one gc sweep in the project trash."""
-    from datetime import UTC, datetime
-
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-
-
-def _gc_quarantine(path: Path, *, project_root: Path, stamp: str, relative: str) -> bool:
-    """Move ``path`` under ``<project>/.hmp/trash/<stamp>/<relative>``.
-
-    The single destructive primitive of gc, and it destroys nothing: it moves.
-    A human inspects the quarantine and empties it, or a later sweep expires
-    it. Returns True when the move happened.
-    """
-    from hydromodpy.core.state.paths import internal_dir
-
-    if not path.exists():
-        return False
-    destination = internal_dir(project_root) / "trash" / stamp / relative
-    try:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(path), str(destination))
-    except OSError as exc:
-        logger.warning("gc could not quarantine %s: %s", path, exc)
-        return False
-    logger.info("gc moved %s to %s", path, destination)
-    return True
-
-
-def _gc_quarantine_orphan_store(store: Path, *, stamp: str) -> bool:
-    """Quarantine an orphan run directory collected from ``<project>/runs/<name>``.
-
-    An orphan run directory is the only remaining copy of a run's outputs, so
-    gc never deletes one.
-    """
-    return _gc_quarantine(store, project_root=store.parent.parent, stamp=stamp, relative=store.name)
-
-
-def _gc_quarantine_figures(figures: Path, *, stamp: str) -> bool:
-    """Quarantine the ``figures/`` directory of a run, run name kept.
-
-    Collected from ``<project>/runs/<name>/figures``, so the quarantine holds
-    ``<stamp>/<name>/figures`` and says which run the figures came from.
-    """
-    run_dir = figures.parent
-    return _gc_quarantine(
-        figures,
-        project_root=run_dir.parent.parent,
-        stamp=stamp,
-        relative=f"{run_dir.name}/{figures.name}",
+def abandoned_calibration_session_count(project_root: Path) -> int:
+    """Count the sessions still ``running`` more than a day after they started."""
+    cutoff = datetime.now(UTC) - timedelta(minutes=ABANDONED_SESSION_MINUTES)
+    return sum(
+        1
+        for _path, descriptor in _session_descriptors(project_root)
+        if descriptor.status == "running" and descriptor.started_at < cutoff
     )
 
 
-def _gc_apply_plan(workspace: Path, plan: dict[str, list[str]]) -> dict[str, int]:
-
-    summary: dict[str, int] = dict.fromkeys(plan, 0)
-    for ref in plan["calibration_sessions"]:
-        project_name, session_id = ref.split(":", 1)
-        if _gc_delete_calibration_session(workspace, project_name, session_id):
-            summary["calibration_sessions"] += 1
-    for ref in plan["abandoned_calibration_sessions"]:
-        project_name, session_id = ref.split(":", 1)
-        if _gc_close_abandoned_calibration_session(workspace, project_name, session_id):
-            summary["abandoned_calibration_sessions"] += 1
-    for ref in plan["stale_running_sims"]:
-        project_name, sim_id = ref.split(":", 1)
-        if _gc_mark_simulation_failed(workspace, project_name, sim_id):
-            summary["stale_running_sims"] += 1
-    for path_str in plan["geographic_cache"]:
-        path = Path(path_str)
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
-            summary["geographic_cache"] += 1
-    for path_str in plan["tmp_parquet"]:
-        path = Path(path_str)
-        try:
-            if path.is_file():
-                path.unlink(missing_ok=True)
-                summary["tmp_parquet"] += 1
-            elif path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
-                summary["tmp_parquet"] += 1
-        except OSError:
-            continue
-    stamp = _gc_trash_stamp()
-    for path_str in plan["orphan_stores"]:
-        if _gc_quarantine_orphan_store(Path(path_str), stamp=stamp):
-            summary["orphan_stores"] += 1
-    for path_str in plan["regenerable_figures"]:
-        if _gc_quarantine_figures(Path(path_str), stamp=stamp):
-            summary["regenerable_figures"] += 1
-    summary["superseded_runs"] = _gc_apply_retention(workspace, plan["superseded_runs"])
-    summary["expired_runs"] = _gc_apply_retention(workspace, plan["expired_runs"])
-    summary["expired_trash"], summary["pending_purges"] = _gc_apply_per_project_purges(
-        workspace, plan["expired_trash"], plan["pending_purges"]
-    )
-    # Absorbed maintenance (the old `vacuum` verb): checkpoint catalogs and the
-    # data cache, then consolidate Zarr metadata. Safe to run every sweep.
-    summary["catalog_checkpoints"] = _vacuum_checkpoint_catalogs(workspace)
-    summary["cache_checkpoints"] = _vacuum_checkpoint_data_cache(workspace)
-    summary["zarr_consolidated"] = _vacuum_consolidate_zarr_stores(workspace)
-    return summary
-
-
-def _gc_apply_retention(workspace: Path, refs: list[str]) -> int:
-    """Move the retention candidates to the project trash, one open per project.
-
-    Reversible by design: :meth:`Catalog.trash` flips the status and stamps
-    ``runs/<name>/trash.json``, so the bytes stay until the trash-expiry rule
-    purges them and ``hmp catalog restore`` undoes the decision until then.
-    """
-    from hydromodpy.results.catalog import Catalog
-
-    by_project: dict[str, list[str]] = {}
-    for ref in refs:
-        project_name, sim_id = ref.split(":", 1)
-        by_project.setdefault(project_name, []).append(sim_id)
-
-    trashed = 0
-    for project_name, sim_ids in sorted(by_project.items()):
-        project_root = _gc_project_root_by_name(workspace, project_name)
-        if project_root is None:
-            continue
-        with Catalog(project_root) as catalog:
-            for sim_id in sim_ids:
-                try:
-                    catalog.trash(sim_id)
-                except Exception as exc:  # noqa: BLE001 - one refusal never stops the sweep
-                    logger.warning("gc could not trash run %s: %s", sim_id[:8], exc)
-                    continue
-                trashed += 1
-    return trashed
-
-
-def _gc_apply_per_project_purges(
-    workspace: Path, expired_refs: list[str], pending_refs: list[str]
-) -> tuple[int, int]:
-    """Purge expired trash and replay interrupted purges, one catalog open per project."""
-    from hydromodpy.results.catalog import Catalog
-
-    expired_by_project: dict[str, list[str]] = {}
-    for ref in expired_refs:
-        project_name, sim_id = ref.split(":", 1)
-        expired_by_project.setdefault(project_name, []).append(sim_id)
-    pending_projects = {ref.split(":", 1)[0] for ref in pending_refs}
-
-    expired_count = 0
-    pending_count = 0
-    for project_name in sorted(set(expired_by_project) | pending_projects):
-        project_root = _gc_project_root_by_name(workspace, project_name)
-        if project_root is None:
-            continue
-        with Catalog(project_root) as catalog:
-            for sim_id in expired_by_project.get(project_name, []):
-                try:
-                    catalog.delete(sim_id, audit_event_type="sim.purge")
-                    expired_count += 1
-                except Exception:
-                    continue
-            if project_name in pending_projects:
-                try:
-                    pending_count += len(catalog.replay_purge_journal())
-                except Exception:
-                    pass
-    return expired_count, pending_count
-
-
-def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:
-    from hydromodpy.core.state.paths import catalog_path_for
-
-    candidate = workspace / "projects" / project_name
-    if candidate.is_dir() and (catalog_path_for(candidate)).is_file():
-        return candidate
-    if workspace.name == project_name and (catalog_path_for(workspace)).is_file():
-        return workspace
-    return None
-
-
-def _gc_delete_calibration_session(workspace: Path, project_name: str, session_id: str) -> bool:
-    from hydromodpy.results.catalog import Catalog
-
-    project_root = _gc_project_root_by_name(workspace, project_name)
-    if project_root is None:
-        return False
-    with Catalog(project_root) as catalog:
-        catalog.delete_calibration_session(session_id)
-    return True
-
-
-def _gc_close_abandoned_calibration_session(
-    workspace: Path, project_name: str, session_id: str
-) -> bool:
-    """Close one session the process that opened it never closed."""
-    from hydromodpy.results.catalog import Catalog
-
-    project_root = _gc_project_root_by_name(workspace, project_name)
-    if project_root is None:
-        return False
-    with Catalog(project_root) as catalog:
-        catalog.sessions.close_abandoned(session_id)
-    return True
-
-
-def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) -> bool:
-    from hydromodpy.results.catalog import Catalog
-
-    project_root = _gc_project_root_by_name(workspace, project_name)
-    if project_root is None:
-        return False
-    with Catalog(project_root) as catalog:
-        catalog.mark_stale_running_failed(sim_id)
-    # The crashed run left a stale sidecar behind; drop it.
-    from hydromodpy.core.state.paths import running_sidecar_path
-
-    running_sidecar_path(project_root, sim_id).unlink(missing_ok=True)
-    return True
-
-
-def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import iter_project_catalog_roots
-
-    return [catalog_path_for(root) for root in iter_project_catalog_roots(workspace)]
-
-
-def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
-    import duckdb
-
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.audit import emit_audit_event
-
+def orphan_calibration_session_count(project_root: Path) -> int:
+    """Count the sessions whose best run directory no longer exists."""
+    root = Path(project_root)
     count = 0
-    for catalog_path in _vacuum_iter_catalog_files(workspace):
-        try:
-            with Catalog(catalog_path.parent) as catalog:
-                catalog.connection.execute("CHECKPOINT")
-                try:
-                    emit_audit_event(
-                        catalog.connection,
-                        event_type="vacuum",
-                        actor_kind="cli",
-                        project=catalog_path.parent.name,
-                        payload={"scope": "catalog"},
-                    )
-                except Exception:
-                    pass
+    for _path, descriptor in _session_descriptors(root):
+        best = descriptor.best
+        if best is not None and best.rel_dir is not None and not (root / best.rel_dir).is_dir():
             count += 1
-        except duckdb.Error:
-            continue
     return count
 
 
-def _vacuum_checkpoint_data_cache(workspace: Path) -> int:
-    import duckdb
-
-    from hydromodpy.data.registry.backend import DuckDBCacheBackend
-
-    cache_path = workspace / "data" / "cache.duckdb"
-    if not cache_path.is_file():
-        return 0
-    backend = DuckDBCacheBackend(cache_path)
-    try:
-        backend.connection.execute("CHECKPOINT")
-        return 1
-    except duckdb.Error:
-        return 0
-    finally:
-        backend.close()
-
-
-def _vacuum_consolidate_zarr_stores(workspace: Path) -> int:
-    try:
-        import zarr  # noqa: F401
-    except ImportError:
-        return 0
-    from hydromodpy.core.state.paths import runs_dir_for
-    from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-    from hydromodpy.results.zarr_store import SimulationZarr
-
-    count = 0
-    for project_root in _gc_iter_project_roots(workspace):
-        runs_dir = runs_dir_for(project_root)
-        if not runs_dir.is_dir():
-            continue
-        for entry in sorted(runs_dir.glob(f"*/{FIELDS_STORE_NAME}")):
-            if entry.is_dir():
-                try:
-                    sz = SimulationZarr(entry)
-                    try:
-                        sz.consolidate_metadata()
-                    finally:
-                        sz.close()
-                    count += 1
-                except Exception:
-                    continue
-    return count
+__all__ = [
+    "ABANDONED_SESSION_MINUTES",
+    "abandoned_calibration_session_count",
+    "delete_simulation_artifacts",
+    "diff_simulations",
+    "list_simulations",
+    "orphan_calibration_session_count",
+    "point_simulations",
+    "query_catalog",
+    "reindex_project",
+    "show_simulation",
+    "stale_running_sim_ids",
+    "watch_running",
+]

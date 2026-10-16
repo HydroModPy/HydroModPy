@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.cli._workers.process import capability_ids
+from hydromodpy.schema.processes import described_ids
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -38,10 +38,10 @@ that everything it resolved is declared.
 """
 
 
-def test_every_capability_this_build_serves_is_paired_with_an_egress_gate() -> None:
-    assert set(capability_ids()) == set(EGRESS_GATES), (
+def test_every_capability_this_build_describes_is_paired_with_an_egress_gate() -> None:
+    assert set(described_ids()) == set(EGRESS_GATES), (
         "a capability was added or removed without its egress gate; "
-        f"gated: {sorted(EGRESS_GATES)}, served: {sorted(capability_ids())}"
+        f"gated: {sorted(EGRESS_GATES)}, described: {sorted(described_ids())}"
     )
 
 

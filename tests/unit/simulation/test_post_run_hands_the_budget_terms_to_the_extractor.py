@@ -61,10 +61,6 @@ def extractor(monkeypatch) -> _Extractor:
     )
     monkeypatch.setattr(post_run_module, "_finalize_run_provenance", lambda **_kwargs: None)
     monkeypatch.setattr(post_run_module, "cleanup_solver_outputs", lambda **_kwargs: None)
-    monkeypatch.setattr(
-        "hydromodpy.simulation.extraction.derivation.fit_metrics.write_fit_metrics",
-        lambda *_args: None,
-    )
     return extractor
 
 

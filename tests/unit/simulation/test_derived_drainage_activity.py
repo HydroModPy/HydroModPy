@@ -6,8 +6,6 @@ and written after the run.
 
 from __future__ import annotations
 
-from uuid import uuid4
-
 import numpy as np
 import pytest
 
@@ -17,38 +15,24 @@ from hydromodpy.core.field_routing import (
     build_downhill_graph,
     drain_budget_to_positive_outflow,
 )
-from hydromodpy.results.catalog import Catalog
-from tests._helpers.fixtures_catalog import simulation_catalog
+
+from ._test_simulation_api_builders import RunBuilder, runs
+
+__all__ = ["runs"]
 
 
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
-
-
-def _register_catalog_run(
-    catalog: Catalog,
+def _open_run(
+    runs: RunBuilder,
     *,
     n_cells: int,
     n_layers: int = 1,
     n_timesteps: int = 1,
     mesh_topology: str | None = None,
 ) -> str:
-    sim_id = str(uuid4())
-    registration = catalog.register_simulation(
-        sim_id,
-        project="test",
-        solver="modflow6",
-        name=f"drainage_{sim_id[:8]}",
-        n_cells=n_cells,
-        n_layers=n_layers,
-        n_timesteps=n_timesteps,
-        mesh_topology=mesh_topology,
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    catalog.write_field(
+    sim_id = runs.open(
+        n_cells=n_cells, n_layers=n_layers, n_timesteps=n_timesteps, mesh_topology=mesh_topology
+    ).sim_id
+    runs.store(sim_id).write_field(
         sim_id,
         "head",
         0,
@@ -105,10 +89,10 @@ def test_accumulate_downhill_on_mesh_routes_to_lower_neighbor() -> None:
 
 
 def test_the_outflow_drain_is_read_as_the_positive_outflow_of_the_cell(
-    catalog: Catalog,
+    runs: RunBuilder,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=2)
-    catalog.write_field(
+    sim_id = _open_run(runs, n_cells=3, n_layers=2)
+    runs.store(sim_id).write_field(
         sim_id,
         "drain",
         0,
@@ -118,31 +102,31 @@ def test_the_outflow_drain_is_read_as_the_positive_outflow_of_the_cell(
     )
 
     expected = np.array([5.0, 4.0, 0.5])
-    np.testing.assert_allclose(catalog.query_field(sim_id, "outflow_drain", 0), expected)
+    np.testing.assert_allclose(runs.reader().query_field(sim_id, "outflow_drain", 0), expected)
     # No mesh topology and no stored descent: nothing to route on, so the field
     # is unavailable rather than served as the local flux.
     with pytest.raises(KeyError):
-        catalog.query_field(sim_id, "accumulation_flux", 0)
+        runs.reader().query_field(sim_id, "accumulation_flux", 0)
 
 
 def test_the_seepage_mask_is_read_from_the_surface_excess(
-    catalog: Catalog,
+    runs: RunBuilder,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=3)
-    sz = catalog.open_zarr(sim_id)
+    sim_id = _open_run(runs, n_cells=3)
+    sz = runs.store(sim_id).open_zarr(sim_id)
     try:
         mesh = sz.root.require_group("mesh")
         mesh.create_array("topography", data=np.array([0.0, 0.0, 0.0]), overwrite=True)
     finally:
         sz.close()
-    catalog.write_field(
+    runs.store(sim_id).write_field(
         sim_id,
         "head",
         0,
         np.array([[5.0, 5.0, 5.0]]),
         n_timesteps=1,
     )
-    catalog.write_field(
+    runs.store(sim_id).write_field(
         sim_id,
         "surface_excess",
         0,
@@ -152,16 +136,16 @@ def test_the_seepage_mask_is_read_from_the_surface_excess(
     )
 
     np.testing.assert_allclose(
-        catalog.query_field(sim_id, "seepage_mask", 0),
+        runs.reader().query_field(sim_id, "seepage_mask", 0),
         np.array([0.0, 1.0, 0.0]),
     )
 
 
 def test_the_release_flux_is_read_from_the_drain_and_the_surface_excess(
-    catalog: Catalog,
+    runs: RunBuilder,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=1)
-    catalog.write_field(
+    sim_id = _open_run(runs, n_cells=3, n_layers=1)
+    runs.store(sim_id).write_field(
         sim_id,
         "drain",
         0,
@@ -169,7 +153,7 @@ def test_the_release_flux_is_read_from_the_drain_and_the_surface_excess(
         n_timesteps=1,
         subgroup="budget",
     )
-    catalog.write_field(
+    runs.store(sim_id).write_field(
         sim_id,
         "surface_excess",
         0,
@@ -179,15 +163,15 @@ def test_the_release_flux_is_read_from_the_drain_and_the_surface_excess(
     )
 
     np.testing.assert_allclose(
-        catalog.query_field(sim_id, "release_flux", 0),
+        runs.reader().query_field(sim_id, "release_flux", 0),
         np.array([1.0, 2.0, 4.0], dtype="float64"),
     )
 
 
 def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
-    catalog: Catalog,
+    runs: RunBuilder,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
+    sim_id = _open_run(runs, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -206,13 +190,13 @@ def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
         ],
         dtype="int32",
     )
-    catalog.write_mesh(
+    runs.store(sim_id).write_mesh(
         sim_id,
         vertices,
         face_node_connectivity,
         np.array([10.0, 0.0], dtype="float64"),
     )
-    sz = catalog.open_zarr(sim_id)
+    sz = runs.store(sim_id).open_zarr(sim_id)
     try:
         mesh = sz.root["mesh"]
         mesh.create_array(
@@ -222,7 +206,7 @@ def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
         )
     finally:
         sz.close()
-    catalog.write_field(
+    runs.store(sim_id).write_field(
         sim_id,
         "surface_excess",
         0,
@@ -232,19 +216,19 @@ def test_the_release_accumulation_is_routed_on_an_unstructured_mesh_on_read(
     )
 
     np.testing.assert_allclose(
-        catalog.query_field(sim_id, "release_flux", 0),
+        runs.reader().query_field(sim_id, "release_flux", 0),
         np.array([2.5, 0.0]),
     )
     np.testing.assert_allclose(
-        catalog.query_field(sim_id, "release_accumulation_flux", 0),
+        runs.reader().query_field(sim_id, "release_accumulation_flux", 0),
         np.array([2.5, 2.5]),
     )
 
 
 def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
-    catalog: Catalog,
+    runs: RunBuilder,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
+    sim_id = _open_run(runs, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -263,13 +247,13 @@ def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
         ],
         dtype="int32",
     )
-    catalog.write_mesh(
+    runs.store(sim_id).write_mesh(
         sim_id,
         vertices,
         face_node_connectivity,
         np.array([10.0, 0.0], dtype="float64"),
     )
-    sz = catalog.open_zarr(sim_id)
+    sz = runs.store(sim_id).open_zarr(sim_id)
     try:
         mesh = sz.root["mesh"]
         mesh.create_array(
@@ -279,7 +263,7 @@ def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
         )
     finally:
         sz.close()
-    catalog.write_field(
+    runs.store(sim_id).write_field(
         sim_id,
         "drain",
         0,
@@ -289,6 +273,6 @@ def test_the_accumulation_is_routed_on_an_unstructured_mesh_on_read(
     )
 
     np.testing.assert_allclose(
-        catalog.query_field(sim_id, "accumulation_flux", 0),
+        runs.reader().query_field(sim_id, "accumulation_flux", 0),
         np.array([2.5, 2.5]),
     )

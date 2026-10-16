@@ -83,7 +83,6 @@ value = 0.05
 seed = 42
 save_runs = "best_n"
 save_best_n = 1
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

@@ -2,7 +2,8 @@
 
 Display used to read ``run._catalog`` itself: the Zarr ``particles`` group, the
 ``crs_epsg`` column, the geographic metadata, the calibration sessions, the
-stacks of the budget components. Each read now has one public function here,
+stacks of the budget components. A run reading the session its seal names is
+covered by ``test_calibration_trials.py``. Each read now has one public function here,
 taking the run. ``Run`` stays at its 50 public attributes.
 """
 
@@ -130,38 +131,21 @@ def test_a_track_timed_once_has_no_travel_time() -> None:
 # -- geographic --------------------------------------------------------------
 
 
-def _run_with_simulations(rows: pd.DataFrame) -> SimpleNamespace:
-    asked: list[tuple[str, list]] = []
-
-    def query(sql, params):
-        asked.append((sql, params))
-        return rows
-
-    return SimpleNamespace(
-        sim_id="sim-crs",
-        asked=asked,
-        _catalog=SimpleNamespace(backend=SimpleNamespace(query=query)),
-    )
+def _run_with_row(row: dict) -> SimpleNamespace:
+    """Return a run whose index row is *row*."""
+    return SimpleNamespace(sim_id="sim-crs", _load_row=lambda: row)
 
 
-def test_the_run_crs_is_the_epsg_code_the_catalog_recorded() -> None:
-    run = _run_with_simulations(pd.DataFrame({"crs_epsg": [2154]}))
-
-    assert crs_epsg(run) == 2154
-    assert run.asked[0][1] == ["sim-crs"]
+def test_the_run_crs_is_the_epsg_code_the_run_recorded() -> None:
+    assert crs_epsg(_run_with_row({"crs_epsg": 2154})) == 2154
 
 
 @pytest.mark.parametrize(
-    "rows",
-    [
-        pd.DataFrame({"crs_epsg": []}),
-        pd.DataFrame({"crs_epsg": [None]}),
-        pd.DataFrame({"crs_epsg": [np.nan]}),
-        pd.DataFrame({"crs_epsg": pd.array([None], dtype="Int32")}),
-    ],
+    "row",
+    [{}, {"crs_epsg": None}, {"crs_epsg": np.nan}, {"crs_epsg": pd.NA}],
 )
-def test_a_run_without_a_recorded_crs_has_none(rows) -> None:
-    assert crs_epsg(_run_with_simulations(rows)) is None
+def test_a_run_without_a_recorded_crs_has_none(row) -> None:
+    assert crs_epsg(_run_with_row(row)) is None
 
 
 def test_a_null_crs_read_through_duckdb_is_none() -> None:
@@ -170,7 +154,7 @@ def test_a_null_crs_read_through_duckdb_is_none() -> None:
     duckdb = pytest.importorskip("duckdb")
     rows = duckdb.connect().execute("SELECT CAST(NULL AS INTEGER) AS crs_epsg").fetchdf()
 
-    assert crs_epsg(_run_with_simulations(rows)) is None
+    assert crs_epsg(_run_with_row(rows.iloc[0].to_dict())) is None
 
 
 def test_the_geographic_metadata_is_what_the_catalog_holds_for_the_run() -> None:
@@ -190,13 +174,6 @@ def test_the_geographic_metadata_is_what_the_catalog_holds_for_the_run() -> None
 
 
 # -- calibration sessions ------------------------------------------------------
-
-
-def test_a_run_reads_the_sessions_of_the_catalog_it_comes_from() -> None:
-    sessions = pd.DataFrame({"session_id": ["s1", "s2"], "phase_index": [0, 1]})
-    run = SimpleNamespace(_catalog=SimpleNamespace(calibration_sessions=sessions))
-
-    assert calibration_sessions(run)["session_id"].tolist() == ["s1", "s2"]
 
 
 def test_a_run_shaped_adapter_reads_the_sessions_it_carries() -> None:

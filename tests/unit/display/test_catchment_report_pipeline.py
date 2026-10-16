@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.core.state.paths import runs_dir_for, share_dir_for
+from hydromodpy.core.exceptions import ConfigValidationError
+from hydromodpy.core.state.paths import runs_dir_for
 from hydromodpy.display.catchment_report.pipeline import (
     CatchmentReportPipelineResult,
     run_catchment_report_pipeline,
@@ -35,11 +36,9 @@ def _write_report_config(config_path: Path, *, pipeline: str = "") -> None:
 [report]
 site_label = "Test"
 station_label = "Test outlet"
-output_dir = "report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "context"
 simulation_workspace_dir = "sim_workspace"
 simulation_name = "test_run"
 transient_config_name = "run_test.toml"
@@ -50,25 +49,10 @@ transient_config_name = "run_test.toml"
 
 
 def _write_catalog_run(workspace: Path, name: str) -> None:
-    """Register one run with a discharge series: what the report reads."""
-    import uuid
+    """Seal one run with a discharge series, what the report reads, and index it."""
+    from tests._helpers.sealed_run import seal_demo_run
 
-    import pandas as pd
-
-    from hydromodpy.results.catalog import Catalog
-
-    workspace.mkdir(parents=True, exist_ok=True)
-    sim_id = str(uuid.uuid4())
-    with Catalog(workspace) as catalog:
-        catalog.register_simulation(sim_id, project="test", solver="modflow6", name=name)
-        catalog.write_timeseries(
-            sim_id,
-            "_catchment",
-            "discharge",
-            pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"])),
-            unit="m3/s",
-        )
-        catalog.finalize(sim_id)
+    seal_demo_run(workspace, name)
 
 
 def _write_transient_config(root: Path) -> None:
@@ -76,7 +60,9 @@ def _write_transient_config(root: Path) -> None:
 
 
 def _write_overview_config(root: Path) -> None:
-    (root / "config_overview.toml").write_text("[overview]\n", encoding="utf-8")
+    (root / "config_overview.toml").write_text(
+        '[site]\nname = "test"\n\n[overview]\n', encoding="utf-8"
+    )
 
 
 def test_run_simulation_validates_expected_report_outputs(monkeypatch, tmp_path) -> None:
@@ -103,7 +89,7 @@ def test_run_simulation_validates_expected_report_outputs(monkeypatch, tmp_path)
         )
 
     assert calls
-    assert calls[0][0][-1] == "--no-lock"
+    assert calls[0][0][-2:] == ["run", str(tmp_path / "run_test.toml")]
     assert calls[0][1]["capture_output"] is True
     assert calls[0][1]["encoding"] == "utf-8"
     assert calls[0][1]["errors"] == "replace"
@@ -149,7 +135,6 @@ def test_pipeline_toml_can_command_simulation_and_report_steps(
 run_simulation = true
 build_context_artifacts = false
 build_report_html = false
-no_lock = false
 """,
     )
     _write_transient_config(tmp_path)
@@ -172,8 +157,18 @@ no_lock = false
     assert result.context_summary is None
     assert result.html_report is None
     assert calls
-    assert "--no-lock" not in calls[0][0]
     assert calls[0][1]["capture_output"] is True
+
+
+def test_the_retired_no_lock_key_is_refused_with_what_to_do(tmp_path) -> None:
+    config_path = tmp_path / "catchment_report.toml"
+    _write_report_config(config_path, pipeline="\n[pipeline]\nno_lock = true\n")
+    _write_transient_config(tmp_path)
+
+    with pytest.raises(ConfigValidationError, match="no lockfile") as exc_info:
+        run_catchment_report_pipeline(config_path)
+
+    assert "Delete the line" in str(exc_info.value)
 
 
 def test_pipeline_can_stream_run_logs_from_toml(
@@ -286,7 +281,7 @@ def test_preflight_reports_missing_context_for_report_only(tmp_path) -> None:
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
-    (share_dir_for(tmp_path) / "figures" / "overview").mkdir(parents=True)
+    _write_overview(tmp_path)
     _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
 
     with pytest.raises(CatchmentReportPreflightError) as exc_info:
@@ -299,6 +294,7 @@ def test_preflight_reports_missing_context_for_report_only(tmp_path) -> None:
 
     message = str(exc_info.value)
     assert "context summary" in message
+    assert "simulation run 'test_run'" in message
 
 
 def test_missing_optional_observed_discharge_does_not_block_context_build(
@@ -311,11 +307,9 @@ def test_missing_optional_observed_discharge_does_not_block_context_build(
 [report]
 site_label = "Test"
 station_label = "Test outlet"
-output_dir = "report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "context"
 simulation_workspace_dir = "sim_workspace"
 simulation_name = "test_run"
 transient_config_name = "run_test.toml"
@@ -327,9 +321,16 @@ path = "missing_observed.csv"
     )
     _write_transient_config(tmp_path)
     _write_catalog_run(tmp_path / "sim_workspace", "test_run")
-    context_summary = tmp_path / "context" / "context" / "summary.json"
+    context_summary = (
+        runs_dir_for(tmp_path / "sim_workspace")
+        / "test_run"
+        / "report"
+        / "context"
+        / "test_gauged_context_summary.json"
+    )
 
     def fake_build_context(inputs):
+        assert inputs.context_summary == context_summary
         context_summary.parent.mkdir(parents=True)
         context_summary.write_text("{}\n", encoding="utf-8")
         return context_summary
@@ -356,21 +357,24 @@ def test_pipeline_writes_postflight_report_after_html(
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
-    (tmp_path / "context" / "context").mkdir(parents=True)
-    (tmp_path / "context" / "context" / "test_gauged_context_summary.json").write_text(
+    _write_catalog_run(tmp_path / "sim_workspace", "test_run")
+    report = runs_dir_for(tmp_path / "sim_workspace") / "test_run" / "report"
+    (report / "context").mkdir(parents=True)
+    (report / "context" / "test_gauged_context_summary.json").write_text(
         "{}\n",
         encoding="utf-8",
     )
-    (tmp_path / "context" / "web" / "assets").mkdir(parents=True)
-    (share_dir_for(tmp_path) / "figures" / "overview").mkdir(parents=True)
+    (report / "context" / "web" / "assets").mkdir(parents=True)
+    _write_overview(tmp_path)
     _make_run_figures_dir(tmp_path / "sim_workspace", "test_run")
-    html_path = tmp_path / "report" / "web" / "index.html"
-    postflight_path = tmp_path / "report" / "block_report_postflight.json"
+    html_path = report / "index.html"
+    postflight_path = report / "block_report_postflight.json"
     captured = {}
 
     def fake_build(config):
         captured["build_config"] = config
-        html_path.parent.mkdir(parents=True)
+        assert config.output_dir == report
+        html_path.parent.mkdir(parents=True, exist_ok=True)
         html_path.write_text("<html></html>\n", encoding="utf-8")
         return html_path
 
@@ -408,22 +412,16 @@ def test_rerun_after_a_failed_run_reads_the_newest_completed_version(
     monkeypatch,
     tmp_path,
 ) -> None:
-    # A failed run keeps its name, so the rerun registers as `test_run.v2`.
+    # A failed run keeps its name, so the rerun lands under `test_run.v2`.
     # The report must describe that run, not look for the failed one's figures.
-    import uuid
-
-    from hydromodpy.results.catalog import Catalog
-
     config_path = tmp_path / "catchment_report.toml"
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
     workspace = tmp_path / "sim_workspace"
-    workspace.mkdir(parents=True)
-    with Catalog(workspace) as catalog:
-        catalog.register_simulation(
-            str(uuid.uuid4()), project="test", solver="modflow6", name="test_run"
-        )
-    _write_catalog_run(workspace, "test_run")
+    failed = runs_dir_for(workspace) / "test_run"
+    failed.mkdir(parents=True)
+    (failed / "README.md").write_text("failed\n", encoding="utf-8")
+    _write_catalog_run(workspace, "test_run.v2")
     figures = _make_run_figures_dir(workspace, "test_run.v2")
 
     monkeypatch.setattr(
@@ -459,9 +457,15 @@ def test_a_name_pinned_to_a_version_is_read_as_written(tmp_path) -> None:
     _write_report_config(config_path)
     _write_transient_config(tmp_path)
     workspace = tmp_path / "sim_workspace"
-    for _ in range(3):
-        _write_catalog_run(workspace, "test_run")
+    for name in ("test_run", "test_run.v2", "test_run.v3"):
+        _write_catalog_run(workspace, name)
 
     inputs = CatchmentReportInputs.from_toml(config_path)
     assert newest_completed_run_name(inputs) == "test_run.v3"
     assert newest_completed_run_name(replace(inputs, simulation_name="test_run.v2")) is None
+
+
+def _write_overview(root: Path) -> None:
+    """Write the overview configuration of the report and the panels folder it names."""
+    (root / "config_overview.toml").write_text('[site]\nname = "test"\n', encoding="utf-8")
+    (runs_dir_for(root) / "test" / "figures").mkdir(parents=True)

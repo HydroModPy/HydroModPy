@@ -45,7 +45,7 @@ def test_the_blocks_load_in_the_order_of_the_file(tmp_path: Path) -> None:
 
         [[export]]
         variables = "all"
-        format = "package"
+        format = "rocrate"
         """,
     )
 

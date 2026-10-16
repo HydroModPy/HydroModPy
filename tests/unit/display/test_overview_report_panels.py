@@ -465,11 +465,11 @@ def test_generate_overview_report_writes_enabled_panel_pngs(tmp_path, mpl) -> No
             x_outlet=1.0,
             y_outlet=2.0,
         ),
-        workspace=SimpleNamespace(paths=SimpleNamespace(figures_folder=tmp_path / "figures")),
+        workspace=SimpleNamespace(project_root=tmp_path),
     )
 
     paths = report.generate_overview_report(state)
 
     assert [path.name for path in paths] == ["timeseries_discharge.png", "stats_card.png"]
-    assert all(path.parent == tmp_path / "figures" / "overview" for path in paths)
+    assert all(path.parent == tmp_path / "runs" / "Naizin" / "figures" for path in paths)
     assert all(path.exists() and path.stat().st_size > 0 for path in paths)

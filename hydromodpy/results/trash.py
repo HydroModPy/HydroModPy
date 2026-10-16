@@ -17,18 +17,24 @@ Format
 One trashed directory is named after the relative directory it came from,
 with ``/`` replaced by ``__``, then ``@`` and the UTC instant it was trashed::
 
-    trash/runs__nancon_daily.v2@20261014T093000/
+    trash/runs__baseline_daily.v2@20261014T093000/
     trash/sessions__calibration@20261014T093512/
     trash/sessions__calibration__trials__0004@20261015T080000/
 
 A run or session name never holds ``__`` (``run_dirname`` collapses repeated
 underscores) nor ``@``, so the name decodes back to its relative directory.
 
+What may be trashed
+-------------------
+A directory whose attempt is still beating (``running``) is never moved: its
+worker writes into it. One whose attempt stopped beating (``stale``) and one
+tagged :data:`PROTECTED_TAG` are moved only when the caller forces it.
+
 ``trash/tombstones.txt`` holds one line per directory freed by ``gc_trash``,
 ``rel_dir,sim_id,date``, with ``date`` the UTC instant of the gc in ISO 8601
 and ``sim_id`` empty when the directory carried no identity::
 
-    runs/nancon_daily.v2,9a4f0c1e-...,2026-11-14T09:30:00Z
+    runs/baseline_daily.v2,9a4f0c1e-...,2026-11-14T09:30:00Z
 
 The file is rewritten whole through a temporary file and ``os.replace``, and
 the tombstones are durable before any byte is removed: a crash during a gc
@@ -43,13 +49,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from hydromodpy.core.exceptions import WriteConflictError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
     TOMBSTONES_FILENAME,
     parse_rel_dir,
     trash_dir_for,
 )
-from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.annotations import read_annotations
+from hydromodpy.results.manifest import is_sealed, read_manifest
+from hydromodpy.results.outcome import effective_status, read_outcome
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.storage.contract import (
     RUN_PUBLISHED_FILENAME,
@@ -68,6 +77,17 @@ TRASH_PATH_SEPARATOR = "__"
 """Stand-in for ``/`` in the name of a trashed directory."""
 
 _TOMBSTONE_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+PROTECTED_TAG = "pinned"
+"""Tag that keeps a directory out of the trash unless the caller forces it."""
+
+
+class DirectoryInUseError(WriteConflictError):
+    """The directory belongs to an attempt that is running, or may still be."""
+
+
+class ProtectedDirectoryError(WriteConflictError):
+    """The directory carries the protected tag and the caller did not force."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,19 +150,29 @@ def parse_trashed_dirname(name: str) -> tuple[str, datetime]:
     return parse_rel_dir(rel_dir).as_posix(), trashed_at
 
 
-def trash_run(project_root: Path, rel_dir: str, *, now: datetime) -> Path:
+def is_protected(directory: Path) -> bool:
+    """Return whether ``directory`` carries :data:`PROTECTED_TAG`."""
+    return PROTECTED_TAG in read_annotations(directory).tags
+
+
+def trash_run(project_root: Path, rel_dir: str, *, now: datetime, force: bool = False) -> Path:
     """Move ``<project>/<rel_dir>`` into ``trash/`` and return its new path.
 
     ``rel_dir`` is a run (``runs/<name>``), a session (``sessions/<name>``)
     or a kept trial. A directory that was published (it holds
     ``published.jsonl``) is trashed all the same, with a warning: copies of
     it live elsewhere and keep pointing at a source that is now in the trash.
+
+    Raises :class:`DirectoryInUseError` for a running attempt, and for a
+    stale one unless ``force``; :class:`ProtectedDirectoryError` for a
+    protected directory unless ``force``.
     """
     root = Path(project_root)
     rel = parse_rel_dir(rel_dir).as_posix()
     source = root / rel
     if not source.is_dir():
         raise FileNotFoundError(f"{rel} is not a directory of the project {root}")
+    _check_movable(source, rel, force=force)
     if (source / RUN_PUBLISHED_FILENAME).is_file():
         logger.warning(
             "%s was published (see %s): the published copies now point at a trashed source",
@@ -156,6 +186,32 @@ def trash_run(project_root: Path, rel_dir: str, *, now: datetime) -> Path:
         raise FileExistsError(f"{target} already exists; trash {rel} again in a second")
     os.rename(source, target)
     return target
+
+
+def check_not_running(directory: Path, rel_dir: str, *, force: bool = False) -> None:
+    """Refuse a directory a live attempt writes into; a stale one passes with ``force``.
+
+    The state is :func:`hydromodpy.results.outcome.effective_status`: a
+    directory without ``outcome.json`` has no attempt and always passes.
+    """
+    state = effective_status(directory)
+    if state == "running":
+        raise DirectoryInUseError(
+            f"{rel_dir} is running: its attempt is still beating. Stop it first."
+        )
+    if state == "stale" and not force:
+        raise DirectoryInUseError(
+            f"{rel_dir} is stale: its attempt stopped beating without an outcome. "
+            "`hmp catalog gc --apply` marks it aborted; --force acts on it as it is."
+        )
+
+
+def _check_movable(directory: Path, rel_dir: str, *, force: bool) -> None:
+    check_not_running(directory, rel_dir, force=force)
+    if not force and is_protected(directory):
+        raise ProtectedDirectoryError(
+            f"{rel_dir} is tagged '{PROTECTED_TAG}'; pass --force to trash it."
+        )
 
 
 def restore(project_root: Path, trashed_name: str) -> Path:
@@ -216,35 +272,55 @@ def read_tombstones(project_root: Path) -> list[Tombstone]:
     return tombstones
 
 
-def gc_trash(project_root: Path, *, older_than: timedelta, now: datetime) -> list[Tombstone]:
-    """Remove the directories trashed at least ``older_than`` before ``now``.
+def purge_trashed(
+    project_root: Path, entries: list[TrashedEntry], *, now: datetime
+) -> list[Tombstone]:
+    """Remove trashed directories for good and return their tombstones.
 
-    Each removed directory leaves a tombstone. The tombstones are written and
-    flushed to disk before the first removal. Returns the new tombstones.
+    The tombstones are written and flushed to disk before the first removal,
+    so a crash can leave a directory with its tombstone, never a freed name
+    without one.
     """
     root = Path(project_root)
-    cutoff = _as_utc(now) - older_than
-    expired = [entry for entry in list_trash(root) if entry.trashed_at <= cutoff]
-    if not expired:
+    if not entries:
         return []
     stamp = _as_utc(now).replace(microsecond=0)
     new = [
-        Tombstone(rel_dir=entry.rel_dir, sim_id=_identity_of(entry.path), date=stamp)
-        for entry in expired
+        Tombstone(rel_dir=entry.rel_dir, sim_id=identity_of(entry.path), date=stamp)
+        for entry in entries
     ]
     _write_tombstones(root, [*read_tombstones(root), *new])
-    for entry in expired:
+    for entry in entries:
+        if (entry.path / RUN_PUBLISHED_FILENAME).is_file():
+            logger.warning(
+                "%s was published (see %s): its published copies lose their source for good",
+                entry.rel_dir,
+                RUN_PUBLISHED_FILENAME,
+            )
         shutil.rmtree(entry.path)
     return new
 
 
-def _identity_of(directory: Path) -> str | None:
-    """Return the ``sim_id`` or ``session_id`` a directory declares, if any."""
-    # Imported here: the v1 manifest writer still imports the catalog package,
-    # whose registration module imports this one. The import moves to the
-    # module level when L1 retires that writer.
-    from hydromodpy.results.manifest import is_sealed, read_manifest
+def expired_entries(
+    project_root: Path, *, older_than: timedelta, now: datetime
+) -> list[TrashedEntry]:
+    """Return the entries trashed at least ``older_than`` before ``now``."""
+    cutoff = _as_utc(now) - older_than
+    return [entry for entry in list_trash(Path(project_root)) if entry.trashed_at <= cutoff]
 
+
+def gc_trash(project_root: Path, *, older_than: timedelta, now: datetime) -> list[Tombstone]:
+    """Remove the directories trashed at least ``older_than`` before ``now``.
+
+    Each removed directory leaves a tombstone (:func:`purge_trashed`).
+    Returns the new tombstones.
+    """
+    root = Path(project_root)
+    return purge_trashed(root, expired_entries(root, older_than=older_than, now=now), now=now)
+
+
+def identity_of(directory: Path) -> str | None:
+    """Return the ``sim_id`` or ``session_id`` a directory declares, if any."""
     outcome = read_outcome(directory)
     if outcome is not None and outcome.sim_id:
         return str(outcome.sim_id)
@@ -300,14 +376,22 @@ def _format_utc(value: datetime) -> str:
 
 
 __all__ = [
+    "PROTECTED_TAG",
     "TRASH_PATH_SEPARATOR",
     "TRASH_STAMP_FORMAT",
     "TRASH_STAMP_SEPARATOR",
+    "DirectoryInUseError",
+    "ProtectedDirectoryError",
     "Tombstone",
     "TrashedEntry",
+    "check_not_running",
+    "expired_entries",
     "gc_trash",
+    "identity_of",
+    "is_protected",
     "list_trash",
     "parse_trashed_dirname",
+    "purge_trashed",
     "read_tombstones",
     "restore",
     "trash_run",

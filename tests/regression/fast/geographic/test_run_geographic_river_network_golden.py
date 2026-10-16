@@ -47,6 +47,11 @@ def _write_tmp_config(tmp_path: Path) -> Path:
         "\n".join(
             [
                 '[workflow]\nmode = "simulation"',
+                "",
+                # The Naizin catchment of the regional DEM: a real basin is named.
+                "[site]",
+                'name = "naizin"',
+                "",
                 "[workspace]",
                 f'root = "{ws_root}"',
                 "",

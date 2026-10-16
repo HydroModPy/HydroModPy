@@ -10,6 +10,12 @@ from statistics import fmean
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.state.data import LoadedDataContext
+from hydromodpy.display.overview.location import (
+    REVIEW_DIRNAME,
+    overview_report_path,
+    overview_review_dir,
+    overview_run_dir_of,
+)
 from hydromodpy.display.overview.summary import compute_overview_summary
 from hydromodpy.display.report_blocks import (
     DetailLevel,
@@ -56,7 +62,7 @@ def write_overview_review_web_reports(
     figure_paths: list[Path],
 ) -> list[Path]:
     """Write temporary compact/standard/audit review pages."""
-    output_root = overview_web_report_path(state).parent.parent / "web_review"
+    review_root = overview_review_dir(overview_run_dir_of(state))
     paths: list[Path] = []
     for level in ("compact", "standard", "audit"):
         paths.append(
@@ -64,7 +70,7 @@ def write_overview_review_web_reports(
                 state,
                 figure_paths=figure_paths,
                 level=level,
-                output_path=output_root / level / "index.html",
+                output_path=review_root / level / "index.html",
             )
         )
     return paths
@@ -791,16 +797,12 @@ def _first_non_empty(*values: Any) -> Any:
 
 
 def overview_web_report_path(state: DataOverviewState) -> Path:
-    """Path of the overview web page, ``index.html`` beside the figures folder."""
-    if state.workspace is not None and hasattr(state.workspace, "paths"):
-        return state.workspace.paths.figures_folder.parent / "web" / "index.html"
-    if state.workspace is not None:
-        return Path(getattr(state.workspace, "project_root", ".")) / "web" / "index.html"
-    return Path("web") / "index.html"
+    """Path of the overview web page: ``runs/<overview>/report/index.html``."""
+    return overview_report_path(overview_run_dir_of(state))
 
 
 def _overview_level_links(state: DataOverviewState) -> dict[str, Path]:
-    review_root = overview_web_report_path(state).parent.parent / "web_review"
+    review_root = overview_review_dir(overview_run_dir_of(state))
     return {
         "compact": review_root / "compact" / "index.html",
         "standard": review_root / "standard" / "index.html",
@@ -809,7 +811,7 @@ def _overview_level_links(state: DataOverviewState) -> dict[str, Path]:
 
 
 def _show_level_links(*, output_path: Path) -> bool:
-    if output_path.parent.parent.name == "web_review":
+    if output_path.parent.parent.name == REVIEW_DIRNAME:
         return True
     value = os.environ.get("HMP_OVERVIEW_HTML_REVIEW_LEVELS", "")
     return value.strip().lower() in {"1", "true", "yes", "on"}

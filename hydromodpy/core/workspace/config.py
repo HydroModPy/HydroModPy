@@ -28,8 +28,9 @@ caches.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from upath import UPath
@@ -42,8 +43,6 @@ from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     catalog_path_for,
     runs_dir_for,
-    scratch_dir_for,
-    share_dir_for,
 )
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
@@ -64,7 +63,6 @@ class WorkspaceConfig(HydroModelBase):
                 <name>/
                     project.toml   <- TOML lives here when using scaffold
                     runs/<run>/
-                    share/
                     .hmp/index.duckdb
 
     Fields under ``[workspace]``:
@@ -81,9 +79,8 @@ class WorkspaceConfig(HydroModelBase):
         Per-component explicit overrides. ``catalog_path`` and ``runs_dir``
         are project-local by default.
 
-    ``output_root``
-        Optional redirect for heavy outputs (``.hmp/scratch/`` and the
-        published ``share/`` tree). Defaults to ``project_root``.
+    Every output of a run lives in ``runs/<run>/``. The solver scratch of a
+    run is ``HMP_SCRATCH_ROOT``, else the default of the launcher.
     """
 
     project_root: Annotated[Path | UPath, Profile.DEV] = Field(
@@ -127,15 +124,17 @@ class WorkspaceConfig(HydroModelBase):
         ),
     )
 
-    output_root: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Root directory for per-project outputs (.hmp/scratch/, share/). "
-            "Defaults to project_root when not set. "
-            "Use this to redirect heavy outputs to a separate disk."
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "output_root": (
+            "it has no replacement: the outputs of a run live in runs/<run>/, and the "
+            "solver scratch is HMP_SCRATCH_ROOT or the default of the launcher."
         ),
-        examples=["outputs/run_a"],
-    )
+        "solver_scratch_folder": (
+            "the solver scratch is HMP_SCRATCH_ROOT or the default of the launcher."
+        ),
+        "share_folder": "it has no replacement: the outputs of a run live in runs/<run>/.",
+        "catch_name": "the name of the catchment is [site] name.",
+    }
 
     _resolution_source: ResolutionSource = PrivateAttr(default="explicit")
 
@@ -148,7 +147,6 @@ class WorkspaceConfig(HydroModelBase):
             "catalog_path",
             "data_dir",
             "runs_dir",
-            "output_root",
         ):
             _reject_safe_filename_path(field_name, getattr(self, field_name))
 
@@ -175,8 +173,6 @@ class WorkspaceConfig(HydroModelBase):
             "runs_dir",
             _finalize(self.runs_dir, runs_dir_for(project_root)),
         )
-        if self.output_root is not None:
-            _set_if_changed(self, "output_root", Path(self.output_root).expanduser().resolve())
         self._resolution_source = source
         return self
 
@@ -186,31 +182,6 @@ class WorkspaceConfig(HydroModelBase):
     def resolution_source(self) -> ResolutionSource:
         """How the shared data workspace was located."""
         return getattr(self, "_resolution_source", "explicit")
-
-    @property
-    def _effective_output_root(self) -> Path:
-        """Root for result directories: output_root if set, else project_root."""
-        if self.output_root is not None:
-            return self.output_root
-        return self.project_root
-
-    @computed_field
-    @property
-    def catch_name(self) -> str:
-        """Project name derived from the project directory name."""
-        return self.project_root.name
-
-    @computed_field
-    @property
-    def solver_scratch_folder(self) -> Path:
-        """Path to the temporary solver scratch directory."""
-        return scratch_dir_for(self._effective_output_root)
-
-    @computed_field
-    @property
-    def share_folder(self) -> Path:
-        """Path to the published outputs directory."""
-        return share_dir_for(self._effective_output_root)
 
     @computed_field
     @property

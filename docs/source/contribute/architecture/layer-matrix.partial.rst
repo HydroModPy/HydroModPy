@@ -76,7 +76,7 @@ is forbidden and fails CI.
 Documented tolerances
 ---------------------
 
-5 edges are tolerated rather than granted. Each one carries its reason in the
+4 edges are tolerated rather than granted. Each one carries its reason in the
 contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
 
 .. list-table::
@@ -89,15 +89,12 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
    * - ``<root>``
      - ``project``
      - root facade lazy-resolves Project through hydromodpy.project
-   * - ``analysis``
-     - ``reporting``
-     - comparison experiment_launcher writes the HTML report at the end of the orchestration (candidate to move into workflow/)
    * - ``physics``
      - ``spatial``
      - FlowConfig embeds spatial FieldSection discriminated union
    * - ``spatial``
      - ``data``
-     - site-selection BD Topage outlet snapping delegates the optional hydrography fetch to data managers through a narrow helper
+     - site selection: runner_data.py loads hydrometry and the DEM through hydromodpy.data, and reference_network.py fetches BD Topage for outlet snapping
    * - ``calibration``
      - ``display``
      - network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)

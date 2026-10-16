@@ -179,7 +179,7 @@ class FakeRunner:
 
     @property
     def phases_run(self) -> list[str]:
-        return [call.chain.phase_name for call in self.calls]
+        return [call.phase.name for call in self.calls]
 
     def prepare_trials(
         self,
@@ -211,17 +211,15 @@ class FakeRunner:
         cfg,
         trial_ctx,
         *,
-        workspace,
+        persistence,
         space,
-        project_label="calibration",
+        project_root,
         cfg_path=None,
         metric_fn=None,
         objective=None,
-        store_factory=None,
-        chain=None,
+        phase=None,
         start_at=None,
         interval_width=None,
-        run_name=None,
     ) -> CalibrationReport:
         self.calls.append(
             SimpleNamespace(
@@ -229,17 +227,18 @@ class FakeRunner:
                 trial_ctx=trial_ctx,
                 baseline=trial_ctx.base_cfg,
                 space=space,
-                workspace=workspace,
-                chain=chain,
+                workspace=project_root,
+                phase=phase,
+                session_id=persistence.descriptor.session_id,
+                session_dir=persistence.directory,
                 start_at=start_at,
                 seed=cfg.seed,
                 interval_width=interval_width,
-                run_name=run_name,
             )
         )
         best = {name: self.values[name] for name in cfg.parameters}
         return CalibrationReport(
-            session_id=chain.session_id,
+            session_id=persistence.descriptor.session_id,
             method=cfg.method,
             n_iterations=cfg.max_iter,
             best_objective=self.best_objective,
@@ -248,7 +247,9 @@ class FakeRunner:
             save_runs=cfg.save_runs,
             promoted=0,
             best_parameters=None if self.best_objective is None else best,
-            workspace=workspace,
+            workspace=project_root,
+            session_dir=persistence.directory,
+            extra={"search_status": "completed" if self.best_objective is not None else "failed"},
         )
 
 
@@ -419,7 +420,7 @@ def test_a_freezing_phase_that_produced_no_result_stops_the_chain(tmp_path, monk
     message = str(refusal.value)
     assert "steady_k" in message
     assert "transient_sy" in message
-    assert fake.calls[0].chain.session_id in message
+    assert fake.calls[0].session_id in message
 
 
 # -- selecting one phase -----------------------------------------------------
@@ -537,59 +538,63 @@ def test_the_runner_can_return_the_payload_instead_of_the_report(tmp_path, runne
 
     assert isinstance(payload, dict)
     assert [item["phase"] for item in payload["phases"]] == ["steady_k", "transient_sy"]
-    assert payload["root_session_id"] == payload["phases"][0]["session_id"]
+    assert payload["session_id"] == payload["phases"][0]["session_id"]
 
 
-# -- session chain -----------------------------------------------------------
+# -- one session, its phases --------------------------------------------------
 
 
-def test_the_chain_links_each_phase_to_the_previous_one(tmp_path, runner) -> None:
+def test_every_phase_writes_into_the_one_session_of_the_case(tmp_path, runner) -> None:
+    from hydromodpy.results.session.phase import list_phases
+
     report = run_staged_calibration(_write(tmp_path))
 
-    first, second = (call.chain for call in runner.calls)
-    assert first.parent_session_id is None
-    assert first.root_session_id == first.session_id
-    assert second.parent_session_id == first.session_id
-    assert second.root_session_id == first.session_id
-    assert first.session_id != second.session_id
-    assert (first.phase_index, second.phase_index) == (0, 1)
-    assert (first.phase_name, second.phase_name) == ("steady_k", "transient_sy")
-
-
-def test_each_phase_promotes_its_best_run_under_the_file_and_phase_names(tmp_path, runner) -> None:
-    # The baseline of the fake carries no [simulation] name, so the file stem
-    # stands in for it.
-    run_staged_calibration(_write(tmp_path))
-
-    assert [call.run_name for call in runner.calls] == [
-        "calibration_steady_k",
-        "calibration_transient_sy",
+    first, second = runner.calls
+    assert first.session_id == second.session_id == report.session_id
+    assert first.session_dir == second.session_dir == tmp_path / "sessions" / "calibration"
+    assert (first.phase.index, second.phase.index) == (0, 1)
+    assert (first.phase.name, second.phase.name) == ("steady_k", "transient_sy")
+    assert (first.phase.restart, second.phase.restart) == (0, 0)
+    phases = list_phases(report.session_dir)
+    assert [(p.name, p.index, p.status) for p in phases] == [
+        ("steady_k", 0, "completed"),
+        ("transient_sy", 1, "completed"),
     ]
+    assert phases[1].frozen["K"]["value"] == pytest.approx(K_CALIBRATED)
+    assert phases[1].frozen["K"]["from"] == "steady_k"
 
 
-def test_a_calibration_of_one_phase_promotes_under_the_file_name_alone(tmp_path, runner) -> None:
-    one_phase = TWO_PHASES.split('\n[[calibration.phases]]\nname = "transient_sy"')[0]
+def test_the_session_is_named_by_the_file_that_carries_calibration(tmp_path, runner) -> None:
+    from hydromodpy.results.session.descriptor import read_session
 
-    run_staged_calibration(_write(tmp_path, one_phase))
-
-    assert [call.run_name for call in runner.calls] == ["calibration"]
-
-
-def test_the_report_carries_the_chain_of_the_run(tmp_path, runner) -> None:
     report = run_staged_calibration(_write(tmp_path))
 
-    assert report.root_session_id == report.phases[0].session_id
-    assert report.phases[0].parent_session_id is None
-    assert report.phases[1].parent_session_id == report.phases[0].session_id
-    assert report.phases[1].root_session_id == report.root_session_id
+    assert report.session_dir == tmp_path / "sessions" / "calibration"
+    descriptor = read_session(report.session_dir)
+    assert descriptor.case_id == "calibration"
+    assert descriptor.status == "completed"
+    assert (report.session_dir / "config.toml").is_file()
 
 
-def test_a_single_selected_phase_is_the_root_of_its_own_chain(tmp_path, runner) -> None:
+def test_a_second_run_of_the_file_takes_the_next_version(tmp_path, runner) -> None:
+    run_staged_calibration(_write(tmp_path))
+    report = run_staged_calibration(_write(tmp_path))
+
+    assert report.session_dir == tmp_path / "sessions" / "calibration.v2"
+
+
+def test_the_report_carries_the_session_of_the_run(tmp_path, runner) -> None:
+    report = run_staged_calibration(_write(tmp_path))
+
+    assert report.session_id == report.phases[0].session_id == report.phases[1].session_id
+    assert report.to_dict()["session_dir"] == str(report.session_dir)
+
+
+def test_a_single_selected_phase_without_dependency_runs_alone(tmp_path, runner) -> None:
     report = run_staged_calibration(_write(tmp_path), phase="steady_k")
 
-    chain = runner.calls[0].chain
-    assert chain.parent_session_id is None
-    assert chain.root_session_id == chain.session_id == report.root_session_id
+    assert [p.name for p in report.phases] == ["steady_k"]
+    assert runner.calls[0].session_id == report.session_id
 
 
 # -- restart-based uncertainty ------------------------------------------------
@@ -931,12 +936,7 @@ def test_a_phase_reused_from_disk_gets_a_note_instead_of_a_recomputed_width(
         extra={"reused_from_disk": True, "source_root_session_id": "root"},
     )
     path = tmp_path / "calibration.toml"
-    path.write_text(
-        BASE.replace('method = "grid"', 'method = "grid"\nreuse_completed_phases = true', 1)
-        + LINEARIZED
-        + TWO_PHASES,
-        encoding="utf-8",
-    )
+    path.write_text(BASE + LINEARIZED + TWO_PHASES, encoding="utf-8")
     cfg, _raw = staged_runner.load_toml_calibration(path)
     declared = staged_runner.space_from_config(cfg)
     steady_froze = (
@@ -950,14 +950,17 @@ def test_a_phase_reused_from_disk_gets_a_note_instead_of_a_recomputed_width(
         lambda **kwargs: (disk_report, steady_froze) if kwargs["decl"].name == "steady_k" else None,
     )
 
-    report = run_staged_calibration(path, resume_root_session_id="root")
+    report = run_staged_calibration(path, resume=True)
 
     steady, transient = report.phases
     # Reused phases must not pay for a recomputed width: only transient_sy,
     # which actually solved, may have called it.
     assert len(width.calls) == 1
     assert next(iter(width.calls[0].cfg.parameters)) == "Sy"
-    assert "reused from a previous run" in steady.report.extra["parameter_uncertainty_absent_note"]
+    assert (
+        "reused from the reopened session"
+        in (steady.report.extra["parameter_uncertainty_absent_note"])
+    )
     assert transient.report.extra.get("parameter_uncertainty_absent_note") is None
     # The freeze IS non-empty this time, so this now measures the real thing:
     # transient_sy's width is conditional on the K reused from disk.
@@ -1006,17 +1009,12 @@ objective_blocks = ["h_block"]
 depends_on = "steady_k"
 """
     path = tmp_path / "calibration.toml"
-    path.write_text(
-        BASE.replace('method = "grid"', 'method = "grid"\nreuse_completed_phases = true', 1)
-        + LINEARIZED
-        + single_metric_first,
-        encoding="utf-8",
-    )
-    report = run_staged_calibration(path, resume_root_session_id="root")
+    path.write_text(BASE + LINEARIZED + single_metric_first, encoding="utf-8")
+    report = run_staged_calibration(path, resume=True)
 
     steady, _transient = report.phases
     note = steady.report.extra["parameter_uncertainty_absent_note"]
-    assert "reused from a previous run" not in note
+    assert "reused from the reopened session" not in note
     assert "can name a station" in note
     assert "no residual vector" in note
 
@@ -1074,15 +1072,7 @@ def _phase_run(name: str, extra: dict) -> staged_runner.PhaseRun:
         promoted=0,
         extra=extra,
     )
-    return staged_runner.PhaseRun(
-        name=name,
-        index=0,
-        session_id="s",
-        root_session_id="s",
-        parent_session_id=None,
-        report=report,
-        frozen=(),
-    )
+    return staged_runner.PhaseRun(name=name, index=0, session_id="s", report=report, frozen=())
 
 
 _DOCUMENT = {"simulation": {"time": {"start_datetime": "1995-01-01", "end_datetime": "2020-12-31"}}}

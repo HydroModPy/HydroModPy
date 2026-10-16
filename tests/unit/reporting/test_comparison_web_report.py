@@ -51,10 +51,6 @@ def _render_linked_outputs_report(root: Path) -> str:
     (figure_root / "storage_comparison_dashboard.png").write_bytes(b"png")
     (figure_root / "total_inputs_outputs_dashboard.png").write_bytes(b"png")
     (root / "comparison_report.md").write_text("# report\n", encoding="utf-8")
-    (root / "comparison_audit.json").write_text(
-        json.dumps({"status": "warn", "issues": [{"message": "demo issue"}]}),
-        encoding="utf-8",
-    )
     _write_csv(
         root / "comparison_metrics.csv",
         [
@@ -86,7 +82,7 @@ def _render_linked_outputs_report(root: Path) -> str:
         comparison_root=root,
         manifest={
             "comparison_id": "demo_compare",
-            "audit_status": "warn",
+            "case_check": {"status": "different_mesh_allowed", "issues": ["demo issue"]},
             "reference_simulation": "mf6_ref",
             "simulations": [
                 {
@@ -123,10 +119,6 @@ def _render_full_report(root: Path) -> str:
     (figure_root / "storage_comparison_dashboard.png").write_bytes(b"png")
     (figure_root / "total_inputs_outputs_dashboard.png").write_bytes(b"png")
     (root / "comparison_report.md").write_text("# report\n", encoding="utf-8")
-    (root / "comparison_audit.json").write_text(
-        json.dumps({"status": "warn", "issues": [{"message": "demo issue"}]}),
-        encoding="utf-8",
-    )
     (root / "base.toml").write_text(_SYNTHETIC_BASE_TOML, encoding="utf-8")
     _write_csv(
         root / "comparison_metrics.csv",
@@ -173,13 +165,13 @@ def _render_full_report(root: Path) -> str:
         comparison_root=root,
         manifest={
             "comparison_id": "synthetic_patchy_unit",
-            "base_simulation_config": "base.toml",
-            "audit_status": "warn",
+            "case_check": {"status": "different_mesh_allowed", "issues": ["demo issue"]},
             "reference_simulation": "mf6_ref",
             "simulations": [
                 {
                     "id": "mf6_ref",
                     "solver": "modflow6",
+                    "config_path": str(root / "base.toml"),
                     "status": "completed",
                     "flow_solve_time_seconds": 5.0,
                     "wall_time_seconds": 12.0,
@@ -284,9 +276,8 @@ def test_synthetic_web_report_splits_hydraulic_and_numerical_settings(
         comparison_root=root,
         manifest={
             "comparison_id": "synthetic_patchy_unit",
-            "base_simulation_config": "base.toml",
             "reference_simulation": "mf6_ref",
-            "simulations": [],
+            "simulations": [{"id": "mf6_ref", "config_path": str(base_config)}],
         },
     )
 
@@ -344,33 +335,15 @@ def test_synthetic_web_report_documents_disabled_boussinesq_drainage(
 ) -> None:
     root = tmp_path / "comparison"
     root.mkdir()
-    base_config = root / "base.toml"
-    base_config.write_text(
-        """
-[flow]
-flow_regime = "transient"
-runtime_backend = "petsc"
-surface_interaction_model = "ts_vi_obstacle"
-active_bc = ["drainage"]
-
-[flow.ic]
-type = "steady_state"
-
-[flow.sinks_sources.recharge]
-first_clim = "first"
-negative_to_evt = true
-
-[flow.bc.drainage]
-kind = "cauchy"
-value = "0.2 m2/s"
-""",
-        encoding="utf-8",
-    )
     (root / "mf6_child.toml").write_text(
         """
 [flow]
 flow_regime = "transient"
 active_bc = ["drainage"]
+
+[flow.sinks_sources.recharge]
+first_clim = "first"
+negative_to_evt = true
 
 [flow.bc.drainage]
 kind = "cauchy"
@@ -397,18 +370,17 @@ value = "0.0 m2/s"
         comparison_root=root,
         manifest={
             "comparison_id": "synthetic_patchy_unit",
-            "base_simulation_config": "base.toml",
             "reference_simulation": "mf6_ref",
             "simulations": [
                 {
                     "id": "mf6_ref",
                     "solver": "modflow6",
-                    "config_path": "mf6_child.toml",
+                    "config_path": str(root / "mf6_child.toml"),
                 },
                 {
                     "id": "bouss_candidate",
                     "solver": "boussinesq",
-                    "config_path": "bouss_child.toml",
+                    "config_path": str(root / "bouss_child.toml"),
                 },
             ],
         },

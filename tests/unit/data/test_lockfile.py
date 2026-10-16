@@ -169,17 +169,11 @@ def test_verify_strict_fails_on_changed_input(tmp_path: Path) -> None:
     assert m.expected != m.observed
 
 
-def _run_cli_workflow(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    no_lock: bool,
-) -> Path:
+def _run_cli_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Drive the real ``hmp run`` code path and return the project root.
 
-    Only the workflow engine is stubbed. Everything the CLI itself decides -
-    including the ``if not no_lock`` guard at the end of ``_run_toml`` - runs
-    for real, so the lockfile either lands on disk or it does not.
+    Only the workflow engine is stubbed. Everything the CLI itself decides
+    runs for real, so a lockfile would land on disk if the CLI wrote one.
     """
     import argparse
 
@@ -207,68 +201,25 @@ def _run_cli_workflow(
     monkeypatch.setattr(hydromodpy, "run", lambda path: {"sim_id": "stub", "name": "stub"})
     monkeypatch.chdir(workspace)
 
-    args = argparse.Namespace(config=str(config_path), no_lock=no_lock)
+    args = argparse.Namespace(config=str(config_path))
     run_cmd.run(args)
     return workspace
 
 
-def test_no_lock_leaves_no_lockfile_on_disk(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``hmp run --no-lock`` must not write the provenance record.
+def test_a_run_writes_no_lockfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``hmp run`` leaves the project lockfile alone.
 
-    Asserts the absence of the file, not the absence of a helper call: the
-    lockfile is what ``hmp lock verify --strict`` reads, so disk is the
+    What a run read is recorded in ``inputs.json`` of its own directory; the
+    project lockfile that ``--frozen`` reads is written by
+    ``hmp dev lock update`` only. Asserts the absence of the file: disk is the
     contract.
     """
-    workspace = _run_cli_workflow(tmp_path, monkeypatch, no_lock=True)
+    workspace = _run_cli_workflow(tmp_path, monkeypatch)
 
     assert not (workspace / LOCKFILE_NAME).exists()
 
 
-def test_default_run_writes_the_lockfile_to_the_project_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Without ``--no-lock`` the same path writes a readable lockfile."""
-    workspace = _run_cli_workflow(tmp_path, monkeypatch, no_lock=False)
-
-    dest = workspace / LOCKFILE_NAME
-    assert dest.is_file()
-    assert read_lockfile_meta(dest)["version"] == LOCKFILE_VERSION
-
-
 # Bonus coverage --------------------------------------------------------------
-
-
-def test_post_run_helper_writes_lockfile(tmp_path: Path) -> None:
-    """The integration helper writes the lockfile when the data cache exists."""
-    from hydromodpy.cli.commands.run import _post_run_lockfile_write
-
-    workspace = tmp_path / "workspace"
-    project_root = workspace / "projects" / "demo"
-    data_dir = workspace / "data" / "hydrometry"
-    data_dir.mkdir(parents=True)
-    project_root.mkdir(parents=True)
-    src = data_dir / "series.csv"
-    src.write_text("datetime,value\n2020-01-01,1.0\n")
-    catalog = DataCatalogDuckDB(workspace / "data" / "cache.duckdb")
-    catalog.register(
-        variable="hydrometry",
-        source="hubeau",
-        station_id="A",
-        file_path=src.name,
-    )
-    catalog.close()
-
-    config_path = project_root / "hydromodpy.toml"
-    config_path.write_text("# config placeholder\n")
-    raw_toml = {"workspace": {"project_root": str(project_root)}}
-    _post_run_lockfile_write(config_path, raw_toml)
-
-    dest = project_root / LOCKFILE_NAME
-    assert dest.is_file()
-    meta = read_lockfile_meta(dest)
-    assert meta["version"] == LOCKFILE_VERSION
 
 
 def test_lockfile_uses_temporary_file_then_replaces(tmp_path: Path) -> None:
@@ -391,7 +342,7 @@ def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path: Path) -> None:
     assert verify_frozen(cat, dest) == []
 
 
-# One address: what a run writes is what --frozen reads -----------------------
+# One address: what ``hmp dev lock update`` writes is what --frozen reads ------
 
 
 @pytest.fixture
@@ -446,20 +397,19 @@ def test_cache_store_no_longer_guesses_the_lockfile_location() -> None:
     assert not hasattr(cache_store, "workspace_lockfile_path")
 
 
-def test_frozen_mode_reads_the_lockfile_the_run_wrote(
+def test_frozen_mode_reads_the_lockfile_lock_update_wrote(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     frozen_mode_reset: None,
 ) -> None:
-    """The file the post-run write produced is the one frozen mode loads."""
-    from hydromodpy.cli.commands.run import _post_run_lockfile_write
+    """The file ``hmp dev lock update`` wrote is the one frozen mode loads."""
+    from hydromodpy.cli._workers.dev import lock_update
     from hydromodpy.data.provenance.lockfile import project_lockfile_path, set_frozen_mode
     from hydromodpy.data.registry import cache_store
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    workspace, project_root, config_path = _seed_workspace_project(tmp_path)
-    raw_toml = {"workspace": {"project_root": str(project_root)}}
-    _post_run_lockfile_write(config_path, raw_toml)
+    workspace, project_root, _config_path = _seed_workspace_project(tmp_path)
+    lock_update(project=str(project_root))
 
     written = project_lockfile_path(project_root)
     assert written.is_file()
@@ -471,20 +421,18 @@ def test_frozen_mode_reads_the_lockfile_the_run_wrote(
     assert [artifact.station_id for artifact in cache_store.locked_artifacts()] == ["A"]
 
 
-def test_frozen_precheck_accepts_the_lockfile_the_run_wrote(
+def test_frozen_precheck_accepts_the_lockfile_lock_update_wrote(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``hmp run --frozen`` resolves the same address as the post-run write."""
-    from hydromodpy.cli.commands.run import (
-        _post_run_lockfile_write,
-        _verify_frozen_inputs_strict,
-    )
+    """``hmp run --frozen`` resolves the address ``hmp dev lock update`` writes."""
+    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     _, project_root, config_path = _seed_workspace_project(tmp_path)
     raw_toml = {"workspace": {"project_root": str(project_root)}}
-    _post_run_lockfile_write(config_path, raw_toml)
+    lock_update(project=str(project_root))
 
     assert _verify_frozen_inputs_strict(config_path, raw_toml) == project_root
 
@@ -551,20 +499,21 @@ def test_project_runner_binds_the_project_root_it_runs(
     """
     from types import SimpleNamespace
 
-    from hydromodpy.cli.commands.run import _post_run_lockfile_write
+    from hydromodpy.cli._workers.dev import lock_update
     from hydromodpy.data.provenance.lockfile import frozen_project_root, is_frozen_mode
     from hydromodpy.data.registry import cache_store
     from hydromodpy.project.runner import ProjectRunner
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     _, project_root, config_path = _seed_workspace_project(tmp_path)
-    _post_run_lockfile_write(config_path, {"workspace": {"project_root": str(project_root)}})
+    lock_update(project=str(project_root))
 
     seen: dict[str, object] = {}
 
     class RecordingPipeline:
-        def __init__(self, steps: tuple, *, workspace: Path) -> None:
+        def __init__(self, steps: tuple, *, workspace: Path, run_dir: Path | None) -> None:
             seen["workspace"] = workspace
+            seen["run_dir"] = run_dir
 
         def run(self, initial: object, **kwargs: object) -> dict:
             seen["frozen"] = is_frozen_mode()
@@ -592,9 +541,17 @@ def test_project_runner_binds_the_project_root_it_runs(
         store=None,
         sim_id=None,
     )
+    # A run that keeps no store claims no directory: only the frozen binding
+    # is under test.
+    unpersisted = SimpleNamespace(
+        simulation=SimpleNamespace(
+            results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
+        ),
+        site=None,
+    )
     project = SimpleNamespace(
         _ctx=ctx,
-        _cfg=None,
+        _cfg=unpersisted,
         _config_path=config_path,
         # The double stands for a project the Pipeline builds itself: no
         # geographic and no domain on its ctx, so the run executes the model
@@ -688,55 +645,47 @@ def test_lock_update_outside_any_workspace_raises_instead_of_exiting(
         lock_update(output=str(orphan / "custom.lock"))
 
 
-# One shape: whoever writes the file writes the same file ---------------------
+# One writer: the lockfile records the commit of the project it describes -----
 
 
-def test_both_writers_record_the_same_project_commit(
+def test_the_lockfile_records_the_project_commit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``hmp dev lock update`` and ``hmp run`` fill the same header keys."""
+    """``hmp dev lock update`` writes the commit of the project, not of the cwd."""
     from hydromodpy.cli._workers.dev import lock_update
-    from hydromodpy.cli.commands.run import _post_run_lockfile_write
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
     from hydromodpy.data.registry import freeze
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     monkeypatch.delenv("HMP_PROJECT_ROOT", raising=False)
     monkeypatch.setattr(freeze, "_git_head", lambda cwd: f"commit-of-{Path(cwd).name}")
-    _, project_root, config_path = _seed_workspace_project(tmp_path)
+    _, project_root, _config_path = _seed_workspace_project(tmp_path)
     dest = project_lockfile_path(project_root)
 
-    _post_run_lockfile_write(config_path, {"workspace": {"project_root": str(project_root)}})
-    from_run = read_lockfile_meta(dest)
-
     assert lock_update(project=str(project_root)) == dest
-    from_dev = read_lockfile_meta(dest)
+    meta = read_lockfile_meta(dest)
 
-    assert from_run["project_git_commit"] == "commit-of-demo"
-    assert set(from_dev) == set(from_run)
-    assert from_dev["project_git_commit"] == from_run["project_git_commit"]
+    assert meta["version"] == LOCKFILE_VERSION
+    assert meta["project_git_commit"] == "commit-of-demo"
 
 
 def test_env_project_root_beats_the_declared_one(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``HMP_PROJECT_ROOT`` moves the lockfile, exactly as it moves the config."""
-    from hydromodpy.cli.commands.run import (
-        _post_run_lockfile_write,
-        _verify_frozen_inputs_strict,
-    )
+    """``HMP_PROJECT_ROOT`` moves the lockfile ``--frozen`` reads, as it moves the config."""
+    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.cli.commands.run import _verify_frozen_inputs_strict
     from hydromodpy.data.provenance.lockfile import project_lockfile_path
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     workspace, declared, config_path = _seed_workspace_project(tmp_path)
     env_root = workspace / "projects" / "under_test"
     env_root.mkdir()
+    lock_update(project=str(env_root))
     monkeypatch.setenv("HMP_PROJECT_ROOT", str(env_root))
     raw_toml = {"workspace": {"project_root": str(declared)}}
-
-    _post_run_lockfile_write(config_path, raw_toml)
 
     assert project_lockfile_path(env_root).is_file()
     assert not project_lockfile_path(declared).exists()

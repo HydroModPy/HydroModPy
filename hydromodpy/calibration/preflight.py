@@ -87,6 +87,314 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
     return findings
 
 
+@dataclass(frozen=True)
+class CalibrationCheck:
+    """What ``hmp config check`` says of a calibration file.
+
+    ``findings`` is what has to change; ``lines`` is what the reader is told
+    beside them: the published method the file runs and where it departs from
+    it, and what each phase compares with what. ``verbose_lines`` adds the
+    stages, the references and every reading of the paper.
+    """
+
+    findings: list[PreflightFinding]
+    lines: list[str]
+    verbose_lines: list[str]
+
+    @property
+    def errors(self) -> int:
+        """Number of findings that stop the run."""
+        return sum(1 for finding in self.findings if finding.severity == "error")
+
+
+def check_calibration_file(target: Path) -> CalibrationCheck:
+    """Report everything wrong with the calibration in ``target``, solving nothing.
+
+    Every check runs, so a file with three mistakes takes one pass to fix
+    rather than three overnight runs. A warning raised while the file loads, a
+    renamed key for instance, is one more finding: it is what the file has to
+    change. A file that will not load has nothing else to check.
+    """
+    import warnings
+
+    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
+    target = Path(target).expanduser().resolve()
+    with warnings.catch_warnings(record=True) as caught:
+        # Only the categories a file's author acts on are forced through; the
+        # others keep the filters they had, so nothing ignored today is printed.
+        warnings.simplefilter("always", ConfigKeyRenamedWarning)
+        warnings.simplefilter("always", UserWarning)
+        try:
+            cfg = get_root_config_provider().from_toml(target)
+        except Exception as exc:
+            cfg = None
+            refused = PreflightFinding("error", target.name, f"the file does not load: {exc}")
+    findings = _findings_from_load_warnings(caught, target.name)
+    lines: list[str] = []
+    verbose: list[str] = []
+    if cfg is None:
+        findings.append(refused)
+    else:
+        normal, detailed = protocol_lines(cfg)
+        lines.extend(normal)
+        verbose.extend(detailed)
+        lines.extend(comparison_lines(cfg, target))
+        findings.extend(preflight_calibration(cfg, source=target))
+    return CalibrationCheck(findings=findings, lines=lines, verbose_lines=verbose)
+
+
+def _findings_from_load_warnings(caught: list[Any], where: str) -> list[PreflightFinding]:
+    """Turn the warnings this package raised while loading into findings.
+
+    A renamed key warns from a validator, and the console routing would print it
+    as a raw warning line, or not at all. Here it is a finding among the others,
+    counted in the verdict. A warning a dependency raised is handed back to the
+    usual routing, untouched.
+    """
+    import warnings
+
+    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+
+    package = Path(__file__).resolve().parents[1]
+    findings: list[PreflightFinding] = []
+    seen: set[str] = set()
+    for item in caught:
+        ours = issubclass(item.category, ConfigKeyRenamedWarning) or Path(
+            item.filename
+        ).resolve().is_relative_to(package)
+        if not ours:
+            warnings.showwarning(item.message, item.category, item.filename, item.lineno)
+            continue
+        text = str(item.message)
+        if text in seen:
+            continue
+        seen.add(text)
+        findings.append(PreflightFinding("warning", where, text))
+    return findings
+
+
+def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
+    """Say which published method a file runs, and where this run leaves it.
+
+    Returns the lines a reader acts on, then the ones only ``-v`` prints: the
+    stages, the references, and every reading of the paper this implementation
+    makes. A value equal to the paper's, or written the way the recipe runs it
+    anyway, is not a departure.
+    """
+    declared = getattr(getattr(cfg, "calibration", None), "protocol", None)
+    if declared is None:
+        return [], []
+    from hydromodpy.calibration.protocols import (
+        options_the_recipe_already_runs,
+        protocol_record,
+        why_the_spin_up_year_is_scored,
+    )
+
+    record = protocol_record(declared.name, declared)
+    time = getattr(getattr(cfg, "simulation", None), "time", None)
+    normal: list[str] = [f"protocol: {record['name']}@{record['version']} - {record['title']}"]
+    verbose: list[str] = [
+        f"  stage {index}: {stage}" for index, stage in enumerate(record["stages"], start=1)
+    ]
+    # The protocol drops its default window without a word on a short run, so
+    # this is where the reader learns the spin-up year is scored.
+    whole_run = why_the_spin_up_year_is_scored(cfg.calibration, time)
+    if whole_run is not None:
+        normal.append(f"  stage 2 scores the whole run, spin-up year included: {whole_run}")
+    verbose.extend(f"  cite: {reference}" for reference in record["references"])
+    # Where this run departs from the publication it cites. A reader comparing a
+    # result to the literature needs this before the run, not after.
+    keys = [item["key"] for item in record["deviations"]]
+    in_force = _values_in_force(cfg, keys)
+    written = _values_this_file_set(cfg, keys)
+    for deviation in record["deviations"]:
+        key = deviation["key"]
+        told = f"{deviation['here']} (paper: {deviation['paper']})"
+        suffix = f" - this file sets {_rendered(written[key])}" if key in written else ""
+        if key not in in_force or (deviation["paper_value"] is None and key not in written):
+            verbose.append(f"  reads the paper on {key}: {told}")
+        elif _departs(deviation, in_force[key], key in written):
+            normal.append(f"  differs from the paper on {key}: {told}{suffix}")
+        else:
+            verbose.append(f"  as the paper on {key}: {told}{suffix}")
+    # An option moved off the recipe keeps the method but changes what the number
+    # rests on, and only the file knows it moved.
+    same = options_the_recipe_already_runs(declared, cfg.calibration, time)
+    for option in record.get("options_away_from_the_recipe", ()):
+        line = f"{option['key']} = {_rendered(option['here'])}"
+        if option["key"] in same:
+            verbose.append(f"  option written as the recipe runs it: {line}")
+        else:
+            normal.append(
+                f"  option away from the recipe: {line} (recipe: {_rendered(option['recipe'])})"
+            )
+    backend = getattr(getattr(cfg, "solver", None), "backend_name", None)
+    backend = str(getattr(backend, "value", backend) or "")
+    verdict = record["support"].get(backend)
+    if verdict is not None and verdict != "tested":
+        normal.append(
+            f"  on {backend}: {verdict.replace('_', ' ')} - no case in this repository "
+            "runs the protocol on that backend."
+        )
+    return normal, verbose
+
+
+def _departs(deviation: Mapping[str, Any], value: object, written: bool) -> bool:
+    """Say whether the value in force leaves the publication on this deviation.
+
+    A deviation whose paper value is known departs when the value in force is
+    another. One whose paper has no value for the key, the paper being silent
+    on it, departs only when the file sets it.
+    """
+    paper = deviation.get("paper_value")
+    if paper is None:
+        return written and value is not None
+    try:
+        return bool(value != paper)
+    except (TypeError, ValueError):
+        # A length compared with the word 'auto': two different things.
+        return True
+
+
+def _rendered(value: object) -> str:
+    """Return a value as a reader of a terminal would want to see it.
+
+    A quantity reprs as ``<Quantity(50, 'meter')>``, which is the object and not
+    the number the file wrote. An option left unset reads ``unset``.
+    """
+    if value is None:
+        return "unset"
+    if hasattr(value, "magnitude") and hasattr(value, "units"):
+        return f"'{value:~P}'"
+    return repr(value)
+
+
+def _places_the_deviations_are_set(cfg: Any) -> list[Any]:
+    """Return where a file sets the keys a protocol departs on.
+
+    The network outputs, then ``[geographic]`` for ``dem_correc_type``. A gauge
+    is not the criterion the deviations describe, so it is not read.
+    """
+    calibration = getattr(cfg, "calibration", None)
+    outputs = getattr(calibration, "outputs", None) or {}
+    places = [
+        output for output in outputs.values() if getattr(output, "support", None) == "network"
+    ]
+    geographic = getattr(cfg, "geographic", None)
+    if geographic is not None:
+        places.append(geographic)
+    return places
+
+
+def _declares(place: Any, key: str) -> bool:
+    """Say whether a model has a field ``key``, the way its class declares it."""
+    return key in getattr(type(place), "model_fields", {})
+
+
+def _values_in_force(cfg: Any, keys: list[str]) -> dict[str, object]:
+    """Return, for the keys a protocol departs on, the value the run will use."""
+    found: dict[str, object] = {}
+    for key in keys:
+        for place in _places_the_deviations_are_set(cfg):
+            if _declares(place, key):
+                found[key] = getattr(place, key)
+                break
+    return found
+
+
+def _values_this_file_set(cfg: Any, keys: list[str]) -> dict[str, object]:
+    """Return, for the keys a protocol departs on, what this file actually wrote."""
+    found: dict[str, object] = {}
+    for key in keys:
+        for place in _places_the_deviations_are_set(cfg):
+            if key in getattr(place, "model_fields_set", set()):
+                found[key] = getattr(place, key)
+                break
+    return found
+
+
+def comparison_lines(cfg: Any, source: Path) -> list[str]:
+    """Return what each phase, or the whole section, compares with what.
+
+    One block per line: its criterion, its share, the simulated quantity and
+    what it is compared against. A plain calibration with no
+    ``[[calibration.phases]]`` still runs one search, so it gets one table
+    under ``[calibration]``. ``source`` anchors a relative
+    ``stream_geometry_path`` the same way the run would.
+    """
+    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
+
+    calibration = getattr(cfg, "calibration", None)
+    if calibration is None:
+        return []
+    resolve_stream_geometry_paths(calibration, Path(source))
+    lines: list[str] = []
+    for phase in calibration.phases or [None]:
+        label = phase.name if phase is not None else "[calibration]"
+        table = objective_comparison_table(calibration, phase)
+        if not table:
+            continue
+        lines.append(f"compares ({label}):")
+        lines.extend(f"  {comparison_line(row)}" for row in table)
+    return lines
+
+
+def comparison_line(row: Mapping[str, Any]) -> str:
+    """Return one line of what a block, or the single-metric route, compares.
+
+    ``row`` is one entry of
+    :func:`hydromodpy.calibration.runners.staged_runner.objective_comparison_table`.
+    Its ``source`` keeps the absolute path a network output resolved to; here
+    only, formatting shortens it when it sits under the working directory, so
+    the line does not carry one checkout's full path.
+    """
+    label = row["block"] or "single metric"
+    source = _shortened_if_under_cwd(row["source"])
+    return (
+        f"{label}\t{row['metric']}\tshare {percent(row['share'])}\t{row['quantity']}\tvs {source}"
+    )
+
+
+def _shortened_if_under_cwd(text: str) -> str:
+    """Return ``text`` relative to the working directory, when it is an absolute path under it."""
+    from hydromodpy.core.state.paths import display_path
+
+    if not Path(text).is_absolute():
+        return text
+    shown = display_path(text)
+    return text if Path(shown).is_absolute() else shown
+
+
+def percent(share: float) -> str:
+    """Return a share of the cost as a percentage a reader cannot misread.
+
+    Whole per cents, except near the ends: a share below 1 % keeps one
+    significant digit, so a block weighted 1000 to 1 reads 0.1 % and not 0 %,
+    which would say it is off. A share above 99 % keeps as many decimals as its
+    complement, so the two blocks of that pair still add up to 100 %.
+    """
+    value = float(share) * 100.0
+    if 0.0 < value < 1.0:
+        rounded, decimals = _one_significant_digit(value)
+        return f"{rounded:.{decimals}f}%"
+    if 99.0 < value < 100.0:
+        rounded, decimals = _one_significant_digit(100.0 - value)
+        return f"{100.0 - rounded:.{decimals}f}%"
+    return f"{value:.0f}%"
+
+
+def _one_significant_digit(value: float) -> tuple[float, int]:
+    """Return ``value`` rounded to one significant digit, and its decimals in plain notation."""
+    import math
+
+    decimals = max(0, -math.floor(math.log10(value)))
+    rounded = round(value, decimals)
+    return rounded, max(0, -math.floor(math.log10(rounded)))
+
+
 _DATA_SECTION_BY_FAMILY: Mapping[str, str] = {
     "discharge": "hydrometry",
     "head": "piezometry",

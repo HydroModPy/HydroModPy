@@ -711,7 +711,11 @@ class SiteSelectionInputConfig(HydroModelBase):
     )
     region_id: Annotated[str, Profile.USER] = Field(
         default="",
-        description="Optional region identifier written to regional-lab CSV outputs.",
+        description=(
+            "Optional campaign or administrative region identifier. It is written in the "
+            "region_id column of the selected-sites table and layers, and shown as Region "
+            "in the review report. Empty leaves the column blank."
+        ),
     )
     workspace_root: Annotated[Path | None, Profile.USER] = Field(
         default=None,
@@ -1270,6 +1274,14 @@ class CriteriaConfig(HydroModelBase):
 class OutputConfig(HydroModelBase):
     """Output artifact switches."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "write_regional_lab_csv": (
+            "the selected sites enter the workspace site catalog instead. Run "
+            "hmp site select <file> --into-catalog, or hmp site import --selection "
+            "<manifest>, and remove the key."
+        ),
+    }
+
     write_rejected: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Write rejected_sites.csv, the table of rejected sites.",
@@ -1295,13 +1307,6 @@ class OutputConfig(HydroModelBase):
         description=(
             "Write the site tables as CSV. When false, write_selected and write_rejected "
             "write nothing."
-        ),
-    )
-    write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(
-        default=True,
-        description=(
-            "Write regional_lab_sites.csv: the selected sites in the columns the "
-            "regional-lab catalog loader reads."
         ),
     )
     write_report_html: Annotated[bool, Profile.USER] = Field(

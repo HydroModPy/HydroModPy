@@ -237,3 +237,170 @@ def test_a_malformed_tombstone_names_its_line(tmp_path):
 
     with pytest.raises(ValueError, match=f"{TOMBSTONES_FILENAME}:2"):
         read_tombstones(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# The CLI verbs on top of the trash: delete, restore, trash, and what they guard.
+# ---------------------------------------------------------------------------
+
+
+def _hmp(monkeypatch, *argv: str) -> int:
+    import importlib
+    import sys
+
+    main = importlib.import_module("hydromodpy.cli.main")
+    monkeypatch.setattr(sys, "argv", ["hmp", *argv])
+    try:
+        main.main()
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
+
+
+def _project(tmp_path: Path) -> Path:
+    project = tmp_path / "nancon"
+    project.mkdir()
+    (project / "project.toml").write_text('[site]\nname = "nancon"\n', encoding="utf-8")
+    return project
+
+
+def _write_outcome(run_dir: Path, status: str, *, started_at: datetime) -> None:
+    import os
+
+    from hydromodpy.results.outcome import Outcome, write_outcome
+
+    write_outcome(
+        run_dir,
+        Outcome(
+            case_id=run_dir.name,
+            attempt=1,
+            attempt_id="a1",
+            sim_id=SIM_ID,
+            status=status,
+            written_by="worker",
+            started_at=started_at,
+            ended_at=None if status == "running" else started_at,
+            host="here",
+            pid=os.getpid(),
+        ),
+    )
+
+
+def test_delete_moves_the_named_directory_and_restore_brings_it_back(tmp_path, monkeypatch):
+    project = _project(tmp_path)
+    run_dir = _make_run(project, "nancon_daily", sim_id=SIM_ID)
+    before = _tree(run_dir)
+
+    assert _hmp(monkeypatch, "catalog", "delete", "nancon_daily", "-y", "-w", str(project)) == 0
+    assert not run_dir.exists()
+    [entry] = list_trash(project)
+    assert entry.rel_dir == "runs/nancon_daily"
+
+    assert _hmp(monkeypatch, "catalog", "restore", "nancon_daily", "-w", str(project)) == 0
+    assert _tree(run_dir) == before
+    assert not (project / ".hmp" / "index.duckdb").exists()
+
+
+def test_delete_of_a_bare_name_with_versions_is_refused_with_the_list(
+    tmp_path, monkeypatch, capsys
+):
+    from hydromodpy.cli.helpers import EXIT_AMBIGUOUS_REFERENCE
+
+    project = _project(tmp_path)
+    _make_run(project, "J0014010-base")
+    _make_run(project, "J0014010-base.v2")
+
+    code = _hmp(monkeypatch, "catalog", "delete", "J0014010-base", "-y", "-w", str(project))
+
+    assert code == EXIT_AMBIGUOUS_REFERENCE
+    err = capsys.readouterr().err
+    assert "runs/J0014010-base.v2" in err
+    assert (project / RUNS_DIRNAME / "J0014010-base").is_dir()
+    assert _hmp(monkeypatch, "catalog", "delete", "J0014010-base.v2", "-y", "-w", str(project)) == 0
+    assert not (project / RUNS_DIRNAME / "J0014010-base.v2").exists()
+
+
+def test_delete_now_leaves_a_tombstone_and_the_name_stays_taken(tmp_path, monkeypatch):
+    from hydromodpy.results.catalog.registration import reserve_version_dirname
+
+    project = _project(tmp_path)
+    _make_run(project, "x", sim_id=SIM_ID)
+    _make_run(project, "x.v2")
+
+    assert _hmp(monkeypatch, "catalog", "delete", "x.v2", "--now", "-y", "-w", str(project)) == 0
+
+    assert list_trash(project) == []
+    [tombstone] = read_tombstones(project)
+    assert tombstone.rel_dir == "runs/x.v2"
+    assert reserve_version_dirname(project, "run", "x").name == "x.v3"
+
+
+def test_delete_refuses_a_pinned_run_without_force(tmp_path, monkeypatch, capsys):
+    from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+
+    project = _project(tmp_path)
+    _make_run(project, "best", sim_id=SIM_ID)
+    assert _hmp(monkeypatch, "catalog", "tag", "best", "pinned", "-w", str(project)) == 0
+
+    code = _hmp(monkeypatch, "catalog", "delete", "best", "-y", "-w", str(project))
+    assert code == EXIT_WRITE_CONFLICT
+    assert "pinned" in capsys.readouterr().err
+    assert _hmp(monkeypatch, "catalog", "delete", "best", "-y", "--force", "-w", str(project)) == 0
+
+
+def test_delete_never_moves_a_running_attempt(tmp_path, monkeypatch, capsys):
+    from hydromodpy.cli.helpers import EXIT_WRITE_CONFLICT
+
+    project = _project(tmp_path)
+    run_dir = _make_run(project, "busy")
+    _write_outcome(run_dir, "running", started_at=datetime.now(UTC))
+
+    code = _hmp(monkeypatch, "catalog", "delete", "busy", "-y", "--force", "-w", str(project))
+    assert code == EXIT_WRITE_CONFLICT
+    assert "running" in capsys.readouterr().err
+    assert run_dir.is_dir()
+
+
+def test_trash_lists_and_empty_leaves_tombstones_and_spares_pinned(tmp_path, monkeypatch, capsys):
+    import json as _json
+
+    project = _project(tmp_path)
+    _make_run(project, "a", sim_id=SIM_ID)
+    _make_run(project, "b")
+    assert _hmp(monkeypatch, "catalog", "tag", "b", "pinned", "-w", str(project)) == 0
+    trash_run(project, "runs/a", now=AT)
+    trash_run(project, "runs/b", now=AT, force=True)
+    capsys.readouterr()
+
+    assert _hmp(monkeypatch, "catalog", "trash", "--format", "json", "-w", str(project)) == 0
+    listed = _json.loads(capsys.readouterr().out)
+    assert [row["rel_dir"] for row in listed] == ["runs/a", "runs/b"]
+
+    assert _hmp(monkeypatch, "catalog", "trash", "--empty", "-w", str(project)) == 0
+    assert [entry.rel_dir for entry in list_trash(project)] == ["runs/b"]
+    assert [tombstone.rel_dir for tombstone in read_tombstones(project)] == ["runs/a"]
+
+
+def test_trashing_a_published_run_through_the_cli_warns(tmp_path, monkeypatch, capsys):
+    project = _project(tmp_path)
+    run_dir = _make_run(project, "handed_out")
+    (run_dir / RUN_PUBLISHED_FILENAME).write_text("{}\n", encoding="utf-8")
+
+    assert _hmp(monkeypatch, "catalog", "delete", "handed_out", "-y", "-w", str(project)) == 0
+
+    assert "published copies now point at a trashed source" in capsys.readouterr().err
+
+
+def test_a_verb_that_moves_a_directory_refreshes_an_index_that_exists(tmp_path, monkeypatch):
+    import hydromodpy.results.catalog.indexer as indexer
+
+    project = _project(tmp_path)
+    _make_run(project, "a")
+    indexer.index_new_runs(project)
+    calls: list[Path] = []
+    monkeypatch.setattr(indexer, "index_new_runs", lambda root, **_: calls.append(Path(root)))
+
+    assert _hmp(monkeypatch, "catalog", "delete", "a", "-y", "-w", str(project)) == 0
+    assert _hmp(monkeypatch, "catalog", "restore", "a", "-w", str(project)) == 0
+
+    assert calls == [project, project]

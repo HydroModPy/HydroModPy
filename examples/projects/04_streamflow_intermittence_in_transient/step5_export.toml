@@ -1,5 +1,5 @@
 # Step 5: step 4 with its results written out, one [[export]] block per kind.
-# The model does not change. Files land in share/nancon_step5_export/.
+# The model does not change. Files land in runs/nancon_step5_export/exports/.
 #
 #   hmp run step5_export.toml
 #   hmp export nancon_step5_export --list    what the run can export
@@ -64,11 +64,6 @@ crs = "EPSG:4326"
 variables = "head"
 time = "2002-10-15"
 format = "vtu"
-
-# The portable archive of the run.
-[[export]]
-variables = "all"
-format = "package"
 
 # One figure beside most exports: the same data, drawn instead of written.
 [display]

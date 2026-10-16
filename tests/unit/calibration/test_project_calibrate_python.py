@@ -10,7 +10,7 @@ supplied.
 The Project setup is intentionally minimal: we monkey-patch
 :func:`prepare_trials` and :func:`promote_prepared_trial` (the same fakes used
 by ``test_calibration_cli``) so the calibration loop runs without
-touching MODFLOW, while the catalog persistence and
+touching MODFLOW, while the session journal and
 :class:`CalibrationReport` assembly remain real. A duck-typed
 ``_FakeProject`` exposes the source TOML and workspace attributes used by
 ``run_calibration_programmatic`` so we never have to validate a full
@@ -154,28 +154,10 @@ def fake_pipeline(monkeypatch, tmp_path):
             raw_toml=raw,
         )
 
-    def _fake_promote(
-        trial_ctx,
-        values,
-        *,
-        name=None,
-        tags=(),
-        session_id=None,
-        sim_id=None,
-        kept=None,
-        spared=(),
-        keep_per_cell_budget=None,
-    ):
-        del trial_ctx, tags, kept, spared, keep_per_cell_budget
+    def _fake_promote(trial_ctx, values, *, name=None, sim_id=None, **kwargs):
+        del trial_ctx, kwargs
         sim_id = sim_id or uuid.uuid4().hex
-        promoted.append(
-            {
-                "sim_id": sim_id,
-                "values": dict(values),
-                "name": name,
-                "session_id": session_id,
-            }
-        )
+        promoted.append({"sim_id": sim_id, "values": dict(values), "name": name})
         return sim_id
 
     monkeypatch.setattr(programmatic_runner_module, "prepare_trials", _fake_prepare)
@@ -304,20 +286,21 @@ class TestRunCalibrationProgrammatic:
         assert isinstance(report, CalibrationReport)
 
     def test_iterations_persisted(self, fake_project, fake_pipeline, quadratic_metric, tmp_path):
+        from hydromodpy.results.session.descriptor import read_session
+        from hydromodpy.results.session.journal import read_trials
+
         cfg = _baseline_cfg()
         report = run_calibration_programmatic(
             cfg,
             project=fake_project,
             metric_fn=quadratic_metric,
         )
-        from hydromodpy.results.catalog import Catalog
 
-        with Catalog(tmp_path) as catalog:
-            rows = catalog.connection.execute(
-                "SELECT COUNT(*) FROM calibration_iterations WHERE session_id = ?",
-                [uuid.UUID(report.session_id)],
-            ).fetchone()
-        assert rows[0] == 3
+        # The case takes the stem of the project file (the fake project names no
+        # simulation); the session sits at the project root the fake declares.
+        assert report.session_dir == tmp_path / "sessions" / "hydromodpy"
+        assert read_session(report.session_dir).session_id == report.session_id
+        assert len(read_trials(report.session_dir)) == 3
 
     def test_save_runs_all_promotes_every_completed_iteration(
         self, fake_project, fake_pipeline, quadratic_metric
@@ -333,7 +316,7 @@ class TestRunCalibrationProgrammatic:
         assert len(fake_pipeline) == 3
         assert report.best_sim_id in {row["sim_id"] for row in fake_pipeline}
 
-    def test_failed_required_promotion_marks_session_failed(
+    def test_a_failed_promotion_closes_the_session_partial(
         self, fake_project, fake_pipeline, quadratic_metric, monkeypatch, tmp_path
     ):
         def _fail_promote(*args, **kwargs):
@@ -349,18 +332,12 @@ class TestRunCalibrationProgrammatic:
             metric_fn=quadratic_metric,
         )
 
-        from hydromodpy.results.catalog import Catalog
+        from hydromodpy.results.session.descriptor import read_session
 
-        with Catalog(tmp_path) as catalog:
-            row = catalog.connection.execute(
-                "SELECT st.code, cs.error_message FROM calibration_sessions cs "
-                "JOIN statuses st ON cs.status_id = st.id "
-                "WHERE cs.session_id = ?",
-                [uuid.UUID(report.session_id)],
-            ).fetchone()
+        descriptor = read_session(report.session_dir)
         assert report.promoted == 0
-        assert row[0] == "failed"
-        assert "promotion unavailable" in row[1]
+        assert descriptor.status == "partial", "the search completed; only the runs are missing"
+        assert "promotion unavailable" in (descriptor.error_message or "")
 
 
 # ---------------------------------------------------------------------------

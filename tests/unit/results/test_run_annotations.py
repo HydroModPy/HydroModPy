@@ -1,117 +1,99 @@
-"""Tags and notes live in the run directory, so an index rebuild keeps them."""
+"""Tags and notes live in the run directory, so the index reads them from there."""
 
 from __future__ import annotations
 
 import json
-import uuid
 
 import pytest
 
-from hydromodpy.core.state.paths import catalog_path_for
-from hydromodpy.results.annotations import annotations_path, read_annotations
-from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.reindex import rebuild_index
+from hydromodpy.results.annotations import (
+    Annotations,
+    Note,
+    annotations_path,
+    read_annotations,
+    write_annotations,
+)
+from hydromodpy.results.catalog import Catalog, index_new_runs, rebuild_index
 from hydromodpy.results.manifest import read_manifest
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
-
-
-def _seal_run(catalog: Catalog, name: str) -> str:
-    """Register, populate and finalise one run; return its sim_id."""
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        flow_regime="steady",
-        n_cells=16,
-        n_layers=1,
-        bbox=[0.0, 0.0, 10.0, 10.0],
-        crs="EPSG:2154",
-        config={"flow": {"hk": 1e-5}},
-    )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    (catalog.run_dir_for(sid) / RUN_CONFIG_FILENAME).write_text("[flow]\nhk = 1e-5\n")
-    catalog.finalize(sid, status="completed")
-    return sid
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
 @pytest.fixture
 def project(tmp_path):
-    """A project holding one sealed, annotated run."""
-    root = tmp_path / "demo"
+    root = make_project(tmp_path / "demo")
+    sid = seal_run(root, "alpha")
+    write_annotations(
+        root / "runs" / "alpha",
+        Annotations(
+            sim_id=sid,
+            tags=("pinned", "keep"),
+            notes=(Note(text="best fit", at="2026-07-25T22:24:31+00:00"),),
+        ),
+    )
+    return root, sid
+
+
+def _tags_and_notes(root, sid: str) -> tuple[list[str], list[str]]:
     with Catalog(root) as catalog:
-        sid = _seal_run(catalog, "alpha")
-        catalog.add_tag(sid, "pinned")
-        catalog.add_tag(sid, "calibration:0b719164")
-        catalog.add_note(sid, "best fit after widening Sy bounds")
-    return root
+        tags = [r[0] for r in catalog.backend.fetch_all("SELECT tag FROM tags ORDER BY tag")]
+        notes = [r[0] for r in catalog.backend.fetch_all("SELECT note FROM sim_notes")]
+    return tags, notes
 
 
 def test_a_tag_lands_next_to_the_manifest(project):
-    annotations = read_annotations(project / "runs" / "alpha")
-
-    assert annotations.tags == ("pinned", "calibration:0b719164")
-    assert [note.note for note in annotations.notes] == ["best fit after widening Sy bounds"]
-
-
-def test_the_sidecar_names_its_run(project):
-    payload = json.loads(annotations_path(project / "runs" / "alpha").read_text())
-
-    with Catalog(project, read_only=True) as catalog:
-        assert payload["sim_id"] == catalog.resolve("alpha")
-    assert payload["annotations_version"] == 1
-
-
-def test_removing_the_last_annotation_removes_the_file(tmp_path):
-    root = tmp_path / "demo"
-    with Catalog(root) as catalog:
-        sid = _seal_run(catalog, "alpha")
-        catalog.add_tag(sid, "draft")
-        assert annotations_path(catalog.run_dir_for(sid)).is_file()
-
-        catalog.remove_tag(sid, "draft")
-
-        assert not annotations_path(catalog.run_dir_for(sid)).exists()
+    root, sid = project
+    payload = json.loads(annotations_path(root / "runs" / "alpha").read_text(encoding="utf-8"))
+    assert payload["sim_id"] == sid
+    assert payload["tags"] == ["pinned", "keep"]
 
 
 def test_the_sealed_manifest_ignores_the_mutable_sidecar(project):
-    declared = {item["path"] for item in read_manifest(project / "runs" / "alpha")["artifacts"]}
+    root, _sid = project
+    manifest = read_manifest(root / "runs" / "alpha")
+    assert all(entry["path"] != "annotations.json" for entry in manifest["artifacts"])
 
-    assert "annotations.json" not in declared
 
+def test_tags_and_notes_come_back_with_the_index(project):
+    root, sid = project
+    rebuild_index(root)
 
-def test_tags_and_notes_survive_an_index_rebuild(project):
-    catalog_path_for(project).unlink()
-
-    rebuild_index(project)
-
-    with Catalog(project, read_only=True) as catalog:
-        sid = catalog.resolve("alpha")
-        tags = catalog.backend.fetch_all("SELECT tag FROM tags WHERE sim_id = ?", [sid])
-        notes = catalog.backend.fetch_all("SELECT note FROM sim_notes WHERE sim_id = ?", [sid])
-    assert {row[0] for row in tags} == {"pinned", "calibration:0b719164"}
-    assert [row[0] for row in notes] == ["best fit after widening Sy bounds"]
+    assert _tags_and_notes(root, sid) == (["keep", "pinned"], ["best fit"])
 
 
 def test_two_rebuilds_do_not_duplicate_annotations(project):
-    rebuild_index(project)
-    rebuild_index(project)
+    root, sid = project
+    rebuild_index(root)
+    rebuild_index(root)
 
-    with Catalog(project, read_only=True) as catalog:
-        sid = catalog.resolve("alpha")
-        tags = catalog.backend.fetch_all("SELECT tag FROM tags WHERE sim_id = ?", [sid])
-        notes = catalog.backend.fetch_all("SELECT note FROM sim_notes WHERE sim_id = ?", [sid])
-    assert len(tags) == 2
-    assert len(notes) == 1
+    assert _tags_and_notes(root, sid) == (["keep", "pinned"], ["best fit"])
+
+
+def test_removing_a_tag_on_disk_is_picked_up_by_the_next_pass(project):
+    root, sid = project
+    rebuild_index(root)
+    write_annotations(root / "runs" / "alpha", Annotations(sim_id=sid, tags=("keep",)))
+
+    report = index_new_runs(root)
+
+    assert report.indexed == ("runs/alpha",)
+    assert _tags_and_notes(root, sid) == (["keep"], [])
+
+
+def test_a_cleared_file_reads_back_with_no_tag_and_the_sim_id_of_the_run(tmp_path):
+    root = make_project(tmp_path / "demo")
+    sid = seal_run(root, "alpha")
+    run_dir = root / "runs" / "alpha"
+    write_annotations(run_dir, Annotations(tags=("pinned",)))
+    write_annotations(run_dir, Annotations())
+
+    assert read_annotations(run_dir) == Annotations(sim_id=sid)
 
 
 def test_a_broken_sidecar_is_reported_not_ignored(project):
-    annotations_path(project / "runs" / "alpha").write_text("{not json")
-    catalog_path_for(project).unlink()
+    root, _sid = project
+    annotations_path(root / "runs" / "alpha").write_text("[]", encoding="utf-8")
 
-    report = rebuild_index(project)
+    report = rebuild_index(root)
 
-    assert report.indexed == ()
-    assert [item.run for item in report.skipped] == ["alpha"]
+    assert [item.rel_dir for item in report.skipped] == ["runs/alpha"]
+    assert "annotations" in report.skipped[0].reason.lower()

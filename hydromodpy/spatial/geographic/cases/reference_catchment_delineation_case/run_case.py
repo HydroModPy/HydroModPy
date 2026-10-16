@@ -228,7 +228,7 @@ def run_geographic_cases_from_toml(
         case_label = str(spec["label"])
         catchment_override = spec["catchment"]
 
-        case_project_root = cfg.workspace.project_root / f"{cfg.workspace.catch_name}_{case_id}"
+        case_project_root = cfg.workspace.project_root / f"{cfg.site.name}_{case_id}"
         init_cfg = cfg.workspace.model_copy(update={"project_root": case_project_root})
         if catchment_override is None:
             geo_cfg = cfg.geographic

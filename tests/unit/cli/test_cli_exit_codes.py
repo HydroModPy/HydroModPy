@@ -114,10 +114,10 @@ def test_compare_missing_workspace_returns_not_found(monkeypatch, tmp_path) -> N
     assert code == 10
 
 
-def test_import_missing_package_returns_not_found(monkeypatch, tmp_path) -> None:
+def test_import_missing_publication_returns_not_found(monkeypatch, tmp_path) -> None:
     code = _run(
         monkeypatch,
-        ["hmp", "data", "import", str(tmp_path / "no_such.hmp"), "-w", str(tmp_path)],
+        ["hmp", "catalog", "import", str(tmp_path / "no_such.tar"), "-w", str(tmp_path)],
     )
     assert code == 10
 

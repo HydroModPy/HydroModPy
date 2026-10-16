@@ -28,18 +28,6 @@ end_datetime = "2003-03-31 00:00:00"
 step_value = "10 day"
 coverage_policy = "warn"
 
-[analysis.capability_gallery]
-enabled = true
-case_slug = "modflow6_gmsh_mesh_catchment"
-output_dir = "../../capability_gallery/simulation_regression/modflow6_gmsh_mesh_catchment"
-assets = [
-  "flow_state_triptych.png",
-  "recharge_discharge_cumulative.png",
-  "watertable_elevation.png",
-  "watertable_depth.png",
-  "flow_support_overview.png",
-]
-
 [data]
 types = ["recharge"]
 

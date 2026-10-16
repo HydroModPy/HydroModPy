@@ -1,9 +1,21 @@
 """Reference resolution and Run/Group discovery.
 
-``resolve`` is the canonical lookup that turns a user reference (full UUID,
-prefix, or ``name`` within a project) into a simulation ``sim_id``.
-``__getitem__`` / ``find`` / ``latest`` / ``best`` build :class:`Run` and
-:class:`RunSet` views on top of it.
+A reference names a result directory the way the project tree names it:
+
+- a run directory name: ``baseline.v2``, ``J0001-base``,
+  ``calibration``. It is the directory ``runs/<name>`` and nothing else: the
+  bare name is version 1, never "the latest version".
+- a relative directory: ``runs/<name>``, ``sessions/<name>`` or
+  ``sessions/<name>/trials/<nnnn>``.
+- an id: a full ``sim_id`` or a prefix of at least four hex characters.
+- a selector: ``@last``, ``@last~N``, ``@best:METRIC``, ``@worst:METRIC``,
+  ``@running``. A selector can be narrowed to one site.
+
+Two resolvers read these forms. :class:`DiscoveryMixin` answers for a
+:class:`~hydromodpy.results.catalog.Catalog`, from the index, and returns a
+``sim_id``. :func:`resolve_rel_dir` answers from the project tree, returns a
+relative directory, and opens the index only for an id or a selector: a verb
+that moves a directory (delete, rename, rerun, tag) needs no index to find it.
 """
 
 from __future__ import annotations
@@ -14,12 +26,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from hydromodpy.core.state.paths import (
+    catalog_path_for,
+    parse_rel_dir,
+    project_roots_under,
+    run_dir_rel,
+    runs_dir_for,
+)
 from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
-    OUTLET_STATION,
     UnrankedMetricError,
     metric_rank_sql,
 )
+from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.trash import TrashedEntry, list_trash
 
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
@@ -34,8 +54,6 @@ def iter_project_catalog_roots(workspace_root: Path | str) -> list[Path]:
     narrows its answer to the roots that already carry an index database, since
     a caller here is about to read one. Sorted, workspace root first.
     """
-    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
-
     return [
         root
         for root in project_roots_under(Path(workspace_root))
@@ -52,6 +70,14 @@ _HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
 _LAST_SELECTOR_RE = re.compile(r"^(?:last|latest)(?:~(\d+))?$")
 _RANK_SELECTOR_RE = re.compile(r"^(best|worst):(.+)$")
 
+RULE_METRIC_SQL = (
+    "m.metric_rule_version IS NOT NULL "
+    "AND m.station_id IS NOT DISTINCT FROM s.nse_station "
+    "AND m.variable IS NOT DISTINCT FROM s.nse_variable"
+)
+"""A metric row scored under the run's metric rule, at the station and on the
+variable its headline score was read: one row per metric and run."""
+
 
 def short_id(sim_id: str | UUID) -> str:
     """Return the first 8 hex characters of a simulation UUID (Git-style)."""
@@ -67,22 +93,176 @@ class ReferenceResolutionError(Exception):
 
 
 class SimulationNotFoundError(ReferenceResolutionError):
-    """Raised when a reference does not match any simulation in the catalog."""
+    """Raised when a reference does not match any run or session."""
 
 
 class AmbiguousReferenceError(ReferenceResolutionError):
-    """Raised when a reference matches more than one simulation."""
+    """Raised when a reference matches more than one run or session.
+
+    ``candidates`` holds ``(key, label)`` pairs. The key is a ``sim_id`` or a
+    relative directory, the label says what it is.
+    """
 
     def __init__(self, ref: str, candidates: list[tuple[str, str | None]]) -> None:
         self.ref = ref
         self.candidates = candidates
         head = candidates[:10]
-        lines = "\n".join(f"  {short_id(sid)}  {name or '(no name)'}" for sid, name in head)
+        lines = "\n".join(f"  {_display_key(key)}  {label or ''}".rstrip() for key, label in head)
         suffix = f"\n  ... and {len(candidates) - 10} more" if len(candidates) > 10 else ""
         super().__init__(
             f"Reference '{ref}' is ambiguous; matches {len(candidates)} "
-            f"simulations:\n{lines}{suffix}"
+            f"directories:\n{lines}{suffix}"
         )
+
+
+def _display_key(key: str) -> str:
+    return short_id(key) if _UUID_FULL_RE.match(key) else key
+
+
+def is_id_like(ref: str) -> bool:
+    """Return whether ``ref`` can be a ``sim_id`` or a prefix of one."""
+    text = ref.strip()
+    if _UUID_FULL_RE.match(text):
+        return True
+    bare = text.replace("-", "")
+    return len(bare) >= _MIN_PREFIX_LEN and bool(_HEX_RE.match(bare))
+
+
+def reference_rel_dir(ref: str) -> str | None:
+    """Return the relative directory a path-shaped reference names, else ``None``.
+
+    ``runs/x``, ``sessions/x`` and ``sessions/x/trials/0004`` name themselves;
+    a bare directory name ``x`` names ``runs/x``. A selector names no
+    directory. A reference with a ``/`` that is not a result directory raises
+    :class:`SimulationNotFoundError` with the forms to write.
+    """
+    text = str(ref).strip()
+    if not text or text.startswith("@"):
+        return None
+    if "/" in text:
+        try:
+            return parse_rel_dir(text).as_posix()
+        except ValueError as exc:
+            raise SimulationNotFoundError(str(exc)) from exc
+    try:
+        return run_dir_rel(text)
+    except ValueError:
+        return None
+
+
+def _versions_on_disk(project_root: Path, rel_dir: str) -> list[str]:
+    """Return the run directories that are versions of the stem of ``rel_dir``."""
+    parsed = parse_rel_dir(rel_dir)
+    if parsed.kind != "run":
+        return []
+    stem = split_stem_version(parsed.name)[0]
+    runs = runs_dir_for(Path(project_root))
+    if not runs.is_dir():
+        return []
+    return sorted(
+        run_dir_rel(entry.name)
+        for entry in runs.iterdir()
+        if entry.is_dir() and split_stem_version(entry.name)[0] == stem
+    )
+
+
+def resolve_rel_dir(
+    project_root: Path,
+    ref: str,
+    *,
+    site: str | None = None,
+    unambiguous: bool = False,
+) -> str:
+    """Return the relative directory ``ref`` names in the project tree.
+
+    A directory name or a relative directory is checked on disk, without the
+    index. An id or a selector is answered by the index, opened read-only.
+    With ``unambiguous``, a bare run name whose stem has other versions on
+    disk is refused with the list: a purge must name ``x.v2`` or ``x``
+    knowing the other one exists. A hex-looking name that is also the prefix
+    of another run's id is refused the same way.
+
+    Raises :class:`SimulationNotFoundError` when nothing answers and
+    :class:`AmbiguousReferenceError` when several directories do.
+    """
+    root = Path(project_root)
+    text = str(ref).strip()
+    if not text:
+        raise SimulationNotFoundError("Empty reference")
+    rel_dir = reference_rel_dir(text)
+    on_disk = rel_dir is not None and (root / rel_dir).is_dir()
+    by_id = _rel_dirs_by_index(root, text, site=site) if not on_disk or is_id_like(text) else []
+
+    if on_disk and rel_dir is not None:
+        others = [candidate for candidate in by_id if candidate != rel_dir]
+        if others:
+            raise AmbiguousReferenceError(
+                text,
+                [(rel_dir, "directory")] + [(other, "id prefix") for other in others],
+            )
+        if unambiguous and "/" not in text and split_stem_version(text)[1] is None:
+            versions = _versions_on_disk(root, rel_dir)
+            if len(versions) > 1:
+                raise AmbiguousReferenceError(text, [(version, "version") for version in versions])
+        return rel_dir
+    if len(by_id) == 1:
+        return by_id[0]
+    if len(by_id) > 1:
+        raise AmbiguousReferenceError(text, [(candidate, None) for candidate in by_id])
+    if rel_dir is not None:
+        raise SimulationNotFoundError(
+            f"Reference '{text}' not found: {root / rel_dir} is not a directory. "
+            "Run `hmp catalog ls` to list the runs."
+        )
+    raise SimulationNotFoundError(f"Reference '{text}' not found in {root}.")
+
+
+def _rel_dirs_by_index(project_root: Path, ref: str, *, site: str | None) -> list[str]:
+    """Answer an id or a selector from the index; ``[]`` when it cannot."""
+    if not (ref.startswith("@") or is_id_like(ref)):
+        return []
+    if not catalog_path_for(project_root).is_file():
+        if ref.startswith("@"):
+            raise SimulationNotFoundError(
+                f"'{ref}' is answered by the index and {project_root} has none yet. "
+                "Run `hmp catalog reindex` or name the directory."
+            )
+        return []
+    from hydromodpy.results.catalog.facade import Catalog
+
+    with Catalog(project_root) as catalog:
+        if ref == "@running":
+            return [catalog._newest_running(project=None, site=site)[0]]
+        if ref.startswith("@"):
+            return [catalog.rel_dir_of(catalog.resolve(ref, site=site))]
+        return [catalog.rel_dir_of(sid) for sid in catalog._ids_matching(ref)]
+
+
+def resolve_trashed(project_root: Path, ref: str) -> TrashedEntry:
+    """Return the trash entry ``ref`` names.
+
+    ``ref`` is the name the trash listing shows
+    (``runs__baseline_daily.v2@20261014T093000``), or the directory the entry
+    came from (``baseline_daily.v2``, ``sessions/calibration``). A directory
+    trashed several times is ambiguous and the entries are listed.
+    """
+    text = str(ref).strip()
+    entries = list_trash(Path(project_root))
+    exact = [entry for entry in entries if entry.name == text]
+    if exact:
+        return exact[0]
+    rel_dir = reference_rel_dir(text)
+    matches = [entry for entry in entries if rel_dir is not None and entry.rel_dir == rel_dir]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise AmbiguousReferenceError(
+            text, [(entry.name, f"trashed {entry.trashed_at:%Y-%m-%d %H:%M}") for entry in matches]
+        )
+    raise SimulationNotFoundError(
+        f"Nothing named '{text}' in the trash of {project_root}. "
+        "Run `hmp catalog trash` to list it."
+    )
 
 
 class DiscoveryMixin:
@@ -96,207 +276,136 @@ class DiscoveryMixin:
         ref: str | UUID,
         *,
         project: str | None = None,
-        in_trash: bool = False,
-        unambiguous: bool = False,
+        site: str | None = None,
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
         Accepted forms, tried in order:
 
         1. ``@``-selectors: ``@last``, ``@last~N`` (N-th newest completed),
-           ``@best:METRIC`` / ``@worst:METRIC`` (outlet first, any station as
-           fallback; add ``@STATION`` to scope explicitly), ``@running``. Best
-           follows the direction of the metric: highest ``nse``, lowest
+           ``@best:METRIC`` / ``@worst:METRIC`` (the metric scored under the
+           run's metric rule; add ``@STATION`` to read another station),
+           ``@running``. ``site`` narrows a selector to the runs of one site.
+           Best follows the direction of the metric: highest ``nse``, lowest
            ``rmse``, ``pbias`` closest to zero (see
            :data:`~hydromodpy.results.catalog.constants.METRIC_SENSE`).
-        2. Full UUID (36 chars with dashes).
-        3. UUID prefix of >= 4 hex characters. Must match a single simulation;
-           raises :class:`AmbiguousReferenceError` otherwise.
-        4. Exact ``name`` of a live run (globally, or within ``project``).
-        5. ``name_stem``: a bare name resolves to the latest live version of
-           that stem (``baseline`` -> ``baseline.v3``).
-        6. Exact ``name`` of a trashed run, when no live run answers to it.
-
-        With ``in_trash``, a name looks only at trashed runs, under the name
-        the trash listing shows (``original_name``): it is what ``restore``
-        means. With ``unambiguous``, a name that a live run answers to (rules
-        4 and 5) while a trashed run still carries it raises
-        :class:`AmbiguousReferenceError` listing both: a purge must not pick
-        one of two runs the user could mean.
+        2. A relative directory: ``runs/<name>``, ``sessions/<name>``,
+           ``sessions/<name>/trials/<nnnn>``.
+        3. Full UUID (36 chars with dashes).
+        4. UUID prefix of >= 4 hex characters, or the run directory name
+           ``<name>`` (``runs/<name>``). A hex word that is both a prefix and
+           a name of two different runs raises :class:`AmbiguousReferenceError`.
 
         Raises :class:`SimulationNotFoundError` when nothing matches, with the
-        closest known names and tags suggested.
+        closest directory names suggested.
         """
         ref_s = str(ref).strip()
         if not ref_s:
             raise SimulationNotFoundError("Empty reference")
-
         if ref_s.startswith("@"):
-            return self._resolve_selector(ref_s[1:], project=project)
+            return self._resolve_selector(ref_s[1:], project=project, site=site)
 
-        if _UUID_FULL_RE.match(ref_s):
-            row = self._backend.fetch_one(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
-                [ref_s.lower()],
-            )
-            if row:
-                return str(row[0])
+        if "/" in ref_s:
+            rel_dir = reference_rel_dir(ref_s)
+            sid = self._sim_id_at(rel_dir, project) if rel_dir else None
+            if sid is None:
+                raise SimulationNotFoundError(self._not_found_message(ref_s, project))
+            return sid
 
-        ref_nodash = ref_s.replace("-", "").lower()
-        if _HEX_RE.match(ref_nodash) and len(ref_nodash) >= _MIN_PREFIX_LEN:
-            rows = self._backend.fetch_all(
-                "SELECT CAST(sim_id AS VARCHAR), name FROM simulations "
-                "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
-                [ref_nodash],
-            )
-            # A hex-looking name (e.g. 'beef1234') can be both a UUID prefix and
-            # an exact run name. Detect the cross-kind collision: if an exact
-            # name matches a different sim, raise rather than silently return
-            # the prefix hit.
-            name_rows = self._backend.fetch_all(
-                "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?"
-                + (" AND project = ?" if project is not None else ""),
-                ([ref_s, project] if project is not None else [ref_s]),
-            )
-            candidate_ids = {str(r[0]) for r in rows} | {str(r[0]) for r in name_rows}
-            if len(candidate_ids) > 1:
-                combined = {str(r[0]): r[1] for r in rows}
-                for r in name_rows:
-                    combined.setdefault(str(r[0]), ref_s)
-                raise AmbiguousReferenceError(ref_s, list(combined.items()))
-            if len(rows) == 1:
-                return str(rows[0][0])
-            if len(name_rows) == 1:
-                return str(name_rows[0][0])
-
-        if in_trash:
-            return self._resolve_trashed_name(ref_s, project)
-
-        # Exact name match, live runs only. A run that ``if_exists = "replace"``
-        # sent to the trash keeps its name; answering with it would hand back
-        # the run the user just replaced instead of the one that replaced it.
-        exact_sql = (
-            "SELECT CAST(sim_id AS VARCHAR), project, "
-            "status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
-            "FROM simulations WHERE name = ?"
-        )
-        exact_params: list[str] = [ref_s]
-        if project is not None:
-            exact_sql += " AND project = ?"
-            exact_params.append(project)
-        exact_rows = self._backend.fetch_all(exact_sql, exact_params)
-        live_exact = [r for r in exact_rows if not r[2]]
-        if len(live_exact) == 1:
-            if unambiguous:
-                self._refuse_a_name_the_trash_holds(ref_s, project, str(live_exact[0][0]), ref_s)
-            return str(live_exact[0][0])
-        if len(live_exact) > 1:
+        candidates = dict.fromkeys(self._ids_matching(ref_s))
+        rel_dir = reference_rel_dir(ref_s)
+        by_name = self._sim_id_at(rel_dir, project) if rel_dir else None
+        if by_name is not None:
+            candidates.setdefault(by_name)
+        if len(candidates) == 1:
+            return next(iter(candidates))
+        if len(candidates) > 1:
             raise AmbiguousReferenceError(
-                ref_s,
-                [(str(r[0]), f"{ref_s} (project={r[1]})") for r in live_exact],
+                ref_s, [(sid, self.rel_dir_of(sid)) for sid in candidates]
             )
-
-        # Bare stem -> latest live version of the stem.
-        stem_sql = (
-            "SELECT CAST(sim_id AS VARCHAR), project, name FROM simulations "
-            "WHERE name_stem = ? "
-            "AND status_id <> (SELECT id FROM statuses WHERE code = 'trashed') "
-        )
-        params: list[str] = [ref_s]
-        if project is not None:
-            stem_sql += "AND project = ? "
-            params.append(project)
-        stem_sql += "ORDER BY version_int DESC"
-        stem_rows = self._backend.fetch_all(stem_sql, params)
-        if stem_rows:
-            projects = {r[1] for r in stem_rows}
-            if len(projects) == 1:
-                if unambiguous:
-                    self._refuse_a_name_the_trash_holds(
-                        ref_s, project, str(stem_rows[0][0]), str(stem_rows[0][2])
-                    )
-                return str(stem_rows[0][0])
-            raise AmbiguousReferenceError(
-                ref_s,
-                [(str(r[0]), f"{ref_s} (project={r[1]})") for r in stem_rows],
-            )
-
-        # Nothing live answers to the name: a trashed run that still carries it
-        # is what the user means (to restore it, or to read it before it goes).
-        if len(exact_rows) == 1:
-            return str(exact_rows[0][0])
-        if len(exact_rows) > 1:
-            raise AmbiguousReferenceError(
-                ref_s,
-                [(str(r[0]), f"{ref_s} (project={r[1]}, trashed)") for r in exact_rows],
-            )
-
         raise SimulationNotFoundError(self._not_found_message(ref_s, project))
 
-    def _trashed_name_rows(self, ref: str, project: str | None) -> list[tuple]:
-        """Return ``(sim_id, project)`` of the trashed runs that carry ``ref``.
-
-        A run sent to the trash by ``if_exists = "replace"`` keeps ``name``; one
-        trashed by ``Catalog.trash`` keeps it only as ``original_name``, which
-        is what the trash listing shows. Both count.
-        """
-        sql = (
-            "SELECT CAST(sim_id AS VARCHAR), project FROM simulations "
-            "WHERE status_id = (SELECT id FROM statuses WHERE code = 'trashed') "
-            "AND (name = ? OR original_name = ?)"
+    def _ids_matching(self, ref: str) -> list[str]:
+        """Return the ``sim_id`` values ``ref`` names as a full id or an id prefix."""
+        text = str(ref).strip()
+        if _UUID_FULL_RE.match(text):
+            row = self._backend.fetch_one(
+                "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
+                [text.lower()],
+            )
+            return [str(row[0])] if row else []
+        if not is_id_like(text):
+            return []
+        rows = self._backend.fetch_all(
+            "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
+            "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%' "
+            "ORDER BY created_at DESC",
+            [text.replace("-", "").lower()],
         )
-        params: list[str] = [ref, ref]
+        return [str(row[0]) for row in rows]
+
+    def rel_dir_of(self, sim_id: str | UUID) -> str:
+        """Return the relative directory the index holds for ``sim_id``.
+
+        A sealed run answers from ``simulations``; a case still running
+        answers from ``cases``, where its attempt recorded the id.
+        """
+        row = self._backend.fetch_one(
+            "SELECT rel_dir FROM simulations WHERE CAST(sim_id AS VARCHAR) = ? "
+            "UNION ALL SELECT rel_dir FROM cases WHERE sim_id = ? LIMIT 1",
+            [str(sim_id), str(sim_id)],
+        )
+        if row is None or not row[0]:
+            raise SimulationNotFoundError(f"No run with sim_id {short_id(sim_id)} in the index.")
+        return str(row[0])
+
+    def _newest_running(self, *, project: str | None, site: str | None) -> tuple[str, str | None]:
+        """Return ``(rel_dir, sim_id)`` of the newest running case.
+
+        A running attempt is a case, not a sealed run: it is read from
+        ``cases``, and its ``sim_id`` is ``None`` until the run has one.
+        """
+        scope_sql, scope_params = _scope_clause(project, site)
+        row = self._backend.fetch_one(
+            "SELECT s.rel_dir, s.sim_id FROM cases s "
+            f"WHERE s.status = 'running'{scope_sql} "
+            "ORDER BY s.started_at DESC NULLS LAST LIMIT 1",
+            scope_params,
+        )
+        if row is None:
+            raise SimulationNotFoundError(f"No running run{_scope_words(project, site)}")
+        return str(row[0]), None if row[1] is None else str(row[1])
+
+    def _sim_id_at(self, rel_dir: str, project: str | None) -> str | None:
+        sql = "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE rel_dir = ?"
+        params: list[str] = [rel_dir]
         if project is not None:
             sql += " AND project = ?"
             params.append(project)
-        return list(self._backend.fetch_all(sql + " ORDER BY trashed_at DESC", params))
+        row = self._backend.fetch_one(sql, params)
+        return str(row[0]) if row else None
 
-    def _resolve_trashed_name(self, ref: str, project: str | None) -> str:
-        """Resolve ``ref`` as the name of a trashed run, the way the trash lists it."""
-        rows = self._trashed_name_rows(ref, project)
-        if len(rows) == 1:
-            return str(rows[0][0])
-        if len(rows) > 1:
-            raise AmbiguousReferenceError(
-                ref, [(str(r[0]), f"{ref} (project={r[1]}, trashed)") for r in rows]
-            )
-        raise SimulationNotFoundError(f"No trashed simulation named '{ref}'.")
-
-    def _refuse_a_name_the_trash_holds(
-        self, ref: str, project: str | None, live_sid: str, live_name: str
-    ) -> None:
-        """Raise when ``ref`` names both the live run ``live_sid`` and a trashed one."""
-        trashed = [r for r in self._trashed_name_rows(ref, project) if str(r[0]) != live_sid]
-        if trashed:
-            raise AmbiguousReferenceError(
-                ref,
-                [(live_sid, f"{live_name} (live)")]
-                + [(str(r[0]), f"{ref} (trashed)") for r in trashed],
-            )
-
-    def _resolve_selector(self, body: str, *, project: str | None) -> str:
+    def _resolve_selector(self, body: str, *, project: str | None, site: str | None) -> str:
         """Resolve an ``@``-selector body (the part after ``@``)."""
+        scope_sql, scope_params = _scope_clause(project, site)
+        scope = _scope_words(project, site)
         last_match = _LAST_SELECTOR_RE.match(body)
         if last_match:
             offset = int(last_match.group(1) or 0)
             row = self._backend.fetch_one(
                 "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
                 "JOIN statuses st ON s.status_id = st.id "
-                "WHERE st.code = 'completed' "
-                + ("AND s.project = ? " if project else "")
-                + "ORDER BY s.created_at DESC LIMIT 1 OFFSET ?",
-                ([project, offset] if project else [offset]),
+                f"WHERE st.code = 'completed'{scope_sql} "
+                "ORDER BY s.created_at DESC LIMIT 1 OFFSET ?",
+                [*scope_params, offset],
             )
             if row:
                 return str(row[0])
-            scope = f" in project '{project}'" if project else ""
             raise SimulationNotFoundError(f"No completed run for '@{body}'{scope}")
 
         rank_match = _RANK_SELECTOR_RE.match(body)
         if rank_match:
             kind, remainder = rank_match.group(1), rank_match.group(2).strip()
-            # Optional station scope: '@best:kge@lake:forebay'. Without one, the
-            # outlet station is preferred and any-station best is the fallback.
             metric, _, station = remainder.partition("@")
             metric = metric.strip()
             station = station.strip() or None
@@ -304,89 +413,83 @@ class DiscoveryMixin:
                 order = metric_rank_sql(metric, best=kind == "best")
             except UnrankedMetricError as exc:
                 raise SimulationNotFoundError(f"'@{body}': {exc}") from exc
-            row = self._rank_best_run(metric, order, station=station, project=project)
-            if row is not None:
-                return str(row)
-            scope = f" in project '{project}'" if project else ""
-            where = f"at station '{station}'" if station else "at outlet or any station"
+            sids = self._ranked_sim_ids(
+                metric, order, station=station, project=project, site=site, limit=1
+            )
+            if sids:
+                return sids[0]
+            where = f"at station '{station}'" if station else "under the metric rule"
             raise SimulationNotFoundError(
                 f"No completed run with metric '{metric}' {where} for '@{body}'{scope}"
             )
 
         if body == "running":
-            row = self._backend.fetch_one(
-                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "WHERE st.code = 'running' "
-                + ("AND s.project = ? " if project else "")
-                + "ORDER BY s.created_at DESC LIMIT 1",
-                ([project] if project else []),
-            )
-            if row:
-                return str(row[0])
-            raise SimulationNotFoundError("No running run")
+            rel_dir, sim_id = self._newest_running(project=project, site=site)
+            if sim_id is None:
+                raise SimulationNotFoundError(
+                    f"The running case {rel_dir} has no sim_id yet. Name its directory."
+                )
+            return sim_id
 
         raise SimulationNotFoundError(
             f"Unknown selector '@{body}'. "
             "Known: @last, @last~N, @best:METRIC, @worst:METRIC, @running"
         )
 
-    def _rank_best_run(
+    def _ranked_sim_ids(
         self,
         metric: str,
         order: str,
         *,
         station: str | None,
         project: str | None,
-    ) -> str | None:
-        """Return the best/worst run for ``metric``, honouring a station scope.
+        site: str | None,
+        limit: int,
+    ) -> list[str]:
+        """Return completed runs ranked on ``metric``, best (or worst) first.
 
-        ``order`` is the ``ORDER BY`` expression of :func:`metric_rank_sql`, so
-        best follows the direction of the metric. With an explicit ``station``
-        the rank is scoped to it. Without one, the outlet station is tried
-        first, then any station (lake-level metrics live at lake/station
-        scopes, not at the outlet). A missing or non-finite value never ranks.
+        Without ``station``, the metric is the one scored under the run's
+        metric rule, at its gauge and in its window. With ``station``, it is
+        the value stored at that station. A missing or non-finite value never
+        ranks.
         """
-        stations = [station] if station is not None else [OUTLET_STATION, None]
-        for scope in stations:
-            sql = (
-                "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "JOIN metrics m ON s.sim_id = m.sim_id "
-                "WHERE st.code = 'completed' AND m.metric_name = ? "
-                "AND m.value IS NOT NULL AND isfinite(m.value) "
-            )
-            params: list = [metric]
-            if scope is not None:
-                sql += "AND m.station_id = ? "
-                params.append(scope)
-            if project:
-                sql += "AND s.project = ? "
-                params.append(project)
-            sql += f"ORDER BY {order} LIMIT 1"
-            row = self._backend.fetch_one(sql, params)
-            if row is not None:
-                return str(row[0])
-        return None
+        scope_sql, scope_params = _scope_clause(project, site)
+        sql = (
+            "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            "JOIN metrics m ON s.sim_id = m.sim_id "
+            "WHERE st.code = 'completed' AND m.metric_name = ? "
+            "AND m.value IS NOT NULL AND isfinite(m.value) "
+        )
+        params: list = [metric]
+        if station is None:
+            sql += f"AND {RULE_METRIC_SQL} "
+        else:
+            sql += "AND m.station_id = ? "
+            params.append(station)
+        sql += f"{scope_sql} ORDER BY {order} LIMIT ?"
+        rows = self._backend.fetch_all(sql, [*params, *scope_params, limit])
+        return [str(row[0]) for row in rows]
 
     def _not_found_message(self, ref: str, project: str | None) -> str:
-        """Build a not-found message suggesting the closest names and tags."""
+        """Build a not-found message suggesting the closest directories and tags."""
         context = f" in project '{project}'" if project else ""
-        name_rows = self._backend.fetch_all(
-            "SELECT name FROM simulations WHERE name IS NOT NULL"
+        rows = self._backend.fetch_all(
+            "SELECT rel_dir FROM simulations WHERE rel_dir IS NOT NULL"
             + (" AND project = ?" if project else ""),
             ([project] if project else []),
         )
-        names = [str(r[0]) for r in name_rows]
-        close = difflib.get_close_matches(ref, names, n=3, cutoff=0.4)
+        rel_dirs = [str(r[0]) for r in rows]
+        names = [parse_rel_dir(rel).name for rel in rel_dirs]
+        close = difflib.get_close_matches(ref, [*names, *rel_dirs], n=3, cutoff=0.4)
         if not close:
-            tag_rows = self._backend.fetch_all(
-                "SELECT DISTINCT tag FROM tags",
-            )
-            tags = [str(r[0]) for r in tag_rows]
+            tags = [str(r[0]) for r in self._backend.fetch_all("SELECT DISTINCT tag FROM tags")]
             close = difflib.get_close_matches(ref, tags, n=3, cutoff=0.4)
         suggestion = f" Closest: {', '.join(close)}." if close else ""
-        return f"Reference '{ref}' not found{context}. Run `hmp catalog ls` to list known runs.{suggestion}"
+        return (
+            f"Reference '{ref}' not found{context}. Run `hmp catalog ls` to list known runs."
+            f"{suggestion}"
+        )
 
     def __getitem__(self, ref: str | UUID) -> Run:
         from hydromodpy.results.run import Run
@@ -397,26 +500,24 @@ class DiscoveryMixin:
     def find(self, **filters) -> RunSet:
         """Return the runs that match every filter, newest first.
 
-        Trashed runs are left out unless ``status`` asks for them.
-
         Parameters
         ----------
         **filters
             Each keyword narrows the set:
 
-            - ``project``, ``name``, ``name_stem``, ``config_hash``,
-              ``crs_wkt`` (or ``crs``), ``geographic_fingerprint``: exact value
-              of that run column.
+            - ``project``, ``site``, ``site_fingerprint``, ``case_id``,
+              ``recipe``, ``rel_dir``, ``name``, ``name_stem``,
+              ``config_hash``, ``crs_wkt`` (or ``crs``): exact value of that
+              run column.
             - ``solver``, ``solver_category``, ``status``, ``flow_regime``,
               ``mesh_topology``: their code, for example ``solver="modflow6"``
               or ``status="completed"``.
             - ``mesh_engine``: the engine that built the mesh, for example
-              ``"voronoi"``, read from the stored configuration. A run sealed before
-              the ``[mesh]`` section existed has none and matches no engine.
+              ``"voronoi"``, read from the stored configuration.
             - ``tags``: one tag the run carries.
             - ``<metric>_gt``, ``<metric>_gte``, ``<metric>_lt``,
-              ``<metric>_lte``: bound on an outlet metric, for example
-              ``nse_gt=0.7``.
+              ``<metric>_lte``: bound on a metric scored under the run's
+              metric rule, for example ``nse_gt=0.7``.
 
         Returns
         -------
@@ -431,17 +532,14 @@ class DiscoveryMixin:
         Examples
         --------
         >>> good = cat.find(
-        ...     project="my_project", status="completed", nse_gt=0.7
+        ...     site="basin_a", status="completed", nse_gt=0.7
         ... )  # doctest: +SKIP
         >>> good.best("nse")  # doctest: +SKIP
         """
         from hydromodpy.results.run.group import RunSet
 
-        # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
-        # Always-on JOINs keep the WHERE clause uniform whether or not the
-        # caller filters on the joined columns.
         query = (
-            "SELECT DISTINCT s.sim_id FROM simulations s "
+            "SELECT DISTINCT s.sim_id, s.created_at FROM simulations s "
             "JOIN solvers sv ON s.solver_id = sv.id "
             "JOIN statuses st ON s.status_id = st.id "
             "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
@@ -451,98 +549,42 @@ class DiscoveryMixin:
         clauses: list[str] = []
         join_params: list = []
         clause_params: list = []
-        # v2: tags moved out of simulations into a per-sim table.
         tag_join_added = False
-        has_status_filter = "status" in filters
 
         for key, val in filters.items():
+            bound = _metric_bound(key)
             if key == "tags":
                 if not tag_join_added:
                     joins.append("JOIN tags tg ON s.sim_id = tg.sim_id")
                     tag_join_added = True
                 clauses.append("tg.tag = ?")
                 clause_params.append(val)
-            elif key.endswith("_gt"):
-                metric = key[:-3]
+            elif bound is not None:
+                metric, operator = bound
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
+                    f"AND {alias}.metric_name = ? "
+                    f"AND {RULE_METRIC_SQL.replace('m.', f'{alias}.')}"
                 )
-                join_params.extend([metric, OUTLET_STATION])
-                clauses.append(f"{alias}.value > ?")
+                join_params.append(metric)
+                clauses.append(f"{alias}.value {operator} ?")
                 clause_params.append(val)
-            elif key.endswith("_lt"):
-                metric = key[:-3]
-                alias = f"m_{len(joins)}"
-                joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
-                )
-                join_params.extend([metric, OUTLET_STATION])
-                clauses.append(f"{alias}.value < ?")
-                clause_params.append(val)
-            elif key.endswith("_gte"):
-                metric = key[:-4]
-                alias = f"m_{len(joins)}"
-                joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
-                )
-                join_params.extend([metric, OUTLET_STATION])
-                clauses.append(f"{alias}.value >= ?")
-                clause_params.append(val)
-            elif key.endswith("_lte"):
-                metric = key[:-4]
-                alias = f"m_{len(joins)}"
-                joins.append(
-                    f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
-                    f"AND {alias}.metric_name = ? AND {alias}.station_id = ?"
-                )
-                join_params.extend([metric, OUTLET_STATION])
-                clauses.append(f"{alias}.value <= ?")
-                clause_params.append(val)
-            elif key == "crs":
-                clauses.append("s.crs_wkt = ?")
-                clause_params.append(val)
-            elif key == "solver":
-                clauses.append("sv.code = ?")
-                clause_params.append(val)
-            elif key == "solver_category":
-                clauses.append("sv.category = ?")
-                clause_params.append(val)
-            elif key == "status":
-                clauses.append("st.code = ?")
-                clause_params.append(val)
-            elif key == "flow_regime":
-                clauses.append("fr.code = ?")
-                clause_params.append(val)
-            elif key == "mesh_topology":
-                clauses.append("mt.code = ?")
+            elif key in _CODE_FILTERS:
+                clauses.append(f"{_CODE_FILTERS[key]} = ?")
                 clause_params.append(val)
             elif key == "mesh_engine":
                 clauses.append(f"{MESH_ENGINE_SQL} = ?")
                 clause_params.append(val)
-            elif key in (
-                "project",
-                "name",
-                "name_stem",
-                "config_hash",
-                "crs_wkt",
-                "geographic_fingerprint",
-            ):
-                clauses.append(f"s.{key} = ?")
+            elif key in _COLUMN_FILTERS:
+                clauses.append(f"s.{_COLUMN_FILTERS[key]} = ?")
                 clause_params.append(val)
             else:
-                raise ValueError(
-                    f"Unknown filter {key!r}. Valid: solver, solver_category, status, "
-                    "flow_regime, mesh_topology, mesh_engine, project, name, name_stem, config_hash, "
-                    "crs, tags, <metric>_gt, <metric>_lt, <metric>_gte, <metric>_lte"
+                known = ", ".join(
+                    [*_COLUMN_FILTERS, *_CODE_FILTERS, "mesh_engine", "tags"]
+                    + ["<metric>_gt", "<metric>_lt", "<metric>_gte", "<metric>_lte"]
                 )
-
-        # Trashed runs are hidden from find() unless explicitly asked for.
-        if not has_status_filter:
-            clauses.append("st.code <> 'trashed'")
+                raise ValueError(f"Unknown filter {key!r}. Valid: {known}")
 
         if joins:
             query += " " + " ".join(joins)
@@ -551,10 +593,9 @@ class DiscoveryMixin:
         query += " ORDER BY s.created_at DESC"
 
         rows = self._backend.fetch_all(query, join_params + clause_params)
-        sim_ids = [str(r[0]) for r in rows]
-        return RunSet(sim_ids, self)
+        return RunSet([str(r[0]) for r in rows], self)
 
-    def latest(self, project: str | None = None) -> Run:
+    def latest(self, project: str | None = None, *, site: str | None = None) -> Run:
         """Return the most recently created completed run.
 
         Parameters
@@ -562,6 +603,8 @@ class DiscoveryMixin:
         project
             Look only at the runs of this project. ``None`` looks at the
             whole catalog.
+        site
+            Look only at the runs of this site.
 
         Returns
         -------
@@ -571,7 +614,7 @@ class DiscoveryMixin:
         Raises
         ------
         KeyError
-            If no run is completed (in ``project``, when given).
+            If no run is completed in that scope.
 
         Examples
         --------
@@ -579,25 +622,17 @@ class DiscoveryMixin:
         """
         from hydromodpy.results.run import Run
 
-        if project is not None:
-            row = self._backend.fetch_one(
-                "SELECT s.sim_id FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "WHERE s.project = ? AND st.code = 'completed' "
-                "ORDER BY s.created_at DESC LIMIT 1",
-                [project],
-            )
-            where = f"for project '{project}'"
-        else:
-            row = self._backend.fetch_one(
-                "SELECT s.sim_id FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "WHERE st.code = 'completed' "
-                "ORDER BY s.created_at DESC LIMIT 1"
-            )
-            where = "in the catalog"
+        scope_sql, scope_params = _scope_clause(project, site)
+        row = self._backend.fetch_one(
+            "SELECT s.sim_id FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            f"WHERE st.code = 'completed'{scope_sql} "
+            "ORDER BY s.created_at DESC LIMIT 1",
+            scope_params,
+        )
         if row is None:
-            raise KeyError(f"No completed simulation {where}")
+            where = _scope_words(project, site) or " in the catalog"
+            raise KeyError(f"No completed simulation{where}")
         return Run(str(row[0]), self)
 
     def diff(
@@ -607,7 +642,7 @@ class DiscoveryMixin:
         *,
         project: str | None = None,
     ) -> dict:
-        """Compare two runs' parameters and outlet metrics.
+        """Compare two runs' parameters and metrics.
 
         Returns ``{"a", "b", "params", "metrics"}`` where ``params``/``metrics``
         map each differing key to ``(value_a, value_b)`` (``None`` when absent
@@ -646,19 +681,19 @@ class DiscoveryMixin:
             "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
         }
 
-    def best(self, project: str, metric: str = "nse") -> Run:
-        """Return the completed run with the best outlet value of ``metric``.
+    def best(self, project: str, metric: str = "nse", *, site: str | None = None) -> Run:
+        """Return the completed run with the best value of ``metric`` under its rule.
 
         Best follows the direction of the metric: the highest ``nse``, the
         lowest ``rmse``, the ``pbias`` closest to zero. A metric with no
         declared direction raises
         :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
         """
-        return self.rank(project, metric, n=1)[0]
+        return self.rank(project, metric, n=1, site=site)[0]
 
-    def worst(self, project: str, metric: str = "nse") -> Run:
-        """Return the completed run with the worst outlet value of ``metric``."""
-        return self.rank(project, metric, n=1, best_first=False)[0]
+    def worst(self, project: str, metric: str = "nse", *, site: str | None = None) -> Run:
+        """Return the completed run with the worst value of ``metric`` under its rule."""
+        return self.rank(project, metric, n=1, best_first=False, site=site)[0]
 
     def rank(
         self,
@@ -668,8 +703,9 @@ class DiscoveryMixin:
         ascending: bool | None = None,
         n: int = 1,
         best_first: bool = True,
+        site: str | None = None,
     ) -> RunSet:
-        """Return up to ``n`` completed runs ranked on the outlet ``metric``.
+        """Return up to ``n`` completed runs ranked on ``metric`` under their metric rule.
 
         Without ``ascending`` the runs come best first (``best_first=True``)
         or worst first, following the direction of the metric. ``ascending``
@@ -681,18 +717,89 @@ class DiscoveryMixin:
             order = metric_rank_sql(metric, best=best_first)
         else:
             order = f"m.value {'ASC' if ascending else 'DESC'}"
-        rows = self._backend.fetch_all(
-            "SELECT s.sim_id FROM simulations s "
-            "JOIN statuses st ON s.status_id = st.id "
-            "JOIN metrics m ON s.sim_id = m.sim_id "
-            "WHERE s.project = ? AND st.code = 'completed' "
-            "AND m.metric_name = ? AND m.station_id = ? "
-            "AND m.value IS NOT NULL AND isfinite(m.value) "
-            f"ORDER BY {order} LIMIT ?",
-            [project, metric, OUTLET_STATION, n],
+        sids = self._ranked_sim_ids(
+            metric, order, station=None, project=project, site=site, limit=n
         )
-        if not rows:
+        if not sids:
             raise KeyError(
-                f"No completed simulation with metric '{metric}' at outlet for project '{project}'"
+                f"No completed simulation with metric '{metric}' under its metric rule"
+                f"{_scope_words(project, site)}"
             )
-        return RunSet([str(r[0]) for r in rows], self)
+        return RunSet(sids, self)
+
+
+_COLUMN_FILTERS: dict[str, str] = {
+    "project": "project",
+    "site": "site",
+    "site_fingerprint": "site_fingerprint",
+    "case_id": "case_id",
+    "recipe": "recipe",
+    "rel_dir": "rel_dir",
+    "name": "name",
+    "name_stem": "name_stem",
+    "config_hash": "config_hash",
+    "crs_wkt": "crs_wkt",
+    "crs": "crs_wkt",
+}
+"""``find`` keyword -> column of ``simulations`` it matches exactly."""
+
+_CODE_FILTERS: dict[str, str] = {
+    "solver": "sv.code",
+    "solver_category": "sv.category",
+    "status": "st.code",
+    "flow_regime": "fr.code",
+    "mesh_topology": "mt.code",
+}
+"""``find`` keyword -> code column of a dimension table."""
+
+_METRIC_OPERATORS: tuple[tuple[str, str], ...] = (
+    ("_gte", ">="),
+    ("_lte", "<="),
+    ("_gt", ">"),
+    ("_lt", "<"),
+)
+
+
+def _metric_bound(key: str) -> tuple[str, str] | None:
+    """Return ``(metric, operator)`` for a ``<metric>_gt`` style keyword."""
+    for suffix, operator in _METRIC_OPERATORS:
+        if key.endswith(suffix) and len(key) > len(suffix):
+            return key[: -len(suffix)], operator
+    return None
+
+
+def _scope_clause(project: str | None, site: str | None) -> tuple[str, list[str]]:
+    """Return the ``AND ...`` clause and parameters narrowing to a project and a site."""
+    sql = ""
+    params: list[str] = []
+    if project is not None:
+        sql += " AND s.project = ?"
+        params.append(project)
+    if site is not None:
+        sql += " AND s.site = ?"
+        params.append(site)
+    return sql, params
+
+
+def _scope_words(project: str | None, site: str | None) -> str:
+    parts = []
+    if project is not None:
+        parts.append(f"project '{project}'")
+    if site is not None:
+        parts.append(f"site '{site}'")
+    return f" in {' and '.join(parts)}" if parts else ""
+
+
+__all__ = [
+    "AmbiguousReferenceError",
+    "DiscoveryMixin",
+    "RULE_METRIC_SQL",
+    "ReferenceResolutionError",
+    "SimulationNotFoundError",
+    "is_id_like",
+    "iter_project_catalog_roots",
+    "reference_rel_dir",
+    "resolve_rel_dir",
+    "resolve_trashed",
+    "short_id",
+]

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from hydromodpy.results.run.tables import read_run_table
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
@@ -29,10 +31,7 @@ def sfr_reach_links(run: Run) -> pd.DataFrame:
     KeyError
         When the run was sealed before the table stored the connectivity.
     """
-    frame = run._catalog.backend.query(
-        "SELECT * FROM sfr_reaches WHERE sim_id = ? ORDER BY network_id, ifno",
-        [run.sim_id],
-    )
+    frame = read_run_table(run, "sfr_reaches")
     if frame.empty:
         return pd.DataFrame(columns=_COLUMNS)
     if "downstream" not in frame:
@@ -40,4 +39,4 @@ def sfr_reach_links(run: Run) -> pd.DataFrame:
             "the sfr_reaches table of this run holds no connectivity: it was sealed "
             "before the reaches stored the reaches they drain into. Run it again."
         )
-    return frame[_COLUMNS].reset_index(drop=True)
+    return frame.sort_values(["network_id", "ifno"], kind="stable")[_COLUMNS].reset_index(drop=True)

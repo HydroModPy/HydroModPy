@@ -8,14 +8,14 @@ import pandas as pd
 import pytest
 
 from hydromodpy.analysis.comparison.exports import (
-    _load_catalog_budget_rows,
+    _load_table_budget_rows,
     write_boussinesq_obstacle_diagnostics_export,
     write_budget_exports,
 )
 
 from ._comparison_builders import (
     OUTLET_CELL_AREA_M2,
-    _patch_result_store,
+    _serve_sources,
     _write_boussinesq_run_folder,
 )
 
@@ -25,13 +25,12 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_folder = tmp_path / "run_bouss_budget"
-    bundle_dir = tmp_path / "bundle_bouss_budget"
-    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder)
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
     config_path.write_text("[workspace]\n", encoding="utf-8")
-    _patch_result_store(monkeypatch, {config_path.resolve(): store})
+    _serve_sources(monkeypatch, [store])
     artifacts, rows = write_budget_exports(
         comparison_root=comparison_root,
         simulation_summaries=[
@@ -42,6 +41,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
                 "mesh_mode": "triangle",
                 "status": "completed",
                 "run_folder": str(run_folder),
+                "run_dir": str(run_folder),
                 "config_path": str(config_path),
             }
         ],
@@ -97,17 +97,15 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_folder = tmp_path / "run_bouss_budget"
-    bundle_dir = tmp_path / "bundle_bouss_budget"
     store = _write_boussinesq_run_folder(
         run_folder,
-        bundle_dir,
         residual_history_m3_s=np.asarray([[0.0, 0.0, 0.0], [0.2, -0.03, 0.01]]),
     )
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
     config_path.write_text("[workspace]\n", encoding="utf-8")
-    _patch_result_store(monkeypatch, {config_path.resolve(): store})
+    _serve_sources(monkeypatch, [store])
     _, rows = write_budget_exports(
         comparison_root=comparison_root,
         simulation_summaries=[
@@ -118,6 +116,7 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
                 "mesh_mode": "triangle",
                 "status": "completed",
                 "run_folder": str(run_folder),
+                "run_dir": str(run_folder),
                 "config_path": str(config_path),
             }
         ],
@@ -131,60 +130,12 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
     assert float(residual_row["value"]) == pytest.approx(0.18)
 
 
-def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_mesh_metadata(
-    tmp_path: Path,
-) -> None:
-    run_folder = tmp_path / "generated_configs"
-    bundle_dir = tmp_path / "bundle_from_child_config"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
-    (run_folder / "_boussinesq_summary.json").unlink()
-
-    config_dir = tmp_path / "comparison" / "_generated_configs"
-    config_dir.mkdir(parents=True)
-    config_path = config_dir / "bouss_candidate.toml"
-    config_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "",
-                "[mesh]",
-                'engine = "triangle"',
-                "",
-                "[mesh.triangle]",
-                'path = "../../bundle_from_child_config/mesh_2d.msh"',
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    artifacts, rows = write_budget_exports(
-        comparison_root=tmp_path / "comparison",
-        simulation_summaries=[
-            {
-                "id": "bouss_demo",
-                "label": "Bouss demo",
-                "solver": "boussinesq",
-                "mesh_mode": "triangle",
-                "status": "completed",
-                "run_folder": str(run_folder),
-                "config_path": str(config_path),
-            }
-        ],
-    )
-
-    assert artifacts
-    assert any(row["component"] == "recharge_total_m3_s" for row in rows)
-
-
 def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_folder = tmp_path / "run_bouss_obstacles"
-    bundle_dir = tmp_path / "bundle_bouss_obstacles"
-    run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    _serve_sources(monkeypatch, [_write_boussinesq_run_folder(run_folder)])
 
     artifacts, rows = write_boussinesq_obstacle_diagnostics_export(
         comparison_root=tmp_path / "comparison",
@@ -196,6 +147,7 @@ def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
                 "mesh_mode": "triangle",
                 "status": "completed",
                 "run_folder": str(run_folder),
+                "run_dir": str(run_folder),
             }
         ],
     )
@@ -269,7 +221,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
                 ]
             )
 
-    rows = _load_catalog_budget_rows(
+    rows = _load_table_budget_rows(
         {
             "id": "mf6_ref",
             "label": "MF6 reference",

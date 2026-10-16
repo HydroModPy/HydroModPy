@@ -43,7 +43,7 @@ def _phase(
             "n_iterations": n,
             "best_objective": cost,
             "best_parameters": {parameter: value},
-            "best_run_name": run_name,
+            "best_rel_dir": f"runs/{run_name}",
             "session_dir": str(tmp_path / "sessions" / session),
             "workspace": str(tmp_path),
             "extra": {
@@ -143,7 +143,6 @@ def _run_calibration_file(tmp_path: Path, monkeypatch, verbosity: str | None) ->
     monkeypatch.setattr(hydromodpy, "run", lambda path: _staged_summary(tmp_path))
     args = argparse.Namespace(
         dry_run=False,
-        no_lock=True,
         no_display=False,
         verbosity=verbosity,
         profile=None,
@@ -190,9 +189,7 @@ def test_a_failed_promotion_is_named_and_exits_with_the_calibration_code(
     config.write_text('[workflow]\nmode = "calibration"\n', encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(hydromodpy, "run", lambda path: _failed_promotion_summary(tmp_path))
-    args = argparse.Namespace(
-        dry_run=False, no_lock=True, no_display=False, verbosity=verbosity, profile=None
-    )
+    args = argparse.Namespace(dry_run=False, no_display=False, verbosity=verbosity, profile=None)
     try:
         with pytest.raises(SystemExit) as exited:
             run_command._run_toml(config, args=args)

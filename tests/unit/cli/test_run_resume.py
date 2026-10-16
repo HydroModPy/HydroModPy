@@ -1,17 +1,20 @@
-"""``hmp run --resume REF`` replays the config frozen in the run directory."""
+"""``hmp run --resume REF`` replays the config frozen in the run directory.
+
+REF is a case name read on disk, never through the index: a bare name is its
+latest version, a versioned name is that directory.
+"""
 
 from __future__ import annotations
 
 import argparse
-import uuid
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.cli.commands import run as run_cmd
 from hydromodpy.cli.helpers import EXIT_CONFIG
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from tests._helpers.sealed_runs import make_project, write_attempt
 
 FROZEN_TOML = '[workflow]\nmode = "simulation"\n'
 
@@ -28,22 +31,19 @@ def _args(**kw) -> argparse.Namespace:
     return argparse.Namespace(**base)
 
 
-def _seed_run(workspace: Path, name: str, *, freeze_config: bool = True) -> str:
-    sid = str(uuid.uuid4())
-    with Catalog(workspace) as catalog:
-        catalog.register_simulation(
-            sid, project="cheze", solver="modflow6", name=name, config={"workflow": {"mode": "x"}}
-        )
-        run_dir = catalog.run_dir_for(sid)
+def _seed_run(
+    workspace: Path, name: str, *, freeze_config: bool = True, text: str = FROZEN_TOML
+) -> Path:
+    """Write a failed attempt of *name* on disk, with its frozen config when asked."""
+    make_project(workspace)
+    run_dir = write_attempt(workspace, f"runs/{name}", status="failed", attempt=1)
     if freeze_config:
-        run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / RUN_CONFIG_FILENAME).write_text(FROZEN_TOML, encoding="utf-8")
-    return sid
+        (run_dir / RUN_CONFIG_FILENAME).write_text(text, encoding="utf-8")
+    return run_dir
 
 
 def test_resume_from_ref_replays_the_frozen_run_config(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
-    workspace.mkdir()
     _seed_run(workspace, "cheze_baseline")
 
     calls: dict = {}
@@ -63,28 +63,30 @@ def test_resume_from_ref_replays_the_frozen_run_config(tmp_path, monkeypatch):
     assert calls["resume"] == "cheze_baseline"
 
 
-def test_resume_from_ref_accepts_a_sim_id_prefix(tmp_path, monkeypatch):
+def test_a_bare_name_resumes_its_latest_version_and_a_versioned_name_that_one(
+    tmp_path, monkeypatch
+):
     workspace = tmp_path / "ws"
-    workspace.mkdir()
-    sid = _seed_run(workspace, "cheze_baseline")
+    _seed_run(workspace, "cheze_baseline", text="# v1\n" + FROZEN_TOML)
+    _seed_run(workspace, "cheze_baseline.v2", text="# v2\n" + FROZEN_TOML)
 
-    calls: dict = {}
+    calls: list[tuple[Path, str]] = []
     monkeypatch.setattr(
         run_cmd,
         "_run_toml",
-        lambda config_path, *, args: calls.update(resume=args.resume, config_path=config_path),
+        lambda config_path, *, args: calls.append((config_path, args.resume)),
     )
     monkeypatch.chdir(workspace)
 
-    run_cmd._resume_from_ref(sid[:8], args=_args(resume=sid[:8]))
+    run_cmd._resume_from_ref("cheze_baseline", args=_args(resume="cheze_baseline"))
+    run_cmd._resume_from_ref("cheze_baseline.v2", args=_args(resume="cheze_baseline.v2"))
 
-    # The journal is keyed by the run name, so the reference is resolved to it.
-    assert calls["resume"] == "cheze_baseline"
+    assert [name for _path, name in calls] == ["cheze_baseline.v2", "cheze_baseline.v2"]
+    assert all(path.read_text(encoding="utf-8").startswith("# v2") for path, _name in calls)
 
 
 def test_resume_from_ref_without_frozen_config_exits_not_found(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
-    workspace.mkdir()
     _seed_run(workspace, "cheze_baseline", freeze_config=False)
     monkeypatch.chdir(workspace)
 
@@ -95,7 +97,6 @@ def test_resume_from_ref_without_frozen_config_exits_not_found(tmp_path, monkeyp
 
 def test_resume_from_ref_unknown_ref_exits_not_found(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
-    workspace.mkdir()
     _seed_run(workspace, "exists")
     monkeypatch.chdir(workspace)
     with pytest.raises(SystemExit) as exc:

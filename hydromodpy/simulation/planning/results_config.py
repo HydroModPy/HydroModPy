@@ -30,9 +30,9 @@ class ResultsConfig(HydroModelBase):
     keep_solver_files: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Keep the raw solver files (.hds, .cbc, .lst) once their results are stored. "
-            "Off, they are deleted; turn it on to read the listing file of a run that "
-            "did not converge."
+            "Keep the raw solver files (.hds, .cbc, .lst) of a sealed run under "
+            "runs/<run>/solver/, outside the manifest inventory. Off, they are deleted "
+            "once their results are stored."
         ),
     )
     keep_per_cell_budget: Annotated[bool, Profile.DEV] = Field(

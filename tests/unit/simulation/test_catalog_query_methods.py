@@ -3,119 +3,101 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.results.catalog import SimulationNotFoundError
-from hydromodpy.results.catalog.constants import OUTLET_STATION
 from hydromodpy.results.run import Run
+from tests._helpers.sealed_runs import write_attempt
 
-from ._test_simulation_api_builders import _register, catalog
+from ._test_simulation_api_builders import runs, score
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
 class TestCatalogQueryMethods:
-    def test_simulations_property(self, catalog):
-        _register(catalog, project="a")
-        _register(catalog, project="b")
-        df = catalog.simulations
-        assert len(df) == 2
+    def test_simulations_property(self, runs):
+        runs.open(project="a")
+        runs.open(project="b")
+        assert len(runs.catalog().simulations) == 2
 
-    def test_getitem(self, catalog):
-        sid = _register(catalog)
-        sim = catalog[sid]
+    def test_getitem(self, runs):
+        sid = runs.open().sim_id
+        sim = runs.catalog()[sid]
         assert isinstance(sim, Run)
         assert sim.sim_id == sid
 
-    def test_getitem_not_found(self, catalog):
+    def test_getitem_not_found(self, runs):
+        runs.open()
         with pytest.raises(SimulationNotFoundError):
-            _ = catalog["nonexistent"]
+            _ = runs.catalog()["nonexistent"]
 
-    def test_find_by_project(self, catalog):
-        _register(catalog, project="canut")
-        _register(catalog, project="canut")
-        _register(catalog, project="nancon")
-        group = catalog.find(project="canut")
-        assert group.count == 2
+    def test_find_by_project(self, runs):
+        runs.open(project="canut")
+        runs.open(project="canut")
+        runs.open(project="nancon")
+        assert runs.catalog().find(project="canut").count == 2
 
-    def test_find_by_solver(self, catalog):
-        _register(catalog, solver="modflow6")
-        _register(catalog, solver="boussinesq")
-        group = catalog.find(solver="modflow6")
-        assert group.count == 1
+    def test_find_by_solver(self, runs):
+        runs.open(solver="modflow6")
+        runs.open(solver="boussinesq")
+        assert runs.catalog().find(solver="modflow6").count == 1
 
-    def test_find_by_status(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        catalog.finalize(s1, "completed")
-        catalog.finalize(s2, "failed")
-        group = catalog.find(status="completed")
-        assert group.count == 1
+    def test_find_by_status_sees_sealed_runs_only(self, runs):
+        """A failed attempt is a case of the index, never a run: it carries no seal."""
+        runs.open()
+        write_attempt(runs.project_root, "runs/broken", status="failed")
+        catalog = runs.catalog()
+        assert catalog.find(status="completed").count == 1
+        assert catalog.find(status="failed").count == 0
+        assert set(catalog.cases["status"]) == {"completed", "failed"}
 
-    def test_find_by_metric_threshold(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        s3 = _register(catalog)
-        catalog.write_metric(s1, OUTLET_STATION, "nse", 0.5)
-        catalog.write_metric(s2, OUTLET_STATION, "nse", 0.8)
-        catalog.write_metric(s3, OUTLET_STATION, "nse", 0.9)
-        group = catalog.find(nse_gt=0.7)
-        assert group.count == 2
+    def test_find_by_metric_threshold(self, runs):
+        for value in (0.5, 0.8, 0.9):
+            score(runs.open(), value)
+        assert runs.catalog().find(nse_gt=0.7).count == 2
 
-    def test_find_combined_filters(self, catalog):
-        s1 = _register(catalog, project="canut")
-        s2 = _register(catalog, project="canut")
-        s3 = _register(catalog, project="nancon")
-        catalog.finalize(s1, "completed")
-        catalog.finalize(s2, "failed")
-        catalog.finalize(s3, "completed")
-        group = catalog.find(project="canut", status="completed")
-        assert group.count == 1
+    def test_find_ignores_a_metric_scored_outside_the_rule(self, runs):
+        store = runs.open()
+        store.write_metric(store.sim_id, "P01", "nse", 0.95)
+        assert runs.catalog().find(nse_gt=0.7).count == 0
 
-    def test_find_by_tags(self, catalog):
-        _register(catalog, tags=["transient", "test"])
-        _register(catalog, tags=["steady"])
-        group = catalog.find(tags="transient")
-        assert group.count == 1
+    def test_find_combined_filters(self, runs):
+        runs.open(project="canut", solver="modflow6")
+        runs.open(project="canut", solver="boussinesq")
+        runs.open(project="nancon", solver="modflow6")
+        assert runs.catalog().find(project="canut", solver="modflow6").count == 1
 
-    def test_find_unknown_filter(self, catalog):
+    def test_find_by_tags(self, runs):
+        runs.open(tags=["transient", "test"])
+        runs.open(tags=["steady"])
+        assert runs.catalog().find(tags="transient").count == 1
+
+    def test_find_unknown_filter(self, runs):
+        runs.open()
         with pytest.raises(ValueError, match="Unknown filter"):
-            catalog.find(nonexistent_field="x")
+            runs.catalog().find(nonexistent_field="x")
 
-    def test_latest(self, catalog):
-        s1 = _register(catalog, project="p1")
-        catalog.finalize(s1, "completed")
-        s2 = _register(catalog, project="p1")
-        catalog.finalize(s2, "completed")
-        sim = catalog.latest("p1")
-        assert sim.sim_id == s2
+    def test_latest(self, runs):
+        runs.open(project="p1")
+        runs.catalog()
+        second = runs.open(project="p1").sim_id
+        assert runs.catalog().latest("p1").sim_id == second
 
-    def test_latest_not_found(self, catalog):
+    def test_latest_not_found(self, runs):
+        runs.open(project="p1")
         with pytest.raises(KeyError):
-            catalog.latest("nonexistent")
+            runs.catalog().latest("nonexistent")
 
-    def test_best(self, catalog):
-        s1 = _register(catalog, project="p1")
-        s2 = _register(catalog, project="p1")
-        catalog.write_metric(s1, OUTLET_STATION, "nse", 0.6)
-        catalog.write_metric(s2, OUTLET_STATION, "nse", 0.9)
-        catalog.finalize(s1, "completed")
-        catalog.finalize(s2, "completed")
-        sim = catalog.best("p1", metric="nse")
-        assert sim.sim_id == s2
+    def test_best(self, runs):
+        low, high = runs.open(project="p1"), runs.open(project="p1")
+        score(low, 0.6)
+        score(high, 0.9)
+        assert runs.catalog().best("p1", metric="nse").sim_id == high.sim_id
 
-    def test_best_not_found(self, catalog):
+    def test_best_not_found(self, runs):
+        runs.open(project="p1")
         with pytest.raises(KeyError):
-            catalog.best("nonexistent", metric="nse")
+            runs.catalog().best("nonexistent", metric="nse")
 
-    def test_sql(self, catalog):
-        _register(catalog, project="p1")
-        _register(catalog, project="p2")
-        df = catalog.sql("SELECT project, COUNT(*) as n FROM simulations GROUP BY project")
+    def test_sql(self, runs):
+        runs.open(project="p1")
+        runs.open(project="p2")
+        df = runs.catalog().sql("SELECT project, COUNT(*) as n FROM simulations GROUP BY project")
         assert len(df) == 2
-
-    def test_cleanup_by_status(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        catalog.finalize(s1, "completed")
-        catalog.finalize(s2, "failed")
-        n = catalog.cleanup(status="failed")
-        assert n == 1
-        assert catalog.simulations.shape[0] == 1

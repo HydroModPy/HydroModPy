@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import run_dir_rel
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
@@ -28,6 +30,9 @@ OVERRIDDEN_THICKNESS = 99.0
 PROJECT_TOML = """
 [workflow]
 mode = "simulation"
+
+[site]
+name = "naizin"
 
 [simulation]
 name = "naizin_override"
@@ -145,7 +150,7 @@ def test_the_run_archives_the_configuration_it_was_launched_on(
 
     root, _built = launched_with_an_override
 
-    payload = read_resolved_config(root, RUN_NAME)
+    payload = read_resolved_config(root / run_dir_rel(RUN_NAME))
 
     assert payload is not None
     assert payload["domain"]["depth_model"]["thickness"] == OVERRIDDEN_THICKNESS

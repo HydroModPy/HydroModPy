@@ -41,7 +41,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.state.paths import scratch_dir_for
+from hydromodpy.core.state.paths import RUNS_DIRNAME
+from hydromodpy.results.storage.contract import RUN_SOLVER_DIRNAME
 from hydromodpy.solver.modflow_common import ensure_platform_executable
 from tests._helpers.tolerances import tol
 from validation_cases.shared.runtime import budgeted_dir_name
@@ -58,8 +59,6 @@ assert _GOLDEN_ATOL == tol("signature_stats_post_v0_5__atol")
 # Repository root for every path assembled in the regression helpers.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGRESSION_GOLDENS_ROOT = Path(__file__).resolve().parent / "reference" / "golden_references"
-# Folder name of one run in the project scratch (core.state.paths._run_scratch_name).
-_RUN_SCRATCH_SUFFIX = re.compile(r"\.p\d+$")
 
 # Bump when the statistical signature layout changes (new stats, renamed
 # sections, different aggregation) so stale goldens fail loudly instead of
@@ -830,19 +829,17 @@ def resolve_model_workspace(
     """
     Resolve the solver working folders of a completed example run.
 
-    Raw solver files live in the disposable scratch of the project
-    (``<project>/.hmp/scratch``), one directory per solved model, possibly
-    nested one level under the run scratch folder (``<run>.p<pid>``).
+    A run keeps its raw solver files under ``runs/<run>/solver/`` when
+    ``[simulation.results] keep_solver_files`` is set, one directory per
+    solved model.
 
     Returns
     -------
     tuple
         (model_ws, postprocess_dir, particles_dir)
     """
-    scratch_root = scratch_dir_for(out_path)
-    if scratch_root.is_dir():
-        search_roots = [scratch_root, *(p for p in sorted(scratch_root.iterdir()) if p.is_dir())]
-        for results_dir in search_roots:
+    for results_dir in sorted(Path(out_path).glob(f"{RUNS_DIRNAME}/*/{RUN_SOLVER_DIRNAME}")):
+        if results_dir.is_dir():
             if model_name is not None:
                 model_ws = results_dir / model_name
                 if model_ws.is_dir():
@@ -855,7 +852,6 @@ def resolve_model_workspace(
                 for p in results_dir.iterdir()
                 if p.is_dir()
                 and not p.name.startswith("_")
-                and _RUN_SCRATCH_SUFFIX.search(p.name) is None
                 and (model_name_prefix is None or p.name.startswith(model_name_prefix))
             )
             if model_dirs:
@@ -864,7 +860,10 @@ def resolve_model_workspace(
                 particles_dir = postprocess_dir / "_particles"
                 return model_ws, postprocess_dir, particles_dir
 
-    raise AssertionError(f"No solver working folder found under {scratch_root}")
+    raise AssertionError(
+        f"No solver working folder found under {out_path}/{RUNS_DIRNAME}/*/{RUN_SOLVER_DIRNAME}: "
+        "set [simulation.results] keep_solver_files = true"
+    )
 
 
 def update_or_assert_goldens(
@@ -979,7 +978,6 @@ def run_example_script(
     # Redirect outputs into the per-test output directory via project root override.
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
-    env["HMP_WORKSPACE"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -1029,15 +1027,11 @@ def run_hmp_cli(
     """
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
-    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
-    # Regression runs never persist ``hydromodpy.lock``: the file is opaque
-    # noise for golden comparisons and would otherwise pollute git status under
-    # tests/regression/fixtures/.
     if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [
@@ -1046,7 +1040,6 @@ def run_hmp_cli(
             "-m",
             "hydromodpy",
             "run",
-            "--no-lock",
             str(config_path),
         ]
     else:
@@ -1055,7 +1048,6 @@ def run_hmp_cli(
             "-m",
             "hydromodpy",
             "run",
-            "--no-lock",
             str(config_path),
         ]
 

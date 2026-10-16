@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.analysis.comparison.run_comparison import read_comparison_manifest
+from hydromodpy.analysis.comparison.runtime import load_variable_series, open_run_source
+from hydromodpy.analysis.comparison.visuals_render_series import write_timeseries_figure
 from hydromodpy.reporting.comparison.figures import (
     FigureCategory,
     categorize_figures,
@@ -26,7 +29,7 @@ class ComparisonWebContext:
     web_dir: Path
     output_path: Path
     manifest: dict[str, Any]
-    audit: dict[str, Any]
+    case_check: dict[str, Any]
     metrics_rows: list[dict[str, str]]
     numerical_closure_rows: list[dict[str, str]]
     budget_rows: list[dict[str, str]]
@@ -49,11 +52,11 @@ def load_comparison_web_context(
     root = Path(comparison_root).expanduser().resolve()
     web_dir = root / "web"
     out = output_path or (web_dir / "index.html")
-    payload = dict(manifest or _load_json(root / "comparison_manifest.json"))
+    payload = dict(manifest or read_comparison_manifest(root))
     metrics_rows = _load_csv(root / "comparison_metrics.csv")
     numerical_closure_rows = _load_csv(root / "numerical_closure_summary.csv")
     budget_rows = _load_csv(root / "budget_timeseries_wide.csv")
-    audit = _load_json(root / "comparison_audit.json")
+    case_check = payload.get("case_check")
     _ensure_domain_head_profile_figures(root=root, manifest=payload)
     figure_items = _figure_items(root=root, manifest=payload)
     simulations = payload.get("simulations", [])
@@ -69,7 +72,7 @@ def load_comparison_web_context(
         web_dir=web_dir,
         output_path=out,
         manifest=payload,
-        audit=audit,
+        case_check=dict(case_check) if isinstance(case_check, Mapping) else {},
         metrics_rows=metrics_rows,
         numerical_closure_rows=numerical_closure_rows,
         budget_rows=budget_rows,
@@ -156,11 +159,6 @@ def _ensure_domain_head_profile_figures(*, root: Path, manifest: Mapping[str, An
     if not profiles:
         _remove_domain_head_profile_figures(figure_root)
         return
-    try:
-        from hydromodpy.analysis.comparison.visuals_render_series import _write_timeseries_figure
-    except Exception:
-        _remove_domain_head_profile_figures(figure_root)
-        return
     _remove_domain_head_profile_figures(figure_root)
     figure_root.mkdir(parents=True, exist_ok=True)
     for profile_id, label, grouped_rows in profiles:
@@ -168,7 +166,7 @@ def _ensure_domain_head_profile_figures(*, root: Path, manifest: Mapping[str, An
             continue
         path = figure_root / f"head_domain_{profile_id}_series__timeseries.png"
         try:
-            _write_timeseries_figure(
+            write_timeseries_figure(
                 path=path,
                 observable_name=f"head_domain_{profile_id}_series",
                 unit="m",
@@ -281,30 +279,18 @@ def _domain_head_profile_series(
             continue
         if str(simulation.get("status", "")).strip().lower() not in {"completed", "reused"}:
             continue
-        run_folder = _local_path(simulation.get("run_folder"), root=root)
-        if run_folder is None or not run_folder.exists():
-            continue
-        try:
-            from hydromodpy.analysis.comparison.runtime import load_variable_series
-            from hydromodpy.core.state.paths import catalog_path_for
-            from hydromodpy.results.catalog import Catalog
-        except Exception:
+        source = open_run_source(simulation)
+        if source is None:
             continue
         simulation_id = str(simulation.get("id", "") or "")
         simulation_label = str(simulation.get("label", simulation_id) or simulation_id)
         solver = str(simulation.get("solver", "") or "")
-        store = None
         try:
-            # Read-only, and only when the folder really indexes runs: a
-            # writable open would create an empty index inside a scratch
-            # folder just to read a series the files already carry.
-            if (catalog_path_for(run_folder)).is_file():
-                store = Catalog(run_folder, read_only=True)
             series = load_variable_series(
-                run_folder=run_folder,
+                run_folder=source.run_dir,
                 variable="watertable_elevation",
-                store=store,
-                sim_id=str(simulation.get("sim_id", "") or ""),
+                store=source,
+                sim_id=source.sim_id,
             )
             for profile_id, _, value_index, top, bottom in profile_indices:
                 label, grouped_rows = profiles[profile_id]
@@ -336,38 +322,16 @@ def _domain_head_profile_series(
                             "surface_bottom_m": "" if bottom is None else bottom,
                         }
                     )
-        except Exception:
+        except FileNotFoundError:
+            # A run without a stored head has no profile to draw.
             continue
         finally:
-            if store is not None:
-                try:
-                    store.close()
-                except Exception:
-                    pass
+            source.close()
     return [
         (profile_id, label, grouped_rows)
         for profile_id, (label, grouped_rows) in profiles.items()
         if _profile_has_two_methods(grouped_rows)
     ]
-
-
-def _local_path(value: Any, *, root: Path) -> Path | None:
-    if value in (None, ""):
-        return None
-    text = str(value).strip()
-    candidates: list[Path] = []
-    normalized = text.replace("\\", "/")
-    if normalized.startswith("/mnt/") and len(normalized) > 6 and normalized[6] == "/":
-        drive = normalized[5].upper()
-        candidates.append(Path(f"{drive}:/" + normalized[7:]))
-    candidates.append(Path(text))
-    if not Path(text).is_absolute():
-        candidates.append((root / text).resolve())
-        candidates.append((root.parent / text).resolve())
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[-1] if candidates else None
 
 
 def _first_profile_time_key(rows: list[dict[str, str]]) -> tuple[float, str]:
@@ -432,7 +396,6 @@ def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _data_links(root: Path) -> list[Path]:
     names = (
         "comparison_report.md",
-        "comparison_audit.md",
         "comparison_manifest.json",
         "comparison_metrics.csv",
         "comparison_differences.csv",

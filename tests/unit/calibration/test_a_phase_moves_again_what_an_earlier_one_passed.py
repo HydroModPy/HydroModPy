@@ -307,13 +307,13 @@ class PerPhaseRunner:
         self.calls: list[SimpleNamespace] = []
 
     def run_calibration_core(
-        self, cfg, trial_ctx, *, workspace, space, chain=None, start_at=None, **_
+        self, cfg, trial_ctx, *, persistence, space, project_root, phase=None, start_at=None, **_
     ):
         self.calls.append(
-            SimpleNamespace(name=chain.phase_name, baseline=trial_ctx.base_cfg, start_at=start_at)
+            SimpleNamespace(name=phase.name, baseline=trial_ctx.base_cfg, start_at=start_at)
         )
         return CalibrationReport(
-            session_id=chain.session_id,
+            session_id=persistence.descriptor.session_id,
             method=cfg.method,
             n_iterations=1,
             best_objective=0.1,
@@ -321,8 +321,10 @@ class PerPhaseRunner:
             duration_s=0.0,
             save_runs=cfg.save_runs,
             promoted=0,
-            best_parameters=dict(self.VALUES[chain.phase_name]),
-            workspace=workspace,
+            best_parameters=dict(self.VALUES[phase.name]),
+            workspace=project_root,
+            session_dir=persistence.directory,
+            extra={"search_status": "completed"},
         )
 
 

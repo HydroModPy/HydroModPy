@@ -305,7 +305,7 @@ class TestTheStagedReportCarriesIt:
         report = StagedCalibrationReport(
             phases=(),
             frozen=(),
-            root_session_id="abc",
+            session_id="abc",
             methods_paragraph="anything",
         )
 
@@ -314,7 +314,7 @@ class TestTheStagedReportCarriesIt:
     def test_a_report_without_a_protocol_carries_none(self) -> None:
         from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
 
-        summary = StagedCalibrationReport(phases=(), frozen=(), root_session_id="abc").to_dict()
+        summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
 
         assert "methods_paragraph" not in summary
 
@@ -323,7 +323,7 @@ class TestTheStagedReportCarriesIt:
 
         window = {"start": "1995-01-01", "end": "2020-12-31", "days": 9497}
         summary = StagedCalibrationReport(
-            phases=(), frozen=(), root_session_id="abc", steady_window=window
+            phases=(), frozen=(), session_id="abc", steady_window=window
         ).to_dict()
 
         assert summary["steady_window"] == window
@@ -331,7 +331,7 @@ class TestTheStagedReportCarriesIt:
     def test_a_report_without_a_steady_phase_carries_none(self) -> None:
         from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
 
-        summary = StagedCalibrationReport(phases=(), frozen=(), root_session_id="abc").to_dict()
+        summary = StagedCalibrationReport(phases=(), frozen=(), session_id="abc").to_dict()
 
         assert "steady_window" not in summary
 

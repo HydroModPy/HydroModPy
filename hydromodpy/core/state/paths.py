@@ -1,11 +1,11 @@
 """Project layout, XDG-compliant path helpers and workspace path utilities.
 
 Cache directory: binaries (solver downloads, http_cache).
-State directory: index.duckdb, locks, audit.log.
+State directory: machine-wide state that no project owns.
 Override env vars: HMP_CACHE_HOME, HMP_STATE_HOME, HMP_BIN, HMP_SCRATCH_ROOT.
 
 The layout constants and portable-path helpers live here so every layer
-(catalog writes, global index, CLI) shares a single source of truth without
+(result storage, catalog readers, CLI) shares a single source of truth without
 depending on a higher layer. A project root is::
 
     project.toml            configuration, and the marker of the root
@@ -104,12 +104,6 @@ TOMBSTONES_FILENAME = "tombstones.txt"
 SITE_OVERRIDES_DIRNAME = "site_overrides"
 """Per-site overlays of a ``[sites]`` project, ``site_overrides/<site>.toml``."""
 
-SHARE_DIRNAME = "share"
-"""Directory holding on-demand exports and portable packages."""
-
-REPORTS_DIRNAME = "reports"
-"""Report sub-directory of :data:`SHARE_DIRNAME`."""
-
 INTERNAL_DIRNAME = ".hmp"
 """Rebuildable internals of a project, and the attempt state inside a run directory."""
 
@@ -147,8 +141,11 @@ WORKSPACE_TOML_FILENAME = "workspace.toml"
 PROJECTS_DIRNAME = "projects"
 """Workspace sub-directory holding one directory per project."""
 
-INDEX_FILENAME = "index.duckdb"
-"""Machine-wide global index file living under ``state_dir()``."""
+WORKSPACE_DATA_DIRNAME = "data"
+"""Workspace sub-directory holding the shared input data, ``<workspace>/data/``."""
+
+DATA_CACHE_FILENAME = "cache.duckdb"
+"""Shared input-data cache database, ``<workspace>/data/cache.duckdb``."""
 
 
 def display_path(path: Path | str) -> str:
@@ -174,6 +171,11 @@ def internal_dir(project_root: Path) -> Path:
 def catalog_path_for(project_root: Path) -> Path:
     """Return the project index database ``<project>/.hmp/index.duckdb``."""
     return internal_dir(project_root) / CATALOG_FILENAME
+
+
+def data_cache_path_for(data_dir: Path) -> Path:
+    """Return the shared input-data cache ``<data_dir>/cache.duckdb``."""
+    return Path(data_dir) / DATA_CACHE_FILENAME
 
 
 def runs_dir_for(project_root: Path) -> Path:
@@ -320,28 +322,14 @@ def is_sealed_run_config(path: str | Path) -> bool:
     return False
 
 
-def share_dir_for(project_root: Path) -> Path:
-    """Return ``<project>/share``, where on-demand outputs are published."""
-    return Path(project_root) / SHARE_DIRNAME
-
-
-def reports_dir_for(project_root: Path) -> Path:
-    """Return ``<project>/share/reports``."""
-    return share_dir_for(project_root) / REPORTS_DIRNAME
-
-
 #: Environment variable naming the scratch folder of the run this process is inside.
 #: A subprocess inherits it, so a child run launched by a run works in its folder.
 RUN_SCRATCH_ENV = "HMP_RUN_SCRATCH"
 
 #: Members of a resolved configuration that differ between two launches of one
-#: run and never change what it computes: the per-run scratch folder (process id,
-#: run label) and the project root (where the project folder sits on this
-#: machine). No run identity or checkpoint reads them.
-PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (
-    ("workspace", "solver_scratch_folder"),
-    ("workspace", "project_root"),
-)
+#: run and never change what it computes: the project root (where the project
+#: folder sits on this machine). No run identity or checkpoint reads them.
+PER_RUN_CONFIG_KEYS: tuple[tuple[str, str], ...] = (("workspace", "project_root"),)
 
 #: Folder of the geographic, data and mesh preprocessing, inside a run's scratch.
 PREPROCESSING_DIRNAME = "_preprocessing"
@@ -357,9 +345,9 @@ _RUN_SCRATCH_GUARD = threading.Lock()
 _run_scratch_depth = 0
 
 
-def scratch_root_for(output_root: Path) -> Path:
+def scratch_root_for(project_root: Path) -> Path:
     """Return ``<root>/.hmp/scratch``, which holds the scratch folder of every run."""
-    return internal_dir(output_root) / "scratch"
+    return internal_dir(project_root) / "scratch"
 
 
 def active_run_scratch() -> str | None:
@@ -367,7 +355,7 @@ def active_run_scratch() -> str | None:
     return os.environ.get(RUN_SCRATCH_ENV, "").strip() or None
 
 
-def scratch_dir_for(output_root: Path) -> Path:
+def scratch_dir_for(project_root: Path) -> Path:
     """Return the solver working directory of the current run.
 
     Inside a run (:func:`run_scratch`) it is ``<root>/.hmp/scratch/<run>``, one
@@ -377,7 +365,7 @@ def scratch_dir_for(output_root: Path) -> Path:
     ``<root>/.hmp/scratch``.
     """
     key = active_run_scratch()
-    root = scratch_root_for(output_root)
+    root = scratch_root_for(project_root)
     return root / key if key else root
 
 
@@ -408,8 +396,11 @@ def _run_scratch_name(label: str) -> str:
 
 if sys.platform == "win32":
 
-    def _process_is_alive(pid: int) -> bool:
-        """Probe a process on Windows, where ``os.kill(pid, 0)`` sends a Ctrl+C event."""
+    def process_is_alive(pid: int) -> bool:
+        """Return whether a process of this host still runs.
+
+        Windows is probed by handle, since ``os.kill(pid, 0)`` sends a Ctrl+C event.
+        """
         import ctypes
         from ctypes import wintypes
 
@@ -437,7 +428,8 @@ if sys.platform == "win32":
 
 else:
 
-    def _process_is_alive(pid: int) -> bool:
+    def process_is_alive(pid: int) -> bool:
+        """Return whether a process of this host still runs."""
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
@@ -467,7 +459,7 @@ def _scratch_pids(root: Path, key: str) -> set[int]:
 
 
 def _held_by_another_process(root: Path, key: str) -> bool:
-    return any(pid != os.getpid() and _process_is_alive(pid) for pid in _scratch_pids(root, key))
+    return any(pid != os.getpid() and process_is_alive(pid) for pid in _scratch_pids(root, key))
 
 
 def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
@@ -487,7 +479,7 @@ def sweep_dead_run_scratch(project_root: Path) -> list[Path]:
     for child in sorted(root.iterdir()):
         if not child.is_dir() or _RUN_SCRATCH_SUFFIX.search(child.name) is None:
             continue
-        if any(_process_is_alive(pid) for pid in _scratch_pids(root, child.name)):
+        if any(process_is_alive(pid) for pid in _scratch_pids(root, child.name)):
             continue
         shutil.rmtree(child, ignore_errors=True)
         if not child.exists():
@@ -574,22 +566,6 @@ def run_scratch(project_root: Path, label: str, *, resumes: str | None = None) -
                     folder.rmdir()
                 except OSError:
                     break
-
-
-def running_sidecar_dir(workspace: Path) -> Path:
-    """Directory of live-run heartbeat sidecars under a project root.
-
-    A solving run keeps ``<workspace>/.hmp/running/<id8>.json`` fresh so
-    ``hmp catalog watch`` and ``hmp catalog gc`` read liveness from a file, never the DuckDB
-    catalog (which a live solve holds locked).
-    """
-    return internal_dir(workspace) / "running"
-
-
-def running_sidecar_path(workspace: Path, sim_id: str) -> Path:
-    """Heartbeat sidecar path for a run, keyed by its first 8 hex digits."""
-    id8 = str(sim_id).replace("-", "")[:8]
-    return running_sidecar_dir(workspace) / f"{id8}.json"
 
 
 # Root granularity ----------------------------------------------------------
@@ -820,7 +796,7 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
 __all__: Iterable[str] = (
     "CATALOG_FILENAME",
     "CONFIGS_DIRNAME",
-    "INDEX_FILENAME",
+    "DATA_CACHE_FILENAME",
     "INTERNAL_DIRNAME",
     "JOBS_DIRNAME",
     "LAUNCHER_LEASE_FILENAME",
@@ -831,7 +807,6 @@ __all__: Iterable[str] = (
     "PREPROCESSING_DIRNAME",
     "PROJECTS_DIRNAME",
     "PROJECT_MARKER_FILENAME",
-    "REPORTS_DIRNAME",
     "RUNS_DIRNAME",
     "RUN_DATA_CACHE_FILENAME",
     "RUN_INTERNAL_CHECKPOINTS_DIRNAME",
@@ -840,18 +815,19 @@ __all__: Iterable[str] = (
     "RUN_SCRATCH_ENV",
     "SCRATCH_ROOT_ENV",
     "SESSIONS_DIRNAME",
-    "SHARE_DIRNAME",
     "SITE_OVERRIDES_DIRNAME",
     "SUMMARY_DIRNAME",
     "TOMBSTONES_FILENAME",
     "TRASH_DIRNAME",
     "TRIALS_DIRNAME",
     "TRIAL_DIRNAME_WIDTH",
+    "WORKSPACE_DATA_DIRNAME",
     "WORKSPACE_TOML_FILENAME",
     "RelDir",
     "RelDirKind",
     "active_run_scratch",
     "cache_dir",
+    "data_cache_path_for",
     "catalog_path_for",
     "decode_workspace_path",
     "display_path",
@@ -867,12 +843,10 @@ __all__: Iterable[str] = (
     "parse_rel_dir",
     "plan_dir_for",
     "preprocessing_dir",
+    "process_is_alive",
     "project_roots_under",
-    "reports_dir_for",
     "resolve_project_root",
     "resolve_workspace",
-    "running_sidecar_dir",
-    "running_sidecar_path",
     "run_dir_rel",
     "run_scratch",
     "run_scratch_of",
@@ -881,7 +855,6 @@ __all__: Iterable[str] = (
     "scratch_root_for",
     "session_dir_rel",
     "sessions_dir_for",
-    "share_dir_for",
     "state_dir",
     "summary_dir_for",
     "sweep_dead_run_scratch",

@@ -1,43 +1,50 @@
-"""A bare name resolves to a live run before a trashed one.
+"""A bare name is the live directory ``runs/<name>``, never a trashed one.
 
-``if_exists = "replace"`` trashes the old run and keeps its name, so
-``cat["x"]`` used to return the run that had just been replaced.
+The trash is a directory of its own: a trashed run leaves ``runs/`` and its
+name answers nothing there any more. Reading it back goes through the trash
+listing, and ``restore`` is the only way out.
 """
 
 from __future__ import annotations
 
-import uuid
+from datetime import UTC, datetime
+from pathlib import Path
 
-from tests._helpers.fixtures_catalog import simulation_catalog
+import pytest
 
+from hydromodpy.results.catalog.discovery import (
+    SimulationNotFoundError,
+    resolve_rel_dir,
+    resolve_trashed,
+)
+from hydromodpy.results.trash import restore, trash_run
 
-def _run(cat, name: str, *, if_exists: str = "version") -> str:
-    sid = str(uuid.uuid4())
-    cat.register_simulation(sid, project="p", solver="modflow6", name=name, if_exists=if_exists)
-    cat.finalize(sid, "completed")
-    return sid
-
-
-def test_a_replaced_name_resolves_to_the_run_that_replaced_it(tmp_path) -> None:
-    with simulation_catalog(tmp_path / "ws") as cat:
-        old = _run(cat, "x")
-        new = _run(cat, "x", if_exists="replace")
-        assert cat["x"].status == "completed"
-        assert cat.resolve("x") == new
-        # The trashed run is still reached by its id.
-        assert cat.resolve(old) == old
+AT = datetime(2026, 10, 15, 9, 0, tzinfo=UTC)
 
 
-def test_a_trashed_name_is_reached_when_nothing_live_holds_it(tmp_path) -> None:
-    with simulation_catalog(tmp_path / "ws") as cat:
-        old = _run(cat, "x")
-        new = _run(cat, "x", if_exists="replace")
-        cat.trash(new)
-        assert cat.resolve("x") == old
+def _run(project: Path, name: str) -> None:
+    (project / "runs" / name).mkdir(parents=True)
 
 
-def test_a_live_first_version_keeps_its_name(tmp_path) -> None:
-    with simulation_catalog(tmp_path / "ws") as cat:
-        first = _run(cat, "x")
-        _run(cat, "x")
-        assert cat.resolve("x") == first
+def test_a_trashed_name_answers_nothing_in_the_tree(tmp_path: Path) -> None:
+    _run(tmp_path, "x")
+    trash_run(tmp_path, "runs/x", now=AT)
+    with pytest.raises(SimulationNotFoundError):
+        resolve_rel_dir(tmp_path, "x")
+
+
+def test_a_bare_name_never_slides_to_another_version(tmp_path: Path) -> None:
+    _run(tmp_path, "x")
+    _run(tmp_path, "x.v2")
+    trash_run(tmp_path, "runs/x", now=AT)
+    with pytest.raises(SimulationNotFoundError):
+        resolve_rel_dir(tmp_path, "x")
+    assert resolve_rel_dir(tmp_path, "x.v2") == "runs/x.v2"
+
+
+def test_the_trash_listing_is_what_restore_reads(tmp_path: Path) -> None:
+    _run(tmp_path, "x")
+    trash_run(tmp_path, "runs/x", now=AT)
+    entry = resolve_trashed(tmp_path, "x")
+    restore(tmp_path, entry.name)
+    assert resolve_rel_dir(tmp_path, "x") == "runs/x"

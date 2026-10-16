@@ -293,7 +293,6 @@ persist_iteration_detail = "full"
 # le mauvais defaut. Le passer a true fait gagner des heures sur une reprise
 # apres interruption, quand le code n'a pas bouge.
 use_cache = false
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
@@ -433,7 +432,6 @@ enabled = true
 preset = "default"
 show = false
 save = true
-output_dir = "figures"
 on_error = "warn"
 
 

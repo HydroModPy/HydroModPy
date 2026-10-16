@@ -46,7 +46,9 @@ def test_full_restart_logs_a_warning(tmp_path: Path, monkeypatch) -> None:
         ),
     )
     logs = _capture_logs(monkeypatch)
-    idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
+    idx = runner_mod._resolve_resume_step_index(
+        tmp_path / "ws" / "runs" / "r", tmp_path / "ws", "r", steps_blueprint=("a", "b")
+    )
     assert idx == 0
     assert any("cannot pick up where it left off" in m for m in logs["warning"])
 
@@ -64,7 +66,9 @@ def test_clean_resume_logs_info_not_warning(tmp_path: Path, monkeypatch) -> None
         ),
     )
     logs = _capture_logs(monkeypatch)
-    idx = runner_mod._resolve_resume_step_index(tmp_path / "ws", "r", steps_blueprint=("a", "b"))
+    idx = runner_mod._resolve_resume_step_index(
+        tmp_path / "ws" / "runs" / "r", tmp_path / "ws", "r", steps_blueprint=("a", "b")
+    )
     assert idx == 3
     assert logs["warning"] == []
     assert any("picks up from step 3" in m for m in logs["info"])

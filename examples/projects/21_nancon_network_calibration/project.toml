@@ -206,7 +206,6 @@ enabled = true
 preset = "default"
 show = false
 save = true
-output_dir = "figures"
 
 figures = [
     "watershed_id_card",

@@ -8,7 +8,6 @@ every reader returns float64 whatever the store holds.
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 import numpy as np
@@ -21,9 +20,10 @@ from hydromodpy.core.field_precision import (
     MAX_RELATIVE_ERROR,
     round_mantissa,
 )
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.zarr_writer import QUANTIZATION_VARIABLE
+from tests._helpers.run_stores import claim_run, facts_of
 
 N_CELLS = 6
 DROPPED_MASK = np.uint32((1 << (23 - KEPT_MANTISSA_BITS)) - 1)
@@ -151,24 +151,25 @@ def test_a_reader_gets_float64_from_a_compact_store(compact: SimulationZarr) -> 
     np.testing.assert_array_equal(step, round_mantissa(values[2]).astype(np.float64))
 
 
-def test_the_catalog_writes_in_the_precision_of_its_persistence(tmp_path: Path) -> None:
+def test_the_run_store_writes_in_the_precision_of_its_persistence(tmp_path: Path) -> None:
     values = _values(2)
     for precision, dtype in (("compact", np.float32), ("exact", np.float64)):
-        workspace = tmp_path / precision
+        project = tmp_path / precision
+        claim = claim_run(project, "run")
         persistence = PersistenceConfig(field_precision=precision)
-        with Catalog(workspace, persistence=persistence) as catalog:
-            sid = str(uuid.uuid4())
-            reg = catalog.register_simulation(
-                sid, project="p", solver="modflow6", n_cells=N_CELLS, n_layers=1, n_timesteps=2
-            )
-            reg.zarr.close()
-            catalog.write_field_stack(sid, "head", values)
-            sz = catalog.open_zarr(sid)
+        facts = facts_of(claim, project="p", n_cells=N_CELLS, n_layers=1, n_timesteps=2)
+        with RunStore.open(
+            claim.run_dir, facts=facts, persistence=persistence, workspace=project
+        ) as store:
+            store.create_zarr(n_cells=N_CELLS, n_layers=1)
+            sid = store.sim_id
+            store.write_field_stack(sid, "head", values)
+            sz = store.open_zarr(sid)
             try:
                 assert sz.field_precision == precision
                 assert sz.root["head"].dtype == dtype
             finally:
                 sz.close()
-            read = catalog.query_field(sid, "head", 1)
+            read = store.query_field(sid, "head", 1)
             assert read.dtype == np.float64
             np.testing.assert_allclose(read, values[1], rtol=MAX_RELATIVE_ERROR, atol=0.0)

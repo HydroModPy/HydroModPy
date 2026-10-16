@@ -408,43 +408,6 @@ def test_a_different_request_into_a_sealed_directory_is_refused(sealed_job):
     assert read_document(job.outcome_path)["job_id"] == first.job_id
 
 
-def test_a_signal_during_the_reuse_decision_publishes_no_stale_document(sealed_job, monkeypatch):
-    """Exit 130 and a document saying ``successful`` cannot both be true.
-
-    Answering a sealed directory now costs one pass over the DEM, to compute
-    the content address, and that is a window an asynchronous signal can land
-    in. ``TerminationRequested`` subclasses ``KeyboardInterrupt``, so it is a
-    sibling of ``Exception`` and no ``except Exception`` catches it: it unwinds
-    out of the capability and reaches the runtime, which prints ``outcome.json``
-    beside exit 130. On a sealed directory that file is the **finished** job's
-    outcome -- ``successful``, exit 0 -- and printing it would contradict the
-    code the caller was just handed.
-
-    Nothing may be written either: the directory belongs to a job that finished.
-    So the only honest answer is 130 and an empty stdout, which is exactly what
-    the e2e test of a signal arriving before the run starts already asserts.
-    """
-    from hydromodpy.cli._workers.process import run_capability
-    from hydromodpy.core.interrupts import TerminationRequested
-    from hydromodpy.spatial.site_selection.hydrology import worker
-
-    job, _ = sealed_job
-    sealed = job.manifest_path.read_bytes()
-    finished = job.outcome_path.read_bytes()
-
-    def cancelled(*args, **kwargs):
-        raise TerminationRequested("signal 15")
-
-    monkeypatch.setattr(worker, "_resolve", cancelled)
-
-    exit_code, payload = run_capability("terrain-delineate", job.root)
-
-    assert exit_code == 130
-    assert payload == ""
-    assert job.manifest_path.read_bytes() == sealed
-    assert job.outcome_path.read_bytes() == finished
-
-
 def test_a_request_that_no_longer_resolves_cannot_reuse_a_seal(sealed_job):
     """Unaddressable is not the same as matching, and must not be answered as one."""
     job, _ = sealed_job
@@ -773,41 +736,6 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
         f"its interpreter child runs {scripts}, and only "
         f"{sorted(SCRIPTS_THE_INTERPRETER_CHILD_RUNS)} is accounted for"
     )
-
-
-def test_every_declared_capability_carries_a_body() -> None:
-    """The two lists of the registry, pinned through the public door.
-
-    ``capability_decls()`` imports no engine and ``_registry()`` imports every
-    worker, so the pairing is by identifier and nothing structural holds it. A
-    declaration renamed on one side alone used to raise a bare ``KeyError`` out
-    of the registry comprehension -- for every capability, not the renamed one,
-    and mapped to the generic exit 1 rather than the usage exit 2.
-    """
-    from hydromodpy.cli._workers.process import capability, capability_decls, capability_ids
-
-    assert capability_ids() == tuple(sorted(decl.id for decl in capability_decls()))
-    for capability_id in capability_ids():
-        assert capability(capability_id).decl.id == capability_id
-
-
-def test_a_declaration_without_a_body_names_itself(monkeypatch) -> None:
-    from hydromodpy.cli._workers import process as worker_module
-
-    ghost = TERRAIN_DELINEATE.__class__(
-        id="ghost-capability",
-        version="1.0.0",
-        title="Declared and never implemented",
-        description="A declaration with no body, which is a build defect.",
-        keywords=(),
-        request_model=TERRAIN_DELINEATE.request_model,
-        outputs=TERRAIN_DELINEATE.outputs,
-        exceptions=TERRAIN_DELINEATE.exceptions,
-    )
-    monkeypatch.setattr(worker_module, "capability_decls", lambda: (TERRAIN_DELINEATE, ghost))
-
-    with pytest.raises(RuntimeError, match="'ghost-capability' is declared but this build"):
-        worker_module.capability("terrain-delineate")
 
 
 # --------------------------------------------------------------------------- #

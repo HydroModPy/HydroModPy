@@ -2,12 +2,13 @@
 
 ``Pipeline`` runs a list of :class:`Step` objects sequentially, optionally
 folding parallelisable cohorts through a thread pool. State is reconstructed
-from durable artefacts (Zarr, Parquet, DuckDB rows) plus the TOML config,
-never from pickle blobs. The ``workflow_steps`` journal is the single
-source of truth for resume decisions: every step records its
-``inputs_hash``, ``outputs_hash`` and ``artifact_uris`` rows there. A
-:class:`HeartbeatPulse` emits ``heartbeat`` events on ``workflow_events``
-while a step executes so ``hmp catalog gc`` can detect zombie runs.
+from durable artefacts (Zarr, Parquet, the facts of the run) plus the TOML
+config, never from pickle blobs. The step journal under
+``<run>/.hmp/checkpoints/`` is the single source of truth for resume
+decisions: every step records its ``inputs_hash``, ``outputs_hash`` and
+``artifact_uris`` rows there. The pulse of the run is written by the
+:class:`~hydromodpy.results.heartbeat.HeartbeatThread` the caller started at
+the entry of the process; the pipeline only names the step under way on it.
 
 Two-phase execution
 -------------------
@@ -23,14 +24,16 @@ Two-phase execution
   obtained from the Kahn DAG sort; each cohort is dispatched through a
   :class:`ThreadPoolCohortExecutor` (default) or sequentially when the
   caller passes ``parallel=False``. The journal records inputs/outputs
-  hashes and the event stream records step_start/step_end markers.
+  hashes.
+
+A pipeline without a run directory (a head-only window, a calibration trial)
+keeps no journal and no checkpoint: it owns no run record.
 """
 
 from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,7 +44,7 @@ from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.internals.step import Step
 
 if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.heartbeat import HeartbeatThread
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
 logger = get_logger(__name__)
@@ -55,11 +58,11 @@ class Pipeline:
         steps: Sequence[Step],
         *,
         workspace: Path | None = None,
-        catalog: Catalog | None = None,
+        run_dir: Path | None = None,
     ) -> None:
         self.steps: tuple[Step, ...] = tuple(steps)
         self.workspace = Path(workspace) if workspace is not None else None
-        self._catalog = catalog
+        self.run_dir = Path(run_dir) if run_dir is not None else None
         self._parallel: bool = True
 
     # ------------------------------------------------------------------
@@ -87,6 +90,7 @@ class Pipeline:
         resume_from: int | None = None,
         parallel: bool = True,
         model_phase_ready: bool = False,
+        heartbeat: HeartbeatThread | None = None,
     ) -> PipelineState:
         """Execute steps sequentially.
 
@@ -102,38 +106,22 @@ class Pipeline:
         (``resume_from > 0`` with this False) keeps verifying the checkpoint.
 
         ``parallel`` (default True) consumes the Kahn cohort layout: a
-        multi-step cohort is dispatched through a thread pool. The
-        default 12-step pipeline only produces singleton cohorts so the
-        behaviour is identical to the strict for-loop. Pass
-        ``parallel=False`` to fall back to the legacy sequential path.
+        multi-step cohort is dispatched through a thread pool. The default
+        pipeline only produces singleton cohorts so the behaviour is identical
+        to the strict for-loop. Pass ``parallel=False`` to force the
+        sequential path.
+
+        ``heartbeat`` is the pulse of the attempt, started by the caller; the
+        pipeline names the step under way on it.
         """
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
-        from hydromodpy.workflow.tracking.events import WorkflowEventStream
-        from hydromodpy.workflow.tracking.heartbeat import HeartbeatPulse
         from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
         self._parallel = bool(parallel)
 
         journal: WorkflowJournal | None = None
-        events: WorkflowEventStream | None = None
-        catalog = self._catalog
-        owns_catalog = False
-        if catalog is None and self.workspace is not None:
-            try:
-                from hydromodpy.results.catalog import Catalog
-
-                catalog = Catalog(self.workspace)
-                owns_catalog = True
-            except Exception as exc:
-                logger.debug("pipeline.journal_disabled reason=%s", exc)
-                catalog = None
-        if catalog is not None:
-            journal = WorkflowJournal(catalog)
-            try:
-                events = WorkflowEventStream(catalog)
-            except Exception as exc:
-                logger.debug("pipeline.events_disabled reason=%s", exc)
-                events = None
+        if self.run_dir is not None:
+            journal = WorkflowJournal(self.run_dir)
 
         restart_index = 0 if resume_from is None else int(resume_from)
         restart_index = max(0, min(restart_index, len(self.steps)))
@@ -141,63 +129,49 @@ class Pipeline:
         # A step that leaves a document beside the run checkpoint has to write
         # it where this pipeline owns a run record, and nowhere when it owns
         # none. Reading the project root off the config instead would let a
-        # head-only window - which is handed no workspace precisely so it
+        # head-only window - which is handed no run directory precisely so it
         # writes no run record - overwrite the documents of the run that
-        # carries the same name.
-        state = state.with_data(run_workspace=self.workspace)
+        # carries the same name. A directory the caller already put in the
+        # state (a promotion reserves it) is never erased.
+        if self.run_dir is not None:
+            state = state.with_data(run_dir=self.run_dir)
 
         manifest: ResolvedRunManifest | None = None
-        if self.workspace is not None:
-            existing = ResolvedRunManifest.read(self.workspace, state.run_id)
+        if self.run_dir is not None:
+            existing = ResolvedRunManifest.read(self.run_dir)
             if restart_index > 0 and not model_phase_ready and existing is not None:
                 # Genuine resume: the prefix is reconstructed from the prior
-                # run's artefacts, so its config/pipeline must still match.
-                existing.verify_state(state, self.steps, workspace=self.workspace)
+                # attempt's artefacts, so its config/pipeline must still match.
+                existing.verify_state(state, self.steps, run_dir=self.run_dir)
                 manifest = existing
             else:
                 # Fresh run (restart_index 0) or a model-phase-ready re-run
                 # whose config may differ from a stale same-name manifest:
                 # write a clean manifest and ignore any prior one.
                 manifest = ResolvedRunManifest.from_state(state, self.steps, self.workspace)
-                manifest.write_atomic(self.workspace)
+                manifest.write_atomic(self.run_dir)
 
         # A from-scratch run and a model-phase-ready re-run rebuild their prefix
-        # from the live ctx (is_prebuilt), never from a previous same-name run's
+        # from the live ctx (is_prebuilt), never from a previous attempt's
         # journalled artefacts, so drop any stale journal for this run_id.
         if (restart_index == 0 or model_phase_ready) and journal is not None:
-            try:
-                journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
-            except Exception as exc:
-                logger.debug(
-                    "pipeline.journal_invalidate_failed run_id=%s err=%s",
-                    state.run_id,
-                    exc,
-                )
+            journal.invalidate_from(state.run_id, start_order=0, reason="from_scratch")
 
-        try:
-            config_sha256 = _config_sha256_from_manifest(manifest)
-            state, prefix_hashes = self._rebuild_prefix(
-                state,
-                restart_index,
-                journal,
-                config_sha256=config_sha256,
-            )
-            state = self._execute_suffix(
-                state,
-                restart_index,
-                journal=journal,
-                manifest=manifest,
-                heartbeat_cls=HeartbeatPulse,
-                events=events,
-                previous_hashes=prefix_hashes,
-            )
-        finally:
-            if owns_catalog and catalog is not None:
-                try:
-                    catalog.close()
-                except Exception:
-                    logger.debug("pipeline.catalog_close_failed", exc_info=True)
-        return state
+        config_sha256 = _config_sha256_from_manifest(manifest)
+        state, prefix_hashes = self._rebuild_prefix(
+            state,
+            restart_index,
+            journal,
+            config_sha256=config_sha256,
+        )
+        return self._execute_suffix(
+            state,
+            restart_index,
+            journal=journal,
+            manifest=manifest,
+            heartbeat=heartbeat,
+            previous_hashes=prefix_hashes,
+        )
 
     # ------------------------------------------------------------------
     # Phase 1 - rebuild prior state from artefacts
@@ -228,16 +202,9 @@ class Pipeline:
             return state, previous_hashes
 
         journal_rows = {}
-        if journal is not None and self.workspace is not None:
-            try:
-                for row in journal.list_steps(state.run_id):
-                    journal_rows[row.step_order] = row
-            except Exception as exc:
-                logger.debug(
-                    "pipeline.rebuild_journal_read_failed run_id=%s err=%s",
-                    state.run_id,
-                    exc,
-                )
+        if journal is not None:
+            for row in journal.list_steps(state.run_id):
+                journal_rows[row.step_order] = row
 
         for index in range(restart_index):
             step = self.steps[index]
@@ -351,24 +318,14 @@ class Pipeline:
             config_sha256=config_sha256,
             upstream_outputs_hashes=list(previous_hashes),
         )
-        try:
-            step_id = journal.start_step(
-                run_id=state_out.run_id,
-                step_order=index,
-                step_name=name,
-                inputs_hash=inputs_hash,
-            )
-        except Exception as exc:
-            logger.warning(
-                "journal.rebuild_start_step_failed run_id=%s step=%s err=%s",
-                state_out.run_id,
-                name,
-                exc,
-            )
-            return outputs_hash
-        self._finish_journal_step(
-            journal,
-            step_id,
+        step_id = journal.start_step(
+            run_id=state_out.run_id,
+            step_order=index,
+            step_name=name,
+            inputs_hash=inputs_hash,
+        )
+        journal.finish_step(
+            step_id=step_id,
             status="completed",
             outputs_hash=outputs_hash or None,
             artifact_uris=artifact_uris,
@@ -387,8 +344,7 @@ class Pipeline:
         *,
         journal: WorkflowJournal | None,
         manifest: object | None,
-        heartbeat_cls: type,
-        events: object | None = None,
+        heartbeat: HeartbeatThread | None,
         previous_hashes: Sequence[str] = (),
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
@@ -409,35 +365,28 @@ class Pipeline:
         )
         cohort_layout = self._cohort_layout()
 
-        # The run gets its sim_id inside the pipeline (the solver preparation
-        # step mints it), so the pulse starts as soon as a state carries one:
-        # before the first step on a resume, after the step that mints it
-        # otherwise. Without it a live run never beats and reads as stale.
-        with ExitStack() as heartbeats:
-            started = self._start_heartbeat(heartbeats, state, heartbeat_cls, events)
-            for cohort_indices in cohort_layout:
-                pending = [idx for idx in cohort_indices if idx >= restart_index]
-                if not pending:
-                    continue
-                state = self._execute_cohort(
-                    pending,
-                    state,
-                    executor=executor,
-                    journal=journal,
-                    journal_cls=_Journal,
-                    config_sha256=config_sha256,
-                    previous_hashes=chained_hashes,
-                    events=events,
+        for cohort_indices in cohort_layout:
+            pending = [idx for idx in cohort_indices if idx >= restart_index]
+            if not pending:
+                continue
+            if heartbeat is not None:
+                heartbeat.set_step(_step_name(self.steps[pending[0]]))
+            state = self._execute_cohort(
+                pending,
+                state,
+                executor=executor,
+                journal=journal,
+                journal_cls=_Journal,
+                config_sha256=config_sha256,
+                previous_hashes=chained_hashes,
+            )
+            if self.run_dir is not None:
+                manifest = (
+                    ResolvedRunManifest.from_state(state, self.steps, self.workspace)
+                    if manifest is None
+                    else manifest.with_state(state, self.steps, self.workspace)
                 )
-                if not started:
-                    started = self._start_heartbeat(heartbeats, state, heartbeat_cls, events)
-                if self.workspace is not None:
-                    manifest = (
-                        ResolvedRunManifest.from_state(state, self.steps, self.workspace)
-                        if manifest is None
-                        else manifest.with_state(state, self.steps, self.workspace)
-                    )
-                    manifest.write_atomic(self.workspace)
+                manifest.write_atomic(self.run_dir)
         return state
 
     def _cohort_layout(self) -> tuple[tuple[int, ...], ...]:
@@ -446,8 +395,8 @@ class Pipeline:
         Falls back to per-step singletons when (a) the DAG cannot be
         built (cycle, duplicate name) or (b) one or more steps lack an
         explicit ``depends_on`` declaration. The second case preserves
-        the legacy linear behaviour for ad-hoc test pipelines whose
-        fake steps only define ``name`` and ``run``.
+        the linear behaviour for ad-hoc test pipelines whose fake steps
+        only define ``name`` and ``run``.
         """
         if not all(callable(getattr(s, "depends_on", None)) for s in self.steps):
             return tuple((idx,) for idx in range(len(self.steps)))
@@ -476,13 +425,12 @@ class Pipeline:
         journal_cls: type,
         config_sha256: str | None,
         previous_hashes: list[str],
-        events: object | None,
     ) -> PipelineState:
         """Execute every step of one cohort and merge their state advances.
 
-        Singleton cohorts behave exactly like the legacy linear path.
-        Multi-step cohorts run each step via the executor; their
-        resulting ``state.data`` is merged via a last-write-wins union.
+        Singleton cohorts behave exactly like the linear path. Multi-step
+        cohorts run each step via the executor; their resulting
+        ``state.data`` is merged via a last-write-wins union.
         """
         if len(cohort_indices) == 1:
             index = cohort_indices[0]
@@ -494,7 +442,6 @@ class Pipeline:
                 journal_cls=journal_cls,
                 config_sha256=config_sha256,
                 previous_hashes=previous_hashes,
-                events=events,
             )
 
         base_state = state
@@ -509,7 +456,6 @@ class Pipeline:
                 journal_cls=journal_cls,
                 config_sha256=config_sha256,
                 previous_hashes=scratch_prev,
-                events=events,
             )
 
         outcomes = executor.map(_worker, list(cohort_indices))
@@ -545,7 +491,6 @@ class Pipeline:
         journal_cls: type,
         config_sha256: str | None,
         previous_hashes: list[str],
-        events: object | None = None,
     ) -> PipelineState:
         name = _step_name(step)
         inputs_hash = journal_cls.compute_inputs_hash(
@@ -557,25 +502,11 @@ class Pipeline:
 
         step_id: str | None = None
         if journal is not None:
-            try:
-                step_id = journal.start_step(
-                    run_id=state.run_id,
-                    step_order=index,
-                    step_name=name,
-                    inputs_hash=inputs_hash,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "journal.start_step_failed run_id=%s step=%s err=%s",
-                    state.run_id,
-                    name,
-                    exc,
-                )
-        if events is not None:
-            events.step_start(
+            step_id = journal.start_step(
                 run_id=state.run_id,
-                step_name=name,
                 step_order=index,
+                step_name=name,
+                inputs_hash=inputs_hash,
             )
 
         t0 = time.monotonic()
@@ -584,57 +515,19 @@ class Pipeline:
                 out = step.run(state)
         except (KeyboardInterrupt, SystemExit):
             self._finish_journal_step(
-                journal,
-                step_id,
-                status="aborted",
-                outputs_hash=None,
-                artifact_uris=(),
-                error_message="interrupted",
+                journal, step_id, status="aborted", error_message="interrupted"
             )
-            if events is not None:
-                events.step_end(
-                    run_id=state.run_id,
-                    step_name=name,
-                    status="aborted",
-                    duration_s=time.monotonic() - t0,
-                    error="interrupted",
-                )
             raise
         except StepError as exc:
-            self._finish_journal_step(
-                journal,
-                step_id,
-                status="failed",
-                outputs_hash=None,
-                artifact_uris=(),
-                error_message=str(exc),
-            )
-            if events is not None:
-                events.step_end(
-                    run_id=state.run_id,
-                    step_name=name,
-                    status="failed",
-                    duration_s=time.monotonic() - t0,
-                    error=str(exc),
-                )
+            self._finish_journal_step(journal, step_id, status="failed", error_message=str(exc))
             raise
         except Exception as exc:
             self._finish_journal_step(
                 journal,
                 step_id,
                 status="failed",
-                outputs_hash=None,
-                artifact_uris=(),
                 error_message=f"{type(exc).__name__}: {exc}",
             )
-            if events is not None:
-                events.step_end(
-                    run_id=state.run_id,
-                    step_name=name,
-                    status="failed",
-                    duration_s=time.monotonic() - t0,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
             raise StepError(name, exc, run_id=state.run_id) from exc
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         out = out.advance(
@@ -654,15 +547,7 @@ class Pipeline:
             status="completed",
             outputs_hash=outputs_hash,
             artifact_uris=artifact_uris,
-            error_message=None,
         )
-        if events is not None:
-            events.step_end(
-                run_id=state.run_id,
-                step_name=name,
-                status="completed",
-                duration_s=elapsed_ms / 1000.0,
-            )
         return out
 
     @staticmethod
@@ -671,55 +556,19 @@ class Pipeline:
         step_id: str | None,
         *,
         status: str,
-        outputs_hash: str | None,
-        artifact_uris: tuple[str, ...],
-        error_message: str | None,
+        outputs_hash: str | None = None,
+        artifact_uris: tuple[str, ...] = (),
+        error_message: str | None = None,
     ) -> None:
         if journal is None or step_id is None:
             return
-        try:
-            journal.finish_step(
-                step_id=step_id,
-                status=status,
-                outputs_hash=outputs_hash,
-                artifact_uris=artifact_uris,
-                error_message=error_message,
-            )
-        except Exception as exc:
-            logger.warning(
-                "journal.finish_step_failed step_id=%s status=%s err=%s",
-                step_id,
-                status,
-                exc,
-            )
-
-    def _start_heartbeat(
-        self,
-        stack: ExitStack,
-        state: PipelineState,
-        heartbeat_cls: type,
-        events: object | None,
-    ) -> bool:
-        """Enter a heartbeat pulse on ``stack`` once the state carries a sim_id.
-
-        Returns True when the pulse runs. It stays False while there is no event
-        stream or no sim_id yet, and the caller asks again after the next step.
-        """
-        if events is None:
-            return False
-        sim_id = _state_sim_id(state)
-        if not sim_id:
-            return False
-        stack.enter_context(
-            heartbeat_cls(
-                sim_id,
-                events=events,
-                run_id=sim_id,
-                step_name="pipeline",
-                sidecar_workspace=self.workspace,
-            )
+        journal.finish_step(
+            step_id=step_id,
+            status=status,
+            outputs_hash=outputs_hash,
+            artifact_uris=artifact_uris,
+            error_message=error_message,
         )
-        return True
 
 
 def _collect_artifacts(
@@ -765,17 +614,6 @@ def _to_relative_uri(item: object, workspace: Path | None) -> str | None:
         except ValueError:
             return path.as_posix()
     return path.as_posix()
-
-
-def _state_sim_id(state: PipelineState) -> str | None:
-    """Return ``sim_id`` carried by the pipeline state if any."""
-    sim_id = state.get("sim_id")
-    if not sim_id:
-        ctx = state.get("ctx")
-        sim_id = getattr(ctx, "sim_id", None) if ctx is not None else None
-    if sim_id in (None, ""):
-        return None
-    return str(sim_id)
 
 
 def _config_sha256_from_manifest(manifest: object | None) -> str | None:

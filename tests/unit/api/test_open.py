@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp.open`` (single catalog door + fail-fast)."""
+"""Unit tests for ``hmp.open``: the reader of a project index, and its fail-fast."""
 
 from __future__ import annotations
 
@@ -8,52 +8,51 @@ import pytest
 
 import hydromodpy as hmp
 from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.results.catalog.indexer import rebuild_index
+from tests._helpers.sealed_runs import make_project, seal_run
 
 pytestmark = pytest.mark.fast
 
 
-def test_open_missing_catalog_raises(tmp_path: Path) -> None:
-    """``hmp.open`` on an empty directory fails fast, no phantom catalog."""
-    with pytest.raises(FileNotFoundError):
-        hmp.open(tmp_path)
-    assert not catalog_path_for(tmp_path).exists()
+def test_open_missing_index_raises(tmp_path: Path) -> None:
+    """``hmp.open`` on a project without an index fails fast and writes nothing."""
+    project = make_project(tmp_path / "p")
+    with pytest.raises(FileNotFoundError, match="hmp catalog reindex"):
+        hmp.open(project)
+    assert not catalog_path_for(project).exists()
 
 
-def test_open_create_returns_simulation_catalog(tmp_path: Path) -> None:
-    """``create=True`` opens (and initialises) a Catalog."""
-    cat = hmp.open(tmp_path, create=True)
+def test_open_reads_the_index_rebuilt_from_the_runs(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    sim_id = seal_run(project, "baseline")
+    rebuild_index(project)
+
+    cat = hmp.open(project)
     try:
         assert isinstance(cat, hmp.Catalog)
+        assert cat.frame["sim_id"].astype(str).tolist() == [sim_id]
     finally:
         cat.close()
 
 
-def test_open_accepts_string_workspace(tmp_path: Path) -> None:
-    """``hmp.open`` accepts a string path."""
-    cat = hmp.open(str(tmp_path), create=True)
-    try:
-        assert isinstance(cat, hmp.Catalog)
-    finally:
-        cat.close()
+def test_open_accepts_a_string_and_a_folder_inside_the_project(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    rebuild_index(project)
+    (project / "configs").mkdir()
 
-
-def test_open_existing_catalog_without_create(tmp_path: Path) -> None:
-    """Once a catalog exists, ``hmp.open`` works with the default create=False."""
-    hmp.open(tmp_path, create=True).close()
-    cat = hmp.open(tmp_path)
-    try:
-        assert isinstance(cat, hmp.Catalog)
-        assert cat.frame.empty
-    finally:
-        cat.close()
+    for where in (str(project), project / "configs"):
+        cat = hmp.open(where)
+        try:
+            assert cat.project_path == project.resolve()
+            assert cat.frame.empty
+        finally:
+            cat.close()
 
 
 def test_open_on_a_workspace_root_names_its_projects(tmp_path: Path) -> None:
     """A workspace root holds no index; the error names the projects that do."""
-    project = tmp_path / "projects" / "nancon"
-    project.mkdir(parents=True)
-    (project / "project.toml").write_text("", encoding="utf-8")
-    hmp.open(project, create=True).close()
+    project = make_project(tmp_path / "projects" / "demo")
+    rebuild_index(project)
 
     with pytest.raises(FileNotFoundError, match="projects with a catalog") as info:
         hmp.open(tmp_path)

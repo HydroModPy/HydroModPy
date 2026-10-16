@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import (
@@ -2055,6 +2054,20 @@ class CalibrationConfig(HydroModelBase):
     """
 
     model_legacy_keys = {"optimizer_kwargs": "method_options"}
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "rerun_best_with_outputs": (
+            "the best trial is promoted by default: save_runs = 'best_n' with "
+            "save_best_n = 1 writes it under runs/<case>/."
+        ),
+        "candidates_root": (
+            "materialize_candidates writes under sessions/<case>/candidates/; there is "
+            "no other place."
+        ),
+        "reuse_completed_phases": (
+            "hmp calibrate --resume reuses the completed phases of the session of the "
+            "case; nothing in the file says so."
+        ),
+    }
 
     protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
         default=None,
@@ -2220,20 +2233,6 @@ class CalibrationConfig(HydroModelBase):
             "table leaves that hash untouched and checkpoints stay resumable."
         ),
     )
-    reuse_completed_phases: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Read a phase's frozen values back from a session that already completed "
-            "it in the resumed chain, instead of solving the phase again. What it "
-            "reuses: the physical values of the best trial that session's own record "
-            "shows for that phase's parameters. What it risks: a session whose model, "
-            "mesh or input files differed produced those values for a different "
-            "problem, so a reuse is only taken when the session's recorded "
-            "params_hash can be reproduced under this run's own cache context; a "
-            "mismatch solves the phase again instead of trusting it. Off by default: "
-            "re-solving is always correct, reusing without that proof is not."
-        ),
-    )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -2243,19 +2242,31 @@ class CalibrationConfig(HydroModelBase):
         json_schema_extra={"unit": "-"},
     )
     save_runs: Annotated[SaveRunsMode, Profile.USER] = Field(
-        default="none",
+        default="best_n",
         description=(
-            "How much to persist per iteration:\n"
-            "- 'none': 1 DuckDB row per iteration, no Zarr.\n"
-            "- 'best_n': same + promote top N to full simulations after the loop.\n"
-            "- 'all': every iteration becomes a full simulation (Zarr included)."
+            "Which trials become runs once the search ends. Every trial leaves one "
+            "line in sessions/<case>/trials.jsonl whatever the mode. 'best_n' promotes "
+            "the best trial of the last phase to runs/<case>/, the calibrated run, and "
+            "keeps the save_best_n - 1 next ones under sessions/<case>/trials/<n>/. "
+            "'all' keeps every completed trial there. 'none' promotes nothing."
         ),
     )
     save_best_n: Annotated[int, Profile.USER] = Field(
-        default=10,
+        default=1,
         ge=0,
-        description="Number of top iterations to promote when save_runs='best_n'.",
+        description=(
+            "Number of trials the 'best_n' mode of save_runs keeps as runs: 1 is the "
+            "calibrated run alone, under runs/<case>/."
+        ),
         json_schema_extra={"unit": "-"},
+    )
+    promote_phases: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Also promote the best trial of each phase before the last one, under "
+            "sessions/<case>/phases/<phase>/best/. The calibrated run of the case is the "
+            "best trial of the last phase whatever this says."
+        ),
     )
     use_cache: Annotated[bool, Profile.DEV] = Field(
         default=True,
@@ -2326,19 +2337,12 @@ class CalibrationConfig(HydroModelBase):
         default=False,
         description="Persist the candidate distribution alongside the session.",
     )
-    rerun_best_with_outputs: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description="Replay the best candidate with full outputs after the loop.",
-    )
     materialize_candidates: Annotated[bool, Profile.DEV] = Field(
         default=False,
-        description="Write a standalone override TOML for each candidate under "
-        "'candidates_root' so runs can be replayed later.",
-    )
-    candidates_root: Annotated[PurePosixPath | None, Profile.DEV] = Field(
-        default=None,
-        description="Directory for per-candidate overlay TOMLs. "
-        "Required when materialize_candidates is True.",
+        description=(
+            "Write a standalone overlay TOML for each candidate under "
+            "sessions/<case>/candidates/, so a trial can be replayed by hand."
+        ),
     )
     aggregate: Annotated[CalibAggregateDecl, Profile.USER] = Field(
         default_factory=CalibAggregateDecl,
@@ -2699,18 +2703,6 @@ class CalibrationConfig(HydroModelBase):
             for block in blocks
         )
 
-    @field_validator("candidates_root", mode="before")
-    @classmethod
-    def _normalize_candidates_root(cls, value: Any) -> PurePosixPath | None:
-        """Keep user-provided TOML paths stable across host OS path flavors."""
-        if value is None:
-            return None
-        if isinstance(value, PurePosixPath):
-            return value
-        if isinstance(value, Path):
-            return PurePosixPath(value.as_posix())
-        return PurePosixPath(str(value).replace("\\", "/"))
-
     @model_validator(mode="after")
     def _check_phases(self) -> CalibrationConfig:
         """Refuse a phase table that cannot run, before the first solve."""
@@ -2973,15 +2965,107 @@ class CalibrationConfig(HydroModelBase):
                 )
         return self
 
-    @model_validator(mode="after")
-    def _check_candidates_root_required(self) -> CalibrationConfig:
-        if self.materialize_candidates and self.candidates_root is None:
-            raise ValueError("materialize_candidates=True requires candidates_root to be set.")
-        return self
+
+def apply_project_defaults(
+    section: Mapping[str, Any],
+    *,
+    site_gauge: str | None,
+    metrics_window: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Return the raw ``[calibration]`` table with the project-level defaults written in.
+
+    ``[site] gauge`` is the station of the catchment: ``observed_station_id``
+    (on the section, on a phase) and ``observes`` (on a point output) take it
+    when they are left unwritten, and a written value that names another
+    station is refused with both keys. A point output that writes its own
+    position (``x`` and ``y``, or ``geometry``) or its own ``observed_values``
+    is left as written: the gauge neither locates it nor scores it.
+    ``[metrics] window`` is the default of ``scoring_window`` when the section
+    writes neither a window nor ``warmup_periods``. Applied before validation,
+    so a point output that names no station and no coordinates is valid in a
+    project with a gauge.
+    """
+    from hydromodpy.core.site.gauge import resolve_gauge
+
+    site = _site_of(site_gauge)
+    payload: dict[str, Any] = dict(section)
+    station = resolve_gauge(
+        site, payload.get("observed_station_id"), field="calibration.observed_station_id"
+    )
+    if station is not None:
+        payload["observed_station_id"] = station
+    outputs = payload.get("outputs")
+    if isinstance(outputs, Mapping):
+        resolved_outputs: dict[str, Any] = {}
+        for name, output in outputs.items():
+            if _point_output_located_by_a_station(output):
+                observes = resolve_gauge(
+                    site, output.get("observes"), field=f"calibration.outputs.{name}.observes"
+                )
+                if observes is not None:
+                    output = {**output, "observes": observes}
+            resolved_outputs[name] = output
+        payload["outputs"] = resolved_outputs
+    phases = payload.get("phases")
+    if isinstance(phases, list):
+        resolved_phases = []
+        for phase in phases:
+            if isinstance(phase, Mapping):
+                label = phase.get("name", "?")
+                station = resolve_gauge(
+                    site,
+                    phase.get("observed_station_id"),
+                    field=f"calibration.phases.{label}.observed_station_id",
+                )
+                if station is not None:
+                    phase = {**phase, "observed_station_id": station}
+            resolved_phases.append(phase)
+        payload["phases"] = resolved_phases
+    if (
+        payload.get("scoring_window") is None
+        and not payload.get("warmup_periods")
+        and isinstance(metrics_window, Mapping)
+        and metrics_window.get("start") is not None
+        and metrics_window.get("end") is not None
+    ):
+        payload["scoring_window"] = {
+            "start": str(metrics_window["start"]),
+            "end": str(metrics_window["end"]),
+        }
+    return payload
+
+
+def _point_output_located_by_a_station(output: Any) -> bool:
+    """Whether a raw point output is located and scored by the station it observes.
+
+    One that writes its own position (``x`` and ``y``, or ``geometry``) or
+    its own ``observed_values`` is not: the gauge has nothing to give it.
+    """
+    if not isinstance(output, Mapping) or output.get("support") != "point":
+        return False
+    if output.get("observed_values") is not None:
+        return False
+    return not any(output.get(key) is not None for key in ("x", "y", "geometry"))
+
+
+def _site_of(gauge: str | None) -> Any:
+    """Return the smallest object :func:`resolve_gauge` reads a gauge from.
+
+    ``resolve_gauge`` reads ``site.gauge`` and nothing else of the site. This
+    function receives the gauge alone, from a raw document or from a project
+    whose ``[site]`` is already a ``SiteConfig``, so it stands a nameless site
+    in for the one the caller did not hand over.
+    """
+    if gauge is None:
+        return None
+    from hydromodpy.core.site import SiteConfig
+
+    return SiteConfig(name="site", gauge=gauge)
 
 
 __all__ = [
     "CalibrationConfig",
+    "apply_project_defaults",
     "CalibParameterDecl",
     "CalibOutputDecl",
     "CalibOutputPoint",

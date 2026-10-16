@@ -1,11 +1,12 @@
-"""Resume planner driven by the ``workflow_steps`` journal.
+"""Resume planner driven by the step journal of the run directory.
 
 The runner asks :class:`ResumePlanner` where it must restart after a crash
-or interruption. The planner reads the journal, verifies each completed
-step's artefacts still exist with a matching ``outputs_hash``, and returns
-a :class:`ResumePlan` that the runner consumes verbatim. Pipeline blueprint
-changes or config drift trigger a full restart and cascade-invalidate the
-journal rows so a stale completed-prefix never confuses a future resume.
+or interruption. The planner reads the journal under ``<run>/.hmp/checkpoints/``,
+verifies each completed step's artefacts still exist with a matching
+``outputs_hash``, and returns a :class:`ResumePlan` that the runner consumes
+verbatim. Pipeline blueprint changes or config drift trigger a full restart
+and cascade-invalidate the journal rows so a stale completed prefix never
+confuses a future resume.
 """
 
 from __future__ import annotations

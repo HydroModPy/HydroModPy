@@ -10,7 +10,6 @@ from typing import Any
 
 from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 from hydromodpy.spatial.site_selection.outputs.schemas import (
-    REGIONAL_LAB_SITES_FIELDS,
     SELECTED_SITES_FIELDS,
     site_record_from_catchment,
 )
@@ -34,26 +33,6 @@ def write_selected_sites_csv(
         for catchment in catchments
     ]
     return write_csv(path, rows, fieldnames=SELECTED_SITES_FIELDS)
-
-
-def write_regional_lab_sites_csv(
-    path: str | Path,
-    catchments: Iterable[DelineatedCatchment],
-    *,
-    selection_id: str,
-    region_id: str = "",
-) -> Path:
-    """Write a CSV directly consumable by the regional-lab catalog loader."""
-
-    rows = [
-        site_record_from_catchment(
-            catchment,
-            selection_id=selection_id,
-            region_id=region_id,
-        )
-        for catchment in catchments
-    ]
-    return write_csv(path, rows, fieldnames=REGIONAL_LAB_SITES_FIELDS)
 
 
 def write_criteria_components_jsonl(
@@ -114,6 +93,5 @@ __all__ = [
     "write_criteria_components_jsonl",
     "write_csv",
     "write_jsonl",
-    "write_regional_lab_sites_csv",
     "write_selected_sites_csv",
 ]

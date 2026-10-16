@@ -2,42 +2,71 @@
 
 It used to take the highest value, so ``@best:rmse`` named the worst run. Best
 is now the highest ``nse``, the lowest ``rmse`` and the ``pbias`` closest to
-zero, for the selector, ``Catalog.best`` and ``RunSet.best`` alike.
+zero, for the selector and ``Catalog.best`` alike. ``RunSet.best`` is covered
+by ``test_group.py``.
 """
 
 from __future__ import annotations
 
-import uuid
+from datetime import date
 
 import pytest
 
-from hydromodpy.results.catalog import SimulationNotFoundError
-from hydromodpy.results.catalog.constants import (
-    METRIC_SENSE,
-    OUTLET_STATION,
-    UnrankedMetricError,
-)
-from tests._helpers.fixtures_catalog import simulation_catalog
+from hydromodpy.results.catalog import Catalog, SimulationNotFoundError
+from hydromodpy.results.catalog.constants import UnrankedMetricError
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.manifest import MetricRow
+from hydromodpy.results.metric_rule import METRIC_RULE_VERSION, MetricScore
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
+
+STATION = "J0014010"
 
 
 @pytest.fixture
 def scored(tmp_path):
-    """Three completed runs: a, b, c, scored on nse, rmse and pbias."""
+    """Three sealed runs: a, b, c, scored under the rule on nse, rmse and pbias.
+
+    The derive step records one row per metric and the headline NSE in
+    ``facts.score``. The rank under the rule reads that headline.
+    """
     scores = {
         "a": {"nse": 0.6, "rmse": 2.0, "pbias": -20.0},
         "b": {"nse": 0.9, "rmse": 0.5, "pbias": 5.0},
         "c": {"nse": 0.3, "rmse": 3.0, "pbias": 30.0},
     }
-    with simulation_catalog(tmp_path / "ws") as cat:
-        ids = {}
-        for name, metrics in scores.items():
-            sid = str(uuid.uuid4())
-            cat.register_simulation(sid, project="p", solver="modflow6", name=name)
-            for metric, value in metrics.items():
-                cat.write_metric(sid, OUTLET_STATION, metric, value)
-            cat.write_metric(sid, OUTLET_STATION, "unknown_score", 1.0)
-            cat.finalize(sid, "completed")
-            ids[name] = sid
+    project = tmp_path / "p"
+    ids = {}
+    for name, metrics in scores.items():
+        store = open_run_store(project, name, create_zarr=False)
+        sid = store.sim_id
+        for metric, value in {**metrics, "unknown_score": 1.0}.items():
+            store.facts.put_metric(
+                MetricRow(
+                    station=STATION,
+                    variable="discharge",
+                    metric=metric,
+                    value=value,
+                    nse_window_start=date(2016, 1, 1),
+                    nse_window_end=date(2020, 12, 31),
+                    nse_n=1827,
+                    metric_rule_version=METRIC_RULE_VERSION,
+                )
+            )
+        store.facts.score = MetricScore(
+            metric="nse",
+            value=metrics["nse"],
+            station=STATION,
+            variable="discharge",
+            nse_window_start=date(2016, 1, 1),
+            nse_window_end=date(2020, 12, 31),
+            nse_n=1827,
+            metric_rule_version=METRIC_RULE_VERSION,
+        )
+        seal_completed(store)
+        ids[name] = sid
+    rebuild_index(project)
+    with Catalog(project) as cat:
         yield cat, ids
 
 
@@ -51,9 +80,6 @@ def test_the_selector_follows_the_metric(scored, metric, best, worst) -> None:
     assert cat.resolve(f"@worst:{metric}") == ids[worst]
     assert cat.best("p", metric).sim_id == ids[best]
     assert cat.worst("p", metric).sim_id == ids[worst]
-    group = cat.find(project="p")
-    assert group.best(metric).sim_id == ids[best]
-    assert group.worst(metric).sim_id == ids[worst]
 
 
 def test_rank_lists_best_first(scored) -> None:
@@ -69,15 +95,3 @@ def test_a_metric_without_direction_is_refused(scored) -> None:
         cat.resolve("@best:unknown_score")
     with pytest.raises(UnrankedMetricError):
         cat.best("p", "unknown_score")
-    with pytest.raises(UnrankedMetricError):
-        cat.find(project="p").best("unknown_score")
-
-
-def test_the_table_agrees_with_the_seeded_definitions(tmp_path) -> None:
-    """The catalog seeds ``metric_definitions``; the two never disagree."""
-    sense_of = {True: "max", False: "min", None: "zero"}
-    with simulation_catalog(tmp_path / "ws") as cat:
-        rows = cat.backend.fetch_all("SELECT metric_name, higher_is_better FROM metric_definitions")
-    assert rows
-    for name, higher in rows:
-        assert METRIC_SENSE[name] == sense_of[higher], name

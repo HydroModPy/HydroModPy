@@ -2,9 +2,11 @@
 
 A thin wrapper of :func:`hydromodpy.export`: the positionals say what
 (``head watertable_depth``, ``discharge``, ``watershed``, or ``all``),
-``--time`` or ``--period`` when, ``--folder`` or ``--file`` where. The format
-follows the data unless ``--format`` or the extension of ``--file`` names one.
-``--list`` prints what the run can export, by kind.
+``--time`` or ``--period`` when, ``--folder`` or ``--file`` where under
+``runs/<run>/exports/``. The format follows the data unless ``--format`` or
+the extension of ``--file`` names one. ``--list`` prints what the run can
+export, by kind; ``--regen`` writes again every export ``exports/index.json``
+records. A copy out of the project is ``hmp publish``.
 """
 
 from __future__ import annotations
@@ -28,7 +30,6 @@ FORMAT_CHOICES: tuple[str, ...] = (
     "geopackage",
     "shapefile",
     "vtu",
-    "package",
     "stac",
     "rocrate",
     "prov",
@@ -42,7 +43,7 @@ Examples:
   hmp export my_run discharge discharge_obs --period 2001-01-01 2002-12-31
   hmp export my_run watershed hydrographic_network_reference
   hmp export my_run watertable_depth --time last --file watertable.tif --crs EPSG:4326
-  hmp export my_run all --format package
+  hmp export my_run --regen
 """
 
 
@@ -70,6 +71,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Print what this run can export, by kind, and write nothing",
     )
     parser.add_argument(
+        "--regen",
+        action="store_true",
+        help="Write again every export the run's exports/index.json records",
+    )
+    parser.add_argument(
         "--time",
         nargs="+",
         default=None,
@@ -95,12 +101,15 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--folder",
         default=None,
-        help="Folder to write into, with automatic names (default: share/<run>/)",
+        help=(
+            "Folder under runs/<run>/exports/ to write into, with automatic names "
+            "(default: runs/<run>/exports/)"
+        ),
     )
     parser.add_argument(
         "--file",
         default=None,
-        help="One exact file; its extension gives the format",
+        help="One exact file under runs/<run>/exports/; its extension gives the format",
     )
     parser.add_argument(
         "--crs",
@@ -129,7 +138,10 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.core.state.paths import resolve_project_root
 
     workspace = resolve_project_root(Path(args.workspace or Path.cwd()).expanduser().resolve())
-    if not args.list and not args.variables:
+    if args.regen and (args.list or args.variables):
+        print("--regen writes again what the ledger records: name no variable.", file=sys.stderr)
+        sys.exit(EXIT_USAGE)
+    if not args.list and not args.regen and not args.variables:
         print(
             "Name what to export (see --list), or write 'all'. "
             "Example: hmp export <run> head --time 2002-10-15",
@@ -140,7 +152,13 @@ def run(args: argparse.Namespace) -> None:
         if args.list:
             _print_list(hmp, workspace, args.sim_ref)
             return
-        with hmp.open(workspace, read_only=False) as catalog:
+        if args.regen:
+            written = _regen(hmp, workspace, args.sim_ref)
+            for path in written:
+                print(path)
+            print(f"Exported {len(written)} file(s) again", file=sys.stderr)
+            return
+        with hmp.open(workspace) as catalog:
             written = hmp.export(
                 catalog[args.sim_ref],
                 args.variables[0] if len(args.variables) == 1 else list(args.variables),
@@ -169,6 +187,15 @@ def _time_argument(values: list[str] | None) -> str | int | list[str | int] | No
         int(value) if value.lstrip("-").isdigit() else value for value in values
     ]
     return instants[0] if len(instants) == 1 else instants
+
+
+def _regen(hmp: object, workspace: Path, sim_ref: str) -> list[Path]:
+    """Write again the exports the ledger of one run records."""
+    from hydromodpy.results.exporters.request import regen_exports, run_export_target
+
+    with hmp.open(workspace) as catalog:  # type: ignore[attr-defined]
+        sid = catalog.resolve(sim_ref)
+        return regen_exports(catalog, sid, run_export_target(catalog, sid))
 
 
 def _print_list(hmp: object, workspace: Path, sim_ref: str) -> None:

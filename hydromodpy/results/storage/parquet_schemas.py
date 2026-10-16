@@ -11,9 +11,9 @@ incoming records to the matching schema before handing them to
 Schema-level metadata embeds ``hmp.schema``, ``hmp.schema_version``, ``hmp.pk``
 and CF ``Conventions``. Per-field metadata documents the physical unit and a
 short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``; :func:`check_schema_version`
-enforces it when an existing per-simulation Parquet file is re-opened for append
-(the merge path in ``writes_helpers``), so a stale or version-less file is
-rejected before it can silently corrupt a ``union_by_name`` read.
+enforces it when an existing table of a run is re-opened for append (the merge
+path in ``arrow_tables``), so a stale or version-less file is rejected before it
+can silently corrupt a ``union_by_name`` read.
 """
 
 from __future__ import annotations
@@ -574,6 +574,18 @@ SIMULATION_SCHEMA: Final[pa.Schema] = pa.schema(
             metadata=_field_meta(
                 description="NSE at the declared station over the declared window; null without a window"
             ),
+        ),
+        pa.field(
+            "nse_station",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Station the NSE was read at"),
+        ),
+        pa.field(
+            "nse_variable",
+            pa.string(),
+            nullable=True,
+            metadata=_field_meta(description="Variable the NSE was read on"),
         ),
         pa.field("nse_window_start", pa.date32(), nullable=True),
         pa.field("nse_window_end", pa.date32(), nullable=True),

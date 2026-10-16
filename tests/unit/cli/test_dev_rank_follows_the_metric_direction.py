@@ -8,14 +8,15 @@ the value closest to zero.
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER, METRICS
-from hydromodpy.results.catalog.constants import METRIC_SENSE, OUTLET_STATION
+from hydromodpy.results.catalog.constants import METRIC_SENSE
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.cli_runner import CliRunner
-from tests._helpers.fixtures_catalog import simulation_catalog
+from tests._helpers.run_stores import open_run_store
+from tests._helpers.sealed_runs import SITE
 
 
 @pytest.fixture
@@ -26,15 +27,14 @@ def workspace(tmp_path):
         "b": {"nse": 0.9, "rmse": 0.5, "pbias": 5.0},
         "c": {"nse": 0.3, "rmse": 3.0, "pbias": 30.0},
     }
-    root = tmp_path / "ws"
-    with simulation_catalog(root) as cat:
-        for name, metrics in scores.items():
-            sid = str(uuid.uuid4())
-            cat.register_simulation(sid, project="p", solver="modflow6", name=name)
-            for metric, value in metrics.items():
-                cat.write_metric(sid, OUTLET_STATION, metric, value)
-            cat.write_metric(sid, OUTLET_STATION, "unknown_score", 1.0)
-            cat.finalize(sid, "completed")
+    root = tmp_path / "p"
+    for name, metrics in scores.items():
+        store = open_run_store(root, name, create_zarr=False)
+        for metric, value in metrics.items():
+            store.write_metric(store.sim_id, SITE, metric, value)
+        store.write_metric(store.sim_id, SITE, "unknown_score", 1.0)
+        seal_completed(store)
+    rebuild_index(root)
     return root
 
 

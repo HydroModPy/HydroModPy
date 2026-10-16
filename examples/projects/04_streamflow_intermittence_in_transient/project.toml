@@ -149,7 +149,7 @@ cycle = "2002"
 [display.overrides.hydrograph_log_nse]
 scoring_window = ["2001-01-01", "2002-12-31"]
 
-# What each run writes to share/<run>/. The files based on this one inherit
+# What each run writes to runs/<run>/exports/. The files based on this one inherit
 # the four blocks: a calibration writes them for every run it promotes.
 
 # The catchment and the mapped network: GeoPackage.

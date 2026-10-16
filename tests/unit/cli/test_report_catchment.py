@@ -31,7 +31,6 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
         run_simulation: bool | None,
         build_context_artifacts: bool | None,
         build_report_html: bool | None,
-        no_lock: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
     ) -> CatchmentReportPipelineResult:
@@ -42,7 +41,6 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
             build_report_html=build_report_html,
-            no_lock=no_lock,
             stream_run_logs=stream_run_logs,
             strict_figure_postflight=strict_figure_postflight,
         )
@@ -67,7 +65,6 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
         "run_simulation": None,
         "build_context_artifacts": None,
         "build_report_html": None,
-        "no_lock": None,
         "stream_run_logs": None,
         "strict_figure_postflight": None,
     }
@@ -88,7 +85,6 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
         run_simulation: bool | None,
         build_context_artifacts: bool | None,
         build_report_html: bool | None,
-        no_lock: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
     ) -> CatchmentReportPipelineResult:
@@ -99,7 +95,6 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
             build_report_html=build_report_html,
-            no_lock=no_lock,
             stream_run_logs=stream_run_logs,
             strict_figure_postflight=strict_figure_postflight,
         )
@@ -123,7 +118,6 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
             "--run-overview",
             "--run-simulation",
             "--context-only",
-            "--with-lock",
             "--stream-run-logs",
             "--strict-figure-postflight",
         ]
@@ -136,7 +130,6 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
         "run_simulation": True,
         "build_context_artifacts": True,
         "build_report_html": False,
-        "no_lock": False,
         "stream_run_logs": True,
         "strict_figure_postflight": True,
     }
@@ -159,7 +152,6 @@ def test_report_catchment_can_disable_toml_run_simulation(monkeypatch, tmp_path)
         run_simulation: bool | None,
         build_context_artifacts: bool | None,
         build_report_html: bool | None,
-        no_lock: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
     ) -> CatchmentReportPipelineResult:
@@ -170,7 +162,6 @@ def test_report_catchment_can_disable_toml_run_simulation(monkeypatch, tmp_path)
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
             build_report_html=build_report_html,
-            no_lock=no_lock,
             stream_run_logs=stream_run_logs,
             strict_figure_postflight=strict_figure_postflight,
         )
@@ -206,7 +197,6 @@ def test_report_catchment_report_only_skips_run_steps_by_default(
         run_simulation: bool | None,
         build_context_artifacts: bool | None,
         build_report_html: bool | None,
-        no_lock: bool | None,
         stream_run_logs: bool | None,
         strict_figure_postflight: bool | None,
     ) -> CatchmentReportPipelineResult:

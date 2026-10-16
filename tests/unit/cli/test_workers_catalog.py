@@ -1,194 +1,112 @@
-"""Tests for ``hydromodpy.cli._workers.catalog`` helpers."""
+"""The ``hmp catalog`` reading workers answer from the index of an indexed project."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from uuid import uuid4
 
 import duckdb
 import pandas as pd
 import pytest
 
-import hydromodpy as hmp
 from hydromodpy.cli._workers.catalog import (
+    diff_simulations,
     list_simulations,
     query_catalog,
-    rename_simulation,
     show_simulation,
-    trash_simulation,
 )
-from hydromodpy.results.catalog.registration import DuplicateSimulationNameError
+from hydromodpy.core.state.paths import PROJECTS_DIRNAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.results.catalog import rebuild_index
+from tests._helpers.sealed_runs import make_project, seal_run
 
 
-def _seed_workspace(tmp_path: Path) -> tuple[Path, str]:
+def _seed_workspace(tmp_path: Path) -> tuple[Path, Path, str]:
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / WORKSPACE_TOML_FILENAME).write_text("[workspace]\n", encoding="utf-8")
+    project_dir = make_project(workspace / PROJECTS_DIRNAME / "demo")
+    sim_id = seal_run(project_dir, "baseline", solver="modflow_nwt", nse=0.6, tags=("pinned",))
+    seal_run(project_dir, "variant", solver="modflow6", nse=0.8, parameters={"K": 3e-5})
+    rebuild_index(project_dir)
+    return workspace, project_dir, sim_id
+
+
+def test_list_simulations_returns_one_row_per_sealed_run(tmp_path: Path) -> None:
+    workspace, _project, sim_id = _seed_workspace(tmp_path)
+
+    df = list_simulations(workspace)
+
+    assert isinstance(df, pd.DataFrame)
+    assert sim_id in df["sim_id"].tolist()
+    assert set(df["name"]) == {"baseline", "variant"}
+    assert set(df["project"]) == {"demo"}
+    assert {"site", "case_id", "rel_dir", "label", "nse"} <= set(df.columns)
+
+
+def test_list_simulations_filters(tmp_path: Path) -> None:
+    workspace, _project, _sim_id = _seed_workspace(tmp_path)
+
+    assert list_simulations(workspace, solver="nwt")["name"].tolist() == ["baseline"]
+    assert list_simulations(workspace, tag="pinned")["name"].tolist() == ["baseline"]
+    assert list_simulations(workspace, label="exploratory").shape[0] == 2
+    assert list_simulations(workspace, site="nowhere").empty
+    assert list_simulations(workspace, limit=1).shape[0] == 1
+
+
+def test_list_simulations_without_an_index_is_empty(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     workspace.mkdir()
     (workspace / "data").mkdir()
-    project_dir = workspace / "projects" / "demo"
-    project_dir.mkdir(parents=True)
 
-    sim_id = str(uuid4())
-    with hmp.open(project_dir, create=True) as catalog:
-        catalog.register_simulation(
-            sim_id=sim_id,
-            project="demo",
-            solver="modflow_nwt",
-            name="baseline",
-            flow_regime="steady",
-            n_cells=4,
-            n_layers=1,
-        )
-        catalog.finalize(sim_id, status="completed")
-    return workspace, sim_id
+    assert list_simulations(workspace).empty
 
 
-def _seed_project(tmp_path: Path) -> tuple[Path, str]:
-    project_dir = tmp_path / "ws" / "projects" / "demo"
-    project_dir.mkdir(parents=True)
-    sim_id = str(uuid4())
-    with hmp.open(project_dir, create=True) as catalog:
-        catalog.register_simulation(
-            sim_id=sim_id,
-            project="demo",
-            solver="modflow_nwt",
-            name="baseline",
-            flow_regime="steady",
-            n_cells=4,
-            n_layers=1,
-        )
-        catalog.finalize(sim_id, status="completed")
-    return project_dir, sim_id
+def test_show_simulation_returns_the_facts(tmp_path: Path) -> None:
+    _workspace, project, sim_id = _seed_workspace(tmp_path)
 
+    payload = show_simulation("baseline", workspace=project)
 
-def _seed_project_catalog(tmp_path: Path) -> Path:
-    project_dir = tmp_path / "ws" / "projects" / "demo"
-    project_dir.mkdir(parents=True)
-    with hmp.open(project_dir, create=True):
-        pass
-    return project_dir
-
-
-def test_list_simulations_returns_dataframe(tmp_path: Path) -> None:
-    workspace, sim_id = _seed_workspace(tmp_path)
-    df = list_simulations(workspace)
-    assert isinstance(df, pd.DataFrame)
-    assert not df.empty
-    assert sim_id in df["sim_id"].astype(str).tolist()
-    assert "demo" in df["project"].tolist()
-
-
-def test_list_simulations_filters_by_solver(tmp_path: Path) -> None:
-    workspace, _ = _seed_workspace(tmp_path)
-    df = list_simulations(workspace, solver="nwt")
-    assert not df.empty
-    assert (df["solver"].str.contains("nwt")).all()
-
-
-def test_list_simulations_empty_workspace_returns_empty_frame(tmp_path: Path) -> None:
-    workspace = tmp_path / "empty"
-    workspace.mkdir()
-    df = list_simulations(workspace)
-    assert df.empty
-
-
-def test_list_simulations_limit(tmp_path: Path) -> None:
-    workspace, _ = _seed_workspace(tmp_path)
-    df = list_simulations(workspace, limit=1)
-    assert len(df) <= 1
-
-
-def test_show_simulation_returns_metadata(tmp_path: Path) -> None:
-    project_dir, sim_id = _seed_project(tmp_path)
-    payload = show_simulation(sim_id, workspace=project_dir)
     assert payload["sim_id"] == sim_id
-    assert payload["name"] == "baseline"
-    assert payload["solver"] == "modflow_nwt"
-    assert payload["status"] == "completed"
+    assert payload["rel_dir"] == "runs/baseline"
+    assert payload["label"] == "exploratory"
+    assert payload["nse"] == 0.6
+    assert payload["exports"] == []
 
 
-def test_show_simulation_detail_adds_zarr_info(tmp_path: Path) -> None:
-    project_dir, sim_id = _seed_project(tmp_path)
-    payload = show_simulation(sim_id, workspace=project_dir, detail=True)
+def test_show_simulation_detail_adds_the_zarr_layout(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
+
+    payload = show_simulation("variant", workspace=project, detail=True)
+
     assert "zarr_path" in payload
-    assert "zarr_exists" in payload
-    assert "zarr_groups" in payload
+    assert payload["zarr_exists"] is False
 
 
-def test_show_simulation_missing_catalog_raises(tmp_path: Path) -> None:
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    with pytest.raises(FileNotFoundError):
-        show_simulation("deadbeef", workspace=empty)
+def test_show_simulation_without_an_index_raises(tmp_path: Path) -> None:
+    project = make_project(tmp_path / "demo")
+
+    with pytest.raises(FileNotFoundError, match="reindex"):
+        show_simulation("baseline", workspace=project)
 
 
-def test_query_catalog_returns_dataframe(tmp_path: Path) -> None:
-    project_dir = _seed_project_catalog(tmp_path)
-    df = query_catalog("SELECT 42 AS answer", workspace=project_dir)
-    assert df.iloc[0]["answer"] == 42
+def test_query_catalog_reads_the_views(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
 
+    df = query_catalog("SELECT name, label FROM v_cases ORDER BY name", workspace=project)
 
-def test_query_catalog_missing_catalog_raises(tmp_path: Path) -> None:
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    with pytest.raises(FileNotFoundError):
-        query_catalog("SELECT 1", workspace=empty)
+    assert df["name"].tolist() == ["baseline", "variant"]
+    assert query_catalog("SELECT name FROM simulations", workspace=project, limit=1).shape[0] == 1
 
 
 def test_query_catalog_invalid_sql_raises_duckdb_error(tmp_path: Path) -> None:
-    project_dir = _seed_project_catalog(tmp_path)
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
+
     with pytest.raises(duckdb.Error):
-        query_catalog("THIS IS NOT SQL", workspace=project_dir)
+        query_catalog("SELECT * FROM no_such_table", workspace=project)
 
 
-def test_query_catalog_limit_clause(tmp_path: Path) -> None:
-    project_dir = _seed_project_catalog(tmp_path)
-    df = query_catalog(
-        "SELECT 1 AS x UNION SELECT 2 UNION SELECT 3", workspace=project_dir, limit=2
-    )
-    assert len(df) == 2
+def test_diff_simulations_compares_parameters(tmp_path: Path) -> None:
+    _workspace, project, _sim_id = _seed_workspace(tmp_path)
 
+    delta = diff_simulations("baseline", "variant", workspace=project)
 
-def _seed_named(project_dir: Path, name: str) -> str:
-    sim_id = str(uuid4())
-    with hmp.open(project_dir, create=True) as catalog:
-        catalog.register_simulation(sim_id=sim_id, project="demo", solver="modflow6", name=name)
-        catalog.finalize(sim_id, status="completed")
-    return sim_id
-
-
-# ---------------------------------------------------------------------------
-# rename worker
-# ---------------------------------------------------------------------------
-
-
-def test_rename_worker_happy_path(tmp_path: Path) -> None:
-    project_dir, sim_id = _seed_project(tmp_path)
-    result = rename_simulation(sim_id, workspace=project_dir, new_name="renamed")
-    assert result == {"sim_id": sim_id, "name": "renamed"}
-    with hmp.open(project_dir) as catalog:
-        assert catalog[sim_id].name == "renamed"
-
-
-def test_rename_worker_collision_raises(tmp_path: Path) -> None:
-    project_dir, first = _seed_project(tmp_path)  # name 'baseline'
-    second = _seed_named(project_dir, "other")
-    with pytest.raises(DuplicateSimulationNameError):
-        rename_simulation(second, workspace=project_dir, new_name="baseline")
-
-
-def test_rename_worker_prefix_ref(tmp_path: Path) -> None:
-    project_dir, sim_id = _seed_project(tmp_path)
-    prefix = sim_id.replace("-", "")[:8]
-    result = rename_simulation(prefix, workspace=project_dir, new_name="by_prefix")
-    assert result["sim_id"] == sim_id
-    assert result["name"] == "by_prefix"
-
-
-def test_rename_worker_trashed_sim(tmp_path: Path) -> None:
-    project_dir, sim_id = _seed_project(tmp_path)
-    trash_simulation(sim_id, workspace=project_dir)
-    # A trashed run has name NULL; it resolves by id and rename still applies.
-    result = rename_simulation(sim_id, workspace=project_dir, new_name="revived")
-    assert result["sim_id"] == sim_id
-    with hmp.open(project_dir) as catalog:
-        assert catalog[sim_id].name == "revived"
+    assert ("K", "__global__") in delta["params"]

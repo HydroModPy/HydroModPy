@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests._helpers.sealed_runs import make_project, seal_run, write_attempt
 
 
 def _load_main():
@@ -32,17 +35,15 @@ def isolated_state(monkeypatch, tmp_path):
     yield state
 
 
-def _make_workspace_with_catalog(tmp_path: Path) -> Path:
-    from hydromodpy.results.catalog import Catalog
-
+def _make_workspace(tmp_path: Path) -> tuple[Path, Path]:
     workspace = tmp_path / "ws"
-    workspace.mkdir()
-    project = workspace / "projects" / "demo"
-    project.mkdir(parents=True)
+    project = make_project(workspace / "projects" / "demo")
     (workspace / "data").mkdir()
-    with Catalog(project):
-        pass
-    return workspace
+    return workspace, project
+
+
+def _checks(out: str) -> dict[str, dict]:
+    return {entry["name"]: entry for entry in json.loads(out)["checks"]}
 
 
 def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
@@ -52,31 +53,49 @@ def test_doctor_help_lists_new_flags(monkeypatch, capsys) -> None:
     assert "--cross-catalog" in out
     assert "--lifecycle" in out
     assert "--prt" in out
+    assert "--migrate" not in out
 
 
-def test_doctor_lifecycle_on_clean_workspace(monkeypatch, tmp_path, capsys, isolated_state) -> None:
-    workspace = _make_workspace_with_catalog(tmp_path)
+def test_doctor_lifecycle_counts_a_stale_attempt_from_the_disk(
+    monkeypatch, tmp_path, capsys, isolated_state
+) -> None:
+    workspace, project = _make_workspace(tmp_path)
+    write_attempt(project, "runs/stuck", heartbeat_age_s=24 * 3600)
+
     code = _run(
         monkeypatch,
         ["hmp", "doctor", "--workspace", str(workspace), "--lifecycle", "--json"],
     )
-    # exit may be 0 even with WARN entries; just verify the new checks render
+
     assert code in (0, 1)
-    out = capsys.readouterr().out
-    assert "lifecycle:stale_running_sims" in out
-    assert "lifecycle:orphan_calibration_sessions" in out
-    assert "lifecycle:tmp_parquet" in out
+    checks = _checks(capsys.readouterr().out)
+    assert checks["lifecycle:stale_attempts"]["status"] == "WARN"
+    assert "demo/runs/stuck" in checks["lifecycle:stale_attempts"]["detail"]
+    assert checks["lifecycle:orphan_calibration_sessions"]["status"] == "OK"
+    assert "lifecycle:tmp_files" in checks
 
 
-def test_doctor_cross_catalog_on_workspace(monkeypatch, tmp_path, capsys, isolated_state) -> None:
-    workspace = _make_workspace_with_catalog(tmp_path)
+def test_doctor_cross_catalog_names_a_run_the_index_lacks(
+    monkeypatch, tmp_path, capsys, isolated_state
+) -> None:
+    from hydromodpy.results.catalog.indexer import rebuild_index
+
+    workspace, project = _make_workspace(tmp_path)
+    seal_run(project, "first")
+    rebuild_index(project)
+    seal_run(project, "second")
+
     code = _run(
         monkeypatch,
         ["hmp", "doctor", "--workspace", str(workspace), "--cross-catalog", "--json"],
     )
+
     assert code in (0, 1)
-    out = capsys.readouterr().out
-    assert "cross_catalog:" in out
+    checks = _checks(capsys.readouterr().out)
+    assert checks["cross_catalog:projects_indexed"]["status"] == "OK"
+    assert checks["cross_catalog:runs_vs_index"]["status"] == "WARN"
+    assert "1 missing" in checks["cross_catalog:runs_vs_index"]["detail"]
+    assert checks["cross_catalog:index_vs_runs"]["status"] == "OK"
 
 
 @pytest.fixture

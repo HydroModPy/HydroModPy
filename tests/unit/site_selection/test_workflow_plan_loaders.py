@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.workflow.site_selection import (
+from hydromodpy.spatial.site_selection.runner import (
     load_delineated_catchments_csv,
     load_hydrometry_config_for_site_selection,
 )

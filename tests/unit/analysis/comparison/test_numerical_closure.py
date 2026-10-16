@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.analysis.comparison.numerical_closure import (
-    CLOSURE_STATION_ID,
-    CLOSURE_VARIABLE,
     build_numerical_closure_tables,
     write_numerical_closure_exports,
 )
@@ -67,26 +65,17 @@ def test_build_numerical_closure_tables_prefers_direct_closure_residual() -> Non
     assert summary_rows[0]["diagnostic"] == "CHECK"
 
 
-def test_write_numerical_closure_exports_persists_catalog_metrics(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_write_numerical_closure_exports_writes_the_comparison_folder_only(
+    tmp_path: Path,
 ) -> None:
-    store = _FakeMetricStore()
-
-    monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.numerical_closure.open_result_store_for_write",
-        lambda *args, **kwargs: (store, "catalog-sim"),
-    )
+    """The closure is written beside the comparison; the compared run is never touched."""
+    comparison_root = tmp_path / "comparison"
+    run_dir = tmp_path / "runs" / "bouss"
+    run_dir.mkdir(parents=True)
 
     artifacts, detail_rows, summary_rows = write_numerical_closure_exports(
-        comparison_root=tmp_path,
-        simulation_summaries=[
-            {
-                "id": "bouss",
-                "solver": "boussinesq",
-                "config_path": str(tmp_path / "bouss.toml"),
-                "sim_id": "catalog-sim",
-            }
-        ],
+        comparison_root=comparison_root,
+        simulation_summaries=[{"id": "bouss", "solver": "boussinesq", "run_dir": str(run_dir)}],
         budget_rows=[
             _budget_row("bouss", "recharge_total_m3_s", 2.0, 0, 1.0),
             _budget_row("bouss", "drainage_total_m3_s", 1.0, 0, 1.0),
@@ -101,74 +90,8 @@ def test_write_numerical_closure_exports_persists_catalog_metrics(
         "numerical_closure_summary_csv",
         "numerical_closure_summary_json",
     }
-    assert store.closed
-    metric_names = {item["metric_name"] for item in store.metrics}
-    assert {
-        "closure_n_periods",
-        "closure_max_abs_m3_s",
-        "closure_mean_abs_m3_s",
-        "closure_rmse_m3_s",
-        "closure_relative_error_p95",
-        "closure_status_code",
-    }.issubset(metric_names)
-    assert {item["station_id"] for item in store.metrics} == {"__global__"}
-    assert {item["variable"] for item in store.metrics} == {"water_budget"}
-
-
-def test_open_result_store_for_write_returns_a_writable_catalog(tmp_path: Path) -> None:
-    """Producing closure metrics is writing: discovery must not hand back a reader."""
-    from hydromodpy.analysis.comparison.runtime.metadata import open_result_store_for_write
-    from hydromodpy.results.catalog import Catalog
-
-    sim_id = "11111111-2222-3333-4444-555555555555"
-    project_root = tmp_path / "child_project"
-    with Catalog(project_root) as catalog:
-        catalog.register_simulation(sim_id, "child_project", "modflow6", name="child_run")
-        catalog.finalize(sim_id, status="completed")
-
-    config_path = tmp_path / "child.toml"
-    config_path.write_text(
-        "[workspace]\n",
-        encoding="utf-8",
-    )
-
-    store, resolved = open_result_store_for_write(config_path, preferred_name="child_run")
-    assert store is not None
-    assert resolved == str(sim_id)
-    try:
-        store.write_metric(
-            resolved,
-            CLOSURE_STATION_ID,
-            "closure_n_periods",
-            2.0,
-            variable=CLOSURE_VARIABLE,
-            n_samples=2,
-        )
-    finally:
-        store.close()
-
-    with Catalog(project_root, read_only=True) as reader:
-        rows = reader.backend.query(
-            "SELECT metric_name, value FROM metrics WHERE variable = ?",
-            [CLOSURE_VARIABLE],
-        )
-    assert rows["metric_name"].tolist() == ["closure_n_periods"]
-
-
-def test_open_result_store_for_write_never_creates_an_index(tmp_path: Path) -> None:
-    """A child that persisted nothing must not gain a phantom index."""
-    from hydromodpy.analysis.comparison.runtime.metadata import open_result_store_for_write
-    from hydromodpy.core.state.paths import catalog_path_for
-
-    project_root = tmp_path / "never_ran"
-    config_path = tmp_path / "child.toml"
-    config_path.write_text(
-        "[workspace]\n",
-        encoding="utf-8",
-    )
-
-    assert open_result_store_for_write(config_path) == (None, None)
-    assert not catalog_path_for(project_root).exists()
+    assert all(Path(item["path"]).parent == comparison_root for item in artifacts)
+    assert list(run_dir.iterdir()) == []
 
 
 def _budget_row(
@@ -188,33 +111,3 @@ def _budget_row(
         "elapsed_seconds": elapsed_seconds,
         "value": value,
     }
-
-
-class _FakeMetricStore:
-    def __init__(self) -> None:
-        self.metrics: list[dict[str, object]] = []
-        self.closed = False
-
-    def write_metric(
-        self,
-        sim_id: str,
-        station_id: str,
-        metric_name: str,
-        value: float,
-        *,
-        variable: str,
-        n_samples: int | None,
-    ) -> None:
-        self.metrics.append(
-            {
-                "sim_id": sim_id,
-                "station_id": station_id,
-                "metric_name": metric_name,
-                "value": value,
-                "variable": variable,
-                "n_samples": n_samples,
-            }
-        )
-
-    def close(self) -> None:
-        self.closed = True

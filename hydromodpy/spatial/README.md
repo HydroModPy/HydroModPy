@@ -113,4 +113,4 @@ hydromodpy/spatial/
 | a field kind | `field/core/` (`Field`, `FieldParam` and their sections); see `docs/source/contribute/architecture/field/index.rst` |
 | a way to bring loaded data into the domain | a function in `geographic/structure_binders.py`, called from `workflow/steps/` |
 | a site-selection criterion | `site_selection/evaluation/criteria/`; see `site_selection/README.md` |
-| a capability | a `CapabilityDecl` and a worker beside the code, declared in `cli/_workers/process.py`; see `schema/README.md` |
+| a capability | a `CapabilityDecl` and a worker beside the code; see `schema/README.md` |

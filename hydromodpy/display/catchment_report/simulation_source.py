@@ -1,9 +1,12 @@
-"""Catalog-backed access to the simulation a catchment report describes.
+"""Access to the simulation a catchment report describes, by its run directory.
 
-The report reads the run through the catalog, not through an exported file:
-automated exports are opt-in, so a run made with default settings has a
-``timeseries`` table and a Parquet store but no CSV. Every path here is
-resolved by the catalog, so the report survives a change of storage layout.
+The report reads the run from its directory, never from the index nor from an
+exported file: automated exports are opt-in, so a run made with default
+settings has a ``timeseries`` table and a field store but no CSV. Which runs
+exist and which completed is read on disk: a completed run is a directory
+holding its ``manifest.json``. The sealed run is opened through its
+:class:`~hydromodpy.results.storage.run_store.RunStore`, which reads its
+facts from the manifest and writes nothing back.
 """
 
 from __future__ import annotations
@@ -15,84 +18,86 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.paths import runs_dir_for
+from hydromodpy.results.catalog.registration import split_stem_version
+from hydromodpy.results.manifest import is_sealed
 
 if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.run import Run
+    from hydromodpy.results.storage.run_store import RunStore
 
 DISCHARGE_VARIABLE = "discharge"
 
 
-def catalog_file(inputs: CatchmentReportInputs) -> Path:
-    """Return the catalog holding the simulation the report describes."""
-    return catalog_path_for(Path(inputs.simulation_workspace_dir))
-
-
 @contextmanager
-def open_simulation_run(inputs: CatchmentReportInputs) -> Iterator[tuple[Catalog, Run]]:
-    """Yield the workspace catalog, opened read-only, and the report's run in it."""
-    from hydromodpy.results.catalog import Catalog
+def open_simulation_run(inputs: CatchmentReportInputs) -> Iterator[RunStore]:
+    """Yield the store of the report's sealed run, read from its directory."""
+    from hydromodpy.results.storage.run_store import RunStore
 
-    with Catalog(inputs.simulation_workspace_dir, read_only=True) as catalog:
-        yield catalog, catalog[inputs.simulation_name]
+    with RunStore.open(inputs.run_dir) as store:
+        yield store
 
 
 def simulation_run_exists(inputs: CatchmentReportInputs) -> bool:
-    """Return whether the report's run is registered in the catalog."""
-    from hydromodpy.results.catalog.discovery import ReferenceResolutionError
-
-    if not catalog_file(inputs).is_file():
-        return False
-    try:
-        with open_simulation_run(inputs):
-            return True
-    except ReferenceResolutionError:
-        return False
+    """Return whether the report's run completed: its directory holds ``manifest.json``."""
+    return is_sealed(inputs.run_dir)
 
 
 def newest_completed_run_name(inputs: CatchmentReportInputs) -> str | None:
     """Return the name of the newest completed run of the report's name stem.
 
-    A registered name belongs to its run for good, a failed one included, so a
-    rerun of the report's simulation lands under ``<stem>.vN``. ``None`` when
-    the catalog holds no completed run of that stem, or when the configured
-    name already names a version (``<stem>.vN``): a pinned run is read as
-    written.
+    A name belongs to its run for good, a failed one included, so a rerun of
+    the report's simulation lands under ``<stem>.vN``. ``None`` when no run of
+    that stem completed, or when the configured name already names a version
+    (``<stem>.vN``): a pinned run is read as written.
     """
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.registration import split_stem_version
-
     stem, version = split_stem_version(inputs.simulation_name)
-    if version is not None or not catalog_file(inputs).is_file():
+    runs = runs_dir_for(Path(inputs.simulation_workspace_dir))
+    if version is not None or not runs.is_dir():
         return None
-    with Catalog(inputs.simulation_workspace_dir, read_only=True) as catalog:
-        runs = catalog.find(name_stem=stem, status="completed")
-        return runs[0].name if len(runs) else None
+    completed: list[tuple[int, str]] = []
+    for candidate in runs.iterdir():
+        name_stem, name_version = split_stem_version(candidate.name)
+        if name_stem == stem and is_sealed(candidate):
+            completed.append((name_version or 1, candidate.name))
+    return max(completed)[1] if completed else None
 
 
-def simulation_parquet_dir(catalog: Catalog, run: Run) -> Path | None:
+def simulation_parquet_dir(store: RunStore) -> Path | None:
     """Return the run's Parquet directory when it exists on disk."""
-    parquet_dir = catalog.tables_dir_for(run.sim_id)
-    return parquet_dir if parquet_dir.is_dir() else None
+    return store.tables_dir if store.tables_dir.is_dir() else None
 
 
-def read_simulated_discharge(run: Run) -> pd.DataFrame:
-    """Return the catchment discharge as ``datetime`` / ``value`` rows."""
-    series = run.timeseries(DISCHARGE_VARIABLE)
-    frame = pd.DataFrame(
+def read_simulated_discharge(store: RunStore) -> pd.DataFrame:
+    """Return the catchment discharge as ``datetime`` / ``value`` rows.
+
+    Raises
+    ------
+    KeyError
+        The run stored no discharge, or stored it at several stations.
+    """
+    frame = store.read_table("timeseries")
+    rows = frame[frame["variable"] == DISCHARGE_VARIABLE] if not frame.empty else frame
+    stations = sorted({str(station) for station in rows.get("station_id", [])})
+    if not stations:
+        raise KeyError(f"run {store.run_dir.name} stored no {DISCHARGE_VARIABLE} series")
+    if len(stations) > 1:
+        raise KeyError(
+            f"run {store.run_dir.name} stored {DISCHARGE_VARIABLE} at several stations "
+            f"({', '.join(stations)}); a catchment report reads one."
+        )
+    times = pd.to_datetime(rows["time"], utc=True, errors="coerce")
+    result = pd.DataFrame(
         {
-            "datetime": pd.to_datetime(pd.Index(series.index), errors="coerce"),
-            "value": pd.to_numeric(series.to_numpy(), errors="coerce"),
+            "datetime": times.dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(),
+            "value": pd.to_numeric(rows["value"], errors="coerce").to_numpy(),
         }
     )
-    return frame.dropna(subset=["datetime", "value"]).sort_values("datetime")
+    return result.dropna(subset=["datetime", "value"]).sort_values("datetime")
 
 
 __all__ = [
     "DISCHARGE_VARIABLE",
-    "catalog_file",
     "newest_completed_run_name",
     "open_simulation_run",
     "read_simulated_discharge",

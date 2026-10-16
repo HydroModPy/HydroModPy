@@ -187,7 +187,7 @@ Once registered, the figure is reachable from:
 .. code-block:: bash
 
    hmp viz show <sim_ref> my_figure
-   hmp viz gallery project.toml --only my_figure
+   hmp viz regen <sim_ref>
 
 And from TOML:
 

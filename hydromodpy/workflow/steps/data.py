@@ -412,17 +412,20 @@ def step_data_loading(ctx: WorkflowContext) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _workspace_root_for(ctx: WorkflowContext) -> Path | None:
-    """Return the project root, or None before the workspace exists."""
-    project_root = getattr(getattr(ctx.setup, "workspace", None), "project_root", None)
-    return None if project_root is None else Path(project_root)
+def _run_dir_for(state: PipelineState) -> Path | None:
+    """Return the run directory this pipeline owns, or None before there is one."""
+    run_dir = state.get("run_dir")
+    if run_dir is None:
+        return None
+    path = Path(str(run_dir))
+    return path if path.is_dir() else None
 
 
 class LoadDataStep:
     """Ingest external + custom data via data managers."""
 
     name = "load_data"
-    reads: ClassVar[tuple[str, ...]] = ("ctx",)
+    reads: ClassVar[tuple[str, ...]] = ("ctx", "run_dir")
     writes: ClassVar[tuple[str, ...]] = ("ctx",)
     config_sections: ClassVar[tuple[str, ...]] = ("data",)
 
@@ -435,7 +438,7 @@ class LoadDataStep:
             raise ConfigError("LoadDataStep requires 'ctx' in state.data")
 
         step_data_loading(ctx)
-        self._describe(ctx, state.run_id)
+        self._describe(ctx, state)
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -451,25 +454,22 @@ class LoadDataStep:
         document holds it - so a resume that finds the document gone, or
         truncated, refuses instead of carrying on over an undescribed load.
         """
-        ctx = state_out.get("ctx")
-        if ctx is None:
+        run_dir = _run_dir_for(state_out)
+        if run_dir is None:
             return ()
-        workspace = _workspace_root_for(ctx)
-        if workspace is None:
-            return ()
-        path = description_path(workspace, state_out.run_id)
+        path = description_path(run_dir)
         return (str(path),) if path.is_file() else ()
 
-    def _describe(self, ctx: WorkflowContext, run_id: str) -> dict | None:
+    def _describe(self, ctx: WorkflowContext, state: PipelineState) -> dict | None:
         """Write what this load read, beside the resume checkpoint of the run."""
-        workspace = _workspace_root_for(ctx)
-        if workspace is None:
+        run_dir = _run_dir_for(state)
+        if run_dir is None:
             return None
         payload = describe_loaded_data(
             ctx.loaded_data,
             plan_types=tuple(getattr(ctx.data_plan, "types", ()) or ()),
         )
-        write_data_description(workspace, run_id, payload)
+        write_data_description(run_dir, state.run_id, payload)
         return payload
 
     def rebuild_state(
@@ -489,15 +489,11 @@ class LoadDataStep:
         from before and a forcing from after. The description the first load
         left says which sources it used, so the divergence is at least named.
         """
-        ctx = prior_state.get("ctx")
-        before = (
-            read_data_description(_workspace_root_for(ctx) or workspace, run_id)
-            if ctx is not None
-            else None
-        )
+        run_dir = _run_dir_for(prior_state)
+        before = read_data_description(run_dir) if run_dir is not None else None
         state = self.run(prior_state)
-        if before is not None:
-            after = read_data_description(_workspace_root_for(ctx) or workspace, run_id)
+        if before is not None and run_dir is not None:
+            after = read_data_description(run_dir)
             for variable in changed_sources(before, after):
                 logger.warning(
                     "load_data.source_changed_since_the_run_started variable=%s run=%s",

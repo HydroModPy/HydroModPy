@@ -33,21 +33,21 @@ class RunPeriods:
         """The ``n + 1`` edges of the run's stress periods, or ``None`` without dates.
 
         Period ``i`` is ``[edges[i], edges[i + 1])``. The first edge is the
-        ``period_start`` the catalog stores, the others are the end stamps of
+        ``period_start`` the run states, the others are the end stamps of
         ``run.time_index``. A steady run over a window has one period over the
-        whole window. A run registered without a period, a steady run without
+        whole window. A run without a period, a steady run without
         ``[simulation.time]``, has no dates and returns ``None``.
         """
         start = self._run._load_row().get("period_start")
         if start is None or pd.isna(start):
             return None
-        # The same wall clock as time_index: the catalog stores naive strings.
+        # The clock of time_index: naive UTC.
         start = pd.Timestamp(start)
-        start = start.tz_localize(None) if start.tz is not None else start
+        start = start.tz_convert("UTC").tz_localize(None) if start.tz is not None else start
         return period_edges(self._run.time_index, start=start)
 
     def _count(self) -> int | None:
-        """Number of stored periods, ``None`` when the catalog records none."""
+        """Number of stored periods, ``None`` when the run states none."""
         n = self._run._load_row().get("n_timesteps")
         if n is None or pd.isna(n):
             return None

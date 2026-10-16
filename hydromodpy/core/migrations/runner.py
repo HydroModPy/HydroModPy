@@ -7,8 +7,7 @@ records each application in ``schema_migrations`` and keeps one row of
 verifies checksum integrity.
 
 The same runner serves multiple components by parametrizing
-``component`` (e.g. ``"catalog"`` for project catalogs, ``"index"`` for
-the machine-wide global index).
+``component`` (``"data_cache"`` for the source-data cache).
 """
 
 from __future__ import annotations
@@ -44,10 +43,6 @@ REPAIR_HINTS: dict[str, str] = {
     "catalog": (
         "the project index is rebuildable: delete <project>/.hmp/index.duckdb "
         "and run 'hmp catalog reindex'"
-    ),
-    "index": (
-        "the machine-wide index is rebuildable: delete it and run "
-        "'hmp workspace register <project>' for each workspace"
     ),
     "data_cache": (
         "the download cache is a primary record, not an index: restore the newest "

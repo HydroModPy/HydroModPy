@@ -638,8 +638,6 @@ def storage_tree() -> dict[str, Any]:
             first_paragraph(contract.session_trial_series_filename.__doc__),
             "hydromodpy.results.storage.contract.session_trial_series_filename",
         ),
-        entry("SHARE_DIRNAME", 1),
-        entry("REPORTS_DIRNAME", 2),
         entry("INTERNAL_DIRNAME", 1),
         entry("CATALOG_FILENAME", 2),
         placeholder(
@@ -669,7 +667,6 @@ def storage_tree() -> dict[str, Any]:
             first_paragraph(paths.state_dir.__doc__) + " Set by ``HMP_STATE_HOME``.",
             "hydromodpy.core.state.paths.state_dir",
         ),
-        entry("INDEX_FILENAME", 1),
         placeholder(
             "<cache>/",
             0,

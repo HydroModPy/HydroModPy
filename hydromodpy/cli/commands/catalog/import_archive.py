@@ -1,4 +1,4 @@
-"""``hmp catalog import`` - restore a run from a portable ``.hmp`` archive."""
+"""``hmp catalog import`` - bring a run published by ``hmp publish`` into the project."""
 
 from __future__ import annotations
 
@@ -7,10 +7,11 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
+from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "import"
-HELP: str = "Import a .hmp archive into the workspace (checksums verified first)"
+HELP: str = "Import a run written by 'hmp publish' (directory or tar), digests checked first"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -18,20 +19,23 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Examples:\n  hmp catalog import paper.hmp\n  hmp catalog import paper.hmp --as lab_copy",
+        epilog=(
+            "The run lands under runs/ with the next free version of its name,\n"
+            "read without its .vN: a published x.v2 becomes x in a project that has\n"
+            "no x. Pass --as to give it the name other documents cite.\n"
+            "\n"
+            "Examples:\n"
+            "  hmp catalog import baseline.tar\n"
+            "  hmp catalog import ../published/baseline --as lab_copy"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("package", help="Path to the .hmp archive")
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite an existing run with the same identity",
-    )
+    parser.add_argument("source", help="Directory or tar written by 'hmp publish'")
     parser.add_argument(
         "--as",
-        dest="as_project",
+        dest="as_name",
         default=None,
-        help="Project name given to the imported run, when a project of that name already holds runs",
+        help="Name of the imported run (default: the published name without its .vN)",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -39,23 +43,18 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.cli._workers.catalog import import_package_run
+    from hydromodpy.results.catalog.registration import import_publication
 
-    workspace_root = Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    root = resolve_project_root(
+        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    )
     try:
-        result = import_package_run(
-            args.package,
-            workspace=workspace_root,
-            force=args.force,
-            as_project=args.as_project,
-        )
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - surface verification / collision errors
+        rel_dir = import_publication(root, Path(args.source), name=args.as_name)
+    except Exception as exc:  # noqa: BLE001 - map digest, conflict and IO errors
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
+    if catalog_path_for(root).is_file():
+        from hydromodpy.results.catalog.indexer import index_new_runs
 
-    sids = result["sim_ids"]
-    ids = ", ".join(s[:8] for s in sids)
-    print(f"imported {len(sids)} run(s): {ids}")
+        index_new_runs(root)
+    print(f"imported {args.source} as {rel_dir}")

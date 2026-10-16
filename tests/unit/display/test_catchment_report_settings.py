@@ -33,11 +33,9 @@ def test_settings_keep_toml_contract_separate_from_derived_inputs(tmp_path) -> N
 [report]
 site_label = "Test Basin"
 station_label = "Test outlet"
-output_dir = "report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "context"
 """.lstrip(),
         encoding="utf-8",
     )
@@ -45,7 +43,6 @@ context_outputs_dir = "context"
     settings = CatchmentReportSettings.from_toml(config_path)
     inputs = CatchmentReportInputs.from_settings(settings)
 
-    assert settings.report.output_dir == tmp_path / "report"
     assert settings.layout.context_summary_name is None
     assert settings.layout.transient_config_name is None
     assert settings.layout.overview_config_name is None
@@ -54,8 +51,11 @@ context_outputs_dir = "context"
     assert settings.pipeline.strict_figure_postflight is False
     assert not hasattr(settings, "simulation_export")
 
+    run = tmp_path / "runs" / "transient_nwt"
+    assert inputs.run_dir == run
+    assert inputs.output_dir == run / "report"
     assert inputs.context_summary == (
-        tmp_path / "context" / "context" / "test_basin_gauged_context_summary.json"
+        run / "report" / "context" / "test_basin_gauged_context_summary.json"
     )
     assert inputs.transient_config == tmp_path / "run_transient_nwt.toml"
     assert inputs.overview_config == tmp_path / "config_overview.toml"
@@ -84,11 +84,9 @@ def test_settings_validate_boolean_pipeline_fields(tmp_path) -> None:
 [report]
 site_label = "Test"
 station_label = "Test outlet"
-output_dir = "report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "context"
 
 [pipeline]
 run_simulation = "yes"
@@ -107,11 +105,9 @@ def _write_report_file(tmp_path: Path, extra: str = "") -> Path:
 [report]
 site_label = "Test"
 station_label = "Test outlet"
-output_dir = "report"
 
 [layout]
 watershed_project_dir = "."
-context_outputs_dir = "context"
 """.lstrip()
         + extra,
         encoding="utf-8",
@@ -138,26 +134,40 @@ def test_a_misspelled_table_is_refused(tmp_path) -> None:
 
 def test_a_missing_table_or_key_is_named(tmp_path) -> None:
     no_layout = tmp_path / "no_layout.toml"
-    no_layout.write_text(
-        '[report]\nsite_label = "T"\nstation_label = "S"\noutput_dir = "r"\n', encoding="utf-8"
-    )
+    no_layout.write_text('[report]\nsite_label = "T"\nstation_label = "S"\n', encoding="utf-8")
     with pytest.raises(ConfigValidationError, match="layout"):
         CatchmentReportSettings.from_toml(no_layout)
 
-    no_output = tmp_path / "no_output.toml"
-    no_output.write_text(
-        '[report]\nsite_label = "T"\nstation_label = "S"\n'
-        '[layout]\nwatershed_project_dir = "."\ncontext_outputs_dir = "c"\n',
+    no_station = tmp_path / "no_station.toml"
+    no_station.write_text(
+        '[report]\nsite_label = "T"\n[layout]\nwatershed_project_dir = "."\n',
         encoding="utf-8",
     )
-    with pytest.raises(ConfigValidationError, match="output_dir"):
-        CatchmentReportSettings.from_toml(no_output)
+    with pytest.raises(ConfigValidationError, match="station_label"):
+        CatchmentReportSettings.from_toml(no_station)
+
+
+@pytest.mark.parametrize(
+    ("table", "key"), [("report", "output_dir"), ("layout", "context_outputs_dir")]
+)
+def test_a_retired_output_folder_is_refused_by_name(tmp_path, table, key) -> None:
+    """The report is written into the run it describes: no folder of its own is accepted."""
+    config_path = _write_report_file(tmp_path)
+    text = config_path.read_text(encoding="utf-8").replace(
+        f"[{table}]\n", f'[{table}]\n{key} = "elsewhere"\n'
+    )
+    config_path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match=f"'{key}' is not accepted any more") as raised:
+        CatchmentReportSettings.from_toml(config_path)
+
+    assert "runs/<simulation_name>/report/" in str(raised.value)
 
 
 def test_an_unknown_preset_is_refused_at_load(tmp_path) -> None:
     config_path = _write_report_file(tmp_path)
     text = config_path.read_text(encoding="utf-8").replace(
-        'output_dir = "report"', 'output_dir = "report"\npreset = "made_up"'
+        'station_label = "Test outlet"', 'station_label = "Test outlet"\npreset = "made_up"'
     )
     config_path.write_text(text, encoding="utf-8")
 

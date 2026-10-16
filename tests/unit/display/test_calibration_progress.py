@@ -379,51 +379,6 @@ def test_the_slide_saves_a_png(mpl, tmp_path: Path) -> None:
     assert target.stat().st_size > 0
 
 
-def test_a_promoted_run_reads_its_latest_session_from_the_index(mpl, tmp_path: Path) -> None:
-    """Read through the catalog: the phase and its metric come from the session row."""
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.run import Run
-
-    carrier = bisection_session()
-    session = carrier.calibration_sessions.iloc[0].to_dict()
-    with Catalog(tmp_path) as catalog:
-        sid = str(uuid.uuid4())
-        catalog.register_simulation(sid, project="p", solver="modflow6", name="promoted")
-        catalog.connection.execute(
-            "INSERT INTO calibration_sessions (session_id, project, method, objective_name, "
-            "config, started_at, phase_name, phase_index) VALUES (?, 'p', ?, 'nse', ?, ?, ?, 0)",
-            [
-                uuid.UUID(session["session_id"]),
-                session["method"],
-                session["config"],
-                datetime(2026, 9, 28, tzinfo=UTC),
-                session["phase_name"],
-            ],
-        )
-        best = len(carrier.calibration_iterations)
-        for row in carrier.calibration_iterations:
-            catalog.connection.execute(
-                "INSERT INTO calibration_iterations (session_id, iteration, sim_id, parameters, "
-                "objective_value, metrics, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [
-                    uuid.UUID(session["session_id"]),
-                    row["trial"],
-                    uuid.UUID(sid) if row["trial"] == best else None,
-                    json.dumps(row["parameters"]),
-                    row["objective_value"],
-                    json.dumps(row["metrics"]),
-                    row["status"],
-                ],
-            )
-        run = Run(sid, catalog)
-        figure = CalibrationProgressFigure()
-        assert figure.unavailable_reason(run) is None
-        fig = figure.plot(run)
-
-    assert "|D_so - D_os| (m)" in _ylabels(fig)
-    assert "Steady conductivity phase: bisection on K, 14 runs" in _texts(fig)
-
-
 def test_a_value_combined_from_two_roots_is_marked_and_gets_no_interval(mpl, tmp_path) -> None:
     """The slide agrees with the summary: the returned run, and no interval of runs."""
     from ._calibration_journal import (

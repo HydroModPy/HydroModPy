@@ -118,10 +118,7 @@ def run_validation_profile_intercomparison_regression(
         require_modpath=False,
         require_mt3dms=False,
     )
-    try:
-        runner = getattr(importlib.import_module(comparison_module), comparison_function)
-    except ModuleNotFoundError as exc:
-        pytest.skip(f"Validation profile intercomparison dependency is missing: {exc.name}")
+    runner = getattr(importlib.import_module(comparison_module), comparison_function)
 
     reference_comparison = None
     candidate_comparison = None

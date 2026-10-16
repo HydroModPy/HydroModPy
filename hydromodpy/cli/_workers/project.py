@@ -117,7 +117,7 @@ def show_project(name: str, *, workspace: Any = None) -> dict:
         from hydromodpy.results.catalog import Catalog, short_id
 
         try:
-            with Catalog(project_dir, read_only=True) as catalog:
+            with Catalog(project_dir) as catalog:
                 sims = catalog.list_simulations(order_by="created_at DESC")
             payload["simulations"] = [
                 {

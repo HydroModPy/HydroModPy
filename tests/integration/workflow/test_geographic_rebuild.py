@@ -20,6 +20,9 @@ PROJECT_TOML = """
 [workflow]
 mode = "simulation"
 
+[site]
+name = "naizin"
+
 [simulation]
 name = "naizin_rebuild"
 

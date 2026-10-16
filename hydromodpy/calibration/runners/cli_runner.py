@@ -1,31 +1,27 @@
-"""CLI entry point ``hmp calibrate <calibration.toml>``.
+"""CLI entry point ``hmp calibrate <calibration.toml>`` and the core search loop.
 
-Workflow:
+Workflow of a calibration without phases:
 
 1. Load the TOML and validate the ``[calibration]`` section into a
-   :class:`CalibrationConfig`.
-2. Resolve the evaluator ``[calibration].evaluator`` names, through
-   :mod:`hydromodpy.calibration.evaluation.registry`. What turns a parameter
-   sample into a cost lives behind that name, and this module does not know
-   which implementation answers.
-3. Prepare the downstream pipeline once via :func:`prepare_trials` **when the
-   resolved evaluator declares it needs one**, reusing the earliest-affected-step
-   optimisation so setup phases do not re-run per trial. An evaluator that
-   replaces the model skips this entirely and is handed ``trial_ctx=None``.
+   :class:`CalibrationConfig`, with the defaults of the project written in
+   (``[site] gauge`` as the station, ``[metrics] window`` as the scoring window).
+2. Name the case and reserve ``sessions/<case>/``; freeze the resolved
+   document there as ``config.toml``; open the journal.
+3. Prepare the downstream pipeline once via :func:`prepare_trials` when the
+   resolved evaluator declares it needs one.
 4. Drive the ask/tell loop through :class:`CalibrationEngine`, which calls the
-   evaluator once per suggestion. For the in-tree ``hydromodpy_pipeline``
-   evaluator that means forking the prepared context, running the solver in
-   lightweight mode, and extracting the objective in RAM.
-5. Persist every iteration into the DuckDB ``calibration_iterations``
-   table (``sim_id`` left ``NULL`` by default).
-6. Honor ``save_runs`` -- ``"best_n"`` / ``"all"`` promote the chosen
-   trials through :mod:`hydromodpy.calibration.runners.promotion`. Promotion
-   replays the pipeline, so it is refused outright when no model was prepared.
+   evaluator once per suggestion. Every trial goes to ``trials.jsonl``.
+5. Promote the trials ``save_runs`` names, once, after the last restart: the
+   best one to ``runs/<case>/``, the others under ``sessions/<case>/trials/``.
+6. Close the session: ``session.json``, ``outcome.json``, ``README.md``.
 
-The ``objective`` argument is a Python escape hatch
-(``"module.path:fn"``) for users who need a custom scalar -- the TOML
-``[calibration].objective`` + ``[calibration].variable`` pair already
-covers the standard NSE / KGE / RMSE cases.
+Nothing here opens the index. SIGTERM writes ``aborted``, marks the cut
+phase, and writes the pointer of the best trial of the last completed phase
+(or of the cut phase when no phase completed) in under a second
+(:func:`abort_session`); that trial is then promoted from its kept solve
+when it has one (:func:`promote_best_after_abort`), anything else is left to
+``hmp project promote``. The three runners close their session through one
+scope (:func:`closing_session`).
 """
 
 from __future__ import annotations
@@ -33,8 +29,9 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import replace
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -46,8 +43,8 @@ from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.objective import (
-    mean_objective_block_shares,
-    objective_block_shares,
+    mean_objective_block_fractions,
+    objective_block_fractions,
 )
 from hydromodpy.calibration.optim.optimizer import (
     EvaluationResult,
@@ -63,27 +60,34 @@ from hydromodpy.calibration.optim.tolerance import (
     tolerance_intervals,
 )
 from hydromodpy.calibration.persistence import (
-    CalibrationStoreFactory,
-    default_store_factory,
+    DEFAULT_PHASE,
+    CalibrationPersistence,
+    PhaseContext,
+    best_pointer,
 )
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
 from hydromodpy.calibration.runners.promotion import (
-    promote_iterations,
-    promoted_run_name,
-    registered_run_name,
+    PromotionOutcome,
+    promote_best_after_abort,
+    promote_session,
+    promotion_name_check,
 )
-from hydromodpy.calibration.runners.recap import (
-    cost_metric_label,
-    parameter_units,
-    session_directory,
-)
+from hydromodpy.calibration.runners.recap import cost_metric_label, parameter_units
 from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
+from hydromodpy.calibration.runners.session import (
+    calibration_case_name,
+    freeze_session_config,
+    objective_window_of,
+    open_session_dir,
+    project_root_for,
+    search_space_payload,
+    session_config_hash,
+)
 from hydromodpy.calibration.runners.state import (
-    SessionChain,
     build_cache_context,
     load_metric_fn_entry_point,
     preload_hash_cache,
@@ -103,8 +107,12 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
-from hydromodpy.core.workspace.path_registry import in_run_scratch, project_root_of_config
+from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
+from hydromodpy.core.workspace.path_registry import in_run_scratch
+from hydromodpy.results.checks import CalibrationSessionStatus
+from hydromodpy.results.session.descriptor import SessionStatus
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.optim.engine import CalibrationSession
@@ -151,7 +159,7 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     except ValueError as exc:
         raise ConfigError(f"{path}: {exc}") from None
     try:
-        cfg = CalibrationConfig.model_validate(raw["calibration"])
+        cfg = CalibrationConfig.model_validate(_with_project_defaults(raw, path))
     except ValidationError as exc:
         # The reader of this message writes TOML and does not read Python, so it
         # has to name the file, the line and the key rather than the model.
@@ -161,6 +169,23 @@ def load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
     resolve_stream_geometry_paths(cfg, path)
     _resolve_parameter_names(cfg, path)
     return cfg, raw
+
+
+def _with_project_defaults(raw: Mapping[str, Any], path: Path) -> dict[str, Any]:
+    """Return the raw ``[calibration]`` table with ``[site] gauge`` and ``[metrics] window`` written in."""
+    from hydromodpy.calibration.config import apply_project_defaults
+    from hydromodpy.core.exceptions import ConfigError
+
+    site = raw.get("site")
+    metrics = raw.get("metrics")
+    try:
+        return apply_project_defaults(
+            raw["calibration"],
+            site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
+            metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
+        )
+    except ConfigError as exc:
+        raise ConfigError(f"{path}: {exc}") from None
 
 
 def _resolve_parameter_names(cfg: CalibrationConfig, config_path: Path) -> None:
@@ -516,67 +541,6 @@ def _assert_active_release_packages_follow_k(
         raise ObjectiveError(message)
 
 
-def _search_space_payload(space: ParameterSpace) -> dict[str, Any]:
-    """Return the searched bounds, one entry per parameter, as plain data.
-
-    Written into the session journal so the frozen search space is readable
-    next to the trials it produced, without opening the index.
-    """
-    return {
-        param.name: {
-            "bounds": [param.lower, param.upper],
-            "transform": param.transform,
-            "target": param.effective_path,
-            "units": param.units,
-        }
-        for param in space
-    }
-
-
-def _session_config_payload(cfg: CalibrationConfig, evaluator: object) -> dict[str, Any]:
-    """Return the configuration a session records, with what was resolved on it.
-
-    A document that names no evaluator and no forward model still runs one of
-    each, and the defaults are exactly the case a first study hits. Recording
-    the raw field would journal ``None`` beside trials produced by a named
-    class, so the session would not say what ran. The ids come off the built
-    evaluator, which is the object that answered, never off the document.
-    """
-    payload = cfg.model_dump()
-    payload["evaluator"] = getattr(evaluator, "evaluator_id", None) or cfg.evaluator
-    forward_model = getattr(evaluator, "forward_model_id", None)
-    if forward_model is not None:
-        payload["forward_model"] = forward_model
-    if _scores_declared_blocks(cfg):
-        # The blocks say what the phase scores. The single-metric pair left at
-        # its schema default ("head", "nse") names nothing it scored.
-        for key in ("variable", "objective"):
-            if payload.get(key) == CalibrationConfig.model_fields[key].default:
-                payload.pop(key, None)
-    return payload
-
-
-def _scores_declared_blocks(cfg: CalibrationConfig) -> bool:
-    """Whether the search is scored by declared blocks, not by one variable and metric.
-
-    The block built from ``objective`` and ``variable`` when none is declared
-    does not count: that pair is then what the search scores.
-    """
-    blocks = list(cfg.objective_blocks or ())
-    if not blocks:
-        return False
-    if len(blocks) == 1:
-        block = blocks[0]
-        implicit = (
-            block.name == f"{cfg.objective}_{cfg.variable}"
-            and str(block.metric) == str(cfg.objective)
-            and list(block.uses_outputs) == [cfg.variable]
-        )
-        if implicit:
-            return False
-    return True
-
-
 def session_objective_name(cfg: CalibrationConfig) -> str:
     """Return the metric a session scores on, as its objective blocks name it.
 
@@ -587,31 +551,6 @@ def session_objective_name(cfg: CalibrationConfig) -> str:
     if metrics:
         return " + ".join(dict.fromkeys(metrics))
     return str(cfg.objective)
-
-
-def _persist_observed_for_report(catalog: Any, trial_ctx: Any, variable: str) -> None:
-    """Store the calibration observations so the report can draw obs-vs-sim.
-
-    The promoted run writes the simulated series to the catalog; the matching
-    observed series is sim-independent, so it lands once in the ``observations``
-    table keyed by station. Only the lake-level family is wired today; the
-    observed station is prefixed ``lake:<id>`` to line up with the simulated
-    LAK stage station.
-    """
-    if variable != "lake_level":
-        return
-    ctx = getattr(trial_ctx, "ctx", None)
-    write = getattr(catalog, "write_observations", None)
-    if ctx is None or write is None:
-        return
-    from hydromodpy.calibration.metrics.series import load_observed
-
-    for obs in load_observed(ctx, "lake_level"):
-        station = obs.station_id if obs.station_id.startswith("lake:") else f"lake:{obs.station_id}"
-        try:
-            write(station, "lake_level", obs.series, unit="m", quality="observed")
-        except Exception as exc:
-            logger.warning("Could not persist observed lake level %s for report: %s", station, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -1168,20 +1107,20 @@ def _status_of_the_search(
     )
 
 
-def _phase_objective_block_shares(
+def _phase_objective_block_fractions(
     cfg: CalibrationConfig,
     history: list[EvaluationResult],
     best: EvaluationResult | None,
 ) -> dict[str, Any] | None:
-    """Return the ``objective_block_shares`` a finished phase's report carries.
+    """Return the ``objective_block_fractions`` a finished phase's report carries.
 
-    ``"mean"`` averages each block's share of the cost over the finished
+    ``"mean"`` averages each block's fraction of the cost over the finished
     trials (``status == "completed"`` and a finite objective, the convention
     every optimizer adapter reads its own history with); ``"mean_n_trials"``
-    is how many of them entered that average. ``"best"`` reads the share at
+    is how many of them entered that average. ``"best"`` reads the fraction at
     the trial the search reports. ``None`` for a phase scored through a
     single metric, with no ``[[calibration.objective_blocks]]`` declared, or
-    when no finished trial gives a computable share.
+    when no finished trial gives a computable fraction.
     """
     blocks = [(str(block.name), float(block.weight)) for block in cfg.objective_blocks or []]
     if not blocks:
@@ -1191,15 +1130,15 @@ def _phase_objective_block_shares(
         for result in history
         if result.status == "completed" and math.isfinite(result.objective_value)
     ]
-    mean_result = mean_objective_block_shares(blocks, (result.components for result in finished))
+    mean_result = mean_objective_block_fractions(blocks, (result.components for result in finished))
     if mean_result is None:
         return None
-    mean_shares, n_trials = mean_result
-    payload: dict[str, Any] = {"mean": mean_shares, "mean_n_trials": n_trials}
+    mean_fractions, n_trials = mean_result
+    payload: dict[str, Any] = {"mean": mean_fractions, "mean_n_trials": n_trials}
     if best is not None:
-        best_shares = objective_block_shares(best.components, blocks)
-        if best_shares is not None:
-            payload["best"] = best_shares
+        best_fractions = objective_block_fractions(best.components, blocks)
+        if best_fractions is not None:
+            payload["best"] = best_fractions
     return payload
 
 
@@ -1398,19 +1337,21 @@ def run_calibration_core(
     cfg: CalibrationConfig,
     trial_ctx: TrialContext | None,
     *,
-    workspace: Path,
+    persistence: CalibrationPersistence,
     space: ParameterSpace,
-    project_label: str | None = None,
+    project_root: Path,
     cfg_path: Path | None = None,
     metric_fn: TrialMetricFn | None = None,
     objective: str | None = None,
-    store_factory: CalibrationStoreFactory | None = None,
-    chain: SessionChain | None = None,
+    phase: PhaseContext | None = None,
     start_at: Any | None = None,
     interval_width: IntervalWidth | None = None,
-    run_name: str | None = None,
 ) -> CalibrationReport:
-    """Heart of the calibration loop. Caller-agnostic.
+    """Heart of the calibration loop: one search, journaled as it goes.
+
+    The caller opened the session (``persistence``) and closes it; this runs
+    one search of it and returns its report. It promotes nothing: a phase is
+    promoted once, after its last restart, by the caller.
 
     ``start_at`` is where the search begins, in transformed space, and is how a
     restart-based uncertainty makes one repetition differ from the next. It is
@@ -1422,31 +1363,15 @@ def run_calibration_core(
     from ``cfg``. One mesh cell is measured off the trials, which the network
     criterion records beside its cost.
 
-    The caller is responsible for:
+    ``phase`` names the phase and the restart the trials of this search belong
+    to; unset, the one phase of a calibration without phases.
 
-    - building a :class:`TrialContext` (via :func:`prepare_trials` with the
-      appropriate ``parameter_space`` and ``override_paths``) when the named
-      evaluator declares it needs one, and passing ``None`` when it does not --
-      :func:`hydromodpy.calibration.evaluation.registry.needs_prepared_model`
-      answers that from the name alone, before the preparation is paid for,
-    - resolving the workspace,
-    - building the :class:`ParameterSpace`,
-    - providing ``cfg_path`` when ``cfg.materialize_candidates`` is True
-      (overlays are derived from the on-disk TOML).
-
-    ``chain`` names the session and places it in a chain of phases. A
-    standalone calibration leaves it unset and gets a fresh session id.
-
-    ``run_name`` is the name the best trial is promoted under. Unset, it is
-    the ``[simulation]`` name, followed by the phase name when ``chain`` places
-    the session in a chain (:func:`promoted_run_name`).
-
-    ``cfg_path`` is also what a declared ``stream_geometry_path`` is anchored
-    on. The three entry points converge here and all three pass it, whereas only
-    the CLI one goes through :func:`load_toml_calibration`; anchoring anywhere
-    else leaves the two programmatic routes reading the working directory.
+    The caller is responsible for building a :class:`TrialContext` when the
+    named evaluator declares it needs one, and passing ``None`` when it does
+    not, and for the :class:`ParameterSpace`. ``cfg_path`` is what a declared
+    ``stream_geometry_path`` is anchored on, and where candidates are
+    materialised from.
     """
-    from hydromodpy.calibration.persistence import CalibrationPersistence
     from hydromodpy.calibration.report import CalibrationReport
 
     if cfg_path is not None:
@@ -1457,22 +1382,12 @@ def run_calibration_core(
     # adapter constructor, after the first solve.
     cfg.validate_registry()
     override_paths = resolve_override_paths(cfg)
-
-    factory = store_factory or default_store_factory
-    catalog = factory(workspace, cfg.persistence)
-    persistence = CalibrationPersistence(
-        catalog, persistence=cfg.persistence, project_root=workspace
-    )
+    context = phase or PhaseContext()
 
     engine_cache: ParamsHashCache | None = None
     if cfg.use_cache:
         engine_cache = ParamsHashCache()
-        try:
-            n_preloaded = preload_hash_cache(catalog.connection, engine_cache)
-            if n_preloaded:
-                logger.info("Preloaded %d params_hash entries from DuckDB", n_preloaded)
-        except Exception:
-            logger.debug("Cache preload skipped (fresh catalog or schema mismatch)")
+        preload_hash_cache(project_root, engine_cache)
 
     refuse_an_objective_that_is_not_an_entry_point(objective)
     if metric_fn is None and objective and ":" in objective:
@@ -1489,49 +1404,23 @@ def run_calibration_core(
         _assert_active_release_packages_follow_k(cfg, trial_ctx, space)
 
     # The evaluator is resolved by the name the document wrote, and built with
-    # only the options its class names. Before the session row, because an
-    # evaluator that cannot be built must not leave a session behind claiming a
-    # search happened.
+    # only the options its class names.
     evaluator = evaluation_registry.create(
         cfg.evaluator,
         cfg=cfg,
         trial_ctx=trial_ctx,
         space=space,
-        workspace=workspace,
+        workspace=project_root,
         cfg_path=cfg_path,
         metric_fn=metric_fn,
     )
-    if trial_ctx is None and (cfg.save_runs != "none" or cfg.rerun_best_with_outputs):
+    if trial_ctx is None and cfg.save_runs != "none" and "save_runs" in cfg.model_fields_set:
         raise CalibrationError(
             f"calibration.evaluator names {getattr(evaluator, 'evaluator_id', cfg.evaluator)!r}, "
-            "which runs no HydroModPy model, and save_runs / rerun_best_with_outputs ask for "
-            "the best trials to be replayed through the pipeline and written as simulations. "
-            "There is no pipeline to replay them through. Refused here rather than at the end "
-            "of a search that would have had nothing to promote."
+            "which runs no HydroModPy model, and save_runs asks for the best trials to be "
+            "replayed through the pipeline and written as runs. There is no pipeline to "
+            "replay them through: write save_runs = 'none'."
         )
-    # Named before the search, so a name too long for a run folder is refused
-    # before the first trial rather than after the last one.
-    promoted_name = (
-        run_name or promoted_run_name(trial_ctx, chain.phase_name if chain is not None else None)
-        if trial_ctx is not None and (cfg.save_runs != "none" or cfg.rerun_best_with_outputs)
-        else None
-    )
-
-    session_id = chain.session_id if chain is not None else uuid.uuid4().hex
-    persistence.start_session(
-        session_id=session_id,
-        # The project a run registers under is its root folder name; a
-        # session names the same project unless the caller named another.
-        project=project_label or Path(workspace).name,
-        method=cfg.method,
-        objective_name=session_objective_name(cfg),
-        search_space=_search_space_payload(space),
-        config=_session_config_payload(cfg, evaluator),
-        parent_session_id=chain.parent_session_id if chain is not None else None,
-        root_session_id=chain.root_session_id if chain is not None else None,
-        phase_name=chain.phase_name if chain is not None else None,
-        phase_index=chain.phase_index if chain is not None else None,
-    )
 
     optimizer = build_optimizer(
         cfg.method,
@@ -1549,23 +1438,24 @@ def run_calibration_core(
 
     materialize_root: Path | None = None
     if cfg.materialize_candidates:
-        if cfg.candidates_root is None:
-            raise ValueError(
-                "calibration.materialize_candidates is True but "
-                "calibration.candidates_root is not set."
-            )
         if cfg_path is None:
             raise ValueError(
                 "calibration.materialize_candidates is True but no source TOML "
                 "is available. Provide cfg_path or run from a TOML-loaded Project."
             )
-        materialize_root = Path(cfg.candidates_root).expanduser().resolve()
+        from hydromodpy.results.storage.contract import SESSION_CANDIDATES_DIRNAME
+
+        materialize_root = persistence.directory / SESSION_CANDIDATES_DIRNAME
         materialize_root.mkdir(parents=True, exist_ok=True)
 
     def wrapped_evaluator(sugg: ParamSuggestion) -> EvaluationResult:
-        result = evaluator.evaluate(TrialRequest(trial_id=sugg.trial_id, values=sugg.values))
-        # calibration_iterations CHECK accepts only finite lifecycle states.
-        # Map "failed" metric errors onto "crashed" for persistence.
+        # The evaluator keys the sandbox of the trial and the solve it keeps on
+        # the id it is handed: the session number, the one the journal line,
+        # the candidate file and the promotion name the trial by.
+        number = persistence.assign_trial_number(sugg.trial_id, context)
+        result = evaluator.evaluate(TrialRequest(trial_id=number, values=sugg.values))
+        # The journal accepts only finite lifecycle states. Map "failed" metric
+        # errors onto "crashed".
         db_status = "crashed" if result.status == "failed" else result.status
         meta: dict[str, object] = {}
         if result.error:
@@ -1581,11 +1471,7 @@ def run_calibration_core(
         if series_sink is not None:
             rows = series_sink.drain()
             if rows and result.status == "completed":
-                session_dir = persistence.session_directory()
-                if session_dir is not None:
-                    from hydromodpy.results.session_journal import write_trial_series
-
-                    write_trial_series(session_dir, sugg.trial_id, rows)
+                meta["trial_series"] = rows
         if materialize_root is not None and cfg_path is not None:
             from hydromodpy.calibration.runners.materialize import materialize_candidate
 
@@ -1595,7 +1481,7 @@ def run_calibration_core(
                     dict(sugg.values),
                     space,
                     materialize_root,
-                    iteration_index=sugg.trial_id,
+                    iteration_index=number,
                 )
                 meta["materialized_overlay"] = str(overlay_path)
             except Exception as exc:
@@ -1627,12 +1513,14 @@ def run_calibration_core(
 
     def on_iteration(sugg: ParamSuggestion, result: EvaluationResult) -> None:
         values_by_trial[sugg.trial_id] = {k: float(v) for k, v in sugg.values.items()}
-        persistence.append_iteration(
-            session_id,
-            sugg,
-            result,
-            detail=cfg.persist_iteration_detail,
+        line = persistence.append_iteration(
+            sugg, result, detail=cfg.persist_iteration_detail, phase=context
         )
+        rows = (result.metadata or {}).get("trial_series")
+        if rows:
+            from hydromodpy.results.session.trial_series import write_trial_series
+
+            write_trial_series(persistence.directory, line.trial, rows)
         # After the trial is recorded, so a stopped search still shows what it
         # tried, and only for trials the engine actually ran: a cache hit never
         # reaches this callback.
@@ -1645,8 +1533,9 @@ def run_calibration_core(
     # bar show what the run will spend.
     budget = resolve_budget(optimizer, cfg.max_iter)
     logger.info(
-        "Calibration session %s | method=%s max_iter=%d save_runs=%s",
-        session_id,
+        "Calibration %s phase %s | method=%s max_iter=%d save_runs=%s",
+        persistence.directory.name,
+        context.name,
         cfg.method,
         budget,
         cfg.save_runs,
@@ -1656,6 +1545,9 @@ def run_calibration_core(
         space=space,
         optimizer=optimizer,
         evaluator=wrapped_evaluator,
+        before_batch=lambda batch: persistence.assign_trial_numbers(
+            [sugg.trial_id for sugg in batch], context
+        ),
         max_iter=budget,
         batch_size=cfg.batch_size,
         parallel=cfg.parallel,
@@ -1664,104 +1556,26 @@ def run_calibration_core(
         progress=ConsoleProgressReporter(
             cfg.method, budget, label=getattr(optimizer, "progress_label", None)
         ),
-        session_id=session_id,
+        session_id=persistence.descriptor.session_id,
         on_iteration=on_iteration,
     )
 
-    _keep_trial_solves(cfg, trial_ctx)
     t0 = time.perf_counter()
-    session: CalibrationSession | None = None
-    final_status = "failed"
-    final_error: str | None = None
-    promotion_count = 0
-    promotion_failures: list[str] = []
-    best_sim_id: str | None = None
-    best_run_name: str | None = None
-    best: EvaluationResult | None = None
+    from hydromodpy.solver.base.api_isolation import api_isolation_context
 
-    try:
-        from hydromodpy.solver.base.api_isolation import api_isolation_context
-
-        # Isolate each api solve in its own process for the PARALLEL trial loop
-        # only; promotion below replays a single run and stays in-process. The
-        # switch is backend-neutral on purpose: this path runs for every solver,
-        # so importing it must not cost a backend.
-        #
-        # A calibration is hours long, so what ends it is often not a keyboard:
-        # a scheduler time limit, a container stop, a plain kill. All of those
-        # are SIGTERM, which by default ends the process where it stands and
-        # leaves this session 'running' in the index for good.
-        with terminate_as_interrupt(), api_isolation_context(use_api_isolation):
-            session = engine.run()
-        best = session.best
-
-        promotion_required = cfg.save_runs != "none" or cfg.rerun_best_with_outputs
-        if promotion_required:
-            if cfg_path is None:
-                raise ValueError(
-                    "Calibration promotion requires a source TOML "
-                    "(promotion replays the full pipeline). Provide cfg_path or disable "
-                    "save_runs/rerun_best_with_outputs."
-                )
-            promotion_count, promotion_failures, best_sim_id = promote_iterations(
-                cfg=cfg,
-                trial_ctx=trial_ctx,
-                catalog=catalog,
-                persistence=persistence,
-                session_id=session_id,
-                best=best,
-                override_paths=override_paths,
-                run_name=str(promoted_name),
-            )
-            if best_sim_id is not None:
-                _persist_observed_for_report(catalog, trial_ctx, cfg.variable)
-                best_run_name = registered_run_name(catalog, best_sim_id)
-
-        n_total = len(session.history)
-        n_ok = sum(1 for h in session.history if h.status in ("completed", "cached"))
-        if n_total > 0 and n_ok == n_total:
-            final_status = "completed"
-        elif n_ok > 0:
-            final_status = "partial"
-        else:
-            final_status = "failed"
-            if n_total == 0:
-                final_error = "no iterations completed"
-        if promotion_failures:
-            final_status = "partial" if promotion_count > 0 else "failed"
-            final_error = "; ".join(promotion_failures)
-        final_status, final_error = _status_of_the_search(session, final_status, final_error)
-    except TerminationRequested:
-        final_status = "aborted"
-        final_error = "SIGTERM"
-        raise
-    except KeyboardInterrupt:
-        final_status = "aborted"
-        final_error = "SIGINT"
-        raise
-    except Exception as exc:
-        final_status = "failed"
-        final_error = str(exc)
-        raise
-    finally:
-        _release_trial_solves(trial_ctx)
-        _release_session_scratch(trial_ctx)
-        elapsed = time.perf_counter() - t0
-        n_iter = len(session.history) if session is not None else 0
-        duration = session.duration_s if session is not None and session.duration_s else elapsed
-        persistence.finalize_session(
-            session_id,
-            best=best,
-            n_iterations=n_iter,
-            duration_s=duration,
-            status=final_status,
-            error=final_error,
-            best_sim_id=best_sim_id,
-            root_search=_root_search_record(session),
-        )
-        close = getattr(catalog, "close", None)
-        if close is not None:
-            close()
+    # Isolate each api solve in its own process for the PARALLEL trial loop
+    # only; promotion replays a single run and stays in-process. The switch is
+    # backend-neutral on purpose: this path runs for every solver, so importing
+    # it must not cost a backend.
+    #
+    # A calibration is hours long, so what ends it is often not a keyboard: a
+    # scheduler time limit, a container stop, a plain kill. All of those are
+    # SIGTERM, which by default ends the process where it stands and would
+    # leave this session running on disk for good.
+    with terminate_as_interrupt(), api_isolation_context(use_api_isolation):
+        session = engine.run()
+    elapsed = time.perf_counter() - t0
+    best = session.best
 
     # Two parameters that moved together across the whole search were never told
     # apart by the data: the search stopped on a ridge and reported that point as
@@ -1821,38 +1635,351 @@ def run_calibration_core(
     )
     extra.update(_search_outcome_extra(session))
     extra.update(_roptim_verdict_extra(cfg.outputs, best.components if best else None))
-    if promotion_failures:
-        # Read by the console recap and the CLI exit code. The search itself is
-        # sound and kept: only the replayed runs are missing.
-        extra["promotion_failures"] = list(promotion_failures)
-        logger.error(
-            "Promotion failed for %d of %d run(s) of session %s; the search results are "
-            "kept, the failed runs were not written.",
-            len(promotion_failures),
-            len(promotion_failures) + promotion_count,
-            session_id,
-        )
     # Read by the console recap, which cannot reach the configuration.
     extra["parameter_units"] = parameter_units(cfg)
     extra["cost_metric"] = cost_metric_label(cfg)
+    extra["search_status"] = search_status(session)
 
     return CalibrationReport(
-        session_id=session_id,
+        session_id=persistence.descriptor.session_id,
         method=cfg.method,
         extra=extra,
         n_iterations=len(session.history),
         best_objective=best.objective_value if best else None,
-        best_sim_id=best_sim_id,
+        best_sim_id=None,
+        best_trial=persistence.trial_number(best.trial_id, context) if best else None,
         best_parameters=values_by_trial.get(best.trial_id) if best else None,
-        objective_block_shares=_phase_objective_block_shares(cfg, session.history, best),
+        objective_block_fractions=_phase_objective_block_fractions(cfg, session.history, best),
         duration_s=float(session.duration_s if session.duration_s else elapsed),
         save_runs=cfg.save_runs,
-        promoted=promotion_count,
-        workspace=workspace,
-        best_run_name=best_run_name,
-        session_dir=session_directory(workspace, session_id),
-        store_factory=lambda path: factory(path, cfg.persistence),
+        promoted=0,
+        workspace=project_root,
+        session_dir=persistence.directory,
     )
+
+
+def search_status(session: CalibrationSession) -> SessionStatus:
+    """Return the status a finished search leaves its phase in.
+
+    ``completed`` when every trial ran and the stopping rule was met;
+    ``partial`` when trials ran but some failed or the budget ended before the
+    rule; ``failed`` when nothing completed.
+    """
+    n_total = len(session.history)
+    n_ok = sum(1 for item in session.history if item.status in ("completed", "cached"))
+    if n_total == 0 or n_ok == 0:
+        return "failed"
+    if n_ok < n_total or not session.converged:
+        return "partial"
+    return "completed"
+
+
+def session_status_of(reports: Sequence[CalibrationReport]) -> SessionStatus:
+    """Return the status of a session from the searches it ran, the worst winning."""
+    statuses = [str(report.extra.get("search_status", "completed")) for report in reports]
+    if not statuses or "failed" in statuses:
+        return "failed"
+    if "partial" in statuses:
+        return "partial"
+    return "completed"
+
+
+def calibrated_status(status: SessionStatus) -> CalibrationSessionStatus:
+    """Return how the seal of a promoted run names the session that promoted it."""
+    return "aborted" if status in ("aborted", "failed") else status
+
+
+def promote_and_close(
+    *,
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext | None,
+    persistence: CalibrationPersistence,
+    project_root: Path,
+    report: CalibrationReport,
+    phase: str,
+    status: SessionStatus,
+    root_search: Mapping[str, Any] | None = None,
+) -> CalibrationReport:
+    """Promote the trials of ``phase`` and close the session; return the final report."""
+    promotion = PromotionOutcome()
+    if trial_ctx is not None and cfg.save_runs != "none" and status != "failed":
+        promotion = promote_session(
+            cfg=cfg,
+            trial_ctx=trial_ctx,
+            persistence=persistence,
+            project_root=project_root,
+            phase=phase,
+            session_status=calibrated_status(status),
+            override_paths=resolve_override_paths(cfg),
+            objective_window=objective_window_of(cfg),
+        )
+    final_status: SessionStatus = status
+    error: str | None = None
+    if promotion.failures:
+        # The search is sound and kept; only the written runs are missing.
+        final_status = "partial"
+        error = "; ".join(promotion.failures)
+        logger.error(
+            "Promotion failed for %d of %d run(s) of session %s; the search results are "
+            "kept, the failed runs were not written.",
+            len(promotion.failures),
+            len(promotion.failures) + promotion.count,
+            persistence.directory.name,
+        )
+    elif final_status == "partial":
+        error = str(report.extra.get("search", {}).get("stopping_rule") or "stopping rule not met")
+    persistence.finalize_session(
+        status=final_status,
+        best=best_pointer(persistence.best_trial(phase)),
+        error=error,
+        root_search=root_search,
+    )
+    write_session_readme(persistence)
+    extra = dict(report.extra)
+    if promotion.failures:
+        # Read by the console recap and the CLI exit code. The search itself is
+        # sound and kept: only the replayed runs are missing.
+        extra["promotion_failures"] = list(promotion.failures)
+    return replace(
+        report,
+        extra=extra,
+        promoted=promotion.count,
+        best_sim_id=promotion.best_sim_id,
+        best_rel_dir=promotion.best_rel_dir,
+    )
+
+
+def pointer_phase(persistence: CalibrationPersistence, phase: str) -> str:
+    """Return the phase whose best trial a closed session points at.
+
+    The last completed phase, or ``phase``, the one under way, when no phase
+    completed.
+    """
+    completed = [item for item in persistence.phases() if item.status == "completed"]
+    return completed[-1].name if completed else phase
+
+
+def abort_session(persistence: CalibrationPersistence, *, phase: str, error: str) -> str:
+    """Write ``aborted``, mark the cut phase, and point at the best trial so far.
+
+    Three small writes and nothing else: the signal that ends the process may
+    be followed by one that cannot be caught. ``phase`` is the phase under
+    way; its descriptor, when it has one, goes to ``aborted`` with its own
+    best trial. Returns the phase the session pointer was read from
+    (:func:`pointer_phase`).
+    """
+    cut = persistence.phase(phase)
+    if cut is not None and cut.status == "running":
+        persistence.finish_phase(
+            phase, status="aborted", best=best_pointer(persistence.best_trial(phase))
+        )
+    pointed = pointer_phase(persistence, phase)
+    persistence.finalize_session(
+        status="aborted", best=best_pointer(persistence.best_trial(pointed)), error=error
+    )
+    return pointed
+
+
+def fail_session(persistence: CalibrationPersistence, *, phase: str, error: str) -> None:
+    """Write ``failed`` with the error, pointing at the best trial so far."""
+    persistence.finalize_session(
+        status="failed",
+        best=best_pointer(persistence.best_trial(pointer_phase(persistence, phase))),
+        error=error,
+    )
+
+
+@dataclass
+class SessionScope:
+    """What closing a session needs, filled in as a runner goes.
+
+    ``phase`` is the phase under way, the one an interruption cuts, and
+    ``trial_ctx`` the prepared model of that phase, whose kept solves and
+    scratch are released on every exit. ``persistence`` is None until the
+    runner opened the session.
+    """
+
+    cfg: CalibrationConfig
+    project_root: Path
+    persistence: CalibrationPersistence | None = None
+    trial_ctx: TrialContext | None = None
+    phase: str = DEFAULT_PHASE
+
+
+@contextmanager
+def closing_session(scope: SessionScope) -> Iterator[SessionScope]:
+    """Close the session of ``scope`` on every exit the runner did not close itself.
+
+    A signal (SIGTERM, SIGINT) writes ``aborted`` and the pointer first
+    (:func:`abort_session`), then promotes the pointed trial from its kept
+    solve (:func:`promote_best_after_abort`). An error of the search writes
+    ``failed`` with its message. The kept solves and the scratch of the phase
+    are released last, after the promotion that reads them.
+    """
+    try:
+        yield scope
+    except KeyboardInterrupt as exc:
+        # TerminationRequested is a KeyboardInterrupt: SIGTERM and SIGINT alike.
+        if scope.persistence is not None:
+            abort_and_promote(
+                scope, error="SIGTERM" if isinstance(exc, TerminationRequested) else "SIGINT"
+            )
+        raise
+    except Exception as exc:
+        if scope.persistence is not None:
+            fail_session(scope.persistence, phase=scope.phase, error=str(exc))
+        raise
+    finally:
+        _release_trial_solves(scope.trial_ctx)
+        _release_session_scratch(scope.trial_ctx)
+
+
+def abort_and_promote(scope: SessionScope, *, error: str) -> PromotionOutcome:
+    """Abort the session of ``scope`` and promote its pointed trial from its kept solve."""
+    persistence = scope.persistence
+    assert persistence is not None
+    pointed = abort_session(persistence, phase=scope.phase, error=error)
+    promotion = promote_best_after_abort(
+        cfg=scope.cfg,
+        trial_ctx=scope.trial_ctx,
+        persistence=persistence,
+        project_root=scope.project_root,
+        phase=pointed,
+        override_paths=resolve_override_paths(scope.cfg),
+        objective_window=objective_window_of(scope.cfg),
+    )
+    if promotion.best_sim_id is not None:
+        persistence.set_best(best_pointer(persistence.best_trial(pointed)))
+    for failure in promotion.failures:
+        logger.error("Promotion after the interruption failed: %s", failure)
+    return promotion
+
+
+def write_session_readme(persistence: CalibrationPersistence) -> Path:
+    """Render ``README.md`` of the session from its descriptor, trials and phases."""
+    from hydromodpy.results.readme import render_session_readme, write_readme
+
+    text = render_session_readme(
+        persistence.descriptor, persistence.trials(), None, phases=persistence.phases()
+    )
+    return write_readme(persistence.directory, text)
+
+
+def run_one_search(
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext | None,
+    *,
+    persistence: CalibrationPersistence,
+    space: ParameterSpace,
+    project_root: Path,
+    cfg_path: Path,
+    metric_fn: TrialMetricFn | None,
+    objective: str | None,
+    phase: PhaseContext,
+    passed_start: Any | None = None,
+    interval_width: IntervalWidth | None = None,
+    core: Callable[..., CalibrationReport] | None = None,
+) -> tuple[CalibrationReport, tuple[Any, ...]]:
+    """Run one phase, restarts included, and return its report and the restart spread.
+
+    ``core`` is the search loop, :func:`run_calibration_core` unless a caller
+    hands another one in.
+    """
+    search = core if core is not None else run_calibration_core
+
+    def _one_search(restart_seed: int, start_at: Any, restart: int = 0) -> CalibrationReport:
+        return search(
+            cfg
+            if restart_seed == (cfg.seed or 0)
+            else cfg.model_copy(update={"seed": restart_seed}),
+            trial_ctx,
+            persistence=persistence,
+            space=space,
+            project_root=project_root,
+            cfg_path=cfg_path,
+            metric_fn=metric_fn,
+            objective=objective,
+            phase=replace(phase, restart=phase.restart + restart),
+            start_at=passed_start if start_at is None else start_at,
+            interval_width=interval_width,
+        )
+
+    uncertainty = getattr(cfg, "uncertainty", None)
+    if getattr(uncertainty, "method", None) == "multistart":
+        logger.info(
+            "Running %d restarts: the answer is the best of them, the spread is reported "
+            "beside it, and each restart is a full search.",
+            int(uncertainty.restarts),
+        )
+        counter = {"restart": -1}
+
+        def _restart(restart_seed: int, start_at: Any) -> CalibrationReport:
+            counter["restart"] += 1
+            return _one_search(restart_seed, start_at, counter["restart"])
+
+        return run_restarts(
+            _restart,
+            method=cfg.method,
+            space=space,
+            restarts=int(uncertainty.restarts),
+            seed=cfg.seed,
+        )
+    return _one_search(cfg.seed or 0, None), ()
+
+
+def _with_linearized_width(
+    report: CalibrationReport,
+    cfg: CalibrationConfig,
+    trial_ctx: TrialContext | None,
+    space: ParameterSpace,
+) -> CalibrationReport:
+    """Attach the linearized width a document asks for, or refuse when nothing can be perturbed."""
+    uncertainty = getattr(cfg, "uncertainty", None)
+    if getattr(uncertainty, "method", None) != "linearized":
+        return report
+    if trial_ctx is None:
+        raise CalibrationError(
+            "uncertainty.method is 'linearized', which perturbs each calibrated value and "
+            "rebuilds the model to read the sensitivity off it. The evaluator named here "
+            "runs no HydroModPy model, so there is nothing to rebuild. Use 'cost_profile', "
+            "which reads the trace the search already produced, or 'multistart'."
+        )
+    return attach_a_linearized_width(
+        report,
+        cfg=cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        perturbation=float(uncertainty.perturbation),
+    )
+
+
+def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
+    """Return what a calibration would do, without writing anything.
+
+    The version is the one the session would reserve now
+    (:func:`~hydromodpy.results.catalog.registration.next_version_dirname`); the
+    promoted run takes the same directory name under ``runs/``.
+    """
+    from hydromodpy.results.catalog.registration import next_version_dirname
+
+    cfg, _raw = load_toml_calibration(cfg_path)
+    case = calibration_case_name(cfg_path)
+    dirname = next_version_dirname(project_root, case)
+    phases = [
+        {"name": decl.name, "parameters": list(decl.parameters), "max_iter": decl.max_iter}
+        for decl in cfg.phases or ()
+    ] or [{"name": DEFAULT_PHASE, "parameters": list(cfg.parameters), "max_iter": cfg.max_iter}]
+    return {
+        "case": case,
+        "project_root": str(project_root),
+        "session_dir": session_dir_rel(dirname),
+        "run_dir": run_dir_rel(dirname),
+        "version": dirname,
+        "phases": phases,
+        "solves_in_parallel": int(cfg.parallel),
+        "save_runs": cfg.save_runs,
+        "dry_run": True,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1861,7 +1988,7 @@ def run_calibration_core(
 
 
 @in_run_scratch(
-    lambda config_path, **kw: project_root_of_config(config_path, kw.get("workspace")),
+    lambda config_path, **kw: project_root_for(Path(config_path), kw.get("workspace")),
     lambda config_path, **_kw: Path(config_path).stem,
     check=lambda *_a, **kw: refuse_an_objective_that_is_not_an_entry_point(kw.get("objective")),
 )
@@ -1873,7 +2000,8 @@ def run_calibration_cli(
     project: str | None = None,
     metric_fn: TrialMetricFn | None = None,
     return_report: bool = False,
-    store_factory: CalibrationStoreFactory | None = None,
+    resume: bool = False,
+    dry_run: bool = False,
 ) -> dict | object:
     """Run a calibration described by ``config_path``.
 
@@ -1887,77 +2015,68 @@ def run_calibration_cli(
         RAM metric extractor. ``metric_fn`` wins when both are given;
         a value that is not an entry point is refused.
     workspace
-        Override the project catalog root (defaults to the one resolved
-        from the TOML).
+        Override the project root (defaults to the one resolved from the
+        location of the TOML).
     project
-        Project label written to ``calibration_sessions.project``. Unset, the
-        name of the project root folder, as a run registers it.
+        Project name written in the outcome of the session. Unset, the name
+        of the project root folder.
     metric_fn
         Programmatic override for the metric extractor.
     return_report
         When True, return the structured :class:`CalibrationReport`
         instead of its ``to_dict()`` payload.
+    resume
+        Reopen the latest session of the case instead of starting a new one;
+        the trials already journaled preload the cache.
+    dry_run
+        Describe what would run, write nothing.
     """
     refuse_an_objective_that_is_not_an_entry_point(objective)
     cfg_path = Path(config_path).expanduser().resolve()
+    project_root = project_root_for(cfg_path, workspace)
+    if dry_run:
+        return describe_dry_run(cfg_path, project_root=project_root)
     cfg, raw = load_toml_calibration(cfg_path)
     cfg = _with_its_method(cfg)
     space = space_from_config(cfg)
     paths = resolve_override_paths(cfg)
+    case = calibration_case_name(cfg_path)
+    promotion_name_check(case)
 
     # Asked of the class, before anything is built: preparing trials runs the
     # whole geographic, mesh and data prefix of the pipeline, and an evaluator
-    # that replaces the model has no use for the model's setup. Paying for it
-    # anyway is what would make a surrogate as slow as what it stands in for.
+    # that replaces the model has no use for the model's setup.
     trial_ctx = (
         prepare_trials(cfg_path, override_paths=paths, parameter_space=space)
         if evaluation_registry.needs_prepared_model(cfg.evaluator)
         else None
     )
-
-    if workspace is not None:
-        ws_root = Path(workspace).expanduser().resolve()
-    elif trial_ctx is not None:
-        ws_root = trial_ctx.workspace
-    else:
-        # No prepared context to read the project root off, so the document is
-        # asked directly. Falling straight through to the file's directory would
-        # write the session journal somewhere else than a run of the same file
-        # that names the pipeline evaluator, over the same declared root.
-        declared = (raw.get("workspace") or {}).get("project_root")
-        ws_root = Path(declared).expanduser() if declared else cfg_path.parent
-        if not ws_root.is_absolute():
-            ws_root = (cfg_path.parent / ws_root).resolve()
-
-    def _one_search(restart_seed: int, start_at):
-        return run_calibration_core(
-            cfg
-            if restart_seed == (cfg.seed or 0)
-            else cfg.model_copy(update={"seed": restart_seed}),
+    persistence, _reopened = open_calibration_session(
+        project_root,
+        case,
+        resume=resume,
+        raw=raw,
+        cfg=cfg,
+        space=space,
+        trial_ctx=trial_ctx,
+        project=project,
+    )
+    phase = PhaseContext(DEFAULT_PHASE, 0, 0)
+    _keep_trial_solves(cfg, trial_ctx)
+    scope = SessionScope(
+        cfg=cfg, project_root=project_root, persistence=persistence, trial_ctx=trial_ctx
+    )
+    with closing_session(scope):
+        report, spread = run_one_search(
+            cfg,
             trial_ctx,
-            workspace=ws_root,
+            persistence=persistence,
             space=space,
-            project_label=project,
+            project_root=project_root,
             cfg_path=cfg_path,
             metric_fn=metric_fn,
             objective=objective,
-            store_factory=store_factory,
-            start_at=start_at,
-        )
-
-    uncertainty = getattr(cfg, "uncertainty", None)
-    if getattr(uncertainty, "method", None) == "multistart":
-        logger.info(
-            "Running %d restarts: the answer is the best of them, the spread is reported "
-            "beside it, and each restart is a full search.",
-            int(uncertainty.restarts),
-        )
-        report, spread = run_restarts(
-            _one_search,
-            method=cfg.method,
-            space=space,
-            restarts=int(uncertainty.restarts),
-            seed=cfg.seed,
+            phase=phase,
         )
         for item in spread:
             logger.info(
@@ -1971,34 +2090,102 @@ def run_calibration_cli(
                 if item.spans_a_decade
                 else "",
             )
-    elif getattr(uncertainty, "method", None) == "linearized":
-        if trial_ctx is None:
-            raise CalibrationError(
-                "uncertainty.method is 'linearized', which perturbs each calibrated value and "
-                "rebuilds the model to read the sensitivity off it. The evaluator named here "
-                "runs no HydroModPy model, so there is nothing to rebuild. Use 'cost_profile', "
-                "which reads the trace the search already produced, or 'multistart'."
-            )
-        report = _one_search(cfg.seed or 0, None)
-        report = attach_a_linearized_width(
-            report,
+        report = _with_linearized_width(report, cfg, trial_ctx, space)
+        report = promote_and_close(
             cfg=cfg,
             trial_ctx=trial_ctx,
-            space=space,
-            perturbation=float(uncertainty.perturbation),
+            persistence=persistence,
+            project_root=project_root,
+            report=report,
+            phase=DEFAULT_PHASE,
+            status=str(report.extra.get("search_status", "completed")),
+            root_search={
+                key: report.extra[key] for key in ("bracket", "roots") if key in report.extra
+            },
         )
-    else:
-        report = _one_search(cfg.seed or 0, None)
     if return_report:
         return report
     return report.to_dict()
 
 
+def session_method(cfg: CalibrationConfig) -> str:
+    """Return the search method a session journals.
+
+    The method the document runs (``CalibrationConfig.method_for``), chosen
+    from what the search scores when the file names none. A staged document
+    names the method of each phase, joined in declaration order.
+    """
+    if cfg.phases:
+        return " + ".join(cfg.method_for(phase)[0] for phase in cfg.phases)
+    return cfg.method_for()[0]
+
+
+def open_calibration_session(
+    project_root: Path,
+    case: str,
+    *,
+    resume: bool,
+    raw: Mapping[str, Any],
+    cfg: CalibrationConfig,
+    space: ParameterSpace,
+    trial_ctx: TrialContext | None,
+    project: str | None,
+) -> tuple[CalibrationPersistence, bool]:
+    """Reserve or reopen ``sessions/<case>`` and open its journal.
+
+    A new session freezes the resolved document as ``config.toml`` and writes
+    the opening descriptor. A reopened one goes back to ``running`` and keeps
+    its trials. Returns the persistence and whether the session was reopened.
+    """
+    session_dir, reopened = open_session_dir(project_root, case, resume=resume)
+    persistence = CalibrationPersistence(session_dir)
+    if reopened:
+        persistence.resume_session()
+        return persistence, True
+    freeze_session_config(session_dir, raw)
+    persistence.start_session(
+        session_id=uuid.uuid4().hex,
+        case_id=case,
+        site=_site_name(raw),
+        project=project or project_root.name,
+        config_hash=session_config_hash(raw, trial_ctx),
+        hydromodpy_version=HYDROMODPY_VERSION,
+        method=session_method(cfg),
+        objective_name=session_objective_name(cfg),
+        search_space=search_space_payload(space),
+        objective_window=objective_window_of(cfg),
+    )
+    return persistence, False
+
+
+def _site_name(raw: Mapping[str, Any]) -> str | None:
+    """Return ``[site] name`` of a document, or None."""
+    site = raw.get("site")
+    name = site.get("name") if isinstance(site, Mapping) else None
+    return str(name) if name else None
+
+
 __all__ = [
+    "SessionScope",
+    "abort_and_promote",
+    "abort_session",
     "attach_a_linearized_width",
-    "refuse_an_objective_that_is_not_an_entry_point",
+    "calibrated_status",
+    "closing_session",
+    "describe_dry_run",
+    "fail_session",
     "load_toml_calibration",
+    "open_calibration_session",
+    "pointer_phase",
+    "promote_and_close",
+    "refuse_an_objective_that_is_not_an_entry_point",
     "resolve_stream_geometry_paths",
     "run_calibration_cli",
     "run_calibration_core",
+    "run_one_search",
+    "search_status",
+    "session_method",
+    "session_objective_name",
+    "session_status_of",
+    "write_session_readme",
 ]

@@ -90,18 +90,21 @@ def captured_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> PipelineS
     seen: list[PipelineState] = []
 
     class _Pipeline:
-        def __init__(self, steps, *, workspace) -> None:
+        def __init__(self, steps, *, workspace, run_dir) -> None:
             self.steps = steps
             self.workspace = workspace
+            self.run_dir = run_dir
 
-        def run(self, state, *, resume_from=None, parallel=True, model_phase_ready=False):
+        def run(
+            self, state, *, resume_from=None, parallel=True, model_phase_ready=False, heartbeat=None
+        ):
             seen.append(state)
             return state
 
     monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
 
     project = Project(config_path, no_display=True)
-    project.simulate(name="asked_name")
+    project.execute(name="asked_name")
 
     assert len(seen) == 1
     return seen[0]

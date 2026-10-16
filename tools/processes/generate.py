@@ -17,17 +17,16 @@ to make. ``tools/docs/schema_export.py`` has the same shape.
 Refresh with ``python -m tools.processes``. A committed file the generator no
 longer reproduces is a gate failure, not a warning.
 
-Two deliberate departures from the specification this was written against:
+One deliberate departure from the specification this was written against:
+the ``$id`` of an embedded input schema carries the **capability** version,
+not the package version. The document is committed and byte-compared, so a
+package version in it would turn the gate red on every release for a
+description that did not change. What governs an input schema is the
+capability that declares it.
 
-* the ``$id`` of an embedded input schema carries the **capability** version,
-  not the package version. The document is committed and byte-compared, so a
-  package version in it would turn the gate red on every release for a
-  description that did not change. What governs an input schema is the
-  capability that declares it.
-* ``progress_file``, ``network`` and ``concurrency`` are **absent** from the
-  invocation block. Nothing in this tree writes ``progress.ndjson`` yet, and
-  neither of the other two is enforced anywhere. Declaring them would publish
-  exactly the kind of statement F1 and F2 spent two phases removing.
+The description carries no invocation block. No CLI verb runs a capability by
+its id: ``hmp data get``, the domain step of ``hmp run`` and ``hmp site select``
+drive them, so an argv in the document would name a command that does not exist.
 """
 
 from __future__ import annotations
@@ -36,20 +35,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.cli._workers.process import capability_decls
-from hydromodpy.cli.helpers import EXIT_SIGINT, exit_code_for
+from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.config.schema_export import export_schema, extract_property_schema
-from hydromodpy.core.exceptions import JobUsageError
+from hydromodpy.data.request.job import DATA_REQUEST
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
-from hydromodpy.schema.job.layout import OUTCOME_FILENAME, REQUEST_FILENAME
-from hydromodpy.schema.job.outcome import DISMISSED_STATUS
-from hydromodpy.schema.job.reuse import REUSED_MEMBER
 from hydromodpy.schema.processes import (
     INDEX_FILENAME,
     INDEX_PROFILE,
     PROCESS_PROFILE,
     description_filename,
 )
+from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
+from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTIONS_DIR = REPO_ROOT / "hydromodpy" / "schema" / "processes"
@@ -60,7 +57,10 @@ JOB_CONTROL_OPTIONS = ("sync-execute",)
 OUTPUT_TRANSMISSION = ("reference",)
 """Artefacts stay on disk under the job directory; nothing is inlined."""
 
-JOB_DIR_PLACEHOLDER = "{jobdir}"
+
+def capability_decls() -> tuple[CapabilityDecl, ...]:
+    """Return the declaration of every capability this build describes."""
+    return (DATA_REQUEST, DOMAIN_BUILD, TERRAIN_DELINEATE)
 
 
 def _write_if_changed(path: Path, content: str) -> bool:
@@ -177,53 +177,6 @@ def build_output(output: OutputDecl) -> dict[str, Any]:
     return entry
 
 
-def build_invocation(decl: CapabilityDecl) -> dict[str, Any]:
-    """Return how this capability is invoked, and what it promises while it runs."""
-    return {
-        "argv": ["hmp", "process", "run", decl.id, "--job", JOB_DIR_PLACEHOLDER],
-        "request_file": REQUEST_FILENAME,
-        "outcome_file": OUTCOME_FILENAME,
-        "stdout": (
-            f"application/json, exactly one document, byte-identical to {OUTCOME_FILENAME}; "
-            f'on a reuse, that document with "{REUSED_MEMBER}": true'
-        ),
-        # A list and not a boolean: the answer an orchestrator needs is "what
-        # else has to be writable", and for this capability it is not "nothing".
-        # Empty means the job directory is the only writable thing it wants.
-        "writes_outside_jobdir": list(decl.writes_outside_jobdir),
-        "reads_outside_jobdir": f"only the paths declared in {REQUEST_FILENAME}",
-        # A list of hosts for the same reason, and present only because it is
-        # now checked: a test records every name the process resolves and every
-        # address it connects to, and refuses one this list does not carry.
-        # Empty means the capability runs on a node with no egress at all.
-        "network": list(decl.reaches_network),
-        "cancellation": {
-            "signal": "SIGTERM",
-            "status": DISMISSED_STATUS,
-            "exit_code": EXIT_SIGINT,
-        },
-        # The exit code of a conflict is not repeated here: naming the error
-        # code points at the row of ``hmp:exceptions`` that already carries it,
-        # so one document cannot state the same number twice and differ.
-        "idempotency": {
-            "job_id": (
-                "sha256 of the process identity and of the resolved inputs, "
-                "every file link replaced by the digest of its bytes"
-            ),
-            "reuse": (
-                f"a job directory already sealed under the same job_id is re-reported: "
-                f"nothing is written, stdout carries its {OUTCOME_FILENAME} with "
-                f'"{REUSED_MEMBER}": true, and the process exits 0'
-            ),
-            "conflict": (
-                f"a job directory sealed under another job_id is refused, "
-                f"as {error_code(JobUsageError)}"
-            ),
-        },
-        "env": list(decl.env),
-    }
-
-
 def build_description(decl: CapabilityDecl) -> dict[str, Any]:
     """Return the full process description of one capability."""
     return {
@@ -235,7 +188,6 @@ def build_description(decl: CapabilityDecl) -> dict[str, Any]:
         "keywords": list(decl.keywords),
         "jobControlOptions": list(JOB_CONTROL_OPTIONS),
         "outputTransmission": list(OUTPUT_TRANSMISSION),
-        "hmp:invocation": build_invocation(decl),
         "inputs": build_inputs(decl),
         "outputs": {output.id: build_output(output) for output in decl.outputs},
         "hmp:exceptions": build_exceptions(decl),
@@ -299,13 +251,12 @@ def generate_all(output_dir: Path | None = None) -> list[Path]:
 
 __all__ = [
     "DESCRIPTIONS_DIR",
-    "DISMISSED_STATUS",
     "build_description",
     "build_exceptions",
     "build_index",
     "build_inputs",
-    "build_invocation",
     "build_output",
+    "capability_decls",
     "error_code",
     "error_title",
     "generate_all",

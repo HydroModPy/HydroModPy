@@ -1,11 +1,9 @@
 [report]
 site_label = "Nancon"
 station_label = "Nancon a Lecousse"
-output_dir = "outputs/nancon_real_figures"
 
 [layout]
 watershed_project_dir = "../02_nancon_watershed"
-context_outputs_dir = "outputs/nancon_context"
 data_overview_project_dir = "../02_nancon_watershed"
 simulation_workspace_dir = "../02_nancon_watershed"
 simulation_name = "transient_nwt"

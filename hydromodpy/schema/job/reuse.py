@@ -15,8 +15,8 @@ for every capability rather than for the one that exists today:
   seal, a job id and a set of artefacts somebody else may already have read.
 
 What a reuse does **not** do is re-hash the artefacts. The seal is trusted, and
-``hmp process verify`` is the verb that does not trust it: it re-reads every
-byte and reports. Folding that into the reuse path would give an unbounded cost
+the verification that does not trust the seal (``verify_job``) re-reads every
+output and reports. Folding that into the reuse path would give an unbounded cost
 to the one path whose whole purpose is to be instant, and would leave the
 caller with no answer anyway -- a corrupt sealed directory cannot be re-run
 into, since that is exactly what the refusal above protects.

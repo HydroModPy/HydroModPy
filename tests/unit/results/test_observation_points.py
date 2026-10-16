@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-import uuid
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.results.catalog import Catalog
-from hydromodpy.results.catalog.reindex import rebuild_index
-from hydromodpy.results.run.observation_points import station_id_for
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.run.observation_points import sample_observation_points, station_id_for
 from hydromodpy.results.storage.contract import PARQUET_FILE_SUFFIX, TABLES_DIRNAME
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.simulation.planning.observation_config import ObservationConfig
+from tests._helpers.run_stores import open_run_store
 
 VERTICES = np.array(
     [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]],
@@ -36,24 +39,21 @@ DECLARATIONS = [
 ]
 
 
-def _seal_run(catalog: Catalog, name: str) -> str:
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        flow_regime="transient",
+def _open_run(root: Path, name: str) -> RunStore:
+    """Open a transient two-layer run with its mesh, its clock and its head."""
+    store = open_run_store(
+        root,
+        name,
         n_cells=N_CELLS,
         n_layers=N_LAYERS,
         n_timesteps=N_STEPS,
-        bbox=[0.0, 0.0, 2.0, 1.0],
-        crs="EPSG:2154",
-        config={"flow": {"hk": 1e-5}},
+        flow_regime="transient",
+        bbox=(0.0, 0.0, 2.0, 1.0),
+        crs_epsg=2154,
+        crs_wkt="EPSG:2154",
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    store_zarr = catalog.open_zarr(sid)
+    sid = store.sim_id
+    store_zarr = store.open_zarr(sid)
     try:
         store_zarr.write_mesh(
             VERTICES,
@@ -64,37 +64,38 @@ def _seal_run(catalog: Catalog, name: str) -> str:
         )
     finally:
         store_zarr.close()
-    catalog.write_time(
+    store.write_time(
         sid,
         np.array([1577836800, 1577923200], dtype="int64"),
         units="seconds since 1970-01-01T00:00:00Z",
     )
     for step in range(N_STEPS):
         head = np.array([[1.0 + step, 2.0 + step], [0.5 + step, 1.5 + step]], dtype="float64")
-        catalog.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
-    return sid
+        store.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
+    return store
 
 
 @pytest.fixture
 def project(tmp_path):
     """A project with one sealed run that declared two observation points."""
     root = tmp_path / "demo"
-    with Catalog(root) as catalog:
-        sid = _seal_run(catalog, "probe_run")
-        catalog.sample_observation_points(sid, DECLARATIONS)
-        catalog.finalize(sid, status="completed")
+    store = _open_run(root, "probe_run")
+    sid = store.sim_id
+    sample_observation_points(store, sid, DECLARATIONS)
+    seal_completed(store)
+    rebuild_index(root)
     return root, sid
 
 
 def _points(root):
-    with Catalog(root, read_only=True) as catalog:
+    with Catalog(root) as catalog:
         return catalog.backend.query(
             "SELECT station_id, cell_id, layer FROM observation_points ORDER BY station_id"
         )
 
 
 def _series(root):
-    with Catalog(root, read_only=True) as catalog:
+    with Catalog(root) as catalog:
         return catalog.backend.query(
             "SELECT station_id, variable, timestep, value FROM timeseries "
             "WHERE station_id LIKE 'obs:%' ORDER BY station_id, variable, timestep"
@@ -133,7 +134,7 @@ class TestSampling:
 
     def test_the_declaration_lands_in_the_run_directory(self, project):
         root, sid = project
-        with Catalog(root, read_only=True) as catalog:
+        with Catalog(root) as catalog:
             payload = (
                 catalog.run_dir_for(sid)
                 / TABLES_DIRNAME
@@ -143,16 +144,16 @@ class TestSampling:
 
     def test_the_run_exposes_its_points(self, project):
         root, sid = project
-        with Catalog(root, read_only=True) as catalog:
+        with Catalog(root) as catalog:
             frame = catalog[sid].probe.declared
         assert frame["station_id"].tolist() == ["piezo_a", "piezo_b"]
 
     def test_a_point_outside_the_mesh_is_skipped_not_fatal(self, tmp_path):
         root = tmp_path / "outside"
-        with Catalog(root) as catalog:
-            sid = _seal_run(catalog, "probe_run")
-            written = catalog.sample_observation_points(
-                sid,
+        with _open_run(root, "probe_run") as store:
+            written = sample_observation_points(
+                store,
+                store.sim_id,
                 [
                     {
                         "id": "far",
@@ -168,9 +169,8 @@ class TestSampling:
 
     def test_no_declaration_writes_nothing(self, tmp_path):
         root = tmp_path / "empty"
-        with Catalog(root) as catalog:
-            sid = _seal_run(catalog, "probe_run")
-            assert catalog.sample_observation_points(sid, []) == 0
+        with _open_run(root, "probe_run") as store:
+            assert sample_observation_points(store, store.sim_id, []) == 0
 
 
 class TestSurvivesReindex:

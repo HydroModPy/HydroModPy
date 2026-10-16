@@ -13,7 +13,6 @@ import sys
 import tempfile
 import time
 import tomllib
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -637,7 +636,13 @@ def write_validation_fields_to_store(
     solver_name: str,
     flow_regime: str = "steady",
 ) -> tuple[Any, str | None]:
-    """Write in-memory validation field series to a Catalog."""
+    """Write in-memory validation field series as a sealed run of *out_path*.
+
+    The run is claimed under ``runs/`` the way the pipeline claims one, its
+    fields are written at full precision, it is sealed as completed and its
+    attempt is closed. No index is opened. Returns the sealed store, open for
+    reading, and the run id; the caller closes the store.
+    """
     payloads = _normalize_validation_field_series(fields)
     if not payloads:
         return None, None
@@ -649,40 +654,43 @@ def write_validation_fields_to_store(
     )
     n_cells = int(shape_reference.size)
     n_timesteps = max(len(series) for series in payloads.values())
-    sim_id = str(uuid.uuid4())
 
     from hydromodpy.core.config_kit.persistence import PersistenceConfig
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.storage.attempt import claim_run_directory, close_sealed_attempt
+    from hydromodpy.results.storage.run_facts import RunFacts
+    from hydromodpy.results.storage.run_store import RunStore
+    from hydromodpy.results.storage.sealing import seal_completed
 
-    store = Catalog(
-        out_path,
-        persistence=PersistenceConfig(field_precision=VALIDATION_FIELD_PRECISION),
-    )
-    registration = store.register_simulation(
-        sim_id,
-        project=Path(out_path).name,
+    project_root = Path(out_path)
+    project = project_root.name
+    name = f"{project}_{solver_name}"
+    claim = claim_run_directory(project_root, name, case_id=name, project=project)
+    facts = RunFacts(
+        sim_id=claim.sim_id,
+        name=claim.name,
+        case_id=name,
+        project=project,
+        attempt=claim.attempt,
+        attempt_id=claim.attempt_id,
+        created_at=claim.started_at,
+        started_at=claim.started_at,
         solver=solver_name,
-        name=f"{Path(out_path).name}_{solver_name}",
         solver_category="distributed",
         flow_regime=flow_regime,
         n_cells=n_cells,
         n_layers=1,
         n_timesteps=n_timesteps,
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-
-    if shape_reference.ndim == 2:
-        nrow, ncol = shape_reference.shape
-        store.write_geographic_metadata(
-            sim_id,
-            {
-                "nrow": int(nrow),
-                "ncol": int(ncol),
-            },
-        )
-
+    persistence = PersistenceConfig(field_precision=VALIDATION_FIELD_PRECISION)
+    store = RunStore.open(
+        claim.run_dir, facts=facts, persistence=persistence, workspace=project_root
+    )
+    sim_id = store.sim_id
     try:
+        store.create_zarr(n_cells=n_cells, n_layers=1)
+        if shape_reference.ndim == 2:
+            nrow, ncol = shape_reference.shape
+            store.write_geographic_metadata(sim_id, {"nrow": int(nrow), "ncol": int(ncol)})
         for variable, series in payloads.items():
             for write_index, (_time_key, values) in enumerate(series):
                 store.write_field(
@@ -696,8 +704,10 @@ def write_validation_fields_to_store(
     except Exception:
         store.close()
         raise
-
-    return store, sim_id
+    run_dir = store.run_dir
+    seal_completed(store)
+    close_sealed_attempt(run_dir)
+    return RunStore.open(run_dir, persistence=persistence), sim_id
 
 
 def run_example_script(
@@ -715,7 +725,6 @@ def run_example_script(
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -903,19 +912,13 @@ def run_launcher_validation_case(
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
-    env["HMP_AUTO_REGISTER_PROJECT"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
-    # Validation runs never persist ``hydromodpy.lock``: the lockfile would
-    # land inside ``validation_cases/<case>/`` and pollute git status after
-    # every test invocation. Reproducibility info already lives in the case
-    # config and result store.
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
-        "--no-lock",
         str(run_config_path),
     ]
 

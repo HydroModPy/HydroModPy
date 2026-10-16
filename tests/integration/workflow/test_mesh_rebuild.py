@@ -34,6 +34,9 @@ PROJECT_TOML = """
 [workflow]
 mode = "simulation"
 
+[site]
+name = "naizin"
+
 [simulation]
 name = "naizin_mesh_rebuild"
 
@@ -124,14 +127,10 @@ def _cached_arrays(root: Path) -> Path:
 
 
 def _journal_row(root: Path, run_id: str, step_order: int):
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.core.state.paths import run_dir_rel
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-    catalog = Catalog(root)
-    try:
-        rows = WorkflowJournal(catalog).list_steps(run_id)
-    finally:
-        catalog.close()
+    rows = WorkflowJournal(root / run_dir_rel(run_id)).list_steps(run_id)
     return next(row for row in rows if row.step_order == step_order)
 
 

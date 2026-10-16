@@ -4,35 +4,36 @@ import pytest
 
 from hydromodpy.results.run import Run
 
-from ._test_simulation_api_builders import _register, catalog
+from ._test_simulation_api_builders import MISSING_SIM_ID, runs
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
 class TestSimulationMetadata:
-    def test_basic_properties(self, catalog):
-        sid = _register(catalog, name="run1", flow_regime="transient")
-        sim = Run(sid, catalog)
+    def test_basic_properties(self, runs):
+        sid = runs.open("run1", flow_regime="transient").sim_id
+        sim = Run(sid, runs.catalog())
         assert sim.sim_id == sid
         assert sim.name == "run1"
         assert sim.project == "test"
         assert sim.solver == "modflow6"
         assert sim.solver_category == "distributed"
         assert sim.flow_regime == "transient"
-        assert sim.status == "running"
+        assert sim.status == "completed"
 
-    def test_config_roundtrip(self, catalog):
+    def test_config_roundtrip(self, runs):
         cfg = {"flow": {"K": 1.5}}
-        sid = _register(catalog, config=cfg)
-        sim = Run(sid, catalog)
+        sid = runs.open(config=cfg).sim_id
+        sim = Run(sid, runs.catalog())
         assert sim.config_snapshot == cfg
 
-    def test_tags(self, catalog):
-        sid = _register(catalog, tags=["fast", "test"])
-        sim = Run(sid, catalog)
-        assert sim.tags == ["fast", "test"]
+    def test_tags(self, runs):
+        sid = runs.open(tags=["fast", "test"]).sim_id
+        sim = Run(sid, runs.catalog())
+        assert sorted(sim.tags) == ["fast", "test"]
 
-    def test_not_found(self, catalog):
-        sim = Run("nonexistent-uuid", catalog)
+    def test_not_found(self, runs):
+        runs.open()
+        sim = Run(MISSING_SIM_ID, runs.catalog())
         with pytest.raises(KeyError):
             _ = sim.name

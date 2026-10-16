@@ -26,7 +26,7 @@ from .io import (
 from .templates import (
     _analysis_row_by_token,
     _analysis_row_text,
-    _audit_block,
+    _case_check_block,
     _format_closure_rows,
     _format_metric_rows,
     _format_percent_value,
@@ -97,7 +97,7 @@ def default_sections() -> list[ReportSection]:
             _has_head_error_metrics,
         ),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
-        ReportSection("audit", "Audit", 70, _render_audit),
+        ReportSection("case_check", "Same case", 70, _render_case_check),
         ReportSection("files", "Files", 80, _render_files),
     ]
 
@@ -140,15 +140,15 @@ def render_header(ctx: ComparisonWebContext) -> str:
         )
     else:
         subtitle = (
-            "Comparison report between simulations. Figures and metrics "
-            "are limited to the observables declared in the configuration."
+            "Comparison report between sealed runs of one case. Figures and metrics "
+            "are limited to the variables the comparison read."
         )
     return f"""
   <header>
     <h1>{safe(report_title(ctx))}</h1>
     <p>{safe(subtitle)}</p>
     <div class="pillrow">
-      <span class="pill">Audit: {safe(payload.get("audit_status", ctx.audit.get("status", "")))}</span>
+      <span class="pill">Same case: {safe(ctx.case_check.get("status", ""))}</span>
       <span class="pill">Reference: {safe(payload.get("reference_simulation", ""))}</span>
     </div>
   </header>
@@ -184,12 +184,12 @@ def _render_introduction(ctx: ComparisonWebContext) -> str:
 """
 
 
-def _render_audit(ctx: ComparisonWebContext) -> str:
+def _render_case_check(ctx: ComparisonWebContext) -> str:
     return f"""
   <section>
     <div class="card">
-      <h2>Audit</h2>
-      {_audit_block(ctx.audit)}
+      <h2>Same case</h2>
+      {_case_check_block(ctx.case_check)}
     </div>
   </section>
 """

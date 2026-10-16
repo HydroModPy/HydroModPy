@@ -24,7 +24,6 @@ from typing import Any
 from hydromodpy.results.export.context import (
     FairExportContext,
     _is_missing,
-    build_context,
     to_json,
 )
 from hydromodpy.results.export.directory import context_from_directory, write_view
@@ -235,16 +234,9 @@ def serialise_prov(context: FairExportContext) -> dict[str, Any]:
     }
 
 
-def write_prov(
-    catalog: Any,
-    sim_id: str,
-    output_path: Path | str,
-    *,
-    context: FairExportContext | None = None,
-) -> Path:
-    """Materialise a JSON-LD PROV-O document for *sim_id*."""
-    ctx = context or build_context(catalog, sim_id)
-    payload = serialise_prov(ctx)
+def write_prov(context: FairExportContext, output_path: Path | str) -> Path:
+    """Materialise the JSON-LD PROV-O document of *context*."""
+    payload = serialise_prov(context)
     out = Path(output_path)
     if out.is_dir() or out.suffix == "":
         out = out / PROV_VIEW_FILENAME

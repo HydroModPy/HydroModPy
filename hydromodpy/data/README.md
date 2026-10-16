@@ -34,6 +34,7 @@ In dependency order, lowest first.
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth |
 | `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
+| `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations, site-selection manifest), and `[site] gauge` as the station of the series sources (`gauge.py`) |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold and scan of custom files |
 | `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process |
@@ -152,12 +153,11 @@ From outside a project, one engine (`request/engine.run_request`) serves a
 is exactly one of a box with its CRS, a vector mask or station codes, an
 optional period, and plugin sources under `installed`. It writes one file per
 variable and source, cut to the extent and period, beside a report
-`request.json`. Three ways in:
+`request.json`. Two ways in:
 
 | entry | output |
 |---|---|
 | `hmp data get request.json --out DIR`, or `hmp data get <variable> --bbox ... --crs ... --out DIR` | `DIR/` |
-| `hmp process run data-request --job DIR` (or a step of `hmp process chain`) | a sealed job directory, one JSON document on stdout |
 | `run_request(DataRequest(...), out_dir)` | a `RequestReport` |
 
 From Python, without a project:
@@ -169,6 +169,24 @@ store = DataStore()  # no folder: in-memory index, nothing written
 store = DataStore(data_root="cache/")  # a cache folder of your choice
 result = store.load_variable("hydrometry", cfg)
 ```
+
+## The site catalog
+
+A workspace declares its sites once, in `data/sites/catalog.csv`, one
+`SiteRow` per line (`site, label, gauge, uri, x_outlet, y_outlet, crs, tags`,
+`hydromodpy.core.site`). `hmp site add`, `hmp site import`, `hmp site ls` and
+`hmp site show` read and write it through `sites/catalog.py`, and so does
+`hmp site select --into-catalog`. A name is declared once. An outlet closer
+than `[sites] near_site_m` of `workspace.toml` (default 500 m) to the outlet
+of a site of another name is refused, since it is most likely the same
+catchment twice; `--force` replaces a site of the same name and accepts a
+close outlet. One conflict writes nothing.
+
+`[site] gauge` is the station of a catchment. A `custom` (chronicles) or
+`hubeau` source of `hydrometry`, `recharge` or `runoff` with no `station_ids`
+reads it, and a list that leaves it out is refused with the name of the key
+(`sites/gauge.py:apply_site_gauge`). Without a gauge, a run that loads exactly
+one discharge station takes that station as its gauge (`gauge_of_run`).
 
 ## What `request/` holds
 
@@ -240,6 +258,9 @@ class LoadResult:
   `hydromodpy.data.source.registry.{get, get_serving, register, list_source_ids,
   builtin_source_ids}`.
 - `hydromodpy.data.request.job.{DATA_REQUEST, run}`.
+- `hydromodpy.data.sites.catalog.{read_catalog, write_catalog, nearest_site,
+  add_sites, declare_sites, SITE_CATALOG_RELPATH}`, `hydromodpy.data.sites.importers`
+  and `hydromodpy.data.sites.gauge.{apply_site_gauge, gauge_of_run}`.
 
 ## Layer neighbours
 

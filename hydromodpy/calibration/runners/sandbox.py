@@ -60,6 +60,9 @@ class TrialSandbox:
     keep
         Retain the trial's solver output on exit. Defaults to the
         ``HMP_KEEP_TRIAL_SCRATCH`` environment variable.
+    scratch_root
+        The solver scratch of the run, where the trial's model folder is
+        written. Named so a crashed trial's folder is still swept on exit.
     """
 
     def __init__(
@@ -68,7 +71,7 @@ class TrialSandbox:
         trial_id: int,
         *,
         keep: bool | None = None,
-        solver_scratch_folder: Path | str | None = None,
+        scratch_root: Path | str | None = None,
     ) -> None:
         self.model_name = f"{_sanitize(base_model_name)}_trial{int(trial_id):06d}"
         self._keep = keep_trial_scratch() if keep is None else bool(keep)
@@ -78,7 +81,7 @@ class TrialSandbox:
         # diverged / timed-out / crashed trial (which never records a success in
         # the run registry) is still cleaned up on exit.
         self._eager_dir: Path | None = (
-            Path(solver_scratch_folder) / self.model_name if solver_scratch_folder else None
+            Path(scratch_root) / self.model_name if scratch_root else None
         )
 
     @property

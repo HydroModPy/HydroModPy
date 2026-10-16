@@ -26,7 +26,7 @@ VERBOSITY_OPTIONS = {"--verbosity", "-q", "--quiet", "-v", "--verbose", "--debug
 FAMILY_LEAF_COMMANDS = (
     ("viz", "list"),
     ("viz", "show"),
-    ("viz", "gallery"),
+    ("viz", "regen"),
     ("data", "ls"),
     ("data", "get"),
     ("data", "check"),
@@ -35,7 +35,6 @@ FAMILY_LEAF_COMMANDS = (
     ("data", "prune"),
     ("data", "archive"),
     ("data", "restore"),
-    ("data", "import"),
     ("catalog", "ls"),
     ("catalog", "query"),
     ("catalog", "show"),
@@ -66,7 +65,7 @@ FAMILY_LEAF_COMMANDS = (
 RUN_MODULES = (
     "hydromodpy.cli.commands.viz.list_cmd",
     "hydromodpy.cli.commands.viz.show",
-    "hydromodpy.cli.commands.viz.gallery",
+    "hydromodpy.cli.commands.viz.regen",
     "hydromodpy.cli.commands.data.ls",
     "hydromodpy.cli.commands.data.get",
     "hydromodpy.cli.commands.data.check",
@@ -75,7 +74,6 @@ RUN_MODULES = (
     "hydromodpy.cli.commands.data.prune",
     "hydromodpy.cli.commands.data.archive",
     "hydromodpy.cli.commands.data.restore",
-    "hydromodpy.cli.commands.data.import_cmd",
     "hydromodpy.cli.commands.catalog.ls",
     "hydromodpy.cli.commands.catalog.query",
     "hydromodpy.cli.commands.catalog.show",

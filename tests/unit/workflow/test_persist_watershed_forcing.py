@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
-from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -14,7 +13,7 @@ from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_forcings
-from tests._helpers.fixtures_catalog import simulation_catalog
+from tests._helpers.run_stores import open_run_store
 
 
 @dataclass
@@ -45,21 +44,6 @@ def _runoff_field_record(
     )
 
 
-def _register_sim(catalog) -> str:
-    sid = str(uuid4())
-    reg = catalog.register_simulation(
-        sid,
-        project="test",
-        solver="modflow6",
-        n_cells=4,
-        n_layers=1,
-        n_timesteps=3,
-    )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    return sid
-
-
 def _ctx(sid: str, loaded: _Loaded) -> SimpleNamespace:
     return SimpleNamespace(sim_id=sid, loaded_data=loaded)
 
@@ -69,8 +53,8 @@ def test_gridded_runoff_persists_watershed_mean(tmp_path):
     frames = np.arange(12, dtype="float64").reshape(3, 2, 2)
     loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
         step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
@@ -102,8 +86,8 @@ def test_station_backed_runoff_skips_watershed_mean(tmp_path):
     )
     loaded = _Loaded(runoff=LoadResult(points=[point]))
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
         step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
@@ -122,8 +106,8 @@ def test_non_allowlisted_family_keeps_field_only(tmp_path):
     rec = _runoff_field_record(frames, times, variable="precipitation")
     loaded = _Loaded(precipitation=LoadResult(fields=[rec]))
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
         step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)
@@ -146,8 +130,8 @@ def test_watershed_mean_failure_is_non_fatal(tmp_path, monkeypatch):
     frames = np.ones((2, 2, 2), dtype="float64")
     loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
+        sid = catalog.sim_id
         step_persist_forcings(_ctx(sid, loaded), store=catalog)
 
         sz = catalog.open_zarr(sid)

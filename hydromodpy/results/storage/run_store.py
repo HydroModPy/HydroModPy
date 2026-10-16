@@ -1,0 +1,1123 @@
+"""The store of one run: its Zarr arrays, its Parquet tables and its facts.
+
+Why
+---
+A run used to write through the project catalog: every array and table went
+through a handle that also held the DuckDB index, so a hundred cases writing
+at once were a hundred writers on one file, and a run that could not open
+the index could not write a number. :class:`RunStore` writes into the run
+directory alone. It knows the run by its directory and its ``sim_id``, keeps
+the same write verbs the solvers and the extraction call (``write_field``,
+``write_timeseries``, ``write_budgets`` ...), and accumulates in
+:class:`~hydromodpy.results.storage.run_facts.RunFacts` what the seal needs.
+The index is rebuilt from the sealed files by the indexer, never written here.
+
+Scope
+-----
+Opened and closed by each step that writes, for the span of that step. The
+facts are read from ``<run>/.hmp/checkpoints/facts.json`` at open and
+written back at close, so a later step, or a later attempt, finds what an
+earlier one recorded.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+
+from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.core.version import __version__ as HMP_VERSION
+from hydromodpy.results.catalog.constants import GLOBAL_ZONE
+from hydromodpy.results.catalog.storage_paths import sanitize_segment
+from hydromodpy.results.identity import Identity
+from hydromodpy.results.manifest import (
+    InputEntry,
+    Manifest,
+    MetricRow,
+    ParameterRow,
+    TrackedInput,
+    is_sealed,
+    read_manifest,
+)
+from hydromodpy.results.storage.array_fingerprint import fingerprint
+from hydromodpy.results.storage.arrow_tables import (
+    coerce_timestamp_utc,
+    isoformat_instant,
+    merge_with_existing,
+    table_from_columns,
+    table_from_records,
+)
+from hydromodpy.results.storage.contract import (
+    FIELDS_STORE_NAME,
+    PARQUET_FILE_SUFFIX,
+    TABLES_DIRNAME,
+)
+from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory, sha256_streaming
+from hydromodpy.results.storage.geo_metadata import (
+    geographic_feature_description,
+    wgs84_bounds,
+)
+from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
+from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
+from hydromodpy.results.storage.parquet_schemas import (
+    BUDGETS_SCHEMA,
+    MASS_BALANCE_SCHEMA,
+    METRICS_SCHEMA,
+    PARQUET_SCHEMA_VERSION,
+    PROVENANCE_SCHEMA,
+    TIMESERIES_SCHEMA,
+    primary_key_for,
+    schema_for,
+)
+from hydromodpy.results.storage.run_facts import (
+    LicenceSource,
+    RunFacts,
+    identity_of,
+    read_facts,
+    write_facts,
+)
+from hydromodpy.results.zarr_store import SimulationZarr
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+
+    from hydromodpy.results.zarr_store.mesh_layout import MeshLayout
+
+logger = get_logger(__name__)
+
+GEOGRAPHIC_FEATURE_PREFIX = "geographic_"
+"""Prefix of the per-feature GeoParquet payloads inside ``tables.parquet``."""
+
+_FEATURE_NAME_MAX_LEN = 128
+"""Longest vector layer name kept whole in its file name."""
+
+_PROVENANCE_SOURCE_TYPES = ("http_api", "custom_file", "data_manager", "derived", "cache")
+_TIMESERIES_KEY = ("sim_id", "station_id", "variable", "timestep")
+
+
+class RunStore:
+    """Write and read the arrays, tables and facts of one run directory."""
+
+    def __init__(
+        self,
+        run_dir: Path,
+        facts: RunFacts,
+        *,
+        persistence: PersistenceConfig,
+        workspace: Path | None,
+    ) -> None:
+        self._run_dir = run_dir
+        self._facts = facts
+        self._persistence = persistence
+        self._workspace = workspace
+        self._open_zarr_handles: list[SimulationZarr] = []
+        self._closed = False
+        self._sealed = False
+
+    @classmethod
+    def open(
+        cls,
+        run_dir: str | Path,
+        *,
+        facts: RunFacts | None = None,
+        persistence: PersistenceConfig | None = None,
+        workspace: str | Path | None = None,
+    ) -> RunStore:
+        """Open the store of *run_dir*.
+
+        The facts come from the checkpoint of the attempt when there is one.
+        A first open passes *facts*, which names the run; a later open may
+        pass them to refresh the attempt they describe. A sealed run keeps
+        no checkpoint: its facts are read from its manifest, and the store
+        writes none back. ``workspace`` is the project root the tracked
+        inputs are encoded against.
+        """
+        directory = Path(run_dir)
+        if not directory.is_dir():
+            raise FileNotFoundError(f"{directory} is not a run directory")
+        stored = read_facts(directory)
+        sealed = stored is None and facts is None and is_sealed(directory)
+        if sealed:
+            stored = RunFacts.from_manifest(Manifest.model_validate(read_manifest(directory)))
+        if facts is None and stored is None:
+            raise FileNotFoundError(f"{directory} carries no facts.json and none were given")
+        current = facts if facts is not None else stored
+        assert current is not None
+        if stored is not None and facts is not None:
+            current = _merge_facts(stored, facts)
+        store = cls(
+            directory,
+            current,
+            persistence=persistence or PersistenceConfig(),
+            workspace=None if workspace is None else Path(workspace),
+        )
+        store._sealed = sealed
+        if not sealed:
+            write_facts(directory, current)
+        return store
+
+    # -- Identity --------------------------------------------------------------
+
+    @property
+    def run_dir(self) -> Path:
+        """The directory of the run."""
+        return self._run_dir
+
+    @property
+    def sim_id(self) -> str:
+        """Id of the run."""
+        return self._facts.sim_id
+
+    @property
+    def facts(self) -> RunFacts:
+        """What the run knows about itself so far."""
+        return self._facts
+
+    @property
+    def persistence(self) -> PersistenceConfig:
+        """Which sinks this run writes."""
+        return self._persistence
+
+    @property
+    def save_zarr(self) -> bool:
+        """Whether the run keeps a field store."""
+        return self._persistence.save_zarr
+
+    @property
+    def workspace_path(self) -> Path | None:
+        """The project root, when known."""
+        return self._workspace
+
+    @property
+    def fields_path(self) -> Path:
+        """``<run>/fields.zarr``."""
+        return self._run_dir / FIELDS_STORE_NAME
+
+    @property
+    def tables_dir(self) -> Path:
+        """``<run>/tables.parquet``."""
+        return self._run_dir / TABLES_DIRNAME
+
+    def _check_sim(self, sim_id: str | UUID) -> str:
+        sid = str(sim_id)
+        if sid != self._facts.sim_id:
+            raise KeyError(f"this store is the run {self._facts.sim_id[:8]}, not {sid[:8]}")
+        return sid
+
+    def run_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the run directory; *sim_id* must be this run."""
+        self._check_sim(sim_id)
+        return self._run_dir
+
+    def fields_path_for(self, sim_id: str | UUID) -> Path:
+        """Return the field store of this run."""
+        self._check_sim(sim_id)
+        return self.fields_path
+
+    def tables_dir_for(self, sim_id: str | UUID) -> Path:
+        """Return the tables directory of this run."""
+        self._check_sim(sim_id)
+        return self.tables_dir
+
+    def table_path_for(self, sim_id: str | UUID, view_name: str) -> Path:
+        """Return the Parquet payload of one view of this run."""
+        return self.tables_dir_for(sim_id) / f"{view_name}{PARQUET_FILE_SUFFIX}"
+
+    def identity(self) -> Identity:
+        """Return the identity block of the run as its facts know it, label free."""
+        return identity_of(self._facts)
+
+    def licence(self) -> str:
+        """Return the licence the run may state, from the inputs it read.
+
+        A sealed run states the licence of its seal, so a table written after
+        the seal carries the same licence as the tables written before it.
+        """
+        if self._facts.licence is not None:
+            return self._facts.licence
+        return run_licence(
+            [LicenceMember(s.source, s.sha256) for s in self._facts.licence_sources],
+            [TrackedPath(t.path, t.sha256) for t in self._facts.tracked_inputs],
+            self._workspace,
+        )
+
+    # -- Zarr ------------------------------------------------------------------
+
+    def open_zarr(self, sim_id: str | UUID) -> SimulationZarr:
+        """Open the field store of the run, creating an empty one when it has none."""
+        self._check_sim(sim_id)
+        fields = self.fields_path
+        if not fields.exists():
+            fields.parent.mkdir(parents=True, exist_ok=True)
+            SimulationZarr.create(fields, n_cells=0, n_layers=1).close()
+        handle = SimulationZarr(fields, field_precision=self._persistence.field_precision)
+        handle._on_close = self._untrack_zarr_handle
+        self._open_zarr_handles.append(handle)
+        return handle
+
+    def create_zarr(
+        self,
+        *,
+        n_cells: int,
+        n_layers: int,
+        cell_types: list[str] | None = None,
+        geographic_fingerprint: str | None = None,
+    ) -> None:
+        """Create the field store of the run with its grid size. Refused when it exists."""
+        if not self._persistence.save_zarr:
+            return
+        if self.fields_path.exists():
+            raise FileExistsError(f"Zarr store already exists: {self.fields_path}")
+        SimulationZarr.create(
+            self.fields_path,
+            n_cells=n_cells,
+            n_layers=n_layers,
+            cell_types=cell_types,
+            geographic_fingerprint=geographic_fingerprint,
+        ).close()
+
+    def _untrack_zarr_handle(self, handle: SimulationZarr) -> None:
+        try:
+            self._open_zarr_handles.remove(handle)
+        except ValueError:
+            pass
+
+    def _with_zarr(self, sim_id: str | UUID, write: Callable[[SimulationZarr], None]) -> None:
+        if not self._persistence.save_zarr:
+            return
+        sz = self.open_zarr(sim_id)
+        try:
+            write(sz)
+        finally:
+            sz.close()
+
+    def write_geographic_raster(
+        self,
+        sim_id: str | UUID,
+        name: str,
+        data: np.ndarray,
+        *,
+        transform: tuple[float, ...],
+        crs: str,
+        nodata: float = -99999.0,
+    ) -> None:
+        """Store a raster of the run under ``geographic/<name>``."""
+        self._with_zarr(
+            sim_id,
+            lambda sz: sz.write_geographic_raster(
+                name, data, transform=transform, crs=crs, nodata=nodata
+            ),
+        )
+
+    def write_lake_abacus(self, sim_id: str | UUID, lake_id: str, **arrays: Any) -> None:
+        """Store the stage-volume-area curves of one lake."""
+        self._with_zarr(sim_id, lambda sz: sz.write_lake_abacus(lake_id, **arrays))
+
+    def write_field(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        timestep: int,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        subgroup: str | None = None,
+    ) -> None:
+        """Store one period of a field."""
+        self._with_zarr(
+            sim_id,
+            lambda sz: sz.write_field(
+                variable, timestep, values, n_timesteps=n_timesteps, subgroup=subgroup
+            ),
+        )
+
+    def write_field_stack(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        values: np.ndarray,
+        *,
+        n_timesteps: int | None = None,
+        timestep_offset: int = 0,
+        subgroup: str | None = None,
+    ) -> None:
+        """Store many periods of a field in one write."""
+        self._with_zarr(
+            sim_id,
+            lambda sz: sz.write_field_stack(
+                variable,
+                values,
+                n_timesteps=n_timesteps,
+                timestep_offset=timestep_offset,
+                subgroup=subgroup,
+            ),
+        )
+
+    def write_time(
+        self,
+        sim_id: str | UUID,
+        values: np.ndarray,
+        *,
+        epoch: str = "1970-01-01T00:00:00",
+        calendar: str = "proleptic_gregorian",
+        units: str = "seconds since 1970-01-01T00:00:00",
+    ) -> None:
+        """Store the time axis of the fields (CF convention)."""
+        self._with_zarr(
+            sim_id, lambda sz: sz.write_time(values, epoch=epoch, calendar=calendar, units=units)
+        )
+
+    def write_crs(
+        self,
+        sim_id: str | UUID,
+        *,
+        crs_wkt: str,
+        grid_mapping_name: str = "latitude_longitude",
+        epsg_code: int | None = None,
+        semi_major_axis: float | None = None,
+        inverse_flattening: float | None = None,
+    ) -> None:
+        """Store the CRS of the fields (CF grid mapping)."""
+        self._with_zarr(
+            sim_id,
+            lambda sz: sz.write_crs(
+                crs_wkt=crs_wkt,
+                grid_mapping_name=grid_mapping_name,
+                epsg_code=epsg_code,
+                semi_major_axis=semi_major_axis,
+                inverse_flattening=inverse_flattening,
+            ),
+        )
+
+    def write_mesh(
+        self,
+        sim_id: str | UUID,
+        vertices: np.ndarray,
+        face_node_connectivity: np.ndarray,
+        z_interfaces: np.ndarray,
+        layer_indices: np.ndarray | None = None,
+        source_cell_indices: np.ndarray | None = None,
+        *,
+        structured_shape: tuple[int, int] | None = None,
+        layout: MeshLayout | None = None,
+    ) -> None:
+        """Store the mesh of the run (UGRID 1.0)."""
+        self._with_zarr(
+            sim_id,
+            lambda sz: sz.write_mesh(
+                vertices,
+                face_node_connectivity,
+                z_interfaces,
+                layer_indices=layer_indices,
+                source_cell_indices=source_cell_indices,
+                structured_shape=structured_shape,
+                layout=layout,
+            ),
+        )
+
+    # -- Parquet ---------------------------------------------------------------
+
+    def write_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        ts: pd.Series,
+        unit: str = "",
+        qflag: str = "simulated",
+    ) -> None:
+        """Append one station and variable series to ``timeseries.parquet``."""
+        if not self._persistence.save_parquet or ts is None or len(ts) == 0:
+            return
+        sid = self._check_sim(sim_id)
+        index = pd.DatetimeIndex(ts.index)
+        index = index.tz_localize("UTC") if index.tz is None else index.tz_convert("UTC")
+        self._write_parquet_table(
+            target=self.table_path_for(sid, "timeseries"),
+            new_table=table_from_columns(
+                {
+                    "station_id": station_id,
+                    "variable": variable,
+                    "timestep": np.arange(len(ts), dtype="int64"),
+                    "time": index,
+                    "value": ts.to_numpy(dtype="float64"),
+                    "unit": unit,
+                    "qflag": qflag,
+                },
+                TIMESERIES_SCHEMA,
+                defaults={"sim_id": sid},
+            ),
+            pk_cols=_TIMESERIES_KEY,
+        )
+
+    def write_timeseries_batch(
+        self, sim_id: str | UUID, records: Sequence[Mapping[str, Any]]
+    ) -> None:
+        """Write a batch of timeseries records in one merge."""
+        if not self._persistence.save_parquet or not records:
+            return
+        sid = self._check_sim(sim_id)
+        rows = []
+        for record in records:
+            row = dict(record)
+            row.setdefault("sim_id", sid)
+            row.setdefault("component", None)
+            row.setdefault("unit", "")
+            row.setdefault("qflag", "simulated")
+            rows.append(row)
+        self._write_parquet_records(
+            target=self.table_path_for(sid, "timeseries"),
+            records=rows,
+            schema=TIMESERIES_SCHEMA,
+            pk_cols=_TIMESERIES_KEY,
+        )
+
+    def write_timeseries_columns(self, sim_id: str | UUID, columns: Mapping[str, Any]) -> None:
+        """Columnar sibling of :meth:`write_timeseries_batch`."""
+        if not self._persistence.save_parquet or not columns:
+            return
+        sid = self._check_sim(sim_id)
+        table = table_from_columns(
+            columns, TIMESERIES_SCHEMA, defaults={"sim_id": sid, "unit": "", "qflag": "simulated"}
+        )
+        if table.num_rows == 0:
+            return
+        self._write_parquet_table(
+            target=self.table_path_for(sid, "timeseries"), new_table=table, pk_cols=_TIMESERIES_KEY
+        )
+
+    def write_budget(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        zone_id: str,
+        component: str,
+        flux_in: float,
+        flux_out: float,
+        unit: str = "m3/s",
+    ) -> None:
+        """Store one term of the water budget."""
+        self.write_budgets(
+            sim_id,
+            [
+                {
+                    "timestep": timestep,
+                    "zone_id": zone_id,
+                    "component": component,
+                    "flux_in": flux_in,
+                    "flux_out": flux_out,
+                    "unit": unit,
+                }
+            ],
+        )
+
+    def write_budgets(self, sim_id: str | UUID, records: list[dict]) -> None:
+        """Store water budget rows in ``budgets.parquet``."""
+        if not self._persistence.save_parquet or not records:
+            return
+        sid = self._check_sim(sim_id)
+        rows = []
+        for record in records:
+            row = dict(record)
+            row.setdefault("sim_id", sid)
+            zone = row.get("zone_id")
+            row["zone_id"] = GLOBAL_ZONE if zone is None else str(zone)
+            row.setdefault("unit", "m3/s")
+            row["timestep"] = int(row["timestep"])
+            rows.append(row)
+        self._write_parquet_records(
+            target=self.table_path_for(sid, "budgets"),
+            records=rows,
+            schema=BUDGETS_SCHEMA,
+            pk_cols=("sim_id", "timestep", "zone_id", "component"),
+        )
+
+    def write_mass_balance(
+        self,
+        sim_id: str | UUID,
+        timestep: int,
+        total_in: float,
+        total_out: float,
+        percent_error: float,
+        storage_in: float = 0.0,
+        storage_out: float = 0.0,
+    ) -> None:
+        """Store the mass balance of one timestep."""
+        self.write_mass_balances(
+            sim_id,
+            [
+                {
+                    "timestep": timestep,
+                    "total_in": total_in,
+                    "total_out": total_out,
+                    "storage_in": storage_in,
+                    "storage_out": storage_out,
+                    "percent_error": percent_error,
+                }
+            ],
+        )
+
+    def write_mass_balances(self, sim_id: str | UUID, records: list[dict]) -> None:
+        """Store mass-balance rows in ``mass_balance.parquet``."""
+        if not self._persistence.save_parquet or not records:
+            return
+        sid = self._check_sim(sim_id)
+        rows = []
+        for record in records:
+            row = dict(record)
+            row.setdefault("sim_id", sid)
+            row.setdefault("quantity", "water")
+            row.setdefault("unit", "m3/s")
+            row.setdefault("storage_in", 0.0)
+            row.setdefault("storage_out", 0.0)
+            row["timestep"] = int(row["timestep"])
+            rows.append(row)
+        self._write_parquet_records(
+            target=self.table_path_for(sid, "mass_balance"),
+            records=rows,
+            schema=MASS_BALANCE_SCHEMA,
+            pk_cols=("sim_id", "timestep", "quantity"),
+        )
+        errors = [
+            abs(float(row["percent_error"]))
+            for row in rows
+            if row.get("quantity", "water") == "water" and row.get("percent_error") is not None
+        ]
+        if errors:
+            worst = max(errors)
+            current = self._facts.budget_pct
+            self._facts.budget_pct = worst if current is None else max(current, worst)
+
+    def write_view(
+        self, sim_id: str | UUID, view_name: str, records: Sequence[Mapping[str, Any]]
+    ) -> None:
+        """Store one declared Parquet view of the run.
+
+        A column the schema does not declare is refused by name rather than
+        dropped. A view whose schema declares ``crs_wkt`` inherits the CRS of
+        the run.
+        """
+        if not self._persistence.save_parquet or not records:
+            return
+        sid = self._check_sim(sim_id)
+        schema = schema_for(view_name)
+        names = set(schema.names)
+        unknown = {key for record in records for key in record} - names
+        if unknown:
+            raise KeyError(
+                f"Parquet view {view_name!r} does not declare {sorted(unknown)}; "
+                f"it declares {sorted(names)}."
+            )
+        rows = []
+        for record in records:
+            row = dict(record)
+            row["sim_id"] = sid
+            if "crs_wkt" in names:
+                row.setdefault("crs_wkt", self._facts.crs_wkt or "")
+                row.setdefault("crs_epsg", self._facts.crs_epsg)
+            rows.append(row)
+        self._write_parquet_records(
+            target=self.table_path_for(sid, view_name),
+            records=rows,
+            schema=schema,
+            pk_cols=primary_key_for(view_name),
+        )
+
+    def write_geographic_feature(
+        self,
+        sim_id: str | UUID,
+        feature_name: str,
+        gdf: gpd.GeoDataFrame,
+        *,
+        geoparquet_path: str | None = None,
+    ) -> None:
+        """Store a vector layer of the run as GeoParquet. An empty layer is not stored."""
+        from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
+
+        if not self._persistence.save_parquet or gdf.empty:
+            return
+        sid = self._check_sim(sim_id)
+        _, crs, _ = geographic_feature_description(gdf)
+        target = self.geographic_feature_path(sid, feature_name, geoparquet_path=geoparquet_path)
+        metadata = self.parquet_metadata()
+        metadata["hmp.schema"] = "geographic_feature"
+        metadata["feature_name"] = feature_name
+        if crs:
+            metadata["hmp.feature_crs"] = str(crs)
+        write_geoparquet_atomic(gdf, target, metadata=metadata)
+
+    def geographic_feature_path(
+        self, sim_id: str | UUID, feature_name: str, *, geoparquet_path: str | None = None
+    ) -> Path:
+        """Return the GeoParquet file of one vector layer of the run."""
+        self._check_sim(sim_id)
+        if geoparquet_path:
+            path = Path(geoparquet_path)
+            if path.is_absolute():
+                return path
+            return (self._workspace or self._run_dir) / path
+        # Not cut to a directory-name budget: the file name is where the
+        # listing and the indexer read the feature name back from.
+        safe_name = sanitize_segment(feature_name, max_len=_FEATURE_NAME_MAX_LEN)
+        target = self.tables_dir / f"{GEOGRAPHIC_FEATURE_PREFIX}{safe_name}{PARQUET_FILE_SUFFIX}"
+        if os.name == "nt" and len(str(target.resolve())) >= 240:
+            digest = hashlib.sha1(safe_name.encode("utf-8")).hexdigest()[:16]
+            return self.tables_dir / f"{GEOGRAPHIC_FEATURE_PREFIX}{digest}{PARQUET_FILE_SUFFIX}"
+        return target
+
+    def write_metric(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        metric_name: str,
+        value: float,
+        *,
+        variable: str = "head",
+        n_samples: int | None = None,
+        period_start: Any | None = None,
+        period_end: Any | None = None,
+    ) -> None:
+        """Record one metric in the facts and in ``metrics.parquet``."""
+        sid = self._check_sim(sim_id)
+        start = coerce_timestamp_utc(period_start)
+        end = coerce_timestamp_utc(period_end)
+        self._facts.put_metric(
+            MetricRow(
+                station=station_id,
+                variable=variable,
+                metric=metric_name,
+                value=None if value is None else float(value),
+                nse_window_start=None if start is None else start.date(),
+                nse_window_end=None if end is None else end.date(),
+                nse_n=None if n_samples is None else int(n_samples),
+            )
+        )
+        if not self._persistence.save_parquet:
+            return
+        self._write_parquet_records(
+            target=self.table_path_for(sid, "metrics"),
+            records=[
+                {
+                    "sim_id": sid,
+                    "station_id": station_id,
+                    "variable": variable,
+                    "metric": metric_name,
+                    "value": float(value),
+                    "n_samples": None if n_samples is None else int(n_samples),
+                    "valid_from": pd.Timestamp.now(tz="UTC"),
+                    "period_start": period_start,
+                    "period_end": period_end,
+                }
+            ],
+            schema=METRICS_SCHEMA,
+            pk_cols=("sim_id", "station_id", "variable", "metric"),
+        )
+
+    def write_provenance(
+        self,
+        sim_id: str | UUID,
+        variable: str,
+        source_ref: str,
+        data: np.ndarray,
+        *,
+        source_type: str = "data_manager",
+        source_sha256: str | None = None,
+        loader_name: str | None = None,
+        loader_version: str | None = None,
+        fetched_at: Any = None,
+        period_start: Any = None,
+        period_end: Any = None,
+    ) -> None:
+        """Record the fingerprint and source of one loaded variable."""
+        sid = self._check_sim(sim_id)
+        if source_type not in _PROVENANCE_SOURCE_TYPES:
+            raise ValueError(
+                f"Unknown provenance source_type {source_type!r}. "
+                f"Expected one of {_PROVENANCE_SOURCE_TYPES}."
+            )
+        member = LicenceSource(source=str(source_ref or ""), sha256=source_sha256)
+        if member not in self._facts.licence_sources:
+            self._facts.licence_sources.append(member)
+        if not self._persistence.save_parquet:
+            return
+        digest = fingerprint(data)
+        self._write_parquet_records(
+            target=self.table_path_for(sid, "provenance"),
+            records=[
+                {
+                    "sim_id": sid,
+                    "variable": variable,
+                    "source_type": source_type,
+                    "source_ref": source_ref,
+                    "source_sha256": source_sha256,
+                    "loader_name": loader_name,
+                    "loader_version": loader_version,
+                    "fetched_at": fetched_at,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "payload_sha256": digest["checksum"],
+                    "n_records": int(np.prod(data.shape)),
+                    "stats": json.dumps(digest["stats"]),
+                }
+            ],
+            schema=PROVENANCE_SCHEMA,
+            pk_cols=("sim_id", "variable", "source_ref"),
+        )
+
+    # -- Facts -----------------------------------------------------------------
+
+    def write_parameters(self, sim_id: str | UUID, params: list[dict]) -> None:
+        """Record the parameter values the run uses; ``parameters.parquet`` is written at the seal."""
+        self._check_sim(sim_id)
+        for param in params:
+            parameterization = param.get("parameterization")
+            calibrated = bool(param.get("calibrated", parameterization == "calibrated"))
+            origin = param.get("origin") or ("calibrated" if calibrated else "declared")
+            zone = param.get("zone_id")
+            value = param.get("value")
+            self._facts.put_parameter(
+                ParameterRow(
+                    name=str(param["param_name"]),
+                    zone=GLOBAL_ZONE if zone is None else str(zone),
+                    value=None if value is None else float(value),
+                    unit=param.get("unit"),
+                    parameterization=parameterization,
+                    origin=origin,
+                    calibrated=calibrated,
+                )
+            )
+
+    def record_input(self, sim_id: str | UUID, entry: InputEntry) -> None:
+        """Record one loaded input for ``inputs.json``: provider, request, digest, licence."""
+        self._check_sim(sim_id)
+        self._facts.put_input(entry)
+
+    def write_run_environment(
+        self,
+        sim_id: str | UUID,
+        *,
+        project_root: Path | str | None = None,
+        solver_name: str | None = None,
+        solver_binary_path: Path | str | None = None,
+        solver_engine: str | None = None,
+        solver_execution_mode: str | None = None,
+        solver_version_text: str | None = None,
+        rng_seed: int | None = None,
+    ) -> None:
+        """Record the host environment and the solver engine of the run."""
+        from hydromodpy.results.run.environment import capture_environment
+
+        self._check_sim(sim_id)
+        snapshot = dict(
+            capture_environment(
+                project_root=project_root,
+                solver_name=solver_name,
+                solver_binary_path=solver_binary_path,
+            )
+        )
+        snapshot["solver_engine"] = solver_engine
+        snapshot["solver_execution_mode"] = solver_execution_mode
+        if solver_version_text:
+            snapshot["solver_version_text"] = solver_version_text
+        snapshot["rng_seed"] = None if rng_seed is None else int(rng_seed)
+        self._facts.environment = snapshot
+
+    def update_simulation_grid_metadata(
+        self,
+        sim_id: str | UUID,
+        *,
+        n_cells: int | None = None,
+        n_layers: int | None = None,
+        mesh_hash: str | None = None,
+        mesh_topology: str | None = None,
+        bbox: tuple[float, float, float, float] | list[float] | None = None,
+    ) -> None:
+        """Fill the grid facts known once the solver grid is built; ``None`` keeps a value."""
+        self._check_sim(sim_id)
+        facts = self._facts
+        if n_cells is not None:
+            facts.n_cells = int(n_cells)
+        if n_layers is not None:
+            facts.n_layers = int(n_layers)
+        if mesh_hash is not None:
+            facts.mesh_hash = mesh_hash
+        if mesh_topology is not None:
+            facts.mesh_topology = mesh_topology
+        if bbox is not None and len(bbox) == 4:
+            facts.bbox = tuple(float(v) for v in bbox)  # type: ignore[assignment]
+
+    def update_run_environment_solver_binary(
+        self, sim_id: str | UUID, *, solver_binary_path: Path | str | None
+    ) -> None:
+        """Refine the recorded executable with the one the solver ran; a library is left alone."""
+        from hydromodpy.results.run.environment import solver_binary_identity
+
+        self._check_sim(sim_id)
+        if solver_binary_path is None:
+            return
+        environment = self._facts.environment
+        if environment.get("solver_engine") not in (None, "executable"):
+            return
+        sha256, version_text = solver_binary_identity(solver_binary_path)
+        environment["solver_binary_path"] = str(solver_binary_path)
+        if sha256 is not None:
+            environment["solver_binary_sha256"] = sha256
+        if version_text is not None:
+            environment["solver_version_text"] = version_text
+
+    def register_tracked_files(self, sim_id: str | UUID, entries: list[Any]) -> int:
+        """Record the input files the configuration declares, with their digests."""
+        self._check_sim(sim_id)
+        written = 0
+        for entry in entries:
+            canonical = Path(entry.canonical_path)
+            if canonical.is_file():
+                digest = sha256_streaming(canonical)
+            elif canonical.is_dir():
+                digest = sha256_directory(canonical)
+            else:
+                logger.warning(
+                    "Tracked input '%s' does not exist, skipping: %s", entry.role, canonical
+                )
+                continue
+            encoded = str(canonical)
+            if self._workspace is not None:
+                try:
+                    encoded = encode_workspace_path(self._workspace, canonical)
+                except ValueError:
+                    encoded = str(canonical)
+            self._facts.put_tracked_input(
+                TrackedInput(
+                    role=str(entry.role),
+                    category=str(entry.category),
+                    path=encoded,
+                    declared_path=str(entry.original_path),
+                    sha256=digest,
+                    bytes=int(path_size_bytes(canonical)),
+                    portable=bool(entry.portable),
+                )
+            )
+            written += 1
+        return written
+
+    def write_geographic_metadata(self, sim_id: str | UUID, metadata: dict[str, object]) -> None:
+        """Record the catchment metadata of the run, one key and value each."""
+        self._check_sim(sim_id)
+        self._facts.geographic_metadata.update({str(key): value for key, value in metadata.items()})
+
+    # -- Reads -----------------------------------------------------------------
+
+    def query_field(
+        self, sim_id: str | UUID, variable: str, timestep: int, layer: int | None = None
+    ) -> np.ndarray:
+        """Read one stored period of a field, or rebuild a virtual one."""
+        from hydromodpy.results.derive.virtual_fields import read_field_or_virtual
+
+        return read_field_or_virtual(self, self._check_sim(sim_id), variable, timestep, layer=layer)
+
+    def read_table(self, view_name: str) -> pd.DataFrame:
+        """Return one Parquet payload of the run as a frame; empty without the file."""
+        import pyarrow.parquet as pq
+
+        path = self.table_path_for(self.sim_id, view_name)
+        if not path.is_file():
+            return pd.DataFrame()
+        return pq.read_table(path).to_pandas()
+
+    def query_timeseries(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        variable: str,
+        period: tuple | None = None,
+    ) -> pd.Series:
+        """Read one series of the run at one station, indexed by naive UTC time."""
+        from hydromodpy.results.derive.time_alignment import normalize_period_bounds
+
+        self._check_sim(sim_id)
+        frame = self.read_table("timeseries")
+        if frame.empty:
+            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
+        rows = frame[(frame["station_id"] == station_id) & (frame["variable"] == variable)]
+        if period is not None:
+            lo, hi, hi_inclusive = normalize_period_bounds(period)
+            times = pd.DatetimeIndex(rows["time"])
+            keep = (times >= lo) & ((times <= hi) if hi_inclusive else (times < hi))
+            rows = rows[np.asarray(keep)]
+        if rows.empty:
+            raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
+        rows = rows.sort_values("timestep")
+        index = pd.DatetimeIndex(rows["time"])
+        if index.tz is not None:
+            index = index.tz_convert("UTC").tz_localize(None)
+        return pd.Series(rows["value"].to_numpy(), index=index, name=variable)
+
+    def read_geographic_feature(self, sim_id: str | UUID, feature_name: str) -> gpd.GeoDataFrame:
+        """Read one vector layer of the run."""
+        from hydromodpy.core.io.geoparquet import read_geoparquet
+
+        path = self.geographic_feature_path(sim_id, feature_name)
+        if not path.is_file():
+            raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
+        return read_geoparquet(path)
+
+    def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
+        """Return the names of the vector layers the run stored."""
+        self._check_sim(sim_id)
+        if not self.tables_dir.is_dir():
+            return []
+        prefix, suffix = GEOGRAPHIC_FEATURE_PREFIX, PARQUET_FILE_SUFFIX
+        return sorted(
+            path.name[len(prefix) : -len(suffix)]
+            for path in self.tables_dir.glob(f"{prefix}*{suffix}")
+        )
+
+    def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
+        """Return the catchment metadata of the run, every value as text."""
+        self._check_sim(sim_id)
+        return {
+            key: "" if value is None else str(value)
+            for key, value in self._facts.geographic_metadata.items()
+        }
+
+    # -- Parquet plumbing ------------------------------------------------------
+
+    def parquet_metadata(self) -> dict[str, str]:
+        """Return the footer every Parquet payload of the run carries."""
+        facts = self._facts
+        written_at = facts.period_end or facts.created_at
+        kv: dict[str, str] = {
+            "sim_id": facts.sim_id,
+            "project": facts.project,
+            "name": facts.name,
+            "solver": facts.solver or "",
+            "config_hash": facts.config_hash or "",
+            "hydromodpy_version": HMP_VERSION,
+            "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+            "Conventions": "CF-1.11",
+            "license": self.licence(),
+            "scientific_objective": facts.scientific_objective or "",
+            "doi": facts.doi or "",
+            "written_at": isoformat_instant(written_at),
+        }
+        for key, value in self.identity().as_parquet_metadata().items():
+            kv[key.decode("utf-8")] = value.decode("utf-8")
+        crs_token = f"EPSG:{facts.crs_epsg}" if facts.crs_epsg is not None else facts.crs_wkt
+        if facts.bbox is not None:
+            xmin, ymin, xmax, ymax = facts.bbox
+            kv["hmp.bbox_xmin"] = str(xmin)
+            kv["hmp.bbox_ymin"] = str(ymin)
+            kv["hmp.bbox_xmax"] = str(xmax)
+            kv["hmp.bbox_ymax"] = str(ymax)
+            if crs_token:
+                kv["hmp.bbox_crs"] = crs_token
+            degrees = wgs84_bounds(facts.bbox, crs_token)
+            if degrees is not None:
+                kv["geospatial_lon_min"] = str(degrees["lon_min"])
+                kv["geospatial_lon_max"] = str(degrees["lon_max"])
+                kv["geospatial_lat_min"] = str(degrees["lat_min"])
+                kv["geospatial_lat_max"] = str(degrees["lat_max"])
+                kv["geospatial_bounds_crs"] = "EPSG:4326"
+        if crs_token:
+            kv["geospatial_crs"] = crs_token
+        if facts.period_start is not None:
+            kv["time_coverage_start"] = isoformat_instant(facts.period_start)
+        if facts.period_end is not None:
+            kv["time_coverage_end"] = isoformat_instant(facts.period_end)
+        return kv
+
+    def _write_parquet_records(
+        self,
+        *,
+        target: Path,
+        records: Sequence[Mapping[str, Any]],
+        schema: pa.Schema,
+        pk_cols: Sequence[str],
+    ) -> None:
+        table = table_from_records(records, schema, defaults={"sim_id": self.sim_id})
+        self._write_parquet_table(target=target, new_table=table, pk_cols=pk_cols)
+
+    def _write_parquet_table(
+        self, *, target: Path, new_table: pa.Table, pk_cols: Sequence[str]
+    ) -> None:
+        """Persist a table atomically, merging with the file already there."""
+        if target.exists():
+            try:
+                old_version = read_kv_metadata(target).get("hmp.schema_version")
+            except Exception:
+                old_version = None
+            if old_version and old_version != PARQUET_SCHEMA_VERSION:
+                logger.warning(
+                    "Parquet file %s carries schema_version=%s; rewriting as %s",
+                    target,
+                    old_version,
+                    PARQUET_SCHEMA_VERSION,
+                )
+            merged = merge_with_existing(target, new_table, pk_cols)
+        else:
+            merged = new_table
+        write_table_atomic(
+            merged, target, kv_metadata=self.parquet_metadata(), pk_cols=tuple(pk_cols)
+        )
+
+    # -- Lifecycle -------------------------------------------------------------
+
+    def close(self) -> None:
+        """Close the open field stores and write the facts back.
+
+        A sealed run keeps its seal as its facts: nothing is written back.
+        """
+        if self._closed:
+            return
+        while self._open_zarr_handles:
+            handle = self._open_zarr_handles.pop()
+            try:
+                handle.close()
+            except Exception:
+                logger.warning("Could not close SimulationZarr handle", exc_info=True)
+        if not self._sealed:
+            write_facts(self._run_dir, self._facts)
+        self._closed = True
+
+    def __enter__(self) -> RunStore:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
+def _merge_facts(stored: RunFacts, given: RunFacts) -> RunFacts:
+    """Return the stored facts refreshed with the attempt the caller names."""
+    if stored.sim_id != given.sim_id:
+        raise ValueError(
+            f"the facts on disk name sim {stored.sim_id[:8]}, the caller names {given.sim_id[:8]}"
+        )
+    return stored.model_copy(
+        update={
+            "attempt": given.attempt,
+            "attempt_id": given.attempt_id,
+            "started_at": given.started_at,
+            "lineage": given.lineage,
+            "calibrated_by": given.calibrated_by,
+        }
+    )
+
+
+def utc_now() -> datetime:
+    """Return the current instant, UTC."""
+    return datetime.now(UTC)
+
+
+__all__ = ["GEOGRAPHIC_FEATURE_PREFIX", "RunStore", "utc_now"]

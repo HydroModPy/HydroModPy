@@ -8,7 +8,15 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
 )
 
-from ._hydrographic_network_metrics_export_builders import _register_completed_run
+from ._hydrographic_network_metrics_export_builders import (
+    _register_completed_run,
+    serve_indexed_runs,
+)
+
+
+@pytest.fixture(autouse=True)
+def _runs_open_from_their_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    serve_indexed_runs(monkeypatch)
 
 
 def test_write_hydrographic_network_metrics_export_writes_csv(tmp_path: Path) -> None:

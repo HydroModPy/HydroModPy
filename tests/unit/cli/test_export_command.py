@@ -1,69 +1,37 @@
 """``hmp export``: the words of an ``[[export]]`` block, on the command line.
 
 The verb is a thin wrapper of ``hmp.export``: positionals say what, ``--time``
-or ``--period`` when, ``--folder`` or ``--file`` where, and ``--list`` prints
-what the run can export. The three verbs it replaces are gone.
+or ``--period`` when, ``--folder`` or ``--file`` where under
+``runs/<run>/exports/``, ``--list`` prints what the run can export and
+``--regen`` writes again what ``exports/index.json`` records. The three verbs
+it replaces are gone.
 """
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.cli.commands.export import FORMAT_CHOICES
 from hydromodpy.core.config_kit.export_spec import ExportFormat
-from hydromodpy.core.state.paths import share_dir_for
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.identity import read_identity_from
+from hydromodpy.results.ledger import Ledger
 from tests._helpers.cli_runner import CliRunner
-
-STAMPS = pd.to_datetime(["2000-02-01", "2000-03-01", "2000-04-01"])
+from tests._helpers.sealed_run import RUN_NAME, seal_demo_run
 
 
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
-    """A project holding one monthly run named ``demo`` with a head field and a discharge."""
-    root = tmp_path / "project"
-    sid = str(uuid.uuid4())
-    with Catalog(root) as catalog:
-        reg = catalog.register_simulation(
-            sid,
-            project="test",
-            solver="modflow6",
-            name="demo",
-            n_cells=4,
-            n_layers=1,
-            n_timesteps=3,
-            crs="EPSG:2154",
-            period_start="2000-01-01",
-            period_end="2000-04-01",
-            time_unit="month",
-        )
-        if reg.zarr is not None:
-            reg.zarr.close()
-        x0, y0, step = 385000.0, 6814000.0, 500.0
-        verts = np.array(
-            [[x0 + i * step, y0 + j * step] for j in range(3) for i in range(3)], dtype="float64"
-        )
-        conn = np.array([[0, 1, 4, 3], [1, 2, 5, 4], [3, 4, 7, 6], [4, 5, 8, 7]], dtype="int32")
-        catalog.write_mesh(sid, verts, conn, np.array([50.0, 0.0]))
-        catalog.write_time(sid, STAMPS.values.astype("datetime64[s]").astype("int64"))
-        catalog.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
-        for t in range(3):
-            catalog.write_field(
-                sid,
-                "head",
-                t,
-                np.array([[1.0, 2.0, 3.0, 4.0]]) + t,
-                n_timesteps=3 if t == 0 else None,
-            )
-        catalog.write_timeseries(
-            sid, "_catchment", "discharge", pd.Series([1.0, 2.0, 3.0], index=STAMPS), unit="m3/s"
-        )
-    return root
+    """A project holding one sealed monthly run named ``demo``, indexed."""
+    project = tmp_path / "project"
+    seal_demo_run(project)
+    return project
+
+
+def _exports(workspace: Path) -> Path:
+    return workspace / "runs" / RUN_NAME / "exports"
 
 
 def _invoke(*args: str):
@@ -81,17 +49,21 @@ def test_the_list_prints_what_the_run_can_export_by_kind(workspace: Path) -> Non
     assert "series:" in lines
     assert "  discharge" in lines
     assert lines.index("fields:") < lines.index("series:")
-    assert not (share_dir_for(workspace) / "demo").exists()
+    assert not _exports(workspace).exists()
 
 
 def test_a_field_at_a_date_is_written_and_named(workspace: Path) -> None:
     result = _invoke("demo", "head", "--time", "2000-02-15", "-w", str(workspace))
 
     assert result.exit_code == 0, result.stderr
-    expected = share_dir_for(workspace) / "demo" / "head_2000-02-15.tif"
+    expected = _exports(workspace) / "head_2000-02-15.tif"
     assert result.stdout.splitlines() == [str(expected)]
     assert expected.is_file()
     assert "Exported 1 file(s)" in result.stderr
+    assert read_identity_from(expected).case_id == RUN_NAME
+    assert [entry.file for entry in Ledger.read(_exports(workspace)).entries] == [
+        "head_2000-02-15.tif"
+    ]
 
 
 def test_several_times_and_a_format_write_one_file_per_date(workspace: Path) -> None:
@@ -120,24 +92,46 @@ def test_a_period_and_a_folder_are_honoured(workspace: Path) -> None:
     )
 
     assert result.exit_code == 0, result.stderr
-    written = share_dir_for(workspace) / "livrables" / "discharge_2000-02-01_2000-03-31.csv"
+    written = _exports(workspace) / "livrables" / "discharge_2000-02-01_2000-03-31.csv"
     assert result.stdout.strip() == str(written)
     frame = pd.read_csv(written)
     assert frame["datetime"].tolist() == ["2000-03-01 00:00:00", "2000-04-01 00:00:00"]
 
 
-def test_a_file_with_a_crs_is_reprojected(workspace: Path, tmp_path: Path) -> None:
+def test_a_file_with_a_crs_is_reprojected(workspace: Path) -> None:
     import rasterio
 
-    target = tmp_path / "head_wgs84.tif"
     result = _invoke(
-        "demo", "head", "--time", "last", "--file", str(target), "--crs", "EPSG:4326",
+        "demo", "head", "--time", "last", "--file", "head_wgs84.tif", "--crs", "EPSG:4326",
         "-w", str(workspace),
     )  # fmt: skip
 
     assert result.exit_code == 0, result.stderr
-    with rasterio.open(target) as src:
+    with rasterio.open(_exports(workspace) / "head_wgs84.tif") as src:
         assert src.crs.to_epsg() == 4326
+
+
+def test_an_absolute_file_is_refused_with_hmp_publish(workspace: Path, tmp_path: Path) -> None:
+    result = _invoke(
+        "demo", "head", "--time", "last", "--file", str(tmp_path / "h.tif"), "-w", str(workspace),
+    )  # fmt: skip
+
+    assert result.exit_code != 0
+    assert "hmp publish" in result.stderr
+    assert not (tmp_path / "h.tif").exists()
+
+
+def test_regen_writes_again_what_the_ledger_records(workspace: Path) -> None:
+    first = _invoke("demo", "head", "--time", "last", "-w", str(workspace))
+    assert first.exit_code == 0, first.stderr
+    written = _exports(workspace) / "head_last.tif"
+    written.unlink()
+
+    result = _invoke("demo", "--regen", "-w", str(workspace))
+
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.splitlines() == [str(written)]
+    assert written.is_file()
 
 
 def test_nothing_named_is_a_usage_error(workspace: Path) -> None:
@@ -148,11 +142,23 @@ def test_nothing_named_is_a_usage_error(workspace: Path) -> None:
 
 
 def test_a_name_the_run_does_not_hold_is_refused_with_what_it_holds(workspace: Path) -> None:
+    result = _invoke("demo", "watershed_contour", "-w", str(workspace))
+
+    assert result.exit_code == 1
+    assert "holds no 'watershed_contour'" in result.stderr
+    assert "head" in result.stderr
+    assert not _exports(workspace).exists()
+
+
+def test_the_layers_a_run_holds_are_read_from_its_directory(workspace: Path) -> None:
+    """The index is not asked: a layer whose file is gone is not held any more."""
+    tables = workspace / "runs" / RUN_NAME / "tables.parquet"
+    (tables / "geographic_watershed.parquet").unlink()
+
     result = _invoke("demo", "watershed", "-w", str(workspace))
 
     assert result.exit_code == 1
     assert "holds no 'watershed'" in result.stderr
-    assert "head" in result.stderr
 
 
 def test_an_unknown_run_is_not_found(workspace: Path) -> None:

@@ -20,7 +20,6 @@ from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,
     _is_missing,
-    build_context,
     to_json,
 )
 from hydromodpy.results.export.directory import context_from_directory, write_view
@@ -225,30 +224,17 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
     }
 
 
-def write_ro_crate(
-    catalog: Any,
-    sim_id: str,
-    output_path: Path | str,
-    *,
-    context: FairExportContext | None = None,
-) -> Path:
-    """Render the RO-Crate for *sim_id* and write it to *output_path*.
+def write_ro_crate(context: FairExportContext, output_path: Path | str) -> Path:
+    """Render the RO-Crate of *context* and write it to *output_path*.
 
     *output_path* may point at a directory (the file is then named
     ``ro-crate-metadata.json``) or at an explicit ``.json`` file.
     """
-    ctx = context or build_context(catalog, sim_id)
-    crate = build_ro_crate(ctx)
+    crate = build_ro_crate(context)
     out = Path(output_path)
     if out.is_dir() or out.suffix == "":
         out = out / RO_CRATE_METADATA_FILENAME
     return to_json(crate, out)
-
-
-def write_ro_crate_to_staging(context: FairExportContext, staging: Path) -> Path:
-    """Write the RO-Crate alongside an ``.hmp`` staging directory."""
-    crate = build_ro_crate(context)
-    return to_json(crate, staging / RO_CRATE_METADATA_FILENAME)
 
 
 def write_ro_crate_view(
@@ -279,6 +265,5 @@ __all__ = [
     "build_ro_crate",
     "loads",
     "write_ro_crate",
-    "write_ro_crate_to_staging",
     "write_ro_crate_view",
 ]

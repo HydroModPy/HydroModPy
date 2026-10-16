@@ -55,12 +55,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--cross-catalog",
         action="store_true",
-        help="Cross-check the global index against per-project catalogs",
+        help="Cross-check the sealed runs on disk against the index of each project",
     )
     parser.add_argument(
         "--lifecycle",
         action="store_true",
-        help="Surface lifecycle issues (orphan sims, tmp parquet, stale running rows)",
+        help="Surface lifecycle issues (stale attempts, abandoned sessions, tmp files)",
     )
     parser.add_argument(
         "--prt",
@@ -79,11 +79,6 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Preserves comments and layout."
         ),
     )
-    parser.add_argument(
-        "--migrate",
-        action="store_true",
-        help="Upgrade the workspace catalog schema to the latest version",
-    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -92,10 +87,6 @@ def run(args: argparse.Namespace) -> None:
     fix_config = getattr(args, "fix_config", None)
     if fix_config is not None:
         _fix_config(fix_config)
-        return
-
-    if getattr(args, "migrate", False):
-        _migrate_catalogs(args.workspace)
         return
 
     report = _build_report(args.workspace, toml=args.toml)
@@ -116,40 +107,6 @@ def run(args: argparse.Namespace) -> None:
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(1)
-
-
-def _migrate_catalogs(workspace_arg: str | None) -> None:
-    """Upgrade the catalog schema of every project under the workspace."""
-    from hydromodpy.cli.helpers import EXIT_NOT_FOUND
-    from hydromodpy.core.state.paths import (
-        PROJECTS_DIRNAME,
-        catalog_path_for,
-        resolve_project_root,
-    )
-    from hydromodpy.results.catalog.migrations import apply_migrations
-
-    base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
-    catalogs: list[Path] = []
-    projects = base / PROJECTS_DIRNAME
-    if projects.is_dir():
-        catalogs = sorted(
-            catalog_path_for(p) for p in projects.iterdir() if (catalog_path_for(p)).is_file()
-        )
-    else:
-        try:
-            root = resolve_project_root(base)
-        except FileNotFoundError:
-            root = None
-        if root is not None and (catalog_path_for(root)).is_file():
-            catalogs = [catalog_path_for(root)]
-
-    if not catalogs:
-        print(f"No catalog found under {base}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-
-    for catalog_path in catalogs:
-        new_version = apply_migrations(catalog_path)
-        print(f"{catalog_path.parent.name}: schema at v{new_version}")
 
 
 def _fix_config(toml_path: str) -> None:
@@ -397,7 +354,9 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
                 "hint": "Run 'hmp workspace init <workspace>' to scaffold one",
             }
         ]
-    cache = ws / "data" / "cache.duckdb"
+    from hydromodpy.core.state.paths import data_cache_path_for
+
+    cache = data_cache_path_for(ws / "data")
     checks = [
         {
             "name": "workspace",
@@ -475,7 +434,6 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             "catalog_path",
             "data_dir",
             "runs_dir",
-            "output_root",
         ):
             if key in workspace_section and workspace_section[key] is not None:
                 workspace_section[key] = str(
@@ -536,20 +494,6 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
     return {"name": name, "status": status, "detail": detail, "hint": hint}
 
 
-def _iter_project_roots(workspace: Path) -> list[Path]:
-    """Return the root of every project under ``workspace`` that carries an index."""
-    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
-
-    return [root for root in project_roots_under(workspace) if catalog_path_for(root).is_file()]
-
-
-def _iter_project_catalogs(workspace: Path) -> list[Path]:
-    """Return the existing index databases of every project under ``workspace``."""
-    from hydromodpy.core.state.paths import catalog_path_for
-
-    return [catalog_path_for(root) for root in _iter_project_roots(workspace)]
-
-
 def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
     try:
         from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
@@ -563,6 +507,12 @@ def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
 
 
 def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
+    """Compare the sealed runs on disk with the index of each project.
+
+    Disk is the truth: a sealed run missing from its index, or an index row
+    whose directory is gone, means the index is behind. Both are fixed by
+    ``hmp catalog reindex``.
+    """
     workspace = _resolve_doctor_workspace(workspace_arg)
     if workspace is None:
         return [
@@ -574,102 +524,71 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
             }
         ]
 
-    try:
-        import duckdb
+    import duckdb
 
-        from hydromodpy.core.state.global_index import GlobalIndex
-        from hydromodpy.core.state.paths import is_under_workspace
-        from hydromodpy.core.state.paths import resolve_workspace as _resolve_uri
-    except Exception as exc:  # pragma: no cover - defensive
-        return [
-            {
-                "name": "cross_catalog:imports",
-                "status": "KO",
-                "detail": f"{exc}",
-                "hint": "Reinstall hydromodpy",
-            }
-        ]
+    from hydromodpy.core.state.paths import catalog_path_for, project_roots_under
+    from hydromodpy.results.catalog.federation import sealed_run_dirs
 
-    project_catalogs = _iter_project_catalogs(workspace)
-    project_sim_ids: set[str] = set()
-    for catalog_path in project_catalogs:
+    projects = project_roots_under(workspace)
+    unindexed_projects: list[str] = []
+    missing_from_index = 0
+    missing_on_disk = 0
+    n_sealed = 0
+    for project_root in projects:
+        on_disk = {
+            path.relative_to(project_root).as_posix() for path in sealed_run_dirs(project_root)
+        }
+        n_sealed += len(on_disk)
+        catalog_path = catalog_path_for(project_root)
+        if not catalog_path.is_file():
+            if on_disk:
+                unindexed_projects.append(project_root.name)
+            continue
         try:
             conn = duckdb.connect(str(catalog_path), read_only=True)
         except duckdb.Error:
+            unindexed_projects.append(project_root.name)
             continue
         try:
-            rows = conn.execute("SELECT sim_id FROM simulations").fetchall()
-            project_sim_ids.update(str(r[0]) for r in rows)
+            rows = conn.execute("SELECT rel_dir FROM simulations").fetchall()
+            indexed = {str(row[0]) for row in rows}
         except duckdb.Error:
-            pass
+            unindexed_projects.append(project_root.name)
+            continue
         finally:
             conn.close()
+        missing_from_index += len(on_disk - indexed)
+        missing_on_disk += len(indexed - on_disk)
 
-    index_sim_ids: set[str] = set()
-    try:
-        with GlobalIndex() as gi:
-            df = gi.find()
-            if df is not None and not df.empty and "sim_id" in df.columns:
-                index_sim_ids = {str(v) for v in df["sim_id"].tolist()}
-            try:
-                local_project_ids = {
-                    record.project_id
-                    for record in gi.list_projects()
-                    if is_under_workspace(workspace, _resolve_uri(record.project_uri))
-                }
-            except Exception:
-                local_project_ids = set()
-    except Exception as exc:
-        return [
-            {
-                "name": "cross_catalog:index_open",
-                "status": "KO",
-                "detail": f"{exc}",
-                "hint": "Re-register the projects with 'hmp workspace register <ws>'",
-            }
-        ]
-
-    checks: list[dict] = []
-    only_in_projects = project_sim_ids - index_sim_ids
-    only_in_index = index_sim_ids - project_sim_ids
-
-    checks.append(
+    hint = "Run 'hmp catalog reindex' in the project"
+    return [
         {
-            "name": "cross_catalog:projects_registered",
-            "status": "OK" if local_project_ids else "WARN",
+            "name": "cross_catalog:projects_indexed",
+            "status": "OK" if not unindexed_projects else "WARN",
             "detail": (
-                f"{len(local_project_ids)} registered project(s) under {workspace}"
-                if local_project_ids
-                else "no project of this workspace is registered in the global index"
+                f"{len(projects)} project(s) under {workspace}, "
+                f"{len(unindexed_projects)} with sealed runs and no readable index"
+                + (f" ({', '.join(sorted(unindexed_projects))})" if unindexed_projects else "")
             ),
-            "hint": "Run 'hmp workspace register <ws>' to register its projects",
-        }
-    )
-    checks.append(
+            "hint": hint,
+        },
         {
-            "name": "cross_catalog:projects_vs_index",
-            "status": "OK" if not only_in_projects else "WARN",
-            "detail": (
-                f"{len(project_sim_ids)} sim(s) in projects, "
-                f"{len(only_in_projects)} missing from index"
-            ),
-            "hint": "Refresh the index federation (open and close a GlobalIndex)",
-        }
-    )
-    checks.append(
+            "name": "cross_catalog:runs_vs_index",
+            "status": "OK" if missing_from_index == 0 else "WARN",
+            "detail": f"{n_sealed} sealed run(s) on disk, {missing_from_index} missing from an index",
+            "hint": hint,
+        },
         {
-            "name": "cross_catalog:index_vs_projects",
-            "status": "OK" if not only_in_index else "WARN",
-            "detail": (
-                f"{len(index_sim_ids)} sim(s) in index, {len(only_in_index)} missing from projects"
-            ),
-            "hint": "Run 'hmp workspace prune' to drop stale registrations",
-        }
-    )
-    return checks
+            "name": "cross_catalog:index_vs_runs",
+            "status": "OK" if missing_on_disk == 0 else "WARN",
+            "detail": f"{missing_on_disk} index row(s) whose directory is gone",
+            "hint": hint,
+        },
+    ]
 
 
 def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
+    """Count stale attempts, abandoned or orphan sessions and tmp files, from the disk."""
     workspace = _resolve_doctor_workspace(workspace_arg)
     if workspace is None:
         return [
@@ -681,95 +600,36 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
             }
         ]
 
-    try:
-        import duckdb
-    except Exception as exc:
-        return [
-            {
-                "name": "lifecycle:duckdb",
-                "status": "KO",
-                "detail": f"{exc}",
-                "hint": "Reinstall duckdb",
-            }
-        ]
-
     from hydromodpy.cli._workers.catalog import (
         ABANDONED_SESSION_MINUTES,
         abandoned_calibration_session_count,
         orphan_calibration_session_count,
         stale_running_sim_ids,
     )
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog.constants import STALE_HEARTBEAT_MINUTES
+    from hydromodpy.core.state.paths import project_roots_under
+    from hydromodpy.results.outcome import DEFAULT_STALE_AFTER_S
 
-    stale_running = 0
+    stale: list[str] = []
     orphan_sessions = 0
     abandoned_sessions = 0
-    wf_running = 0
-    wf_failed = 0
-    wf_recent: list[tuple[str, str, str, str]] = []
-    for project_root in _iter_project_roots(workspace):
-        # Stale-running + orphan-session reads go through the shared catalog
-        # facade helpers (same path as gc/watch); no raw SQL, no private import.
-        stale_running += len(stale_running_sim_ids(project_root))
+    for project_root in project_roots_under(workspace):
+        stale.extend(
+            f"{project_root.name}/{rel_dir}" for rel_dir in stale_running_sim_ids(project_root)
+        )
         orphan_sessions += orphan_calibration_session_count(project_root)
         abandoned_sessions += abandoned_calibration_session_count(project_root)
-        try:
-            conn = duckdb.connect(str(catalog_path_for(project_root)), read_only=True)
-        except duckdb.Error:
-            continue
-        try:
-            try:
-                wf_status_rows = conn.execute(
-                    """
-                    SELECT st.code, COUNT(*)
-                      FROM workflow_steps ws
-                      JOIN statuses st ON ws.status_id = st.id
-                  GROUP BY st.code
-                    """,
-                ).fetchall()
-            except duckdb.Error:
-                wf_status_rows = []
-            for code, count in wf_status_rows:
-                if code == "running":
-                    wf_running += int(count)
-                elif code == "failed":
-                    wf_failed += int(count)
 
-            try:
-                recent_rows = conn.execute(
-                    """
-                    SELECT ws.run_id, ws.step_name, st.code, ws.started_at
-                      FROM workflow_steps ws
-                      JOIN statuses st ON ws.status_id = st.id
-                  ORDER BY ws.started_at DESC NULLS LAST
-                     LIMIT 5
-                    """,
-                ).fetchall()
-            except duckdb.Error:
-                recent_rows = []
-            for run_id, step_name, code, started_at in recent_rows:
-                wf_recent.append(
-                    (
-                        str(run_id),
-                        str(step_name),
-                        str(code),
-                        str(started_at) if started_at is not None else "",
-                    )
-                )
-        except duckdb.Error:
-            pass
-        finally:
-            conn.close()
-
-    tmp_parquet = sum(1 for _ in workspace.rglob("*.tmp-*"))
-
-    checks = [
+    tmp_files = sum(1 for _ in workspace.rglob("*.tmp-*"))
+    stale_minutes = int(DEFAULT_STALE_AFTER_S // 60)
+    return [
         {
-            "name": "lifecycle:stale_running_sims",
-            "status": "OK" if stale_running == 0 else "WARN",
-            "detail": f"{stale_running} sim(s) running >{STALE_HEARTBEAT_MINUTES} min without heartbeat",
-            "hint": "Run 'hmp catalog gc -w <ws> --apply' to mark them failed",
+            "name": "lifecycle:stale_attempts",
+            "status": "OK" if not stale else "WARN",
+            "detail": (
+                f"{len(stale)} attempt(s) running with no heartbeat for >{stale_minutes} min"
+                + (f": {', '.join(stale)}" if stale else "")
+            ),
+            "hint": "Run 'hmp catalog gc --apply' in the project to mark them aborted",
         },
         {
             "name": "lifecycle:abandoned_calibration_sessions",
@@ -778,46 +638,21 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
                 f"{abandoned_sessions} calibration session(s) still running after "
                 f"{ABANDONED_SESSION_MINUTES // 60} h with no outcome"
             ),
-            "hint": "Run 'hmp catalog gc -w <ws> --apply' to close them as aborted",
+            "hint": "Run 'hmp catalog gc --apply' in the project to close them as aborted",
         },
         {
             "name": "lifecycle:orphan_calibration_sessions",
             "status": "OK" if orphan_sessions == 0 else "WARN",
-            "detail": f"{orphan_sessions} calibration session(s) reference a missing best_sim_id",
-            "hint": "Run 'hmp catalog gc -w <ws> --apply' to drop them",
+            "detail": f"{orphan_sessions} calibration session(s) name a best run that is gone",
+            "hint": "Restore the run from trash/ (hmp catalog restore) or delete the session",
         },
         {
-            "name": "lifecycle:tmp_parquet",
-            "status": "OK" if tmp_parquet == 0 else "WARN",
-            "detail": f"{tmp_parquet} stale tmp-* artefact(s) on disk",
-            "hint": "Run 'hmp catalog gc -w <ws> --apply' to clean them up",
-        },
-        {
-            "name": "lifecycle:workflow_steps_running",
-            "status": "OK" if wf_running == 0 else "WARN",
-            "detail": f"{wf_running} workflow step(s) marked running",
-            "hint": "Stale entries get aborted on next resume; use 'hmp run --resume <run_id>'",
-        },
-        {
-            "name": "lifecycle:workflow_steps_failed",
-            "status": "OK" if wf_failed == 0 else "WARN",
-            "detail": f"{wf_failed} workflow step(s) marked failed",
-            "hint": "Inspect catalog.workflow_steps for the error_message column",
+            "name": "lifecycle:tmp_files",
+            "status": "OK" if tmp_files == 0 else "WARN",
+            "detail": f"{tmp_files} stale tmp-* file(s) on disk",
+            "hint": "Run 'hmp catalog gc --apply' in the project to clean them up",
         },
     ]
-    if wf_recent:
-        formatted = "; ".join(
-            f"{run_id[:8]}:{step}={code}" for run_id, step, code, _ts in wf_recent
-        )
-        checks.append(
-            {
-                "name": "lifecycle:workflow_steps_recent",
-                "status": "OK",
-                "detail": formatted,
-                "hint": None,
-            }
-        )
-    return checks
 
 
 def _locate_mf6() -> Path | None:

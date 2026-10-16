@@ -1,11 +1,15 @@
-"""Single-simulation view on the results catalog.
+"""Single-simulation view on one run directory.
 
 What
 ----
-Read-only facade over one row of the ``simulations`` table. ``Run`` lazy-loads
-its catalog row on first access and exposes typed properties (``solver``,
+Read-only facade over one run. ``Run`` is opened on the handle that knows
+where the run lives: the project index (:class:`Catalog`) or the store of a
+run still being computed (:class:`RunStore`). It lazy-loads the row that
+describes the run on first access (the index row, or the facts the run
+directory states) and exposes typed properties (``solver``,
 ``status``, ``n_layers`` ...), tabular accessors (``parameters``, ``metrics``,
-``timeseries``, ``budget``, ``mass_balance``, ``provenance``), field-array
+``timeseries``, ``budget``, ``mass_balance``), the seal of the run
+(``record``, ``label()``, read from its directory), field-array
 readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``) and
 spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``). Heavier
 xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
@@ -24,8 +28,9 @@ xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
 Why
 ---
 Notebook and script users need a stable per-simulation handle that hides the
-DuckDB / Zarr split. Caching is per-instance to avoid repeated catalog hits
-inside a session; cross-process freshness is handled by the catalog itself.
+Parquet / Zarr split. The rows of the run (timeseries, budgets, parameters)
+are read from its own files (:mod:`hydromodpy.results.run.tables`), never
+from the index, so the same view serves a running run and a sealed one.
 
 The class composes per-concern mixins to stay under the 50-method limit:
 
@@ -40,7 +45,8 @@ module-level functions in :mod:`hydromodpy.results.derive.views` and consume a
 
 Public API
 ----------
-- ``Run``: instantiated by ``Catalog`` resolution methods. Also
+- ``Run``: instantiated by ``Catalog`` resolution methods, or on a
+  ``RunStore`` by the steps of a running run. Also
   exposes ``run.array`` for xarray / UGRID readers, ``run.probe`` for
   point interrogation, ``run.periods`` for date lookups and ``run.descent``
   for the routing descent.
@@ -65,19 +71,30 @@ Cross-refs
 from __future__ import annotations
 
 import json as _json
+import tomllib
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
 from hydromodpy.results.errors import RunNotFoundError
+from hydromodpy.results.export.run_identity import label_of
+from hydromodpy.results.outcome import effective_status
+from hydromodpy.results.record import RunRecord
 from hydromodpy.results.run.array import RunArrayProvider
 from hydromodpy.results.run.descent import RunDescent
 from hydromodpy.results.run.geographic import RunGeographicMixin
 from hydromodpy.results.run.hydrographic import RunHydrographicMixin
 from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
+from hydromodpy.results.run.sealed import read_record
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.validity_rules import LabelResult
 
 logger = get_logger(__name__)
 
@@ -86,12 +103,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.results.catalog import Catalog
 
-_WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = (
-    "catalog_path",
-    "runs_dir",
-    "solver_scratch_folder",
-    "share_folder",
-)
+_WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
 """``[workspace]`` members that derive from ``project_root`` and name outputs."""
 
 
@@ -126,6 +138,49 @@ def _reanchor_workspace(payload: dict, project_root: Path) -> dict:
     rebound["project_root"] = str(project_root)
     payload["workspace"] = rebound
     return payload
+
+
+def _store_row(store: RunStore) -> dict:
+    """Return the row of a run opened on its store, from its own directory.
+
+    The facts of the run (its checkpoint, or its seal once sealed) give the
+    columns of the index row; the status is read from ``outcome.json``, the
+    tags from ``annotations.json`` and the snapshot from ``config.toml``.
+    """
+    facts = store.facts
+    run_dir = store.run_dir
+    config_path = run_dir / RUN_CONFIG_FILENAME
+    snapshot = (
+        tomllib.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else None
+    )
+    tags = read_annotations(run_dir).tags
+    return {
+        "sim_id": facts.sim_id,
+        "name": facts.name,
+        "project": facts.project,
+        "case_id": facts.case_id,
+        "site": None if facts.site is None else facts.site.name,
+        "solver": facts.solver,
+        "solver_category": facts.solver_category,
+        "flow_regime": facts.flow_regime,
+        "status": effective_status(run_dir),
+        "created_at": facts.created_at,
+        "started_at": facts.started_at,
+        "duration_s": None,
+        "n_cells": facts.n_cells,
+        "n_layers": facts.n_layers,
+        "n_timesteps": facts.n_timesteps,
+        "mesh_hash": facts.mesh_hash,
+        "mesh_topology": facts.mesh_topology,
+        "crs_wkt": facts.crs_wkt,
+        "crs_epsg": facts.crs_epsg,
+        "period_start": facts.period_start,
+        "period_end": facts.period_end,
+        "time_unit": facts.time_unit,
+        "config_hash": facts.config_hash,
+        "config_snapshot": snapshot,
+        "tags": list(tags) or None,
+    }
 
 
 class Run(
@@ -172,6 +227,7 @@ class Run(
         self._sim_id = sim_id
         self._catalog_handle = catalog
         self._row: dict | None = None
+        self._sealed: RunRecord | None = None
         self.array = RunArrayProvider(self)
         self.probe = RunPointProvider(self)
         self.periods = RunPeriods(self)
@@ -192,6 +248,8 @@ class Run(
         return (self,)
 
     def _load_row(self) -> dict:
+        if self._row is None and isinstance(self._catalog_handle, RunStore):
+            self._row = _store_row(self._catalog_handle)
         if self._row is None:
             df = self._catalog.backend.query(
                 """SELECT s.*,
@@ -205,7 +263,7 @@ class Run(
                      JOIN statuses st ON s.status_id = st.id
                      LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
                      LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
-                    WHERE s.sim_id = ?""",
+                    WHERE CAST(s.sim_id AS VARCHAR) = ?""",
                 [self._sim_id],
             )
             if df.empty:
@@ -215,11 +273,51 @@ class Run(
             self._row = df.iloc[0].to_dict()
             # Tags moved to a per-sim table in v2. Populate as a Python list.
             tag_rows = self._catalog.backend.fetch_all(
-                "SELECT tag FROM tags WHERE sim_id = ? ORDER BY tag",
+                "SELECT tag FROM tags WHERE CAST(sim_id AS VARCHAR) = ? ORDER BY tag",
                 [self._sim_id],
             )
             self._row["tags"] = [r[0] for r in tag_rows] if tag_rows else None
         return self._row
+
+    def _record(self) -> RunRecord:
+        """The seal of this run, read once from its directory.
+
+        Raises :class:`~hydromodpy.results.errors.RunNotSealedError` for a
+        run that never completed.
+        """
+        if self._sealed is None:
+            self._sealed = read_record(self.dir, self._sim_id)
+        return self._sealed
+
+    # -- Sealed facts ----------------------------------------------------------
+
+    @property
+    def dir(self) -> Path:
+        """Directory of this run, ``runs/<name>`` or a trial of a session."""
+        return Path(self._catalog.run_dir_for(self._sim_id))
+
+    @property
+    def record(self) -> RunRecord:
+        """The seal of this run, read from its directory, never from the index.
+
+        ``record.site`` is the basin (``None`` on a synthetic domain),
+        ``record.run.case_id`` the case, ``record.lineage`` where the run
+        comes from, ``record.checks`` what the seal measured, ``record.inputs``
+        every input it loaded (``inputs.json``), ``record.metrics`` and
+        ``record.score`` its scores under the metric rule. Raises
+        :class:`~hydromodpy.results.errors.RunNotSealedError` for a run
+        that never completed.
+        """
+        return self._record()
+
+    def label(self) -> LabelResult:
+        """Return the label of this run today, with its rule version and reasons.
+
+        The label is computed on each call from the sealed checks, the version
+        that produced the run and the known issues of this build: a newer
+        build may declass a run without rewriting it.
+        """
+        return label_of(self._record())
 
     # -- Export --------------------------------------------------------------
 
@@ -245,8 +343,9 @@ class Run(
         extension of ``file`` names one: a field at one date goes to GeoTIFF,
         over several dates to one NetCDF, a series or the budget to CSV, a
         vector layer to GeoPackage, a raster layer to GeoTIFF. Files land in
-        ``share/<run>/`` by default; a relative ``folder`` is read from
-        ``share/``.
+        ``runs/<run>/exports/``; a relative ``folder`` or ``file`` is read
+        from there. Each file carries the identity of the run and is recorded
+        in ``exports/index.json``.
 
         Examples
         --------
@@ -256,9 +355,9 @@ class Run(
         >>> run.export(
         ...     "watertable_depth", time="last", file="nappe_wgs84.tif", crs="EPSG:4326"
         ... )  # doctest: +SKIP
-        >>> run.export("all", format="package")  # doctest: +SKIP
         """
         from hydromodpy.core.config_kit.export_spec import ExportRequest
+        from hydromodpy.results.exporters.request import export_run
 
         fields = {
             "variables": variables,
@@ -275,35 +374,67 @@ class Run(
         request = ExportRequest.model_validate(
             {key: value for key, value in fields.items() if value is not None}
         )
-        return self._catalog.export(self._sim_id, request)
+        return export_run(self._catalog, self._sim_id, request)
 
-    # -- Mutations (require a writable catalog) -------------------------------
+    # -- Mutations (written in the run directory) ------------------------------
 
     def tag(self, *specs: str) -> Run:
-        """Add (``+tag`` or bare) or remove (``-tag``) tags. Returns self."""
+        """Add (``+tag`` or bare) or remove (``-tag``) tags. Returns self.
+
+        The tags live in ``annotations.json`` of the run; the index, when the
+        project has one, reads them back.
+        """
+        changed = False
         for spec in specs:
             spec = str(spec).strip()
             if not spec:
                 continue
             if spec.startswith("-"):
-                self._catalog.remove_tag(self._sim_id, spec[1:])
+                remove_tag(self.dir, spec[1:])
             else:
-                self._catalog.add_tag(self._sim_id, spec.lstrip("+"))
+                add_tag(self.dir, spec.lstrip("+"))
+            changed = True
+        if changed:
+            self._annotated()
         return self
 
     def note(self, text: str) -> Run:
-        """Append a timestamped note to this run. Returns self."""
-        self._catalog.add_note(self._sim_id, text)
+        """Append a timestamped note to ``annotations.json`` of this run. Returns self."""
+        add_note(self.dir, text)
+        self._annotated()
         return self
 
     def delete(self) -> None:
-        """Move this run to the trash (reversible). Raises if pinned."""
-        self._catalog.trash(self._sim_id)
+        """Move this run to ``trash/`` (reversible). Raises if protected or running."""
+        from hydromodpy.results.trash import trash_run
+
+        root = self._project_root()
+        trash_run(root, self.dir.relative_to(root).as_posix(), now=datetime.now(UTC))
+        self._refresh_index(root)
+
+    def _annotated(self) -> None:
+        """Forget the cached row and bring the index up to date with the annotations."""
+        self._row = None
+        self._refresh_index(self._project_root())
+
+    def _project_root(self) -> Path:
+        """The project that holds this run."""
+        root = self._catalog.workspace_path
+        return Path(root) if root is not None else self.dir.parent.parent
+
+    @staticmethod
+    def _refresh_index(project_root: Path) -> None:
+        """Re-index the project after a change on disk, when it keeps an index."""
+        if not catalog_path_for(project_root).is_file():
+            return
+        from hydromodpy.results.catalog.indexer import index_new_runs
+
+        index_new_runs(project_root)
 
     @property
     def parent(self) -> Run | None:
-        """Parent :class:`Run` (lineage) or ``None``."""
-        parent_sid = self._load_row().get("parent_sim_id")
+        """Parent :class:`Run` named by the lineage of the seal, or ``None``."""
+        parent_sid = self._record().lineage.parent_sim_id
         if not parent_sid:
             return None
         return Run(str(parent_sid), self._catalog)
@@ -368,7 +499,7 @@ class Run(
         if val is None:
             return None
         payload = _json.loads(val) if isinstance(val, str) else dict(val)
-        return _reanchor_workspace(payload, Path(self._catalog.workspace_path))
+        return _reanchor_workspace(payload, self._project_root())
 
     @property
     def hydromodpy_config(self) -> BaseModel:
@@ -415,12 +546,6 @@ class Run(
     def n_timesteps(self) -> int | None:
         """Number of persisted timesteps when the workflow is time-dependent."""
         return self._load_row().get("n_timesteps")
-
-    @property
-    def parent_sim_id(self) -> str | None:
-        """Parent simulation id when this run was created from another run."""
-        val = self._load_row().get("parent_sim_id")
-        return str(val) if val is not None else None
 
     # -- Summary -------------------------------------------------------------
 

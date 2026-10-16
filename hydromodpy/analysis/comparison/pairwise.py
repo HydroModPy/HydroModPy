@@ -38,7 +38,7 @@ def compare_pair(
     if not (catalog_path_for(workspace_root)).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
-    with Catalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid_a = catalog.resolve(sim_a)
         sid_b = catalog.resolve(sim_b)
         df = catalog.sql(

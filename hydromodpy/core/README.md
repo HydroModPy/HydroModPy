@@ -24,10 +24,11 @@ answers, the import rule, and where to add what.
 | part | answers |
 |---|---|
 | `workspace/` | where does a project live? `WorkspaceConfig` and its four-branch resolution (explicit `[workspace]` keys, `HMP_WORKSPACE`, the scaffold `<workspace>/projects/<name>/`, then the project folder itself, in that order), the `Workspace` runtime object, the path registry, and a best-effort lookup of the workspace root (`resolve.py`) |
-| `state/` | runtime registries shared by the launcher and the execution: `ExecutionRegistry`, `WorkflowContext`, `LoadedDataContext`, `SetupContext`; the path helpers of a project (`paths.py`: `.hmp/index.duckdb`, `runs/`, per-run scratch, the cache folder `HMP_CACHE_HOME`); the global index of the machine (`global_index.py`) |
+| `state/` | runtime registries shared by the launcher and the execution: `ExecutionRegistry`, `WorkflowContext`, `LoadedDataContext`, `SetupContext`; the path helpers of a project (`paths.py`: `.hmp/index.duckdb`, `runs/`, per-run scratch, the cache folder `HMP_CACHE_HOME`, the trash and jobs folder names, `process_is_alive`) |
+| `site/` | what is a site? `SiteConfig` (`[site]`), `SiteRow` (a row of `data/sites/catalog.csv`), `site_fingerprint` (a site recognised from its declaration, never from a DEM) and `resolve_gauge` (`[site] gauge` is the one source of the station other keys fall back to) |
 | `contracts/` | the neutral runtime contracts several layers implement: workflow steps, solver registry and model protocols, observables, the data cache backend, ids |
 | `time/` | the simulation time window, period aggregation, steady-state initialisation, and `selection.py`, the one date-to-period resolver that figures and exports share. `time/README.md` is its map |
-| `migrations/` | the schema migration runner shared by every DuckDB component (catalog, global index, workspace cache): `ensure_schema`, backups before a migration |
+| `migrations/` | the schema migration runner of the workspace data cache: `ensure_schema`, backups before a migration. The project index has no migrations: it is rebuilt from the run directories |
 
 ### I/O, logging and process
 
@@ -38,7 +39,7 @@ answers, the import rule, and where to add what.
 | `interrupts.py` | `terminate_as_interrupt`: SIGTERM raises like SIGINT, so a run closes its session |
 | `bootstrap_hook.py` | `ensure_bootstrapped`: lazy trigger of the root bootstrap, so a layer never imports the root module |
 | `exceptions.py` | the typed exception hierarchy the CLI maps to exit codes |
-| `auth/` | who acts? `AuthBackend` protocol and `LocalAuthBackend` (reads `HMP_USER`, then `USER` or `USERNAME`, then the system user; allows every read and write). `get_auth_backend` reads `HMP_AUTH_BACKEND` and refuses an unknown name with a `ValueError`. The audit trail (`results/catalog/audit.py`) and the privacy purge (`cli/_workers/privacy.py`) resolve the actor through it |
+| `auth/` | who acts? `AuthBackend` protocol and `LocalAuthBackend` (reads `HMP_USER`, then `USER` or `USERNAME`, then the system user; allows every read and write). `get_auth_backend` reads `HMP_AUTH_BACKEND` and refuses an unknown name with a `ValueError`. The privacy purge (`cli/_workers/privacy.py`) resolves the actor through it |
 | `version.py`, `licensing.py`, `rng.py` | the version string, the SPDX token written when nobody declared a licence, and the seed manager |
 
 ### Numerical kernels and shared constants
@@ -85,7 +86,7 @@ or the data stack.
 5. **An auth backend.** A class that satisfies `AuthBackend` and its name in the
    table of `auth/selection.py`.
 6. **A DuckDB schema change.** A new numbered `.sql` file in the `migrations/`
-   folder of the component (for the global index: `state/migrations/`).
+   folder of the component (for the data cache: `data/registry/migrations/`). The project index is never migrated: a schema change there is a rebuild (`results/catalog/index_schema.py`).
 7. **A metric.** `metrics.py`, pure NumPy, JSON-friendly floats.
 
 ## Reading path

@@ -6,11 +6,12 @@ trial the calibration returned, the record of a root search, and the width
 the calibration reads its interval with. Every calibration figure has to agree
 on those, so they are read here and nowhere else.
 
-The index row of a session carries part of it: no trial number, no root
-search record, no search space. ``session.json`` carries all of it, so a
-figure drawn from a run completes the row from the journal of the project
-that holds the run. A run-shaped carrier with no project behind it, such as
-the one the calibration report builds, keeps what it carries.
+The rows of :func:`~hydromodpy.results.calibration_trials.calibration_sessions`
+carry one phase each. ``session.json`` carries the session as a whole (its
+best trial, its root search, its search space), so a figure drawn from a run
+completes the row from the descriptor of the session directory the run was
+promoted from. A run-shaped carrier with no directory behind it, such as the
+one the calibration report builds, keeps what it carries.
 
 The interval is the calibration's own rule, restated here because ``display``
 may not import ``calibration`` (``optim.tolerance``): the width written in
@@ -25,15 +26,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
-from pathlib import Path
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
-from hydromodpy.results.calibration_trials import calibration_sessions, calibration_trials
-from hydromodpy.results.session_journal import find_session_dir, read_descriptor
+from hydromodpy.results.calibration_trials import (
+    calibration_sessions,
+    calibration_trials,
+    session_dir_of,
+)
+from hydromodpy.results.session.descriptor import read_session
 
 if TYPE_CHECKING:
     from hydromodpy.display.figures._trial_diagnostics import TrialTable
@@ -119,30 +123,26 @@ def completed_descriptor(sim: Run, session_id: Any, row: Mapping[str, Any]) -> d
 
 
 def journal_descriptor(sim: Run, session_id: Any) -> dict[str, Any]:
-    """Return ``session.json`` of one session, empty when no journal is reachable."""
-    root = project_root(sim)
-    if root is None or session_id is None:
+    """Return ``session.json`` of one session, empty when no session directory is reachable.
+
+    The best trial is flattened into ``best_trial`` and ``best_sim_id``, the
+    keys the rows of :func:`calibration_sessions` use.
+    """
+    if session_id is None:
         return {}
-    directory = find_session_dir(root, str(session_id))
+    directory = session_dir_of(sim, session_id=str(session_id))
     if directory is None:
         return {}
     try:
-        return asdict(read_descriptor(directory))
+        descriptor = read_session(directory)
     except (OSError, ValueError):
-        # A journal that no longer reads leaves the index row to speak alone.
+        # A descriptor that no longer reads leaves the row to speak alone.
         return {}
-
-
-def project_root(sim: Run) -> Path | None:
-    """Return the project that holds a run, as its config snapshot names it.
-
-    A run re-anchors ``[workspace] project_root`` on the project it is read
-    from, so a copied or moved project reads its own journals.
-    """
-    snapshot = getattr(sim, "config_snapshot", None)
-    workspace = snapshot.get("workspace") if isinstance(snapshot, Mapping) else None
-    root = text(workspace.get("project_root")) if isinstance(workspace, Mapping) else None
-    return Path(root) if root is not None else None
+    payload = descriptor.model_dump(mode="json")
+    best = descriptor.best
+    payload["best_trial"] = best.trial if best is not None else None
+    payload["best_sim_id"] = best.sim_id if best is not None else None
+    return payload
 
 
 def session_config(descriptor: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -488,7 +488,6 @@ __all__ = [
     "metric_cost",
     "metric_unit",
     "parameter_declaration",
-    "project_root",
     "read_tolerance",
     "returned_row",
     "scored_on_distances",

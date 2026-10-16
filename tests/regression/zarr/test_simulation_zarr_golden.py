@@ -67,8 +67,10 @@ _FROZEN_NOW = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
 # before computing the snapshot SHA-256.
 _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
-EXPECTED_DIGEST = "cc89183efe10339d92dfa793c4e699614c458313940d26a8f95aa296a06cf358"
-EXPECTED_LAYOUT_DIGEST = "725c98e821229cb469ed1299c936abca62c9204cc4e11c8b13e8ebb6d93e99fa"
+# The root attributes carry no ``project`` nor ``processing_level``: the
+# identity of the run poses them at the seal, not the ACDD composer.
+EXPECTED_DIGEST = "cd6de14073164257582bc1e531b072ba0579c2116f8c0dea5df6826d6dbb578d"
+EXPECTED_LAYOUT_DIGEST = "3e5a38d953b5973968e678b0bc7d0debd1f429ee2f55f2e127479acb1e4326d2"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",

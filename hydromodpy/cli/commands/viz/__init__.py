@@ -4,8 +4,8 @@ Sub-actions:
 
 - ``hmp viz list``: print the figure names accepted by ``[display].figures``.
 - ``hmp viz show <sim_ref> <figure>``: render one figure for one simulation.
-- ``hmp viz gallery <config.toml>``: render the [display] figure gallery for
-  one or several runs of the TOML.
+- ``hmp viz regen <sim_ref>``: draw again the figures ``figures/index.json``
+  of the run records.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ from __future__ import annotations
 import argparse
 
 from hydromodpy.cli._conventions import add_action_subparsers
-from hydromodpy.cli.commands.viz import gallery, list_cmd, show
+from hydromodpy.cli.commands.viz import list_cmd, regen, show
 
 NAME: str = "viz"
-HELP: str = "Visualization helpers (list, show, gallery)"
+HELP: str = "Visualization helpers (list, show, regen)"
 
-ACTIONS = (list_cmd, show, gallery)
+ACTIONS = (list_cmd, show, regen)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

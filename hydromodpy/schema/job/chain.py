@@ -432,8 +432,8 @@ def run_chain(
     """Run every step of *chain* under *root*, stopping at the first failure.
 
     *run_step* receives a capability id and a directory that already carries
-    its request, and answers the pair ``hmp process run`` answers with: the
-    typed exit code, and the bytes of the job's ``outcome.json``. Injected
+    its request, and answers with a pair: the typed exit code, and the bytes of
+    the job's ``outcome.json``. Injected
     because the registry that can produce a body lives above this layer.
 
     A step that fails stops the chain: the steps after it are recorded as

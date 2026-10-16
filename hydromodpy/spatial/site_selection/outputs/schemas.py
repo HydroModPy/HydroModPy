@@ -11,7 +11,7 @@ from hydromodpy.spatial.site_selection.hydrology.delineation import (
     snapped_outlet_xy,
 )
 
-REGIONAL_LAB_SITES_FIELDS = [
+SELECTED_SITES_FIELDS = [
     "site_id",
     "site_label",
     "region_id",
@@ -22,12 +22,11 @@ REGIONAL_LAB_SITES_FIELDS = [
     "y",
     "x_outlet",
     "y_outlet",
+    "crs",
+    "gauge",
     "area_km2",
     "tags",
     "enabled",
-]
-SELECTED_SITES_FIELDS = [
-    *REGIONAL_LAB_SITES_FIELDS,
     "x_outlet_snapped",
     "y_outlet_snapped",
     "outlet_snap_distance_m",
@@ -43,6 +42,8 @@ SELECTED_SITES_SCHEMA = {
     "y": "Outlet y coordinate in the outlet CRS.",
     "x_outlet": "Explicit outlet x coordinate in the outlet CRS.",
     "y_outlet": "Explicit outlet y coordinate in the outlet CRS.",
+    "crs": "CRS of the outlet coordinates.",
+    "gauge": "Flow station the outlet comes from, empty for a generated outlet.",
     "area_km2": "Delineated catchment area in square kilometres when available.",
     "tags": "Semicolon-separated provenance tags.",
     "enabled": "Boolean flag used by downstream catalog loaders.",
@@ -77,6 +78,8 @@ def site_record_from_catchment(
         "y": catchment.outlet.y,
         "x_outlet": catchment.outlet.x,
         "y_outlet": catchment.outlet.y,
+        "crs": catchment.outlet.crs,
+        "gauge": str(catchment.outlet.attributes.get("flow_station_id") or ""),
         "area_km2": "" if catchment.area_km2 is None else catchment.area_km2,
         "tags": ";".join(tags),
         "enabled": True,
@@ -87,7 +90,6 @@ def site_record_from_catchment(
 
 
 __all__ = [
-    "REGIONAL_LAB_SITES_FIELDS",
     "SELECTED_SITES_FIELDS",
     "SELECTED_SITES_SCHEMA",
     "site_record_from_catchment",

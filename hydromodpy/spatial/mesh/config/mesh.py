@@ -89,8 +89,8 @@ class MeshTriangleConfig(HydroModelBase):
         default=None,
         description=(
             "Existing gmsh .msh file (format 2.2) to read instead of generating a "
-            "triangulation, relative to the configuration file. The line families are "
-            "derived on the mesh read."
+            "triangulation, relative to the project root (the folder of project.toml). "
+            "The line families are derived on the mesh read."
         ),
         examples=["mesh/catchment.msh"],
     )
@@ -330,7 +330,9 @@ class MeshConfig(HydroModelBase):
                 '[mesh.voronoi] seeds = "triangulation" takes the generators from the '
                 "triangulation read from [mesh.triangle] path, and no path is given."
             )
-        if self.voronoi is not None and "lloyd_tolerance" in self.voronoi.model_fields_set:
+        if self.voronoi is not None and self.voronoi.lloyd_tolerance != (
+            type(self.voronoi).model_fields["lloyd_tolerance"].default
+        ):
             if seeds == "triangulation" or (seeds is None and path is not None):
                 raise ValueError(
                     "[mesh.voronoi] lloyd_tolerance relaxes generated generators, and the "

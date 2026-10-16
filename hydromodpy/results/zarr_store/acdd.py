@@ -1,9 +1,13 @@
 """ACDD-1.3 root-attribute composition for Zarr stores.
 
-Source of values is the DuckDB ``simulations`` row plus ``runs_environment``
-plus an optional workspace ``[project]`` table parsed from ``workspace.toml``.
-The composer is pure: it consumes plain dicts and returns a plain dict, so it
-stays easy to unit-test and to drive from any catalog backend.
+Source of values is the row the seal builds from the facts of the run, its
+host snapshot, and an optional ``[project]`` table parsed from
+``workspace.toml``. The composer is pure: it consumes plain dicts and returns
+a plain dict, so it stays easy to unit-test. The identity attributes
+(``project``, the site, and ``processing_level``, from the label) are not
+composed here: :meth:`hydromodpy.results.identity.Identity.apply_to_zarr`
+poses them at the seal, the one rule for every file of a run. A run that
+states no licence is ``LicenseRef-undetermined``, as in its Parquet footers.
 """
 
 from __future__ import annotations
@@ -49,16 +53,16 @@ def compose_acdd_root_attrs(
 ) -> dict[str, Any]:
     """Return the ACDD/CF root attributes for one simulation.
 
-    ``sim_row``: the ``simulations`` DB row as a dict. Recognised keys are
+    ``sim_row``: the row of the run as a dict. Recognised keys are
     ``sim_id``, ``name``, ``description``, ``project``, ``solver``,
-    ``study_area_name``, ``period_start``, ``period_end``, ``time_unit``,
+    ``period_start``, ``period_end``, ``time_unit``,
     ``crs_wkt``, ``crs_epsg``, ``bbox_xmin``, ``bbox_ymin``, ``bbox_xmax``,
     ``bbox_ymax``, ``contact_email``, ``doi``, ``scientific_objective``,
     ``creator_institution``, ``creator_url``, ``naming_authority``,
-    ``keywords``, ``license``, ``processing_level``, ``time_coverage_duration``,
+    ``keywords``, ``license``, ``time_coverage_duration``,
     ``time_coverage_resolution``.
 
-    ``runs_env``: a ``runs_environment`` row dict. Recognised: ``user_name``,
+    ``runs_env``: the host snapshot of the run. Recognised: ``user_name``,
     ``hostname``, ``hydromodpy_version``, ``git_commit``, ``rng_seed``,
     ``solver_binary_sha256``, ``solver_version_text``.
 
@@ -141,8 +145,6 @@ def compose_acdd_root_attrs(
         "history": history,
         "source": "; ".join(source_parts),
         "references": str(pick("references", "doi")),
-        "project": str(pick("project")),
-        "processing_level": str(pick("processing_level") or "Modeled L2"),
         "license": str(license_value),
         "comment": str(comment),
         "date_modified": now_iso,

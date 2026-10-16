@@ -1,4 +1,4 @@
-"""``hmp data`` family - workspace data cache and package exchange.
+"""``hmp data`` family - the workspace data cache.
 
 Sub-actions:
 
@@ -13,10 +13,7 @@ Cache management:
 - ``hmp data archive <out>``: archive the cache + lockfile to a portable file.
 - ``hmp data restore <in>``: restore a cache archive into the workspace.
 
-Package exchange (``hmp export <run> all --format package`` writes one):
-
-- ``hmp data import <package>``: import a ``.hmp`` archive and dematerialise
-  its bundled inputs into a project catalog.
+A run published by ``hmp publish`` is read back by ``hmp catalog import``.
 """
 
 from __future__ import annotations
@@ -29,7 +26,6 @@ from hydromodpy.cli.commands.data import (
     archive,
     check,
     get,
-    import_cmd,
     ls,
     prune,
     remove,
@@ -37,7 +33,7 @@ from hydromodpy.cli.commands.data import (
 )
 
 NAME: str = "data"
-HELP: str = "Workspace data cache management and .hmp package exchange"
+HELP: str = "Workspace data cache management"
 
 ACTIONS = (
     ls,
@@ -48,7 +44,6 @@ ACTIONS = (
     prune,
     archive,
     restore,
-    import_cmd,
 )
 
 

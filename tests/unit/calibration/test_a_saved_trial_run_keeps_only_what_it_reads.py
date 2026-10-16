@@ -18,9 +18,10 @@ from typing import Any
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runners import promotion as promotion_module
+from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners import trial as trial_module
-from hydromodpy.calibration.runners.promotion import promote_iterations
+from hydromodpy.calibration.runners.promotion import promote_session
 from hydromodpy.calibration.runners.trial import TrialContext, promote_prepared_trial
 from hydromodpy.core.budget_terms import POLICY_ALL, POLICY_CONSUMERS, BudgetKeep
 from hydromodpy.core.state.execution import ExecutionRegistry
@@ -80,8 +81,8 @@ class _Step:
 
 
 class _Provider:
-    def make_pipeline(self, steps):
-        return Pipeline(steps)
+    def make_pipeline(self, steps, *, run_dir=None):
+        return Pipeline(steps, run_dir=run_dir)
 
     def make_state(self, run_id, data):
         return PipelineState(run_id=run_id, data=dict(data))
@@ -114,13 +115,15 @@ def session(tmp_path: Path, monkeypatch):
 
     def _export(state: PipelineState) -> None:
         ctx = state.get("ctx")
-        kept[ctx.setup.run_id] = ctx.budget_terms
-        flags[ctx.setup.run_id] = ctx.cfg.simulation.results.keep_per_cell_budget
+        run_dir = state.get("run_dir")
+        label = (
+            ctx.setup.run_id if run_dir is None or run_dir.parent.name == "runs" else run_dir.name
+        )
+        kept[label] = ctx.budget_terms
+        flags[label] = ctx.cfg.simulation.results.keep_per_cell_budget
         ctx.sim_id = ctx.reserved_sim_id
 
     monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider)
-    monkeypatch.setattr(trial_module, "_attach_tags_to_simulation", lambda *args: None)
-    monkeypatch.setattr(promotion_module, "update_iter_sim_id", lambda *args: None)
     cfg = _Cfg()
     ctx = _Ctx(cfg=cfg, config_path=tmp_path / "calib.toml", raw_toml={})
     trial_ctx = TrialContext(
@@ -137,38 +140,48 @@ def session(tmp_path: Path, monkeypatch):
     return trial_ctx, kept, flags
 
 
-class _Persistence:
-    def __init__(self, count: int) -> None:
-        self._rows = [
-            {
-                "iteration": index,
-                "parameters": {"K": float(index)},
-                "objective_value": float(index),
-                "status": "completed",
-            }
-            for index in range(1, count + 1)
-        ]
-
-    def top_n(self, session_id: str, n: int) -> list[dict[str, Any]]:
-        del session_id
-        return self._rows[:n]
-
-    def load_iterations(self, session_id: str) -> list[dict[str, Any]]:
-        del session_id
-        return list(self._rows)
+def _persistence(project: Path, rows: int, costs: dict[int, float]) -> CalibrationPersistence:
+    """A journaled session of ``rows`` trials, trial ``n`` at parameter ``K = n``."""
+    session_dir = project / "sessions" / "best"
+    session_dir.mkdir(parents=True)
+    persistence = CalibrationPersistence(session_dir)
+    persistence.start_session(
+        session_id="c" * 32,
+        case_id="best",
+        site=None,
+        project=project.name,
+        config_hash="c" * 64,
+        hydromodpy_version="2.0.0a5",
+        method="grid",
+        objective_name="nse",
+        search_space={},
+        objective_window=None,
+    )
+    for index in range(1, rows + 1):
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=index, values={"K": float(index)}),
+            EvaluationResult(
+                trial_id=index, sim_id=None, objective_value=costs[index], status="completed"
+            ),
+        )
+    return persistence
 
 
 def _promote(trial_ctx, *, cfg: CalibrationConfig, rows: int, best_trial: int):
-    return promote_iterations(
+    project = trial_ctx.workspace / "project"
+    costs = {index: float(index) for index in range(1, rows + 1)}
+    costs[best_trial] = 0.0
+    outcome = promote_session(
         cfg=cfg,
         trial_ctx=trial_ctx,
-        catalog=None,
-        persistence=_Persistence(rows),
-        session_id="c" * 32,
-        best=SimpleNamespace(trial_id=best_trial),
+        persistence=_persistence(project, rows, costs),
+        project_root=project,
+        phase="main",
+        session_status="completed",
         override_paths={"K": "K"},
-        run_name="best",
+        objective_window=None,
     )
+    return outcome.count, outcome.failures, outcome.best_sim_id
 
 
 @pytest.mark.parametrize(
@@ -189,12 +202,13 @@ def test_the_best_run_keeps_everything_and_the_others_keep_what_they_read(
 
     assert (count, failures) == (3, [])
     assert best_sim_id is not None
+    # Every promoted run is named after the case; the best one keeps everything,
+    # the two kept trials take the consumers policy, in the order they were promoted.
     assert kept["best"] == BudgetKeep.everything()
     assert kept["best"].policy == POLICY_ALL
-    for name in ("best_trial_0001", "best_trial_0003"):
-        assert kept[name].policy == POLICY_CONSUMERS
-        assert flags[name] is False
     assert flags["best"] is True
+    assert [policy.policy for policy in kept.values()][1:] == [POLICY_CONSUMERS, POLICY_CONSUMERS]
+    assert list(flags.values())[1:] == [False, False]
 
 
 def test_the_best_run_follows_the_project_file(session) -> None:
@@ -241,15 +255,10 @@ def test_the_override_is_set_on_a_copy_of_the_results_section(session) -> None:
     assert shared.keep_per_cell_budget is True
 
 
-def test_rerun_best_alone_keeps_the_default(session) -> None:
+def test_the_default_promotes_the_best_alone_with_the_whole_budget(session) -> None:
     trial_ctx, kept, _ = session
 
-    count, failures, _ = _promote(
-        trial_ctx,
-        cfg=CalibrationConfig(save_runs="none", rerun_best_with_outputs=True),
-        rows=3,
-        best_trial=2,
-    )
+    count, failures, _ = _promote(trial_ctx, cfg=CalibrationConfig(), rows=3, best_trial=2)
 
     assert (count, failures) == (1, [])
     assert list(kept) == ["best"]

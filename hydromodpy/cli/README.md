@@ -14,35 +14,34 @@ rest of the code, and where to add what.
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
 | `_conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_sim_ref`, `add_action_subparsers` |
 | `helpers.py` | the typed exit codes and `exit_code_for(exc)`, plus the helpers that several verbs share (verbosity, workspace and project lookup, profiling, the scratch folder of the test tiers) |
-| `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, audit display, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
+| `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
 | `banner.py` | the banner `hmp run` prints |
 
 ## Verbs
 
-Twenty top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
+Nineteen top-level verbs, in `ALL_COMMANDS` order. `hmp <verb> --help` prints the
 options of each one, and the CLI reference of the documentation is generated
 from the same parsers.
 
 | verb | role |
 |---|---|
-| `workspace` | workspace lifecycle and registration in the global index: `init`, `list`, `register`, `search`, `forget`, `prune`, `clean` |
+| `workspace` | workspace lifecycle: `init`, `list` (the sealed runs found by walking the tree, no index), `clean` |
 | `project` | projects inside a workspace: `new`, `list`, `show`, `delete` |
 | `example` | the shipped examples: `list`, `show`, `add` |
 | `catalog` | the run lifecycle: `ls`, `query`, `show`, `point`, `gc`, `reindex`, `delete`, `restore`, `trash`, `tag`, `note`, `rename`, `diff`, `watch`, `import`, `rerun` |
-| `data` | the input cache and `.hmp` package exchange: `ls`, `get`, `check`, `add`, `remove`, `prune`, `archive`, `restore`, `import` |
-| `export` | write data of one run to files (fields, series, layers, budget, or the whole run) |
-| `viz` | figures: `list`, `show`, `gallery` |
-| `config` | `template`, `check`, `schema`, `targets`, `wizard` |
+| `data` | the input cache: `ls`, `get`, `check`, `add`, `remove`, `prune`, `archive`, `restore` |
+| `export` | write data of one run to files under `runs/<run>/exports/` (fields, series, layers, budget, or the whole run) |
+| `publish` | copy a run, the summary or the project out of the tree (directory or tar), with `PUBLICATION.json` |
+| `viz` | figures: `list`, `show`, `regen` |
+| `config` | `template`, `check`, `resolve`, `schema`, `targets`, `wizard` |
 | `dev` | developer-only: `run-script`, `completion`, `schema`, `examples`, `lock`, `rank`, `manage` |
-| `audit` | `list` and `verify` on the hash-chained audit log |
-| `privacy` | `purge` a simulation with a certificate, and `verify` that certificate |
-| `process` | run a capability as an external process, in one job directory: `list`, `describe`, `run`, `chain`, `verify` |
-| `run` | execute the workflow a TOML names in `[workflow].mode` |
+| `privacy` | `purge` a run for good (its name stays taken) with a certificate, and `verify` that certificate |
+| `run` | execute the workflow a TOML names in `[workflow].mode`, or the one its sections imply |
 | `calibrate` | run a calibration workflow from a TOML |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
-| `site-selection` | `plan`, `select-catchments`, `build-observed`, `build-generated`, `report` |
+| `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `select`, `ls`, `show` |
 | `test` | run the `unit`, `regression` or `validation` tier |
-| `report` | `render` a calibration report, `compare` two runs, build a `catchment` report |
+| `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
 | `doctor` | diagnose Python, dependencies, solver binaries and the workspace |
 | `install-binaries` | download the MODFLOW, MODPATH and MT3D-USGS binaries |
 
@@ -69,11 +68,11 @@ def run(args: argparse.Namespace) -> None: ...
 `args._handler(args)`.
 
 A verb family is a sub-package (`workspace`, `project`, `example`, `catalog`,
-`data`, `viz`, `dev`, `process`). Its `__init__.py` carries `NAME`, `HELP` and an
+`data`, `viz`, `dev`, `site`). Its `__init__.py` carries `NAME`, `HELP` and an
 `ACTIONS` tuple, and every action module repeats the same four symbols. The
 group is attached with `add_action_subparsers`, so a bare `hmp catalog` is a
-usage error and exits 2. `config`, `audit`, `privacy`, `report` and
-`site-selection` are single modules that declare their own sub-commands.
+usage error and exits 2. `config`, `privacy` and `report` are single modules
+that declare their own sub-commands.
 
 ## The boundary
 
@@ -81,7 +80,7 @@ usage error and exits 2. `config`, `audit`, `privacy`, `report` and
   worker of `_workers/`, format the output and map errors to exit codes.
 - Reusable behaviour belongs in `hydromodpy._api` or in its domain package, and
   the command module calls it. Business logic never lives in `cli/`.
-- The `[workflow].mode` dispatch is not here. `hmp run` calls `dispatch_workflow`
+- The workflow dispatch is not here. `hmp run` calls `dispatch_workflow`
   of `hydromodpy/project/dispatch/workflow.py` (`commands/run.py`), the same
   adapter table `hmp.run` reaches, and the table maps each mode to its launcher.
 - `cli` is a leaf consumer. Only `hydromodpy/__main__.py` may import it, and
@@ -101,10 +100,10 @@ reference.
 
 ```
 hmp run config.toml
-  -> commands/run.py: apply overrides, resolve verbosity, read [workflow].mode
+  -> commands/run.py: apply overrides, resolve verbosity, resolve the workflow
+     (the declared [workflow].mode, or the one the sections imply)
   -> project/dispatch/workflow.dispatch_workflow(mode, path)
-  -> the launcher of that mode (simulation, overview, calibration, comparison,
-     testbed, site_selection)
+  -> the launcher of that mode (simulation, overview, calibration)
 ```
 
 An exception that leaves the handler goes to `exit_code_for` in `main.py`, which

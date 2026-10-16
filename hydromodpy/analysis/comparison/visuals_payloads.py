@@ -15,18 +15,14 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
     ComparisonObservable,
     ComparisonSimulation,
-    RuntimeComparisonConfig,
+    ComparisonSpec,
 )
 from hydromodpy.analysis.comparison.runtime.mesh import (
+    RUN_MESH_BUNDLE_RELPATH,
     resolve_bundle_cells,
-    triangle_mesh_dir_from_payload,
-)
-from hydromodpy.analysis.comparison.runtime.metadata import (
-    _resolve_recorded_output_path,
-    discover_result_store,
-    read_json_file,
 )
 from hydromodpy.analysis.comparison.runtime.observables import select_time_slices
+from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
 from hydromodpy.analysis.comparison.runtime.series import (
     VariableSeries,
     load_variable_series,
@@ -178,8 +174,6 @@ def _read_zarr_array(group: Any, name: str) -> np.ndarray | None:
 
 
 def _open_store_root(store: Any, sim_id: str) -> tuple[Any, Any]:
-    if hasattr(store, "open_zarr_group"):
-        return store.open_zarr_group(sim_id), None
     handle = store.open_zarr(sim_id)
     return getattr(handle, "root", None), handle
 
@@ -209,27 +203,10 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
     return vertices, faces, topography
 
 
-def _bundle_dir_from_config(config_path: Path) -> Path | None:
-    payload = _safe_config_payload(config_path)
-    return triangle_mesh_dir_from_payload(payload, base_dir=config_path.parent)
-
-
-def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:
-    metrics = read_json_file(run_folder / "_metrics.json")
-    boussinesq_summary = read_json_file(run_folder / "_boussinesq_summary.json")
-    bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
-        "bundle_dir"
-    )
-    if bundle_dir_raw:
-        bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
-        if bundle_dir is not None and bundle_dir.exists():
-            return bundle_dir
-    if config_path is None:
-        return None
-    bundle_dir = _bundle_dir_from_config(config_path)
-    if bundle_dir is not None and bundle_dir.exists():
-        return bundle_dir
-    return None
+def _bundle_dir_for_case(run_folder: Path) -> Path | None:
+    """Return the mesh exchange bundle the run copied into its own directory, if any."""
+    bundle_dir = run_folder / RUN_MESH_BUNDLE_RELPATH
+    return bundle_dir if bundle_dir.is_dir() else None
 
 
 def _cell_node_id_values(row: Mapping[str, Any]) -> list[str]:
@@ -490,14 +467,14 @@ def observable_point_label_map(observables: tuple[ComparisonObservable, ...]) ->
 
 
 def _observable_points_for_case(
-    cfg: RuntimeComparisonConfig,
+    cfg: ComparisonSpec,
     *,
     centroid_x: np.ndarray | None,
     centroid_y: np.ndarray | None,
 ) -> tuple[tuple[float, float, str], ...]:
     points: list[tuple[float, float, str]] = []
-    point_labels = observable_point_label_map(tuple(cfg.comparison.observable))
-    for observable in cfg.comparison.observable:
+    point_labels = observable_point_label_map(tuple(cfg.observable))
+    for observable in cfg.observable:
         if observable.support not in {"point", "outlet"}:
             continue
         x = observable.x
@@ -517,10 +494,10 @@ def _observable_points_for_case(
     return tuple(points[:12])
 
 
-def _observable_point_legend_lines(cfg: RuntimeComparisonConfig) -> tuple[str, ...]:
-    labels = observable_point_label_map(tuple(cfg.comparison.observable))
+def _observable_point_legend_lines(cfg: ComparisonSpec) -> tuple[str, ...]:
+    labels = observable_point_label_map(tuple(cfg.observable))
     lines: list[str] = []
-    for observable in cfg.comparison.observable:
+    for observable in cfg.observable:
         if len(lines) >= 12:
             break
         label = labels.get(observable.name)
@@ -533,7 +510,7 @@ def _observable_point_legend_lines(cfg: RuntimeComparisonConfig) -> tuple[str, .
 
 def _build_case_configuration_payload(
     *,
-    cfg: RuntimeComparisonConfig,
+    cfg: ComparisonSpec,
     simulation_summaries: list[dict[str, Any]],
     reference_simulation: str | None,
 ) -> CaseConfigurationPayload | None:
@@ -560,35 +537,16 @@ def _build_case_configuration_payload(
     recharge_values = None
     recharge_unit = ""
     run_folder = Path(str(selected.get("run_folder", "")))
-    store = None
-    sim_id = None
-    try:
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(
-                None if selected.get("sim_id") in (None, "") else str(selected.get("sim_id"))
-            ),
-            preferred_name=(
-                None if selected.get("run_name") in (None, "") else str(selected.get("run_name"))
-            ),
-        )
-        if store is not None and sim_id is not None:
-            vertices, faces, topography = _mesh_payload_from_store(store, sim_id)
-            recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
-        cells = resolve_bundle_cells(
-            run_folder, config_path=config_path, store=store, sim_id=sim_id
-        )
-    finally:
-        if store is not None:
-            try:
-                store.close()
-            except Exception:
-                pass
+    cells = None
+    source = open_run_source(selected)
+    if source is not None:
+        with source:
+            vertices, faces, topography = _mesh_payload_from_store(source, source.sim_id)
+            recharge_values, recharge_unit = _recharge_payload_from_store(source, source.sim_id)
+            cells = resolve_bundle_cells(run_folder, store=source, sim_id=source.sim_id)
 
     if vertices is None or faces is None:
-        vertices, faces, topography = _mesh_payload_from_bundle(
-            _bundle_dir_for_case(run_folder, config_path)
-        )
+        vertices, faces, topography = _mesh_payload_from_bundle(_bundle_dir_for_case(run_folder))
     centroid_x = centroid_y = None
     if vertices is not None and faces is not None:
         centers = cell_centers(vertices, faces)
@@ -611,14 +569,14 @@ def _build_case_configuration_payload(
         for summary in completed
     )
     metadata_lines = (
-        f"comparison: {cfg.comparison.comparison_id}",
+        f"comparison: {cfg.comparison_id}",
         f"reference: {reference_simulation or selected.get('id', '')}",
         f"n_cells: {n_cells}" if n_cells else "n_cells: n/a",
         *_simulation_time_summary_lines(config_payload),
         *_flow_param_summary_lines(config_payload),
     )
     return CaseConfigurationPayload(
-        comparison_id=str(cfg.comparison.comparison_id),
+        comparison_id=str(cfg.comparison_id),
         reference_simulation=str(reference_simulation or selected.get("id", "")),
         simulation_lines=simulation_lines,
         metadata_lines=tuple(metadata_lines),
@@ -664,7 +622,7 @@ def _choose_map_slice(
 
 def _build_map_payload(
     *,
-    cfg: RuntimeComparisonConfig,
+    cfg: ComparisonSpec,
     simulation: ComparisonSimulation,
     summary: dict[str, Any],
     observable: ComparisonObservable,
@@ -677,25 +635,21 @@ def _build_map_payload(
     if not run_folder:
         return None
     run_folder_path = Path(str(run_folder))
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in ("", None) else Path(str(config_path_raw))
-    if config_path is None:
-        config_path = cfg.resolve_simulation_config_path(simulation)
-    store = None
-    sim_id = None
-    try:
-        store, sim_id = discover_result_store(config_path)
+    source = open_run_source(summary)
+    if source is None:
+        return None
+    with source:
         series = load_variable_series(
             run_folder=run_folder_path,
             variable=observable.variable,
-            store=store,
-            sim_id=sim_id,
+            store=source,
+            sim_id=source.sim_id,
         )
         series = mask_depth_series_from_head_nodata(
             run_folder=run_folder_path,
             series=series,
-            store=store,
-            sim_id=sim_id,
+            store=source,
+            sim_id=source.sim_id,
         )
         selected = _choose_map_slice(series=series, observable=observable)
         if selected is None:
@@ -705,14 +659,10 @@ def _build_map_payload(
             return None
         cells = resolve_bundle_cells(
             run_folder_path,
-            config_path=config_path,
             expected_size=values.size,
-            store=store,
-            sim_id=sim_id,
+            store=source,
+            sim_id=source.sim_id,
         )
-    finally:
-        if store is not None:
-            store.close()
 
     unit = next(
         (

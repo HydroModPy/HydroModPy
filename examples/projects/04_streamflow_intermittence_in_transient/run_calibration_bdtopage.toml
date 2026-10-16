@@ -29,7 +29,6 @@ sources__delete = true
 source = "bdtopage"
 
 [calibration]
-rerun_best_with_outputs = true
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

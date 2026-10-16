@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.paths import data_cache_path_for
+
 
 def list_data_cache(
     workspace: Any = None,
@@ -17,7 +19,7 @@ def list_data_cache(
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(workspace_root / "data")
     if not db_path.exists():
         return None
     with DataCatalogDuckDB(db_path) as catalog:
@@ -83,7 +85,7 @@ def check_data_cache(
     issues = check_custom(workspace_root, variable=variable)
     fix_summary: dict | None = None
     if fix:
-        db_path = workspace_root / "data" / "cache.duckdb"
+        db_path = data_cache_path_for(workspace_root / "data")
         if db_path.exists():
             with DataCatalogDuckDB(db_path) as catalog:
                 fix_summary = catalog.check_and_fix()
@@ -161,7 +163,7 @@ def add_data_entry(
     else:
         raise ValueError(f"Unsupported kind {spec.kind!r}")
 
-    with DataCatalogDuckDB(workspace_root / "data" / "cache.duckdb") as catalog:
+    with DataCatalogDuckDB(data_cache_path_for(workspace_root / "data")) as catalog:
         catalog.register(
             variable=spec.name,
             source=provider,
@@ -188,7 +190,7 @@ def remove_data_entries(
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(workspace_root / "data")
     if not db_path.exists():
         return 0
     with DataCatalogDuckDB(db_path) as catalog:
@@ -211,7 +213,7 @@ def prune_data_cache(
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(workspace_root / "data")
     if not db_path.exists():
         return 0
     with DataCatalogDuckDB(db_path) as catalog:
@@ -225,7 +227,7 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     from hydromodpy.data.registry.freeze import archive_lockfile
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
-    db_path = workspace_root / "data" / "cache.duckdb"
+    db_path = data_cache_path_for(workspace_root / "data")
     dest = Path(output).expanduser().resolve()
     with DataCatalogDuckDB(db_path) as catalog:
         archive_lockfile(catalog, dest)
@@ -242,23 +244,3 @@ def restore_data_cache(source: Any, *, workspace: Any = None) -> Path:
     dest = workspace_root / "data" / "imported"
     restore_archive(src, dest)
     return dest
-
-
-def import_package(
-    package: Any,
-    *,
-    workspace: Any = None,
-    as_project: str | None = None,
-    dry_run: bool = False,
-    force: bool = False,
-) -> str:
-    """Import a ``.hmp`` archive into a workspace catalog. Returns the sim_id."""
-    from hydromodpy.results.catalog import Catalog
-
-    src = Path(package).expanduser().resolve()
-    if not src.is_file():
-        raise FileNotFoundError(f"Archive not found: {src}")
-    workspace_root = Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
-    workspace_root.mkdir(parents=True, exist_ok=True)
-    with Catalog(workspace_root) as catalog:
-        return catalog.import_package(src, force=force, as_project=as_project, dry_run=dry_run)

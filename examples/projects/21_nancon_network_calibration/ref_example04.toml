@@ -235,7 +235,6 @@ persist_iteration_detail = "full"
 # Equivalent du `--resume` de la reference, necessaire ici : l'etage 2 est une
 # chronique de 9497 jours qu'une interruption ne doit pas remettre a zero.
 use_cache = true
-rerun_best_with_outputs = true
 
 # Bornes de la reference : `log10(1e-8*86400)` a `log10(1e-2*86400)`, six
 # decades, dont le centre en log est le `hk` initial du script.
@@ -326,7 +325,6 @@ enabled = true
 preset = "default"
 show = false
 save = true
-output_dir = "figures"
 on_error = "warn"
 
 figures = [

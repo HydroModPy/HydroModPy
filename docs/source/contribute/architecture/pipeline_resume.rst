@@ -6,11 +6,14 @@ durable artefacts and the TOML config. There is no pickle layer, no
 ``CheckpointStore``, and no signed-blob deserialisation. Resume relies on
 three sources of truth:
 
-#. ``<workspace>/.hmp/checkpoints/<run_id>/resolved_manifest.json``: tracks
-   the step blueprint, the config SHA-256, and the cursor.
-#. ``workflow_steps`` (DuckDB): per-step inputs/outputs hashes,
+#. ``<run>/.hmp/checkpoints/resolved_manifest.json``: tracks the step
+   blueprint, the config SHA-256, and the cursor.
+#. ``<run>/.hmp/checkpoints/steps.json``: per-step inputs/outputs hashes,
    ``artifact_uris`` and status.
-#. Zarr / Parquet / DuckDB rows on disk.
+#. The Zarr arrays and Parquet tables of the run directory.
+
+All three live in the run directory, with the attempt state that the seal of
+a completed run removes. None is in the index: a run never opens it.
 
 Invariant
 ---------
@@ -22,7 +25,7 @@ Any step that produces durable output declares both ``artifacts(state)``
 (workspace-relative URIs) and ``rebuild_state(prior_state, workspace,
 run_id)``. The first method drives ``outputs_hash`` in the journal; the
 second one reconstructs the next ``PipelineState`` by reading those same
-artefacts (Zarr handles, catalog rows, parquet exports) without
+artefacts (Zarr handles, Parquet tables, exports) without
 re-running the heavy operation.
 
 Two-phase execution
@@ -36,8 +39,8 @@ Two-phase execution
   (``prepare_solver``, ``run_solver``, ``extract``, ``export``). The
   journal is not written during this phase.
 * **Execute phase** ``[restart_index, end)``: each step runs fully; the
-  journal records inputs/outputs hashes and the heartbeat appends rows to
-  ``workflow_events``.
+  journal records inputs/outputs hashes and the heartbeat pulses in
+  ``logs/heartbeat.json``.
 
 Resume integrity
 ----------------
@@ -49,7 +52,7 @@ drifted:
   config SHA-256 with what was written at the previous attempt. A
   mismatch raises :class:`hydromodpy.core.exceptions.ResumeError`.
 * ``ResumePlanner.compute`` checks every completed row in
-  ``workflow_steps``: artefacts must still exist and ``outputs_hash``
+  ``steps.json``: artefacts must still exist and ``outputs_hash``
   must match a recomputed digest. Any divergence cascade-invalidates the
   rows from the offending step onwards and the runner restarts there.
 
@@ -99,12 +102,9 @@ child with ``SIGKILL`` twice.
 * The step that was running when the process died keeps the status
   ``running``, not ``failed``. ``failed`` is what an exception writes.
   ``ResumePlanner`` restarts at that step either way.
-* The project index has to be openable afterwards. DuckDB commits into
-  ``.hmp/index.duckdb.wal`` and only folds it into the database file at a
-  clean close, and a journal carrying schema DDL is not replayable: the
-  replay runs inside ``duckdb.connect``, so a poisoned journal locks
-  every reader out, ``hmp`` and the DuckDB CLI alike. The migration
-  runner therefore checkpoints after each applied migration
-  (``hydromodpy/core/migrations/runner.py``), which leaves the journal
-  holding plain row changes. Those replay, and
-  ``connect_with_retry`` checkpoints them back at the next open.
+* The journal has to be readable afterwards. ``steps.json`` and the facts of
+  the run are rewritten through a temporary file and a rename, so a death
+  between two writes leaves the previous document whole, and the next attempt
+  of the same directory reads what the dead one recorded. No database is
+  involved: a run never opens the project index, so there is no write-ahead
+  log to poison.

@@ -7,7 +7,7 @@ import pytest
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.workflow.site_selection import build_site_selection_from_hydrometry_config
+from hydromodpy.spatial.site_selection.runner import build_site_selection_from_hydrometry_config
 from tests._helpers.terrain_doubles import fake_flow_products
 
 from ._test_build_builders import make_config, make_record

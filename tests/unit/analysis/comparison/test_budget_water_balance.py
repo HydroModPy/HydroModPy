@@ -24,7 +24,6 @@ import pytest
 from hydromodpy.analysis.comparison.exports.budget import (
     _all_finite_zero,
     _budget_field_total_series,
-    _catalog_budget_factor_to_m3_s,
     _elapsed_seconds_axis,
     _flux_factor_to_m3_s,
     _mf_budget_component_name,
@@ -33,6 +32,7 @@ from hydromodpy.analysis.comparison.exports.budget import (
     _saturated_thickness_from_head_history,
     _step_end_elapsed_seconds_from_config,
     _storage_change_series_m3_s,
+    _table_budget_factor_to_m3_s,
 )
 from hydromodpy.core.units.time import SECONDS_PER_DAY
 
@@ -74,18 +74,18 @@ def test_catalog_factor_modflow6_m3_per_day_kept_native() -> None:
     # The catalog already stores MF6 budgets per day; the factor stays 1.0
     # so the per-day series is preserved (it is normalized elsewhere).
     for unit in ("m3/d", "m3/day", "m^3/day"):
-        assert _catalog_budget_factor_to_m3_s(solver="modflow6", unit=unit) == pytest.approx(1.0)
+        assert _table_budget_factor_to_m3_s(solver="modflow6", unit=unit) == pytest.approx(1.0)
 
 
 def test_catalog_factor_non_modflow6_uses_real_conversion() -> None:
     # For a non-MF6 solver the per-day unit is genuinely converted to m3/s.
-    factor = _catalog_budget_factor_to_m3_s(solver="boussinesq", unit="m3/day")
+    factor = _table_budget_factor_to_m3_s(solver="boussinesq", unit="m3/day")
     assert factor == pytest.approx(1.0 / SECONDS_PER_DAY)
 
 
 def test_catalog_factor_modflow6_other_unit_still_converts() -> None:
     # MF6 with an hourly unit is not the native case, so it must convert.
-    factor = _catalog_budget_factor_to_m3_s(solver="modflow6", unit="m3/h")
+    factor = _table_budget_factor_to_m3_s(solver="modflow6", unit="m3/h")
     assert factor == pytest.approx(1.0 / 3600.0)
 
 
@@ -124,7 +124,7 @@ def test_mf_storage_change_sign() -> None:
 def test_mf_budget_closure_identity_balances_to_zero() -> None:
     """A synthetic MF6 budget that conserves mass closes to a near-zero residual.
 
-    Closure used in ``_load_catalog_budget_rows``:
+    Closure used in ``_load_table_budget_rows``:
         residual = recharge - drainage - surface_excess
                    - prescribed_head_out - evapotranspiration - storage_change
     """

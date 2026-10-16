@@ -27,10 +27,10 @@ import pytest
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.series import ObservedSeries
+from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.calibration.runners.cli_runner import run_calibration_core
 from hydromodpy.calibration.runners.state import override_paths, space_from_config
 from hydromodpy.calibration.runners.trial import prepare_trials
-from hydromodpy.results.session_journal import sessions_dir_for
 from hydromodpy.results.storage.contract import SESSION_TRIAL_SERIES_DIRNAME
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 
@@ -175,15 +175,33 @@ def test_two_trials_on_persist_trial_series_write_two_files(
     )
     space = space_from_config(cfg)
     trial_ctx = prepare_trials(project, override_paths=override_paths(cfg), parameter_space=space)
+    session_dir = project.parent / "sessions" / "probe"
+    session_dir.mkdir(parents=True)
+    persistence = CalibrationPersistence(session_dir)
+    persistence.start_session(
+        session_id="a" * 32,
+        case_id="probe",
+        site=None,
+        project=project.parent.name,
+        config_hash="c" * 64,
+        hydromodpy_version="2.0.0a5",
+        method="grid",
+        objective_name="rmse",
+        search_space={},
+        objective_window=None,
+    )
 
     report = run_calibration_core(
-        cfg, trial_ctx, workspace=project.parent, space=space, cfg_path=project
+        cfg,
+        trial_ctx,
+        persistence=persistence,
+        space=space,
+        project_root=project.parent,
+        cfg_path=project,
     ).to_dict()
 
     assert report["n_iterations"] == 2
-    session_dirs = sessions_dir_for(project.parent)
-    assert len(list(session_dirs.iterdir())) == 1
-    series_dir = next(session_dirs.iterdir()) / SESSION_TRIAL_SERIES_DIRNAME
+    series_dir = session_dir / SESSION_TRIAL_SERIES_DIRNAME
     assert sorted(p.name for p in series_dir.iterdir()) == [
         "trial-000001.parquet",
         "trial-000002.parquet",

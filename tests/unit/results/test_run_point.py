@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-import uuid
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
 from hydromodpy.results.run.point import (
     POINT_COLUMNS,
     PointOutsideMeshError,
@@ -25,6 +26,8 @@ from hydromodpy.results.spatial_index import (
     locator_for,
     point_in_cell,
 )
+from hydromodpy.results.storage.sealing import seal_completed
+from tests._helpers.run_stores import open_run_store
 
 # A 2x2 grid of unit squares: cells 0..3, centres at (0.5, 0.5) ... (1.5, 1.5).
 VERTICES = np.array(
@@ -50,26 +53,21 @@ N_LAYERS = 2
 N_STEPS = 3
 
 
-def _make_run(root, *, name: str = "probe", offset: float = 0.0) -> tuple[Catalog, str]:
-    """Seal one transient two-layer run whose head is a known function."""
-    catalog = Catalog(root)
-    sid = str(uuid.uuid4())
-    registration = catalog.register_simulation(
-        sid,
-        project="demo",
-        solver="modflow6",
-        name=name,
-        flow_regime="transient",
+def _make_run(root: Path, *, name: str = "probe", offset: float = 0.0) -> str:
+    """Seal one transient two-layer run whose head is a known function; return its id."""
+    store = open_run_store(
+        root,
+        name,
         n_cells=N_CELLS,
         n_layers=N_LAYERS,
         n_timesteps=N_STEPS,
-        bbox=[0.0, 0.0, 2.0, 2.0],
-        crs="EPSG:2154",
-        config={"flow": {"hk": 1e-5}},
+        flow_regime="transient",
+        bbox=(0.0, 0.0, 2.0, 2.0),
+        crs_epsg=2154,
+        crs_wkt="EPSG:2154",
     )
-    if registration.zarr is not None:
-        registration.zarr.close()
-    store_zarr = catalog.open_zarr(sid)
+    sid = store.sim_id
+    store_zarr = store.open_zarr(sid)
     try:
         store_zarr.write_mesh(
             VERTICES,
@@ -80,7 +78,7 @@ def _make_run(root, *, name: str = "probe", offset: float = 0.0) -> tuple[Catalo
         )
     finally:
         store_zarr.close()
-    catalog.write_time(
+    store.write_time(
         sid,
         np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
         units="seconds since 1970-01-01T00:00:00Z",
@@ -91,16 +89,18 @@ def _make_run(root, *, name: str = "probe", offset: float = 0.0) -> tuple[Catalo
             dtype="float64",
         )
         head[1] -= 0.5  # a vertical gradient, so the layer choice is observable
-        catalog.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
-    catalog.finalize(sid, status="completed")
-    return catalog, sid
+        store.write_field(sid, "head", step, head, n_timesteps=N_STEPS if step == 0 else None)
+    seal_completed(store)
+    return sid
 
 
 @pytest.fixture
 def run(tmp_path):
     clear_locator_cache()
-    catalog, sid = _make_run(tmp_path / "demo")
-    with catalog:
+    root = tmp_path / "demo"
+    sid = _make_run(root)
+    rebuild_index(root)
+    with Catalog(root) as catalog:
         yield catalog[sid]
 
 
@@ -256,10 +256,10 @@ class TestWriteTable:
 def test_the_same_point_reads_across_runs(tmp_path):
     clear_locator_cache()
     root = tmp_path / "demo"
-    catalog, first = _make_run(root, name="base")
-    catalog.close()
-    catalog, second = _make_run(root, name="scenario", offset=100.0)
-    with catalog:
+    first = _make_run(root, name="base")
+    second = _make_run(root, name="scenario", offset=100.0)
+    rebuild_index(root)
+    with Catalog(root) as catalog:
         frame = read_points([catalog[first], catalog[second]], "head", PointRequest(x=1.5, y=0.5))
     assert set(frame["run"]) == {"base", "scenario"}
     assert frame.loc[frame["run"] == "scenario", "value"].tolist() == [101.0, 111.0, 121.0]
@@ -268,10 +268,10 @@ def test_the_same_point_reads_across_runs(tmp_path):
 def test_a_runset_reads_the_same_point_on_every_run(tmp_path):
     clear_locator_cache()
     root = tmp_path / "demo"
-    catalog, _ = _make_run(root, name="base")
-    catalog.close()
-    catalog, _ = _make_run(root, name="scenario", offset=100.0)
-    with catalog:
+    _make_run(root, name="base")
+    _make_run(root, name="scenario", offset=100.0)
+    rebuild_index(root)
+    with Catalog(root) as catalog:
         frame = catalog.find(project="demo").probe.series("head", cell=1)
     assert set(frame["run"]) == {"base", "scenario"}
 

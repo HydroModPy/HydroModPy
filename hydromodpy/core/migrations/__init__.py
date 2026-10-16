@@ -1,8 +1,7 @@
 """Generic Alembic-like schema migration runner shared by all DuckDB components.
 
-The same runner serves multiple isolated components (catalog, global index,
-workspace cache, ...) by parametrizing ``component`` and ``versions_dir`` on
-each call.
+The same runner serves isolated components (the source-data cache today) by
+parametrizing ``component`` and ``versions_dir`` on each call.
 
 Public API
 ----------

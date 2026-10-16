@@ -6,7 +6,7 @@ import json
 import shutil
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydromodpy.core.solver_diagnostics import (
     TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
@@ -16,7 +16,7 @@ from hydromodpy.core.solver_diagnostics import (
     VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
     VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
 )
-from hydromodpy.core.state.paths import SHARE_DIRNAME
+from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 
 from .base import _completed_simulation_summaries, _slug_token, _write_csv
 from .budget import (
@@ -24,8 +24,8 @@ from .budget import (
     _load_boussinesq_obstacle_diagnostic_rows,
 )
 
-if TYPE_CHECKING:
-    pass
+SOLVER_DIAGNOSTICS_DIRNAME = "solver_diagnostics"
+"""Folder of the solver diagnostics a run exports, ``exports/solver_diagnostics/``."""
 
 
 def write_boussinesq_obstacle_diagnostics_export(
@@ -34,33 +34,19 @@ def write_boussinesq_obstacle_diagnostics_export(
     simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write per-snapshot Boussinesq obstacle diagnostics when available."""
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
 
     rows: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
-        try:
+        source = open_run_source(summary)
+        if source is None:
+            continue
+        with source:
             rows.extend(
                 _load_boussinesq_obstacle_diagnostic_rows(
-                    summary,
-                    store=store,
-                    sim_id=sim_id,
+                    summary, store=source, sim_id=source.sim_id
                 )
             )
-        finally:
-            if store is not None:
-                try:
-                    store.close()
-                except Exception:
-                    pass
 
     artifacts: list[dict[str, Any]] = []
     if not rows:
@@ -72,37 +58,27 @@ def write_boussinesq_obstacle_diagnostics_export(
     return artifacts, rows
 
 
-def _vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]:
-    """Return persisted VI obstacle diagnostics for one simulation summary."""
-    raw = summary.get("vi_obstacle_diagnostics")
-    paths: dict[str, Path] = {}
-    if isinstance(raw, Mapping):
-        for key in ("runtime_summary", "period_diagnostics", "substep_diagnostics"):
-            value = raw.get(key)
-            if value not in (None, ""):
-                candidate = Path(str(value))
-                if candidate.exists():
-                    paths[key] = candidate
-    if paths:
-        return paths
-
-    run_folder_raw = summary.get("run_folder")
-    if run_folder_raw in (None, ""):
+def _diagnostic_paths(summary: Mapping[str, Any], names: Mapping[str, str]) -> dict[str, Path]:
+    """Return the solver diagnostics files the run exported, keyed by role."""
+    run_dir_raw = summary.get("run_dir")
+    if run_dir_raw in (None, ""):
         return {}
-    run_folder = Path(str(run_folder_raw))
-    for runtime_path in run_folder.glob(
-        f"{SHARE_DIRNAME}/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
-    ):
-        directory = runtime_path.parent
-        paths["runtime_summary"] = runtime_path
-        period_path = directory / VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
-        substep_path = directory / VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV
-        if period_path.exists():
-            paths["period_diagnostics"] = period_path
-        if substep_path.exists():
-            paths["substep_diagnostics"] = substep_path
-        return paths
-    return {}
+    directory = Path(str(run_dir_raw)) / RUN_EXPORTS_DIRNAME / SOLVER_DIAGNOSTICS_DIRNAME
+    if not (directory / names["runtime_summary"]).is_file():
+        return {}
+    return {key: directory / name for key, name in names.items() if (directory / name).is_file()}
+
+
+def _vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]:
+    """Return the VI obstacle diagnostics of one compared run."""
+    return _diagnostic_paths(
+        summary,
+        {
+            "runtime_summary": VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+            "period_diagnostics": VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+            "substep_diagnostics": VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+        },
+    )
 
 
 def _load_vi_obstacle_runtime_summary(path: Path) -> dict[str, Any]:
@@ -114,36 +90,15 @@ def _load_vi_obstacle_runtime_summary(path: Path) -> dict[str, Any]:
 
 
 def _ts_vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]:
-    """Return persisted TS VI obstacle diagnostics for one simulation summary."""
-    raw = summary.get("ts_vi_obstacle_diagnostics")
-    paths: dict[str, Path] = {}
-    if isinstance(raw, Mapping):
-        for key in ("runtime_summary", "period_diagnostics", "step_diagnostics"):
-            value = raw.get(key)
-            if value not in (None, ""):
-                candidate = Path(str(value))
-                if candidate.exists():
-                    paths[key] = candidate
-    if paths:
-        return paths
-
-    run_folder_raw = summary.get("run_folder")
-    if run_folder_raw in (None, ""):
-        return {}
-    run_folder = Path(str(run_folder_raw))
-    for runtime_path in run_folder.glob(
-        f"{SHARE_DIRNAME}/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
-    ):
-        directory = runtime_path.parent
-        paths["runtime_summary"] = runtime_path
-        period_path = directory / TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
-        step_path = directory / TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV
-        if period_path.exists():
-            paths["period_diagnostics"] = period_path
-        if step_path.exists():
-            paths["step_diagnostics"] = step_path
-        return paths
-    return {}
+    """Return the TS VI obstacle diagnostics of one compared run."""
+    return _diagnostic_paths(
+        summary,
+        {
+            "runtime_summary": TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+            "period_diagnostics": TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+            "step_diagnostics": TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
+        },
+    )
 
 
 def write_vi_obstacle_runtime_diagnostics_export(

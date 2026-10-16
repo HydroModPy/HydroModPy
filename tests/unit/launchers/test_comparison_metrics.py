@@ -5,10 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.analysis.comparison.config import (
-    ComparisonObservable,
-    RuntimeComparisonConfig,
-)
+from hydromodpy.analysis.comparison.config import ComparisonObservable
 from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     build_unmatched_groups,
@@ -16,11 +13,11 @@ from hydromodpy.analysis.comparison.metric_diff import (
 from hydromodpy.analysis.comparison.runtime import extract_observable_rows
 from hydromodpy.analysis.comparison.runtime.observables import select_time_slices
 from hydromodpy.analysis.comparison.runtime.series import TimeSlice, VariableSeries
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 from ._comparison_builders import (
     SIM_ID,
     _expected_outlet_flux,
+    _spec_from_toml,
     _write_fake_run_folder,
     _write_simulation_comparison_config,
 )
@@ -29,21 +26,16 @@ from ._comparison_builders import (
 def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     reference_run = tmp_path / "reference"
     candidate_run = tmp_path / "candidate"
-    bundle_dir = tmp_path / "bundle"
-    reference_store = _write_fake_run_folder(reference_run, bundle_dir)
+    reference_store = _write_fake_run_folder(reference_run)
     candidate_store = _write_fake_run_folder(
         candidate_run,
-        bundle_dir,
         head_offset=2.0,
         accumulation_offset=0.1,
     )
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, reference_run)
-    cfg = RuntimeComparisonConfig.from_toml(
-        load_toml_with_base_config(config_path),
-        config_path=config_path,
-    )
-    reference_simulation = cfg.comparison.simulation[0]
+    cfg = _spec_from_toml(config_path)
+    reference_simulation = cfg.simulation[0]
     candidate_simulation = reference_simulation.model_copy(
         update={"id": "candidate", "label": "candidate"}
     )
@@ -54,7 +46,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             comparison_id="demo_compare",
             simulation=reference_simulation,
             run_folder=reference_run,
-            observables=tuple(cfg.comparison.observable),
+            observables=tuple(cfg.observable),
             store=reference_store,
             sim_id=SIM_ID,
         )
@@ -64,7 +56,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
             comparison_id="demo_compare",
             simulation=candidate_simulation,
             run_folder=candidate_run,
-            observables=tuple(cfg.comparison.observable),
+            observables=tuple(cfg.observable),
             store=candidate_store,
             sim_id=SIM_ID,
         )

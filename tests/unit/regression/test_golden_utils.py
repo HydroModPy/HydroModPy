@@ -222,24 +222,3 @@ def test_resolve_tiered_results_dir_keeps_the_run_name_off_windows(tmp_path, mon
     )
 
     assert resolved.name == "intercomparison_dupuit_irregular_mf6_bouss_outputs"
-
-
-def test_comparison_generated_path_length_covers_the_longest_child_run() -> None:
-    from tests.regression.intercomparison_helpers import comparison_generated_path_length
-    from validation_cases.shared.runtime import run_generated_path_length
-
-    source = (
-        golden_utils.REPO_ROOT
-        / "tests"
-        / "regression"
-        / "fixtures"
-        / "projects"
-        / "intercomparison"
-        / "compare_dupuit_irregular_mf6_bouss.toml"
-    )
-
-    # The children are "dupuit_mf6_vs_bouss__mf6_ref" and "..._bouss_candidate".
-    longest_child = len("dupuit_mf6_vs_bouss__bouss_candidate")
-    assert comparison_generated_path_length(source) == len("/workspace") + (
-        run_generated_path_length(longest_child)
-    )

@@ -156,12 +156,10 @@ def _read_field(
 
 
 def _has_timeseries_var(run: Any, variable: str) -> bool:
-    """True when ``variable`` appears in the simulation ``timeseries`` table."""
-    df = run._catalog.backend.query(
-        "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = ? LIMIT 1",
-        [run.sim_id, variable],
-    )
-    return not df.empty
+    """True when ``variable`` appears in the ``timeseries`` table of the run."""
+    from hydromodpy.results.run.tables import has_rows
+
+    return has_rows(run, "timeseries", variable=variable)
 
 
 def _has_geographic_feature(run: Any, feature_name: str) -> bool:

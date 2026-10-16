@@ -6,28 +6,20 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
 from hydromodpy.workflow.tracking.resume import ResumePlan, ResumePlanner
-from tests._helpers.fixtures_catalog import simulation_catalog
 
 BLUEPRINT = ("resolve", "load", "mesh", "solve", "extract")
 
 
 @pytest.fixture
-def catalog(tmp_path: Path) -> Catalog:
-    with simulation_catalog(tmp_path) as cat:
-        yield cat
+def workspace(tmp_path: Path) -> Path:
+    return tmp_path
 
 
 @pytest.fixture
-def workspace(catalog: Catalog) -> Path:
-    return catalog.workspace_path
-
-
-@pytest.fixture
-def journal(catalog: Catalog) -> WorkflowJournal:
-    return WorkflowJournal(catalog)
+def journal(workspace: Path) -> WorkflowJournal:
+    return WorkflowJournal(workspace / "runs" / "case")
 
 
 def _seed_completed_step(

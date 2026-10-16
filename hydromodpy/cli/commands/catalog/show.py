@@ -1,7 +1,4 @@
-"""``hmp catalog show`` - inspect a simulation.
-
-Thin wrapper around :func:`hydromodpy.show_simulation`.
-"""
+"""``hmp catalog show`` - the facts of one sealed run."""
 
 from __future__ import annotations
 
@@ -20,7 +17,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_fo
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "show"
-HELP: str = "Show simulation metadata, metrics, parameters, and storage layout"
+HELP: str = "Show the facts, label, metrics and parameters of a sealed run"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -28,14 +25,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), format_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog show ab12cd34 --detail",
+        epilog="Example:\n  hmp catalog show baseline_monthly.v2 --detail",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
     parser.add_argument(
         "--detail",
         action="store_true",
-        help="Include Zarr store layout (groups, paths) alongside metadata",
+        help="Include the Zarr store layout (groups, paths) alongside the facts",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -50,18 +47,16 @@ def run(args: argparse.Namespace) -> None:
         SimulationNotFoundError,
     )
 
-    workspace_root = resolve_project_root(
+    project_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (catalog_path_for(workspace_root)).exists():
-        print(f"No catalog at {workspace_root}", file=sys.stderr)
+    if not catalog_path_for(project_root).is_file():
+        print(f"No index at {project_root}; run `hmp catalog reindex` first", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        payload = show_simulation(args.sim_ref, workspace=workspace_root, detail=args.detail)
+        payload = show_simulation(args.sim_ref, workspace=project_root, detail=args.detail)
     except (AmbiguousReferenceError, SimulationNotFoundError, FileNotFoundError) as exc:
-        # Route through exit_code_for so an ambiguous ref exits 20 like the
-        # mutating verbs (tag/delete/...), not 10 as if it were simply absent.
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
 
@@ -70,11 +65,22 @@ def run(args: argparse.Namespace) -> None:
         return
 
     name = payload.get("name") or payload["sim_id"][:8]
-    print(f"Simulation {name}")
+    print(f"Run {name}")
     print(f"  sim_id    : {payload['sim_id']}")
+    print(f"  rel_dir   : {payload['rel_dir']}")
     print(f"  project   : {payload['project']}")
+    if payload.get("site"):
+        print(f"  site      : {payload['site']}")
+    print(f"  case      : {payload['case_id']}")
     print(f"  solver    : {payload['solver']}")
     print(f"  status    : {payload['status']}")
+    print(f"  label     : {payload['label']} ({payload['label_date']})")
+    if payload.get("nse") is not None:
+        print(f"  nse       : {payload['nse']:.3f}")
+    if payload.get("version_int") is not None:
+        print(f"  version   : v{payload['version_int']}")
+    if payload.get("config_hash"):
+        print(f"  config    : {payload['config_hash'][:12]}")
     if payload.get("duration_s") is not None:
         print(f"  duration  : {payload['duration_s']:.1f} s")
     if payload.get("n_cells") is not None:
@@ -82,45 +88,33 @@ def run(args: argparse.Namespace) -> None:
     if payload.get("n_timesteps") is not None:
         print(f"  n_timesteps: {payload['n_timesteps']}")
     if args.detail:
-        zarr_path = payload.get("zarr_path", "")
         zarr_ok = "OK" if payload.get("zarr_exists") else "MISSING"
-        print(f"  zarr       : {zarr_path} ({zarr_ok})")
+        print(f"  zarr       : {payload.get('zarr_path', '')} ({zarr_ok})")
         groups = payload.get("zarr_groups", [])
         if groups:
             print("  groups     :")
             for group in groups:
                 print(f"    - {group}")
 
-    exports = payload.get("exports") or []
-    if exports:
-        print(f"Exports ({len(exports)}):")
-        for art in exports:
-            size = art.get("bytes")
-            size_str = f" ({size} B)" if size is not None else ""
-            print(f"  - {art['kind']}: {art['rel_path']}{size_str}")
+    for kind in ("exports", "figures"):
+        entries = payload.get(kind) or []
+        if entries:
+            print(f"{kind.capitalize()} ({len(entries)}):")
+            for entry in entries:
+                print(f"  - {entry['file']}  ({entry['producer']})")
 
-    # Tags, notes, metrics and parameters require a direct catalog read.
-    with Catalog(workspace_root, read_only=True) as catalog:
+    with Catalog(project_root) as catalog:
         sim = catalog[payload["sim_id"]]
-        ident = catalog.backend.fetch_one(
-            "SELECT version_int, config_hash FROM simulations WHERE sim_id = ?",
-            [payload["sim_id"]],
-        )
-        if ident is not None:
-            if ident[0] is not None:
-                print(f"  version   : v{ident[0]}")
-            if ident[1]:
-                print(f"  config    : {ident[1][:12]}")
         tags = sim.tags or []
         if tags:
             print(f"  tags      : {', '.join(tags)}")
-        note_rows = catalog.backend.fetch_all(
+        notes = catalog.backend.fetch_all(
             "SELECT note FROM sim_notes WHERE sim_id = ? ORDER BY added_at",
             [payload["sim_id"]],
         )
-        if note_rows:
+        if notes:
             print("Notes:")
-            for (note,) in note_rows:
+            for (note,) in notes:
                 print(f"  - {note}")
         metrics = sim.metrics
         if not metrics.empty:
@@ -129,12 +123,7 @@ def run(args: argparse.Namespace) -> None:
         params = sim.parameters
         if not params.empty:
             print("Parameters:")
-            # parameters is indexed by param_name; keep the index so the
-            # parameter names are not dropped (audit P14).
             print(params.to_string())
 
-    ref = payload.get("name") or payload["sim_id"][:8]
-    print(
-        f"next: hmp catalog tag {ref} +pinned | "
-        f"hmp catalog diff {ref} <other> | hmp catalog rename {ref} <new>"
-    )
+    ref = payload.get("rel_dir") or payload["sim_id"][:8]
+    print(f"next: hmp catalog tag {ref} +pinned | hmp catalog diff {ref} <other>")

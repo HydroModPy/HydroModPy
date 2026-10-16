@@ -1,9 +1,12 @@
 # Site Selection Package
 
-This package contains the spatial and audit primitives for the upstream
-`site_selection` workflow. It is intentionally narrower than `regional_lab`:
-it builds or filters basin candidates and explains the decision. It does not
-expand sites into simulation recipes and it does not run solvers.
+This package holds the site selection: `hmp site select <file>` runs it, with
+the primitives below and the runner `runner.py`. It builds or filters basin
+candidates and explains each decision. It does not expand sites into
+simulation recipes and it does not run solvers: the selected sites enter the
+workspace site catalog (`data/sites/catalog.csv`, `hydromodpy.data.sites`)
+with `--into-catalog` or `hmp site import --selection <manifest>`, and a
+project lists them in `[sites]`.
 
 ## Boundaries
 
@@ -15,21 +18,37 @@ The package is responsible for:
 - auditable criterion components and selection decisions;
 - CSV/JSONL exports for selected and rejected sites;
 - the official `site_selection_manifest.json` contract;
-- downstream hand-off references for catalog consumers;
+- the run of a selection file (`runner.py`) and its data adapters
+  (`runner_data.py`);
 - an optional static HTML review page generated from the manifest.
 
 The package is not responsible for:
 
 - Hub'Eau API details or cache management;
 - reimplementing D8, flow accumulation or watershed delineation;
-- `regional_lab` recipe expansion;
-- testbed child-workflow orchestration;
-- MF6, Boussinesq, calibration or comparison execution.
+- the site catalog of the workspace (`hydromodpy.data.sites`);
+- drawing the HTML report: the caller passes the renderers of
+  `hydromodpy.reporting.site_selection` to `run_site_selection`, so this
+  package never imports the reporting layer;
+- MF6, Boussinesq or calibration execution.
 
-Observation and hydrometry loading lives in `hydromodpy.workflow.site_selection`
-and `hydromodpy.workflow.site_selection_data`, which call the existing data
-manager stack and pass normalized `PointRecord` objects into the spatial build
-pipeline.
+Observation and DEM loading lives in `runner_data.py`, which calls the data
+manager stack (`hydromodpy.data`, through the documented `spatial -> data`
+tolerance of the layer matrix) and passes `PointRecord` objects into the
+spatial build pipeline.
+
+## Running a selection
+
+| entry | what it does |
+|---|---|
+| `hmp site select FILE` | runs the action `[site_selection.input] mode` names, writes under `output_root` |
+| `hmp site select FILE --dry-run` | validates the file and prints the plan; writes nothing |
+| `hmp site select FILE --into-catalog` | runs, then declares the selected sites in `data/sites/catalog.csv` |
+| `run_site_selection(path, report_renderer=..., plan_report_renderer=...)` | the same from Python; returns a `SelectionRun` (action, counts, outputs) |
+
+A selection file holds `[site_selection]`, plus `[hydrometry]` for an
+observation-led selection and `[data.dem]` to name the DEM. It never holds
+`[workflow] mode`: the runner refuses it.
 
 For station-led French workflows, observation APIs and hydrologic products do
 not use the same CRS. Hub'Eau station locations are fetched in WGS84 for API
@@ -121,7 +140,6 @@ With the default tabular switches they also write:
 
 - `selected_sites.csv`
 - `rejected_sites.csv`
-- `regional_lab_sites.csv`
 
 With production vector switches they can also write:
 
@@ -257,9 +275,11 @@ default until their writers are implemented.
 
 ## Selection Outputs
 
-`regional_lab_sites.csv` keeps the stable downstream catalog contract:
+`selected_sites.csv` is the table the site catalog imports
+(`hmp site import --selection`):
 
-- `site_id`: stable selected basin identifier.
+- `site_id`: stable selected basin identifier; the site name of the catalog,
+  with every character outside `[A-Za-z0-9_]` turned into `_`.
 - `site_label`: human-readable label, defaulting to `site_id`.
 - `region_id`: optional campaign or administrative region identifier.
 - `source_selection_id`: selection campaign that produced the row.
@@ -267,31 +287,16 @@ default until their writers are implemented.
 - `maturity`: downstream maturity flag, for example `screening`.
 - `x`, `y`: outlet coordinates in the outlet CRS.
 - `x_outlet`, `y_outlet`: explicit outlet coordinates in the outlet CRS.
+- `crs`: CRS of the outlet coordinates.
+- `gauge`: the flow station the outlet comes from, empty for a generated outlet.
 - `area_km2`: delineated catchment area when available.
 - `tags`: semicolon-separated provenance tags.
-- `enabled`: boolean flag used by downstream catalog loaders.
+- `enabled`: boolean flag kept for the review tables.
 
-Downstream catalog consumers should prefer the selection manifest over a
-hard-coded CSV path. The manifest declares which file currently satisfies the
-`regional_lab_sites_csv` output key, and both `testbed` and `regional_lab`
-catalog loaders can resolve that key directly:
+A consumer reads the manifest, never a hard-coded CSV path: the manifest
+declares which file satisfies the `selected_sites_csv` output key.
 
-```toml
-[testbed.catalog]
-from_site_selection_manifest = "outputs/site_selection/site_selection_manifest.json"
-output = "regional_lab_sites_csv"
-```
-
-```toml
-[regional_lab.catalog]
-from_site_selection_manifest = "outputs/site_selection/site_selection_manifest.json"
-output = "regional_lab_sites_csv"
-```
-
-If `output` is omitted, the downstream loader uses `regional_lab_sites_csv`.
-
-`selected_sites.csv` contains the same core fields plus review fields for the
-snapped outlet when available:
+It also carries review fields for the snapped outlet when available:
 
 - `x_outlet_snapped`: snapped outlet x coordinate.
 - `y_outlet_snapped`: snapped outlet y coordinate.
@@ -373,31 +378,14 @@ hydrometry configurations without a profile alive. DEM-light runs must likewise
 declare `profile = "area_only"` explicitly.
 
 
-## Closure Validation Examples
-
-The two small examples used to validate the stabilized package structure are:
-
-- `examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml`
-  (`area_only`): 26 candidates, 10 selected, 16 rejected, with
-  `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`.
-- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml`
-  (`gauged_downstream_station`): 6 candidates, 6 selected, 0 rejected, with
-  `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`.
-
-The output paths above are relative to
-`examples/projects/17_site_selection_workflow/`. The map to inspect alongside
-each HTML report is `review/site_selection_map.png`.
-
 ## Manifest Validation
 
 `site_selection_manifest.json` is the official hand-off contract. Use
-`validate_selection_manifest()` or `hmp site-selection report` to check that
-the manifest has the expected schema version and that referenced output files
-exist. The HTML report is intentionally derived from the manifest and its
+`validate_selection_manifest()` to check that the manifest has the expected
+schema version and that referenced output files exist. The HTML report is intentionally derived from the manifest and its
 declared artifacts; it should not become a second source of truth.
 
-Downstream workflows should receive the manifest path, not a copied catalog
-path. This keeps site-selection output naming, review artifacts and later
-catalog schema additions behind one stable contract. The end-to-end dry-run
-examples in `examples/projects/18_site_selection_to_testbed/` show the same
-manifest feeding a generic `testbed` plan and a `regional_lab` plan.
+Downstream steps receive the manifest path, not a copied catalog path:
+`hmp site import --selection <manifest>` reads `selected_sites_csv` through it.
+This keeps site-selection output naming, review artifacts and later catalog
+schema additions behind one stable contract.

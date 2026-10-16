@@ -37,16 +37,15 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 import hydromodpy as hmp
-from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.results.derive import views
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "project.toml"
 
 # Sweep outputs describe the whole set of runs, not one of them, so they go
-# to <project>/share/, the directory the layout reserves for on-demand
-# outputs. Per-run figures stay in their own run directory.
-OUT = share_dir_for(HERE) / "hydraulic_conductivity_sweep"
+# to <project>/summary/figures/. Per-run figures stay in their own run
+# directory.
+OUT = HERE / "summary" / "figures" / "hydraulic_conductivity_sweep"
 
 # Hydraulic conductivities to explore, m/s, log-spaced over five decades.
 K_VALUES = np.geomspace(1e-8, 1e-3, 10)

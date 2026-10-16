@@ -128,7 +128,7 @@ except `seepage_map`, which draws 15 February 2020, near the largest saturated e
 | `flow_persistence_map` | The share of the run each cell flows |
 | `flow_intermittence_map` | Perennial, intermittent or dry cells over the hydrological year 2019 |
 
-Four export blocks write six files in `share/nancon_soil_reservoir_daily/`: the catchment
+Four export blocks write six files in `runs/nancon_soil_reservoir_daily/exports/`: the catchment
 and the mapped network (two GeoPackages), the water table and the seepage cells of
 15 September 2019 (two GeoTIFFs), the simulated and gauged discharge over the scored years
 (CSV), and the daily water budget (CSV).

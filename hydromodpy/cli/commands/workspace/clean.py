@@ -29,11 +29,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--data-cache", action="store_true", dest="data_cache", help="The data cache"
     )
     parser.add_argument("--runtime", action="store_true", help="The .hmp/ runtime folder")
-    parser.add_argument("--share", action="store_true", help="The published share/ tree")
     parser.add_argument("--scratch", action="store_true", help="The scratch folders (.hmp/scratch)")
-    parser.add_argument(
-        "--figures", action="store_true", help="The share/figures folders of the projects"
-    )
     parser.add_argument(
         "--dry-run",
         action="store_true",

@@ -18,7 +18,7 @@ they are restated here; each group names the module that writes it.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.export_spec import MESH_LAYERS, ExportKind
 from hydromodpy.results import field_registry
@@ -26,6 +26,13 @@ from hydromodpy.results.derive.mesh_quality import MESH_QUALITY_DESCRIPTORS
 from hydromodpy.results.derive.virtual_fields import (
     SIMULATED_ACTIVE_NETWORK,
     available_virtual_fields,
+)
+from hydromodpy.results.exporters._tables import (
+    BUDGETS_TABLE,
+    TIMESERIES_TABLE,
+    distinct_values,
+    geographic_features,
+    table_rows,
 )
 from hydromodpy.results.exporters.mesh_layers import available_mesh_layers
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -164,39 +171,35 @@ KIND_LABELS: dict[ExportKind, str] = {
 def list_exportable(run: Run) -> dict[str, ExportKind]:
     """Return every name this run can export, mapped to its kind.
 
-    The dynamic side of :func:`static_export_names`: what this run holds, read
-    from its store and its catalog rows. The fields are the registered ones
-    the store holds or rebuilds on read, plus the simulated stream network
-    when the run carries what it is cut from, and the mesh quality fields its
-    stored mesh can serve. The series are the variables of
-    its ``timeseries`` rows, the layers what its geographic store holds plus the
-    mesh layers of a run that states its mesh CRS, and ``budget`` when it wrote
-    budget rows. A name two groups hold takes the kind
-    of the first, the order ``hmp.read`` resolves a name in.
+    The dynamic side of :func:`static_export_names`: what this run holds,
+    read from its directory, never from the index. The fields are the
+    registered ones the field store holds or rebuilds on read, plus the
+    simulated stream network when the run carries what it is cut from, and
+    the mesh quality fields its stored mesh can serve. The series are the
+    variables of its ``timeseries`` table, the layers the files of its
+    tables directory hold plus the mesh layers of a run that states its
+    mesh CRS, and ``budget`` when its ``budgets`` table has rows. A name two
+    groups hold takes the kind of the first, the order ``hmp.read``
+    resolves a name in.
     """
-    catalog = run._catalog
+    store = run._catalog
     sim_id = run.sim_id
     names: dict[str, ExportKind] = {}
     for name in run.array.list_fields():
         names.setdefault(name, ExportKind.field)
-    for name in _mesh_quality_available(catalog, sim_id):
+    for name in _mesh_quality_available(store, sim_id):
         names.setdefault(name, ExportKind.field)
     if _simulated_network_available(run):
         names.setdefault(SIMULATED_ACTIVE_NETWORK, ExportKind.field)
-    for (variable,) in catalog.backend.fetch_all(
-        "SELECT DISTINCT variable FROM timeseries WHERE sim_id = ? ORDER BY variable", [sim_id]
-    ):
-        names.setdefault(str(variable), ExportKind.series)
-    for feature in catalog.list_geographic_features(sim_id):
-        names.setdefault(str(feature), ExportKind.vector)
-    for layer in available_mesh_layers(catalog, sim_id):
+    for variable in distinct_values(store, sim_id, TIMESERIES_TABLE, "variable"):
+        names.setdefault(variable, ExportKind.series)
+    for feature in geographic_features(store, sim_id):
+        names.setdefault(feature, ExportKind.vector)
+    for layer in available_mesh_layers(store, sim_id):
         names.setdefault(layer, ExportKind.vector)
-    for raster in _stored_rasters(catalog, sim_id):
+    for raster in _stored_rasters(store, sim_id):
         names.setdefault(raster, ExportKind.raster)
-    budget_row = catalog.backend.fetch_one(
-        "SELECT 1 FROM budgets WHERE sim_id = ? LIMIT 1", [sim_id]
-    )
-    if budget_row is not None:
+    if table_rows(store, sim_id, BUDGETS_TABLE):
         names.setdefault("budget", ExportKind.table)
     return names
 
@@ -211,13 +214,13 @@ def describe_exportable(names: dict[str, ExportKind]) -> str:
     return "\n".join(blocks)
 
 
-def _mesh_quality_available(catalog: object, sim_id: str) -> list[str]:
+def _mesh_quality_available(store: Any, sim_id: str) -> list[str]:
     """Return the mesh quality fields the stored mesh of a run can serve."""
-    store = catalog.open_zarr(sim_id)  # type: ignore[attr-defined]
+    sz = store.open_zarr(sim_id)
     try:
-        served = set(available_virtual_fields(store.root))
+        served = set(available_virtual_fields(sz.root))
     finally:
-        store.close()
+        sz.close()
     return [name for name in MESH_QUALITY_DESCRIPTORS if name in served]
 
 
@@ -234,14 +237,14 @@ def _simulated_network_available(run: Run) -> bool:
     return reason is None
 
 
-def _stored_rasters(catalog: object, sim_id: str) -> list[str]:
+def _stored_rasters(store: Any, sim_id: str) -> list[str]:
     """Return the geographic rasters a run's field store holds."""
-    store = catalog.open_zarr(sim_id)  # type: ignore[attr-defined]
+    sz = store.open_zarr(sim_id)
     try:
-        group = store.root.get("geographic")
+        group = sz.root.get("geographic")
         return sorted(str(key) for key in group.keys()) if group is not None else []
     finally:
-        store.close()
+        sz.close()
 
 
 __all__ = [

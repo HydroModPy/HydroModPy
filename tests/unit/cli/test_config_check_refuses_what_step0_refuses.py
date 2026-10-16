@@ -21,7 +21,7 @@ mode = "simulation"
 source_mode = "synthetic"
 
 [simulation]
-name = "nancon"
+name = "baseline"
 
 [simulation.time]
 start_datetime = "2000-01-01"
@@ -77,4 +77,4 @@ def test_two_blocks_writing_one_file_are_refused(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 14
-    assert "export[0] and export[1] both write nancon/discharge.csv" in result.stderr
+    assert "export[0] and export[1] both write discharge.csv" in result.stderr

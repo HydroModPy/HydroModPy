@@ -88,10 +88,7 @@ RUN_MANIFEST_FILENAME = "manifest.json"
 """Seal of a complete run directory. Absent means the run did not finish."""
 
 RUN_ANNOTATIONS_FILENAME = "annotations.json"
-"""Tags and notes of one run. Written after the seal, like the trash marker."""
-
-RUN_TRASH_FILENAME = "trash.json"
-"""Trash marker of one run. Present means trashed; absent means live."""
+"""Tags and notes of one run. The one file written after the seal."""
 
 RUN_FIGURES_DIRNAME = "figures"
 """Figures rendered for one run."""
@@ -117,11 +114,21 @@ RUN_REPORT_DIRNAME = "report"
 RUN_LOGS_DIRNAME = "logs"
 """Run log, solver listing and heartbeat of one run or session."""
 
+RUN_LOG_FILENAME = "run.log"
+"""Log of the current attempt, under :data:`RUN_LOGS_DIRNAME`; its tail goes to the outcome."""
+
 RUN_MESH_DIRNAME = "mesh"
 """Copy of the mesh-cache entry the run consumed, when the mesh is not reproducible."""
 
 RUN_ATTEMPTS_DIRNAME = "attempts"
 """Outcome and logs of the earlier attempts of one run, one directory per attempt."""
+
+RUN_SOLVER_DIRNAME = "solver"
+"""Raw solver folders of one run, kept only under ``keep_solver_files``.
+
+Moved out of the attempt scratch before the seal, so they outlive
+``<run>/.hmp/``. Not a result: the seal never inventories them.
+"""
 
 LEDGER_FILENAME = "index.json"
 """Ledger of a ``figures/`` or ``exports/`` directory: one entry per file."""
@@ -142,7 +149,6 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
     {
         RUN_OUTCOME_FILENAME,
         RUN_ANNOTATIONS_FILENAME,
-        RUN_TRASH_FILENAME,
         README_FILENAME,
         RUN_PUBLISHED_FILENAME,
         RUN_FIGURES_DIRNAME,
@@ -150,14 +156,15 @@ UNSEALED_RUN_ENTRIES: frozenset[str] = frozenset(
         RUN_REPORT_DIRNAME,
         RUN_LOGS_DIRNAME,
         RUN_ATTEMPTS_DIRNAME,
+        RUN_SOLVER_DIRNAME,
     }
     | GENERATED_VIEWS
 )
 """Entries of a run directory the seal never inventories.
 
 Derived (figures, exports, report, README, generated views), mutable after
-the seal (outcome, annotations, trash marker, published lines), diagnostic
-(logs) or history (attempts). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
+the seal (outcome, annotations, published lines), diagnostic (logs, kept
+solver folders) or history (attempts). The runtime scratch of :data:`RUN_SCRATCH_ENTRIES`
 is left out for a different reason: it is not a result.
 """
 
@@ -315,14 +322,15 @@ __all__ = [
     "RUN_FIGURES_DIRNAME",
     "RUN_INPUTS_FILENAME",
     "RUN_LOGS_DIRNAME",
+    "RUN_LOG_FILENAME",
     "RUN_MANIFEST_FILENAME",
     "RUN_MESH_DIRNAME",
     "RUN_OUTCOME_FILENAME",
     "RUN_PROVENANCE_FILENAME",
     "RUN_PUBLISHED_FILENAME",
     "RUN_REPORT_DIRNAME",
+    "RUN_SOLVER_DIRNAME",
     "RUN_STORAGE_LAYER_NAMES",
-    "RUN_TRASH_FILENAME",
     "SESSION_CANDIDATES_DIRNAME",
     "SESSION_CONFIG_FILENAME",
     "SESSION_DESCRIPTOR_FILENAME",

@@ -1,27 +1,28 @@
-"""``hmp catalog`` family - inspect, query, and maintain workspace catalogs.
+"""``hmp catalog`` family - read the index of a project and maintain its tree.
 
 Sub-actions:
 
-- ``hmp catalog ls``: list simulations (filterable by solver/catchment/project).
-- ``hmp catalog query "<SQL>"``: run a raw SQL statement against the catalog.
-- ``hmp catalog show <sim_ref>``: show simulation metadata (with ``--detail``).
+- ``hmp catalog ls``: list the runs (filterable by solver, site, status, label, tag).
+- ``hmp catalog query "<SQL>"``: run one read-only SQL statement against the index.
+- ``hmp catalog show <sim_ref>``: show the facts of one run (with ``--detail``).
 - ``hmp catalog point <sim_ref>... --var V``: read a variable in one cell,
   named by coordinates, cell id or depth, on one or several runs.
-- ``hmp catalog gc``: the one maintenance verb. Plans by default; ``--apply``
-  purges expired trash, removes orphan stores, replays interrupted purges,
-  marks stale runs failed, and compacts DuckDB + Zarr (absorbed ``vacuum``).
+- ``hmp catalog gc``: plans by default; ``--apply`` marks dead attempts
+  aborted, trashes old versions and removes expired trash, each removed
+  directory leaving a tombstone.
 - ``hmp catalog reindex``: rebuild the index from the run directories.
-- ``hmp catalog delete <sim_ref>``: move a run to the trash (``--now`` to purge).
-- ``hmp catalog restore <sim_ref>``: bring a trashed run back.
-- ``hmp catalog trash [--empty]``: list trashed runs or empty the trash.
-- ``hmp catalog tag <sim_ref> TAG... [--rm TAG]``: add/remove tags.
+- ``hmp catalog delete <ref>``: move a run or a session to ``trash/``
+  (``--now`` removes it, leaving a tombstone).
+- ``hmp catalog restore <ref>``: bring a trashed directory back.
+- ``hmp catalog trash [--empty]``: list the trash or empty it.
+- ``hmp catalog tag <sim_ref> TAG... [--rm TAG]``: add or remove tags
+  (``runs/<run>/annotations.json``).
 - ``hmp catalog note <sim_ref> "<text>"``: append a timestamped note.
 - ``hmp catalog rename <sim_ref> <new_name>``: rename a run (its directory moves).
-- ``hmp catalog diff <ref_a> <ref_b>``: compare two runs' params and outlet metrics.
-- ``hmp catalog watch``: show running runs with heartbeat staleness.
-- ``hmp catalog import <FILE.hmp>``: restore a run from an archive (``hmp export
-  <sim_ref> all --format package`` writes one).
-- ``hmp catalog rerun <sim_ref> [--set path=value]``: re-launch from the snapshot.
+- ``hmp catalog diff <ref_a> <ref_b>``: compare the parameters and metrics of two runs.
+- ``hmp catalog watch``: show the running attempts with the age of their pulse.
+- ``hmp catalog import <DIR|TAR>``: import a run written by ``hmp publish``.
+- ``hmp catalog rerun <sim_ref> [--set path=value]``: re-launch from the frozen config.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ from hydromodpy.cli.commands.catalog import (
 )
 
 NAME: str = "catalog"
-HELP: str = "Inspect, query, and maintain workspace catalogs"
+HELP: str = "Read the index of a project and maintain its runs"
 
 ACTIONS = (
     ls,

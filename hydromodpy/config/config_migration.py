@@ -16,16 +16,15 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   calibration phase override ``"display.overrides.<figure>.timestep"`` ->
   ``"display.overrides.<figure>.time"``
 - ``[modflow6.tgrid]`` and ``[modflownwt.tgrid]`` dropped: neither backend
-  read them, at the root and under a comparison or testbed overlay
+  read them
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
   the lockfile is written on every run.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
-  whatever they held, at the root and under every comparison or testbed
-  overlay: a run keeps its whole per-cell budget and rebuilds every derived
-  field on read, so neither table has anything left to switch
+  whatever they held: a run keeps its whole per-cell budget and rebuilds every
+  derived field on read, so neither table has anything left to switch
 - ``roptim_max`` of a network output under ``[calibration.outputs.<name>]``
   dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
   reproduces; any other value is refused, since a ratio has no length without
@@ -64,13 +63,6 @@ _SOLVER_SECTIONS = ("modflow6", "modflownwt")
 RETIRED_RESULTS_TABLES: tuple[str, ...] = (
     "simulation.results.derived",
     "simulation.results.budget",
-)
-
-# Where a comparison or a testbed holds a fragment of the root config.
-_OVERLAY_MEMBERS = (
-    ("comparison", "simulation"),
-    ("testbed", "case"),
-    ("testbed", "case_from_catalog"),
 )
 
 
@@ -170,7 +162,7 @@ def _finish(doc: Any, changes: list[str]) -> list[str]:
     export_changes = _migrate_export_variables(doc)
     export_changes.extend(_rename_export_times(doc))
     exploded = _explode_export_table(doc)
-    if exploded == [_EMPTY_EXPORT_DROPPED]:
+    if _EMPTY_EXPORT_DROPPED in exploded:
         # The older spellings of a table that wrote nothing lead nowhere either.
         changes.extend(exploded)
     else:
@@ -203,6 +195,14 @@ _EXPORT_TABLE_KEYS = frozenset(
 )
 # The selectors a request writing the whole run refuses.
 _RUN_REFUSED_KEYS = ("period", "crs", "resolution", "layer")
+# The archive of a run (`package = true`, `fmt = "hmp"`, a `.hmp` file) is
+# not an export any more: `hmp publish --format tar` writes it from a sealed run.
+_ARCHIVE_FORMAT = "hmp"
+_ARCHIVE_SUFFIX = ".hmp"
+_ARCHIVE_DROPPED = (
+    '[export] archive request(s) dropped (package = true, fmt = "hmp", a .hmp file): the '
+    "archive of a run is written by hmp publish --format tar, not by an export"
+)
 _ARTIFACT_KEYS = {
     "var": "variables",
     "fmt": "format",
@@ -229,16 +229,28 @@ def _export_block(block: dict[str, Any], *, time: Any, folder: Any) -> dict[str,
     return block
 
 
-def _artifact_block(artifact: Mapping[str, Any], folder: Any) -> dict[str, Any]:
-    """Return one ``[[export.artifacts]]`` entry as an ``[[export]]`` request."""
+def _is_archive(block: Mapping[str, Any]) -> bool:
+    """Return whether an old artifact asked for the archive of the run."""
+    if block.get("format") == _ARCHIVE_FORMAT:
+        return True
+    file = block.get("file")
+    return file is not None and str(file).lower().endswith(_ARCHIVE_SUFFIX)
+
+
+def _artifact_block(artifact: Mapping[str, Any], folder: Any) -> dict[str, Any] | None:
+    """Return one ``[[export.artifacts]]`` entry as an ``[[export]]`` request.
+
+    An artifact that asked for the archive of the run returns ``None``: it is
+    dropped, and the caller says what writes an archive today.
+    """
     block: dict[str, Any] = {}
     for old, new in _ARTIFACT_KEYS.items():
         if old in artifact:
             block[new] = _plain(artifact[old])
+    if _is_archive(block):
+        return None
     if block.get("variables") == "*":
         block["variables"] = "all"
-    if block.get("format") == "hmp":
-        block["format"] = "package"
     time = block.pop("time", None)
     if _writes_the_run(block):
         # The old spec let an archive carry a variable and selectors, and wrote
@@ -259,12 +271,13 @@ def _writes_the_run(block: Mapping[str, Any]) -> bool:
     return fmt in {run_format.value for run_format in RUN_FORMATS}
 
 
-def _export_blocks(table: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Return the requests the old ``[export]`` table made, in the order they ran.
+def _export_blocks(table: Mapping[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    """Return the requests the old ``[export]`` table made, and the archives dropped.
 
     A format toggle wrote every name of ``variables`` at ``time``, into
-    ``output_dir``; ``csv_timeseries`` wrote every series; ``package`` wrote
-    the archive last. The defaults are the ones the table had.
+    ``output_dir``; ``csv_timeseries`` wrote every series. The defaults are
+    the ones the table had. ``package = true`` and the artifacts asking for
+    the archive are counted, not kept: no export writes an archive.
     """
     export = _plain(table)
     folder = export.get("output_dir")
@@ -282,12 +295,14 @@ def _export_blocks(table: Mapping[str, Any]) -> list[dict[str, Any]]:
         if toggle == "geotiff" and export.get("resolution") is not None:
             block["resolution"] = export["resolution"]
         blocks.append(_export_block(block, time=time, folder=folder))
-    blocks.extend(_artifact_block(artifact, folder) for artifact in export.get("artifacts") or ())
-    if export.get("package"):
-        blocks.append(
-            _export_block({"variables": "all", "format": "package"}, time=None, folder=folder)
-        )
-    return blocks
+    dropped = 1 if export.get("package") else 0
+    for artifact in export.get("artifacts") or ():
+        block = _artifact_block(artifact, folder)
+        if block is None:
+            dropped += 1
+        else:
+            blocks.append(block)
+    return blocks, dropped
 
 
 def _explode_export_table(doc: Any) -> list[str]:
@@ -304,10 +319,11 @@ def _explode_export_table(doc: Any) -> list[str]:
     table = doc.get("export")
     if not isinstance(table, Mapping) or not set(table) <= _EXPORT_TABLE_KEYS:
         return []
-    blocks = _export_blocks(table)
+    blocks, dropped = _export_blocks(table)
+    changes = [_ARCHIVE_DROPPED] if dropped else []
     if not blocks:
         del doc["export"]
-        return [_EMPTY_EXPORT_DROPPED]
+        return [*changes, _EMPTY_EXPORT_DROPPED]
     if hasattr(table, "unwrap"):
         requests = tomlkit.aot()
         for block in blocks:
@@ -319,7 +335,10 @@ def _explode_export_table(doc: Any) -> list[str]:
     else:
         doc["export"] = blocks
     formats = ", ".join(str(block.get("format", "by extension")) for block in blocks)
-    return [f"[export] toggles and artifacts -> {len(blocks)} [[export]] block(s) ({formats})"]
+    return [
+        *changes,
+        f"[export] toggles and artifacts -> {len(blocks)} [[export]] block(s) ({formats})",
+    ]
 
 
 def _rename_timestep(table: Any, where: str) -> list[str]:
@@ -433,15 +452,14 @@ def _drop_the_solver_time_grids(doc: Any) -> list[str]:
     ``[simulation.time]``, which made it worse than inert: a file could declare
     ``itmuni = "days"`` next to a run executing in seconds.
 
-    A comparison or testbed file patches its solver sections under ``overlay``,
-    and those reach the same loader, so the root alone is not enough.
     """
     changes: list[str] = []
-    for path, table in _solver_tables(doc):
-        if "tgrid" not in table:
+    for name in _SOLVER_SECTIONS:
+        table = doc.get(name)
+        if not isinstance(table, Mapping) or "tgrid" not in table:
             continue
         del table["tgrid"]
-        changes.append(f"{path}.tgrid dropped (removed from the schema, never read)")
+        changes.append(f"{name}.tgrid dropped (removed from the schema, never read)")
     return changes
 
 
@@ -480,52 +498,24 @@ def _drop_the_validity_ratio(doc: Any) -> list[str]:
     return changes
 
 
-def _overlays(doc: Any) -> list[tuple[str, Mapping[str, Any]]]:
-    """Return every ``(path, overlay)`` pair: a fragment of the root config.
-
-    A comparison patches the root config under ``base_simulation_overlay`` and
-    under the ``overlay`` of each simulation; a testbed under the ``overlay`` of
-    each case and of each catalog case rule. Every overlay is shaped like a
-    config file, so its ``[simulation.results]`` is read like the root one.
-    """
-    found: list[tuple[str, Any]] = []
-    comparison = doc.get("comparison")
-    if isinstance(comparison, Mapping):
-        found.append(
-            ("comparison.base_simulation_overlay", comparison.get("base_simulation_overlay"))
-        )
-    for owner, member in _OVERLAY_MEMBERS:
-        section = doc.get(owner)
-        entries = section.get(member) if isinstance(section, Mapping) else None
-        if isinstance(entries, Mapping):
-            entries = [entries]
-        if not isinstance(entries, list | tuple):
-            continue
-        for index, entry in enumerate(entries):
-            overlay = entry.get("overlay") if isinstance(entry, Mapping) else None
-            found.append((f"{owner}.{member}[{index}].overlay", overlay))
-    return [(path, overlay) for path, overlay in found if isinstance(overlay, Mapping)]
-
-
 def drop_retired_results_tables(doc: Any) -> list[str]:
     """Drop :data:`RETIRED_RESULTS_TABLES` from *doc* in place; return the paths dropped.
 
-    The root and every overlay are read, and so are the ``overrides`` of the
-    calibration phases, which write dotted paths into the project config. A
-    table goes whatever it holds: the ``spatial_fields`` of a sealed config is
-    always false, and carrying it to the new key would make every resume lose
-    the per-cell budget again.
+    The root is read, and so are the ``overrides`` of the calibration phases,
+    which write dotted paths into the project config. A table goes whatever it
+    holds: the ``spatial_fields`` of a sealed config is always false, and
+    carrying it to the new key would make every resume lose the per-cell
+    budget again.
     """
     names = [table.rsplit(".", 1)[1] for table in RETIRED_RESULTS_TABLES]
     dropped: list[str] = []
-    for prefix, scope in [("", doc), *((f"{path}.", overlay) for path, overlay in _overlays(doc))]:
-        for name in names:
-            # Fetched again per delete: on an out-of-order tomlkit document a
-            # delete leaves the earlier proxy of [simulation.results] stale.
-            results = _results_table(scope)
-            if results is not None and name in results:
-                del results[name]
-                dropped.append(f"{prefix}simulation.results.{name}")
+    for name in names:
+        # Fetched again per delete: on an out-of-order tomlkit document a
+        # delete leaves the earlier proxy of [simulation.results] stale.
+        results = _results_table(doc)
+        if results is not None and name in results:
+            del results[name]
+            dropped.append(f"simulation.results.{name}")
     dropped.extend(_drop_retired_phase_overrides(doc))
     return dropped
 
@@ -575,47 +565,6 @@ def _report_retired_results_tables(doc: Any) -> list[str]:
     ]
 
 
-def _solver_tables(doc: Any) -> list[tuple[str, Any]]:
-    """Return every ``(path, table)`` pair holding a MODFLOW solver section."""
-    tables: list[tuple[str, Any]] = [(name, doc.get(name)) for name in _SOLVER_SECTIONS]
-    for owner, member in (("comparison", "simulation"), ("testbed", "case")):
-        entries = (doc.get(owner) or {}).get(member)
-        if entries is None:
-            continue
-        if isinstance(entries, Mapping):
-            entries = [entries]
-        for index, entry in enumerate(entries):
-            overlay = (entry or {}).get("overlay")
-            if overlay is None:
-                continue
-            for name in _SOLVER_SECTIONS:
-                tables.append((f"{owner}.{member}[{index}].overlay.{name}", overlay.get(name)))
-    return [(path, table) for path, table in tables if table is not None]
-
-
-def _flow_tables(doc: Any) -> list[tuple[str, Any]]:
-    """Return every ``(path, table)`` pair holding a flow section.
-
-    A comparison or testbed file carries no top-level ``[flow]``: it patches
-    one per case, under ``overlay``. Those overlays reach the same loader and
-    are refused by the same rule, so a migration that only looked at the root
-    left the file broken and reported nothing to fix.
-    """
-    tables = [("flow", doc.get("flow"))]
-    for owner, member in (("comparison", "simulation"), ("testbed", "case")):
-        entries = (doc.get(owner) or {}).get(member)
-        if entries is None:
-            continue
-        if isinstance(entries, Mapping):
-            entries = [entries]
-        for index, entry in enumerate(entries):
-            overlay = (entry or {}).get("overlay")
-            if overlay is None:
-                continue
-            tables.append((f"{owner}.{member}[{index}].overlay.flow", overlay.get("flow")))
-    return [(path, table) for path, table in tables if table is not None]
-
-
 def _flatten_boundary_conditions(doc: Any) -> list[str]:
     """Rewrite ``[flow.bc.<kind>.<id>]`` as ``[flow.bc.<id>]`` with a kind field.
 
@@ -624,10 +573,12 @@ def _flatten_boundary_conditions(doc: Any) -> list[str]:
     The nested form said the same thing twice and let the two disagree.
     """
     changes: list[str] = []
-    for prefix, flow in _flow_tables(doc):
+    flow = doc.get("flow")
+    if flow is not None:
+        prefix = "flow"
         bc = flow.get("bc")
         if bc is None:
-            continue
+            return changes
         for kind in ("dirichlet", "cauchy", "robin"):
             nested = bc.get(kind)
             if nested is None:

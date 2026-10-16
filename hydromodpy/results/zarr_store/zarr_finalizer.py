@@ -3,7 +3,8 @@
 Owns lifecycle: write-lock acquisition, ``consolidate_metadata`` and
 ``close``. A run store is always a directory: there is no packed form,
 and its content is exactly the Zarr hierarchy, so the write lock is
-addressed outside of it (see :func:`lock_path_for_store`).
+addressed outside of it, under the attempt state of the run that owns it
+(see :func:`lock_path_for_store`).
 
 All helpers take the live :class:`SimulationZarr` (or its store/lock)
 explicitly so the module stays free of hidden global state.
@@ -11,7 +12,6 @@ explicitly so the module stays free of hidden global state.
 
 from __future__ import annotations
 
-import hashlib
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -20,7 +20,7 @@ import zarr
 from filelock import FileLock, Timeout
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import internal_dir, resolve_project_root
+from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_LOCKS_DIRNAME
 
 if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -28,8 +28,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 LOCK_TIMEOUT_SECONDS = 60.0
-LOCKS_DIRNAME = "locks"
-LOCK_KEY_LENGTH = 16
+LOCK_SUFFIX = ".lock"
 
 
 def lock_path_for_store(path: Path) -> Path:
@@ -37,16 +36,16 @@ def lock_path_for_store(path: Path) -> Path:
 
     A directory store is exactly its own content, so a lock file dropped
     inside it becomes a member of the Zarr hierarchy and of every content
-    hash taken over it. POSIX keeps that file after release while Windows
-    unlinks it, which would make the store bytes differ per platform. The
-    lock lives in the disposable ``.hmp/locks`` directory of the owning
-    project instead, keyed by the resolved store path so that two stores
-    never contend on one file.
+    hash taken over it. The lock lives under ``.hmp/locks/`` of the directory
+    that holds the store: for ``runs/<case>/fields.zarr`` that is the attempt
+    state ``runs/<case>/.hmp/locks/``, removed with the rest of it when the
+    run is sealed. Two stores of one directory never contend on one file
+    because the lock is named after the store.
     """
     store = Path(path).resolve()
-    key = hashlib.sha256(store.as_posix().encode("utf-8")).hexdigest()[:LOCK_KEY_LENGTH]
-    locks_dir = internal_dir(resolve_project_root(store.parent)) / LOCKS_DIRNAME
-    return locks_dir / f"{store.parent.name or store.name}-{key}.lock"
+    return (
+        store.parent / INTERNAL_DIRNAME / RUN_INTERNAL_LOCKS_DIRNAME / f"{store.name}{LOCK_SUFFIX}"
+    )
 
 
 class DummyLock:
@@ -110,8 +109,7 @@ def close(store_obj: SimulationZarr) -> None:
 
 __all__ = [
     "DummyLock",
-    "LOCKS_DIRNAME",
-    "LOCK_KEY_LENGTH",
+    "LOCK_SUFFIX",
     "LOCK_TIMEOUT_SECONDS",
     "close",
     "consolidate_metadata",

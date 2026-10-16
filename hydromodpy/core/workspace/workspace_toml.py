@@ -22,6 +22,10 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.units.types import LengthMeters
+
+NEAR_SITE_M_DEFAULT: float = 500.0
+"""Default of ``[sites] near_site_m``, in metres."""
 
 DEFAULT_WORKSPACE_TOML_TEMPLATE: str = """\
 [workspace]
@@ -102,6 +106,22 @@ class WorkspaceMetadata(BaseModel):
     tags: TagsMetadata = TagsMetadata()
 
 
+class SitesMetadata(BaseModel):
+    """``[sites]`` block: how the site catalog of the workspace tells two sites apart."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    near_site_m: LengthMeters = Field(
+        NEAR_SITE_M_DEFAULT,
+        gt=0.0,
+        description=(
+            "Distance in metres under which two outlets are taken for one catchment. "
+            "hmp site add and hmp site import refuse an outlet closer than this to a "
+            "site declared under another name, unless --force is passed. Accepts a "
+            'length such as "500 m" or "1 km".'
+        ),
+    )
+
+
 class ConventionsMetadata(BaseModel):
     """``[conventions]`` top-level block."""
 
@@ -115,6 +135,7 @@ class WorkspaceToml(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     workspace: WorkspaceMetadata
+    sites: SitesMetadata = SitesMetadata()
     conventions: ConventionsMetadata = ConventionsMetadata()
 
 
@@ -191,8 +212,17 @@ def load_workspace_toml(workspace: Path) -> WorkspaceToml:
     return WorkspaceToml.model_validate(data)
 
 
+def near_site_m(workspace: Path) -> float:
+    """Return ``[sites] near_site_m`` of a workspace, the default when it has no file."""
+    if not (Path(workspace).expanduser() / WORKSPACE_TOML_FILENAME).is_file():
+        return NEAR_SITE_M_DEFAULT
+    return load_workspace_toml(workspace).sites.near_site_m
+
+
 __all__ = [
     "DEFAULT_WORKSPACE_TOML_TEMPLATE",
+    "NEAR_SITE_M_DEFAULT",
+    "SitesMetadata",
     "ConventionsMetadata",
     "GeographicScopeMetadata",
     "TagsMetadata",
@@ -200,6 +230,7 @@ __all__ = [
     "WorkspaceMetadata",
     "WorkspaceToml",
     "load_workspace_toml",
+    "near_site_m",
     "render_workspace_toml",
     "write_workspace_toml",
 ]

@@ -20,12 +20,9 @@ Python reference (:doc:`/reference/python/index`). The verbs:
 
    * - Symbol
      - Role
-   * - ``hmp.open(workspace, *, create=False, read_only=True)``
-     - Open a project catalog. Returns a ``Catalog`` backed by
-       ``.hmp/index.duckdb`` and calls ``ensure_schema()`` on its backend.
-   * - ``hmp.index(db_path=None, *, read_only=True)``
-     - Open the machine-wide ``GlobalIndex``, the registry of project roots. One
-       row is one project; a workspace root expands into the projects it holds.
+   * - ``hmp.open(workspace, ...)``
+     - Open a project catalog. Returns a read-only ``Catalog`` over
+       ``.hmp/index.duckdb``, the index derived from the run directories.
    * - ``hmp.read(sim, var, ...)``
      - Read a variable of a run. The name is resolved against the field registry, then
        the ``timeseries`` table, then the geographic features.
@@ -42,8 +39,8 @@ Python reference (:doc:`/reference/python/index`). The verbs:
        cyclic spin-up, an environment diagnostic.
 
 A change to the facade or to the two Protocols below is a breaking change. It
-needs a migration entry under the relevant ``migrations/`` folder when it touches
-a stored schema, a bump of the matching version constant, and an update of this
+needs, when it touches a stored schema, a migration entry (workspace cache) or a
+rebuild of the index, a bump of the matching version constant, and an update of this
 page and of :doc:`storage-layout`. The constants and where they live are in
 :doc:`data-scopes`. The code keeps no compatibility shim, alias or re-export
 outside the facade.
@@ -58,7 +55,6 @@ store only through this ``runtime_checkable`` Protocol. The in-tree adapter is
 .. code-block:: python
 
    class CatalogBackend(Protocol):
-       def ensure_schema(self) -> None: ...
        def query(self, sql, params=None) -> pandas.DataFrame: ...
        def execute(self, sql, params=None) -> None: ...
        def fetch_one(self, sql, params=None) -> tuple | None: ...
@@ -77,13 +73,14 @@ Storage Protocol: ``SimulationStore``
 
 Source: ``hydromodpy/results/catalog/protocol.py``. It is the minimal write and
 read surface that workflow steps, solver adapters and post-run extractors call:
-``register_simulation``; the writes (``write_parameters``, ``write_timeseries``,
-``write_budget``, ``write_field``, ``write_time``, ``write_crs``, ``write_mesh``,
-``write_metric``, ``write_provenance``, ``write_run_environment``,
-``register_tracked_files``, and more); the reads (``query_field``,
-``query_timeseries``, ``list_simulations``, ``open_zarr``, ``__getitem__``); and
-``finalize``, ``close`` and the context-manager protocol. The default
-implementation is ``hydromodpy.results.catalog.Catalog``.
+the writes (``write_parameters``, ``write_timeseries``, ``write_budget``,
+``write_field``, ``write_time``, ``write_crs``, ``write_mesh``, ``write_metric``,
+``write_provenance``, ``write_run_environment``, ``register_tracked_files``, and
+more); the reads (``query_field``, ``query_timeseries``, ``list_simulations``,
+``open_zarr``, ``__getitem__``); and ``close`` with the context-manager protocol.
+The writes are implemented by the run store of a run directory
+(``hydromodpy.results.storage.run_store.RunStore``), which never opens an index;
+the reads by ``hydromodpy.results.catalog.Catalog``, from the index.
 
 Field registry
 --------------

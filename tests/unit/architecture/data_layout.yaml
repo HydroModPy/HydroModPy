@@ -18,6 +18,7 @@ allowed:
   registry:   [provenance]
   managers:   [contracts, common, ingest, provenance, registry]
   variables:  [contracts, schemas, source, common, ingest, provenance, registry, managers]
+  sites:      [variables]
   loading:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables]
   workspace:  [schemas, common, ingest, provenance, registry]
   request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
@@ -45,6 +46,7 @@ public:
   - hydromodpy.data.ingest.*
   - hydromodpy.data.workspace.*
   - hydromodpy.data.request.*
+  - hydromodpy.data.sites.*
   - hydromodpy.data.variables.*.config
   - hydromodpy.data.variables.*.manager
   - hydromodpy.data.variables.dem.resolver

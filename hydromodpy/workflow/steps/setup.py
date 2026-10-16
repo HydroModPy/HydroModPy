@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, ClassVar
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.rng import RngManager
-from hydromodpy.core.state.global_index import auto_register_projects
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
+from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
@@ -460,10 +460,10 @@ def run_setup(
     setup_state = run_state.setup
 
     setup_state.workspace = Workspace(config=cfg.workspace)
-    auto_register_projects(
-        setup_state.workspace.project_root,
-        label=getattr(setup_state.workspace, "catch_name", None),
-    )
+    if run_state.run_dir is not None:
+        setup_state.workspace.solver_scratch_folder = scratch_dir_for_attempt(
+            setup_state.workspace.project_root, run_state.run_dir, run_state.attempt
+        )
     resolve_dem_init_path(cfg, run_state)
     resolve_crossings_path(cfg, run_state)
     setup_state.geographic = build_geographic_fn(

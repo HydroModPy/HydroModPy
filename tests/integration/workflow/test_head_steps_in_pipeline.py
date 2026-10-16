@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import run_dir_rel
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
@@ -24,6 +26,9 @@ RUN_NAME = "crashed_head"
 PROJECT_TOML = """
 [workflow]
 mode = "simulation"
+
+[site]
+name = "naizin"
 
 [simulation]
 name = "naizin_head_steps"
@@ -87,14 +92,9 @@ enabled = false
 
 def _journal_rows(root: Path, run_id: str) -> tuple[tuple[int, str, str], ...]:
     """Return ``(step_order, step_name, status)`` for every row of ``run_id``."""
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-    catalog = Catalog(root)
-    try:
-        rows = WorkflowJournal(catalog).list_steps(run_id)
-    finally:
-        catalog.close()
+    rows = WorkflowJournal(root / run_dir_rel(run_id)).list_steps(run_id)
     return tuple((row.step_order, row.step_name, row.status) for row in rows)
 
 
@@ -170,7 +170,12 @@ def test_the_resume_restarts_at_the_step_that_failed(crashed_at_build_mesh) -> N
     root, _rows = crashed_at_build_mesh
     blueprint = tuple(step.name for step in standard_steps())
 
-    assert _resolve_resume_step_index(root, RUN_NAME, steps_blueprint=blueprint) == 4
+    assert (
+        _resolve_resume_step_index(
+            root / run_dir_rel(RUN_NAME), root, RUN_NAME, steps_blueprint=blueprint
+        )
+        == 4
+    )
 
     project = Project(root / "project.toml", no_display=True)
     try:

@@ -405,7 +405,7 @@ class RelationsDirective(SphinxDirective):
         b, doc = H.current_builder(), self.env.docname
         produced = A.get("produced_by", {})
         by_name = {c["name"]: c for c in classes("result")}
-        order = ["Catalog", "Run", "RunSet", "GlobalIndex", "Project"]
+        order = ["Catalog", "Run", "RunSet", "Project"]
         order += [n for n in by_name if n not in order]
         rows = []
         for name in order:
@@ -1087,8 +1087,8 @@ rebuilt with `hmp catalog reindex`. The objects below are the ways Python looks 
 ```{hmp-api-relations}
 ```
 
-`hmp.open` opens the index read-only unless you pass `read_only=False` or `create=True`. A `Run` is a
-view over one row of the index and the folder it points to.
+`hmp.open` opens the index read-only. A `Run` reads the folder it names, and the seal in it says what the
+run is; the index only finds it.
 
 ## What `hmp.read` returns
 
@@ -1108,11 +1108,7 @@ cat = hmp.open("path/to/project")   # Catalog
 run = cat.latest()                  # Run
 runs = cat.find(tags="paper")       # RunSet: the runs of this catalog that match
 best = runs.best("nse")             # Run, by a metric
-idx = hmp.index()                   # GlobalIndex: the projects registered on this machine
 ```
-
-`GlobalIndex` is separate from the catalogs. It federates the project indexes registered on the
-machine and searches across them; its `find` and `search` return tables of runs, not `Run` objects.
 """
 
 EXCEPTIONS_PAGE = """\

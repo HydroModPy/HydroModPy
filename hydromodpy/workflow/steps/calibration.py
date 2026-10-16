@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydromodpy.calibration.runners.contracts import (
     TrialPipelineProvider,
@@ -27,10 +27,6 @@ from hydromodpy.workflow.steps.setup import (
     resolve_support_configs,
 )
 
-if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
-
-
 # ---------------------------------------------------------------------------
 # Calibration report
 # ---------------------------------------------------------------------------
@@ -38,30 +34,23 @@ if TYPE_CHECKING:
 
 def step_render_calibration_report(
     *,
-    catalog: Catalog,
-    session_id: str,
-    workspace_root: Path,
+    session_dir: Path,
     figure_names: list[str] | tuple[str, ...] | None = None,
-    output_dir: Path | None = None,
 ) -> Path:
-    """Load one calibration session and render its HTML report.
+    """Load one calibration session from its directory and render its HTML report.
 
-    Returns the path to the generated ``report.html``. Figures that
-    fail to render are skipped with a warning so the report always
-    produces output even on partial data.
+    Returns ``sessions/<session>/report/index.html``; the figures land in
+    ``sessions/<session>/figures/``. Figures that fail to render are skipped
+    with a warning so the report always produces output even on partial data.
     """
     from hydromodpy.calibration.report import load_session_report_data
     from hydromodpy.reporting.calibration_report import render_session
 
-    session_data = load_session_report_data(
-        catalog=catalog,
-        session_id=session_id,
-        workspace_root=workspace_root,
-    )
+    session_data = load_session_report_data(Path(session_dir))
     written = render_session(
         session_data,
         figure_names=figure_names,
-        output_dir=output_dir,
+        session_dir=Path(session_dir),
     )
     return written[-1]
 
@@ -115,8 +104,10 @@ class WorkflowTrialPipelineProvider(TrialPipelineProvider):
     ) -> int:
         return earliest_affected_step(override_paths, steps)
 
-    def make_pipeline(self, steps: Sequence[TrialStep]) -> TrialPipelineRunner:
-        return Pipeline(steps)
+    def make_pipeline(
+        self, steps: Sequence[TrialStep], *, run_dir: Path | None = None
+    ) -> TrialPipelineRunner:
+        return Pipeline(steps, run_dir=run_dir)
 
     def with_solver_launcher(
         self,

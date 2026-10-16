@@ -24,7 +24,6 @@ from hydromodpy.spatial.site_selection.outputs.geospatial import (
     write_selection_geoparquet_layers,
 )
 from hydromodpy.spatial.site_selection.outputs.schemas import (
-    REGIONAL_LAB_SITES_FIELDS,
     SELECTED_SITES_FIELDS,
     SELECTED_SITES_SCHEMA,
     site_record_from_catchment,
@@ -33,7 +32,6 @@ from hydromodpy.spatial.site_selection.outputs.tabular import (
     write_criteria_components_jsonl,
     write_csv,
     write_jsonl,
-    write_regional_lab_sites_csv,
     write_selected_sites_csv,
 )
 
@@ -46,7 +44,6 @@ def write_selection_result(
     region_id: str = "",
     write_selected: bool = True,
     write_rejected: bool = True,
-    write_regional_lab_csv_output: bool = True,
     write_geojson: bool = True,
     write_geoparquet: bool = False,
     write_geopackage: bool = False,
@@ -67,13 +64,6 @@ def write_selection_result(
         paths["rejected_sites_csv"] = write_csv(
             root / "rejected_sites.csv",
             [catchment.to_record() for catchment in result.rejected],
-        )
-    if write_regional_lab_csv_output:
-        paths["regional_lab_sites_csv"] = write_regional_lab_sites_csv(
-            root / "regional_lab_sites.csv",
-            result.selected,
-            selection_id=selection_id,
-            region_id=region_id,
         )
     if write_geojson:
         paths["selected_outlets_geojson"] = write_outlets_geojson(
@@ -143,7 +133,6 @@ def write_selection_result(
 
 __all__ = [
     "GPKG_NAME",
-    "REGIONAL_LAB_SITES_FIELDS",
     "SELECTED_SITES_FIELDS",
     "SELECTED_SITES_SCHEMA",
     "site_record_from_catchment",
@@ -158,7 +147,6 @@ __all__ = [
     "write_selection_geoparquet_layers",
     "write_outlets_geojson",
     "write_decision_records_jsonl",
-    "write_regional_lab_sites_csv",
     "write_selected_sites_csv",
     "write_site_decision_summary_csv",
     "write_selection_result",

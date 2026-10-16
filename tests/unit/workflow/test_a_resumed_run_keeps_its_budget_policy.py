@@ -60,7 +60,8 @@ def _ctx(*, keep_per_cell_budget: bool) -> SimpleNamespace:
 
 
 def _extracted_store(tmp_path: Path, keep: BudgetKeep | None, written=()) -> _Store:
-    fields = tmp_path / "fields.zarr"
+    fields = tmp_path / "runs" / "run" / "fields.zarr"
+    fields.parent.mkdir(parents=True)
     sz = SimulationZarr.create(fields, n_cells=2, n_layers=1)
     try:
         if keep is not None:
@@ -71,15 +72,23 @@ def _extracted_store(tmp_path: Path, keep: BudgetKeep | None, written=()) -> _St
 
 
 def _resume(monkeypatch, ctx, store: _Store, *, skip_display: bool) -> None:
+    from tests._helpers.sealed_runs import write_attempt
+
     @contextmanager
     def _scope(_ctx):
         yield store
 
-    monkeypatch.setattr(prepare_solver_module, "run_catalog", _scope)
+    monkeypatch.setattr(prepare_solver_module, "run_store", _scope)
+    project = store.fields.parent.parent
+    run_dir = write_attempt(project, "runs/run", status="failed", sim_id="sim-1")
     prior = PipelineState(
-        run_id="run", step_index=5, data={"ctx": ctx, "skip_display": skip_display}
+        run_id="run",
+        step_index=5,
+        data={"ctx": ctx, "skip_display": skip_display, "run_dir": run_dir},
     )
-    PrepareSolverStep().rebuild_state(prior_state=prior, workspace=Path("."), run_id="run")
+    PrepareSolverStep().rebuild_state(prior_state=prior, workspace=project, run_id="run")
+    assert ctx.run_dir == run_dir
+    assert ctx.sim_id == "sim-1"
 
 
 def test_a_run_extracted_with_the_whole_budget_resumes_with_it(monkeypatch, tmp_path) -> None:
@@ -113,7 +122,8 @@ def test_a_run_resumed_before_its_extraction_decides_its_policy(monkeypatch, tmp
 
 def test_a_resume_without_a_field_store_creates_none(monkeypatch, tmp_path) -> None:
     ctx = _ctx(keep_per_cell_budget=False)
-    store = _Store(tmp_path / "fields.zarr")
+    (tmp_path / "runs" / "run").mkdir(parents=True)
+    store = _Store(tmp_path / "runs" / "run" / "fields.zarr")
 
     _resume(monkeypatch, ctx, store, skip_display=False)
 

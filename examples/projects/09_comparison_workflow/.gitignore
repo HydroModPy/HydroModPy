@@ -1,2 +1,6 @@
-outputs/
-hydromodpy_debug.log
+.hmp/
+plan/
+jobs/
+sessions/
+summary/
+trash/

@@ -1,8 +1,8 @@
 """A comparison map takes its grid and its cells from the mesh the run stored.
 
 The choice between an image and polygons reads ``structured_shape`` in the
-``mesh/`` group of ``fields.zarr``, never the TOML of the run or a raster left
-in its folder, and the image is drawn with row 0 at the top (north first).
+``mesh/`` group of ``fields.zarr``, never the TOML of the run, and the image is
+drawn with row 0 at the top (north first).
 """
 
 from __future__ import annotations
@@ -38,15 +38,24 @@ class _Handle:
 
 
 class _Store:
-    """The part of a Catalog the readers use: ``open_zarr`` and ``close``."""
+    """The part of a RunSource the readers use: the run, ``open_zarr`` and ``close``."""
+
+    sim_id = "sim"
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self.run_dir = path.parent
 
-    def open_zarr(self, sim_id: str) -> _Handle:
+    def open_zarr(self, sim_id: str | None = None) -> _Handle:
         return _Handle(zarr.open_group(str(self._path), mode="r"))
 
     def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _Store:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
         return None
 
 
@@ -92,7 +101,7 @@ def test_a_mesh_that_is_no_grid_has_no_shape(tmp_path: Path) -> None:
 
 
 def _stub_the_series(monkeypatch: pytest.MonkeyPatch, values: np.ndarray, store: _Store) -> None:
-    monkeypatch.setattr(visuals_payloads, "discover_result_store", lambda *a, **k: (store, "sim"))
+    monkeypatch.setattr(visuals_payloads, "open_run_source", lambda summary: store)
     monkeypatch.setattr(
         visuals_payloads,
         "load_variable_series",
@@ -109,11 +118,10 @@ def _map_payload(tmp_path: Path, values: np.ndarray):
         reducer=None, name="head_map", unit="m", variable="head", time_reducer=None
     )
     simulation = SimpleNamespace(id="a", label="A", solver="modflow6", mesh_mode="structured")
-    cfg = SimpleNamespace(resolve_simulation_config_path=lambda sim: None)
     return visuals_payloads._build_map_payload(
-        cfg=cfg,
+        cfg=SimpleNamespace(),
         simulation=simulation,
-        summary={"run_folder": str(tmp_path / "run")},
+        summary={"run_folder": str(tmp_path / "run"), "run_dir": str(tmp_path / "run")},
         observable=observable,
         rows=[],
     )
@@ -193,22 +201,18 @@ def test_the_map_has_north_at_the_top(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_a_summary_finds_the_stored_mesh_of_its_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Areas and centres of a comparison come from the store the config points at."""
+    """Areas and centres of a comparison come from the run directory the summary names."""
     _write_grid(tmp_path / "fields.zarr", structured=True)
-    (tmp_path / "run").mkdir()
-    asked: dict[str, object] = {}
+    asked: list[object] = []
 
-    def discover(config_path, *, preferred_sim_id=None, preferred_name=None):
-        asked.update(sim_id=preferred_sim_id, name=preferred_name)
-        return _Store(tmp_path / "fields.zarr"), "sim"
+    def open_source(summary):
+        asked.append(summary.get("run_dir"))
+        return _Store(tmp_path / "fields.zarr")
 
-    monkeypatch.setattr(runtime_mesh, "discover_result_store", discover)
+    monkeypatch.setattr(runtime_mesh, "open_run_source", open_source)
 
-    cells = resolve_summary_cells(
-        {"run_folder": str(tmp_path / "run"), "sim_id": "abc", "run_name": "demo"}
-    )
+    cells = resolve_summary_cells({"run_dir": str(tmp_path)})
 
     assert cells is not None
-    assert asked == {"sim_id": "abc", "name": "demo"}
+    assert asked == [str(tmp_path)]
     np.testing.assert_allclose(cells.area_m2, STEP * STEP)
-    assert resolve_summary_cells({"run_folder": ""}) is None

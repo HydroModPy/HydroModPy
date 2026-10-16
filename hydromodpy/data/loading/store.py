@@ -22,6 +22,7 @@ from typing import Any
 
 import pandas as pd
 
+from hydromodpy.core.state.paths import data_cache_path_for
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.loading._dispatch import get_manager_class
@@ -76,7 +77,7 @@ class DataStore:
         if catalog is not None:
             self.catalog = catalog
         elif self.data_root is not None:
-            self.catalog = DataCatalogDuckDB(self.data_root / "cache.duckdb")
+            self.catalog = DataCatalogDuckDB(data_cache_path_for(self.data_root))
         else:
             self.catalog = DataCatalogDuckDB()
 

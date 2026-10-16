@@ -1,10 +1,11 @@
 """Unit tests for the GR4J calibration adapter (lumped, no solver binary).
 
 ``Gr4jAdapter`` is pure I/O wiring: it reads a simulated GR4J series back
-either from the per-trial ``LumpedRamCache`` (hot path) or from a real
-``Catalog`` (cold path). There is no GR4J production/routing
-physics in this module, so these tests drive the *real* adapter against a
-*real* DuckDB/Parquet catalog and a *real* RAM cache, and assert:
+either from the per-trial ``LumpedRamCache`` (hot path) or from the index
+reader ``Catalog`` (cold path). There is no GR4J production/routing
+physics in this module, so these tests drive the *real* adapter against
+*real* sealed runs read back through the index and a *real* RAM cache, and
+assert:
 
 - round-trip fidelity of the stored series (machine-eps),
 - survival of a water-balance closure built into the synthetic forcing,
@@ -35,8 +36,10 @@ from hydromodpy.calibration.lumped.gr4j_adapter import GR4J_SERIES_UNITS
 from hydromodpy.core.contracts.observables import ObservableRequest
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.state.run_state import WorkflowContext
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from tests._helpers.fixtures_catalog import simulation_catalog
+from tests._helpers.run_stores import open_run_store
 from tests._helpers.tolerances import tol
 
 # Round-trip through Parquet/DuckDB is lossless for float64; allow only the
@@ -128,9 +131,27 @@ def run() -> dict[str, pd.Series]:
 
 
 @pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+def project(tmp_path) -> Path:
+    return tmp_path / "project"
+
+
+def _persist(
+    project: Path,
+    run: dict[str, Any],
+    name: str = "gr4j",
+    *,
+    station_id: str = "outlet",
+    solver: str = "gr4j",
+) -> str:
+    """Write the GR4J series of *run* into ``runs/<name>`` and seal it; return its id."""
+    store = open_run_store(project, name, solver=solver, create_zarr=False)
+    store.write_timeseries(
+        store.sim_id, station_id, "discharge", run["outlet_discharge"], unit="m3/s"
+    )
+    store.write_timeseries(store.sim_id, station_id, "storage", run["outlet_storage"], unit="mm")
+    sim_id = store.sim_id
+    seal_completed(store)
+    return sim_id
 
 
 class TestSyntheticForcingInvariants:
@@ -254,37 +275,33 @@ class TestHotPathRamCache:
 
 
 class TestColdPathCatalog:
-    """store non-None: round-trip through a real Catalog."""
+    """store non-None: round-trip through sealed runs and the index reader."""
 
-    def _persist(self, catalog, run, *, station_id="outlet", solver="gr4j"):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver=solver)
-        catalog.write_timeseries(sid, station_id, "discharge", run["outlet_discharge"], unit="m3/s")
-        catalog.write_timeseries(sid, station_id, "storage", run["outlet_storage"], unit="mm")
-        return sid
-
-    def test_round_trip_preserves_values(self, catalog, run):
-        self._persist(catalog, run)
+    def test_round_trip_preserves_values(self, project, run):
+        _persist(project, run)
         ctx = _ctx()
 
-        served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
+        with simulation_catalog(project) as catalog:
+            served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
-        # Catalog returns rows ordered by timestep, so values line up 1:1.
+        # The reader returns rows ordered by timestep, so values line up 1:1.
         result = served["q"]
         np.testing.assert_allclose(result.values, run["outlet_discharge"].to_numpy(), atol=ATOL)
         assert result.request_id == "q"
         # The catalog unit is not read back either, and the answer is the same.
         assert result.units == "m3/s"
 
-    def test_water_balance_survives_round_trip(self, catalog, run):
-        self._persist(catalog, run)
+    def test_water_balance_survives_round_trip(self, project, run):
+        _persist(project, run)
         ctx = _ctx()
         adapter = Gr4jAdapter()
 
-        # The catalog preserves insertion order (ORDER BY timestep), so the
+        # The reader preserves insertion order (ORDER BY timestep), so the
         # round-tripped values line up positionally with the original series.
-        q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"].values
-        s = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"].values
+        with simulation_catalog(project) as catalog:
+            q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"]
+            s = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"]
+        q, s = q.values, s.values
         precip = run["precip"].to_numpy()
         evap = run["actual_evap"].to_numpy()
 
@@ -297,62 +314,68 @@ class TestColdPathCatalog:
         assert total_in > 0
         assert abs(residual) <= BUDGET_RTOL * total_in
 
-    def test_round_trip_non_negativity(self, catalog, run):
-        self._persist(catalog, run)
+    def test_round_trip_non_negativity(self, project, run):
+        _persist(project, run)
         ctx = _ctx()
         adapter = Gr4jAdapter()
-        q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"]
-        store = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"]
+        with simulation_catalog(project) as catalog:
+            q = adapter.extract_observables(ctx, catalog, [_domain_request("discharge")])["q"]
+            store = adapter.extract_observables(ctx, catalog, [_domain_request("storage")])["q"]
         assert (q.values >= -ATOL).all()
         assert (store.values >= -ATOL).all()
 
-    def test_time_index_reattached_when_lengths_match(self, catalog, run):
-        self._persist(catalog, run)
+    def test_time_index_reattached_when_lengths_match(self, project, run):
+        _persist(project, run)
         ctx = _ctx()
         idx = pd.date_range("2021-01-01", periods=len(run["outlet_discharge"]), freq="D")
-        result = Gr4jAdapter().extract_observables(
-            ctx, catalog, [_domain_request("discharge")], time_index=idx
-        )["q"]
+        with simulation_catalog(project) as catalog:
+            result = Gr4jAdapter().extract_observables(
+                ctx, catalog, [_domain_request("discharge")], time_index=idx
+            )["q"]
         assert result.times is not None
         assert result.times.equals(idx)
 
-    def test_request_key_selects_station_id(self, catalog, run):
-        self._persist(catalog, run, station_id="gauge_A")
+    def test_request_key_selects_station_id(self, project, run):
+        _persist(project, run, station_id="gauge_A")
         ctx = _ctx()
-        result = Gr4jAdapter().extract_observables(
-            ctx, catalog, [_domain_request("discharge", station="gauge_A")]
-        )["q"]
+        with simulation_catalog(project) as catalog:
+            result = Gr4jAdapter().extract_observables(
+                ctx, catalog, [_domain_request("discharge", station="gauge_A")]
+            )["q"]
         assert len(result.values) == len(run["outlet_discharge"])
 
-    def test_an_unserved_variable_is_refused_by_name(self, catalog, run):
+    def test_an_unserved_variable_is_refused_by_name(self, project, run):
         # Refused on the unit it declares no value for, before the read: what a
         # user sees is the variable and the list of what GR4J publishes, not a
         # KeyError about a cache entry that was never going to be there.
-        self._persist(catalog, run)
+        _persist(project, run)
         ctx = _ctx()
-        with pytest.raises(ObservableNotAvailableError, match="no unit for 'recharge'"):
+        with (
+            simulation_catalog(project) as catalog,
+            pytest.raises(ObservableNotAvailableError, match="no unit for 'recharge'"),
+        ):
             Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("recharge")])
 
-    def test_no_simulation_in_store_raises_keyerror(self, catalog):
+    def test_no_simulation_in_store_raises_keyerror(self, project):
         ctx = _ctx()
-        with pytest.raises(KeyError):
+        with simulation_catalog(project) as catalog, pytest.raises(KeyError):
             Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
 
-    def test_latest_sim_id_matches_catalog_listing_tail(self, catalog, run):
-        # With two GR4J sims, the adapter reads whichever sim_id the catalog
+    def test_latest_sim_id_matches_catalog_listing_tail(self, project, run):
+        # With two GR4J sims, the adapter reads whichever sim_id the index
         # listing puts last (list_simulations orders by sim_id, NOT by
-        # registration time). The series read back must belong to that sim,
-        # so we cross-check against the catalog's own iloc[-1].
-        sid_a = self._persist(catalog, run)
+        # creation time). The series read back must belong to that sim,
+        # so we cross-check against the reader's own iloc[-1].
+        sid_a = _persist(project, run, "gr4j_a")
         scaled = {k: (v * 3.0 if isinstance(v, pd.Series) else v) for k, v in run.items()}
-        sid_b = self._persist(catalog, scaled)
+        sid_b = _persist(project, scaled, "gr4j_b")
         assert sid_a != sid_b
 
-        expected_sid = str(catalog.list_simulations(solver="gr4j").iloc[-1]["sim_id"])
-        expected = catalog.query_timeseries(expected_sid, "outlet", "discharge")
-
         ctx = _ctx()
-        served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
+        with simulation_catalog(project) as catalog:
+            expected_sid = str(catalog.list_simulations(solver="gr4j").iloc[-1]["sim_id"])
+            expected = catalog.query_timeseries(expected_sid, "outlet", "discharge")
+            served = Gr4jAdapter().extract_observables(ctx, catalog, [_domain_request("discharge")])
         np.testing.assert_allclose(served["q"].values, expected.to_numpy(), atol=ATOL)
 
 

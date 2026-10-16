@@ -1,4 +1,4 @@
-"""Unit tests for ``hmp.report``."""
+"""Unit tests for ``hmp.report``: the session directory alone, never the index."""
 
 from __future__ import annotations
 
@@ -7,73 +7,72 @@ from pathlib import Path
 import pytest
 
 import hydromodpy as hmp
-from hydromodpy.core.state.paths import catalog_path_for
-from tests._helpers.api_doubles import make_capturing_catalog
+from hydromodpy.core.exceptions import ConfigMissingError
+from tests._helpers.sealed_runs import make_project, write_session_dir
 
 pytestmark = pytest.mark.fast
 
 
-def test_report_with_explicit_workspace(monkeypatch, tmp_path: Path) -> None:
-    """``hmp.report`` resolves the session across the workspace, then renders."""
+def _capture_render(monkeypatch) -> dict:
     captured: dict = {}
 
-    def fake_resolve(workspace_root, raw):
-        captured["resolve_workspace"] = workspace_root
-        captured["raw"] = raw
-        return tmp_path, "abcdef0123456789"
+    def fake_render(*, session_dir: Path) -> Path:
+        captured["session_dir"] = session_dir
+        return session_dir / "report" / "index.html"
 
-    def fake_render(*, catalog, session_id, workspace_root):
-        captured["render_session_id"] = session_id
-        captured["render_workspace_root"] = workspace_root
-        return Path("/tmp/report.html")
-
-    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", make_capturing_catalog(captured))
-    monkeypatch.setattr("hydromodpy.calibration.report.resolve_session_in_workspace", fake_resolve)
     monkeypatch.setattr(
         "hydromodpy.workflow.steps.calibration.step_render_calibration_report", fake_render
     )
-
-    result = hmp.report("ab12cd34", workspace=tmp_path)
-    assert result == Path("/tmp/report.html")
-    assert captured["resolve_workspace"] == tmp_path.resolve()
-    assert captured["raw"] == "ab12cd34"
-    # The catalog opened for rendering is the project root the resolver returned.
-    assert captured["workspace_root"] == tmp_path
-    assert captured["render_session_id"] == "abcdef0123456789"
-    assert captured["render_workspace_root"] == tmp_path
-    assert captured["closed"] is True
+    return captured
 
 
-def test_report_default_workspace_uses_cwd(monkeypatch, tmp_path: Path) -> None:
-    """When ``workspace`` is ``None``, the helper walks up from cwd."""
-    catalog_file = catalog_path_for(tmp_path)
-    catalog_file.parent.mkdir(parents=True, exist_ok=True)
-    catalog_file.touch()
-    monkeypatch.chdir(tmp_path)
-    captured: dict = {}
+def test_report_names_the_session_by_its_directory(monkeypatch, tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, "calibration")
+    write_session_dir(project, "calibration.v2")
+    captured = _capture_render(monkeypatch)
 
-    def fake_resolve(workspace_root, raw):
-        captured["resolve_workspace"] = workspace_root
-        return tmp_path, "session"
+    result = hmp.report("calibration", workspace=project)
 
-    monkeypatch.setattr("hydromodpy.results.catalog.Catalog", make_capturing_catalog(captured))
-    monkeypatch.setattr("hydromodpy.calibration.report.resolve_session_in_workspace", fake_resolve)
-    monkeypatch.setattr(
-        "hydromodpy.workflow.steps.calibration.step_render_calibration_report",
-        lambda **kwargs: Path("/tmp/report.html"),
-    )
+    assert captured["session_dir"] == project.resolve() / "sessions" / "calibration"
+    assert result == captured["session_dir"] / "report" / "index.html"
+
+
+def test_report_default_is_the_latest_session_of_the_cwd_project(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from datetime import timedelta
+
+    from tests._helpers.sealed_runs import NOW
+
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, "old", started_at=NOW - timedelta(days=2))
+    write_session_dir(project, "new", started_at=NOW)
+    (project / "configs").mkdir()
+    monkeypatch.chdir(project / "configs")
+    captured = _capture_render(monkeypatch)
 
     hmp.report()
-    assert Path(captured["resolve_workspace"]) == tmp_path
+
+    assert captured["session_dir"].name == "new"
 
 
-def test_report_propagates_session_lookup_error(monkeypatch, tmp_path: Path) -> None:
-    """Errors from session resolution propagate to the caller."""
+def test_report_refuses_an_unknown_session_with_the_list(monkeypatch, tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, "calibration")
+    _capture_render(monkeypatch)
 
-    def fake_resolve(workspace_root, raw):
-        raise FileNotFoundError("no session")
+    with pytest.raises(ConfigMissingError, match="calibration"):
+        hmp.report("nope", workspace=project)
 
-    monkeypatch.setattr("hydromodpy.calibration.report.resolve_session_in_workspace", fake_resolve)
 
-    with pytest.raises(FileNotFoundError, match="no session"):
-        hmp.report("bad", workspace=tmp_path)
+def test_report_never_opens_the_index(monkeypatch, tmp_path: Path) -> None:
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, "calibration")
+    _capture_render(monkeypatch)
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("hmp.report opened the index")
+
+    monkeypatch.setattr("hydromodpy.results.catalog.facade.Catalog.__init__", refuse)
+    hmp.report("calibration", workspace=project)

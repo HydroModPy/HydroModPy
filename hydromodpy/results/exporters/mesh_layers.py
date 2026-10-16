@@ -32,6 +32,7 @@ from hydromodpy.core.config_kit.export_spec import MESH_LAYERS
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.mesh_quality import mesh_quality_values
+from hydromodpy.results.exporters._tables import FACE_FAMILIES_TABLE, read_table, table_rows
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -47,9 +48,13 @@ _QUALITY_COLUMNS = {
 }
 
 
-def mesh_layer_reasons(catalog: Any, sim_id: str) -> dict[str, str]:
-    """Return why each mesh layer is unavailable for a run, an empty mapping when all are held."""
-    sz = catalog.open_zarr(sim_id)
+def mesh_layer_reasons(store: Any, sim_id: str) -> dict[str, str]:
+    """Return why each mesh layer is unavailable for a run, an empty mapping when all are held.
+
+    Read from the run directory: the ``mesh/`` group of the field store and
+    the ``mesh_face_families`` table.
+    """
+    sz = store.open_zarr(sim_id)
     try:
         mesh = sz.root.get("mesh")
         reason = _mesh_reason(mesh)
@@ -57,10 +62,7 @@ def mesh_layer_reasons(catalog: Any, sim_id: str) -> dict[str, str]:
         sz.close()
     if reason is not None:
         return dict.fromkeys(MESH_LAYERS, reason)
-    row = catalog.backend.fetch_one(
-        "SELECT 1 FROM mesh_face_families WHERE sim_id = ? LIMIT 1", [sim_id]
-    )
-    if row is None:
+    if not table_rows(store, sim_id, FACE_FAMILIES_TABLE):
         return {
             "mesh_family_faces": (
                 "the mesh has no face on a line family (no barrier and no boundary line)"
@@ -69,14 +71,14 @@ def mesh_layer_reasons(catalog: Any, sim_id: str) -> dict[str, str]:
     return {}
 
 
-def available_mesh_layers(catalog: Any, sim_id: str) -> list[str]:
+def available_mesh_layers(store: Any, sim_id: str) -> list[str]:
     """Return the mesh layers this run holds."""
-    missing = mesh_layer_reasons(catalog, sim_id)
+    missing = mesh_layer_reasons(store, sim_id)
     return [name for name in MESH_LAYERS if name not in missing]
 
 
 def export_mesh_layers(
-    catalog: Any,
+    store: Any,
     sim_id: str,
     names: Sequence[str],
     dest: str | Path,
@@ -88,8 +90,8 @@ def export_mesh_layers(
 
     Parameters
     ----------
-    catalog
-        The catalog the run lives in.
+    store
+        What holds the run: the store of a run being computed or a catalog.
     sim_id
         Simulation UUID.
     names
@@ -116,12 +118,12 @@ def export_mesh_layers(
         raise ValueError(f"{unknown} are no mesh layers. The mesh layers are {list(MESH_LAYERS)}.")
     if fmt == "shapefile" and len(names) != 1:
         raise ValueError(f"A Shapefile holds one layer, and {len(names)} were asked.")
-    reasons = mesh_layer_reasons(catalog, sim_id)
+    reasons = mesh_layer_reasons(store, sim_id)
     for name in names:
         if name in reasons:
             raise ExportError(f"run {sim_id[:8]} holds no {name!r}: {reasons[name]}.")
 
-    frames = _read_layers(catalog, sim_id, names, crs)
+    frames = _read_layers(store, sim_id, names, crs)
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     if fmt == "geopackage":
@@ -168,7 +170,7 @@ def _mesh_reason(mesh: Any) -> str | None:
 
 
 def _read_layers(
-    catalog: Any, sim_id: str, names: Sequence[str], crs: str | None
+    store: Any, sim_id: str, names: Sequence[str], crs: str | None
 ) -> dict[str, gpd.GeoDataFrame]:
     """Build the layers in the CRS of the mesh, reprojected into ``crs`` when given."""
     builders = {
@@ -176,11 +178,11 @@ def _read_layers(
         "mesh_seeds": _seeds,
         "mesh_family_faces": _family_faces,
     }
-    sz = catalog.open_zarr(sim_id)
+    sz = store.open_zarr(sim_id)
     try:
         mesh = sz.root["mesh"]
         source_crs = str(mesh.attrs["crs"])
-        frames = {name: builders[name](sz.root, catalog, sim_id) for name in names}
+        frames = {name: builders[name](sz.root, store, sim_id) for name in names}
     finally:
         sz.close()
     result = {}
@@ -230,7 +232,7 @@ def _flag(bits: np.ndarray, index: int) -> np.ndarray:
     return (bits & (1 << index)) != 0
 
 
-def _cells(root: Any, catalog: Any, sim_id: str) -> gpd.GeoDataFrame:
+def _cells(root: Any, store: Any, sim_id: str) -> gpd.GeoDataFrame:
     import geopandas as gpd
 
     mesh = root["mesh"]
@@ -252,7 +254,7 @@ def _cells(root: Any, catalog: Any, sim_id: str) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(columns, geometry=_cell_polygons(vertices, connectivity))
 
 
-def _seeds(root: Any, catalog: Any, sim_id: str) -> gpd.GeoDataFrame:
+def _seeds(root: Any, store: Any, sim_id: str) -> gpd.GeoDataFrame:
     import geopandas as gpd
     import shapely
 
@@ -273,15 +275,13 @@ def _seeds(root: Any, catalog: Any, sim_id: str) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(columns, geometry=shapely.points(face_x, face_y))
 
 
-def _family_faces(root: Any, catalog: Any, sim_id: str) -> gpd.GeoDataFrame:
+def _family_faces(root: Any, store: Any, sim_id: str) -> gpd.GeoDataFrame:
     import geopandas as gpd
     import shapely
 
-    from hydromodpy.results.run import Run
-    from hydromodpy.results.run.mesh_families import mesh_families
-
     mesh = root["mesh"]
-    table = mesh_families(Run(sim_id, catalog)).faces
+    table = read_table(store, sim_id, FACE_FAMILIES_TABLE)
+    table = table.sort_values("face_row", kind="stable").reset_index(drop=True)
     vertices = np.asarray(mesh["vertices"][:], dtype=np.float64)[:, :2]
     ends = np.stack(
         [vertices[table["node_a"].to_numpy()], vertices[table["node_b"].to_numpy()]], axis=1

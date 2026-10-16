@@ -6,46 +6,44 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.core.state.paths import catalog_path_for, runs_dir_for
-from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.run import Run
 from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.storage.run_facts import RunFacts
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
 
-from ._test_simulation_api_builders import _populate, _register, catalog
+from ._test_simulation_api_builders import populate, runs, score
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
+
+
+def _cfg(*, persisted: bool) -> SimpleNamespace:
+    """The configuration double of a project: a domain, and whether runs are kept."""
+    persistence = SimpleNamespace(save_catalog=persisted)
+    return SimpleNamespace(
+        domain=object(),
+        site=None,
+        simulation=SimpleNamespace(
+            name=None, if_exists="version", results=SimpleNamespace(persistence=persistence)
+        ),
+        model_dump=lambda **_kwargs: {},
+    )
 
 
 class TestSimulationGroup:
-    def test_count_and_len(self, catalog):
-        sids = [_register(catalog) for _ in range(3)]
-        group = RunSet(sids, catalog)
+    def test_count_and_len(self, runs):
+        sids = [runs.open().sim_id for _ in range(3)]
+        group = RunSet(sids, runs.catalog())
         assert group.count == 3
         assert len(group) == 3
 
-    def test_project_sweep_returns_group_bound_to_catalog(self, monkeypatch, catalog):
-        from hydromodpy.project.runner import ProjectRunner
-
-        sids = [_register(catalog) for _ in range(2)]
-
-        def fake_run_sweep(project, *, parameters, strategy, name_template, parallel=1):
-            assert parameters == {"K": [1.0, 2.0]}
-            assert strategy == "enumerate"
-            assert name_template == "{param}_{value:.4g}"
-            assert parallel == 1
-            return sids
-
-        monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
-        project = SimpleNamespace(_store=catalog, _ensure_model_built=lambda: None)
-
-        group = ProjectRunner(project).sweep({"K": [1.0, 2.0]})
-
-        assert isinstance(group, RunSet)
-        assert group.sim_ids == sids
-        assert group[0].sim_id == sids[0]
-
     def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
+        """A run handle keeps reading its run after the project ran another one."""
         from hydromodpy.project.runner import ProjectRunner
         from hydromodpy.workflow.internals.state import PipelineState
+
+        project_root = tmp_path / "project"
 
         class _Step:
             name = "setup_process"
@@ -53,37 +51,34 @@ class TestSimulationGroup:
         class _Pipeline:
             counter = 0
 
-            def __init__(self, steps, *, workspace):
+            def __init__(self, steps, *, workspace, run_dir=None):
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None, parallel=False, model_phase_ready=None):
+            def run(self, state, *, resume_from=None, parallel=False, **_kwargs):
                 _Pipeline.counter += 1
                 ctx = state.get("ctx")
-                sim_id = str(uuid.uuid4())
-                with Catalog(ctx.setup.workspace.project_root) as run_catalog:
-                    reg = run_catalog.register_simulation(
-                        sim_id,
-                        project="project",
-                        solver="modflow6",
-                        name=ctx.setup.run_id,
-                        n_cells=1,
-                        n_layers=1,
-                    )
-                    if reg.zarr is not None:
-                        reg.zarr.close()
-                    run_catalog.write_parameters(
-                        sim_id,
-                        [
-                            {
-                                "param_name": "thickness",
-                                "value": float(_Pipeline.counter),
-                                "unit": "m",
-                            }
-                        ],
-                    )
-                    run_catalog.finalize(sim_id, "completed")
-                ctx.sim_id = sim_id
+                outcome = read_outcome(ctx.run_dir)
+                facts = RunFacts(
+                    sim_id=outcome.sim_id,
+                    name=ctx.run_dir.name,
+                    case_id=outcome.case_id,
+                    project="project",
+                    attempt=outcome.attempt,
+                    attempt_id=outcome.attempt_id,
+                    created_at=outcome.started_at,
+                    started_at=outcome.started_at,
+                    solver="modflow6",
+                    n_cells=1,
+                    n_layers=1,
+                )
+                store = RunStore.open(ctx.run_dir, facts=facts, workspace=project_root)
+                store.write_parameters(
+                    facts.sim_id,
+                    [{"param_name": "thickness", "value": float(_Pipeline.counter), "unit": "m"}],
+                )
+                seal_completed(store)
+                ctx.sim_id = facts.sim_id
                 return PipelineState(
                     run_id=state.run_id,
                     step_index=0,
@@ -96,17 +91,19 @@ class TestSimulationGroup:
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
+        monkeypatch.setattr("hydromodpy.project.runner.run_identity_hash", lambda *a, **k: "h")
+        monkeypatch.setattr("hydromodpy.project.runner.input_file_digests", lambda _cfg: {})
 
-        project_root = tmp_path / "project"
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
             project_root=project_root,
             catalog_path=catalog_path_for(project_root),
             runs_dir=runs_dir_for(project_root),
+            solver_scratch_folder=None,
         )
         # The domain of a built model phase names the configuration section it
         # was built from, so a run defined by that same configuration keeps it.
-        declared_cfg = SimpleNamespace(domain=object())
+        declared_cfg = _cfg(persisted=True)
         ctx = SimpleNamespace(
             cfg=declared_cfg,
             setup=SimpleNamespace(
@@ -118,8 +115,8 @@ class TestSimulationGroup:
                 flow_runtime_overrides=None,
             ),
             raw_toml={},
-            store=None,
             sim_id=None,
+            run_dir=None,
         )
         project = SimpleNamespace(
             _ctx=ctx,
@@ -144,14 +141,13 @@ class TestSimulationGroup:
 
         runner = ProjectRunner(project)
         first = runner.run(name="first")
-        first_catalog = first._catalog
         second = runner.run(name="second")
 
-        assert first_catalog is not project._store
-        assert first._catalog is project._store
         assert second._catalog is project._store
         assert first.params["thickness"] == pytest.approx(1.0)
         assert second.params["thickness"] == pytest.approx(2.0)
+        assert first.dir.name == "first"
+        assert second.dir.name == "second"
 
     def test_pin_parent_sim_id_overrides_ctx_during_pipeline_run(self, monkeypatch, tmp_path):
         from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
@@ -163,11 +159,11 @@ class TestSimulationGroup:
         observed: list[str | None] = []
 
         class _Pipeline:
-            def __init__(self, steps, *, workspace):
+            def __init__(self, steps, *, workspace, run_dir=None):
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None, parallel=False, model_phase_ready=None):
+            def run(self, state, *, resume_from=None, parallel=False, **_kwargs):
                 ctx = state.get("ctx")
                 observed.append(ctx.parent_sim_id)
                 ctx.sim_id = None
@@ -189,7 +185,7 @@ class TestSimulationGroup:
             root=tmp_path / "workspace",
             project_root=tmp_path / "project",
         )
-        declared_cfg = SimpleNamespace(domain=object())
+        declared_cfg = _cfg(persisted=False)
         ctx = SimpleNamespace(
             cfg=declared_cfg,
             setup=SimpleNamespace(
@@ -255,68 +251,52 @@ class TestSimulationGroup:
 
         assert ctx.parent_sim_id == "initial"
 
-    def test_iter(self, catalog):
-        sids = [_register(catalog) for _ in range(2)]
-        group = RunSet(sids, catalog)
-        sims = list(group)
+    def test_iter(self, runs):
+        sids = [runs.open().sim_id for _ in range(2)]
+        sims = list(RunSet(sids, runs.catalog()))
         assert len(sims) == 2
         assert all(isinstance(s, Run) for s in sims)
 
-    def test_getitem(self, catalog):
-        sids = [_register(catalog) for _ in range(3)]
-        group = RunSet(sids, catalog)
-        sim = group[1]
+    def test_getitem(self, runs):
+        sids = [runs.open().sim_id for _ in range(3)]
+        sim = RunSet(sids, runs.catalog())[1]
         assert isinstance(sim, Run)
         assert sim.sim_id == sids[1]
 
-    def test_best_worst(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        catalog.write_metric(s1, "P01", "nse", 0.6)
-        catalog.write_metric(s2, "P01", "nse", 0.9)
-        catalog.finalize(s1, "completed")
-        catalog.finalize(s2, "completed")
+    def test_best_worst_follow_the_score_under_the_rule(self, runs):
+        low, high = runs.open(), runs.open()
+        score(low, 0.6)
+        score(high, 0.9)
+        group = RunSet([low.sim_id, high.sim_id], runs.catalog())
+        assert group.best("nse").sim_id == high.sim_id
+        assert group.worst("nse").sim_id == low.sim_id
 
-        group = RunSet([s1, s2], catalog)
-        assert group.best("nse").sim_id == s2
-        assert group.worst("nse").sim_id == s1
+    def test_sort_by(self, runs):
+        stores = [runs.open() for _ in range(3)]
+        for store, value in zip(stores, (0.5, 0.9, 0.7), strict=True):
+            score(store, value)
+        group = RunSet([store.sim_id for store in stores], runs.catalog())
+        ordered = group.sort_by("nse", ascending=False)
+        assert ordered.sim_ids == [stores[1].sim_id, stores[2].sim_id, stores[0].sim_id]
 
-    def test_sort_by(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        s3 = _register(catalog)
-        catalog.write_metric(s1, "P01", "nse", 0.5)
-        catalog.write_metric(s2, "P01", "nse", 0.9)
-        catalog.write_metric(s3, "P01", "nse", 0.7)
-
-        group = RunSet([s1, s2, s3], catalog)
-        sorted_g = group.sort_by("nse", ascending=False)
-        assert sorted_g.sim_ids[0] == s2
-        assert sorted_g.sim_ids[-1] == s1
-
-    def test_compare(self, catalog):
-        s1 = _register(catalog)
-        s2 = _register(catalog)
-        catalog.write_metric(s1, "P01", "nse", 0.6)
-        catalog.write_metric(s2, "P01", "nse", 0.9)
-
-        group = RunSet([s1, s2], catalog)
-        df = group.compare("nse")
+    def test_compare(self, runs):
+        stores = [runs.open() for _ in range(2)]
+        for store, value in zip(stores, (0.6, 0.9), strict=True):
+            score(store, value)
+        df = RunSet([store.sim_id for store in stores], runs.catalog()).compare("nse")
         assert len(df) == 2
 
-    def test_to_dataframe(self, catalog):
-        s1 = _register(catalog)
-        _populate(catalog, s1)
-        s2 = _register(catalog)
-        _populate(catalog, s2)
-
-        group = RunSet([s1, s2], catalog)
-        df = group.to_dataframe()
+    def test_to_dataframe(self, runs):
+        first, second = runs.open(), runs.open()
+        populate(first)
+        populate(second)
+        df = RunSet([first.sim_id, second.sim_id], runs.catalog()).to_dataframe()
         assert len(df) == 2
         assert "sim_id" in df.columns
 
-    def test_empty_group(self, catalog):
-        group = RunSet([], catalog)
+    def test_empty_group(self, runs):
+        runs.open()
+        group = RunSet([], runs.catalog())
         assert group.count == 0
         assert group.parameters.empty
         assert group.metrics.empty

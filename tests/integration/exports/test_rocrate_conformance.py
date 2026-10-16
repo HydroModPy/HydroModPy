@@ -16,13 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.results.export import build_context, build_ro_crate, write_ro_crate
+from hydromodpy.results.export import build_ro_crate, write_ro_crate
 from hydromodpy.results.export.rocrate import (
     RO_CRATE_CONFORMS,
     RO_CRATE_METADATA_FILENAME,
 )
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
-from tests.integration.exports.conftest import populate_simulation
+from tests.integration.exports.conftest import SIM_ID
 
 # Minimal RO-Crate JSON Schema. Reference:
 # https://www.researchobject.org/ro-crate/1.1/structure.html
@@ -54,9 +54,9 @@ _ROCRATE_SCHEMA = {
 }
 
 
-def test_rocrate_payload_has_required_top_level_keys(fair_catalog):
-    sid = populate_simulation(fair_catalog)
-    payload = build_ro_crate(build_context(fair_catalog, sid))
+def test_rocrate_payload_has_required_top_level_keys(fair_context):
+    sid = SIM_ID
+    payload = build_ro_crate(fair_context)
     assert payload["@context"]
     assert isinstance(payload["@graph"], list)
     descriptors = [n for n in payload["@graph"] if n.get("@id") == RO_CRATE_METADATA_FILENAME]
@@ -64,9 +64,9 @@ def test_rocrate_payload_has_required_top_level_keys(fair_catalog):
     assert descriptors[0]["conformsTo"]["@id"] == RO_CRATE_CONFORMS
 
 
-def test_rocrate_dataset_node_present(fair_catalog):
-    sid = populate_simulation(fair_catalog)
-    payload = build_ro_crate(build_context(fair_catalog, sid))
+def test_rocrate_dataset_node_present(fair_context):
+    sid = SIM_ID
+    payload = build_ro_crate(fair_context)
     datasets = [n for n in payload["@graph"] if n.get("@id") == "./"]
     assert len(datasets) == 1
     dataset = datasets[0]
@@ -76,9 +76,9 @@ def test_rocrate_dataset_node_present(fair_catalog):
     assert dataset["wasGeneratedBy"] == {"@id": "#action/simulation"}
 
 
-def test_rocrate_carries_assets(fair_catalog):
-    sid = populate_simulation(fair_catalog)
-    payload = build_ro_crate(build_context(fair_catalog, sid))
+def test_rocrate_carries_assets(fair_context):
+    sid = SIM_ID
+    payload = build_ro_crate(fair_context)
     file_nodes = [n for n in payload["@graph"] if n.get("@type") == "File"]
     assert file_nodes, "expected at least one File node in the crate"
     keys = {n.get("@id") for n in file_nodes}
@@ -86,9 +86,9 @@ def test_rocrate_carries_assets(fair_catalog):
     assert any(k.endswith(FIELDS_STORE_NAME) for k in keys)
 
 
-def test_rocrate_carries_prov_action(fair_catalog):
-    sid = populate_simulation(fair_catalog)
-    payload = build_ro_crate(build_context(fair_catalog, sid))
+def test_rocrate_carries_prov_action(fair_context):
+    sid = SIM_ID
+    payload = build_ro_crate(fair_context)
     actions = [
         n
         for n in payload["@graph"]
@@ -101,24 +101,24 @@ def test_rocrate_carries_prov_action(fair_catalog):
     assert actions, "expected the simulation CreateAction node in the crate"
 
 
-def test_rocrate_json_schema_fallback(fair_catalog):
-    sid = populate_simulation(fair_catalog)
-    payload = build_ro_crate(build_context(fair_catalog, sid))
+def test_rocrate_json_schema_fallback(fair_context):
+    sid = SIM_ID
+    payload = build_ro_crate(fair_context)
     pytest.importorskip("jsonschema")
     import jsonschema
 
     jsonschema.validate(instance=payload, schema=_ROCRATE_SCHEMA)
 
 
-def test_rocrate_parsed_by_reference_library(fair_catalog, tmp_path: Path):
+def test_rocrate_parsed_by_reference_library(fair_context, tmp_path: Path):
     """The serialised crate loads cleanly via the ResearchObject ``rocrate`` lib."""
     pytest.importorskip("rocrate")
     from rocrate.rocrate import ROCrate
 
-    sid = populate_simulation(fair_catalog)
+    sid = SIM_ID
     target = tmp_path / "crate"
     target.mkdir()
-    write_ro_crate(fair_catalog, sid, target)
+    write_ro_crate(fair_context, target)
 
     crate = ROCrate(target)
     # Root dataset is mandatory in any conformant RO-Crate.
@@ -134,9 +134,9 @@ def test_rocrate_parsed_by_reference_library(fair_catalog, tmp_path: Path):
     assert "#action/simulation" in ids
 
 
-def test_rocrate_written_file_is_utf8_json(fair_catalog, tmp_path: Path):
-    sid = populate_simulation(fair_catalog)
-    out = write_ro_crate(fair_catalog, sid, tmp_path / "rc")
+def test_rocrate_written_file_is_utf8_json(fair_context, tmp_path: Path):
+    sid = SIM_ID
+    out = write_ro_crate(fair_context, tmp_path / "rc")
     assert out.is_file()
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["@graph"]

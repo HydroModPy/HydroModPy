@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -188,18 +187,3 @@ def write_observable_chronicle_exports(
         )
         artifacts.append({"kind": "timeseries_delta_csv", "path": str(path)})
     return artifacts, long_rows, wide_rows, delta_rows
-
-
-def _load_simulated_timeseries_csv(
-    path: Path,
-) -> tuple[list[dict[str, str]], str] | None:
-    if not path.exists():
-        return None
-    raw = path.read_text(encoding="utf-8")
-    delimiter = ";" if ";" in raw.partition("\n")[0] else ","
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter=delimiter)
-        rows = [{str(key): str(value) for key, value in row.items()} for row in reader]
-    if not rows:
-        return None
-    return rows, delimiter

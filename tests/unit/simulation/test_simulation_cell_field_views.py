@@ -11,12 +11,16 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
 
-from ._test_simulation_api_builders import _register, catalog
+from ._test_simulation_api_builders import runs
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
-def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False):
+def _register(runs, **facts) -> str:
+    return runs.open(**facts).sim_id
+
+
+def _write_active_accumulation_flux_case(runs, sid, *, write_plot_mesh=False):
     if write_plot_mesh:
         vertices = np.array(
             [
@@ -41,7 +45,7 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
             ],
             dtype="int32",
         )
-        catalog.write_mesh(
+        runs.store(sid).write_mesh(
             sid,
             vertices,
             face_node_connectivity,
@@ -49,8 +53,8 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
         )
         # The frame the mesh coordinates live in, same as the network features
         # below: network metrics overlay the two and refuse to guess.
-        catalog.write_geographic_metadata(sid, {"crs_proj": "EPSG:2154"})
-    sz = catalog.open_zarr(sid)
+        runs.store(sid).write_geographic_metadata(sid, {"crs_proj": "EPSG:2154"})
+    sz = runs.store(sid).open_zarr(sid)
     try:
         mesh = sz.root.require_group("mesh")
         mesh.create_array(
@@ -75,9 +79,9 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
         sz.close()
 
 
-def _write_release_flux_case(catalog, sid, *, write_plot_mesh=False):
-    _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=write_plot_mesh)
-    sz = catalog.open_zarr(sid)
+def _write_release_flux_case(runs, sid, *, write_plot_mesh=False):
+    _write_active_accumulation_flux_case(runs, sid, write_plot_mesh=write_plot_mesh)
+    sz = runs.store(sid).open_zarr(sid)
     try:
         frames = [
             np.array([0.0, 0.0, 9.0, 3.0], dtype="float64"),
@@ -97,11 +101,11 @@ def _write_release_flux_case(catalog, sid, *, write_plot_mesh=False):
 
 
 class TestSimulationCellFieldViews:
-    def test_cell_field_active_metrics_from_accumulation_flux(self, catalog):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid)
+    def test_cell_field_active_metrics_from_accumulation_flux(self, runs):
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(runs, sid)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
         metrics = views.cell_field_active_metrics(
             sim,
             threshold=0.5,
@@ -128,11 +132,11 @@ class TestSimulationCellFieldViews:
         assert metrics["persistence_mean"] == pytest.approx(5.0 / 9.0)
         assert metrics["persistence_max"] == pytest.approx(1.0)
 
-    def test_cell_field_active_mask_modes(self, catalog):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid)
+    def test_cell_field_active_mask_modes(self, runs):
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(runs, sid)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
 
         np.testing.assert_allclose(
             views.cell_field_active_mask(sim, threshold=0.5, mode="last"),
@@ -164,26 +168,26 @@ class TestSimulationCellFieldViews:
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
-    def test_cell_field_active_mask_default_is_regime_aware(self, catalog):
+    def test_cell_field_active_mask_default_is_regime_aware(self, runs):
         transient_sid = _register(
-            catalog,
+            runs,
             n_cells=4,
             n_layers=1,
             n_timesteps=3,
             flow_regime="transient",
         )
         steady_sid = _register(
-            catalog,
+            runs,
             n_cells=4,
             n_layers=1,
             n_timesteps=3,
             flow_regime="steady",
         )
-        _write_active_accumulation_flux_case(catalog, transient_sid)
-        _write_active_accumulation_flux_case(catalog, steady_sid)
+        _write_active_accumulation_flux_case(runs, transient_sid)
+        _write_active_accumulation_flux_case(runs, steady_sid)
 
-        transient = Run(transient_sid, catalog)
-        steady = Run(steady_sid, catalog)
+        transient = Run(transient_sid, runs.reader())
+        steady = Run(steady_sid, runs.reader())
 
         np.testing.assert_allclose(
             views.cell_field_active_mask(transient, threshold=0.5),
@@ -196,20 +200,20 @@ class TestSimulationCellFieldViews:
 
     def test_cell_field_network_overlap_metrics_against_reference_role_by_default(
         self,
-        catalog,
+        runs,
     ):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(runs, sid, write_plot_mesh=True)
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
+        runs.store(sid).write_geographic_feature(
             sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
         )
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
         metrics = views.cell_field_network_overlap_metrics(
             sim,
             threshold=0.5,
@@ -231,20 +235,20 @@ class TestSimulationCellFieldViews:
 
     def test_cell_field_network_distance_metrics_against_reference_role(
         self,
-        catalog,
+        runs,
     ):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=True)
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_active_accumulation_flux_case(runs, sid, write_plot_mesh=True)
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
+        runs.store(sid).write_geographic_feature(
             sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
         )
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
         metrics = views.cell_field_network_distance_metrics(
             sim,
             threshold=0.5,
@@ -269,20 +273,20 @@ class TestSimulationCellFieldViews:
 
     def test_release_flux_network_overlap_metrics_use_release_flux(
         self,
-        catalog,
+        runs,
     ):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_release_flux_case(catalog, sid, write_plot_mesh=True)
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_release_flux_case(runs, sid, write_plot_mesh=True)
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
+        runs.store(sid).write_geographic_feature(
             sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
         )
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
         metrics = views.release_flux_network_overlap_metrics(
             sim,
             threshold=0.5,
@@ -298,20 +302,20 @@ class TestSimulationCellFieldViews:
 
     def test_release_flux_network_distance_metrics_have_no_buffer_parameter(
         self,
-        catalog,
+        runs,
     ):
-        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
-        _write_release_flux_case(catalog, sid, write_plot_mesh=True)
+        sid = _register(runs, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_release_flux_case(runs, sid, write_plot_mesh=True)
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
+        runs.store(sid).write_geographic_feature(
             sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
         )
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.reader())
         metrics = views.release_flux_network_distance_metrics(
             sim,
             threshold=0.5,

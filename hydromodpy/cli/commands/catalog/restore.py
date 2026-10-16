@@ -1,4 +1,4 @@
-"""``hmp catalog restore`` - bring a trashed simulation back."""
+"""``hmp catalog restore`` - move a trashed run or session back where it was."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_for
-from hydromodpy.core.state.paths import resolve_project_root
+from hydromodpy.cli.helpers import apply_verbosity, exit_code_for
+from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "restore"
-HELP: str = "Restore a trashed simulation (auto-versions if the name was reused)"
+HELP: str = "Move a trashed run or session back to the directory it came from"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -19,28 +19,40 @@ def register(subparsers) -> argparse.ArgumentParser:
         NAME,
         help=HELP,
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp catalog restore d11b32c8",
+        epilog=(
+            "Examples:\n"
+            "  hmp catalog restore baseline_daily\n"
+            "  hmp catalog restore runs__baseline_daily@20261014T093000"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    add_sim_ref(parser, help="Trashed run reference (id8 or UUID; trashed runs have no name)")
+    add_sim_ref(
+        parser,
+        help=(
+            "The name 'hmp catalog trash' lists, or the directory the entry came from "
+            "(baseline_daily, sessions/calibration)"
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    from hydromodpy.cli._workers.catalog import restore_simulation
+    from hydromodpy.results.catalog.discovery import resolve_trashed
+    from hydromodpy.results.trash import restore
 
-    workspace_root = resolve_project_root(
+    root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:
-        result = restore_simulation(args.sim_ref, workspace=workspace_root)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
+        entry = resolve_trashed(root, args.sim_ref)
+        restore(root, entry.name)
+    except Exception as exc:  # noqa: BLE001 - map resolver and collision errors
         print(str(exc), file=sys.stderr)
         sys.exit(exit_code_for(exc))
+    if catalog_path_for(root).is_file():
+        from hydromodpy.results.catalog.indexer import index_new_runs
 
-    print(f"restored as {result['name']}  [{result['sim_id'][:8]}]")
+        index_new_runs(root)
+    print(f"restored {entry.rel_dir}")

@@ -25,7 +25,7 @@ from tests.unit.site_selection._geojson import write_point_geojson, write_polygo
 
 
 @pytest.mark.fast
-def test_site_record_from_catchment_matches_regional_lab_core_fields():
+def test_site_record_from_catchment_carries_the_site_catalog_fields():
     catchment = DelineatedCatchment(
         site_id="site_001",
         outlet=CandidateOutlet("cand_001", 350000.0, 6810000.0, "EPSG:2154", "test"),
@@ -43,6 +43,8 @@ def test_site_record_from_catchment_matches_regional_lab_core_fields():
     assert row["region_id"] == "Bretagne"
     assert row["x_outlet"] == pytest.approx(350000.0)
     assert row["area_km2"] == pytest.approx(101.5)
+    assert row["crs"] == "EPSG:2154"
+    assert row["gauge"] == ""
     assert row["enabled"] is True
 
 
@@ -82,14 +84,13 @@ def test_write_selection_result_outputs_core_files(tmp_path):
     )
 
     assert paths["selected_sites_csv"].is_file()
-    assert paths["regional_lab_sites_csv"].is_file()
     assert paths["selected_outlets_geojson"].is_file()
     assert paths["selected_basins_geojson"].is_file()
     assert paths["criteria_components_jsonl"].is_file()
     assert paths["site_selection_decisions_csv"].is_file()
     assert paths["site_selection_decisions_jsonl"].is_file()
 
-    with paths["regional_lab_sites_csv"].open(newline="", encoding="utf-8") as handle:
+    with paths["selected_sites_csv"].open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert rows[0]["site_id"] == "site_001"
     assert rows[0]["source_selection_id"] == "selection_v1"
@@ -147,10 +148,6 @@ def test_write_selection_result_exports_snapped_outlet_geometry(tmp_path):
     assert selected_rows[0]["x_outlet_snapped"] == "350030.0"
     assert float(selected_rows[0]["outlet_snap_distance_m"]) == pytest.approx(50.0)
 
-    with paths["regional_lab_sites_csv"].open(newline="", encoding="utf-8") as handle:
-        regional_header = next(csv.reader(handle))
-    assert "x_outlet_snapped" not in regional_header
-
 
 @pytest.mark.fast
 def test_write_selection_result_honors_tabular_output_switches(tmp_path):
@@ -180,12 +177,10 @@ def test_write_selection_result_honors_tabular_output_switches(tmp_path):
         selection_id="selection_v1",
         write_selected=False,
         write_rejected=False,
-        write_regional_lab_csv_output=False,
     )
 
     assert "selected_sites_csv" not in paths
     assert "rejected_sites_csv" not in paths
-    assert "regional_lab_sites_csv" not in paths
     assert paths["selected_outlets_geojson"].is_file()
     assert paths["selected_basins_geojson"].is_file()
     assert paths["criteria_components_jsonl"].is_file()

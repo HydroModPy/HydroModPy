@@ -6,9 +6,10 @@ Three canonical scopes:
 - ``loaded_data``: loaded support data (climatic, oceanic, hydrometry, ...);
 - ``execution``: run outputs and registries (planned runs, produced models).
 
-Plus the identity of the run being executed: ``sim_id``, the ``parent_sim_id``
-a run is pinned to, and the ``reserved_sim_id`` minted before the pipeline
-starts. The project layer pins the lineage, the workflow layer reads it.
+Plus the identity of the run being executed: ``sim_id``, the ``run_dir`` the
+run writes into, the attempt that writes it, the ``parent_sim_id`` a run is
+pinned to, and the ``reserved_sim_id`` minted before the pipeline starts. The
+project layer pins the lineage, the workflow layer reads it.
 
 Canonical access is explicit:
 
@@ -44,15 +45,17 @@ class WorkflowContext:
     one run produced, and receives it through ``RunContext``.
 
     Also carries the identity of the run being executed: ``sim_id``, the
-    ``parent_sim_id`` a run is pinned to - whether it descends from a
-    calibration promotion or from a rerun, which pin it the same way - and the
-    ``reserved_sim_id`` minted before the pipeline starts.
+    ``run_dir`` it writes into with the ``attempt`` that writes it, the
+    ``parent_sim_id`` a run is pinned to - whether it descends
+    from a calibration promotion or from a rerun, which pin it the same way -
+    the ``reserved_sim_id`` minted before the pipeline starts, and the
+    ``lineage`` and ``calibrated_by`` blocks a promotion hands its run.
 
-    It carries no live handle. The catalog a run writes to is opened by
+    It carries no live handle. The store a run writes to is opened by
     whoever writes, for the span of that write, through
-    :func:`hydromodpy.workflow.run_catalog.run_catalog`: a DuckDB connection
-    and its lock are a resource, and a context that held one could not cross
-    a process boundary.
+    :func:`hydromodpy.workflow.run_store.run_store`: a store holds open
+    array handles, and a context that held one could not cross a process
+    boundary.
 
     ``cfg`` and ``data_plan`` are typed as ``Any`` because ``core`` cannot
     import from sibling layers. Concrete types are
@@ -69,6 +72,17 @@ class WorkflowContext:
 
     sim_id: str | None = None
     parent_sim_id: str | None = None
+
+    # The directory the run writes into, claimed before the first step, and
+    # the attempt that writes it. Set by the step that opens the run store.
+    run_dir: Path | None = None
+    attempt: int = 1
+
+    # The lineage and the promoting session a run is sealed with, typed
+    # ``Any`` because ``core`` cannot import ``results``; the concrete types
+    # are ``results.lineage.Lineage`` and ``results.checks.CalibratedBy``.
+    lineage: Any = None
+    calibrated_by: Any = None
 
     # Run id minted by the caller before the pipeline starts, consumed once by
     # the store-opening step. Calibration promotion reserves it so the row

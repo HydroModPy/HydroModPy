@@ -1,64 +1,59 @@
 """Integration coverage for the data access patterns of HydroModPy.
 
-Validates that ``Catalog`` exposes its results through:
+Validates that a sealed run, once indexed, exposes its results through:
 
 - DuckDB SQL queries on ``simulations`` (with scientific metadata columns).
 - Parquet files readable directly by ``pandas.read_parquet`` (with KV
   metadata).
 - Zarr stores readable directly by ``xarray.open_zarr``.
 
-The tests run end-to-end against a tmp workspace; no solver is invoked.
+The runs are written through the store of a claimed run directory and sealed,
+as the pipeline does; no solver is invoked.
 """
 
 from __future__ import annotations
 
-from uuid import uuid4
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.fixtures_catalog import simulation_catalog
-
-
-@pytest.fixture
-def catalog(tmp_path):
-    with simulation_catalog(tmp_path / "workspace") as cat:
-        yield cat
+from tests._helpers.run_stores import open_run_store
 
 
 def _seed_run(
-    catalog: Catalog,
+    project: Path,
     *,
-    project: str,
     name: str,
     objective: str,
     n_cells: int = 4,
     n_timesteps: int = 3,
 ) -> str:
-    """Register, populate, and finalize one fake simulation."""
-    sid = str(uuid4())
-    catalog.register_simulation(
-        sid,
-        project=project,
-        solver="modflow6",
-        name=name,
-        scientific_objective=objective,
-        study_area_name=f"{project}_basin",
+    """Write, populate and seal one fake run under ``runs/<name>``; return its id."""
+    store = open_run_store(
+        project,
+        name,
         n_cells=n_cells,
         n_layers=1,
         n_timesteps=n_timesteps,
+        scientific_objective=objective,
         mesh_topology="structured_3d",
     )
-    catalog.write_run_environment(sid)
+    sid = store.sim_id
+    store.write_run_environment(sid)
 
     vertices = np.array(
         [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
         dtype=float,
     )
     fnc = np.array([[0, 1, 4, 3], [1, 2, 4, 4], [0, 3, 4, 4], [1, 4, 3, 3]], dtype=int)
-    catalog.write_mesh(
+    store.write_mesh(
         sid,
         vertices=vertices,
         face_node_connectivity=fnc,
@@ -66,23 +61,39 @@ def _seed_run(
     )
     for t in range(n_timesteps):
         head = np.full((1, n_cells), float(t + 1), dtype="float64")
-        catalog.write_field(sid, "head", t, head, n_timesteps=n_timesteps)
+        store.write_field(sid, "head", t, head, n_timesteps=n_timesteps)
 
     ts = pd.Series(
         np.linspace(1.0, 5.0, n_timesteps),
         index=pd.date_range("2024-01-01", periods=n_timesteps, freq="D"),
     )
-    catalog.write_timeseries(sid, station_id="outlet", variable="discharge", ts=ts, unit="m3/s")
-    catalog.write_metric(sid, station_id="__outlet__", metric_name="nse", value=0.7)
-    catalog.finalize(sid, status="completed")
+    store.write_timeseries(sid, station_id="outlet", variable="discharge", ts=ts, unit="m3/s")
+    store.write_metric(sid, station_id="outlet", metric_name="nse", value=0.7)
+    seal_completed(store)
     return sid
 
 
-class TestRunsEnvironment:
-    """Pattern 0: every new run has a populated runs_environment row."""
+@pytest.fixture
+def seeded(tmp_path: Path) -> Iterator[Callable[..., tuple[Catalog, list[str]]]]:
+    """Seal one run per ``name=objective`` in a project, index it; return the reader and ids."""
+    with ExitStack() as readers:
 
-    def test_environment_is_captured(self, catalog):
-        sid = _seed_run(catalog, project="ml_p1", name="r1", objective="exploratory")
+        def _open(project: str, **objectives: str) -> tuple[Catalog, list[str]]:
+            root = tmp_path / project
+            sids = [
+                _seed_run(root, name=name, objective=objective)
+                for name, objective in objectives.items()
+            ]
+            return readers.enter_context(simulation_catalog(root)), sids
+
+        yield _open
+
+
+class TestRunsEnvironment:
+    """Pattern 0: every sealed run has a populated runs_environment row."""
+
+    def test_environment_is_captured(self, seeded):
+        catalog, (sid,) = seeded("ml_p1", r1="exploratory")
         row = catalog.connection.execute(
             "SELECT python_version, hydromodpy_version, platform, hostname, "
             "memory_gb, cpu_info FROM runs_environment WHERE sim_id = ?",
@@ -100,41 +111,34 @@ class TestRunsEnvironment:
 class TestDuckDBPattern:
     """Pattern 1: DuckDB SQL queries return scientific_objective per sim."""
 
-    def test_sql_select_returns_scientific_metadata(self, catalog):
-        _seed_run(catalog, project="ml_p2a", name="r1", objective="calibration")
-        _seed_run(catalog, project="ml_p2a", name="r2", objective="validation")
+    def test_sql_select_returns_scientific_metadata(self, seeded):
+        catalog, _ = seeded("ml_p2a", r1="calibration", r2="validation")
 
         df = catalog.connection.execute(
-            "SELECT sim_id, project, name, scientific_objective, study_area_name "
+            "SELECT sim_id, project, name, scientific_objective "
             "FROM simulations WHERE project = 'ml_p2a' ORDER BY name"
         ).fetchdf()
 
         assert len(df) == 2
         assert df["scientific_objective"].tolist() == ["calibration", "validation"]
-        assert all(df["study_area_name"] == "ml_p2a_basin")
 
 
 class TestParquetPattern:
     """Pattern 2: per-sim Parquet files readable directly + KV metadata."""
 
-    def test_parquet_with_kv_metadata(self, catalog):
-        sid = _seed_run(catalog, project="ml_p3", name="r1", objective="exploratory")
+    def test_parquet_with_kv_metadata(self, seeded):
+        catalog, (sid,) = seeded("ml_p3", r1="exploratory")
         target = catalog.tables_dir_for(sid) / "timeseries.parquet"
         assert target.is_file()
 
-        # Read via DuckDB (no pyarrow dependency); equivalent to
-        # pd.read_parquet when pyarrow / fastparquet is installed.
+        # Read via DuckDB, then via pandas: the file needs neither HydroModPy nor the index.
         df = catalog.connection.execute(f"SELECT * FROM read_parquet('{target}')").fetchdf()
         assert {"time", "value", "variable", "station_id"}.issubset(df.columns)
         assert len(df) > 0
 
-        # The same file is also readable by pandas when pyarrow is available.
-        try:
-            df_pd = pd.read_parquet(target)
-        except ImportError:
-            pytest.skip("pyarrow / fastparquet not installed; pandas path is documented")
-        else:
-            assert {"time", "value", "variable", "station_id"}.issubset(df_pd.columns)
+        # The same file is also readable by pandas.
+        df_pd = pd.read_parquet(target)
+        assert {"time", "value", "variable", "station_id"}.issubset(df_pd.columns)
 
         rows = catalog.connection.execute(
             f"SELECT key, value FROM parquet_kv_metadata('{target}')"
@@ -150,8 +154,8 @@ class TestParquetPattern:
 class TestZarrPattern:
     """Pattern 3: per-sim Zarr stores read directly via xarray."""
 
-    def test_run_to_xarray_batch(self, catalog):
-        sid = _seed_run(catalog, project="ml_p4", name="r1", objective="exploratory")
+    def test_run_to_xarray_batch(self, seeded):
+        catalog, (sid,) = seeded("ml_p4", r1="exploratory")
         run = catalog[sid]
 
         ds = run.array.to_xarray_batch(("head",))
@@ -160,53 +164,16 @@ class TestZarrPattern:
         assert ds["head"].sizes["time"] == 3
         assert ds["head"].attrs.get("units") == "m"
 
-    def test_run_to_xarray_batch_absent_field_raises(self, catalog):
+    def test_run_to_xarray_batch_absent_field_raises(self, seeded):
         """A registered field that is neither stored nor derivable raises."""
-        sid = _seed_run(catalog, project="ml_p4b", name="r1", objective="exploratory")
+        catalog, (sid,) = seeded("ml_p4b", r1="exploratory")
         run = catalog[sid]
         with pytest.raises(KeyError, match="not found"):
             run.array.to_xarray_batch(("concentration",))
 
-    def test_run_to_xarray_batch_derives_virtual_field(self, catalog):
+    def test_run_to_xarray_batch_derives_virtual_field(self, seeded):
         """``watertable_depth`` is not persisted but is rebuilt from head + top."""
-        sid = _seed_run(catalog, project="ml_p4c", name="r1", objective="exploratory")
+        catalog, (sid,) = seeded("ml_p4c", r1="exploratory")
         run = catalog[sid]
         ds = run.array.to_xarray_batch(("watertable_depth",))
         assert ds["watertable_depth"].sizes["time"] == 3
-
-
-class TestScientificObjective:
-    """Setter and finalize default behaviour for ``scientific_objective``."""
-
-    def test_write_scientific_objective_overrides_existing(self, catalog):
-        sid = _seed_run(catalog, project="so", name="r1", objective="exploratory")
-        catalog.write_scientific_objective(
-            sid,
-            "regression",
-            description="Sensitivity sweep",
-            doi="10.5281/zenodo.0",
-            outlet_x=247_500.0,
-            outlet_y=6_770_000.0,
-        )
-        row = catalog.connection.execute(
-            "SELECT scientific_objective, description, doi, outlet_x, outlet_y "
-            "FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row == (
-            "regression",
-            "Sensitivity sweep",
-            "10.5281/zenodo.0",
-            247_500.0,
-            6_770_000.0,
-        )
-
-    def test_finalize_defaults_objective_when_missing(self, catalog):
-        sid = str(uuid4())
-        catalog.register_simulation(sid, project="so2", solver="gr4j")
-        catalog.finalize(sid, status="completed")
-        row = catalog.connection.execute(
-            "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row[0] == "unspecified"

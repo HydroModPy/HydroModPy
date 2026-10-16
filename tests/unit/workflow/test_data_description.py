@@ -109,18 +109,18 @@ def test_the_document_round_trips_through_disk(tmp_path: Path) -> None:
 
     written = write_data_description(tmp_path, "run_a", payload)
 
-    assert written == description_path(tmp_path, "run_a")
-    assert read_data_description(tmp_path, "run_a") == payload
-    assert read_data_description(tmp_path, "run_b") is None
+    assert written == description_path(tmp_path)
+    assert read_data_description(tmp_path) == payload
+    assert read_data_description(tmp_path / "other_run") is None
 
 
 def test_a_document_of_another_schema_reads_as_absent(tmp_path: Path) -> None:
     """A future schema is a clean miss, never a half-understood document."""
-    path = description_path(tmp_path, "run_a")
+    path = description_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('{"schema": "hydromodpy.loaded_data.v99", "records": []}', encoding="utf-8")
 
-    assert read_data_description(tmp_path, "run_a") is None
+    assert read_data_description(tmp_path) is None
 
 
 def test_a_rewritten_source_is_named_as_changed(tmp_path: Path) -> None:
@@ -267,10 +267,14 @@ def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) 
     write_data_description(tmp_path, "run_a", payload)
 
     rows: list[dict] = []
+    inputs: list = []
 
     class _Store:
         def write_provenance(self, sim_id, **kwargs):
             rows.append(kwargs)
+
+        def record_input(self, sim_id, entry):
+            inputs.append(entry)
 
     class _Setup:
         run_id = "run_a"
@@ -278,6 +282,7 @@ def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) 
 
     class _Ctx:
         sim_id = "sim"
+        run_dir = tmp_path
         setup = _Setup()
         loaded_data = loaded
 
@@ -285,3 +290,4 @@ def test_the_provenance_rows_reuse_the_digest_the_load_computed(tmp_path: Path) 
 
     assert [row["source_sha256"] for row in rows] == ["0" * 64]
     assert rows[0]["variable"] == "recharge:recharge"
+    assert [entry.sha256 for entry in inputs] == ["0" * 64], "the input carries the same digest"

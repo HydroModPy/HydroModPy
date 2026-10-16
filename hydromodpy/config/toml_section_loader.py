@@ -9,7 +9,6 @@ from typing import Any, Literal, TypeVar
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.data import DataManagersConfig
@@ -280,48 +279,3 @@ def _load_optional_spinup_section(
     if section_data is None:
         return None
     return load_standard_section(section_data, SpinupConfig, base)
-
-
-def _load_optional_analysis_section(
-    section_data: Any,
-    base: Path,
-) -> AnalysisConfig | None:
-    """Load the optional ``[analysis]`` section."""
-    if section_data is None:
-        return None
-    if not isinstance(section_data, Mapping):
-        raise ValueError("[analysis] must be a mapping")
-
-    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
-    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
-
-    parsed: dict[str, Any] = {}
-
-    raw_gallery = section_data.get("capability_gallery")
-    if raw_gallery is not None:
-        parsed["capability_gallery"] = load_standard_section(
-            raw_gallery, CapabilityGalleryConfig, base
-        )
-
-    raw_batch = section_data.get("batch")
-    if raw_batch is not None:
-        if not isinstance(raw_batch, Mapping):
-            raise ValueError("[analysis.batch] must be a mapping")
-        parsed["batch"] = RegionalLabConfig.from_toml(
-            raw_batch,
-            config_path=base / "analysis_batch.toml",
-        )
-
-    raw_comparison = section_data.get("comparison")
-    if raw_comparison is not None:
-        if not isinstance(raw_comparison, Mapping):
-            raise ValueError("[analysis.comparison] must be a mapping")
-        parsed["comparison"] = ComparisonSection.model_validate(raw_comparison)
-
-    extra_keys = set(section_data) - {"batch", "capability_gallery", "comparison"}
-    if extra_keys:
-        unknown = ", ".join(sorted(extra_keys))
-        raise ValueError(f"Unknown [analysis] sub-section(s): {unknown}")
-
-    return AnalysisConfig.model_validate(parsed)

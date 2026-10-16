@@ -26,7 +26,6 @@ from hydromodpy.core.exceptions import (
     SolverDivergedError,
     SolverError,
 )
-from hydromodpy.core.state.paths import share_dir_for
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observable_support import (
@@ -231,12 +230,12 @@ class BoussinesqFlowAdapter:
 
     @staticmethod
     def _persist_obstacle_diagnostics(ctx: RunContext, model: Boussinesq) -> None:
-        """Copy VI runtime diagnostics to a stable workspace path before cleanup."""
-        workspace = getattr(ctx.state.setup, "workspace", None)
-        if workspace is None or not hasattr(model, "full_path"):
-            return
-        project_root = getattr(workspace, "project_root", None) or getattr(workspace, "root", None)
-        if project_root is None:
+        """Write the VI runtime diagnostics beside the solver files of the run.
+
+        They land in ``solver_diagnostics/`` of the solver folder, which
+        ``keep_solver_files`` keeps after the run.
+        """
+        if not hasattr(model, "full_path"):
             return
         summary_path = Path(model.full_path) / "_boussinesq_summary.json"
         if not summary_path.exists():
@@ -245,8 +244,7 @@ class BoussinesqFlowAdapter:
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return
-        run_id = str(getattr(ctx.state.setup, "run_id", "") or ctx.run.id)
-        diagnostics_dir = share_dir_for(Path(project_root)) / run_id / "solver_diagnostics"
+        diagnostics_dir = Path(model.full_path) / "solver_diagnostics"
         write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
         write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 

@@ -23,15 +23,10 @@ The table lists the verbs the contract covers. Every public name is in the
      - ``hmp.open``
      - ``hmp catalog``
      - not a TOML workflow
-   * - Global index
-     - ``hmp.index``
-     - ``hmp workspace``
-     - not a TOML workflow
    * - Run workflow
      - ``hmp.run``
      - ``hmp run``
-     - ``simulation``, ``calibration``, ``overview``,
-       ``comparison``, ``testbed``
+     - ``simulation``, ``calibration``, ``overview``
    * - Calibration
      - ``hmp.calibrate``
      - ``hmp calibrate``

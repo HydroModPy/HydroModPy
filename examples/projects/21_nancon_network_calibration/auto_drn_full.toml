@@ -237,7 +237,6 @@ use_cache = false
 # C'est cette ligne qui fait du meilleur essai un run complet : il est
 # rejoue avec toutes ses sorties, donc avec les champs derives, donc avec
 # les figures.
-rerun_best_with_outputs = true
 
 
 # --- Parametres ---
@@ -349,7 +348,6 @@ enabled = true
 preset = "default"
 show = false
 save = true
-output_dir = "figures"
 on_error = "warn"
 
 

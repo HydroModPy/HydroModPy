@@ -1,8 +1,8 @@
 """Output extractor for GR4J lumped model results.
 
 GR4J is a lumped catchment model: results are already in memory as pandas
-Series (no binary files to parse). This extractor forwards them to the
-``Catalog`` DuckDB tables.
+Series (no binary files to parse). This extractor writes them into the store
+of the run.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 class Gr4jFlowExtractor:
-    """Inject GR4J in-memory results into a ``Catalog``."""
+    """Write GR4J in-memory results into the store of the run."""
 
     solver_name = "gr4j"
     category = "lumped"
@@ -48,8 +48,8 @@ class Gr4jFlowExtractor:
         ----------
         sim_id : str
             Simulation UUID.
-        store : Catalog
-            Target store.
+        store : RunStore
+            The store of the run.
         discharge : pd.Series, optional
             Simulated discharge Q(t) at the outlet.
         storage : pd.Series, optional

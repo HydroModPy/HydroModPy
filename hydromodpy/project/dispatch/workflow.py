@@ -106,44 +106,47 @@ def completed_identical_run(config: Any, *, name: str) -> tuple[str | None, str]
 
     Identical means the same run identity hash
     (:func:`~hydromodpy.results.catalog.registration.run_identity_hash`): the
-    resolved configuration, without the per-run scratch folder, the contents
-    of the input files it names and the HydroModPy version. It is the
-    ``config_hash`` the catalog records when a run registers, so two runs of
-    an unchanged file on unchanged data match. The run must also carry the
-    name ``name``, or be a version of it (``name.v2``): a run renamed away no
-    longer answers to it. A trashed run never matches. Read-only and
-    fail-open: an error returns None and the run proceeds.
+    resolved configuration, without the per-run members, the contents of the
+    input files it names and the HydroModPy version. It is the
+    ``identity.config_hash`` a run seals, so two runs of an unchanged file on
+    unchanged data match. The run must carry the name ``name`` or be a
+    version of it (``name.v2``): every version is looked at, newest first,
+    because the user asks for this configuration and any sealed run of it
+    answers, whichever version last ran it. Read from the manifests under
+    ``runs/``, never from the index; a directory without a seal, or whose
+    seal cannot be read, never matches.
     """
-    from hydromodpy.core.state.paths import catalog_path_for
-    from hydromodpy.results.catalog import Catalog
+    from hydromodpy.core.state.paths import runs_dir_for
     from hydromodpy.results.catalog.registration import (
         input_file_digests,
         run_identity_hash,
+        split_stem_version,
     )
+    from hydromodpy.results.manifest import read_manifest
+    from hydromodpy.results.storage.sealing import sealed_config_hash
 
-    try:
-        root = Path(config.workspace.project_root)
-        if not catalog_path_for(root).exists():
-            return None
-        config_hash = run_identity_hash(
-            config.model_dump(mode="json"), inputs=input_file_digests(config)
-        )
-        if config_hash is None:
-            return None
-        with Catalog(root, read_only=True) as catalog:
-            row = catalog.backend.fetch_one(
-                "SELECT s.name, CAST(s.sim_id AS VARCHAR) FROM simulations s "
-                "JOIN statuses st ON s.status_id = st.id "
-                "WHERE s.config_hash = ? AND st.code = 'completed' "
-                "AND (s.name = ? OR s.name_stem = ?) "
-                "ORDER BY s.created_at DESC LIMIT 1",
-                [config_hash, name, name],
-            )
-    except Exception:  # fail-open: a skip check never blocks a run
+    root = Path(config.workspace.project_root)
+    runs = runs_dir_for(root)
+    if not runs.is_dir():
         return None
-    if row is None:
+    config_hash = run_identity_hash(
+        config.model_dump(mode="json"), inputs=input_file_digests(config)
+    )
+    if config_hash is None:
         return None
-    return (None if row[0] is None else str(row[0]), str(row[1]))
+    versions: list[tuple[int, Path]] = []
+    for entry in runs.iterdir():
+        if not entry.is_dir():
+            continue
+        stem, version = split_stem_version(entry.name)
+        if stem == name:
+            versions.append((1 if version is None else version, entry))
+    for _version, run_dir in sorted(versions, reverse=True):
+        if sealed_config_hash(run_dir) != config_hash:
+            continue
+        sim_id = str(read_manifest(run_dir)["run"]["sim_id"])
+        return (run_dir.name, sim_id)
+    return None
 
 
 def identical_run_message(name: str | None, sim_id: str) -> str:
@@ -164,17 +167,22 @@ def run_simulation(
     dry_run: bool = False,
     parallel: bool = True,
     force: bool = False,
+    fresh: bool = False,
+    overrides: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute a single simulation from a TOML file.
+    """Execute one attempt of a case from a TOML file, the worker verb.
 
     The run is named ``name``, else ``[simulation] name`` (which a TOML file
-    defaults to its own stem). A plain run identical to an already-completed
+    defaults to its own stem). A plain run identical to an already completed
     run (:func:`completed_identical_run`) is skipped and returns a
     ``{"skipped": True, "name", "sim_id", "project_root"}`` summary, unless
-    ``force`` is set. Resume, partial and dry runs always proceed. A run that
-    is not identical follows ``[simulation] if_exists``.
+    ``force`` is set. Resume, partial and dry runs always proceed. The index
+    is never opened here: the summary comes from the run directory, and the
+    caller indexes it afterwards. ``overrides`` are the dotted paths a
+    ``--set`` or an overlay changed, sealed in ``lineage.overrides``.
     """
     from hydromodpy.project import Project
+    from hydromodpy.results.lineage import Lineage
 
     with Project(config_path, no_display=no_display) as project:
         run_name = name or project.config.simulation.name or Path(config_path).stem
@@ -196,7 +204,8 @@ def run_simulation(
                     "sim_id": exist_sid,
                     "project_root": project_root,
                 }
-        result = project.simulate(
+        lineage = Lineage(overrides=dict(overrides)) if overrides else None
+        result = project.execute(
             name=run_name,
             resume=resume,
             from_step=from_step,
@@ -205,6 +214,9 @@ def run_simulation(
             frozen=frozen,
             no_display=no_display,
             parallel=parallel,
+            fresh=fresh,
+            force=force,
+            lineage=lineage,
         )
         if result is None:
             return {}
@@ -212,6 +224,8 @@ def run_simulation(
             "name": result.name,
             "sim_id": result.sim_id,
             "project_root": project_root,
+            "run_dir": str(result.run_dir),
+            "status": result.status,
         }
         project_ctx = getattr(project, "_ctx", None)
         project_setup = getattr(project_ctx, "setup", None)

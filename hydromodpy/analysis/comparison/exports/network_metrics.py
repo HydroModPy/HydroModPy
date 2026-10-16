@@ -37,7 +37,7 @@ def write_hydrographic_network_metrics_export(
     candidate_role: str = "generated",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write one flat CSV of per-run hydrographic-network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
@@ -46,20 +46,12 @@ def write_hydrographic_network_metrics_export(
 
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
+        store, sim_id = open_indexed_run(summary)
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "result_store_unavailable",
+                    "reason": "run_not_indexed",
                     "available_roles": [],
                 }
             )
@@ -173,27 +165,19 @@ def write_simulated_active_network_metrics_export(
     persistence_threshold: float = 0.5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write scalar metrics for the simulated active drainage network."""
-    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
     from hydromodpy.results.derive import views
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
+        store, sim_id = open_indexed_run(summary)
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "result_store_unavailable",
+                    "reason": "run_not_indexed",
                     "source_variable": variable,
                 }
             )
@@ -341,26 +325,18 @@ def _write_cell_field_network_metrics_export(
     log_label: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Shared export loop for cell-field/network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
+        store, sim_id = open_indexed_run(summary)
         if store is None or sim_id in (None, ""):
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "result_store_unavailable",
+                    "reason": "run_not_indexed",
                     "source_variable": variable,
                     "network_role": network_role,
                 }

@@ -118,8 +118,14 @@ Choose what to read
   GeoTIFF, GeoPackage, VTU follow this pattern.
 - **Layer**: ``Catalog.read_geographic_feature`` for a vector layer,
   ``SimulationZarr.read_geographic_raster`` for a raster one.
-- **Bundle**: the whole run. ``.hmp`` is the reference (``hmp_package.py``);
-  it runs after the seal.
+- **Bundle**: the whole run. There is one: ``hmp publish --format tar``
+  (``results/export/publish.py``), which copies the sealed run.
+
+Every file lands under ``runs/<run>/exports/`` and carries the identity block of
+the run: :class:`~hydromodpy.results.exporters.request.ExportTarget` poses it
+(``gpkg_metadata`` for a GeoPackage, a ``<file>.meta.json`` sidecar otherwise)
+and records the file in ``exports/index.json``. A new exporter returns the
+paths it wrote and gets both for free.
 
 A file written before the seal must not trust the root attributes of the
 store: the ACDD block is written by the seal. The NetCDF exporter takes it

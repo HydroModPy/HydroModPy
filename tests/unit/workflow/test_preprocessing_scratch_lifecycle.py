@@ -160,7 +160,7 @@ def test_the_tree_outlives_a_single_trial(preprocessing_tree) -> None:
 
     stable, _ = preprocessing_tree
     scratch = stable.parent
-    with TrialSandbox("run", 1, solver_scratch_folder=scratch) as sandbox:
+    with TrialSandbox("run", 1, scratch_root=scratch) as sandbox:
         trial_dir = Path(scratch) / sandbox.model_name
         trial_dir.mkdir(parents=True)
         (trial_dir / "mfsim.nam").write_text("x")

@@ -7,13 +7,11 @@ here instead.
 
 - :mod:`.workflow` exposes ``dispatch_workflow``, ``DISPATCH`` and the
   ``run_*`` functions used by the CLI and the public ``hmp.run`` facade.
-- :mod:`.calibration` exposes ``ProjectTrialPromotionProvider`` registered
-  in the calibration runner bootstrap.
+- :mod:`.rerun` exposes the ``Project``-backed rerun provider.
 """
 
 from __future__ import annotations
 
-from hydromodpy.project.dispatch.calibration import ProjectTrialPromotionProvider
 from hydromodpy.project.dispatch.workflow import (
     DISPATCH,
     dispatch_workflow,
@@ -24,7 +22,6 @@ from hydromodpy.project.dispatch.workflow import (
 
 __all__ = [
     "DISPATCH",
-    "ProjectTrialPromotionProvider",
     "dispatch_workflow",
     "run_calibration",
     "run_overview",

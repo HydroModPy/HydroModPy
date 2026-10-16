@@ -18,7 +18,7 @@ allowed:
   figures:          [figure, figure_options, figure_registry, maps, style]
   config:           [figure_registry]
   "<init>":         [figure, figure_registry]
-  runs:             ["<init>", config, figure, style]
+  runs:             ["<init>", config, figure, png_metadata, style]
   overview:         [report_blocks, style]
   catchment_report: [overview, report_blocks]
 

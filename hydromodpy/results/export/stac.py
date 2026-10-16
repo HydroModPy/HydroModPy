@@ -25,7 +25,6 @@ from hydromodpy.results.export.context import (
     AssetEntry,
     FairExportContext,
     _is_missing,
-    build_context,
     to_json,
 )
 from hydromodpy.results.export.directory import context_from_directory, write_view
@@ -240,19 +239,12 @@ def build_stac_item(
     return item
 
 
-def write_stac_item(
-    catalog: Any,
-    sim_id: str,
-    output_path: Path | str,
-    *,
-    context: FairExportContext | None = None,
-) -> Path:
-    """Render and write the STAC Item for *sim_id*."""
-    ctx = context or build_context(catalog, sim_id)
-    item = build_stac_item(ctx)
+def write_stac_item(context: FairExportContext, output_path: Path | str) -> Path:
+    """Render and write the STAC Item of *context*."""
+    item = build_stac_item(context)
     out = Path(output_path)
     if out.is_dir() or out.suffix == "":
-        out = out / f"{ctx.sim_id}.json"
+        out = out / f"{context.sim_id}.json"
     return to_json(item, out)
 
 

@@ -151,6 +151,13 @@ class CalibrationEngine:
     evaluator, so the caller has no other way to know which parameters the
     iteration carried, and the row it persists would be dropped.
     """
+    before_batch: Callable[[list[ParamSuggestion]], None] | None = None
+    """Called with each batch, in the caller thread, before any trial of it runs.
+
+    The suggestions come in the order the optimizer made them. A caller that
+    numbers trials does it here, so the numbers follow that order and not the
+    order in which parallel workers happen to start.
+    """
 
     def run(self) -> CalibrationSession:
         sid = self.session_id or uuid.uuid4().hex
@@ -311,6 +318,8 @@ class CalibrationEngine:
         ``Project`` whose DuckDB connection and Zarr handles are not
         pickle-safe.
         """
+        if self.before_batch is not None:
+            self.before_batch(suggestions)
         if self.parallel <= 1 or len(suggestions) <= 1:
             return [self._evaluate_with_cache(sugg) for sugg in suggestions]
         workers = min(self.parallel, len(suggestions))

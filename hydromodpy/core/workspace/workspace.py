@@ -58,12 +58,10 @@ class Workspace:
         self.catalog_path = self.paths.catalog_path
         self.data_dir = self.paths.data_dir
         self.runs_dir = self.paths.runs_dir
-        self.catch_name = self.paths.catch_name
 
         create_folder(self.project_root)
         setup_simulation_log(self.project_root)
 
-        self.figure_folder = self.paths.figures_folder
         self.solver_scratch_folder = self.paths.solver_scratch_folder
 
         self.bin_path = resolve_bin_path()

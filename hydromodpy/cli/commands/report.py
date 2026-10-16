@@ -6,8 +6,9 @@ Sub-actions:
   a calibration session. ``session_ref`` is a session id/prefix or a
   calibration run id/prefix (mapped to its parent session); omit it to render
   the most recent session. Federates across every project in the workspace.
-- ``hmp report compare <ref_a> <ref_b>``: side-by-side metric comparison of
-  two simulations.
+- ``hmp report compare <ref> <ref>... [--by site]``: compare N sealed runs of
+  one case (diffs, stability, budget closure, maps, series) and render the page
+  under ``summary/report/compare/`` of the project, or ``--out``.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
   one catchment report TOML configuration.
 """
@@ -23,16 +24,17 @@ from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
+    EXIT_VALIDATION,
     apply_verbosity,
 )
 from hydromodpy.core import progress
-from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
+from hydromodpy.core.state.paths import resolve_project_root
 
 if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
 NAME: str = "report"
-HELP: str = "Render HTML reports and pairwise comparisons"
+HELP: str = "Render HTML reports and compare sealed runs"
 
 CATCHMENT_PRESETS: tuple[str, ...] = ("generic", "generic_catchment_report")
 """The keys of ``PRESETS_BY_NAME`` in ``hydromodpy/display/catchment_report/presets.py``.
@@ -73,17 +75,49 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     compare_p = sub.add_parser(
         "compare",
-        help="Compare two simulations side-by-side",
+        help="Compare sealed runs of one case and render the page",
         parents=[workspace_parser(), verbosity_parser()],
-        epilog="Example:\n  hmp report compare ab12cd34 ef56gh78",
+        epilog=(
+            "Examples:\n"
+            "  hmp report compare k_low k_high\n"
+            "  hmp report compare calage_nm calage_tpe --by site\n"
+            "  hmp report compare runs/coarse runs/fine --allow-different-mesh --out ../mesh_study"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    compare_p.add_argument("ref_a", help="First simulation reference (id, prefix, or name)")
-    compare_p.add_argument("ref_b", help="Second simulation reference")
+    compare_p.add_argument(
+        "refs",
+        nargs="+",
+        metavar="REF",
+        help=(
+            "A run directory, a run name under runs/ (base.v2), or a recipe "
+            "(the latest run of each of its cases). The first run is the reference."
+        ),
+    )
+    compare_p.add_argument(
+        "--by",
+        choices=("site",),
+        default=None,
+        help="Compare the runs of each site separately, one page per site.",
+    )
     compare_p.add_argument(
         "--variables",
         default=None,
-        help="Comma-separated list of variable names to restrict the comparison",
+        help=(
+            "Comma-separated variables mapped at the last step. Default: the head and "
+            "the depth to the water table when every run has them."
+        ),
+    )
+    compare_p.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Folder of the comparison. Default: summary/report/compare/<refs>/ of the project.",
+    )
+    compare_p.add_argument(
+        "--allow-different-mesh",
+        action="store_true",
+        help="Compare runs solved on different meshes of the same site.",
     )
 
     catchment_p = sub.add_parser(
@@ -140,36 +174,37 @@ def _cmd_render(args: argparse.Namespace) -> None:
 
 
 def _cmd_compare(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
-    from hydromodpy.results.catalog import (
-        AmbiguousReferenceError,
-        SimulationNotFoundError,
+    from hydromodpy.analysis.comparison.runs import (
+        ComparisonCaseError,
+        ComparisonReferenceError,
     )
+    from hydromodpy.reporting.comparison.compare import compare_runs
 
-    workspace_root = resolve_project_root(
-        Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
+    start = Path(args.workspace or Path.cwd()).expanduser().resolve()
+    project_root = resolve_project_root(start)
+    variables = (
+        [item.strip() for item in args.variables.split(",") if item.strip()]
+        if args.variables
+        else None
     )
-    if not (catalog_path_for(workspace_root)).exists():
-        print(f"No catalog at {workspace_root}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-
     try:
-        df = hmp.compare_pair(args.ref_a, args.ref_b, workspace=workspace_root)
-    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+        with progress.status("Comparing runs"):
+            pages = compare_runs(
+                args.refs,
+                project_root=project_root,
+                out=args.out,
+                by_site=args.by == "site",
+                variables=variables,
+                allow_different_mesh=args.allow_different_mesh,
+            )
+    except ComparisonReferenceError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-
-    if args.variables:
-        keep = {v.strip() for v in args.variables.split(",") if v.strip()}
-        if "metric_name" in df.columns:
-            df = df[df["metric_name"].isin(keep)]
-        elif "variable" in df.columns:
-            df = df[df["variable"].isin(keep)]
-
-    if df.empty:
-        print("(no metrics recorded for either simulation)")
-        return
-    print(df.to_string())
+    except ComparisonCaseError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_VALIDATION)
+    for page in pages:
+        print(f"wrote {page}", file=sys.stderr)
 
 
 def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
@@ -201,11 +236,6 @@ def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
         "--report-only",
         action="store_true",
         help="Build only the final HTML report from existing context artifacts.",
-    )
-    parser.add_argument(
-        "--with-lock",
-        action="store_true",
-        help="Do not pass --no-lock to the optional hydromodpy run steps.",
     )
     parser.add_argument(
         "--stream-run-logs",
@@ -250,7 +280,6 @@ def _catchment_overrides(args: argparse.Namespace) -> dict[str, Any]:
         "run_simulation": run_simulation,
         "build_context_artifacts": build_context_artifacts,
         "build_report_html": build_report_html,
-        "no_lock": False if args.with_lock else None,
         "stream_run_logs": args.stream_run_logs,
         "strict_figure_postflight": args.strict_figure_postflight,
     }

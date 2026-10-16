@@ -154,24 +154,6 @@ def test_from_connection_does_not_close(tmp_path: Path) -> None:
     conn.close()
 
 
-def test_ensure_schema_creates_catalog_v2_tables(tmp_path: Path) -> None:
-    b = DuckDBBackend(tmp_path / "c.duckdb")
-    try:
-        b.ensure_schema()
-        # Spot-check a handful of v2 catalog tables.
-        names = {
-            r[0]
-            for r in b.fetch_all(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = 'main' AND table_type = 'BASE TABLE'"
-            )
-        }
-        for expected in ("simulations", "solvers", "statuses", "metrics", "parameters"):
-            assert expected in names
-    finally:
-        b.close()
-
-
 def test_query_with_dict_params(backend: DuckDBBackend) -> None:
     backend.execute("CREATE TABLE t (a INT, b VARCHAR)")
     backend.execute("INSERT INTO t VALUES (?, ?)", [1, "u"])

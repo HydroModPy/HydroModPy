@@ -175,15 +175,14 @@ class TestObjectiveEntryPointIsNotAMetricName:
     def test_a_staged_run_that_reuses_every_phase_still_refuses(self, tmp_path: Path):
         """The reuse branch returns before the search, so the guard cannot live there.
 
-        With ``reuse_completed_phases`` and a resume id, a staged run can hand
-        back a full report without ever reaching the search the check used to
-        sit in -- and the value reaches the reuse fingerprint regardless.
+        Under ``--resume`` a staged run can hand back a full report without
+        ever reaching the search the check used to sit in -- and the value
+        reaches the reuse fingerprint regardless.
         """
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
         content = _write_analytic_bowl_toml(tmp_path / "staged.toml").read_text(encoding="utf-8")
         content += """
-reuse_completed_phases = true
 
 [[calibration.phases]]
 name = "one"
@@ -197,7 +196,7 @@ objective = "nse"
         toml.write_text(content, encoding="utf-8")
 
         with pytest.raises(CalibrationError) as excinfo:
-            run_staged_calibration(toml, objective="nse_seasonal_v2", resume_root_session_id="r")
+            run_staged_calibration(toml, objective="nse_seasonal_v2", resume=True)
 
         assert "objective='nse_seasonal_v2'" in str(excinfo.value)
 

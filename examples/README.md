@@ -63,7 +63,7 @@ projects/<name>/
 ├── project.toml
 ├── hydromodpy.lock           # what the run resolved, for a replay
 ├── runs/<run name>/          # fields.zarr, tables.parquet, figures/, config.toml
-├── share/<run name>/         # exports asked for under [export]
+│   └── exports/              # exports asked for under [export]
 └── .hmp/index.duckdb         # catalog index, rebuildable by `hmp catalog reindex`
 ```
 

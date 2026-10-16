@@ -13,7 +13,6 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.runtime.mesh import resolve_summary_cells
-from hydromodpy.analysis.comparison.runtime.metadata import open_result_store_for_write
 
 CLOSURE_STATION_ID = "__global__"
 CLOSURE_VARIABLE = "water_budget"
@@ -46,16 +45,6 @@ SUMMARY_FIELDS = [
     "diagnostic",
 ]
 
-METRIC_NAME_BY_FIELD = {
-    "n_periods": "closure_n_periods",
-    "max_abs_closure_m3_s": "closure_max_abs_m3_s",
-    "mean_abs_closure_m3_s": "closure_mean_abs_m3_s",
-    "rmse_closure_m3_s": "closure_rmse_m3_s",
-    "max_abs_closure_mm_d": "closure_max_abs_mm_d",
-    "relative_closure_error_p95": "closure_relative_error_p95",
-}
-
-_DIAGNOSTIC_CODE = {"OK": 0.0, "WARN": 1.0, "CHECK": 2.0}
 _DERIVED_COMPONENTS = {
     "closure_residual_m3_s",
     "balance_implied_outflow_total_m3_s",
@@ -69,7 +58,10 @@ def write_numerical_closure_exports(
     budget_rows: Iterable[Mapping[str, Any]],
     simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write compact water-budget closure diagnostics and persist scalar metrics."""
+    """Write compact water-budget closure diagnostics in the comparison folder.
+
+    The compared runs are sealed: nothing is written back into them.
+    """
     summaries = [dict(item) for item in simulation_summaries]
     detail_rows, summary_rows = build_numerical_closure_tables(
         budget_rows=budget_rows,
@@ -104,7 +96,6 @@ def write_numerical_closure_exports(
         )
         artifacts.append({"kind": "numerical_closure_summary_json", "path": str(json_path)})
 
-    _persist_closure_metrics(summary_rows, summaries)
     return artifacts, detail_rows, summary_rows
 
 
@@ -269,62 +260,6 @@ def _summary_rows(
             }
         )
     return rows
-
-
-def _persist_closure_metrics(
-    summary_rows: Iterable[Mapping[str, Any]],
-    simulation_summaries: Iterable[Mapping[str, Any]],
-) -> None:
-    summaries_by_id = {
-        str(summary.get("id", "")): dict(summary)
-        for summary in simulation_summaries
-        if str(summary.get("id", ""))
-    }
-    for row in summary_rows:
-        simulation_id = str(row.get("simulation_id", ""))
-        summary = summaries_by_id.get(simulation_id)
-        if not summary:
-            continue
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_name = summary.get("run_name")
-        store, sim_id = open_result_store_for_write(
-            config_path,
-            preferred_sim_id=None if preferred_sim_id in (None, "") else str(preferred_sim_id),
-            preferred_name=None if preferred_name in (None, "") else str(preferred_name),
-        )
-        if store is None or sim_id in (None, ""):
-            continue
-        try:
-            n_samples = int(float(row.get("n_periods", 0) or 0)) or None
-            for field, metric_name in METRIC_NAME_BY_FIELD.items():
-                value = _finite_float(row.get(field))
-                if value is None:
-                    continue
-                store.write_metric(
-                    sim_id,
-                    CLOSURE_STATION_ID,
-                    metric_name,
-                    value,
-                    variable=CLOSURE_VARIABLE,
-                    n_samples=n_samples,
-                )
-            code = _DIAGNOSTIC_CODE.get(str(row.get("diagnostic", "")).upper())
-            if code is not None:
-                store.write_metric(
-                    sim_id,
-                    CLOSURE_STATION_ID,
-                    "closure_status_code",
-                    code,
-                    variable=CLOSURE_VARIABLE,
-                    n_samples=n_samples,
-                )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
 
 
 def _simulation_area_m2(summary: Mapping[str, Any]) -> float | None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import SimpleNamespace
-from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -20,7 +19,7 @@ from hydromodpy.physics.hydrology.soil_reservoir.kernel import (
     run_soil_balance,
 )
 from hydromodpy.workflow.steps.prepare_solver.prepare import step_persist_forcings
-from tests._helpers.fixtures_catalog import simulation_catalog
+from tests._helpers.run_stores import open_run_store
 
 _N_DAYS = 4
 _N_COLUMNS = 2
@@ -98,16 +97,6 @@ def _make_soil() -> SimpleNamespace:
     )
 
 
-def _register_sim(catalog) -> str:
-    sid = str(uuid4())
-    reg = catalog.register_simulation(
-        sid, project="test", solver="modflow6", n_cells=_N_COLUMNS, n_layers=1, n_timesteps=_N_DAYS
-    )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    return sid
-
-
 def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
     soil = _make_soil()
     ctx = SimpleNamespace(
@@ -116,8 +105,8 @@ def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
         setup=SimpleNamespace(soil_forcings=soil),
     )
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=_N_COLUMNS, n_timesteps=_N_DAYS) as catalog:
+        sid = catalog.sim_id
         ctx.sim_id = sid
         step_persist_forcings(ctx, store=catalog)
 
@@ -140,8 +129,8 @@ def test_the_soil_budget_view_has_a_row_per_column_and_year_plus_the_basin(tmp_p
         setup=SimpleNamespace(soil_forcings=soil),
     )
 
-    with simulation_catalog(tmp_path / "ws") as catalog:
-        sid = _register_sim(catalog)
+    with open_run_store(tmp_path / "ws", n_cells=_N_COLUMNS, n_timesteps=_N_DAYS) as catalog:
+        sid = catalog.sim_id
         ctx.sim_id = sid
         step_persist_forcings(ctx, store=catalog)
 

@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.state.paths import run_dir_rel
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEM = REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif"
 
@@ -29,6 +31,9 @@ LOAD_DATA_ORDER = 3
 PROJECT_TOML = """
 [workflow]
 mode = "simulation"
+
+[site]
+name = "naizin"
 
 [simulation]
 name = "naizin_load_description"
@@ -101,15 +106,14 @@ def _isolated_copy(root: Path, destination: Path) -> Path:
     return destination
 
 
-def _journal_rows(root: Path, run_id: str):
-    from hydromodpy.results.catalog import Catalog
+def _journal(root: Path, run_id: str):
     from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-    catalog = Catalog(root)
-    try:
-        return WorkflowJournal(catalog).list_steps(run_id)
-    finally:
-        catalog.close()
+    return WorkflowJournal(root / run_dir_rel(run_id))
+
+
+def _journal_rows(root: Path, run_id: str):
+    return _journal(root, run_id).list_steps(run_id)
 
 
 @pytest.fixture(scope="module")
@@ -182,7 +186,7 @@ def test_the_document_names_the_records_that_were_loaded(loaded_run) -> None:
 
     root, _row, _walked = loaded_run
 
-    payload = read_data_description(root, RUN_NAME)
+    payload = read_data_description(root / run_dir_rel(RUN_NAME))
     assert payload is not None
     assert payload["schema"] == SCHEMA_VERSION
     assert payload["plan_types"] == ["recharge"]
@@ -202,7 +206,7 @@ def test_the_document_names_every_record_the_shared_walk_yields(loaded_run) -> N
 
     root, _row, walked = loaded_run
 
-    payload = read_data_description(root, RUN_NAME)
+    payload = read_data_description(root / run_dir_rel(RUN_NAME))
     assert payload is not None
     described = {f"{r['scope']}:{r['variable']}" for r in payload["records"]}
     assert described == walked
@@ -211,33 +215,27 @@ def test_the_document_names_every_record_the_shared_walk_yields(loaded_run) -> N
 
 def test_a_run_that_lost_its_document_replans_from_the_load(loaded_run, tmp_path: Path) -> None:
     """Without the document the load is undescribed, so it is not trusted."""
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.internals.data_description import description_path
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
     from hydromodpy.workflow.tracking.resume import ResumePlanner
 
     source, row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "lost_document")
     blueprint = [r.step_name for r in _journal_rows(root, RUN_NAME)]
 
-    catalog = Catalog(root)
-    try:
-        planner = ResumePlanner(WorkflowJournal(catalog), root)
-        before = planner.compute(
-            run_id=RUN_NAME,
-            current_config_sha256=None,
-            steps_blueprint=blueprint,
-        )
-        assert before.restart_index == LOAD_DATA_ORDER + 1
+    planner = ResumePlanner(_journal(root, RUN_NAME), root)
+    before = planner.compute(
+        run_id=RUN_NAME,
+        current_config_sha256=None,
+        steps_blueprint=blueprint,
+    )
+    assert before.restart_index == LOAD_DATA_ORDER + 1
 
-        description_path(root, RUN_NAME).unlink()
-        after = planner.compute(
-            run_id=RUN_NAME,
-            current_config_sha256=None,
-            steps_blueprint=blueprint,
-        )
-    finally:
-        catalog.close()
+    description_path(root / run_dir_rel(RUN_NAME)).unlink()
+    after = planner.compute(
+        run_id=RUN_NAME,
+        current_config_sha256=None,
+        steps_blueprint=blueprint,
+    )
 
     assert after.restart_index == LOAD_DATA_ORDER
     assert [item.step_name for item in after.invalidated] == ["load_data"]
@@ -255,33 +253,27 @@ def test_a_document_that_no_longer_matches_replans_from_the_load(
     finds the recorded digest and the document disagreeing, and replans from
     the load rather than keeping a run built on bytes that are gone.
     """
-    from hydromodpy.results.catalog import Catalog
     from hydromodpy.workflow.internals.data_description import (
         description_path,
         read_data_description,
         write_data_description,
     )
-    from hydromodpy.workflow.tracking.journal import WorkflowJournal
     from hydromodpy.workflow.tracking.resume import ResumePlanner
 
     source, _row, _walked = loaded_run
     root = _isolated_copy(source, tmp_path / "moved_document")
     blueprint = [r.step_name for r in _journal_rows(root, RUN_NAME)]
 
-    payload = read_data_description(root, RUN_NAME)
+    payload = read_data_description(root / run_dir_rel(RUN_NAME))
     assert payload is not None
     payload["records"][0]["source"] = "a different source"
-    write_data_description(root, RUN_NAME, payload)
+    write_data_description(root / run_dir_rel(RUN_NAME), RUN_NAME, payload)
 
-    catalog = Catalog(root)
-    try:
-        plan = ResumePlanner(WorkflowJournal(catalog), root).compute(
-            run_id=RUN_NAME,
-            current_config_sha256=None,
-            steps_blueprint=blueprint,
-        )
-    finally:
-        catalog.close()
+    plan = ResumePlanner(_journal(root, RUN_NAME), root).compute(
+        run_id=RUN_NAME,
+        current_config_sha256=None,
+        steps_blueprint=blueprint,
+    )
 
     assert plan.restart_index == LOAD_DATA_ORDER
     assert [item.step_name for item in plan.invalidated] == ["load_data"]

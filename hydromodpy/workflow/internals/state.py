@@ -8,8 +8,8 @@ What the payload is
 -------------------
 
 ``data`` is a mapping of string keys to anything, and its dominant member is
-``ctx``, the ``WorkflowContext``: eleven of the twelve steps read it and write it
-back, and the twelfth is ``ValidateStep``, which runs before there is one.
+``ctx``, the ``WorkflowContext``: twelve of the thirteen steps read it and write
+it back, and the thirteenth is ``ValidateStep``, which runs before there is one.
 Everything the typed-state docstring used to promise -
 a resolved data plan, a geographic runtime, a mesh, a setup, an open store, a
 solver result - travels on that one object, not as a payload key. Naming the

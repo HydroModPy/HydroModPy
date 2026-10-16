@@ -172,15 +172,16 @@ class TrialTable:
         return matches[0]
 
 
-def trial_table(sim: Run, *, session_id: str | None = None) -> TrialTable:
+def trial_table(sim: Run, *, session_id: str | None = None, phase: str | None = None) -> TrialTable:
     """Read the calibration trials of one run into a flat trial table.
 
     The rows come from :func:`hydromodpy.results.calibration_trials`, which
     reads them on the same key ``Run.has_table`` answers on. Reading them any
     other way makes the availability gate and the render disagree, and the
-    figure then reports itself available and raises mid-render.
+    figure then reports itself available and raises mid-render. ``phase``
+    keeps the trials of that phase only.
     """
-    frame = calibration_trials(sim, session_id=session_id)
+    frame = calibration_trials(sim, session_id=session_id, phase=phase)
 
     frame, parameters = _expand_parameters(frame)
     frame = _expand_metrics(frame)

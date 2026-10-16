@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.exceptions import ConfigValidationError
 
 
 def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
@@ -149,9 +152,7 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     assert cfg.calibration is None
 
 
-def test_hydromodpy_config_ignores_empty_site_selection_placeholder(
-    tmp_path: Path,
-) -> None:
+def test_an_empty_site_selection_table_is_refused_by_name(tmp_path: Path) -> None:
     config_path = tmp_path / "empty_site_selection.toml"
     config_path.write_text(
         "\n".join(
@@ -169,9 +170,8 @@ def test_hydromodpy_config_ignores_empty_site_selection_placeholder(
         encoding="utf-8",
     )
 
-    cfg = HydroModPyConfig.from_toml(config_path)
-
-    assert cfg.site_selection is None
+    with pytest.raises(ConfigValidationError, match="hmp site select"):
+        HydroModPyConfig.from_toml(config_path)
 
 
 def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(

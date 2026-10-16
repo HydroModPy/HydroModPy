@@ -81,8 +81,8 @@ def _offer(retention: TrialSolveRetention, root: Path, trial_id: int, cost: floa
     [
         ({"save_runs": "all"}, None),
         ({"save_runs": "best_n", "save_best_n": 3}, 3),
-        ({"save_runs": "none", "rerun_best_with_outputs": True}, 1),
-        ({"save_runs": "best_n", "save_best_n": 0, "rerun_best_with_outputs": True}, 1),
+        ({}, 1),
+        ({"save_runs": "best_n", "save_best_n": 0}, 0),
         ({"save_runs": "none"}, 0),
     ],
 )
@@ -391,8 +391,8 @@ class _SolverStep(_Step):
 class _Provider:
     """The workflow provider over the toy steps above."""
 
-    def make_pipeline(self, steps):
-        return Pipeline(steps)
+    def make_pipeline(self, steps, *, run_dir=None):
+        return Pipeline(steps, run_dir=run_dir)
 
     def make_state(self, run_id, data):
         return PipelineState(run_id=run_id, data=dict(data))
@@ -455,20 +455,10 @@ def _toy_trial_context(tmp_path: Path, stores: dict[str, str]) -> TrialContext:
 @pytest.fixture
 def toy(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(trial_module, "get_trial_pipeline_provider", _Provider)
-    monkeypatch.setattr(trial_module, "_attach_tags_to_simulation", _record_tags)
     monkeypatch.setattr("hydromodpy.simulation.execution.runner.SimulationRunner", _Solver)
     _Solver.solves.clear()
-    _TAGS.clear()
     stores: dict[str, str] = {}
     return _toy_trial_context(tmp_path, stores), stores
-
-
-_TAGS: dict[str, list[str]] = {}
-
-
-def _record_tags(ctx, sim_id, tags) -> None:
-    del ctx
-    _TAGS[str(sim_id)] = list(tags)
 
 
 def _cost(ctx, *, objective, variable):
@@ -539,13 +529,14 @@ def test_the_promoted_run_is_the_one_a_replay_writes_without_a_second_solve(toy)
     other = trial_ctx.ctx.setup.workspace.solver_scratch_folder / "toy_trial000002"
     assert stores["from_kept:spared"] == str(other)
     assert stores["replayed:spared"] == ""
-    assert "promoted_from_trial:1" in _TAGS["a" * 32]
-    assert not any(tag.startswith("promoted_from_trial") for tag in _TAGS.get("b" * 32, []))
 
 
 def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
     tmp_path: Path, monkeypatch, caplog
 ) -> None:
+    from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+    from hydromodpy.calibration.persistence import CalibrationPersistence
+
     retention = TrialSolveRetention(1, keep_everything=False)
     _offer(retention, tmp_path, 1, 1.0)
     second = _offer(retention, tmp_path, 2, 0.5)
@@ -556,33 +547,48 @@ def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
         calls.append(kwargs)
         return kwargs["sim_id"]
 
-    class _Persistence:
-        def load_iterations(self, session_id):
-            del session_id
-            return [
-                {"iteration": 1, "status": "completed", "objective_value": 1.0, "parameters": {}},
-                {"iteration": 2, "status": "completed", "objective_value": 0.5, "parameters": {}},
-            ]
-
+    project = tmp_path / "project"
+    session_dir = project / "sessions" / "toy"
+    session_dir.mkdir(parents=True)
+    persistence = CalibrationPersistence(session_dir)
+    persistence.start_session(
+        session_id="c" * 32,
+        case_id="toy",
+        site=None,
+        project="project",
+        config_hash="c" * 64,
+        hydromodpy_version="2.0.0a5",
+        method="grid",
+        objective_name="nse",
+        search_space={},
+        objective_window=None,
+    )
+    for trial_id, cost in ((1, 1.0), (2, 0.5)):
+        persistence.append_iteration(
+            ParamSuggestion(trial_id=trial_id, values={}),
+            EvaluationResult(
+                trial_id=trial_id, sim_id=None, objective_value=cost, status="completed"
+            ),
+        )
     monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
-    monkeypatch.setattr(promotion_module, "update_iter_sim_id", lambda *args: None)
     trial_ctx = SimpleNamespace(kept_solves=retention)
 
     with caplog.at_level(logging.INFO, logger=promotion_module.logger.name):
-        count, failures, _ = promotion_module.promote_iterations(
+        outcome = promotion_module.promote_session(
             cfg=CalibrationConfig(save_runs="all"),
             trial_ctx=trial_ctx,
-            catalog=None,
-            persistence=_Persistence(),
-            session_id="c" * 32,
-            best=None,
+            persistence=persistence,
+            project_root=project,
+            phase="main",
+            session_status="completed",
             override_paths={},
-            run_name="toy",
+            objective_window=None,
         )
 
-    assert (count, failures) == (2, [])
-    assert calls[0]["kept"] is None
-    assert calls[1]["kept"] is not None and calls[1]["kept"].trial_id == 2
+    assert (outcome.count, outcome.failures) == (2, [])
+    # The best (trial 2) is promoted first, from its kept solve; trial 1 is solved again.
+    assert calls[0]["kept"] is not None and calls[0]["kept"].trial_id == 2
+    assert calls[1]["kept"] is None
     replayed = [record.getMessage() for record in caplog.records if "again" in record.getMessage()]
     assert len(replayed) == 1
     assert "trial 1" in replayed[0] and "cheapest" in replayed[0]

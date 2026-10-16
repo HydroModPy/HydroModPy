@@ -176,7 +176,7 @@ class TestNames:
 
             [[export]]
             variables = "all"
-            format = "package"
+            format = "rocrate"
             """,
             grid=MONTHLY,
         )
@@ -235,19 +235,19 @@ class TestNames:
         )
 
         with pytest.raises(
-            ConfigError, match=r"export\[0\] and export\[2\] both write nancon/head_2002-10-15"
+            ConfigError, match=r"export\[0\] and export\[2\] both write head_2002-10-15"
         ):
             check_export_variables(cfg)
 
-    def test_the_run_folder_named_is_the_default_folder(self, tmp_path: Path) -> None:
+    def test_the_root_of_the_exports_named_is_the_default_folder(self, tmp_path: Path) -> None:
         cfg = _load(
             tmp_path,
             '[[export]]\nvariables = "head"\ntime = "last"\n\n'
-            '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "nancon"\n',
+            '[[export]]\nvariables = "head"\ntime = "last"\nfolder = "."\n',
             grid=MONTHLY,
         )
 
-        with pytest.raises(ConfigError, match=r"both write nancon/head_last\.tif\."):
+        with pytest.raises(ConfigError, match=r"both write head_last\.tif\."):
             check_export_variables(cfg)
 
     def test_a_windows_spelling_of_one_file_collides(self) -> None:

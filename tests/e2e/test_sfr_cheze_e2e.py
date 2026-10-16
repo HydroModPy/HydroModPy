@@ -97,6 +97,9 @@ kind = "constant"
 value = "2 m"
 """
     return f"""\
+[site]
+name = "cheze"
+
 [workflow]
 mode = "simulation"
 

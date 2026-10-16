@@ -35,10 +35,17 @@ class SchemaVersionMismatchError(CatalogError):
     code = "HMPY.E824"
 
 
+class RunNotSealedError(CatalogError, FileNotFoundError):
+    """A run has no ``manifest.json``: it never completed, so it has no seal to read."""
+
+    code = "HMPY.E825"
+
+
 __all__ = [
     "CatalogError",
     "FieldNotFoundError",
     "RunNotFoundError",
     "ProjectNotFoundError",
+    "RunNotSealedError",
     "SchemaVersionMismatchError",
 ]

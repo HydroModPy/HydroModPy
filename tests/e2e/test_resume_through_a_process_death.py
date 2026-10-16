@@ -11,9 +11,9 @@ flushed, and the next process starts from what the disk holds.
 
 What the runs prove, together:
 
-- the project index of a killed run can be opened again at all (it could not
-  until the migration runner stopped leaving its schema in the journal);
-- the journal names the step that was running when the process died;
+- the step journal of a killed run (``<run>/.hmp/checkpoints/steps.json``)
+  reads back in the next process, and names the step that was running when
+  the process died;
 - the resume re-reads the delineation instead of re-running it - the 46 files
   it declared are identical, bytes and modification times, and its journal row
   keeps the ``started_at`` of the run that died;
@@ -51,6 +51,9 @@ RUN_NAME = "killed_twice"
 REFERENCE_RUN = "uninterrupted"
 
 PROJECT_TOML = """
+[site]
+name = "naizin"
+
 [workflow]
 mode = "simulation"
 
@@ -86,7 +89,9 @@ compute_stream_links = true
 all_vertices = true
 
 [mesh]
-engine = "voronoi"
+# A triangle mesh is drawn by Gmsh, which is not reproducible: it is the
+# engine whose mesh the project cache must keep across a death.
+engine = "triangle"
 cell_size = 350.0
 
 [mesh.families]
@@ -219,29 +224,25 @@ finally:
 """
 
 # Reads the workflow journal of a run in a process that shares nothing with the
-# one that wrote it.
+# one that wrote it. The journal lives in the run directory, never in the index.
 _JOURNAL_READER = """
 import json
 import sys
 from pathlib import Path
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
 
-catalog = Catalog(Path(sys.argv[1]))
-try:
-    rows = [
-        {
-            "order": row.step_order,
-            "name": row.step_name,
-            "status": row.status,
-            "started_at": str(getattr(row, "started_at", "")),
-            "artifact_uris": list(row.artifact_uris or ()),
-        }
-        for row in WorkflowJournal(catalog).list_steps(sys.argv[2])
-    ]
-finally:
-    catalog.close()
+run_dir = Path(sys.argv[1]) / "runs" / sys.argv[2]
+rows = [
+    {
+        "order": row.step_order,
+        "name": row.step_name,
+        "status": row.status,
+        "started_at": str(getattr(row, "started_at", "")),
+        "artifact_uris": list(row.artifact_uris or ()),
+    }
+    for row in WorkflowJournal(run_dir).list_steps(sys.argv[2])
+]
 print(json.dumps(rows))
 """
 
@@ -300,7 +301,7 @@ def _journal(root: Path, run_name: str) -> list[dict]:
     )
     if completed.returncode != 0:
         pytest.fail(
-            f"the index of a killed run could not be opened\nstderr: {completed.stderr[-4000:]}"
+            f"the journal of a killed run could not be read\nstderr: {completed.stderr[-4000:]}"
         )
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
@@ -387,7 +388,7 @@ def test_the_two_deaths_are_uncatchable_and_the_last_run_completes(killed_twice)
     assert killed_twice["exit_codes"] == (-9, -9, 0)
 
 
-def test_the_index_of_a_killed_run_is_readable_by_the_next_process(killed_twice) -> None:
+def test_the_journal_of_a_killed_run_is_readable_by_the_next_process(killed_twice) -> None:
     """The journal names the step that was running when the process died.
 
     ``failed`` is what an exception leaves. A killed process writes nothing on

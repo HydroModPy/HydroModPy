@@ -1,22 +1,18 @@
-"""Catalog facade for the results layer.
-
-Central registry for finished simulations. Backed by DuckDB for tabular state
-and by Zarr / Parquet for field arrays and timeseries written under the
-workspace.
+"""The project index: its reader, its indexer and its errors.
 
 Public API
 ----------
-- :class:`Catalog`: connection-managed entry point. Methods cover
-  registration (``register_simulation``), per-simulation writers
-  (``write_parameters``, ``write_timeseries``, ``write_budget``,
-  ``write_field``, ``write_mesh`` ...), readers / queries (``query_field``,
-  ``query_timeseries``, ``list_simulations``, ``sql``), reference resolution
-  (``resolve``, ``__getitem__``, ``find``, ``latest``, ``best``), and lifecycle
-  helpers (``finalize``, ``cleanup``, ``export_package``, ``import_package``,
-  ``delete``).
-- :class:`RegistrationResult`: dataclass returned by ``register_simulation``.
+- :class:`Catalog`: read-only view of ``<project>/.hmp/index.duckdb``. Methods
+  cover the typed reads (``query_field``, ``query_timeseries``,
+  ``list_simulations``, ``cases``, ``sql``), reference resolution
+  (``resolve``, ``__getitem__``, ``find``, ``latest``, ``best``) and schema
+  discovery (``tables``, ``columns``, ``describe``).
+- :func:`rebuild_index`, :func:`index_new_runs`: the writers of the index,
+  from the run and session directories; never called by a run.
+- :func:`read_workspace_runs`: the sealed runs of several projects, read from
+  their ``simulation.parquet`` files without any index.
 - Errors: :class:`SimulationNotFoundError`, :class:`AmbiguousReferenceError`,
-  :class:`DuplicateSimulationNameError`, :class:`RunNameTooLongError`.
+  :class:`RunNameTooLongError`.
 - :func:`short_id`: Git-style short identifier (first 8 hex chars).
 """
 
@@ -27,19 +23,19 @@ from hydromodpy.results.catalog.discovery import (
     short_id,
 )
 from hydromodpy.results.catalog.facade import Catalog
-from hydromodpy.results.catalog.registration import (
-    DuplicateSimulationNameError,
-    RegistrationResult,
-)
+from hydromodpy.results.catalog.federation import read_workspace_runs
+from hydromodpy.results.catalog.indexer import IndexReport, index_new_runs, rebuild_index
 from hydromodpy.results.catalog.storage_paths import RunNameTooLongError
 
 __all__ = [
     "AmbiguousReferenceError",
-    "DuplicateSimulationNameError",
-    "RegistrationResult",
     "Catalog",
+    "IndexReport",
     "RunNameTooLongError",
     "SimulationNotFoundError",
+    "index_new_runs",
     "iter_project_catalog_roots",
+    "read_workspace_runs",
+    "rebuild_index",
     "short_id",
 ]

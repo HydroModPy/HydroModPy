@@ -2,11 +2,11 @@
 
 Two things live here: ``prepare_runtime``, which chains the model phase
 (workspace, geographic, data, mesh) in one call, and ``standard_steps``,
-which names the twelve steps of a full simulation in the order the phase
+which names the thirteen steps of a full simulation in the order the phase
 contract fixes.
 
 The run phase itself belongs to the steps: :class:`PrepareSolverStep` opens
-what a run writes to and :class:`ExportStep` seals it. Nothing here drives a
+what a run writes to and :class:`SealStep` seals it. Nothing here drives a
 solver.
 """
 
@@ -64,8 +64,9 @@ def standard_steps() -> tuple:
     Order matches the shared phase contract in
     :mod:`hydromodpy.workflow.phases`: build the geographic/domain runtime,
     load data into that runtime, build/import the mesh, bind processes, then
-    prepare and run the solver. The tail is extract, derive, display, export:
-    figures draw before the export step seals the store.
+    prepare and run the solver. The tail is extract, derive, display, export,
+    seal: figures and deliverables land before the seal, which is the last
+    write of the run.
     """
     from hydromodpy.workflow.steps import (
         BuildGeographicStep,
@@ -78,6 +79,7 @@ def standard_steps() -> tuple:
         PrepareSolverStep,
         ResolveStep,
         RunSolverStep,
+        SealStep,
         SetupProcessStep,
         ValidateStep,
     )
@@ -95,6 +97,7 @@ def standard_steps() -> tuple:
         DeriveStep(),
         DisplayStep(),
         ExportStep(),
+        SealStep(),
     )
 
 

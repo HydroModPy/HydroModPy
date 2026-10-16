@@ -120,7 +120,7 @@ def test_the_rasterisation_deviation_names_heads_as_the_new_default() -> None:
 def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> None:
     # A boolean default is the case a "skip what is None" reader gets wrong, and it
     # is the one that matters here: false IS the departure.
-    from hydromodpy.cli.commands.calibrate import _values_this_file_set
+    from hydromodpy.calibration.preflight import _values_this_file_set
 
     cfg = SimpleNamespace(
         calibration=SimpleNamespace(
@@ -137,7 +137,7 @@ def test_the_value_a_file_actually_set_is_reported_even_when_it_is_false() -> No
 def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None:
     # Only the network output carries the criterion's diagonal_neighbors: a
     # value found on a gauge would report a departure the criterion never made.
-    from hydromodpy.cli.commands.calibrate import _values_this_file_set
+    from hydromodpy.calibration.preflight import _values_this_file_set
 
     cfg = SimpleNamespace(
         calibration=SimpleNamespace(
@@ -157,7 +157,7 @@ def test_a_gauge_s_own_diagonal_neighbors_is_not_read_as_the_network_s() -> None
 def test_a_default_the_file_left_unwritten_is_not_claimed_by_it() -> None:
     # "this file sets True" for a value the file never wrote sent the reader
     # looking for a line that is not there.
-    from hydromodpy.cli.commands.calibrate import _values_in_force, _values_this_file_set
+    from hydromodpy.calibration.preflight import _values_in_force, _values_this_file_set
 
     cfg = SimpleNamespace(
         calibration=SimpleNamespace(

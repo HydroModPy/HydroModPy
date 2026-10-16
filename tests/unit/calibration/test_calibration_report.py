@@ -63,7 +63,7 @@ class TestCalibrationReportBasic:
         )
         assert report.to_dict()["duration_s"] == pytest.approx(1.235)
 
-    def test_iterations_returns_empty_dataframe_when_no_workspace(self):
+    def test_iterations_returns_empty_dataframe_when_no_session_dir(self):
         report = CalibrationReport(
             session_id="abc",
             method="grid",
@@ -77,15 +77,19 @@ class TestCalibrationReportBasic:
         df = report.iterations
         assert len(df) == 0
 
-    def test_best_returns_none_when_no_best_sim_id(self):
+    def test_the_best_trial_and_the_calibrated_run_are_in_the_payload(self):
         report = CalibrationReport(
             session_id="abc",
             method="grid",
             n_iterations=1,
             best_objective=0.1,
-            best_sim_id=None,
+            best_sim_id="9a4f" * 8,
             duration_s=0.0,
-            save_runs="none",
-            promoted=0,
+            save_runs="best_n",
+            promoted=1,
+            best_trial=4,
+            best_rel_dir="runs/calage",
         )
-        assert report.best is None
+        payload = report.to_dict()
+        assert payload["best_trial"] == 4
+        assert payload["best_rel_dir"] == "runs/calage"

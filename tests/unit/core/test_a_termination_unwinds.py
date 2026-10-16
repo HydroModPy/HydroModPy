@@ -88,7 +88,7 @@ def test_outside_the_main_thread_it_does_nothing_rather_than_failing() -> None:
 
 
 def test_the_calibration_loop_installs_it() -> None:
-    """The loop is where a session is opened, so it is where this belongs."""
+    """The loop is where trials run for hours, so it is where this belongs."""
     import inspect
 
     from hydromodpy.calibration.runners import cli_runner
@@ -96,17 +96,18 @@ def test_the_calibration_loop_installs_it() -> None:
     source = inspect.getsource(cli_runner.run_calibration_core)
 
     assert "terminate_as_interrupt()" in source
-    assert "TerminationRequested" in source
 
 
 def test_a_terminated_session_is_closed_as_aborted() -> None:
-    """The status the loop writes for each signal, read off the loop itself."""
+    """The status the session scope writes for each signal, read off the scope itself."""
     import inspect
 
     from hydromodpy.calibration.runners import cli_runner
 
-    source = inspect.getsource(cli_runner.run_calibration_core)
-    terminated = source.split("except TerminationRequested:")[1].split("except")[0]
+    scope = inspect.getsource(cli_runner.closing_session)
+    interrupted = scope.split("except KeyboardInterrupt as exc:")[1].split("except")[0]
+    abort = inspect.getsource(cli_runner.abort_session)
 
-    assert 'final_status = "aborted"' in terminated
-    assert '"SIGTERM"' in terminated
+    assert "TerminationRequested" in interrupted
+    assert '"SIGTERM"' in interrupted
+    assert 'status="aborted"' in abort

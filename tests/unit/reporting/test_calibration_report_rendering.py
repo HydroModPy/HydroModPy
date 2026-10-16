@@ -52,9 +52,9 @@ def test_render_session_skips_unknown_figure_and_still_writes_html(tmp_path, mon
     written = report.render_session(
         _payload(tmp_path),
         figure_names=["missing_figure"],
-        output_dir=tmp_path / "report",
+        session_dir=tmp_path / "session",
     )
-    html_path = tmp_path / "report" / "report.html"
+    html_path = tmp_path / "session" / "report" / "index.html"
     assert html_path in written
     assert html_path.exists()
 
@@ -74,9 +74,9 @@ def test_render_session_skips_failing_figure_and_still_writes_html(tmp_path, mon
     written = report.render_session(
         _payload(tmp_path),
         figure_names=["calibration_trace"],
-        output_dir=tmp_path / "report",
+        session_dir=tmp_path / "session",
     )
-    html_path = tmp_path / "report" / "report.html"
+    html_path = tmp_path / "session" / "report" / "index.html"
     assert html_path in written
     assert html_path.exists()
 
@@ -97,10 +97,10 @@ def test_best_obs_vs_sim_skips_when_observed_data_missing(tmp_path, monkeypatch)
     written = report.render_session(
         payload,
         figure_names=["calibration_trace"],
-        output_dir=tmp_path / "report",
+        session_dir=tmp_path / "session",
     )
-    figures_dir = tmp_path / "report" / "figures"
-    assert (tmp_path / "report" / "report.html").exists()
+    figures_dir = tmp_path / "session" / "figures"
+    assert (tmp_path / "session" / "report" / "index.html").exists()
     assert not (figures_dir / "best_obs_vs_sim.png").exists()
     assert all(p.name != "best_obs_vs_sim.png" for p in written)
 
@@ -124,12 +124,12 @@ def test_render_session_renders_lake_level_fit_panel(tmp_path, monkeypatch) -> N
     written = report.render_session(
         payload,
         figure_names=["calibration_trace"],
-        output_dir=tmp_path / "report",
+        session_dir=tmp_path / "session",
     )
-    fit = tmp_path / "report" / "figures" / "best_lake_level_fit.png"
+    fit = tmp_path / "session" / "figures" / "best_lake_level_fit.png"
     assert fit.exists()
     assert fit in written
-    assert "best_lake_level_fit.png" in (tmp_path / "report" / "report.html").read_text()
+    assert "best_lake_level_fit.png" in (tmp_path / "session" / "report" / "index.html").read_text()
 
 
 def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
@@ -205,5 +205,19 @@ def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> Non
     assert "unsafe&figure<1>.png" not in html
     assert "&lt;Project &amp; Co&gt;" in html
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
-    assert "figures/unsafe&amp;figure&lt;1&gt;.png" in html
+    assert "../figures/unsafe&amp;figure&lt;1&gt;.png" in html
     assert "{&quot;a&quot;: 1, &quot;b&quot;: &quot;&lt;tag&gt;&quot;}" in html
+
+
+def test_the_report_of_a_session_lands_in_the_session_directory(tmp_path, monkeypatch) -> None:
+    import hydromodpy.reporting.calibration_report as report
+
+    monkeypatch.setattr(report, "_figure_names", lambda: [])
+    payload = _payload(tmp_path)
+
+    written = report.render_session(payload, figure_names=[])
+
+    session_dir = tmp_path / "sessions" / payload.session_name
+    assert written == [session_dir / "report" / "index.html"]
+    assert written[0].is_file()
+    assert not (tmp_path / "share").exists()

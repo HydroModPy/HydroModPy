@@ -13,7 +13,6 @@ from typing import ClassVar
 
 import pytest
 
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 from hydromodpy.workflow.tracking.journal import WorkflowJournal
@@ -101,21 +100,16 @@ def test_full_run_writes_artefacts_and_journal(tmp_path: Path) -> None:
         _Persistent("p3"),
         _Persistent("p4"),
     )
-    pipeline = Pipeline(blueprint, workspace=tmp_path)
+    pipeline = Pipeline(blueprint, workspace=tmp_path, run_dir=tmp_path)
     final = pipeline.run(_initial_state(tmp_path, "run-A"))
 
     assert final.step_name == "p4"
     for name in ("p2", "p3", "p4"):
         assert (tmp_path / "artefacts" / f"{name}.txt").is_file()
 
-    catalog = Catalog(tmp_path)
-    try:
-        journal = WorkflowJournal(catalog)
-        rows = journal.list_steps("run-A")
-        assert [r.step_name for r in rows] == ["mem0", "mem1", "p2", "p3", "p4"]
-        assert all(r.status == "completed" for r in rows)
-    finally:
-        catalog.close()
+    rows = WorkflowJournal(tmp_path).list_steps("run-A")
+    assert [r.step_name for r in rows] == ["mem0", "mem1", "p2", "p3", "p4"]
+    assert all(r.status == "completed" for r in rows)
 
 
 def test_resume_rebuilds_persistent_and_reexec_memory(tmp_path: Path) -> None:
@@ -126,7 +120,7 @@ def test_resume_rebuilds_persistent_and_reexec_memory(tmp_path: Path) -> None:
         _Persistent("p3"),
         _Persistent("p4"),
     )
-    pipeline = Pipeline(blueprint, workspace=tmp_path)
+    pipeline = Pipeline(blueprint, workspace=tmp_path, run_dir=tmp_path)
     pipeline.run(_initial_state(tmp_path, "run-B"))
 
     # second pipeline objects (fresh counters) to observe rebuild vs re-exec
@@ -137,7 +131,7 @@ def test_resume_rebuilds_persistent_and_reexec_memory(tmp_path: Path) -> None:
         _Persistent("p3"),
         _Persistent("p4"),
     )
-    pipeline = Pipeline(recovery, workspace=tmp_path)
+    pipeline = Pipeline(recovery, workspace=tmp_path, run_dir=tmp_path)
     final = pipeline.run(_initial_state(tmp_path, "run-B"), resume_from=3)
 
     mem0, mem1, p2, p3, p4 = recovery
@@ -153,7 +147,7 @@ def test_resume_rebuilds_persistent_and_reexec_memory(tmp_path: Path) -> None:
 
 def test_no_pickle_files_anywhere(tmp_path: Path) -> None:
     blueprint = (_Memory("mem0"), _Persistent("p1"), _Persistent("p2"))
-    pipeline = Pipeline(blueprint, workspace=tmp_path)
+    pipeline = Pipeline(blueprint, workspace=tmp_path, run_dir=tmp_path)
     pipeline.run(_initial_state(tmp_path, "run-C"))
 
     checkpoint_root = tmp_path / ".hmp" / "checkpoints"

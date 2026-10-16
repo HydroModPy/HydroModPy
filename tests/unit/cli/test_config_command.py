@@ -2,73 +2,53 @@
 
 from __future__ import annotations
 
-import sys
 import tomllib
 from pathlib import Path
-from types import SimpleNamespace
 
 from tests._helpers.cli_runner import CliRunner
 
 
-def test_config_check_comparison_dispatches_to_comparison_config(
-    monkeypatch,
-    tmp_path,
-) -> None:
+def test_config_check_refuses_a_retired_mode_with_its_replacement(tmp_path) -> None:
     config = tmp_path / "comparison.toml"
     config.write_text('[workflow]\nmode = "comparison"\n', encoding="utf-8")
-    raw_toml = {"workflow": {"mode": "comparison"}}
-    calls: dict[str, object] = {}
-
-    class FakeRootConfig:
-        @classmethod
-        def from_toml(cls, path: Path) -> None:
-            calls["root_path"] = path
-
-    class FakeComparisonConfig:
-        @classmethod
-        def from_toml(cls, payload: dict[str, object], *, config_path: Path) -> None:
-            calls["comparison"] = {"payload": payload, "config_path": config_path}
-
-    fake_module = SimpleNamespace(SimulationComparisonConfig=FakeComparisonConfig)
-
-    monkeypatch.setattr(
-        "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
-        lambda path: raw_toml,
-    )
-    monkeypatch.setattr("hydromodpy.config.HydroModPyConfig", FakeRootConfig)
-    monkeypatch.setitem(
-        sys.modules,
-        "hydromodpy.analysis.comparison.experiment_config",
-        fake_module,
-    )
 
     result = CliRunner().invoke(["config", "check", str(config)])
 
-    assert result.exit_code == 0
-    assert calls == {
-        "comparison": {"payload": raw_toml, "config_path": config.resolve()},
-    }
-    assert f"OK: {config.resolve()}" in result.stdout
+    assert result.exit_code == 14
+    assert f"Config invalid: {config.resolve()}" in result.stderr
+    assert "hmp report compare" in result.stderr
 
 
-def test_config_check_invalid_toml_maps_to_config_exit(monkeypatch, tmp_path) -> None:
+def test_config_check_expands_a_sites_project_and_counts_its_cases(tmp_path) -> None:
+    from tests.unit.config.test_sites_plan import write_sites_project
+
+    project = write_sites_project(tmp_path)
+
+    result = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+
+    assert result.exit_code == 0, result.stderr
+    assert f"OK: {project / 'project.toml'} (4 case(s))" in result.stdout
+
+
+def test_config_check_names_the_cell_of_a_sites_project_error(tmp_path) -> None:
+    from tests.unit.config.test_sites_plan import write_sites_project
+
+    project = write_sites_project(tmp_path, k_cells=("5e-5", "not_a_number"))
+
+    result = CliRunner().invoke(["config", "check", str(project / "project.toml")])
+
+    assert result.exit_code == 14
+    assert "sites.csv:3 column k -> flow.param.K.field.value" in result.stderr
+
+
+def test_config_check_invalid_toml_maps_to_config_exit(tmp_path) -> None:
     config = tmp_path / "broken.toml"
     config.write_text("not = [valid", encoding="utf-8")
-
-    def fake_load_toml(path: Path) -> dict[str, object]:
-        del path
-        raise tomllib.TOMLDecodeError("bad syntax", "not = [valid", 7)
-
-    monkeypatch.setattr(
-        "hydromodpy.core.toml_io.loader.load_toml_with_base_config",
-        fake_load_toml,
-    )
 
     result = CliRunner().invoke(["config", "check", str(config)])
 
     assert result.exit_code == 14
     assert "Invalid TOML syntax:" in result.stderr
-    assert "bad syntax" in result.stderr
 
 
 def test_config_schema_forwards_section_profile_and_output(monkeypatch, tmp_path) -> None:
@@ -176,3 +156,23 @@ def test_config_resolve_names_a_broken_chain(tmp_path) -> None:
 
     assert result.exit_code == 14
     assert "Detected circular base_config chain" in result.stderr
+
+
+def test_config_check_names_a_recipe_that_cannot_be_read(tmp_path) -> None:
+    from tests.unit.config.test_sites_plan import write_sites_project
+
+    project = write_sites_project(tmp_path)
+    (project / "bad.toml").write_text('base_config = "project.toml"\n[flow\n', encoding="utf-8")
+    project_toml = project / "project.toml"
+    project_toml.write_text(
+        project_toml.read_text(encoding="utf-8").replace(
+            "[sites.recipes]\n", '[sites.recipes]\nbad = "bad.toml"\n'
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(["config", "check", str(project_toml)])
+
+    assert result.exit_code == 14
+    assert "Traceback" not in result.stderr
+    assert "[sites.recipes] bad: " in result.stderr and "invalid TOML" in result.stderr

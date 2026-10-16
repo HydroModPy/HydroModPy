@@ -6,7 +6,7 @@ These tests exercise policy, not rendering:
     * Unknown figure names are rejected by the config, not at render time.
     * A figure whose requirements the run does not meet is skipped.
     * Written files land in ``<output_dir>/<figure>.png``.
-    * ``resolve_run_output_dir`` nests figures in ``runs/<run>/figures``,
+    * ``figures_dir_of`` nests figures in ``runs/<run>/figures``,
       naming the run directory after the run and falling back to a short
       sim_id otherwise.
 """
@@ -157,7 +157,6 @@ def _skip_config(*figures: str) -> DisplayConfig:
         on_error="warn",
         cmap="viridis",
         overrides={},
-        output_dir=RUN_FIGURES_DIRNAME,
         figures=list(figures),
     )
 
@@ -249,26 +248,66 @@ def test_figure_names_override_shadows_config(tmp_path, patched_registry, runs_m
     assert [p.name for p in report.written] == ["hydrograph.png"]
 
 
-def test_resolve_run_output_dir_nests_figures_inside_the_run(tmp_path, runs_module):
-    cfg = DisplayConfig(output_dir=RUN_FIGURES_DIRNAME)
-    path = runs_module.resolve_run_output_dir(
-        cfg,
-        project_root=tmp_path,
-        run_name="calib_best",
-        sim_id="abcdef1234567890",
-    )
-    assert path == tmp_path / RUNS_DIRNAME / "calib_best" / RUN_FIGURES_DIRNAME
+def test_the_figures_of_a_run_live_in_its_figures_directory(tmp_path, runs_module):
+    run_dir = tmp_path / RUNS_DIRNAME / "calib_best"
+    assert runs_module.figures_dir_of(run_dir) == run_dir / RUN_FIGURES_DIRNAME
 
 
-def test_resolve_run_output_dir_falls_back_to_short_sim_id(tmp_path, runs_module):
-    cfg = DisplayConfig(output_dir=RUN_FIGURES_DIRNAME)
-    path = runs_module.resolve_run_output_dir(
-        cfg,
-        project_root=tmp_path,
-        run_name=None,
-        sim_id="abcdef1234567890",
+def test_output_dir_is_refused_with_where_figures_go():
+    with pytest.raises(ValueError, match=r"runs/<run>/figures/"):
+        DisplayConfig(output_dir="plots")
+
+
+class _PngFigure(_StubFigure):
+    """A stub that writes a real PNG, as every figure does."""
+
+    def plot(self, sim, *, dpi: int = 150, save_path: Path | None = None, **kw) -> None:
+        from PIL import Image
+
+        self.calls.append((save_path, dpi))
+        if save_path is not None:
+            Image.new("RGB", (240, 120), "white").save(save_path, format="PNG")
+
+
+def test_a_figure_of_an_identified_run_is_stamped_and_recorded(tmp_path, monkeypatch, runs_module):
+    from datetime import UTC, datetime
+
+    from hydromodpy.results.identity import read_identity_from
+    from hydromodpy.results.ledger import Ledger
+    from hydromodpy.results.outcome import Outcome, write_outcome
+
+    run_dir = tmp_path / RUNS_DIRNAME / "demo"
+    run_dir.mkdir(parents=True)
+    write_outcome(
+        run_dir,
+        Outcome(
+            case_id="demo",
+            attempt=1,
+            attempt_id="a" * 32,
+            sim_id="sim-1",
+            status="running",
+            written_by="worker",
+            started_at=datetime.now(UTC),
+            host="node",
+            pid=1,
+        ),
     )
-    assert path == tmp_path / RUNS_DIRNAME / "abcdef12" / RUN_FIGURES_DIRNAME
+    figures = runs_module.figures_dir_of(run_dir)
+    monkeypatch.setattr(runs_module, "_get_figure", lambda name: _PngFigure(name))
+    cfg = DisplayConfig(figures=["hydrograph"], show=False, save=True)
+
+    report = runs_module.render_figures_for_run(_StubRun(), cfg, output_dir=figures)
+
+    (written,) = report.written
+    identity = read_identity_from(written)
+    assert identity is not None and identity.case_id == "demo"
+    (entry,) = Ledger.read(figures).entries
+    assert (entry.file, entry.producer) == ("hydrograph.png", "display:hydrograph")
+    assert entry.identity == identity
+    from PIL import Image
+
+    with Image.open(written) as image:
+        assert image.size[1] > 120
 
 
 def test_summary_names_every_requested_figure_that_produced_nothing(

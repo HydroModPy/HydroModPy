@@ -31,22 +31,18 @@ def render_figure(
     the run gave the figure.
     """
     from hydromodpy.core.state.paths import resolve_project_root
-    from hydromodpy.display.runs import figure_options_from_run
+    from hydromodpy.display.runs import figure_options_from_run, figures_dir_of, record_figure
     from hydromodpy.display.runs import render_figure as render_one_figure
     from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with Catalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root) as catalog:
         sid = catalog.resolve(sim_ref)
         sim = catalog[sid]
-        save = (
-            Path(output).expanduser().resolve()
-            if output
-            else catalog.run_dir_for(sid) / RUN_FIGURES_DIRNAME / f"{figure}.png"
-        )
+        figures_dir = figures_dir_of(catalog.run_dir_for(sid))
+        save = Path(output).expanduser().resolve() if output else figures_dir / f"{figure}.png"
         if save.suffix == "":
             save = save.with_suffix(".png")
         drawn = dict(figure_options_from_run(sim, figure))
@@ -54,8 +50,31 @@ def render_figure(
         if time is not None:
             drawn["time"] = time
         save.parent.mkdir(parents=True, exist_ok=True)
-        render_one_figure(figure, sim, save=save, **drawn)
+        render_one_figure(figure, sim, save=save, run_dir=figures_dir.parent, **drawn)
+        if save.parent.resolve() == figures_dir.resolve():
+            record_figure(save, name=figure, options=drawn, sim=sim, figures_dir=figures_dir)
         return save
+
+
+def regen_figures(sim_ref: str, *, workspace: Any = None) -> list[Path]:
+    """Draw again every figure the ledger of a run records; return the files written.
+
+    The index is opened read-only: the figures are files of the run directory.
+    """
+    from hydromodpy.core.state.paths import resolve_project_root
+    from hydromodpy.display.runs import log_render_summary
+    from hydromodpy.display.runs import regen_figures as regen_run_figures
+    from hydromodpy.results.catalog import Catalog
+
+    workspace_root = resolve_project_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    with Catalog(workspace_root) as catalog:
+        sid = catalog.resolve(sim_ref)
+        run_dir = catalog.run_dir_for(sid)
+        report = regen_run_figures(catalog[sid], run_dir)
+    log_render_summary(report, destination=run_dir)
+    return list(report.written)
 
 
 def parse_figure_options(figure: str, items: Sequence[str]) -> dict[str, Any]:
@@ -131,87 +150,5 @@ def figure_availability(sim_ref: str, *, workspace: Any = None) -> list[tuple[An
     workspace_root = resolve_project_root(
         Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
     )
-    with Catalog(workspace_root, read_only=True) as catalog:
+    with Catalog(workspace_root) as catalog:
         return availability_of(catalog[catalog.resolve(sim_ref)])
-
-
-def render_gallery(
-    config_toml: Any,
-    *,
-    run_name: str | None = None,
-    sim_ref: str | None = None,
-    all_runs: bool = False,
-    latest: int | None = None,
-    only: list[str] | None = None,
-    no_show: bool = False,
-) -> list[Path]:
-    """Render the ``[display]`` figure gallery for one or several runs.
-
-    Each run gets its own summary line, so a figure the gallery was asked for
-    and could not produce is reported here exactly as it is on the run path.
-    """
-    from hydromodpy.config.config_migration import migrate_config_doc_on_load
-    from hydromodpy.core.state.paths import is_sealed_run_config
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.runs import (
-        log_render_summary,
-        render_figures_for_run,
-        resolve_run_output_dir,
-    )
-    from hydromodpy.results.catalog import Catalog
-    from hydromodpy.results.catalog.registration import portable_config_source
-
-    target_path = Path(config_toml).expanduser()
-    if not target_path.is_file() or target_path.suffix != ".toml":
-        raise ValueError(f"Expected a TOML file: {target_path}")
-
-    raw_toml = load_toml_with_base_config(target_path)
-    # The same in-memory migration `hmp run` applies, so an old key loads and
-    # is reported the same way on both commands.
-    sealed = is_sealed_run_config(target_path)
-    migrate_config_doc_on_load(raw_toml, source=target_path)
-    display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
-    if no_show:
-        display_cfg.show = False
-    # A sealed config sits in <project>/runs/<name>/: the project is the folder
-    # that holds runs/, which is where the catalog index lives.
-    resolved = target_path.resolve()
-    project_dir = resolved.parent.parent.parent if sealed else resolved.parent
-    # The index stores the config path relative to the project, so a copied or
-    # moved project still recognises the runs it owns.
-    config_source = portable_config_source(project_dir, target_path)
-
-    written_paths: list[Path] = []
-    with Catalog(project_dir, read_only=True) as catalog:
-        sims = catalog.list_simulations(config_source=config_source, order_by="created_at DESC")
-        if sims.empty:
-            sims = catalog.list_simulations(project=project_dir.name, order_by="created_at DESC")
-        if sims.empty:
-            raise FileNotFoundError(f"No simulations found for {target_path.name}.")
-
-        if sim_ref:
-            # Route through the single canonical resolver (UUID / prefix / name /
-            # stem / @-selectors), not a bespoke startswith matcher.
-            ids = [catalog.resolve(sim_ref, project=project_dir.name)]
-        elif run_name:
-            subset = sims[sims["name"] == run_name]
-            if subset.empty:
-                raise FileNotFoundError(f"No run named {run_name!r}")
-            ids = [str(sid) for sid in subset["sim_id"].tolist()]
-        elif all_runs:
-            ids = [str(sid) for sid in sims["sim_id"].tolist()]
-        elif latest is not None and latest > 0:
-            ids = [str(sid) for sid in sims["sim_id"].tolist()[:latest]]
-        else:
-            ids = [str(sims.iloc[0]["sim_id"])]
-
-        for sid in ids:
-            sim = catalog[sid]
-            out_dir = resolve_run_output_dir(
-                display_cfg, project_root=project_dir, run_name=sim.name, sim_id=sid
-            )
-            report = render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
-            log_render_summary(report, destination=out_dir)
-            written_paths.extend(report.written)
-    return written_paths

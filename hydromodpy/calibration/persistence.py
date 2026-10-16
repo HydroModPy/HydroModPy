@@ -1,384 +1,420 @@
-"""Persistence for calibration sessions and iterations.
+"""The journal of one calibration session, written as the search goes.
 
-Two sinks, one shape. The session journal under ``sessions/<name>/`` is the
-truth: it is written as the calibration goes, so an interrupted run keeps its
-history, and :func:`hydromodpy.results.catalog.reindex.rebuild_index` reads it
-back. The DuckDB rows are the index over it, so each iteration becomes **one
-row** in ``calibration_iterations`` regardless of ``save_runs`` mode.
+A session owns ``sessions/<case>[.vN]/`` at the project root. This module is
+the only writer of what the search records there:
 
-The journal is written first, then the index: a failing database write costs a
-query, never a calibration history.
+- ``outcome.json``: the issue of the session (``running``, then ``completed``,
+  ``failed`` or ``aborted``), in the format of a run outcome;
+- ``session.json``: identity, search space, objective, best trial, status
+  (:mod:`hydromodpy.results.session.descriptor`);
+- ``trials.jsonl``: one line per evaluated trial, numbered once across phases
+  and restarts (:mod:`hydromodpy.results.session.journal`);
+- ``phases/<phase>/session.json``: status, frozen values and best trial of one
+  phase of a staged search (:mod:`hydromodpy.results.session.phase`).
+
+The journal is written as the calibration goes: the descriptor before the
+first trial, one line per trial as it completes, the descriptor again at
+every change of status. An interrupted calibration keeps every trial it had
+time to evaluate, and the index is rebuilt from these files. Nothing here
+opens the index.
 """
 
 from __future__ import annotations
 
-import json
+import os
+import socket
+import threading
 import uuid
-from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
-from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.results.session_journal import SessionJournal, SessionTrial
+from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
+from hydromodpy.results.session.descriptor import (
+    BestTrial,
+    SessionDescriptor,
+    SessionStatus,
+    read_session,
+    session_descriptor_path,
+    write_session,
+)
+from hydromodpy.results.session.journal import (
+    TrialLine,
+    append_trial,
+    next_trial_number,
+    read_trials,
+    trial_row,
+)
+from hydromodpy.results.session.phase import (
+    PhaseDescriptor,
+    list_phases,
+    phase_dir,
+    read_phase,
+    write_phase,
+)
 
 PersistDetail = Literal["none", "summary", "full"]
 
-CalibrationStoreFactory = Callable[[Path, object], Any]
+DEFAULT_PHASE = "main"
+"""Phase name of a calibration that declares no ``[[calibration.phases]]``."""
 
 
-def default_store_factory(workspace: Path, persistence: object) -> Any:
-    """Open the default calibration store (project catalog DuckDB)."""
-    from hydromodpy.results.catalog import Catalog
+@dataclass(frozen=True, slots=True)
+class PhaseContext:
+    """Which phase of the session a search belongs to, and which restart of it."""
 
-    return Catalog(workspace, persistence=persistence)
-
-
-class CalibrationStore(Protocol):
-    """Store surface required by calibration persistence."""
-
-    @property
-    def connection(self) -> Any: ...
+    name: str = DEFAULT_PHASE
+    index: int = 0
+    restart: int = 0
 
 
 class CalibrationPersistence:
-    """Idempotent writer for one calibration session.
+    """Journal writer and reader of one session directory.
 
-    The shared :class:`PersistenceConfig` gates every write. When
-    ``persistence.save_catalog`` is False, every method becomes a no-op, so
-    calibration sessions can run fully in-memory. ``project_root`` names the
-    project owning ``sessions/``; without it the session is indexed but not
-    journalled, which is what a read-only report handle wants.
+    Built on the reserved session directory. :meth:`start_session` writes the
+    opening descriptor and outcome, :meth:`append_iteration` adds one line per
+    trial, :meth:`finalize_session` closes both documents. A resumed session
+    reuses the directory: the trial numbers go on from the highest one journaled.
     """
 
-    def __init__(
-        self,
-        catalog: CalibrationStore,
-        persistence: PersistenceConfig | None = None,
-        project_root: Path | None = None,
-    ):
-        self._conn = catalog.connection
-        self._persistence = persistence or PersistenceConfig()
-        self._project_root = project_root
-        self._journal: SessionJournal | None = None
+    def __init__(self, session_dir: Path) -> None:
+        self._directory = Path(session_dir)
+        self._lock = threading.Lock()
+        self._next = next_trial_number(self._directory)
+        self._numbers: dict[tuple[str, int, int], int] = {}
+        self._outcome: Outcome | None = None
+
+    @property
+    def directory(self) -> Path:
+        """The session directory."""
+        return self._directory
+
+    @property
+    def descriptor(self) -> SessionDescriptor:
+        """The descriptor as last written to disk."""
+        return read_session(self._directory)
+
+    def exists(self) -> bool:
+        """Whether the directory already holds a descriptor."""
+        return session_descriptor_path(self._directory).is_file()
+
+    # -- session ----------------------------------------------------------------
 
     def start_session(
         self,
         *,
         session_id: str,
-        project: str,
+        case_id: str,
+        site: str | None,
+        project: str | None,
+        config_hash: str,
+        hydromodpy_version: str,
         method: str,
         objective_name: str,
-        search_space: dict[str, Any],
-        config: dict,
-        parent_session_id: str | None = None,
-        root_session_id: str | None = None,
-        phase_name: str | None = None,
-        phase_index: int | None = None,
-    ) -> None:
-        """Open a session, in the journal then in the index.
-
-        The four chaining arguments place the session in a phase chain and
-        stay empty for a standalone calibration.
-        """
-        if not self._persistence.save_catalog:
-            return
-        started_at = datetime.now(UTC)
-        if self._project_root is not None:
-            self._journal = SessionJournal.start(
-                self._project_root,
-                session_id=session_id,
-                project=project,
-                method=method,
-                objective_name=objective_name,
-                search_space=search_space,
-                config=config,
-                started_at=started_at,
-                parent_session_id=parent_session_id,
-                root_session_id=root_session_id,
-                phase_name=phase_name,
-                phase_index=phase_index,
-            )
-        self._conn.execute(
-            """
-            INSERT INTO calibration_sessions
-                (session_id, project, method, objective_name,
-                 n_iterations, config, started_at, status_id,
-                 parent_session_id, root_session_id, phase_name, phase_index)
-            VALUES (?, ?, ?, ?, 0, ?, ?,
-                    (SELECT id FROM statuses WHERE code = 'running'),
-                    ?, ?, ?, ?)
-            """,
-            [
-                _session_key(session_id),
-                project,
-                method,
-                objective_name,
-                json.dumps(config, default=str),
-                started_at,
-                _session_key(parent_session_id),
-                _session_key(root_session_id),
-                phase_name,
-                None if phase_index is None else int(phase_index),
-            ],
+        search_space: Mapping[str, Any],
+        objective_window: DateWindow | None,
+    ) -> SessionDescriptor:
+        """Write the opening descriptor and the running outcome."""
+        now = datetime.now(UTC)
+        descriptor = SessionDescriptor(
+            site=site,
+            session_id=session_id,
+            case_id=case_id,
+            config_hash=config_hash,
+            hydromodpy_version=hydromodpy_version,
+            method=method,
+            search_space=dict(search_space),
+            objective_name=objective_name,
+            objective_window=objective_window,
+            started_at=now,
         )
+        write_session(self._directory, descriptor)
+        self._outcome = Outcome(
+            case_id=case_id,
+            site=site,
+            project=project,
+            attempt=1,
+            attempt_id=uuid.uuid4().hex,
+            status="running",
+            written_by="worker",
+            started_at=now,
+            host=socket.gethostname(),
+            pid=os.getpid(),
+        )
+        write_outcome(self._directory, self._outcome)
+        return descriptor
+
+    def resume_session(self) -> SessionDescriptor:
+        """Reopen an existing session: its status goes back to ``running``."""
+        descriptor = read_session(self._directory)
+        descriptor = descriptor.model_copy(
+            update={"status": "running", "ended_at": None, "error_message": None}
+        )
+        write_session(self._directory, descriptor)
+        self._outcome = Outcome(
+            case_id=descriptor.case_id,
+            site=descriptor.site,
+            attempt=1,
+            attempt_id=uuid.uuid4().hex,
+            status="running",
+            written_by="worker",
+            started_at=datetime.now(UTC),
+            host=socket.gethostname(),
+            pid=os.getpid(),
+        )
+        write_outcome(self._directory, self._outcome)
+        return descriptor
+
+    def finalize_session(
+        self,
+        *,
+        status: SessionStatus,
+        best: BestTrial | None,
+        error: str | None = None,
+        root_search: Mapping[str, Any] | None = None,
+    ) -> SessionDescriptor:
+        """Close the session: descriptor, then outcome."""
+        now = datetime.now(UTC)
+        descriptor = read_session(self._directory).model_copy(
+            update={
+                "status": status,
+                "ended_at": now,
+                "best": best,
+                "error_message": error,
+                "root_search": dict(root_search) if root_search else None,
+            }
+        )
+        write_session(self._directory, descriptor)
+        self._write_closing_outcome(status, error, now)
+        return descriptor
+
+    def set_best(self, best: BestTrial | None) -> None:
+        """Rewrite the best pointer of the descriptor, status unchanged."""
+        descriptor = read_session(self._directory).model_copy(update={"best": best})
+        write_session(self._directory, descriptor)
+
+    def _write_closing_outcome(
+        self, status: SessionStatus, error: str | None, now: datetime
+    ) -> None:
+        outcome = self._outcome
+        if outcome is None:
+            return
+        outcome_status = "completed" if status in ("completed", "partial") else status
+        if outcome_status == "completed":
+            error_block = None
+        else:
+            error_block = OutcomeError(type=status, message=error or status)
+        self._outcome = outcome.model_copy(
+            update={"status": outcome_status, "ended_at": now, "error": error_block}
+        )
+        write_outcome(self._directory, self._outcome)
+
+    # -- phases -----------------------------------------------------------------
+
+    def start_phase(self, phase: PhaseContext, *, frozen: Mapping[str, Any]) -> PhaseDescriptor:
+        """Open a phase, counting a restart when its descriptor already exists."""
+        existing = self.phase(phase.name)
+        descriptor = PhaseDescriptor(
+            phase_id=existing.phase_id if existing is not None else uuid.uuid4().hex,
+            name=phase.name,
+            index=phase.index,
+            status="running",
+            frozen=dict(frozen),
+            best=None,
+            restarts=phase.restart,
+        )
+        write_phase(self._directory, descriptor)
+        return descriptor
+
+    def finish_phase(
+        self, name: str, *, status: SessionStatus, best: BestTrial | None
+    ) -> PhaseDescriptor:
+        """Close a phase with its status, its best trial and the restarts it ran."""
+        restarts = max((line.restart for line in self.trials(name)), default=0)
+        descriptor = read_phase(self._directory, name).model_copy(
+            update={"status": status, "best": best, "restarts": restarts}
+        )
+        write_phase(self._directory, descriptor)
+        return descriptor
+
+    def phase(self, name: str) -> PhaseDescriptor | None:
+        """Return the descriptor of one phase, or None when it never opened."""
+        if not (phase_dir(self._directory, name) / "session.json").is_file():
+            return None
+        return read_phase(self._directory, name)
+
+    def phases(self) -> list[PhaseDescriptor]:
+        """Return every phase of the session, by index."""
+        return list_phases(self._directory)
+
+    # -- trials -----------------------------------------------------------------
 
     def append_iteration(
         self,
-        session_id: str,
         suggestion: ParamSuggestion,
         result: EvaluationResult,
         *,
         detail: PersistDetail = "summary",
-    ) -> None:
-        if not self._persistence.save_catalog:
-            return
-        trial = _build_trial(suggestion, result, detail)
-        if self._journal is not None:
-            self._journal.append(trial)
-        params_json = json.dumps(trial.parameters, default=str)
-        metrics_json = None if trial.metrics is None else json.dumps(trial.metrics, default=str)
-        sid = _session_key(session_id)
-        sim_uuid = None
-        if trial.sim_id:
-            try:
-                sim_uuid = uuid.UUID(trial.sim_id)
-            except ValueError:
-                sim_uuid = None
-        self._conn.execute(
-            """
-            INSERT INTO calibration_iterations
-                (session_id, iteration, sim_id, params_hash, parameters,
-                 objective_value, metrics, status, from_cache, duration_s)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (session_id, iteration) DO UPDATE SET
-                sim_id = EXCLUDED.sim_id,
-                params_hash = EXCLUDED.params_hash,
-                parameters = EXCLUDED.parameters,
-                objective_value = EXCLUDED.objective_value,
-                metrics = EXCLUDED.metrics,
-                status = EXCLUDED.status,
-                from_cache = EXCLUDED.from_cache,
-                duration_s = EXCLUDED.duration_s
-            """,
-            [
-                sid,
-                trial.trial,
-                sim_uuid,
-                trial.params_hash,
-                params_json,
-                trial.objective_value,
-                metrics_json,
-                trial.status,
-                trial.from_cache,
-                trial.duration_s,
-            ],
-        )
+        phase: PhaseContext | None = None,
+    ) -> TrialLine:
+        """Append the line of one evaluated trial and return it.
 
-    def finalize_session(
-        self,
-        session_id: str,
-        *,
-        best: EvaluationResult | None,
-        n_iterations: int,
-        duration_s: float,
-        status: str = "completed",
-        error: str | None = None,
-        best_sim_id: str | None = None,
-        root_search: Mapping[str, Any] | None = None,
-    ) -> None:
-        """Close the session: outcome, best trial and promoted best run.
-
-        ``best_sim_id`` is the run promotion produced for the best trial; it
-        wins over the id the evaluation carried, which stays empty for the
-        lightweight trial loop.
-
-        ``root_search`` is the final bracket or the two roots of a root
-        search, keyed ``bracket`` and ``roots`` as in the report. It goes to
-        ``session.json`` only: the index has no column for it, and a reader
-        of the session reads it from the disk.
+        The trial number is unique in the session: the first time an engine
+        trial id of this phase and restart is seen it takes the next number
+        (:meth:`assign_trial_number`).
         """
-        if not self._persistence.save_catalog:
-            return
-        ended_at = datetime.now(UTC)
-        best_run = best_sim_id or (best.sim_id if best else None)
-        if self._journal is not None:
-            self._journal.finish(
-                status=status,
-                duration_s=duration_s,
-                ended_at=ended_at,
-                best_trial=best.trial_id if best else None,
-                best_objective=best.objective_value if best else None,
-                best_sim_id=best_run,
-                error_message=error,
-                root_search=root_search,
-            )
-        sid = _session_key(session_id)
-        best_sim_uuid = None
-        if best_run:
-            try:
-                best_sim_uuid = uuid.UUID(best_run)
-            except ValueError:
-                best_sim_uuid = None
-        self._conn.execute(
-            """
-            UPDATE calibration_sessions
-               SET n_iterations = ?,
-                   best_sim_id = ?,
-                   best_objective = ?,
-                   ended_at = ?,
-                   duration_s = ?,
-                   status_id = (SELECT id FROM statuses WHERE code = ?),
-                   error_message = ?
-             WHERE session_id = ?
-            """,
-            [
-                n_iterations,
-                best_sim_uuid,
-                best.objective_value if best else None,
-                ended_at,
-                duration_s,
-                status,
-                error,
-                sid,
-            ],
-        )
+        context = phase or PhaseContext()
+        number = self.assign_trial_number(suggestion.trial_id, context)
+        line = _build_trial(number, context, suggestion, result, detail)
+        append_trial(self._directory, line)
+        return line
 
-    def session_directory(self) -> Path | None:
-        """Return the live journal directory, or None when nothing is journalled.
+    def assign_trial_number(self, engine_trial_id: int, phase: PhaseContext | None = None) -> int:
+        """Return the session trial number of an engine trial id, giving it the next one once.
 
-        ``None`` whenever ``save_catalog`` is off or no ``project_root`` was
-        given to journal this session. Used by the runner to place per-trial
-        artefacts, such as an opt-in trial series table, beside ``trials.jsonl``.
+        The engine numbers its trials per search, from its own first id; the
+        session numbers them once across phases and restarts. The number is
+        given when the trial is first seen, before it runs, so the sandbox of
+        the trial and the solve it keeps carry the number its journal line
+        carries.
         """
-        return None if self._journal is None else self._journal.directory
+        context = phase or PhaseContext()
+        with self._lock:
+            key = (context.name, context.restart, int(engine_trial_id))
+            number = self._numbers.get(key)
+            if number is None:
+                number = self._next
+                self._next += 1
+                self._numbers[key] = number
+            return number
 
-    def load_iterations(self, session_id: str) -> list[dict]:
-        sid = _session_key(session_id)
-        rows = self._conn.execute(
-            """
-            SELECT iteration, sim_id, params_hash, parameters,
-                   objective_value, metrics, status, from_cache, duration_s
-              FROM calibration_iterations
-             WHERE session_id = ?
-             ORDER BY iteration
-            """,
-            [sid],
-        ).fetchall()
-        out: list[dict] = []
-        for (
-            iteration,
-            sim_id,
-            params_hash,
-            parameters,
-            objective_value,
-            metrics,
-            status,
-            from_cache,
-            duration_s,
-        ) in rows:
-            out.append(
-                {
-                    "iteration": iteration,
-                    "sim_id": str(sim_id) if sim_id else None,
-                    "params_hash": params_hash,
-                    "parameters": json.loads(parameters) if parameters else {},
-                    "objective_value": objective_value,
-                    "metrics": json.loads(metrics) if metrics else None,
-                    "status": status,
-                    "from_cache": bool(from_cache),
-                    "duration_s": duration_s,
-                }
-            )
-        return out
+    def assign_trial_numbers(
+        self, engine_trial_ids: Sequence[int], phase: PhaseContext | None = None
+    ) -> list[int]:
+        """Number a batch of engine trial ids in the order given, before any of them runs.
 
-    def top_n(self, session_id: str, n: int) -> list[dict]:
-        """Return the N best completed iterations (lowest objective)."""
-        sid = _session_key(session_id)
-        rows = self._conn.execute(
-            """
-            SELECT iteration, sim_id, params_hash, parameters,
-                   objective_value, metrics, status, duration_s
-              FROM calibration_iterations
-             WHERE session_id = ? AND status = 'completed'
-               AND objective_value IS NOT NULL
-             ORDER BY objective_value ASC
-             LIMIT ?
-            """,
-            [sid, int(n)],
-        ).fetchall()
-        out: list[dict] = []
-        for iteration, sim_id, params_hash, parameters, obj, metrics, status, dur in rows:
-            out.append(
-                {
-                    "iteration": iteration,
-                    "sim_id": str(sim_id) if sim_id else None,
-                    "params_hash": params_hash,
-                    "parameters": json.loads(parameters) if parameters else {},
-                    "objective_value": obj,
-                    "metrics": json.loads(metrics) if metrics else None,
-                    "status": status,
-                    "duration_s": dur,
-                }
-            )
-        return out
+        Parallel workers start in no fixed order, so a batch is numbered in the
+        order the optimizer made it. Two sessions on the same search then give
+        the same trial the same number, and a tie on the objective, broken by
+        the smaller number, names the same trial in both.
+        """
+        return [self.assign_trial_number(trial_id, phase) for trial_id in engine_trial_ids]
+
+    def trial_number(self, engine_trial_id: int, phase: PhaseContext | None = None) -> int | None:
+        """Return the session trial number an engine trial id took, or None."""
+        context = phase or PhaseContext()
+        with self._lock:
+            return self._numbers.get((context.name, context.restart, int(engine_trial_id)))
+
+    def trials(self, phase: str | None = None) -> list[TrialLine]:
+        """Return the trials of the session, or of one phase, by number."""
+        lines = read_trials(self._directory)
+        if phase is None:
+            return lines
+        return [line for line in lines if line.phase == phase]
+
+    def best_trial(
+        self, phase: str | None = None, *, restart: int | None = None
+    ) -> TrialLine | None:
+        """Return the completed trial of lowest finite objective, or None."""
+        candidates = [
+            line
+            for line in self.trials(phase)
+            if line.status == "completed"
+            and line.objective is not None
+            and line.objective == line.objective
+            and (restart is None or line.restart == restart)
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda line: (line.objective, line.trial))
+
+    def link_trial(self, trial: int, *, sim_id: str | None, rel_dir: str | None) -> TrialLine:
+        """Rewrite the line of a trial with the run it became; the last line wins."""
+        line = next(item for item in read_trials(self._directory) if item.trial == trial)
+        linked = line.model_copy(update={"sim_id": sim_id, "rel_dir": rel_dir})
+        append_trial(self._directory, linked)
+        return linked
+
+    def load_iterations(self, phase: str | None = None) -> list[dict[str, Any]]:
+        """Return the trials as plain rows, one per trial number."""
+        return [trial_row(line) for line in self.trials(phase)]
+
+    def top_n(self, n: int, phase: str | None = None) -> list[dict[str, Any]]:
+        """Return the ``n`` completed trials of lowest objective, as rows."""
+        completed = [
+            line
+            for line in self.trials(phase)
+            if line.status == "completed" and line.objective is not None
+        ]
+        ranked = sorted(completed, key=lambda line: (line.objective, line.trial))
+        return [trial_row(line) for line in ranked[: max(0, int(n))]]
 
 
-def _session_key(session_id: str | None) -> uuid.UUID | str | None:
-    """Return a session id in the form the index stores it.
-
-    A journal writes the identity as bare 32-character hex, which DuckDB
-    does not read as a UUID on its own; every other spelling it casts.
-    """
-    if session_id is None:
+def best_pointer(line: TrialLine | None) -> BestTrial | None:
+    """Return the descriptor pointer of a trial line, or None."""
+    if line is None:
         return None
-    return uuid.UUID(session_id) if len(session_id) == 32 else session_id
+    return BestTrial(
+        trial=line.trial, sim_id=line.sim_id, rel_dir=line.rel_dir, objective=line.objective
+    )
 
 
 def _build_trial(
+    number: int,
+    phase: PhaseContext,
     suggestion: ParamSuggestion,
     result: EvaluationResult,
     detail: PersistDetail,
-) -> SessionTrial:
-    """Return the record one evaluation writes, to the journal and the index."""
+) -> TrialLine:
+    """Return the journal line one evaluation writes."""
     metadata = result.metadata or {}
     parameters = metadata.get("parameters")
     if not isinstance(parameters, dict):
         parameters = {name: {"value": value} for name, value in dict(suggestion.values).items()}
     objective = result.objective_value
     finite = isinstance(objective, (int, float)) and objective == objective
-    return SessionTrial(
-        trial=int(suggestion.trial_id),
-        parameters=parameters,
-        objective_value=float(objective) if finite else None,
-        status=result.status,
-        duration_s=float(result.duration_s),
-        from_cache=bool(result.from_cache),
-        metrics=_build_metrics(result, metadata, detail),
+    ended_at = datetime.now(UTC)
+    duration = max(0.0, float(result.duration_s or 0.0))
+    status = "completed" if result.status == "cached" else str(result.status)
+    return TrialLine(
+        trial=number,
+        phase=phase.name,
+        restart=phase.restart,
+        params=parameters,
         params_hash=metadata.get("params_hash"),
+        objective=float(objective) if finite else None,
+        metrics=_build_metrics(result, metadata, detail),
+        status=status,
+        from_cache=bool(result.from_cache) or result.status == "cached",
+        started_at=ended_at - timedelta(seconds=duration),
+        ended_at=ended_at,
         sim_id=result.sim_id,
     )
 
 
 def _build_metrics(
     result: EvaluationResult,
-    metadata: dict,
+    metadata: Mapping[str, Any],
     detail: PersistDetail,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
     """Return the metric payload of one trial at the requested detail."""
     if detail == "none":
-        return None
+        return {}
     payload: dict[str, Any] = {}
     if result.components:
-        payload.update({str(k): v for k, v in dict(result.components).items()})
+        payload.update({str(key): value for key, value in dict(result.components).items()})
     overlay = metadata.get("materialized_overlay")
     if overlay:
         payload["materialized_overlay"] = str(overlay)
     if detail == "full":
         block_costs = metadata.get("block_costs")
         if isinstance(block_costs, dict) and block_costs:
-            payload["block_costs"] = {str(k): v for k, v in block_costs.items()}
+            payload["block_costs"] = {str(key): value for key, value in block_costs.items()}
     error = metadata.get("error")
     if error:
         payload["error"] = str(error)
@@ -386,12 +422,13 @@ def _build_metrics(
     # the trial is real, but it is not on the path of the search.
     if metadata.get("speculative_unused"):
         payload["speculative_unused"] = 1.0
-    return payload or None
+    return payload
 
 
 __all__ = [
+    "DEFAULT_PHASE",
     "CalibrationPersistence",
-    "CalibrationStoreFactory",
     "PersistDetail",
-    "default_store_factory",
+    "PhaseContext",
+    "best_pointer",
 ]

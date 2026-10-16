@@ -24,12 +24,10 @@ class _DumpableConfig:
             scientific_objective="Water budget",
             contact_email="",
             doi=None,
-            study_area_name="Demo basin",
-            outlet_x=1.25,
-            outlet_y=None,
             time=SimpleNamespace(step_unit="days"),
         )
         self.geographic = SimpleNamespace(crs_project="EPSG:2154")
+        self.site = None
 
     def model_dump(self, **_kwargs) -> dict[str, object]:
         return dict(self._payload)
@@ -58,7 +56,7 @@ def test_primary_solver_rejects_empty_plan() -> None:
         validate_module._primary_solver_for_simulation(SimpleNamespace(runs=()))
 
 
-def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
+def test_collect_run_facts_collects_mesh_time_and_simulation_metadata(
     tmp_path: Path,
 ) -> None:
     points = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [0.0, 3.0]], dtype=np.float64)
@@ -83,30 +81,27 @@ def test_collect_registration_kwargs_collects_mesh_time_and_simulation_metadata(
         ),
     )
 
-    kwargs = validate_module.collect_registration_kwargs(ctx)
+    facts = validate_module.collect_run_facts(ctx)
 
     expected_mesh_hash = hashlib.sha256(points.tobytes() + connectivity.tobytes()).hexdigest()
-    assert kwargs["flow_regime"] == "transient"
-    assert kwargs["config_source"] == str(tmp_path / "config.toml")
-    assert kwargs["config"] == cfg_payload
-    assert kwargs["config_snapshot"] == cfg_payload
-    assert kwargs["description"] == "Demo run"
-    assert kwargs["scientific_objective"] == "Water budget"
-    assert kwargs["study_area_name"] == "Demo basin"
-    assert kwargs["outlet_x"] == 1.25
-    assert "contact_email" not in kwargs
-    assert "doi" not in kwargs
-    assert "outlet_y" not in kwargs
-    assert kwargs["n_cells"] == 2
-    assert kwargs["mesh_type"] == "triangle"
-    assert kwargs["cell_types"] == ["triangle"]
-    assert kwargs["bbox"] == [0.0, 0.0, 2.0, 3.0]
-    assert kwargs["mesh_hash"] == expected_mesh_hash
-    assert kwargs["crs"] == "EPSG:2154"
-    assert kwargs["period_start"] == "2020-01-01"
-    assert kwargs["period_end"] == "2020-01-03"
-    assert kwargs["n_timesteps"] == 2
-    assert kwargs["time_unit"] == "days"
+    assert facts["flow_regime"] == "transient"
+    assert facts["config_source"] == str(tmp_path / "config.toml")
+    assert facts["description"] == "Demo run"
+    assert facts["scientific_objective"] == "Water budget"
+    assert "contact_email" not in facts
+    assert "doi" not in facts
+    assert "study_area_name" not in facts
+    assert facts["n_cells"] == 2
+    assert facts["mesh_topology"] == "triangle"
+    assert facts["bbox"] == (0.0, 0.0, 2.0, 3.0)
+    assert facts["mesh_hash"] == expected_mesh_hash
+    assert facts["crs_wkt"] == "EPSG:2154"
+    assert facts["crs_epsg"] == 2154
+    assert facts["period_start"].isoformat() == "2020-01-01T00:00:00+00:00"
+    assert facts["period_end"].isoformat() == "2020-01-03T00:00:00+00:00"
+    assert facts["n_timesteps"] == 2
+    assert facts["time_unit"] == "days"
+    assert "site" not in facts
 
 
 def test_store_sim_artifacts_returns_existing_project_relative_run_paths(

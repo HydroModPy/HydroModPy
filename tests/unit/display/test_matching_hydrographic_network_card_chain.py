@@ -1,17 +1,16 @@
-"""The card of a promoted run draws every phase of the chain it belongs to.
+"""The card of a promoted run draws every phase of the session it comes from.
 
-A promoted run carries the row of the one trial it was promoted from, and a
-session read by that row is the session of that phase alone. The run promoted
-from the second phase of a protocol used to draw "Stage 1 - transient_storage /
-Stage 2 - not run" and three empty panels. It now reads the other sessions of
-its chain from the index and draws stage 1 with its bracket and validity. The
-run promoted from the first phase, drawn before the second one starts, names
-the second phase as the one that comes next.
+A promoted run names its session, phase and trial in its seal. The session
+journals the trials of every phase in ``sessions/<case>/trials.jsonl``. The
+run promoted from the second phase of a protocol used to draw "Stage 1 -
+transient_storage / Stage 2 - not run" and three empty panels. It reads the
+first phase from the same journal and draws stage 1 with its bracket and
+validity. The run promoted from the first phase, drawn before the second one
+starts, names the second phase as the one that comes next.
 """
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +21,13 @@ from hydromodpy.display.figures.matching_hydrographic_network_card import (
     MatchingHydrographicNetworkCard,
 )
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import rebuild_index
+from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.run import Run
+from hydromodpy.results.session.journal import TrialLine, append_trial
+from hydromodpy.results.session.phase import PhaseDescriptor, write_phase
+from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
+from tests._helpers.sealed_runs import make_project, seal_run, write_session_dir
 
 from .test_matching_hydrographic_network_card import (
     _panel,
@@ -31,9 +36,31 @@ from .test_matching_hydrographic_network_card import (
     _texts,
 )
 
-ROOT = str(uuid.uuid4())
-STORAGE = str(uuid.uuid4())
-PHASES = [{"name": "steady_conductivity"}, {"name": "transient_storage"}]
+SESSION = uuid.uuid4().hex
+CASE = "nancon"
+STEADY, STORAGE = "steady_conductivity", "transient_storage"
+STARTED = datetime(2026, 9, 28, tzinfo=UTC)
+# The session config freezes both phases, each with the metric it scores on,
+# and the units of every parameter it moves.
+SESSION_CONFIG = """\
+[calibration.parameters.K_over_R]
+units = "m/s"
+
+[calibration.parameters.specific_yield]
+units = "-"
+
+[[calibration.phases]]
+name = "steady_conductivity"
+objective_blocks = [{ name = "steady_conductivity", metric = "distance_gap" }]
+
+[[calibration.phases]]
+name = "transient_storage"
+objective_blocks = [{ name = "transient_storage", metric = "nse_log" }]
+"""
+PHASES_TOML = (
+    '[[calibration.phases]]\nname = "steady_conductivity"\n\n'
+    '[[calibration.phases]]\nname = "transient_storage"\n'
+)
 
 
 @pytest.fixture
@@ -48,76 +75,88 @@ def mpl():
     plt.close("all")
 
 
-def _session(catalog, session_id: str, *, phase: str, index: int, units: str, metric: str):
-    config = {
-        "parameters": {"K_over_R" if index == 0 else "specific_yield": {"units": units}},
-        "objective_blocks": [{"name": phase, "metric": metric}],
-    }
-    catalog.connection.execute(
-        "INSERT INTO calibration_sessions (session_id, project, method, objective_name, "
-        "config, started_at, root_session_id, parent_session_id, phase_name, phase_index) "
-        "VALUES (?, 'p', 'bisection', 'nse', ?, ?, ?, ?, ?, ?)",
-        [
-            uuid.UUID(session_id),
-            json.dumps(config),
-            datetime(2026, 9, 28, tzinfo=UTC),
-            uuid.UUID(ROOT),
-            None if index == 0 else uuid.UUID(ROOT),
-            phase,
-            index,
-        ],
+def _phase(project: Path, name: str, index: int) -> None:
+    write_phase(
+        project / "sessions" / CASE,
+        PhaseDescriptor(
+            phase_id=f"{SESSION[:8]}-{index}",
+            name=name,
+            index=index,
+            status="completed",
+            frozen={},
+            restarts=0,
+        ),
     )
 
 
-def _trials(catalog, session_id: str, rows: list[dict], *, promoted: str | None, best: int):
-    for row in rows:
-        catalog.connection.execute(
-            "INSERT INTO calibration_iterations (session_id, iteration, sim_id, parameters, "
-            "objective_value, metrics, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [
-                uuid.UUID(session_id),
-                row["iteration"],
-                uuid.UUID(promoted) if promoted and row["iteration"] == best else None,
-                json.dumps(row["parameters"]),
-                row["objective_value"],
-                json.dumps(row["metrics"]),
-                row["status"] if row["status"] == "completed" else "crashed",
-            ],
+def _trials(project: Path, phase: str, rows: list[dict], *, first: int) -> list[int]:
+    """Journal *rows* as trials of *phase*, numbered from *first*; return the numbers."""
+    numbers = []
+    for offset, row in enumerate(rows):
+        number = first + offset
+        append_trial(
+            project / "sessions" / CASE,
+            TrialLine(
+                trial=number,
+                phase=phase,
+                params={name: entry["value"] for name, entry in row["parameters"].items()},
+                objective=row["objective_value"],
+                metrics=row["metrics"],
+                status=row["status"] if row["status"] == "completed" else "crashed",
+                started_at=STARTED,
+                ended_at=STARTED,
+            ),
         )
+        numbers.append(number)
+    return numbers
 
 
-def _promoted_run(catalog, name: str) -> str:
-    sid = str(uuid.uuid4())
-    catalog.register_simulation(
-        sid,
+def _promoted_run(project: Path, name: str, *, phase: str, trial: int) -> str:
+    """Seal the run promoted from *trial* of *phase*, with the phases it was replayed with."""
+    return seal_run(
+        project,
+        name,
         project="p",
-        solver="modflow6",
-        name=name,
-        config={"calibration": {"phases": PHASES}},
-        config_snapshot={"calibration": {"phases": PHASES}},
+        config_text=PHASES_TOML,
+        calibrated_by=CalibratedBy(
+            session_id=SESSION, phase=phase, trial=trial, session_status="completed"
+        ),
     )
-    return sid
+
+
+def _open(project: Path, sim_id: str) -> tuple[Catalog, Run]:
+    rebuild_index(project)
+    catalog = Catalog(project)
+    return catalog, Run(sim_id, catalog)
 
 
 @pytest.fixture
-def chain(tmp_path: Path):
-    with Catalog(tmp_path) as catalog:
-        _session(
-            catalog, ROOT, phase="steady_conductivity", index=0, units="m/s", metric="distance_gap"
-        )
-        steady_run = _promoted_run(catalog, "nancon_steady_conductivity")
-        # The closed end of the bracket is trial 3, the promoted one.
-        _trials(catalog, ROOT, _root_rows(session_id=None), promoted=steady_run, best=3)
-        yield catalog, steady_run
+def chain(tmp_path: Path) -> tuple[Path, str]:
+    """A session whose first phase promoted a run; the second phase not yet run."""
+    project = make_project(tmp_path / "p")
+    write_session_dir(project, CASE, session_id=SESSION, trials=0, phases=(), status="completed")
+    (project / "sessions" / CASE / SESSION_CONFIG_FILENAME).write_text(
+        SESSION_CONFIG, encoding="utf-8"
+    )
+    _phase(project, STEADY, 0)
+    numbers = _trials(project, STEADY, _root_rows(session_id=None), first=1)
+    # The closed end of the bracket is the fourth trial, the promoted one.
+    steady_run = _promoted_run(
+        project, "nancon_steady_conductivity", phase=STEADY, trial=numbers[3]
+    )
+    return project, steady_run
 
 
 def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
-    catalog, _ = chain
-    _session(catalog, STORAGE, phase="transient_storage", index=1, units="-", metric="nse_log")
-    storage_run = _promoted_run(catalog, "nancon_transient_storage")
-    _trials(catalog, STORAGE, _storage_rows(session_id=STORAGE), promoted=storage_run, best=1)
+    project, _ = chain
+    _phase(project, STORAGE, 1)
+    numbers = _trials(project, STORAGE, _storage_rows(session_id=SESSION), first=5)
+    storage_run = _promoted_run(
+        project, "nancon_transient_storage", phase=STORAGE, trial=numbers[1]
+    )
+    catalog, run = _open(project, storage_run)
 
-    fig = MatchingHydrographicNetworkCard().plot(Run(storage_run, catalog))
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         stage_one = _panel(fig, "Stage 1")
@@ -131,12 +170,14 @@ def test_the_run_of_the_second_phase_draws_the_first_one(chain, mpl) -> None:
         assert validity.patches, "the validity of stage 1 is drawn, not left empty"
     finally:
         mpl.close(fig)
+        catalog.close()
 
 
 def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> None:
-    catalog, steady_run = chain
+    project, steady_run = chain
+    catalog, run = _open(project, steady_run)
 
-    fig = MatchingHydrographicNetworkCard().plot(Run(steady_run, catalog))
+    fig = MatchingHydrographicNetworkCard().plot(run)
 
     try:
         assert _panel(fig, "Stage 1").get_title() == "Stage 1 - steady_conductivity"
@@ -146,3 +187,4 @@ def test_the_run_of_the_first_phase_says_the_second_comes_next(chain, mpl) -> No
         assert "not run" not in _texts(stage_two)
     finally:
         mpl.close(fig)
+        catalog.close()

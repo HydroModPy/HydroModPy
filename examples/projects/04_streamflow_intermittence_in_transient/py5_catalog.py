@@ -23,23 +23,21 @@ HERE = Path(__file__).resolve().parent
 # does not modify it.
 cat = hmp.open(HERE)
 
-# One row per run. The runs that an if_exists = "replace" replaced are in the
-# trash, with the status "trashed".
+# One row per sealed run. A run deleted with hmp catalog delete is in the trash
+# of the project, not here.
 frame = cat.frame
 done = frame[frame["status"] == "completed"]
 print(done[["name", "flow_regime", "n_timesteps", "duration_s"]].to_string(index=False))
 
-# The scores against the discharge of the gauge, for every transient run. Take
-# care when you compare them: the daily runs have neither the same period nor
-# the same step as the monthly runs.
+# The scores of every transient run, read from its seal. Each run scores the gauge
+# in the window of its own metric rule, and the table says which. Take care when
+# you compare them: the daily runs have neither the same window nor the same step
+# as the monthly runs, and RunSet.compare refuses to rank runs under different
+# rules unless you pass mixed_windows=True.
 transient = cat.find(status="completed", flow_regime="transient")
-scores = pd.DataFrame(
-    {
-        metric: transient.compare(metric, station="NANCON").set_index("name")["value"]
-        for metric in ["nse", "nse_log", "kge"]
-    }
-)
-print(scores.sort_values("nse", ascending=False).round(3))
+scores = transient.metrics.merge(frame[["sim_id", "name"]], on="sim_id").set_index("name")
+columns = ["station", "nse_window_start", "nse_window_end", "nse", "nse_log", "kge"]
+print(scores[columns].sort_values("nse", ascending=False).round(3))
 
 # %% One run
 
@@ -71,7 +69,7 @@ plt.close(fig)
 
 # %% An export on demand
 
-# The states of January 2001, as GeoTIFF, written in share/<run>/ next to the
-# ones the TOML already asks for.
+# The states of January 2001, as GeoTIFF, written in runs/<run>/exports/ next to
+# the ones the TOML already asks for.
 for path in hmp.export(run, ["watertable_depth", "seepage_mask"], time="2001-01-15"):
     print(path)

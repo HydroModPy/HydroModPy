@@ -57,18 +57,21 @@ def build_context_from_report_config(config_path: Path) -> Path:
 
 
 def build_context(inputs: CatchmentReportInputs) -> Path:
-    """Build the context artifacts consumed by ``build_catchment_report``."""
-    context_dir = inputs.context_summary.parent
+    """Build the context artifacts consumed by ``build_catchment_report``.
+
+    They land under ``report/context/`` of the run the report describes.
+    """
+    context_dir = inputs.context_dir
     assets_dir = inputs.context_assets
     web_dir = assets_dir.parent
     context_dir.mkdir(parents=True, exist_ok=True)
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     config = _load_resolved_toml(inputs.transient_config)
-    with open_simulation_run(inputs) as (catalog, run):
-        simulated = read_simulated_discharge(run)
-        parquet_dir = simulation_parquet_dir(catalog, run)
-        n_cells = run.n_cells
+    with open_simulation_run(inputs) as store:
+        simulated = read_simulated_discharge(store)
+        parquet_dir = simulation_parquet_dir(store)
+        n_cells = store.facts.n_cells
     observed = _observed_series(inputs.observed_discharge_path)
     _write_timeseries(context_dir, simulated, observed)
     _plot_single_series(

@@ -33,7 +33,6 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import migrate_config_doc_on_load
@@ -44,7 +43,6 @@ from hydromodpy.config.toml_section_loader import (
     _deep_merge,
     _load_data_section,
     _load_flow_section,
-    _load_optional_analysis_section,
     _load_optional_calibration_section,
     _load_optional_mesh_section,
     _load_optional_overview_section,
@@ -77,10 +75,9 @@ from hydromodpy.core.toml_io.error_locator import (
     json_pointer,
     validation_error_details,
 )
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.toml_io.loader import config_base_dir, load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data import DataManagersConfig
-from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
@@ -105,11 +102,20 @@ from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KIND
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshConfig
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 
 WorkflowMode = Literal["simulation", "calibration", "overview"]
 ValidationContext = Literal["toml", "api"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
+
+ANALYSIS_SECTION_REFUSAL = (
+    "[analysis] was removed: a comparison is hmp report compare over sealed runs, "
+    "figures are hmp viz regen on a run"
+)
+SITE_SELECTION_SECTION_REFUSAL = "[site_selection] is run by hmp site select <file>, not by hmp run"
+HYDROMETRY_SECTION_REFUSAL = (
+    "a root [hydrometry] belongs to a site-selection file run by hmp site select <file>; "
+    "a run reads its stations from [data.hydrometry]"
+)
 
 RETIRED_WORKFLOW_MODES: dict[str, str] = {
     "testbed": (
@@ -590,14 +596,6 @@ class HydroModPyConfig(HydroModelBase):
             "known in advance."
         ),
     )
-    analysis: Annotated[AnalysisConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional analysis hub loaded from [analysis]. Aggregates "
-            "[analysis.capability_gallery] (figure publication), and "
-            "[analysis.comparison] (simulation-comparison launcher)."
-        ),
-    )
 
     # Lightweight workflows (without simulation)
     overview: Annotated[OverviewConfig | None, Profile.USER] = Field(
@@ -643,20 +641,15 @@ class HydroModPyConfig(HydroModelBase):
             "the previous state, until the heads and the lake stage converge."
         ),
     )
-    site_selection: Annotated[SiteSelectionConfig | None, Profile.USER] = Field(
-        default=None,
-        description="Optional upstream basin site-selection workflow configuration.",
-    )
-    hydrometry: Annotated[HydrometryConfig | None, Profile.USER] = Field(
-        default=None,
-        description="Optional hydrometric observations used by data and site-selection workflows.",
-    )
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "testbed": (
             "a case of a testbed is a recipe: list the catchments in [sites] and the "
             "variants in [sites.recipes]."
         ),
+        "analysis": ANALYSIS_SECTION_REFUSAL,
+        "site_selection": SITE_SELECTION_SECTION_REFUSAL,
+        "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
 
     @model_validator(mode="before")
@@ -861,6 +854,17 @@ class HydroModPyConfig(HydroModelBase):
         """
         try:
             require_site_for_real_catchment(self)
+        except ConfigError as exc:
+            raise ValueError(exc.message) from exc
+        return self
+
+    @model_validator(mode="after")
+    def _take_the_site_gauge(self) -> HydroModPyConfig:
+        """Fill the station sources from [site] gauge; refuse a station list without it."""
+        from hydromodpy.data.sites.gauge import apply_site_gauge
+
+        try:
+            apply_site_gauge(self.data, self.site)
         except ConfigError as exc:
             raise ValueError(exc.message) from exc
         return self
@@ -1201,9 +1205,12 @@ class HydroModPyConfig(HydroModelBase):
         """
         Load and validate configuration from a TOML file.
 
-        Relative paths are resolved against the TOML file's directory.
-        Absolute paths are left unchanged. Paths starting with ``~`` are
-        expanded to the user's home directory.
+        Relative paths are resolved against the project root: the folder
+        that holds ``project.toml`` above the file, else the folder of the
+        root file of the ``base_config`` chain
+        (:func:`hydromodpy.core.toml_io.loader.config_base_dir`). Absolute
+        paths are left unchanged. Paths starting with ``~`` are expanded to
+        the user's home directory.
 
         Parameters
         ----------
@@ -1244,7 +1251,7 @@ class HydroModPyConfig(HydroModelBase):
 
         try:
             cfg = cls._from_payload(
-                raw, base=toml_path.parent, context="toml", source_path=toml_path
+                raw, base=config_base_dir(toml_path), context="toml", source_path=toml_path
             )
         except IncompatibleCapabilitiesError as exc:
             # A typed capability error from the after-validator does not carry the
@@ -1351,10 +1358,17 @@ class HydroModPyConfig(HydroModelBase):
         if "capability_gallery" in raw:
             raise _section_refusal(
                 "capability_gallery",
-                "Section [capability_gallery] is no longer supported. "
-                "Use [analysis.capability_gallery] instead.",
+                "Section [capability_gallery] is no longer supported: the figures of "
+                "a run are drawn again by hmp viz regen on the run.",
                 source_path=source_path,
             )
+        for retired_section in ("analysis", "site_selection", "hydrometry"):
+            if retired_section in raw:
+                raise _section_refusal(
+                    retired_section,
+                    cls.model_refused_keys[retired_section],
+                    source_path=source_path,
+                )
         if "batch" in raw:
             raise _section_refusal(
                 "batch",
@@ -1512,7 +1526,6 @@ class HydroModPyConfig(HydroModelBase):
             "display": ({}, _std(DisplayConfig)),
             "export": ([], lambda data, _b: load_export_requests(data)),
             "observation": ({}, _std(ObservationConfig)),
-            "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh": (None, _load_optional_mesh_section),
             "calibration": (None, _load_optional_calibration_section),
@@ -1521,32 +1534,6 @@ class HydroModPyConfig(HydroModelBase):
             "sites": (None, _optional_model(SitesConfig)),
             "metrics": (None, _optional_model(MetricsConfig)),
             "publication": (None, _optional_model(PublicationConfig)),
-            "site_selection": (
-                None,
-                lambda data, b: (
-                    None
-                    if data is None or (isinstance(data, Mapping) and not data)
-                    else load_standard_section(
-                        data,
-                        SiteSelectionConfig,
-                        b,
-                        workspace_data_dir=workspace_data_dir,
-                    )
-                ),
-            ),
-            "hydrometry": (
-                None,
-                lambda data, b: (
-                    None
-                    if data is None
-                    else load_standard_section(
-                        data,
-                        HydrometryConfig,
-                        b,
-                        workspace_data_dir=workspace_data_dir,
-                    )
-                ),
-            ),
         }
 
         parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}

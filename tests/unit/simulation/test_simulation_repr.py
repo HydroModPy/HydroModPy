@@ -2,20 +2,19 @@ from __future__ import annotations
 
 from hydromodpy.results.run import Run
 
-from ._test_simulation_api_builders import _register, catalog
+from ._test_simulation_api_builders import MISSING_SIM_ID, runs
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
 class TestSimulationRepr:
-    def test_repr_found(self, catalog):
-        sid = _register(catalog)
-        sim = Run(sid, catalog)
-        r = repr(sim)
+    def test_repr_found(self, runs):
+        sid = runs.open().sim_id
+        r = repr(Run(sid, runs.catalog()))
         assert "test" in r
         assert "modflow6" in r
 
-    def test_repr_not_found(self, catalog):
-        sim = Run("nope", catalog)
-        r = repr(sim)
+    def test_repr_not_found(self, runs):
+        runs.open()
+        r = repr(Run(MISSING_SIM_ID, runs.catalog()))
         assert "not found" in r

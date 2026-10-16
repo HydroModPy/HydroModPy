@@ -11,7 +11,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, StrictBool, ValidationError
 
@@ -28,16 +28,19 @@ PresetName = Literal["generic", "generic_catchment_report"]
 
 
 class ReportSection(HydroModelBase):
-    """The ``[report]`` table: what the report is called and where it is written."""
+    """The ``[report]`` table: what the report is called.
 
-    output_dir: Annotated[Path, Profile.USER] = Field(
-        ...,
-        description=(
-            "Folder of the report. The page is written to <output_dir>/web/index.html. "
-            "A relative path is resolved from the folder that holds the report file."
+    The report is written under ``report/`` of the run it describes,
+    ``runs/<simulation_name>/report/index.html``; the file names no folder.
+    """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "output_dir": (
+            "the report is written under report/ of the run it describes "
+            "(runs/<simulation_name>/report/index.html). Delete the line."
         ),
-        examples=["outputs/report"],
-    )
+    }
+
     site_label: Annotated[str, Profile.USER] = Field(
         ...,
         min_length=1,
@@ -64,7 +67,14 @@ class ReportSection(HydroModelBase):
 
 
 class LayoutSection(HydroModelBase):
-    """The ``[layout]`` table: where the projects, runs and context files sit."""
+    """The ``[layout]`` table: where the projects and the run sit."""
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "context_outputs_dir": (
+            "the context files are written under report/context/ of the run the report "
+            "describes (runs/<simulation_name>/report/context/). Delete the line."
+        ),
+    }
 
     watershed_project_dir: Annotated[Path, Profile.USER] = Field(
         ...,
@@ -73,14 +83,6 @@ class LayoutSection(HydroModelBase):
             "from the folder that holds the report file."
         ),
         examples=["."],
-    )
-    context_outputs_dir: Annotated[Path, Profile.USER] = Field(
-        ...,
-        description=(
-            "Folder that receives the context files, under context/ and web/assets/. "
-            "A relative path is resolved from the folder that holds the report file."
-        ),
-        examples=["outputs/context"],
     )
     data_overview_project_dir: Annotated[Path | None, Profile.USER] = Field(
         None,
@@ -92,24 +94,24 @@ class LayoutSection(HydroModelBase):
     simulation_workspace_dir: Annotated[Path | None, Profile.USER] = Field(
         None,
         description=(
-            "Project that holds the run catalog and the run to describe. "
-            "Empty uses watershed_project_dir."
+            "Project whose runs/ holds the run to describe. Empty uses watershed_project_dir."
         ),
     )
     simulation_name: Annotated[str, Profile.USER] = Field(
         "transient_nwt",
         min_length=1,
         description=(
-            "Name of the run to describe. It must be the simulation.name of the simulation "
-            "file. A name written with a version, such as 'run.v2', is read as written."
+            "Name of the run to describe, read in runs/<simulation_name>/. It must be the "
+            "simulation.name of the simulation file. A name written with a version, such as "
+            "'run.v2', is read as written. The report is written under report/ of that run."
         ),
     )
     context_summary_name: Annotated[str | None, Profile.USER] = Field(
         None,
         description=(
-            "File name of the context summary under <context_outputs_dir>/context. "
-            "Empty uses the only *_gauged_context_summary.json found there, or a name "
-            "derived from site_label."
+            "File name of the context summary under report/context/ of the run. "
+            "Empty uses <site_label>_gauged_context_summary.json, site_label in lower case "
+            "with every other character than a letter or a digit replaced by '_'."
         ),
     )
     transient_config_name: Annotated[str | None, Profile.USER] = Field(
@@ -176,6 +178,10 @@ class ContextSection(HydroModelBase):
 class PipelineSection(HydroModelBase):
     """The ``[pipeline]`` table: which steps run when the command has no option."""
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "no_lock": "hmp run writes no lockfile any more. Delete the line.",
+    }
+
     run_overview: Annotated[StrictBool, Profile.USER] = Field(
         False,
         description="Run the overview file of the report before building it.",
@@ -191,10 +197,6 @@ class PipelineSection(HydroModelBase):
     build_report_html: Annotated[StrictBool, Profile.USER] = Field(
         True,
         description="Build the HTML page of the catchment report.",
-    )
-    no_lock: Annotated[StrictBool, Profile.USER] = Field(
-        True,
-        description="Pass --no-lock to the overview run and the simulation run.",
     )
     stream_run_logs: Annotated[StrictBool, Profile.USER] = Field(
         False,
@@ -214,11 +216,11 @@ class ReportConfig(HydroModelBase):
 
     report: Annotated[ReportSection, Profile.USER] = Field(
         ...,
-        description="Name, labels and output folder of the report.",
+        description="Name and labels of the report.",
     )
     layout: Annotated[LayoutSection, Profile.USER] = Field(
         ...,
-        description="Where the projects, the run and the context files sit.",
+        description="Where the projects and the run sit.",
     )
     context: Annotated[ContextSection, Profile.USER] = Field(
         default_factory=ContextSection,
@@ -272,7 +274,6 @@ class CatchmentReportSettings:
         resolved_layout = layout.model_copy(
             update={
                 "watershed_project_dir": watershed_project_dir,
-                "context_outputs_dir": _path(base_dir, layout.context_outputs_dir),
                 "data_overview_project_dir": _path(
                     base_dir, layout.data_overview_project_dir or watershed_project_dir
                 ),
@@ -288,9 +289,7 @@ class CatchmentReportSettings:
         if geology is not None:
             geology = geology.model_copy(update={"path": _path(base_dir, geology.path)})
         return cls(
-            report=config.report.model_copy(
-                update={"output_dir": _path(base_dir, config.report.output_dir)}
-            ),
+            report=config.report,
             layout=resolved_layout,
             observed_discharge=observed,
             geology=geology,

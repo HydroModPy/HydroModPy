@@ -12,7 +12,7 @@ from hydromodpy.schema.site_selection_manifest import (
     validate_selection_manifest,
     write_selection_manifest,
 )
-from hydromodpy.workflow.site_selection import select_delineated_catchments_from_csv
+from hydromodpy.spatial.site_selection.runner import select_delineated_catchments_from_csv
 
 
 @pytest.mark.fast
@@ -64,6 +64,7 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
         config_path=config_path,
         catchments_csv=catchments_csv,
         region_id="Bretagne",
+        report_renderer=render_site_selection_html_report,
     )
 
     assert len(result.selected) == 1

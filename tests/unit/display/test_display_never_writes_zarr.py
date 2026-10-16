@@ -17,7 +17,6 @@ _WRITE_TOKENS = (
     "write_",
     "save_zarr",
     "to_zarr",
-    "register_simulation",
     "insert",
     "execute",
 )

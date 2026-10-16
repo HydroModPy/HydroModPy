@@ -1,0 +1,73 @@
+# Example 09: one catchment, three recipes, one comparison.
+#
+# The Nancon in steady state on the local DEM, solved three times with three
+# values of K. Each recipe is a case of the plan (nancon-k_low, nancon-k_mid,
+# nancon-k_high); hmp report compare reads the three sealed runs.
+#
+#   hmp config check project.toml
+#   hmp run project.toml --dry-run
+#   hmp run project.toml
+#   hmp report compare k_low k_mid k_high
+
+[sites]
+table = "sites.csv"
+
+# One case per recipe. A recipe is a file, or a file with keys set on top.
+[sites.recipes]
+k_low = { file = "project.toml", set = { "flow.param.K.field.value" = 1e-5 } }
+k_mid = "project.toml"
+k_high = { file = "project.toml", set = { "flow.param.K.field.value" = 2e-4 } }
+
+# Each column of sites.csv fills one key of every case.
+[sites.bind]
+"site.name" = "site"
+"site.label" = "label"
+"geographic.catchment.x_outlet" = "x_outlet"
+"geographic.catchment.y_outlet" = "y_outlet"
+
+[sites.run]
+parallel = 3
+
+[workflow]
+mode = "simulation"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+crs_project = "EPSG:2154"
+
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+snap_dist = "150 m"
+buff_area = "10%"
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[flow]
+flow_regime = "steady"
+param_list = ["K", "Sy"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 5e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+# mm/d, the 2000-2002 mean of the observed recharge.
+[flow.sinks_sources.recharge]
+values = 0.78
+
+[display]
+figures = ["watertable_depth_map", "seepage_map", "water_budget"]

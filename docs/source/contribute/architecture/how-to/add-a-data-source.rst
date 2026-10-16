@@ -195,7 +195,7 @@ Name it from a document
 against its signature before anything runs, so an argument the source cannot
 take is refused by name. An installed source does not appear in the process
 description, which ships frozen in the wheel, and the hosts it reaches are
-not in ``hmp:invocation.network``; ``outputs/request.json`` names the source
+not declared there; ``outputs/request.json`` names the source
 of each file the run wrote.
 
 A ``[[data.hydrography.sources]]`` section is flat and shared by every source

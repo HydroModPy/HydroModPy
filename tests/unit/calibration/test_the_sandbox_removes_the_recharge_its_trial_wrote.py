@@ -24,14 +24,14 @@ def _write_recharge_file(scratch: Path, model_name: str) -> Path:
 
 class TestSandboxRemovesItsRecharge:
     def test_the_recharge_folder_is_gone_on_exit(self, tmp_path: Path) -> None:
-        sandbox = TrialSandbox("cheze", 1, solver_scratch_folder=tmp_path)
+        sandbox = TrialSandbox("cheze", 1, scratch_root=tmp_path)
         recharge_dir = _write_recharge_file(tmp_path, sandbox.model_name)
         with sandbox:
             assert recharge_dir.is_dir()
         assert not recharge_dir.exists()
 
     def test_a_kept_solve_keeps_its_recharge(self, tmp_path: Path) -> None:
-        sandbox = TrialSandbox("cheze", 2, solver_scratch_folder=tmp_path)
+        sandbox = TrialSandbox("cheze", 2, scratch_root=tmp_path)
         recharge_dir = _write_recharge_file(tmp_path, sandbox.model_name)
         with sandbox:
             sandbox.keep_outputs()

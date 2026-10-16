@@ -1,17 +1,68 @@
+"""Sealed, indexed runs whose Run view the network exports of a comparison read.
+
+The network metrics read a run through ``Run``, which the comparison opens
+from the index of the project holding the run
+(:func:`hydromodpy.analysis.comparison.runtime.run_source.open_indexed_run`,
+from the ``run_dir`` of a simulation summary). Each builder writes its run the
+way the pipeline does, through the store of a claimed run directory, seals it
+and indexes the project. :func:`serve_indexed_runs` lets the summaries of the
+tests name their run by ``config_path``: it hands the real opener the run
+directory the builder wrote.
+"""
+
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
+import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.analysis.comparison.runtime import run_source
 from hydromodpy.results.catalog import Catalog
+from hydromodpy.results.catalog.indexer import index_new_runs
+from hydromodpy.results.storage.run_store import RunStore
+from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
+from tests._helpers.run_stores import open_run_store
+
+_RUN_DIRS: dict[str, Path] = {}
+
+_VERTICES = np.array(
+    [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [3.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [2.0, 1.0, 0.0],
+        [3.0, 1.0, 0.0],
+    ],
+    dtype="float64",
+)
+_FACES = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype="int32")
+_TOPOGRAPHY = np.array([10.0, 9.0, 8.0], dtype="float64")
+
+
+def serve_indexed_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Open the Run view of each summary through the real opener, by its run directory."""
+    opener = run_source.open_indexed_run
+
+    def open_indexed_run(summary: Mapping[str, Any]) -> tuple[Catalog | None, str | None]:
+        run_dir = _RUN_DIRS.get(str(summary.get("config_path", "")))
+        if run_dir is None:
+            return None, None
+        return opener({**summary, "run_dir": str(run_dir)})
+
+    monkeypatch.setattr(run_source, "open_indexed_run", open_indexed_run)
 
 
 def _line_gdf(length_m: float) -> gpd.GeoDataFrame:
@@ -37,6 +88,42 @@ def _write_simulation_config(path: Path, workspace_root: Path) -> None:
     )
 
 
+def _write_mesh(store: RunStore) -> None:
+    """Write the three-cell strip and its topography, in the frame of the network features."""
+    sim_id = store.sim_id
+    store.write_mesh(sim_id, _VERTICES, _FACES, _TOPOGRAPHY)
+    # Network metrics overlay the mesh and the features and refuse to guess the frame.
+    store.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
+    sz = store.open_zarr(sim_id)
+    try:
+        sz.root["mesh"].create_array("topography", data=_TOPOGRAPHY, overwrite=True)
+    finally:
+        sz.close()
+
+
+def _write_stack(store: RunStore, variable: str, stack: list[np.ndarray]) -> None:
+    for timestep, values in enumerate(stack):
+        store.write_field(
+            store.sim_id,
+            variable,
+            timestep,
+            values,
+            n_timesteps=len(stack) if timestep == 0 else None,
+            subgroup="derived",
+        )
+
+
+def _seal_and_index(store: RunStore, workspace_root: Path) -> tuple[Path, str]:
+    """Seal the run, index the project; return the config the summary names and the run id."""
+    config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
+    _write_simulation_config(config_path, workspace_root)
+    sim_id, run_dir = store.sim_id, store.run_dir
+    seal_completed(store)
+    index_new_runs(workspace_root)
+    _RUN_DIRS[str(config_path)] = run_dir
+    return config_path, sim_id
+
+
 def _register_completed_run(
     workspace_root: Path,
     *,
@@ -47,188 +134,53 @@ def _register_completed_run(
     release_flux: list[np.ndarray] | None = None,
     flow_regime: str = "transient",
 ) -> tuple[Path, str]:
-    config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
-    _write_simulation_config(config_path, workspace_root)
-
-    catalog = Catalog(workspace_root)
-    sim_id = str(uuid.uuid4())
-    reg = catalog.register_simulation(
-        sim_id,
-        project="demo_compare",
-        solver="modflow6",
-        name="network_demo",
-        n_cells=3 if accumulation_flux is not None or release_flux is not None else 2,
+    stack = accumulation_flux if accumulation_flux is not None else release_flux
+    store = open_run_store(
+        workspace_root,
+        f"network_demo_{uuid.uuid4().hex[:8]}",
+        n_cells=3 if stack is not None else 2,
         n_layers=1,
-        n_timesteps=(
-            len(accumulation_flux)
-            if accumulation_flux is not None
-            else len(release_flux)
-            if release_flux is not None
-            else None
-        ),
+        n_timesteps=None if stack is None else len(stack),
         flow_regime=flow_regime,
     )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    if accumulation_flux is not None or release_flux is not None:
-        vertices = np.array(
-            [
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [2.0, 0.0, 0.0],
-                [3.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [1.0, 1.0, 0.0],
-                [2.0, 1.0, 0.0],
-                [3.0, 1.0, 0.0],
-            ],
-            dtype="float64",
-        )
-        face_node_connectivity = np.array(
-            [
-                [0, 1, 5, 4],
-                [1, 2, 6, 5],
-                [2, 3, 7, 6],
-            ],
-            dtype="int32",
-        )
-        catalog.write_mesh(
-            sim_id,
-            vertices,
-            face_node_connectivity,
-            np.array([10.0, 9.0, 8.0], dtype="float64"),
-        )
-        # The frame the mesh coordinates live in, same as the network features
-        # below: network metrics overlay the two and refuse to guess.
-        catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
-        sz = catalog.open_zarr(sim_id)
-        try:
-            sz.root["mesh"].create_array(
-                "topography",
-                data=np.array([10.0, 9.0, 8.0], dtype="float64"),
-                overwrite=True,
-            )
-        finally:
-            sz.close()
-        if accumulation_flux is not None:
-            for timestep, values in enumerate(accumulation_flux):
-                catalog.write_field(
-                    sim_id,
-                    "accumulation_flux",
-                    timestep,
-                    values,
-                    n_timesteps=len(accumulation_flux) if timestep == 0 else None,
-                    subgroup="derived",
-                )
-        if release_flux is not None:
-            for timestep, values in enumerate(release_flux):
-                catalog.write_field(
-                    sim_id,
-                    "release_flux",
-                    timestep,
-                    values,
-                    n_timesteps=len(release_flux) if timestep == 0 else None,
-                    subgroup="derived",
-                )
+    sim_id = store.sim_id
+    if stack is not None:
+        _write_mesh(store)
+    if accumulation_flux is not None:
+        _write_stack(store, "accumulation_flux", accumulation_flux)
+    if release_flux is not None:
+        _write_stack(store, "release_flux", release_flux)
     if reference_length_m is not None:
-        catalog.write_geographic_feature(
-            sim_id,
-            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-            _line_gdf(reference_length_m),
+        store.write_geographic_feature(
+            sim_id, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, _line_gdf(reference_length_m)
         )
     if reference_gdf is not None:
-        catalog.write_geographic_feature(
-            sim_id,
-            HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
-            reference_gdf,
+        store.write_geographic_feature(
+            sim_id, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference_gdf
         )
     if generated_length_m is not None:
-        catalog.write_geographic_feature(
-            sim_id,
-            HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-            _line_gdf(generated_length_m),
+        store.write_geographic_feature(
+            sim_id, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, _line_gdf(generated_length_m)
         )
-    catalog.finalize(sim_id, "completed")
-    catalog.close()
-    return config_path, sim_id
+    return _seal_and_index(store, workspace_root)
 
 
-def _register_completed_active_network_run(
-    workspace_root: Path, *, config_snapshot: dict | None = None
-) -> tuple[Path, str]:
-    config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
-    _write_simulation_config(config_path, workspace_root)
-
-    catalog = Catalog(workspace_root)
-    sim_id = str(uuid.uuid4())
-    reg = catalog.register_simulation(
-        sim_id,
-        project="demo_compare",
-        solver="modflow6",
-        name="active_network_demo",
+def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, str]:
+    store = open_run_store(
+        workspace_root,
+        f"active_network_demo_{uuid.uuid4().hex[:8]}",
         n_cells=3,
         n_layers=1,
         n_timesteps=2,
-        config_snapshot=config_snapshot,
     )
-    if reg.zarr is not None:
-        reg.zarr.close()
-    vertices = np.array(
-        [
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [2.0, 0.0, 0.0],
-            [3.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [2.0, 1.0, 0.0],
-            [3.0, 1.0, 0.0],
-        ],
-        dtype="float64",
-    )
-    face_node_connectivity = np.array(
-        [
-            [0, 1, 5, 4],
-            [1, 2, 6, 5],
-            [2, 3, 7, 6],
-        ],
-        dtype="int32",
-    )
-    catalog.write_mesh(
-        sim_id,
-        vertices,
-        face_node_connectivity,
-        np.array([10.0, 9.0, 8.0], dtype="float64"),
-    )
-    # The frame the mesh coordinates live in, same as the network features below:
-    # network metrics overlay the two and refuse to guess.
-    catalog.write_geographic_metadata(sim_id, {"crs_proj": "EPSG:2154"})
-    sz = catalog.open_zarr(sim_id)
-    try:
-        sz.root["mesh"].create_array(
-            "topography",
-            data=np.array([10.0, 9.0, 8.0], dtype="float64"),
-            overwrite=True,
-        )
-    finally:
-        sz.close()
-    catalog.write_field(
-        sim_id,
+    _write_mesh(store)
+    _write_stack(
+        store,
         "accumulation_flux",
-        0,
-        np.array([0.0, 1.0, 0.0], dtype="float64"),
-        n_timesteps=2,
-        subgroup="derived",
+        [np.array([0.0, 1.0, 0.0], dtype="float64"), np.array([0.0, 1.0, 0.0], dtype="float64")],
     )
-    catalog.write_field(
-        sim_id,
-        "accumulation_flux",
-        1,
-        np.array([0.0, 1.0, 0.0], dtype="float64"),
-        subgroup="derived",
-    )
-    catalog.write_geographic_feature(
-        sim_id,
+    store.write_geographic_feature(
+        store.sim_id,
         HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
         gpd.GeoDataFrame(
             {"id": [1]},
@@ -236,6 +188,4 @@ def _register_completed_active_network_run(
             crs="EPSG:2154",
         ),
     )
-    catalog.finalize(sim_id, "completed")
-    catalog.close()
-    return config_path, sim_id
+    return _seal_and_index(store, workspace_root)

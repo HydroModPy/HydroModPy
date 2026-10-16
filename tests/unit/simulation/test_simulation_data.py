@@ -13,73 +13,65 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
 )
 
-from ._test_simulation_api_builders import _populate, _register, catalog
+from ._test_simulation_api_builders import populate, runs
 
-__all__ = ["catalog"]
+__all__ = ["runs"]
 
 
 class TestSimulationData:
-    def test_parameters(self, catalog):
-        sid = _register(catalog)
-        _populate(catalog, sid)
-        sim = Run(sid, catalog)
+    def test_parameters(self, runs):
+        store = runs.open()
+        populate(store)
+        sim = Run(store.sim_id, runs.catalog())
         df = sim.parameters
         # Homogeneous-only payload: simple index by param_name, no zone_id.
         assert set(df.index) == {"K", "Sy"}
         assert "value" in df.columns
         assert sim.parameters.loc["K", "value"] == pytest.approx(1.5)
 
-    def test_metrics(self, catalog):
-        sid = _register(catalog)
-        _populate(catalog, sid)
-        sim = Run(sid, catalog)
-        df = sim.metrics
-        assert len(df) == 2
+    def test_metrics(self, runs):
+        store = runs.open()
+        populate(store)
+        sim = Run(store.sim_id, runs.catalog())
+        assert set(sim.metrics["metric"]) == {"nse", "kge"}
 
-    def test_timeseries(self, catalog):
-        sid = _register(catalog)
-        _populate(catalog, sid)
-        sim = Run(sid, catalog)
+    def test_timeseries(self, runs):
+        store = runs.open()
+        populate(store)
+        sim = Run(store.sim_id, runs.catalog())
         ts = sim.timeseries("head", station="P01")
         assert len(ts) == 10
 
-    def test_timeseries_not_found(self, catalog):
-        sid = _register(catalog)
-        sim = Run(sid, catalog)
+    def test_timeseries_not_found(self, runs):
+        sim = Run(runs.open().sim_id, runs.catalog())
         with pytest.raises(KeyError):
             sim.timeseries("head", station="NOPE")
 
-    def test_budget(self, catalog):
-        sid = _register(catalog)
-        _populate(catalog, sid)
-        sim = Run(sid, catalog)
+    def test_budget(self, runs):
+        store = runs.open()
+        populate(store)
+        sim = Run(store.sim_id, runs.catalog())
         df = sim.budget(component="recharge")
         assert len(df) == 1
 
-    def test_mass_balance(self, catalog):
-        sid = _register(catalog)
-        _populate(catalog, sid)
-        sim = Run(sid, catalog)
+    def test_mass_balance(self, runs):
+        store = runs.open()
+        populate(store)
+        sim = Run(store.sim_id, runs.catalog())
         df = sim.mass_balance
         assert len(df) == 1
 
-    def test_provenance(self, catalog):
-        sid = _register(catalog)
-        catalog.write_provenance(sid, "dem", "dem.tif", np.ones(10))
-        sim = Run(sid, catalog)
-        df = sim.provenance
-        assert len(df) == 1
-
-    def test_hydrographic_network_accessor(self, catalog):
-        sid = _register(catalog)
+    def test_hydrographic_network_accessor(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         gdf = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.catalog())
         result = sim.hydrographic_network("reference")
 
         assert len(result) == 1
@@ -92,38 +84,41 @@ class TestSimulationData:
         assert contract["canonical_feature_name"] == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
         assert contract["default_vector_filename"] == "streams.shp"
 
-    def test_the_permanent_network_is_read_back_by_its_role(self, catalog):
-        sid = _register(catalog)
+    def test_the_permanent_network_is_read_back_by_its_role(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         gdf = gpd.GeoDataFrame(
             {"permanence": ["permanent"]},
             geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
-        catalog.write_geographic_feature(
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
+        store.write_geographic_feature(
             sid, HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME, gdf
         )
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.catalog())
 
         assert sim.available_hydrographic_network_roles() == ["reference", "reference_permanent"]
         assert len(sim.hydrographic_network("reference_permanent")) == 1
 
-    def test_hydrographic_network_missing_role_reports_available_roles(self, catalog):
-        sid = _register(catalog)
+    def test_hydrographic_network_missing_role_reports_available_roles(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         gdf = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, gdf)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.catalog())
         with pytest.raises(KeyError, match="Available roles: reference"):
             sim.hydrographic_network("generated")
 
-    def test_hydrographic_network_comparison_accessor_and_capability(self, catalog):
-        sid = _register(catalog)
+    def test_hydrographic_network_comparison_accessor_and_capability(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(0.0, 0.0), (1000.0, 0.0)])],
@@ -134,14 +129,10 @@ class TestSimulationData:
             geometry=[LineString([(0.0, 0.0), (800.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
-        )
-        catalog.write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, generated
-        )
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, generated)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.catalog())
         comparison = sim.hydrographic_network_comparison(tolerance_m=25.0)
         metrics = sim.hydrographic_network_comparison_metrics(
             tolerance_m=25.0,
@@ -175,18 +166,17 @@ class TestSimulationData:
             "reference_raster_forcing_name",
         }
 
-    def test_hydrographic_network_comparison_requires_both_roles(self, catalog):
-        sid = _register(catalog)
+    def test_hydrographic_network_comparison_requires_both_roles(self, runs):
+        store = runs.open()
+        sid = store.sim_id
         reference = gpd.GeoDataFrame(
             {"id": [1]},
             geometry=[LineString([(0.0, 0.0), (1000.0, 0.0)])],
             crs="EPSG:2154",
         )
-        catalog.write_geographic_feature(
-            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
-        )
+        store.write_geographic_feature(sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference)
 
-        sim = Run(sid, catalog)
+        sim = Run(sid, runs.catalog())
         with pytest.raises(
             ValueError,
             match="requires both requested roles to be present.*Missing: generated",

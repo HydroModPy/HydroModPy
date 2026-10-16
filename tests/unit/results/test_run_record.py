@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from hydromodpy.results import record as record_module
 from hydromodpy.results.identity import read_identity_from
 from hydromodpy.results.manifest import (
-    MANIFEST_SCHEMA_VERSION,
     RUN_RECORD_MANIFEST_VERSION,
     Manifest,
     ManifestGeometry,
@@ -99,8 +98,6 @@ def test_the_manifest_is_version_two_and_typed(run_dir):
     payload = read_manifest(run_dir)
     manifest = Manifest.model_validate(payload)
     assert payload["manifest_version"] == RUN_RECORD_MANIFEST_VERSION == 2
-    # The index writer keeps version 1 until it moves onto the record.
-    assert MANIFEST_SCHEMA_VERSION == 1
     assert manifest.site is not None and manifest.site.name == "J0014010"
     assert manifest.lineage.kind == "promoted"
     assert manifest.identity.sim_id == SIM_ID

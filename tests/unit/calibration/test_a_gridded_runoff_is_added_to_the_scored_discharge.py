@@ -103,11 +103,6 @@ class _StationGroup:
         return self._stations[key]
 
 
-class _AreaConnection:
-    def execute(self, sql: str, params):
-        return SimpleNamespace(fetchone=lambda: (_CATCH_AREA_KM2,))
-
-
 def _stored_run(runoff: LoadResult):
     """The fields store a run persists for a gridded runoff, and its catalog."""
     persisted = _watershed_mean_series(runoff)
@@ -118,7 +113,9 @@ def _stored_run(runoff: LoadResult):
         }
     )
     grp = _Node({"forcing": _Node({"runoff": _StationGroup({"_watershed": station})})})
-    store = SimpleNamespace(connection=_AreaConnection())
+    store = SimpleNamespace(
+        read_geographic_metadata=lambda _sim_id: {"catch_area": _CATCH_AREA_KM2}
+    )
     return store, grp
 
 

@@ -15,7 +15,9 @@ Format
 See :class:`SessionDescriptor`. ``best`` names the winning trial by number
 and, once promoted, by the ``sim_id`` and directory of the run. ``status`` is
 ``completed`` when the stopping rule was met, ``partial`` when the budget
-ran out first, ``aborted`` on a signal, ``failed`` on an error.
+ran out first or when the promotion of its best trial failed, ``aborted``
+on a signal, ``failed`` on an error of the search itself. A session whose
+search completed is never written ``failed`` for what happened after it.
 """
 
 from __future__ import annotations
@@ -27,6 +29,8 @@ from typing import Any, Final, Literal
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.exceptions import ConfigMissingError
+from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel, sessions_dir_for
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
@@ -105,12 +109,65 @@ def read_session(session_dir: str | Path) -> SessionDescriptor:
     return SessionDescriptor.model_validate(read_json(session_descriptor_path(session_dir)))
 
 
+def list_session_dirs(project_root: str | Path) -> list[Path]:
+    """Return every session directory of a project, by name.
+
+    A directory under ``sessions/`` without a ``session.json`` is not a
+    calibration session and is left out.
+    """
+    root = sessions_dir_for(Path(project_root))
+    if not root.is_dir():
+        return []
+    return sorted(entry for entry in root.iterdir() if session_descriptor_path(entry).is_file())
+
+
+def find_session_dir(project_root: str | Path, session_id: str) -> Path | None:
+    """Return the directory of the session whose descriptor carries *session_id*."""
+    wanted = str(session_id).replace("-", "").lower()
+    for directory in list_session_dirs(project_root):
+        if read_session(directory).session_id.replace("-", "").lower() == wanted:
+            return directory
+    return None
+
+
+def resolve_session_dir(project_root: str | Path, reference: str | None) -> Path:
+    """Return the session directory a reference names.
+
+    ``reference`` is ``<case>[.vN]`` or ``sessions/<case>[.vN]``, the exact
+    name of one session. ``None`` selects the session that started last. A
+    reference that names no session is refused with the sessions the project
+    holds.
+    """
+    root = Path(project_root).expanduser().resolve()
+    sessions = list_session_dirs(root)
+    if reference is None:
+        if not sessions:
+            raise ConfigMissingError(f"No calibration session under {sessions_dir_for(root)}.")
+        return max(sessions, key=lambda directory: read_session(directory).started_at)
+    rel = reference if "/" in reference else session_dir_rel(reference)
+    parsed = parse_rel_dir(rel)
+    if parsed.kind != "session":
+        raise ConfigMissingError(
+            f"{reference!r} is not a session: write <case> or {session_dir_rel('<case>')}."
+        )
+    directory = root / rel
+    if directory not in sessions:
+        names = ", ".join(entry.name for entry in sessions) or "none"
+        raise ConfigMissingError(
+            f"No calibration session {reference!r} under {sessions_dir_for(root)}: {names}."
+        )
+    return directory
+
+
 __all__ = [
     "SESSION_SCHEMA",
     "BestTrial",
     "SessionDescriptor",
     "SessionStatus",
+    "find_session_dir",
+    "list_session_dirs",
     "read_session",
+    "resolve_session_dir",
     "session_descriptor_path",
     "write_session",
 ]

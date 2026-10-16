@@ -28,7 +28,7 @@ from hydromodpy.core.exceptions import (
     HydroModPyError,
 )
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import preprocessing_dir
+from hydromodpy.core.state.paths import data_cache_path_for, preprocessing_dir
 from hydromodpy.core.time import resolve_simulation_time_window_dates
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 from hydromodpy.data.loading._dispatch import VARIABLE_SPECS, VariableSpec
@@ -66,7 +66,7 @@ class DataManagersRuntimeLoader:
             return
         self._cache_root = workspace_paths.data_dir
         self._cache_root.mkdir(parents=True, exist_ok=True)
-        self._catalog = DataCatalogDuckDB(self._cache_root / "cache.duckdb")
+        self._catalog = DataCatalogDuckDB(data_cache_path_for(self._cache_root))
         self._store = DataStore(
             catalog=self._catalog,
             data_root=self._cache_root,
