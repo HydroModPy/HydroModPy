@@ -36,7 +36,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="station_id",
         help="Station the file belongs to (default: the file name without its extension)",
     )
-    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument(
         "--project",
         default=None,

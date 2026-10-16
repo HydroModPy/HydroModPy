@@ -38,7 +38,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "figure", help="Figure name from 'hmp viz list' (e.g. watertable_depth_map)"
     )
-    parser.add_argument("--workspace", default=None, help="Project catalog root")
+    parser.add_argument("-w", "--workspace", default=None, help="Project catalog root")
     parser.add_argument(
         "--output",
         default=None,

@@ -115,6 +115,56 @@ forcing
   What drives the model through time: the recharge, or the rainfall and the
   {term}`potential evapotranspiration` from which a {term}`soil reservoir` computes it.
 
+attempt
+  One try of a {term}`run`. A run that failed is tried again in its own folder: the earlier
+  attempt moves under `attempts/<n>/`, and the run keeps its name and its version.
+
+case
+  One point of a {term}`plan`: a {term}`site` crossed with a {term}`recipe`, named
+  `<site>-<recipe>`. Its run is the folder `runs/<site>-<recipe>/`.
+
+gauge
+  The station at the outlet of a {term}`site` whose discharge the model is compared with.
+  Every observed series and every score reads it, unless a section names another station.
+
+  *In the file:* {toml}`site.gauge`.
+
+plan
+  The list of the {term}`cases <case>` of a project of many sites, with the resolved
+  configuration of each. A plan is written once under `plan/<hash>/` and never rewritten.
+
+recipe
+  A variant run on every {term}`site` of a project: a file, or a file with a few keys changed.
+
+  *In the file:* {toml}`sites.recipes`.
+
+run
+  One execution of a configuration file, kept in its own folder `runs/<name>/`. Its
+  `README.md` says its catchment, its period, its version, its checks and its
+  {term}`run label`.
+
+run label
+  One of four words derived from the checks of a {term}`run` when it is read: exploratory,
+  calibrated, evaluated or failed. Calibrated means the run comes from a completed
+  {term}`calibration` and passed its checks; evaluated means it was then scored on a window
+  the calibration did not use. The label is computed on read, so a run sealed by a version with
+  a known defect is downgraded without being rewritten. It is not the
+  {term}`reliability label` of a figure.
+
+session
+  The record of one {term}`calibration`, the folder `sessions/<name>/`: its configuration,
+  every {term}`trial` and the best one. The best trial becomes a {term}`run` of the same name.
+
+site
+  The catchment a file models: a name, and optionally a label, a {term}`gauge` and a code that
+  identifies it across workspaces.
+
+  *In the file:* {toml}`site.name`.
+
+summary
+  The tables, map, figures and report over all the {term}`cases <case>` of a project, written
+  under `summary/` by `hmp project collect`. It is rebuilt from the runs each time.
+
 GR4J
   A rainfall-runoff model that treats a catchment as a single unit. HydroModPy can calibrate it
   in place of the distributed model.
@@ -162,8 +212,8 @@ intermittent flow
 
 lockfile
   The file `hydromodpy.lock` at the root of a project. It pins the input data by checksum and
-  records the version of the code and of the solver binary. See
-  {doc}`can-i-check-what-was-run`.
+  records the version of the code and of the solver binary. Each {term}`run` also seals the
+  inputs it read in its own `inputs.json`. See {doc}`can-i-check-what-was-run`.
 
 mapped network
   Streams drawn on a map (here, the permanent reaches of the {term}`BD TOPO`). It is a
@@ -184,17 +234,18 @@ MODFLOW 6
   Boussinesq solver written for HydroModPy.
 
 NANCON station
-  The gauge at the outlet of the Nançon catchment. Example 04 compares the discharge measured
-  there with the simulated one.
+  The {term}`gauge` at the outlet of the Nançon catchment. Example 04 compares the discharge
+  measured there with the simulated one.
 
-  *In the file:* {toml}`data.hydrometry`.
+  *In the file:* {toml}`site.gauge`.
 
 NSE
   Nash-Sutcliffe efficiency: compares simulated and measured flow. 1 is a perfect match, 0 is
   the same as predicting the mean of the measurements, and a negative value is worse. The "log"
-  variant computes it on the logarithms to give weight to low flows.
+  variant computes it on the logarithms to give weight to low flows. A run scores it at the
+  {term}`gauge` over the declared window, and leaves it empty without a window.
 
-  *In the file:* {toml}`calibration.protocol.transient_metric`.
+  *In the file:* {toml}`metrics.window`, {toml}`calibration.protocol.transient_metric`.
 
 numerical check
   A reliability label. An internal check of the computation, independent of the
@@ -262,10 +313,11 @@ runoff
   *In the file:* {toml}`data.runoff`.
 
 scoring window
-  Period over which the calibration compares simulated and measured flow. In example 04, 2001
-  and 2002; the year 2000 is used as {term}`spin-up`.
+  Period over which simulated and measured flow are compared. In example 04, 2001 and 2002;
+  the year 2000 is used as {term}`spin-up`. The window of a run's scores is also the default
+  window of a calibration, which may narrow it.
 
-  *In the file:* {toml}`calibration.protocol.scoring_window`.
+  *In the file:* {toml}`metrics.window`, {toml}`calibration.protocol.scoring_window`.
 
 seepage
   Cell where the {term}`water table` reaches the ground surface and where water leaves the
@@ -342,7 +394,8 @@ transient
 
 trial
   One run of the model with one set of parameter values, tried by a {term}`calibration`. A
-  calibration runs many trials and keeps the best.
+  calibration runs many trials and keeps the best. The trials of a {term}`session` are numbered
+  once, across its phases and restarts.
 
 unconfined aquifer
   Aquifer whose top is not trapped under an impermeable layer: it rises and falls freely with

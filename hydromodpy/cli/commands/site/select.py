@@ -27,6 +27,9 @@ def register(subparsers) -> argparse.ArgumentParser:
         help=HELP,
         parents=[workspace_parser()],
         epilog=(
+            "The review report (review/index.html) is rendered by the run itself when\n"
+            "[site_selection.output] write_report_html = true; no other verb renders it.\n"
+            "\n"
             "Examples:\n"
             "  hmp site select selection.toml --dry-run\n"
             "  hmp site select selection.toml --into-catalog"
@@ -67,9 +70,9 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_USAGE)
     root = None
     if args.into_catalog:
-        from hydromodpy.cli.commands.site._workspace import workspace_root
+        from hydromodpy.cli.helpers import resolve_workspace
 
-        root = workspace_root(args.workspace)
+        root = resolve_workspace(args.workspace)
 
     try:
         if args.dry_run:

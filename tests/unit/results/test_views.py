@@ -76,8 +76,64 @@ def test_the_parent_of_a_run_is_named_by_its_sealed_lineage(tmp_path) -> None:
     parent_id = SIM_ID[:-2] + "99"
     run = _sealed(tmp_path, lineage=Lineage(parent_sim_id=parent_id, kind="rerun"))
 
-    assert run.parent.sim_id == parent_id
-    assert _sealed(tmp_path / "orphan", lineage=Lineage()).parent is None
+    assert lineage_of(run).parent_sim_id == parent_id
+    assert lineage_of(_sealed(tmp_path / "orphan", lineage=Lineage())).parent_sim_id is None
+
+
+def test_a_run_opened_on_its_directory_answers_with_the_words_of_the_cli(tmp_path) -> None:
+    """``site``, ``checks``, ``inputs``, ``label()`` from the seal, with no index (D9)."""
+    from hydromodpy.results.run.view import open_run_dir
+
+    sealed = _sealed(tmp_path)
+    run = open_run_dir(sealed.dir)
+
+    assert run.sim_id == SIM_ID
+    assert run.site == SITE
+    assert run.checks.budget_pct == pytest.approx(0.8)
+    assert [entry.provider for entry in run.inputs] == ["hubeau"]
+    assert run.label().label == "calibrated"
+    assert run.exports == []
+    assert run.figures == []
+
+
+def test_exports_and_figures_are_the_files_their_ledger_records(tmp_path) -> None:
+    from datetime import UTC, datetime
+
+    from hydromodpy.results.ledger import Ledger, LedgerEntry, sha256_of
+    from hydromodpy.results.run.view import open_run_dir
+
+    run = open_run_dir(_sealed(tmp_path).dir)
+    identity = run.record.identity
+    for folder, name in (("exports", "head.tif"), ("figures", "piezometric_map.png")):
+        directory = run.dir / folder
+        directory.mkdir()
+        (directory / name).write_bytes(b"payload")
+        (directory / "stray.txt").write_text("not recorded", encoding="utf-8")
+        ledger = Ledger()
+        ledger.append(
+            LedgerEntry(
+                file=name,
+                producer="test",
+                hydromodpy_version="2.0.0a5",
+                at=datetime.now(UTC),
+                sha256=sha256_of(directory / name),
+                identity=identity,
+            )
+        )
+        ledger.write(directory)
+
+    assert run.exports == [run.dir / "exports" / "head.tif"]
+    assert run.figures == [run.dir / "figures" / "piezometric_map.png"]
+
+
+def test_a_run_directory_that_never_completed_is_not_opened_alone(tmp_path) -> None:
+    from hydromodpy.results.run.view import open_run_dir
+
+    run_dir = tmp_path / "runs" / "J0014010-base"
+    run_dir.mkdir(parents=True)
+
+    with pytest.raises(RunNotSealedError, match="never completed"):
+        open_run_dir(run_dir)
 
 
 def test_a_run_reads_its_checks_and_its_label_of_the_day(tmp_path) -> None:

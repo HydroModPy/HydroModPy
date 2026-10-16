@@ -21,7 +21,11 @@ import zarr
 from hydromodpy.analysis.comparison.runs import ComparisonCaseError, ComparisonReferenceError
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
-from hydromodpy.reporting.comparison.compare import compare_runs, comparison_name
+from hydromodpy.reporting.comparison.compare import (
+    compare_runs,
+    comparison_name,
+    reference_labels,
+)
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.manifest import ManifestGeometry, ManifestRun, ManifestSite
 from hydromodpy.results.record import RunProvenance
@@ -217,6 +221,10 @@ def test_two_runs_of_one_case_give_diffs_maps_and_a_page(project: Path) -> None:
         str(candidate),
     }
 
+    report = (root / "comparison_report.md").read_text(encoding="utf-8")
+    assert "run_folder=`../../../../runs/J0014010-mf6`" in report
+    assert str(project) not in report
+
     differences = pd.read_csv(root / "comparison_differences.csv")
     head_map = differences.loc[differences["observable"] == "head_map_last"]
     assert not head_map.empty
@@ -295,6 +303,7 @@ def test_by_site_compares_two_recipes_on_each_site(project: Path) -> None:
     assert pages == [
         root / "J0014010" / "web" / "index.html",
         root / "J0170000" / "web" / "index.html",
+        root / "index.html",
     ]
     manifest = json.loads(
         (root / "J0170000" / "comparison_manifest.json").read_text(encoding="utf-8")
@@ -340,3 +349,40 @@ def test_the_command_maps_refusals_to_typed_exit_codes(
         / "index.html"
     )
     assert page.is_file()
+
+
+def test_by_site_joins_the_references_on_the_site(project: Path) -> None:
+    for site in ("J0014010", "J0170000"):
+        _seal_run(project, site=site, recipe="calage_nm", head_offset=0.0)
+        _seal_run(project, site=site, recipe="calage_tpe", head_offset=0.3)
+    # A site that only one reference holds is not compared.
+    _seal_run(project, site="J0200000", recipe="calage_nm", head_offset=0.0)
+
+    pages = compare_runs(["calage_nm", "calage_tpe"], project_root=project, by_site=True)
+
+    root = project / "summary" / "report" / "compare" / comparison_name(["calage_nm", "calage_tpe"])
+    table = pd.read_csv(root / "by_site.csv")
+    assert table["site"].tolist() == ["J0014010", "J0170000"]
+    assert table["calage_nm.run"].tolist() == ["J0014010-calage_nm", "J0170000-calage_nm"]
+    assert table["calage_tpe.run"].tolist() == ["J0014010-calage_tpe", "J0170000-calage_tpe"]
+    assert table["calage_nm.label"].notna().all()
+    assert table["calage_nm.metric"].tolist() == ["nse", "nse"]
+    assert table["calage_nm.window"].tolist() == ["2016-01-01/2020-12-31"] * 2
+    index = pages[-1].read_text(encoding="utf-8")
+    assert pages[-1] == root / "index.html"
+    assert 'href="J0014010/web/index.html"' in index
+    assert 'href="by_site.csv"' in index
+
+
+def test_two_references_with_one_last_part_keep_their_own_columns() -> None:
+    assert reference_labels(["calage_nm", "calage_tpe"]) == ["calage_nm", "calage_tpe"]
+    assert reference_labels(["../a/runs/base", "../b/runs/base", "runs/tpe"]) == [
+        "../a/runs/base",
+        "../b/runs/base",
+        "tpe",
+    ]
+
+
+def test_a_reference_given_twice_is_refused(project: Path) -> None:
+    with pytest.raises(ComparisonCaseError, match="given twice"):
+        compare_runs(["base", "base"], project_root=project)

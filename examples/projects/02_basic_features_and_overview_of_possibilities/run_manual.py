@@ -56,8 +56,7 @@ print(f"closure (in - out) = {imbalance:.2e} m3/s")
 
 # Figures belong to the run, exactly where `hmp run` puts them:
 # <project>/runs/<run>/figures/. The project root stays clean.
-with hmp.open(HERE) as catalog:
-    OUT = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
+OUT = run.dir / "figures" / "from_python"
 
 for name in ("mesh_map", "piezometric_map", "seepage_map", "cross_section"):
     hmp.figure(run, name, save=OUT)

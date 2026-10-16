@@ -18,10 +18,37 @@ from typing import Any, cast
 
 
 def run_overview(config_path: str | Path) -> dict[str, Any]:
-    """Generate a watershed identity card from a TOML file."""
+    """Generate a watershed identity card from a TOML file, as a run of the project.
+
+    The overview claims ``runs/<name>/`` through the attempt protocol like any
+    run (``<name>`` is ``[site] name``, else ``[overview] name``): outcome,
+    pulse and run log from the first act, its panels and pages in the run
+    directory, a seal without solver tables, and a completed outcome. A run
+    of the same name already sealed takes the next version.
+    """
+    from hydromodpy.display.overview import overview_name
+    from hydromodpy.project.attempt import run_attempt
+    from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
     from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
-    return DataOverviewLauncher(config_path).run()
+    launcher = DataOverviewLauncher(config_path)
+    cfg = launcher.cfg
+    site = cfg.site.name if getattr(cfg, "site", None) is not None else None
+    overview = getattr(cfg, "overview", None)
+    name = overview_name(site, getattr(overview, "name", None) if overview is not None else None)
+    project_root = Path(cfg.workspace.project_root)
+    config_hash = run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
+    simulation = getattr(cfg, "simulation", None)
+    with run_attempt(
+        project_root,
+        name,
+        case_id=name,
+        project=project_root.name,
+        site=site,
+        config_hash=config_hash,
+        if_exists=getattr(simulation, "if_exists", "version"),
+    ) as handle:
+        return launcher.run(handle.claim, config_hash=config_hash)
 
 
 def declared_calibration_phases(config_path: str | Path) -> list[str]:

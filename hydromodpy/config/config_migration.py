@@ -1,6 +1,6 @@
-"""One-shot TOML config migration for the simulation-management refactor.
+"""TOML config migration for the simulation-management refactor.
 
-Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
+Rewrites legacy keys of a parsed document in memory, before validation:
 
 - ``on_collision`` -> ``if_exists``, ``"replace"`` becoming ``"version"``
 - ``run_id`` -> ``name`` (when ``name`` is not already set)
@@ -32,13 +32,11 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
-one pure document-to-document transform; two callers wrap it. ``fix_config_file``
-(reached through ``hmp doctor --fix-config``) rewrites a file on disk once, so a
-project TOML catches up for good. ``migrate_config_doc_on_load`` runs the same
-transform in memory on a payload already parsed by a caller, without touching
-the file it came from, and logs what it changed. ``HydroModPyConfig.from_toml``
-calls it on the raw payload, before validation, so a config written for an
-earlier schema still loads without the doctor having run on it first. The
+one pure document-to-document transform; one caller wraps it.
+``migrate_config_doc_on_load`` runs the transform in memory on a payload
+already parsed by a caller, without touching the file it came from, and logs
+what it changed. ``HydroModPyConfig.from_toml`` calls it on the raw payload,
+before validation, so a config written for an earlier schema still loads. The
 calibration loader reaches it through the root-config provider, since the
 calibration layer does not import this one.
 """
@@ -66,33 +64,11 @@ RETIRED_RESULTS_TABLES: tuple[str, ...] = (
 )
 
 
-def fix_config_file(path: str | Path) -> list[str]:
-    """Rewrite legacy ``[simulation]`` keys in ``path`` in place.
-
-    Returns the list of human-readable changes applied (empty when the file is
-    already up to date). Raises :class:`FileNotFoundError` when the path is
-    missing and :class:`tomlkit.exceptions.ParseError` on malformed TOML.
-    """
-    path = Path(path).expanduser()
-    if not path.is_file():
-        raise FileNotFoundError(f"No TOML file at {path}")
-
-    # utf-8-sig: several configs in this repository carry a BOM, and tomlkit
-    # reads it as an empty key on line 1, so the doctor could not fix them.
-    doc = tomlkit.parse(path.read_text(encoding="utf-8-sig"))
-    changes = migrate_config_doc(doc)
-    if changes:
-        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
-    return changes
-
-
 def migrate_config_doc(doc: Any) -> list[str]:
     """Apply the legacy ``[simulation]`` key migrations to a parsed doc in place.
 
-    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document, so
-    ``fix_config_file`` can rewrite a file while ``migrate_config_doc_on_load``
-    migrates an in-memory payload for the read path. Returns the list of
-    human-readable changes applied.
+    Works on a plain ``dict`` (``tomllib``) or a ``tomlkit`` document.
+    Returns the list of human-readable changes applied.
     """
     changes: list[str] = _drop_dead_result_options(doc)
     changes.extend(_report_retired_results_tables(doc))
@@ -135,18 +111,16 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
 
     Meant for ``HydroModPyConfig.from_toml``: called on the freshly parsed
     payload, before Pydantic validation, so a config written for an earlier
-    schema still loads. Never touches the file *doc* came from - only
-    ``fix_config_file`` writes to disk. Logs one line naming what changed and
-    that ``hmp doctor`` persists it; says nothing when the document was
-    already current.
+    schema still loads. Never touches the file *doc* came from. Logs one line
+    naming what changed and the file to rename it in; says nothing when the
+    document was already current.
     """
     changes = migrate_config_doc(doc)
     loud = [change for change in changes if change not in _QUIET_CHANGES]
     if loud:
         where = f"{source}" if source is not None else "config"
         _logger.info(
-            "%s: migrated %d legacy key(s) on load, not persisted to disk "
-            "(run `hmp doctor --fix-config %s` to persist): %s",
+            "%s: migrated %d legacy key(s) on load, not persisted to disk (rename them in %s): %s",
             where,
             len(loud),
             source if source is not None else "<path>",
@@ -680,7 +654,6 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
 __all__ = [
     "RETIRED_RESULTS_TABLES",
     "drop_retired_results_tables",
-    "fix_config_file",
     "migrate_config_doc",
     "migrate_config_doc_on_load",
 ]

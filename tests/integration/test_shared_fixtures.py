@@ -25,7 +25,7 @@ def test_tmp_workspace_is_openable_as_a_catalog(tmp_workspace: Path) -> None:
 
     project = make_project(tmp_workspace / "projects" / "demo")
     rebuild_index(project)
-    with hmp.open(project) as catalog:
+    with hmp.open(project).store as catalog:
         simulations = catalog.list_simulations()
 
     assert simulations.empty

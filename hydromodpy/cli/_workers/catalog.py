@@ -157,7 +157,7 @@ def show_simulation(sim_ref: str, *, workspace: Any, detail: bool = False) -> di
             "label": row.get("label"),
             "label_date": None if row.get("label_date") is None else str(row["label_date"])[:10],
             "nse": row.get("nse"),
-            "duration_s": sim.duration_s,
+            "duration_s": row.get("duration_s"),
             "n_cells": sim.n_cells,
             "n_timesteps": sim.n_timesteps,
             "version_int": row.get("version_int"),

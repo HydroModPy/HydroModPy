@@ -144,3 +144,31 @@ def test_doctor_prt_renders_in_the_report(monkeypatch, tmp_path, capsys, doctor_
     assert code in (0, 1)
     out = capsys.readouterr().out
     assert "prt:mf6_version" in out
+
+
+def test_doctor_finds_the_workspace_that_holds_the_cwd(
+    monkeypatch, tmp_path, capsys, isolated_state
+) -> None:
+    workspace, project = _make_workspace(tmp_path)
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    monkeypatch.chdir(project)
+
+    code = _run(monkeypatch, ["hmp", "doctor", "--json"])
+
+    assert code in (0, 1)
+    checks = _checks(capsys.readouterr().out)
+    assert checks["workspace"] == {
+        "name": "workspace",
+        "status": "OK",
+        "detail": str(workspace.resolve()),
+        "hint": None,
+    }
+
+
+def test_doctor_takes_w(monkeypatch, tmp_path, capsys, isolated_state) -> None:
+    workspace, _project = _make_workspace(tmp_path)
+
+    code = _run(monkeypatch, ["hmp", "doctor", "-w", str(workspace), "--json"])
+
+    assert code in (0, 1)
+    assert _checks(capsys.readouterr().out)["workspace"]["status"] == "OK"

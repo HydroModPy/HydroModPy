@@ -7,13 +7,20 @@
 #
 #   hmp run project.toml
 
+# The catchment. The gauge is the station of every series below: the discharge,
+# the recharge and the runoff read station NANCON, and the calibration files
+# score it, with no station named again. The uri is the Hub'Eau site code of the
+# catchment, the key that survives a move to another workspace.
 [site]
 name = "nancon"
+label = "Le Nançon à Lécousse"
+gauge = "NANCON"
+uri = "hubeau:J0014010"
 
-[workflow]
-mode = "simulation"
-# verbosity = "quiet" | "normal" (default) | "verbose" | "debug", overridden by
-# `hmp run -q | -v | --debug`. step1_minimal.toml says what each level prints.
+# The window every score of a run is read on. 2000 is spin-up: simulated, not
+# scored. The calibration files score the same window unless they write their own.
+[metrics]
+window = { start = "2001-01-01", end = "2002-12-31" }
 
 [simulation]
 name = "nancon_intermittence_mf6"
@@ -60,17 +67,14 @@ path = "nancon_stream_network.gpkg"
 [[data.hydrometry.sources]]
 source = "custom"
 path = "hydrometry"
-station_ids = ["NANCON"]
 
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"
-station_ids = ["NANCON"]
 
 [[data.runoff.sources]]
 source = "custom"
 path = "runoff"
-station_ids = ["NANCON"]
 
 
 [flow]

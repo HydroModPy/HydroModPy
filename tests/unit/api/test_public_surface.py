@@ -15,6 +15,7 @@ pytestmark = [pytest.mark.fast]
 # Verbs that must stay reachable as ``hmp.<name>``.
 PRESENT = (
     "open",
+    "index",
     "read",
     "export",
     "run",
@@ -26,7 +27,7 @@ PRESENT = (
 
 # Verbs removed by the interface refactor: merged into ``hmp.open`` /
 # ``hmp.run`` dispatch. They must not come back.
-REMOVED = ("open_catalog", "overview", "compare", "mesh", "testbed", "index")
+REMOVED = ("open_catalog", "overview", "compare", "mesh", "testbed")
 
 
 @pytest.mark.parametrize("name", PRESENT)

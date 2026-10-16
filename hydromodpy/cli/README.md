@@ -13,7 +13,7 @@ rest of the code, and where to add what.
 | `main.py` | how is the argparse tree built, and how does a parsed namespace reach its handler? It builds the tree from `ALL_COMMANDS`, runs the handler `args._handler`, and maps any exception through `exit_code_for`. It also turns SIGTERM into an exception for the whole process |
 | `commands/` | one module per leaf verb, one sub-package per verb family. `commands/__init__.py` holds `ALL_COMMANDS`, the registration order |
 | `_conventions.py` | the shared argparse grammar: `workspace_parser`, `confirm_parser`, `format_parser`, `verbosity_parser`, `profile_parser`, `add_sim_ref`, `add_action_subparsers` |
-| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, plus the helpers that several verbs share (verbosity, workspace and project lookup, profiling, the scratch folder of the test tiers) |
+| `helpers.py` | the typed exit codes and `exit_code_for(exc)`, plus the helpers that several verbs share (verbosity, `find_workspace` / `resolve_workspace` / `resolve_project`, profiling, the scratch folder of the test tiers) |
 | `_workers/` | the application services of the verbs whose reusable Python surface is not part of `hydromodpy._api`: catalog listings, privacy purge, developer reports. A worker may assemble diagnostics; it must not become a hidden scientific workflow |
 | `banner.py` | the banner `hmp run` prints |
 
@@ -25,8 +25,8 @@ from the same parsers.
 
 | verb | role |
 |---|---|
-| `workspace` | workspace lifecycle: `init`, `list` (the sealed runs found by walking the tree, no index), `clean` |
-| `project` | projects inside a workspace: `new`, `list`, `show`, `delete` |
+| `workspace` | workspace lifecycle: `init`, `list` (the sealed runs found by walking the tree, no index), `clean` (`--results` moves every run and session to the trash of its project) |
+| `project` | a project and its campaign: `new`, `plan`, `status`, `log`, `case`, `array`, `collect`, `promote` (a trial of a session to `runs/`), `prune` (the kept trials but the best to the trash), `delete`, `show` (counts read from the directories), `list` |
 | `example` | the shipped examples: `list`, `show`, `add` |
 | `catalog` | the run lifecycle: `ls`, `query`, `show`, `point`, `gc`, `reindex`, `delete`, `restore`, `trash`, `tag`, `note`, `rename`, `diff`, `watch`, `import`, `rerun` |
 | `data` | the input cache: `ls`, `get`, `check`, `add`, `remove`, `prune`, `archive`, `restore` |
@@ -39,10 +39,10 @@ from the same parsers.
 | `run` | execute the workflow a TOML names in `[workflow].mode`, or the one its sections imply |
 | `calibrate` | run a calibration workflow from a TOML |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
-| `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `select`, `ls`, `show` |
+| `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `select`, `ls`, `show`. `select` also renders the review report when `[site_selection.output] write_report_html` is set: there is no separate report verb |
 | `test` | run the `unit`, `regression` or `validation` tier |
 | `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
-| `doctor` | diagnose Python, dependencies, solver binaries and the workspace |
+| `doctor` | diagnose Python, dependencies, solver binaries and the workspace; it reads and reports, it rewrites no file |
 | `install-binaries` | download the MODFLOW, MODPATH and MT3D-USGS binaries |
 
 ## Contract of a verb
@@ -74,6 +74,15 @@ group is attached with `add_action_subparsers`, so a bare `hmp catalog` is a
 usage error and exits 2. `config`, `privacy` and `report` are single modules
 that declare their own sub-commands.
 
+## The workspace a verb reads
+
+Every verb that reads or writes a workspace or a project takes `-w/--workspace`
+(`workspace_parser`), which names a workspace root or a project directory.
+Without it the verb uses `HMP_WORKSPACE`, then the workspace or project that
+holds the current directory, and stops with exit code 10 when it finds none,
+naming `-w`. No verb falls back on `~/hydromodpy`; `hmp workspace init` alone
+creates it when no path is given.
+
 ## The boundary
 
 - `commands/*.py` parse arguments, call `hydromodpy._api`, another package or a
@@ -89,10 +98,11 @@ that declare their own sub-commands.
 ## Exit codes
 
 `helpers.py` defines them and `exit_code_for` maps an exception class to one.
-`0` is success, `1` a generic error, `2` a usage error, `10` to `22` the typed
-categories (not found, schema mismatch, write conflict, read-only, configuration,
-solver, validation, cross-project, backup failed, migration failed, ambiguous
-reference, calibration, unreadable catalog), `130` an interruption (SIGINT).
+`0` is success, `1` a generic error, `2` a usage error (a refused confirmation
+without `-y` included), `10` to `23` the typed categories (not found, schema
+mismatch, write conflict, read-only, configuration, solver, validation,
+cross-project, backup failed, migration failed, ambiguous reference,
+calibration, unreadable catalog, cases failed), `130` an interruption (SIGINT).
 The list with the exception behind each code is the exit-codes page of the CLI
 reference.
 
@@ -122,7 +132,9 @@ prints its message on stderr and exits with the matching code.
 5. **An exit code.** A constant and an entry in the mapping of `helpers.py`.
 
 `tests/unit/cli/test_cli_help.py` walks `ALL_COMMANDS` and checks the help of
-each verb.
+each verb. `tests/unit/cli/test_cli_surface_matches_the_target.py` holds the
+list of verbs and actions the CLI must expose, the ones it must not, and the
+`-w` rule: a verb added or removed is a line there.
 
 ## Import rules
 

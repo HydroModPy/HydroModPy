@@ -464,6 +464,14 @@ def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None
             txt += f"; the valid range {esc(rng)} caps them"
         add("Calibration", txt)
     add("Only if", when_text(n))
+    if n.get("site_scoped"):
+        sites_link = uri(builder, fromdoc, "sites.bind")
+        add(
+            "Varies by site",
+            "yes: in a project of many sites, bind it to a column with "
+            f'<a class="hmp-toml-ref" href="{esc(sites_link)}"><code>sites.bind</code></a> '
+            "or set it in a per-site overlay; a literal value is refused",
+        )
     if n.get("kind") != "leaf" and n.get("variants_detail"):
         add(
             "Shapes",

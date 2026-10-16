@@ -30,10 +30,11 @@ support = "network"
 stream_geometry_path = "nancon_stream_network.gpkg"
 time = "2002-10-15"
 
+# The record of the gauge of [site]: a point output that names no station
+# observes the gauge.
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"
-observes = "NANCON"
 
 # The gap divided by the validity length (150 m here), so it adds to an NSE.
 [[calibration.objective_blocks]]

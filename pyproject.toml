@@ -67,6 +67,7 @@ dependencies = [
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
     "shapely>=2.1,<3",
+    "threadpoolctl>=3.1,<4",
     "whitebox-workflows==1.3.5",
     "xarray>=2026.4.0,<2027",
     "xugrid>=0.15.2,<1",
@@ -140,8 +141,8 @@ dev = [
 ]
 
 [project.scripts]
-hmp = "hydromodpy.cli:main"
-hydromodpy = "hydromodpy.cli:main"
+hmp = "hydromodpy.cli.main:main"
+hydromodpy = "hydromodpy.cli.main:main"
 
 # The "hydromodpy.solver" and "hydromodpy.solver.extractor" entry-point groups
 # are the out-of-tree plugin surface. In-tree backends are declared once, in
@@ -199,6 +200,8 @@ hydromodpy = ["py.typed"]
 "hydromodpy.results" = ["*.toml"]
 # The JSON Schemas of the stored formats, generated from the results models.
 "hydromodpy.schema.results" = ["*.json"]
+# The SLURM job templates of `hmp project array`, read by importlib.resources.
+"hydromodpy.project.launch.templates" = ["*.sh"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.spatial.administrative" = ["*.gpkg"]
 "hydromodpy.cli.commands.dev.manage.static" = ["*.html"]

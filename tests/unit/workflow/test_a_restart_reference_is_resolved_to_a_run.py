@@ -103,3 +103,61 @@ def test_without_a_reference_the_step_touches_nothing(tmp_path: Path) -> None:
     assert flow.restart_from is None
     assert store.facts.lineage.parent_sim_id is None
     store.close()
+
+
+def test_the_table_form_finds_its_run_by_sim_id_first(tmp_path: Path) -> None:
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    project = make_project(tmp_path / "demo")
+    sid = _sealed(project, "spinup")
+    _sealed(project, "spinup.v2")
+
+    source = resolve_restart_source(
+        project, RestartReference(sim_id=sid, path="runs/spinup.v2/fields.zarr")
+    )
+
+    assert source.sim_id == sid
+    assert source.path == project / "runs" / "spinup" / FIELDS_STORE_NAME
+
+
+def test_the_table_form_falls_back_to_its_path_in_another_project(tmp_path: Path) -> None:
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    project = make_project(tmp_path / "demo")
+    loose = project / "inputs" / FIELDS_STORE_NAME
+    loose.mkdir(parents=True)
+
+    source = resolve_restart_source(
+        project, RestartReference(sim_id="0" * 32, path=f"inputs/{FIELDS_STORE_NAME}")
+    )
+
+    assert source.path == loose
+    assert source.sim_id == "0" * 32
+    with pytest.raises(ConfigError, match="no sealed run of this project has that sim_id"):
+        resolve_restart_source(project, RestartReference(sim_id="1" * 32, path="missing"))
+
+
+def test_a_restart_reference_names_a_sim_id_or_a_path() -> None:
+    from pydantic import ValidationError
+
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    with pytest.raises(ValidationError, match="names a sim_id, a path, or both"):
+        RestartReference()
+    assert RestartReference.model_validate({"path": "runs/a"}).sim_id is None
+
+
+def test_the_step_returns_the_sim_id_the_frozen_config_writes(tmp_path: Path) -> None:
+    from hydromodpy.physics.flow.flow_config import RestartReference
+
+    project = make_project(tmp_path / "demo")
+    sid = _sealed(project, "spinup")
+    store = open_run_store(project, "production", n_cells=4)
+    flow = SimpleNamespace(restart_from=RestartReference(sim_id=sid))
+    ctx = SimpleNamespace(cfg=SimpleNamespace(flow=flow), lineage=None)
+
+    returned = _bind_restart_source(ctx, store=store)
+
+    assert returned == sid
+    assert flow.restart_from == str(project / "runs" / "spinup" / FIELDS_STORE_NAME)
+    store.close()

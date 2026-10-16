@@ -134,10 +134,14 @@ at work:
 .. code-block:: python
 
    import hydromodpy as hmp
+   from hydromodpy.results.catalog.indexer import rebuild_index
+   from tests._helpers.sealed_runs import make_project
 
 
    def test_tmp_workspace_is_openable_as_a_catalog(tmp_workspace):
-       with hmp.open(tmp_workspace, create=True) as catalog:
+       project = make_project(tmp_workspace / "projects" / "demo")
+       rebuild_index(project)
+       with hmp.open(project).store as catalog:
            assert catalog.list_simulations().empty
 
 Regression pattern

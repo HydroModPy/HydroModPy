@@ -3218,7 +3218,7 @@
             }
           ],
           "default": 0.5,
-          "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. Measured on the Flume at 25 m with 8-cell paths, the realised maximum lowering of a cell follows it within 0.01 m. On a finer grid a thick embankment spreads the cost over more cells, so it is filled instead of dug: the same value does not give the same landscape at every resolution. A depression whose cheapest breach costs more is filled. Paths overlap, so the lowering of a cell can exceed it (Nancon 75 m: 0.56 m for 0.5 m). The realised depth is measured after the call, logged, and warned about when it exceeds this value. Accepts inline units (e.g. 0.5, '0.5 m').",
+          "description": "Largest cumulative lowering, in metres, of one breach path (the 'max_cost' of Whitebox): the lowering summed over the cells of the path, not the depth of one cell. With short paths the realised maximum lowering of a cell stays close to it. On a finer grid a thick embankment spreads the cost over more cells, so it is filled instead of dug: the same value does not give the same landscape at every resolution. A depression whose cheapest breach costs more is filled. Paths overlap, so the lowering of a cell can exceed it (0.56 m for a value of 0.5 m, on a 75 m grid). The realised depth is measured after the call, logged, and warned about when it exceeds this value. Accepts inline units (e.g. 0.5, '0.5 m').",
           "examples": [
             0.5
           ],
@@ -7439,11 +7439,14 @@
               "type": "string"
             },
             {
+              "$ref": "#/$defs/RestartReference"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional hotstart: path to a prior simulation Zarr store whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior run must share this run's mesh: a regular grid is rebuilt identically and a generated triangle or voronoi mesh is read back from the mesh cache of the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
+          "description": "Optional hotstart: a prior run whose last time step seeds the initial heads (and the lake stage), overriding [flow.ic]. Name it by its run name, its sim_id, the path of its Zarr store, or the table {sim_id, path} the frozen config.toml of a run writes (the sim_id is looked up first, the path second). The prior run must share this run's mesh: a regular grid is rebuilt identically and a generated triangle or voronoi mesh is read back from the mesh cache of the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. Read only by a solver that declares it can: elsewhere the run is refused rather than started from [flow.ic] without a word. This is one of the four ways to say where a transient starts, next to [flow.ic] type='steady_state' (equilibrium under the mean recharge, or under a rate you state with source='prescribed'), type='custom'/'top'/'bottom' (a level you write), and `hmp spinup` (repeat a representative window until the state stops moving, then point this key at its result).",
           "title": "Restart From",
           "x-hmp-profile": "user"
         }
@@ -10553,7 +10556,7 @@
         },
         "route_drainage": {
           "default": true,
-          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost (about 6 % of the water of the basin of D on the Nancon). On by default; set False only to study the network alone.",
+          "description": "Route the hillslope drainage (DRN) discharge into the stream network: every remaining DRN cell of the basin hands its outflow, through an MVR record (FACTOR 1.0), to the first reach or lake cell met on its descent D, a filled copy of the model top. A cell whose descent leaves the model first keeps a plain DRN. This is the surface re-infiltration / runon convergence of drained water towards the river; without it only the reach cells' streambed captures baseflow and the rest of the catchment discharge is lost (a few per cent of the water of a catchment). On by default; set False only to study the network alone.",
           "examples": [
             true
           ],
@@ -16895,7 +16898,7 @@
         },
         "print_head": {
           "default": false,
-          "description": "Re-print the whole head field, formatted as text, into the model listing at every output step. Nothing in the package reads it, and the binary head file already carries the same numbers. It costs DISK, not time: measured on the Nancon at 25 m, 243 552 cells over 1826 daily steps wrote a 2.96 GB listing, but a one-variable-at-a-time probe put its effect on the solve at -0.4 per cent, inside the noise. Default false to stop producing the file, not to go faster. The listing keeps its budget summaries and its convergence reports either way, and Mf6ListBudget reads those.",
+          "description": "Re-print the whole head field, formatted as text, into the model listing at every output step. Nothing in the package reads it, and the binary head file already carries the same numbers. It costs DISK, not time: on a 25 m mesh of about 240 000 cells, 1826 daily steps wrote a listing of about 3 GB, but a one-variable-at-a-time probe put its effect on the solve at -0.4 per cent, inside the noise. Default false to stop producing the file, not to go faster. The listing keeps its budget summaries and its convergence reports either way, and Mf6ListBudget reads those.",
           "examples": [
             false
           ],
@@ -16905,7 +16908,7 @@
         },
         "save_specific_discharge": {
           "default": true,
-          "description": "Compute and write the cell-by-cell Darcy velocity (DATA-SPDIS). Required by particle tracking and by any velocity figure. The cost is the COMPUTATION, not the write: MODFLOW interpolates a velocity vector per cell at every step. Measured on the Nancon at 25 m by changing this switch alone, 4.64 -> 3.68 s per step, 20.7 per cent of the solve. A calibration that only scores a discharge series should turn it off.",
+          "description": "Compute and write the cell-by-cell Darcy velocity (DATA-SPDIS). Required by particle tracking and by any velocity figure. The cost is the COMPUTATION, not the write: MODFLOW interpolates a velocity vector per cell at every step. Measured by changing this switch alone on a 25 m mesh of about 240 000 cells, it is about a fifth of the solve. A calibration that only scores a discharge series should turn it off.",
           "examples": [
             true
           ],
@@ -16915,7 +16918,7 @@
         },
         "save_saturation": {
           "default": true,
-          "description": "Compute and write the cell saturation (DATA-SAT). Measured on the Nancon at 25 m by changing this switch alone, 4.64 -> 4.13 s per step, 10.9 per cent of the solve. Same reasoning as save_specific_discharge: the cost is the per-cell computation, and the two together are worth 34.5 per cent.",
+          "description": "Compute and write the cell saturation (DATA-SAT). Measured by changing this switch alone on a 25 m mesh of about 240 000 cells, it is about a tenth of the solve. Same reasoning as save_specific_discharge: the cost is the per-cell computation, and the two together are worth about a third.",
           "examples": [
             true
           ],
@@ -20409,6 +20412,48 @@
         }
       }
     },
+    "RestartReference": {
+      "additionalProperties": false,
+      "description": "The run a hotstart reads, by id and by path: the table form of ``restart_from``.\n\nThe frozen ``config.toml`` of a run writes this form, so a replay finds\nits source by ``sim_id`` in the project it runs in, and by ``path``\n(relative to the project root) elsewhere.",
+      "properties": {
+        "sim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Id of the sealed run whose last heads seed this one",
+          "title": "Sim Id",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Field store or run directory, relative to the project root or absolute",
+          "title": "Path",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "RestartReference",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "ResultsConfig": {
       "additionalProperties": false,
       "description": "Configuration for ``[simulation.results]``.\n\nControls whether simulation outputs are stored in the Catalog, which raw\nsolver files are kept and how much of the per-cell budget a run keeps.\nEvery derived field is rebuilt on read. Automated export formats live in\nthe top-level ``[export]`` section (:class:`ExportConfig`), not here.",
@@ -21764,7 +21809,7 @@
             }
           ],
           "default": null,
-          "description": "File name under summary/exports/; unset, it is named after the request.",
+          "description": "For a table, the file name under summary/exports/ (unset: <table>.<format>); for runs = 'best', the folder of the series (unset: best).",
           "title": "File",
           "x-hmp-profile": "user"
         }
@@ -21795,10 +21840,10 @@
       "description": "How the cases of a ``[sites]`` project are run side by side.",
       "properties": {
         "parallel": {
-          "default": 4,
-          "description": "Total budget of solves that run side by side. A case whose [calibration] parallel is 5 takes 5 of it. Above 8 the launcher refuses without --force until the launch measurements set the real ceiling; a campaign of calibrations runs with 1.",
+          "default": 8,
+          "description": "Total budget of solves that run side by side. A case whose [calibration] parallel is 5 takes 5 of it. The default is 8 because the throughput levelled off from 8 runs side by side on 22 cores, each run holding up to 1.2 GiB. Above 16 the launcher refuses without --force (16 runs held 14 GiB), and above 2 for a campaign that holds a calibration.",
           "examples": [
-            4
+            8
           ],
           "minimum": 1,
           "title": "Parallel",
@@ -21826,7 +21871,7 @@
         },
         "threads_per_case": {
           "default": 1,
-          "description": "Threads one case may use, applied by the case process itself to its numerical libraries and its child processes. Shown by --dry-run.",
+          "description": "Threads one case may use, applied by the case process itself to its numerical libraries and its child processes. Shown by --dry-run. The default is 1: one run already kept about 1.8 cores busy, and parallel times threads_per_case above the cores is refused without --force.",
           "examples": [
             1
           ],
@@ -21847,10 +21892,10 @@
           "x-hmp-profile": "dev"
         },
         "prepare_parallel": {
-          "default": 4,
-          "description": "Cases prepared side by side before the solves: the geography and the data of each case, the only phase that writes the shared data cache.",
+          "default": 2,
+          "description": "Cases prepared side by side before the solves: the geography and the data of each case. Two cases of one site are never prepared together, since they write the same data files. Above 8 the launcher refuses without --force: 16 runs writing the data cache at once lost a write.",
           "examples": [
-            4
+            2
           ],
           "minimum": 1,
           "title": "Prepare Parallel",
@@ -21902,7 +21947,7 @@
           "x-hmp-profile": "user"
         },
         "figures": {
-          "description": "Cohort figures drawn under summary/figures/, by their registered names.",
+          "description": "Cohort figures drawn under summary/figures/<figure>_<variable>.png: map, distribution.",
           "examples": [
             [
               "map",
@@ -22645,7 +22690,7 @@
         },
         "sink_fill": {
           "default": false,
-          "description": "Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. The depressions are counted on the four shared faces MODFLOW connects, not on the eight neighbours a raster fill uses: measured on the Nancon, 4.56 per cent of the mesh against 2.12 per cent, a factor of two that is the neighbourhood and nothing else. NOT SANCTIONED BY ANY SOURCE: no manual, no USGS document and no guideline removes a discharge boundary where a pit is detected, and measured here it degrades both scores. The remedy the USGS does document for the same question is solver.drain_band_depth_m, which gives every cell a discharge band instead of taking the drain away. Default false, which drains every cell as before.",
+          "description": "Dimensionless. Remove the drain from every cell sitting in a closed depression of the model top, by setting its DRN conductance to zero. A closed depression has no outlet, so water reaching it ponds instead of seeping into a stream, and a drain there invents a discharge point. The depressions are measured on the solver mesh, by a priority flood seeded on every cell water can leave the domain through; both MODFLOW backends read the same mask. This does NOT move the topography: no elevation is raised, no DEM is rewritten, and every other package sees the surface it would have seen. Refused when the mask cannot be built. The depressions are counted on the four shared faces MODFLOW connects, not on the eight neighbours a raster fill uses: the share of the mesh flagged is about twice as large on four faces as on eight neighbours, a factor that is the neighbourhood and nothing else. NOT SANCTIONED BY ANY SOURCE: no manual, no USGS document and no guideline removes a discharge boundary where a pit is detected, and measured here it degrades both scores. The remedy the USGS does document for the same question is solver.drain_band_depth_m, which gives every cell a discharge band instead of taking the drain away. Default false, which drains every cell as before.",
           "examples": [
             false,
             true
@@ -22656,7 +22701,7 @@
         },
         "drain_bed_thickness_m": {
           "default": 1.0,
-          "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (30 m on the Nancon) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. On the Nancon at R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.",
+          "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (tens of metres) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. For R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.",
           "examples": [
             1.0,
             0.5,

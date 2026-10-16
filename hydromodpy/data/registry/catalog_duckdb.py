@@ -8,12 +8,27 @@ Thin facade over the three concern modules:
   ``table_names``).
 - :mod:`cache_lifecycle`: destructive ops and sidecar inserters.
 
-``DataCatalogDuckDB`` keeps a stable public API: every method that used to
-live here is still callable from the same import path.
+Three ways to open the workspace cache
+--------------------------------------
+- Read-write, the default: the process owns the file while it is open. One
+  process at a time can do this.
+- Read-only (``read_only=True``): many processes can read together, and
+  nothing is written. ``hmp data`` reads and the ``--frozen`` check open the
+  cache this way.
+- Layered, inside a case started by the launcher: the environment names a
+  private cache (:data:`PRIVATE_CACHE_ENV`). Every write and every lookup a
+  write needs goes to the private file; a read query asks the shared cache
+  first, opened read-only for that one query and closed at once, then the
+  private file. The shared file is never held open, so the launcher can
+  merge a finished case (:func:`merge_private_cache`) while other cases run.
 """
 
 from __future__ import annotations
 
+import json
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -31,30 +46,90 @@ from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_s
 
 logger = get_logger(__name__)
 
+PRIVATE_CACHE_ENV = "HMP_DATA_CACHE_PRIVATE"
+"""Private data cache of a launched case; set, the shared cache is read-only."""
+
 __all__ = [
+    "PRIVATE_CACHE_ENV",
     "DataCatalogDuckDB",
     "SENTINEL_CUSTOM",
     "SENTINEL_EMPTY",
+    "merge_private_cache",
+    "private_cache_path",
 ]
+
+
+def private_cache_path() -> Path | None:
+    """Return the private cache the environment names, or ``None`` outside a launched case."""
+    text = os.environ.get(PRIVATE_CACHE_ENV, "").strip()
+    return Path(text).expanduser().resolve() if text else None
 
 
 class DataCatalogDuckDB:
     """DuckDB-backed data catalog."""
 
-    def __init__(self, db_path: Path | UPath | str | None = None):
+    def __init__(
+        self,
+        db_path: Path | UPath | str | None = None,
+        *,
+        read_only: bool = False,
+        layered: bool = True,
+    ):
+        """Open the cache at *db_path*, in memory when it is ``None``.
+
+        ``read_only`` opens the file for reading only and never creates nor
+        migrates it. ``layered=False`` opens the file itself even inside a
+        launched case: the launcher merging a case passes it.
+        """
         self._db_path: Path | None = None
+        self._shared_path: Path | None = None
+        self._read_only = read_only
         if db_path is None:
             self._conn = duckdb.connect(":memory:")
+            backend_path: Path | None = None
         else:
             db_path = Path(str(db_path)).expanduser().resolve()
-            db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db_path = db_path
-            self._conn = connect_with_retry(str(db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
+            private = private_cache_path() if layered and not read_only else None
+            if read_only:
+                self._conn = connect_with_retry(str(db_path), read_only=True)
+            elif private is not None and private != db_path:
+                # The shared cache is read per query; this process writes its own.
+                self._shared_path = db_path
+                private.parent.mkdir(parents=True, exist_ok=True)
+                self._conn = connect_with_retry(str(private), block_size=HMP_DUCKDB_BLOCK_SIZE)
+            else:
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                self._conn = connect_with_retry(str(db_path), block_size=HMP_DUCKDB_BLOCK_SIZE)
+            backend_path = db_path
 
-        _ensure_cache_schema(self._conn)
+        if not read_only:
+            _ensure_cache_schema(self._conn)
         self._backend: CacheBackend = DuckDBCacheBackend.from_connection(
-            self._conn, path=self._db_path
+            self._conn, path=backend_path
         )
+
+    @property
+    def read_only(self) -> bool:
+        """Whether this catalog was opened for reading only."""
+        return self._read_only
+
+    @property
+    def layered(self) -> bool:
+        """Whether writes go to a private cache and reads also ask the shared one."""
+        return self._shared_path is not None
+
+    @contextmanager
+    def _shared(self) -> Iterator[DataCatalogDuckDB | None]:
+        """Open the shared cache read-only for one query, or yield ``None``."""
+        if self._shared_path is None or not self._shared_path.is_file():
+            yield None
+            return
+        shared = DataCatalogDuckDB(self._shared_path, read_only=True)
+        try:
+            yield shared
+        finally:
+            shared.close()
 
     @property
     def connection(self):
@@ -198,20 +273,34 @@ class DataCatalogDuckDB:
         date_start: datetime | None = None,
         date_end: datetime | None = None,
     ) -> _CatalogEntry | None:
-        """Find a cached entry covering the requested extent/period (superset)."""
-        return cache_queries.find_cached(
-            self,
-            variable=variable,
-            source=source,
-            station_id=station_id,
-            bbox=bbox,
-            date_start=date_start,
-            date_end=date_end,
-        )
+        """Find a cached entry covering the requested extent/period (superset).
+
+        A layered catalog asks the shared cache first, then its private one.
+        """
+        query = {
+            "variable": variable,
+            "source": source,
+            "station_id": station_id,
+            "bbox": bbox,
+            "date_start": date_start,
+            "date_end": date_end,
+        }
+        with self._shared() as shared:
+            if shared is not None:
+                found = cache_queries.find_cached(shared, **query)
+                if found is not None:
+                    return found
+        return cache_queries.find_cached(self, **query)
 
     def custom_file_mtime(self, *, variable: str, file_path: Path | str) -> float | None:
         """Return the ``file_mtime`` indexed for one custom file, or None."""
-        return cache_queries.custom_file_mtime(self, variable=variable, file_path=file_path)
+        mtime = cache_queries.custom_file_mtime(self, variable=variable, file_path=file_path)
+        if mtime is not None:
+            return mtime
+        with self._shared() as shared:
+            if shared is None:
+                return None
+            return cache_queries.custom_file_mtime(shared, variable=variable, file_path=file_path)
 
     def list_entries(
         self,
@@ -221,14 +310,25 @@ class DataCatalogDuckDB:
         limit: int | None = None,
         offset: int = 0,
     ) -> pd.DataFrame:
-        """List catalog entries as a DataFrame."""
-        return cache_queries.list_entries(
-            self,
-            variable=variable,
-            source=source,
-            limit=limit,
-            offset=offset,
-        )
+        """List catalog entries as a DataFrame; a layered catalog lists both caches."""
+        if self._shared_path is None:
+            return cache_queries.list_entries(
+                self,
+                variable=variable,
+                source=source,
+                limit=limit,
+                offset=offset,
+            )
+        frames = [cache_queries.list_entries(self, variable=variable, source=source)]
+        with self._shared() as shared:
+            if shared is not None:
+                frames.insert(
+                    0, cache_queries.list_entries(shared, variable=variable, source=source)
+                )
+        merged = pd.concat([frame for frame in frames if not frame.empty] or frames[:1])
+        merged = merged.reset_index(drop=True)
+        end = None if limit is None else offset + limit
+        return merged.iloc[offset:end].reset_index(drop=True)
 
     def table_names(self) -> list[str]:
         """Return the list of tables present in the catalog."""
@@ -422,3 +522,75 @@ class DataCatalogDuckDB:
             artifact_id=artifact_id,
             errors=errors,
         )
+
+
+_STATION_COLUMNS = ("station_id", "variable", "source", "lat", "lon", "z", "name")
+_STATION_VALIDITY = ("first_valid", "last_valid")
+
+
+def merge_private_cache(shared_path: Path | str, private_path: Path | str) -> int:
+    """Merge the entries and stations of a private cache into the shared one.
+
+    Returns the number of entries merged. Each entry goes through
+    :meth:`DataCatalogDuckDB.register`, so an entry the shared cache already
+    holds is updated in place. The private file is left as it is; the caller
+    removes it once the merge returned.
+    """
+    private = Path(private_path)
+    if not private.is_file():
+        return 0
+    with DataCatalogDuckDB(private, read_only=True) as source:
+        entries = source.backend.query("SELECT * FROM entries ORDER BY id")
+        stations = source.backend.query("SELECT * FROM stations")
+    if entries.empty and stations.empty:
+        return 0
+    with DataCatalogDuckDB(shared_path, layered=False) as shared:
+        for row in entries.to_dict(orient="records"):
+            shared.register(
+                variable=row["variable"],
+                source=row["source"],
+                file_path=row["file_path"],
+                station_id=_cell(row.get("station_id")),
+                bbox=_bbox_of(row),
+                crs=_cell(row.get("crs")),
+                date_start=_cell(row.get("date_start")),
+                date_end=_cell(row.get("date_end")),
+                frequency=_cell(row.get("frequency")),
+                unit=_cell(row.get("unit")),
+                source_unit=_cell(row.get("source_unit")),
+                is_custom=bool(row.get("is_custom")),
+                file_mtime=_cell(row.get("file_mtime")),
+                file_sha256=_cell(row.get("sha256")),
+                fetch_metadata=_metadata_of(row.get("fetch_metadata")),
+            )
+        for row in stations.to_dict(orient="records"):
+            shared.upsert_station(
+                **{key: _cell(row.get(key)) for key in (*_STATION_COLUMNS, *_STATION_VALIDITY)}
+            )
+    return len(entries)
+
+
+def _cell(value: object) -> object:
+    """Return ``None`` for a missing cell of a DataFrame row, the value otherwise."""
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        return value
+    return value.to_pydatetime() if isinstance(value, pd.Timestamp) else value
+
+
+def _bbox_of(row: dict) -> tuple | None:
+    box = tuple(_cell(row.get(key)) for key in ("bbox_xmin", "bbox_ymin", "bbox_xmax", "bbox_ymax"))
+    return None if all(value is None for value in box) else box
+
+
+def _metadata_of(value: object) -> dict | None:
+    value = _cell(value)
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    return json.loads(str(value))

@@ -15,9 +15,16 @@ Every finished run has its own folder. In it you find:
 - **A provenance record**, `provenance.json`. It names the version of HydroModPy, the commit of
   the code it came from, the version of Python, the machine, the packages installed, and the
   solver with its version and the SHA-256 checksum of its binary.
-- **A manifest**, `manifest.json`, written last. It lists the input files the configuration
-  declared, each with its checksum, the output files, the period, the geometry and the scores.
-  A run folder without a manifest is an incomplete run by construction.
+- **The inputs it read**, `inputs.json`: one entry per dataset, downloaded or yours, with the
+  provider, the product and its version, the full request (extent, period, stations), the
+  date of the download, the checksum and the licence.
+- **A manifest**, `manifest.json`, written last. It names the catchment, lists the output
+  files, the period, the geometry, the scores with the window they were computed on, and the
+  checks of the run (water budget, convergence, coverage of the observations). A run folder
+  without a manifest is an incomplete run by construction; its `outcome.json` says how it
+  ended.
+- **A `README.md`**, generated from the manifest: the same facts in words, the {term}`run label`
+  of the day, and the checksum of the manifest it summarises.
 
 A checksum is a short code computed from the content of a file. If one byte changes, the code
 changes. A checksum that matches is a strong sign that the file is the one that was used.
@@ -26,9 +33,8 @@ changes. A checksum that matches is a strong sign that the file is the one that 
 
 At the root of a project, the {term}`lockfile` `hydromodpy.lock` pins what fed the runs: the
 version of the code, the solver binaries with their checksums, the versions of the file formats,
-and every cached input with its checksum and size. It is written after a
-successful run when the project has a data cache. If the write fails, a warning says so and the
-run is not lost.
+and every cached input with its checksum and size. It is written once the data of a launch
+are fetched, not by every run.
 
 The lockfile answers a wider question than the manifest of one run: in what state was the whole
 data cache before the run?
@@ -43,6 +49,7 @@ data cache before the run?
 | To replay a run with exactly the same data | A run that refuses any fresh download and stops on a checksum that does not match. | `hmp run --frozen <file>` |
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. | `hmp catalog rerun <run> --set path=value` |
 | To hand a run to someone | A copy that stands alone: the README, the frozen configuration, the provenance with the machine and the user removed, and the checksum of every file. | `hmp publish <run> --to <folder>` |
+| Whether a copy you received is intact | A check of every file of the copy against the checksums it carries. | `hmp publish --verify <folder>` |
 
 The options of each command are in the {doc}`command reference <../reference/cli/index>`.
 

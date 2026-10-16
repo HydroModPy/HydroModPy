@@ -474,7 +474,8 @@ def _resolve_observed_station(
 ) -> str | None:
     """Return the one gauging station to observe, or ``None`` when it is not known here.
 
-    Named explicitly, ``observed_station_id`` always answers. Otherwise the
+    Named explicitly, ``observed_station_id`` always answers, then ``[site]
+    gauge``: the gauge is the station of the catchment. Otherwise the
     station is read statically, from the file's own
     ``[[data.hydrometry.sources]]``: the protocol writes the output before any
     data is loaded, unlike ``discharge_target``, which resolves the same
@@ -489,6 +490,10 @@ def _resolve_observed_station(
     """
     if opts.observed_station_id is not None:
         return opts.observed_station_id
+    site = document.get("site")
+    gauge = site.get("gauge") if isinstance(site, Mapping) else None
+    if gauge:
+        return str(gauge)
 
     data = document.get("data")
     hydrometry = data.get("hydrometry") if isinstance(data, Mapping) else None

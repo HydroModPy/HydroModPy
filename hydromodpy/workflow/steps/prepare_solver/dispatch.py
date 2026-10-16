@@ -232,19 +232,35 @@ def _relativise(payload: Any, project_root: Path) -> Any:
     return payload
 
 
-def frozen_config_document(ctx: WorkflowContext, project_root: Path) -> str:
+def frozen_config_document(
+    ctx: WorkflowContext, project_root: Path, *, restart_sim_id: str | None = None
+) -> str:
     """Return the resolved configuration of the run as portable TOML text.
 
     The domain section is the one the built domain carries. The
     ``[workspace]`` keys the loader resolves on this machine are left out,
     and every path under the project root is written relative to it, so the
-    document replays from another checkout of the same project.
+    document replays from another checkout of the same project. A hotstart
+    whose source has a ``sim_id`` is written as the table ``{sim_id, path}``.
     """
     assert ctx.run_dir is not None
     snapshot = collect_effective_config_snapshot(ctx)
+    flow = snapshot.get("flow")
+    if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
+        flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
     cfg_effective = type(ctx.cfg).model_validate(snapshot)
-    staged = ctx.run_dir / f".{RUN_CONFIG_FILENAME}.staged"
-    cfg_effective.to_toml(staged, profile="expert")
+    return portable_config_document(cfg_effective, ctx.run_dir, project_root)
+
+
+def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str:
+    """Return *cfg* as the portable TOML text a run directory freezes.
+
+    The ``[workspace]`` keys the loader resolves on this machine are left
+    out, and every path under the project root is written relative to it.
+    The document is staged in *run_dir* while it is rendered.
+    """
+    staged = run_dir / f".{RUN_CONFIG_FILENAME}.staged"
+    cfg.to_toml(staged, profile="expert")
     try:
         payload = tomllib.loads(staged.read_text(encoding="utf-8"))
     finally:
@@ -258,17 +274,19 @@ def frozen_config_document(ctx: WorkflowContext, project_root: Path) -> str:
     return dumps(_relativise(payload, project_root.resolve()))
 
 
-def _freeze_run_config(ctx: WorkflowContext, *, store: RunStore) -> None:
+def _freeze_run_config(
+    ctx: WorkflowContext, *, store: RunStore, restart_sim_id: str | None = None
+) -> None:
     """Write the resolved configuration into the run directory, in one rename."""
     project_root = Path(store.workspace_path or store.run_dir.parent.parent)
     target = store.run_dir / RUN_CONFIG_FILENAME
-    document = frozen_config_document(ctx, project_root)
+    document = frozen_config_document(ctx, project_root, restart_sim_id=restart_sim_id)
     with staged_path(target) as staged:
         staged.write_text(document, encoding="utf-8")
     store.facts.config_file = RUN_CONFIG_FILENAME
 
 
-def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> None:
+def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> str | None:
     """Resolve ``[flow] restart_from`` to the store it names and link the run to it.
 
     The reference (a run name, a ``sim_id`` or a path) becomes the path the
@@ -276,13 +294,15 @@ def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> None:
     the project, and the lineage of the run names the ``sim_id`` of the
     source. The identity hash of the run was taken on the reference before
     this call, so the same reference hashes the same on every machine.
+    Returns the ``sim_id`` of the source, which the frozen configuration
+    writes beside its path.
     """
     flow_cfg = getattr(ctx.cfg, "flow", None)
     reference = getattr(flow_cfg, "restart_from", None)
     if not reference:
-        return
+        return None
     project_root = Path(store.workspace_path or store.run_dir.parent.parent)
-    source = resolve_restart_source(project_root, str(reference))
+    source = resolve_restart_source(project_root, reference)
     flow_cfg.restart_from = str(source.path)
     lineage = store.facts.lineage
     if source.sim_id is not None and lineage.parent_sim_id is None:
@@ -290,6 +310,7 @@ def _bind_restart_source(ctx: WorkflowContext, *, store: RunStore) -> None:
             update={"parent_sim_id": source.sim_id, "parent_hint": source.rel_dir}
         )
         ctx.lineage = store.facts.lineage
+    return source.sim_id
 
 
 def _register_tracked_input_files(ctx: WorkflowContext, *, store: RunStore) -> None:
@@ -370,6 +391,22 @@ def bind_run_directory(
     return target
 
 
+def planned_recipe(project_root: Path, case_id: str) -> str | None:
+    """Return the recipe of *case_id* in the current plan, or None outside a plan.
+
+    A case id names its site and its recipe for the life of the project, so
+    the current plan answers for a case of any earlier plan too.
+    """
+    from hydromodpy.results.plan_store import read_plan
+
+    try:
+        stored = read_plan(project_root)
+    except FileNotFoundError:
+        return None
+    case = next((case for case in stored.cases if case.case_id == case_id), None)
+    return None if case is None else case.recipe
+
+
 def initial_facts(
     ctx: WorkflowContext, *, run_overrides: dict | None, config_hash: str | None = None
 ) -> RunFacts:
@@ -397,6 +434,7 @@ def initial_facts(
         sim_id=ctx.sim_id,
         name=ctx.run_dir.name,
         case_id=outcome.case_id,
+        recipe=planned_recipe(project_root, outcome.case_id),
         project=outcome.project or project_root.name,
         attempt=outcome.attempt,
         attempt_id=outcome.attempt_id,
@@ -436,8 +474,8 @@ def step_open_run(
             n_layers=int(facts.n_layers),
             cell_types=[cell_mesh.mesh.single_cell_type.value],
         )
-    _bind_restart_source(ctx, store=store)
-    _freeze_run_config(ctx, store=store)
+    restart_sim_id = _bind_restart_source(ctx, store=store)
+    _freeze_run_config(ctx, store=store, restart_sim_id=restart_sim_id)
     _write_zarr_time(ctx, ctx.sim_id, store=store)
     _write_zarr_crs(ctx, ctx.sim_id, store=store)
 
@@ -463,7 +501,9 @@ def step_open_run(
 __all__ = (
     "bind_run_directory",
     "frozen_config_document",
+    "portable_config_document",
     "initial_facts",
+    "planned_recipe",
     "refresh_run_environment",
     "step_open_run",
 )

@@ -10,7 +10,14 @@ in ``lineage.overrides`` and ``.vN`` handles the collision.
 
 The command is the worker of one case: it claims ``runs/<case>/``, runs the
 pipeline and seals the run. It never opens the index; once the worker has
-returned, the command indexes the run directory.
+returned, the command indexes the run directory, unless a launcher started
+it (``HMP_LAUNCHED_CASE``), in which case the launcher indexes.
+
+On a ``[sites]`` project (``project.toml``, or one recipe file of it) the
+command is the local launcher instead: it writes the plan, runs the prepare
+phase, then one worker per case (:mod:`hydromodpy.project.launch`).
+``--only``, ``--site``, ``--parallel``, ``--until data``, ``--fresh``,
+``--force`` and a bare ``--resume`` choose what the launch does.
 """
 
 from __future__ import annotations
@@ -19,17 +26,20 @@ import argparse
 import os
 import sys
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser, verbosity_parser
+from hydromodpy.cli._conventions import profile_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
+    EXIT_CASES_FAILED,
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     EXIT_SIGINT,
+    EXIT_USAGE,
     apply_verbosity,
     exit_code_for,
     exit_if_promotion_failed,
@@ -48,16 +58,18 @@ from hydromodpy.core.toml_io.overrides import (
     parse_override_value,
     set_overrides,
 )
+from hydromodpy.results.storage.contract import RUN_INPUTS_FILENAME
 
 logger = get_logger(__name__)
 
 NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
 
-SITES_RUN_REFUSAL = (
-    "{file}: a [sites] project is run by hmp project run, delivered in wave 2; "
-    "`hmp run {file} --dry-run` prints its plan and writes nothing."
-)
+PROJECT_ROOT_ENV = "HMP_PROJECT_ROOT"
+"""Project root every resolver honours first; ``-w`` sets it for the run."""
+
+INDEXED_WORKFLOWS = ("simulation", "overview")
+"""Workflows whose run directory the command indexes once the worker has returned."""
 
 
 def _step_choices() -> list[str]:
@@ -74,7 +86,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[profile_parser(), verbosity_parser()],
+        parents=[profile_parser(), verbosity_parser(), workspace_parser()],
         epilog="Examples:\n  hmp run run.toml\n  hmp run run.toml --dry-run\n  hmp run run.toml --set flow.param.K.field.value=2e-5\n  hmp run run.toml --overlay daily.toml --case baseline_daily\n  hmp run run.toml --from setup_process --until run_solver\n  hmp run --resume baseline_monthly\n  hmp run run.toml --fresh",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -87,12 +99,16 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--resume",
+        nargs="?",
+        const="",
         default=None,
         metavar="REF",
         help=(
             "Continue an interrupted case in place, from the journal of its directory. "
-            "With a TOML config, REF is the case name to continue; without a config, "
-            "REF is the case name and the run replays its own runs/<name>/config.toml."
+            "With a TOML config, REF is the case name to continue (bare: the case the "
+            "file names); without a config, REF is the case name and the run replays its "
+            "own runs/<name>/config.toml. On a [sites] project, bare --resume starts only "
+            "the cases with an unfinished attempt."
         ),
     )
     from_arg = parser.add_argument(
@@ -107,7 +123,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="until_step",
         default=None,
         metavar="STEP",
-        help="Stop after the specified pipeline step (name or index).",
+        help=(
+            "Stop after the specified pipeline step (name or index). On a [sites] "
+            "project, --until data stops after the prepare phase."
+        ),
     )
     try:
         from argcomplete.completers import ChoicesCompleter, FilesCompleter
@@ -139,7 +158,37 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Recompute even when a completed run with an identical resolved config "
             "and the same name already exists, and claim a stale case whose process "
             "cannot be proven dead. Without it an identical run is not recomputed: "
-            "the command stops and names it. Simulation workflow only."
+            "the command stops and names it. Simulation workflow only. On a [sites] "
+            "project it also lifts the budget ceilings (parallel, prepare_parallel, "
+            "calibrations, cores), takes over the lease of a launcher still alive and "
+            "plans over a running case."
+        ),
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="WHAT",
+        help=(
+            "[sites] project: start only these cases, named by status (failed, stale, "
+            "partial, aborted, planned, completed) or by case id (shell patterns allowed). "
+            "Repeatable, or comma separated."
+        ),
+    )
+    parser.add_argument(
+        "--site",
+        default=None,
+        metavar="SITE",
+        help="[sites] project: start only the cases of this site.",
+    )
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "[sites] project: solves side by side, a calibration counting its own "
+            "[calibration] parallel. Defaults to [sites.run] parallel."
         ),
     )
     parser.add_argument(
@@ -195,10 +244,17 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
+    from hydromodpy.project.launch.env import apply_thread_budget
+
+    try:
+        apply_thread_budget()
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
     config = getattr(args, "config", None)
     if config is None:
         resume = getattr(args, "resume", None)
-        if resume is None:
+        if not resume:
             print(
                 "Provide a TOML config, or --resume REF to resume a catalog run.",
                 file=sys.stderr,
@@ -213,7 +269,8 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     if target.suffix == ".toml":
-        _run_toml(target, args=args)
+        with _project_named_by_w(getattr(args, "workspace", None)):
+            _run_toml(target, args=args)
     elif target.suffix == ".py":
         print(
             "Python scripts are not supported by 'hmp run'. "
@@ -263,15 +320,120 @@ def _resume_from_ref(ref: str, *, args: argparse.Namespace) -> None:
     _run_toml(config_path, args=args)
 
 
+@contextmanager
+def _project_named_by_w(workspace_arg: str | None) -> Iterator[None]:
+    """Make the project ``-w`` names the project of the run, for the block.
+
+    The run, its checks and its frozen-mode verification all resolve the
+    project root through ``HMP_PROJECT_ROOT``; it is set for the block and
+    put back as it was after.
+    """
+    if not workspace_arg:
+        yield
+        return
+    from hydromodpy.cli.helpers import resolve_project
+
+    previous = os.environ.get(PROJECT_ROOT_ENV)
+    os.environ[PROJECT_ROOT_ENV] = str(resolve_project(workspace_arg))
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(PROJECT_ROOT_ENV, None)
+        else:
+            os.environ[PROJECT_ROOT_ENV] = previous
+
+
+def _replay_project_root() -> Path:
+    """Return the project a published copy replays into: ``-w``, else the one around the cwd."""
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
+
+    named = os.environ.get(PROJECT_ROOT_ENV)
+    root = Path(named) if named else resolve_project_root(Path.cwd().resolve())
+    if not (root / PROJECT_MARKER_FILENAME).is_file():
+        print(
+            f"A published copy replays into a project: no {PROJECT_MARKER_FILENAME} at or above "
+            f"{Path.cwd()}. Name the project with -w.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+    return root
+
+
+def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.Namespace) -> None:
+    """Replay the frozen configuration of a published copy from the bytes it carries.
+
+    ``--frozen`` on a copy checks every input of the seal against
+    ``inputs/<sha256>`` and points the configuration at those bytes
+    (:mod:`hydromodpy.project.launch.replay`); the copy holds no lockfile, so
+    the run itself is not bound to one. The run is written into the project
+    ``-w`` names, or the one around the current directory.
+    """
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.core.toml_io.writer import dumps
+    from hydromodpy.project.launch.replay import ReplayInputError, replay_payload
+
+    root = _replay_project_root()
+    if (copy_dir / RUN_INPUTS_FILENAME).is_file():
+        loaded = _loaded_input_providers(copy_dir)
+        if loaded:
+            print(
+                f"--frozen: {copy_dir.name} was fed by {', '.join(loaded)}, inputs a replay does not "
+                "read from inputs/ yet; replay it without --frozen to fetch them again.",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_CONFIG)
+    try:
+        payload = replay_payload(copy_dir, load_toml_with_base_config(config_path))
+    except ReplayInputError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    folder = root / ".hmp" / "replay"
+    folder.mkdir(parents=True, exist_ok=True)
+    replay_path = folder / f"{copy_dir.name}.toml"
+    replay_path.write_text(dumps(payload), encoding="utf-8")
+    args.frozen = False
+    previous = os.environ.get(PROJECT_ROOT_ENV)
+    os.environ[PROJECT_ROOT_ENV] = str(root)
+    try:
+        _run_toml(replay_path, args=args)
+    finally:
+        replay_path.unlink(missing_ok=True)
+        if not any(folder.iterdir()):
+            folder.rmdir()
+        if previous is None:
+            os.environ.pop(PROJECT_ROOT_ENV, None)
+        else:
+            os.environ[PROJECT_ROOT_ENV] = previous
+
+
+def _loaded_input_providers(copy_dir: Path) -> list[str]:
+    """Return the providers of the loaded inputs ``inputs.json`` of a copy lists."""
+    import json
+
+    document = json.loads((copy_dir / RUN_INPUTS_FILENAME).read_text(encoding="utf-8"))
+    return sorted({str(entry.get("provider")) for entry in document.get("inputs") or ()})
+
+
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
     The workflow is the declared ``[workflow] mode`` or the one the sections
     imply; a retired mode exits with ``EXIT_CONFIG`` and names its replacement.
+    The frozen configuration of a published copy, with ``--frozen``, replays
+    from the bytes of the copy (:func:`_replay_published_copy`).
     """
+    from hydromodpy.project.launch.replay import published_copy_of
+
+    copy_dir = published_copy_of(config_path) if getattr(args, "frozen", False) else None
+    if copy_dir is not None:
+        _replay_published_copy(copy_dir, config_path, args=args)
+        return
+
     import hydromodpy as hmp
     from hydromodpy.cli.banner import print_hydromodpy
     from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.project.launch.env import LAUNCHED_ENV
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
@@ -319,8 +481,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if is_sites_project(raw_toml):
         _cleanup_effective_toml(effective_path, source=config_path)
         if not dry_run:
-            print(SITES_RUN_REFUSAL.format(file=config_path.name), file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
+            _launch_sites_project(config_path, args=args)
+            return
         _print_sites_dry_run(config_path, args=args)
         return
 
@@ -343,6 +505,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     resume = getattr(args, "resume", None)
+    if resume == "":
+        resume = _case_name(getattr(args, "case", None), raw_toml, config_path)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
     no_display = bool(getattr(args, "no_display", False))
@@ -455,7 +619,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         raise
     finally:
         _cleanup_effective_toml(effective_path, source=config_path)
-        if workflow == "simulation" and not dry_run:
+        if workflow in INDEXED_WORKFLOWS and not dry_run and not os.environ.get(LAUNCHED_ENV):
             _index_after_worker(project_root)
 
     if isinstance(summary, Mapping) and summary.get("skipped"):
@@ -594,8 +758,8 @@ class FrozenVerificationError(RuntimeError):
 def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> Path:
     """Verify the project lockfile before launching a ``--frozen`` run.
 
-    Resolves the same project root as the post-run lockfile writer, opens the
-    data cache, and calls
+    Resolves the same project root as the lockfile writer, opens the data
+    cache read-only, and calls
     :func:`hydromodpy.data.registry.freeze.verify_inputs_strict` against the
     project's ``hydromodpy.lock``. Any mismatch aborts the run. Returns the
     project root it verified, so a caller can assert it is the address the
@@ -622,7 +786,7 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
         )
 
     try:
-        with DataCatalogDuckDB(db_path) as catalog:
+        with DataCatalogDuckDB(db_path, read_only=True) as catalog:
             mismatches = verify_inputs_strict(catalog, lockfile_path)
     except Exception as exc:  # noqa: BLE001 - any catalog error aborts the run
         raise FrozenVerificationError(f"Could not verify lockfile {lockfile_path}: {exc}") from exc
@@ -877,6 +1041,64 @@ def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None
         for line in group_issues(draft.errors):
             print(f"[dry-run] error   : {line}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
+
+
+def _launch_sites_project(config_path: Path, *, args: argparse.Namespace) -> None:
+    """Plan a ``[sites]`` project from *config_path*, then launch its current plan."""
+    from hydromodpy.core.exceptions import HydroModPyError
+    from hydromodpy.project.launch import plan_project, run_plan
+
+    resume = getattr(args, "resume", None)
+    if resume:
+        print(
+            f"--resume {resume}: on a [sites] project --resume takes no case name; name the "
+            "case with --only and pass a bare --resume.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_USAGE)
+    force = bool(getattr(args, "force", False))
+    root = resolve_project_root(config_path.parent)
+    try:
+        plan_project(
+            root,
+            config_path=config_path,
+            set_overrides=set_overrides(list(getattr(args, "set_overrides", []) or [])),
+            env=os.environ,
+            force=force,
+        )
+        report = run_plan(
+            root,
+            parallel=getattr(args, "parallel", None),
+            only=tuple(getattr(args, "only", []) or ()),
+            site=getattr(args, "site", None),
+            until=getattr(args, "until_step", None),
+            fresh=bool(getattr(args, "fresh", False)),
+            force=force,
+            resume=resume is not None,
+        )
+    except KeyboardInterrupt:
+        print("Launch aborted by user.", file=sys.stderr)
+        sys.exit(EXIT_SIGINT)
+    except (HydroModPyError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(exit_code_for(exc))
+    if report.until is not None:
+        print(
+            f"[launch] plan {report.plan_hash}: {len(report.prepared)} case(s) prepared, "
+            f"{report.n_failed} failed to prepare; stopped after the prepare phase"
+        )
+    else:
+        print(
+            f"[launch] plan {report.plan_hash}: {len(report.cases)} case(s) started, "
+            f"{report.n_completed} completed, {report.n_failed} not completed"
+        )
+    for case in report.cases:
+        if case.status != "completed":
+            detail = f" ({case.error})" if case.error else ""
+            print(f"[launch]   {case.case_id}: {case.status}{detail}", file=sys.stderr)
+    print(f"[launch] journal: {display_path(report.journal)}")
+    if report.n_failed:
+        sys.exit(EXIT_CASES_FAILED)
 
 
 def _check_single_site(config_path: Path, raw_toml: Mapping[str, Any]) -> None:

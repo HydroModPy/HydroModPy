@@ -4,12 +4,12 @@
 #
 # No search: K takes five fixed values, one full run each, and every run is
 # kept with its figures and its exports. The best on the gauge is promoted
-# under the simulation name, the four others with a _trial_<n> suffix.
+# to runs/<case>/, the four others are kept under sessions/<case>/trials/.
 #
 # Needs network access at the first run; the downloads are cached after it.
 # Five daily solves of 2192 steps: a promoted run reuses the solve of its trial.
 #
-#   hmp calibrate run_calibration_api_daily.toml --check
+#   hmp config check run_calibration_api_daily.toml
 #   hmp calibrate run_calibration_api_daily.toml --list-phases
 #   hmp run       run_calibration_api_daily.toml
 
@@ -21,6 +21,12 @@ export__delete = true
 
 [workflow]
 mode = "calibration"
+
+# The gauge is now the Hub'Eau station of the Nancon at Lecousse, J001401001, a
+# station of the site the uri of project.toml names (hubeau:J0014010): the
+# discharge source and the calibration read it.
+[site]
+gauge = "J001401001"
 
 [simulation]
 name = "nancon_api_daily"
@@ -44,11 +50,11 @@ source = "bdtopage"
 [data.hydrometry]
 sources__delete = true
 
-# Hub'Eau daily mean discharge of "Le Nançon à Lécousse - Pont aux Anes".
+# Hub'Eau daily mean discharge of "Le Nançon à Lécousse - Pont aux Anes", the
+# gauge of [site].
 [[data.hydrometry.sources]]
 source = "hubeau"
 product = "QmnJ"
-station_ids = ["J001401001"]
 
 [data.recharge]
 sources__delete = true
@@ -81,7 +87,6 @@ bounds = [1e-6, 1e-4]
 [calibration.outputs.hydrograph]
 support = "point"
 variable = "discharge"
-observes = "J001401001"
 
 # NSE on log discharge, which weights the recessions where storage shows.
 [[calibration.objective_blocks]]

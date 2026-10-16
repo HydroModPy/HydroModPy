@@ -37,8 +37,8 @@ Read it back without replaying:
 ```python
 import hydromodpy as hmp
 
-with hmp.open("examples/projects/11_run_from_scratch_without_plots") as catalog:
-    run = catalog.latest()
+with hmp.open("examples/projects/11_run_from_scratch_without_plots") as proj:
+    run = proj.store.latest()
     print(run.parameters)
     depth = hmp.read(run, "watertable_depth", time=0)
 ```

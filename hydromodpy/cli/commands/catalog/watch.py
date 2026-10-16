@@ -59,7 +59,13 @@ def run(args: argparse.Namespace) -> None:
     if not project_root.is_dir():
         print(f"No project at {project_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-    rows = watch_running(project_root, stale_minutes=args.stale_minutes)
+    from hydromodpy.results.outcome import death_is_proven
+
+    # A worker of this host whose pid is gone died without a word (OOM, SIGKILL).
+    rows = [
+        {**entry, "dead": death_is_proven(entry["host"], entry["pid"])}
+        for entry in watch_running(project_root, stale_minutes=args.stale_minutes)
+    ]
 
     if args.format == "json":
         import json
@@ -72,7 +78,7 @@ def run(args: argparse.Namespace) -> None:
         return
     print(f"# running ({len(rows)})")
     for entry in rows:
-        flag = "STALE" if entry["stale"] else "live"
+        flag = "dead" if entry["dead"] else ("STALE" if entry["stale"] else "live")
         step = f"  step={entry['step']}" if entry["step"] else ""
         print(
             f"  [{flag}]  {entry['rel_dir']}  attempt {entry['attempt']}  "

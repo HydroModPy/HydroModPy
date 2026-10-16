@@ -19,6 +19,7 @@ from pydantic import (
     model_validator,
 )
 
+from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
@@ -70,7 +71,31 @@ __all__ = [
     "FlowRuntimeConfig",
     "FlowSinksSourcesConfig",
     "FlowWellConfig",
+    "RestartReference",
 ]
+
+
+class RestartReference(HydroModelBase):
+    """The run a hotstart reads, by id and by path: the table form of ``restart_from``.
+
+    The frozen ``config.toml`` of a run writes this form, so a replay finds
+    its source by ``sim_id`` in the project it runs in, and by ``path``
+    (relative to the project root) elsewhere.
+    """
+
+    sim_id: str | None = Field(
+        default=None, description="Id of the sealed run whose last heads seed this one"
+    )
+    path: str | None = Field(
+        default=None,
+        description="Field store or run directory, relative to the project root or absolute",
+    )
+
+    @model_validator(mode="after")
+    def _names_something(self) -> RestartReference:
+        if not self.sim_id and not self.path:
+            raise ValueError("a restart reference names a sim_id, a path, or both")
+        return self
 
 
 class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
@@ -127,11 +152,13 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
             ),
         ),
     )
-    restart_from: Annotated[str | None, Profile.USER] = Field(
+    restart_from: Annotated[str | RestartReference | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optional hotstart: path to a prior simulation Zarr store whose last time step "
-            "seeds the initial heads (and the lake stage), overriding [flow.ic]. The prior "
+            "Optional hotstart: a prior run whose last time step seeds the initial heads "
+            "(and the lake stage), overriding [flow.ic]. Name it by its run name, its sim_id, "
+            "the path of its Zarr store, or the table {sim_id, path} the frozen config.toml "
+            "of a run writes (the sim_id is looked up first, the path second). The prior "
             "run must share this run's mesh: a regular grid is rebuilt identically and a "
             "generated triangle or voronoi mesh is read back from the mesh cache of "
             "the project; otherwise the cell count differs and restart is refused. None keeps [flow.ic]. "

@@ -1,0 +1,163 @@
+# Example 19: two Breton catchments, two recipes, one summary.
+#
+# The Nancon at Lecousse and the Canut at Maxent, monthly transient 2011-2015
+# with MODFLOW 6, on public data: Hub'Eau for the gauge, SIM2 for the recharge
+# and the runoff, BD Topage for the mapped network. Only the regional DEM is a
+# local file. Each row of sites.csv is a catchment, each recipe a way to run
+# it, and every pair is one case of the plan:
+#
+#   nancon-base, nancon-calibration, canut-base, canut-calibration
+#
+#   hmp config check project.toml          every case, every error at its cell
+#   hmp run project.toml --dry-run         the plan, the solves, the scratch; nothing written
+#   hmp run project.toml                   the four cases, under runs/ and sessions/
+#   hmp run calibration.toml               the calibration recipe alone, on both sites
+#   hmp project collect .                  summary/: one table per case, one per site, a map
+#
+# Needs network access at the first run; the downloads are cached after it.
+
+# The catchments: one row per site of sites.csv.
+[sites]
+table = "sites.csv"
+# site_overrides/<site>.toml is applied on top of the row, when it exists.
+overrides = "site_overrides"
+
+# One case per recipe and per site. base is this file as it is; calibration
+# finds K on the gauge of each site (calibration.toml).
+[sites.recipes]
+base = "project.toml"
+calibration = "calibration.toml"
+
+# Each column of sites.csv fills one key of every case. The keys that belong to
+# one catchment (the outlet, the gauge) can only come from here or from
+# site_overrides/: the plan refuses a literal value written for every site.
+[sites.bind]
+"site.name" = "site"
+"site.label" = "label"
+"site.gauge" = "gauge"
+"geographic.catchment.x_outlet" = "x_outlet"
+"geographic.catchment.y_outlet" = "y_outlet"
+
+# Two cases side by side at most. A case counts for the solves it runs at once:
+# one here, the calibration grid included.
+[sites.run]
+parallel = 2
+on_error = "warn"
+
+# What hmp project collect writes under summary/: one row per case and per
+# site, the scores and K beside each other, the best calibrated case of each
+# site, and the cohort figures.
+[sites.summary]
+metrics = ["nse", "kge"]
+parameters = ["K"]
+figures = ["map", "distribution"]
+variables = ["K", "nse"]
+best = "calibrated"
+
+# The table of the sites as CSV, and the discharge of the best case of each
+# site, beside the summary.
+[[sites.export]]
+table = "by_site"
+format = "csv"
+
+[[sites.export]]
+runs = "best"
+variables = ["discharge"]
+format = "csv"
+
+# Every case is scored on this window. 2011 is spin-up: simulated, not scored.
+[metrics]
+window = { start = "2012-01-01", end = "2015-12-31" }
+
+[simulation.time]
+start_datetime = "2011-01-01"
+end_datetime = "2015-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+crs_project = "EPSG:2154"
+
+# The outlet comes from the row of each site; the DEM is shared.
+[geographic.catchment]
+catch_def = "from_outlet_coord"
+dem_init_path = "DEM_armorican_massif.tif"
+snap_dist = "150 m"
+buff_area = "10%"
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "30.0 m"
+
+[data]
+types = ["hydrography", "hydrometry", "recharge", "runoff"]
+
+# BD Topage: every reach with its permanence. The download box comes from the
+# delineated watershed of each site.
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+# Hub'Eau daily mean discharge. No station is named: the source reads the
+# gauge of the site, bound from sites.csv.
+[[data.hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+
+# Meteo-France SIM2 reanalysis, 8 km grid, drainage, averaged over the watershed.
+[[data.recharge.sources]]
+source = "sim2"
+extent = "watershed"
+
+# SIM2 surface runoff: the share of the gauged discharge the groundwater model
+# does not produce.
+[[data.runoff.sources]]
+source = "sim2"
+extent = "watershed"
+
+[flow]
+param_list = ["K", "Sy", "Ss"]
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+
+[flow.param.K.field]
+kind = "homogeneous"
+unit = "m/s"
+value = 1e-5
+
+[flow.param.Sy.field]
+kind = "homogeneous"
+unit = "-"
+value = 0.05
+
+[flow.param.Ss.field]
+kind = "homogeneous"
+unit = "m-1"
+value = 1e-5
+
+# A figure that fails is logged and the case goes on.
+[display]
+on_error = "warn"
+time = "2015-09-15"
+figures = [
+    "watershed_id_card",
+    "hydrograph_log_nse",
+    "watertable_depth_map",
+    "seepage_map",
+    "cross_section",
+    "seepage_network_confusion_map",
+]
+
+# The scored window, shaded.
+[display.overrides.hydrograph_log_nse]
+scoring_window = ["2012-01-01", "2015-12-31"]
+
+# What each case writes to runs/<case>/exports/.
+[[export]]
+variables = ["watershed", "hydrographic_network_reference"]
+
+[[export]]
+variables = ["discharge", "discharge_obs"]

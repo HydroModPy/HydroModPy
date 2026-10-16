@@ -103,6 +103,8 @@ def render_text(
             lines.append(
                 f"  only if    {n['variant_field']} = {' | '.join(json.dumps(v) for v in n['variants'])}"
             )
+        if n.get("site_scoped"):
+            lines.append("  site       varies by site")
         if n.get("profile") != "user":
             lines.append(f"  profile    {n.get('profile')}")
     else:

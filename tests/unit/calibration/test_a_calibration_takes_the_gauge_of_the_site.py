@@ -104,5 +104,21 @@ class TestTheScoringWindow:
         assert _defaults({"scoring_window": own}, window=self.WINDOW)["scoring_window"] == own
         assert "scoring_window" not in _defaults({"warmup_periods": 12}, window=self.WINDOW)
 
+    def test_each_phase_but_a_steady_one_takes_the_metrics_window(self) -> None:
+        own = {"start": "2002-01-01", "end": "2002-12-31"}
+        phases = [
+            {"name": "steady_k", "regime": "steady"},
+            {"name": "transient_sy", "regime": "transient"},
+            {"name": "own", "scoring_window": own},
+        ]
+
+        resolved = _defaults({"phases": phases}, window=self.WINDOW)
+
+        assert "scoring_window" not in resolved
+        steady, transient, written = resolved["phases"]
+        assert "scoring_window" not in steady
+        assert transient["scoring_window"] == {"start": "2001-01-01", "end": "2002-12-31"}
+        assert written["scoring_window"] == own
+
     def test_a_half_window_is_no_default(self) -> None:
         assert "scoring_window" not in _defaults({}, window={"start": "2001-01-01", "end": None})

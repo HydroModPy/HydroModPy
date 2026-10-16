@@ -41,7 +41,7 @@ spatial build pipeline.
 
 | entry | what it does |
 |---|---|
-| `hmp site select FILE` | runs the action `[site_selection.input] mode` names, writes under `output_root` |
+| `hmp site select FILE` | runs the action `[site_selection.input] mode` names, writes under `[site_selection] output_root` |
 | `hmp site select FILE --dry-run` | validates the file and prints the plan; writes nothing |
 | `hmp site select FILE --into-catalog` | runs, then declares the selected sites in `data/sites/catalog.csv` |
 | `run_site_selection(path, report_renderer=..., plan_report_renderer=...)` | the same from Python; returns a `SelectionRun` (action, counts, outputs) |
@@ -98,7 +98,9 @@ processing primitives from the subpackages below. The top-level
 `hydromodpy.spatial.site_selection` facade is intentionally small and exposes
 only stable workflow entrypoints, manifest helpers and report renderers.
 
-- `config/`: Pydantic configuration and validation models.
+- `config/`: Pydantic configuration and validation models. `SiteSelectionFile` is the
+  file `hmp site select` reads (one `[site_selection]` table, `SiteSelectionConfig`);
+  the parameter reference is generated from it.
 - `domain/`: shared domain records that are not tied to one processing phase.
 - `candidates/`: candidate outlet records, DEM/network generation,
   station-led candidate building, thinning, and reference-network snapping.

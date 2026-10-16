@@ -1,8 +1,10 @@
 """Sweep K from project.toml: one run per value, then one figure that puts
 them all together.
 
-The catchment, the data and the mesh are prepared by the first run and reused
-by the next ones, which only change K. Count one minute per run.
+Each run is project.toml with K set on top, as `hmp run project.toml --set
+flow.param.K.field.value=2e-5` does on the command line, so its manifest
+records the override. The catchment, the data and the mesh come from the
+caches the first run fills. Count one minute per run.
 
     python py4_sweep_k.py
 """
@@ -23,19 +25,11 @@ K_VALUES = [1e-5, 2e-5, 5e-5, 1e-4, 2e-4]
 
 # %% The runs
 
-# No figures and no exports per run: the figure of the sweep is enough.
+# One run per K, named after its index, without the figures and the exports:
+# the figure of the sweep is enough.
 cfg = HydroModPyConfig.from_toml(HERE / "project.toml")
 cfg.export = []
-
-sim_ids = []
-with hmp.Project(cfg, no_display=True) as project:
-    for k in K_VALUES:
-        sim_ids.append(project.simulate(name=f"nancon_k_{k:.0e}", K=k).sim_id)
-
-# The Project closes its catalog when the with block ends: open the catalog of
-# the project to read the runs back.
-cat = hmp.open(HERE)
-runs = [cat[sim_id] for sim_id in sim_ids]
+runs = [hmp.run(cfg, name=f"nancon_k{i}", K=k, no_display=True) for i, k in enumerate(K_VALUES)]
 
 # %% What each run gives
 
@@ -49,7 +43,8 @@ for run in runs:
     seepage = hmp.read(run, "seepage_mask").to_numpy() > 0
     area = (seepage & in_catchment).sum(axis=1) * cell_km2
     areas[run.params["K"]] = area
-    scores = run.metrics.query("station_id == 'NANCON'").set_index("metric_name")["value"]
+    # Scored at the gauge of [site], in the window of [metrics].
+    scores = run.metrics.set_index("metric")["value"]
     rows.append(
         {
             "K": run.params["K"],

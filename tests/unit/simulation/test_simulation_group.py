@@ -143,7 +143,9 @@ class TestSimulationGroup:
         first = runner.run(name="first")
         second = runner.run(name="second")
 
-        assert second._catalog is project._store
+        # Each handle reads its own run directory, never an index handle of the project.
+        assert second._catalog.run_dir == project_root / "runs" / "second"
+        assert first._catalog.run_dir == project_root / "runs" / "first"
         assert first.params["thickness"] == pytest.approx(1.0)
         assert second.params["thickness"] == pytest.approx(2.0)
         assert first.dir.name == "first"

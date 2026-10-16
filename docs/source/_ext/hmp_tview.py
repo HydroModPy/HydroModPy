@@ -78,6 +78,8 @@ def chips(n: dict, *, in_variant: bool) -> list[str]:
         out.append(
             f'<span class="tc tc-cal">calibrable{" · " + esc(tr) if tr and tr != "identity" else ""}</span>'
         )
+    if n.get("site_scoped"):
+        out.append('<span class="tc tc-when">varies by site</span>')
     if n.get("profile") in ("dev", "expert"):
         out.append(f'<span class="tc tc-prof">{esc(n["profile"])}</span>')
     if n.get("stability") == "experimental":

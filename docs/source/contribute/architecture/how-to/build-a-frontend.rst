@@ -118,9 +118,9 @@ Submission flow
 2. A thin service you write receives it, writes it to a file and calls
    ``hmp.run`` on that file.
 3. The service returns the simulation id to the frontend, which polls it.
-4. Results come back through the catalog: open the workspace with
-   ``hmp.open(workspace)`` and read the ``Run`` rows. Expose the metrics,
-   figures and exports the UI needs.
+4. Results come back through the project: open it with
+   ``hmp.open(project_dir)`` and read its runs with ``proj.runs()``. Expose the
+   metrics, figures and exports the UI needs.
 
 What HydroModPy does not ship
 -----------------------------

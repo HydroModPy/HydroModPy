@@ -25,8 +25,9 @@ because the manifest is written before the outcome flips to ``completed``.
 Then the outcome: ``completed`` without a manifest is ``partial`` (the seal
 never landed); ``failed`` and ``aborted`` stand; ``running`` is ``running``
 while the pulse is fresh and ``stale`` once it is older than the threshold
-the caller passes. No outcome at all is ``unknown``. ``stale`` is a word for
-a display, never an authorisation.
+the caller passes, or at once when its death is proven (this host, process
+gone: an OOM kill writes nothing). No outcome at all is ``unknown``.
+``stale`` is a word for a display, never an authorisation.
 
 This precedence is for a run directory only. A session directory has no
 manifest: its status is ``read_session(dir).status``, read from its
@@ -35,6 +36,7 @@ manifest: its status is ``read_session(dir).status``, read from its
 
 from __future__ import annotations
 
+import socket
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, Literal
@@ -42,6 +44,7 @@ from typing import Final, Literal
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
 from hydromodpy.results.storage.json_io import read_json, write_json_durable
@@ -128,6 +131,11 @@ def read_outcome(run_dir: str | Path) -> Outcome | None:
     return Outcome.model_validate(payload)
 
 
+def death_is_proven(host: str | None, pid: int | None) -> bool:
+    """Whether the process of an attempt is gone: it ran on this host and its pid is absent."""
+    return host == socket.gethostname() and pid is not None and not process_is_alive(pid)
+
+
 def effective_status(
     run_dir: str | Path,
     *,
@@ -149,6 +157,8 @@ def effective_status(
         return "partial"
     if outcome.status in ("failed", "aborted"):
         return outcome.status
+    if death_is_proven(outcome.host, outcome.pid):
+        return "stale"
     instant = now if now is not None else datetime.now(UTC)
     age = heartbeat_age_s(directory, instant)
     if age is None:
@@ -165,6 +175,7 @@ __all__ = [
     "OutcomeError",
     "OutcomeStatus",
     "WrittenBy",
+    "death_is_proven",
     "effective_status",
     "outcome_path",
     "read_outcome",

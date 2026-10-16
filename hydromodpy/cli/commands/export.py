@@ -158,7 +158,7 @@ def run(args: argparse.Namespace) -> None:
                 print(path)
             print(f"Exported {len(written)} file(s) again", file=sys.stderr)
             return
-        with hmp.open(workspace) as catalog:
+        with hmp.open(workspace).store as catalog:
             written = hmp.export(
                 catalog[args.sim_ref],
                 args.variables[0] if len(args.variables) == 1 else list(args.variables),
@@ -193,7 +193,7 @@ def _regen(hmp: object, workspace: Path, sim_ref: str) -> list[Path]:
     """Write again the exports the ledger of one run records."""
     from hydromodpy.results.exporters.request import regen_exports, run_export_target
 
-    with hmp.open(workspace) as catalog:  # type: ignore[attr-defined]
+    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
         sid = catalog.resolve(sim_ref)
         return regen_exports(catalog, sid, run_export_target(catalog, sid))
 
@@ -202,7 +202,7 @@ def _print_list(hmp: object, workspace: Path, sim_ref: str) -> None:
     """Print what one run can export, grouped by kind."""
     from hydromodpy.results.exporters.vocabulary import describe_exportable, list_exportable
 
-    with hmp.open(workspace) as catalog:  # type: ignore[attr-defined]
+    with hmp.open(workspace).store as catalog:  # type: ignore[attr-defined]
         run = catalog[sim_ref]
         names = list_exportable(run)
         label = run.name or run.sim_id[:8]

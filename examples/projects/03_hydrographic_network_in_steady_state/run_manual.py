@@ -274,7 +274,7 @@ print(f"\nsweep figures written under {OUT}")
 # ten runs were built on. The runs themselves stay in the project catalog,
 # so a later session reads them back by name without re-running anything:
 #
-#     catalog = hmp.open(HERE)
-#     sweep_runs = catalog.find(project="03_hydrographic_network_in_steady_state")
+#     proj = hmp.open(HERE)
+#     sweep_runs = proj.runs()
 #     print(sweep_runs.parameters)
 project.close()

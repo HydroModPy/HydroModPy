@@ -432,7 +432,17 @@ def _running_outcome(
         started_at=claim.started_at,
         host=claim.host,
         pid=claim.pid,
+        scheduler_job_id=scheduler_job_id_from_env(),
     )
+
+
+def scheduler_job_id_from_env() -> str | None:
+    """Return <array job>_<task> of a SLURM task, the SLURM job id, or None off a cluster."""
+    array_job = os.environ.get("SLURM_ARRAY_JOB_ID")
+    task = os.environ.get("SLURM_ARRAY_TASK_ID")
+    if array_job and task:
+        return f"{array_job}_{task}"
+    return os.environ.get("SLURM_JOB_ID") or None
 
 
 def finish_attempt(
@@ -545,7 +555,8 @@ def scratch_dir_for_attempt(project_root: Path, run_dir: Path, attempt: int) -> 
     """
     root = os.environ.get(SCRATCH_ROOT_ENV, "").strip()
     if root:
-        return Path(root).expanduser() / Path(project_root).name / f"{run_dir.name}.a{attempt}"
+        project = Path(project_root).resolve().name
+        return Path(root).expanduser() / project / f"{run_dir.name}.a{attempt}"
     return Path(run_dir) / INTERNAL_DIRNAME / RUN_INTERNAL_SCRATCH_DIRNAME
 
 
@@ -569,6 +580,7 @@ __all__ = [
     "finish_dead_attempt",
     "latest_version_dir",
     "run_dir_for_name",
+    "scheduler_job_id_from_env",
     "scratch_dir_for_attempt",
     "signal_of",
 ]

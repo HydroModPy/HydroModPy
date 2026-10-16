@@ -56,13 +56,19 @@ from hydromodpy.results.catalog.registration import (
 )
 from hydromodpy.results.checks import CalibratedBy, CalibrationSessionStatus
 from hydromodpy.results.lineage import Lineage
-from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.session.descriptor import BestTrial, read_session, resolve_session_dir
+from hydromodpy.results.session.descriptor import (
+    BestTrial,
+    SessionDescriptor,
+    read_session,
+    resolve_session_dir,
+)
 from hydromodpy.results.session.journal import TrialLine, trial_row
 from hydromodpy.results.session.phase import phase_dir
+from hydromodpy.results.storage.run_facts import CalibratedParameter, PromotionFacts
 from hydromodpy.results.trash import trash_run
 
 if TYPE_CHECKING:
+    from hydromodpy.calibration.optim.parameters import ParameterSpace
     from hydromodpy.calibration.runners.trial import TrialContext
 
 logger = get_logger(__name__)
@@ -142,14 +148,13 @@ def promote_session(
     phase: str,
     session_status: CalibrationSessionStatus,
     override_paths: Mapping[str, str],
-    objective_window: DateWindow | None,
 ) -> PromotionOutcome:
     """Promote the trials of the last phase and return what was written.
 
     The best trial takes ``runs/<case>/``, paired with the session, keeps the
-    project's ``keep_per_cell_budget`` and carries ``checks.calibrated_by``.
-    Every other kept trial takes ``sessions/<case>/trials/<n>/`` with the
-    ``consumers`` budget policy.
+    project's ``keep_per_cell_budget`` and carries ``checks.calibrated_by``
+    and the facts of :func:`promotion_facts`. Every other kept trial takes
+    ``sessions/<case>/trials/<n>/`` with the ``consumers`` budget policy.
     """
     rows = select_trials_to_promote(cfg, persistence, phase)
     if not rows:
@@ -162,7 +167,6 @@ def promote_session(
         phase=phase,
         session_status=session_status,
         override_paths=override_paths,
-        objective_window=objective_window,
     )
 
 
@@ -174,7 +178,6 @@ def promote_best_after_abort(
     project_root: Path,
     phase: str,
     override_paths: Mapping[str, str],
-    objective_window: DateWindow | None,
 ) -> PromotionOutcome:
     """Promote the best trial of ``phase`` after an interruption, from its kept solve alone.
 
@@ -211,7 +214,6 @@ def promote_best_after_abort(
         phase=phase,
         session_status="aborted",
         override_paths=override_paths,
-        objective_window=objective_window,
     )
 
 
@@ -224,11 +226,11 @@ def _promote_rows(
     phase: str,
     session_status: CalibrationSessionStatus,
     override_paths: Mapping[str, str],
-    objective_window: DateWindow | None,
 ) -> PromotionOutcome:
     """Promote ``rows``, the first one as the calibrated run of the case."""
     session_dir = persistence.directory
-    session_id = persistence.descriptor.session_id
+    descriptor = persistence.descriptor
+    session_id = descriptor.session_id
     stem = split_stem_version(session_dir.name)[0]
     best_number = int(rows[0]["iteration"])
     failures: list[str] = []
@@ -256,13 +258,15 @@ def _promote_rows(
                 phase=phase,
                 trial=number,
                 session_status=session_status,
-                window=objective_window,
+                window=descriptor.objective_window,
             )
+            promotion = promotion_facts(descriptor, row)
             kind = "promoted"
         else:
             run_dir = project_root / rel_dir
             run_dir.mkdir(parents=True, exist_ok=True)
             calibrated_by = None
+            promotion = None
             kind = "trial"
         lineage = Lineage(
             session_id=session_id,
@@ -279,6 +283,7 @@ def _promote_rows(
             name=stem,
             lineage=lineage,
             calibrated_by=calibrated_by,
+            promotion=promotion,
             keep_per_cell_budget=None if is_best else False,
             retention=trial_ctx.kept_solves,
             failures=failures,
@@ -292,6 +297,69 @@ def _promote_rows(
     return PromotionOutcome(
         count=count, failures=failures, best_sim_id=best_sim_id, best_rel_dir=best_rel_dir
     )
+
+
+BOUND_TOLERANCE = 1e-6
+"""Share of the searched range within which a value counts as on its bound."""
+
+
+def promotion_facts(descriptor: SessionDescriptor, row: Mapping[str, Any]) -> PromotionFacts:
+    """Return what the session says about the run its trial ``row`` becomes.
+
+    The objective of the session, its value for the trial and the window it
+    was scored on; the convergence of the trial solve (a trial completes only
+    once its solve terminated normally); the parameters whose value ended on
+    a bound of the searched range; and the parameters the trial set, named as
+    the parameter rows of the run name them.
+    """
+    parameters = row.get("parameters") or {}
+    return PromotionFacts(
+        objective_name=descriptor.objective_name,
+        objective_value=row.get("objective_value"),
+        objective_window=descriptor.objective_window,
+        converged=row.get("status") == "completed",
+        bounds_hit=sorted(name for name, payload in parameters.items() if _on_bound(payload)),
+        calibrated=[_calibrated_parameter(name, payload) for name, payload in parameters.items()],
+    )
+
+
+def _on_bound(payload: Any) -> bool:
+    """Whether a journaled parameter ended on a bound of its searched range.
+
+    Read in the space the search moved in (``transformed_*``), where the
+    range is the one the optimizer saw; a bare value carries no bounds.
+    """
+    if not isinstance(payload, Mapping):
+        return False
+    value, bounds = payload.get("transformed_value"), payload.get("transformed_bounds")
+    if value is None or not bounds:
+        value, bounds = payload.get("value"), payload.get("bounds")
+    if value is None or not bounds or len(bounds) != 2:
+        return False
+    lower, upper = float(bounds[0]), float(bounds[1])
+    margin = BOUND_TOLERANCE * abs(upper - lower)
+    return abs(float(value) - lower) <= margin or abs(float(value) - upper) <= margin
+
+
+def _calibrated_parameter(name: str, payload: Any) -> CalibratedParameter:
+    """Return the parameter rows a journaled parameter set.
+
+    A target ``flow.param.<P>...`` sets the rows of ``<P>``, only the zone
+    after ``values_by_key`` when it names one. Any other target sets the
+    rows named by its last segment, and a parameter without target the rows
+    of its own name.
+    """
+    target = payload.get("target") if isinstance(payload, Mapping) else None
+    if not target:
+        return CalibratedParameter(name=str(name))
+    parts = str(target).split(".")
+    if len(parts) >= 3 and parts[:2] == ["flow", "param"]:
+        zone = None
+        if "values_by_key" in parts:
+            position = parts.index("values_by_key") + 1
+            zone = parts[position] if position < len(parts) else None
+        return CalibratedParameter(name=parts[2], zone=zone)
+    return CalibratedParameter(name=parts[-1])
 
 
 def _already_written(
@@ -368,6 +436,7 @@ def promote_phase_best(
             parent_hint=session_dir_rel(session_dir.name),
         ),
         calibrated_by=None,
+        promotion=None,
         keep_per_cell_budget=False,
         retention=trial_ctx.kept_solves,
         failures=failures,
@@ -388,6 +457,7 @@ def _promote_one(
     name: str,
     lineage: Lineage,
     calibrated_by: CalibratedBy | None,
+    promotion: PromotionFacts | None,
     keep_per_cell_budget: bool | None,
     retention: Any,
     failures: list[str],
@@ -412,6 +482,7 @@ def _promote_one(
                 run_dir=run_dir,
                 lineage=lineage,
                 calibrated_by=calibrated_by,
+                promotion=promotion,
                 kept=kept,
                 spared=spared,
                 keep_per_cell_budget=keep_per_cell_budget,
@@ -446,20 +517,14 @@ def promote_trial_from_session(
     it; its seal is the one it was written with, a trial of the session
     (``lineage.kind = "trial"``, no ``calibrated_by``). Any other trial is
     replayed from ``sessions/<case>/config.toml`` with the values of its
-    journal line and the frozen values of its phase, after its fingerprint
-    (``params_hash``) is reproduced under the model as read today, and
-    sealed as a promoted run. The journal line receives the ``sim_id`` and
-    the new ``rel_dir`` either way.
+    journal line, on the model its phase scored it under
+    (:func:`replay_context`), after its fingerprint (``params_hash``) is
+    reproduced, and sealed as a promoted run. The journal line receives the
+    ``sim_id`` and the new ``rel_dir`` either way.
     """
     from hydromodpy.calibration.optim.cache import params_hash
-    from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
     from hydromodpy.calibration.runners.resume import physical_values
-    from hydromodpy.calibration.runners.state import (
-        build_cache_context,
-        override_paths,
-        space_from_config,
-    )
-    from hydromodpy.calibration.runners.trial import prepare_trials
+    from hydromodpy.calibration.runners.state import build_cache_context, override_paths
     from hydromodpy.results.storage.contract import SESSION_CONFIG_FILENAME
 
     session_dir = resolve_session_dir(project_root, case)
@@ -483,28 +548,18 @@ def promote_trial_from_session(
         _point_best_if_better(persistence, line, rel_dir)
         return target
 
-    config_path = session_dir / SESSION_CONFIG_FILENAME
-    cfg, _raw = load_toml_calibration(config_path)
-    phase = persistence.phase(line.phase)
-    frozen = (phase.frozen if phase is not None else {}) or {}
-    frozen_overrides = {
-        str(entry["path"]): float(entry["value"])
-        for entry in frozen.values()
-        if isinstance(entry, Mapping) and entry.get("path") is not None
-    }
-    space = space_from_config(cfg)
-    paths = override_paths(cfg)
-    trial_ctx = prepare_trials(
-        config_path,
-        override_paths=paths,
-        parameter_space=space,
-        config_overrides=frozen_overrides or None,
+    hash_cfg, space, trial_ctx = replay_context(
+        session_dir / SESSION_CONFIG_FILENAME, persistence, line
     )
     values = physical_values(line.params)
     context = build_cache_context(
-        cfg=cfg, trial_ctx=trial_ctx, space=space, override_paths=paths, objective_entrypoint=None
+        cfg=hash_cfg,
+        trial_ctx=trial_ctx,
+        space=space,
+        override_paths=override_paths(hash_cfg),
+        objective_entrypoint=None,
     )
-    moved = {name: value for name, value in values.items() if name in paths}
+    moved = {name: values[name] for name in space.names if name in values}
     if line.params_hash is not None and params_hash(moved, context=context) != line.params_hash:
         raise CalibrationError(
             f"trial {trial} of {session_dir.name} was scored on another model: its "
@@ -523,6 +578,7 @@ def promote_trial_from_session(
         name=stem,
         sim_id=sim_id,
         run_dir=run_dir,
+        promotion=promotion_facts(descriptor, trial_row(line)),
         lineage=Lineage(
             session_id=descriptor.session_id,
             phase=line.phase,
@@ -542,6 +598,39 @@ def promote_trial_from_session(
     persistence.link_trial(int(trial), sim_id=sim_id, rel_dir=rel_dir)
     _point_best_if_better(persistence, line.model_copy(update={"sim_id": sim_id}), rel_dir)
     return run_dir
+
+
+def replay_context(
+    config_path: Path, persistence: CalibrationPersistence, line: TrialLine
+) -> tuple[CalibrationConfig, ParameterSpace, TrialContext]:
+    """Return the model trial ``line`` was scored under, rebuilt from *config_path*.
+
+    Three parts: the calibration configuration its ``params_hash`` reads,
+    the parameters it moved, and the prepared trial pipeline. A trial of a
+    staged session is rebuilt on its phase (:func:`replay_phase`): the phase
+    configuration, its overrides and the values the phase held fixed. A
+    restart of a multistart search ran under its own seed, ``seed + restart``.
+    """
+    from hydromodpy.calibration.runners.cli_runner import _with_its_method, load_toml_calibration
+    from hydromodpy.calibration.runners.staged_runner import replay_phase
+    from hydromodpy.calibration.runners.state import override_paths, space_from_config
+    from hydromodpy.calibration.runners.trial import prepare_trials
+
+    cfg, raw = load_toml_calibration(config_path)
+    if cfg.phases:
+        phase = persistence.phase(line.phase)
+        frozen = (phase.frozen if phase is not None else None) or {}
+        replay = replay_phase(cfg, raw, config_path, line.phase, frozen)
+        hash_cfg, space, trial_ctx = replay.config, replay.space, replay.trial_ctx
+    else:
+        hash_cfg = _with_its_method(cfg)
+        space = space_from_config(cfg)
+        trial_ctx = prepare_trials(
+            config_path, override_paths=override_paths(cfg), parameter_space=space
+        )
+    if line.restart > 0 and getattr(hash_cfg.uncertainty, "method", None) == "multistart":
+        hash_cfg = hash_cfg.model_copy(update={"seed": (hash_cfg.seed or 0) + line.restart})
+    return hash_cfg, space, trial_ctx
 
 
 def _reserve_after_the_fact(project_root: Path, session_dir: Path, as_name: str | None) -> Path:
@@ -606,8 +695,10 @@ __all__ = [
     "promote_phase_best",
     "promote_session",
     "promote_trial_from_session",
+    "promotion_facts",
     "promotion_name_check",
     "prune_session",
+    "replay_context",
     "select_trials_to_promote",
     "stored_parameter_value",
 ]

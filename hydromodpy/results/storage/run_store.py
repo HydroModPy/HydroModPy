@@ -62,6 +62,7 @@ from hydromodpy.results.storage.arrow_tables import (
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PARQUET_FILE_SUFFIX,
+    RUN_EXPORTS_DIRNAME,
     TABLES_DIRNAME,
 )
 from hydromodpy.results.storage.digests import path_size_bytes, sha256_directory, sha256_streaming
@@ -102,6 +103,9 @@ GEOGRAPHIC_FEATURE_PREFIX = "geographic_"
 
 _FEATURE_NAME_MAX_LEN = 128
 """Longest vector layer name kept whole in its file name."""
+
+SOLVER_DIAGNOSTICS_DIRNAME = "solver_diagnostics"
+"""Folder of the diagnostics a solver writes for its run, ``exports/solver_diagnostics/``."""
 
 _PROVENANCE_SOURCE_TYPES = ("http_api", "custom_file", "data_manager", "derived", "cache")
 _TIMESERIES_KEY = ("sim_id", "station_id", "variable", "timestep")
@@ -209,6 +213,11 @@ class RunStore:
     def tables_dir(self) -> Path:
         """``<run>/tables.parquet``."""
         return self._run_dir / TABLES_DIRNAME
+
+    @property
+    def solver_diagnostics_dir(self) -> Path:
+        """``<run>/exports/solver_diagnostics``, where a solver leaves its diagnostics."""
+        return self._run_dir / RUN_EXPORTS_DIRNAME / SOLVER_DIAGNOSTICS_DIRNAME
 
     def _check_sim(self, sim_id: str | UUID) -> str:
         sid = str(sim_id)

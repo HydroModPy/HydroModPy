@@ -65,6 +65,8 @@ Two edits.
    import argparse
 
    import hydromodpy as hmp
+   from hydromodpy.cli._conventions import workspace_parser
+   from hydromodpy.cli.helpers import resolve_workspace
 
 
    NAME = "myverb"
@@ -72,20 +74,15 @@ Two edits.
 
 
    def register(subparsers):
-       parser = subparsers.add_parser(NAME, help=HELP)
-       parser.add_argument("project", help="Project name or path.")
-       parser.add_argument(
-           "--workspace",
-           default=None,
-           help="Workspace root (default: ~/hydromodpy).",
-       )
+       parser = subparsers.add_parser(NAME, help=HELP, parents=[workspace_parser()])
+       parser.add_argument("project", help="Project name.")
        parser.set_defaults(_handler=run)
        return parser
 
 
    def run(args):
-       catalog = hmp.open(args.workspace)
-       project = catalog.project(args.project)
+       workspace = hmp.open(resolve_workspace(args.workspace))
+       project = workspace[args.project]
        project.do_my_thing()
 
 **Register it** in ``hydromodpy/cli/commands/__init__.py``:
@@ -117,7 +114,7 @@ Conventions
   nothing else.
 - Map user-facing errors to a typed exit code with
   ``hydromodpy.cli.helpers.exit_code_for``; let unexpected errors
-  propagate. Exit codes are 0 success, 1 generic, 2 usage, 10..20
+  propagate. Exit codes are 0 success, 1 generic, 2 usage, 10..23
   specific failure categories, 130 SIGINT.
 
 Workflow flags

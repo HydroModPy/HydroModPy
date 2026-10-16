@@ -180,7 +180,7 @@ def _references(document: dict, data_root: Path, config: Path) -> set[Path]:
             if not isinstance(section, dict):
                 continue
             for source in section.get("sources", ()):
-                resolved.update(_source_files(variable, source, data_root, config))
+                resolved.update(_source_files(variable, source, document, data_root, config))
 
     # Two keys name a file outside [data]: the regional DEM the catchment is cut
     # out of, and the mapped network the network criterion is scored against.
@@ -204,7 +204,23 @@ def _loose_paths(document: dict) -> list[str]:
     return names
 
 
-def _source_files(variable: str, source: dict, data_root: Path, config: Path) -> list[Path]:
+def _stations_of(source: dict, document: dict) -> list[str]:
+    """Return the stations a folder source reads: its ``station_ids``, else the gauge.
+
+    A station source that names no station reads ``[site] gauge`` at run time
+    (``hydromodpy.data.sites.gauge``), so the manifest ships the files of the gauge.
+    """
+    stations = [str(item) for item in source.get("station_ids", ())]
+    if stations:
+        return stations
+    site = document.get("site")
+    gauge = site.get("gauge") if isinstance(site, dict) else None
+    return [str(gauge)] if gauge else []
+
+
+def _source_files(
+    variable: str, source: dict, document: dict, data_root: Path, config: Path
+) -> list[Path]:
     """Resolve one ``[[data.<variable>.sources]]`` entry to files on disk."""
     if not isinstance(source, dict) or source.get("source") != "custom":
         return []
@@ -222,11 +238,12 @@ def _source_files(variable: str, source: dict, data_root: Path, config: Path) ->
 
     # A path without an extension is the variable folder itself: the files are
     # picked by station id, the way a manager picks them at load time.
-    stations = [str(item) for item in source.get("station_ids", ())]
+    stations = _stations_of(source, document)
     if not stations:
         raise ConfigError(
-            f"{config.name} points {variable} at the folder {raw!r} without station_ids, "
-            f"so the manifest cannot tell which files the example needs."
+            f"{config.name} points {variable} at the folder {raw!r} with neither "
+            f"station_ids nor [site] gauge, so the manifest cannot tell which files the "
+            f"example needs."
         )
     return [_station_file(folder, station, config) for station in stations]
 
@@ -256,7 +273,7 @@ def _station_rows(document: dict, data_root: Path, config: Path) -> list[Example
                 )
             with registry.open(newline="", encoding="utf-8") as handle:
                 known = {row["id"]: row for row in csv.DictReader(handle)}
-            for station in source.get("station_ids", ()):
+            for station in _stations_of(source, document):
                 row = known.get(str(station))
                 if row is None:
                     raise ConfigError(

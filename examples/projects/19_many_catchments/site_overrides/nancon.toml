@@ -1,0 +1,7 @@
+# The Nancon alone: its section runs south to north through the outlet, so it
+# cuts the tributaries across. The west-east default crosses the valley once,
+# at the southern edge. A section is oriented on one valley, so it is never
+# written in project.toml: the plan refuses it there.
+
+[display.overrides.cross_section]
+orientation = "sn"

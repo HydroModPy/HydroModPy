@@ -1,4 +1,11 @@
-"""``hmp catalog show`` - the facts of one sealed run."""
+"""``hmp catalog show`` - the README of one run, or its facts from the index.
+
+By default the verb prints the ``README.md`` the run carries (site, period,
+version, checks, label, score, lineage, where is what), read from its
+directory without the index, then its tags and notes. ``--detail`` and
+``--format json|csv`` print the facts the index holds instead, and so does a
+run without a README.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +24,7 @@ from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, exit_code_fo
 from hydromodpy.core.state.paths import catalog_path_for, resolve_project_root
 
 NAME: str = "show"
-HELP: str = "Show the facts, label, metrics and parameters of a sealed run"
+HELP: str = "Print the README of a run, or its facts, metrics and parameters from the index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -32,7 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--detail",
         action="store_true",
-        help="Include the Zarr store layout (groups, paths) alongside the facts",
+        help="Print the facts from the index, with the Zarr store layout, not the README",
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -50,6 +57,8 @@ def run(args: argparse.Namespace) -> None:
     project_root = resolve_project_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
+    if args.format == "table" and not args.detail and _print_readme(project_root, args.sim_ref):
+        return
     if not catalog_path_for(project_root).is_file():
         print(f"No index at {project_root}; run `hmp catalog reindex` first", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -127,3 +136,30 @@ def run(args: argparse.Namespace) -> None:
 
     ref = payload.get("rel_dir") or payload["sim_id"][:8]
     print(f"next: hmp catalog tag {ref} +pinned | hmp catalog diff {ref} <other>")
+
+
+def _print_readme(project_root: Path, ref: str) -> bool:
+    """Print the README of the run ``ref`` names; ``False`` when it carries none."""
+    from hydromodpy.results.annotations import read_annotations
+    from hydromodpy.results.catalog.discovery import resolve_rel_dir
+    from hydromodpy.results.storage.contract import README_FILENAME
+
+    try:
+        rel_dir = resolve_rel_dir(project_root, ref)
+    except Exception as exc:  # noqa: BLE001 - map resolver errors to typed exit codes
+        print(str(exc), file=sys.stderr)
+        sys.exit(exit_code_for(exc))
+    run_dir = project_root / rel_dir
+    readme = run_dir / README_FILENAME
+    if not readme.is_file():
+        return False
+    print(readme.read_text(encoding="utf-8").rstrip())
+    annotations = read_annotations(run_dir)
+    if annotations.tags:
+        print(f"\ntags: {', '.join(annotations.tags)}")
+    if annotations.notes:
+        print("notes:")
+        for note in annotations.notes:
+            print(f"  - {note.at:%Y-%m-%d %H:%M} {note.text}")
+    print(f"\nnext: hmp catalog show {rel_dir} --detail | hmp catalog diff {rel_dir} <other>")
+    return True

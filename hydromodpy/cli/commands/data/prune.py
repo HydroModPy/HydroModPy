@@ -19,7 +19,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         epilog="Example:\n  hmp data prune --older-than 90 --delete-files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    parser.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     parser.add_argument(
         "--older-than", type=int, default=30, help="Age threshold in days (default: 30)"
     )

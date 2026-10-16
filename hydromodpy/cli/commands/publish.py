@@ -129,13 +129,20 @@ def _sources(project_root: Path, ref: str) -> list[Path]:
         if not summary.is_dir():
             raise FileNotFoundError(f"{summary} does not exist: run 'hmp project collect' first.")
         return [summary]
+    return [run_dir_of(project_root, ref)]
+
+
+def run_dir_of(project_root: Path, ref: str) -> Path:
+    """Return the directory of one run: its name under ``runs/``, else an id or @-selector."""
+    from hydromodpy.core.state.paths import runs_dir_for
+
     on_disk = runs_dir_for(project_root) / ref
     if on_disk.is_dir():
-        return [on_disk]
+        return on_disk
     from hydromodpy.results.catalog import Catalog
 
     with Catalog(project_root) as catalog:
-        return [Path(catalog.run_dir_for(catalog.resolve(ref)))]
+        return Path(catalog.run_dir_for(catalog.resolve(ref)))
 
 
 def _project_member(destination: Path, source: Path, fmt: str) -> Path:

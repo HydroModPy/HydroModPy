@@ -19,7 +19,8 @@ HERE = Path(__file__).resolve().parent
 # The model as project.toml describes it (one minute). An unchanged file is
 # not computed again: hmp.run returns the run of the last execution and logs a
 # warning that names it. Pass force=True to compute it again. Once the file
-# changes, if_exists = "replace" sends the previous run to the trash.
+# changes, the new run is nancon_intermittence_mf6.v2, next to the first: a
+# run is never overwritten.
 reference = hmp.run(HERE / "project.toml")
 
 # %% The modified model
@@ -47,12 +48,10 @@ print(variant.name)
 
 # %% Comparison
 
-# Scores from the catalog, over the 36 months of the run.
+# The scores each run sealed, at the gauge of [site] and in the window of
+# [metrics], 2001-2002: the year 2000 is spin-up.
 scores = pd.concat(
-    {
-        run.name: run.metrics.query("station_id == 'NANCON'").set_index("metric_name")["value"]
-        for run in (reference, variant)
-    },
+    {run.name: run.metrics.set_index("metric")["value"] for run in (reference, variant)},
     axis=1,
 )
 print(scores.loc[["nse", "nse_log", "kge", "pbias"]].round(3))

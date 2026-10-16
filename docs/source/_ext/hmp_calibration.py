@@ -101,7 +101,7 @@ def method_budget(m: dict[str, Any]) -> str:
     if m["counts_its_budget"]:
         return (
             '``max_iter = "auto"`` counts the evaluations its rule needs before the first '
-            "solve. A smaller number is refused or warned by ``hmp calibrate --check``."
+            "solve. A smaller number is refused or warned by ``hmp config check``."
         )
     return f'``max_iter = "auto"`` gives {m["uncounted_budget"]} evaluations.'
 
@@ -121,7 +121,7 @@ def method_facts(m: dict[str, Any]) -> list[tuple[str, str]]:
             (
                 "Cost",
                 f"Read as ``{m['reads_cost_as']}``: score the search on that metric. "
-                "``hmp calibrate --check`` warns when it is scored on another one.",
+                "``hmp config check`` warns when it is scored on another one.",
             )
         )
     facts.append(("Stops", method_stops(m)))

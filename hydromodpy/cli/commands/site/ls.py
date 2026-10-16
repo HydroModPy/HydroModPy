@@ -28,11 +28,11 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.commands.site._workspace import workspace_root
+    from hydromodpy.cli.helpers import resolve_workspace
     from hydromodpy.core.site import SITE_ROW_COLUMNS
     from hydromodpy.data.sites.catalog import read_catalog
 
-    root = workspace_root(args.workspace)
+    root = resolve_workspace(args.workspace)
     try:
         rows = read_catalog(root)
     except Exception as exc:  # noqa: BLE001 - map errors to typed exit codes

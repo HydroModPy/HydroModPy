@@ -61,11 +61,15 @@ from hydromodpy.core.config_kit.root_config_protocol import get_root_config_prov
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.outcome import read_outcome
+from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.results.checks import CalibratedBy
     from hydromodpy.results.lineage import Lineage
+    from hydromodpy.results.storage.run_facts import PromotionFacts
 
 
 logger = get_logger(__name__)
@@ -619,6 +623,7 @@ def promote_prepared_trial(
     run_dir: Path | None = None,
     lineage: Lineage | None = None,
     calibrated_by: CalibratedBy | None = None,
+    promotion: PromotionFacts | None = None,
     kept: KeptSolve | None = None,
     spared: Sequence[Path] = (),
     keep_per_cell_budget: bool | None = None,
@@ -632,6 +637,14 @@ def promote_prepared_trial(
     the run there. ``lineage`` and ``calibrated_by`` are the blocks of its
     seal that name the session, the phase and the trial; they travel in the
     pipeline state under their own names, where the run steps read them.
+    ``promotion`` is what the session says about the run (its objective, the
+    parameters it set, the ones that ended on a bound); the step that opens
+    the run writes it into the facts of the run.
+
+    The attempt of ``run_dir`` is closed here: ``completed`` once the run is
+    sealed, ``failed`` or ``aborted`` when the pipeline raises. A promotion is
+    not launched under :func:`~hydromodpy.project.attempt.run_attempt`, so
+    nothing else would close it.
 
     ``kept`` is the solve the trial of ``values`` left on disk. The run then
     goes on from extraction on that solve: the solver step hands it over
@@ -671,6 +684,7 @@ def promote_prepared_trial(
             "skip_display": False,
             "lineage": lineage,
             "calibrated_by": calibrated_by,
+            "promotion": promotion,
             # The geographic preprocessing tree is shared by every promotion of
             # the session. Dropped by the export step of the first one, it left
             # the next ones with no watershed to ingest, so their catchment
@@ -690,7 +704,14 @@ def promote_prepared_trial(
     if kept is not None:
         downstream_slice = provider.with_solver_launcher(downstream_slice, KeptSolveLauncher(kept))
 
-    final = provider.make_pipeline(downstream_slice, run_dir=run_dir).run(state)
+    try:
+        final = provider.make_pipeline(downstream_slice, run_dir=run_dir).run(state)
+    except BaseException as exc:
+        if run_dir is not None:
+            _close_attempt(run_dir, exc)
+        raise
+    if run_dir is not None:
+        _close_attempt(run_dir, None)
 
     final_ctx = final.get("ctx") if final is not None else None
     produced = getattr(final_ctx, "sim_id", None) if final_ctx is not None else None
@@ -702,6 +723,28 @@ def promote_prepared_trial(
             "everything written against the reservation would name another run."
         )
     return str(produced)
+
+
+def _close_attempt(run_dir: Path, error: BaseException | None) -> None:
+    """Close the attempt of a promoted run when it is still running.
+
+    ``completed`` once the run is sealed. A pipeline that raised leaves it
+    ``aborted`` on SIGINT or SIGTERM (both unwind as ``KeyboardInterrupt``),
+    ``failed`` otherwise; one that returned without the seal, ``failed``.
+    """
+    outcome = read_outcome(run_dir)
+    if outcome is None or outcome.status != "running":
+        return
+    if error is None and is_sealed(run_dir):
+        close_sealed_attempt(run_dir)
+        return
+    status = "aborted" if isinstance(error, KeyboardInterrupt) else "failed"
+    cause = error if error is not None else RuntimeError("the promoted run ended without its seal")
+    try:
+        finish_attempt(run_dir, status=status, error=cause)
+    except OSError:
+        # The error of the pipeline is the one to raise; this one is only logged.
+        logger.exception("Could not write the outcome of %s", run_dir)
 
 
 def _step_index_by_name(steps: Sequence[TrialStep], name: str) -> int | None:

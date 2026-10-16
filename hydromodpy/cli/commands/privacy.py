@@ -22,7 +22,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     purge.add_argument("sim_ref", help="Run directory name, rel_dir, sim_id or unique prefix")
-    purge.add_argument("--workspace", default=None, help="Project root")
+    purge.add_argument("-w", "--workspace", default=None, help="Project root")
     purge.add_argument(
         "--reason", default="unspecified", help="Free-form reason recorded in the certificate"
     )

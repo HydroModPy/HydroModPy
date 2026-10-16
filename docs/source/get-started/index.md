@@ -78,7 +78,7 @@ platforms tested, and what to do when it fails.
 :link: concepts
 :link-type: doc
 
-2 minutes. Workspace, project, run, catalog: four words, one folder tree.
+2 minutes. Workspace, project, site, run, session, catalog: six words, one folder tree.
 :::
 
 :::{grid-item-card} 3. The staircase
@@ -92,7 +92,8 @@ run it, what you get.
 ::::
 
 When the staircase is done, {doc}`staircase/next` leads to your own catchment, to the
-calibration files of example 04 and to the Python API.
+calibration files of example 04 and to the Python API. {doc}`many-catchments` runs the same
+model on a table of catchments, and {doc}`cluster` on a Slurm cluster.
 
 Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
 
@@ -103,4 +104,6 @@ Install <install>
 Concepts <concepts>
 The staircase <staircase/index>
 After the staircase <staircase/next>
+Many catchments <many-catchments>
+On a cluster <cluster>
 ```

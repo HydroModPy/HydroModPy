@@ -21,26 +21,26 @@ entry_config = "step1_minimal.toml"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/README.md"
 dest = "projects/04_streamflow_intermittence_in_transient/README.md"
-size = 5207
-sha256 = "8a51f10c75a9e5cfa0d7183fbea8543ff785dc715c08cfae00280bd7410b8e5a"
+size = 5778
+sha256 = "9cfd4d405e2cdb127303cb6a03494de3cc3b8a9af595475ba5c8d37d5cbbfcef"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 4930
-sha256 = "21c5c834295a32b79cd990d92b206d46e669f6d7375cc106cab3db68f0425862"
+size = 5267
+sha256 = "7e500d116b06bdf5386278b1abefdbdcbc9ed9b20639644944e81e81c4243d8d"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
-size = 3435
-sha256 = "35016c234cf35492bf9c69775669534ed43055ca8bdd03ff0b8ab37fe1ecf318"
+size = 3607
+sha256 = "7724976b5d27d0dd399023f3dde60479703c4bf418ccdea52256fa196cfc5c97"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py2_edit_parameters.py"
-size = 3073
-sha256 = "69ed870fbd1294b278038eaac05fb59a552f112002ec47a99be9aa31a5740d59"
+size = 3114
+sha256 = "76509f632ec8f9b90ba0f8045031e881f2845361832748ba5b7f609846f70659"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py3_read_exports.py"
@@ -51,56 +51,56 @@ sha256 = "23010f84e9e5567f2e514d6358d2f5f0d55e5f0abad7b10c85a75b73bea66ca7"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py4_sweep_k.py"
-size = 3015
-sha256 = "30c04bf892c1f249d6ac3c68b1965e2bc711a91920c797f84e7d8580a93b6564"
+size = 2966
+sha256 = "f897df1209023b9195a78fa64c348fe28ff130bdcaee0396856bea0764506c92"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py5_catalog.py"
-size = 2928
-sha256 = "f0b17d63e924cb5d1d5bf8b278cf6221c66ec20143c0c2ffe0ede063c381e954"
+size = 2814
+sha256 = "6d07ae66f9601ec6ffbb67bde6031bdc751e84f9ef7ec4b172d38143ddbca8f6"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
 dest = "projects/04_streamflow_intermittence_in_transient/py6_monthly_maps.py"
-size = 3089
-sha256 = "2ce4393bfeafa8b0f60545322ff3d5090fcaf45fd354e8b96dd3899a18c03c4e"
+size = 3182
+sha256 = "f6134bbea0accc03bb0ec612b98d8d56be7123d83148257c4f404c05ad05e475"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
-size = 1803
-sha256 = "94230ac875e05509304a15b54576abcb794fd4c2cfc125db14229ea001e299c9"
+size = 1765
+sha256 = "6c69b9d5419dff9be8620c91fb66291aa31c6eb0b180286912d28e0706bf405d"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-size = 5306
-sha256 = "4ced40ce632782d46eb37afd3b9393555f4d5e8d3e0a7efcb27d999cd49ac525"
+size = 5507
+sha256 = "57702cc50dd18d599bbaf8bb395a38e67186207afaa737b21385148d0bdd0af5"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
-size = 4623
-sha256 = "03f5c06afc6a601b974345b39f92ef3215e0a16eaa7f832b154eec7a7f0c83e9"
+size = 4660
+sha256 = "172ae4bbf718ea509657a891d7b0e55f7fe76147c1d37907a8b957ba6d1455a1"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
-size = 2615
-sha256 = "bf66a63806db428ca8af77ecc09ca170422e70e327366cc57171c72807864874"
+size = 2652
+sha256 = "168bb1e37ec0968b4f5dad77de526abaee25382185f9045d94de4cd99d28c8be"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
-size = 2725
-sha256 = "7c3d97cbaf9b2eb8d358e59fdcf38e38801f393e92a76ff407512e3f73cf9ac5"
+size = 2801
+sha256 = "9b6579f83d6a7de6819a28ffe96320426c39a8d71ab852d31594b82ff1e3b118"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_daily.toml"
-size = 1700
-sha256 = "ce8aaf2aa732321edc4df48265edce2530083e95a3f26024c3810d253f831f72"
+size = 2047
+sha256 = "89f0d2c1681ecfc1e3cae589ba4857cb275ac3d40da30c45241d45323f9b3fb3"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step1_minimal.toml"

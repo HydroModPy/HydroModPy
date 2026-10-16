@@ -1,6 +1,6 @@
-"""Lance step4_transient.toml depuis Python, puis trace une figure que
-HydroModPy ne propose pas : la surface du bassin où la nappe affleure, mois
-par mois, et son lien avec le débit à l'exutoire.
+"""Run step4_transient.toml from Python, then draw a figure HydroModPy does
+not offer: the area of the catchment where the water table reaches the
+surface, month by month, against the discharge at the outlet.
 
     python py1_run_and_plot.py
 """
@@ -16,40 +16,41 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 
-# %% Le run
+# %% The run
 
-# Équivaut à `hmp run step4_transient.toml`, figures et exports compris.
-# Chaque relance crée un nouveau run, nancon_step4_transient.v2, .v3...
+# The same as `hmp run step4_transient.toml`, figures and exports included.
+# An unchanged file is not computed again: the run of the last execution comes
+# back. An edited file writes a new run, nancon_step4_transient.v2, .v3...
 run = hmp.run(HERE / "step4_transient.toml")
 print(run.name)
 
-# %% Les données
+# %% The data
 
-# Les champs sont rangés par période de stress, sans date. La période i va de
-# edges[i] à edges[i + 1], on repère chaque mois par son premier jour.
+# The fields are stored by stress period, without a date. Period i runs from
+# edges[i] to edges[i + 1]: each month is named by its first day.
 months = run.periods.edges[:-1]
 
-# Débit simulé, moyenne du mois, et débit jaugé, journalier, moyenné sur les
-# mêmes mois. Les deux en m3/s.
+# Simulated discharge, the mean of the month, and gauged discharge, daily,
+# averaged over the same months. Both in m3/s.
 q_sim = pd.Series(hmp.read(run, "discharge").to_numpy(), index=months)
 q_obs = hmp.read(run, "discharge_obs").resample("MS").mean().reindex(months)
 
-# Le maillage couvre le rectangle autour du bassin : on ne compte que les
-# cellules du bassin. Ici le maillage est la grille du MNT, ligne par ligne,
-# d'où le ravel du masque.
-seepage = hmp.read(run, "seepage_mask").to_numpy() > 0  # (mois, cellules)
+# The mesh covers the rectangle around the catchment: count the cells of the
+# catchment only. The mesh is the DEM grid, row by row, hence the ravel of the
+# mask.
+seepage = hmp.read(run, "seepage_mask").to_numpy() > 0  # (months, cells)
 in_catchment = run.catchment_mask.ravel()
 cell_km2 = run.grid.cell_size**2 / 1e6
 area = pd.Series((seepage & in_catchment).sum(axis=1) * cell_km2, index=months)
 
-# Surface suintante en loi de puissance du débit, A = a Q^b, comme Godsey et
-# Kirchner (2014) pour la longueur du réseau actif. L'année 2000 sert de mise
-# en route du modèle, on l'écarte.
+# Seepage area as a power law of the discharge, A = a Q^b, as Godsey and
+# Kirchner (2014) write the length of the active network. The year 2000 is the
+# spin-up of the model: it is left out.
 kept = months.year >= 2001
 b, log_a = np.polyfit(np.log(q_sim[kept]), np.log(area[kept]), 1)
-print(f"exposant b = {b:.2f}")
+print(f"exponent b = {b:.2f}")
 
-# %% La figure
+# %% The figure
 
 fig, axes = plt.subplot_mosaic(
     [["q", "fit"], ["area", "fit"]],
@@ -59,18 +60,18 @@ fig, axes = plt.subplot_mosaic(
 )
 
 ax = axes["q"]
-ax.plot(months, q_obs, color="k", lw=1, label="jaugé")
-ax.plot(months, q_sim, color="tab:blue", label="simulé")
+ax.plot(months, q_obs, color="k", lw=1, label="gauged")
+ax.plot(months, q_sim, color="tab:blue", label="simulated")
 ax.set_yscale("log")
 ax.set_yticks([0.3, 0.5, 1, 2], ["0.3", "0.5", "1", "2"])
 ax.minorticks_off()
-ax.set_ylabel("débit (m³/s)")
+ax.set_ylabel("discharge (m³/s)")
 ax.tick_params(labelbottom=False)
 ax.legend()
 
 ax = axes["area"]
 ax.fill_between(months, area, color="tab:orange", alpha=0.5)
-ax.set_ylabel("surface suintante (km²)")
+ax.set_ylabel("seepage area (km²)")
 ax.sharex(axes["q"])
 ax.xaxis.set_major_locator(mdates.YearLocator())
 
@@ -83,17 +84,18 @@ ax.set_yscale("log")
 ax.set_xticks([0.3, 0.5, 1, 2], ["0.3", "0.5", "1", "2"])
 ax.set_yticks([1, 2, 3, 4], ["1", "2", "3", "4"])
 ax.minorticks_off()
-ax.set_xlabel("débit simulé (m³/s)")
-ax.set_ylabel("surface suintante (km²)")
+ax.set_xlabel("simulated discharge (m³/s)")
+ax.set_ylabel("seepage area (km²)")
 ax.set_title("2001-2002")
 ax.legend()
-fig.colorbar(points, ax=ax, label="mois", ticks=[1, 4, 7, 10])
+fig.colorbar(points, ax=ax, label="month", ticks=[1, 4, 7, 10])
 
-fig.suptitle(f"{run.name} : nappe affleurante et débit")
+fig.suptitle(f"{run.name}: water table at the surface and discharge")
 
-# La figure va avec le run qu'elle décrit, à côté de celles de [display].
-out = HERE / "runs" / run.name / "figures" / "seepage_vs_discharge.png"
-out.parent.mkdir(exist_ok=True)
+# A figure a script draws from a run is derived, not sealed: it goes to
+# summary/figures/, never into the run, whose figures/ holds the [display] list.
+out = HERE / "summary" / "figures" / f"{run.name}_seepage_vs_discharge.png"
+out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=150)
 print(out)
 plt.show()

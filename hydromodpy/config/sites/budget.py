@@ -2,7 +2,12 @@
 
 ``hmp run project.toml --dry-run`` writes nothing and prints these numbers.
 ``[sites.run] parallel`` is the budget of solves side by side: a simulation
-takes one, a calibration takes its ``[calibration] parallel``. The scratch of
+takes one, a calibration takes its ``[calibration] parallel``. The ceilings
+the launcher refuses above without ``--force`` are
+:data:`~hydromodpy.config.sites.models.PARALLEL_CEILING`,
+:data:`~hydromodpy.config.sites.models.PREPARE_PARALLEL_CEILING` and
+:data:`CALIBRATION_PARALLEL_CEILING`, measured on 22 cores
+(:func:`hydromodpy.project.launch.local.effective_parallel`). The scratch of
 a kept solve was measured between 0.6 and 4.8 GiB (audit of 2026-10-14,
 reader R04); the plan announces the range for the solves it keeps.
 """
@@ -13,14 +18,13 @@ import os
 from dataclasses import dataclass
 
 from hydromodpy.config.sites.expansion import PlanDraft
-from hydromodpy.config.sites.models import PARALLEL_CEILING
 from hydromodpy.core.exceptions import ConfigError
 
 SCRATCH_PER_KEPT_SOLVE_GIB: tuple[float, float] = (0.6, 4.8)
 """Scratch one kept solve takes, low and high, as measured on the example 04."""
 
-CALIBRATION_PARALLEL_CEILING = 1
-"""Budget of a campaign of calibrations until the launch is measured."""
+CALIBRATION_PARALLEL_CEILING = 2
+"""Budget of a campaign that holds a calibration: two side by side held 2.5 GiB, no loss."""
 
 
 class BudgetError(ConfigError):
@@ -87,35 +91,6 @@ def _peak_solves(solves: list[int], budget: int) -> int:
     return max(peak, running)
 
 
-def check_run_budget(budget: PlanBudget, *, force: bool = False) -> None:
-    """Refuse a budget above the measured ceilings, unless *force*.
-
-    The ceilings stand until the launch measurements set the real values:
-    :data:`~hydromodpy.config.sites.models.PARALLEL_CEILING` solves side by
-    side, :data:`CALIBRATION_PARALLEL_CEILING` for a campaign of
-    calibrations, and never more solves times threads than cores.
-    """
-    if force:
-        return
-    if budget.parallel > PARALLEL_CEILING:
-        raise BudgetError(
-            f"[sites.run] parallel = {budget.parallel} is above {PARALLEL_CEILING}, the "
-            "ceiling until the launch is measured; lower it or pass --force."
-        )
-    if budget.n_calibrations and budget.parallel > CALIBRATION_PARALLEL_CEILING:
-        raise BudgetError(
-            f"[sites.run] parallel = {budget.parallel} for a campaign of "
-            f"{budget.n_calibrations} calibration(s); the ceiling is "
-            f"{CALIBRATION_PARALLEL_CEILING} until the launch is measured. Lower it or pass --force."
-        )
-    product = budget.peak_solves * budget.threads_per_case
-    if product > budget.cores:
-        raise BudgetError(
-            f"{budget.peak_solves} solves x {budget.threads_per_case} threads = {product} on "
-            f"{budget.cores} cores; lower [sites.run] parallel or threads_per_case, or pass --force."
-        )
-
-
 def dry_run_lines(draft: PlanDraft, budget: PlanBudget) -> list[str]:
     """Return the lines ``hmp run --dry-run`` prints for a ``[sites]`` project."""
     low, high = budget.scratch_gib
@@ -144,7 +119,6 @@ __all__ = [
     "SCRATCH_PER_KEPT_SOLVE_GIB",
     "BudgetError",
     "PlanBudget",
-    "check_run_budget",
     "dry_run_lines",
     "plan_budget",
 ]

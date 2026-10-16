@@ -21,7 +21,10 @@ starts again from `project.toml`.
 
 Around the steps:
 
-- `project.toml`: the frozen reference model, with all the figures.
+- `project.toml`: the frozen reference model, with all the figures. Its `[site]` names the
+  catchment and its gauge, `NANCON`: every station source and every calibration file reads
+  the gauge from there, so no station is written twice. Its `[metrics]` window, 2001-2002,
+  is where every run is scored; 2000 is spin-up.
 - `run_daily.toml`: the same model at a daily step.
 - `run_calibration.toml`: calibration of K, then Sy, by the published protocol.
 - `run_calibration_by_hand.toml`: the same calibration, written as two phases.
@@ -40,7 +43,7 @@ is published as `2.0.0aN`; without it pip installs version 1, which cannot read 
 ```bash
 hmp run step1_minimal.toml          # then step2 to step5
 hmp run step6_soil_reservoir.toml --until load_data   # the soil alone: budget in mm/year, no run written
-hmp calibrate run_calibration.toml --check
+hmp config check run_calibration.toml        # every problem at once, for any file
 hmp calibrate run_calibration.toml --list-phases
 hmp run run_calibration.toml        # same for the other calibration files
 hmp export nancon_step5_export --list
@@ -68,11 +71,12 @@ Spyder or VS Code.
 3. `py3_read_exports.py`: redraws a figure from the files of `runs/<name>/exports/` alone
    (GeoPackage, GeoTIFF, CSV, NetCDF), without importing HydroModPy. It needs the exports of
    `step5_export.toml`.
-4. `py4_sweep_k.py`: five values of K on one `Project`, which builds the mesh once. The
+4. `py4_sweep_k.py`: five values of K, one `hmp.run` each on `project.toml` with K set on
+   top, the Python form of `hmp run project.toml --set flow.param.K.field.value=...`. The
    discharge does not tell the K values apart, the seepage area does.
-5. `py5_catalog.py`: opens the catalog of the project, reads the scores of the runs,
-   redraws a figure of the catalog at other dates and exports a state the TOML did not ask
-   for.
+5. `py5_catalog.py`: opens the project with `hmp.open`, lists its cases (`proj.cases`),
+   reads the scores of the runs of the site, redraws a figure of the catalog at other dates
+   and exports a state the TOML did not ask for.
 6. `py6_monthly_maps.py`: the twelve months of 2002 on one sheet and the 36 months as a GIF,
    with the cells where the water table reaches the surface drawn one by one.
 
@@ -88,10 +92,13 @@ each promoted run. The API calibration has its own, dated 2019.
 
 - figures: `runs/<name>/figures/`
 - exports: `runs/<name>/exports/`
-- figures of the scripts that compare several runs: `summary/figures/`
+- what a run is and how it went: `runs/<name>/README.md`, `outcome.json`, `manifest.json`
+- a calibration: its trials under `sessions/<name>/`, its best trial promoted to
+  `runs/<name>/`
+- figures the scripts draw: `summary/figures/`
 
 `<name>` is the name of the run: the `[simulation] name` of the file you ran, for example
-`nancon_step5_export`, followed by the name of the phase for a calibration in several phases.
+`nancon_step5_export`. A second run of an edited file is `<name>.v2`.
 
 The documentation walks through the six steps: <https://docs.hydromodpy.fr/>, Get started,
 The staircase.

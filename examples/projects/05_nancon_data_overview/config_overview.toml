@@ -13,27 +13,11 @@
 # ======================================================================
 
 
-# ----------------------------------------------------------------------
-# Workspace configuration for project-based workspace structure.
-# ----------------------------------------------------------------------
-
-
 [site]
 name = "nancon"
 
 [workflow]
 mode = "overview"
-
-[workspace]
-# Path to the project directory.
-# Auto-derived from TOML location when absent.
-# Type: path | REQUIRED
-
-# Root directory for all outputs (hydromodpy.duckdb, simulations/<uuid>.zarr/).
-# Defaults to project_root when not set.
-# Use this to redirect heavy outputs to a separate disk.
-# Type: path (optional) | Optional
-output_root = ""
 
 
 # ----------------------------------------------------------------------

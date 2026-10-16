@@ -60,6 +60,20 @@ When ``resume_from`` is ``None`` (or 0), the runner first calls
 ``WorkflowJournal.invalidate_from(start_order=0, reason="from_scratch")``
 so a stale journal from a reused ``run_id`` cannot leak into the new run.
 
+Resume across attempts
+----------------------
+
+The journal belongs to the attempt in progress, under ``<run>/.hmp/``, and the
+attempt protocol of :doc:`storage-layout` decides when it is read again. A new
+attempt of a failed case resumes in place by default: the checkpoints stay, so
+the runner restarts at the first step the journal does not cover. ``--fresh``,
+or a config hash that changed, files the whole earlier attempt under
+``attempts/<k>/`` and starts from scratch. The step window serves the
+launcher of a ``[sites]`` project too: its ``prepare`` phase runs each case up
+to its data (``--until load_data``) to fill the workspace input cache, and the
+worker that solves the case later reads its inputs from that cache with
+``--frozen``.
+
 Step contract recap
 -------------------
 

@@ -11,7 +11,7 @@ scope people confuse it with.
 | scope | file | door | returns |
 |---|---|---|---|
 | input cache of a workspace | `<workspace>/data/cache.duckdb` | `hydromodpy.catalog.InputsNamespace(workspace)` | `InputsNamespace` (this package) |
-| runs of a project | `<project>/.hmp/index.duckdb` | `hmp.open(...)` | `hydromodpy.results.catalog.Catalog`, read-only |
+| runs of a project | `<project>/.hmp/index.duckdb` | `hmp.open(...).store` | `hydromodpy.results.catalog.Catalog`, read-only |
 | runs of several projects | none: the `simulation.parquet` of each run | `hydromodpy.results.catalog.read_workspace_runs(...)` | a `DataFrame` |
 
 The index of a project is derived: the run folders (`runs/`, `sessions/`) are the

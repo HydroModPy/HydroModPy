@@ -1,11 +1,11 @@
-"""Sealed, indexed runs whose Run view the network exports of a comparison read.
+"""Sealed runs whose Run view the network exports of a comparison read.
 
-The network metrics read a run through ``Run``, which the comparison opens
-from the index of the project holding the run
-(:func:`hydromodpy.analysis.comparison.runtime.run_source.open_indexed_run`,
-from the ``run_dir`` of a simulation summary). Each builder writes its run the
-way the pipeline does, through the store of a claimed run directory, seals it
-and indexes the project. :func:`serve_indexed_runs` lets the summaries of the
+The network metrics read a run through ``Run``, which the comparison opens on
+the sealed directory of the run, without the index
+(:func:`hydromodpy.analysis.comparison.runtime.run_source.open_run`, from the
+``run_dir`` of a simulation summary). Each builder writes its run the way the
+pipeline does, through the store of a claimed run directory, seals it and
+indexes the project. :func:`serve_indexed_runs` lets the summaries of the
 tests name their run by ``config_path``: it hands the real opener the run
 directory the builder wrote.
 """
@@ -23,8 +23,8 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.analysis.comparison.runtime import run_source
-from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.indexer import index_new_runs
+from hydromodpy.results.run import Run
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -54,15 +54,15 @@ _TOPOGRAPHY = np.array([10.0, 9.0, 8.0], dtype="float64")
 
 def serve_indexed_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Open the Run view of each summary through the real opener, by its run directory."""
-    opener = run_source.open_indexed_run
+    opener = run_source.open_run
 
-    def open_indexed_run(summary: Mapping[str, Any]) -> tuple[Catalog | None, str | None]:
+    def open_run(summary: Mapping[str, Any]) -> Run | None:
         run_dir = _RUN_DIRS.get(str(summary.get("config_path", "")))
         if run_dir is None:
-            return None, None
+            return None
         return opener({**summary, "run_dir": str(run_dir)})
 
-    monkeypatch.setattr(run_source, "open_indexed_run", open_indexed_run)
+    monkeypatch.setattr(run_source, "open_run", open_run)
 
 
 def _line_gdf(length_m: float) -> gpd.GeoDataFrame:

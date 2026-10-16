@@ -8,7 +8,8 @@ Sub-actions:
   the most recent session. Federates across every project in the workspace.
 - ``hmp report compare <ref> <ref>... [--by site]``: compare N sealed runs of
   one case (diffs, stability, budget closure, maps, series) and render the page
-  under ``summary/report/compare/`` of the project, or ``--out``.
+  under ``summary/report/compare/`` of the project, or ``--out``; ``--by site``
+  writes one page per site and joins the references on the site.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
   one catchment report TOML configuration.
 """
@@ -98,7 +99,10 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--by",
         choices=("site",),
         default=None,
-        help="Compare the runs of each site separately, one page per site.",
+        help=(
+            "Compare the runs of each site separately, one page per site, and join the "
+            "references on the site in by_site.csv and index.html."
+        ),
     )
     compare_p.add_argument(
         "--variables",

@@ -10,10 +10,13 @@ first (``reserve_version_dirname``), the promoted run takes the same one.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+import os
 import tomllib
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -108,14 +111,50 @@ def open_session_dir(project_root: Path, case: str, *, resume: bool) -> tuple[Pa
     return reserve_version_dirname(project_root, "session", case), False
 
 
-def freeze_session_config(session_dir: Path, raw: Mapping[str, Any]) -> Path:
-    """Write the resolved document of the case as ``sessions/<case>/config.toml``."""
+GEOMETRY_PATH_FIELDS = ("stream_geometry_path", "minimal_stream_geometry_path")
+"""The output fields that name a file, anchored to the document that declares them."""
+
+
+def freeze_session_config(
+    session_dir: Path, raw: Mapping[str, Any], cfg: CalibrationConfig | None = None
+) -> Path:
+    """Write the resolved document of the case as ``sessions/<case>/config.toml``.
+
+    *cfg* is the calibration the search reads, its geometry paths already
+    anchored to the file of the case. Each one is written relative to the
+    session directory, so the frozen document finds the same file from where
+    it sits: a promotion after the fact reads it and must hash the same
+    model as the search did.
+    """
     from hydromodpy.calibration.runners.materialize import write_overlay_toml
 
     target = Path(session_dir) / SESSION_CONFIG_FILENAME
     payload = {key: value for key, value in dict(raw).items() if key != "base_config"}
+    if cfg is not None:
+        payload = _with_anchored_geometry(payload, cfg, Path(session_dir))
     write_overlay_toml(target, payload)
     return target
+
+
+def _with_anchored_geometry(
+    payload: dict[str, Any], cfg: CalibrationConfig, session_dir: Path
+) -> dict[str, Any]:
+    """Return *payload* with each found geometry path written relative to *session_dir*."""
+    calibration = payload.get("calibration")
+    outputs = calibration.get("outputs") if isinstance(calibration, Mapping) else None
+    if not isinstance(outputs, Mapping):
+        return payload
+    anchored = copy.deepcopy(payload)
+    base = session_dir.expanduser().resolve()
+    for name, declared in cfg.outputs.items():
+        written = anchored["calibration"]["outputs"].get(name)
+        if not isinstance(written, dict):
+            continue
+        for field in GEOMETRY_PATH_FIELDS:
+            resolved = getattr(declared, field, None)
+            if resolved and field in written and Path(resolved).is_absolute():
+                written[field] = os.path.relpath(resolved, base)
+    return anchored
 
 
 def session_config_hash(raw: Mapping[str, Any], trial_ctx: TrialContext | None) -> str:
@@ -138,12 +177,48 @@ def session_config_hash(raw: Mapping[str, Any], trial_ctx: TrialContext | None) 
     return hashlib.sha256(json.dumps(dict(raw), sort_keys=True, default=str).encode()).hexdigest()
 
 
-def objective_window_of(cfg: CalibrationConfig) -> DateWindow | None:
-    """Return the window the objective is scored on, when both bounds are written."""
-    bounds = scoring_window_bounds(cfg.scoring_window)
-    if bounds is None or bounds[0] is None or bounds[1] is None:
+def objective_window_of(
+    cfg: CalibrationConfig, document: Mapping[str, Any] | None = None
+) -> DateWindow | None:
+    """Return the window the session scores its objective on.
+
+    A staged calibration promotes the best trial of its last phase, so its
+    window is the one of that phase, or the section's when the phase writes
+    none. A bound left open is the start or the end of the period that
+    ``[simulation.time]`` of *document* declares. ``None`` when a bound stays
+    unknown: a search that skips ``warmup_periods`` samples, or no period to
+    close the window with.
+    """
+    window = cfg.scoring_window
+    if cfg.phases and cfg.phases[-1].scoring_window is not None:
+        window = cfg.phases[-1].scoring_window
+    if window is None and cfg.warmup_periods:
         return None
-    return DateWindow(start=bounds[0].date(), end=bounds[1].date())
+    bounds = scoring_window_bounds(window) or (None, None)
+    period_start, period_end = _declared_period(document)
+    start = bounds[0].date() if bounds[0] is not None else period_start
+    end = bounds[1].date() if bounds[1] is not None else period_end
+    if start is None or end is None:
+        return None
+    return DateWindow(start=start, end=end)
+
+
+def _declared_period(document: Mapping[str, Any] | None) -> tuple[date | None, date | None]:
+    """Return the first and last day ``[simulation.time]`` of *document* declares."""
+    simulation = document.get("simulation") if isinstance(document, Mapping) else None
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    if not isinstance(time, Mapping):
+        return None, None
+    return _day(time.get("start_datetime")), _day(time.get("end_datetime"))
+
+
+def _day(value: Any) -> date | None:
+    """Return the day of a TOML date, datetime or ISO string, or None."""
+    import pandas as pd
+
+    if value is None or value == "":
+        return None
+    return pd.Timestamp(value).date()
 
 
 def search_space_payload(space: ParameterSpace) -> dict[str, Any]:

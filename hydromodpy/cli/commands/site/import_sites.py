@@ -92,7 +92,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.cli.commands.site._workspace import workspace_root
+    from hydromodpy.cli.helpers import resolve_workspace
     from hydromodpy.data.sites.catalog import catalog_path, declare_sites, with_tags
 
     chosen = [
@@ -119,7 +119,7 @@ def run(args: argparse.Namespace) -> None:
         print("--layer needs --name-field, the field holding the site name.", file=sys.stderr)
         sys.exit(EXIT_USAGE)
 
-    root = workspace_root(args.workspace)
+    root = resolve_workspace(args.workspace)
     try:
         imported = _read(args, root)
         rows = [with_tags(row, args.tag) for row in imported.rows]

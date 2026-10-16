@@ -10,8 +10,9 @@ directory states) and exposes typed properties (``solver``,
 ``status``, ``n_layers`` ...), tabular accessors (``parameters``, ``metrics``,
 ``timeseries``, ``budget``, ``mass_balance``), the seal of the run
 (``record``, ``label()``, read from its directory), field-array
-readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``) and
-spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``). Heavier
+readers (``field``, ``mesh``, ``geographic``, ``geographic_raster``),
+spatial helpers (``grid``, ``catchment_mask``, ``dem``, ``outlet``) and the
+files the run wrote (``exports``, ``figures``). Heavier
 xarray / UGRID readers (``dataset``, ``to_xarray_batch``) live on the
 :class:`hydromodpy.results.run.array.RunArrayProvider` exposed as
 ``run.array``; the point interrogation (one cell, after the fact) lives on
@@ -45,8 +46,9 @@ module-level functions in :mod:`hydromodpy.results.derive.views` and consume a
 
 Public API
 ----------
-- ``Run``: instantiated by ``Catalog`` resolution methods, or on a
-  ``RunStore`` by the steps of a running run. Also
+- ``Run``: instantiated by ``Catalog`` resolution methods, on a
+  ``RunStore`` by the steps of a running run, or on a sealed directory by
+  :func:`open_run_dir` (what ``hmp.open(<run dir>)`` returns). Also
   exposes ``run.array`` for xarray / UGRID readers, ``run.probe`` for
   point interrogation, ``run.periods`` for date lookups and ``run.descent``
   for the routing descent.
@@ -78,10 +80,12 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.paths import catalog_path_for
+from hydromodpy.core.state.paths import catalog_path_for, parse_rel_dir
 from hydromodpy.results.annotations import add_note, add_tag, read_annotations, remove_tag
-from hydromodpy.results.errors import RunNotFoundError
+from hydromodpy.results.errors import RunNotFoundError, RunNotSealedError
 from hydromodpy.results.export.run_identity import label_of
+from hydromodpy.results.ledger import Ledger
+from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import effective_status
 from hydromodpy.results.record import RunRecord
 from hydromodpy.results.run.array import RunArrayProvider
@@ -92,7 +96,13 @@ from hydromodpy.results.run.periods import RunPeriods
 from hydromodpy.results.run.point import RunPointProvider
 from hydromodpy.results.run.sealed import read_record
 from hydromodpy.results.run.timeseries import RunTimeseriesMixin
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
+from hydromodpy.results.storage.contract import (
+    RUN_CONFIG_FILENAME,
+    RUN_EXPORTS_DIRNAME,
+    RUN_FIGURES_DIRNAME,
+    RUN_MANIFEST_FILENAME,
+    RUN_OUTCOME_FILENAME,
+)
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.validity_rules import LabelResult
 
@@ -102,6 +112,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from hydromodpy.results.catalog import Catalog
+    from hydromodpy.results.checks import Checks
+    from hydromodpy.results.manifest import InputEntry
 
 _WORKSPACE_OUTPUT_KEYS: tuple[str, ...] = ("catalog_path", "runs_dir")
 """``[workspace]`` members that derive from ``project_root`` and name outputs."""
@@ -183,6 +195,55 @@ def _store_row(store: RunStore) -> dict:
     }
 
 
+def project_root_of(run_dir: Path) -> tuple[Path, str] | None:
+    """Return the project a run directory sits in and its relative form, or None.
+
+    The two forms a run directory takes are those ``parse_rel_dir`` knows,
+    ``runs/<name>`` and ``sessions/<name>/trials/<nnnn>``: the trailing parts
+    of the path are tried against them, the shorter first.
+    """
+    parts = Path(run_dir).expanduser().resolve().parts
+    for depth in (2, 4):
+        if len(parts) <= depth:
+            continue
+        rel = "/".join(parts[-depth:])
+        try:
+            parsed = parse_rel_dir(rel)
+        except ValueError:
+            continue
+        if parsed.kind in ("run", "trial"):
+            return Path(*parts[:-depth]), rel
+    return None
+
+
+def open_run_dir(run_dir: str | Path) -> Run:
+    """Open the sealed run in *run_dir* from its own files, without the index.
+
+    The run reads its row from its seal, its tables and fields from its
+    directory, so a run copied out of its project or a project never indexed
+    reads the same. Raises :class:`~hydromodpy.results.errors.RunNotSealedError`
+    for a directory without ``manifest.json``: a run that never completed is
+    read through the index of its project, or from its ``outcome.json``.
+    """
+    directory = Path(run_dir).expanduser().resolve()
+    if not directory.is_dir():
+        raise FileNotFoundError(f"{directory} is not a run directory")
+    if not is_sealed(directory):
+        raise RunNotSealedError(
+            f"{directory} has no {RUN_MANIFEST_FILENAME}: the run never completed and has no "
+            f"seal to read alone. Read its {RUN_OUTCOME_FILENAME}, or open its project."
+        )
+    located = project_root_of(directory)
+    store = RunStore.open(directory, workspace=None if located is None else located[0])
+    return Run(store.sim_id, store)  # type: ignore[arg-type]
+
+
+def _ledger_files(directory: Path) -> list[Path]:
+    """Return the files the ledger of *directory* records and that are still there."""
+    found = (directory / entry.file for entry in Ledger.read(directory).entries)
+    return sorted(path for path in found if path.is_file())
+
+
 class Run(
     RunGeographicMixin,
     RunTimeseriesMixin,
@@ -210,9 +271,9 @@ class Run(
     Examples
     --------
     >>> import hydromodpy as hmp
-    >>> catalog = hmp.open("~/hmp_workspace")  # doctest: +SKIP
-    >>> run = catalog.latest()  # doctest: +SKIP
-    >>> run.summary()  # doctest: +SKIP
+    >>> proj = hmp.open("~/hmp_workspace/projects/nancon")  # doctest: +SKIP
+    >>> run = proj["baseline"]  # doctest: +SKIP
+    >>> run.label()  # doctest: +SKIP
     >>> run.field("head", timestep=-1)  # doctest: +SKIP
 
     See Also
@@ -309,6 +370,42 @@ class Run(
         that never completed.
         """
         return self._record()
+
+    @property
+    def site(self) -> str | None:
+        """Name of the site this run was computed on, ``None`` on a synthetic domain.
+
+        The whole site block (gauge, outlet, fingerprint) is ``record.site``.
+        """
+        return self._load_row().get("site")
+
+    @property
+    def checks(self) -> Checks:
+        """What the seal measured: budget, convergence, coverage, calibration.
+
+        Raises :class:`~hydromodpy.results.errors.RunNotSealedError` for a
+        run that never completed.
+        """
+        return self._record().checks
+
+    @property
+    def inputs(self) -> list[InputEntry]:
+        """Every input this run loaded, as ``inputs.json`` lists it.
+
+        Raises :class:`~hydromodpy.results.errors.RunNotSealedError` for a
+        run that never completed.
+        """
+        return list(self._record().inputs)
+
+    @property
+    def exports(self) -> list[Path]:
+        """Files under ``exports/`` that ``exports/index.json`` records, by path."""
+        return _ledger_files(self.dir / RUN_EXPORTS_DIRNAME)
+
+    @property
+    def figures(self) -> list[Path]:
+        """Figures under ``figures/`` that ``figures/index.json`` records, by path."""
+        return _ledger_files(self.dir / RUN_FIGURES_DIRNAME)
 
     def label(self) -> LabelResult:
         """Return the label of this run today, with its rule version and reasons.
@@ -431,14 +528,6 @@ class Run(
 
         index_new_runs(project_root)
 
-    @property
-    def parent(self) -> Run | None:
-        """Parent :class:`Run` named by the lineage of the seal, or ``None``."""
-        parent_sid = self._record().lineage.parent_sim_id
-        if not parent_sid:
-            return None
-        return Run(str(parent_sid), self._catalog)
-
     # -- Metadata properties -------------------------------------------------
 
     @property
@@ -462,11 +551,6 @@ class Run(
         return self._load_row().get("solver")
 
     @property
-    def solver_category(self) -> str | None:
-        """Solver family category, such as ``"distributed"`` or ``"lumped"``."""
-        return self._load_row().get("solver_category")
-
-    @property
     def flow_regime(self) -> str | None:
         """Flow regime recorded by the workflow, such as steady or transient."""
         return self._load_row().get("flow_regime")
@@ -475,16 +559,6 @@ class Run(
     def status(self) -> str | None:
         """Run status stored in the catalog."""
         return self._load_row().get("status")
-
-    @property
-    def created_at(self):
-        """Catalog timestamp for run creation."""
-        return self._load_row().get("created_at")
-
-    @property
-    def duration_s(self) -> float | None:
-        """Wall-clock run duration in seconds when available."""
-        return self._load_row().get("duration_s")
 
     @property
     def config_snapshot(self) -> dict | None:
@@ -546,54 +620,6 @@ class Run(
     def n_timesteps(self) -> int | None:
         """Number of persisted timesteps when the workflow is time-dependent."""
         return self._load_row().get("n_timesteps")
-
-    # -- Summary -------------------------------------------------------------
-
-    def summary(self, json: bool = False) -> dict | str:
-        """Return a compact metadata snapshot of this run.
-
-        Picks the headline catalog fields (identity, solver, status,
-        timing, mesh sizes, tags). Datetime values are kept as Python
-        objects in dict form; with ``json=True`` they are stringified
-        and the whole payload is returned as a JSON string.
-
-        Parameters
-        ----------
-        json
-            If ``True``, return a JSON string instead of a dict.
-
-        Returns
-        -------
-        dict or str
-            Headline fields as a dict, or as a JSON-encoded string when
-            ``json=True``.
-
-        Raises
-        ------
-        hydromodpy.results.errors.RunNotFoundError
-            If the run row has been deleted between catalog open and call.
-        """
-        row = self._load_row()
-        keys = (
-            "name",
-            "project",
-            "solver",
-            "solver_category",
-            "flow_regime",
-            "status",
-            "created_at",
-            "duration_s",
-            "n_layers",
-            "n_cells",
-            "n_timesteps",
-            "tags",
-        )
-        data: dict = {"sim_id": self._sim_id}
-        for key in keys:
-            data[key] = row.get(key)
-        if json:
-            return _json.dumps(data, default=str, indent=2, sort_keys=False)
-        return data
 
     # -- Repr ----------------------------------------------------------------
 

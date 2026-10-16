@@ -179,7 +179,6 @@ def _promote(trial_ctx, *, cfg: CalibrationConfig, rows: int, best_trial: int):
         phase="main",
         session_status="completed",
         override_paths={"K": "K"},
-        objective_window=None,
     )
     return outcome.count, outcome.failures, outcome.best_sim_id
 

@@ -6,7 +6,8 @@ launchers after their runs have been resolved and observable rows extracted.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import os
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -199,12 +200,18 @@ def write_comparison_output_bundle(
     report_text = build_comparison_report(
         comparison_id=comparison_id,
         reference_simulation=reference_id,
-        simulation_summaries=summaries,
+        simulation_summaries=[
+            _relative_to(comparison_root, summary, "run_folder") for summary in summaries
+        ],
         observables=observable_payloads,
         rows=rows,
         summary_metrics=summary_metrics,
-        figure_artifacts=figure_artifacts,
-        data_artifacts=data_artifacts,
+        figure_artifacts=[
+            _relative_to(comparison_root, artifact, "path") for artifact in figure_artifacts
+        ],
+        data_artifacts=[
+            _relative_to(comparison_root, artifact, "path") for artifact in data_artifacts
+        ],
     )
     if report_text_transform is not None:
         report_text = report_text_transform(report_text)
@@ -231,6 +238,17 @@ def _dump_observable(observable: Any) -> dict[str, Any]:
     if hasattr(observable, "model_dump"):
         return observable.model_dump(mode="json")
     return dict(observable)
+
+
+def _relative_to(root: Path, entry: Mapping[str, Any], key: str) -> dict[str, Any]:
+    """Return a copy of *entry* whose absolute path under *key* is written from *root*.
+
+    The Markdown report travels with its folder: it names no absolute path.
+    """
+    text = str(entry.get(key) or "")
+    if not text or not Path(text).is_absolute():
+        return dict(entry)
+    return {**entry, key: Path(os.path.relpath(text, root)).as_posix()}
 
 
 __all__ = ("ComparisonOutputBundle", "write_comparison_output_bundle")

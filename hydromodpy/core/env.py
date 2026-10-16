@@ -163,6 +163,15 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "``.npy`` files.",
     ),
     EnvVar(
+        "HMP_DATA_CACHE_PRIVATE",
+        "unset, a process opens the workspace data cache itself",
+        "dev",
+        "Set by the launcher of a ``[sites]`` project for each case it starts, never by "
+        "hand: the private data cache of that case. The case then reads the shared "
+        "``data/cache.duckdb`` read-only, one query at a time, and registers what it "
+        "fetches in this file, which the launcher merges once the case has ended.",
+    ),
+    EnvVar(
         "HMP_DETERMINISTIC_FETCHED_AT",
         "unset, the fetch time is written",
         "dev",
@@ -175,6 +184,14 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "dev",
         "Any value other than empty, ``0``, ``false`` or ``no`` keeps the solver folder "
         "of each calibration trial and the preprocessing tree of the session.",
+    ),
+    EnvVar(
+        "HMP_LAUNCHED_CASE",
+        "unset, ``hmp run`` refreshes the index of the project after its run",
+        "dev",
+        "Set by a launcher (``local``, or the scheduler) for each case it starts, never "
+        "by hand. The worker then leaves the index to the launcher, which refreshes it "
+        "after every case.",
     ),
     EnvVar(
         "HMP_OUT_PATH",
@@ -202,16 +219,28 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "unset outside a run",
         "dev",
         "Set by HydroModPy, never by hand: the scratch folder of the run this process "
-        "is inside. A subprocess inherits it and works in the same folder.",
+        "is inside. A subprocess inherits it and works in the same folder. The launcher "
+        "of a ``[sites]`` project removes it from the environment of each case, so every "
+        "case claims its own scratch.",
     ),
     EnvVar(
         "HMP_SCRATCH_ROOT",
-        "runs/<case>/.hmp/scratch/ inside each run",
+        "runs/<case>/.hmp/scratch/ and <project>/.hmp/scratch/ inside the project",
         "user",
-        "Machine scratch root that replaces the scratch folder inside each run, for "
-        "example ``$SLURM_TMPDIR`` on a cluster node. A run then works in "
-        "``<root>/<project>/<case>.a<attempt>/``. It is never an author key and "
+        "Machine scratch root that replaces the scratch folders inside the project, for "
+        "example ``$SLURM_TMPDIR`` on a cluster node. The solver of a run then works in "
+        "``<root>/<project>/<case>.a<attempt>/`` and its preprocessing in "
+        "``<root>/<project>/<case>.p<pid>/``. It is never an author key and "
         "never part of the config hash.",
+    ),
+    EnvVar(
+        "HMP_THREADS_PER_CASE",
+        "unset, the native libraries choose their pool size",
+        "dev",
+        "Threads one case may use, ``[sites.run] threads_per_case``. Set by the launcher "
+        "and by the array script for each case. The worker limits its native thread pools "
+        "(``threadpoolctl``) and sets ``OMP_NUM_THREADS`` and its siblings for the "
+        "processes it starts.",
     ),
     EnvVar(
         "HMP_WHITEBOX_REDIRECT_NATIVE_STDIO",

@@ -31,8 +31,11 @@ FORMAT_CHOICES: tuple[str, ...] = ("table", "json", "csv")
 def workspace_parser() -> argparse.ArgumentParser:
     """Parent parser exposing the shared ``-w/--workspace`` selector.
 
-    Accepts a workspace root OR a project directory; commands resolve it
-    through :func:`hydromodpy.core.state.paths.resolve_project_root`.
+    Accepts a workspace root or a project directory. A project verb resolves
+    it through :func:`hydromodpy.cli.helpers.resolve_project`, a workspace
+    verb through :func:`hydromodpy.cli.helpers.resolve_workspace`. Without
+    ``-w`` the verb looks above the current directory and stops when it finds
+    nothing: it never falls back on ``~/hydromodpy``.
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
@@ -40,7 +43,10 @@ def workspace_parser() -> argparse.ArgumentParser:
         "--workspace",
         metavar="WORKSPACE",
         default=None,
-        help="Workspace root or project directory (default: auto-detect from cwd)",
+        help=(
+            "Workspace root or project directory "
+            "(default: the one that holds the current directory)"
+        ),
     )
     return parser
 

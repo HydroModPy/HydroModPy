@@ -1,0 +1,3 @@
+site,label,gauge,x_outlet,y_outlet,k_low,k_high
+nancon,Le Nançon à Lécousse,J001401001,389285.910,6816518.749,1e-6,1e-4
+canut,Le Canut à Maxent,J751301001,327816.965,6777886.670,1e-6,1e-4

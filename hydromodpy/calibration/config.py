@@ -2981,9 +2981,12 @@ def apply_project_defaults(
     position (``x`` and ``y``, or ``geometry``) or its own ``observed_values``
     is left as written: the gauge neither locates it nor scores it.
     ``[metrics] window`` is the default of ``scoring_window`` when the section
-    writes neither a window nor ``warmup_periods``. Applied before validation,
-    so a point output that names no station and no coordinates is valid in a
-    project with a gauge.
+    writes neither a window nor ``warmup_periods``. In a calibration with
+    phases it goes on each phase that writes no window and is not steady,
+    never on the section: a steady phase reads one state, stamped at the end
+    of its steady window, which a window of dates over the record would leave
+    out. Applied before validation, so a point output that names no station
+    and no coordinates is valid in a project with a gauge.
     """
     from hydromodpy.core.site.gauge import resolve_gauge
 
@@ -3028,11 +3031,22 @@ def apply_project_defaults(
         and metrics_window.get("start") is not None
         and metrics_window.get("end") is not None
     ):
-        payload["scoring_window"] = {
-            "start": str(metrics_window["start"]),
-            "end": str(metrics_window["end"]),
-        }
+        window = {"start": str(metrics_window["start"]), "end": str(metrics_window["end"])}
+        phases = payload.get("phases")
+        if isinstance(phases, list) and phases:
+            payload["phases"] = [_with_window(phase, window) for phase in phases]
+        else:
+            payload["scoring_window"] = window
     return payload
+
+
+def _with_window(phase: Any, window: dict[str, str]) -> Any:
+    """Return a raw phase with *window* written in, unless it is steady or writes one."""
+    if not isinstance(phase, Mapping):
+        return phase
+    if phase.get("scoring_window") is not None or phase.get("regime") == "steady":
+        return phase
+    return {**phase, "scoring_window": dict(window)}
 
 
 def _point_output_located_by_a_station(output: Any) -> bool:

@@ -104,10 +104,16 @@ def type_checking_names(module: types.ModuleType) -> tuple[dict[str, str], dict[
 
 
 def resolve_class(name: str, fn: Any) -> Any:
+    """The class a return annotation names, as the module of ``fn`` imports it.
+
+    The module's own imports win over ``hmp.<name>``: two classes may share a
+    short name (the workspace reader ``hmp.open`` returns and the runtime
+    workspace), and the annotation means the one its module imports.
+    """
     module = sys.modules.get(fn.__module__)
-    for obj in (getattr(module, name, None), getattr(hmp, name, None)):
-        if inspect.isclass(obj) and obj.__module__.startswith("hydromodpy"):
-            return obj
+    obj = getattr(module, name, None)
+    if inspect.isclass(obj) and obj.__module__.startswith("hydromodpy"):
+        return obj
     if module is not None:
         imports, _ = type_checking_names(module)
         if name in imports:
@@ -118,6 +124,9 @@ def resolve_class(name: str, fn: Any) -> Any:
             # A class of another package (matplotlib's Figure) gets no page here.
             if inspect.isclass(obj) and obj.__module__.startswith("hydromodpy"):
                 return obj
+    obj = getattr(hmp, name, None)
+    if inspect.isclass(obj) and obj.__module__.startswith("hydromodpy"):
+        return obj
     found = {
         id(cls): cls
         for mod_name, mod in list(sys.modules.items())
@@ -864,6 +873,43 @@ TASKS: dict[str, dict[str, Any]] = {
             "Calibration sessions": "The sessions a calibration leaves in the catalog and their iterations.",
             "Inspect the index": "Tables, columns, metrics and stations of the index, and plain SQL.",
             "Record a run": "What the pipeline calls to write a run into the catalog. A script that only reads results does not need these.",
+        },
+    },
+    "Project": {
+        "order": [
+            "Read the project",
+            "Launch the cases",
+            "Build one model",
+            "Run one model",
+            "Lifecycle",
+        ],
+        "by_owner": {"Project": "Build one model"},
+        "by_name": {
+            "root": "Read the project",
+            "cases": "Read the project",
+            "sites": "Read the project",
+            "best": "Read the project",
+            "runs": "Read the project",
+            "sessions": "Read the project",
+            "store": "Read the project",
+            "plan": "Launch the cases",
+            "run": "Launch the cases",
+            "status": "Launch the cases",
+            "collect": "Launch the cases",
+            "publish": "Launch the cases",
+            "execute": "Run one model",
+            "simulate": "Run one model",
+            "calibrate": "Run one model",
+            "spinup": "Run one model",
+            "rerun": "Run one model",
+            "close": "Lifecycle",
+        },
+        "intro": {
+            "Read the project": "The cases, sites, runs and sessions of the project, read from its directory.",
+            "Launch the cases": "The words of hmp project: plan the cases, launch them, collect the summary, publish it.",
+            "Build one model": "Configure one model from a TOML file and build its catchment, data and mesh.",
+            "Run one model": "Run, calibrate or spin up the model this project configures.",
+            "Lifecycle": "Release the index handle and the preprocessing files.",
         },
     },
     "Run": {

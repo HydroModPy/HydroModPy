@@ -12,6 +12,12 @@ path specified by the user in the TOML.
 If *workspace_root* is None, data is loaded in memory only (no persistence).
 Runtime callers may pass an existing catalog and data root so the simulation
 loader and interactive facade share the same manager instantiation path.
+
+Inside a case started by the launcher of a ``[sites]`` project, the catalog
+this store opens is layered (:mod:`hydromodpy.data.registry.catalog_duckdb`):
+the shared ``data/cache.duckdb`` is read one query at a time, read-only, and
+what a manager registers goes to the private cache of the case. The files a
+manager downloads still land in ``data/<variable>/`` of the workspace.
 """
 
 from __future__ import annotations

@@ -633,15 +633,13 @@ def test_lock_update_outside_any_workspace_raises_instead_of_exiting(
     resolver used to raise from inside the worker.
     """
     from hydromodpy.cli._workers.dev import lock_update
-    from hydromodpy.data.workspace import scaffold
 
     monkeypatch.delenv("HMP_WORKSPACE", raising=False)
-    monkeypatch.setattr(scaffold, "DEFAULT_ROOT", tmp_path / "no_default_workspace")
     orphan = tmp_path / "orphan"
     orphan.mkdir()
     monkeypatch.chdir(orphan)
 
-    with pytest.raises(FileNotFoundError, match="no_default_workspace"):
+    with pytest.raises(FileNotFoundError, match="-w"):
         lock_update(output=str(orphan / "custom.lock"))
 
 

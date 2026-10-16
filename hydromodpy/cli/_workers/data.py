@@ -1,4 +1,10 @@
-"""Private worker helpers for ``hmp data`` actions."""
+"""Private worker helpers for ``hmp data`` actions.
+
+A read (``ls``, ``archive``) opens the workspace cache read-only, so it never
+waits on, nor blocks, a launch that merges into the cache. Only the actions
+that change the cache (``add``, ``remove``, ``prune``, ``check --fix``) open
+it read-write.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +28,7 @@ def list_data_cache(
     db_path = data_cache_path_for(workspace_root / "data")
     if not db_path.exists():
         return None
-    with DataCatalogDuckDB(db_path) as catalog:
+    with DataCatalogDuckDB(db_path, read_only=True) as catalog:
         return catalog.list_entries(variable=variable, source=provider)
 
 
@@ -229,7 +235,9 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     db_path = data_cache_path_for(workspace_root / "data")
     dest = Path(output).expanduser().resolve()
-    with DataCatalogDuckDB(db_path) as catalog:
+    if not db_path.is_file():
+        raise FileNotFoundError(f"no data cache at {db_path}: nothing to archive")
+    with DataCatalogDuckDB(db_path, read_only=True) as catalog:
         archive_lockfile(catalog, dest)
     return dest
 

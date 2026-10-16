@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from datetime import UTC, date, datetime
 
 from hydromodpy.results.manifest import ManifestPeriod
@@ -155,14 +156,25 @@ def test_the_summary_readme_counts_cases_sites_versions_and_lists_its_digests():
         period=WINDOW,
         label_date=date(2026, 10, 20),
         rule_version="1",
+        best="calibrated",
+        catalog_written=False,
     )
     text = render_summary_readme(facts, digests={"by_case.parquet": "cd" * 32})
 
     assert "287 completed of 300 planned cases, 2 sites, 2016-01-01 to 2020-12-31." in text
     assert "HydroModPy versions met: 2.0.0a5" in text
     assert "labels computed on 2026-10-20 under rules 1" in text
+    assert "one row per site: the best calibrated case" in text
+    assert "catalog.csv" not in text
     assert "- J0014010\n- J0020000" in text
     assert text.rstrip().endswith(f"sha256(by_case.parquet) = {'cd' * 32}")
+
+    text = render_summary_readme(
+        replace(facts, best="any", catalog_written=True), digests={"by_case.parquet": "cd" * 32}
+    )
+
+    assert 'one row per site: the best case whatever its label (best = "any")' in text
+    assert "- `catalog.csv`: the sites as a table, replayable as an input" in text
 
 
 def test_a_failed_run_gets_a_readme_from_its_outcome_alone(tmp_path):

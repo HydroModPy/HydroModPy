@@ -99,8 +99,8 @@ Or read it from Python:
 ```python
 import hydromodpy as hmp
 
-catalog = hmp.open("projects/getting_started")
-run = catalog.latest()
+proj = hmp.open("projects/getting_started")
+run = proj.store.latest()
 
 head = hmp.read(run, "head")  # lazy xarray.DataArray
 water_table = hmp.read(run, "watertable_elevation", time=-1)  # numpy array

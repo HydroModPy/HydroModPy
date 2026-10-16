@@ -94,6 +94,7 @@ _VOLATILE_COLUMN_NAMES = frozenset(
     {
         "sim_id",
         "run_id",
+        "attempt_id",
         "step_id",
         "parent_sim_id",
         "uuid",
@@ -117,6 +118,8 @@ _VOLATILE_COLUMN_NAMES = frozenset(
         # apart by their run name, so everything derived from that name moves.
         "name",
         "name_stem",
+        "case_id",
+        "rel_dir",
         "storage_basename",
         "config_toml",
         "config_snapshot",

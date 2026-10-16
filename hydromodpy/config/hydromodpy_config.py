@@ -33,7 +33,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
-from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import migrate_config_doc_on_load
 from hydromodpy.config.metrics_config import MetricsConfig
@@ -278,6 +278,32 @@ def _refuse_unknown_transport_solvers(names: list[str]) -> None:
         f"Unknown transport solver '{unknown[0]}' in [[simulation.process]]: it is "
         f"neither built in nor a registered plugin. Write one of: {known}."
     )
+
+
+def _with_calibration_defaults(raw: dict[str, Any], *, source_path: Path | None) -> dict[str, Any]:
+    """Write ``[site] gauge`` and ``[metrics] window`` into ``[calibration]``.
+
+    The defaults the calibration runners apply
+    (:func:`~hydromodpy.calibration.config.apply_project_defaults`), applied
+    here too, so a document that leaves ``observes`` or ``scoring_window``
+    to the project loads the same way through ``from_toml`` and
+    ``hmp config check``. A written station that is not the gauge is refused.
+    """
+    calibration = raw.get("calibration")
+    if not isinstance(calibration, Mapping):
+        return raw
+    site, metrics = raw.get("site"), raw.get("metrics")
+    try:
+        raw["calibration"] = apply_project_defaults(
+            calibration,
+            site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
+            metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
+        )
+    except ConfigError as exc:
+        raise _section_refusal(
+            "calibration", str(exc), source_path=source_path, error_type="value_error"
+        ) from exc
+    return raw
 
 
 def _section_refusal(
@@ -1342,6 +1368,7 @@ class HydroModPyConfig(HydroModelBase):
                 source_path=source_path,
                 error_type="value_error",
             ) from exc
+        raw = _with_calibration_defaults(raw, source_path=source_path)
         if "initializing" in raw:
             raise _section_refusal(
                 "initializing",

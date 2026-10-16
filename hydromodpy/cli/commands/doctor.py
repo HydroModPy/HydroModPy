@@ -1,4 +1,9 @@
-"""``hmp doctor`` - diagnose the local environment."""
+"""``hmp doctor`` - diagnose the local environment.
+
+It reads and reports; it never rewrites a file. The workspace is the one
+``-w`` names or the one that holds the current directory, never a default
+folder: without one, the workspace checks say so and name ``-w``.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.helpers import EXIT_GENERIC, find_workspace
 
 NAME: str = "doctor"
 HELP: str = "Diagnose the local environment (Python, deps, solvers, workspace)"
@@ -44,11 +52,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        epilog="Examples:\n  hmp doctor\n  hmp doctor --json\n  hmp doctor --toml run.toml",
+        parents=[workspace_parser()],
+        epilog=(
+            "Examples:\n  hmp doctor\n  hmp doctor -w ~/hydromodpy --json\n"
+            "  hmp doctor --toml run.toml"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--workspace", default=None, help="Probe this workspace (default: ~/hydromodpy/)"
     )
     parser.add_argument("--toml", default=None, help="Resolve the workspace from a project TOML")
     parser.add_argument("--json", action="store_true", help="Emit a JSON report")
@@ -67,34 +76,18 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Check that the resolved MODFLOW 6 build supports particle tracking (PRT)",
     )
-    parser.add_argument(
-        "--fix-config",
-        default=None,
-        metavar="FILE.toml",
-        help=(
-            "Migrate a project TOML to the current schema in place "
-            "(simulation.on_collision -> if_exists, run_id -> name, "
-            "[simulation.results.export] -> [export], and drop the dead "
-            "solver_scratch / save_lock options). "
-            "Preserves comments and layout."
-        ),
-    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    fix_config = getattr(args, "fix_config", None)
-    if fix_config is not None:
-        _fix_config(fix_config)
-        return
-
-    report = _build_report(args.workspace, toml=args.toml)
+    workspace = find_workspace(args.workspace)
+    report = _build_report(workspace, args.workspace, toml=args.toml)
 
     if getattr(args, "cross_catalog", False):
-        report["checks"].extend(_cross_catalog_checks(args.workspace))
+        report["checks"].extend(_cross_catalog_checks(workspace))
     if getattr(args, "lifecycle", False):
-        report["checks"].extend(_lifecycle_checks(args.workspace))
+        report["checks"].extend(_lifecycle_checks(workspace))
     if getattr(args, "prt", False):
         report["checks"].extend(_prt_checks())
 
@@ -106,33 +99,12 @@ def run(args: argparse.Namespace) -> None:
         _print_report(report)
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
-        sys.exit(1)
+        sys.exit(EXIT_GENERIC)
 
 
-def _fix_config(toml_path: str) -> None:
-    """Migrate a project TOML to the current simulation-management schema."""
-    from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-    from hydromodpy.config.config_migration import fix_config_file
-
-    path = Path(toml_path).expanduser()
-    try:
-        changes = fix_config_file(path)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:  # noqa: BLE001 - surface a clean parse error
-        print(f"Could not migrate {path}: {exc}", file=sys.stderr)
-        sys.exit(EXIT_CONFIG)
-
-    if not changes:
-        print(f"{path} is already up to date.")
-        return
-    print(f"Migrated {path}:")
-    for change in changes:
-        print(f"  - {change}")
-
-
-def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict:
+def _build_report(
+    workspace: Path | None, workspace_arg: str | None, *, toml: str | None = None
+) -> dict:
     from hydromodpy.core.version import __version__ as hmp_version
 
     checks: list[dict] = []
@@ -310,7 +282,7 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
                 }
             )
 
-    for entry in _probe_workspace(workspace_arg, toml=toml):
+    for entry in _probe_workspace(workspace, workspace_arg, toml=toml):
         checks.append(entry)
 
     return {
@@ -321,12 +293,11 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
     }
 
 
-def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dict]:
+def _probe_workspace(ws: Path | None, workspace_arg: str | None, *, toml: str | None) -> list[dict]:
     try:
         from hydromodpy.core.state.paths import PROJECTS_DIRNAME, catalog_path_for
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
-        from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
     except Exception as exc:  # pragma: no cover
         return [
             {
@@ -340,18 +311,18 @@ def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dic
     if toml is not None:
         return _probe_from_toml(Path(toml).expanduser().resolve(), WorkspaceConfig, WorkspaceError)
 
-    ws = (
-        Path(workspace_arg).expanduser().resolve()
-        if workspace_arg
-        else Path(DEFAULT_ROOT).expanduser()
-    )
-    if not ws.exists():
+    if ws is None:
+        where = (
+            f"{Path(workspace_arg).expanduser().resolve()} is not a workspace"
+            if workspace_arg
+            else f"no workspace at or above {Path.cwd().resolve()}"
+        )
         return [
             {
                 "name": "workspace",
                 "status": "WARN",
-                "detail": f"{ws} does not exist",
-                "hint": "Run 'hmp workspace init <workspace>' to scaffold one",
+                "detail": where,
+                "hint": "Name one with -w, or run 'hmp workspace init <workspace>'",
             }
         ]
     from hydromodpy.core.state.paths import data_cache_path_for
@@ -422,24 +393,21 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
             }
         ]
     try:
+        from hydromodpy.core.state.paths import resolve_project_root
         from hydromodpy.core.toml_io.loader import load_toml_with_base_config
         from hydromodpy.core.toml_io.paths import resolve_declared_path
 
         raw = load_toml_with_base_config(toml_path)
-        base_dir = toml_path.parent
+        # Every relative path of a project is read from its root, the folder
+        # that holds project.toml, and the loader sets project_root to it.
+        base_dir = resolve_project_root(toml_path.parent)
         workspace_section = dict(raw.get("workspace", {}))
-        for key in (
-            "project_root",
-            "root",
-            "catalog_path",
-            "data_dir",
-            "runs_dir",
-        ):
+        for key in ("root", "catalog_path", "data_dir", "runs_dir"):
             if key in workspace_section and workspace_section[key] is not None:
                 workspace_section[key] = str(
                     resolve_declared_path(workspace_section[key], base_dir=base_dir)
                 )
-        workspace_section.setdefault("project_root", str(base_dir))
+        workspace_section["project_root"] = str(base_dir)
         cfg = WorkspaceConfig.model_validate(workspace_section)
     except WorkspaceError as exc:
         return [
@@ -494,33 +462,20 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
     return {"name": name, "status": status, "detail": detail, "hint": hint}
 
 
-def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
-    try:
-        from hydromodpy.data.workspace.scaffold import DEFAULT_ROOT
-    except Exception:
-        return None
-    if workspace_arg is not None:
-        candidate = Path(workspace_arg).expanduser().resolve()
-    else:
-        candidate = Path(DEFAULT_ROOT).expanduser()
-    return candidate if candidate.is_dir() else None
-
-
-def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
+def _cross_catalog_checks(workspace: Path | None) -> list[dict]:
     """Compare the sealed runs on disk with the index of each project.
 
     Disk is the truth: a sealed run missing from its index, or an index row
     whose directory is gone, means the index is behind. Both are fixed by
     ``hmp catalog reindex``.
     """
-    workspace = _resolve_doctor_workspace(workspace_arg)
     if workspace is None:
         return [
             {
                 "name": "cross_catalog:workspace",
                 "status": "WARN",
                 "detail": "no workspace resolved",
-                "hint": "Pass --workspace <path>",
+                "hint": "Name one with -w",
             }
         ]
 
@@ -587,16 +542,15 @@ def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
     ]
 
 
-def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
+def _lifecycle_checks(workspace: Path | None) -> list[dict]:
     """Count stale attempts, abandoned or orphan sessions and tmp files, from the disk."""
-    workspace = _resolve_doctor_workspace(workspace_arg)
     if workspace is None:
         return [
             {
                 "name": "lifecycle:workspace",
                 "status": "WARN",
                 "detail": "no workspace resolved",
-                "hint": "Pass --workspace <path>",
+                "hint": "Name one with -w",
             }
         ]
 

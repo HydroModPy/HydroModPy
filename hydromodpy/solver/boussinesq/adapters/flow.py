@@ -230,12 +230,15 @@ class BoussinesqFlowAdapter:
 
     @staticmethod
     def _persist_obstacle_diagnostics(ctx: RunContext, model: Boussinesq) -> None:
-        """Write the VI runtime diagnostics beside the solver files of the run.
+        """Write the VI runtime diagnostics into the run directory.
 
-        They land in ``solver_diagnostics/`` of the solver folder, which
-        ``keep_solver_files`` keeps after the run.
+        They land in ``exports/solver_diagnostics/`` of the run (the
+        ``solver_diagnostics_dir`` of its store), not in the scratch, which
+        the seal of a completed run removes. A run without a store writes
+        none.
         """
-        if not hasattr(model, "full_path"):
+        diagnostics_dir = getattr(ctx.store, "solver_diagnostics_dir", None)
+        if diagnostics_dir is None or not hasattr(model, "full_path"):
             return
         summary_path = Path(model.full_path) / "_boussinesq_summary.json"
         if not summary_path.exists():
@@ -244,7 +247,7 @@ class BoussinesqFlowAdapter:
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return
-        diagnostics_dir = Path(model.full_path) / "solver_diagnostics"
+        diagnostics_dir = Path(diagnostics_dir)
         write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
         write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 

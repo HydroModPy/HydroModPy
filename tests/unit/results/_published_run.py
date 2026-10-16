@@ -7,7 +7,7 @@ import socket
 from pathlib import Path
 
 from hydromodpy.results.ledger import sha256_of
-from hydromodpy.results.manifest import InputEntry
+from hydromodpy.results.manifest import InputEntry, TrackedInput
 from tests.unit.results._run_record_factory import make_record
 
 RUN_NAME = "J0014010-base.v2"
@@ -40,7 +40,19 @@ def make_sealed_run(project: Path, *, license: str | None = "etalab-2.0") -> Pat
         bytes=observed.stat().st_size,
         license="etalab-2.0",
     )
-    record = make_record(inputs=[entry])
+    dem = workspace / "data" / "dem" / "bdalti_25m.tif"
+    dem.parent.mkdir(parents=True, exist_ok=True)
+    dem.write_bytes(b"II*\x00 a DEM the configuration declared")
+    tracked = TrackedInput(
+        role="dem",
+        category="raster",
+        path="data/dem/bdalti_25m.tif",
+        declared_path="data/dem/bdalti_25m.tif",
+        sha256=sha256_of(dem),
+        bytes=dem.stat().st_size,
+        portable=True,
+    )
+    record = make_record(inputs=[entry], tracked_inputs=[tracked])
     run_dir = project / "runs" / RUN_NAME
     run_dir.mkdir(parents=True)
     record.write(run_dir)

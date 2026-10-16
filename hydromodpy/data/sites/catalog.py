@@ -2,7 +2,8 @@
 
 The catalog holds the sites a workspace declares, one :class:`SiteRow` per
 line, in the columns of ``SITE_ROW_COLUMNS``. This module is the only reader
-and writer of the file. ``hmp site add`` and ``hmp site import`` add rows,
+and writer of the file, and :func:`write_site_rows` the only writer of the
+format anywhere. ``hmp site add`` and ``hmp site import`` add rows,
 ``hmp site ls`` and ``show`` read them, and a ``[sites]`` project without a
 table reads the same file.
 
@@ -64,7 +65,15 @@ def read_catalog(workspace_root: Path) -> list[SiteRow]:
 
 def write_catalog(workspace_root: Path, rows: Iterable[SiteRow]) -> Path:
     """Write the sites of a workspace, replacing the file in one step."""
-    path = catalog_path(workspace_root)
+    return write_site_rows(catalog_path(workspace_root), rows)
+
+
+def write_site_rows(path: Path, rows: Iterable[SiteRow]) -> Path:
+    """Write site rows to *path* in the columns of a site table, replacing the file in one step.
+
+    The one writer of the format: the workspace catalog and ``summary/catalog.csv``
+    of a project both go through it.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     with temporary.open("w", newline="", encoding="utf-8") as handle:
@@ -190,4 +199,5 @@ __all__ = [
     "read_catalog",
     "with_tags",
     "write_catalog",
+    "write_site_rows",
 ]

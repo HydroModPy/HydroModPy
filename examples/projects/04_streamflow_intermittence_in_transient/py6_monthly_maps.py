@@ -20,11 +20,12 @@ import hydromodpy as hmp
 
 HERE = Path(__file__).resolve().parent
 
-# The latest live run of project.toml: find returns the runs from the most
-# recent to the oldest and leaves the trash out.
-cat = hmp.open(HERE)
-run = cat.find(name_stem="nancon_intermittence_mf6")[0]
-out = HERE / "runs" / run.name / "figures"
+# The run of project.toml. An edited project.toml writes
+# nancon_intermittence_mf6.v2, .v3...: name the version to read it. The sheet
+# and the GIF are derived, not sealed: they go to summary/figures/.
+run = hmp.open(HERE)["nancon_intermittence_mf6"]
+out = HERE / "summary" / "figures" / run.name
+out.mkdir(parents=True, exist_ok=True)
 
 # %% The data
 

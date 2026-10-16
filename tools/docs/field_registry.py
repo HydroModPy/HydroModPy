@@ -511,6 +511,7 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
         "summary": _first_sentence(desc),
         "deprecated": bool(getattr(field, "deprecated", None)),
         "renamed_from": _renamed_from(extra),
+        "site_scoped": bool(extra.get("site_scoped")),
         "numeric": _unannotate(base)[0] in (int, float) or quantity,
     }
 
@@ -655,6 +656,11 @@ EXTRA_FILES: dict[str, tuple[str, str, str]] = {
         "The catchment report file",
         "hmp report catchment FILE",
         "hydromodpy.display.catchment_report.settings:ReportConfig",
+    ),
+    "site-selection-file": (
+        "The site selection file",
+        "hmp site select FILE",
+        "hydromodpy.spatial.site_selection.config.models:SiteSelectionFile",
     ),
 }
 

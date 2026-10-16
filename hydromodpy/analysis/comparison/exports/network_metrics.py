@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.config_flags import log_missing_field
@@ -21,9 +21,6 @@ from .base import (
     _write_csv,
 )
 
-if TYPE_CHECKING:
-    from hydromodpy.results.catalog import Catalog
-
 logger = get_logger(__name__)
 
 
@@ -37,7 +34,7 @@ def write_hydrographic_network_metrics_export(
     candidate_role: str = "generated",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write one flat CSV of per-run hydrographic-network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
@@ -46,18 +43,18 @@ def write_hydrographic_network_metrics_export(
 
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        store, sim_id = open_indexed_run(summary)
-        if store is None or sim_id in (None, ""):
+        run = open_run(summary)
+        if run is None:
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "run_not_indexed",
+                    "reason": "run_not_sealed",
                     "available_roles": [],
                 }
             )
             continue
+        sim_id = run.sim_id
         try:
-            run = store[str(sim_id)]
             reference_contract = run.hydrographic_network_naming(reference_role)
             candidate_contract = run.hydrographic_network_naming(candidate_role)
             reference_feature_name = reference_contract.get("canonical_feature_name")
@@ -103,11 +100,6 @@ def write_hydrographic_network_metrics_export(
                 simulation_id,
                 exc_info=True,
             )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:
@@ -165,25 +157,25 @@ def write_simulated_active_network_metrics_export(
     persistence_threshold: float = 0.5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write scalar metrics for the simulated active drainage network."""
-    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run
     from hydromodpy.results.derive import views
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        store, sim_id = open_indexed_run(summary)
-        if store is None or sim_id in (None, ""):
+        run = open_run(summary)
+        if run is None:
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "run_not_indexed",
+                    "reason": "run_not_sealed",
                     "source_variable": variable,
                 }
             )
             continue
+        sim_id = run.sim_id
         try:
-            run = store[str(sim_id)]
             if not run.has_field(variable):
                 log_missing_field(
                     logger, run, variable, f"active cell-field metrics for {simulation_id}"
@@ -230,11 +222,6 @@ def write_simulated_active_network_metrics_export(
                 simulation_id,
                 exc_info=True,
             )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:
@@ -299,13 +286,12 @@ def _simulation_metric_row_base(
     }
 
 
-def _has_plottable_mesh(store: Catalog, sim_id: str) -> bool:
-    zarr = store.open_zarr(str(sim_id))
-    try:
-        mesh = zarr.root.get("mesh")
+def _has_plottable_mesh(run_dir: Path) -> bool:
+    from hydromodpy.analysis.comparison.runtime.run_source import RunSource
+
+    with RunSource.open(run_dir) as source:
+        mesh = source.open_zarr().root.get("mesh")
         return bool(mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh)
-    finally:
-        zarr.close()
 
 
 def _write_cell_field_network_metrics_export(
@@ -325,26 +311,26 @@ def _write_cell_field_network_metrics_export(
     log_label: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Shared export loop for cell-field/network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime.run_source import open_indexed_run
+    from hydromodpy.analysis.comparison.runtime.run_source import open_run
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):
         simulation_id = str(summary.get("id", ""))
-        store, sim_id = open_indexed_run(summary)
-        if store is None or sim_id in (None, ""):
+        run = open_run(summary)
+        if run is None:
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "run_not_indexed",
+                    "reason": "run_not_sealed",
                     "source_variable": variable,
                     "network_role": network_role,
                 }
             )
             continue
 
+        sim_id = run.sim_id
         try:
-            run = store[str(sim_id)]
             if not run.has_hydrographic_network(network_role):
                 skipped_simulations.append(
                     {
@@ -367,7 +353,7 @@ def _write_cell_field_network_metrics_export(
                     }
                 )
                 continue
-            if not _has_plottable_mesh(store, str(sim_id)):
+            if not _has_plottable_mesh(run.dir):
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,
@@ -403,11 +389,6 @@ def _write_cell_field_network_metrics_export(
                 simulation_id,
                 exc_info=True,
             )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:

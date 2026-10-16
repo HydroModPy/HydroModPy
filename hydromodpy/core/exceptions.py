@@ -490,11 +490,10 @@ class WorkflowDAGCycleError(PipelineError):
 
 
 class FailedCasesError(PipelineError):
-    """One or more cases of a testbed failed; the evidence of every case is written.
+    """One or more cases of a launch failed; every case wrote its outcome.
 
-    Raised once all the cases ran, so a testbed whose cases fail never ends as
-    a success. ``summary`` is the summary the launcher would have returned: the
-    counts and the paths of the plan, the manifest, the tables and the report.
+    Raised once all the cases ran, so a launch whose cases fail never ends as
+    a success. ``summary`` holds the counts and the paths the launcher returned.
     """
 
     code = "HMPY.E511"

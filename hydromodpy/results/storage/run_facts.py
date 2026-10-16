@@ -55,6 +55,39 @@ class LicenceSource(HydroModelBase):
     sha256: str | None = Field(default=None, description="Digest of the bytes read")
 
 
+class CalibratedParameter(HydroModelBase):
+    """One parameter a calibration set, as the rows of the run name it."""
+
+    name: str = Field(description="Parameter name, as in the parameter rows of the run")
+    zone: str | None = Field(default=None, description="Zone it set; None for every zone")
+
+    def matches(self, row: ParameterRow) -> bool:
+        """Whether *row* holds a value this calibration set."""
+        return row.name == self.name and (self.zone is None or row.zone == self.zone)
+
+
+class PromotionFacts(HydroModelBase):
+    """What the session that promotes a run says about it.
+
+    Built by the promotion from the session descriptor and the journal line
+    of the trial, applied to the facts of the run by
+    :meth:`RunFacts.apply_promotion` when the run opens.
+    """
+
+    objective_name: str = Field(description="Objective of the session")
+    objective_value: float | None = Field(default=None, description="Its value for the trial")
+    objective_window: DateWindow | None = Field(
+        default=None, description="Window the session scored the objective on"
+    )
+    converged: bool = Field(description="Whether the solve of the trial converged")
+    bounds_hit: list[str] = Field(
+        default_factory=list, description="Calibrated parameters that ended on a bound"
+    )
+    calibrated: list[CalibratedParameter] = Field(
+        default_factory=list, description="Parameters the session set"
+    )
+
+
 class RunFacts(HydroModelBase):
     """What a run knows about itself before the seal."""
 
@@ -113,6 +146,9 @@ class RunFacts(HydroModelBase):
     objective_name: str | None = None
     objective_value: float | None = None
     objective_window: DateWindow | None = None
+    calibrated: list[CalibratedParameter] = Field(
+        default_factory=list, description="Parameters a calibration set; their rows say so"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -174,13 +210,40 @@ class RunFacts(HydroModelBase):
             objective_name=manifest.objective_name,
             objective_value=manifest.objective_value,
             objective_window=manifest.objective_window,
+            calibrated=[
+                CalibratedParameter(name=row.name, zone=row.zone)
+                for row in manifest.parameters
+                if row.calibrated
+            ],
         )
+
+    def apply_promotion(self, promotion: PromotionFacts) -> None:
+        """Write what the promoting session says about the run into its facts.
+
+        The objective of the session and its value for the trial, the
+        convergence of the trial solve, the parameters that ended on a bound,
+        and the parameters the session set: their rows, written now or later,
+        say ``origin = "calibrated"``.
+        """
+        self.objective_name = promotion.objective_name
+        self.objective_value = promotion.objective_value
+        self.objective_window = promotion.objective_window
+        self.converged = promotion.converged
+        self.bounds_hit = list(promotion.bounds_hit)
+        self.calibrated = list(promotion.calibrated)
+        self.parameters = [self._marked(row) for row in self.parameters]
 
     def put_parameter(self, row: ParameterRow) -> None:
         """Keep one value per parameter and zone; the last write wins."""
         self.parameters = [
             p for p in self.parameters if (p.name, p.zone) != (row.name, row.zone)
-        ] + [row]
+        ] + [self._marked(row)]
+
+    def _marked(self, row: ParameterRow) -> ParameterRow:
+        """Return *row* marked calibrated when a calibration set its value."""
+        if row.calibrated or not any(item.matches(row) for item in self.calibrated):
+            return row
+        return row.model_copy(update={"origin": "calibrated", "calibrated": True})
 
     def put_metric(self, row: MetricRow) -> None:
         """Keep one value per station, variable and metric; the last write wins."""
@@ -258,7 +321,9 @@ def read_facts(run_dir: str | Path) -> RunFacts | None:
 __all__ = [
     "FACTS_FILENAME",
     "FACTS_SCHEMA",
+    "CalibratedParameter",
     "LicenceSource",
+    "PromotionFacts",
     "RunFacts",
     "facts_path",
     "identity_of",

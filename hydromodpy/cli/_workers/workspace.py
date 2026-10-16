@@ -6,12 +6,11 @@ from pathlib import Path
 from typing import Any
 
 CLEAN_GROUPS: tuple[str, ...] = (
-    "results",
     "data_cache",
     "runtime",
     "scratch",
 )
-"""Artefact families ``clean_workspace`` knows how to remove."""
+"""Rebuildable families ``clean_workspace`` removes; results go to the trash, never here."""
 
 
 def init_workspace(
@@ -72,23 +71,20 @@ def clean_workspace(
     groups: set[str] | None = None,
     dry_run: bool = True,
 ) -> dict:
-    """Remove generated project artefacts.
+    """Remove what a workspace can rebuild.
 
-    ``groups`` selects which artefact families to remove: ``results`` (the
-    index database and the ``runs/`` tree), ``data_cache``, ``runtime``
-    (``.hmp/``) and ``scratch`` (``.hmp/scratch``). Figures, exports and
-    reports live in the run directories, so ``results`` takes them along.
-    Default is empty (the caller passes at least one group, or ``{"all"}``).
+    ``groups`` selects which families to remove: ``data_cache``, ``runtime``
+    (``.hmp/``) and ``scratch`` (``.hmp/scratch``). Runs and sessions are
+    never removed here: ``hmp workspace clean --results`` moves them to the
+    trash. Default is empty (the caller passes at least one group, or
+    ``{"all"}``).
     """
     import shutil
 
     from hydromodpy.cli.helpers import find_workspace_root
     from hydromodpy.core.state.paths import (
-        CATALOG_FILENAME,
         DATA_CACHE_FILENAME,
-        catalog_path_for,
         data_cache_path_for,
-        runs_dir_for,
         scratch_root_for,
     )
 
@@ -103,24 +99,11 @@ def clean_workspace(
     if not selected:
         raise ValueError("Select at least one cleanup group, or pass groups={'all'}.")
 
+    unknown = selected - set(CLEAN_GROUPS)
+    if unknown:
+        raise ValueError(f"Unknown cleanup group(s): {', '.join(sorted(unknown))}.")
+
     targets: list[Path] = []
-    if "results" in selected:
-        targets.extend(
-            [
-                catalog_path_for(workspace_root),
-                catalog_path_for(workspace_root).with_name(f"{CATALOG_FILENAME}.wal"),
-                runs_dir_for(workspace_root),
-            ]
-        )
-        for project_dir in sorted(workspace_root.glob("projects/*")):
-            if project_dir.is_dir():
-                targets.extend(
-                    [
-                        catalog_path_for(project_dir),
-                        catalog_path_for(project_dir).with_name(f"{CATALOG_FILENAME}.wal"),
-                        runs_dir_for(project_dir),
-                    ]
-                )
     if "data_cache" in selected:
         targets.extend(
             [
@@ -135,7 +118,9 @@ def clean_workspace(
         targets.append(workspace_root / ".hmp")
     if "scratch" in selected:
         targets.extend(scratch_root_for(p) for p in sorted(workspace_root.glob("projects/*")))
-        targets.append(scratch_root_for(workspace_root))
+        # The workspace-level scratch is always the one under .hmp/: the machine scratch of
+        # HMP_SCRATCH_ROOT holds only project folders, never one named after the workspace.
+        targets.append(workspace_root / ".hmp" / "scratch")
 
     seen: set[Path] = set()
     unique: list[Path] = []

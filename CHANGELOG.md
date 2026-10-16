@@ -65,6 +65,71 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- The local launcher of a `[sites]` project (`hydromodpy/project/launch/`): `hmp run project.toml`
+  takes the lease `.hmp/launcher.lease` (one `O_EXCL` file with host, pid and date, taken over when
+  its process is dead or under `--force`), prepares the data once per data request with a pool of
+  `prepare_parallel` (`hmp run <case> --until load_data`, the only writer of `cache.duckdb`,
+  `hydromodpy.lock` written once at the end), then runs one process per case
+  (`hmp run plan/<hash>/<case>.toml --frozen`) within a budget of `parallel` solves (a case at
+  `[calibration] parallel = 5` counts five), journals every event in `jobs/<stamp>-local/journal.jsonl`,
+  merges the private data cache of each child and indexes after every end; `--only` (status words,
+  case ids, globs), `--site`, `--parallel`, `--until data`, bare `--resume`, `--fresh`, `--force`,
+  `-w`; exit 23 when a case did not complete. `hmp project plan | status | log | case` read the plan,
+  the outcomes and the heartbeats, never the index; `project_status()` computes `planned`,
+  `invalid`, `skipped` and `stale_plan` from the plan and reads the attempt states from disk.
+  `HMP_THREADS_PER_CASE` bounds the threads of a worker (`threadpoolctl` and the BLAS variables),
+  `HMP_RUN_SCRATCH` and `HMP_SET_*` leave the environment of the children. Budgets measured on 22
+  cores and 62 GiB (`mesures/MESURES.md`): `parallel` defaults to 8 (bent to the cores of the machine when the key is not written),
+  refuses more than 16 without `--force`, two concurrent calibrations at most;
+  `prepare_parallel` defaults to 2, 8 at most, and one case per site is prepared at a time.
+- `hmp project array . --scheduler slurm` (`project/launch/slurm.py`, templates under
+  `project/launch/templates/`): writes `jobs/<stamp>-slurm/{prepare.sh, array.sh, cases.txt}`
+  frozen from the plan, `--signal=B:TERM@600`, `--cpus-per-task` from `threads_per_case`,
+  `HMP_SCRATCH_ROOT=$SLURM_TMPDIR`, a trap that writes `failed` with the exit code, the signal, the
+  log tail and `written_by = "trap"`; each task takes its `hmp run` flags from the launcher at
+  start; `hmp project case <job> N` names the case of a task; `hmp project status` reads `sacct`
+  when it is there and marks a task the scheduler ended without an outcome as `failed`. Never run on
+  a real cluster: the scripts are checked by `bash -n`, by their content and by a stand-in `hmp`.
+- `hmp project collect` (`project/summary.py`): `summary/{by_case, by_site}.{parquet,csv}`,
+  `by_site.gpkg`, `catalog.csv` (`--write-sites`), cohort figures `map` and `distribution` under
+  `summary/figures/` with `index.json`, `[[sites.export]]` with the vocabulary of `[[export]]` under
+  `summary/exports/`, `report/index.html`, a dated `README.md` and `ro-crate-metadata.json`;
+  `best = "calibrated"` by default, mixed scoring windows refused without `--mixed-windows`;
+  `hmp catalog ls --by site`, `--best METRIC`, the `overrides` column; `hmp report compare --by site`.
+- `hmp.open(path)` returns a `Project` (root or `project.toml`), a `Run` (sealed directory, read
+  without the index), a `Session` (session directory) or a `Workspace` (workspace root);
+  `Project.cases`, `.sites`, `.best(metric, by="site")`, `.runs(site=)`, `.sessions[...]`,
+  `.plan()`, `.run(parallel=, only=)`, `.status()`, `.collect()`, `.publish(to=)`, `.store`
+  (the reader `Catalog`); `Session.trials`, `.best`, `.phases`, `.config`, `.dir`;
+  `hmp.index()` returns the `Workspace` above the current directory and `.runs(site=)` reads the
+  sealed tables of every project; `Run.site`, `Run.checks`, `Run.inputs`, `Run.exports`,
+  `Run.figures`. The API reference is generated from these objects.
+- `hmp project promote <case> --trial N [--as NAME]`, `hmp project prune <case> --keep best`,
+  `hmp project new | list | show | delete`, `hmp replay <ref> --into DIR` (a published copy and the
+  command that replays it), `hmp catalog show` prints the README and the annotations of a run;
+  every verb that takes a workspace offers `-w` and none falls back on `~/hydromodpy`;
+  `tests/unit/cli/test_cli_surface_matches_the_target.py` lists the verbs of the target.
+- The overview mode runs through the attempt protocol: `runs/<name>/` claimed, `outcome.json`,
+  heartbeat, frozen `config.toml`, a `RunRecord` without solver tables (`solver = "overview"`),
+  README, `.vN` on a second overview.
+- `hmp run <copy>/config.toml --frozen` replays a published copy from its `inputs/<sha256><suffix>`
+  (every tracked input of the seal checked by digest; a missing, tampered or API-loaded input is
+  refused by name); `hmp publish --with inputs` copies the files the configuration declared;
+  `tests/e2e/test_replay_from_archive_without_workspace.py` with its tolerance row.
+- `[flow] restart_from` accepts the table form `{ sim_id = ..., path = ... }` (`RestartReference`);
+  the frozen `config.toml` writes it. Boussinesq VI diagnostics land in
+  `runs/<run>/exports/solver_diagnostics/`. A promoted run closes its attempt, carries its recipe,
+  its objective, `calibrated = true` on the calibrated parameter, `converged`, `bounds_hit` and the
+  window of its calibration.
+- Example `19_many_catchments` (two Breton catchments from the APIs, recipes `base` and
+  `calibration`, `sites.csv`, `site_overrides/`, `[sites.summary]`, `[[sites.export]]`); example 09
+  listed with it as a campaign; example 04 declares `[site]` and `[metrics]`, its scripts read
+  `runs/<run>/exports/` and `hmp.open(HERE).cases`, `py4_sweep_k.py` is three `hmp.run` lines;
+  `tests/unit/examples/test_example_sites_projects.py`.
+- Documentation: `get-started/concepts.md` on the six words of the target, the pages
+  `many-catchments` and `cluster`, the glossary entries attempt, case, gauge, plan, recipe, run,
+  run label, session, site, summary; the generated reference marks a `site_scoped` field as
+  « varies by site »; the site selection file has its own parameter page.
 - The run writes itself without the index (`hydromodpy/results/storage/`): `RunStore(run_dir)` holds
   the Zarr and Parquet writers of the former Catalog, its facts in `<run>/.hmp/checkpoints/facts.json`
   and the identity and licence in every Parquet footer; `claim_run_directory()` claims `runs/<name>`
@@ -122,8 +187,7 @@ Each release section includes the following standard categories:
 - The sites x recipes plan (`hydromodpy/config/sites/`): `expand_plan()` resolves `[sites]` and
   `[sites.recipes]` into immutable `plan/<hash>/` drafts with cell-level errors (`hmp config check`
   groups them), `bind`, `site_scoped` precedence, `--set` and `HMP_SET_*` through
-  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()` and
-  `check_run_budget(force=)`; `hmp run --dry-run` prints the plan of a `[sites]` project, and a
+  `core/toml_io/overrides.py` (a plan case refuses `HMP_SET_*`), `plan_budget()`; `hmp run --dry-run` prints the plan of a `[sites]` project, and a
   `[sites]` project without `--dry-run` is refused until the launcher of the next wave;
   `resolve_single_site()` checks a `[site]` project against the workspace site catalogue.
 - The workspace site catalogue and the gauge (`hydromodpy/data/sites/`): `read_catalog`,
@@ -295,6 +359,19 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `[sites.run] parallel`, `prepare_parallel` and `threads_per_case` carry the measured budgets in
+  their descriptions; `hmp run --until data` prepares without solving; `hmp project status` after
+  a failed prepare shows the case `failed`; a re-run of `hmp run project.toml` leaves a finished
+  calibration alone (the session hash is compared, not the promoted run's).
+- `Project` carries eighteen methods (the launch verbs of D6); `Run` stays at fifty public
+  attributes and loses `summary`, `created_at`, `duration_s`, `solver_category` and `parent`
+  (`Run.record` holds them); `lineage_of(run)` reads where a run comes from.
+- `hmp catalog reindex`, `hmp catalog watch` and `hmp doctor --cross-catalog` take `-w`; `hmp
+  workspace clean --results` moves the runs and sessions of every project to their trash (names
+  stay taken); `hmp catalog watch` shows `dead` for a local attempt whose process is gone.
+- The private data cache of a launched case lives under `jobs/<stamp>-local/caches/<case>.<phase>/`
+  and is merged by the launcher; `cache.duckdb` retries on a WAL lock (`TransactionException`).
+- The capability layer keeps its three descriptions without an invocation block.
 - `hmp.open(workspace)` returns a reader `Catalog` (no `create`, no `read_only`); `Run.export`,
   `Run.delete`, `Run.tag`, `Run.note` work on the run directory; `Run.input_entries` is `Run.inputs`;
   `Run.metrics` has the column `metric` (was `metric_name`) and reads sealed runs only; an id that
@@ -446,6 +523,9 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `hmp doctor --fix-config` and `fix_config_file`, the `~/hydromodpy` fallback of every verb,
+  `cli/commands/site/_workspace.py`, the `results` group of `hmp workspace clean` that deleted
+  `runs/` without a tombstone, `open_indexed_run` (network metrics open the run from its directory).
 - The DuckDB-bound writer of the Catalog (`results/catalog/{writes,writes_zarr,writes_parquet,
   writes_helpers,writes_duckdb,lifecycle,reindex,package_io,audit}.py`, `register_simulation`,
   `finalize`, `if_exists = "replace"`, the `audit_log` table, `trash.json`, `trash_marker.py`,

@@ -31,7 +31,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     update.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
-    update.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    update.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     update.add_argument("--output", default=None, help="Destination lockfile")
 
     archive = sub.add_parser(
@@ -41,7 +41,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     archive.add_argument("output", help="Destination archive (.tar / .tar.gz / .tar.zst)")
-    archive.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    archive.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
 
     restore = sub.add_parser(
         "restore",
@@ -50,7 +50,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     restore.add_argument("input", help="Archive to restore")
-    restore.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    restore.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     restore.add_argument("--output", default=None, help="Target directory")
 
     verify = sub.add_parser(
@@ -60,7 +60,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     verify.add_argument("--project", default=None, help="Project root owning hydromodpy.lock")
-    verify.add_argument("--workspace", default=None, help="Workspace holding the data cache")
+    verify.add_argument("-w", "--workspace", default=None, help="Workspace holding the data cache")
     verify.add_argument("--lockfile", default=None, help="Explicit lockfile path")
     verify.add_argument("--strict", action="store_true", help="Strict input verification")
 

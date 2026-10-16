@@ -71,6 +71,10 @@ class SummaryFacts:
     period: DateWindow | None
     label_date: date
     rule_version: str
+    best: str
+    """``[sites.summary] best``: ``calibrated`` or ``any``."""
+    catalog_written: bool
+    """Whether the collect wrote ``catalog.csv``."""
 
 
 def manifest_sha256(run_dir: str | Path) -> str:
@@ -252,8 +256,11 @@ def render_summary_readme(facts: SummaryFacts, *, digests: Mapping[str, str]) ->
         "## How to read",
         "",
         "- `by_case.*`: one row per case: status, label, checks, parameters, score and window",
-        "- `by_site.*`: one row per site: the best calibrated case; `by_site.gpkg` is the map",
-        "- `catalog.csv`: the sites as a table, replayable as an input",
+        f"- `by_site.*`: one row per site: {_best_words(facts.best)}; `by_site.gpkg` is the map",
+    ]
+    if facts.catalog_written:
+        lines.append("- `catalog.csv`: the sites as a table, replayable as an input")
+    lines += [
         "- `figures/`, `exports/`, `report/`: derived, each with its ledger",
         "",
         "## Sites",
@@ -264,6 +271,13 @@ def render_summary_readme(facts: SummaryFacts, *, digests: Mapping[str, str]) ->
     lines += [f"sha256({name}) = {digest}" for name, digest in digests.items()]
     lines.append("")
     return "\n".join(lines)
+
+
+def _best_words(best: str) -> str:
+    """Return what the best case of a site is, under ``[sites.summary] best``."""
+    if best == "calibrated":
+        return "the best calibrated case"
+    return 'the best case whatever its label (best = "any")'
 
 
 def _site_section(site: ManifestSite | None) -> list[str]:

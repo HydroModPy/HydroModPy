@@ -4,7 +4,7 @@ Builds the argparse tree from :mod:`hydromodpy.cli.commands` and invokes
 the subcommand handler attached via ``parser.set_defaults(_handler=...)``.
 Unhandled exceptions are mapped to typed exit codes by
 :func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees a meaningful
-status (POSIX-conventional 130 for SIGINT, 10..19 for specific failure
+status (POSIX-conventional 130 for SIGINT, 10..23 for specific failure
 categories).
 """
 

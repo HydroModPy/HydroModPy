@@ -19,7 +19,7 @@ add one. Each adapter declares ``EngineTraits``: how many parameters it moves,
 the transform it needs, whether it reads a signed residual, whether it stops on
 a precision and which of its options that precision writes, whether it can run
 trials side by side, start from a passed value, or be restarted usefully, and
-the metric it reads its cost as. ``hmp calibrate --check``
+the metric it reads its cost as. ``hmp config check``
 (``calibration/preflight.py``) faces every search with these traits before
 anything solves, and the reference page renders them.
 

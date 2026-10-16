@@ -4,7 +4,8 @@ Sub-actions:
 
 - ``hmp catalog ls``: list the runs (filterable by solver, site, status, label, tag).
 - ``hmp catalog query "<SQL>"``: run one read-only SQL statement against the index.
-- ``hmp catalog show <sim_ref>``: show the facts of one run (with ``--detail``).
+- ``hmp catalog show <sim_ref>``: print the README of one run, or its facts
+  from the index (``--detail``, ``--format json``).
 - ``hmp catalog point <sim_ref>... --var V``: read a variable in one cell,
   named by coordinates, cell id or depth, on one or several runs.
 - ``hmp catalog gc``: plans by default; ``--apply`` marks dead attempts

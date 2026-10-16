@@ -54,6 +54,17 @@ hmp run examples/projects/<folder>/project.toml
 7. **12** - no file at all: every input from a public service, then K from the
    mapped network.
 
+## One project, many cases
+
+A project with a `[sites]` section is a plan: each row of its site table is a catchment,
+each recipe a way to run it, and every pair is one case. `hmp config check` checks every
+case, `hmp run --dry-run` prints the plan, `hmp run` runs it.
+
+| # | Folder | Theme |
+|---|---|---|
+| 09 | [`09_comparison_workflow`](projects/09_comparison_workflow/) | one catchment, three values of K as three recipes, then `hmp report compare` on the three runs |
+| 19 | [`19_many_catchments`](projects/19_many_catchments/) | two Breton catchments on public data, a plain run and a short calibration each, then `hmp project collect` |
+
 ## Where a run puts its results
 
 Nothing is written next to `project.toml`. A run leaves:
@@ -63,7 +74,12 @@ projects/<name>/
 ├── project.toml
 ├── hydromodpy.lock           # what the run resolved, for a replay
 ├── runs/<run name>/          # fields.zarr, tables.parquet, figures/, config.toml
+│   ├── README.md             # what the run is, how it went, its label
+│   ├── outcome.json          # its status, written before the first step
+│   ├── manifest.json         # the seal, written last, only for a completed run
 │   └── exports/              # exports asked for under [export]
+├── sessions/<case>/          # the trials of a calibration
+├── summary/                  # the tables and figures of `hmp project collect`
 └── .hmp/index.duckdb         # catalog index, rebuildable by `hmp catalog reindex`
 ```
 

@@ -263,11 +263,12 @@ class ProjectRunner:
     ) -> Run | None:
         """Run one attempt and return the :class:`Run` view of its directory.
 
-        The index of the project is refreshed from the run directory first,
-        so the view of a sealed run answers through it. A run that stopped
-        before its seal (``until_step``) is not in the index: its view reads
-        the run directory itself. A run that wrote no directory, or no facts
-        to read, returns ``None``.
+        The index of the project is refreshed from the run directory, but the
+        view reads the directory itself: a sealed run through its seal, a run
+        that stopped before its seal (``until_step``) through its store. An
+        index handle opened earlier in this process keeps the snapshot it
+        opened on, so it may not hold the run yet. A run that wrote no
+        directory, or no facts to read, returns ``None``.
         """
         sealed = self.execute(
             name=name,
@@ -289,14 +290,13 @@ class ProjectRunner:
         from hydromodpy.project import phases as project_phases
         from hydromodpy.results.catalog.indexer import index_new_runs
         from hydromodpy.results.manifest import is_sealed
+        from hydromodpy.results.run.view import open_run_dir
 
         project = self._project
         index_new_runs(sealed.project_root)
         project_phases.open_catalog(project)
         if is_sealed(sealed.run_dir):
-            if project._store is None:
-                return None
-            run_view = project._store[sealed.sim_id]
+            run_view = open_run_dir(sealed.run_dir)
         else:
             run_view = _unsealed_run_view(sealed)
             if run_view is None:

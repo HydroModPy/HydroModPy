@@ -139,11 +139,11 @@ user_guide/workflows/calibration.rst                     reference/calibration-m
 user_guide/workflows/comparison.rst                      reference/cli/report
 user_guide/workflows/index.rst                           get-started/concepts
 user_guide/workflows/overview.rst                        reference/parameters/overview
-user_guide/workflows/regional_lab.rst                    reference/parameters/sites
+user_guide/workflows/regional_lab.rst                    get-started/many-catchments
 user_guide/workflows/simulation.rst                      get-started/staircase/index
-user_guide/workflows/site_selection.rst                  reference/parameters/site_selection/index
+user_guide/workflows/site_selection.rst                  reference/parameters/site-selection-file
 user_guide/workflows/stream-network-calibration.rst      reference/parameters/calibration/outputs
-user_guide/workflows/testbed.rst                         reference/parameters/sites
+user_guide/workflows/testbed.rst                         get-started/many-catchments
 
 # Configuration reference
 user_guide/config_reference/analysis.rst         reference/cli/report
@@ -156,7 +156,7 @@ user_guide/config_reference/domain.rst           reference/parameters/domain
 user_guide/config_reference/export.rst           reference/parameters/export
 user_guide/config_reference/flow.rst             reference/parameters/flow/index
 user_guide/config_reference/geographic.rst       reference/parameters/geographic
-user_guide/config_reference/hydrometry.rst       reference/parameters/hydrometry
+user_guide/config_reference/hydrometry.rst       reference/parameters/data/hydrometry
 user_guide/config_reference/index.rst            reference/parameters/index
 user_guide/config_reference/mesh_catchment.rst   reference/parameters/mesh
 user_guide/config_reference/mesh_input.rst       reference/parameters/mesh
@@ -168,7 +168,7 @@ user_guide/config_reference/persistence.rst      reference/parameters/simulation
 user_guide/config_reference/recipes.rst          reference/parameters/minimal-files
 user_guide/config_reference/schema_explorer.rst  reference/parameters/explorer
 user_guide/config_reference/simulation.rst       reference/parameters/simulation
-user_guide/config_reference/site_selection.rst   reference/parameters/site_selection/index
+user_guide/config_reference/site_selection.rst   reference/parameters/site-selection-file
 user_guide/config_reference/solver.rst           reference/parameters/solver
 user_guide/config_reference/spinup.rst           reference/parameters/spinup
 user_guide/config_reference/testbed.rst          reference/parameters/sites
@@ -267,6 +267,7 @@ architecture/simulation/index.rst                                               
 architecture/simulation/simulation-orchestration-class-diagram.rst                contribute/architecture/simulation/toml-to-solver-walkthrough
 architecture/simulation/simulation-time-cycle-diagrams.rst                        contribute/architecture/simulation/toml-to-solver-walkthrough
 architecture/simulation/testbed-workflow-architecture.rst                         contribute/architecture/simulation/comparison-workflow
+contribute/architecture/simulation/testbed-workflow-architecture.rst              contribute/architecture/simulation/comparison-workflow
 architecture/simulation/toml-to-solver-walkthrough.rst                            contribute/architecture/simulation/toml-to-solver-walkthrough
 architecture/solver/boussinesq-uml-diagrams.rst                                   contribute/architecture/solver/boussinesq-uml-diagrams
 architecture/solver/index.rst                                                     contribute/architecture/solver/backends
@@ -541,12 +542,12 @@ capability_gallery/cases/mesh_zoom_panels_naizin_10km2.rst                      
 capability_gallery/cases/modflow6_gmsh_mesh_catchment.rst                                                theory/mesh
 capability_gallery/cases/modflow6_irregular_tri_xt3d_method_choice.rst                                   theory/solvers/xt3d-on-irregular-disv-meshes
 capability_gallery/cases/nancon_transient_nwt.rst                                                        get-started/staircase/step4
-capability_gallery/cases/regional_lab_headwater_100km2_backend_compare_recipe.rst                        reference/parameters/sites
-capability_gallery/cases/regional_lab_headwater_100km2_dry_plan.rst                                      reference/parameters/sites
-capability_gallery/cases/regional_lab_headwater_100km2_mf6_reference_recipe.rst                          reference/parameters/sites
-capability_gallery/cases/regional_lab_headwater_100km2_transient_backend_compare_recipe.rst              reference/parameters/sites
-capability_gallery/cases/site_03_natural_n1_10km2_mf6_bouss.rst                                          reference/parameters/site_selection/index
-capability_gallery/cases/site_08_natural_n1_10km2_mf6_bouss.rst                                          reference/parameters/site_selection/index
+capability_gallery/cases/regional_lab_headwater_100km2_backend_compare_recipe.rst                        get-started/many-catchments
+capability_gallery/cases/regional_lab_headwater_100km2_dry_plan.rst                                      get-started/many-catchments
+capability_gallery/cases/regional_lab_headwater_100km2_mf6_reference_recipe.rst                          get-started/many-catchments
+capability_gallery/cases/regional_lab_headwater_100km2_transient_backend_compare_recipe.rst              get-started/many-catchments
+capability_gallery/cases/site_03_natural_n1_10km2_mf6_bouss.rst                                          reference/parameters/site-selection-file
+capability_gallery/cases/site_08_natural_n1_10km2_mf6_bouss.rst                                          reference/parameters/site-selection-file
 capability_gallery/cases/surface_interaction_no_seepage_code_comparison.rst                              theory/validation
 capability_gallery/cases/surface_interaction_ramp_code_comparison.rst                                    theory/validation
 capability_gallery/code_comparison.rst                                                                   theory/validation
@@ -558,3 +559,29 @@ capability_gallery/mesh.rst                                                     
 capability_gallery/simulation.rst                                                                        get-started/staircase/index
 capability_gallery/simulation_comparison.rst                                                             reference/cli/report
 capability_gallery/validation.rst                                                                        theory/validation
+
+# Generated pages of the references, retired with their section, command or object.
+# A name without extension: the build wrote the page, no source file was deleted.
+reference/parameters/analysis/batch               get-started/many-catchments
+reference/parameters/analysis/capability_gallery  reference/figures
+reference/parameters/analysis/comparison          reference/cli/report
+reference/parameters/analysis/index               reference/cli/report
+reference/parameters/hydrometry                   reference/parameters/data/hydrometry
+reference/parameters/persistence                  reference/parameters/simulation
+reference/parameters/site_selection/criteria      reference/parameters/site-selection-file
+reference/parameters/site_selection/dem           reference/parameters/site-selection-file
+reference/parameters/site_selection/dem_area_light  reference/parameters/site-selection-file
+reference/parameters/site_selection/hydrology     reference/parameters/site-selection-file
+reference/parameters/site_selection/index         reference/parameters/site-selection-file
+reference/parameters/site_selection/input         reference/parameters/site-selection-file
+reference/parameters/site_selection/map_context   reference/parameters/site-selection-file
+reference/parameters/site_selection/outlets       reference/parameters/site-selection-file
+reference/parameters/site_selection/output        reference/parameters/site-selection-file
+reference/parameters/site_selection/spatial_selection  reference/parameters/site-selection-file
+reference/parameters/site_selection/strategy      reference/parameters/site-selection-file
+reference/parameters/site_selection/territory     reference/parameters/site-selection-file
+reference/parameters/testbed                      reference/parameters/sites
+reference/cli/audit                               reference/cli/publish
+reference/cli/process                             reference/cli/data
+reference/cli/site-selection                      reference/cli/site
+reference/python/GlobalIndex                      reference/python/index

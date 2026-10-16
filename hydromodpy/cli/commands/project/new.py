@@ -1,12 +1,12 @@
-"""``hmp project new`` - thin wrapper around :func:`hydromodpy.create_project`."""
+"""``hmp project new`` - scaffold a project under ``projects/`` of a workspace."""
 
 from __future__ import annotations
 
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import verbosity_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity
+from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, resolve_workspace
 from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
 
 NAME: str = "new"
@@ -17,12 +17,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         NAME,
         help=HELP,
-        parents=[verbosity_parser()],
-        epilog="Example:\n  hmp project new my_project --workspace ~/hydromodpy",
+        parents=[workspace_parser(), verbosity_parser()],
+        epilog="Example:\n  hmp project new my_project -w ~/hydromodpy",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("project", help="Project name (under projects/)")
-    parser.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
     parser.set_defaults(_handler=run)
     return parser
 
@@ -31,8 +30,9 @@ def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.project import create_project
 
+    workspace = resolve_workspace(args.workspace)
     try:
-        project_dir = create_project(args.project, workspace=args.workspace)
+        project_dir = create_project(args.project, workspace=workspace)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

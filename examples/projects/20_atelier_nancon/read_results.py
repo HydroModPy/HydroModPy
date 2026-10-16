@@ -1,10 +1,11 @@
-# Lire un resultat de simulation dans le catalog du projet et le tracer.
+# Read a simulation result from the project and plot it.
 #
-# Les sorties d'un run atterrissent a cote du projet : catalog.duckdb
-# porte les metadonnees, simulations/<run>.zarr.zip les champs spatiaux,
-# et simulations/<run>.parquet/ les series temporelles et les bilans.
+# A run writes into its own folder under runs/<run>/: fields.zarr holds the
+# spatial fields, tables.parquet/ the time series and the budgets, and
+# manifest.json the facts of the run. The index .hmp/index.duckdb is rebuilt
+# from these folders.
 #
-# Lancer d'abord une simulation, puis ce script :
+# Run a simulation first, then this script:
 #   hmp run sim_transient_nwt.toml
 #   python read_results.py
 
@@ -17,20 +18,19 @@ import hydromodpy as hmp
 
 here = Path(__file__).resolve().parent
 
-# hmp.open renvoie un Catalog adosse a catalog.duckdb.
-catalog = hmp.open(here)
+# hmp.open returns the Project of this folder. Its store is the read-only
+# Catalog of the index.
+proj = hmp.open(here)
 
-# Tous les runs nommes. named_only=True ecarte les lignes techniques :
-# runs ecrases dont le nom est efface, et snapshots de config effective
-# au nom pointe.
-sims = catalog.list_simulations(named_only=True)
+# Every named run. named_only=True drops the technical rows.
+sims = proj.store.list_simulations(named_only=True)
 # print(sims.columns)
 print(sims[["name", "solver", "status", "n_timesteps", "ended_at"]].to_string(index=False))
 
 # Prendre le run transient NWT. find() filtre sur le nom du catalog, qui
 # est [simulation].name dans le TOML (ici "transient_nwt"), pas le nom de
 # fichier.
-run = list(catalog.find(name="transient_nwt"))[0]
+run = list(proj.store.find(name="transient_nwt"))[0]
 print("\nrun choisi :", run.name, "|", run.solver, "|", run.n_timesteps, "pas de temps")
 
 # Valeurs des parametres actifs enregistrees pour ce run.

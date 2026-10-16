@@ -18,6 +18,7 @@ from tests._helpers.sealed_runs import make_project
 EXPECTED_TOP_LEVEL = [
     # Entry points
     "open",
+    "index",
     "run",
     "calibrate",
     "compare_pair",
@@ -63,16 +64,17 @@ def _empty_index(tmp_path: Path) -> Path:
     return project
 
 
-def test_open_returns_simulation_catalog(tmp_path: Path) -> None:
-    cat = hmp.open(_empty_index(tmp_path))
+def test_open_returns_a_project_whose_store_is_the_catalog(tmp_path: Path) -> None:
+    proj = hmp.open(_empty_index(tmp_path))
     try:
-        assert isinstance(cat, hmp.Catalog)
+        assert isinstance(proj, hmp.Project)
+        assert isinstance(proj.store, hmp.Catalog)
     finally:
-        cat.close()
+        proj.close()
 
 
 def test_simulation_catalog_repr_html(tmp_path: Path) -> None:
-    cat = hmp.open(_empty_index(tmp_path))
+    cat = hmp.Catalog(_empty_index(tmp_path))
     try:
         html = cat._repr_html_()
         assert "<b>Catalog</b>" in html
@@ -93,14 +95,14 @@ def test_simulation_view_fluent_methods_present() -> None:
     from hydromodpy.results.run import Run
 
     assert hasattr(Run, "field")
-    assert hasattr(Run, "summary")
+    assert hasattr(Run, "label")
     assert hasattr(Run, "metrics")
     assert hasattr(Run, "_repr_html_")
 
 
 def test_the_catalog_is_a_reader(tmp_path: Path) -> None:
     """The index is written by the indexer alone: the handle carries no writer."""
-    cat = hmp.open(_empty_index(tmp_path))
+    cat = hmp.Catalog(_empty_index(tmp_path))
     try:
         for name in ("register_simulation", "export_package", "import_package", "delete"):
             assert not hasattr(cat, name), name

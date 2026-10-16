@@ -308,3 +308,33 @@ def test_the_page_check_validates_a_whole_report_file_block(page_env: Path) -> N
     assert any("refused by ReportConfig" in p and "simulation_nam" in p for p in problems)
     page.write_text(f"# Report\n\n```toml\n# not checked: a fragment\n{bad}```\n")
     assert check_page.check(page, check_page.Registry(), check_page.docnames()) == []
+
+
+def _bare(path: str) -> str:
+    """A dotted path with its list and free-key markers removed, for comparison."""
+    parts = [p.removesuffix("[]") for p in path.split(".")]
+    return ".".join("*" if p.startswith("<") or p == "*" else p for p in parts)
+
+
+def test_a_site_scoped_key_is_marked_in_the_registry(registry: dict) -> None:
+    from hydromodpy.config.hydromodpy_config import HydroModPyConfig
+    from hydromodpy.core.config_kit.introspect import site_scoped_paths
+
+    nodes = registry["nodes"]
+    marked = {_bare(path) for path, node in nodes.items() if node.get("site_scoped")}
+    assert marked == {_bare(path) for path in site_scoped_paths(HydroModPyConfig)}
+    assert nodes["geographic.catchment.x_outlet"]["site_scoped"] is True
+    assert nodes["simulation.time.start_datetime"]["site_scoped"] is False
+
+
+def test_the_text_card_says_a_site_scoped_key_varies_by_site(registry: dict) -> None:
+    import sys
+
+    ext = ROOT / "docs" / "source" / "_ext"
+    sys.path.insert(0, str(ext))
+    try:
+        import hmp_card
+    finally:
+        sys.path.remove(str(ext))
+    assert "varies by site" in hmp_card.render_text("geographic.catchment.x_outlet", registry)
+    assert "varies by site" not in hmp_card.render_text("simulation.time.start_datetime", registry)

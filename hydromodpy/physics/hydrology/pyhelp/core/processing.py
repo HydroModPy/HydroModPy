@@ -57,10 +57,16 @@ def run_help_singlecell(item):
     return (cellname, results)
 
 
+def cpu_budget() -> int:
+    """Return the cores a pool may take: the thread budget of the case, else every core."""
+    text = os.environ.get("HMP_THREADS_PER_CASE", "").strip()
+    return int(text) if text.isdigit() and int(text) > 0 else mp.cpu_count()
+
+
 def run_help_allcells(cellparams, ncore=None):
     """Run HELP in batch for multiple cells."""
     output = {}
-    ncore = max(mp.cpu_count() if ncore is None else ncore, 1)
+    ncore = max(cpu_budget() if ncore is None else ncore, 1)
     tstart = time.perf_counter()
     N = len(cellparams)
     # Warm the binary cache in the parent so spawn workers never race

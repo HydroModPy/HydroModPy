@@ -26,7 +26,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_sim_ref(parser)
-    parser.add_argument("--workspace", default=None, help="Project catalog root")
+    parser.add_argument("-w", "--workspace", default=None, help="Project catalog root")
     parser.set_defaults(_handler=run)
     return parser
 

@@ -48,8 +48,7 @@ print(
 
 # Figures belong to the run, exactly where `hmp run` puts them:
 # <project>/runs/<run>/figures/. The project root stays clean.
-with hmp.open(HERE) as catalog:
-    OUT = catalog.run_dir_for(run.sim_id) / "figures" / "from_python"
+OUT = run.dir / "figures" / "from_python"
 
 # The west-east section cuts from the sea into the aquifer.
 hmp.figure(run, "cross_section", save=OUT, orientation="we")

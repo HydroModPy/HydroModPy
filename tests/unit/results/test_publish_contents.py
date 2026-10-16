@@ -110,6 +110,8 @@ def test_with_results_and_inputs_take_the_stores_and_the_bytes_by_content(tmp_pa
     assert (copy / INPUTS_DIRNAME / f"{sha256_of(observed)}.csv").read_bytes() == (
         observed.read_bytes()
     )
+    dem = project.parent.parent / "data" / "dem" / "bdalti_25m.tif"
+    assert (copy / INPUTS_DIRNAME / f"{sha256_of(dem)}.tif").read_bytes() == dem.read_bytes()
     assert read_publication(copy).with_ == ["results", "inputs"]
 
 

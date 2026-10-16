@@ -16,7 +16,8 @@ Always: ``README.md``, ``config.toml``, ``provenance.json`` (redacted),
 a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
 ``fields.zarr/``, ``tables.parquet/`` and ``mesh/``; ``with_ = ("inputs",)``
-adds the bytes of every loaded input under ``inputs/<sha256><suffix>``,
+adds the bytes of every loaded input and every file the configuration
+declared under ``inputs/<sha256><suffix>``,
 addressed by content. Never: ``.hmp/``, ``logs/``, ``attempts/``,
 ``outcome.json``, ``published.jsonl``.
 
@@ -339,7 +340,12 @@ def _redacted_text(text: str, prefixes: tuple[str, ...]) -> str:
 
 
 def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
-    """Copy the bytes of every loaded input under ``inputs/``, each named by its sha256."""
+    """Copy every loaded input and every file the configuration declared under ``inputs/``.
+
+    Each file is named by its sha256, so a file both loaded and declared is
+    one copy. A published copy replays from these bytes (``hmp run
+    <copy>/config.toml --frozen``).
+    """
     document = InputsDocument.model_validate(
         json.loads((source / RUN_INPUTS_FILENAME).read_text(encoding="utf-8"))
     )
@@ -361,6 +367,21 @@ def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
                 f"input {entry.variable}: {located.name} no longer has the digest the run sealed."
             )
         dest = staging / INPUTS_DIRNAME / f"{entry.sha256}{located.suffix}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(located, dest)
+    seal = read_sealed_manifest(source)
+    for tracked in seal.inputs if seal is not None else ():
+        located = _locate(tracked.path, roots)
+        if located is None:
+            raise ExportError(
+                f"input {tracked.role}: {tracked.path} is not on disk any more, so it cannot be "
+                "copied. Publish without --with inputs."
+            )
+        if sha256_of(located) != tracked.sha256:
+            raise ExportError(
+                f"input {tracked.role}: {located.name} no longer has the digest the run sealed."
+            )
+        dest = staging / INPUTS_DIRNAME / f"{tracked.sha256}{located.suffix}"
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(located, dest)
 

@@ -1,75 +1,68 @@
-"""Tests for the one-shot ``hmp doctor --fix-config`` TOML rewriter."""
+"""The TOML migration a config goes through on load, before validation.
+
+Every case reads its document as the loader does (``tomllib``) and runs
+``migrate_config_doc`` on it in memory; nothing writes a file.
+"""
 
 from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from hydromodpy.config.config_migration import (
-    fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
 )
 
 
-def _write(tmp_path: Path, body: str) -> Path:
-    path = tmp_path / "project.toml"
-    path.write_text(body, encoding="utf-8")
-    return path
+def _migrated(body: str) -> tuple[list[str], dict[str, Any]]:
+    """Return the changes and the document the migration makes of *body*."""
+    doc = tomllib.loads(body)
+    changes = migrate_config_doc(doc)
+    return changes, doc
 
 
-def test_migrates_on_collision_and_run_id(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_migrates_on_collision_and_run_id() -> None:
+    changes, doc = _migrated(
         "# header\n[simulation]\n# the run name\n"
         'run_id = "cheze_baseline"\non_collision = "replace"\n'
         'description = "weekly"\n',
     )
-    changes = fix_config_file(path)
     assert any("on_collision -> if_exists" in c for c in changes)
     assert any("run_id -> name" in c for c in changes)
 
-    parsed = tomllib.loads(path.read_text())["simulation"]
+    parsed = doc["simulation"]
     assert "on_collision" not in parsed
     assert parsed["if_exists"] == "version"
     assert "run_id" not in parsed
     assert parsed["name"] == "cheze_baseline"
-    # comments and untouched keys survive the round-trip
-    text = path.read_text()
-    assert "# header" in text
     assert parsed["description"] == "weekly"
 
 
-def test_run_id_dropped_when_name_already_set(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
-        '[simulation]\nname = "kept"\nrun_id = "ignored"\n',
-    )
-    changes = fix_config_file(path)
+def test_run_id_dropped_when_name_already_set() -> None:
+    changes, doc = _migrated('[simulation]\nname = "kept"\nrun_id = "ignored"\n')
     assert any("name already set" in c for c in changes)
-    parsed = tomllib.loads(path.read_text())["simulation"]
+    parsed = doc["simulation"]
     assert parsed["name"] == "kept"
     assert "run_id" not in parsed
 
 
-def test_idempotent_and_noop_returns_empty(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[simulation]\nname = "modern"\nif_exists = "version"\n')
-    assert fix_config_file(path) == []
+def test_idempotent_and_noop_returns_empty() -> None:
+    changes, _ = _migrated('[simulation]\nname = "modern"\nif_exists = "version"\n')
+    assert changes == []
 
 
-def test_promotes_export_to_top_level(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_promotes_export_to_top_level() -> None:
+    changes, parsed = _migrated(
         '[simulation]\nname = "cheze"\n\n'
         "[simulation.results.export]\ncsv_timeseries = true\ngeotiff = true\n\n"
         '[[simulation.results.export.artifacts]]\nvar = "head"\ndest = "h.tif"\n',
     )
-    changes = fix_config_file(path)
     assert any("simulation.results.export -> [export]" in c for c in changes)
 
-    parsed = tomllib.loads(path.read_text())
     assert parsed["export"] == [
         {"variables": "all", "format": "csv"},
         {"variables": ["head"], "format": "geotiff", "time": "last"},
@@ -79,32 +72,26 @@ def test_promotes_export_to_top_level(tmp_path: Path) -> None:
     assert "export" not in parsed.get("simulation", {}).get("results", {})
 
 
-def test_export_promotion_skips_when_top_level_exists(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_export_promotion_skips_when_top_level_exists() -> None:
+    changes, parsed = _migrated(
         "[export]\nnetcdf = true\n\n[simulation.results.export]\ncsv_timeseries = false\n",
     )
-    changes = fix_config_file(path)
     assert any("top-level [export] already set" in c for c in changes)
-    parsed = tomllib.loads(path.read_text())
     assert parsed["export"] == [{"variables": ["head"], "format": "netcdf", "time": "last"}]
     assert "export" not in parsed.get("simulation", {}).get("results", {})
 
 
-def test_drops_the_two_options_that_never_drove_anything(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_drops_the_two_options_that_never_drove_anything() -> None:
+    changes, parsed = _migrated(
         '[simulation]\nname = "cheze"\n\n'
         '[simulation.results]\nsolver_scratch = ".hmp/scratch"\nkeep_solver_files = true\n\n'
         "[simulation.results.persistence]\nsave_lock = true\nsave_zarr = true\n\n"
         "[persistence]\nsave_lock = false\n\n"
         "[calibration.persistence]\nsave_lock = true\n",
     )
-    changes = fix_config_file(path)
     assert any("solver_scratch dropped" in c for c in changes)
     assert sum("save_lock dropped" in c for c in changes) == 3
 
-    parsed = tomllib.loads(path.read_text())
     results = parsed["simulation"]["results"]
     assert "solver_scratch" not in results
     assert results["keep_solver_files"] is True
@@ -112,24 +99,15 @@ def test_drops_the_two_options_that_never_drove_anything(tmp_path: Path) -> None
     assert results["persistence"]["save_zarr"] is True
     assert "save_lock" not in parsed["persistence"]
     assert "save_lock" not in parsed["calibration"]["persistence"]
-    assert fix_config_file(path) == []
+    assert migrate_config_doc(parsed) == []
 
 
-def test_missing_file_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError):
-        fix_config_file(tmp_path / "absent.toml")
-
-
-def test_flattens_a_family_keyed_boundary(tmp_path: Path) -> None:
+def test_flattens_a_family_keyed_boundary() -> None:
     """``[flow.bc.<family>.<id>]`` becomes ``[flow.bc.<id>]`` carrying its kind."""
-    path = _write(
-        tmp_path,
+    changes, parsed = _migrated(
         "[flow.bc.dirichlet.west_side]\nvalue = 5.0\n\n"
         '[flow.bc.cauchy.drainage]\nvalue = "1e-6 m2/s"\n',
     )
-
-    changes = fix_config_file(path)
-    parsed = tomllib.loads(path.read_text(encoding="utf-8"))
     bc = parsed["flow"]["bc"]
 
     assert "dirichlet" not in bc
@@ -137,103 +115,79 @@ def test_flattens_a_family_keyed_boundary(tmp_path: Path) -> None:
     assert bc["west_side"] == {"value": 5.0, "kind": "dirichlet"}
     assert bc["drainage"] == {"value": "1e-6 m2/s", "kind": "cauchy"}
     assert len(changes) == 2
-    assert fix_config_file(path) == []
+    assert migrate_config_doc(parsed) == []
 
 
-def test_a_flat_entry_already_there_wins_over_the_nested_one(tmp_path: Path) -> None:
+def test_a_flat_entry_already_there_wins_over_the_nested_one() -> None:
     """A flat mapping cannot hold the same id twice, so the nested one is dropped."""
-    path = _write(
-        tmp_path,
+    changes, parsed = _migrated(
         "[flow.bc.west_side]\nvalue = 9.0\n\n[flow.bc.dirichlet.west_side]\nvalue = 1.0\n",
     )
-
-    changes = fix_config_file(path)
-    bc = tomllib.loads(path.read_text(encoding="utf-8"))["flow"]["bc"]
+    bc = parsed["flow"]["bc"]
 
     assert bc["west_side"] == {"value": 9.0}
     assert "dirichlet" not in bc
     assert changes == ["flow.bc.dirichlet.west_side dropped (flow.bc.west_side already set)"]
 
 
-def test_a_file_with_no_flow_section_is_left_alone(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[simulation]\nname = "plain"\n')
-    assert fix_config_file(path) == []
+def test_a_file_with_no_flow_section_is_left_alone() -> None:
+    changes, _ = _migrated('[simulation]\nname = "plain"\n')
+    assert changes == []
 
 
-def test_drops_both_solver_time_grids_at_the_root(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_drops_both_solver_time_grids_at_the_root() -> None:
+    changes, parsed = _migrated(
         "[modflow6]\nrelax_steady = true\n\n[modflow6.tgrid]\nnper = 1\n\n"
         '[modflownwt]\n\n[modflownwt.tgrid]\nitmuni = "days"\nnper = 1\n',
     )
 
-    changes = fix_config_file(path)
-
     assert any("modflow6.tgrid dropped" in c for c in changes)
     assert any("modflownwt.tgrid dropped" in c for c in changes)
-    parsed = tomllib.loads(path.read_text())
     assert "tgrid" not in parsed["modflow6"]
     assert "tgrid" not in parsed["modflownwt"]
     assert parsed["modflow6"]["relax_steady"] is True
 
 
-def test_migrates_a_config_carrying_a_byte_order_mark(tmp_path: Path) -> None:
-    """tomlkit reads a BOM as an empty key, which used to abort the whole fix."""
-    path = tmp_path / "project.toml"
-    path.write_text("\ufeff[modflownwt.tgrid]\nnper = 1\n", encoding="utf-8")
-
-    changes = fix_config_file(path)
-
-    assert any("modflownwt.tgrid dropped" in c for c in changes)
-    assert tomllib.loads(path.read_text()) == {}
-
-
-def test_expands_the_export_variables_boolean_table(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_expands_the_export_variables_boolean_table() -> None:
+    changes, parsed = _migrated(
         "[export]\ngeotiff = true\n[export.variables]\nhead = true\nconcentration = false\n"
         "derived = true\nbudget = true\npathlines = true\n",
     )
-    changes = fix_config_file(path)
     assert any("export.variables (boolean table) -> list" in c for c in changes)
 
-    (block,) = tomllib.loads(path.read_text())["export"]
+    (block,) = parsed["export"]
     assert block["variables"] == [
         "head",
         "watertable_elevation",
         "watertable_depth",
         "seepage_mask",
     ]
-    assert fix_config_file(path) == []
+    assert migrate_config_doc(parsed) == []
 
 
-def test_export_variables_all_off_is_carried_as_an_empty_list(tmp_path: Path) -> None:
+def test_export_variables_all_off_is_carried_as_an_empty_list() -> None:
     """The request keeps what the file said; the loader then refuses an empty list."""
-    path = _write(
-        tmp_path,
+    changes, parsed = _migrated(
         "[export]\nnetcdf = true\n[export.variables]\nhead = false\nconcentration = false\n",
     )
-    changes = fix_config_file(path)
     assert any("-> list []" in c for c in changes)
-    assert tomllib.loads(path.read_text())["export"][0]["variables"] == []
+    assert parsed["export"][0]["variables"] == []
 
 
-def test_renames_export_times_to_time(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[export]\ngeotiff = true\ntimes = "first"\n')
-    changes = fix_config_file(path)
+def test_renames_export_times_to_time() -> None:
+    changes, parsed = _migrated('[export]\ngeotiff = true\ntimes = "first"\n')
     assert any("export.times -> export.time" in c for c in changes)
 
-    (block,) = tomllib.loads(path.read_text())["export"]
+    (block,) = parsed["export"]
     assert block["time"] == "first"
     assert "times" not in block
-    assert fix_config_file(path) == []
+    assert migrate_config_doc(parsed) == []
 
 
-def test_export_times_dropped_when_time_already_set(tmp_path: Path) -> None:
-    path = _write(tmp_path, '[export]\nnetcdf = true\ntime = "all"\ntimes = "last"\n')
-    changes = fix_config_file(path)
+def test_export_times_dropped_when_time_already_set() -> None:
+    changes, parsed = _migrated('[export]\nnetcdf = true\ntime = "all"\ntimes = "last"\n')
     assert any("export.time already set" in c for c in changes)
-    (block,) = tomllib.loads(path.read_text())["export"]
+    (block,) = parsed["export"]
     # "all" is the default of a request: the whole simulation.
     assert block == {"variables": ["head"], "format": "netcdf"}
 
@@ -272,20 +226,18 @@ def test_each_format_toggle_becomes_one_request_in_the_order_it_ran() -> None:
     )
 
 
-def test_the_requests_of_a_migrated_table_load(tmp_path: Path) -> None:
+def test_the_requests_of_a_migrated_table_load() -> None:
     """What the migration writes is what the model reads: the round trip holds."""
     from hydromodpy.core.config_kit.export_spec import ExportFormat, load_export_requests
 
-    path = _write(
-        tmp_path,
+    _, parsed = _migrated(
         "[export]\ngeotiff = true\ncsv_timeseries = true\ntime = 33\n"
         'variables = ["head", "watertable_depth"]\n\n'
         '[[export.artifacts]]\nvar = ["head", "watertable_depth"]\ndest = "fields.nc"\n'
         'time = "all"\n',
     )
-    fix_config_file(path)
 
-    requests = load_export_requests(tomllib.loads(path.read_text())["export"])
+    requests = load_export_requests(parsed["export"])
 
     assert [request.output_format for request in requests] == [
         ExportFormat.csv,
@@ -322,7 +274,7 @@ def test_an_archive_artifact_is_dropped_and_names_hmp_publish() -> None:
 
 
 def test_a_table_with_every_format_off_is_dropped_without_a_word(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """The resolved config every sealed run holds: `hmp run --resume` replays it."""
     body = (
@@ -337,10 +289,6 @@ def test_a_table_with_every_format_off_is_dropped_without_a_word(
     assert "export" not in doc
     assert len(changes) == 1
     assert [record for record in caplog.records if record.levelname == "INFO"] == []
-
-    path = _write(tmp_path, body)
-    assert fix_config_file(path) == changes
-    assert "export" not in tomllib.loads(path.read_text())
 
 
 def test_a_request_written_as_a_table_is_left_for_the_loader_to_refuse() -> None:
@@ -386,7 +334,8 @@ def test_migrate_config_doc_on_load_migrates_in_memory_and_logs_once(
     message = caplog.records[0].message
     assert "run/config.toml" in message
     assert "3 legacy key" in message
-    assert "hmp doctor" in message
+    assert "rename them in run/config.toml" in message
+    assert "hmp doctor" not in message
 
 
 _FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"
@@ -413,22 +362,19 @@ def test_frozen_export_config_from_example_04_migrates_and_loads() -> None:
     assert _FROZEN_V1.read_bytes() == original_bytes
 
 
-def test_renames_a_figure_timestep_to_time(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_renames_a_figure_timestep_to_time() -> None:
+    changes, parsed = _migrated(
         '[display]\nfigures = ["seepage_map"]\n\n'
         "[display.overrides.seepage_map]\ntimestep = 33 # October 2002\n\n"
         '[display.overrides.cross_section]\norientation = "sn"\n',
     )
 
-    changes = fix_config_file(path)
-
     assert changes == [
         "display.overrides.seepage_map.timestep -> display.overrides.seepage_map.time (33)"
     ]
-    overrides = tomllib.loads(path.read_text())["display"]["overrides"]
+    overrides = parsed["display"]["overrides"]
     assert overrides == {"seepage_map": {"time": 33}, "cross_section": {"orientation": "sn"}}
-    assert fix_config_file(path) == []
+    assert migrate_config_doc(parsed) == []
 
 
 def test_a_figure_that_says_both_is_left_for_the_loader_to_refuse() -> None:
@@ -442,9 +388,8 @@ def test_a_figure_that_says_both_is_left_for_the_loader_to_refuse() -> None:
     assert doc["calibration"]["phases"][0]["overrides"] == phase
 
 
-def test_renames_the_dotted_timestep_a_calibration_phase_overrides(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
+def test_renames_the_dotted_timestep_a_calibration_phase_overrides() -> None:
+    changes, parsed = _migrated(
         '[[calibration.phases]]\nname = "steady"\n\n'
         "[calibration.phases.overrides]\n"
         '"display.overrides.seepage_map.timestep" = 0\n'
@@ -452,15 +397,13 @@ def test_renames_the_dotted_timestep_a_calibration_phase_overrides(tmp_path: Pat
         '"flow.flow_regime" = "steady"\n',
     )
 
-    changes = fix_config_file(path)
-
     assert changes == [
         'calibration.phases[0].overrides."display.overrides.seepage_map.timestep" -> '
         '"display.overrides.seepage_map.time"',
         'calibration.phases[0].overrides."display.overrides.cross_section.timestep" -> '
         '"display.overrides.cross_section.time"',
     ]
-    overrides = tomllib.loads(path.read_text())["calibration"]["phases"][0]["overrides"]
+    overrides = parsed["calibration"]["phases"][0]["overrides"]
     assert overrides == {
         "flow.flow_regime": "steady",
         "display.overrides.seepage_map.time": 0,
@@ -482,19 +425,13 @@ def test_renames_a_phase_timestep_written_as_nested_tables() -> None:
     assert len(changes) == 1
 
 
-def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model(
-    tmp_path: Path,
-) -> None:
-    path = _write(
-        tmp_path,
+def test_moves_the_bottom_path_to_the_substratum_and_leaves_the_depth_model() -> None:
+    changes, parsed = _migrated(
         '[geographic]\nbottom_path = "data/bottom.tif"\n\n'
         '[domain.depth_model]\nkind = "constant_thickness"\nthickness = "30 m"\n',
     )
 
-    changes = fix_config_file(path)
-
     assert any("geographic.bottom_path -> [[data.substratum.sources]]" in c for c in changes)
-    parsed = tomllib.loads(path.read_text())
     assert "bottom_path" not in parsed["geographic"]
     assert parsed["data"]["substratum"]["sources"] == [
         {"source": "custom", "path": "data/bottom.tif"}
@@ -526,18 +463,16 @@ _NETWORK_OUTPUT = (
 )
 
 
-def test_the_paper_ratio_bound_is_dropped_and_auto_replaces_it(tmp_path: Path) -> None:
+def test_the_paper_ratio_bound_is_dropped_and_auto_replaces_it() -> None:
     from hydromodpy.calibration.config import validate_calib_output
 
-    path = _write(tmp_path, _NETWORK_OUTPUT.format(value="2.0"))
-
-    changes = fix_config_file(path)
+    changes, parsed = _migrated(_NETWORK_OUTPUT.format(value="2.0"))
 
     assert changes == [
         "calibration.outputs.seepage_network.roptim_max dropped "
         "(2 cells is validity_length = 'auto', the default)"
     ]
-    output = tomllib.loads(path.read_text())["calibration"]["outputs"]["seepage_network"]
+    output = parsed["calibration"]["outputs"]["seepage_network"]
     assert "roptim_max" not in output
     assert output["observed_position_accuracy"] == "50 m"
     assert validate_calib_output(output).validity_length == "auto"
@@ -550,15 +485,11 @@ def test_an_integer_two_is_the_paper_bound_too() -> None:
     assert "roptim_max" not in doc["calibration"]["outputs"]["net"]
 
 
-def test_another_ratio_bound_is_refused_with_the_length_to_write(tmp_path: Path) -> None:
-    path = _write(tmp_path, _NETWORK_OUTPUT.format(value="3.0"))
-    before = path.read_bytes()
-
+def test_another_ratio_bound_is_refused_with_the_length_to_write() -> None:
     with pytest.raises(ValueError, match="validity_length") as raised:
-        fix_config_file(path)
+        _migrated(_NETWORK_OUTPUT.format(value="3.0"))
 
     assert "roptim_max = 3 has no exact equivalent" in str(raised.value)
-    assert path.read_bytes() == before
 
 
 def test_the_ratio_bound_migrates_on_load_and_a_current_file_is_untouched() -> None:

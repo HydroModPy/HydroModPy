@@ -11,7 +11,8 @@ Walks the chain a new user would follow:
    the project carries a real Zarr field. This stands in for a full solver run on the
    ``simulation_regression`` fixture, which is exercised by the regression
    tier with the same CLI entry point.
-5. Open the catalog via ``hmp.open`` and read a field via ``hmp.read``.
+5. Open the project via ``hmp.open``, read its index through ``.store`` and
+   read a field via ``hmp.read``.
 6. Export the field to NetCDF and check the ACDD / CF attrs are carried.
 
 The test is marked ``e2e`` so it stays out of the fast suite. CLI verbs
@@ -209,13 +210,13 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     assert zarr_path.exists(), f"Zarr store missing at {zarr_path}"
     assert parquet_dir.exists(), f"Parquet directory missing at {parquet_dir}"
 
-    with hmp.open(project_dir) as catalog:
+    with hmp.open(project_dir).store as catalog:
         sims = catalog.list_simulations()
         assert len(sims) == 1
         assert str(sims.iloc[0]["sim_id"]) == sim_id
 
-    # ----- Step 7: hmp.open + hmp.read return a real field ------------------
-    with hmp.open(project_dir) as catalog:
+    # ----- Step 7: hmp.open(...).store + hmp.read return a real field -------
+    with hmp.open(project_dir).store as catalog:
         run = catalog[sim_id]
         data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
@@ -249,7 +250,7 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
     from hydromodpy.core.config_kit.export_spec import ExportRequest
     from hydromodpy.results.exporters.request import export_run
 
-    with hmp.open(project_dir) as catalog:
+    with hmp.open(project_dir).store as catalog:
         written = export_run(catalog, sim_id, ExportRequest(variables="head", file="head.nc"))
 
     nc_out = project_dir / "runs" / "from_scratch_sim" / "exports" / "head.nc"
@@ -329,7 +330,7 @@ def test_workflow_from_scratch_run_simulation_regression_fixture(tmp_path: Path)
 
     import hydromodpy as hmp
 
-    with hmp.open(out_path) as catalog:
+    with hmp.open(out_path).store as catalog:
         sims = catalog.list_simulations()
         assert not sims.empty, "no simulation row recorded after hmp run"
         sim_id = str(sims.iloc[0]["sim_id"])
