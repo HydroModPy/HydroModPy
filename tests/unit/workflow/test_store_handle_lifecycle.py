@@ -13,12 +13,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME
 from hydromodpy.results.catalog.registration import reserve_version_dirname
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import claim_run_directory
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.workflow.steps import prepare_solver as prepare_solver_module
 from hydromodpy.workflow.steps.prepare_solver.dispatch import bind_run_directory, initial_facts
 
@@ -156,12 +158,31 @@ def test_the_initial_facts_name_the_run_its_solver_and_its_hash(tmp_path: Path) 
     assert facts.lineage.kind == "rerun"
 
 
-class _Dumpable:
-    def __init__(self, payload: dict) -> None:
-        self.payload = payload
+class _Results(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    def model_dump(self, **_kwargs) -> dict:
-        return dict(self.payload)
+    keep_solver_files: bool = True
+    budget_keep: str = "all"
+
+
+class _Simulation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    results: _Results = _Results()
+
+
+class _Workflow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str = "auto"
+
+
+class _RunConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow: _Workflow = _Workflow()
+    domain: DomainConfig = DomainConfig()
+    simulation: _Simulation = _Simulation()
 
 
 def test_effective_config_snapshot_is_the_run_config_with_the_runtime_domain() -> None:
@@ -175,8 +196,10 @@ def test_effective_config_snapshot_is_the_run_config_with_the_runtime_domain() -
         "depth_model": {"kind": "constant_thickness", "thickness": 25.0},
     }
     ctx = SimpleNamespace(
-        cfg=_Dumpable(declared),
-        setup=SimpleNamespace(domain=SimpleNamespace(config=_Dumpable(effective_domain))),
+        cfg=_RunConfig.model_validate(declared),
+        setup=SimpleNamespace(
+            domain=SimpleNamespace(config=DomainConfig.model_validate(effective_domain))
+        ),
     )
 
     snapshot = prepare_solver_module.collect_effective_config_snapshot(ctx)
