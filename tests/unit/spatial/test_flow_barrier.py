@@ -94,6 +94,25 @@ def test_only_faces_the_trace_separates_are_barred() -> None:
     assert _n_components(faces, mesh) == 1
 
 
+def test_a_line_along_a_row_of_centres_bars_the_faces_on_its_left() -> None:
+    # Row 1 of a 3x3 grid has its centres at y = 1.5. Along them the trace crosses no
+    # centre-to-centre segment; it is tested a hair to its left, north when it runs east.
+    mesh = _quad_grid(3, 3)
+    east = barrier_faces_from_line(cell_mesh_of(mesh), LineString([(-0.5, 1.5), (3.5, 1.5)]))
+    west = barrier_faces_from_line(cell_mesh_of(mesh), LineString([(3.5, 1.5), (-0.5, 1.5)]))
+    assert {(f.cell_a, f.cell_b) for f in east} == {(3, 6), (4, 7), (5, 8)}
+    assert {(f.cell_a, f.cell_b) for f in west} == {(0, 3), (1, 4), (2, 5)}
+
+
+def test_a_diagonal_through_centres_bars_a_connected_staircase() -> None:
+    # The diagonal meets the centres of cells 0, 4 and 8 and only touches their segments
+    # at an end: tested a hair to its left, it bars the staircase above the diagonal.
+    mesh = _quad_grid(3, 3)
+    faces = barrier_faces_from_line(cell_mesh_of(mesh), LineString([(-0.5, -0.5), (3.5, 3.5)]))
+    assert {(f.cell_a, f.cell_b) for f in faces} == {(0, 3), (3, 4), (4, 7), (7, 8)}
+    assert _n_components(faces, mesh) == 1
+
+
 def test_faces_are_ordered_along_the_line() -> None:
     mesh = _quad_grid(2, 3)
     faces = barrier_faces_from_line(cell_mesh_of(mesh), LineString([(1.01, -0.5), (1.01, 3.5)]))
@@ -102,9 +121,16 @@ def test_faces_are_ordered_along_the_line() -> None:
     assert all(0.0 <= s <= 1.0 for s in stations)
 
 
-def test_line_inside_one_cell_bars_nothing() -> None:
-    mesh = _quad_grid(2, 3)
-    assert barrier_faces_from_line(cell_mesh_of(mesh), LineString([(0.2, 0.2), (0.8, 0.8)])) == []
+def test_a_short_line_inside_one_cell_bars_the_link_it_crosses() -> None:
+    # A trace that stays inside cell 0 bars the face whose centre link it crosses,
+    # through the centre or beside it; a trace that crosses no link bars nothing.
+    cell_mesh = cell_mesh_of(_quad_grid(2, 3))
+    through = barrier_faces_from_line(cell_mesh, LineString([(0.2, 0.2), (0.8, 0.8)]))
+    beside = barrier_faces_from_line(cell_mesh, LineString([(0.2, 0.6), (0.8, 0.6)]))
+    clear = barrier_faces_from_line(cell_mesh, LineString([(0.1, 0.1), (0.3, 0.2)]))
+    assert {(f.cell_a, f.cell_b) for f in through} == {(0, 2)}
+    assert {(f.cell_a, f.cell_b) for f in beside} == {(0, 2)}
+    assert clear == []
 
 
 def _two_cells_centred_on(centres: list[tuple[float, float]]) -> PlanarCellMesh:

@@ -1,11 +1,13 @@
-"""Cache of the meshes an engine cannot rebuild bit for bit.
+"""Cache of the meshes an engine does not promise to rebuild bit for bit.
 
-Gmsh draws from the system clock, so a mesh generated twice from one request
-differs. An engine that declares ``needs_cache`` is built once per request: the
+Gmsh repeats a mesh from one request only within one release and on one thread:
+its multi-threaded meshers differ from run to run, and a new release can move a
+vertex. An engine that declares ``needs_cache`` is built once per request: the
 mesh is stored under ``<project>/.hmp/mesh_cache/<key>/`` and every later run,
 resume and ``restart_from`` of the project reads it back. The key names the
 request, the engine and its version, and the builds of the libraries whose
-geometry it draws on (:func:`library_versions`).
+geometry it draws on (:func:`library_versions`), so a new build of one of them
+keys a new entry.
 
 An entry is a directory holding ``mesh.npz`` (arrays) and ``mesh.json`` (the
 rest). It is written in a temporary directory and renamed, so a reader sees a

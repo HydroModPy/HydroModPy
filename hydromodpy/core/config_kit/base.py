@@ -306,6 +306,7 @@ class HydroModelBase(BaseModel):
         path: str | Path,
         *,
         profile: ProfileName = "user",
+        written_only: bool = False,
     ) -> Path:
         """Serialise this config to a TOML file filtered by *profile*.
 
@@ -322,10 +323,13 @@ class HydroModelBase(BaseModel):
             One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
             :class:`~hydromodpy.core.config_kit.profile.Profile` exceeds
             the requested profile are omitted.
+        written_only
+            Keep only the fields this config was given, so the file reads
+            back with the same fields set.
         """
         from hydromodpy.core.toml_io.io import dump_toml_with_comments
 
-        return dump_toml_with_comments(self, path, profile=profile)
+        return dump_toml_with_comments(self, path, profile=profile, written_only=written_only)
 
 
 __all__ = ["HydroModelBase"]

@@ -38,7 +38,7 @@ class RegularMeshEngine:
     """Quadrilateral cells of one pitch, bit for bit the grid flopy builds."""
 
     engine_id: ClassVar[str] = "regular"
-    engine_version: ClassVar[str] = "1.1.0"
+    engine_version: ClassVar[str] = "1.1.1"
     capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
         cell_types=(CellType.QUADRILATERAL,),
         structured=True,

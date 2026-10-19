@@ -22,6 +22,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from shapely.strtree import STRtree
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 
 if TYPE_CHECKING:
@@ -31,7 +32,9 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
+    "ON_CENTRE_SHARE",
     "ON_LINE_SHARE",
+    "SIDE_SHIFT_SHARE",
     "BarrierFace",
     "barrier_edges",
     "barrier_faces_from_line",
@@ -44,11 +47,20 @@ __all__ = [
     "wall_leaks",
 ]
 
+logger = get_logger(__name__)
+
 
 ON_LINE_SHARE = 0.5
 """A family face lies on a barrier line when its midpoint is within this share of
 its length from the line: the faces along a lake shore follow the resampled ring,
 a chord of the shore the line was laid on."""
+
+ON_CENTRE_SHARE = 1.0e-9
+"""A cell centre lies on a barrier line when it is closer than this share of the
+median centre-to-centre link."""
+
+SIDE_SHIFT_SHARE = 1.0e-6
+"""How far left a line through cell centres is tested, as a share of the median link."""
 
 
 @dataclass(frozen=True)
@@ -194,12 +206,29 @@ def crossed_edges(geometry: DerivedGeometry, centers: np.ndarray, line: LineStri
     """Interior edge rows whose centre-to-centre segment *line* crosses, in edge order.
 
     On a grid, these faces are the staircase that separates the cells on
-    either side of the line.
+    either side of the line. A line through cell centres lies along their
+    segments or touches them at an end, and crosses none there: it would bar
+    nothing. It is then tested :data:`SIDE_SHIFT_SHARE` of a link to its left,
+    which bars the faces on that side of the centres.
     """
     interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
+    if not interior.size:
+        return interior
     pairs = geometry.edge_cells[interior]
-    segments = shapely.linestrings(np.stack([centers[pairs[:, 0]], centers[pairs[:, 1]]], axis=1))
-    return interior[np.sort(STRtree(segments).query(line, predicate="crosses"))]
+    ends = np.stack([centers[pairs[:, 0]], centers[pairs[:, 1]]], axis=1)
+    segments = shapely.linestrings(ends)
+    link = float(np.median(np.linalg.norm(ends[:, 1] - ends[:, 0], axis=1)))
+    on_line = shapely.dwithin(shapely.points(centers), line, ON_CENTRE_SHARE * link)
+    probe: shapely.Geometry = line
+    if on_line.any():
+        shift = SIDE_SHIFT_SHARE * link
+        logger.info(
+            "A barrier line runs through %d cell centres: its faces are taken %.2g m to its left.",
+            int(on_line.sum()),
+            shift,
+        )
+        probe = shapely.offset_curve(line, shift)
+    return interior[np.sort(STRtree(segments).query(probe, predicate="crosses"))]
 
 
 def downstream_of_wall(line: LineString, points: np.ndarray) -> np.ndarray:

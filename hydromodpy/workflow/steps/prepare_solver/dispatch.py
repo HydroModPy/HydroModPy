@@ -239,11 +239,15 @@ def frozen_config_document(
 ) -> str:
     """Return the resolved configuration of the run as portable TOML text.
 
-    The domain section is the one the built domain carries. The
-    ``[workspace]`` keys the loader resolves on this machine are left out,
-    and every path under the project root is written relative to it, so the
-    document replays from another checkout of the same project. A hotstart
-    whose source has a ``sim_id`` is written as the table ``{sim_id, path}``.
+    The document holds what the run was given, not the defaults it took: a
+    validator that tells a written key from its default (``values`` beside
+    ``[flow.sinks_sources.recharge.soil]``, ``surface_offset`` of a soil ETP)
+    answers on the replay as it did on the run. The domain section is the one
+    the built domain carries. The ``[workspace]`` keys the loader resolves on
+    this machine are left out, and every path under the project root is
+    written relative to it, so the document replays from another checkout of
+    the same project. A hotstart whose source has a ``sim_id`` is written as
+    the table ``{sim_id, path}``.
     """
     assert ctx.run_dir is not None
     snapshot = collect_effective_config_snapshot(ctx)
@@ -257,16 +261,18 @@ def frozen_config_document(
 def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str:
     """Return *cfg* as the portable TOML text a run directory freezes.
 
-    The ``[workspace]`` keys the loader resolves on this machine are left
-    out. Every input file the configuration names is written in the form
-    that resolves back to it from any copy of the workspace
+    Only the fields *cfg* was given are written, so the text validates back
+    into a configuration with the same fields set. The ``[workspace]`` keys
+    the loader resolves on this machine are left out. Every input file the
+    configuration names is written in the form that resolves back to it
+    from any copy of the workspace
     (:func:`~hydromodpy.core.toml_io.paths.portable_declared_path`): a bare
     name found in ``data/``, a path relative to the project root, or
     ``../../data/...``. Every other path under the project root is written
     relative to it. The document is staged in *run_dir* while it is rendered.
     """
     staged = run_dir / f".{RUN_CONFIG_FILENAME}.staged"
-    cfg.to_toml(staged, profile="expert")
+    cfg.to_toml(staged, profile="expert", written_only=True)
     try:
         payload = tomllib.loads(staged.read_text(encoding="utf-8"))
     finally:

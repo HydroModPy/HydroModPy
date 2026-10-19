@@ -34,6 +34,7 @@ from hydromodpy.core.config_kit.introspect import (
     resolve_profile as _resolve_profile,
 )
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
+from hydromodpy.core.config_kit.written import written_fields
 
 
 def _coerce_value(value: Any) -> Any:
@@ -63,14 +64,19 @@ def _iter_serialisable_fields(
     model: BaseModel,
     *,
     profile_threshold: Profile,
+    written_only: bool = False,
 ) -> Iterable[tuple[str, Any, Any]]:
     """Yield ``(field_name, field_info, value)`` triples for *model*.
 
     Fields whose :class:`Profile` exceeds *profile_threshold* are
-    skipped. The yielded value is the live attribute on *model*
-    (already validated).
+    skipped, and so are the fields *model* was not given when
+    *written_only* is set. The yielded value is the live attribute on
+    *model* (already validated).
     """
+    written = set(written_fields(model)) if written_only else None
     for field_name, info, _level in iter_fields_by_profile(type(model), profile_threshold):
+        if written is not None and field_name not in written:
+            continue
         extra = getattr(info, "json_schema_extra", None)
         if isinstance(extra, dict) and extra.get("toml_exclude") is True:
             continue
@@ -98,7 +104,9 @@ def _inline_comment(description: str | None) -> str:
 _SENTINEL_MISSING = object()
 
 
-def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item | Any:
+def _render_container_value(
+    value: Any, *, profile_threshold: Profile, written_only: bool = False
+) -> Item | Any:
     """Render *value* into a :mod:`tomlkit`-friendly representation.
 
     Returns :data:`_SENTINEL_MISSING` when the value has no TOML
@@ -107,11 +115,15 @@ def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item |
     if value is None:
         return _SENTINEL_MISSING
     if isinstance(value, BaseModel):
-        return _render_model_table(value, profile_threshold=profile_threshold)
+        return _render_model_table(
+            value, profile_threshold=profile_threshold, written_only=written_only
+        )
     if isinstance(value, Mapping):
         table = tomlkit.table()
         for key, sub in value.items():
-            rendered = _render_container_value(sub, profile_threshold=profile_threshold)
+            rendered = _render_container_value(
+                sub, profile_threshold=profile_threshold, written_only=written_only
+            )
             if rendered is _SENTINEL_MISSING:
                 continue
             table[str(key)] = rendered
@@ -120,7 +132,9 @@ def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item |
         rendered_items: list[Item | Any] = []
         has_table = False
         for sub in value:
-            rendered = _render_container_value(sub, profile_threshold=profile_threshold)
+            rendered = _render_container_value(
+                sub, profile_threshold=profile_threshold, written_only=written_only
+            )
             if rendered is _SENTINEL_MISSING:
                 continue
             rendered_items.append(rendered)
@@ -140,15 +154,19 @@ def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item |
     return _coerce_value(value)
 
 
-def _render_model_table(model: BaseModel, *, profile_threshold: Profile) -> Item:
+def _render_model_table(
+    model: BaseModel, *, profile_threshold: Profile, written_only: bool = False
+) -> Item:
     """Render a Pydantic model as a :func:`tomlkit.table` honouring *profile_threshold*."""
     table = tomlkit.table()
     for field_name, info, value in _iter_serialisable_fields(
-        model, profile_threshold=profile_threshold
+        model, profile_threshold=profile_threshold, written_only=written_only
     ):
         if _is_implicit_relative_path_default(value, info):
             continue
-        rendered = _render_container_value(value, profile_threshold=profile_threshold)
+        rendered = _render_container_value(
+            value, profile_threshold=profile_threshold, written_only=written_only
+        )
         if rendered is _SENTINEL_MISSING:
             continue
         table[field_name] = rendered
@@ -168,6 +186,7 @@ def dump_toml_with_comments(
     path: str | Path,
     *,
     profile: ProfileName = "user",
+    written_only: bool = False,
 ) -> Path:
     """Serialise *model* to a TOML document at *path*.
 
@@ -180,6 +199,10 @@ def dump_toml_with_comments(
     profile
         One of ``"user"``, ``"dev"``, ``"expert"``. Fields whose
         :class:`Profile` exceeds the requested profile are omitted.
+    written_only
+        Keep only the fields the model was given
+        (:func:`~hydromodpy.core.config_kit.written.written_fields`), so the
+        document validates back into a model with the same fields set.
 
     Returns
     -------
@@ -191,8 +214,12 @@ def dump_toml_with_comments(
     doc.add(tomlkit.comment("Generated by hydromodpy.core.toml_io.io"))
     doc.add(tomlkit.comment(f"profile = {profile!r}"))
     doc.add(tomlkit.nl())
-    for field_name, _info, value in _iter_serialisable_fields(model, profile_threshold=threshold):
-        rendered = _render_container_value(value, profile_threshold=threshold)
+    for field_name, _info, value in _iter_serialisable_fields(
+        model, profile_threshold=threshold, written_only=written_only
+    ):
+        rendered = _render_container_value(
+            value, profile_threshold=threshold, written_only=written_only
+        )
         if rendered is _SENTINEL_MISSING:
             continue
         doc[field_name] = rendered

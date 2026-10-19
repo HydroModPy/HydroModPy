@@ -34,6 +34,28 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A flow barrier whose line runs through cell centres is barred again (2026-10-19). Along a row of
+  centres, or through them on a diagonal, the line touches the centre-to-centre links at an end
+  or lies along them and crosses none, so the crossing rule barred no face: an 80 m regular grid
+  gave 0 faces for a 600 m line on a row of centres, 8 for the same line 1 cm off it. The line is
+  now tested a millionth of a link to its left whenever a centre lies on it, which bars the faces
+  on that side; other lines give the same faces as before. A trace inside one cell through its
+  centre now bars the link it crosses, like the same trace beside the centre already did. The
+  `regular` engine is 1.1.1: its `barriers` staircase uses the same rule.
+- A run with `[flow.sinks_sources.recharge.soil]` passes `prepare_solver` again, and its frozen
+  `config.toml` replays (2026-10-19). Since 91de8a43a the frozen configuration spelled out every
+  default, so `recharge.values = 0.0` counted as written beside the soil section and was refused,
+  on the run and on `hmp catalog rerun`. The frozen document now keeps what the run was given
+  (`core/config_kit/written.py`, `to_toml(written_only=True)`): the fields a file, a caller or the
+  run set, the fields a validator derived (`step_unit` from `"7 days"`), a value set under a
+  section the file never wrote, and the tag of each union member. Chosen over comparing to the
+  default inside the validators because `model_fields_set` also decides values, not only
+  refusals: in soil mode the ETP `surface_offset` is read only when the file wrote it, and a copy
+  that spells out every default replays a soil run with the EVT surface 2 m below the drains
+  instead of on them, under the same run hash. A default is no longer frozen: a rerun under a
+  version whose defaults moved takes the new ones, and the run hash, still taken on every default,
+  tells the two runs apart. On the 81 loadable example and Flume configurations, the frozen copy
+  validates back into the same values.
 - A lake cutoff wall lies on the lake shore (2026-10-19): no cell is left between the reservoir
   and the wall. On the synthetic catchment, trace 12 m off the dam shore, the non-lake cells on the
   lake side of the HFB faces of the shore section went from 19 (triangle) and 17 (voronoi) to 0,

@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from pydantic import BaseModel
 
+from hydromodpy.core.config_kit.written import written_payload
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site import site_fingerprint
@@ -169,14 +171,16 @@ def collect_effective_config_snapshot(ctx: WorkflowContext) -> dict:
     """Return the reproducible config snapshot used by the current run.
 
     It is the configuration of the run as written, with the domain section
-    the built domain carries.
+    the built domain carries. A default the file left out stays out: a
+    validator that reads ``model_fields_set`` answers on the snapshot as it
+    did on the file.
     """
-    payload = ctx.cfg.model_dump(mode="json")
+    payload = written_payload(ctx.cfg)
 
     domain = getattr(ctx.setup, "domain", None)
     domain_config = getattr(domain, "config", None)
-    if domain_config is not None and hasattr(domain_config, "model_dump"):
-        payload["domain"] = domain_config.model_dump(mode="json")
+    if isinstance(domain_config, BaseModel):
+        payload["domain"] = written_payload(domain_config)
 
     return payload
 

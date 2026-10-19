@@ -181,6 +181,8 @@ def _mesh_with_gmsh(
             f"unknown triangle algorithm {algorithm!r}; expected one of {sorted(ALGORITHMS)}"
         )
     gmsh.option.setNumber("General.Terminal", 0)
+    # One thread: gmsh meshes differ from run to run when multi-threaded.
+    gmsh.option.setNumber("General.NumThreads", 1)
     gmsh.option.setNumber("Mesh.Algorithm", ALGORITHMS[algorithm])
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
