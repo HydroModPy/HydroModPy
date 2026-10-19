@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import shapely
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 from shapely.strtree import STRtree
 
 if TYPE_CHECKING:
@@ -23,7 +25,16 @@ if TYPE_CHECKING:
 
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
-__all__ = ["BarrierFace", "barrier_faces_from_line", "mesh_footprint", "trace_end_gaps"]
+__all__ = [
+    "BarrierFace",
+    "barrier_faces_from_line",
+    "cutoff_wall_faces",
+    "downstream_of_wall",
+    "lake_shore_faces",
+    "mesh_footprint",
+    "trace_end_gaps",
+    "wall_leaks",
+]
 
 
 @dataclass(frozen=True)
@@ -80,6 +91,133 @@ def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list
         )
         for k in order
     ]
+
+
+def downstream_of_wall(line: LineString, points: np.ndarray) -> np.ndarray:
+    """Whether each point lies across a wall that has the lake on its left.
+
+    The side is read at the nearest point of the wall, against the local
+    direction of the wall there, so a curved wall is followed. A point whose
+    nearest point of the wall is one of its ends lies round the wall, not
+    across it, and a point on the wall is on neither side: neither is downstream.
+    """
+    points = np.asarray(points, dtype=float).reshape(-1, 2)
+    along = shapely.line_locate_point(line, shapely.points(points))
+    step = 1.0e-6 * max(line.length, 1.0)
+    before = shapely.get_coordinates(
+        shapely.line_interpolate_point(line, np.maximum(along - step, 0.0))
+    )
+    after = shapely.get_coordinates(
+        shapely.line_interpolate_point(line, np.minimum(along + step, line.length))
+    )
+    foot = shapely.get_coordinates(shapely.line_interpolate_point(line, along))
+    tangent = after - before
+    offset = points - foot
+    across = tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0] < 0.0
+    tip = 1.0e-9 * max(line.length, 1.0)
+    return across & (along > tip) & (along < line.length - tip)
+
+
+def lake_shore_faces(
+    cell_mesh: PlanarCellMesh, line: LineString, lake_cells: np.ndarray
+) -> np.ndarray:
+    """Interior edges between a lake cell and a cell downstream of the wall.
+
+    *line* is a wall with the lake on its left. Every face of the lake cell set
+    whose outer cell lies downstream of the wall belongs to the wall: barring
+    them all leaves no cell between the reservoir and the wall.
+    """
+    geometry = cell_mesh.geometry
+    lake = np.zeros(geometry.n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    pairs = geometry.edge_cells
+    interior = pairs[:, 1] >= 0
+    first_in = lake[pairs[:, 0]]
+    second_in = np.where(interior, lake[np.maximum(pairs[:, 1], 0)], False)
+    shore = np.flatnonzero(interior & (first_in != second_in))
+    outer = np.where(first_in[shore], pairs[shore, 1], pairs[shore, 0])
+    return shore[downstream_of_wall(line, cell_mesh.centers[outer])]
+
+
+def cutoff_wall_faces(
+    cell_mesh: PlanarCellMesh,
+    line: LineString,
+    lake_cells: np.ndarray,
+    trace: LineString | None = None,
+) -> list[BarrierFace]:
+    """The faces of a lake cutoff wall: its shore faces and the faces it crosses.
+
+    *line* is the wall laid on the shore, lake on its left. Along the shore the
+    wall is every face between a lake cell and a cell downstream of it, so it
+    hugs the lake cell set; on a regular grid that is the staircase around the
+    overlap cells. The faces *line* separates are barred too: they carry the
+    wings and joints, and close the fence where the cells round a corner of
+    the shore. A face between two lake cells is never barred. ``s`` is the
+    position along *trace* (the declared trace, whose vertices carry the
+    depths), *line* when none is given.
+    """
+    geometry = cell_mesh.geometry
+    lake = np.zeros(geometry.n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    edges = set(lake_shore_faces(cell_mesh, line, lake_cells).tolist())
+    lookup = {(a, b): k for k, (a, b) in enumerate(geometry.edge_cells.tolist()) if b >= 0}
+    for face in barrier_faces_from_line(cell_mesh, line):
+        if not (lake[face.cell_a] and lake[face.cell_b]):
+            edges.add(lookup[(face.cell_a, face.cell_b)])
+    if not edges:
+        return []
+    rows = np.array(sorted(edges), dtype=np.int64)
+    station_line = line if trace is None else trace
+    total = float(station_line.length) or 1.0
+    along = shapely.line_locate_point(station_line, shapely.points(geometry.edge_midpoint[rows]))
+    stations = along / total
+    cells = geometry.edge_cells[rows]
+    return [
+        BarrierFace(
+            cell_a=int(cells[k, 0]),
+            cell_b=int(cells[k, 1]),
+            s=float(stations[k]),
+            length=float(geometry.edge_length[rows[k]]),
+        )
+        for k in np.argsort(stations, kind="stable")
+    ]
+
+
+def wall_leaks(
+    cell_mesh: PlanarCellMesh,
+    line: LineString,
+    lake_cells: np.ndarray,
+    barred: list[BarrierFace],
+    *,
+    reach: float,
+) -> np.ndarray:
+    """Lake-side cells the downstream side reaches without crossing a barred face.
+
+    The walk starts from every non-lake cell downstream of *line* (lake on its
+    left) within *reach* [m] of it, and moves through the faces left open
+    between cells within that reach. A cell whose nearest point of the wall is
+    an end of the wall is outside the walk, so the walk never goes round a
+    wing. A closed wall returns no cell.
+    """
+    geometry = cell_mesh.geometry
+    n_cells = geometry.n_cells
+    centres = shapely.points(cell_mesh.centers)
+    along = shapely.line_locate_point(line, centres)
+    tip = 1.0e-9 * max(line.length, 1.0)
+    walk = (shapely.distance(centres, line) <= reach) & (along > tip) & (along < line.length - tip)
+    lake = np.zeros(n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    downstream = downstream_of_wall(line, cell_mesh.centers) & ~lake
+    pairs = geometry.edge_cells[geometry.edge_cells[:, 1] >= 0]
+    keys = pairs[:, 0] * n_cells + pairs[:, 1]
+    closed = np.array([face.cell_a * n_cells + face.cell_b for face in barred], dtype=np.int64)
+    open_pairs = pairs[~np.isin(keys, closed) & walk[pairs[:, 0]] & walk[pairs[:, 1]]]
+    graph = coo_matrix(
+        (np.ones(len(open_pairs)), (open_pairs[:, 0], open_pairs[:, 1])), shape=(n_cells, n_cells)
+    )
+    component = connected_components(graph, directed=False)[1]
+    reached = np.isin(component, component[walk & downstream])
+    return np.flatnonzero(reached & walk & ~downstream)
 
 
 def mesh_footprint(cell_mesh: PlanarCellMesh) -> shapely.Geometry:

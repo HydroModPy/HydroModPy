@@ -29,6 +29,7 @@ import re
 import shutil
 import tarfile
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,6 +44,7 @@ from hydromodpy.core.state.paths import (
     sessions_dir_for,
     to_workspace_relative,
 )
+from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog.storage_paths import run_dirname
 from hydromodpy.results.publication import publication_path, read_publication
 from hydromodpy.results.storage.contract import ALLOWED_RUN_ENTRIES, RUN_MANIFEST_FILENAME
@@ -107,27 +109,36 @@ def run_identity_hash(
 
 
 def _relative_to_project(value: Any, project_root: Path) -> Any:
-    """Return ``value`` with every absolute path under ``project_root`` made relative.
+    """Return ``value`` with every absolute path of the workspace made relative to the project.
 
-    A path outside the project is left as it is: it names the same file from
-    every copy of the project on this machine.
+    A path under the project root becomes relative to it, a path elsewhere in
+    the workspace of the project relative to the project root
+    (``../../data/dem/dem.tif``), so the same configuration hashes alike in
+    two workspaces. A path outside the workspace is left as it is: no copy of
+    the workspace carries it.
     """
+    return _relative_paths(value, project_root, locate_workspace_root(project_root))
+
+
+def _relative_paths(value: Any, project_root: Path, workspace: Path | None) -> Any:
     if isinstance(value, dict):
-        return {key: _relative_to_project(item, project_root) for key, item in value.items()}
+        return {key: _relative_paths(item, project_root, workspace) for key, item in value.items()}
     if isinstance(value, list):
-        return [_relative_to_project(item, project_root) for item in value]
+        return [_relative_paths(item, project_root, workspace) for item in value]
     if isinstance(value, str):
-        return _portable_path_text(value, project_root)
+        return _portable_path_text(value, project_root, workspace)
     return value
 
 
-def _portable_path_text(text: str, project_root: Path) -> str:
-    """Return ``text`` relative to ``project_root`` when it is an absolute path under it."""
+def _portable_path_text(text: str, project_root: Path, workspace: Path | None) -> str:
+    """Return ``text`` relative to ``project_root`` when it is an absolute path of the workspace."""
     if "://" in text or not Path(text).is_absolute():
         return text
     path = Path(text)
     if path.is_relative_to(project_root):
         return path.relative_to(project_root).as_posix()
+    if workspace is not None and path.is_relative_to(workspace):
+        return Path(os.path.relpath(path, project_root)).as_posix()
     return text
 
 
@@ -190,7 +201,7 @@ def input_file_digests(config: Any) -> dict[str, str]:
             digest = f"unreadable:{uuid.uuid4().hex}"
         named = str(entry.original_path)
         if root is not None:
-            named = _portable_path_text(named, Path(root))
+            named = _portable_path_text(named, Path(root), locate_workspace_root(root))
         digests[f"{entry.role}:{named}"] = digest
     return digests
 
@@ -450,7 +461,13 @@ def rename_case(project_root: Path, rel_dir: str, new_name: str) -> tuple[str, .
 _IMPORT_STAGING_PREFIX = "import-"
 
 
-def import_publication(project_root: Path, source: Path, *, name: str | None = None) -> str:
+def import_publication(
+    project_root: Path,
+    source: Path,
+    *,
+    name: str | None = None,
+    admit: Callable[[Path], None] | None = None,
+) -> str:
     """Bring a run published by ``hmp publish`` into the project; return its ``rel_dir``.
 
     ``source`` is the published directory or its tar. Every file of the copy
@@ -461,6 +478,10 @@ def import_publication(project_root: Path, source: Path, *, name: str | None = N
     Entries a run directory does not carry (``PUBLICATION.json``, the crate)
     stay out of it. The checked copy enters ``runs/`` by one rename, so a
     reader never sees part of it.
+
+    *admit* is called with the checked copy before anything enters
+    ``runs/``: the catalog layer installs the inputs of the copy there, and a
+    refusal it raises leaves the project as it was.
 
     Raises :class:`~hydromodpy.core.exceptions.ImportConflictError` when a
     run of the project already carries the published ``sim_id``, and
@@ -475,6 +496,11 @@ def import_publication(project_root: Path, source: Path, *, name: str | None = N
     try:
         copy = _stage_copy(origin, staging)
         publication = read_publication(copy)
+        if publication.kind == "project" and not publication.members:
+            raise ValueError(
+                f"{origin} is a project package written by hmp project export; install it "
+                "with hmp project import."
+            )
         if publication.kind != "run":
             raise ValueError(
                 f"{origin} is a {publication.kind} copy; only a run is imported. "
@@ -495,6 +521,8 @@ def import_publication(project_root: Path, source: Path, *, name: str | None = N
                 f"Run {sim_id} is already in this project, as {holder}. "
                 "Trash it first to import the copy again."
             )
+        if admit is not None:
+            admit(copy)
         for entry in sorted(copy.iterdir()):
             if entry.name not in ALLOWED_RUN_ENTRIES:
                 logger.info("%s is not a run entry; left out of the import", entry.name)

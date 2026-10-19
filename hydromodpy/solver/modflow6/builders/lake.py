@@ -50,7 +50,6 @@ from hydromodpy.solver.modflow6.builders._lake_definitions import (
 from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _abacus_stage_sarea,
     _abacus_volume,
-    _cell_behind_wall,
     _cell_faces,
     _drop_cutoff_wall_downstream_cells,
     _drop_interior_rings,
@@ -58,7 +57,6 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _first_active_layer_below,
     _point_to_segment_distance,
     _resolve_shared_lake_cells,
-    _wall_endpoints,
 )
 from hydromodpy.solver.modflow6.builders._lake_outlets import (
     _downstream_spillway_ref,
@@ -87,6 +85,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
 from hydromodpy.spatial.mesh.ops.family_interior import interior_cells, polygon_overlap
+from hydromodpy.spatial.mesh.ops.flow_barrier import cutoff_wall_faces
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -422,7 +421,7 @@ def build_lake_connectiondata(
     occupied_layers: int = 1,
     occupied_layers_by_cell: Mapping[int, int] | None = None,
     dynamic_area: bool = False,
-    cutoff_wall_line: object | None = None,
+    sealed_faces: Collection[tuple[int, int]] | None = None,
     bank_seepage: bool = True,
 ) -> list[list[Any]]:
     """Build the CONNECTIONDATA rows for one lake on a DISV grid.
@@ -440,7 +439,9 @@ def build_lake_connectiondata(
       an active, non-lake neighbour at that layer (bank seepage).
 
     ``solver_mesh`` must already carry the lake idomain mask so that
-    ``idomain == 1`` identifies active non-lake neighbours.
+    ``idomain == 1`` identifies active non-lake neighbours. ``sealed_faces``
+    holds the ``(cell_a, cell_b)`` pairs, ``cell_a < cell_b``, a cutoff wall
+    bars: no HORIZONTAL connection crosses them.
     """
     if float(bedleak) < _MIN_BEDLEAK:
         raise ValueError(f"flow.sinks_sources.lakes bedleak must be >= 0, got {bedleak}.")
@@ -464,24 +465,15 @@ def build_lake_connectiondata(
 
     lake_cells = sorted(lake_set)
 
-    # Dam seal: cut every HORIZONTAL bank connection to a cell BEHIND the cutoff
-    # wall (across the dam from the lake body), so the lake never seeps sideways
-    # past the dam. This is a LAK concern, independent of the HFB: the HFB is an
-    # optional GWF-GWF barrier that does not throttle LAK-GWF flow, so the seal
-    # lives here and uses only the wall trace. Vertical (bed) connections are kept.
-    _wall = None
-    if cutoff_wall_line is not None and not getattr(cutoff_wall_line, "is_empty", True):
-        _wx = float(np.mean([centroids[c, 0] for c in lake_cells]))
-        _wy = float(np.mean([centroids[c, 1] for c in lake_cells]))
-        _wall = (_wall_endpoints(cutoff_wall_line), (_wx, _wy))
+    # Dam seal: cut every HORIZONTAL bank connection across a face the cutoff
+    # wall bars, so the lake never seeps sideways past the dam. This is a LAK
+    # concern, independent of the HFB: the HFB is a GWF-GWF barrier that does not
+    # throttle LAK-GWF flow, so the seal lives here, on the same faces as the HFB.
+    # Vertical (bed) connections are kept.
+    sealed_pairs = set(sealed_faces or ())
 
-    def _neighbour_behind_wall(neighbour: int) -> bool:
-        if _wall is None:
-            return False
-        (p0, p1), (bx, by) = _wall
-        return _cell_behind_wall(
-            float(centroids[neighbour, 0]), float(centroids[neighbour, 1]), bx, by, p0, p1
-        )
+    def _neighbour_behind_wall(cid: int, neighbour: int) -> bool:
+        return (min(cid, neighbour), max(cid, neighbour)) in sealed_pairs
 
     sealed = [0]
 
@@ -504,7 +496,7 @@ def build_lake_connectiondata(
                     continue  # never connect a lake to another lake cell
                 if int(idomain[lay, neighbour]) != 1:
                     continue  # neighbour inactive at this layer
-                if _neighbour_behind_wall(neighbour):
+                if _neighbour_behind_wall(cid, neighbour):
                     sealed[0] += 1
                     continue  # seal: no bank seepage across the dam
                 connlen = _point_to_segment_distance(
@@ -610,6 +602,23 @@ def build_lake_connectiondata(
             "lake cell. Check the lake footprint and the active domain."
         )
     return rows
+
+
+def cutoff_wall_pairs(
+    definition: Mapping[str, Any], lake_cell_ids: Sequence[int], solver_mesh: SolverMesh
+) -> set[tuple[int, int]]:
+    """The ``(cell_a, cell_b)`` pairs a lake's cutoff wall bars, none without a wall.
+
+    The faces are those of the HFB (:func:`cutoff_wall_faces`), so the LAK seal
+    and the HFB close the same faces.
+    """
+    line = definition.get("cutoff_wall_line")
+    if line is None or getattr(line, "is_empty", True):
+        return set()
+    faces = cutoff_wall_faces(
+        solver_mesh.cell_mesh, line, np.asarray(lake_cell_ids, dtype=np.int64)
+    )
+    return {(face.cell_a, face.cell_b) for face in faces}
 
 
 def build_lake_table(
@@ -833,7 +842,7 @@ def build_lak_package_args(
             occupied_layers=lake_layers,
             occupied_layers_by_cell=(occupied_layers_by_cell or {}).get(lake_id),
             dynamic_area=dynamic_area,
-            cutoff_wall_line=definition.get("cutoff_wall_line"),
+            sealed_faces=cutoff_wall_pairs(definition, cell_ids, solver_mesh),
             bank_seepage=bank_seepage,
         )
         _refuse_chd_connections(model, lake_id=str(lake_id), rows=rows)

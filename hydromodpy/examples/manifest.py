@@ -3,7 +3,11 @@
 ``catalog.toml`` sits next to this module, so ``hmp example list`` answers with
 no network and cannot promise what the installed version does not know about.
 One entry per example; every file it needs is listed with its size and its
-sha256, which is also the key it is cached under.
+sha256, which is also the key it is cached under. A file is a
+:class:`~hydromodpy.core.payload.PayloadFile` and a station row a
+:class:`~hydromodpy.core.payload.PayloadStation`: the format of the install
+index a published run or an exported project carries, plus the
+``repo_path`` the file is fetched from.
 
 The catalog is generated, never hand-edited: see :mod:`hydromodpy.examples.generate`
 and ``hmp dev examples manifest``.
@@ -14,6 +18,8 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+
+from hydromodpy.core.payload import PayloadFile, PayloadStation
 
 CATALOG_FILENAME = "catalog.toml"
 SCHEMA_VERSION = 1
@@ -32,38 +38,6 @@ _HEADER = """\
 
 
 @dataclass(frozen=True, slots=True)
-class ExampleFile:
-    """One file an example needs, addressed by its content hash.
-
-    ``repo_path`` is where it lives in the HydroModPy repository, ``dest``
-    where it lands under the workspace root.
-    """
-
-    repo_path: str
-    dest: str
-    size: int
-    sha256: str
-
-
-@dataclass(frozen=True, slots=True)
-class ExampleStation:
-    """One row an example needs in a station registry, ``<var>_custom_LOC.csv``.
-
-    The registry is shared by every project of the workspace, so the row is
-    merged into it instead of shipping a file that would replace it.
-    ``row`` keeps the registry's column order, values as the CSV writes them.
-    """
-
-    dest: str
-    row: tuple[tuple[str, str], ...]
-
-    @property
-    def id(self) -> str:
-        """The station id, the key a registry row is matched on."""
-        return dict(self.row)["id"]
-
-
-@dataclass(frozen=True, slots=True)
 class ExampleEntry:
     """One catalogued example: what it is, and every file it needs."""
 
@@ -79,15 +53,15 @@ class ExampleEntry:
     """How long its runs take, as text."""
     entry_config: str
     """The TOML file to run first, relative to the project folder."""
-    files: tuple[ExampleFile, ...]
+    files: tuple[PayloadFile, ...]
     """Authored files: the TOML configurations, scripts and README."""
-    data: tuple[ExampleFile, ...]
+    data: tuple[PayloadFile, ...]
     """Input data files, installed under ``<workspace>/data/<variable>/``."""
-    stations: tuple[ExampleStation, ...] = ()
+    stations: tuple[PayloadStation, ...] = ()
     """Rows the example adds to the station registries of the workspace."""
 
     @property
-    def payload(self) -> tuple[ExampleFile, ...]:
+    def payload(self) -> tuple[PayloadFile, ...]:
         """Every file the example needs, authored files first."""
         return self.files + self.data
 
@@ -176,8 +150,8 @@ def _entry_from_toml(raw: dict) -> ExampleEntry:
     )
 
 
-def _file_from_toml(raw: dict) -> ExampleFile:
-    return ExampleFile(
+def _file_from_toml(raw: dict) -> PayloadFile:
+    return PayloadFile(
         repo_path=str(raw["repo_path"]),
         dest=str(raw["dest"]),
         size=int(raw["size"]),
@@ -185,8 +159,8 @@ def _file_from_toml(raw: dict) -> ExampleFile:
     )
 
 
-def _station_from_toml(raw: dict) -> ExampleStation:
-    return ExampleStation(
+def _station_from_toml(raw: dict) -> PayloadStation:
+    return PayloadStation(
         dest=str(raw["dest"]),
         row=tuple((str(key), str(value)) for key, value in raw["row"].items()),
     )

@@ -41,6 +41,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_stream_boundary_chd_spd,
     build_well_stress_period_data,
     carve_lake_bed,
+    check_cutoff_wall_seal,
     collapse_identical_periods,
     empty_recharge_aux,
     evt_list_spd_to_array_payload,
@@ -1348,6 +1349,7 @@ def run_pre_processing(  # noqa: PLR0915
     # LAK -> SFR, DRN -> SFR) ride MVR, which is GWF-scoped and MUST be built last.
     all_mover_rows: list[list[object]] = list(drainage_mover_rows)
     n_lakes_built = 0
+    lake_connections: list[list[object]] = []
     if lake_cell_ids_by_lake:
         lak_args = build_lak_package_args(
             model,
@@ -1369,6 +1371,7 @@ def run_pre_processing(  # noqa: PLR0915
             lake_obs_meta = lak_args.pop("lake_obs_meta", None)
             ts_specs = lak_args.pop("ts_specs", None)
             n_lakes_built = int(lak_args["nlakes"])
+            lake_connections = lak_args["connectiondata"]
             lak = flopy.mf6.ModflowGwflak(model.gwf, pname="LAK", **lak_args)
             # Non-constant forcings routed to an external TS6 file: attach right
             # after construction so the series names are registered before write.
@@ -1410,7 +1413,8 @@ def run_pre_processing(  # noqa: PLR0915
     # (lake dam cutoff walls + general flow_barriers). Static (period 0), built
     # after LAK and after NPF (it scales the NPF horizontal conductance) so the
     # under-dam seepage dives below the wall. No MVR coupling.
-    hfb_rows = resolve_flow_barrier_hfb_rows(model, solver_mesh)
+    hfb_rows = resolve_flow_barrier_hfb_rows(model, solver_mesh, lake_cell_ids_by_lake)
+    check_cutoff_wall_seal(model, solver_mesh, lake_cell_ids_by_lake, lake_connections, hfb_rows)
     if hfb_rows:
         n_faces = len({(row[0][1], row[1][1]) for row in hfb_rows})
         logger.info(

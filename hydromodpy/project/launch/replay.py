@@ -2,35 +2,48 @@
 
 Why
 ---
-``hmp publish <run> --with inputs`` copies a run with the bytes of every
-file it read under ``inputs/<sha256><suffix>``. The frozen ``config.toml``
-of the copy names those files by paths of the machine that ran it, which the
-publication redacts. A replay elsewhere, without that workspace and without
-its data cache, finds each file by content instead: every input the seal
-records (``manifest.json``, ``inputs``) has a role and a digest; the field of
-the configuration marked with that role (:class:`~hydromodpy.core.tracking.
-input_file.InputFile`) is pointed at ``inputs/<sha256><suffix>`` (a declared
-folder at ``inputs/<sha256>/``), after the digest of those bytes is checked. ``--frozen`` on a copy means exactly this
-check: every input of the seal is in ``inputs/`` with the digest the run
-sealed, or the replay is refused before anything runs.
+``hmp publish <run> --with inputs`` copies a run with every file it read,
+stored by content under ``inputs/``, and the install index ``INSTALL.toml``
+that says where each file sits in a workspace (:mod:`hydromodpy.core.payload`).
+A replay elsewhere, without that workspace and without its data cache, finds
+each input of the seal by its role: every input the seal records
+(``manifest.json``, ``inputs``) has a role and a path relative to the
+workspace, and the field of the configuration marked with that role
+(:class:`~hydromodpy.core.tracking.input_file.InputFile`) is pointed at the
+bytes of the copy. A declared file is read in ``inputs/`` where it is. A
+declared folder is rebuilt under a work directory from the files of the index
+that sit in it, with the station rows its registries need: the copy never
+carries a folder whole.
+
+``--frozen`` on a copy means: every file of the index is in ``inputs/`` with
+its digest, or the replay is refused before anything runs. A file a provider
+delivered (Hub'Eau, SIM2, BD Topage) is refused too: a replay from the copy
+reads only user files, and ``hmp catalog import`` installs the others with
+their data cache rows.
 """
 
 from __future__ import annotations
 
-import types
-import typing
+import os
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
-from pydantic.fields import FieldInfo
-
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.tracking.input_file import InputFile
+from hydromodpy.core.payload import (
+    INSTALL_FILENAME,
+    InstallIndex,
+    PayloadFile,
+    read_index,
+    stored_name,
+)
+from hydromodpy.core.payload.install import plan_stations, sha256_of, write_stations
+from hydromodpy.core.tracking import rewrite_input_paths
 from hydromodpy.results.export.publish import INPUTS_DIRNAME
 from hydromodpy.results.storage.contract import PUBLICATION_FILENAME, RUN_MANIFEST_FILENAME
-from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
+
+_USER_PROVIDERS = frozenset({"custom", "constant", "synthetic"})
 
 
 class ReplayInputError(ConfigError):
@@ -45,140 +58,137 @@ def published_copy_of(config_path: Path) -> Path | None:
     return None
 
 
-def _sha256(path: Path) -> str:
-    """Return the digest of a file, or of a directory tree as the seal hashes it."""
-    if path.is_dir():
-        return sha256_directory(path)
-    return sha256_streaming(path)
+def checked_index(copy_dir: Path) -> InstallIndex:
+    """Return the install index of a copy once every file it lists is in ``inputs/``.
+
+    Raises :class:`ReplayInputError` for a copy without an index, a file
+    missing from ``inputs/`` or bytes with another digest.
+    """
+    copy = Path(copy_dir)
+    if not (copy / INSTALL_FILENAME).is_file():
+        raise ReplayInputError(
+            f"--frozen: {copy.name} carries no {INSTALL_FILENAME}; publish the run with "
+            "--with inputs to replay it alone."
+        )
+    index = read_index(copy)
+    folder = copy / INPUTS_DIRNAME
+    for item in index.files:
+        stored = folder / stored_name(item.sha256, item.dest)
+        if not stored.is_file():
+            raise ReplayInputError(
+                f"--frozen: {item.dest} ({item.sha256[:12]}) is not in {folder}; publish the "
+                "run with --with inputs to replay it alone."
+            )
+        if sha256_of(stored) != item.sha256:
+            raise ReplayInputError(
+                f"--frozen: {stored.name} does not have the digest of {item.dest}."
+            )
+    return index
 
 
-def input_files_by_role(copy_dir: Path) -> dict[str, Path]:
-    """Return the file of ``inputs/`` that holds each input the seal records, by role.
+def input_files_by_role(copy_dir: Path, workdir: Path) -> dict[str, Path]:
+    """Return the file or folder that holds each input the seal records, by role.
 
-    Raises :class:`ReplayInputError` when an input is missing or its bytes
-    do not have the digest the run sealed.
+    A declared file is its stored bytes under ``inputs/``. A declared folder
+    is rebuilt under *workdir*, at the path the seal records, from the files
+    of the index that sit in it and the station rows of its registries.
     """
     from hydromodpy.results.manifest import read_manifest
+    from hydromodpy.results.publication import read_publication
 
-    manifest = read_manifest(copy_dir)
-    folder = Path(copy_dir) / INPUTS_DIRNAME
+    copy = Path(copy_dir)
+    index = checked_index(copy)
+    _refuse_delivered_inputs(copy, index)
+    project = read_publication(copy).source.project
+    by_path = {_workspace_path(item, project): item for item in index.files}
     found: dict[str, Path] = {}
-    for entry in manifest.get("inputs") or ():
-        role, sha256 = entry.get("role"), entry.get("sha256")
-        if not role or not sha256:
+    for entry in read_manifest(copy).get("inputs") or ():
+        role, path = entry.get("role"), entry.get("path")
+        if not role or not path:
             continue
-        matches = sorted(folder.glob(f"{sha256}*")) if folder.is_dir() else []
-        if not matches:
+        item = by_path.get(str(path))
+        if item is not None:
+            found[str(role)] = copy / INPUTS_DIRNAME / stored_name(item.sha256, item.dest)
+            continue
+        members = [(key, member) for key, member in by_path.items() if key.startswith(f"{path}/")]
+        if not members:
             raise ReplayInputError(
-                f"--frozen: the input {role!r} ({sha256[:12]}) is not in {folder}; publish the run "
-                "with --with inputs to replay it alone."
+                f"--frozen: the input {role!r} ({path}) is not in {INSTALL_FILENAME}; publish "
+                "the run with --with inputs to replay it alone."
             )
-        if _sha256(matches[0]) != sha256:
-            raise ReplayInputError(
-                f"--frozen: {matches[0].name} does not have the digest the run sealed for {role!r}."
-            )
-        found[str(role)] = matches[0]
+        found[str(role)] = _rebuilt_folder(copy, index, workdir, str(path), members)
     return found
 
 
-def _input_role(field: FieldInfo) -> str | None:
-    for meta in field.metadata:
-        if isinstance(meta, InputFile):
-            return meta.role
-    return None
+def _workspace_path(item: PayloadFile, project: str) -> str:
+    """Return the path of an index file relative to the workspace it was published from."""
+    return item.dest if item.root == "workspace" else f"projects/{project}/{item.dest}"
 
 
-def _models_of(annotation: Any) -> list[type[BaseModel]]:
-    """Return the model classes an annotation may hold: unions and ``Annotated`` unwrapped."""
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return [annotation]
-    origin = typing.get_origin(annotation)
-    if origin is typing.Annotated:
-        return _models_of(typing.get_args(annotation)[0])
-    if origin in (list, tuple):
-        out_items: list[type[BaseModel]] = []
-        for arg in typing.get_args(annotation):
-            out_items.extend(_models_of(arg))
-        return out_items
-    if origin in (typing.Union, types.UnionType):
-        out: list[type[BaseModel]] = []
-        for arg in typing.get_args(annotation):
-            out.extend(_models_of(arg))
-        return out
-    return []
+def _rebuilt_folder(
+    copy: Path,
+    index: InstallIndex,
+    workdir: Path,
+    path: str,
+    members: list[tuple[str, PayloadFile]],
+) -> Path:
+    """Rebuild one declared folder under *workdir* from the files of the index in it."""
+    for key, item in members:
+        target = workdir / key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        stored = copy / INPUTS_DIRNAME / stored_name(item.sha256, item.dest)
+        try:
+            os.link(stored, target)
+        except OSError:
+            shutil.copyfile(stored, target)
+    rows = [station for station in index.stations if station.dest.startswith(f"{path}/")]
+    write_stations(plan_stations(workdir, rows))
+    return workdir / path
 
 
-def _point_inputs(
-    payload: dict[str, Any], models: list[type[BaseModel]], files: Mapping[str, Path]
-) -> None:
-    """Point every field of *payload* marked with a role of *files* at its file, in place."""
-    for key, value in list(payload.items()):
-        for model in models:
-            field = model.model_fields.get(key)
-            if field is None:
-                continue
-            role = _input_role(field)
-            if role is not None and role in files and isinstance(value, str):
-                payload[key] = str(files[role])
-            elif isinstance(value, dict):
-                _point_inputs(value, _models_of(field.annotation), files)
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        _point_inputs(item, _models_of(field.annotation), files)
-
-
-def _refuse_fetched_inputs(copy_dir: Path, files: Mapping[str, Path]) -> None:
-    """Refuse a copy fed by a loaded input the files of ``inputs/`` do not hold.
-
-    A user file (provider ``custom``) is read again from the declared file or
-    folder the replay points at ``inputs/``: its digest must be one of a
-    declared file or of a file inside a declared folder. An input a provider
-    delivered is fetched again by a replay, which ``--frozen`` cannot promise.
-    """
-    from hydromodpy.results.record import read_inputs
-    from hydromodpy.results.storage.contract import RUN_INPUTS_FILENAME
-
-    if not (Path(copy_dir) / RUN_INPUTS_FILENAME).is_file():
-        return
-    held: set[str] = set()
-    for path in files.values():
-        members = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
-        held.update(sha256_streaming(member) for member in members)
-    fetched = sorted(
+def _refuse_delivered_inputs(copy: Path, index: InstallIndex) -> None:
+    """Refuse a copy fed by a file a provider delivered: a replay from the copy reads user files."""
+    delivered = sorted(
         {
-            str(entry.provider)
-            for entry in read_inputs(copy_dir).inputs
-            if entry.provider != "custom" or entry.sha256 not in held
+            str(item.provider)
+            for item in index.files
+            if item.provider not in (None, *_USER_PROVIDERS)
         }
     )
-    if fetched:
+    if delivered:
         raise ReplayInputError(
-            f"--frozen: {Path(copy_dir).name} was fed by {', '.join(fetched)}, inputs a replay "
-            "does not read from inputs/ yet; replay it without --frozen to fetch them again."
+            f"--frozen: {copy.name} was fed by {', '.join(delivered)}, files a replay from the "
+            "copy does not read: it reads user files only. Import the copy with "
+            f"'hmp catalog import {copy} -w <project>' to install them with their data cache "
+            "rows, then 'hmp catalog rerun <run>'."
         )
 
 
-def replay_payload(copy_dir: Path, payload: Mapping[str, Any]) -> dict[str, Any]:
+def replay_payload(copy_dir: Path, payload: Mapping[str, Any], *, workdir: Path) -> dict[str, Any]:
     """Return *payload* with every recorded input pointed at the bytes of the copy.
 
-    Raises :class:`ReplayInputError` when an input of the seal is missing
-    from ``inputs/`` or has another digest.
+    Declared folders are rebuilt under *workdir*, which the caller removes
+    after the run. Raises :class:`ReplayInputError` when an input of the seal
+    is missing from the copy or has another digest.
     """
     import copy
 
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
-    files = input_files_by_role(copy_dir)
-    _refuse_fetched_inputs(copy_dir, files)
+    files = input_files_by_role(copy_dir, workdir)
     document = copy.deepcopy(dict(payload))
     if files:
-        _point_inputs(document, [HydroModPyConfig], files)
+        rewrite_input_paths(
+            document,
+            HydroModPyConfig,
+            lambda marker, value: str(files[marker.role]) if marker.role in files else value,
+        )
     return document
 
 
 __all__ = [
     "ReplayInputError",
+    "checked_index",
     "input_files_by_role",
     "published_copy_of",
     "replay_payload",

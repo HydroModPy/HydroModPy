@@ -322,19 +322,29 @@ def test_modflowgwflak_builds_with_expected_nlakeconn_and_laktab(tmp_path: Path)
     assert any(obs[1] == "stage" for obs in obs_continuous[obs_csv])
 
 
-def test_cutoff_wall_seals_horizontal_connections_behind_the_dam() -> None:
-    # A cutoff wall (dam) placed just "south" of the lake seals every bank-seepage
-    # HORIZONTAL connection to cells behind it, independent of any HFB, while the
-    # VERTICAL (bed) connections are untouched.
+def _south_wall(mesh: SolverMesh) -> tuple[set[tuple[int, int]], float]:
+    """The faces a wall on the south shore of the lake bars, and the shore ordinate."""
     from shapely.geometry import LineString
 
+    from hydromodpy.solver.modflow6.builders.lake import cutoff_wall_pairs
+
+    cen = mesh.cell_centroids()
+    body = cen[_LAKE_CELLS].mean(axis=0)
+    y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.5
+    # West to east, so the lake lies on the left of the wall.
+    wall = LineString([(float(body[0]) - 5.0, y_wall), (float(body[0]) + 5.0, y_wall)])
+    return cutoff_wall_pairs({"cutoff_wall_line": wall}, _LAKE_CELLS, mesh), y_wall
+
+
+def test_cutoff_wall_seals_horizontal_connections_behind_the_dam() -> None:
+    # A cutoff wall (dam) on the "south" shore of the lake seals every bank-seepage
+    # HORIZONTAL connection to cells behind it, independent of any HFB, while the
+    # VERTICAL (bed) connections are untouched.
     from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
 
     mesh = _masked_grid()
     cen = mesh.cell_centroids()
-    body = cen[_LAKE_CELLS].mean(axis=0)
-    y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.01
-    wall = LineString([(float(body[0]) - 5.0, y_wall), (float(body[0]) + 5.0, y_wall)])
+    sealed_faces, y_wall = _south_wall(mesh)
 
     sealed = build_lake_connectiondata(
         None,
@@ -342,7 +352,7 @@ def test_cutoff_wall_seals_horizontal_connections_behind_the_dam() -> None:
         lake_cell_ids=_LAKE_CELLS,
         bedleak=0.5,
         solver_mesh=mesh,
-        cutoff_wall_line=wall,
+        sealed_faces=sealed_faces,
     )
     plain = _rows()
 
@@ -451,13 +461,8 @@ def test_cutoff_wall_seal_warns_with_the_sealed_connection_count(caplog) -> None
     # HFB-3: the implicit seal is a WARNING that names the count of sealed banks.
     import logging
 
-    from shapely.geometry import LineString
-
     mesh = _masked_grid()
-    cen = mesh.cell_centroids()
-    body = cen[_LAKE_CELLS].mean(axis=0)
-    y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.01
-    wall = LineString([(float(body[0]) - 5.0, y_wall), (float(body[0]) + 5.0, y_wall)])
+    sealed_faces, _ = _south_wall(mesh)
     model = SimpleNamespace()
     with caplog.at_level(logging.WARNING):
         build_lake_connectiondata(
@@ -466,7 +471,7 @@ def test_cutoff_wall_seal_warns_with_the_sealed_connection_count(caplog) -> None
             lake_cell_ids=_LAKE_CELLS,
             bedleak=0.5,
             solver_mesh=mesh,
-            cutoff_wall_line=wall,
+            sealed_faces=sealed_faces,
         )
     n_sealed = model._lake_sealed_bank_connections[0]
     assert n_sealed > 0

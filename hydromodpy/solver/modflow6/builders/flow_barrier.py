@@ -9,23 +9,31 @@ is a near-impermeable wall (a dam cutoff wall / grout curtain).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
+import shapely
+from shapely.geometry import LineString, Point
 
+from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
 from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
 from hydromodpy.spatial.mesh.ops.flow_barrier import (
+    BarrierFace,
     barrier_faces_from_line,
+    cutoff_wall_faces,
+    downstream_of_wall,
+    lake_shore_faces,
     mesh_footprint,
     trace_end_gaps,
+    wall_leaks,
 )
 
 if TYPE_CHECKING:
-    from shapely.geometry import LineString
-
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
 
@@ -92,6 +100,59 @@ def _trace_weight(faces: list, trace_length: float) -> tuple[float, float]:
     return chain, weight
 
 
+def _barrier_band(
+    face: BarrierFace,
+    top: np.ndarray,
+    depths: list[float] | None,
+    stations: np.ndarray,
+    crest_elevation: float | None,
+    base_elevation: float | None,
+) -> tuple[float, float]:
+    """Top and foot elevations of the barrier at one face."""
+    if crest_elevation is None:
+        barrier_top = max(float(top[face.cell_a]), float(top[face.cell_b]))
+    else:
+        barrier_top = float(crest_elevation)
+    if base_elevation is not None:
+        return barrier_top, float(base_elevation)
+    return barrier_top, barrier_top - _interp_depth(face.s, depths, stations)
+
+
+def _face_layers(
+    face: BarrierFace,
+    band: tuple[float, float],
+    top: np.ndarray,
+    botm: np.ndarray,
+    inactive: np.ndarray,
+    nlay: int,
+) -> tuple[list[int], int, bool]:
+    """Layers barred at one face, rows dropped over an inactive cell, band clamped.
+
+    A layer is barred when its interval cuts the band at either cell and both
+    cells are active there. When the band misses the aquifer entirely at this
+    face (an absolute band over a terrain-following bottom), the nearest active
+    layer is barred so the wall stays a continuous fence with no leak window.
+    """
+    barrier_top, barrier_bottom = band
+    ca, cb = int(face.cell_a), int(face.cell_b)
+    layers: list[int] = []
+    dropped = 0
+    overlaps = False
+    for lay in range(nlay):
+        intervals = (_layer_interval(lay, cell, top, botm) for cell in (ca, cb))
+        if not any(bottom < barrier_top and above > barrier_bottom for bottom, above in intervals):
+            continue
+        overlaps = True
+        if inactive[lay, ca] or inactive[lay, cb]:
+            dropped += 1
+            continue
+        layers.append(lay)
+    if overlaps:
+        return layers, dropped, False
+    lay = _nearest_active_layer_to_band(ca, cb, barrier_bottom, top, inactive, nlay)
+    return ([] if lay is None else [lay]), 0, lay is not None
+
+
 def build_flow_barrier_hfb(
     solver_mesh: SolverMesh,
     *,
@@ -102,6 +163,8 @@ def build_flow_barrier_hfb(
     base_elevation: float | None = None,
     label: str = "flow barrier",
     qa: dict | None = None,
+    faces: list[BarrierFace] | None = None,
+    trace: LineString | None = None,
 ) -> list[list]:
     """Return HFB rows for a barrier line, over a depth or an absolute elevation band.
 
@@ -119,14 +182,19 @@ def build_flow_barrier_hfb(
     trace lengths, the face weight, the open length at each end and the
     effective conductance per layer. Raises when the trace crosses no interior
     face, and warns when every row was dropped for inactivity.
+
+    ``faces`` replaces the faces *line* crosses (a lake cutoff wall passes its
+    shore faces); their ``s`` is then the position along ``trace``, the declared
+    trace whose vertices carry the depths (*line* when ``trace`` is not given).
     """
-    faces = barrier_faces_from_line(solver_mesh.cell_mesh, line)
+    if faces is None:
+        faces = barrier_faces_from_line(solver_mesh.cell_mesh, line)
     if not faces:
         raise ValueError(
             f"{label}: the trace crosses no interior mesh face. Check the trace CRS and "
             "coordinates and that it lies within the model extent and off the mesh edges."
         )
-    stations = _vertex_stations(line)
+    stations = _vertex_stations(line if trace is None else trace)
     if base_elevation is None:
         n_vertices = int(stations.size)
         if depths is None or len(depths) not in (1, n_vertices):
@@ -162,39 +230,12 @@ def build_flow_barrier_hfb(
         )
 
     for face in faces:
-        ca = int(face.cell_a)
-        cb = int(face.cell_b)
-        if crest_elevation is None:
-            barrier_top = max(float(top[ca]), float(top[cb]))
-        else:
-            barrier_top = float(crest_elevation)
-        if base_elevation is not None:
-            barrier_bottom = float(base_elevation)
-        else:
-            barrier_bottom = barrier_top - _interp_depth(face.s, depths, stations)
-        band_overlaps = False
-        for lay in range(nlay):
-            cuts = False
-            for cell in (ca, cb):
-                bottom, layer_top = _layer_interval(lay, cell, top, botm)
-                if bottom < barrier_top and layer_top > barrier_bottom:
-                    cuts = True
-            if not cuts:
-                continue
-            band_overlaps = True
-            if inactive[lay, ca] or inactive[lay, cb]:
-                n_dropped += 1
-                continue
-            _emit(lay, ca, cb, float(face.length))
-        if not band_overlaps:
-            # The absolute band misses the aquifer entirely at this face (its bottom sits
-            # above the crest, or its top below the foot -- the model bottom follows the
-            # terrain, so a fixed band leaves the crest cells uncovered). Seal the nearest
-            # active layer so the cutoff wall stays a continuous fence with no leak window.
-            lay = _nearest_active_layer_to_band(ca, cb, barrier_bottom, top, inactive, nlay)
-            if lay is not None:
-                _emit(lay, ca, cb, float(face.length))
-                n_clamped += 1
+        band = _barrier_band(face, top, depths, stations, crest_elevation, base_elevation)
+        layers, dropped, clamped = _face_layers(face, band, top, botm, inactive, nlay)
+        n_dropped += dropped
+        n_clamped += int(clamped)
+        for lay in layers:
+            _emit(lay, int(face.cell_a), int(face.cell_b), float(face.length))
     if n_dropped:
         logger.info("%s: %d HFB row(s) dropped over inactive cells.", label, n_dropped)
     if n_clamped:
@@ -266,7 +307,14 @@ def _xt3d_active(model: object, solver_mesh: SolverMesh) -> bool:
 
 
 def _rows_for_barrier(
-    model: object, solver_mesh: SolverMesh, cfg: object, line: LineString, label: str
+    model: object,
+    solver_mesh: SolverMesh,
+    cfg: object,
+    line: LineString,
+    label: str,
+    *,
+    faces: list[BarrierFace] | None = None,
+    trace: LineString | None = None,
 ) -> list[list]:
     """HFB rows for one FlowBarrierConfig and its resolved shapely trace."""
     crest = getattr(cfg, "crest_elevation", None)
@@ -286,17 +334,49 @@ def _rows_for_barrier(
         crest_elevation=None if crest is None else float(crest),
         base_elevation=None if base is None else float(base),
         label=label,
+        faces=faces,
+        trace=trace,
     )
 
 
-def resolve_flow_barrier_hfb_rows(model: object, solver_mesh: SolverMesh) -> list[list]:
+def _wall_trace(payload: object, line: LineString) -> LineString:
+    """The declared trace of a lake wall, whose vertices carry the depths."""
+    trace = _barrier_attr(payload, "cutoff_wall_trace")
+    return line if trace is None else trace
+
+
+def lake_wall_faces(
+    solver_mesh: SolverMesh, payload: object, lake_cells: Sequence[int]
+) -> list[BarrierFace]:
+    """The faces of a lake cutoff wall bound on *payload*, positioned along its trace.
+
+    With the lake cells, the wall hugs the lake cell set along the shore
+    (:func:`cutoff_wall_faces`); without them (the lake is not modelled) it
+    takes the faces the wall line crosses.
+    """
+    line = _barrier_attr(payload, "cutoff_wall_line")
+    return cutoff_wall_faces(
+        solver_mesh.cell_mesh,
+        line,
+        np.asarray(lake_cells, dtype=np.int64),
+        _wall_trace(payload, line),
+    )
+
+
+def resolve_flow_barrier_hfb_rows(
+    model: object,
+    solver_mesh: SolverMesh,
+    lake_cells_by_lake: Mapping[str, Sequence[int]] | None = None,
+) -> list[list]:
     """Return concatenated HFB rows for every configured flow barrier.
 
     Two sources, both bound by the structure binders before pre-processing:
-    each lake's dam ``cutoff_wall`` (trace on ``payload['cutoff_wall_line']``) and
-    the general ``[flow.sinks_sources.flow_barriers]`` mapping (each payload is
-    ``{'barrier': cfg, 'line': shapely}``). Returns ``[]`` when none is configured,
-    keeping the HFB wiring in ``build.py`` a no-op.
+    each lake's dam ``cutoff_wall`` (wall on ``payload['cutoff_wall_line']``,
+    laid on the lake shore) and the general ``[flow.sinks_sources.flow_barriers]``
+    mapping (each payload is ``{'barrier': cfg, 'line': shapely}``). A lake wall
+    bars the faces of :func:`lake_wall_faces` on the cells of
+    ``lake_cells_by_lake``. Returns ``[]`` when none is configured, keeping the
+    HFB wiring in ``build.py`` a no-op.
     """
     flow = getattr(model, "flow", None)
     if flow is None:
@@ -319,8 +399,17 @@ def resolve_flow_barrier_hfb_rows(model: object, solver_mesh: SolverMesh) -> lis
                     f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall is declared but its "
                     "trace was not resolved; bind it with apply_cutoff_wall_to_flow first."
                 )
+            cells = (lake_cells_by_lake or {}).get(str(lake_id), ())
             rows.extend(
-                _rows_for_barrier(model, solver_mesh, cfg, line, f"lake '{lake_id}' cutoff wall")
+                _rows_for_barrier(
+                    model,
+                    solver_mesh,
+                    cfg,
+                    line,
+                    f"lake '{lake_id}' cutoff wall",
+                    faces=lake_wall_faces(solver_mesh, payload, cells),
+                    trace=_wall_trace(payload, line),
+                )
             )
 
     barriers = sinks_sources.get("flow_barriers")
@@ -340,3 +429,138 @@ def resolve_flow_barrier_hfb_rows(model: object, solver_mesh: SolverMesh) -> lis
             )
 
     return rows
+
+
+def check_cutoff_wall_seal(
+    model: object,
+    solver_mesh: SolverMesh,
+    lake_cells_by_lake: Mapping[str, Sequence[int]],
+    lake_connections: Sequence[Sequence[object]],
+    hfb_rows: Sequence[Sequence[object]],
+) -> None:
+    """Refuse a lake cutoff wall that leaves the lake open past the dam.
+
+    For each modelled lake with a wall: walking from the downstream side along
+    the wall never reaches the lake side without crossing a wall face
+    (:func:`wall_leaks`); no HORIZONTAL LAK connection reaches a cell downstream
+    of the wall; every face between a lake cell and a downstream cell carries
+    its HFB rows (the layers below the lake bed the wall reaches); and no wall
+    face of the shore section joins two non-lake cells, which would leave a cell
+    between the lake and the wall. Raises ``SolverInputError`` naming the lake
+    and the counts.
+    """
+    flow = getattr(model, "flow", None)
+    sinks_sources = getattr(flow, "sinks_sources", {}) if flow is not None else {}
+    lakes = sinks_sources.get("lakes") if isinstance(sinks_sources, Mapping) else None
+    if not isinstance(lakes, Mapping):
+        return
+    ifno = {lake_id: index for index, lake_id in enumerate(_active_lake_definitions(model))}
+    rows = {(int(r[0][0]), *sorted((int(r[0][1]), int(r[1][1])))) for r in hfb_rows}
+    for lake_id, payload in lakes.items():
+        cfg = _barrier_attr(payload, "cutoff_wall")
+        line = _barrier_attr(payload, "cutoff_wall_line")
+        cells = np.asarray(lake_cells_by_lake.get(str(lake_id), ()), dtype=np.int64)
+        if cfg is None or line is None or not cells.size or str(lake_id) not in ifno:
+            continue
+        counts = _wall_openings(
+            solver_mesh, payload, cfg, cells, ifno[str(lake_id)], lake_connections, rows
+        )
+        if any(counts):
+            raise SolverInputError(
+                f"lake '{lake_id}' cutoff wall leaves the lake open past the dam: "
+                f"{counts[0]} lake-side cell(s) reached from downstream, {counts[1]} "
+                f"downstream cell(s) still in LAK bank connection, {counts[2]} lake "
+                f"face(s) without their HFB rows, {counts[3]} cell(s) between the lake "
+                "and the wall."
+            )
+
+
+def _wall_openings(
+    solver_mesh: SolverMesh,
+    payload: object,
+    cfg: object,
+    cells: np.ndarray,
+    lake_index: int,
+    lake_connections: Sequence[Sequence[object]],
+    rows: set[tuple[int, int, int]],
+) -> tuple[int, int, int, int]:
+    """Leaks, unsealed bank connections, faces without HFB rows, cells between."""
+    cell_mesh = solver_mesh.cell_mesh
+    line = _barrier_attr(payload, "cutoff_wall_line")
+    faces = lake_wall_faces(solver_mesh, payload, cells)
+    reach = 3.0 * max((face.length for face in faces), default=0.0)
+    leaks = wall_leaks(cell_mesh, line, cells, faces, reach=reach).size
+
+    lake = np.zeros(cell_mesh.n_cells, dtype=bool)
+    lake[cells] = True
+    shore = {
+        tuple(pair)
+        for pair in cell_mesh.geometry.edge_cells[lake_shore_faces(cell_mesh, line, cells)].tolist()
+    }
+    downstream = {b if lake[a] else a for a, b in shore}
+    connected = {
+        int(row[2][1])
+        for row in lake_connections
+        if int(row[0]) == lake_index and row[3] == "HORIZONTAL"
+    }
+
+    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    botm = np.asarray(solver_mesh.botm, dtype=float)
+    inactive = np.asarray(solver_mesh.inactive_mask, dtype=bool)
+    trace = _wall_trace(payload, line)
+    stations = _vertex_stations(trace)
+    depths = None if cfg.depths is None else [float(d) for d in cfg.depths]
+    crest, base = cfg.crest_elevation, cfg.base_elevation
+    unbarred = 0
+    for face in faces:
+        if (face.cell_a, face.cell_b) not in shore:
+            continue
+        band = _barrier_band(face, top, depths, stations, crest, base)
+        layers = _face_layers(face, band, top, botm, inactive, int(solver_mesh.nlay))[0]
+        if any((lay, face.cell_a, face.cell_b) not in rows for lay in layers):
+            unbarred += 1
+    return (
+        leaks,
+        len(connected & downstream),
+        unbarred,
+        _cells_between(cell_mesh, payload, faces, lake),
+    )
+
+
+def _cells_between(
+    cell_mesh: PlanarCellMesh,
+    payload: object,
+    faces: list[BarrierFace],
+    lake: np.ndarray,
+) -> int:
+    """Non-lake cells on the lake side of wall faces along the shore section.
+
+    A face counts when its midpoint falls on the shore section more than one
+    cell size from either end: at a corner of the shore the cells round the
+    corner, and the faces that close the fence there join bank cells.
+    """
+    line = _barrier_attr(payload, "cutoff_wall_line")
+    shore = _barrier_attr(payload, "cutoff_wall_shore")
+    if shore is None or shore.is_empty or not faces:
+        return 0
+    first = line.project(Point(shore.coords[0]))
+    last = line.project(Point(shore.coords[-1]))
+    geometry = cell_mesh.geometry
+    pairs = np.array([(face.cell_a, face.cell_b) for face in faces], dtype=np.int64)
+    size = np.sqrt(geometry.areas[pairs]).max(axis=1)
+    edges = _edge_rows(geometry, pairs)
+    along = shapely.line_locate_point(line, shapely.points(geometry.edge_midpoint[edges]))
+    on_shore = (along > first + size) & (along < last - size)
+    loose = pairs[on_shore & ~lake[pairs[:, 0]] & ~lake[pairs[:, 1]]].reshape(-1)
+    if not loose.size:
+        return 0
+    upstream = ~downstream_of_wall(line, cell_mesh.centers[loose])
+    return int(np.unique(loose[upstream]).size)
+
+
+def _edge_rows(geometry: object, pairs: np.ndarray) -> np.ndarray:
+    """Edge row of each ``(cell_a, cell_b)`` pair, ``cell_a < cell_b``."""
+    n_cells = np.int64(geometry.n_cells)
+    keys = geometry.edge_cells[:, 0] * n_cells + geometry.edge_cells[:, 1]
+    order = np.argsort(keys)
+    return order[np.searchsorted(keys, pairs[:, 0] * n_cells + pairs[:, 1], sorter=order)]

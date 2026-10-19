@@ -9,15 +9,16 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import CacheCorruptionError, DataRequestError
+from hydromodpy.core.payload import PayloadFile, PayloadStation
 from hydromodpy.examples import blobs
 from hydromodpy.examples.install import install_example
-from hydromodpy.examples.manifest import ExampleEntry, ExampleFile, ExampleStation
+from hydromodpy.examples.manifest import ExampleEntry
 
 _DEM = b"a regional DEM, shared by several examples\n"
 _STEP = b'[simulation]\nname = "tiny"\n'
 
 
-def _entry(files: tuple[ExampleFile, ...], data: tuple[ExampleFile, ...]) -> ExampleEntry:
+def _entry(files: tuple[PayloadFile, ...], data: tuple[PayloadFile, ...]) -> ExampleEntry:
     return ExampleEntry(
         id="t1",
         directory="tiny",
@@ -45,7 +46,7 @@ def source_tree(tmp_path: Path) -> Path:
 def catalog_entry() -> ExampleEntry:
     return _entry(
         files=(
-            ExampleFile(
+            PayloadFile(
                 repo_path="examples/projects/tiny/step1.toml",
                 dest="projects/tiny/step1.toml",
                 size=len(_STEP),
@@ -53,7 +54,7 @@ def catalog_entry() -> ExampleEntry:
             ),
         ),
         data=(
-            ExampleFile(
+            PayloadFile(
                 repo_path="examples/data/dem/dem.tif",
                 dest="data/dem/dem.tif",
                 size=len(_DEM),
@@ -158,7 +159,7 @@ def test_an_edited_destination_is_kept_unless_forced(source_tree, catalog_entry,
 def test_a_destination_escaping_the_workspace_is_refused(source_tree, workspace) -> None:
     entry = _entry(
         files=(
-            ExampleFile(
+            PayloadFile(
                 repo_path="examples/projects/tiny/step1.toml",
                 dest="../escaped.toml",
                 size=len(_STEP),
@@ -201,7 +202,7 @@ _NANCON = (
 
 
 def _with_station(entry: ExampleEntry) -> ExampleEntry:
-    return replace(entry, stations=(ExampleStation(dest=_REGISTRY, row=_NANCON),))
+    return replace(entry, stations=(PayloadStation(dest=_REGISTRY, row=_NANCON),))
 
 
 def test_a_station_row_joins_the_scaffolded_registry(source_tree, catalog_entry, workspace) -> None:

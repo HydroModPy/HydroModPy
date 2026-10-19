@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import flopy
 import numpy as np
 import pytest
@@ -25,6 +27,7 @@ from hydromodpy.spatial.surface import Surface
 from tests._helpers.regular_cell_meshes import from_flopy_structured
 
 WKT = CRS.from_epsg(2154).to_wkt()
+X, Y = 350_000.0, 6_780_000.0
 
 
 def _request(
@@ -266,7 +269,7 @@ def test_the_identity_names_the_engine_and_the_request() -> None:
     request = _request(0.0, 1000.0, 0.0, 600.0, 12, 20)
     identity = RegularMeshEngine().build(request).identity
 
-    assert (identity.engine_id, identity.engine_version) == ("regular", "1.0.0")
+    assert (identity.engine_id, identity.engine_version) == ("regular", "1.0.1")
     assert identity.request_hash == request.canonical_hash()
     assert identity.seed is None
 
@@ -431,6 +434,32 @@ def test_the_cells_take_the_zone_of_their_side_of_the_contact() -> None:
 
     assert set(names[cell_mesh.cell_zone[west]]) == {"west_unit"}
     assert set(names[cell_mesh.cell_zone[~west]]) == {"east_unit"}
+
+
+def test_a_contact_clipped_to_a_slanted_domain_still_splits_it() -> None:
+    corners = [(0.0, 137.3), (913.7, 0.0), (1000.1, 871.9), (77.7, 1013.3)]
+    domain = shapely.Polygon([(X + x, Y + y) for x, y in corners])
+    trace = LineString([(X + 300.0, Y - 300.0), (X + 700.0, Y + 1300.0)])
+    contact = LineFamilySpec(
+        "geology",
+        "face",
+        (domain.intersection(trace),),
+        zone_left=("west_unit",),
+        zone_right=("east_unit",),
+    )
+    request = dataclasses.replace(
+        _request(X, X + 1050.0, Y, Y + 1050.0, 21, 21, lines=(contact,)), domain=domain
+    )
+    cell_mesh = RegularMeshEngine().build(request)
+
+    assert cell_mesh.face_rows("geology").sum() > 0
+    assert cell_mesh.cell_zone is not None
+    inside = shapely.intersects(domain, shapely.points(cell_mesh.centers))
+    x, y = (cell_mesh.centers - [X + 300.0, Y - 300.0]).T
+    west = 1600.0 * x - 400.0 * y < 0.0
+    names = np.array(cell_mesh.zone_names)
+    assert set(names[cell_mesh.cell_zone[inside & west]]) == {"west_unit"}
+    assert set(names[cell_mesh.cell_zone[inside & ~west]]) == {"east_unit"}
 
 
 def test_a_contact_between_faces_becomes_a_staircase_the_report_measures() -> None:

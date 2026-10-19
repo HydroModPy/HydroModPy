@@ -86,6 +86,8 @@ def run(args: argparse.Namespace) -> None:
         if not frozen.is_file():
             raise FileNotFoundError(f"{rel_dir} holds no {RUN_CONFIG_FILENAME}: nothing to rerun")
         snapshot = tomllib.loads(frozen.read_text(encoding="utf-8"))
+        # The frozen config names no machine: it is read from this project.
+        snapshot.setdefault("workspace", {})["project_root"] = str(root)
         name = args.name or split_stem_version(parse_rel_dir(rel_dir).name)[0]
         new_sid = str(
             get_rerun_provider().rerun(

@@ -203,6 +203,19 @@ class RunStore:
         return self._workspace
 
     @property
+    def data_root(self) -> Path | None:
+        """Return the workspace root the inputs of the run are recorded relative to.
+
+        The workspace that holds the project (``<workspace>/projects/<name>``),
+        or the project itself when it stands alone.
+        """
+        if self._workspace is None:
+            return None
+        from hydromodpy.core.workspace.resolve import locate_workspace_root
+
+        return locate_workspace_root(self._workspace) or Path(self._workspace).resolve()
+
+    @property
     def fields_path(self) -> Path:
         """``<run>/fields.zarr``."""
         return self._run_dir / FIELDS_STORE_NAME
@@ -257,7 +270,7 @@ class RunStore:
         return run_licence(
             [LicenceMember(s.source, s.sha256) for s in self._facts.licence_sources],
             [TrackedPath(t.path, t.sha256) for t in self._facts.tracked_inputs],
-            self._workspace,
+            self.data_root,
         )
 
     # -- Zarr ------------------------------------------------------------------
@@ -885,8 +898,17 @@ class RunStore:
             environment["solver_version_text"] = version_text
 
     def register_tracked_files(self, sim_id: str | UUID, entries: list[Any]) -> int:
-        """Record the input files the configuration declares, with their digests."""
+        """Record the input files the configuration declares, with their digests.
+
+        ``path`` is relative to the workspace root when the file sits under it
+        (``data/dem/dem.tif``, ``projects/<name>/zones.shp``), and
+        ``declared_path`` the form the frozen ``config.toml`` writes: no copy
+        of the record names the machine it ran on.
+        """
+        from hydromodpy.core.toml_io.paths import portable_declared_path
+
         self._check_sim(sim_id)
+        root = self.data_root
         written = 0
         for entry in entries:
             canonical = Path(entry.canonical_path)
@@ -900,17 +922,24 @@ class RunStore:
                 )
                 continue
             encoded = str(canonical)
-            if self._workspace is not None:
+            declared = str(entry.original_path)
+            if root is not None and self._workspace is not None:
                 try:
-                    encoded = encode_workspace_path(self._workspace, canonical)
+                    encoded = encode_workspace_path(root, canonical)
                 except ValueError:
                     encoded = str(canonical)
+                declared = portable_declared_path(
+                    declared,
+                    role=str(entry.role),
+                    project_root=self._workspace,
+                    data_dir=root / "data",
+                )
             self._facts.put_tracked_input(
                 TrackedInput(
                     role=str(entry.role),
                     category=str(entry.category),
                     path=encoded,
-                    declared_path=str(entry.original_path),
+                    declared_path=declared,
                     sha256=digest,
                     bytes=int(path_size_bytes(canonical)),
                     portable=bool(entry.portable),

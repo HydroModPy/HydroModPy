@@ -727,12 +727,18 @@ Publishing and packages
 ``report/``, generates ``ro-crate-metadata.json`` and writes ``PUBLICATION.json`` (the source
 project, relative directory and ``sim_id``, the SHA-256 of the manifest and of every copied file,
 the label and its date, the version, the date). ``--with results`` adds the stores and
-``--with inputs`` the input bytes, addressed by content. The source receives one line in
-``published.jsonl``. ``.hmp/``, ``logs/``, host, user and absolute paths never leave: one function
-redacts every copy.
+``--with inputs`` the install index ``INSTALL.toml`` (``hydromodpy/core/payload/``) and the bytes
+of every file the run read, addressed by content under ``inputs/``, sidecars included. The source
+receives one line in ``published.jsonl``. ``.hmp/``, ``logs/``, host, user and absolute paths
+never leave: one function redacts every copy.
 
 The portable package **is** ``hmp publish --with results --with inputs --format tar``. Importing
-it (``hmp catalog import``) extracts it under ``runs/`` and runs an incremental reindex.
+it (``hmp catalog import``) installs every file of ``INSTALL.toml`` into ``data/`` of the
+workspace (identical bytes cost nothing, other bytes at one path are refused by name), merges the
+station rows, registers the delivered files in ``data/cache.duckdb`` and the site in
+``data/sites/catalog.csv``, then extracts the run under ``runs/`` and runs an incremental
+reindex. ``hmp project export`` writes a whole project on the same index, and
+``hmp project import`` installs it as ``projects/<name>``.
 
 Reading one cell
 ----------------

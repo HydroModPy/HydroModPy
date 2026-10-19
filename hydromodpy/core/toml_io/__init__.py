@@ -24,6 +24,7 @@ from hydromodpy.core.toml_io.loader import (
 from hydromodpy.core.toml_io.paths import (
     get_nested_section,
     is_declared_absolute_path,
+    portable_declared_path,
     resolve_declared_path,
     resolve_path,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "is_declared_absolute_path",
     "load_toml_with_base_config",
     "merge_toml_payloads",
+    "portable_declared_path",
     "resolve_declared_path",
     "resolve_path",
 ]

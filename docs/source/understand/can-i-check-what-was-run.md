@@ -49,6 +49,7 @@ data cache before the run?
 | To replay a run with exactly the same data | A run that refuses any fresh download and stops on a checksum that does not match. | `hmp run --frozen <file>` |
 | To rerun a stored run, changing one setting | A rerun from the stored configuration. | `hmp catalog rerun <run> --set path=value` |
 | To hand a run to someone | A copy that stands alone: the README, the frozen configuration, the provenance with the machine and the user removed, and the checksum of every file. | `hmp publish <run> --to <folder>` |
+| To hand a run and its data to a colleague, who reruns it | A copy with every file the run read, which their import installs in their `data/`. | `hmp publish <run> --to sim.tar --format tar --with inputs`, then `hmp catalog import sim.tar` |
 | Whether a copy you received is intact | A check of every file of the copy against the checksums it carries. | `hmp publish --verify <folder>` |
 
 The options of each command are in the {doc}`command reference <../reference/cli/index>`.

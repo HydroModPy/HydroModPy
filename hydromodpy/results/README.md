@@ -52,7 +52,7 @@ layout is `storage/contract.py`; the full contract is
 | `run/tables.py` | the Parquet tables of one run read from its directory (`read_run_table`, `has_rows`); every Run reads its rows there, never from the index |
 | `derive/` | what is computed on read from stored fields: virtual fields, catchment views, the read dispatch shared by `hmp.read` and `Catalog.read` (`reading.py`), stream-network comparisons, time alignment, downsampling |
 | `exporters/` | one writer per format (CSV, GeoTIFF, NetCDF-UGRID, VTU, Shapefile, GeoPackage); `vocabulary.py` is the names a user may export, `request.py` `export_run` writes one `[[export]]` request under `runs/<run>/exports/`, poses the identity block and records `exports/index.json` |
-| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction); `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
+| `export/` | FAIR views built from a sealed directory (`directory.py`, `rocrate.py`, `stac.py`, `prov.py`); `publish.py` copies a run or a summary out of the tree (directory or tar, `PUBLICATION.json`, redaction, and with inputs the install index a caller builds); `project_package.py` writes a whole project with its data (`hmp project export`); `run_identity.py` is the identity and label of the day of a run directory; `ledgers.py` records a derived file |
 | `importers/` | readers symmetric to the exporters: CSV series, NetCDF fields, one Zarr field |
 | `geographic_cache.py`, `spatial_index.py`, `grid.py` | the workspace cache of geographic arrays keyed by a fingerprint, point-in-cell lookup on a mesh, the cell size and extent of a run |
 | `calibration_trials.py`, `errors.py`, `html_helpers.py` | the trial rows of a session for one run, the typed errors of the reader, HTML helpers shared by report builders |
@@ -104,7 +104,8 @@ hydromodpy/results/
   derive/        virtual_fields.py  views.py  reading.py  stream_network.py  time_alignment.py ...
   exporters/     csv.py  geotiff.py  netcdf.py  vtu.py  shapefile.py  geopackage.py
                  vocabulary.py  request.py
-  export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  run_identity.py  ledgers.py
+  export/        rocrate.py  stac.py  prov.py  directory.py  publish.py  project_package.py
+                 run_identity.py  ledgers.py
   importers/
   geographic_cache.py  spatial_index.py  grid.py
 ```

@@ -240,8 +240,13 @@ class DataCatalogDuckDB:
         file_mtime: float | None = None,
         file_sha256: str | None = None,
         fetch_metadata: dict | None = None,
+        write_sidecar: bool = True,
     ) -> int:
-        """Register or update a data file entry. Returns entry id (-1 on error)."""
+        """Register or update a data file entry. Returns entry id (-1 on error).
+
+        ``write_sidecar=False`` leaves the sidecar of the file as it is: an
+        imported file keeps the one that came with it.
+        """
         return cache_store.register(
             self,
             variable=variable,
@@ -259,6 +264,7 @@ class DataCatalogDuckDB:
             file_mtime=file_mtime,
             file_sha256=file_sha256,
             fetch_metadata=fetch_metadata,
+            write_sidecar=write_sidecar,
         )
 
     # -- queries ---------------------------------------------------------------
@@ -291,6 +297,15 @@ class DataCatalogDuckDB:
                 if found is not None:
                     return found
         return cache_queries.find_cached(self, **query)
+
+    def entry_for_file(self, file_path: Path | str) -> _CatalogEntry | None:
+        """Return the newest entry that serves one file, shared cache first, or None."""
+        with self._shared() as shared:
+            if shared is not None:
+                found = cache_queries.entry_for_file(shared, file_path)
+                if found is not None:
+                    return found
+        return cache_queries.entry_for_file(self, file_path)
 
     def custom_file_mtime(self, *, variable: str, file_path: Path | str) -> float | None:
         """Return the ``file_mtime`` indexed for one custom file, or None."""

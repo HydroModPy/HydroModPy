@@ -17,7 +17,9 @@ from typing import TYPE_CHECKING, Any
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.paths import portable_declared_path
 from hydromodpy.core.toml_io.writer import dumps
+from hydromodpy.core.tracking import rewrite_input_paths
 from hydromodpy.results.catalog.constants import solver_category
 from hydromodpy.results.catalog.registration import (
     input_file_digests,
@@ -256,8 +258,12 @@ def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str
     """Return *cfg* as the portable TOML text a run directory freezes.
 
     The ``[workspace]`` keys the loader resolves on this machine are left
-    out, and every path under the project root is written relative to it.
-    The document is staged in *run_dir* while it is rendered.
+    out. Every input file the configuration names is written in the form
+    that resolves back to it from any copy of the workspace
+    (:func:`~hydromodpy.core.toml_io.paths.portable_declared_path`): a bare
+    name found in ``data/``, a path relative to the project root, or
+    ``../../data/...``. Every other path under the project root is written
+    relative to it. The document is staged in *run_dir* while it is rendered.
     """
     staged = run_dir / f".{RUN_CONFIG_FILENAME}.staged"
     cfg.to_toml(staged, profile="expert")
@@ -265,13 +271,22 @@ def portable_config_document(cfg: Any, run_dir: Path, project_root: Path) -> str
         payload = tomllib.loads(staged.read_text(encoding="utf-8"))
     finally:
         staged.unlink(missing_ok=True)
+    root = project_root.resolve()
+    data_dir = getattr(getattr(cfg, "workspace", None), "data_dir", None)
+    rewrite_input_paths(
+        payload,
+        type(cfg),
+        lambda marker, value: portable_declared_path(
+            value, role=marker.role, project_root=root, data_dir=data_dir
+        ),
+    )
     workspace = payload.get("workspace")
     if isinstance(workspace, dict):
         for key in _WORKSPACE_MACHINE_KEYS:
             workspace.pop(key, None)
         if not workspace:
             payload.pop("workspace")
-    return dumps(_relativise(payload, project_root.resolve()))
+    return dumps(_relativise(payload, root))
 
 
 def _freeze_run_config(

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.catalog.share import inputs_of
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.results.export.publish import publish
 from hydromodpy.results.publication import read_published
@@ -46,6 +47,7 @@ def test_no_text_of_a_copy_names_the_host_the_user_or_a_private_path(tmp_path) -
         tmp_path / "out" / "nancon",
         project_root=project,
         with_=("results", "inputs"),
+        inputs=inputs_of(project),
     )
 
     assert _sweep(copy, _private_strings(project)) == []

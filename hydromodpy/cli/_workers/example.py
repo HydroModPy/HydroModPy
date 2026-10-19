@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy._api import example_add, example_list, example_show
+from hydromodpy.core.payload import PayloadFile
 from hydromodpy.examples.blobs import is_cached, missing_bytes
 from hydromodpy.examples.install import InstallReport
-from hydromodpy.examples.manifest import ExampleEntry, ExampleFile
+from hydromodpy.examples.manifest import ExampleEntry
 
 
 def list_rows() -> list[dict[str, Any]]:
@@ -79,7 +80,7 @@ def _summary(entry: ExampleEntry) -> dict[str, Any]:
     }
 
 
-def _file_row(item: ExampleFile, role: str) -> dict[str, Any]:
+def _file_row(item: PayloadFile, role: str) -> dict[str, Any]:
     return {
         "role": role,
         "dest": item.dest,

@@ -1,107 +1,186 @@
 """The frozen configuration of a published copy replays from the bytes the copy carries.
 
-``hmp run <copy>/config.toml --frozen`` checks every input the seal records
-against ``inputs/<sha256><suffix>`` and points the field of that role at those
-bytes; a missing input, or bytes with another digest, refuse the replay before
-anything runs. The run goes to the project ``-w`` names. The full chain, a
-solve included, is ``tests/e2e/test_replay_from_archive_without_workspace.py``.
+``hmp run <copy>/config.toml --frozen`` checks every file of the install index
+against ``inputs/`` and points the field of each recorded role at those bytes:
+a declared file is read where it is stored, a declared folder is rebuilt from
+the files of the index that sit in it, with its station rows, and never holds
+a station the run did not read. A missing file, bytes with another digest or
+a file a provider delivered refuse the replay before anything runs. The run
+goes to the project ``-w`` names. The full chain, a solve included, is
+``tests/e2e/test_replay_from_archive_without_workspace.py``.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
+import tomllib
 from pathlib import Path
 
 import pytest
 
+from hydromodpy.catalog.share import inputs_of
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.core.payload import INSTALL_FILENAME, read_index, stored_name
 from hydromodpy.project.launch.replay import (
     ReplayInputError,
     published_copy_of,
     replay_payload,
 )
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
+from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish
+from hydromodpy.results.manifest import InputEntry, TrackedInput
 from tests._helpers.cli_runner import CliRunner
+from tests.unit.catalog._shared_run import (
+    CUSTOM_FILE,
+    CUSTOM_LOC,
+    SERIES,
+    UNREAD_FILE,
+    make_shared_run,
+    make_workspace,
+    sha256_of,
+)
+from tests.unit.results._run_record_factory import make_record
+
+RUN_NAME = "nancon_step5_export"
 
 _CONFIG = """\
 [workflow]
 mode = "simulation"
 
 [simulation]
-name = "nancon_step1_minimal"
+name = "nancon_step5_export"
 
 [geographic]
 crs_project = "EPSG:2154"
 
 [geographic.catchment]
 catch_def = "from_outlet_coord"
-dem_init_path = "<absolute path>"
+dem_init_path = "dem.tif"
 x_outlet = 389285.9
 y_outlet = 6816518.7
 snap_dist = "150 m"
 buff_area = "10%"
+
+[data]
+types = ["hydrometry"]
+
+[[data.hydrometry.sources]]
+source = "custom"
+path = "hydrometry"
+station_ids = ["NANCON"]
 """
 
 
-def _copy(tmp_path: Path, *, dem: bytes = b"the dem bytes", store: bool = True) -> Path:
-    copy = tmp_path / "published" / "nancon_step1_minimal"
-    copy.mkdir(parents=True)
-    sha256 = hashlib.sha256(b"the dem bytes").hexdigest()
-    (copy / "config.toml").write_text(_CONFIG, encoding="utf-8")
-    (copy / "PUBLICATION.json").write_text("{}", encoding="utf-8")
-    (copy / "manifest.json").write_text(
-        json.dumps(
-            {
-                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
-                "inputs": [
-                    {
-                        "role": "dem",
-                        "category": "data",
-                        "path": "<absolute path>",
-                        "declared_path": "<absolute path>",
-                        "sha256": sha256,
-                        "portable": True,
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
+def _published(tmp_path: Path) -> Path:
+    """Publish a run that read a user station file in a declared folder and a declared DEM."""
+    workspace = tmp_path / "ws"
+    project = make_workspace(workspace)
+    folder = workspace / "data" / "hydrometry"
+    folder.mkdir(parents=True)
+    station = folder / CUSTOM_FILE
+    station.write_text(SERIES, encoding="utf-8")
+    (folder / UNREAD_FILE).write_text(SERIES, encoding="utf-8")
+    (folder / "hydrometry_custom_LOC.csv").write_text(CUSTOM_LOC, encoding="utf-8")
+    dem = workspace / "data" / "dem" / "dem.tif"
+    dem.parent.mkdir(parents=True)
+    dem.write_bytes(b"the dem bytes")
+    run_dir = project / "runs" / RUN_NAME
+    run_dir.mkdir(parents=True)
+    make_record(
+        inputs=[
+            InputEntry(
+                variable="hydrometry:discharge",
+                provider="custom",
+                request={"station": "NANCON"},
+                path=f"data/hydrometry/{CUSTOM_FILE}",
+                sha256=sha256_of(station),
+            )
+        ],
+        tracked_inputs=[
+            TrackedInput(
+                role="dem",
+                category="data",
+                path="data/dem/dem.tif",
+                declared_path="dem.tif",
+                sha256=sha256_of(dem),
+                portable=True,
+            ),
+            TrackedInput(
+                role="hydrometry",
+                category="data",
+                path="data/hydrometry",
+                declared_path="hydrometry",
+                sha256="f" * 64,
+                portable=True,
+            ),
+        ],
+    ).write(run_dir)
+    (run_dir / "config.toml").write_text(_CONFIG, encoding="utf-8")
+    return publish(
+        run_dir,
+        tmp_path / "published" / RUN_NAME,
+        project_root=project,
+        with_=("inputs",),
+        inputs=inputs_of(project),
     )
-    if store:
-        (copy / "inputs").mkdir()
-        (copy / "inputs" / f"{sha256}.tif").write_bytes(dem)
-    return copy
 
 
-def test_each_recorded_input_points_at_the_bytes_of_the_copy(tmp_path: Path) -> None:
-    import tomllib
+def test_a_declared_file_points_at_its_bytes_and_a_folder_is_rebuilt(tmp_path: Path) -> None:
+    copy = _published(tmp_path)
+    workdir = tmp_path / "work"
 
-    copy = _copy(tmp_path)
-
-    payload = replay_payload(copy, tomllib.loads(_CONFIG))
+    payload = replay_payload(copy, tomllib.loads(_CONFIG), workdir=workdir)
 
     dem = Path(payload["geographic"]["catchment"]["dem_init_path"])
-    assert dem.parent == copy / "inputs"
+    assert dem.parent == copy / INPUTS_DIRNAME
     assert dem.read_bytes() == b"the dem bytes"
+    (source,) = payload["data"]["hydrometry"]["sources"]
+    folder = Path(source["path"])
+    assert folder == workdir / "data" / "hydrometry"
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "hydrometry_custom_LOC.csv",
+        CUSTOM_FILE,
+    ]
+    assert (folder / "hydrometry_custom_LOC.csv").read_text(encoding="utf-8").splitlines() == [
+        "id,x,y,crs,unit",
+        "NANCON,389285.9,6816518.7,EPSG:2154,m3/s",
+    ]
+    assert source["station_ids"] == ["NANCON"]
     assert published_copy_of(copy / "config.toml") == copy
     assert published_copy_of(tmp_path / "config.toml") is None
 
 
-def test_bytes_with_another_digest_or_no_bytes_refuse_the_replay(tmp_path: Path) -> None:
-    import tomllib
-
-    tampered = _copy(tmp_path / "a", dem=b"other bytes")
-    missing = _copy(tmp_path / "b", store=False)
+def test_bytes_with_another_digest_or_no_index_refuse_the_replay(tmp_path: Path) -> None:
+    copy = _published(tmp_path)
+    dem = read_index(copy).file_at("data/dem/dem.tif")
+    (copy / INPUTS_DIRNAME / stored_name(dem.sha256, dem.dest)).write_bytes(b"other bytes")
 
     with pytest.raises(ReplayInputError, match="does not have the digest"):
-        replay_payload(tampered, tomllib.loads(_CONFIG))
+        replay_payload(copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work")
+    (copy / INSTALL_FILENAME).unlink()
     with pytest.raises(ReplayInputError, match="--with inputs"):
-        replay_payload(missing, tomllib.loads(_CONFIG))
+        replay_payload(copy, tomllib.loads(_CONFIG), workdir=tmp_path / "work")
+
+
+def test_a_file_a_provider_delivered_refuses_the_replay_and_names_the_import(
+    tmp_path: Path,
+) -> None:
+    run_dir = make_shared_run(tmp_path / "ws")
+    project = run_dir.parent.parent
+    copy = publish(
+        run_dir,
+        tmp_path / "published" / run_dir.name,
+        project_root=project,
+        with_=("inputs",),
+        inputs=inputs_of(project),
+    )
+
+    with pytest.raises(ReplayInputError, match="fed by hubeau") as refused:
+        replay_payload(copy, {}, workdir=tmp_path / "work")
+    assert "hmp catalog import" in str(refused.value)
 
 
 def test_hmp_run_frozen_on_a_copy_replays_into_the_project_named_by_w(tmp_path: Path) -> None:
-    copy = _copy(tmp_path)
+    copy = _published(tmp_path)
+    before = sorted(path.name for path in copy.iterdir())
     project = tmp_path / "replay"
     project.mkdir()
     (project / "project.toml").write_text("", encoding="utf-8")
@@ -111,20 +190,14 @@ def test_hmp_run_frozen_on_a_copy_replays_into_the_project_named_by_w(tmp_path: 
     )
 
     assert result.exit_code == 0, result.stderr
-    assert f"config  : {project / '.hmp' / 'replay' / 'nancon_step1_minimal.toml'}" in (
-        result.stdout
-    )
+    assert f"config  : {project / '.hmp' / 'replay' / f'{RUN_NAME}.toml'}" in result.stdout
     assert not (project / ".hmp" / "replay").exists()
-    assert sorted(path.name for path in copy.iterdir()) == [
-        "PUBLICATION.json",
-        "config.toml",
-        "inputs",
-        "manifest.json",
-    ]
+    assert sorted(path.name for path in copy.iterdir()) == before
 
 
 def test_hmp_run_frozen_on_a_copy_without_its_inputs_is_refused(tmp_path: Path) -> None:
-    copy = _copy(tmp_path, store=False)
+    copy = _published(tmp_path)
+    (copy / INSTALL_FILENAME).unlink()
     project = tmp_path / "replay"
     project.mkdir()
     (project / "project.toml").write_text("", encoding="utf-8")
@@ -136,92 +209,4 @@ def test_hmp_run_frozen_on_a_copy_without_its_inputs_is_refused(tmp_path: Path) 
     assert result.exit_code == EXIT_CONFIG
     assert "--with inputs" in result.stderr
     assert not (project / "runs").exists()
-
-
-_FOLDER_CONFIG = """\
-[data]
-types = ["hydrometry"]
-
-[[data.hydrometry.sources]]
-source = "custom"
-path = "<absolute path>"
-station_ids = ["NANCON"]
-"""
-
-
-def _folder_copy(tmp_path: Path, *, provider: str = "custom") -> tuple[Path, str]:
-    """A copy whose seal declares a folder of station files, loaded by ``provider``."""
-    from hydromodpy.results.storage.digests import sha256_directory
-
-    folder = tmp_path / "data" / "hydrometry"
-    folder.mkdir(parents=True)
-    station = folder / "hydrometry_custom_NANCON_20000101_20001231_D.csv"
-    station.write_text("datetime,value\n2000-01-01,1.0\n", encoding="utf-8")
-    (folder / f"{station.name}.json").write_text('{"source": "custom"}', encoding="utf-8")
-    sha256 = sha256_directory(folder)
-    copy = tmp_path / "published" / "nancon_step5_export"
-    copy.mkdir(parents=True)
-    (copy / "config.toml").write_text(_FOLDER_CONFIG, encoding="utf-8")
-    (copy / "PUBLICATION.json").write_text("{}", encoding="utf-8")
-    (copy / "manifest.json").write_text(
-        json.dumps(
-            {
-                "manifest_version": RUN_RECORD_MANIFEST_VERSION,
-                "inputs": [
-                    {
-                        "role": "hydrometry",
-                        "category": "data",
-                        "path": "<absolute path>",
-                        "declared_path": "<absolute path>",
-                        "sha256": sha256,
-                        "portable": True,
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (copy / "inputs.json").write_text(
-        json.dumps(
-            {
-                "schema": "hydromodpy.inputs.v1",
-                "sim_id": "5ac4a80e-4674-4edc-9289-16abf79acb75",
-                "inputs": [
-                    {
-                        "variable": "hydrometry:discharge",
-                        "provider": provider,
-                        "request": {"station": "NANCON"},
-                        "path": "<absolute path>",
-                        "sha256": hashlib.sha256(station.read_bytes()).hexdigest(),
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (copy / "inputs").mkdir()
-    import shutil
-
-    shutil.copytree(folder, copy / "inputs" / sha256)
-    return copy, sha256
-
-
-def test_a_declared_folder_in_a_list_of_sources_points_at_its_copy(tmp_path: Path) -> None:
-    import tomllib
-
-    copy, sha256 = _folder_copy(tmp_path)
-
-    payload = replay_payload(copy, tomllib.loads(_FOLDER_CONFIG))
-
-    (source,) = payload["data"]["hydrometry"]["sources"]
-    assert Path(source["path"]) == copy / "inputs" / sha256
-    assert source["station_ids"] == ["NANCON"]
-
-
-def test_an_input_a_provider_delivered_refuses_the_frozen_replay(tmp_path: Path) -> None:
-    import tomllib
-
-    copy, _ = _folder_copy(tmp_path, provider="hubeau")
-
-    with pytest.raises(ReplayInputError, match="fed by hubeau"):
-        replay_payload(copy, tomllib.loads(_FOLDER_CONFIG))
+    assert not (project / ".hmp" / "replay").exists()

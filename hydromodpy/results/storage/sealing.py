@@ -48,6 +48,7 @@ from hydromodpy.results.export.run_identity import label_of
 from hydromodpy.results.manifest import (
     KEY_PACKAGES,
     RUN_RECORD_MANIFEST_VERSION,
+    InputEntry,
     ManifestBudget,
     ManifestConfig,
     ManifestGeometry,
@@ -210,7 +211,7 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         identity=identity,
         checks=checks,
         tracked_inputs=list(facts.tracked_inputs),
-        inputs=list(facts.inputs),
+        inputs=loaded_and_declared_inputs(facts, store.data_root),
         parameters=list(facts.parameters),
         metrics=list(facts.metrics),
         score=facts.score,
@@ -220,6 +221,44 @@ def build_record(store: RunStore, *, ended_at: datetime) -> RunRecord:
         budget=_budget_of(run_dir),
         provenance=build_provenance(facts, ended_at=ended_at),
     )
+
+
+def loaded_and_declared_inputs(facts: RunFacts, data_root: Path | None) -> list[InputEntry]:
+    """Return the inputs of ``inputs.json``: every loaded input, then every declared file.
+
+    A file the configuration declares and no loaded record names (the DEM a
+    catchment is cut from, a mapped network) is an input the run read too. It
+    enters with its role as variable, the provider its sidecar names
+    (``custom`` without one) and the licence its sidecar states. A declared
+    folder is not an input: the files the run read in it are.
+    """
+    from hydromodpy.core.state.paths import decode_workspace_path
+    from hydromodpy.schema.sources import input_licence, sidecar_source
+
+    inputs = list(facts.inputs)
+    named = {entry.path for entry in inputs}
+    for tracked in facts.tracked_inputs:
+        if tracked.path in named:
+            continue
+        located = (
+            Path(tracked.path)
+            if data_root is None
+            else decode_workspace_path(data_root, tracked.path)
+        )
+        if not located.is_file():
+            continue
+        inputs.append(
+            InputEntry(
+                variable=tracked.role,
+                provider=sidecar_source(located) or "custom",
+                path=tracked.path,
+                sha256=tracked.sha256,
+                bytes=tracked.bytes,
+                license=input_licence(located).spdx,
+            )
+        )
+        named.add(tracked.path)
+    return inputs
 
 
 def build_provenance(facts: RunFacts, *, ended_at: datetime) -> RunProvenance:

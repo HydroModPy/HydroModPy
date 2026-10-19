@@ -55,3 +55,46 @@ def test_a_path_outside_the_project_stays_what_it_names() -> None:
     outside = run_identity_hash(config("/a/proj", "/shared/in.csv"))
     assert outside == run_identity_hash(config("/b/c/proj", "/shared/in.csv"))
     assert outside != run_identity_hash(config("/a/proj", "/other/in.csv"))
+
+
+WORKSPACE_PROJECT = """\
+[geographic]
+source_mode = "synthetic"
+
+[data]
+types = ["recharge"]
+
+[[data.recharge.sources]]
+source = "custom"
+path = "{path}"
+"""
+
+
+def _workspace_project(root: Path, *, path: str = "recharge_custom_basin.csv") -> Path:
+    (root / "workspace.toml").parent.mkdir(parents=True, exist_ok=True)
+    (root / "workspace.toml").write_text("[workspace]\n", encoding="utf-8")
+    data = root / "data" / "recharge"
+    data.mkdir(parents=True)
+    (data / "recharge_custom_basin.csv").write_text("date,value\n2000-01-01,1\n", encoding="utf-8")
+    project = root / "projects" / "nancon"
+    project.mkdir(parents=True)
+    (project / "project.toml").write_text(WORKSPACE_PROJECT.format(path=path), encoding="utf-8")
+    return project / "project.toml"
+
+
+def test_two_workspaces_holding_the_same_data_give_one_config_hash(tmp_path: Path) -> None:
+    first = _workspace_project(tmp_path / "laptop" / "ws")
+    second = _workspace_project(tmp_path / "cluster" / "deep" / "ws")
+
+    loaded = HydroModPyConfig.from_toml(first)
+    assert Path(loaded.data.recharge.sources[0].path).is_relative_to(tmp_path / "laptop")
+    assert _config_hash(first) == _config_hash(second)
+
+
+def test_a_sidecar_in_a_declared_folder_leaves_the_hash_as_it_was(tmp_path: Path) -> None:
+    project = _workspace_project(tmp_path / "ws", path="recharge")
+    before = _config_hash(project)
+    data = tmp_path / "ws" / "data" / "recharge"
+    (data / "recharge_custom_basin.csv.json").write_text('{"source": "custom"}', encoding="utf-8")
+
+    assert _config_hash(project) == before

@@ -14,6 +14,8 @@ Sub-actions:
 - ``hmp project delete <name>``: delete a project directory.
 - ``hmp project show [<name>]``: what a project holds, read from its directories.
 - ``hmp project list``: list projects in the workspace.
+- ``hmp project export <name> --to X.tar``: the project with its data in one package.
+- ``hmp project import X.tar -w <workspace>``: install such a package as a project.
 """
 
 from __future__ import annotations
@@ -26,6 +28,8 @@ from hydromodpy.cli.commands.project import (
     case,
     collect,
     delete,
+    export,
+    import_package,
     list_cmd,
     log,
     new,
@@ -52,6 +56,8 @@ ACTIONS = (
     delete,
     show,
     list_cmd,
+    export,
+    import_package,
 )
 
 

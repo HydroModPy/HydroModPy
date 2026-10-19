@@ -51,6 +51,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
+    from hydromodpy.catalog.share import inputs_of
     from hydromodpy.cli.commands.publish import run_dir_of
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.export.publish import MissingInputError, publish
@@ -70,6 +71,7 @@ def run(args: argparse.Namespace) -> None:
             project_root=project_root,
             format="dir",
             with_=("inputs",),
+            inputs=inputs_of(project_root),
         )
         seal = read_sealed_manifest(source)
     except MissingInputError as exc:

@@ -2,7 +2,7 @@
 
 Geometry primitives (interior faces of a cell, perpendicular distance, first
 active layer below a lake column), lake-footprint resolution (interior-ring drop,
-enclosed-cell fill, shared-cell arbitration) and the cutoff-wall seal geometry.
+enclosed-cell fill, shared-cell arbitration) and the cells behind a cutoff wall.
 Private to the ``builders`` package; the public ``lake`` facade imports the ones
 its builder functions call.
 """
@@ -16,6 +16,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
+from hydromodpy.spatial.mesh.ops.flow_barrier import downstream_of_wall
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -176,84 +177,47 @@ def _fill_lake_enclosed_cells(
         logger.info("Lake footprint: absorbed %d fully lake-enclosed cell(s).", filled)
 
 
-def _wall_endpoints(line) -> tuple[tuple[float, float], tuple[float, float]]:
-    """The two end vertices of a wall trace (its overall span)."""
-    from shapely.geometry import MultiLineString
-
-    if isinstance(line, MultiLineString):
-        coords: list = []
-        for part in line.geoms:
-            coords.extend(part.coords)
-    else:
-        coords = list(line.coords)
-    p0 = (float(coords[0][0]), float(coords[0][1]))
-    p1 = (float(coords[-1][0]), float(coords[-1][1]))
-    return p0, p1
-
-
-def _cell_behind_wall(px: float, py: float, body_x: float, body_y: float, p0, p1) -> bool:
-    """True when (px, py) is across the wall's supporting line from the lake body.
-
-    Uses the wall's INFINITE supporting line (not the finite segment), so a cell
-    just past the end of the wall trace is still classified as behind it. The dam
-    is roughly perpendicular to the reservoir axis, so the reservoir body sits on
-    one side and only the downstream cells fall on the other.
-    """
-    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
-    s_pt = dx * (py - p0[1]) - dy * (px - p0[0])
-    s_body = dx * (body_y - p0[1]) - dy * (body_x - p0[0])
-    return s_pt * s_body < 0.0
-
-
 def _drop_cutoff_wall_downstream_cells(
     model,
     cells_by_lake: dict[str, list[int]],
     intersected_area_by_lake: dict[str, dict[int, float]],
     solver_mesh: SolverMesh,
 ) -> None:
-    """Drop lake cells on the downstream (outlet) side of the cutoff-wall fence.
+    """Drop lake cells on the downstream side of the cutoff wall laid on the shore.
 
-    The lake polygon can extend past the dam, so a few cells are captured behind
-    the cutoff wall (voile). Those cells are not reservoir: the dam retains the
-    water upstream. A cell is behind the wall when it is across the wall's
-    supporting line from the lake body (this catches cells past the trace ends,
-    not only those a finite segment crosses). Dropping them makes the footprint
-    stop at the dam so idomain, the bed carve, RCH/EVT masking, SFR movers and
-    the LAK package all see a footprint that does not leak past the wall.
+    The wall runs with the lake on its left (``cutoff_wall_line``), so a cell
+    whose centre lies on its right is behind the dam. The side is read at the
+    nearest point of the wall, so a curved wall is followed. On an engine whose
+    faces follow the shore the cut footprint leaves no such cell; on the regular
+    grid the overlap cells straddling the dam shore go. Dropping them makes the
+    footprint stop at the dam, so idomain, the bed carve, RCH/EVT masking, SFR
+    movers and the LAK package see a footprint that does not leak past the wall.
     """
     definitions = _active_lake_definitions(model)
-    centroids = solver_mesh.cell_centroids()
-    x_c = np.asarray(centroids[:, 0], dtype=float)
-    y_c = np.asarray(centroids[:, 1], dtype=float)
+    centres = np.asarray(solver_mesh.cell_mesh.centers, dtype=float)
     for lake_id, cells in list(cells_by_lake.items()):
         line = definitions.get(lake_id, {}).get("cutoff_wall_line")
         if line is None or getattr(line, "is_empty", True) or not cells:
             continue
-        body_x = float(np.mean([x_c[c] for c in cells]))
-        body_y = float(np.mean([y_c[c] for c in cells]))
-        p0, p1 = _wall_endpoints(line)
-        kept: list[int] = []
-        dropped: list[int] = []
-        for c in cells:
-            behind = _cell_behind_wall(float(x_c[c]), float(y_c[c]), body_x, body_y, p0, p1)
-            (dropped if behind else kept).append(int(c))
-        if not kept:
+        ids = np.asarray(cells, dtype=np.int64)
+        behind = downstream_of_wall(line, centres[ids])
+        if behind.all():
             raise ValueError(
                 f"cutoff wall for lake '{lake_id}' classifies every cell as downstream "
                 "of the voile; check the trace orientation and position."
             )
-        if not dropped:
+        if not behind.any():
             continue
-        cells_by_lake[lake_id] = kept
+        cells_by_lake[lake_id] = [int(c) for c in ids[~behind]]
         area = intersected_area_by_lake.get(lake_id)
         if isinstance(area, dict):
-            for c in dropped:
+            for c in ids[behind]:
                 area.pop(int(c), None)
         logger.warning(
             "Cutoff wall '%s': dropped %d LAK cell(s) downstream of the voile "
             "(implicit perfect seal, independent of the HFB hydchr).",
             lake_id,
-            len(dropped),
+            int(behind.sum()),
         )
 
 

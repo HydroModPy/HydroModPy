@@ -16,10 +16,18 @@ Always: ``README.md``, ``config.toml``, ``provenance.json`` (redacted),
 a generated ``ro-crate-metadata.json`` and ``PUBLICATION.json``
 (:mod:`hydromodpy.results.publication`). ``with_ = ("results",)`` adds
 ``fields.zarr/``, ``tables.parquet/`` and ``mesh/``; ``with_ = ("inputs",)``
-adds the bytes of every loaded input and every file the configuration
-declared under ``inputs/<sha256><suffix>`` (a declared directory under
-``inputs/<sha256>/``), addressed by content. Never: ``.hmp/``, ``logs/``, ``attempts/``,
-``outcome.json``, ``published.jsonl``.
+adds the install index ``INSTALL.toml`` and the bytes of every file it lists
+under ``inputs/<sha256><suffix>``, with their sidecars under
+``inputs/<sha256>.json``, addressed by content
+(:mod:`hydromodpy.core.payload`). The caller builds that index, from the
+workspace the run read
+(:func:`hydromodpy.catalog.share.run_bundle`): this module never reads the
+data layer. Never: ``.hmp/``, ``logs/``, ``attempts/``, ``outcome.json``,
+``published.jsonl``.
+
+A public copy (``public = True``) needs a ``[publication] license``, and,
+with its inputs, a licence that allows redistribution for each of them: an
+input without one is refused by name.
 
 Every JSON, JSON Lines and TOML document and every cell of a CSV or TSV
 table goes through :func:`hydromodpy.results.publication.redact`: no host,
@@ -50,7 +58,7 @@ import socket
 import tarfile
 import tomllib
 import uuid
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -58,6 +66,8 @@ from typing import Any, Final
 import tomlkit
 
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
+from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
+from hydromodpy.core.payload.install import sha256_of as file_sha256
 from hydromodpy.core.state.paths import (
     INTERNAL_DIRNAME,
     SUMMARY_DIRNAME,
@@ -87,8 +97,6 @@ from hydromodpy.results.publication import (
     redact,
     write_publication,
 )
-from hydromodpy.results.record import read_inputs
-from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.contract import (
     FIELDS_STORE_NAME,
     PUBLICATION_FILENAME,
@@ -104,13 +112,15 @@ from hydromodpy.results.storage.contract import (
     RUN_REPORT_DIRNAME,
     TABLES_DIRNAME,
 )
-from hydromodpy.results.storage.digests import sha256_directory
 from hydromodpy.results.storage.json_io import check_sealed
 from hydromodpy.schema.generated_views import RO_CRATE_VIEW_FILENAME
 from hydromodpy.schema.media_types import JSON_MEDIA_TYPE, OCTET_STREAM_MEDIA_TYPE
 
 INPUTS_DIRNAME: Final[str] = "inputs"
 """Directory of a copy holding the input bytes, each named by its sha256."""
+
+InputsOf = Callable[[Path], PayloadBundle]
+"""Return the install index of one run directory, with the files holding its bytes."""
 
 RUN_COPY_ENTRIES: Final[tuple[str, ...]] = (
     README_FILENAME,
@@ -145,6 +155,7 @@ def publish(
     format: PublicationFormat = "dir",
     with_: Sequence[PublicationExtra] = (),
     public: bool = False,
+    inputs: InputsOf | None = None,
 ) -> Path:
     """Copy a sealed run or the summary of a project out of the tree; return the copy.
 
@@ -163,24 +174,34 @@ def publish(
         ``"dir"`` or ``"tar"``.
     with_
         ``"results"`` adds the field store, the tables and the mesh;
-        ``"inputs"`` adds the bytes of every loaded input.
+        ``"inputs"`` adds the install index and the bytes of every input.
     public
-        Refuse to publish without a ``[publication] license``.
+        Refuse to publish without a ``[publication] license``, and an input
+        whose licence does not allow redistribution.
+    inputs
+        How to build the install index of the run; required with ``"inputs"``.
 
     Raises
     ------
     ExportError
         An unsealed run, a destination that holds something, a copy that
-        would name the machine.
+        would name the machine, an input that cannot be carried.
     ConfigMissingError
-        ``public`` without a licence.
+        ``public`` without a licence, or with an input that has none.
     """
     source_dir = Path(source).resolve()
     root = Path(project_root).resolve()
     manifest = _checked_source(source_dir, root, public=public)
+    bundle = _bundle_of(source_dir, manifest, with_, inputs, public=public)
     target = _target_path(Path(to).expanduser().resolve(), format, source_dir.name)
     line = _publish_one(
-        source_dir, target, root=root, manifest=manifest, format=format, extras=tuple(with_)
+        source_dir,
+        target,
+        root=root,
+        manifest=manifest,
+        format=format,
+        extras=tuple(with_),
+        bundle=bundle,
     )
     append_published(source_dir, line)
     return target
@@ -193,6 +214,7 @@ def publish_project(
     format: PublicationFormat = "dir",
     with_: Sequence[PublicationExtra] = (),
     public: bool = False,
+    inputs: InputsOf | None = None,
 ) -> list[Path]:
     """Copy every sealed run and the summary of a project, each in its own folder under *to*.
 
@@ -217,6 +239,10 @@ def publish_project(
             f"{root} holds no sealed run and no {SUMMARY_DIRNAME}/: nothing to publish."
         )
     checked = [(source, _checked_source(source, root, public=public)) for source in sources]
+    bundles = {
+        source: _bundle_of(source, manifest, with_, inputs, public=public)
+        for source, manifest in checked
+    }
     destination = _target_path(Path(to).expanduser().resolve(), "dir", root.name)
     staging = destination.parent / f".{destination.name}.staging-{uuid.uuid4().hex[:8]}"
     staging.mkdir(parents=True)
@@ -234,6 +260,7 @@ def publish_project(
                 format=format,
                 extras=tuple(extras),
                 recorded_as=destination / name,
+                bundle=bundles[source],
             )
             lines.append((source, line))
             members.append(
@@ -298,6 +325,7 @@ def _publish_one(
     format: PublicationFormat,
     extras: tuple[PublicationExtra, ...],
     recorded_as: Path | None = None,
+    bundle: PayloadBundle | None = None,
 ) -> PublishedLine:
     """Stage one copy beside *target*, check it, move it into place; return its journal line."""
     extras = tuple(dict.fromkeys(extras))
@@ -316,8 +344,8 @@ def _publish_one(
                     _copy_entry(
                         source_dir / name, staging / name, prefixes=prefixes, project_root=root
                     )
-            if "inputs" in extras:
-                _copy_inputs(source_dir, staging, project_root=root)
+            if bundle is not None:
+                _copy_bundle(bundle, staging)
             _write_crate(staging)
         _refuse_leaks(staging, prefixes)
         publication = Publication(
@@ -360,17 +388,19 @@ def verify(copy: str | Path) -> list[str]:
 
     An empty list means every file listed is present with its digest and no
     file is present that the publication does not list. A tar is read in
-    place. A project copy is verified member by member: each difference of a
-    member is prefixed with ``<member>/``, a member gone or whose
-    ``PUBLICATION.json`` changed is named, and so is an entry the project
-    copy does not list.
+    place. A project copy written by :func:`publish_project` is verified
+    member by member: each difference of a member is prefixed with
+    ``<member>/``, a member gone or whose ``PUBLICATION.json`` changed is
+    named, and so is an entry the project copy does not list. A project
+    package (:mod:`hydromodpy.results.export.project_package`) lists its files
+    like a run copy.
     """
     target = Path(copy).expanduser().resolve()
     if target.is_file() and tarfile.is_tarfile(target):
         found, recorded = _tar_digests(target)
     else:
         publication = read_publication(target)
-        if publication.kind == "project":
+        if publication.kind == "project" and publication.members:
             return _verify_project(target, publication)
         recorded = publication.files
         found = _digests(target)
@@ -570,74 +600,67 @@ class MissingInputError(ExportError):
         super().__init__(f"{detail} {advice}")
 
 
-def _copy_inputs(source: Path, staging: Path, *, project_root: Path) -> None:
-    """Copy every loaded input and every file the configuration declared under ``inputs/``.
-
-    Each file is named by its sha256, so a file both loaded and declared is
-    one copy. A declared directory (a folder of station files) is copied
-    whole under ``inputs/<sha256>/``, its digest being the one of the tree. A
-    published copy replays from these bytes (``hmp run <copy>/config.toml
-    --frozen``). A missing input raises :class:`MissingInputError`; one the
-    run derived in its scratch says so.
-    """
-    document = read_inputs(source)
-    roots = (source, project_root, *(p for p in project_root.parents if is_workspace_root(p)))
-    for entry in document.inputs:
-        if entry.sha256 is None:
-            raise ExportError(
-                f"input {entry.variable} ({entry.path}) has no sha256 in {RUN_INPUTS_FILENAME}: "
-                "its bytes cannot be addressed by content."
-            )
-        located = _locate(entry.path, roots)
-        if located is None:
-            raise _missing(entry.variable, entry.path, project_root)
-        _copy_by_content(located, entry.variable, entry.sha256, staging)
-    seal = read_sealed_manifest(source)
-    for tracked in seal.inputs if seal is not None else ():
-        located = _locate(tracked.path, roots)
-        if located is None:
-            raise _missing(tracked.role, tracked.path, project_root)
-        _copy_by_content(located, tracked.role, tracked.sha256, staging)
-
-
-def _missing(name: str, path: str, project_root: Path) -> MissingInputError:
-    """Say that the input ``name`` at ``path`` is gone, and whether the run derived it."""
-    if is_run_product(path, project_root):
-        return MissingInputError(
-            f"input {name}: {path} is a product the run derived in its scratch, which the "
-            "seal removed. It is no input: the run was sealed by a release that recorded "
-            "it as one. Run the configuration again to seal it with its real inputs.",
-            derived=True,
+def _bundle_of(
+    source: Path,
+    manifest: Any,
+    with_: Sequence[PublicationExtra],
+    inputs: InputsOf | None,
+    *,
+    public: bool,
+) -> PayloadBundle | None:
+    """Return the install index a copy of *source* carries, or None without ``inputs``."""
+    if "inputs" not in with_ or manifest is None:
+        return None
+    if inputs is None:
+        raise ExportError(
+            "with inputs needs the install index of the run: pass inputs=run_bundle "
+            "(hydromodpy.catalog.share), as hmp publish does."
         )
-    return MissingInputError(
-        f"input {name}: {path} is not on disk any more, so it cannot be copied."
-    )
+    bundle = inputs(source)
+    if public:
+        _require_redistributable(bundle)
+    return bundle
 
 
-def _copy_by_content(located: Path, name: str, sha256: str, staging: Path) -> None:
-    """Copy a file or a directory under ``inputs/``, named by the digest the run sealed."""
-    if located.is_dir():
-        if sha256_directory(located) != sha256:
-            raise ExportError(
-                f"input {name}: {located.name}/ no longer has the digest the run sealed."
-            )
-        dest = staging / INPUTS_DIRNAME / sha256
-        if not dest.exists():
-            shutil.copytree(located, dest)
-        return
-    if sha256_of(located) != sha256:
-        raise ExportError(f"input {name}: {located.name} no longer has the digest the run sealed.")
-    dest = staging / INPUTS_DIRNAME / f"{sha256}{located.suffix}"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(located, dest)
+def _require_redistributable(bundle: PayloadBundle) -> None:
+    """Refuse a public copy that would carry an input whose licence does not allow it."""
+    from hydromodpy.schema.sources import is_determined
+
+    refused = [item for item in bundle.index.files if not is_determined(item.license)]
+    if refused:
+        names = "\n".join(
+            f"  {item.dest} ({item.provider or 'custom'}): {item.license or 'no licence'}"
+            for item in refused
+        )
+        raise ConfigMissingError(
+            f"hmp publish --public carries {len(refused)} input(s) whose licence does not "
+            f"allow redistribution:\n{names}\nDeclare the licence of a file you supplied in "
+            "its sidecar (<file>.json, key 'license'), or publish without --with inputs."
+        )
 
 
-def _locate(path: str, roots: Sequence[Path]) -> Path | None:
-    """Return the file or directory an input names, relative to the run, the project or the workspace."""
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate if candidate.exists() else None
-    return next((root / candidate for root in roots if (root / candidate).exists()), None)
+def _copy_bundle(bundle: PayloadBundle, staging: Path) -> None:
+    """Write ``INSTALL.toml`` and copy every file it lists under ``inputs/``, by content.
+
+    The bytes are copied as they are, never redacted, and checked against the
+    digest the index states.
+    """
+    folder = staging / INPUTS_DIRNAME
+    folder.mkdir(parents=True, exist_ok=True)
+    expected: dict[str, str] = {}
+    for item in bundle.index.files:
+        expected[stored_name(item.sha256, item.dest)] = item.sha256
+        if item.sidecar_sha256 is not None:
+            expected[sidecar_name(item.sidecar_sha256)] = item.sidecar_sha256
+    for name, sha256 in sorted(expected.items()):
+        located = bundle.blobs.get(name)
+        if located is None or not located.is_file():
+            raise MissingInputError(f"{name}: the bytes of this input are not on disk any more.")
+        dest = folder / name
+        shutil.copyfile(located, dest)
+        if file_sha256(dest) != sha256:
+            raise ExportError(f"{located.name} changed while it was copied: publish again.")
+    write_index(staging, bundle.index)
 
 
 def _write_crate(staging: Path) -> None:
@@ -787,6 +810,7 @@ def _tar_digests(archive_path: Path) -> tuple[dict[str, str], dict[str, str]]:
 __all__ = [
     "INPUTS_DIRNAME",
     "RESULTS_ENTRIES",
+    "InputsOf",
     "MissingInputError",
     "RUN_COPY_ENTRIES",
     "project_members",

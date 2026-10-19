@@ -385,23 +385,30 @@ def _replay_project_root() -> Path:
 def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.Namespace) -> None:
     """Replay the frozen configuration of a published copy from the bytes it carries.
 
-    ``--frozen`` on a copy checks every input of the seal against
-    ``inputs/<sha256>`` and points the configuration at those bytes
+    ``--frozen`` on a copy checks every file of its install index against
+    ``inputs/`` and points the configuration at those bytes, a declared
+    folder rebuilt under ``<project>/.hmp/replay/<copy>/``
     (:mod:`hydromodpy.project.launch.replay`); the copy holds no lockfile, so
     the run itself is not bound to one. The run is written into the project
     ``-w`` names, or the one around the current directory.
     """
+    import shutil
+
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
     from hydromodpy.core.toml_io.writer import dumps
     from hydromodpy.project.launch.replay import ReplayInputError, replay_payload
 
     root = _replay_project_root()
+    folder = root / ".hmp" / "replay"
+    workdir = folder / copy_dir.name
     try:
-        payload = replay_payload(copy_dir, load_toml_with_base_config(config_path))
+        payload = replay_payload(copy_dir, load_toml_with_base_config(config_path), workdir=workdir)
     except ReplayInputError as exc:
+        shutil.rmtree(workdir, ignore_errors=True)
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
-    folder = root / ".hmp" / "replay"
     folder.mkdir(parents=True, exist_ok=True)
     replay_path = folder / f"{copy_dir.name}.toml"
     replay_path.write_text(dumps(payload), encoding="utf-8")
@@ -412,6 +419,7 @@ def _replay_published_copy(copy_dir: Path, config_path: Path, *, args: argparse.
         _run_toml(replay_path, args=args)
     finally:
         replay_path.unlink(missing_ok=True)
+        shutil.rmtree(workdir, ignore_errors=True)
         if not any(folder.iterdir()):
             folder.rmdir()
         if previous is None:

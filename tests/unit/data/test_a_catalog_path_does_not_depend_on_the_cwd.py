@@ -104,6 +104,10 @@ def test_a_station_download_is_read_back_from_the_cache(workspace: Path) -> None
 
     assert cached is not None
     assert cached.data["value"].tolist() == [1.0, 2.0, 3.0]
+    # The record names the file it was read from: the seal records it as an input.
+    assert record.file_path == cached.file_path
+    assert cached.file_path.parent == workspace / "data" / "hydrometry"
+    assert cached.file_path.name.startswith("hydrometry_hubeau_X1_")
 
 
 def test_a_grid_download_is_read_back_from_the_cache(workspace: Path) -> None:
@@ -134,6 +138,10 @@ def test_a_grid_download_is_read_back_from_the_cache(workspace: Path) -> None:
 
     assert cached is not None
     assert float(cached[0].data["recharge"].sum()) == 4.0
+    # Both records name the file they were read from: the seal records it as an input.
+    stored = Path(cached[0].metadata["source_path"])
+    assert stored.parent == workspace / "data" / "recharge"
+    assert record.metadata["source_path"] == str(stored)
 
 
 def test_a_repair_keeps_an_entry_whose_file_exists(workspace: Path) -> None:

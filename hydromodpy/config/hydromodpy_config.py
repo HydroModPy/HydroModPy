@@ -1612,15 +1612,18 @@ class HydroModPyConfig(HydroModelBase):
         snapshot: dict[str, Any],
         **overrides: Any,
     ) -> HydroModPyConfig:
-        """Reconstruct a config from a stored JSON snapshot.
+        """Reconstruct a config from the frozen configuration of a run.
 
         The snapshot is read as stored: a key removed from the schema since the
-        run was stored is refused, as in a file.
+        run was stored is refused, as in a file. A snapshot that names its
+        project (``[workspace] project_root``) is read as its ``config.toml``
+        is: relative paths from the project root, bare names in ``data/`` of
+        its workspace, so a run frozen in one workspace reruns in another.
 
         Parameters
         ----------
         snapshot : dict
-            The ``config_toml`` JSON snapshot stored in DuckDB.
+            The frozen ``config.toml`` of a run, as a mapping.
         overrides
             Keyword overrides merged into the snapshot before
             validation.  Nested dicts are merged recursively.
@@ -1630,6 +1633,10 @@ class HydroModPyConfig(HydroModelBase):
         HydroModPyConfig
         """
         merged = _deep_merge(snapshot, overrides) if overrides else snapshot
+        workspace = merged.get("workspace")
+        project_root = workspace.get("project_root") if isinstance(workspace, Mapping) else None
+        if project_root:
+            return cls.from_dict(merged, base_dir=project_root)
         return cls.model_validate(merged)
 
 

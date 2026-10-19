@@ -93,9 +93,11 @@ def cell_zones(
     The cells of a geology pair take the zone of their side. The other cells
     joined to them without crossing a geology face share that zone when the
     group they form meets one zone only; a group that meets two (a contact
-    with a free end, or a yielded part) is left at ``-1``. A pair cell given
-    two zones, and every cell a yielded contact segment crosses (a mixed
-    cell), is ``-1`` too. ``None`` when no geology face family carries zones.
+    with a free end) is left at ``-1``. A yielded contact segment has no pair
+    face, so the groups are also cut at every cell it crosses (a mixed cell)
+    and at every edge it touches: the cells away from it keep their zone. A
+    pair cell given two zones, and every mixed cell, is ``-1``. ``None`` when
+    no geology face family carries zones.
     """
     if table is None or GEOLOGY_FAMILY not in table.names or not plan.zone_names:
         return None
@@ -105,14 +107,18 @@ def cell_zones(
     cell = np.concatenate([cell_a, cell_b[inside]])
     label = np.concatenate([table.zone_left[rows], table.zone_right[rows][inside]])
     known = label >= 0
-    component = components_without(geometry, cell_a, cell_b)
+    mixed = _mixed_cells(plan, geometry, vertices)
+    cut = geometry.edge_cells[_yielded_edges(plan, geometry, vertices, mixed)]
+    component = components_without(
+        geometry, np.concatenate([cell_a, cut[:, 0]]), np.concatenate([cell_b, cut[:, 1]])
+    )
     by_group = _single_label(component[cell[known]], label[known], int(component.max()) + 1)
     zones = by_group[component].astype(np.int32)
     by_cell = _single_label(cell[known], label[known], geometry.n_cells)
     labelled = np.zeros(geometry.n_cells, dtype=bool)
     labelled[cell[known]] = True
     zones[labelled] = by_cell[labelled]
-    zones[_mixed_cells(plan, geometry, vertices)] = -1
+    zones[mixed] = -1
     return zones
 
 
@@ -198,6 +204,31 @@ def _side_faces(
     return sides
 
 
+def _loose_segments(plan: ConstraintPlan) -> np.ndarray:
+    """The geology segments without their pair, as shapely lines in the local frame."""
+    faces = plan.faces
+    if GEOLOGY_FAMILY not in plan.family_names:
+        return np.empty(0, dtype=object)
+    loose = np.flatnonzero(
+        ~faces.segment_conformal & (faces.segment_family == plan.family_names.index(GEOLOGY_FAMILY))
+    )
+    return shapely.linestrings(faces.vertices[faces.segment_nodes[loose]]).reshape(-1)
+
+
+def _yielded_edges(
+    plan: ConstraintPlan, geometry: DerivedGeometry, vertices: np.ndarray, mixed: np.ndarray
+) -> np.ndarray:
+    """Interior edges of a mixed cell or touched by a geology segment without its pair."""
+    inner = geometry.edge_cells[:, 1] >= 0
+    hit = inner & np.isin(geometry.edge_cells, mixed).any(axis=1)
+    segments = _loose_segments(plan)
+    if segments.size:
+        edges = shapely.linestrings(vertices[geometry.edge_nodes])
+        touched = STRtree(edges).query(segments, predicate="intersects")[1]
+        hit[touched] = True
+    return np.flatnonzero(hit & inner)
+
+
 def _mixed_cells(
     plan: ConstraintPlan, geometry: DerivedGeometry, vertices: np.ndarray
 ) -> np.ndarray:
@@ -206,16 +237,9 @@ def _mixed_cells(
     Each cell is shrunk by the face tolerance of the QA first, so a segment
     running on a cell edge does not count.
     """
-    faces = plan.faces
-    if GEOLOGY_FAMILY not in plan.family_names:
+    segments = _loose_segments(plan)
+    if not segments.size:
         return np.empty(0, dtype=np.int64)
-    loose = np.flatnonzero(
-        ~faces.segment_conformal & (faces.segment_family == plan.family_names.index(GEOLOGY_FAMILY))
-    )
-    if not loose.size:
-        return np.empty(0, dtype=np.int64)
-    ends = faces.vertices[faces.segment_nodes[loose]]
-    segments = shapely.linestrings(ends)
     padded = geometry.padded_connectivity.astype(np.int64)
     valid = padded >= 0
     corner = np.where(valid, padded, 0)

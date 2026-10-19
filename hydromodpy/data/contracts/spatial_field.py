@@ -11,6 +11,14 @@ try:
 except ImportError:
     xr = None  # type: ignore[assignment]
 
+INPUT_FILES_KEY = "input_files"
+"""Metadata key of a record built from files it does not point at.
+
+Its value lists ``{"provider": slug, "path": str}``, one per file read: the
+mapped network of a hydrography record is rasterised in the run scratch, and
+the seal records the files the network was read from, not the raster.
+"""
+
 
 @dataclass
 class FieldRecord:

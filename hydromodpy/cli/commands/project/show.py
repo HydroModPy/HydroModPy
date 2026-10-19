@@ -14,12 +14,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections import Counter
 from pathlib import Path
 
 from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, apply_verbosity, resolve_named_project
+from hydromodpy.cli.helpers import apply_verbosity, resolve_project_ref
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INTERNAL_DIRNAME,
@@ -60,7 +59,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
-    project_dir = _project_dir(args.workspace, args.project)
+    project_dir = resolve_project_ref(args.workspace, args.project)
     payload = _summary(project_dir)
 
     if args.format == "json":
@@ -89,28 +88,6 @@ def run(args: argparse.Namespace) -> None:
     index_label = f"{INTERNAL_DIRNAME}/{CATALOG_FILENAME}"
     index_state = "present" if payload["has_index"] else "missing (hmp catalog reindex builds it)"
     print(f"  index    : {index_label} {index_state}")
-
-
-def _project_dir(workspace_arg: str | None, ref: str | None) -> Path:
-    """Return the project a reference names: a path is read as a path, a bare name under projects/."""
-    if ref is None or not _is_path(ref):
-        return resolve_named_project(workspace_arg, ref)
-    from hydromodpy.core.state.paths import resolve_project_root
-
-    start = Path(ref).expanduser().resolve()
-    root = resolve_project_root(start)
-    if not (root / PROJECT_MARKER_FILENAME).is_file():
-        print(
-            f"No {PROJECT_MARKER_FILENAME} at or above {start}: name a project directory, "
-            "or a project name under projects/ of the workspace.",
-            file=sys.stderr,
-        )
-        sys.exit(EXIT_NOT_FOUND)
-    return root
-
-
-def _is_path(ref: str) -> bool:
-    return ref in (".", "..") or "/" in ref or Path(ref).expanduser().is_absolute()
 
 
 def _summary(project_dir: Path) -> dict:

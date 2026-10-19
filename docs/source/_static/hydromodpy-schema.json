@@ -4444,6 +4444,268 @@
         }
       }
     },
+    "CutoffWallConfig": {
+      "additionalProperties": false,
+      "description": "The flow barrier of a lake dam, laid on the lake shore.",
+      "properties": {
+        "auto": {
+          "default": false,
+          "description": "Auto-place the dam cutoff wall (lakes only): the trace is derived at bind time as the chord across the reservoir at its downstream neck (the footprint point nearest the catchment outlet), perpendicular to the outlet-flow direction. Mutually exclusive with line / line_path; the mesh dam refinement then follows this auto axis too.",
+          "examples": [
+            false
+          ],
+          "title": "Auto",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inline barrier-trace vertices [(x, y), ...] in the project CRS. Mutually exclusive with line_path and auto.",
+          "title": "Line",
+          "x-hmp-profile": "user"
+        },
+        "line_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Barrier-trace file: a vector polyline (gpkg / shp / GeoJSON) or a CSV of ordered x,y (or lon,lat) vertices. A bare filename resolves against <workspace>/data/cutoff_wall/. Alternative to line and auto.",
+          "title": "Line Path",
+          "x-hmp-profile": "user"
+        },
+        "depths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Barrier depth [m] below the top (or below crest_elevation). One value is uniform; several are interpolated per vertex along the trace. The HFB blocks every layer down to this depth. Mutually exclusive with base_elevation.",
+          "title": "Depths",
+          "x-hmp-profile": "user"
+        },
+        "crest_elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute TOP elevation of the barrier [m, model datum]; defaults to the cell top (the DEM). Set it when the barrier crest sits below the DEM top. Not calibratable: raising the crest and lowering hydchr both shrink the flow section the wall lets through, so a search cannot tell the two apart. It is a built structure, not a fitted number; path = in [calibration.parameters] still reaches it for whoever wants to override this deliberately.",
+          "title": "Crest Elevation",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
+        "base_elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute BOTTOM elevation of the barrier [m, model datum]. When set, the HFB spans [base_elevation, crest_elevation or top] and blocks EVERY layer in that band. Use it to make a full-height dam impervious: the concrete body plus the grout curtain block all flow from the crest down to the curtain foot (e.g. base_elevation = 41 m), so nothing seeps across the dam above that. Mutually exclusive with depths. Not calibratable: a deeper foot and a lower hydchr produce the same reduction of under-dam flow, so putting both in a search is equifinality by construction, the same mechanism that makes the second stage of the stream-network protocol pin the specific yield on its bound. When the foot is genuinely unknown, run mode = \"comparison\", one elevation per run, which also yields a defensible sensitivity instead of a fitted number; path = in [calibration.parameters] still reaches it for an override.",
+          "title": "Base Elevation",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
+        "hydchr": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "log_uniform",
+            "transform": "log",
+            "units": "1/s"
+          },
+          "default": null,
+          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it when XT3D is active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
+          "title": "Hydchr",
+          "x-hmp-profile": "user"
+        },
+        "hydchr_unit": {
+          "default": "1/s",
+          "description": "Unit of hydchr (1/T): 1/s, 1/day, 1/h, 1/min. Converted to 1/s for MF6.",
+          "examples": [
+            "1/s"
+          ],
+          "title": "Hydchr Unit",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "calibrable": {
+            "bounds": null,
+            "description": "",
+            "is_the_value_of_its_instance": false,
+            "prior": "log_uniform",
+            "transform": "log",
+            "units": "m/s"
+          },
+          "default": null,
+          "description": "Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
+          "title": "K",
+          "x-hmp-profile": "user"
+        },
+        "k_unit": {
+          "default": "m/s",
+          "description": "Unit of k (L/T): m/s, m/day, m/h, m/min. Converted to m/s.",
+          "examples": [
+            "m/s"
+          ],
+          "title": "K Unit",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Thickness of the barrier, in the unit thickness_unit names (metres by default). With k it gives hydchr = k / thickness when hydchr is unset.",
+          "title": "Thickness",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        },
+        "thickness_unit": {
+          "default": "m",
+          "description": "Unit of thickness (L): m, cm, mm, km. Converted to m.",
+          "examples": [
+            "m"
+          ],
+          "title": "Thickness Unit",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "snap_tolerance": {
+          "default": 50.0,
+          "description": "Largest gap [m] between the declared trace and the lake shore. The part of the trace facing the lake moves onto the shore it faces, so no cell sits between the reservoir and the wall; the trace beyond the banks stays as declared. A trace farther than this from the lake is refused. A trace that crosses the lake cuts its footprint, and the part downstream is dropped.",
+          "examples": [
+            50.0
+          ],
+          "minimum": 0.0,
+          "title": "Snap Tolerance",
+          "type": "number",
+          "unit": "m",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CutoffWallConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^depths__append$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^depths__merge$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "^line__append$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        },
+        "^line__merge$": {
+          "type": "array",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          }
+        }
+      }
+    },
     "DamCarveConfig": {
       "additionalProperties": false,
       "description": "Optional dam structure-carve of the ground.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the ground down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream).\n\nThe ground is the DEM plus the corrections declared here and in\n``[geographic.crossings]``. Both the routing chain and the model top start\nfrom it, so the carved dam is seen by the flow routing and by the aquifer\nalike.",
@@ -8541,14 +8803,14 @@
         "cutoff_wall": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FlowBarrierConfig"
+              "$ref": "#/$defs/CutoffWallConfig"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB (the lake-derived use of FlowBarrierConfig). The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers.",
+          "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB laid on the lake shore. The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers.",
           "x-hmp-profile": "user"
         },
         "rainfall": {

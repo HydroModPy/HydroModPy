@@ -18,6 +18,7 @@ from shapely.geometry import LineString, Point, Polygon
 
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
@@ -85,13 +86,14 @@ class TestCustomLoader:
         assert gdf.crs is not None
 
     def test_load_gpkg_file(self, tmp_path):
-        from hydromodpy.data.variables.hydrography.custom import load_custom
+        from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR, load_custom
 
         gpkg = tmp_path / "rivers.gpkg"
         _make_lines_gdf().to_file(gpkg, driver="GPKG")
         cfg = HydrographySourceConfig(source="custom", path=gpkg)
         gdf = load_custom(cfg)
         assert not gdf.empty
+        assert gdf.attrs[SOURCE_PATH_ATTR] == str(gpkg)
 
     def test_load_geojson_file(self, tmp_path):
         from hydromodpy.data.variables.hydrography.custom import load_custom
@@ -539,7 +541,7 @@ class TestCatalogCacheManager:
         tif_path.parent.mkdir(parents=True, exist_ok=True)
         _write_dummy_tif(tif_path)
 
-        mgr.load()
+        fetched = mgr.load()
         assert mock_osm_fetch.call_count == 1
 
         # Catalog should have an entry
@@ -547,8 +549,12 @@ class TestCatalogCacheManager:
         assert len(df) == 1
 
         # GPKG file should exist in data_dir
-        gpkg_files = list(data_dir.glob("*.gpkg"))
+        gpkg_files = [path for path in data_dir.glob("*.gpkg") if "_permanent_" not in path.name]
         assert len(gpkg_files) == 1
+        # The record names the cached answer and its provider, not the raster of the run.
+        assert _hydrography_record(fetched).metadata[INPUT_FILES_KEY] == [
+            {"provider": "osm", "path": str(gpkg_files[0])}
+        ]
 
         # Second call - should use cache, not call API again
         mgr2 = HydrographyManager(
@@ -558,9 +564,12 @@ class TestCatalogCacheManager:
             catalog=catalog,
             data_dir=data_dir,
         )
-        mgr2.load()
+        cached = mgr2.load()
         # API was NOT called again
         assert mock_osm_fetch.call_count == 1
+        assert _hydrography_record(cached).metadata[INPUT_FILES_KEY] == [
+            {"provider": "osm", "path": str(gpkg_files[0])}
+        ]
 
     @patch("hydromodpy.data.variables.hydrography.apis.osm.fetch")
     @patch("hydromodpy.spatial.delineation.get_whitebox_backend")
