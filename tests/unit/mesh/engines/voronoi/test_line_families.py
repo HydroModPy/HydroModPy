@@ -223,6 +223,26 @@ def test_a_contact_across_the_domain_splits_it_in_two_zones() -> None:
     assert np.all(built.zones[side < 0.0] == plan.zone_names.index("r0"))
 
 
+def test_a_river_that_makes_a_contact_yield_leaves_only_its_mixed_cells_unnamed() -> None:
+    angle = math.radians(50.0)
+    centre = np.array([200.0, 150.0])
+    tangent = np.array([math.cos(angle), math.sin(angle)])
+    river = line(tuple(centre - 190.0 * tangent), tuple(centre + 190.0 * tangent))
+    built = build(rivers(river), contact(line((180.0, 0.0), (220.0, 300.0))))
+    plan = built.plan
+    geology = plan.family_names.index("geology")
+    assert np.any(~plan.faces.segment_conformal & (plan.faces.segment_family == geology))
+    assert built.zones is not None
+    named = built.zones >= 0
+    assert np.count_nonzero(~named) == built.qa.families["geology"]["mixed_cells"] > 0
+    face = shapely.get_coordinates(plan.source_lines["geology"][0])
+    tangent = face[-1] - face[0]
+    reach = built.seeds - face[0]
+    side = tangent[0] * reach[:, 1] - tangent[1] * reach[:, 0]
+    assert np.all(built.zones[named & (side > 0.0)] == plan.zone_names.index("l0"))
+    assert np.all(built.zones[named & (side < 0.0)] == plan.zone_names.index("r0"))
+
+
 @pytest.mark.parametrize("vertical_end", [150.0, 20.0])
 def test_t_and_x_junctions_keep_every_segment(vertical_end: float) -> None:
     built = build(

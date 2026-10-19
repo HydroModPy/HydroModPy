@@ -26,6 +26,7 @@ import numpy as np
 from hydromodpy.core.exceptions import MeshError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY
 from hydromodpy.results.manifest import InputEntry
 from hydromodpy.results.storage.attempt import is_run_product
 from hydromodpy.results.storage.digests import path_size_bytes
@@ -259,10 +260,23 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
                 period_start=getattr(rec, "date_start", None),
                 period_end=getattr(rec, "date_end", None),
             )
-            if not is_run_product(source_path, project_root):
+            for input_path, provider in _input_files(item, source_path):
+                if is_run_product(input_path, project_root):
+                    continue
+                input_digest = (
+                    digest
+                    if input_path == source_path
+                    else known_digests.get(str(input_path)) or sha256_file_or_none(input_path)
+                )
                 store.record_input(
                     ctx.sim_id,
-                    loaded_input_entry(item, source_path=source_path, sha256=digest, anchor=anchor),
+                    loaded_input_entry(
+                        item,
+                        source_path=input_path,
+                        sha256=input_digest,
+                        anchor=anchor,
+                        provider=provider,
+                    ),
                 )
             written += 1
         except Exception as exc:
@@ -275,22 +289,39 @@ def step_write_provenance(ctx: WorkflowContext, *, store: SimulationStore) -> No
         logger.debug("Wrote %d provenance records for sim %s", written, ctx.sim_id)
 
 
+def _input_files(item: LoadedRecord, source_path: Path | None) -> list[tuple[Path, str | None]]:
+    """Return the files one record was read from, each with its provider when it says one.
+
+    A record built from files it does not point at lists them in its
+    metadata (:data:`~hydromodpy.data.contracts.spatial_field.INPUT_FILES_KEY`):
+    the mapped network is rasterised in the scratch, its inputs are the files
+    of its sources. Any other record was read from its own source path.
+    """
+    metadata = getattr(item.record, "metadata", None)
+    listed = metadata.get(INPUT_FILES_KEY) if isinstance(metadata, dict) else None
+    if listed:
+        return [(Path(str(entry["path"])), str(entry["provider"])) for entry in listed]
+    return [] if source_path is None else [(source_path, None)]
+
+
 def loaded_input_entry(
     item: LoadedRecord,
     *,
     source_path: Path | None,
     sha256: str | None,
     anchor: Path | str | None,
+    provider: str | None = None,
 ) -> InputEntry:
-    """Return the ``inputs.json`` entry of one loaded record.
+    """Return the ``inputs.json`` entry of one file a loaded record was read from.
 
-    The provider is the source slug of the record; its licence comes from the
-    registry of sources, or from the sidecar of the file for a user file. The
-    request is what the record covers: its station, its period, its box. The
-    path is written relative to the workspace when the file sits under it.
+    The provider is *provider*, else the source slug of the record; its
+    licence comes from the registry of sources, or from the sidecar of the
+    file for a user file. The request is what the record covers: its station,
+    its period, its box. The path is written relative to the workspace when
+    the file sits under it.
     """
     rec = item.record
-    source = str(getattr(rec, "source", "") or "")
+    source = provider or str(getattr(rec, "source", "") or "")
     request: dict[str, Any] = {}
     station = getattr(rec, "station_id", None)
     if station not in (None, ""):

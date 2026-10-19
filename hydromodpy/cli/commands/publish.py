@@ -5,7 +5,9 @@ reference is a run (its directory name under ``runs/``, an id or an
 @-selector), ``summary``, or ``.`` for the project: every sealed run and the
 summary, each in its own folder under ``--to``, written all at once by
 :func:`hydromodpy.results.export.publish.publish_project`. ``--format tar`` writes the
-same copy as an archive, which ``hmp catalog import`` reads back.
+same copy as an archive, which ``hmp catalog import`` reads back. ``--with
+inputs`` takes along every file the run read with its install index
+(:func:`hydromodpy.catalog.share.run_bundle`).
 ``--verify DEST`` compares a copy with its ``PUBLICATION.json``. The folder
 ``hmp publish .`` writes carries one of kind ``project`` that lists its
 members: each member is verified, a member gone or an entry not listed is
@@ -73,8 +75,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         choices=("results", "inputs"),
         default=[],
         help=(
-            "Take along 'results' (fields.zarr, tables.parquet, mesh) or 'inputs' (the bytes "
-            "of every loaded input); repeatable"
+            "Take along 'results' (fields.zarr, tables.parquet, mesh) or 'inputs' (every file "
+            "the run read, with INSTALL.toml, which 'hmp catalog import' installs); repeatable"
         ),
     )
     parser.add_argument(
@@ -100,6 +102,7 @@ def run(args: argparse.Namespace) -> None:
     if args.ref is None or args.to is None:
         print("Name what to publish and where: hmp publish <ref> --to DEST", file=sys.stderr)
         sys.exit(EXIT_USAGE)
+    from hydromodpy.catalog.share import inputs_of
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.export.publish import publish, publish_project
 
@@ -113,6 +116,7 @@ def run(args: argparse.Namespace) -> None:
                 format=args.format,
                 with_=tuple(args.with_),
                 public=args.public,
+                inputs=inputs_of(project_root),
             )
         else:
             written = [
@@ -123,6 +127,7 @@ def run(args: argparse.Namespace) -> None:
                     format=args.format,
                     with_=tuple(args.with_),
                     public=args.public,
+                    inputs=inputs_of(project_root),
                 )
             ]
     except Exception as exc:  # noqa: BLE001 - mapped to a typed exit code below

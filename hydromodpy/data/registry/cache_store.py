@@ -281,8 +281,12 @@ def register(
     file_mtime: float | None = None,
     file_sha256: str | None = None,
     fetch_metadata: dict | None = None,
+    write_sidecar: bool = True,
 ) -> int:
-    """Register or update a data file entry. Returns entry id (-1 on error)."""
+    """Register or update a data file entry. Returns entry id (-1 on error).
+
+    ``write_sidecar=False`` leaves the sidecar of the file as it is.
+    """
     file_path = Path(file_path)
     resolved_path = resolve_entry_path(catalog, file_path, variable=variable)
     if file_mtime is None:
@@ -316,7 +320,7 @@ def register(
     # P9 provenance sidecar: write a JSON sidecar next to every catalog
     # input so downstream tools have the upstream metadata even without
     # the DuckDB catalog around. Best-effort: failures stay non-fatal.
-    if digest is not None and resolved_path.is_file():
+    if write_sidecar and digest is not None and resolved_path.is_file():
         chronicle = None
         if station_id is not None and not is_custom:
             chronicle = {

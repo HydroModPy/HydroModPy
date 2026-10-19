@@ -34,6 +34,44 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A lake cutoff wall lies on the lake shore (2026-10-19): no cell is left between the reservoir
+  and the wall. On the synthetic catchment, trace 12 m off the dam shore, the non-lake cells on the
+  lake side of the HFB faces of the shore section went from 19 (triangle) and 17 (voronoi) to 0,
+  and every such face touches a lake cell (one cell size left out at each corner of the section).
+  The choices:
+  - Geometry before the mesh: `snap_wall_to_shore` (`physics/flow/cutoff_wall_shore.py`, pure
+    shapely) runs right after the trace is resolved, explicit or `auto`. The shore section is the
+    lake outline nearest to the trace points within `snap_tolerance` and seen within 45 degrees of
+    the trace normal, so it stops at the corners of the dam shore instead of folding back along a
+    bank. Its ends join their feet on the trace; the wings beyond are kept as declared. A trace
+    that crosses the lake cuts the footprint, the largest piece stays the lake and the dropped area
+    is logged. A trace farther than `snap_tolerance` (new field of `CutoffWallConfig`, default
+    50 m), or facing no shore, is refused naming the lake and the gap. The payload carries the
+    wall (`cutoff_wall_line`, lake on its left), its shore section, the declared trace (its
+    vertices keep the depths) and the cut footprint, which the mesh step reads for the lake ring
+    and the dam refinement. Without a bound footprint the trace stays as declared, with a warning.
+  - HFB faces (`spatial/mesh/ops/flow_barrier.py:cutoff_wall_faces`): every face between a lake
+    cell and a cell across the wall (the staircase on `regular`, the shore faces on `triangle` and
+    `voronoi`), plus the faces the wall line crosses: the wings, the joints and the corners where
+    the cells round the shore (without them `voronoi` leaked at the corners). A face between two
+    lake cells is never barred. HFB rows still go only where both cells are active (9a53b1dbd), so
+    a lake face is barred below the bed and sealed by LAK in the lake layers.
+  - LAK seal and drop: the HORIZONTAL connections are cut across exactly the faces the HFB bars,
+    and the lake cells dropped are those across the wall within its span, the side read at the
+    nearest point of the wall. The infinite chord through the trace ends is gone
+    (`_wall_endpoints`, `_cell_behind_wall`).
+  - Gate (`check_cutoff_wall_seal`, after the HFB in `build.py`): per lake with a wall, no
+    lake-side cell is reached from downstream along the wall, no LAK bank connection reaches a
+    cell across it, every lake face across it has its HFB rows, and no wall face of the shore
+    section leaves a non-lake cell on the lake side; otherwise `SolverInputError` names the lake
+    and the counts.
+- Mesh zone labels (2026-10-19): the `voronoi` engine (2.0.1) no longer leaves every cell at
+  zone `-1` when a river makes a geology contact yield its pair; the groups are cut at the
+  cells the yielded segment crosses and at the edges it touches, so only those mixed cells stay
+  `-1` (synthetic catchment: 103 to 2388 of 2390 cells named). The `regular` engine (1.0.1) nodes
+  a contact clipped to the domain into the domain boundary, so the contact splits the domain:
+  its staircase faces exist and no cell takes the zone of the other side. `K` was right before
+  (area fractions); `face_zone` of the run and the `geology` face family were not.
 - Outputs and orchestration, real user tour of 2026-10-16 (129 commands of the documented path run
   from an empty home; the defects it found):
   - The seal no longer records a product of the run scratch (`_preprocessing/`) as an input, so
@@ -125,6 +163,73 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- Share a simulation with its data (2026-10-19), step 1, the package of a run:
+  - One install index for an example, a published run and an exported project
+    (`hydromodpy/core/payload/`): `INSTALL.toml`, schema `hydromodpy.install.v1`, refused by name
+    in another version; `[[file]]` names each file by `dest`, `size` and `sha256` (the keys of
+    `[[example.file]]`) plus its variable, provider, request, licence, sidecar digest and, for a
+    file a provider delivered, the row of `data/cache.duckdb` that serves it; `[[station]]` is a
+    registry row like `[[example.station]]`, `[[site]]` a row of the site catalog. `ExampleFile`
+    and `ExampleStation` are gone: the catalog of examples uses `PayloadFile` and `PayloadStation`,
+    and `hmp example add` places its files through the same planner (`plan_files`,
+    `plan_stations`), which every package uses.
+  - `hmp publish --with inputs` carries every file the run read, built by
+    `hydromodpy.catalog.share.run_bundle` from `inputs.json` and the declared files: user station
+    files, the DEM, a GeoPackage, the files Hub'Eau, SIM2 or BD Topage delivered with their
+    sidecars, stored by content under `inputs/<sha256><suffix>` and `inputs/<sha256>.json`, with
+    `INSTALL.toml` at the root of the copy. A declared folder is never copied whole any more: the
+    station files the run read in it are, with their registry rows. `--public` with inputs refuses
+    by name an input whose licence does not allow redistribution.
+  - `inputs.json` names every file the run read: a series read from the data cache carries its
+    file (`PointRecord.file_path`, `FieldRecord.metadata["source_path"]`), a hydrographic network
+    names the files of its sources and their provider (`INPUT_FILES_KEY`) instead of the raster of
+    the scratch, so BD Topage is recorded under its own licence, and a declared file no load names
+    (the DEM a catchment is cut from) enters with the provider and licence of its sidecar.
+  - `manifest.inputs` records each declared file relative to the workspace root
+    (`data/dem/...`), its `declared_path` in the form the frozen configuration writes
+    (`portable_declared_path`): no absolute path of the machine in a seal any more.
+  - `hmp run <copy>/config.toml --frozen` reads the install index: a declared folder is rebuilt
+    under `<project>/.hmp/replay/<copy>/` from the files of the index in it, and a file a provider
+    delivered refuses the replay with the import that installs it instead.
+- Share a simulation with its data, step 2, the import (`hydromodpy/catalog/install.py`):
+  `hmp catalog import <copy> -w <project>` installs every file of the install index into the
+  `data/` of the workspace (or the project for a project file) before the run enters `runs/`.
+  Identical bytes already there cost nothing, an absent file comes with its sidecar, the same path
+  with other bytes is refused by name with both sha256; station rows merge into
+  `data/<variable>/<prefix>_<provider>_LOC.csv`; a file a provider delivered is registered in
+  `data/cache.duckdb` with its provider and key (sidecar kept, `write_sidecar=False`), so a run
+  finds it instead of fetching it again, and a station the cache serves from other bytes is
+  refused; the `[site]` merges into `data/sites/catalog.csv`, a name held with another outlet or an
+  outlet close to another site refused by name. Any conflict refuses the whole import and writes
+  nothing. The command prints what it installed, then `hmp catalog rerun <run>` and
+  `hmp catalog diff <run> <run>.v2`.
+- Share a simulation with its data, step 3, the replay is identical: the frozen `config.toml`
+  writes each input file in the form that resolves back to it in any copy of the workspace
+  (`portable_declared_path`: a bare name found in `data/<role>/` or `data/`, a path relative to the
+  project root, `../../data/...` for another file of the workspace), never a path of the machine;
+  the identity hash reads every path of the workspace relative to the project root, sidecars left
+  out, so two workspaces holding the same data hash a configuration alike;
+  `HydroModPyConfig.from_snapshot` reads a snapshot that names its project the way its file is
+  read, and `hmp catalog rerun` reads the frozen configuration from the project `-w` names, not
+  from the current directory. `tests/e2e/test_share_a_run_with_its_data.py` runs step 5 of example
+  04 (DEM, GeoPackage network, station series), publishes it with its inputs and results,
+  imports it into an empty workspace under another HOME, reruns it and finds identical
+  parameters, metrics that differ by the solve time only, and the same heads.
+- Share a simulation with its data, step 4, a whole project on the same brick:
+  `hmp project export <project> --to X.tar [--with runs] [--with sessions] [--with mesh]
+  [--with fetched]` (`hydromodpy/results/export/project_package.py`) writes the files the author
+  wrote (root TOML files, scripts, README, `sites.csv`, `site_overrides/`) and every data file the
+  TOML files reference, resolved by the resolver of the example catalog, now
+  `hydromodpy/core/payload/resolve.py` (`project_data`), on one `INSTALL.toml`; on demand the
+  sealed runs (published with their results and the user files they read), the sessions, the
+  `.hmp/mesh_cache/<key>/` entries the runs read (matched on the request hash and engine build
+  their mesh records, since gmsh does not redraw the same mesh) and the files the providers
+  delivered with their data cache rows. `PUBLICATION.json` of kind `project` lists every file, so
+  `hmp publish --verify` checks a package. `hmp project import X.tar -w <workspace> [--as name]`
+  (`hydromodpy/catalog/install.py`) installs it as `projects/<name>`, data under the rules of
+  `hmp catalog import`, runs under their own names, built beside its destination and renamed into
+  place; a name already taken is refused without `--as`, and `hmp catalog import` names
+  `hmp project import` for a project package.
 - The local launcher of a `[sites]` project (`hydromodpy/project/launch/`): `hmp run project.toml`
   takes the lease `.hmp/launcher.lease` (one `O_EXCL` file with host, pid and date, taken over when
   its process is dead or under `--force`), prepares the data once per data request with a pool of

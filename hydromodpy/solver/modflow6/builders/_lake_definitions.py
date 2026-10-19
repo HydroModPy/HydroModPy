@@ -51,6 +51,7 @@ def _active_lake_definitions(model) -> dict[str, dict[str, Any]]:
             "occupied_layers": _lake_attr(payload, "occupied_layers"),
             "fill_enclosed_cells": _lake_attr(payload, "fill_enclosed_cells"),
             "cutoff_wall_line": _lake_attr(payload, "cutoff_wall_line"),
+            "cutoff_wall_shore": _lake_attr(payload, "cutoff_wall_shore"),
             "surfdep": _lake_attr(payload, "surfdep"),
             "outlets": _lake_attr(payload, "outlets"),
             "rainfall": _lake_attr(payload, "rainfall"),

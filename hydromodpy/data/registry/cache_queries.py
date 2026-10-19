@@ -109,6 +109,24 @@ def find_cached(
     return entry
 
 
+def entry_for_file(catalog: DataCatalogDuckDB, file_path: Path | str) -> CatalogEntry | None:
+    """Return the newest entry that serves one file, or None.
+
+    The path is matched in its stored form and as given, like
+    :func:`custom_file_mtime`.
+    """
+    encoded = encode_path_for_storage(catalog, file_path)
+    backend = catalog.backend
+    row = backend.fetch_one(
+        "SELECT * FROM entries WHERE file_path IN (?, ?) ORDER BY id DESC LIMIT 1",
+        [encoded, str(file_path)],
+    )
+    if row is None:
+        return None
+    cols = [d[0] for d in backend.description() or []]
+    return CatalogEntry(**dict(zip(cols, row, strict=False)))
+
+
 def custom_file_mtime(
     catalog: DataCatalogDuckDB,
     *,

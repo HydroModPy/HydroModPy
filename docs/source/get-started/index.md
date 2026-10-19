@@ -93,7 +93,8 @@ run it, what you get.
 
 When the staircase is done, {doc}`staircase/next` leads to your own catchment, to the
 calibration files of example 04 and to the Python API. {doc}`many-catchments` runs the same
-model on a table of catchments, and {doc}`cluster` on a Slurm cluster.
+model on a table of catchments, and {doc}`cluster` on a Slurm cluster. {doc}`share-a-simulation`
+hands a run or a project, with its data, to a colleague.
 
 Looking for one parameter? Go to the {doc}`reference <../reference/parameters/index>`.
 
@@ -106,4 +107,5 @@ The staircase <staircase/index>
 After the staircase <staircase/next>
 Many catchments <many-catchments>
 On a cluster <cluster>
+Share a simulation <share-a-simulation>
 ```

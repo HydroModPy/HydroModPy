@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
@@ -31,6 +32,9 @@ _WINDOW_MARGIN_CELLS = 2
 """Cells kept around a line when its crossing mask is computed on a sub-grid."""
 
 _SIDES = ("west", "east", "south", "north")
+
+_END_SNAP_REL = 1.0e-7
+"""A line end this share of the domain span from the boundary is noded into it."""
 
 
 @dataclass(frozen=True)
@@ -146,9 +150,27 @@ def boundary_columns(
     return out
 
 
+def _noded_boundary(domain: Polygon, lines: tuple[LineString, ...]) -> BaseGeometry:
+    """The domain boundary with the line ends that lie on it inserted as its vertices.
+
+    A line clipped to the domain ends on the boundary only within rounding, so
+    the union would not node it there and the line would split nothing.
+    """
+    minx, miny, maxx, maxy = domain.bounds
+    tolerance = _END_SNAP_REL * max(maxx - minx, maxy - miny, 1.0)
+    coords = [line.coords[k] for line in lines if not line.is_closed for k in (0, -1)]
+    if not coords:
+        return domain.boundary
+    ends = shapely.points(coords)
+    on_boundary = shapely.dwithin(ends, domain.boundary, tolerance)
+    if not on_boundary.any():
+        return domain.boundary
+    return shapely.snap(domain.boundary, shapely.multipoints(ends[on_boundary]), tolerance)
+
+
 def _cell_labels(centers: np.ndarray, domain: Polygon, lines: tuple[LineString, ...]) -> np.ndarray:
     """Index of the polygon of ``domain boundary + lines`` holding each centre, ``-1`` if none."""
-    pieces = list(polygonize(unary_union([domain.boundary, *lines])))
+    pieces = list(polygonize(unary_union([_noded_boundary(domain, lines), *lines])))
     labels = np.full(len(centers), -1, dtype=np.int64)
     if not pieces:
         return labels

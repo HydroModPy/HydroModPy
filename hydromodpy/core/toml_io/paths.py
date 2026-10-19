@@ -17,6 +17,7 @@ with the ``__merge`` directive of :mod:`hydromodpy.core.toml_io.merge`.
 from __future__ import annotations
 
 import difflib
+import os
 import re
 import types
 import typing
@@ -107,6 +108,53 @@ def resolve_path(path_value: str | Path, base_dir: Path) -> str:
     if not path.is_absolute():
         path = (base_dir / path).resolve()
     return str(path)
+
+
+def portable_declared_path(
+    path: str | Path,
+    *,
+    role: str | None,
+    project_root: Path,
+    data_dir: Path | None,
+) -> str:
+    """Return the form of a resolved config path that resolves back to it in any workspace.
+
+    The inverse of :func:`resolve_declared_path` for a configuration read
+    from the project root, in this order:
+
+    1. a bare name, when the bare name resolves to the same file through the
+       ``<data_dir>/<role>/`` and ``<data_dir>/`` fallbacks
+       (``DEM_armorican_massif.tif``, ``hydrometry``);
+    2. a path under the project root, relative to it (``inputs/zones.shp``);
+    3. a path under the workspace that holds *data_dir*, relative to the
+       project root (``../../data/geology/map.gpkg``);
+    4. any other path, absolute as it is: it names a place outside the
+       workspace, which no copy of the workspace carries.
+    """
+    target = Path(path).expanduser()
+    if not is_declared_absolute_path(target):
+        return str(path)
+    target = target.resolve()
+    root = Path(project_root).resolve()
+    data = None if data_dir is None else Path(data_dir).resolve()
+    if data is not None:
+        fallback = [data / role, data] if role else [data]
+        if resolve_declared_path(target.name, base_dir=root, fallback_dirs=fallback) == target:
+            return target.name
+    if target.is_relative_to(root):
+        return target.relative_to(root).as_posix()
+    if data is not None and target.is_relative_to(data.parent):
+        return Path(os.path.relpath(target, root)).as_posix()
+    return str(target)
+    data = Path(data_dir).resolve()
+    fallback = [data / role, data] if role else [data]
+    bare = target.name
+    if resolve_declared_path(bare, base_dir=root, fallback_dirs=fallback) == target:
+        return bare
+    workspace = data.parent
+    if target.is_relative_to(workspace):
+        return Path(os.path.relpath(target, root)).as_posix()
+    return str(target)
 
 
 # Dotted key paths ------------------------------------------------------------

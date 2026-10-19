@@ -43,7 +43,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.geo_helpers import bbox_hash
 from hydromodpy.data.common.source_extent import mask_extent_in, mask_geometry
 from hydromodpy.data.contracts.load_result import LoadResult
-from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
 from hydromodpy.data.managers.base_manager_common import SourceTable
 from hydromodpy.data.source import registry
 from hydromodpy.data.source.permanence import PERMANENCE_COLUMN, PERMANENT, UNKNOWN
@@ -59,6 +59,7 @@ from hydromodpy.data.variables.hydrography.config import (
     HydrographyConfig,
     HydrographySourceConfig,
 )
+from hydromodpy.data.variables.hydrography.custom import SOURCE_PATH_ATTR
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_VECTOR_FILENAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FILENAME,
@@ -112,17 +113,23 @@ class HydrographyManager(SourceTable):
         # 1. Fetch from each source
         vector_gdfs: list[gpd.GeoDataFrame] = []
         tif_path: Path | None = None
+        inputs: list[dict[str, str]] = []
 
         for src in self.config.sources:
             result = self._fetch_from_source(src)
             if isinstance(result, Path):
                 tif_path = result
-            elif not result.empty:
+                inputs.append({"provider": str(src.source), "path": str(result)})
+                continue
+            read_from = result.attrs.get(SOURCE_PATH_ATTR)
+            if read_from:
+                inputs.append({"provider": str(src.source), "path": str(read_from)})
+            if not result.empty:
                 vector_gdfs.append(result)
 
         # TIF custom shortcut - skip vector pipeline
         if tif_path is not None:
-            return self._load_from_tif(tif_path)
+            return self._load_from_tif(tif_path, inputs=inputs)
 
         if not vector_gdfs:
             raise ValueError("All hydrography sources returned empty results.")
@@ -157,6 +164,7 @@ class HydrographyManager(SourceTable):
             raster_path=tif_out,
             vector_path=streams_path,
             permanent_vector_path=permanent_path,
+            inputs=inputs,
         )
 
     def _write_permanent_network(self, network: gpd.GeoDataFrame) -> Path | None:
@@ -188,7 +196,7 @@ class HydrographyManager(SourceTable):
     # TIF pipeline
     # ------------------------------------------------------------------
 
-    def _load_from_tif(self, tif_path: Path) -> LoadResult:
+    def _load_from_tif(self, tif_path: Path, *, inputs: list[dict[str, str]]) -> LoadResult:
         """Clip a pre-rasterised TIF to the mask and return the result."""
         from rasterio.mask import mask as rio_mask
 
@@ -230,6 +238,7 @@ class HydrographyManager(SourceTable):
             arr,
             raster_path=out_tif,
             vector_path=None,
+            inputs=inputs,
         )
 
     def _build_load_result(
@@ -239,8 +248,13 @@ class HydrographyManager(SourceTable):
         raster_path: Path,
         vector_path: Path | None,
         permanent_vector_path: Path | None = None,
+        inputs: list[dict[str, str]],
     ) -> LoadResult:
-        """Build the standard hydrography load result."""
+        """Build the standard hydrography load result.
+
+        *inputs* names the files the network was read from, each with its
+        provider: the raster and the clipped vector are products of the run.
+        """
         bbox, crs = self._raster_bbox_crs(raster_path)
         data = xr.Dataset(
             data_vars={
@@ -264,6 +278,7 @@ class HydrographyManager(SourceTable):
                     str(permanent_vector_path) if permanent_vector_path is not None else None
                 ),
                 "array_name": HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+                INPUT_FILES_KEY: inputs,
             },
         )
         return LoadResult(fields=[record])
@@ -467,6 +482,7 @@ class NetworkCache:
             return None
         logger.debug("Cache hit for hydrography/%s: %s", source, cached_path)
         cached = gpd.read_file(cached_path)
+        cached.attrs[SOURCE_PATH_ATTR] = str(cached_path)
         # A download cached before the permanent copy existed gets it now.
         _write_permanent_copy(cached, cached_path, overwrite=False)
         return cached
@@ -495,6 +511,7 @@ class NetworkCache:
             gdf = gdf.set_crs("EPSG:4326")
 
         gdf.to_file(out_path, driver="GPKG")
+        gdf.attrs[SOURCE_PATH_ATTR] = str(out_path)
         _write_permanent_copy(gdf, out_path, overwrite=True)
 
         entry_id = self._catalog.register(

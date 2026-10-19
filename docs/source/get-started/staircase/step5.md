@@ -109,6 +109,9 @@ the run counts as one export. Every export carries the identity of the run: a Ge
 its metadata table, any other file in a `.meta.json` beside it, and `exports/index.json`
 lists them all. The portable archive of the run is a copy out of the project:
 `hmp publish nancon_step5_export --to nancon.tar --format tar --with results --with inputs`.
+It holds the DEM, the GeoPackage and the station series the run read, and
+`hmp catalog import nancon.tar` installs them in another workspace
+({doc}`../share-a-simulation`).
 
 Eight figures, drawn from the same data: `watershed_id_card`, `flux_timeseries`,
 `hydrograph_sim_obs`, `watertable_depth_map`, `seepage_map`, `seepage_network_confusion_map`,

@@ -23,9 +23,10 @@ from urllib.parse import quote
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import CacheCorruptionError, NetworkError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.payload import PayloadFile
+from hydromodpy.core.payload.install import sha256_of
 from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.core.version import __version__
-from hydromodpy.examples.manifest import ExampleFile
 
 logger = get_logger(__name__)
 
@@ -70,12 +71,12 @@ def blob_path(sha256: str) -> Path:
     return blobs_dir() / sha256[:2] / sha256
 
 
-def is_cached(item: ExampleFile) -> bool:
+def is_cached(item: PayloadFile) -> bool:
     """Return True when this file is already in the blob cache."""
     return blob_path(item.sha256).is_file()
 
 
-def missing_bytes(items: tuple[ExampleFile, ...]) -> int:
+def missing_bytes(items: tuple[PayloadFile, ...]) -> int:
     """Return how many bytes of ``items`` are not cached on this machine."""
     seen: set[str] = set()
     total = 0
@@ -87,16 +88,7 @@ def missing_bytes(items: tuple[ExampleFile, ...]) -> int:
     return total
 
 
-def sha256_of(path: Path) -> str:
-    """Return the sha256 of a file on disk, read in chunks."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(_CHUNK_BYTES), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def ensure_blob(item: ExampleFile, *, source: str) -> Path:
+def ensure_blob(item: PayloadFile, *, source: str) -> Path:
     """Return the cached blob for ``item``, fetching it from ``source`` if missing.
 
     A sha256 that does not match what the manifest declares is a hard failure:

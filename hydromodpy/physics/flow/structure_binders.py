@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time import (
     ResolvedSimulationTimeWindow,
@@ -420,6 +421,13 @@ def apply_cutoff_wall_to_flow(
     shapely LineString and attaches it as ``payload['cutoff_wall_line']`` so the
     HFB builder and the mesh dam refinement both map it onto the faces.
 
+    The trace is then laid on the lake shore (:func:`snap_wall_to_shore`):
+    ``cutoff_wall_line`` is the wall on the shore, ``cutoff_wall_shore`` the
+    shore section it follows and ``cutoff_wall_trace`` the declared trace, whose
+    vertices carry the depths. A trace that crosses the lake cuts the footprint,
+    and ``polygon`` becomes the cut footprint. Without a footprint (lake geometry
+    not loaded) the trace stays as declared.
+
     Returns True if at least one wall line was attached, False otherwise.
     """
     payloads = _lake_payloads_as_mappings(flow)
@@ -432,8 +440,8 @@ def apply_cutoff_wall_to_flow(
         if cfg is None:
             continue
         where = f"flow.sinks_sources.lakes.{lake_id}.cutoff_wall"
+        polygon = payload.get("polygon")
         if bool(getattr(cfg, "auto", False)):
-            polygon = payload.get("polygon")
             if polygon is None:
                 raise ValueError(
                     f"{where} auto needs the lake footprint; bind lake geometry first."
@@ -443,17 +451,57 @@ def apply_cutoff_wall_to_flow(
                     f"{where} auto needs the catchment outlet; only from_outlet_coord catchments "
                     "expose x_outlet/y_outlet. Give an explicit line instead."
                 )
-            payload["cutoff_wall_line"] = auto_dam_axis(polygon, outlet_xy)
+            trace = auto_dam_axis(polygon, outlet_xy)
         else:
-            payload["cutoff_wall_line"] = _resolve_barrier_line(
+            trace = _resolve_barrier_line(
                 cfg, where=where, project_crs=project_crs, data_dir=data_dir
             )
+        payload["cutoff_wall_trace"] = trace
+        payload["cutoff_wall_line"] = trace
+        if polygon is None:
+            logger.warning(
+                "%s: no lake footprint is bound, so the wall stays on the declared trace "
+                "instead of the lake shore.",
+                where,
+            )
+        else:
+            _lay_wall_on_shore(payload, polygon, trace, cfg, where=where)
         attached = True
 
     if not attached:
         return False
     flow.sinks_sources["lakes"] = payloads
     return True
+
+
+def _lay_wall_on_shore(
+    payload: dict[str, object], polygon: object, trace: object, cfg: object, *, where: str
+) -> None:
+    """Snap one lake's wall trace on its shore and record the wall on the payload."""
+    from hydromodpy.physics.flow.cutoff_wall_shore import snap_wall_to_shore
+
+    tolerance = float(getattr(cfg, "snap_tolerance", 50.0))
+    try:
+        wall = snap_wall_to_shore(polygon, trace, tolerance)
+    except ValueError as exc:
+        raise ConfigError(f"{where}: {exc}.") from exc
+    payload["cutoff_wall_line"] = wall.line
+    payload["cutoff_wall_shore"] = wall.shore
+    payload["polygon"] = wall.polygon
+    if wall.cut_area_m2 > 0.0:
+        logger.warning(
+            "%s crosses the lake footprint: the %.0f m2 downstream of the trace are "
+            "dropped from the lake, and the wall lies on the new shore.",
+            where,
+            wall.cut_area_m2,
+        )
+    logger.info(
+        "%s laid on the lake shore: gap %.1f m closed, %.1f m of shore, wall %.1f m long.",
+        where,
+        wall.gap_m,
+        wall.shore.length,
+        wall.line.length,
+    )
 
 
 def apply_flow_barriers_to_flow(*, flow: Flow, project_crs: object = None) -> bool:
@@ -795,8 +843,7 @@ def _lake_runoff_areas_m2(
     share = catchment_area_m2 / len(lake_ids)
     if len(lake_ids) > 1:
         logger.warning(
-            "No contributing area per lake: the basin runoff is split evenly "
-            "between %d lakes.",
+            "No contributing area per lake: the basin runoff is split evenly between %d lakes.",
             len(lake_ids),
         )
     return dict.fromkeys(lake_ids, share)

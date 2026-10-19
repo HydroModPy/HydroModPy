@@ -104,6 +104,7 @@ def test_rerun_reads_the_frozen_config_and_keeps_the_name(
     assert calls["source"] == SOURCE_ID
     assert calls["overrides"] == {"flow.k": 2e-4}
     assert calls["snapshot"]["flow"]["k"] == 1e-5
+    assert calls["snapshot"]["workspace"]["project_root"] == str(project.resolve())
     assert "runs/nancon_monthly.v3" in capsys.readouterr().out
     assert not (project / ".hmp" / "index.duckdb").exists()
 
@@ -144,6 +145,9 @@ def test_the_provider_seals_the_child_as_a_rerun_of_its_source(monkeypatch) -> N
             return types.SimpleNamespace(sim_id=NEW_ID)
 
     monkeypatch.setattr(project_module, "Project", _Project)
+    from hydromodpy.config import HydroModPyConfig
+
+    monkeypatch.setattr(HydroModPyConfig, "from_snapshot", classmethod(lambda cls, s: s))
 
     new_id = ProjectRerunProvider().rerun(
         {"flow": {"k": 1e-5}},

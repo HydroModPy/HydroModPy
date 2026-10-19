@@ -807,6 +807,19 @@ def _read_sidecar(path: Path) -> Licence:
     return licence_from_sidecar(payload)
 
 
+def sidecar_source(path: Path | str) -> str | None:
+    """Return the source slug the sidecar of a file names, or None without a readable one."""
+    target = sidecar_path(Path(path))
+    if not target.is_file():
+        return None
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    source = payload.get("source") if isinstance(payload, dict) else None
+    return str(source) if source else None
+
+
 def _is_sidecar(path: Path) -> bool:
     return (
         path.name.endswith(SIDECAR_SUFFIX)
@@ -872,6 +885,7 @@ __all__ = [
     "licence_for_source",
     "licence_from_sidecar",
     "sidecar_path",
+    "sidecar_source",
     "source_entry",
     "sources_by_publisher",
 ]

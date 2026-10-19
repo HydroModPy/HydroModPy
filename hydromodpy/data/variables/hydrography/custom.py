@@ -16,6 +16,10 @@ _VECTOR_EXTENSIONS = ("*.shp", "*.gpkg", "*.geojson")
 _RASTER_EXTENSIONS = ("*.tif", "*.tiff")
 
 
+SOURCE_PATH_ATTR = "source_path"
+"""Key of ``GeoDataFrame.attrs`` naming the file a network was read from."""
+
+
 def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     """Read a local file pointed to by *config.path*.
 
@@ -59,6 +63,7 @@ def load_custom(config: HydrographySourceConfig) -> gpd.GeoDataFrame | Path:
     logger.info("Loading custom hydrography vector from %s", path)
     frame = gpd.read_file(path)
     require_declared_crs(frame.crs, path=path, variable="hydrography")
+    frame.attrs[SOURCE_PATH_ATTR] = str(path)
     return frame
 
 

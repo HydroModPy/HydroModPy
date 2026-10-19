@@ -30,6 +30,7 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
 )
 from hydromodpy.solver.modflow6.builders.flow_barrier import (
     build_flow_barrier_hfb,
+    check_cutoff_wall_seal,
     resolve_flow_barrier_hfb_rows,
 )
 from hydromodpy.solver.modflow6.builders.initial_conditions import (
@@ -157,6 +158,7 @@ __all__ = [
     "evt_list_spd_to_array_payload",
     "evt_routing_is_layer0_only",
     "build_flow_barrier_hfb",
+    "check_cutoff_wall_seal",
     "build_lak_package_args",
     "build_lake_connectiondata",
     "build_lake_mover_records",

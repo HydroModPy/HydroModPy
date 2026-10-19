@@ -39,7 +39,7 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.units import FlowRate, Length
 from hydromodpy.core.units.leakance import normalize_per_s_unit
-from hydromodpy.physics.flow.sinks_sources.flow_barrier import FlowBarrierConfig
+from hydromodpy.physics.flow.sinks_sources.cutoff_wall import CutoffWallConfig
 from hydromodpy.physics.flow.sinks_sources.rate_forcing import FlowRateForcingConfig
 from hydromodpy.physics.flow.sinks_sources.wells import FlowWellForcingConfig
 
@@ -524,13 +524,13 @@ class FlowLakeConfig(HydroModelBase):
         default_factory=list,
         description="Surverse / spillway / controlled-release outlets for this lake.",
     )
-    cutoff_wall: Annotated[FlowBarrierConfig | None, Profile.USER] = Field(
+    cutoff_wall: Annotated[CutoffWallConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional dam cutoff wall / grout curtain on the dam axis, modeled as "
-            "a MODFLOW 6 HFB (the lake-derived use of FlowBarrierConfig). The "
-            "barrier forces the under-dam seepage to dive below the wall instead "
-            "of leaking through the top layers."
+            "a MODFLOW 6 HFB laid on the lake shore. The barrier forces the "
+            "under-dam seepage to dive below the wall instead of leaking through "
+            "the top layers."
         ),
     )
     rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(

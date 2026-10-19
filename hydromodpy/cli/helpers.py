@@ -273,6 +273,32 @@ def resolve_named_project(workspace_arg: str | None, name: str | None) -> Path:
     return project_dir
 
 
+def resolve_project_ref(workspace_arg: str | None, ref: str | None) -> Path:
+    """Return the project a reference names: a path is read as a path, a bare name under projects/.
+
+    A path is ``.``, ``..``, anything with a slash or an absolute path: the
+    project at or above it. Nothing found stops with :data:`EXIT_NOT_FOUND`.
+    """
+    if ref is None or not _is_path_ref(ref):
+        return resolve_named_project(workspace_arg, ref)
+    from hydromodpy.core.state.paths import PROJECT_MARKER_FILENAME, resolve_project_root
+
+    start = Path(ref).expanduser().resolve()
+    root = resolve_project_root(start)
+    if not (root / PROJECT_MARKER_FILENAME).is_file():
+        print(
+            f"No {PROJECT_MARKER_FILENAME} at or above {start}: name a project directory, "
+            "or a project name under projects/ of the workspace.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+    return root
+
+
+def _is_path_ref(ref: str) -> bool:
+    return ref in (".", "..") or "/" in ref or Path(ref).expanduser().is_absolute()
+
+
 # ---------------------------------------------------------------------------
 # Auto-scan workspace for drag-and-drop custom folders
 # ---------------------------------------------------------------------------

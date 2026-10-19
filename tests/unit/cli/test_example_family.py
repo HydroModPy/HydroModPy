@@ -60,7 +60,8 @@ def test_show_of_an_unknown_id_exits_not_found(monkeypatch, capsys) -> None:
 
 def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None:
     """The whole add path, pointed at a tree instead of GitHub."""
-    from hydromodpy.examples.manifest import ExampleEntry, ExampleFile
+    from hydromodpy.core.payload import PayloadFile
+    from hydromodpy.examples.manifest import ExampleEntry
 
     payload = b'[simulation]\nname = "tiny"\n'
     checkout = tmp_path / "checkout"
@@ -75,7 +76,7 @@ def test_add_installs_from_a_local_source(monkeypatch, capsys, tmp_path) -> None
         runtime="instant",
         entry_config="step1.toml",
         files=(
-            ExampleFile(
+            PayloadFile(
                 repo_path="examples/projects/tiny/step1.toml",
                 dest="projects/tiny/step1.toml",
                 size=len(payload),

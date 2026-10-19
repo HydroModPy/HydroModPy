@@ -205,6 +205,7 @@ class BaseFieldManager(BaseManagerCommon):
                     date_end=_coerce_datetime(entry.date_end),
                     frequency=entry.frequency,
                     source_unit=self._extract_field_source_unit(ds, var_name) or entry.source_unit,
+                    metadata={"source_path": str(nc_path)},
                 )
             )
 
@@ -235,6 +236,8 @@ class BaseFieldManager(BaseManagerCommon):
                 logger.debug("Saved: %s", nc_path.name)
             else:
                 nc_path = Path(rec.data)
+            # The seal records this file as the input of the run that read it.
+            rec.metadata["source_path"] = str(nc_path)
 
             entry_id = self._register_field(rec, nc_path, source)
 

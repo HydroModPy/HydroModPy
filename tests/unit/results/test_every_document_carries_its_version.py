@@ -48,6 +48,13 @@ import pyarrow as pa
 import pytest
 
 from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.payload import (
+    INSTALL_FILENAME,
+    INSTALL_SCHEMA,
+    InstallIndex,
+    read_index,
+    write_index,
+)
 from hydromodpy.core.state.paths import catalog_path_for
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.data.provenance.lockfile import (
@@ -248,6 +255,7 @@ def pristine(tmp_path_factory: pytest.TempPathFactory) -> Tree:
         run,
         PublishedLine(to=str(copy), format="dir", published_at=NOW, publication_sha256="b" * 64),
     )
+    write_index(copy, InstallIndex(hydromodpy_version=WRITER))
     acquire_lease(project)
     catalog = DataCatalogDuckDB(project / "data" / "cache.duckdb")
     lockfile = project / LOCKFILE_NAME
@@ -456,6 +464,15 @@ DOCUMENTS: tuple[Document, ...] = (
         SEALED,
     ),
     Document(
+        "INSTALL.toml",
+        lambda t: t.copy / INSTALL_FILENAME,
+        "schema",
+        INSTALL_SCHEMA,
+        lambda t: read_index(t.copy),
+        SEALED,
+        kind="toml",
+    ),
+    Document(
         ".hmp/launcher.lease",
         lambda t: lease_path(t.project),
         "schema",
@@ -484,6 +501,11 @@ DOCUMENTS: tuple[Document, ...] = (
 )
 
 
+def _toml_line(document: Document) -> str:
+    """Return the key of the line that holds the version in a TOML document (its last part)."""
+    return document.key.rsplit(".", 1)[-1]
+
+
 def _bumped(version: object) -> object:
     """Return a version this code does not know: one more, or the next schema id."""
     if isinstance(version, int):
@@ -503,7 +525,8 @@ def _stored(document: Document, tree: Tree) -> object:
         first = path.read_text(encoding="utf-8").splitlines()[0]
         return json.loads(first).get(document.key)
     if document.kind == "toml":
-        match = re.search(r'^version = "([^"]+)"', path.read_text(encoding="utf-8"), re.M)
+        line = _toml_line(document)
+        match = re.search(rf'^{line} = "([^"]+)"', path.read_text(encoding="utf-8"), re.M)
         return None if match is None else match.group(1)
     connection = duckdb.connect(str(path), read_only=True)
     try:
@@ -535,9 +558,10 @@ def _rewrite(document: Document, tree: Tree, version: object | None) -> None:
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     elif document.kind == "toml":
         text = path.read_text(encoding="utf-8")
-        replacement = "" if version is None else f'version = "{version}"'
+        line = _toml_line(document)
+        replacement = "" if version is None else f'{line} = "{version}"'
         path.write_text(
-            re.sub(r'^version = "[^"]+"', replacement, text, count=1, flags=re.M),
+            re.sub(rf'^{line} = "[^"]+"', replacement, text, count=1, flags=re.M),
             encoding="utf-8",
         )
     else:

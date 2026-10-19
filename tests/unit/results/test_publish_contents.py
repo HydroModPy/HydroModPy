@@ -4,7 +4,7 @@ One function writes the directory and the tar: the copy always holds the
 README, the frozen config, the provenance, the inputs, the manifest, the
 figures, the exports and the report, a generated RO-Crate and
 ``PUBLICATION.json``. ``with results`` adds the stores, ``with inputs`` the
-input bytes by content. Logs, attempts, the outcome and the machine state
+install index ``INSTALL.toml`` and the bytes of every file it lists, by content. Logs, attempts, the outcome and the machine state
 never leave. The source gets one line in ``published.jsonl``. A project is
 published whole or not at all.
 """
@@ -18,7 +18,9 @@ import tarfile
 
 import pytest
 
+from hydromodpy.catalog.share import inputs_of
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
+from hydromodpy.core.payload import read_index
 from hydromodpy.results.export.publish import INPUTS_DIRNAME, publish, publish_project, verify
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.publication import read_publication, read_published
@@ -111,6 +113,7 @@ def test_with_results_and_inputs_take_the_stores_and_the_bytes_by_content(tmp_pa
         tmp_path / "out" / "nancon",
         project_root=project,
         with_=("results", "inputs"),
+        inputs=inputs_of(project),
     )
 
     assert (copy / "fields.zarr" / "zarr.json").is_file()
@@ -120,7 +123,23 @@ def test_with_results_and_inputs_take_the_stores_and_the_bytes_by_content(tmp_pa
     )
     dem = project.parent.parent / "data" / "dem" / "bdalti_25m.tif"
     assert (copy / INPUTS_DIRNAME / f"{sha256_of(dem)}.tif").read_bytes() == dem.read_bytes()
+    index = read_index(copy)
+    assert [item.dest for item in index.files] == [
+        "data/dem/bdalti_25m.tif",
+        "data/hydrometry/J0014010.csv",
+    ]
+    assert index.file_at("data/hydrometry/J0014010.csv").license == "etalab-2.0"
     assert read_publication(copy).with_ == ["results", "inputs"]
+    assert verify(copy) == []
+
+
+def test_with_inputs_needs_the_index_of_the_run(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+
+    with pytest.raises(ExportError, match="install index"):
+        publish(run_dir, tmp_path / "out" / "nancon", project_root=project, with_=("inputs",))
+    assert not (tmp_path / "out" / "nancon").exists()
 
 
 def test_a_tar_is_the_same_copy_under_the_name_of_the_run(tmp_path) -> None:
@@ -170,6 +189,47 @@ def test_public_goes_through_with_a_licence(tmp_path) -> None:
         make_sealed_run(project), tmp_path / "out" / "nancon", project_root=project, public=True
     )
     assert (copy / "PUBLICATION.json").is_file()
+
+
+def test_public_refuses_by_name_an_input_that_may_not_be_redistributed(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+
+    with pytest.raises(ConfigMissingError) as refused:
+        publish(
+            run_dir,
+            tmp_path / "out" / "nancon",
+            project_root=project,
+            with_=("inputs",),
+            public=True,
+            inputs=inputs_of(project),
+        )
+
+    message = str(refused.value)
+    assert "data/dem/bdalti_25m.tif (custom): LicenseRef-undetermined" in message
+    assert "J0014010.csv" not in message
+    assert not (tmp_path / "out" / "nancon").exists()
+
+
+def test_public_carries_an_input_whose_sidecar_declares_a_licence(tmp_path) -> None:
+    project = make_project(tmp_path)
+    run_dir = make_sealed_run(project)
+    dem = project.parent.parent / "data" / "dem" / "bdalti_25m.tif"
+    dem.with_name(dem.name + ".json").write_text(
+        json.dumps({"source": "custom", "sha256": sha256_of(dem), "license": "CC-BY-4.0"}),
+        encoding="utf-8",
+    )
+
+    copy = publish(
+        run_dir,
+        tmp_path / "out" / "nancon",
+        project_root=project,
+        with_=("inputs",),
+        public=True,
+        inputs=inputs_of(project),
+    )
+
+    assert read_index(copy).file_at("data/dem/bdalti_25m.tif").license == "CC-BY-4.0"
 
 
 def test_an_unsealed_run_and_a_used_destination_are_refused(tmp_path) -> None:
@@ -316,20 +376,31 @@ def _declare_a_folder(run_dir, folder) -> str:
     return sha256
 
 
-def test_a_declared_folder_is_copied_whole_under_its_digest(tmp_path) -> None:
+def test_a_declared_folder_is_never_copied_whole(tmp_path) -> None:
     project = make_project(tmp_path)
     run_dir = make_sealed_run(project)
     folder = project.parent.parent / "data" / "hydrometry"
+    unread = folder / "J9999999.csv"
+    unread.write_text("datetime,value\n2016-01-01,9.0\n", encoding="utf-8")
     sha256 = _declare_a_folder(run_dir, folder)
-    # The loader describes a user file the first time it reads it: the
-    # folder digest leaves that sidecar out, so the copy still matches.
-    (folder / "J0014010.csv.json").write_text('{"source": "custom"}', encoding="utf-8")
+    sidecar = folder / "J0014010.csv.json"
+    sidecar.write_text('{"source": "hubeau"}', encoding="utf-8")
 
-    copy = publish(run_dir, tmp_path / "out" / "nancon", project_root=project, with_=("inputs",))
+    copy = publish(
+        run_dir,
+        tmp_path / "out" / "nancon",
+        project_root=project,
+        with_=("inputs",),
+        inputs=inputs_of(project),
+    )
 
-    assert (copy / INPUTS_DIRNAME / sha256 / "J0014010.csv").read_bytes() == (
-        folder / "J0014010.csv"
-    ).read_bytes()
+    stored = {path.name for path in (copy / INPUTS_DIRNAME).iterdir()}
+    assert sha256 not in stored
+    assert f"{sha256_of(unread)}.csv" not in stored
+    assert f"{sha256_of(folder / 'J0014010.csv')}.csv" in stored
+    assert f"{sha256_of(sidecar)}.json" in stored
+    item = read_index(copy).file_at("data/hydrometry/J0014010.csv")
+    assert item.sidecar_sha256 == sha256_of(sidecar)
     assert verify(copy) == []
 
 
@@ -350,5 +421,11 @@ def test_an_input_the_run_derived_in_its_scratch_is_named_as_such(tmp_path) -> N
     (run_dir / "inputs.json").write_text(json.dumps(inputs), encoding="utf-8")
 
     with pytest.raises(ExportError, match="a product the run derived in its scratch"):
-        publish(run_dir, tmp_path / "out" / "nancon", project_root=project, with_=("inputs",))
+        publish(
+            run_dir,
+            tmp_path / "out" / "nancon",
+            project_root=project,
+            with_=("inputs",),
+            inputs=inputs_of(project),
+        )
     assert not (tmp_path / "out" / "nancon").exists()

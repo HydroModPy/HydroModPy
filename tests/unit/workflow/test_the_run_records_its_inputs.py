@@ -156,3 +156,47 @@ def test_a_product_of_the_run_scratch_is_no_input(tmp_path: Path, monkeypatch) -
         providers = [entry.provider for entry in store.facts.inputs]
 
     assert providers == ["hubeau"]
+
+
+def test_a_network_read_from_its_sources_names_them_with_their_provider(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import xarray as xr
+
+    from hydromodpy.core.state.paths import SCRATCH_ROOT_ENV
+    from hydromodpy.data.contracts.spatial_field import INPUT_FILES_KEY, FieldRecord
+
+    workspace = tmp_path / "ws"
+    project = workspace / "projects" / "demo"
+    monkeypatch.setenv(SCRATCH_ROOT_ENV, str(tmp_path / "scratch"))
+    delivered = workspace / "data" / "hydrography" / "hydrography_bdtopage_5347fa22.gpkg"
+    delivered.parent.mkdir(parents=True)
+    delivered.write_bytes(b"the BD Topage answer")
+    raster = tmp_path / "scratch" / "demo" / "run.p1" / "_preprocessing" / "streams.tif"
+    raster.parent.mkdir(parents=True)
+    raster.write_bytes(b"rasterised in the scratch")
+    network = FieldRecord(
+        variable="hydrographic_network_reference_raster",
+        source="hydrography",
+        unit="",
+        data=xr.Dataset({"streams": (("y", "x"), [[1.0]])}),
+        bbox=(0.0, 0.0, 1.0, 1.0),
+        crs="EPSG:2154",
+        metadata={
+            "raster_path": str(raster),
+            INPUT_FILES_KEY: [{"provider": "bdtopage", "path": str(delivered)}],
+        },
+    )
+    loaded = _Loaded(hydrometry=LoadResult(fields=[network]))
+    ctx = _ctx("", loaded, workspace)
+    ctx.setup.workspace.project_root = project
+
+    with open_run_store(project, "run", n_cells=4) as store:
+        ctx.sim_id = store.sim_id
+        step_write_provenance(ctx, store=store)
+        (entry,) = store.facts.inputs
+
+    assert entry.provider == "bdtopage"
+    assert entry.path == "data/hydrography/hydrography_bdtopage_5347fa22.gpkg"
+    assert entry.sha256 == hashlib.sha256(b"the BD Topage answer").hexdigest()
+    assert entry.license == "etalab-2.0"

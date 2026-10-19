@@ -44,7 +44,12 @@ each lake column:
   the distance from the neighbour centre to the edge, and its elevations those of
   the neighbour layer clipped to the vertical extent of the lake.
 
-A cutoff wall seals the horizontal connections to the cells behind it.
+A cutoff wall lies on the lake shore: the part of its trace facing the lake moves
+onto the shore within
+{toml}`snap_tolerance|flow.sinks_sources.lakes.<name>.cutoff_wall.snap_tolerance`,
+so no cell sits between the reservoir and the wall. It seals the horizontal
+connections across the faces it bars, the faces that carry its HFB rows below
+the bed.
 
 In the code: `build_lake_connectiondata`.
 

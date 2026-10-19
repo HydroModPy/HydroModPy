@@ -401,6 +401,8 @@ class BaseVariableManager(BaseManagerCommon):
             filename = f"{prefix}_{source}_{safe_id}_{start_str}_{end_str}_{r.frequency}.csv"
             filepath = self.data_dir / filename
             r.data.to_csv(filepath, index=False)
+            # The seal records this file as the input of the run that read it.
+            r.file_path = filepath
 
             # Update LOC file with station location
             if r.location:
@@ -636,6 +638,7 @@ class BaseVariableManager(BaseManagerCommon):
             date_start=df["datetime"].min().to_pydatetime(),
             date_end=df["datetime"].max().to_pydatetime(),
             location=location,
+            file_path=filepath,
             source_unit=sidecar.get("source_unit") or entry.source_unit,
         )
 

@@ -40,6 +40,8 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
             "promote",
             "prune",
             "delete",
+            "export",
+            "import",
         }
     ),
     "site": frozenset({"add", "import", "select", "ls", "show"}),
@@ -118,6 +120,8 @@ READ_VERBS: tuple[tuple[str, ...], ...] = (
     ("project", "show"),
     ("project", "status"),
     ("project", "log"),
+    ("project", "export"),
+    ("project", "import"),
     ("site", "ls"),
     ("site", "show"),
     *(("catalog", action) for action in sorted(TARGET_FAMILIES["catalog"])),

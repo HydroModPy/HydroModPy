@@ -29,16 +29,21 @@ class ProjectRerunProvider:
     ) -> str:
         """Rebuild the config, apply dotted-path overrides, and simulate.
 
+        The snapshot is read from the project it names in ``[workspace]
+        project_root`` (:meth:`HydroModPyConfig.from_snapshot`): its paths
+        resolve in the workspace of that project, wherever the run was frozen.
+
         ``source_sim_id`` is pinned as the child's ``parent_sim_id`` and the
         seal of the child carries ``lineage.kind = "rerun"`` with the dotted
         paths that changed.
         """
         from hydromodpy.calibration.optim.parameters import set_by_path
+        from hydromodpy.config import HydroModPyConfig
         from hydromodpy.project import Project
         from hydromodpy.project.runner import _pin_parent_sim_id
         from hydromodpy.results.lineage import Lineage
 
-        project = Project(snapshot)
+        project = Project(HydroModPyConfig.from_snapshot(dict(snapshot)))
         for dotted, value in overrides.items():
             set_by_path(project.config, dotted, value)
         lineage = Lineage(
