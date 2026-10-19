@@ -1,7 +1,8 @@
-"""``spinup = "first_year"`` needs a run of at least one year to repeat.
+"""``spinup = "first_year"`` needs a run of at least 52 weeks to repeat.
 
-The default spin-up repeats the first 365 days of the run until the soil
-storage settles; a run shorter than that has no first year to repeat.
+The default spin-up repeats the first days of the run until the soil storage
+settles. Since e065ca7d9 the shortest accepted run is 364 days (52 weekly
+stress periods); a shorter run has no first year to repeat.
 """
 
 from __future__ import annotations
@@ -73,18 +74,27 @@ def _write(tmp_path: Path, *, end_datetime: str, spinup: str) -> Path:
 
 
 def test_a_run_shorter_than_a_year_is_refused_by_name(tmp_path: Path) -> None:
-    # [2015-01-01, 2015-12-31) is 364 days.
-    config_path = _write(tmp_path, end_datetime="2015-12-30", spinup="first_year")
+    # [2015-01-01, 2015-12-30) is 363 days.
+    config_path = _write(tmp_path, end_datetime="2015-12-29", spinup="first_year")
 
     with pytest.raises(ConfigValidationError) as excinfo:
         HydroModPyConfig.from_toml(config_path)
 
     assert (
         'spinup = "first_year" repeats the first 365 days of the run, and '
-        '[simulation.time] covers 364 days: write spinup = "none" under '
+        '[simulation.time] covers 363 days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or "
         "extend the run to one year at least."
     ) in str(excinfo.value)
+
+
+def test_a_run_of_52_weeks_loads(tmp_path: Path) -> None:
+    # [2015-01-01, 2015-12-31) is 364 days.
+    config_path = _write(tmp_path, end_datetime="2015-12-30", spinup="first_year")
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.flow.sinks_sources.recharge.soil.spinup == "first_year"
 
 
 def test_a_run_of_exactly_a_year_loads(tmp_path: Path) -> None:

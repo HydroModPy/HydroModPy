@@ -305,7 +305,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Gauge whose cost drives stage two. Required when several stations are loaded.",
+        description="Gauge whose cost drives stage two. Required with several stations loaded.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     scoring_window: Annotated[ProtocolScoringWindow | None, Profile.USER] = Field(
@@ -1383,7 +1383,7 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         description="When True, divide the block cost by a reference scale, so it adds "
         "to other blocks as a pure number and a share means a share. On a residual "
         "metric (rmse, mae) the scale is the standard deviation of the observations, "
-        "their mean absolute value when that is zero. On a network distance "
+        "their mean absolute value if that is zero. On a network distance "
         "(distance_gap, distance_mean) it is the output's validity_length, 2 h_obs "
         "under 'auto': a gap of one validity length costs 1, as much as an NSE of 0 on "
         "nse_log. Refused on an efficiency score, already a pure number.",
@@ -1740,7 +1740,7 @@ class CalibPhaseDecl(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
+        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one. Overrides the calibration-level value for this phase.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
@@ -2138,7 +2138,7 @@ class CalibrationConfig(HydroModelBase):
             "Maximum number of evaluations of the search. 'auto' lets an engine that "
             "counts its evaluations before the first solve size its own budget. Only "
             "the bisection does: with d the declared interval in decades, t = "
-            "log10(1 + rel_tol), S the sweep points (2 when sweep_points is 0), s = d / "
+            "log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / "
             "(S - 1) and E = bracket_expand, a root inside the bounds costs S + "
             "ceil(log2(s / t)) and one found after e expansions S + 2e + "
             "ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s "
@@ -2294,7 +2294,7 @@ class CalibrationConfig(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
+        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(

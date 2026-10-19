@@ -287,7 +287,7 @@ class Modflow6PrtParametersConfig(HydroModelBase):
         gt=0.0,
         description=(
             "Spacing, in days, of regular output times from 0 to stop_time_days. "
-            "track_times_days wins when it is given. It needs stop_time_days."
+            "track_times_days wins over it. It needs stop_time_days."
         ),
         json_schema_extra={"unit": "day"},
     )
