@@ -1,10 +1,12 @@
-"""Map a vector barrier line onto the faces of a cell mesh it crosses.
+"""Map a vector barrier line onto the faces of a cell mesh.
 
 A flow barrier (MODFLOW 6 HFB) is a thin vertical low-permeability wall placed on
-the SHARED FACE between two adjacent cells, so it needs no grid refinement and is
-grid-independent (DIS / DISV / DISU). This module turns a polyline (a dam axis, a
-cutoff-wall / grout-curtain trace) into the list of cell-pair faces it crosses,
-each tagged with the line position so a per-segment depth can be interpolated.
+the SHARED FACE between two adjacent cells (DIS / DISV / DISU). This module turns
+a polyline (a dam axis, a cutoff-wall / grout-curtain trace) into the list of
+cell-pair faces it bars, each tagged with the line position so a per-segment
+depth can be interpolated. On an engine whose faces follow the lines, these are
+the faces of the ``barriers`` family that lie on the line; on a staircase engine,
+the faces the line crosses.
 
 Reference: the HFB6 package, Langevin et al. (2017), MODFLOW 6 TM 6-A55.
 """
@@ -20,6 +22,8 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from shapely.strtree import STRtree
 
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
+
 if TYPE_CHECKING:
     from shapely.geometry import LineString
 
@@ -27,7 +31,9 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
+    "ON_LINE_SHARE",
     "BarrierFace",
+    "barrier_edges",
     "barrier_faces_from_line",
     "crossed_edges",
     "cutoff_wall_faces",
@@ -37,6 +43,12 @@ __all__ = [
     "trace_end_gaps",
     "wall_leaks",
 ]
+
+
+ON_LINE_SHARE = 0.5
+"""A family face lies on a barrier line when its midpoint is within this share of
+its length from the line: the faces along a lake shore follow the resampled ring,
+a chord of the shore the line was laid on."""
 
 
 @dataclass(frozen=True)
@@ -58,20 +70,14 @@ class BarrierFace:
 def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list[BarrierFace]:
     """Return the interior mesh faces that make a CONTINUOUS cut along a barrier line.
 
-    A face (interior edge shared by two cells) is barred when the trace passes
-    BETWEEN the two cells, i.e. it crosses the segment joining their centres,
-    the ``centers`` of the cell mesh (the Voronoi generators on a dual). This
-    selects the full chain of cell-pair faces the line separates, so the
-    barrier is a single connected fence with no leak paths -- unlike barring only
-    the edges the trace clips, which leaves gaps where a cell the line passes
-    through stays connected to both sides. The criterion is mesh-adaptive (no
-    corridor width) and shape-agnostic (any polyline), and it never trips on a
-    trace collinear with a mesh edge. ``s`` is the edge midpoint's normalized
-    position along the line, for per-vertex depth interpolation. Faces are
-    returned ordered along the line, ties in edge order.
+    The faces are those of :func:`barrier_edges`: the barrier family faces on
+    the line where the mesh follows it, the faces it crosses elsewhere. ``s``
+    is the edge midpoint's normalized position along the line, for per-vertex
+    depth interpolation. Faces are returned ordered along the line, ties in
+    edge order.
     """
     geometry = cell_mesh.geometry
-    edges = crossed_edges(geometry, cell_mesh.centers, line)
+    edges = barrier_edges(cell_mesh, line)
     if edges.size == 0:
         return []
     total_length = float(shapely.length(shapely.linestrings(shapely.get_coordinates(line)))) or 1.0
@@ -88,6 +94,100 @@ def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list
         )
         for k in order
     ]
+
+
+def barrier_edges(cell_mesh: PlanarCellMesh, line: LineString) -> np.ndarray:
+    """Interior edge rows a barrier line bars, sorted.
+
+    On an engine whose faces follow the lines, they are the faces of the
+    ``barriers`` family that lie on *line* (:data:`ON_LINE_SHARE`), plus the
+    faces *line* crosses (:func:`crossed_edges`) where no family face covers
+    it: a stretch the engine could not follow, within one face length of its
+    ends, or a mesh without the family. On a staircase engine they are the
+    faces *line* crosses.
+    """
+    geometry = cell_mesh.geometry
+    crossed = crossed_edges(geometry, cell_mesh.centers, line)
+    on_line = _family_edges_on_line(cell_mesh, line)
+    if not on_line.size:
+        return crossed
+    gaps = _uncovered(line, cell_mesh, on_line)
+    if not gaps:
+        return on_line
+    crossing = shapely.intersection(
+        shapely.linestrings(
+            np.stack(
+                [
+                    cell_mesh.centers[geometry.edge_cells[crossed, 0]],
+                    cell_mesh.centers[geometry.edge_cells[crossed, 1]],
+                ],
+                axis=1,
+            )
+        ),
+        line,
+    )
+    station = shapely.line_locate_point(line, shapely.point_on_surface(crossing))
+    margin = float(np.median(geometry.edge_length[on_line]))
+    in_gap = np.zeros(crossed.size, dtype=bool)
+    for low, high in gaps:
+        in_gap |= (station >= low - margin) & (station <= high + margin)
+    return np.union1d(on_line, crossed[in_gap])
+
+
+def _family_edges_on_line(cell_mesh: PlanarCellMesh, line: LineString) -> np.ndarray:
+    """Interior edge rows of the barrier family faces that lie on *line*, sorted.
+
+    None on a mesh whose faces do not follow the lines (a staircase).
+    """
+    table = cell_mesh.face_families
+    if table is None or not cell_mesh.qa.declarations.get("exact_faces", False):
+        return np.empty(0, dtype=np.int64)
+    rows = cell_mesh.face_rows(BARRIER_FAMILY) & (table.cell_b >= 0)
+    if not rows.any():
+        return np.empty(0, dtype=np.int64)
+    geometry = cell_mesh.geometry
+    pairs = np.sort(np.column_stack([table.cell_a[rows], table.cell_b[rows]]), axis=1)
+    edges = _edges_of_pairs(geometry, pairs)
+    edges = np.unique(edges[edges >= 0])
+    gap = shapely.distance(shapely.points(geometry.edge_midpoint[edges]), line)
+    return edges[gap <= ON_LINE_SHARE * geometry.edge_length[edges]]
+
+
+def _uncovered(
+    line: LineString, cell_mesh: PlanarCellMesh, edges: np.ndarray
+) -> list[tuple[float, float]]:
+    """The stretches ``(start, end)`` [m along *line*] that no face of *edges* covers.
+
+    A face covers the stretch between the projections of its two nodes on the
+    line. Stretches shorter than a thousandth of the median face are dropped.
+    """
+    geometry = cell_mesh.geometry
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    nodes = geometry.edge_nodes[edges]
+    ends = shapely.line_locate_point(line, shapely.points(vertices[nodes.ravel()])).reshape(-1, 2)
+    spans = np.sort(ends, axis=1)
+    spans = spans[np.argsort(spans[:, 0], kind="stable")]
+    slack = 1.0e-3 * float(np.median(geometry.edge_length[edges]))
+    gaps: list[tuple[float, float]] = []
+    reached = 0.0
+    for low, high in spans.tolist():
+        if low - reached > slack:
+            gaps.append((reached, low))
+        reached = max(reached, high)
+    if line.length - reached > slack:
+        gaps.append((reached, float(line.length)))
+    return gaps
+
+
+def _edges_of_pairs(geometry: DerivedGeometry, pairs: np.ndarray) -> np.ndarray:
+    """Edge row of each sorted cell pair ``(a, b)``, ``-1`` when the cells share no edge."""
+    n_cells = np.int64(geometry.n_cells)
+    keys = geometry.edge_cells[:, 0] * n_cells + geometry.edge_cells[:, 1]
+    order = np.argsort(keys, kind="stable")
+    probe = pairs[:, 0] * n_cells + pairs[:, 1]
+    position = np.minimum(np.searchsorted(keys, probe, sorter=order), keys.size - 1)
+    found = keys[order[position]] == probe
+    return np.where(found, order[position], -1)
 
 
 def crossed_edges(geometry: DerivedGeometry, centers: np.ndarray, line: LineString) -> np.ndarray:
@@ -154,28 +254,27 @@ def cutoff_wall_faces(
     lake_cells: np.ndarray,
     trace: LineString | None = None,
 ) -> list[BarrierFace]:
-    """The faces of a lake cutoff wall: its shore faces and the faces it crosses.
+    """The faces of a lake cutoff wall: its shore faces and the faces of its line.
 
     *line* is the wall laid on the shore, lake on its left. Along the shore the
     wall is every face between a lake cell and a cell downstream of it, so it
     hugs the lake cell set; on a regular grid that is the staircase around the
-    overlap cells. The faces *line* separates are barred too: they carry the
-    wings and joints, and close the fence where the cells round a corner of
-    the shore. A face between two lake cells is never barred. ``s`` is the
-    position along *trace* (the declared trace, whose vertices carry the
-    depths), *line* when none is given.
+    overlap cells. The faces of the line (:func:`barrier_edges`) are barred
+    too: on an engine that follows the barrier family, the faces on the wall,
+    wings included; on a staircase, the faces the line crosses, which carry
+    the wings and close the fence where the cells round a corner of the shore.
+    A face between two lake cells is never barred. ``s`` is the position along
+    *trace* (the declared trace, whose vertices carry the depths), *line* when
+    none is given.
     """
     geometry = cell_mesh.geometry
     lake = np.zeros(geometry.n_cells, dtype=bool)
     lake[np.asarray(lake_cells, dtype=np.int64)] = True
-    edges = set(lake_shore_faces(cell_mesh, line, lake_cells).tolist())
-    lookup = {(a, b): k for k, (a, b) in enumerate(geometry.edge_cells.tolist()) if b >= 0}
-    for face in barrier_faces_from_line(cell_mesh, line):
-        if not (lake[face.cell_a] and lake[face.cell_b]):
-            edges.add(lookup[(face.cell_a, face.cell_b)])
-    if not edges:
+    rows = np.union1d(lake_shore_faces(cell_mesh, line, lake_cells), barrier_edges(cell_mesh, line))
+    pairs = geometry.edge_cells[rows]
+    rows = rows[~(lake[pairs[:, 0]] & lake[pairs[:, 1]])]
+    if not rows.size:
         return []
-    rows = np.array(sorted(edges), dtype=np.int64)
     station_line = line if trace is None else trace
     total = float(station_line.length) or 1.0
     along = shapely.line_locate_point(station_line, shapely.points(geometry.edge_midpoint[rows]))

@@ -6903,7 +6903,7 @@
     },
     "FlowBarrierConfig": {
       "additionalProperties": false,
-      "description": "Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).\n\nThe barrier is a quasi-impermeable vertical wall on a polyline. It sits on\nthe shared mesh faces the trace crosses and spans every top layer down to\n``depths`` below the model top, so the flow is blocked there and forced\nunderneath. The dam cutoff wall is the lake-derived use of this payload.",
+      "description": "Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).\n\nThe barrier is a quasi-impermeable vertical wall on a polyline. It sits on\nthe mesh faces laid on the trace (the ``barriers`` family of a triangle or\nvoronoi mesh), or on the faces the trace crosses (a regular grid), and spans\nevery top layer down to ``depths`` below the model top, so the flow is\nblocked there and forced underneath. The dam cutoff wall is the lake-derived\nuse of this payload.",
       "properties": {
         "auto": {
           "default": false,
@@ -16383,8 +16383,8 @@
           "title": "Barriers",
           "type": "string",
           "value_docs": {
-            "face": "Cell faces lie on each barrier line, wings and free ends included. The regular engine takes the staircase of faces the line crosses.",
-            "none": "The mesh ignores the barriers."
+            "face": "Cell faces lie on each barrier line, wings and free ends included, and the HFB rows go on them. The regular engine takes the staircase of faces the line crosses.",
+            "none": "The mesh ignores the barriers; the HFB rows go on the faces each line crosses."
           },
           "x-hmp-profile": "user"
         },

@@ -41,9 +41,11 @@ class FlowBarrierConfig(HydroModelBase):
     """Typed payload for one MODFLOW 6 horizontal flow barrier (HFB).
 
     The barrier is a quasi-impermeable vertical wall on a polyline. It sits on
-    the shared mesh faces the trace crosses and spans every top layer down to
-    ``depths`` below the model top, so the flow is blocked there and forced
-    underneath. The dam cutoff wall is the lake-derived use of this payload.
+    the mesh faces laid on the trace (the ``barriers`` family of a triangle or
+    voronoi mesh), or on the faces the trace crosses (a regular grid), and spans
+    every top layer down to ``depths`` below the model top, so the flow is
+    blocked there and forced underneath. The dam cutoff wall is the lake-derived
+    use of this payload.
     """
 
     auto: Annotated[bool, Profile.USER] = Field(

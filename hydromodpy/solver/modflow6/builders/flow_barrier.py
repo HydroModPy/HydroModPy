@@ -1,6 +1,7 @@
 """Build the MODFLOW 6 HFB (Horizontal Flow Barrier) stress-period data.
 
-Turns the barrier faces a line crosses (``spatial.mesh.ops.flow_barrier``) into HFB
+Turns the faces of a barrier line (``spatial.mesh.ops.flow_barrier``: the barrier
+family faces laid on it, or the faces it crosses on a staircase) into HFB
 rows ``[(lay, cell_a), (lay, cell_b), hydchr]``, one per layer the barrier spans
 from the model top down to a (possibly per-segment) depth. ``hydchr`` is the
 barrier hydraulic characteristic = ``K_barrier / thickness`` [1/T]; a small value
@@ -180,12 +181,14 @@ def build_flow_barrier_hfb(
     inside the domain leaves an open gap; it is logged as a WARNING with its
     length. ``qa``, when given, receives the faces per layer, the chain and
     trace lengths, the face weight, the open length at each end and the
-    effective conductance per layer. Raises when the trace crosses no interior
+    effective conductance per layer. Raises when the trace bars no interior
     face, and warns when every row was dropped for inactivity.
 
-    ``faces`` replaces the faces *line* crosses (a lake cutoff wall passes its
-    shore faces); their ``s`` is then the position along ``trace``, the declared
-    trace whose vertices carry the depths (*line* when ``trace`` is not given).
+    The faces are those of :func:`barrier_faces_from_line`: the barrier family
+    faces laid on *line*, or the faces it crosses on a staircase. ``faces``
+    replaces them (a lake cutoff wall passes its shore faces); their ``s`` is
+    then the position along ``trace``, the declared trace whose vertices carry
+    the depths (*line* when ``trace`` is not given).
     """
     if faces is None:
         faces = barrier_faces_from_line(solver_mesh.cell_mesh, line)
@@ -352,7 +355,8 @@ def lake_wall_faces(
 
     With the lake cells, the wall hugs the lake cell set along the shore
     (:func:`cutoff_wall_faces`); without them (the lake is not modelled) it
-    takes the faces the wall line crosses.
+    takes the faces of its line alone: the barrier family faces laid on it,
+    or the faces it crosses on a staircase.
     """
     line = _barrier_attr(payload, "cutoff_wall_line")
     return cutoff_wall_faces(

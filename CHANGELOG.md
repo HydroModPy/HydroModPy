@@ -177,8 +177,9 @@ Each release section includes the following standard categories:
     families; `voronoi` leaves the stretch to the lake line (one mirror pair per segment) and
     publishes its faces in both families, oriented along each line.
   - A barrier keeps its corners: a vertex turning by more than 20 degrees is a fixed node of the
-    resampling, unless one of its segments is shorter than the finest size of the field (a
-    2 m fold no cell can resolve). Each corner stretch shorter than the background size refines
+    resampling, unless one of its segments is shorter than half the finest size of the field (a
+    2 m fold no cell can resolve); a line already resampled keeps them through the second pass
+    of `voronoi`. Each corner stretch shorter than the background size refines
     the cells within one stretch length to that length (`barrier_corner:<k>` size terms), so a
     12 m joint between the trace and the shore keeps its Berge pairs without
     `[mesh.lake_refinement]`.
@@ -557,6 +558,17 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- Flow barriers on the barrier family faces (2026-10-19): on `triangle` and `voronoi` the HFB rows
+  of a lake cutoff wall and of each `[flow.sinks_sources.flow_barriers]` line go on the faces of the
+  `barriers` family that lie on the line (`spatial/mesh/ops/flow_barrier.py:barrier_edges`, a face
+  midpoint within half its length of the line); the faces the line crosses only fill a stretch the
+  family leaves uncovered, within one face length of it, or a mesh without the family. `regular`
+  keeps its staircase. The LAK seal cuts the same faces, and `check_cutoff_wall_seal` stays green.
+  On the reservoir of the cutoff-wall tests the HFB faces are the family faces, no more, no less
+  (triangle 40 and 20 faces, voronoi 26 and 20, trace 12 m off the shore, then across it), all on
+  the wall: the crossing-rule zigzag of the wings is gone. On a 35 degree oblique trace the
+  `voronoi` wing passes 9.5 m from the bank in 15 m cells, one wing segment yields to the lake
+  ring, and three crossed faces close it, with no leak.
 - Every stored document carries its version (`version` or `schema` id) and a reader refuses an
   unknown one naming the version it read and what to do (`hmp catalog reindex` for the index, the
   HydroModPy version that wrote a sealed document); `hmp doctor --fix-config <file>` rewrites a

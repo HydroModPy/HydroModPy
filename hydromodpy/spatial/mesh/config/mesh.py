@@ -79,10 +79,13 @@ class MeshFamiliesConfig(HydroModelBase):
         json_schema_extra={
             "value_docs": {
                 "face": (
-                    "Cell faces lie on each barrier line, wings and free ends included. "
-                    "The regular engine takes the staircase of faces the line crosses."
+                    "Cell faces lie on each barrier line, wings and free ends included, and "
+                    "the HFB rows go on them. The regular engine takes the staircase of "
+                    "faces the line crosses."
                 ),
-                "none": "The mesh ignores the barriers.",
+                "none": (
+                    "The mesh ignores the barriers; the HFB rows go on the faces each line crosses."
+                ),
             }
         },
     )

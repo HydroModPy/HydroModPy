@@ -26,6 +26,7 @@ from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, Size
 from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
 __all__ = [
+    "KINK_MIN_SHARE",
     "KINK_TURN_RAD",
     "MIN_SEGMENT_SHARE",
     "ResampledFamilies",
@@ -49,8 +50,13 @@ _SAMPLES_PER_CELL = 4
 
 KINK_TURN_RAD = math.radians(20.0)
 """A vertex of a barrier line turning more than this angle is a fixed node, unless
-one of its two segments is shorter than the finest size of the field: no cell
-resolves such a corner, and keeping it only folds the line within a cell."""
+one of its two segments is shorter than :data:`KINK_MIN_SHARE` of the finest size
+of the field: no cell resolves such a corner, and keeping it only folds the line
+within a cell."""
+
+KINK_MIN_SHARE = 0.5
+"""Shortest segment beside a kept corner, as a share of the finest size. A line
+already resampled has segments of 0.8 cell at least, so it keeps its corners."""
 
 
 @dataclass(frozen=True)
@@ -80,9 +86,9 @@ def resample_families(
     extra = (
         [np.asarray(fixed_points, dtype=float).reshape(-1, 2)] if fixed_points is not None else []
     )
-    finest = float(size_field.values.min())
+    shortest = KINK_MIN_SHARE * float(size_field.values.min())
     extra += [
-        _kinks(line, finest)
+        _kinks(line, shortest)
         for family in families
         if family.name == BARRIER_FAMILY
         for line in family.lines
