@@ -74,7 +74,8 @@ instead of a size.
 The engine does not grade its cells: it ignores {toml}`mesh.river_cell_size` and
 {toml}`mesh.river_band`, and its quality report says so. A river is the chain of cells its
 line crosses. A contact or a lake shore becomes a staircase of cell faces, and the report
-gives the distance between the staircase and the line.
+gives the distance between the staircase and the line. A flow barrier is the staircase of the
+faces whose two cell centres its line separates.
 
 MODFLOW 6 reads this grid as a DISV grid. MODFLOW-NWT reads it as a DIS grid.
 
@@ -114,8 +115,9 @@ a triangulation read from a file.
 
 The `triangle` engine builds a constrained Delaunay triangulation of $\Omega$ with Gmsh
 {cite:p}`geuzaine2009gmsh` under the size field of {ref}`mesh-size`. The river lines, the
-geology contacts and the lake shores are embedded as edges of the triangulation, so a
-contact or a shore is a chain of edges and no triangle holds two zones. The cells of a river
+geology contacts, the lake shores and the flow barriers are embedded as edges of the
+triangulation, so a contact, a shore or a barrier is a chain of edges and no triangle holds
+two zones. The cells of a river
 are the triangles on one bank of its line.
 
 The centre of a triangle is the mean of its three vertices. The line between two centres is
@@ -138,9 +140,9 @@ DISV file. The engine places the generators itself:
 
 - one generator on each vertex of a river line, so that the river runs through the centres of
   a chain of cells;
-- a pair of mirror generators across each segment of a geology contact, of a lake shore or of
-  the catchment boundary, after {cite:t}`berge2019voronoi`, so that the segment is the perpendicular
-  bisector of the pair and a face of the mesh;
+- a pair of mirror generators across each segment of a geology contact, of a lake shore, of a
+  flow barrier or of the catchment boundary, after {cite:t}`berge2019voronoi`, so that the
+  segment is the perpendicular bisector of the pair and a face of the mesh;
 - generators on the boundary of the domain;
 - free generators for the rest, drawn with the density $\ell^{-2}$ and moved by a Lloyd
   relaxation weighted by $\ell^{-4}$ until the cells have the size of the field.
@@ -157,7 +159,8 @@ their generators. A river is not a face: it runs through the middle of a chain o
 contact or a shore is a face, so the conductivity of a cell is the one of its zone, and the
 cells of a lake are the cells inside its shore. Where a river crosses a contact the river
 wins: the contact yields on a short segment, the pair joins the river chain a little off the
-line, and the top of such a cell is the minimum of its pixels ({ref}`mesh-top`).
+line, and the top of such a cell is the minimum of its pixels ({ref}`mesh-top`). A flow barrier
+never yields: the river chain crosses it through a barrier face between two of its cells.
 
 **The orthogonality.** The line between the two centres is perpendicular to the face, so
 $\varphi_{nm} = 0$ on every connection whose two cells kept their generator as centre.
@@ -484,6 +487,7 @@ mesh.regular.shape
 mesh.families.rivers
 mesh.families.geology
 mesh.families.lakes
+mesh.families.barriers
 mesh.families.watershed_boundary
 mesh.triangle.path
 mesh.triangle.algorithm

@@ -105,8 +105,14 @@ Families
 --------
 
 The river lines give the ``rivers`` chains. The face lines give one family each, ordered by
-priority when two of them get in each other's way: ``lakes``, ``geology``, ``barriers``, then
-``watershed_boundary``. A river always wins. The boundary faces on the four sides of the
+priority when two of them get in each other's way: ``lakes``, ``barriers``, ``geology``, then
+``watershed_boundary``. A river wins over every face family but ``barriers``: a barrier mirror
+seed in the Gabriel disk of a chain link joins the chain, and a chain seed inside a barrier
+ball, or within half a cell of a barrier mirror seed, gives its cell to the nearest barrier
+seed. A face line that runs on segments of an earlier one (a lake cutoff wall along the shore,
+whose vertices the planner takes from the ring) leaves that stretch to it: each segment gets
+one pair, and its face is a row of both families, oriented along each line. The boundary faces
+on the four sides of the
 vertex box are the families ``boundary:<side>``. The zone of a cell comes from the geology
 pairs and spreads through the cells until a geology face stops it; a cell that two zones
 reach, or that a yielded contact crosses, has zone ``-1``.

@@ -51,12 +51,13 @@ def test_no_section_means_the_regular_engine_on_the_dem_pixels() -> None:
 def test_the_family_defaults_mesh_rivers_as_cells_and_contacts_as_faces() -> None:
     families = MeshFamiliesConfig()
 
-    assert (families.rivers, families.geology, families.lakes, families.watershed_boundary) == (
-        "cell",
-        "face",
-        "face",
-        "none",
-    )
+    assert (
+        families.rivers,
+        families.geology,
+        families.lakes,
+        families.barriers,
+        families.watershed_boundary,
+    ) == ("cell", "face", "face", "face", "none")
 
 
 def test_a_full_user_section_is_read() -> None:

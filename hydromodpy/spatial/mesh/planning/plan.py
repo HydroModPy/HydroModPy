@@ -20,10 +20,21 @@ from shapely.geometry.base import BaseGeometry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
+from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.resample import resample_families
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec, SizeField
+from hydromodpy.spatial.mesh.planning.resample import (
+    kink_pieces,
+    node_tolerance,
+    resample_families,
+)
+from hydromodpy.spatial.mesh.request import (
+    BARRIER_FAMILY,
+    LineFamilySpec,
+    MeshRequest,
+    RasterGridSpec,
+    SizeField,
+)
 from hydromodpy.spatial.mesh.sizing.size_field import (
     OutsideCoarsening,
     SizeTerm,
@@ -105,7 +116,8 @@ def _sizing(
 ) -> _Sizing:
     """The families, size field and nominal size of *inputs* on *domain*.
 
-    A graded engine gets the size field and the families resampled on it. A
+    A graded engine gets the size field and the families resampled on it, and
+    a barrier line that runs along a lake ring gets the ring vertices there. A
     triangulation read, and a non-graded engine, get the raw families and no field.
     """
     families = _families(mesh_cfg, inputs, domain)
@@ -125,14 +137,19 @@ def _sizing(
         outside=_outside(mesh_cfg, inputs),
         max_slope=mesh_cfg.max_slope,
     )
-    resampled = resample_families(families, domain=domain, size_field=size_field)
+    split = split_barriers(families, node_tolerance(domain))
+    resampled = resample_families(
+        split.families, domain=domain, size_field=size_field, fixed_points=split.fixed_points
+    )
     notes = ()
     if resampled.short_fixed_edges:
         notes = (
             f"{resampled.short_fixed_edges} line edges between fixed nodes are shorter "
             "than 0.8 local cell and were kept whole",
         )
-    return _Sizing(families=resampled.families, size_field=size_field, nominal=h0, notes=notes)
+    return _Sizing(
+        families=split.welded(resampled.families), size_field=size_field, nominal=h0, notes=notes
+    )
 
 
 def _without_small_holes(
@@ -210,6 +227,10 @@ def _families(
         lines, _ = _clipped(_rings(inputs.lakes), domain)
         if lines:
             families.append(LineFamilySpec("lakes", "face", lines, closed=True))
+    if wanted.barriers == "face" and inputs.barriers:
+        lines, _ = _clipped(inputs.barriers, domain)
+        if lines:
+            families.append(LineFamilySpec(BARRIER_FAMILY, "face", lines))
     if wanted.watershed_boundary == "face" and inputs.watershed is not None:
         lines, _ = _clipped(_rings((inputs.watershed,)), domain)
         if lines:
@@ -269,8 +290,8 @@ def _size_terms(
     h0: float,
     pixel: float,
 ) -> list[SizeTerm]:
-    """The refinement terms: rivers, lake shore, interior and structures, user zones."""
-    terms: list[SizeTerm] = []
+    """The refinement terms: rivers, barrier corners, lake shore, interior and structures, zones."""
+    terms: list[SizeTerm] = _barrier_corner_terms(families, h0=h0, pixel=pixel)
     rivers = next((family for family in families if family.name == "rivers"), None)
     if rivers is not None:
         terms.append(
@@ -323,6 +344,28 @@ def _size_terms(
                 ramp_m=zone.ramp_m,
             )
         )
+    return terms
+
+
+def _barrier_corner_terms(
+    families: tuple[LineFamilySpec, ...], *, h0: float, pixel: float
+) -> list[SizeTerm]:
+    """One term per barrier line with a stretch between two corners shorter than *h0*.
+
+    A barrier keeps its corners, so such a stretch is one segment: the cells
+    within one stretch length of it are sized to that length and grow back at
+    the largest slope. Without it a short joint between two long segments
+    leaves no room for the faces that follow it. A stretch shorter than the
+    pixel is left out: the resampling drops a corner no cell can resolve.
+    """
+    barrier = next((family for family in families if family.name == BARRIER_FAMILY), None)
+    terms = []
+    for index, line in enumerate(barrier.lines if barrier is not None else ()):
+        short = [piece for piece in kink_pieces(line) if pixel <= piece.length < h0]
+        if short:
+            size = min(piece.length for piece in short)
+            region = shapely.union_all([piece.buffer(piece.length) for piece in short])
+            terms.append(SizeTerm(f"barrier_corner:{index}", region, size, 0.0))
     return terms
 
 

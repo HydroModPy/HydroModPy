@@ -212,10 +212,11 @@ the cell mesh keeps what each intent needs:
   ordered chain of cells per line, upstream to downstream, and ``CellChain.offset_m`` the
   distance from each chain cell centre to the line. It is optional: the ``voronoi`` engine
   publishes it, and it is ``None`` where the cell holds the line.
-- **Face family** (``geology``, ``lakes``, ``watershed_boundary``). The line lies on cell
-  faces. ``face_families`` has one row per mesh edge on a line: the two cells (``-1`` outside
-  the domain), the two vertices, and the zone on each side. The four sides of the domain are
-  face families named ``boundary:<side>``.
+- **Face family** (``geology``, ``lakes``, ``barriers``, ``watershed_boundary``). The line
+  lies on cell faces. ``face_families`` has one row per mesh edge on a line: the two cells
+  (``-1`` outside the domain), the two vertices, and the zone on each side. An edge on the
+  lines of two families (a cutoff wall along a lake shore) has a row in each. The four sides
+  of the domain are face families named ``boundary:<side>``.
 
 An engine says in its capabilities how it forms each kind (``cell_families``): exactly, by
 rasterizing the line, or from the faces. The quality report states how far the cells and

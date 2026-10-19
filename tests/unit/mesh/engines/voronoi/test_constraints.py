@@ -296,3 +296,70 @@ def test_a_request_without_size_field_is_refused() -> None:
     frame = local_frame(DOMAIN)
     with pytest.raises(MeshRequestError, match="size field"):
         place_constraints(request, frame, SizeSampler(field, frame))
+
+
+def barriers(*lines: LineString) -> LineFamilySpec:
+    return LineFamilySpec("barriers", "face", lines)
+
+
+def test_a_contact_beside_a_barrier_yields_to_it() -> None:
+    plan = plan_of(
+        contact(line((100.0, 156.0), (300.0, 156.0))),
+        barriers(line((100.0, 150.0), (300.0, 150.0))),
+    )
+
+    assert plan.family_stats["barriers"]["conformal_length_share"] == 1.0
+    assert plan.family_stats["geology"]["yielded_segments"] > 0
+
+
+def test_a_barrier_on_a_lake_ring_leaves_the_stretch_to_it_and_shares_its_faces() -> None:
+    ring = shapely.get_coordinates(
+        resample_families(
+            (
+                LineFamilySpec(
+                    "lakes",
+                    "face",
+                    (line((100, 100), (300, 100), (300, 200), (100, 200), (100, 100)),),
+                    closed=True,
+                ),
+            ),
+            domain=DOMAIN,
+            size_field=size_field(DOMAIN, 5.0, H),
+        )
+        .families[0]
+        .lines[0]
+    )
+    on_side = ring[np.isclose(ring[:, 0], X0 + 300.0)]
+    on_side = on_side[np.argsort(on_side[:, 1])]
+    wings = [(X0 + x, Y0 + y) for x, y in ((360.0, 100.0), (340.0, 100.0), (320.0, 100.0))]
+    wall = LineString([*wings, *map(tuple, on_side), *[(x, y + 100.0) for x, y in wings[::-1]]])
+    lake = LineFamilySpec("lakes", "face", (LineString(ring),), closed=True)
+    plan = plan_of(lake, barriers(wall), resample=False)
+    faces = plan.faces
+    pairs = [tuple(sorted(pair)) for pair in faces.segment_nodes.tolist()]
+    shared = faces.alias_family == plan.family_names.index("barriers")
+
+    assert len(pairs) == len(set(pairs))
+    assert np.count_nonzero(shared) == len(on_side) - 1
+    assert np.all(faces.segment_family[faces.alias_segment] == plan.family_names.index("lakes"))
+    assert plan.family_stats["barriers"]["conformal_length_share"] == 1.0
+    assert_definition_2(plan)
+
+
+@pytest.mark.parametrize("angle", [60.0, 20.0])
+def test_a_river_never_makes_a_barrier_yield(angle: float) -> None:
+    tangent = np.array([math.cos(math.radians(angle)), math.sin(math.radians(angle))])
+    centre = np.array([200.0, 150.0])
+    plan = plan_of(
+        rivers(line((20.0, 150.0), (380.0, 150.0))),
+        barriers(line(tuple(centre - 140.0 * tangent), tuple(centre + 140.0 * tangent))),
+    )
+    (chain,) = plan.chains
+    barrier = plan.family_names.index("barriers")
+    stats = plan.family_stats["barriers"]
+
+    assert stats["yielded_segments"] == 0.0
+    assert stats["conformal_length_share"] == 1.0
+    assert plan.family_stats["rivers"]["crossings"] == 1.0
+    assert np.any(plan.seeds.family[chain.seed_ids] == barrier)
+    assert_definition_2(plan)

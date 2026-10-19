@@ -6,7 +6,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from shapely.geometry import Point, Polygon, box
+from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
@@ -29,7 +29,7 @@ from hydromodpy.spatial.mesh.request import RasterGridSpec
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
 
-__all__ = ["hydraulic_feature_geometries", "mesh_crs_wkt", "planning_inputs"]
+__all__ = ["barrier_lines", "hydraulic_feature_geometries", "mesh_crs_wkt", "planning_inputs"]
 
 
 def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInputs:
@@ -64,6 +64,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
             else read_input_triangulation(triangle.path)
         ),
         synthetic=synthetic,
+        barriers=barrier_lines(setup) if mesh_cfg.families.barriers == "face" else (),
         notes=notes,
     )
 
@@ -162,6 +163,22 @@ def _lake_polygons(setup: object) -> tuple[Polygon, ...]:
         for payload in _lake_payloads(setup).values()
         if isinstance(payload, dict) and payload.get("polygon") is not None
     )
+
+
+def barrier_lines(setup: object) -> tuple[LineString, ...]:
+    """The lines of the flow barriers: each lake cutoff wall, then each general barrier.
+
+    A lake wall is the line laid on the lake shore, a general barrier its
+    resolved trace; both are bound on the flow payload before the mesh step.
+    """
+    flow = getattr(setup, "flow", None)
+    barriers = getattr(flow, "sinks_sources", {}).get("flow_barriers") if flow is not None else None
+    found = [
+        *((payload, "cutoff_wall_line") for payload in _lake_payloads(setup).values()),
+        *((payload, "line") for payload in (barriers or {}).values()),
+    ]
+    lines = (payload.get(key) for payload, key in found if isinstance(payload, dict))
+    return tuple(line for line in lines if line is not None and not line.is_empty)
 
 
 def lake_structures(

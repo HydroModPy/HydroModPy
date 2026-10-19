@@ -4,8 +4,9 @@ A grid cannot follow a line. A ``cell`` family is rasterized with the thin-line
 rule of WhiteboxTools (``line_crossing_cell_mask``) and ordered along the line.
 A ``face`` family becomes a staircase: the cells are labelled by the polygon of
 ``domain boundary + family lines`` that holds their centre, and the faces between
-two labels are the family faces. The QA publishes how far that staircase is from
-the source lines.
+two labels are the family faces. A barrier line splits no polygon where it ends
+inside the domain, so its staircase is the faces whose two cell centres lie
+across it. The QA publishes how far that staircase is from the source lines.
 """
 
 from __future__ import annotations
@@ -23,8 +24,9 @@ from hydromodpy.spatial.mesh.engines.regular.grid import GridLayout
 from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
+from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, line_crossing_cell_mask
-from hydromodpy.spatial.mesh.request import LineFamilySpec
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec
 
 __all__ = ["FaceFamilies", "cell_chains", "face_family_columns"]
 
@@ -257,11 +259,22 @@ def face_family_columns(
     cell_zone: np.ndarray | None = None
     for offset, spec in enumerate(specs):
         family = len(_SIDES) + offset
-        labels = _cell_labels(centers, domain, spec.lines)
         pair = geometry.edge_cells
-        label_a = labels[np.maximum(pair[:, 0], 0)]
-        label_b = labels[np.maximum(pair[:, 1], 0)]
-        stairs = np.flatnonzero(interior & (label_a >= 0) & (label_b >= 0) & (label_a != label_b))
+        if spec.name == BARRIER_FAMILY:
+            labels = np.full(len(centers), -1, dtype=np.int64)
+            stairs = np.unique(
+                np.concatenate(
+                    [crossed_edges(geometry, centers, line) for line in spec.lines]
+                    or [np.empty(0, dtype=np.int64)]
+                )
+            )
+        else:
+            labels = _cell_labels(centers, domain, spec.lines)
+            label_a = labels[np.maximum(pair[:, 0], 0)]
+            label_b = labels[np.maximum(pair[:, 1], 0)]
+            stairs = np.flatnonzero(
+                interior & (label_a >= 0) & (label_b >= 0) & (label_a != label_b)
+            )
         if stairs.size == 0 or not spec.lines:
             continue
         first = pair[stairs, 0]

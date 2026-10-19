@@ -17,7 +17,10 @@ ends: no other seed inside the circle of the vertex. A segment that cannot
 way) yields: its pair is removed and the cells around it are mixed. Where a
 river crosses a contact, the river wins: the crossing vertex becomes a
 short segment whose pair joins the river chain, off the river by a lateral
-offset the chain publishes. Every step works in the local frame of the mesh.
+offset the chain publishes. A face line that runs on segments of an earlier
+face line (a lake cutoff wall along the lake shore) leaves that stretch to it:
+the segment gets one pair, and its face belongs to both families. Every step
+works in the local frame of the mesh.
 """
 
 from __future__ import annotations
@@ -49,7 +52,7 @@ from hydromodpy.spatial.mesh.engines.voronoi.mirror import (
     tip_seeds,
 )
 from hydromodpy.spatial.mesh.planning.resample import positions_at_local_size
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
 
 __all__ = [
     "FACE_PRIORITY",
@@ -61,9 +64,11 @@ __all__ = [
     "place_constraints",
 ]
 
-FACE_PRIORITY = ("lakes", "geology", "barriers", "watershed_boundary")
+FACE_PRIORITY = ("lakes", "barriers", "geology", "watershed_boundary")
 """Face families from the highest priority to the lowest; a family
-not named here comes after them, by name. A river always wins."""
+not named here comes after them, by name. A river always wins. A barrier
+outranks a geology contact: a barrier segment that yields leaves a cell
+across the barrier."""
 
 THALWEG_SHARE = 0.5
 """Two chain seeds of different lines closer than this share of the smaller size share a cell."""
@@ -143,7 +148,9 @@ class FaceLineState:
     line; ``segment_seeds`` its pair ``(plus, minus)``, ``plus`` on the left,
     ``-1`` when the segment has none. A conformal vertex has every incident
     segment conformal and its sphere complete (tip or boundary end seeds at a
-    line end): definition 2 is checked on it alone.
+    line end): definition 2 is checked on it alone. Segment
+    ``alias_segment[k]`` also belongs to family ``alias_family[k]``, whose line
+    runs against it where ``alias_reversed[k]``.
     """
 
     vertices: np.ndarray
@@ -156,6 +163,9 @@ class FaceLineState:
     segment_line: np.ndarray
     zone_left: np.ndarray
     zone_right: np.ndarray
+    alias_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    alias_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    alias_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
 
 
 @dataclass(frozen=True, eq=False)
@@ -295,13 +305,15 @@ def place_constraints(request: MeshRequest, frame: LocalFrame, h: SizeSampler) -
     specs = sorted(request.lines, key=_family_order)
     family_names = tuple(spec.name for spec in specs)
     state = _State(domain=domain, tol=tol, h=h, family_names=family_names)
-    lines, notes = _canonical_lines(specs, frame, domain, tol, zone_names)
+    lines, shared, notes = _canonical_lines(specs, frame, domain, tol, zone_names)
     state.lines = lines
+    state.shared = shared
     cell_lines = [line for line in lines if specs[line.family].intent == "cell"]
     face_lines = [line for line in lines if specs[line.family].intent == "face"]
     _place_chain_seeds(state, cell_lines)
     crossings = _crossing_face_lines(state, face_lines)
     _build_face_graph(state, face_lines)
+    _alias_shared(state)
     _place_mirror_seeds(state)
     _apply_crossings(state, crossings)
     _settle(state)
@@ -348,6 +360,15 @@ class _Line:
             self.source = self.coords.copy()
 
 
+@dataclass(frozen=True)
+class _Shared:
+    """A stretch of a face line of family ``family`` that runs on line ``owner``."""
+
+    family: int
+    owner: int
+    coords: np.ndarray
+
+
 def _line_key(coords: np.ndarray) -> tuple[float, ...]:
     """Sort key of a line: first vertex, last vertex, length, then every coordinate."""
     length = float(np.hypot(*np.diff(coords, axis=0).T).sum())
@@ -361,14 +382,17 @@ def _canonical_lines(
     domain: Polygon,
     tol: float,
     zone_names: tuple[str, ...],
-) -> tuple[list[_Line], tuple[str, ...]]:
+) -> tuple[list[_Line], list[_Shared], tuple[str, ...]]:
     """Every line in the local frame, families in priority order, lines sorted in each.
 
     A part of a face line that runs along the domain boundary is removed: the
-    boundary already bounds the cells there.
+    boundary already bounds the cells there. A part that runs on the segments
+    of an earlier face line is removed too and returned as a shared stretch.
     """
     boundary = domain.boundary
     lines: list[_Line] = []
+    shared: list[_Shared] = []
+    held: dict[tuple[int, int], int] = {}
     notes: list[str] = []
     for index, spec in enumerate(specs):
         entries = []
@@ -386,13 +410,58 @@ def _canonical_lines(
                 pieces, gone = _off_boundary(coords, closed, boundary, tol)
                 removed += gone
             for piece, piece_closed in pieces:
-                lines.append(_Line(len(lines), index, piece, piece_closed, left, right))
+                if spec.intent == "cell":
+                    lines.append(_Line(len(lines), index, piece, piece_closed, left, right))
+                    continue
+                for owner, run, run_closed in _own_runs(piece, piece_closed, held):
+                    if owner >= 0:
+                        shared.append(_Shared(index, owner, run))
+                        continue
+                    lines.append(_Line(len(lines), index, run, run_closed, left, right))
+                    _hold(held, run, len(lines) - 1)
         if removed > 0.0:
             notes.append(
                 f"{spec.name}: {removed:.1f} m of face line along the domain boundary "
                 "left to the boundary"
             )
-    return lines, tuple(notes)
+    return lines, shared, tuple(notes)
+
+
+def _segment_keys(coords: np.ndarray) -> list[tuple[int, int]]:
+    """The node keys of each segment, smaller first: one key pair per undirected segment."""
+    keys = _node_keys(coords).tolist()
+    return [(min(a, b), max(a, b)) for a, b in zip(keys[:-1], keys[1:], strict=True)]
+
+
+def _hold(held: dict[tuple[int, int], int], coords: np.ndarray, gid: int) -> None:
+    """Record the segments of line *gid*, so a later face line leaves them to it."""
+    for pair in _segment_keys(coords):
+        held.setdefault(pair, gid)
+
+
+def _own_runs(
+    coords: np.ndarray, closed: bool, held: dict[tuple[int, int], int]
+) -> list[tuple[int, np.ndarray, bool]]:
+    """The runs of a face line: ``(owner, coords, closed)``, owner ``-1`` where it is its own.
+
+    A run whose segments an earlier line already holds carries that line as
+    its owner. A ring with no such segment stays one closed run.
+    """
+    owner = np.asarray([held.get(pair, -1) for pair in _segment_keys(coords)], dtype=np.int64)
+    if (owner < 0).all():
+        return [(-1, coords, closed)]
+    count = owner.size
+    order = np.arange(count)
+    if closed:
+        starts = np.flatnonzero(owner != np.roll(owner, 1))
+        order = np.roll(order, -int(starts[0])) if starts.size else order
+    runs: list[tuple[int, list[int]]] = []
+    for k in order.tolist():
+        if runs and runs[-1][0] == owner[k]:
+            runs[-1][1].append(k)
+        else:
+            runs.append((int(owner[k]), [k]))
+    return [(gid, np.vstack([coords[run], coords[run[-1] + 1]]), False) for gid, run in runs]
 
 
 def _off_boundary(
@@ -524,6 +593,10 @@ class _State:
     slot: np.ndarray = field(default_factory=lambda: np.empty((0, 2), dtype=np.int64))
     crossings: list[_Crossing] = field(default_factory=list)
     end_vertices: list[int] = field(default_factory=list)
+    shared: list[_Shared] = field(default_factory=list)
+    alias_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    alias_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    alias_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
 
     def __post_init__(self) -> None:
         """The domain widened by the boundary tolerance, for the chord tests."""
@@ -833,6 +906,55 @@ def _build_face_graph(state: _State, face_lines: list[_Line]) -> None:
     n_vertices = len(state.vertices)
     state.vertex_ok = np.ones(n_vertices, dtype=bool)
     state.tip = np.full(n_vertices, -1, dtype=np.int64)
+
+
+def _alias_shared(state: _State) -> None:
+    """The segments of each shared stretch, found on its owner line after the crossings.
+
+    The stretch runs on the owner from the vertex nearest its start to the one
+    nearest its end; of the two ways round a ring, the one closer to the
+    stretch is taken. A segment is reversed when the stretch runs against it.
+    """
+    if not state.shared or not len(state.seg_nodes):
+        return
+    by_gid = {line.gid: line for line in state.lines}
+    node_of = {int(key): i for i, key in enumerate(_node_keys(state.vertices).tolist())}
+    segment_of = {(int(a), int(b)): k for k, (a, b) in enumerate(state.seg_nodes.tolist())}
+    segments, families, reversed_ = [], [], []
+    for stretch in state.shared:
+        owner = by_gid[stretch.owner]
+        coords = owner.coords[:-1] if owner.closed else owner.coords
+        path = _owner_path(coords, stretch.coords, owner.closed)
+        nodes = [node_of[int(key)] for key in _node_keys(coords[path]).tolist()]
+        for a, b in zip(nodes[:-1], nodes[1:], strict=True):
+            forward = segment_of.get((a, b), -1)
+            segment = forward if forward >= 0 else segment_of.get((b, a), -1)
+            if segment < 0:
+                continue
+            segments.append(segment)
+            families.append(stretch.family)
+            reversed_.append(forward < 0)
+    state.alias_segment = np.asarray(segments, dtype=np.int64)
+    state.alias_family = np.asarray(families, dtype=np.int64)
+    state.alias_reversed = np.asarray(reversed_, dtype=bool)
+
+
+def _owner_path(coords: np.ndarray, stretch: np.ndarray, closed: bool) -> np.ndarray:
+    """Indices of the owner vertices from the start of *stretch* to its end."""
+    first = int(np.argmin(np.hypot(*(coords - stretch[0]).T)))
+    last = int(np.argmin(np.hypot(*(coords - stretch[-1]).T)))
+    n = len(coords)
+    if not closed:
+        step = 1 if last >= first else -1
+        return np.arange(first, last + step, step)
+    forward = (first + np.arange((last - first) % n + 1)) % n
+    backward = (first - np.arange((first - last) % n + 1)) % n
+    line = LineString(stretch)
+    gap = [
+        float(shapely.distance(shapely.points(coords[path]), line).max())
+        for path in (forward, backward)
+    ]
+    return forward if gap[0] <= gap[1] else backward
 
 
 def _place_mirror_seeds(state: _State) -> None:
@@ -1226,7 +1348,9 @@ def _yield_to_chains(state: _State) -> bool:
     """A mirror seed closer than ``0.5 h(c)`` to a chain seed ``c`` yields its segments.
 
     Next to a crossing the river and the crossed line meet by construction:
-    there the Gabriel rule of the chain links decides alone.
+    there the Gabriel rule of the chain links decides alone. A barrier never
+    yields: the chain seed goes instead, and the river passes through the
+    cell of the nearest barrier mirror seed.
     """
     seeds = state.seeds
     chain = np.flatnonzero(seeds.alive & (seeds.role == SeedRole.CHAIN))
@@ -1238,18 +1362,51 @@ def _yield_to_chains(state: _State) -> bool:
     near = cKDTree(seeds.xy[mirror]).query_ball_point(
         seeds.xy[chain], MIRROR_CHAIN_SHARE * seeds.size[chain]
     )
-    losers = {
-        int(mirror[k])
-        for c, found in zip(chain.tolist(), near, strict=True)
-        for k in found
-        if int(seeds.line[mirror[k]]) not in beside.get(c, ())
-    }
-    return any([_remove(state, m, -1, _YIELDED) for m in sorted(losers)])
+    barrier = np.asarray([_is_barrier(state, int(m)) for m in mirror.tolist()], dtype=bool)
+    losers: set[int] = set()
+    taken: dict[int, int] = {}
+    for c, found in zip(chain.tolist(), near, strict=True):
+        found = [k for k in found if int(seeds.line[mirror[k]]) not in beside.get(c, ())]
+        walls = [k for k in found if barrier[k]]
+        if walls:
+            gap = [float(np.hypot(*(seeds.xy[mirror[k]] - seeds.xy[c]))) for k in walls]
+            taken[c] = int(mirror[walls[int(np.argmin(gap))]])
+            continue
+        losers.update(int(mirror[k]) for k in found)
+    changed = [_remove(state, c, m, _YIELDED) for c, m in sorted(taken.items())]
+    return any(changed + [_remove(state, m, -1, _YIELDED) for m in sorted(losers)])
+
+
+def _is_barrier(state: _State, seed: int) -> bool:
+    """Whether a face seed belongs to a line of the barrier family."""
+    family = int(state.seeds.family[seed])
+    return family >= 0 and state.family_names[family] == BARRIER_FAMILY
 
 
 def _protected_seeds(state: _State) -> set[int]:
-    """The pair seeds of the active crossings, which belong to a river chain."""
-    return {int(s) for c in state.crossings if c.active for s in state.slot[c.segment]}
+    """The mirror seeds that belong to a river chain: crossing pairs, joined barrier seeds."""
+    crossing = {int(s) for c in state.crossings if c.active for s in state.slot[c.segment]}
+    mirror = state.seeds.role == SeedRole.MIRROR
+    joined = {
+        int(s)
+        for chain in state.chains
+        for s in state.seeds.resolved(chain.ids).tolist()
+        if mirror[s]
+    }
+    return crossing | joined
+
+
+def _joins_chain(state: _State, seed: int, chain: _Chain) -> bool:
+    """Whether a barrier mirror seed in the disk of a chain link joins the chain.
+
+    A barrier never yields to a river: the river passes through the cell of
+    the mirror seed instead, and the barrier face stays between two cells.
+    """
+    return (
+        int(state.seeds.role[seed]) == SeedRole.MIRROR
+        and _is_barrier(state, seed)
+        and not np.isin(seed, state.seeds.resolved(chain.ids))
+    )
 
 
 def _beside_crossings(state: _State) -> dict[int, set[int]]:
@@ -1300,7 +1457,11 @@ def _clear_chain_links(state: _State) -> bool:
             gap = [float(np.hypot(*(seeds.xy[i] - middle[k]))) for i in intruders]
             intruder = intruders[int(np.argmin(gap))]
             role = SeedRole(int(seeds.role[intruder]))
-            if role is SeedRole.CHAIN or intruder in protected:
+            if (
+                role is SeedRole.CHAIN
+                or intruder in protected
+                or _joins_chain(state, intruder, chain)
+            ):
                 ends = seeds.xy[[ids[k], ids[k + 1]]]
                 if not _chords_inside(state, ends, seeds.xy[[intruder, intruder]]).all():
                     continue
@@ -1316,9 +1477,11 @@ def _clear_chain_links(state: _State) -> bool:
 def _yield_in_balls(state: _State) -> bool:
     """Definition 2: a seed inside the ball of a conformal vertex makes one side yield.
 
-    A chain or boundary seed always wins. Between two face lines, the family of
-    lower priority yields, then the later line. A crossing segment wins
-    over every face seed.
+    A chain or boundary seed always wins, except over a barrier: a chain seed
+    in the ball of a barrier vertex goes, and the river passes through the
+    cell of the nearest pair seed of that vertex. Between two face lines, the
+    family of lower priority yields, then the later line. A crossing segment
+    wins over every face seed.
     """
     candidates = _conformal_vertices(state)
     seeds = state.seeds
@@ -1339,11 +1502,33 @@ def _yield_in_balls(state: _State) -> bool:
         intruder = int(alive[min(found)])
         if not seeds.alive[intruder]:
             continue
-        if _vertex_yields(state, mine, intruder, protected):
+        holder = _barrier_holder(state, mine, intruder)
+        if holder >= 0:
+            changed |= _remove(state, intruder, holder, _YIELDED)
+        elif _vertex_yields(state, mine, intruder, protected):
             changed |= any([_demote(state, int(s), _YIELDED) for s in mine.tolist()])
         else:
             changed |= _remove(state, intruder, -1, _YIELDED)
     return changed
+
+
+def _barrier_holder(state: _State, mine: np.ndarray, intruder: int) -> int:
+    """The pair seed that takes the cell of a chain seed in the ball of a barrier vertex.
+
+    ``-1`` unless *intruder* is a chain seed and every segment of the vertex
+    belongs to a barrier line; else the nearest alive pair seed of them.
+    """
+    seeds = state.seeds
+    if int(seeds.role[intruder]) != SeedRole.CHAIN:
+        return -1
+    if any(state.family_names[int(f)] != BARRIER_FAMILY for f in state.seg_family[mine]):
+        return -1
+    pair = state.slot[mine].ravel()
+    pair = pair[(pair >= 0)]
+    pair = pair[seeds.alive[pair]]
+    if not pair.size:
+        return -1
+    return int(pair[np.argmin(np.hypot(*(seeds.xy[pair] - seeds.xy[intruder]).T))])
 
 
 def _conformal_vertices(state: _State) -> np.ndarray:
@@ -1645,6 +1830,9 @@ def _assemble(
         zone_right=np.asarray(
             [by_gid[g].zone_right for g in state.seg_line.tolist()], dtype=np.int32
         ),
+        alias_segment=state.alias_segment,
+        alias_family=state.alias_family,
+        alias_reversed=state.alias_reversed,
     )
     chains = _chain_plans(state, specs, final, order)
     return ConstraintPlan(
@@ -1697,6 +1885,8 @@ def _source_lines(
     for line in state.lines:
         if specs[line.family].intent == "face":
             out[specs[line.family].name].append(LineString(line.source))
+    for stretch in state.shared:
+        out[specs[stretch.family].name].append(LineString(stretch.coords))
     return {name: tuple(lines) for name, lines in out.items()}
 
 
@@ -1741,6 +1931,7 @@ def _family_stats(
             }
             continue
         mine = state.seg_family == index
+        mine[state.alias_segment[state.alias_family == index]] = True
         touched = np.zeros(len(state.vertices), dtype=bool)
         touched[state.seg_nodes[mine].ravel()] = True
         length = float(state.seg_length[mine].sum())

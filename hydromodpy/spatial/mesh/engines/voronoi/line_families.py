@@ -16,7 +16,7 @@ import shapely
 from shapely.strtree import STRtree
 
 from hydromodpy.spatial.mesh.engines.triangle.families import components_without
-from hydromodpy.spatial.mesh.engines.voronoi.constraints import ConstraintPlan
+from hydromodpy.spatial.mesh.engines.voronoi.constraints import ConstraintPlan, FaceLineState
 from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
 from hydromodpy.spatial.mesh.model.mesh_qa import RELATIVE_FACE_TOLERANCE
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
@@ -48,19 +48,31 @@ def face_family_table(
     A row of a face family is the edge between the cells of the pair of a
     conformal segment, ``cell_a`` (the ``plus`` seed) on the left of the line,
     its nodes in the order of the line. A conformal segment next to a yielded
-    vertex whose pair shares no edge has no row; the QA coverage shows it.
+    vertex whose pair shares no edge has no row; the QA coverage shows it. A
+    segment shared by a second family gives that family a row too, oriented
+    along its own line.
     """
     names: list[str] = []
     columns: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
-    segments, cells, nodes = _mirror_faces(plan, geometry, vertices)
+    segments, cells, nodes, edges = _mirror_faces(plan, geometry, vertices)
     faces = plan.faces
     for index, name in enumerate(plan.family_names):
-        rows = faces.segment_family[segments] == index
-        if not rows.any():
+        own = _first_per_edge(np.flatnonzero(faces.segment_family[segments] == index), edges)
+        shared, flip = _shared_rows(faces, index, segments, edges, own)
+        if not own.size and not shared.size:
             continue
         names.append(name)
+        rows = np.concatenate([own, shared])
+        flip = np.concatenate([np.zeros(own.size, dtype=bool), flip])[:, None]
         zones = np.column_stack([faces.zone_left[segments[rows]], faces.zone_right[segments[rows]]])
-        columns.append((cells[rows], nodes[rows], zones))
+        zones[own.size :] = -1
+        columns.append(
+            (
+                np.where(flip, cells[rows][:, ::-1], cells[rows]),
+                np.where(flip, nodes[rows][:, ::-1], nodes[rows]),
+                zones,
+            )
+        )
     for side, side_cells, side_nodes in _side_faces(geometry, vertices):
         names.append(f"boundary:{side}")
         columns.append((side_cells, side_nodes, np.full((len(side_cells), 2), -1)))
@@ -131,13 +143,51 @@ def _single_label(owner: np.ndarray, label: np.ndarray, size: int) -> np.ndarray
     return np.where((high >= 0) & (low == high), high, -1)
 
 
+def _first_per_edge(rows: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """The first of *rows* on each edge, in row order."""
+    _, first = np.unique(edges[rows], return_index=True)
+    return rows[np.sort(first)]
+
+
+def _shared_rows(
+    faces: FaceLineState,
+    family: int,
+    segments: np.ndarray,
+    edges: np.ndarray,
+    own: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Rows of the faces *family* shares with an earlier family, and whether to flip them.
+
+    A row is flipped where the line of *family* runs against the segment. Each
+    face is listed once, and never when the family already holds it.
+    """
+    picked = faces.alias_family == family
+    row_of = {int(segment): k for k, segment in enumerate(segments.tolist())}
+    found = [
+        (row_of[segment], reverse)
+        for segment, reverse in zip(
+            faces.alias_segment[picked].tolist(),
+            faces.alias_reversed[picked].tolist(),
+            strict=True,
+        )
+        if segment in row_of
+    ]
+    if not found:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=bool)
+    rows = np.asarray([row for row, _ in found], dtype=np.int64)
+    flip = np.asarray([reverse for _, reverse in found], dtype=bool)
+    _, first = np.unique(edges[rows], return_index=True)
+    first = np.sort(first)
+    keep = first[~np.isin(edges[rows[first]], edges[own])]
+    return rows[keep], flip[keep]
+
+
 def _mirror_faces(
     plan: ConstraintPlan, geometry: DerivedGeometry, vertices: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Segment, cells ``(plus, minus)`` and oriented nodes of each pair face found.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Segment, cells ``(plus, minus)``, oriented nodes and edge row of each pair face found.
 
-    Segments that share one pair share one face: it is listed once, under the
-    first of them.
+    Segments that share one pair share one face, so an edge row may repeat.
     """
     faces = plan.faces
     segments = np.flatnonzero(faces.segment_conformal & (faces.segment_seeds >= 0).all(axis=1))
@@ -145,15 +195,12 @@ def _mirror_faces(
     edge = _edge_of_cells(geometry, cells[:, 0], cells[:, 1])
     found = edge >= 0
     segments, cells, edge = segments[found], cells[found], edge[found]
-    _, first = np.unique(edge, return_index=True)
-    first.sort()
-    segments, cells, edge = segments[first], cells[first], edge[first]
     nodes = geometry.edge_nodes[edge]
     start = faces.vertices[faces.segment_nodes[segments, 0]]
     forward = np.hypot(*(vertices[nodes[:, 0]] - start).T) <= np.hypot(
         *(vertices[nodes[:, 1]] - start).T
     )
-    return segments, cells, np.where(forward[:, None], nodes, nodes[:, ::-1])
+    return segments, cells, np.where(forward[:, None], nodes, nodes[:, ::-1]), edge
 
 
 def _edge_of_cells(geometry: DerivedGeometry, a: np.ndarray, b: np.ndarray) -> np.ndarray:

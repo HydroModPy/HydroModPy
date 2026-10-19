@@ -23,11 +23,13 @@ from shapely.strtree import STRtree
 if TYPE_CHECKING:
     from shapely.geometry import LineString
 
+    from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
     "BarrierFace",
     "barrier_faces_from_line",
+    "crossed_edges",
     "cutoff_wall_faces",
     "downstream_of_wall",
     "lake_shore_faces",
@@ -69,14 +71,9 @@ def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list
     returned ordered along the line, ties in edge order.
     """
     geometry = cell_mesh.geometry
-    interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
-    pairs = geometry.edge_cells[interior]
-    centers = cell_mesh.centers
-    segments = shapely.linestrings(np.stack([centers[pairs[:, 0]], centers[pairs[:, 1]]], axis=1))
-    crossed = np.sort(STRtree(segments).query(line, predicate="crosses"))
-    if crossed.size == 0:
+    edges = crossed_edges(geometry, cell_mesh.centers, line)
+    if edges.size == 0:
         return []
-    edges = interior[crossed]
     total_length = float(shapely.length(shapely.linestrings(shapely.get_coordinates(line)))) or 1.0
     along = shapely.line_locate_point(line, shapely.points(geometry.edge_midpoint[edges]))
     stations = along / total_length
@@ -91,6 +88,18 @@ def barrier_faces_from_line(cell_mesh: PlanarCellMesh, line: LineString) -> list
         )
         for k in order
     ]
+
+
+def crossed_edges(geometry: DerivedGeometry, centers: np.ndarray, line: LineString) -> np.ndarray:
+    """Interior edge rows whose centre-to-centre segment *line* crosses, in edge order.
+
+    On a grid, these faces are the staircase that separates the cells on
+    either side of the line.
+    """
+    interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
+    pairs = geometry.edge_cells[interior]
+    segments = shapely.linestrings(np.stack([centers[pairs[:, 0]], centers[pairs[:, 1]]], axis=1))
+    return interior[np.sort(STRtree(segments).query(line, predicate="crosses"))]
 
 
 def downstream_of_wall(line: LineString, points: np.ndarray) -> np.ndarray:
