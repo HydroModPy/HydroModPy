@@ -166,7 +166,7 @@ class SoilReservoirConfig(HydroModelBase):
         le=10.0,
         description=(
             "Time constant of the linear reservoir that routes the curve-number "
-            "runoff to the outlet, in days. Read only when curve_number is set. 0 "
+            "runoff to the outlet, in days. No effect while curve_number is None. 0 "
             'sends it the same day; "2 days" also reads. Between 0 and 10 days: a '
             "longer delay would smooth away the fast surface peak the term exists "
             "for."
@@ -180,8 +180,8 @@ class SoilReservoirConfig(HydroModelBase):
         description=(
             "Pure delay applied to the routed curve-number runoff, after runoff_time, "
             "before it reaches the gauged discharge: the travel time to the outlet plus "
-            "any lag between the forcing's daily step and the gauge's. Read only when "
-            "curve_number is set. 0 adds no delay, "
+            "any lag between the forcing's daily step and the gauge's. No effect while "
+            "curve_number is None. 0 adds no delay, "
             'bit for bit as before; "0.75 days" also reads, interpolated linearly '
             "between the neighbouring whole-day shifts. Between 0 and 5 days: a longer "
             "shift belongs to runoff_time's reservoir, not to a fixed travel time. "

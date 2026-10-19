@@ -593,7 +593,7 @@
         },
         "normalize_cost": {
           "default": false,
-          "description": "When True, divide the block cost by a reference scale, so it adds to other blocks as a pure number and a share means a share. On a residual metric (rmse, mae) the scale is the standard deviation of the observations, their mean absolute value when that is zero. On a network distance (distance_gap, distance_mean) it is the output's validity_length, 2 h_obs under 'auto': a gap of one validity length costs 1, as much as an NSE of 0 on nse_log. Refused on an efficiency score, already a pure number.",
+          "description": "When True, divide the block cost by a reference scale, so it adds to other blocks as a pure number and a share means a share. On a residual metric (rmse, mae) the scale is the standard deviation of the observations, their mean absolute value if that is zero. On a network distance (distance_gap, distance_mean) it is the output's validity_length, 2 h_obs under 'auto': a gap of one validity length costs 1, as much as an NSE of 0 on nse_log. Refused on an efficiency score, already a pure number.",
           "examples": [
             false
           ],
@@ -2292,7 +2292,7 @@
             }
           ],
           "default": null,
-          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one. Overrides the calibration-level value for this phase.",
+          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one. Overrides the calibration-level value for this phase.",
           "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
@@ -2783,7 +2783,7 @@
             }
           ],
           "default": "auto",
-          "description": "Maximum number of evaluations of the search. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (2 when sweep_points is 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_iter replays the trials already solved from the cache.",
+          "description": "Maximum number of evaluations of the search. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_iter replays the trials already solved from the cache.",
           "examples": [
             "auto"
           ],
@@ -3014,7 +3014,7 @@
             }
           ],
           "default": null,
-          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required when several stations are loaded, optional with one.",
+          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one.",
           "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
@@ -4567,7 +4567,7 @@
             "units": "1/s"
           },
           "default": null,
-          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it when XT3D is active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
+          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it with XT3D active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
           "title": "Hydchr",
           "x-hmp-profile": "user"
         },
@@ -4600,7 +4600,7 @@
             "units": "m/s"
           },
           "default": null,
-          "description": "Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
+          "description": "Barrier hydraulic conductivity [L/T]. Give it with thickness in place of hydchr.",
           "title": "K",
           "x-hmp-profile": "user"
         },
@@ -4625,7 +4625,7 @@
             }
           ],
           "default": null,
-          "description": "Thickness of the barrier, in the unit thickness_unit names (metres by default). With k it gives hydchr = k / thickness when hydchr is unset.",
+          "description": "Thickness of the barrier, in the unit thickness_unit names (metres by default). With k it gives hydchr = k / thickness, in place of hydchr.",
           "title": "Thickness",
           "unit": "m",
           "x-hmp-profile": "user"
@@ -7024,7 +7024,7 @@
             "units": "1/s"
           },
           "default": null,
-          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it when XT3D is active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
+          "description": "HFB hydraulic characteristic [1/T] = K_barrier / thickness_barrier. A near-zero value (e.g. 1e-9 1/s) is a quasi-impermeable wall. Zero is accepted only without XT3D: MODFLOW 6 ignores a zero hydchr under XT3D, so the build refuses it with XT3D active (XT3D turns itself on for triangle and strongly non-orthogonal meshes). Each face of the barrier receives hydchr times trace length over the summed face length, so a zigzag chain of faces keeps the declared conductance. Mutually exclusive with k + thickness.",
           "title": "Hydchr",
           "x-hmp-profile": "user"
         },
@@ -7057,7 +7057,7 @@
             "units": "m/s"
           },
           "default": null,
-          "description": "Barrier hydraulic conductivity [L/T]; used with thickness when hydchr is unset.",
+          "description": "Barrier hydraulic conductivity [L/T]. Give it with thickness in place of hydchr.",
           "title": "K",
           "x-hmp-profile": "user"
         },
@@ -7082,7 +7082,7 @@
             }
           ],
           "default": null,
-          "description": "Thickness of the barrier, in the unit thickness_unit names (metres by default). With k it gives hydchr = k / thickness when hydchr is unset.",
+          "description": "Thickness of the barrier, in the unit thickness_unit names (metres by default). With k it gives hydchr = k / thickness, in place of hydchr.",
           "title": "Thickness",
           "unit": "m",
           "x-hmp-profile": "user"
@@ -16061,7 +16061,7 @@
             }
           ],
           "default": null,
-          "description": "Gauge whose cost drives stage two. Required when several stations are loaded.",
+          "description": "Gauge whose cost drives stage two. Required with several stations loaded.",
           "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
@@ -16990,7 +16990,7 @@
             }
           ],
           "default": null,
-          "description": "Spacing, in days, of regular output times from 0 to stop_time_days. track_times_days wins when it is given. It needs stop_time_days.",
+          "description": "Spacing, in days, of regular output times from 0 to stop_time_days. track_times_days wins over it. It needs stop_time_days.",
           "title": "Track Time Step Days",
           "unit": "day",
           "x-hmp-profile": "user"
@@ -22851,7 +22851,7 @@
             "units": "day"
           },
           "default": 1.0,
-          "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. Read only when curve_number is set. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.",
+          "description": "Time constant of the linear reservoir that routes the curve-number runoff to the outlet, in days. No effect while curve_number is None. 0 sends it the same day; \"2 days\" also reads. Between 0 and 10 days: a longer delay would smooth away the fast surface peak the term exists for.",
           "examples": [
             1.0
           ],
@@ -22883,7 +22883,7 @@
             "units": "day"
           },
           "default": 0.0,
-          "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. Read only when curve_number is set. 0 adds no delay, bit for bit as before; \"0.75 days\" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].",
+          "description": "Pure delay applied to the routed curve-number runoff, after runoff_time, before it reaches the gauged discharge: the travel time to the outlet plus any lag between the forcing's daily step and the gauge's. No effect while curve_number is None. 0 adds no delay, bit for bit as before; \"0.75 days\" also reads, interpolated linearly between the neighbouring whole-day shifts. Between 0 and 5 days: a longer shift belongs to runoff_time's reservoir, not to a fixed travel time. Calibrate it with [calibration.parameters.runoff_lag].",
           "examples": [
             0.0
           ],
