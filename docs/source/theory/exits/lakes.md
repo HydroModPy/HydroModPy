@@ -49,7 +49,10 @@ onto the shore within
 {toml}`snap_tolerance|flow.sinks_sources.lakes.<name>.cutoff_wall.snap_tolerance`,
 so no cell sits between the reservoir and the wall. It seals the horizontal
 connections across the faces it bars, the faces that carry its HFB rows below
-the bed.
+the bed. On the `triangle` and `voronoi` engines these are the faces the mesh
+lays on the wall, wings included ({toml}`mesh.families.barriers`); on the
+`regular` grid, the staircase of faces around the lake cells and across the
+wall line.
 
 In the code: `build_lake_connectiondata`.
 

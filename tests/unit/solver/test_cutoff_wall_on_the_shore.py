@@ -1,8 +1,9 @@
 """A lake cutoff wall lies on the lake shore, with no cell between the reservoir and it.
 
 The reservoir of ``tests/_helpers/reservoir_dam.py`` is meshed by the three
-engines through the real planner, around the wall laid on its shore. The LAK
-seal and the HFB rows then close the same faces, which the gate checks.
+engines through the real planner, around the wall laid on its shore, which the
+planner adds to the barrier family as the mesh step does. The LAK seal and the
+HFB rows then close the same faces, which the gate checks.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.ops.flow_barrier import downstream_of_wall, lake_shore_faces
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, RasterGridSpec
 from tests._helpers.reservoir_dam import DOMAIN, reservoir, trace
 
 WKT = CRS.from_epsg(2154).to_wkt()
@@ -84,6 +85,7 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
         refinement_zones=(),
         input_triangulation=None,
         synthetic=False,
+        barriers=(line,),
     )
     request = plan_mesh_request(MeshConfig.model_validate(ENGINES[engine]), inputs)
     cell_mesh = registry.create(engine).build(request)
@@ -231,3 +233,17 @@ def test_the_gate_refuses_a_lake_still_in_bank_connection_past_the_dam() -> None
 
     with pytest.raises(SolverInputError, match=r"lake 'r'.*downstream cell\(s\) still in LAK"):
         check_cutoff_wall_seal(built.model, built.mesh, built.cells_by_lake, open_banks, built.hfb)
+
+
+@pytest.mark.parametrize("offset", [12.0, -30.0], ids=["gap_12_m", "crossing"])
+@pytest.mark.parametrize("engine", ["triangle", "voronoi"])
+def test_the_hfb_faces_are_the_faces_the_mesh_lays_on_the_wall(engine: str, offset: float) -> None:
+    built = _built(engine, offset)
+    table = built.mesh.cell_mesh.face_families
+    rows = built.mesh.cell_mesh.face_rows(BARRIER_FAMILY) & (table.cell_b >= 0)
+    family = {
+        tuple(sorted(pair)) for pair in zip(table.cell_a[rows], table.cell_b[rows], strict=True)
+    }
+    barred = {tuple(sorted((row[0][1], row[1][1]))) for row in built.hfb}
+
+    assert barred == family
