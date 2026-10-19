@@ -34,7 +34,11 @@ from typing import Any
 import pandas as pd
 from pydantic import ValidationError
 
-from hydromodpy.calibration.config import MatchingHydrographicNetworkOptions, outputs_agree
+from hydromodpy.calibration.config import (
+    MatchingHydrographicNetworkOptions,
+    outputs_agree,
+    scoring_window_of_the_run,
+)
 from hydromodpy.calibration.protocols.base import Deviation, Reference
 
 STEADY_STAGE = "steady_conductivity"
@@ -323,8 +327,9 @@ class MatchingHydrographicNetwork:
             paper="stage two simulates 2020 to 2023 and scores June to October of the "
             "drought year 2022 alone (WRR 2025, Fig. 5): the years before are simulated "
             "and not scored",
-            here="with no scoring_window on the protocol or on [calibration], and no "
-            "warmup_periods, stage two leaves the first year of [simulation.time] out: "
+            here="with no scoring_window on the protocol or on [calibration], no "
+            "warmup_periods and no [metrics] window, stage two leaves the first year of "
+            "[simulation.time] out: "
             "it scores from one year after start_datetime to the end of the run, every "
             "block it scores alike. A declared window replaces it. A run of one year "
             "or less has nothing past its spin-up and is scored whole",
@@ -415,9 +420,9 @@ class MatchingHydrographicNetwork:
             )
         calibration["outputs"] = outputs
         calibration["objective_blocks"] = objective_blocks
-        scored_from = _first_date_past_the_spin_up(document, opts) if opts.storage else None
+        window = _transient_window_by_default(document, opts) if opts.storage else None
         calibration["phases"] = _phases(
-            opts, scores_a_known_station=station is not None, scored_from=scored_from
+            opts, scores_a_known_station=station is not None, default_window=window
         )
         expanded["calibration"] = calibration
         return expanded
@@ -558,28 +563,32 @@ def _write_hydrograph_output(
     outputs[HYDROGRAPH_OUTPUT] = written
 
 
-def _first_date_past_the_spin_up(
+def _transient_window_by_default(
     document: Mapping[str, Any], opts: MatchingHydrographicNetworkOptions
-) -> str | None:
-    """Return the first date the transient stage scores by default, or ``None``.
+) -> dict[str, str] | None:
+    """Return the window the transient stage scores by default, or ``None``.
 
-    The transient stage runs the project's own time grid, whose first year
-    starts from an initial condition the run did not produce. Left unwindowed,
-    the hydrograph and any network block scored in that phase would read it,
-    and a two-bound network would count it as one more complete year. So the
-    default window opens one year after ``[simulation.time].start_datetime``.
+    ``[metrics] window``, the window the run is scored on (H45), when it
+    writes both bounds. Otherwise the stage runs the project's own time grid,
+    whose first year starts from an initial condition the run did not
+    produce. Left unwindowed, the hydrograph and any network block scored in
+    that phase would read it, and a two-bound network would count it as one
+    more complete year. So the window then opens one year after
+    ``[simulation.time].start_datetime``, with no end.
 
     ``None`` when a declaration already says what the phase scores, and wins:
     ``scoring_window`` on the protocol, ``scoring_window`` or
     ``warmup_periods`` on ``[calibration]``. ``None`` too for a document
     already carrying a transient stage without a window: a run sealed before
-    this default replays the window it ran with. And ``None`` when no start
-    date is written, where the stage cannot run transient anyway.
+    the spin-up default replays the window it ran with. A stage carrying the
+    spin-up window keeps it, for a run sealed before ``[metrics] window``
+    reached the stage. And ``None`` when no start date is written, where the
+    stage cannot run transient anyway.
 
     A run that ends within its first year, or on its first anniversary, gets
-    no window either: nothing lies past the spin-up to score, and refusing
-    the file here would also refuse the steady stage, which reads the same
-    record and needs no spin-up.
+    no spin-up window either: nothing lies past the spin-up to score, and
+    refusing the file here would also refuse the steady stage, which reads the
+    same record and needs no spin-up.
     """
     if opts.scoring_window is not None:
         return None
@@ -587,16 +596,36 @@ def _first_date_past_the_spin_up(
     calibration = calibration if isinstance(calibration, Mapping) else {}
     if calibration.get("scoring_window") is not None or calibration.get("warmup_periods"):
         return None
-    for phase in calibration.get("phases") or ():
-        if isinstance(phase, Mapping) and phase.get("name") == TRANSIENT_STAGE:
-            if phase.get("scoring_window") is None:
-                return None
-            break
-
     simulation = document.get("simulation")
     time = simulation.get("time") if isinstance(simulation, Mapping) else None
     time = time if isinstance(time, Mapping) else {}
-    return _date_past_the_spin_up(time.get("start_datetime"), time.get("end_datetime"))
+    scored_from = _date_past_the_spin_up(time.get("start_datetime"), time.get("end_datetime"))
+    spin_up = {"start": scored_from} if scored_from is not None else None
+    for phase in calibration.get("phases") or ():
+        if isinstance(phase, Mapping) and phase.get("name") == TRANSIENT_STAGE:
+            written = phase.get("scoring_window")
+            if written is None:
+                return None
+            if spin_up is not None and _is_window(written, spin_up):
+                return spin_up
+            break
+    metrics = document.get("metrics")
+    window = scoring_window_of_the_run(
+        metrics.get("window") if isinstance(metrics, Mapping) else None
+    )
+    return window if window is not None else spin_up
+
+
+def _is_window(written: Any, window: Mapping[str, str]) -> bool:
+    """Say whether a raw ``scoring_window`` bounds the same instants as *window*."""
+    if not isinstance(written, Mapping):
+        return False
+    for bound in ("start", "end"):
+        here = _instant(written.get(bound), f"scoring_window.{bound}")
+        there = _instant(window.get(bound), f"scoring_window.{bound}")
+        if here != there:
+            return False
+    return True
 
 
 def _date_past_the_spin_up(start: Any, end: Any) -> str | None:
@@ -688,7 +717,7 @@ def _phases(
     opts: MatchingHydrographicNetworkOptions,
     *,
     scores_a_known_station: bool,
-    scored_from: str | None = None,
+    default_window: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     # The regime says steady and runners/phase_regime.py writes what it means:
     # one period over the window, read from [simulation.time] unless the file
@@ -718,16 +747,23 @@ def _phases(
 
     # The window bounds every block the phase scores, a network one included,
     # so the spin-up year leaves the hydrograph and a two-bound extent alike.
-    spin_up = (
-        f", scored from {scored_from} on, the first year of the run left out as spin-up"
-        if opts.scoring_window is None and scored_from is not None
-        else ""
-    )
+    scored = ""
+    if opts.scoring_window is None and default_window is not None:
+        if default_window.get("end") is None:
+            scored = (
+                f", scored from {default_window['start']} on, the first year of the run "
+                "left out as spin-up"
+            )
+        else:
+            scored = (
+                f", scored over [metrics] window, {default_window['start']} to "
+                f"{default_window['end']}"
+            )
     transient: dict[str, Any] = {
         "name": TRANSIENT_STAGE,
         "description": (
             f"Read {opts.storage} from the observed hydrograph, "
-            f"{opts.conductivity} frozen, transient{spin_up}."
+            f"{opts.conductivity} frozen, transient{scored}."
         ),
         "method": opts.transient_method,
         "max_iter": opts.transient_max_iter,
@@ -750,8 +786,8 @@ def _phases(
         transient["method_options"] = dict(opts.transient_method_options)
     if opts.scoring_window is not None:
         transient["scoring_window"] = dict(opts.scoring_window)
-    elif scored_from is not None:
-        transient["scoring_window"] = {"start": scored_from}
+    elif default_window is not None:
+        transient["scoring_window"] = dict(default_window)
     return [steady, transient]
 
 

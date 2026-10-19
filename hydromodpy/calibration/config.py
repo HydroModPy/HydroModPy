@@ -3024,20 +3024,32 @@ def apply_project_defaults(
                     phase = {**phase, "observed_station_id": station}
             resolved_phases.append(phase)
         payload["phases"] = resolved_phases
+    window = scoring_window_of_the_run(metrics_window)
     if (
         payload.get("scoring_window") is None
         and not payload.get("warmup_periods")
-        and isinstance(metrics_window, Mapping)
-        and metrics_window.get("start") is not None
-        and metrics_window.get("end") is not None
+        and window is not None
     ):
-        window = {"start": str(metrics_window["start"]), "end": str(metrics_window["end"])}
         phases = payload.get("phases")
         if isinstance(phases, list) and phases:
             payload["phases"] = [_with_window(phase, window) for phase in phases]
         else:
             payload["scoring_window"] = window
     return payload
+
+
+def scoring_window_of_the_run(metrics_window: Any) -> dict[str, str] | None:
+    """Return a raw ``[metrics] window`` as a raw ``scoring_window``.
+
+    ``None`` unless both bounds are written: a calibration window takes the
+    run's only when the run is scored on a closed window.
+    """
+    if not isinstance(metrics_window, Mapping):
+        return None
+    start, end = metrics_window.get("start"), metrics_window.get("end")
+    if start is None or end is None:
+        return None
+    return {"start": str(start), "end": str(end)}
 
 
 def _with_window(phase: Any, window: dict[str, str]) -> Any:
@@ -3098,5 +3110,6 @@ __all__ = [
     "PersistIterationDetail",
     "CalibrationMethod",
     "MetricKind",
+    "scoring_window_of_the_run",
     "validate_calib_output",
 ]

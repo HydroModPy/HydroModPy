@@ -34,6 +34,12 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Under `[calibration.protocol]`, `[metrics] window` reaches the transient stage (2026-10-20). The
+  protocol wrote its own default, one year past `[simulation.time].start_datetime` with no end,
+  before the project defaults ran, so the stage kept it and scored past the end of
+  `[metrics] window`. The protocol now writes `[metrics] window` itself, both bounds, and the
+  spin-up default applies only without it. A stage sealed with the spin-up window still replays
+  it. Protocol version stays 1.2: no release carried `[metrics]`.
 - A flow barrier whose line runs through cell centres is barred again (2026-10-19). Along a row of
   centres, or through them on a diagonal, the line touches the centre-to-centre links at an end
   or lies along them and crosses none, so the crossing rule barred no face: an 80 m regular grid
