@@ -101,3 +101,22 @@ class TestLakeStructuresWiring:
 
         setup_state, geographic, _ = self._make_inputs(LineString([(0, 0), (1, 1)]))
         assert lake_structures(setup_state, geographic, None) == ()
+
+
+def test_the_barrier_lines_are_each_lake_wall_then_each_flow_barrier() -> None:
+    from hydromodpy.workflow.steps.mesh_inputs import barrier_lines
+
+    wall = LineString([(1000.0, 100.0), (1000.0, 500.0)])
+    fence = LineString([(200.0, 700.0), (800.0, 900.0)])
+    flow = SimpleNamespace(
+        sinks_sources={
+            "lakes": {
+                "a": {"polygon": LAKE, "cutoff_wall_line": wall},
+                "b": {"polygon": LAKE},
+            },
+            "flow_barriers": {"f": {"barrier": object(), "line": fence}},
+        }
+    )
+
+    assert barrier_lines(SimpleNamespace(flow=flow)) == (wall, fence)
+    assert barrier_lines(SimpleNamespace(flow=SimpleNamespace(sinks_sources={}))) == ()

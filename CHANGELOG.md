@@ -163,6 +163,36 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- A `barriers` face family in the mesh (2026-10-19): the `triangle` and `voronoi` faces follow
+  each lake cutoff wall and each `[flow.sinks_sources.flow_barriers]` line exactly, wings,
+  joints and free ends included; `regular` publishes the staircase of the faces the line crosses.
+  Switch: `[mesh.families] barriers = "face"` (default) or `"none"`. On the reservoir of the
+  cutoff-wall tests (trace 12 m off the shore, then across the lake) every family face lies on
+  the wall within 1 mm, the family covers the whole wall, and no cell on the lake side is reached
+  from downstream across it. The choices:
+  - The shore stretch is meshed once. The planner cuts each barrier line where it runs along a
+    lake ring, resamples the pieces with the stretch ends as fixed nodes, and welds the resampled
+    ring vertices back in, so the stretch has the ring's vertices bit for bit
+    (`planning/barrier_lines.py`). `triangle` meshes a shared edge once and gives it to both
+    families; `voronoi` leaves the stretch to the lake line (one mirror pair per segment) and
+    publishes its faces in both families, oriented along each line.
+  - A barrier keeps its corners: a vertex turning by more than 20 degrees is a fixed node of the
+    resampling, unless one of its segments is shorter than the finest size of the field (a
+    2 m fold no cell can resolve). Each corner stretch shorter than the background size refines
+    the cells within one stretch length to that length (`barrier_corner:<k>` size terms), so a
+    12 m joint between the trace and the shore keeps its Berge pairs without
+    `[mesh.lake_refinement]`.
+  - Junctions: a wing meets the shore in a T junction of the two families; a free end gets its
+    tip seed. In `voronoi` the priority is now lakes, barriers, geology, watershed boundary: a
+    contact beside a barrier yields to it.
+  - A barrier never yields to a river (`voronoi`): the crossing segment's pair joins the chain as
+    for any face line, a barrier mirror seed in the Gabriel disk of a chain link joins the chain
+    instead of yielding, and a chain seed inside a barrier ball or within half a cell of a barrier
+    mirror seed goes, the river passing through the nearest barrier cell. The chain crosses the
+    barrier once, through a barrier face between two chain cells (G3 holds); measured without a
+    yielded segment for crossings from 90 down to 5 degrees.
+  - Engine versions: `voronoi` 2.1.0, `regular` 1.1.0. `triangle` stays 1.0.0: its code is
+    unchanged, and a request with barriers has another hash.
 - Share a simulation with its data (2026-10-19), step 1, the package of a run:
   - One install index for an example, a published run and an exported project
     (`hydromodpy/core/payload/`): `INSTALL.toml`, schema `hydromodpy.install.v1`, refused by name

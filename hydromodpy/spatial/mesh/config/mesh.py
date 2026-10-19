@@ -70,6 +70,22 @@ class MeshFamiliesConfig(HydroModelBase):
             }
         },
     )
+    barriers: Annotated[Literal["face", "none"], StripLower, Profile.USER] = Field(
+        default="face",
+        description=(
+            "How the mesh follows the flow barriers: the cutoff wall of each lake that "
+            "declares one, and the lines of [flow.sinks_sources.flow_barriers]."
+        ),
+        json_schema_extra={
+            "value_docs": {
+                "face": (
+                    "Cell faces lie on each barrier line, wings and free ends included. "
+                    "The regular engine takes the staircase of faces the line crosses."
+                ),
+                "none": "The mesh ignores the barriers.",
+            }
+        },
+    )
     watershed_boundary: Annotated[Literal["none", "face"], StripLower, Profile.USER] = Field(
         default="none",
         description="How the mesh follows the boundary of the catchment inside the domain.",
@@ -221,7 +237,10 @@ class MeshConfig(HydroModelBase):
     )
     families: Annotated[MeshFamiliesConfig, Profile.USER] = Field(
         default_factory=MeshFamiliesConfig,
-        description="What the mesh does on the rivers, the geology contacts, the lake shores and the catchment boundary.",
+        description=(
+            "What the mesh does on the rivers, the geology contacts, the lake shores, the "
+            "flow barriers and the catchment boundary."
+        ),
     )
     triangle: Annotated[
         MeshTriangleConfig | None, Profile.USER, VisibleWhen("engine", _TRIANGULATED_ENGINES)

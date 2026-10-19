@@ -279,7 +279,7 @@ def test_the_identity_names_the_engine_the_request_and_its_seed() -> None:
     cell_mesh = VoronoiMeshEngine().build(request)
 
     assert cell_mesh.identity.engine_id == "voronoi"
-    assert cell_mesh.identity.engine_version == "2.0.1"
+    assert cell_mesh.identity.engine_version == "2.1.0"
     assert cell_mesh.identity.request_hash == request.canonical_hash()
     assert cell_mesh.identity.seed == request.seed
     assert cell_mesh.qa.declarations == VoronoiMeshEngine.capabilities.declarations()

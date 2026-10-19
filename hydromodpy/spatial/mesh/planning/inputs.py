@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
@@ -29,8 +29,10 @@ class PlanningInputs:
     ``domain`` is the polygon of the active extent; it is replaced by the
     outline of ``input_triangulation`` when a triangulation is read.
     ``watershed`` is the catchment the outside coarsening ramps away from.
-    ``synthetic`` marks an analytical support, which has no catchment. ``notes``
-    are what the mesh step left out while gathering the inputs; they reach the QA.
+    ``synthetic`` marks an analytical support, which has no catchment.
+    ``barriers`` are the flow barrier lines: the cutoff wall of each lake laid on
+    its shore, then the general flow barriers. ``notes`` are what the mesh step
+    left out while gathering the inputs; they reach the QA.
     """
 
     dem_grid: RasterGridSpec
@@ -44,6 +46,7 @@ class PlanningInputs:
     refinement_zones: tuple[RefinementZone, ...]
     input_triangulation: InputTriangulation | None
     synthetic: bool
+    barriers: tuple[LineString, ...] = ()
     notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -53,4 +56,5 @@ class PlanningInputs:
         object.__setattr__(self, "lakes", tuple(self.lakes))
         object.__setattr__(self, "lake_structures", tuple(self.lake_structures))
         object.__setattr__(self, "refinement_zones", tuple(self.refinement_zones))
+        object.__setattr__(self, "barriers", tuple(self.barriers))
         object.__setattr__(self, "notes", tuple(self.notes))

@@ -1,7 +1,8 @@
 """Resample the family lines at the local cell size, before any engine.
 
 The fixed nodes are the line ends, the confluences, the crossings between
-any two lines and the contacts with the domain boundary. Between two fixed
+any two lines, the contacts with the domain boundary and the corners of a
+barrier line, so a barrier keeps its exact course. Between two fixed
 nodes a line is cut into ``n`` segments of equal ``integral ds / h``: each
 segment is about one local cell long, and none is shorter than 0.8 local
 cell, except a whole edge between two fixed nodes that is shorter than that.
@@ -21,10 +22,18 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import substring
 from shapely.strtree import STRtree
 
-from hydromodpy.spatial.mesh.request import LineFamilySpec, SizeField
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
 from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
-__all__ = ["MIN_SEGMENT_SHARE", "ResampledFamilies", "positions_at_local_size", "resample_families"]
+__all__ = [
+    "KINK_TURN_RAD",
+    "MIN_SEGMENT_SHARE",
+    "ResampledFamilies",
+    "kink_pieces",
+    "node_tolerance",
+    "positions_at_local_size",
+    "resample_families",
+]
 
 MIN_SEGMENT_SHARE = 0.8
 """Shortest segment, as a share of the local cell size, between two fixed nodes."""
@@ -38,6 +47,11 @@ _NODE_TOL_REL = 1.0e-9
 _SAMPLES_PER_CELL = 4
 """Samples of ``h`` per smallest cell size along a line."""
 
+KINK_TURN_RAD = math.radians(20.0)
+"""A vertex of a barrier line turning more than this angle is a fixed node, unless
+one of its two segments is shorter than the finest size of the field: no cell
+resolves such a corner, and keeping it only folds the line within a cell."""
+
 
 @dataclass(frozen=True)
 class ResampledFamilies:
@@ -48,15 +62,32 @@ class ResampledFamilies:
 
 
 def resample_families(
-    families: Sequence[LineFamilySpec], *, domain: Polygon, size_field: SizeField
+    families: Sequence[LineFamilySpec],
+    *,
+    domain: Polygon,
+    size_field: SizeField,
+    fixed_points: np.ndarray | None = None,
 ) -> ResampledFamilies:
-    """Resample every line of *families* on *size_field*; names, zones and orientation kept."""
+    """Resample every line of *families* on *size_field*; names, zones and orientation kept.
+
+    *fixed_points* ``(k, 2)`` are fixed nodes besides those of the noded lines:
+    a line that passes on one keeps it as a vertex.
+    """
     lines = [line for family in families for line in family.lines]
     if not lines:
         return ResampledFamilies(families=tuple(families), short_fixed_edges=0)
-    minx, miny, maxx, maxy = domain.bounds
-    tol = max(_NODE_TOL_REL * max(maxx - minx, maxy - miny), 1.0e-9)
-    nodes = _fixed_nodes(lines, domain)
+    tol = node_tolerance(domain)
+    extra = (
+        [np.asarray(fixed_points, dtype=float).reshape(-1, 2)] if fixed_points is not None else []
+    )
+    finest = float(size_field.values.min())
+    extra += [
+        _kinks(line, finest)
+        for family in families
+        if family.name == BARRIER_FAMILY
+        for line in family.lines
+    ]
+    nodes = np.unique(np.vstack([_fixed_nodes(lines, domain), *extra]), axis=0)
     tree = STRtree(shapely.points(nodes))
     cover = domain.buffer(tol)
     shapely.prepare(cover)
@@ -74,6 +105,12 @@ def resample_families(
     return ResampledFamilies(families=tuple(resampled), short_fixed_edges=short)
 
 
+def node_tolerance(domain: Polygon) -> float:
+    """Distance [m] under which a fixed node lies on a line: 1e-9 of the domain extent."""
+    minx, miny, maxx, maxy = domain.bounds
+    return max(_NODE_TOL_REL * max(maxx - minx, maxy - miny), 1.0e-9)
+
+
 def _fixed_nodes(lines: list[LineString], domain: Polygon) -> np.ndarray:
     """Coordinates ``(k, 2)`` of the ends of the noded union of the lines and the boundary."""
     rings = [LineString(domain.exterior.coords)] + [
@@ -87,6 +124,35 @@ def _fixed_nodes(lines: list[LineString], domain: Polygon) -> np.ndarray:
         ]
     )
     return np.unique(ends, axis=0)
+
+
+def kink_pieces(line: LineString) -> list[LineString]:
+    """*line* cut at the vertices where it turns by more than :data:`KINK_TURN_RAD`."""
+    coords = shapely.get_coordinates(line)
+    cuts = [0, *(_kink_indices(coords) + 1).tolist(), len(coords) - 1]
+    return [LineString(coords[a : b + 1]) for a, b in zip(cuts[:-1], cuts[1:], strict=True)]
+
+
+def _kinks(line: LineString, shortest: float) -> np.ndarray:
+    """The inner vertices ``(k, 2)`` where *line* turns by more than :data:`KINK_TURN_RAD`.
+
+    A vertex is kept only when its two segments are at least *shortest* [m] long.
+    """
+    coords = shapely.get_coordinates(line)
+    kinks = _kink_indices(coords)
+    length = np.hypot(*np.diff(coords, axis=0).T)
+    kept = (length[kinks] >= shortest) & (length[kinks + 1] >= shortest)
+    return coords[1:-1][kinks[kept]]
+
+
+def _kink_indices(coords: np.ndarray) -> np.ndarray:
+    """Indices into ``coords[1:-1]`` of the inner vertices that turn by more than the kink angle."""
+    if len(coords) < 3:
+        return np.empty(0, dtype=np.int64)
+    step = np.diff(coords, axis=0)
+    heading = np.arctan2(step[:, 1], step[:, 0])
+    turn = np.abs(np.mod(np.diff(heading) + np.pi, 2.0 * np.pi) - np.pi)
+    return np.flatnonzero(turn > KINK_TURN_RAD)
 
 
 def _resample_line(

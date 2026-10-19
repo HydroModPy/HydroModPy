@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.raster_support import RasterSupport
 
 __all__ = [
+    "BARRIER_FAMILY",
     "InputTriangulation",
     "LineFamilySpec",
     "LineIntent",
@@ -40,6 +41,10 @@ __all__ = [
 ]
 
 LineIntent = Literal["cell", "face"]
+
+BARRIER_FAMILY = "barriers"
+"""The face family of the flow barriers: an engine follows its corners and free ends,
+and a staircase engine bars the faces its lines cross."""
 
 _EMPTY_OPTIONS: Mapping[str, object] = MappingProxyType({})
 

@@ -269,7 +269,7 @@ def test_the_identity_names_the_engine_and_the_request() -> None:
     request = _request(0.0, 1000.0, 0.0, 600.0, 12, 20)
     identity = RegularMeshEngine().build(request).identity
 
-    assert (identity.engine_id, identity.engine_version) == ("regular", "1.0.1")
+    assert (identity.engine_id, identity.engine_version) == ("regular", "1.1.0")
     assert identity.request_hash == request.canonical_hash()
     assert identity.seed is None
 
