@@ -112,7 +112,6 @@ def notch(
     bed_reach_m: float = 30.0,
     max_depth_m: float = 3.0,
     snap_radius_m: float = 30.0,
-    dam_lines: Sequence[BaseGeometry] = (),
     lakes: Sequence[BaseGeometry] = (),
 ) -> tuple[np.ndarray, NotchReport]:
     """Run the raster notch on the bench and return the ground and the report."""
@@ -132,7 +131,6 @@ def notch(
         max_depth_m=max_depth_m,
         snap_radius_m=snap_radius_m,
         report=report,
-        dam_lines=dam_lines,
         lakes=lakes,
     )
     return out, report

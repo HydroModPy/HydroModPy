@@ -41,6 +41,7 @@ from hydromodpy.solver.modflow6.builders._sfr_drainage import (
     _LAK_PACKAGE_NAME,
     _SFR_PACKAGE_NAME,
     build_drainage_mover_records,
+    mover_rows_reach_lake,
     remove_drain_cells,
     sfr_drain_cells_to_drop,
     sfr_routes_drainage,
@@ -334,9 +335,8 @@ def build_sfr_mover_records(
                     "%s: %d dead-end reach(es) stop short of every shoreline and stay "
                     "unrouted, so their flow leaves the model by EXT-OUTFLOW instead of "
                     "feeding the lake (nearest is reach %d, %.0f m from the shore, for a "
-                    "lake_feeder_snap of %.0f m). Carve the channel to the shore with "
-                    "geographic.enforce_lakes.capture_radius_m, or raise lake_feeder_snap "
-                    "above %.0f m to snap them.",
+                    "lake_feeder_snap of %.0f m). Raise lake_feeder_snap above %.0f m "
+                    "to snap them.",
                     location,
                     len(unsnapped),
                     closest[0],
@@ -646,6 +646,7 @@ __all__ = [
     "build_sfr_obs_spec",
     "build_sfr_package_args",
     "build_sfr_period_data",
+    "mover_rows_reach_lake",
     "remove_drain_cells",
     "resolve_sfr_networks",
     "sfr_drain_cells_to_drop",

@@ -149,10 +149,6 @@ orientation = "sn"
 [display.overrides.flow_intermittence_map]
 cycle = "2002"
 
-# The window the calibrations score, 2000 being spin-up, shaded on the figure.
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2001-01-01", "2002-12-31"]
-
 # What each run writes to runs/<run>/exports/. The files based on this one inherit
 # the four blocks: a calibration writes them for every run it promotes.
 

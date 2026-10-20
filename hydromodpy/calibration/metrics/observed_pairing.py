@@ -16,7 +16,7 @@ common is refused by name rather than scored on an empty overlap.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -48,6 +48,9 @@ class PairedOutputs:
     dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]]
     """First and last retained date per output, after the scoring window and
     the overlap have both been applied."""
+    times: dict[str, pd.DatetimeIndex] = field(default_factory=dict)
+    """Every retained stamp per output, index for index with the vectors: a
+    gap the pairing left is a gap of these dates."""
 
     def dates_scored(self) -> int:
         """Return the smallest number of samples any output contributed."""
@@ -152,6 +155,7 @@ def pair_outputs_with_observations(
     paired_simulated: dict[str, list[float]] = {}
     counts: dict[str, int] = {}
     dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
+    times: dict[str, pd.DatetimeIndex] = {}
 
     for name, record in observed.items():
         series = simulated.get(name)
@@ -194,6 +198,7 @@ def pair_outputs_with_observations(
         paired_simulated[name] = [float(value) for value in frame["sim"]]
         counts[name] = len(frame)
         dates[name] = (frame.index.min(), frame.index.max())
+        times[name] = pd.DatetimeIndex(frame.index)
         if series_sink is not None:
             series_sink.record(
                 output=name,
@@ -208,6 +213,7 @@ def pair_outputs_with_observations(
         simulated=paired_simulated,
         n_paired=counts,
         dates=dates,
+        times=times,
     )
 
 

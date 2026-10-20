@@ -207,6 +207,27 @@ def delineate_sfr_reaches(
     if not cells_by_link:
         raise ValueError("No stream cells (link_id > 0); cannot delineate an SFR network.")
 
+    # 1b. A link that runs through a lake keeps its end below the dam as a link of
+    # its own. The cut at the lake would otherwise drop it, and a release at the dam
+    # would find no channel to follow (it fell back on a tributary of the lake).
+    if lake is not None:
+        link_id = link_id.copy()
+        next_link = int(link_id.max()) + 1
+        for link in list(cells_by_link):
+            ordered_cells = _order_link_cells(cells_by_link[link], d8)
+            lake_positions = [i for i, cell in enumerate(ordered_cells) if lake[cell]]
+            if not lake_positions:
+                continue
+            below = [cell for cell in ordered_cells[lake_positions[-1] + 1 :] if not lake[cell]]
+            if not below:
+                continue
+            below_set = set(below)
+            cells_by_link[link] = [cell for cell in cells_by_link[link] if cell not in below_set]
+            cells_by_link[next_link] = below
+            for cell in below:
+                link_id[cell] = next_link
+            next_link += 1
+
     # 2. Per-link geometry + the downstream link (or lake / model outlet). A
     # link whose flow path ENTERS the lake footprint is truncated at the entry
     # cell (the raster network continues through / below a reservoir, but the

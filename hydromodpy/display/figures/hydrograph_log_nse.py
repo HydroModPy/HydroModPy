@@ -8,12 +8,13 @@ splits the total into its drainage and runoff contributions, since the ratio
 between the two is what the storage parameter actually moves, shades the
 window whose samples entered the score and annotates the score itself.
 
-The scoring window and the ``NSElog`` value are calibration notions and this
-layer may not reach into ``calibration``, so both arrive as ``render()``
-arguments. Without them the hydrograph is still drawn, unshaded and
-unannotated: this figure must stay readable on a plain run. The note under
-the curves says in plain words what a reader must not assume, and says
-nothing about what was simply not asked for.
+The scoring window and the ``NSElog`` value are the ones the run recorded on
+``[metrics] window`` (:mod:`hydromodpy.display.figures._run_score`), read
+from the run rather than typed beside the figure, so the two cannot disagree.
+A run with no score is still drawn, unshaded and unannotated: this figure
+must stay readable on a plain run. The note under the curves says in plain
+words what a reader must not assume, and says nothing about what was simply
+not there.
 
 A log axis and a discharge that reaches zero do not mix. The convention here
 is the metric's own: ``log_nse`` adds an offset ``eps`` before taking the
@@ -26,7 +27,8 @@ thing: it stays NaN and breaks the line.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from datetime import datetime, time, timedelta
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 import pandas as pd
@@ -40,6 +42,7 @@ from hydromodpy.core.units.labels import (
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._run_score import RunScore, run_score
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET
 from hydromodpy.results.derive.time_alignment import (
@@ -137,17 +140,6 @@ class HydrographLogNseFigure(BaseFigure):
             ),
         ] = "drainage",
         runoff_variable: Annotated[str, Opt("Stored series read as the runoff part.")] = "runoff",
-        scoring_window: Annotated[
-            tuple[Any, Any] | None,
-            Opt(
-                "Start and end dates of the period the score read, shaded on the "
-                "figure. Left out, no shading."
-            ),
-        ] = None,
-        nse_log: Annotated[
-            float | None,
-            Opt("NSElog value written on the figure. Left out, no score is written.", unit="-"),
-        ] = None,
         floor: Annotated[
             float | None,
             Opt(
@@ -172,7 +164,10 @@ class HydrographLogNseFigure(BaseFigure):
         )
         level = _log_floor(floor, observed, total)
 
-        window = _shade_window(ax, scoring_window, index)
+        score = run_score(
+            sim, stations=[station_id for station_id, _ in observed], variable=variable
+        )
+        window = _shade_window(ax, score)
 
         on_floor: list[tuple[str, int, np.ndarray]] = []
         for label, series, color, style, width in (
@@ -223,7 +218,7 @@ class HydrographLogNseFigure(BaseFigure):
         # by construction, the limits being set from that floor down.
         ax.legend(loc="upper right", fontsize=8.5, framealpha=0.9)
         lines = _note_lines(
-            nse_log=nse_log,
+            nse_log=None if score is None else score.values.get("nse_log"),
             window=window,
             n_samples=int(index.size),
             split_note=split_note,
@@ -444,34 +439,26 @@ def _log_floor(
     return max(1e-9, FLOOR_FRACTION * median)
 
 
-def _shade_window(
-    ax: Axes,
-    scoring_window: tuple[Any, Any] | None,
-    index: pd.DatetimeIndex,
-) -> tuple[pd.Timestamp, pd.Timestamp, int] | None:
-    """Shade the scored period and return its bounds and sample count."""
-    if scoring_window is None:
+def _shade_window(ax: Axes, score: RunScore | None) -> RunScore | None:
+    """Shade the window the run was scored on, its last day included."""
+    if score is None:
         return None
-    start, end = (pd.Timestamp(bound) for bound in scoring_window)
-    if start > end:
-        raise ValueError(f"the scoring window ends ({end}) before it starts ({start}).")
     ax.axvspan(
-        start,
-        end,
+        datetime.combine(score.start, time.min),
+        datetime.combine(score.end + timedelta(days=1), time.min),
         color=_WINDOW_COLOR,
         alpha=0.55,
         linewidth=0.0,
         zorder=0,
         label="scoring window",
     )
-    scored = int(np.sum((index >= start) & (index <= end)))
-    return start, end, scored
+    return score
 
 
 def _note_lines(
     *,
     nse_log: float | None,
-    window: tuple[pd.Timestamp, pd.Timestamp, int] | None,
+    window: RunScore | None,
     n_samples: int,
     split_note: str | None,
     variable: str,
@@ -492,10 +479,9 @@ def _note_lines(
     if nse_log is not None:
         lines.append(f"NSElog = {float(nse_log):.3f}")
     if window is not None:
-        start, end, scored = window
         lines.append(
-            f"scoring window {start:%Y-%m-%d} to {end:%Y-%m-%d}: "
-            f"{scored} of {n_samples} samples scored"
+            f"scoring window {window.start:%Y-%m-%d} to {window.end:%Y-%m-%d}: "
+            f"{window.n} of {n_samples} samples scored"
         )
     if split_note is not None:
         lines.append(split_note)

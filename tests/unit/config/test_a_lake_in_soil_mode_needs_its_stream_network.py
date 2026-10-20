@@ -92,3 +92,37 @@ def test_a_lake_with_sfr_loads(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_toml(config_path)
 
     assert "lake" in cfg.flow.active_bc
+
+
+def _write_with_network(tmp_path: Path, network_lines: str) -> Path:
+    config_path = _write(tmp_path, ["drainage", "lake", "sfr"])
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        + "\n[flow.sinks_sources.sfr.main]\n"
+        + network_lines,
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def test_route_drainage_is_on_by_default() -> None:
+    from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachNetworkConfig
+
+    assert FlowReachNetworkConfig.model_fields["route_drainage"].default is True
+
+
+def test_a_lake_in_soil_mode_refuses_route_drainage_off(tmp_path: Path) -> None:
+    config_path = _write_with_network(tmp_path, "route_drainage = false\n")
+
+    with pytest.raises(ConfigValidationError) as excinfo:
+        HydroModPyConfig.from_toml(config_path)
+
+    assert "route_drainage = false with a lake" in str(excinfo.value)
+
+
+def test_a_lake_in_soil_mode_accepts_the_default_route_drainage(tmp_path: Path) -> None:
+    config_path = _write_with_network(tmp_path, "")
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.flow.sinks_sources.sfr["main"].route_drainage is True

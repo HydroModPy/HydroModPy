@@ -196,3 +196,15 @@ def test_one_climbing_step_counts_one_relaxed_reach(caplog) -> None:
     text = " ".join(record.getMessage() for record in caplog.records)
     assert "1/3 reach(es) could not hold the downhill order" in text
     assert "at reach 2" in text
+
+
+def test_the_warning_says_how_far_the_worst_cell_stands_above_its_traced_bed(caplog) -> None:
+    # The worst reach has a traced bed at 150 m under a cell whose ceiling is at
+    # 174.5 m: the log names that gap, since it tells a coarse cell on a valley
+    # side from a trace that really climbs.
+    top = [140.0, 175.0]
+    botm = [[110.0, 145.0]]
+    with caplog.at_level("WARNING"):
+        _solve(_chain([139.5, 150.0]), top=top, botm=botm, incision=0.5)
+    text = " ".join(record.getMessage() for record in caplog.records)
+    assert "whose cell ceiling stands 24.50 m above its traced bed" in text

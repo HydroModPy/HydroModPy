@@ -14,6 +14,7 @@ that variable, each named by its metric alone and carrying the window.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
@@ -28,6 +29,7 @@ from hydromodpy.results.storage.run_store import RunStore
 
 if TYPE_CHECKING:
     from hydromodpy.results.lineage import Lineage
+    from hydromodpy.results.manifest import MetricRow
     from hydromodpy.results.run.view import Run
 
 WINDOW_COLUMNS: Final[tuple[str, ...]] = (
@@ -103,9 +105,27 @@ def metrics_frame(record: RunRecord | None) -> pd.DataFrame:
 
     ``None`` stands for a run without a seal, which has no row.
     """
+    return _metrics_table([] if record is None else record.metrics)
+
+
+def metrics_of(run: Run) -> pd.DataFrame:
+    """Return every metric row of *run*, long form, as :func:`metrics_frame` does.
+
+    A run opened on its store reads them from its facts, so a figure drawn
+    before the seal reads the scores the derive step wrote; any other run
+    reads its seal. A module function rather than a ``Run`` attribute, like
+    :func:`lineage_of`. A stand-in that carries no metrics has no row.
+    """
+    handle = getattr(run, "_catalog_handle", None)
+    if isinstance(handle, RunStore):
+        return _metrics_table(handle.facts.metrics)
+    metrics = getattr(run, "metrics", None)
+    return metrics if isinstance(metrics, pd.DataFrame) else _metrics_table([])
+
+
+def _metrics_table(metrics: Sequence[MetricRow]) -> pd.DataFrame:
     columns = ["station", "variable", "metric", "value", *WINDOW_COLUMNS]
-    rows = [] if record is None else [metric.model_dump() for metric in record.metrics]
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame([metric.model_dump() for metric in metrics], columns=columns)
 
 
 def rule_of(
@@ -131,6 +151,7 @@ __all__ = [
     "headline_metrics",
     "lineage_of",
     "metrics_frame",
+    "metrics_of",
     "read_record",
     "rule_of",
 ]

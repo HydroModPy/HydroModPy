@@ -80,6 +80,7 @@ def aggregate_catchment_timeseries(
     store: Any,
     *,
     time_index: pd.DatetimeIndex | None = None,
+    drainage_outside_routed: bool = False,
 ) -> None:
     """Read spatial fields from the store and write catchment-aggregated timeseries.
 
@@ -100,6 +101,10 @@ def aggregate_catchment_timeseries(
         Store of the run, holding the fields of the extract phase.
     time_index : pd.DatetimeIndex, optional
         Datetime labels for each timestep. When None, integer indices are used.
+    drainage_outside_routed : bool
+        True when the network does not route the hillslope drainage
+        (``route_drainage = false``). The catchment drain budget then holds water
+        the routed series leaves out, so it is added to the routed series.
     """
     sz = store.open_zarr(sim_id)
     try:
@@ -167,9 +172,12 @@ def aggregate_catchment_timeseries(
             # plain-DRN residual is ~0). The remaining plain-DRN outflow is the
             # buffer (neighbouring-basin) drainage, which must NOT feed this
             # catchment, so it is dropped instead of added.
-            series_by_var["discharge"] = pd.Series(
-                routed, index=ts_index, name="discharge", dtype="float64"
-            )
+            routed_series = pd.Series(routed, index=ts_index, name="discharge", dtype="float64")
+            if drainage_outside_routed and "discharge" in series_by_var:
+                # Without route_drainage the hillslope drainage stays in DRAIN: it
+                # is not the buffer drainage, and the routed series does not hold it.
+                routed_series = routed_series + series_by_var["discharge"]
+            series_by_var["discharge"] = routed_series
             _warn_routed_without_runoff(store, sim_id, grp)
             logger.debug("Catchment discharge for sim %s uses routed SFR/LAK outflow", sim_id)
         elif "discharge" in series_by_var:

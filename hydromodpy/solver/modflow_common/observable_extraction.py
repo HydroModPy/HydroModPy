@@ -227,6 +227,26 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
     return top, botm[-1].reshape(-1)
 
 
+def _networks_route_drainage(model: Any) -> bool:
+    """Return False when an SFR network of the model keeps its drainage out of the reaches.
+
+    A model with no network, or one that does not say, keeps the routed reader's
+    answer: ``route_drainage`` defaults to on.
+    """
+    flow = getattr(model, "flow", None)
+    sinks_sources = getattr(flow, "sinks_sources", None)
+    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, dict) else None
+    for payload in (networks or {}).values():
+        flag = (
+            payload.get("route_drainage")
+            if isinstance(payload, Mapping)
+            else getattr(payload, "route_drainage", None)
+        )
+        if flag is False:
+            return False
+    return True
+
+
 def extract_common_modflow_observables(
     output_dir: Path,
     model_name: str,
@@ -270,14 +290,34 @@ def extract_common_modflow_observables(
         # A routed network owns the discharge observable. With route_drainage the
         # in-catchment drainage has been moved into DRN-TO-MVR, so the plain DRAIN
         # record left in the budget is the buffer drainage of the neighbouring
-        # basins and summing it would score the wrong water. The reader is injected
-        # by the backend: SFR is MODFLOW 6 only, and `modflow_common` must not
-        # import a backend.
+        # basins and summing it would score the wrong water. Without it the
+        # hillslope drainage stays in DRAIN, outside the routed series, so the
+        # catchment DRAIN budget is added to it. The baseflow of the reach cells
+        # leaves through the bed leakage, never through DRAIN, so nothing is counted
+        # twice. The runoff forcing is injected into the network either way. The
+        # reader is injected by the backend: SFR is MODFLOW 6 only, and
+        # `modflow_common` must not import a backend.
         series = None
         routed = False
         if routed_discharge_reader is not None:
             series = routed_discharge_reader(output_dir, model_name, time_index)
             routed = series is not None
+        if routed and not _networks_route_drainage(model):
+            try:
+                hillslope = extract_discharge_from_cbc(
+                    output_dir,
+                    model_name,
+                    time_index,
+                    catchment_mask=catchment_cell_mask(model),
+                )
+            except NotImplementedError:
+                # A mover of another package (drain to lake) is in the budget: the
+                # DRAIN record cannot be read as hillslope drainage. Keep the routed
+                # series alone rather than refuse a calibration that ran before.
+                hillslope = None
+            if hillslope is not None:
+                n_steps = min(len(series), len(hillslope))
+                series = series.iloc[:n_steps] + hillslope.to_numpy(dtype=float)[:n_steps]
         if series is None:
             series = extract_discharge_from_cbc(
                 output_dir,

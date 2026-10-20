@@ -81,10 +81,10 @@ def test_a_run_shorter_than_a_year_is_refused_by_name(tmp_path: Path) -> None:
         HydroModPyConfig.from_toml(config_path)
 
     assert (
-        'spinup = "first_year" repeats the first 365 days of the run, and '
+        'spinup = "first_year" repeats the first 52 weeks (364 days) of the run, and '
         '[simulation.time] covers 363 days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or "
-        "extend the run to one year at least."
+        "extend the run to 52 weeks at least."
     ) in str(excinfo.value)
 
 

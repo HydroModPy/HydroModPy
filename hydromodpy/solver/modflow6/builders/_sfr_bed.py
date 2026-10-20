@@ -144,12 +144,15 @@ def solve_reach_bed_profile(
         logger.warning(
             "%s streambed profile: %d/%d reach(es) could not hold the downhill order "
             "inside their own cell and kept the cell instead; worst step up %.2f m at "
-            "reach %d. The traced channel climbs there, which is a defect of the trace.",
+            "reach %d, whose cell ceiling stands %.2f m above its traced bed. The traced "
+            "channel climbs there, or the cell lies above it: a defect of the trace or of "
+            "the mesh.",
             location,
             len(relaxed),
             len(order),
             worst_step,
             worst_ifno,
+            hi[worst_ifno] - target[worst_ifno],
         )
     else:
         logger.info(

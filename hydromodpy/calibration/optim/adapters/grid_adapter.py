@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import math
 from collections.abc import Iterator
 
 import numpy as np
@@ -14,6 +15,7 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.calibration.optim.stopping import CountedBudget
 
 
 @register_optimizer("grid")
@@ -46,10 +48,16 @@ class GridAdapter:
         for p, n in zip(space.parameters, per_dim, strict=False):
             low, high = p.lower_transformed, p.upper_transformed
             axes.append(np.linspace(low, high, n))
+        self._n_points = math.prod(len(axis) for axis in axes)
         self._grid: Iterator[tuple[float, ...]] = iter(itertools.product(*axes))
         self._history: list[EvaluationResult] = []
         self._trial_id = 0
         self._exhausted = False
+
+    @property
+    def counted_budget(self) -> CountedBudget:
+        """The whole grid, counted up front: ``"auto"`` budgets every point of it."""
+        return CountedBudget(counts=(self._n_points,), step="grid point")
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []

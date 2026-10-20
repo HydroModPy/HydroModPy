@@ -151,10 +151,6 @@ figures = [
     "seepage_network_confusion_map",
 ]
 
-# The scored window, shaded.
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2012-01-01", "2015-12-31"]
-
 # What each case writes to runs/<case>/exports/.
 [[export]]
 variables = ["watershed", "hydrographic_network_reference"]

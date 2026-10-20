@@ -6,17 +6,19 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.spatial.geographic import GeographicConfig
 
 
-def test_geographic_config_txt_accepts_cell_size_with_unit_string():
-    cfg = GeographicConfig.model_validate(
-        {
-            "catchment": {
-                "catch_def": "txt",
-                "dem_init_path": "dem.xyz",
-                "cell_size": "150.0 m",
-            },
-        }
-    )
-    assert float(cfg.cell_size) == pytest.approx(150.0)
+@pytest.mark.parametrize("cell_size", ["150.0 m", "0.15 km"])
+def test_geographic_config_refuses_txt_which_is_not_implemented(cell_size):
+    """TXT: nothing rasterises an XYZ grid, so the document is refused up front."""
+    with pytest.raises(ValueError, match="not implemented"):
+        GeographicConfig.model_validate(
+            {
+                "catchment": {
+                    "catch_def": "txt",
+                    "dem_init_path": "dem.xyz",
+                    "cell_size": cell_size,
+                },
+            }
+        )
 
 
 def test_geographic_config_rejects_flat_catchment_payload() -> None:
@@ -34,19 +36,6 @@ def test_geographic_config_rejects_flat_catchment_payload() -> None:
                 "buff_area": "10%",
             }
         )
-
-
-def test_geographic_config_txt_accepts_cell_size_with_km_unit():
-    cfg = GeographicConfig.model_validate(
-        {
-            "catchment": {
-                "catch_def": "txt",
-                "dem_init_path": "dem.xyz",
-                "cell_size": "0.15 km",
-            },
-        }
-    )
-    assert float(cfg.cell_size) == pytest.approx(150.0)
 
 
 def test_geographic_config_synthetic_mode_accepts_missing_standard_fields():

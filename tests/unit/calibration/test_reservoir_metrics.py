@@ -329,7 +329,9 @@ class TestCalibrationWiring:
             "reservoir",
             time_method="point",
         )
-        assert cost == pytest.approx(0.25)
+        # The dated series reads a year of 365.25 days, as the block route
+        # does; the fixture cycles on 365 samples, hence the tolerance.
+        assert cost == pytest.approx(0.25, abs=1e-2)
 
     def test_score_helper_rejects_a_chronicle_too_short_to_score(self) -> None:
         simulated, observed = _daily_reservoir(0.2)

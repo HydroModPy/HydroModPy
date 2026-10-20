@@ -25,6 +25,8 @@ method, and the nodata is the one the file on disk declares.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,7 +42,8 @@ from hydromodpy.spatial.terrain import (
     FlowAccumulation,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
-from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_nodata
+from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_max_near, raster_nodata
+from hydromodpy.spatial.terrain.port import LN_FLOAT32_COLLISION_COUNT
 
 CORRECTED_DEM_NAMES: dict[str, str] = {
     "fill": "dem_fill.tif",
@@ -58,6 +61,34 @@ ACCUMULATION_TRANSFORM = "ln"
 thresholds ``dem_acc.tif`` with a cell count selects nothing. The product
 declares the transform so the refusal happens at the boundary instead.
 """
+
+
+def rankable_accumulation(
+    engine: object,
+    accumulation: FlowAccumulation,
+    points: Sequence[tuple[float, float]],
+    *,
+    snap_distance_m: float,
+    out: Path,
+) -> FlowAccumulation:
+    """Return an accumulation whose values can order the snap window of ``points``.
+
+    The regional accumulation is a natural logarithm in float32, which cannot tell
+    neighbouring counts apart above ``LN_FLOAT32_COLLISION_COUNT`` cells. When a
+    snap window reaches that range, the counts are accumulated again without the
+    transform, into ``out``, and that raster ranks the snap. Otherwise the input
+    is returned untouched and nothing is computed.
+    """
+    if accumulation.transform == "none":
+        return accumulation
+    if not Path(accumulation.path).exists():
+        return accumulation  # the engine reports the missing raster itself
+    near = raster_max_near(accumulation.path, list(points), snap_distance_m)
+    if not near >= math.log(LN_FLOAT32_COLLISION_COUNT):
+        return accumulation
+    return engine.flow_accumulation(  # type: ignore[attr-defined]
+        accumulation.directions, units="cells", transform="none", out=out
+    )
 
 
 @dataclass(frozen=True)

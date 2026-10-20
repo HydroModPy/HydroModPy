@@ -113,15 +113,18 @@ def warn_on_throttled_wells(model) -> list[dict]:
     """Warn when AUTO_FLOW_REDUCE cut a well by more than 10 % of its requested volume.
 
     Compares the volume the WEL package was asked for with the one the budget
-    file reports. The rows are kept on ``model.well_throttle_report`` for the
-    run QA. A missing budget or well package returns an empty list.
+    file reports. The rows are kept on ``model.well_throttle_report`` and the
+    pumped share on ``model.well_pumped_percent``, which the adapter hands to
+    the run as a metric. A missing budget or well package returns an empty list.
     """
     from hydromodpy.physics.flow.sinks_sources.wells import (
+        pumped_percent,
         throttled_well_message,
         throttled_well_report,
     )
 
     rows: list[dict] = []
+    model.well_pumped_percent = None
     try:
         wel = getattr(model, "wel", None)
         if wel is None:
@@ -129,8 +132,9 @@ def warn_on_throttled_wells(model) -> list[dict]:
             return rows
         requested, applied = _well_volumes(model, wel)
         rows = throttled_well_report(requested, applied)
+        model.well_pumped_percent = pumped_percent(requested, applied)
     except Exception as exc:  # the check must never fail a finished solve
-        logger.debug("Well throttle check skipped: %s", exc)
+        logger.warning("Well pumping check skipped: %s", exc)
     model.well_throttle_report = rows
     if rows:
         message = throttled_well_message(rows)
@@ -147,7 +151,7 @@ def _well_volumes(model, wel) -> tuple[dict, dict]:
     import numpy as np
 
     folder = model.sim.simulation_data.mfpath.get_sim_path()
-    cbc_path = os.path.join(folder, model.model_output_name)
+    cbc_path = os.path.join(folder, f"{model.model_output_name}.cbc")
     cbc = flopy.utils.CellBudgetFile(cbc_path, precision="double")
     times = [float(t) for t in cbc.get_times()]
     kstpkper = cbc.get_kstpkper()

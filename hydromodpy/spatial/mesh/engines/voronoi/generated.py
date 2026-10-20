@@ -44,7 +44,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 )
 from hydromodpy.spatial.mesh.request import MeshRequest
 
-__all__ = ["INWARD_M", "generate_cell_mesh", "with_family_stats"]
+__all__ = ["CLOSED_SHORE_SHARE", "INWARD_M", "generate_cell_mesh", "with_family_stats"]
 
 INWARD_M = 1.0e-7
 """A seed this close to the ring of its cell [m] is moved this far inside it.
@@ -52,6 +52,10 @@ INWARD_M = 1.0e-7
 A boundary seed lies on the ring of its clipped cell up to rounding, on the wrong
 side of it in a part of the cases. The port wants every centre inside its cell.
 """
+
+
+CLOSED_SHORE_SHARE = 1.0 - 1.0e-6
+"""Share of the lake shore the ``lakes`` faces must cover to enclose the lake regions."""
 
 
 def generate_cell_mesh(
@@ -147,7 +151,31 @@ def generate_cell_mesh(
             "origin_y": frame.origin[1],
         },
     )
-    return with_family_stats(cell_mesh, plan.family_stats)
+    return _with_open_shore_note(with_family_stats(cell_mesh, plan.family_stats))
+
+
+def _with_open_shore_note(cell_mesh: PlanarCellMesh) -> PlanarCellMesh:
+    """The cell mesh, with a note when its ``lakes`` faces leave part of a shore open.
+
+    The lake builder then takes every cell a lake overlaps, with that overlap:
+    the note says so where the mesh is built, not where the lake is.
+    """
+    lakes = cell_mesh.qa.families.get("lakes")
+    if not lakes or "covered_length_rel" not in lakes:
+        return cell_mesh
+    covered = float(lakes["covered_length_rel"])
+    if covered >= CLOSED_SHORE_SHARE:
+        return cell_mesh
+    note = (
+        f"lakes: the faces follow {100.0 * covered:.1f} % of the shore; where two stretches "
+        "of shore, a river or a barrier come closer than about a cell the mirror pairs "
+        "yield, the lake regions stay open and each lake takes the cells it overlaps. "
+        "Refine the lake shore ([mesh.lake_refinement] cell_size) to close it"
+    )
+    qa = dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note))
+    merged = dataclasses.replace(cell_mesh, qa=qa)
+    object.__setattr__(merged, "geometry", cell_mesh.geometry)
+    return merged
 
 
 def _inside_their_cells(seeds: np.ndarray, cells: np.ndarray) -> np.ndarray:

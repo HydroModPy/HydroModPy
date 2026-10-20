@@ -125,32 +125,18 @@ def test_concrete_weir_routes_preretenue_to_retenue_at_crest() -> None:
     assert width == pytest.approx(30.0)
 
 
-def test_crossed_weirs_route_directly_both_ways() -> None:
-    # Partially submerged sill, the recommended plain form: lac0 -> lac1
-    # (lakeout = 2) and lac1 -> lac0 (lakeout = 1) are BOTH direct LAK -> LAK
-    # outlets at the same invert, no MVR. lakeout = 1 is a valid destination (the
-    # first lake, 0-based index 0); only lakeout = 0 (external) and a self-route
-    # are rejected. MF6 accepts this 2-cycle of direct outlets (verified).
+def test_crossed_weirs_with_the_same_crest_are_refused() -> None:
+    # lac0 -> lac1 (lakeout = 2) and lac1 -> lac0 (lakeout = 1), both direct LAK -> LAK
+    # WEIR outlets at the same invert, circulate water above the crest (17.6 m3/s each
+    # way for a 0.04 m3/s net on the Cheze, 19 of 19 minimal cases fail to converge).
+    # The builder refuses the pair and names both outlets (D9).
     model = _two_lake_model(
         lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],
         lac1_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 1}],
     )
-    rows = build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
-    assert len(rows) == 2
-    assert all(row[4] == pytest.approx(_CREST) for row in rows)
-    # One spills from lac0, the other from lac1; each routes to the other lake
-    # (0-based lakeouts {1, 0}), never external (-1).
-    assert sorted(row[1] for row in rows) == [0, 1]
-    assert sorted(row[2] for row in rows) == [0, 1]
-    assert all(row[2] != -1 for row in rows)
-
-    # Direct routing carries no mover: the LAK package stays MVR-free.
-    cells = {"lac0": [0, 1], "lac1": [10, 11]}
-    masked = apply_lake_idomain_mask(_grid_4x4(), lake_cell_ids_by_lake=cells)
-    args = build_lak_package_args(model, solver_mesh=masked, lake_cell_ids_by_lake=cells)
-    assert args is not None
-    assert "mover_records" not in args
-    assert "mover" not in args
+    with pytest.raises(ValueError, match="Reciprocal WEIR") as err:
+        build_lake_outlets(model, lakes=model.flow.sinks_sources["lakes"])
+    assert "outlet 0" in str(err.value) and "outlet 1" in str(err.value)
 
 
 def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
@@ -181,7 +167,7 @@ def test_crossed_weirs_emit_two_outlets_at_same_invert() -> None:
 def test_crossed_weir_back_route_uses_mover_to_first_lake() -> None:
     # The reverse weir (1 -> 0) MAY be routed via MVR back to lac0 (mover.lake=1,
     # 1-based) when a controlled transfer rule is wanted. This is optional: the
-    # direct lakeout = 1 form (test_crossed_weirs_route_directly_both_ways) is the
+    # direct lakeout = 1 form is refused when the crests are equal; this is the
     # plain spill. Here we assert the MVR record the mover produces.
     model = _two_lake_model(
         lac0_outlets=[{"couttype": "WEIR", "invert": _CREST, "width": 100.0, "lakeout": 2}],

@@ -655,6 +655,29 @@ class FlowWellConfig(HydroModelBase):
 WELL_THROTTLE_WARNING_FRACTION = 0.1
 """Share of a requested pumping volume above which a cut is reported."""
 
+WELLS_PUMPED_METRIC = "wells_pumped_percent"
+"""Metric a solver writes: the share of the requested pumping that was applied, in percent."""
+
+WELLS_PUMPED_CHECK = "wells_pumped"
+"""Name of the validity of the seal that says whether the wells pumped what was asked."""
+
+
+def pumped_percent(
+    requested: Mapping[object, float],
+    applied: Mapping[object, float],
+) -> float | None:
+    """Return the share of the requested volume that was applied, in percent.
+
+    Both mappings give a volume in m3 per well cell, the sign ignored. The
+    share is taken over all the wells together. ``None`` when nothing was
+    requested.
+    """
+    wanted = sum(abs(float(v)) for v in requested.values())
+    if wanted <= 0.0:
+        return None
+    got = sum(abs(float(applied.get(cell, 0.0))) for cell in requested)
+    return 100.0 * got / wanted
+
 
 def throttled_well_report(
     requested: Mapping[object, float],

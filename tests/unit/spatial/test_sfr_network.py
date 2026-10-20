@@ -278,9 +278,12 @@ def test_link_crossing_the_lake_is_truncated_at_the_shoreline() -> None:
     assert terminal[0].downstream == ()
     assert terminal[0].rlen == pytest.approx(_RES)
     # No reach geometry enters the lake row (y of row 3 spans [200, 300]).
-    for reach in trace.reaches:
+    for reach in terminal:
         for _, y in reach.line.coords:
             assert y >= 250.0
+    # The channel below the dam is kept as its own reach, fed from the dam (REL-1).
+    below = [r for r in trace.reaches if not r.is_terminal_to_lake and r.line.coords[0][1] < 200.0]
+    assert len(below) == 1
 
 
 def test_boolean_mask_tags_the_single_lake_as_lake_one() -> None:
@@ -430,3 +433,40 @@ def test_a_top_that_rises_downstream_still_gives_a_positive_gradient() -> None:
         min_slope=1e-3,
     )
     assert all(reach.rgrd >= 1e-3 for reach in trace.reaches)
+
+
+def test_the_link_below_the_dam_is_kept_after_the_cut_at_the_lake() -> None:
+    # One link runs through a lake (rows 2-3). The part above the lake ends at the
+    # shoreline; the part below the dam is kept as its own reach, so a release at
+    # the dam has a channel to follow (REL-1).
+    nrow = 8
+    link = np.zeros((nrow, 3), dtype=int)
+    d8 = np.zeros((nrow, 3), dtype=int)
+    acc = np.zeros((nrow, 3), dtype=float)
+    dem = np.full((nrow, 3), 20.0, dtype=float)
+    for r in range(nrow - 1):
+        link[r, 1] = 1
+        d8[r, 1] = _S
+        acc[r, 1] = r + 1
+        dem[r, 1] = 20.0 - r
+    link[nrow - 1, 1] = 1
+    acc[nrow - 1, 1] = nrow
+    dem[nrow - 1, 1] = 20.0 - nrow
+    lake_mask = np.zeros((nrow, 3), dtype=bool)
+    lake_mask[2:4, :] = True
+    trace = delineate_sfr_reaches(
+        link_id=link,
+        d8=d8,
+        acc=acc,
+        top_dem=dem,
+        transform=Affine(_RES, 0.0, 0.0, 0.0, -_RES, nrow * _RES),
+        crs_wkt="EPSG:2154",
+        dem_res_m=_RES,
+        lake_mask=lake_mask,
+        min_slope=1e-4,
+    )
+    assert trace.reach_count == 2
+    above, below = sorted(trace.reaches, key=lambda r: r.ifno)
+    assert above.is_terminal_to_lake
+    assert not below.is_terminal_to_lake
+    assert below.downstream == ()

@@ -222,7 +222,8 @@ def _format_calibration_result(result: Any) -> list[str]:
 
     Reads only what :class:`hydromodpy.calibration.report.CalibrationReport`
     already carries: the best value per parameter, the cost it was reached
-    at, the interval or width beside a value when the run produced one, a
+    at and the metric that cost is (``extra["cost_metric"]``), the interval or
+    width beside a value when the run produced one, a
     caution when the trials could not tell two parameters apart, ``k_over_r``
     when a network calibration published one in ``extra``, and, when the
     phase declared two or more objective blocks, the mean share of the cost
@@ -266,7 +267,9 @@ def _format_calibration_result(result: Any) -> list[str]:
 
     best_objective = getattr(result, "best_objective", None)
     if best_objective is not None:
-        lines.append(f"  cost: {best_objective:.6g}")
+        # A cost of 0.12 on an NSE reads as a poor score; the metric says it is 1 - NSE.
+        metric = extra.get("cost_metric")
+        lines.append(f"  cost: {best_objective:.6g}" + (f" ({metric})" if metric else ""))
     best_rel_dir = getattr(result, "best_rel_dir", None)
     if best_rel_dir:
         lines.append(f"  calibrated run: {best_rel_dir}")

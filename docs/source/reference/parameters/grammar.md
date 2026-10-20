@@ -226,17 +226,14 @@ it, so the same date names the same month on a monthly or a daily run. The key
 {toml}`export.time` also takes a list of instants.
 
 A window has two spellings. A two-item list, `["2001-01-01", "2002-12-31"]`, is the form
-of {toml}`export.period` and of the `scoring_window` of a figure. A table with `start` and
-`end` is the form of {toml}`calibration.scoring_window`. The data tables take a
+of {toml}`export.period`. A table with `start` and `end` is the form of
+{toml}`metrics.window` and {toml}`calibration.scoring_window`. The data tables take a
 `date_start` and a `date_end`; left out, they use the simulated window.
 
 ```{hmp-toml}
 :caption: instants and windows, validated on step 4
 [display]
 time = "2002-10-15"
-
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2001-01-01", "2002-12-31"]
 
 [[export__append]]
 variables = "discharge"

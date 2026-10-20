@@ -30,6 +30,15 @@ _SFR_PACKAGE_NAME = "SFR"
 _LAK_PACKAGE_NAME = "LAK"
 
 
+def mover_rows_reach_lake(rows: Sequence[Sequence[object]]) -> bool:
+    """Return whether any MVR period row (``[pname1, id1, pname2, id2, ...]``) ends in LAK.
+
+    LAK must announce MOVER for every provider that feeds it, SFR or DRN alike,
+    or MODFLOW 6 stops at the first record that targets it.
+    """
+    return any(str(row[2]).upper() == _LAK_PACKAGE_NAME for row in rows)
+
+
 def sfr_drain_cells_to_drop(networks: Mapping[str, ResolvedSfrNetwork]) -> set[int]:
     """Return the cell2d ids hosting a connected reach (their DRN rows are dropped).
 

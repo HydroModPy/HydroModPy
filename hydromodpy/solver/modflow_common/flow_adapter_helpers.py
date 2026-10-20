@@ -24,6 +24,7 @@ from hydromodpy.core.exceptions import MeshError, SolverDivergedError, SolverInp
 from hydromodpy.core.state.run_state import RunState
 from hydromodpy.simulation.planning.plan import (
     WATER_BUDGET_METRIC,
+    WATER_BUDGET_WORST_METRIC,
     ProcessRun,
     RunContext,
     RunExecutionResult,
@@ -36,9 +37,6 @@ from hydromodpy.solver.modflow_common.options import (
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-
-WATER_BUDGET_WORST_METRIC = "water_budget_worst_percent_discrepancy"
-"""Run-metric name for the worst water-budget PERCENT DISCREPANCY, in percent."""
 
 _PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 
@@ -71,6 +69,50 @@ def percent_discrepancies(listing_dir: Path) -> list[float]:
                 values.append(float(match.group(1)))
             except ValueError:
                 continue
+    return values
+
+
+_MODEL_BUDGET_HEADER_RE = re.compile(r"^\s*VOLUM\w*\s+BUDGET\s+FOR\s+ENTIRE\s+MODEL", re.IGNORECASE)
+_ANY_BUDGET_HEADER_RE = re.compile(r"^\s*[\w ]*BUDGET\s+FOR\s+ENTIRE\s+MODEL", re.IGNORECASE)
+
+
+def model_percent_discrepancies(listing_dir: Path) -> list[float]:
+    """Return the PERCENT DISCREPANCY of the model volume budget only.
+
+    A MODFLOW 6 listing prints one budget block per package family (SFR, LAK,
+    water mover) before the ``VOLUME BUDGET FOR ENTIRE MODEL`` block. A package
+    block divides by its own small flows, so a lake package at 2 per cent sat
+    beside a model at 0.02 per cent. This keeps the model block alone. A listing
+    with no recognisable block header falls back to every value, so a backend
+    that prints a bare figure still reports it.
+    """
+    try:
+        listings = sorted([*listing_dir.glob("*.lst"), *listing_dir.glob("*.list")])
+    except OSError:
+        return []
+    values: list[float] = []
+    for listing in listings:
+        if listing.name == "mfsim.lst":
+            continue
+        try:
+            text = listing.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        in_model_block = None  # None: no header seen yet
+        for line in text.splitlines():
+            if _MODEL_BUDGET_HEADER_RE.match(line):
+                in_model_block = True
+                continue
+            if _ANY_BUDGET_HEADER_RE.match(line):
+                in_model_block = False
+                continue
+            if in_model_block is False:
+                continue
+            for match in _PERCENT_DISCREPANCY_RE.finditer(line):
+                try:
+                    values.append(float(match.group(1)))
+                except ValueError:
+                    continue
     return values
 
 
@@ -348,7 +390,7 @@ def run_flow_model(
     # Convergence and a closed budget are two questions. A run that converges and
     # writes heads with a large imbalance was otherwise indistinguishable from a
     # sound one, so the number rides with every run rather than only with a failure.
-    discrepancies = percent_discrepancies(Path(model_modflow.full_path))
+    discrepancies = model_percent_discrepancies(Path(model_modflow.full_path))
     if discrepancies:
         metrics[WATER_BUDGET_METRIC] = float(discrepancies[-1])
         metrics[WATER_BUDGET_WORST_METRIC] = float(max(discrepancies, key=abs))

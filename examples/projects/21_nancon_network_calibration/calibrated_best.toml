@@ -84,18 +84,6 @@ compute_strahler_order = true
 compute_stream_links = true
 all_vertices = false
 
-[geographic.enforce_lakes] # Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.
-enabled = false
-slope = 0.003 # Ramp gradient (m per m of distance to the outlet). Small and positive so each lake slopes gently toward the outlet with no flat depression (a flat sink would make the breach crawl).
-buffer_m = 15.0 # Buffer (metres) applied to each lake footprint to bridge inter-lake sills and knit the shoreline into the carve.
-capture_radius_m = 0.0 # If > 0, run a SECOND delineation pass: any stream that dead-ends within this distance of a lake (a near-miss over a flat forebay) is carved to the lake and re-delineated, so its channel reaches the shoreline. 0 disables the capture pass (lake carve only).
-capture_max_streams = 8 # Capture pass: cap on how many near-miss stream terminals are carved to lakes per pass (kept by decreasing flow accumulation).
-capture_min_acc_fraction = 0.3 # Capture pass: keep only near-miss terminals whose flow accumulation is at least this fraction of the largest, so a tiny rivulet is not carved.
-
-[geographic.dam_carve] # Optional dam structure-carve of the model-top DEM: lower the dam footprint to the valley floor so a cutoff wall sits at the dam on a raw DEM (mirror of enforce_lakes, on the top instead of the routing DEM).
-enabled = false
-buffer_m = 40.0 # Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor.
-
 [domain]
 [domain.depth_model] # Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 kind = "constant_thickness" # Depth-model kind discriminator. Use 'constant_thickness' to define bottom as top-thickness.
@@ -472,9 +460,6 @@ save = true
 dpi = 150 # DPI used when saving raster figures.
 figures = ["watershed_id_card", "mesh_map", "boundary_package_map", "depression_map", "flow_direction_map", "hydrograph_sim_obs", "hydrograph_log_nse", "hydrograph", "duration_curve", "recession", "seasonal_boxplot", "water_budget", "flux_timeseries", "sfr_reach_network", "sfr_longitudinal_profile", "sfr_reach_timeseries", "piezometric_map", "watertable_depth_map", "seepage_map", "recharge_map", "cross_section", "accumulation_map", "simulated_active_network", "simulated_active_network_reference_overlay", "seepage_network_reference_overlay", "seepage_network_confusion_map", "downslope_distance_map", "hydrographic_network_reference", "hydrographic_network_generated", "hydrographic_network_comparison", "matching_hydrographic_network_card", "bisection_bracket_trace", "downslope_distance_crossing", "parameter_cost_profile", "calibration_convergence", "calibration_trace", "calibration_posterior"] # Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp viz gallery`). Every name must exist in the figure registry; list them with `hmp viz list`. A figure whose requirements the run does not meet is skipped with an explicit reason. Empty list disables auto-rendering. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
 on_error = "warn" # Behaviour when a figure that IS applicable fails while rendering. 'warn' logs and continues (default, keeps a long run alive); 'raise' propagates, which is what example and CI configs want so a broken figure cannot pass unnoticed.
-
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2001-01-01", "2001-12-31"]
 
 [export]
 netcdf = false

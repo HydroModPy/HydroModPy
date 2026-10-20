@@ -4,7 +4,8 @@ The planner fixes the intent of each line family, builds the size field of a
 graded engine and resamples its lines at the local size. A non-graded engine
 (``regular``) gets the raw lines and no size field. A triangulation read from
 a file is meshed as it is: no size field, raw lines, its own outline as the
-domain.
+domain. A generated Voronoi mesh gets the lake shores it can follow at its
+cell size (``lake_shores.py``) and the rivers off the lakes.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import substring
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
@@ -23,7 +25,9 @@ from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, 
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
+from hydromodpy.spatial.mesh.planning.lake_shores import followed_lake_shores
 from hydromodpy.spatial.mesh.planning.resample import (
+    KINK_MIN_SHARE,
     kink_pieces,
     node_tolerance,
     resample_families,
@@ -45,6 +49,18 @@ from hydromodpy.spatial.mesh.sizing.size_field import (
 __all__ = ["plan_mesh_request"]
 
 _logger = get_logger(__name__)
+
+RIVER_STUB_SHARE = 0.25
+"""Share of a river part between two lakes cut back at each end, when that is
+less than the margin: the middle half keeps its river cells."""
+
+RIVER_MARGIN_SHARE = 0.5
+"""Distance between a lake outline and the rivers of a generated Voronoi mesh, in river cells.
+
+On the Cheze reservoir the shores close from 0.5 river cell (40 m) on, and
+not at 0 or 0.25: a river end on the ring cuts it, and its last seed takes the
+shore pairs.
+"""
 
 
 def _pixel_size(grid: RasterGridSpec) -> float:
@@ -120,7 +136,7 @@ def _sizing(
     a barrier line that runs along a lake ring gets the ring vertices there. A
     triangulation read, and a non-graded engine, get the raw families and no field.
     """
-    families = _families(mesh_cfg, inputs, domain)
+    families = _families(mesh_cfg, inputs, domain, pixel=pixel)
     if not graded or inputs.input_triangulation is not None:
         return _Sizing(
             families=families,
@@ -137,19 +153,68 @@ def _sizing(
         outside=_outside(mesh_cfg, inputs),
         max_slope=mesh_cfg.max_slope,
     )
-    split = split_barriers(families, node_tolerance(domain))
+    shore_notes: tuple[str, ...] = ()
+    if _follows_shores_by_pairs(mesh_cfg, inputs):
+        families, shore_notes = _followed_shores(
+            families, inputs, domain, size_field, margin=_river_margin(mesh_cfg, pixel)
+        )
+    split = split_barriers(
+        families,
+        node_tolerance(domain),
+        shortest=KINK_MIN_SHARE * float(size_field.values.min()),
+    )
     resampled = resample_families(
         split.families, domain=domain, size_field=size_field, fixed_points=split.fixed_points
     )
-    notes = ()
+    notes = shore_notes
     if resampled.short_fixed_edges:
-        notes = (
+        notes += (
             f"{resampled.short_fixed_edges} line edges between fixed nodes are shorter "
             "than 0.8 local cell and were kept whole",
         )
     return _Sizing(
         families=split.welded(resampled.families), size_field=size_field, nominal=h0, notes=notes
     )
+
+
+def _followed_shores(
+    families: tuple[LineFamilySpec, ...],
+    inputs: PlanningInputs,
+    domain: Polygon,
+    size_field: SizeField,
+    *,
+    margin: float,
+) -> tuple[tuple[LineFamilySpec, ...], tuple[str, ...]]:
+    """The families with the lake rings a generated Voronoi mesh can follow, and the notes.
+
+    The rivers also stay *margin* off the outlines the mesh follows: a river
+    that crossed a ring would bend it at the crossing.
+    """
+    river_lines = inputs.river_trace.lines if inputs.river_trace is not None else ()
+    shores = followed_lake_shores(
+        inputs.lakes,
+        lambda xy: sample_size_field(size_field, xy),
+        barriers=inputs.barriers,
+        rivers=tuple(river_lines),
+        finest=float(size_field.values.min()),
+    )
+    lines, _ = _clipped(_rings(shores.polygons), domain)
+    if not lines:
+        return families, ()
+    rivers: tuple[LineString, ...] = ()
+    if inputs.river_trace is not None:
+        lakes = (*inputs.lakes, *shores.polygons)
+        rivers = _rivers_off_lakes(inputs.river_trace.lines, lakes, domain, margin)
+    out = []
+    for family in families:
+        if family.name == "lakes":
+            out.append(replace(family, lines=lines))
+        elif family.name == "rivers":
+            if rivers:
+                out.append(replace(family, lines=rivers))
+        else:
+            out.append(family)
+    return tuple(out), shores.notes()
 
 
 def _without_small_holes(
@@ -198,13 +263,17 @@ def _ignored_settings(mesh_cfg: MeshConfig, *, graded: bool) -> list[str]:
 
 
 def _families(
-    mesh_cfg: MeshConfig, inputs: PlanningInputs, domain: Polygon
+    mesh_cfg: MeshConfig, inputs: PlanningInputs, domain: Polygon, *, pixel: float
 ) -> tuple[LineFamilySpec, ...]:
     """The line families ``[mesh.families]`` asks for, clipped to *domain*."""
     wanted = mesh_cfg.families
     families: list[LineFamilySpec] = []
     if wanted.rivers == "cell" and inputs.river_trace is not None:
-        lines, _ = _clipped(inputs.river_trace.lines, domain)
+        if _follows_shores_by_pairs(mesh_cfg, inputs):
+            margin = _river_margin(mesh_cfg, pixel)
+            lines = _rivers_off_lakes(inputs.river_trace.lines, inputs.lakes, domain, margin)
+        else:
+            lines, _ = _clipped(inputs.river_trace.lines, domain)
         if lines:
             families.append(LineFamilySpec("rivers", "cell", lines))
     if wanted.geology == "face" and inputs.geology is not None:
@@ -238,10 +307,54 @@ def _families(
     return tuple(families)
 
 
-def _rings(polygons: Iterable[Polygon]) -> list[LineString]:
+def _river_margin(mesh_cfg: MeshConfig, pixel: float) -> float:
+    """How far [m] a river of a generated Voronoi mesh stays off the lake outlines.
+
+    Half a river cell: a river that ends on a ring would cut it there into
+    short segments, and its last seed would sit on the shore pairs.
+    """
+    return RIVER_MARGIN_SHARE * max(mesh_cfg.river_cell_size or pixel, pixel)
+
+
+def _rivers_off_lakes(
+    lines: Iterable[LineString], lakes: Iterable[BaseGeometry], domain: Polygon, margin: float
+) -> tuple[LineString, ...]:
+    """The parts of *lines* in *domain* off the *lakes*, each end on a lake cut back.
+
+    A lake replaces the river in its footprint: the reaches stop at the shore
+    and hand their flow to the lake, so a river chain there would only take the
+    cells of the shore pairs. An end on a lake is cut back by *margin* [m], or
+    by a quarter of the part when it is short: a link between two lakes keeps
+    its river cells, which its reach needs.
+    """
+    union = shapely.union_all(list(lakes))
+    parts, _ = _clipped(lines, domain.difference(union))
+    touch = 1.0e-6 * max(margin, 1.0)
+    kept = []
+    for part in parts:
+        length = part.length
+        cut = min(margin, RIVER_STUB_SHARE * length)
+        head = cut if union.distance(shapely.Point(part.coords[0])) <= touch else 0.0
+        tail = cut if union.distance(shapely.Point(part.coords[-1])) <= touch else 0.0
+        if length - head - tail > 0.0:
+            kept.append(substring(part, head, length - tail))
+    return tuple(kept)
+
+
+def _follows_shores_by_pairs(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> bool:
+    """Whether the engine lays mirror pairs on lake shores: a generated Voronoi mesh with lakes."""
+    return (
+        mesh_cfg.engine == "voronoi"
+        and mesh_cfg.families.lakes == "face"
+        and inputs.input_triangulation is None
+        and bool(inputs.lakes)
+    )
+
+
+def _rings(polygons: Iterable[BaseGeometry]) -> list[LineString]:
     """Every ring of *polygons* in normalized form, sorted, so their order never counts."""
     rings = []
-    for polygon in polygons:
+    for polygon in shapely.get_parts(list(polygons)):
         normal = shapely.normalize(polygon)
         rings.append(LineString(normal.exterior.coords))
         rings.extend(LineString(ring.coords) for ring in normal.interiors)

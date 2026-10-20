@@ -78,9 +78,13 @@ def interior_cells(cell_mesh: PlanarCellMesh, family: str, polygon: BaseGeometry
     """Return the sorted cells of the ``family`` regions ``polygon`` covers for most of their area.
 
     Each region bounded by the faces of ``family`` is owned by the polygon that
-    covers more than half of it, so a cell is inside or outside as a whole. An
-    empty result means no region of the family lies inside the polygon: the
-    mesh faces were not built on its outline.
+    covers more than half of it, so a cell is inside or outside as a whole. A
+    cell of a region the polygon does not own is still its own when the polygon
+    covers more than half of that cell: a mesh that follows the shore smoothed
+    at its cell size leaves the arms narrower than a cell out of the regions,
+    and those cells come back one by one. An empty result means no region of
+    the family lies inside the polygon: the mesh faces were not built on its
+    outline.
     """
     labels = family_regions(cell_mesh, family)
     n_regions = int(labels.max(initial=-1)) + 1
@@ -88,4 +92,9 @@ def interior_cells(cell_mesh: PlanarCellMesh, family: str, polygon: BaseGeometry
     covered = np.bincount(labels[cells], weights=overlap, minlength=n_regions)
     region_area = np.bincount(labels, weights=cell_mesh.geometry.areas, minlength=n_regions)
     inside = covered > _INTERIOR_SHARE * region_area
-    return np.flatnonzero(inside[labels]).astype(np.int64)
+    if not inside.any():
+        return np.empty(0, dtype=np.int64)
+    owned = inside[labels]
+    areas = np.asarray(cell_mesh.geometry.areas, dtype=float)
+    owned[cells[overlap > _INTERIOR_SHARE * areas[cells]]] = True
+    return np.flatnonzero(owned).astype(np.int64)

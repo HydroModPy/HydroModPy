@@ -82,12 +82,18 @@ class BarrierSplit:
         return (*others, replace(self.barrier, lines=tuple(lines)))
 
 
-def split_barriers(families: Sequence[LineFamilySpec], tolerance: float) -> BarrierSplit:
+def split_barriers(
+    families: Sequence[LineFamilySpec], tolerance: float, *, shortest: float = 0.0
+) -> BarrierSplit:
     """Cut each barrier line where it leaves a ring of the lake family.
 
     A segment of a barrier line runs along a ring when its two ends and its
-    middle lie within *tolerance* [m] of it. Without a barrier or a ring family,
-    or without such a segment, the families are kept as they are.
+    middle lie within *tolerance* [m] of it. A wing, the piece between a
+    stretch and a free end, shorter than *shortest* [m] is left out: no cell
+    resolves it, and its few metres would shrink the circles of the ring
+    segments at the stretch end until they lose their pairs. Without a barrier
+    or a ring family, or without such a segment, the families are kept as they
+    are.
     """
     families = tuple(families)
     barrier = next((family for family in families if family.name == BARRIER_FAMILY), None)
@@ -110,13 +116,33 @@ def split_barriers(families: Sequence[LineFamilySpec], tolerance: float) -> Barr
             ]
             parts.append(_Stretch(ring, coords[0], coords[-1], middle))
             ends.extend([coords[0], coords[-1]])
-        layout.append(tuple(parts))
+        layout.append(_without_short_wings(parts, pieces, shortest))
     if not ends:
         return BarrierSplit(families, np.empty((0, 2)))
+    kept = sorted({part for parts in layout for part in parts if isinstance(part, int)})
+    renumber = {old: new for new, old in enumerate(kept)}
+    layout = [
+        tuple(renumber[part] if isinstance(part, int) else part for part in parts)
+        for parts in layout
+    ]
     split = tuple(family for family in families if family.name != BARRIER_FAMILY)
-    if pieces:
-        split = (*split, replace(barrier, lines=tuple(pieces)))
+    if kept:
+        split = (*split, replace(barrier, lines=tuple(pieces[index] for index in kept)))
     return BarrierSplit(split, np.vstack(ends), tuple(layout), barrier, tolerance)
+
+
+def _without_short_wings(
+    parts: list[int | _Stretch], pieces: Sequence[LineString], shortest: float
+) -> tuple[int | _Stretch, ...]:
+    """*parts* without a first or last piece shorter than *shortest* next to a stretch."""
+    kept = list(parts)
+    if len(kept) > 1 and isinstance(kept[-1], int) and isinstance(kept[-2], _Stretch):
+        if pieces[kept[-1]].length < shortest:
+            kept.pop()
+    if len(kept) > 1 and isinstance(kept[0], int) and isinstance(kept[1], _Stretch):
+        if pieces[kept[0]].length < shortest:
+            kept.pop(0)
+    return tuple(kept)
 
 
 def _runs(

@@ -25,8 +25,6 @@ def copy_regional_flow_from_job(
     """Verify a regional job, then give one child its own flow rasters."""
     if config.reg_fold is None:
         raise ValueError("geographic.reg_fold is required")
-    if config.enforce_lakes.enabled:
-        raise ValueError("Outlet-dependent routing cannot use a shared regional flow job")
     if config.river_network.enabled:
         raise ValueError("River network products cannot use a shared regional flow job")
     job = load_regional_flow_job(

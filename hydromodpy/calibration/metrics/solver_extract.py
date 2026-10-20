@@ -154,8 +154,8 @@ def point_xy_from_output(output: CalibOutputPoint) -> tuple[float, float] | None
 def _request_times(time: Any) -> TimeSelector:
     """Map an output declaration's time selector onto the observable contract.
 
-    A declaration may also carry a list of dates, which the reducer handles
-    downstream; the adapter is then asked for the whole run.
+    A series output reads ``"all"``, ``"first"`` or ``"last"``; any other value,
+    a network output's date, asks the adapter for the whole run.
     """
     return time if time in ("all", "first", "last") else "all"
 

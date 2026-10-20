@@ -492,7 +492,7 @@ def test_unsnapped_dead_end_is_reported(caplog) -> None:
         build_sfr_mover_records(nets, lake_cells_by_number={0: [10], 1: [6]}, cell_centroids=cc)
     assert "leaves the model by EXT-OUTFLOW instead of" in caplog.text
     assert "400 m from the shore" in caplog.text
-    assert "capture_radius_m" in caplog.text
+    assert "lake_feeder_snap" in caplog.text
 
 
 def test_snapped_dead_end_is_not_reported(caplog) -> None:

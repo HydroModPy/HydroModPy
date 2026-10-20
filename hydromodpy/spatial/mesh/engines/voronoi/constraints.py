@@ -14,10 +14,11 @@ in Lloyd. They are, in canonical order (a seed's rank is its cell id):
 A face segment keeps its pair only while Berge's definition 2 holds at both
 ends: no other seed inside the circle of the vertex. A segment that cannot
 (an acute sector, a river, the boundary, a family of higher priority in the
-way) yields: its pair is removed and the cells around it are mixed. Where a
-river crosses a contact, the river wins: the crossing vertex becomes a
-short segment whose pair joins the river chain, off the river by a lateral
-offset the chain publishes. A face line that runs on segments of an earlier
+way) yields: its pair is removed and the cells around it are mixed. A barrier
+or a lake shore does not yield to a river: the river passes through the cell
+of one of its mirror seeds. Where a river crosses a contact, the river wins:
+the crossing vertex becomes a short segment whose pair joins the river chain,
+off the river by a lateral offset the chain publishes. A face line that runs on segments of an earlier
 face line (a lake cutoff wall along the lake shore) leaves that stretch to it:
 the segment gets one pair, and its face belongs to both families. Every step
 works in the local frame of the mesh.
@@ -56,6 +57,8 @@ from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, Mesh
 
 __all__ = [
     "FACE_PRIORITY",
+    "HOLDING_FAMILIES",
+    "LAKE_FAMILY",
     "ChainPlan",
     "ConstraintPlan",
     "ConstraintSeeds",
@@ -66,9 +69,18 @@ __all__ = [
 
 FACE_PRIORITY = ("lakes", "barriers", "geology", "watershed_boundary")
 """Face families from the highest priority to the lowest; a family
-not named here comes after them, by name. A river always wins. A barrier
-outranks a geology contact: a barrier segment that yields leaves a cell
-across the barrier."""
+not named here comes after them, by name. A river wins over the others,
+except a barrier or a lake shore (``HOLDING_FAMILIES``). A barrier outranks
+a geology contact: a barrier segment that yields leaves a cell across the
+barrier."""
+
+LAKE_FAMILY = "lakes"
+"""The face family of the lake shores."""
+
+HOLDING_FAMILIES = (LAKE_FAMILY, BARRIER_FAMILY)
+"""Face families that never yield to a river: a chain seed in their way goes,
+and the river passes through the cell of one of their mirror seeds. The lake
+regions stay closed, and a barrier face stays between two cells."""
 
 THALWEG_SHARE = 0.5
 """Two chain seeds of different lines closer than this share of the smaller size share a cell."""
@@ -597,6 +609,7 @@ class _State:
     alias_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     alias_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     alias_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
+    ring_areas: dict[int, Polygon] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """The domain widened by the boundary tolerance, for the chord tests."""
@@ -1348,9 +1361,10 @@ def _yield_to_chains(state: _State) -> bool:
     """A mirror seed closer than ``0.5 h(c)`` to a chain seed ``c`` yields its segments.
 
     Next to a crossing the river and the crossed line meet by construction:
-    there the Gabriel rule of the chain links decides alone. A barrier never
-    yields: the chain seed goes instead, and the river passes through the
-    cell of the nearest barrier mirror seed.
+    there the Gabriel rule of the chain links decides alone. A barrier or a
+    lake shore never yields: the chain seed goes instead, and the river passes
+    through the cell of the nearest of its mirror seeds, on the river's side of
+    a lake shore when one lies there.
     """
     seeds = state.seeds
     chain = np.flatnonzero(seeds.alive & (seeds.role == SeedRole.CHAIN))
@@ -1362,25 +1376,68 @@ def _yield_to_chains(state: _State) -> bool:
     near = cKDTree(seeds.xy[mirror]).query_ball_point(
         seeds.xy[chain], MIRROR_CHAIN_SHARE * seeds.size[chain]
     )
-    barrier = np.asarray([_is_barrier(state, int(m)) for m in mirror.tolist()], dtype=bool)
+    holds = np.asarray([_holds(state, int(m)) for m in mirror.tolist()], dtype=bool)
     losers: set[int] = set()
     taken: dict[int, int] = {}
     for c, found in zip(chain.tolist(), near, strict=True):
         found = [k for k in found if int(seeds.line[mirror[k]]) not in beside.get(c, ())]
-        walls = [k for k in found if barrier[k]]
+        walls = [int(mirror[k]) for k in found if holds[k]]
         if walls:
-            gap = [float(np.hypot(*(seeds.xy[mirror[k]] - seeds.xy[c]))) for k in walls]
-            taken[c] = int(mirror[walls[int(np.argmin(gap))]])
+            taken[c] = _holder_for(state, walls, seeds.xy[c])
             continue
         losers.update(int(mirror[k]) for k in found)
     changed = [_remove(state, c, m, _YIELDED) for c, m in sorted(taken.items())]
     return any(changed + [_remove(state, m, -1, _YIELDED) for m in sorted(losers)])
 
 
-def _is_barrier(state: _State, seed: int) -> bool:
-    """Whether a face seed belongs to a line of the barrier family."""
+def _holds(state: _State, seed: int) -> bool:
+    """Whether a face seed belongs to a family that never yields to a river."""
     family = int(state.seeds.family[seed])
-    return family >= 0 and state.family_names[family] == BARRIER_FAMILY
+    return family >= 0 and state.family_names[family] in HOLDING_FAMILIES
+
+
+def _on_its_side(state: _State, seed: int, xy: np.ndarray) -> bool:
+    """Whether *xy* lies on the same side of its lake shore as the mirror seed *seed*.
+
+    On a closed ring the side is inside or outside the ring, which holds at a
+    corner too; on a ring the domain cut open, the side of the segment of the
+    seed. Always true for a seed of another family: a barrier has no inside.
+    """
+    family = int(state.seeds.family[seed])
+    if family < 0 or state.family_names[family] != LAKE_FAMILY:
+        return True
+    point = np.asarray(xy, dtype=float)
+    ring = _ring_area(state, int(state.seeds.line[seed]))
+    if ring is not None:
+        inside = shapely.contains_xy(ring, *state.seeds.xy[seed])
+        return bool(inside == shapely.contains_xy(ring, *point))
+    rows, sides = np.nonzero(state.slot == seed)
+    if not rows.size:
+        return True
+    start, stop = state.vertices[state.seg_nodes[rows[0]]]
+    left = _cross(stop - start, point - start) > 0.0
+    return left == (int(sides[0]) == 0)
+
+
+def _ring_area(state: _State, gid: int) -> Polygon | None:
+    """The area a closed face line encloses, or None for an open line."""
+    if gid not in state.ring_areas:
+        line = next((line for line in state.lines if line.gid == gid), None)
+        area = None
+        if line is not None and line.closed and len(line.coords) >= 4:
+            area = Polygon(line.coords)
+            shapely.prepare(area)
+        state.ring_areas[gid] = area
+    return state.ring_areas[gid]
+
+
+def _holder_for(state: _State, candidates: Sequence[int], xy: np.ndarray) -> int:
+    """The mirror seed whose cell a river takes at *xy*: the nearest on its side, else the nearest."""
+    seeds = state.seeds
+    own = [seed for seed in candidates if _on_its_side(state, seed, xy)]
+    pool = own or list(candidates)
+    gap = [float(np.hypot(*(seeds.xy[seed] - xy))) for seed in pool]
+    return int(pool[int(np.argmin(gap))])
 
 
 def _protected_seeds(state: _State) -> set[int]:
@@ -1396,15 +1453,18 @@ def _protected_seeds(state: _State) -> set[int]:
     return crossing | joined
 
 
-def _joins_chain(state: _State, seed: int, chain: _Chain) -> bool:
-    """Whether a barrier mirror seed in the disk of a chain link joins the chain.
+def _joins_chain(state: _State, seed: int, chain: _Chain, ends: np.ndarray) -> bool:
+    """Whether a mirror seed in the disk of a chain link joins the chain.
 
     A barrier never yields to a river: the river passes through the cell of
-    the mirror seed instead, and the barrier face stays between two cells.
+    the mirror seed instead, and the barrier face stays between two cells. A
+    lake shore does the same with a seed on the side of both link *ends*; a
+    seed across the shore yields, so the river never enters the lake there.
     """
     return (
         int(state.seeds.role[seed]) == SeedRole.MIRROR
-        and _is_barrier(state, seed)
+        and _holds(state, seed)
+        and all(_on_its_side(state, seed, end) for end in ends)
         and not np.isin(seed, state.seeds.resolved(chain.ids))
     )
 
@@ -1460,7 +1520,7 @@ def _clear_chain_links(state: _State) -> bool:
             if (
                 role is SeedRole.CHAIN
                 or intruder in protected
-                or _joins_chain(state, intruder, chain)
+                or _joins_chain(state, intruder, chain, seeds.xy[[ids[k], ids[k + 1]]])
             ):
                 ends = seeds.xy[[ids[k], ids[k + 1]]]
                 if not _chords_inside(state, ends, seeds.xy[[intruder, intruder]]).all():
@@ -1513,22 +1573,23 @@ def _yield_in_balls(state: _State) -> bool:
 
 
 def _barrier_holder(state: _State, mine: np.ndarray, intruder: int) -> int:
-    """The pair seed that takes the cell of a chain seed in the ball of a barrier vertex.
+    """The pair seed that takes the cell of a chain seed in the ball of a holding vertex.
 
     ``-1`` unless *intruder* is a chain seed and every segment of the vertex
-    belongs to a barrier line; else the nearest alive pair seed of them.
+    belongs to a barrier or a lake shore; else the nearest alive pair seed of
+    them, on the river's side of a lake shore when one lies there.
     """
     seeds = state.seeds
     if int(seeds.role[intruder]) != SeedRole.CHAIN:
         return -1
-    if any(state.family_names[int(f)] != BARRIER_FAMILY for f in state.seg_family[mine]):
+    if any(state.family_names[int(f)] not in HOLDING_FAMILIES for f in state.seg_family[mine]):
         return -1
     pair = state.slot[mine].ravel()
     pair = pair[(pair >= 0)]
     pair = pair[seeds.alive[pair]]
     if not pair.size:
         return -1
-    return int(pair[np.argmin(np.hypot(*(seeds.xy[pair] - seeds.xy[intruder]).T))])
+    return _holder_for(state, pair.tolist(), seeds.xy[intruder])
 
 
 def _conformal_vertices(state: _State) -> np.ndarray:

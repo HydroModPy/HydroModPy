@@ -203,6 +203,16 @@ def _compute_buffer_distance(
     return _snap_to_resolution(float(int(round(buff_raw))), dem_resolution)
 
 
+def buffer_distance_m(catchment: BaseGeometry, buff_area: float | str) -> float:
+    """Return the buffer distance in metres that *buff_area* draws on *catchment*.
+
+    Same rule as :func:`derive_catchment_domain`, without the snap to the DEM
+    grid (at most half a cell apart), for callers that need the size of the
+    domain before it is built.
+    """
+    return _compute_buffer_distance(catchment=catchment, buff_area=buff_area, dem_resolution=None)
+
+
 def buffer_area_increase(catchment: BaseGeometry, distance_m: float) -> float:
     """Return the relative area the buffer adds, ``area(buffer) / area - 1``."""
     area = float(catchment.area)

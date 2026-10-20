@@ -68,10 +68,10 @@ RESERVOIR_INCREMENT_DAYS: float = 10.0
 DAYS_PER_YEAR: float = 365.25
 """Length of the seasonal cycle, in days."""
 
-# Kernels that read the sampling step of the series: the seasonal cycle and the
+# Kernels that read the dates of the series: the seasonal cycle and the
 # increment window are lengths of time, so a monthly series holds them in fewer
-# samples than a daily one.
-SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_seasonal", "reservoir"})
+# samples than a daily one, and a gap in the record is not one step.
+SAMPLED_BY_DATE: frozenset[str] = frozenset({"nse_delta", "nse_seasonal", "reservoir"})
 
 
 def _cycle_samples(sample_days: float | None) -> float:
@@ -88,9 +88,46 @@ def _increment_samples(sample_days: float | None) -> int:
     return max(1, round(RESERVOIR_INCREMENT_DAYS / float(sample_days)))
 
 
-def _seasonal_score(sim: np.ndarray, obs: np.ndarray, *, sample_days: float | None = None) -> float:
+def _positions(times_days: Any, sample_days: float | None) -> np.ndarray | None:
+    """Return the date of each sample counted in steps of the series, or ``None``.
+
+    ``times_days`` is the date of each sample in days, from any origin.
+    ``sample_days`` is the step; unset, the median spacing of the dates.
+    """
+    if times_days is None:
+        return None
+    days = np.asarray(times_days, dtype=float).ravel()
+    if sample_days is None:
+        spacing = np.diff(days)
+        spacing = spacing[spacing > 0.0]
+        if spacing.size == 0:
+            return None
+        sample_days = float(np.median(spacing))
+    return (days - np.nanmin(days)) / float(sample_days) if days.size else days
+
+
+def _seasonal_score(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
     """``nse_seasonal`` with a cycle of one year of the series' own samples."""
-    return nse_seasonal(sim, obs, period=_cycle_samples(sample_days))
+    return nse_seasonal(
+        sim, obs, period=_cycle_samples(sample_days), times=_positions(times_days, sample_days)
+    )
+
+
+def _delta_score(
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
+) -> float:
+    """``nse_delta`` from one sample to the next, never across a gap of the dates."""
+    return nse_delta(sim, obs, times=_positions(times_days, sample_days))
 
 
 # KGE is NOT offered on increments, on purpose. Its beta term is a ratio of means,
@@ -101,7 +138,11 @@ def _seasonal_score(sim: np.ndarray, obs: np.ndarray, *, sample_days: float | No
 
 
 def _reservoir_score(
-    sim: np.ndarray, obs: np.ndarray, *, sample_days: float | None = None
+    sim: np.ndarray,
+    obs: np.ndarray,
+    *,
+    sample_days: float | None = None,
+    times_days: Any = None,
 ) -> float:
     """Half seasonal efficiency on the level, half efficiency on its increments.
 
@@ -121,10 +162,16 @@ def _reservoir_score(
     sample, so a timing error of a few days is not punished as though the model had
     filled when it should have emptied. ``sample_days`` is the sampling step of the
     series: the cycle and the window are counted in its samples. Without it the
-    series is taken as daily.
+    series is taken as daily. ``times_days``, the date of each sample in days,
+    keeps the cycle in phase and the increments off a gap of the record.
     """
-    seasonal = _seasonal_score(sim, obs, sample_days=sample_days)
-    increments = nse_delta(sim, obs, step=_increment_samples(sample_days))
+    seasonal = _seasonal_score(sim, obs, sample_days=sample_days, times_days=times_days)
+    increments = nse_delta(
+        sim,
+        obs,
+        step=_increment_samples(sample_days),
+        times=_positions(times_days, sample_days),
+    )
     if not np.isfinite(seasonal) or not np.isfinite(increments):
         return float("nan")
     return 0.5 * float(seasonal) + 0.5 * float(increments)
@@ -135,7 +182,7 @@ METRICS: dict[str, Callable[..., float]] = {
     "rmse": rmse,
     "mae": mae,
     "kge": _kge_score,
-    "nse_delta": nse_delta,
+    "nse_delta": _delta_score,
     "nse_seasonal": _seasonal_score,
     "nse_log": log_nse,
     "distance_gap": distance_gap,
@@ -198,12 +245,15 @@ class SeriesCriterion:
         observed: Sequence[float] | Any | None = None,
         *,
         sample_days: float | None = None,
+        times_days: Sequence[float] | Any | None = None,
     ) -> CriterionResult:
         """Return the cost, minimised, with what the clipping had to touch.
 
         ``sample_days`` is the sampling step of the series, in days. The kernels
         of :data:`SAMPLED_BY_DATE` count their cycle and window in it; the
         others ignore it. Unset, those kernels take the series as daily.
+        ``times_days`` is the date of each sample in days: those kernels read
+        a gap of the record from it. Unset, the samples are taken as regular.
         """
         if observed is None:
             raise ValueError(f"criterion {self.name!r} fits observations and none were supplied")
@@ -217,8 +267,8 @@ class SeriesCriterion:
         n_clipped = 0
         if self._takes_log:
             sim, obs, n_clipped = clip_negatives_for_log_metric(sim, obs)
-        if self.name in SAMPLED_BY_DATE and sample_days is not None:
-            raw = float(self._kernel(sim, obs, sample_days=sample_days))
+        if self.name in SAMPLED_BY_DATE and (sample_days is not None or times_days is not None):
+            raw = float(self._kernel(sim, obs, sample_days=sample_days, times_days=times_days))
         else:
             raw = float(self._kernel(sim, obs))
         cost = (1.0 - raw) if self._higher_is_better else raw

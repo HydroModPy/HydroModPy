@@ -21,9 +21,9 @@ from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
 
 
 class TestTheDeclaration:
-    def test_nothing_is_rejected_by_default(self) -> None:
-        """A threshold nobody chose must not start refusing runs."""
-        assert CalibrationConfig().reject_water_budget_above is None
+    def test_one_per_cent_is_rejected_by_default(self) -> None:
+        """Decision D13: the gate is on, at one per cent of the model budget."""
+        assert CalibrationConfig().reject_water_budget_above == 1.0
 
     def test_a_file_may_state_what_it_accepts(self) -> None:
         cfg = CalibrationConfig.model_validate(

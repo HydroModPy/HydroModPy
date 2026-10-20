@@ -59,7 +59,7 @@ method = "bisection"
 # if phase one did not converge.
 [[calibration.phases]]
 name = "transient_storage"
-description = "Read Sy from the observed hydrograph, K frozen, transient, scored from 2001-01-01 on, the first year of the run left out as spin-up."
+description = "Read Sy from the observed hydrograph, K frozen, transient, scored over [metrics] window, 2001-01-01 to 2002-12-31."
 parameters = ["Sy"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
@@ -67,10 +67,8 @@ method = "scipy_nelder_mead"
 max_iter = 30
 tolerance = 0.05
 depends_on = "steady_conductivity"
-
-# 2000 is spin-up: simulated, not scored.
-[calibration.phases.scoring_window]
-start = "2001-01-01"
+# No scoring_window: the phase scores [metrics] window of project.toml,
+# 2001-2002, as the protocol writes it. 2000 is spin-up.
 
 # The figures and the exports of project.toml, for the best run of each
 # phase, plus the gauged discharge against the simulated one, month by month.

@@ -17,8 +17,13 @@ exactly; ``read_applied_exchange`` reads it. Sign convention: positive = the lak
 gains water from the aquifer, as in ``GWF_IN - GWF_OUT``.
 
 A build-time JSON sidecar (``LakeObsSpec``) maps each observation name to its
-lake, quantity and connection, and flags the under-dam (VERTICAL) connections so
-their exchange can be summed into a localised under-dam leakage series.
+lake, quantity and connection, and flags the VERTICAL connections of the lake
+bed so their exchange can be summed into ``lake_bed_vertical_exchange``. That
+series is the bed of the whole lake, not a flow under the dam.
+
+The flow through a lake cutoff wall is ``cutoff_wall_flow``: ``FLOW-JA-FACE``
+of the GWF budget summed over the faces of the wall, which the sidecar lists
+lake side first, per layer (see :func:`read_cutoff_wall_flow`).
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ from hydromodpy.solver.modflow_common.period_steps import (
 logger = get_logger(__name__)
 
 __all__ = [
+    "CUTOFF_WALL_FLOW",
     "AppliedExchange",
     "LakeAbacusEntry",
     "LakeAbacusSpec",
@@ -60,6 +66,7 @@ __all__ = [
     "final_lake_stages",
     "lake_station_id",
     "read_applied_exchange",
+    "read_cutoff_wall_flow",
     "read_lake_abacus",
     "read_lake_meta",
 ]
@@ -74,7 +81,7 @@ _STATE_QUANTITIES = frozenset({"stage", "volume", "surface_area"})
 _RATE_QUANTITIES = frozenset(
     {
         "gwf_exchange",
-        "seepage_under_dam",
+        "lake_bed_vertical_exchange",
         "rainfall",
         "evaporation",
         "runoff",
@@ -83,6 +90,7 @@ _RATE_QUANTITIES = frozenset(
         "ext_outflow",
         "storage",
         "outlet",
+        "outlet_inflow",
         "to_mvr",
         "from_mvr",
         "lak_connection",
@@ -91,13 +99,16 @@ _RATE_QUANTITIES = frozenset(
 
 # Outflow quantities negated to the positive-outflow convention shared with the
 # SFR extractor (MF6 reports lake outflow negative).
-_NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "to_mvr"})
+_NEGATED_LAKE_QUANTITIES = frozenset({"ext_outflow", "outlet", "to_mvr"})
 
 # MF6 writes its "no data" sentinel (3e30) for an observation that does not apply to a
 # given outlet -- e.g. ext-outflow on an outlet that is a mover or routes to another lake
 # (its flow leaves via to-mvr / the outlet, never externally). Treat it as zero flow so it
 # does not poison the summed budget term.
 _DNODATA_THRESHOLD = 1e29
+
+# The flow across a lake cutoff wall, from the lake side to the downstream side.
+CUTOFF_WALL_FLOW = "cutoff_wall_flow"
 
 # Output unit per stored quantity (SI; rates land in m3/s after scaling).
 _UNIT_BY_QUANTITY: dict[str, str] = {
@@ -135,8 +146,8 @@ class LakeObsEntry:
     ``obsname`` is the column header in the LAK obs CSV (MF6 upper-cases it).
     ``quantity`` is the HMP-side series name (e.g. ``stage``, ``gwf_exchange``).
     ``iconn`` is the 0-based per-lake connection index for per-connection ``lak``
-    observations, else ``None``. ``under_dam`` flags a VERTICAL under-footprint
-    connection so the extractor can sum it into the under-dam leakage series.
+    observations, else ``None``. ``under_dam`` flags a VERTICAL connection of the
+    lake bed so the extractor can sum it into ``lake_bed_vertical_exchange``.
     """
 
     obsname: str
@@ -155,12 +166,18 @@ class LakeObsSpec:
     the LAK package binary budget, whose ``GWF`` record carries the lake-aquifer
     flux MF6 actually applied, connection by connection; ``budgetcsv`` names the
     package-level budget CSV, used to cross-check that total.
+
+    ``cutoff_walls`` lists, per lake with a cutoff wall, the ``(lake side,
+    downstream side)`` cell2d pairs of the wall faces; ``gwf_budget_bin`` names
+    the GWF budget whose ``FLOW-JA-FACE`` carries the flow across them.
     """
 
     obs_csv: str
     entries: list[LakeObsEntry] = field(default_factory=list)
     budgetcsv: str | None = None
     budget_bin: str | None = None
+    cutoff_walls: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
+    gwf_budget_bin: str | None = None
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> LakeObsSpec:
@@ -177,11 +194,18 @@ class LakeObsSpec:
         ]
         raw_budget = payload.get("budgetcsv")
         raw_bin = payload.get("budget_bin")
+        raw_gwf = payload.get("gwf_budget_bin")
+        walls = {
+            str(lake_id): [(int(a), int(b)) for a, b in faces]
+            for lake_id, faces in (payload.get("cutoff_walls") or {}).items()
+        }
         return cls(
             obs_csv=str(payload["obs_csv"]),
             entries=entries,
             budgetcsv=None if raw_budget is None else str(raw_budget),
             budget_bin=None if raw_bin is None else str(raw_bin),
+            cutoff_walls=walls,
+            gwf_budget_bin=None if raw_gwf is None else str(raw_gwf),
         )
 
 
@@ -327,10 +351,14 @@ def build_lake_records(
     quantities are divided by
     ``seconds_per_time_unit`` to reach m3/s; stage / volume / surface-area stay in
     their native units. The lake-aquifer exchange (``gwf_exchange``) and the
-    under-dam leakage (``seepage_under_dam``) come from the applied flux in the LAK
+    vertical lake-bed balance (``lake_bed_vertical_exchange``) come from the applied flux in the LAK
     binary budget (see :func:`read_applied_exchange`), not from the obs CSV, and
     read negative when the lake loses water to the aquifer. A budget row mirrors
     the exchange total per lake so the water-balance tables carry the flux.
+
+    A lake with a cutoff wall also gets ``cutoff_wall_flow`` (m3/s, positive from
+    the lake side to the downstream side), on ``lake:<id>:layer<k>`` per layer
+    (1-based) and on ``lake:<id>`` for their sum (:func:`read_cutoff_wall_flow`).
     """
     if not obs_path.is_file():
         logger.debug("LAK obs CSV %s is missing; no per-lake series extracted", obs_path)
@@ -419,7 +447,7 @@ def build_lake_records(
                     timeseries.append(
                         timeseries_record(
                             station=station,
-                            quantity="seepage_under_dam",
+                            quantity="lake_bed_vertical_exchange",
                             timestep=t,
                             time=calendar,
                             value=applied.under_dam[t] / spt,
@@ -436,6 +464,37 @@ def build_lake_records(
                         "unit": "m3/s",
                     }
                 )
+
+    wall_flow = read_cutoff_wall_flow(spec, obs_path.parent, times=list(times[:n_steps]))
+    for lake_id, layers in wall_flow.items():
+        station = lake_station_id(lake_id)
+        for t in range(n_steps):
+            calendar = calendar_times[t] if calendar_times is not None else None
+            total = 0.0
+            for layer, values in sorted(layers.items()):
+                if t >= len(values):
+                    continue
+                total += values[t] / spt
+                timeseries.append(
+                    timeseries_record(
+                        station=f"{station}:layer{layer}",
+                        quantity=CUTOFF_WALL_FLOW,
+                        timestep=t,
+                        time=calendar,
+                        value=values[t] / spt,
+                        unit="m3/s",
+                    )
+                )
+            timeseries.append(
+                timeseries_record(
+                    station=station,
+                    quantity=CUTOFF_WALL_FLOW,
+                    timestep=t,
+                    time=calendar,
+                    value=total,
+                    unit="m3/s",
+                )
+            )
 
     return timeseries, budgets
 
@@ -469,8 +528,8 @@ class AppliedExchange:
     Each value is the mean over the time steps of the period, weighted by
     their length.
 
-    ``total`` is the whole lake, ``under_dam`` the VERTICAL subset (``None`` when
-    the lake has no vertical connection). Positive = the lake gains water from the
+    ``total`` is the whole lake, ``under_dam`` the VERTICAL subset, the lake bed
+    (``None`` when the lake has no vertical connection). Positive = the lake gains water from the
     aquifer, which is the sign of the package budget's ``GWF_IN - GWF_OUT``.
     """
 
@@ -503,7 +562,7 @@ def read_applied_exchange(
     if not spec.budget_bin:
         logger.warning(
             "The LAK obs sidecar does not name the package binary budget, so the "
-            "lake-aquifer exchange series (gwf_exchange, seepage_under_dam, lak_gwf) is "
+            "lake-aquifer exchange series (gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is "
             "not extracted. It cannot be rebuilt from the obs CSV: the per-connection lak "
             "obs is not the applied flux. Re-run the model to get the exchange back."
         )
@@ -512,7 +571,7 @@ def read_applied_exchange(
     if not budget_path.is_file():
         logger.warning(
             "LAK binary budget %s is missing; the lake-aquifer exchange series "
-            "(gwf_exchange, seepage_under_dam, lak_gwf) is not extracted. It cannot be "
+            "(gwf_exchange, lake_bed_vertical_exchange, lak_gwf) is not extracted. It cannot be "
             "rebuilt from the obs CSV: the per-connection lak obs is not the applied flux.",
             budget_path.name,
         )
@@ -578,3 +637,106 @@ def read_applied_exchange(
         )
         for lake_id in lake_ids
     }
+
+
+def _grid_connections(solver_dir: Path) -> tuple[np.ndarray, np.ndarray, int] | None:
+    """Return ``(ia, ja, ncpl)`` of the GWF grid, 0-based, from its ``.grb``."""
+    grb_files = sorted(solver_dir.glob("*.disv.grb")) + sorted(solver_dir.glob("*.dis.grb"))
+    if not grb_files:
+        return None
+    from flopy.mf6.utils import MfGrdFile
+
+    grid = MfGrdFile(str(grb_files[0]), verbose=False)
+    ia = np.asarray(grid.ia, dtype=np.int64)
+    ja = np.asarray(grid.ja, dtype=np.int64)
+    ncpl = int(grid.ncpl) if grid.grid_type == "DISV" else int(grid.nrow) * int(grid.ncol)
+    return ia, ja, ncpl
+
+
+def _face_position(ia: np.ndarray, ja: np.ndarray, node: int, other: int) -> int | None:
+    """Position of the ``node -> other`` connection in ``FLOW-JA-FACE``, or None."""
+    if node + 1 >= ia.size:
+        return None
+    start, end = int(ia[node]), int(ia[node + 1])
+    hits = np.flatnonzero(ja[start:end] == other)
+    return int(start + hits[0]) if hits.size else None
+
+
+def read_cutoff_wall_flow(
+    spec: LakeObsSpec, solver_dir: Path, *, times: Sequence[float]
+) -> dict[str, dict[int, list[float]]]:
+    """Read the flow across each lake cutoff wall, per layer, from the GWF budget.
+
+    The wall faces come from the sidecar, ``(lake side, downstream side)`` cell2d
+    pairs: the faces the HFB bars. In each layer the flow of a face is
+    ``FLOW-JA-FACE`` of the downstream cell from the lake-side cell (MF6 counts
+    the flow into a cell positive), so a positive sum leaves the lake side. Every
+    layer is read, barred or not: the flow under the wall is part of the answer.
+    A face with an inactive cell in a layer carries no connection there and is
+    skipped. Rates are in the TDIS unit per stamp, the mean of the steps it
+    closes weighted by their length. Returns ``{lake_id: {layer (1-based):
+    values}}``, ``{}`` when the model has no wall or the files are missing.
+    """
+    walls = {lake: faces for lake, faces in spec.cutoff_walls.items() if faces}
+    if not walls:
+        return {}
+    budget_path = solver_dir / (spec.gwf_budget_bin or "")
+    grid = _grid_connections(solver_dir)
+    if not spec.gwf_budget_bin or not budget_path.is_file() or grid is None:
+        logger.warning(
+            "The GWF budget or the binary grid of %s is missing; the cutoff wall flow "
+            "(cutoff_wall_flow) is not extracted.",
+            solver_dir,
+        )
+        return {}
+    ia, ja, ncpl = grid
+    nlay = (ia.size - 1) // ncpl
+    # positions[lake][layer] = FLOW-JA-FACE positions of the downstream cell from the lake side.
+    positions: dict[str, dict[int, list[int]]] = {}
+    for lake_id, faces in walls.items():
+        per_layer: dict[int, list[int]] = {}
+        for layer in range(nlay):
+            hits = [
+                pos
+                for up, down in faces
+                if (pos := _face_position(ia, ja, layer * ncpl + down, layer * ncpl + up))
+                is not None
+            ]
+            if hits:
+                per_layer[layer + 1] = hits
+        positions[lake_id] = per_layer
+    wanted = sorted({p for layers in positions.values() for hits in layers.values() for p in hits})
+    if not wanted:
+        return {}
+    first = wanted[0]
+    span = wanted[-1] - first + 1
+    out: dict[str, dict[int, list[float]]] = {
+        lake: {layer: [] for layer in layers} for lake, layers in positions.items()
+    }
+    try:
+        with Mf6CellBudgetReader(budget_path) as budget, open(budget_path, "rb") as raw:
+            steps = [r for r in budget.records if r.text == "FLOW-JA-FACE"]
+            if not steps:
+                raise ValueError("the budget carries no FLOW-JA-FACE record")
+            groups = group_ends_by_stamp([r.totim for r in steps], times)
+            for group in groups:
+                if not group.positions:
+                    break
+                per_step: dict[tuple[str, int], list[float]] = {}
+                for step in group.positions:
+                    raw.seek(steps[step].data_pos + 8 * first)
+                    flowja = np.fromfile(raw, dtype="<f8", count=span)
+                    for lake_id, layers in positions.items():
+                        for layer, hits in layers.items():
+                            value = float(flowja[np.asarray(hits) - first].sum())
+                            per_step.setdefault((lake_id, layer), []).append(value)
+                for (lake_id, layer), values in per_step.items():
+                    out[lake_id][layer].append(weighted_period_scalar(values, group.weights))
+    except (OSError, ValueError, IndexError) as exc:
+        logger.warning(
+            "Could not read the cutoff wall flow from %s (%s); the series is not extracted.",
+            budget_path.name,
+            exc,
+        )
+        return {}
+    return out

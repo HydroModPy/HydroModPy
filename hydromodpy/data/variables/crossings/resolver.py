@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,13 @@ Same value as the DEM and hydrography bootstraps, for the same reason: the only
 extent known before the delineation is a box around the declared outlet.
 """
 
+DOMAIN_MARGIN_M = 2_000
+"""Margin added around a known domain extent, in metres, for the download box.
+
+A crossing just outside the domain can still cut a channel that enters it, so
+the box is the domain plus this margin and not the domain alone.
+"""
+
 _QUERY_CRS = "EPSG:2154"
 
 
@@ -59,10 +67,16 @@ def resolve_crossings_path_from_data_sources(
     *,
     config_path: Path,
     cache_dir: Path | None = None,
+    domain_bounds: tuple[float, float, float, float] | None = None,
 ) -> Path | None:
     """Return the merged crossings file derived from ``[[data.crossings.sources]]``.
 
-    ``None`` when the section declares no source.
+    ``None`` when the section declares no source. ``domain_bounds`` is the model
+    domain extent ``(xmin, ymin, xmax, ymax)`` in ``geographic.crs_project``,
+    when the caller knows it: the API sources are then asked over that extent
+    plus :data:`DOMAIN_MARGIN_M` instead of the 60 km box around the outlet.
+    A catchment declared as a polygon gives that extent by itself, since the
+    polygon is known before any delineation.
     """
     data_cfg = getattr(cfg, "data", None)
     crossings_cfg = getattr(data_cfg, "crossings", None) if data_cfg is not None else None
@@ -76,7 +90,9 @@ def resolve_crossings_path_from_data_sources(
     config_dir = Path(config_path).resolve().parent
 
     api_sources = [source for source in sources if str(source.source) != "custom"]
-    bbox = _bootstrap_bbox(cfg, crs_project) if api_sources else None
+    if api_sources and domain_bounds is None:
+        domain_bounds = polygon_bounds(cfg, crs_project)
+    bbox = _bootstrap_bbox(cfg, crs_project, domain_bounds=domain_bounds) if api_sources else None
     custom_files = {
         index: _custom_file(source, config_dir)
         for index, source in enumerate(sources)
@@ -171,15 +187,75 @@ def _file_name(
     return f"crossings_ground_{names}_{key}.gpkg"
 
 
-def _bootstrap_bbox(cfg: Any, crs_project: Any) -> tuple[float, float, float, float]:
+def polygon_bounds(cfg: Any, crs_project: Any) -> tuple[float, float, float, float] | None:
+    """Return the extent of the model domain a declared catchment polygon gives.
+
+    The polygon extent widened by the buffer distance ``geographic.buff_area``
+    draws, since the default domain is the box of the buffered polygon. Without
+    ``buff_area`` it is the polygon extent. The extent is in ``crs_project``.
+    ``None`` when there is no polygon or the file is not on disk yet: the caller
+    then falls back on the box around the outlet.
+    """
+    path = getattr(cfg.geographic, "polyg_shp_path", None)
+    if path is None or not Path(path).exists():
+        return None
+    import geopandas as gpd
+
+    frame = gpd.read_file(path)
+    if frame.empty:
+        return None
+    if frame.crs is not None and str(frame.crs) != str(crs_project):
+        frame = frame.to_crs(str(crs_project))
+    bounds = frame.total_bounds
+    if not all(map(math.isfinite, bounds)):
+        return None
+    reach = _buffer_reach_m(frame.geometry.union_all(), getattr(cfg.geographic, "buff_area", None))
+    xmin, ymin, xmax, ymax = (float(value) for value in bounds)
+    return (xmin - reach, ymin - reach, xmax + reach, ymax + reach)
+
+
+def _buffer_reach_m(catchment: Any, buff_area: Any) -> float:
+    """Distance the domain buffer reaches beyond *catchment*, 0 when none is declared.
+
+    A buffer the geographic step would refuse counts for 0: it raises there, with
+    its own message, and the download box only needs to be right for a valid one.
+    """
+    if buff_area is None:
+        return 0.0
+    from hydromodpy.spatial.geographic.core.catchment_domain import buffer_distance_m
+
+    try:
+        return float(buffer_distance_m(catchment, buff_area))
+    except ValueError:
+        return 0.0
+
+
+def _bootstrap_bbox(
+    cfg: Any,
+    crs_project: Any,
+    *,
+    domain_bounds: tuple[float, float, float, float] | None = None,
+) -> tuple[float, float, float, float]:
     """The box the API sources are asked over, in EPSG:2154.
 
-    Built around the declared outlet, then clipped to the DEM footprint when the
-    DEM is already resolved: a crossing outside the raster cannot be notched.
+    The known domain extent plus :data:`DOMAIN_MARGIN_M` when ``domain_bounds`` is
+    given. Otherwise built around the declared outlet, since nothing is delineated
+    yet. Either way clipped to the DEM footprint when the DEM is already
+    resolved: a crossing outside the raster cannot be notched.
     """
     from rasterio.warp import transform_bounds
 
     geo_cfg = cfg.geographic
+    if domain_bounds is not None:
+        xmin, ymin, xmax, ymax = (float(value) for value in domain_bounds)
+        bounds = (
+            xmin - DOMAIN_MARGIN_M,
+            ymin - DOMAIN_MARGIN_M,
+            xmax + DOMAIN_MARGIN_M,
+            ymax + DOMAIN_MARGIN_M,
+        )
+        bounds = _intersect_with_dem(bounds, geo_cfg=geo_cfg, crs_project=crs_project)
+        return tuple(transform_bounds(str(crs_project), _QUERY_CRS, *bounds))
     x_outlet = getattr(geo_cfg, "x_outlet", None)
     y_outlet = getattr(geo_cfg, "y_outlet", None)
     if x_outlet is None or y_outlet is None:

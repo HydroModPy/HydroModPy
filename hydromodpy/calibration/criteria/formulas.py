@@ -63,7 +63,8 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         score=r"\mathrm{NSE}(\Delta s,\ \Delta o)",
         reads="The fit of the change from one sample to the next, blind to the absolute level.",
         where=r"\Delta x_t = x_{t+1} - x_t",
-        note="Pair it with a metric on the level.",
+        note="Pair it with a metric on the level. An increment never spans a gap in the "
+        "dates of the series.",
     ),
     "nse_seasonal": MetricFormula(
         score=r"1 - \dfrac{\sum_t (s_t - o_t)^2}{\sum_t (o_t - c_t)^2}",
@@ -73,8 +74,9 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         r" + b_k \sin\tfrac{2\pi k t}{P}\big),\ \text{fitted to } o \text{ by least squares},"
         r"\ P = 365.25\,\text{days} / \Delta t",
         note="P is one year counted in samples of the series, whose step Delta t is read "
-        "from its dates. Two years are needed: a shorter series scores NaN. A series "
-        "with no dates is taken as daily.",
+        "from its dates, and t is the date of each sample in the same steps, so a gap in "
+        "the record keeps the cycle in phase. Two years are needed: a shorter series "
+        "scores NaN. A series with no dates is taken as daily.",
     ),
     "reservoir": MetricFormula(
         score=r"\tfrac{1}{2}\,\mathrm{NSE}_{\mathrm{seasonal}}(s, o) + "
@@ -83,7 +85,7 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         "honest, the increment half makes the water balance count.",
         where=r"\Delta_{n} x_t = x_{t+n} - x_t,\ n = \max(1,\ \mathrm{round}(10\,\text{days} / \Delta t))",
         note="The seasonal half reads the dates as nse_seasonal does. The increments "
-        "span ten days, or one sample on a coarser series.",
+        "span ten days, or one sample on a coarser series, and never a gap in the dates.",
     ),
     "distance_gap": MetricFormula(
         score=r"\lvert D_{so} - D_{os} \rvert",

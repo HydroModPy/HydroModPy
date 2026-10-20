@@ -1,7 +1,7 @@
 """Repeating the first year to spin up the soil needs a run of a year at least.
 
-``spinup = "first_year"`` repeats the first 365 days of the run; a shorter run
-never sees a full first year to repeat.
+``spinup = "first_year"`` repeats the first 52 weeks (364 days) of the run; a shorter
+run never sees a full first year to repeat.
 """
 
 from __future__ import annotations
@@ -18,10 +18,10 @@ def test_a_run_shorter_than_a_year_is_refused() -> None:
     refusal = spinup_refusal(config, 363)
 
     assert refusal == (
-        'spinup = "first_year" repeats the first 365 days of the run, and '
+        'spinup = "first_year" repeats the first 52 weeks (364 days) of the run, and '
         '[simulation.time] covers 363 days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or extend "
-        "the run to one year at least."
+        "the run to 52 weeks at least."
     )
 
 

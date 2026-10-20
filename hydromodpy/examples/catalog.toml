@@ -27,8 +27,8 @@ sha256 = "9cfd4d405e2cdb127303cb6a03494de3cc3b8a9af595475ba5c8d37d5cbbfcef"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/project.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/project.toml"
-size = 5267
-sha256 = "7e500d116b06bdf5386278b1abefdbdcbc9ed9b20639644944e81e81c4243d8d"
+size = 5102
+sha256 = "8d59786d5be4f5958fef1841e4ccd7122d955cb90634c5064d613a80f1784fdf"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/py1_run_and_plot.py"
@@ -75,8 +75,8 @@ sha256 = "6c69b9d5419dff9be8620c91fb66291aa31c6eb0b180286912d28e0706bf405d"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-size = 5507
-sha256 = "57702cc50dd18d599bbaf8bb395a38e67186207afaa737b21385148d0bdd0af5"
+size = 5594
+sha256 = "112a3d50766b230872888c4319a116dd07b1a05cc6c0b9cf2cd42c761ca441d8"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
@@ -87,8 +87,8 @@ sha256 = "172ae4bbf718ea509657a891d7b0e55f7fe76147c1d37907a8b957ba6d1455a1"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
-size = 2652
-sha256 = "168bb1e37ec0968b4f5dad77de526abaee25382185f9045d94de4cd99d28c8be"
+size = 2663
+sha256 = "86d70ad899377f18d67d2a101f9fe216079aaf554917bbfc6f80576366a9007b"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
@@ -135,8 +135,8 @@ sha256 = "943c7c12f9988dee094a871b60b556f12aa85f7ff3cf845c6f09d549d8f3376d"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step6_soil_reservoir.toml"
-size = 4604
-sha256 = "eacc15d4b25f974b4fab879a6e81914cb0b29a480d0db1590251cec1fe910692"
+size = 4668
+sha256 = "ca930eecdd3a43d2c5efd073939c1fb10e528922011c149b4f49d631e21b03c6"
 
 [[example.data]]
 repo_path = "examples/data/dem/DEM_armorican_massif.tif"

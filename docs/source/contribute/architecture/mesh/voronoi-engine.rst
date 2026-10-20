@@ -106,10 +106,11 @@ Families
 
 The river lines give the ``rivers`` chains. The face lines give one family each, ordered by
 priority when two of them get in each other's way: ``lakes``, ``barriers``, ``geology``, then
-``watershed_boundary``. A river wins over every face family but ``barriers``: a barrier mirror
-seed in the Gabriel disk of a chain link joins the chain, and a chain seed inside a barrier
-ball, or within half a cell of a barrier mirror seed, gives its cell to the nearest barrier
-seed. A face line that runs on segments of an earlier one (a lake cutoff wall along the shore,
+``watershed_boundary``. A river wins over every face family but ``barriers`` and ``lakes``: a
+barrier or shore mirror seed in the Gabriel disk of a chain link joins the chain, and a chain
+seed inside a barrier or shore ball, or within half a cell of such a mirror seed, gives its cell
+to the nearest one, on the river's side of a lake shore. A shore seed across the shore from a
+chain link yields, so a river chain never enters a lake. A face line that runs on segments of an earlier one (a lake cutoff wall along the shore,
 whose vertices the planner takes from the ring) leaves that stretch to it: each segment gets
 one pair, and its face is a row of both families, oriented along each line. The boundary faces
 on the four sides of the
@@ -143,9 +144,13 @@ Limits
   the vertex are not conformal.
 - **Narrow arms.** A closed face line whose arms are narrower than the local cell (a lake
   with long inlets sampled at 80 m cells) cannot hold a pair of circles in each arm. The
-  segments in the arm are yielded, the ring is open, and ``conformal_length_share`` of the
-  family drops (0.58 on the two-lake Cheze reservoir). The lake cells are then those the lake
-  polygon overlaps, each with its overlap area, as on a mesh without shore faces.
+  planner gives the engine each lake shore smoothed at 0.6 of its largest shore cell: arms,
+  necks and spits narrower than twice that go, the rivers stop half a river cell off the
+  lakes, and a wall wing shorter than half the finest cell is left out. The notes give the
+  area each lake left out and took in. The lake owns the regions its smoothed shore encloses,
+  and the cells outside them it covers for more than half. A shore the faces still leave open
+  is said in the notes, and the lake cells are then those the lake polygon overlaps, each with
+  its overlap area, as on a mesh without shore faces.
 - **Touching rings.** A hole of the domain that touches the outer ring or another hole at a
   single point splits the cell that spans the touching point. The piece beyond it gets a
   boundary seed, but the bisector of the two seeds always leaves a sliver at the touching

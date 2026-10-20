@@ -60,6 +60,9 @@ from hydromodpy.results.storage.attempt import scheduler_job_id_from_env
 
 PersistDetail = Literal["none", "summary", "full"]
 
+SPECULATIVE_UNUSED = "speculative_unused"
+"""Metric key marking a trial a speculative engine solved and did not read."""
+
 DEFAULT_PHASE = "main"
 """Phase name of a calibration that declares no ``[[calibration.phases]]``."""
 
@@ -323,13 +326,19 @@ class CalibrationPersistence:
     def best_trial(
         self, phase: str | None = None, *, restart: int | None = None
     ) -> TrialLine | None:
-        """Return the completed trial of lowest finite objective, or None."""
+        """Return the completed trial of lowest finite objective, or None.
+
+        A trial a speculative engine solved and did not read is left out: it
+        is not on the path of the search, so the point the search froze is
+        not it, and the promoted run must be that point.
+        """
         candidates = [
             line
             for line in self.trials(phase)
             if line.status == "completed"
             and line.objective is not None
             and line.objective == line.objective
+            and not line.metrics.get(SPECULATIVE_UNUSED)
             and (restart is None or line.restart == restart)
         ]
         if not candidates:
@@ -405,9 +414,16 @@ def _build_metrics(
     metadata: Mapping[str, Any],
     detail: PersistDetail,
 ) -> dict[str, Any]:
-    """Return the metric payload of one trial at the requested detail."""
+    """Return the metric payload of one trial at the requested detail.
+
+    The mark of a speculative trial is kept at every detail: the best trial
+    is chosen on it.
+    """
+    # A speculative engine solved this candidate and its rules did not read it:
+    # the trial is real, but it is not on the path of the search.
+    speculative = {SPECULATIVE_UNUSED: 1.0} if metadata.get("speculative_unused") else {}
     if detail == "none":
-        return {}
+        return speculative
     payload: dict[str, Any] = {}
     if result.components:
         payload.update({str(key): value for key, value in dict(result.components).items()})
@@ -421,10 +437,7 @@ def _build_metrics(
     error = metadata.get("error")
     if error:
         payload["error"] = str(error)
-    # A speculative engine solved this candidate and its rules did not read it:
-    # the trial is real, but it is not on the path of the search.
-    if metadata.get("speculative_unused"):
-        payload["speculative_unused"] = 1.0
+    payload.update(speculative)
     return payload
 
 

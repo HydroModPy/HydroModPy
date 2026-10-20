@@ -211,3 +211,8 @@ class RunExecutionResult:
 # water-budget PERCENT DISCREPANCY, in percent. Any backend may write it;
 # readers of ``metrics`` should not assume it comes from MODFLOW.
 WATER_BUDGET_METRIC = "water_budget_percent_discrepancy"
+
+# Key for the worst PERCENT DISCREPANCY over every time step of the model volume
+# budget, in percent and signed. A calibration gate reads this one: a run that
+# loses its balance in the middle and recovers at the end still has to be seen.
+WATER_BUDGET_WORST_METRIC = "water_budget_worst_percent_discrepancy"

@@ -310,6 +310,10 @@ def test_sfr_fed_reservoir_holds_its_level_and_control_drains(tmp_path: Path) ->
     assert discrepancy is not None
     assert abs(discrepancy) <= _BUDGET_PERCENT_DISCREPANCY
 
+    # The reaches end in the reservoir, so the routed discharge leaves through the
+    # lake outlet: a series that only counted the reaches would read zero here.
+    _assert_routed_discharge_leaves_through_the_lake_outlet(scratch_dirs[0])
+
     # Produce the golden-vs-sim figure next to the run outputs.
     figure_path = _plot_sim_vs_golden(out_path, sim=sim, golden=golden)
     assert figure_path.is_file() and figure_path.stat().st_size > 4096
@@ -325,6 +329,25 @@ def test_sfr_fed_reservoir_holds_its_level_and_control_drains(tmp_path: Path) ->
     )
     # The control declines monotonically: the withdrawal empties it.
     assert all(b <= a for a, b in zip(control, control[1:], strict=False))
+
+
+def _assert_routed_discharge_leaves_through_the_lake_outlet(solver_dir: Path) -> None:
+    import flopy
+    import numpy as np
+
+    from hydromodpy.solver.modflow6.extractors.sfr import routed_outflow_series
+    from hydromodpy.solver.modflow_common.time_units import seconds_per_solver_time_unit
+
+    model_name = next(solver_dir.glob("*.hds")).stem
+    times = flopy.utils.HeadFile(str(solver_dir / f"{model_name}.hds")).get_times()
+    routed = routed_outflow_series(
+        solver_dir,
+        model_name,
+        times=times,
+        seconds_per_time_unit=seconds_per_solver_time_unit(solver_dir, model_name),
+    )
+    assert routed is not None and len(routed) == len(times)
+    assert np.all(np.asarray(routed) > 0.0), "the routed discharge reads zero at some stamp"
 
 
 def _plot_sim_vs_golden(out_path: Path, *, sim: list[float], golden: list[float]) -> Path:

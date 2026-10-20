@@ -4,14 +4,12 @@ The routing chain (lake carve, conditioning, D8) and the model top both
 start from the ground, in both geographic entry points. Without a declared
 correction the ground is the raw DEM path itself: no copy, no new file.
 
-The corrections, in order:
-
-1. ``[geographic.dam_carve]``: the dam footprint lowered to the valley floor.
-2. ``[geographic.crossings]``: the embankments of roads, railways and bridges
-   lowered, along the channel, to the bed level read on both sides.
+``[geographic.crossings]`` is the one correction: the embankments of roads,
+railways and bridges lowered, along the channel, to the bed level read on both
+sides.
 
 The notch needs a channel to follow, so it runs after a first delineation: the
-caller builds the ground without a channel (dam only), delineates, hands the
+caller builds the ground without a channel (the raw DEM), delineates, hands the
 channel it found back here, and delineates again on the notched ground.
 """
 
@@ -34,8 +32,6 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.lake_enforcement import (
-    carve_dam_into_top_dem,
-    dam_lines_from_config,
     lakes_from_config,
 )
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
@@ -44,9 +40,6 @@ if TYPE_CHECKING:
     import geopandas as gpd
 
 logger = get_logger(__name__)
-
-GROUND_DAM_FILENAME = "dem_ground_dam_carved.tif"
-"""The ground with the dam carved, written when ``dam_carve`` is enabled."""
 
 GROUND_FILENAME = "dem_ground.tif"
 """The ground with the crossings notched, written when ``crossings`` is enabled."""
@@ -184,22 +177,15 @@ def notch_enabled(config: object) -> bool:
     return bool(getattr(getattr(config, "crossings", None), "enabled", False))
 
 
-def _dam_enabled(config: object) -> bool:
-    return bool(getattr(getattr(config, "dam_carve", None), "enabled", False))
-
-
 def ground_dem_path_from_config(config: object, setup: object) -> str:
     """Return the path of the final ground without building anything.
 
     The cache branch needs it and must not redo a correction. It is the raw DEM
-    when nothing is declared, the notched file when the notch is on, else the
-    dam-carved one.
+    when nothing is declared, the notched file when the notch is on.
     """
     correcflow = Path(setup.paths.correcflow_path)
     if notch_enabled(config):
         return str(correcflow / GROUND_FILENAME)
-    if _dam_enabled(config):
-        return str(correcflow / GROUND_DAM_FILENAME)
     return str(setup.dem_init_path)
 
 
@@ -211,30 +197,13 @@ def ground_dem_from_config(
 ) -> Path:
     """Build the ground and return its path.
 
-    Without ``channel`` the ground carries the dam only (the raw DEM path when
-    that is off too). With the channel of a first delineation and the notch
+    Without ``channel`` the ground is the raw DEM path. With the channel of a first delineation and the notch
     enabled, the crossings are notched into it and the report is written.
     """
-    base = _dam_carved(config, setup)
+    base = str(setup.dem_init_path)
     if channel is None or not notch_enabled(config):
         return Path(base)
     return _notched(config, setup, base=base, channel=channel)
-
-
-def _dam_carved(config: object, setup: object) -> str:
-    """The raw DEM, with the dam carved to the valley floor when ``dam_carve`` is on."""
-    if not _dam_enabled(config):
-        return str(setup.dem_init_path)
-    dam = config.dam_carve
-    out_path = str(Path(setup.paths.correcflow_path) / GROUND_DAM_FILENAME)
-    carve_dam_into_top_dem(
-        dem_in_path=str(setup.dem_init_path),
-        dem_out_path=out_path,
-        dam_lines=dam_lines_from_config(dam, setup),
-        buffer_m=float(dam.buffer_m),
-        search_radius_m=None if dam.search_radius_m is None else float(dam.search_radius_m),
-    )
-    return out_path
 
 
 def first_pass_channel(
@@ -320,7 +289,6 @@ def _notched(
     crs_project = getattr(setup, "crs_project", None)
     if crs_project is not None:
         crossings = crossings.to_crs(crs_project)
-    dam_lines = dam_lines_from_config(config.dam_carve, setup) if _dam_enabled(config) else []
     lakes = (
         lakes_from_config(config.enforce_lakes, setup)
         if bool(getattr(getattr(config, "enforce_lakes", None), "enabled", False))
@@ -366,7 +334,6 @@ def _notched(
         max_depth_m=float(notch.max_depth),
         snap_radius_m=float(notch.snap_radius),
         report=report,
-        dam_lines=dam_lines,
         lakes=lakes,
     )
 
@@ -407,7 +374,6 @@ def notch_dem(
     max_depth_m: float,
     snap_radius_m: float,
     report: NotchReport,
-    dam_lines: Sequence[BaseGeometry] = (),
     lakes: Sequence[BaseGeometry] = (),
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return *dem* lowered along the channel at each crossing and its footprint.
@@ -420,8 +386,8 @@ def notch_dem(
     mask of the first delineation, *d8* its pointer (WhiteboxTools codes) and
     *acc* its accumulation, all on the grid of *dem*.
 
-    A crossing is left alone when a dam or a weir of *crossings*, a line of
-    *dam_lines* or a polygon of *lakes* lies at it: a dam crest is not a wall to
+    A crossing is left alone when a dam or a weir of *crossings* or a polygon
+    of *lakes* lies at it: a dam crest is not a wall to
     cut. Only the embankment span, the run of channel pixels around the crossing
     that stand above the bed line, is lowered.
     """
@@ -442,8 +408,7 @@ def notch_dem(
             geometry
             for kind, geometry in zip(crossings["kind"], crossings.geometry, strict=True)
             if kind in _BARRIER_KINDS and geometry is not None and not geometry.is_empty
-        ]
-        + list(dam_lines),
+        ],
         list(lakes),
     )
     plans = _plan_all(

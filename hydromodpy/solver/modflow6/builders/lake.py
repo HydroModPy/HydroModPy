@@ -34,6 +34,7 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import shapely
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.leakance import parse_to_per_s
@@ -85,7 +86,7 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
 from hydromodpy.spatial.mesh.ops.family_interior import interior_cells, polygon_overlap
-from hydromodpy.spatial.mesh.ops.flow_barrier import cutoff_wall_faces
+from hydromodpy.spatial.mesh.ops.flow_barrier import cutoff_wall_faces, downstream_of_wall
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -856,6 +857,7 @@ def build_lak_package_args(
                 "lake_id": str(lake_id),
                 "n_conn": len(rows),
                 "vertical_iconns": vertical_iconns,
+                "wall_faces": cutoff_wall_flow_faces(definition, cell_ids, solver_mesh),
             }
         )
 
@@ -1104,8 +1106,43 @@ def build_lake_outlets(
                 ]
             )
             outletno += 1
+    _refuse_reciprocal_weirs(rows, lake_ids=list(lakes))
     _warn_on_lake_outlet_cycle(rows, lake_ids=list(lakes))
     return rows
+
+
+# Two reciprocal WEIR crests closer than this (m) are the same crest.
+_SAME_CREST_TOLERANCE_M = 1e-3
+
+
+def _refuse_reciprocal_weirs(rows: Sequence[Sequence[Any]], *, lake_ids: Sequence[str]) -> None:
+    """Refuse two WEIR outlets that spill into each other over the same crest.
+
+    Above the crest each lake pushes water into the other every time step: the
+    pair circulates (17.6 m3/s each way for a 0.04 m3/s net on the Cheze) and
+    does not converge. Such a pair is not a spillway, so it is an input error.
+    """
+
+    def name(index: int) -> str:
+        return lake_ids[index] if 0 <= index < len(lake_ids) else f"lake{index}"
+
+    weirs = [row for row in rows if str(row[3]).upper() == "WEIR" and int(row[2]) >= 0]
+    for position, first in enumerate(weirs):
+        for second in weirs[position + 1 :]:
+            if (
+                int(first[1]) == int(second[2])
+                and int(first[2]) == int(second[1])
+                and abs(float(first[4]) - float(second[4])) <= _SAME_CREST_TOLERANCE_M
+            ):
+                raise ValueError(
+                    "Reciprocal WEIR outlets with the same crest: "
+                    f"outlet {int(first[0])} of lake '{name(int(first[1]))}' spills into "
+                    f"lake '{name(int(first[2]))}' and outlet {int(second[0])} of lake "
+                    f"'{name(int(second[1]))}' spills back, both at invert "
+                    f"{float(first[4]):.3f} m. MF6 would circulate water around the pair "
+                    "above the crest instead of routing it. Keep one of the two outlets, or "
+                    "give them different crests."
+                )
 
 
 def _warn_on_lake_outlet_cycle(rows: Sequence[Sequence[Any]], *, lake_ids: Sequence[str]) -> None:
@@ -1255,6 +1292,12 @@ def resolve_spillway_seed_cells(
     Feeding it to the SFR rectification extends the channel up to the dam, so the spillway
     feeds an SFR reach at the dam foot rather than a gap of hillslope DRN cells. Returns
     ``{lake_id: toe_cell}`` for the lakes that request it.
+
+    A lake with a cutoff wall takes its foot downstream of the wall: the wall has the
+    lake on its left, and only the cells on its right (:func:`downstream_of_wall`) are
+    candidates, as for the HFB and the LAK seal. Without that, the lowest neighbour
+    can be a bank beside the wall or behind it, and the release would enter the
+    aquifer on the lake side. A wall with no such cell on the shore is refused.
     """
     seeds: dict[str, int] = {}
     centroids = np.asarray(cell_centroids, dtype=float)
@@ -1267,18 +1310,73 @@ def resolve_spillway_seed_cells(
             continue
         ox, oy = ref
         cells = [int(c) for c in lake_cells_by_id.get(lake_id, [])]
-        shore = [
-            c
-            for c in cells
-            if any(nb not in all_lake_cells and active0[nb] for nb in cell_adjacency[c])
-        ]
+        wall = definition.get("cutoff_wall_line")
+        below = _below_the_wall(wall, centroids)
+
+        def foot_cells(cell: int, below=below) -> list[int]:
+            return [
+                nb
+                for nb in cell_adjacency[cell]
+                if nb not in all_lake_cells and active0[nb] and (below is None or below[nb])
+            ]
+
+        shore = [c for c in cells if foot_cells(c)]
         if not shore:
+            if below is not None and cells:
+                raise ValueError(
+                    f"flow.sinks_sources.lakes.{lake_id} spillway to_downstream_reach found "
+                    "no active cell downstream of the cutoff wall on the lake shore, so the "
+                    "dam foot cannot be placed below the wall. Check the wall trace and "
+                    "its orientation (lake on its left)."
+                )
             continue
         dam = min(shore, key=lambda c: float(np.hypot(centroids[c][0] - ox, centroids[c][1] - oy)))
-        toe = [nb for nb in cell_adjacency[dam] if nb not in all_lake_cells and active0[nb]]
-        if toe:
-            seeds[lake_id] = int(min(toe, key=lambda c: float(top[c])))
+        seeds[lake_id] = int(min(foot_cells(dam), key=lambda c: float(top[c])))
+        logger.info(
+            "Lake '%s': the spillway foot is cell %d (top %.2f m)%s.",
+            lake_id,
+            seeds[lake_id],
+            float(top[seeds[lake_id]]),
+            " downstream of the cutoff wall" if below is not None else "",
+        )
     return seeds
+
+
+def _below_the_wall(wall: object, centroids: np.ndarray) -> np.ndarray | None:
+    """Per cell, whether its centre lies downstream of the wall; None without a wall."""
+    if wall is None or getattr(wall, "is_empty", True):
+        return None
+    return np.asarray(downstream_of_wall(wall, centroids[:, :2]), dtype=bool)
+
+
+def own_lake_upstream_ifnos(
+    sfr_networks: Mapping[str, Any], *, lake_ids: Sequence[str]
+) -> dict[str, set[int]]:
+    """Return, per lake id, every SFR reach whose flow ends in that lake.
+
+    ``terminal_lake`` is the 1-based lake number (the 0-based position of the lake
+    in ``lake_ids`` plus one). The set holds the terminal reaches and everything
+    upstream of them, so a spillway routed to any of these reaches would close a
+    ``LAK -> SFR -> LAK`` loop.
+    """
+    result: dict[str, set[int]] = {lake_id: set() for lake_id in lake_ids}
+    for network in sfr_networks.values():
+        by_ifno = {int(reach.ifno): reach for reach in network.reaches}
+        for reach in network.reaches:
+            if not (reach.is_terminal_to_lake and reach.terminal_lake is not None):
+                continue
+            position = int(reach.terminal_lake) - 1
+            if not 0 <= position < len(lake_ids):
+                continue
+            seen = result[lake_ids[position]]
+            stack = [int(reach.ifno)]
+            while stack:
+                ifno = stack.pop()
+                if ifno in seen:
+                    continue
+                seen.add(ifno)
+                stack.extend(int(up) for up in by_ifno[ifno].upstream if int(up) in by_ifno)
+    return result
 
 
 def resolve_downstream_spillway_reaches(
@@ -1292,22 +1390,21 @@ def resolve_downstream_spillway_reaches(
 
     After the rectification seeds the dam toe (:func:`resolve_spillway_seed_cells`), that
     cell is itself a reach, so the receiver is exact. If it is not (rectification off, or
-    the extension did not reach it), fall back to the nearest reach to the toe. Returns
-    ``{lake_id: reach_ifno}``.
+    the extension did not reach it), raise: the nearest reach is never a safe guess, it
+    can be a tributary of the lake itself. Returns ``{lake_id: reach_ifno}``.
 
     ``own_lake_terminal_ifnos`` names, per lake, the reaches that already hand their
-    flow BACK to that same lake (its shoreline feeders). Sending a spillway to one of
-    them would close a ``LAK -> SFR -> LAK`` loop: the lake would feed its own inflow,
-    and nothing downstream checks it because the two mover rows are merged
-    independently. Those reaches are therefore excluded from the nearest-reach
-    fallback, and an exact hit on one of them raises. Feeding a reach that terminates
+    flow BACK to that same lake, with every reach upstream of them (see
+    :func:`own_lake_upstream_ifnos`). Sending a spillway to one of them would close a
+    ``LAK -> SFR -> LAK`` loop: the lake would feed its own inflow, and nothing
+    downstream checks it because the two mover rows are merged independently. An exact
+    hit on one of them raises. Feeding a reach that terminates
     in a DIFFERENT lake stays allowed: that is a legitimate cascade (a forebay
     spilling into the main reservoir).
     """
     resolved: dict[str, int] = {}
     if not reach_cell_to_ifno:
         return resolved
-    centroids = np.asarray(cell_centroids, dtype=float)
     forbidden_by_lake = own_lake_terminal_ifnos or {}
     for lake_id, seed in seed_cell_by_lake.items():
         forbidden = {int(ifno) for ifno in forbidden_by_lake.get(lake_id, ())}
@@ -1323,20 +1420,14 @@ def resolve_downstream_spillway_reaches(
                 )
             resolved[lake_id] = ifno
             continue
-        candidates = [cell for cell, ifno in reach_cell_to_ifno.items() if ifno not in forbidden]
-        if not candidates:
-            raise ValueError(
-                f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach found "
-                "no downstream SFR reach: every reach of the network feeds this lake, so "
-                "any receiver would circulate the overflow back into it. Add a reach below "
-                "the dam, or route the outlet elsewhere."
-            )
-        sx, sy = float(centroids[seed][0]), float(centroids[seed][1])
-        target = min(
-            candidates,
-            key=lambda c: float(np.hypot(centroids[c][0] - sx, centroids[c][1] - sy)),
+        raise ValueError(
+            f"flow.sinks_sources.lakes.{lake_id} outlet mover to_downstream_reach found no "
+            f"SFR reach on the dam foot (cell {seed}). The nearest reach is not used: it can "
+            "be a tributary that flows back into the lake (99 % of a release returned to "
+            "the reservoir on the Cheze). Enable rectify_on_mesh on the SFR network so a "
+            "channel is drawn to the dam foot, or declare the receiving reach with "
+            "mover.reach."
         )
-        resolved[lake_id] = int(reach_cell_to_ifno[target])
     return resolved
 
 
@@ -1433,12 +1524,55 @@ _LAKE_SCALAR_OBSTYPES: tuple[tuple[str, str], ...] = (
     ("volume", "volume"),
     ("surface-area", "surface_area"),
     ("ext-inflow", "inflow"),
+    ("outlet-inflow", "outlet_inflow"),
     ("rainfall", "rainfall"),
     ("evaporation", "evaporation"),
     ("runoff", "runoff"),
     ("withdrawal", "withdrawal"),
     ("storage", "storage"),
 )
+
+
+def cutoff_wall_flow_faces(
+    definition: Mapping[str, Any], lake_cell_ids: Sequence[int], solver_mesh: SolverMesh
+) -> list[tuple[int, int]]:
+    """The faces of a lake's cutoff wall as ``(lake side, downstream side)`` pairs.
+
+    The faces are those of the HFB and the LAK seal (:func:`cutoff_wall_faces`).
+    A face with a lake cell has it first. Any other face (a wing, a face of the
+    line off the shore) is ordered by the side of the wall: the wall has the lake
+    on its left, so the first cell is the one the crossing leaves on the left.
+    The extractor sums the face flow over these pairs (``cutoff_wall_flow``).
+    Empty without a wall.
+    """
+    line = definition.get("cutoff_wall_line")
+    if line is None or getattr(line, "is_empty", True):
+        return []
+    lake = {int(c) for c in lake_cell_ids}
+    faces = cutoff_wall_faces(solver_mesh.cell_mesh, line, np.asarray(sorted(lake), dtype=np.int64))
+    centres = np.asarray(solver_mesh.cell_mesh.centers, dtype=float)
+    pairs: list[tuple[int, int]] = []
+    for face in faces:
+        a, b = int(face.cell_a), int(face.cell_b)
+        if a in lake:
+            pairs.append((a, b))
+        elif b in lake or _crosses_to_the_left(line, centres[a], centres[b]):
+            pairs.append((b, a))
+        else:
+            pairs.append((a, b))
+    return pairs
+
+
+def _crosses_to_the_left(line: Any, start: np.ndarray, end: np.ndarray) -> bool:
+    """Whether going from ``start`` to ``end`` crosses the wall to its left side."""
+    mid = shapely.points(0.5 * (start[0] + end[0]), 0.5 * (start[1] + end[1]))
+    along = float(shapely.line_locate_point(line, mid))
+    step = 1.0e-6 * max(float(line.length), 1.0)
+    before = shapely.get_coordinates(line.interpolate(max(along - step, 0.0)))[0]
+    after = shapely.get_coordinates(line.interpolate(min(along + step, float(line.length))))[0]
+    tangent = after - before
+    move = np.asarray(end[:2], dtype=float) - np.asarray(start[:2], dtype=float)
+    return float(tangent[0] * move[1] - tangent[1] * move[0]) > 0.0
 
 
 def build_lake_obs_spec(
@@ -1455,7 +1589,9 @@ def build_lake_obs_spec(
     MF6's 1-based convention). ``lake_obs_meta`` is the JSON-serialisable sidecar
     mapping each observation name to its lake / quantity / connection so the
     extractor can re-key the obs CSV by ``(lake_id, totim)`` and isolate the
-    under-dam (VERTICAL) leakage.
+    VERTICAL exchange of the lake bed. A lake whose info carries ``wall_faces``
+    (:func:`cutoff_wall_flow_faces`) has them listed under ``cutoff_walls``, read
+    with the GWF budget ``gwf_budget_bin`` into ``cutoff_wall_flow``.
 
     When ``has_mover`` is set the LAK package routes water through MVR, so a
     ``from-mvr`` obs is added per lake (water received from the mover, MF6 id =
@@ -1525,6 +1661,14 @@ def build_lake_obs_spec(
         "budgetcsv": f"{stem}.lak.budget.csv",
         "budget_bin": f"{stem}.lak.cbc",
         "entries": entries,
+        # The faces of each cutoff wall, lake side first, and the GWF budget whose
+        # FLOW-JA-FACE carries the flow across them (series cutoff_wall_flow).
+        "cutoff_walls": {
+            str(info["lake_id"]): [[int(a), int(b)] for a, b in info["wall_faces"]]
+            for info in lake_conn_info
+            if info.get("wall_faces")
+        },
+        "gwf_budget_bin": f"{stem}.cbc",
     }
     return obs_continuous, lake_obs_meta
 
@@ -1553,6 +1697,7 @@ __all__ = [
     "build_lake_period_data",
     "build_lake_table",
     "convert_bedleak_to_per_s",
+    "cutoff_wall_flow_faces",
     "lake_definitions_for_bedleak",
     "resolve_downstream_spillway_reaches",
     "resolve_lake_cells",

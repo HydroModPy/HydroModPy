@@ -34,6 +34,11 @@ start_datetime = "2015-01-01"
 end_datetime = "2020-12-31"
 step_value = "1 day"
 
+# The window every score of a run is read on, 2015 being the spin-up. The
+# window of project.toml, 2001-2002, lies outside this record.
+[metrics]
+window = { start = "2016-01-01", end = "2020-12-31" }
+
 # The rain and the ETP replace the recharge and the runoff of project.toml:
 # the soil reservoir computes the recharge, and the water that seeps out of
 # saturated ground reaches the gauge through the drains. A list replaces the
@@ -97,10 +102,6 @@ figures = [
 # The seepage of February 2020, near the largest saturated extent.
 [display.overrides.seepage_map]
 time = "2020-02-15"
-
-# The scored years, 2015 being the spin-up, shaded.
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2016-01-01", "2020-12-31"]
 
 # One hydrological year inside the run.
 [display.overrides.flow_intermittence_map]

@@ -62,6 +62,21 @@ def gauge_of_run(site: SiteConfig | None, hydrometry: Any) -> str | None:
     return str(points[0].station_id)
 
 
+def check_run_gauge_area(
+    site: SiteConfig | None,
+    hydrometry: Any,
+    catchment_area_km2: float | None,
+) -> None:
+    """Warn when the delineated area disagrees with the one the run's gauge publishes.
+
+    The gauge is :func:`gauge_of_run`. A run with several stations and no
+    ``[site] gauge`` has none, so nothing is checked.
+    """
+    from hydromodpy.data.variables.hydrometry.catchment_area_check import check_gauge_area
+
+    check_gauge_area(gauge_of_run(site, hydrometry), catchment_area_km2)
+
+
 def _keyed_by_station(source: Any) -> bool:
     """True for a source whose ``station_ids`` selects catchment stations."""
     if getattr(source, "source", None) not in _STATION_SOURCES:
@@ -70,4 +85,4 @@ def _keyed_by_station(source: Any) -> bool:
     return path is None or Path(str(path)).suffix.lower() not in _GRID_SUFFIXES
 
 
-__all__ = ["GAUGE_VARIABLES", "apply_site_gauge", "gauge_of_run"]
+__all__ = ["GAUGE_VARIABLES", "apply_site_gauge", "check_run_gauge_area", "gauge_of_run"]

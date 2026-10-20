@@ -571,8 +571,23 @@ class ConfigBlockObjective:
         found = [step for step in found if np.isfinite(step) and step > 0.0]
         return float(np.median(found)) if found else None
 
+    def _times_days(self, sim: object) -> list[np.ndarray] | None:
+        """Dates of each output of this block, in days, when the trial paired them.
+
+        Read from ``metadata["sample_times"]`` of a :class:`SimulationOutput`,
+        one array per output. ``None`` unless every output of the block has one.
+        """
+        metadata = getattr(sim, "metadata", None)
+        if not isinstance(metadata, Mapping):
+            return None
+        times = metadata.get("sample_times")
+        if not isinstance(times, Mapping) or any(name not in times for name in self._outputs):
+            return None
+        return [np.asarray(times[name], dtype=float).ravel() for name in self._outputs]
+
     def evaluate(self, sim: SimulationOutput | Mapping[str, Iterable[float]]) -> ObjectiveValue:
         sample_days = self._sample_days(sim)
+        times_parts = self._times_days(sim)
         if hasattr(sim, "values") and not isinstance(sim, Mapping):
             sim_values = sim.values
         else:
@@ -593,6 +608,8 @@ class ConfigBlockObjective:
         if self._warmup > 0:
             scored_parts = [part[self._warmup :] for part in simulated_parts]
             observed_parts = [part[self._warmup :] for part in self._observed_parts]
+            if times_parts is not None:
+                times_parts = [part[self._warmup :] for part in times_parts]
             simulated = np.concatenate(scored_parts)
             observed = np.concatenate(observed_parts)
         else:
@@ -630,7 +647,15 @@ class ConfigBlockObjective:
                         f"{observed_part.size}{burn_in}"
                     )
             if self._metric in SAMPLED_BY_DATE:
-                scored = self._criterion.score(simulated, observed, sample_days=sample_days)
+                times_days = None
+                if times_parts is not None and all(
+                    times.size == part.size
+                    for times, part in zip(times_parts, scored_parts, strict=True)
+                ):
+                    times_days = np.concatenate(times_parts) if times_parts else None
+                scored = self._criterion.score(
+                    simulated, observed, sample_days=sample_days, times_days=times_days
+                )
             else:
                 scored = self._criterion.score(simulated, observed)
         cost = scored.cost

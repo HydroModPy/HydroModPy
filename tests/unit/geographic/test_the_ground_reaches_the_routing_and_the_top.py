@@ -20,7 +20,6 @@ from shapely.geometry import box
 from hydromodpy.spatial.geographic import pipeline as runtime_pipeline
 from hydromodpy.spatial.geographic.core.ground_corrections import (
     CROSSINGS_REPORT_FILENAME,
-    GROUND_DAM_FILENAME,
     GROUND_FILENAME,
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
@@ -90,13 +89,6 @@ def _config(tmp_path: Path, *, raw: np.ndarray, **sections) -> GeographicConfig:
     )
 
 
-def _dam_sections(tmp_path: Path) -> dict:
-    line = bench.road_along(ROAD_ROW)
-    path = tmp_path / "dam.gpkg"
-    gpd.GeoDataFrame(geometry=[line], crs=bench.CRS).to_file(path, driver="GPKG")
-    return {"dam_carve": {"enabled": True, "line_path": path, "buffer_m": 6.0}}
-
-
 def _crossing_sections(tmp_path: Path) -> dict:
     path = tmp_path / "crossings.gpkg"
     bench.structures(("road", bench.road_along(ROAD_ROW))).to_file(path, driver="GPKG")
@@ -144,20 +136,6 @@ def test_without_a_correction_the_raw_dem_is_routed_and_clipped_untouched(
     assert terrain.routing == [raw]
     assert terrain.top == [raw]
     assert not list(_correcflow(tmp_path).glob("dem_ground*"))
-
-
-def test_a_carved_dam_reaches_the_routing_and_the_top(tmp_path, monkeypatch) -> None:
-    raw = bench.build(embankment_rows=(ROAD_ROW,), height=8.0).dem
-    config = _config(tmp_path, raw=raw, **_dam_sections(tmp_path))
-
-    terrain, _ = _runtime(tmp_path, monkeypatch, config)
-
-    ground = str(_correcflow(tmp_path) / GROUND_DAM_FILENAME)
-    assert terrain.routing == [ground]
-    assert terrain.top == [ground]
-    carved = _read(ground)
-    assert (carved[ROAD_ROW, :] < raw[ROAD_ROW, :]).all()
-    assert carved[0, 0] == raw[0, 0]
 
 
 def test_a_declared_crossing_is_notched_and_delineated_again(tmp_path, monkeypatch) -> None:
@@ -216,17 +194,6 @@ def test_the_runtime_context_hands_the_ground_as_the_top(tmp_path, monkeypatch) 
     _, context = _runtime(tmp_path, monkeypatch, config)
 
     assert context.top_dem_path == str(_correcflow(tmp_path) / GROUND_FILENAME)
-
-
-def test_the_dam_is_carved_before_the_notch_reads_it(tmp_path, monkeypatch) -> None:
-    raw = bench.build(embankment_rows=(ROAD_ROW,), height=8.0).dem
-    config = _config(tmp_path, raw=raw, **_dam_sections(tmp_path), **_crossing_sections(tmp_path))
-
-    terrain, _ = _runtime(tmp_path, monkeypatch, config)
-
-    ground = str(_correcflow(tmp_path) / GROUND_FILENAME)
-    assert terrain.routing[0] == str(_correcflow(tmp_path) / GROUND_DAM_FILENAME)
-    assert terrain.top == [ground]
 
 
 def test_a_notch_that_lowers_nothing_logs_its_line_once(tmp_path, monkeypatch, caplog) -> None:

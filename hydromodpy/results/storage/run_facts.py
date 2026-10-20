@@ -245,6 +245,20 @@ class RunFacts(HydroModelBase):
             return row
         return row.model_copy(update={"origin": "calibrated", "calibrated": True})
 
+    def note_validity(
+        self,
+        name: str,
+        passed: bool,
+        value: float | None,
+        message: str,
+        *,
+        fatal: bool = False,
+    ) -> None:
+        """Keep one verdict per check name, a non-fatal one by default; the last write wins."""
+        self.validities = [v for v in self.validities if v.name != name] + [
+            Validity(name, passed, value, message, fatal)
+        ]
+
     def put_metric(self, row: MetricRow) -> None:
         """Keep one value per station, variable and metric; the last write wins."""
         key = (row.station, row.variable, row.metric)

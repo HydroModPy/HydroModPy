@@ -347,6 +347,70 @@ def _solution_status(sim: Any) -> tuple[bool, int | None]:
     return converged, mxiter
 
 
+# Child script of the initialize probe. It imports xmipy only, so the probe
+# costs one library load and one initialize, not a HydroModPy import.
+_PROBE_SCRIPT = """
+import sys
+from xmipy import XmiWrapper
+
+mf6 = XmiWrapper(sys.argv[1], working_directory=sys.argv[2])
+mf6.initialize()
+mf6.finalize()
+"""
+
+# Exit status of the Fortran ``stop`` libmf6 calls after an input error.
+_MF6_STOP_CODE = 2
+
+
+def _tail(text: str, lines: int) -> str:
+    return "\n".join(text.strip().splitlines()[-lines:])
+
+
+def _check_initialize_in_child(workspace: Path, lib: Path, *, lines: int = 20) -> None:
+    """Initialize the simulation once in a child interpreter, then finalize it.
+
+    libmf6 ends its host process on an input error: a Fortran ``stop`` exits
+    with code 2, with no Python exception. Probing initialize in a child keeps
+    the caller alive. A probe that exits with code 2 raises
+    :class:`SolverInputError`, any other failure :class:`SolverError`. Both carry
+    the tail of ``mfsim.stdout``, where libmf6 writes the error. The real run
+    then initializes again and overwrites the probe's listing files.
+    """
+    import subprocess
+    import sys
+
+    stdout_file = workspace / "mfsim.stdout"
+    # A stale file from an earlier run would be read as this probe's error.
+    stdout_file.unlink(missing_ok=True)
+    proc = subprocess.run(
+        [sys.executable, "-I", "-c", _PROBE_SCRIPT, str(lib), str(workspace)],
+        capture_output=True,
+        text=True,
+        cwd=str(workspace),
+        check=False,
+    )
+    if proc.returncode == 0:
+        return
+    detail = ""
+    try:
+        text = stdout_file.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        text = ""
+    if text.strip():
+        detail += f"\n{stdout_file}:\n{_tail(text, lines)}"
+    if proc.stderr.strip():
+        detail += f"\nstderr:\n{_tail(proc.stderr, lines)}"
+    if proc.returncode == _MF6_STOP_CODE:
+        raise SolverInputError(
+            f"MF6 stopped while reading the input of {workspace} "
+            f"(initialize exited with code {proc.returncode}).{detail}"
+        )
+    raise SolverError(
+        f"MF6 initialize of {workspace} failed in the probe child "
+        f"(exit code {proc.returncode}).{detail}"
+    )
+
+
 def _finalize_quietly(mf6: Any) -> None:
     """Finalize libmf6 after a failure, ignoring a second error.
 
@@ -366,6 +430,7 @@ def run_mf6_api(
     lib_path: str | os.PathLike[str] | None = None,
     verbose: bool = False,
     progress_sink: Callable[[int, int | None], None] | None = None,
+    check_input: bool = True,
 ) -> bool:
     """Drive a written MODFLOW 6 workspace through libmf6 with a step callback.
 
@@ -388,6 +453,11 @@ def run_mf6_api(
         stress-period count as ``total``) and once per timestep. Lets the isolated
         (spawn-child) runner relay solve progress to the parent process, which
         cannot see the child's own progress bar.
+    check_input:
+        Initialize the simulation once in a child interpreter before the solve.
+        libmf6 ends its host process on an input error, so without the probe a
+        bad input file kills the caller. The isolated runner turns it off, since
+        its child already shields the parent.
 
     Returns
     -------
@@ -403,7 +473,8 @@ def run_mf6_api(
     SolverError
         When the developer callback raises (re-raised with step context).
     SolverInputError
-        When the TDIS file uses ATS, which the API loop does not honor.
+        When the TDIS file uses ATS, which the API loop does not honor, or when
+        MF6 stops on an input error at initialize.
     SolverDivergedError
         When a time step fails to converge. Raised at the first failed step,
         like the exe path, with the period, step and iteration count.
@@ -438,6 +509,9 @@ def run_mf6_api(
             "the ATS step retry, so the time step would never be cut. Remove the "
             "ATS6 file from TDIS or run with the mf6 executable."
         )
+
+    if check_input:
+        _check_initialize_in_child(workspace, resolved_lib)
 
     callbacks = modflowapi.Callbacks
     phase_by_callback = {
