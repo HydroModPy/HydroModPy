@@ -225,7 +225,7 @@ def test_sim_obs_figures_align_only_overlapping_samples(mpl, tmp_path) -> None:
 
     fig, ax = mpl.subplots()
     ScatterOneToOne().render(run, ax)
-    assert any("n=3" in text.get_text() for text in ax.texts)
+    assert any("holds no score" in text.get_text() for text in ax.texts)
     mpl.close(fig)
 
     path = tmp_path / "residuals.png"

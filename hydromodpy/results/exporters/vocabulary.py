@@ -61,13 +61,15 @@ SIMULATED_SERIES: tuple[str, ...] = (
     "depth",
     "volume",
     "surface_area",
-    "seepage_under_dam",
+    "lake_bed_vertical_exchange",
     "rainfall",
     "evaporation",
     "inflow",
     "withdrawal",
     "storage",
     "outlet",
+    "outlet_inflow",
+    "cutoff_wall_flow",
 )
 """Series a solve writes, named by variable."""
 

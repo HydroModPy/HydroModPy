@@ -25,7 +25,7 @@ from tests._helpers.terrain_doubles import fake_flow_products
 from tests.unit.geographic.test_geographic_cache import _touch_artifact
 
 FILL_FINGERPRINT_WITHOUT_THE_BURN = (
-    "7b2ef36222c1439414f36aa3464a7c51e18ed18111f14601fb4112f79344a363"
+    "e98e054d5ea4b7e52eb24e122f7a85384b6e2338528dedb35b527b8708490ffb"
 )
 """The fingerprint of 79fe734ea, before the capped breach existed, minus the burn.
 
@@ -34,6 +34,12 @@ the payload, so every cached tree is rebuilt once. Putting both back (defaults, 
 gives back ``ab83e008ba427355b3c68345745088b13a0337e006164879216e8d7571f626b3``, the value
 a clean export of 79fe734ea computes: the capped breach key is the only other thing the
 payload could have gained, and it is absent.
+
+Removing ``[geographic.dam_carve]`` and the ramp and capture keys of
+``[geographic.enforce_lakes]`` took them and the ``dam_carve_line_path`` signature out of
+the payload in turn, so every cached tree is rebuilt once. Putting them back (defaults, no
+path) gives back ``7b2ef36222c1439414f36aa3464a7c51e18ed18111f14601fb4112f79344a363``,
+the value before that removal.
 
 The DEM is a bare file name that does not exist. The payload holds the path as the OS
 spells it, so a name without a separator is the one input that hashes alike everywhere.

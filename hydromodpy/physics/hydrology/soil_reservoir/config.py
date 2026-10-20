@@ -440,10 +440,10 @@ def spinup_refusal(config: SoilReservoirConfig, run_days: int) -> str | None:
     if config.spinup != "first_year" or run_days >= SPINUP_MIN_RUN_DAYS:
         return None
     return (
-        'spinup = "first_year" repeats the first 365 days of the run, and '
+        'spinup = "first_year" repeats the first 52 weeks (364 days) of the run, and '
         f'[simulation.time] covers {run_days} days: write spinup = "none" under '
         "[flow.sinks_sources.recharge.soil] to start from a full soil, or extend "
-        "the run to one year at least."
+        "the run to 52 weeks at least."
     )
 
 

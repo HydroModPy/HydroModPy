@@ -8,6 +8,7 @@ shared flow execution lifecycle lives in
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -16,6 +17,7 @@ import pandas as pd
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ConfigError, ObservableNotAvailableError
 from hydromodpy.core.state.run_state import RunState
+from hydromodpy.physics.flow.sinks_sources.wells import WELLS_PUMPED_METRIC
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observable_support import (
@@ -222,7 +224,11 @@ class Modflow6FlowAdapter:
             modflow_config=state.cfg.modflow6,
             preprocess_options=preprocess_options,
         )
-        return run_flow_model(ctx, model_modflow, preprocess_options)
+        result = run_flow_model(ctx, model_modflow, preprocess_options)
+        pumped = getattr(model_modflow, "well_pumped_percent", None)
+        if pumped is None:
+            return result
+        return replace(result, metrics={**result.metrics, WELLS_PUMPED_METRIC: float(pumped)})
 
 
 def _saved_head_times(output_dir: Path, model_name: str) -> list[float]:

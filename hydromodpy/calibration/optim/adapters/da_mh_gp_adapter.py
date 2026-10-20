@@ -116,7 +116,9 @@ class DaMhGpOptimizer:
     name = "da_mh_gp"
 
     # The log-likelihood is written for an RMSE: -0.5 * (cost / sigma_noise)**2.
-    traits = EngineTraits(reads_cost_as="rmse")
+    # The chain proposes its next point once the previous one is told, so a
+    # batch holds one trial.
+    traits = EngineTraits(reads_cost_as="rmse", supports_parallel=False)
 
     def __init__(
         self,
@@ -357,18 +359,19 @@ class DaMhGpOptimizer:
     # ------------------------------------------------------------------
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
-        out: list[ParamSuggestion] = []
-        for _ in range(n):
-            x_t = self._bridge.next_point()
-            if x_t is None:
-                break
-            self._trial_id += 1
-            self._pending[self._trial_id] = x_t
-            values = {
-                p.name: p.to_physical(float(x_t[i])) for i, p in enumerate(self.space.parameters)
-            }
-            out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
-        return out
+        """Return the chain's next point, one whatever ``n``.
+
+        The chain proposes a point only once the previous one is told: a second
+        point asked in the same batch would wait for a tell that never comes.
+        """
+        del n
+        x_t = self._bridge.next_point()
+        if x_t is None:
+            return []
+        self._trial_id += 1
+        self._pending[self._trial_id] = x_t
+        values = {p.name: p.to_physical(float(x_t[i])) for i, p in enumerate(self.space.parameters)}
+        return [ParamSuggestion(trial_id=self._trial_id, values=values, source="ask")]
 
     def suggest_next(self) -> ParamSuggestion:
         got = self.ask(1)

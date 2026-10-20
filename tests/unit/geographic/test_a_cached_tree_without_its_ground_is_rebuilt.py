@@ -11,7 +11,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
-from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_DAM_FILENAME
+from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_FILENAME
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 from hydromodpy.spatial.geographic.pipeline import (
@@ -49,19 +49,22 @@ def _touch(path: str | Path) -> None:
         for suffix in (".shp", ".shx", ".dbf"):
             path.with_suffix(suffix).write_text("", encoding="utf-8")
         return
-    path.write_text("", encoding="utf-8")
+    path.write_text("{}" if path.suffix.lower() == ".json" else "", encoding="utf-8")
 
 
-def _tree(tmp_path: Path, *, dam: bool):
+def _tree(tmp_path: Path, *, notch: bool):
     dem = tmp_path / "dem.tif"
     _raster(dem)
     sections = {}
-    if dam:
-        line = tmp_path / "dam.gpkg"
-        gpd.GeoDataFrame(geometry=[LineString([(0, 0), (1, 1)])], crs="EPSG:2154").to_file(
-            line, driver="GPKG"
-        )
-        sections = {"dam_carve": {"enabled": True, "line_path": line}}
+    if notch:
+        line = tmp_path / "crossings.gpkg"
+        gpd.GeoDataFrame(
+            {"kind": ["road"]}, geometry=[LineString([(0, 0), (1, 1)])], crs="EPSG:2154"
+        ).to_file(line, driver="GPKG")
+        sections = {
+            "crossings": {"enabled": True, "path": line},
+            "river_network": {"enabled": True, "threshold_mode": "cells", "threshold_cells": 50},
+        }
     config = GeographicConfig.model_validate(
         {
             "catchment": {
@@ -101,20 +104,20 @@ def _load(config, paths):
     return _load_cached_geographic_products(config=config, paths=paths, crs_project="EPSG:2154")
 
 
-def test_a_tree_with_the_dam_carved_ground_is_a_hit(tmp_path: Path) -> None:
-    config, paths = _tree(tmp_path, dam=True)
-    _raster(Path(paths.correcflow_path) / GROUND_DAM_FILENAME)
+def test_a_tree_with_the_notched_ground_is_a_hit(tmp_path: Path) -> None:
+    config, paths = _tree(tmp_path, notch=True)
+    _raster(Path(paths.correcflow_path) / GROUND_FILENAME)
 
     assert _load(config, paths) is not None
 
 
 def test_a_tree_written_before_the_ground_had_its_own_file_is_a_miss(tmp_path: Path) -> None:
-    config, paths = _tree(tmp_path, dam=True)
+    config, paths = _tree(tmp_path, notch=True)
 
     assert _load(config, paths) is None
 
 
 def test_a_tree_without_corrections_needs_no_ground_file(tmp_path: Path) -> None:
-    config, paths = _tree(tmp_path, dam=False)
+    config, paths = _tree(tmp_path, notch=False)
 
     assert _load(config, paths) is not None

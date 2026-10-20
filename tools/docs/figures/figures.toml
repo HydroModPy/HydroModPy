@@ -137,7 +137,6 @@ config = "run_calibration.toml"
 command = "hmp run run_calibration.toml --set display.preset=dark"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
 pages = []
-options = { scoring_window = ["2001-01-01", "2002-12-31"] }
 width = 1337
 height = 767
 bytes = 31198
@@ -152,7 +151,6 @@ config = "run_calibration.toml"
 command = "hmp run run_calibration.toml"
 redraw = "hmp viz show nancon_intermittence_mf6_calibrated_transient_storage hydrograph_log_nse --opt show_run_name=false"
 pages = []
-options = { scoring_window = ["2001-01-01", "2002-12-31"] }
 width = 1337
 height = 767
 bytes = 35656

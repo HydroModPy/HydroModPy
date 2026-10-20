@@ -82,8 +82,17 @@ def distance_mean(simulated: Sequence[float] | Any) -> float:
     already balanced at ``J = 0``; using it inside, in place of Eq. 1, is a
     different estimator, and nothing puts its interior minimum at the crossing.
     With two bounds, the weighted sum of each bound's ``Doptim``.
+
+    NaN when a bound's simulated network is empty: its ``Doptim`` is undefined.
+    That bound's ``D_so`` is rebuilt from the residual, ``D_os - L_cap``
+    (:func:`~hydromodpy.calibration.metrics.downslope_network.weighted_pair`),
+    and is negative, which no measured distance is. Summed, it would rank the
+    empty network below every real one.
     """
-    return float(sum(0.5 * (d_so + d_os) for d_so, d_os in distance_pairs(simulated)))
+    pairs = distance_pairs(simulated)
+    if any(d_so < 0.0 for d_so, _ in pairs):
+        return float("nan")
+    return float(sum(0.5 * (d_so + d_os) for d_so, d_os in pairs))
 
 
 class HydrographicNetworkDistance:

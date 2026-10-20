@@ -29,6 +29,12 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
   reproduces; any other value is refused, since a ratio has no length without
   the cell size of the run
+- ``[workspace] project_root``, ``[display] output_dir`` and
+  ``[calibration] rerun_best_with_outputs`` dropped, ``simulation.if_exists =
+  "replace"`` rewritten as ``"version"``: the loader refuses each of them with
+  the line to delete, and only ``fix_config_file`` makes the edit. The read
+  path keeps refusing, so a file that says them is told. ``[site]`` is never
+  written here: it names the catchment, which only the user knows.
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
 never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
@@ -81,6 +87,7 @@ def fix_config_file(path: str | Path) -> list[str]:
     # reads it as an empty key on line 1, so the doctor could not fix them.
     doc = tomlkit.parse(path.read_text(encoding="utf-8-sig"))
     changes = migrate_config_doc(doc)
+    changes.extend(_migrate_refused_keys(doc))
     if changes:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
@@ -128,6 +135,85 @@ def migrate_config_doc(doc: Any) -> list[str]:
 
     changes.extend(_promote_export(doc, simulation))
     return _finish(doc, changes)
+
+
+#: Keys the loader refuses and a file can drop without changing what a run does.
+_DROPPED_KEYS: dict[str, str] = {
+    "workspace.project_root": (
+        "the project root is the folder that holds project.toml, or the folder of the file"
+    ),
+    "display.output_dir": "figures are written under runs/<run>/figures/",
+    "calibration.rerun_best_with_outputs": (
+        "the best trial is promoted by default (save_runs = 'best_n')"
+    ),
+}
+
+
+def _migrate_refused_keys(doc: Any) -> list[str]:
+    """Drop or rewrite the keys the loader refuses, in a file only.
+
+    Not part of :func:`migrate_config_doc`: a load keeps refusing these keys,
+    with the line to delete, and ``hmp doctor --fix-config`` makes the edit.
+    The calibration phases write the same keys as dotted ``overrides``, and
+    those are carried across too.
+    """
+    changes = _migrate_refused_scope(doc, where="")
+    phases = (doc.get("calibration") or {}).get("phases")
+    if isinstance(phases, Mapping):
+        phases = [phases]
+    for index, phase in enumerate(phases or ()):
+        overrides = phase.get("overrides") if isinstance(phase, Mapping) else None
+        if isinstance(overrides, Mapping):
+            where = f"calibration.phases[{index}].overrides."
+            changes.extend(_migrate_refused_dotted(overrides, where))
+            changes.extend(_migrate_refused_scope(overrides, where=where))
+    return changes
+
+
+def _migrate_refused_scope(scope: Any, *, where: str) -> list[str]:
+    """Apply the refused-key rules to one config-shaped table."""
+    changes: list[str] = []
+    for path, reason in _DROPPED_KEYS.items():
+        *parents, key = path.split(".")
+        table = _descend(scope, parents)
+        if table is None or key not in table:
+            continue
+        del table[key]
+        changes.append(f"{where}{path} dropped ({reason})")
+        if not parents:
+            continue
+        # The section is left empty: a bare header says nothing, so it goes.
+        parent = _descend(scope, parents[:-1])
+        if parent is not None and not table:
+            del parent[parents[-1]]
+    simulation = _descend(scope, ["simulation"])
+    if simulation is not None and simulation.get("if_exists") == "replace":
+        simulation["if_exists"] = "version"
+        changes.append(
+            f"{where}simulation.if_exists 'replace' -> 'version' (a run is never replaced)"
+        )
+    return changes
+
+
+def _migrate_refused_dotted(overrides: Any, where: str) -> list[str]:
+    """Apply the refused-key rules to the dotted keys of a phase's overrides."""
+    changes: list[str] = []
+    for key in list(overrides):
+        if str(key) in _DROPPED_KEYS:
+            del overrides[key]
+            changes.append(f'{where}"{key}" dropped ({_DROPPED_KEYS[str(key)]})')
+        elif str(key) == "simulation.if_exists" and overrides[key] == "replace":
+            overrides[key] = "version"
+            changes.append(f"{where}\"{key}\" 'replace' -> 'version' (a run is never replaced)")
+    return changes
+
+
+def _descend(scope: Any, parents: list[str]) -> Any:
+    """Return the nested table at ``parents`` of *scope*, or ``None``."""
+    node = scope
+    for part in parents:
+        node = node.get(part) if isinstance(node, Mapping) else None
+    return node if isinstance(node, Mapping) else None
 
 
 def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) -> list[str]:

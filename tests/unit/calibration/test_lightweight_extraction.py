@@ -48,11 +48,6 @@ def _discharge_request() -> ObservableRequest:
     return ObservableRequest(id="q", name="discharge", support="domain")
 
 
-def test_calibration_config_has_lightweight_extraction_default_true() -> None:
-    cfg = CalibrationConfig()
-    assert cfg.lightweight_extraction is True
-
-
 def test_ram_cache_round_trip() -> None:
     cache = LumpedRamCache()
     cache.put("outlet", "discharge", pd.Series([1.0, 2.0, 3.0]))

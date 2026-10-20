@@ -14,6 +14,7 @@ from hydromodpy.core.time import (
     build_simulation_time_boundaries,
     resolve_simulation_time_window,
 )
+from hydromodpy.data.sites.gauge import check_run_gauge_area
 from hydromodpy.physics.flow.structure_binders import (
     apply_cutoff_wall_to_flow,
     apply_etp_load_result_to_flow,
@@ -27,6 +28,7 @@ from hydromodpy.physics.flow.structure_binders import (
     apply_recharge_load_result_to_flow,
     apply_runoff_to_sfr_networks,
     apply_sfr_network_to_flow,
+    sfr_routes_catchment_runoff,
 )
 from hydromodpy.physics.hydrology.soil_reservoir.config import (
     soil_reservoir_of,
@@ -43,6 +45,7 @@ from hydromodpy.simulation.soil_recharge import (
 from hydromodpy.spatial.geographic.core.derived_features import (
     attach_reference_hydrographic_network,
 )
+from hydromodpy.spatial.geographic.core.lake_catchments import lake_contributing_areas_m2
 from hydromodpy.spatial.geographic.structure_binders import apply_geology_to_domain
 from hydromodpy.workflow.internals.data_description import (
     changed_sources,
@@ -127,6 +130,11 @@ def run_data(
         data_plan=data_plan,
     )
     loader.load_all(run_state)
+    check_run_gauge_area(
+        getattr(run_state.cfg, "site", None),
+        run_state.loaded_data.hydrometry,
+        getattr(run_state.setup.geographic, "catch_area", None),
+    )
     apply_structural_updates_from_data(run_state)
     run_state.loaded_data.loaded_plan_types = tuple(getattr(data_plan, "types", ()) or ())
 
@@ -249,6 +257,9 @@ def apply_structural_updates_from_data(
         runoff=_runoff,
         simulation_window=window,
         catchment_area_m2=_catch_area_m2,
+        lake_contributing_areas_m2=(
+            lake_runoff_areas(setup_state) if _runoff is not None else None
+        ),
     )
     if setup_state.geographic_features is not None:
         setup_state.geographic_features = attach_reference_hydrographic_network(
@@ -256,6 +267,45 @@ def apply_structural_updates_from_data(
             data_state.hydrography,
         )
     bind_sfr_network_traces(run_state)
+
+
+# ---------------------------------------------------------------------------
+# Lake runoff shares
+# ---------------------------------------------------------------------------
+
+
+def lake_runoff_areas(setup_state: object) -> dict[str, float] | None:
+    """Return the area each lake drains, or None when the basin is shared evenly.
+
+    Only the lakes fed directly need it: an active SFR network routes the runoff
+    and a lone lake takes the whole basin. The areas are read on the D8 grid of
+    the regional flow products, the only drainage that exists before the mesh.
+    None hands the choice back to the binder, which splits the basin evenly.
+    """
+    flow = getattr(setup_state, "flow", None)
+    if flow is None or sfr_routes_catchment_runoff(flow):
+        return None
+    lakes = getattr(flow, "sinks_sources", {}).get("lakes") or {}
+    if len(lakes) < 2:
+        return None
+    polygons = {
+        str(lake_id): _payload_attr(payload, "polygon")
+        for lake_id, payload in lakes.items()
+        if _payload_attr(payload, "polygon") is not None
+    }
+    geographic = getattr(setup_state, "geographic", None)
+    flow_products = getattr(geographic, "_flow_products", None)
+    if len(polygons) != len(lakes) or flow_products is None:
+        logger.warning(
+            "The lakes cannot be given their own drainage area (lake polygons or D8 "
+            "pointer missing): the basin runoff is split evenly between them."
+        )
+        return None
+    return lake_contributing_areas_m2(
+        d8_pointer_tif=str(flow_products.direc),
+        lake_polygons=polygons,
+        watershed_polygons=_read_watershed_polygons(geographic),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -7,10 +7,13 @@ comparable to a run that closed, because part of the water it routed came from
 nowhere, so ranking the two together compares a model with a bookkeeping error
 against one without.
 
-The threshold is a declaration and not a constant. A steady solve on a coarse
+The threshold defaults to one per cent of the volume budget of the whole model,
+and a calibration may raise it or switch the gate off. A steady solve on a coarse
 mesh closes to a fraction of a per cent; a transient one with a lake and a routed
-stream network legitimately sits higher. Whoever runs the model states what they
-accept, and nothing is rejected until they do.
+stream network may sit higher. The figure is read from the run results, under
+``WATER_BUDGET_WORST_METRIC`` (``WATER_BUDGET_METRIC`` when only the last step is
+known), not from the objective components of the trial. The worst time step of
+the whole-model volume budget decides, the same figure ``checks.budget_pct`` holds.
 
 The verdict is a :class:`~hydromodpy.results.checks.Validity`: a name,
 a pass or fail, the value, and a sentence saying what the failure does to the
@@ -23,7 +26,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from hydromodpy.results.checks import Validity
-from hydromodpy.simulation.planning.plan import WATER_BUDGET_METRIC
+from hydromodpy.simulation.planning.plan import (
+    WATER_BUDGET_METRIC,
+    WATER_BUDGET_WORST_METRIC,
+)
 
 
 def water_budget_verdict(
@@ -39,7 +45,11 @@ def water_budget_verdict(
     """
     if threshold is None:
         return None
-    reported = metrics.get(WATER_BUDGET_METRIC)
+    # The worst step of the model budget decides. The last step is the fallback for
+    # a backend that reports only the final figure.
+    reported = metrics.get(WATER_BUDGET_WORST_METRIC)
+    if reported is None:
+        reported = metrics.get(WATER_BUDGET_METRIC)
     if reported is None:
         return None
     discrepancy = abs(float(reported))

@@ -350,36 +350,8 @@
     },
     "CalibAggregateDecl": {
       "additionalProperties": false,
-      "description": "How several scored targets become one cost.\n\nTwo questions the word \"weight\" runs together. Whether an error is large for\nwhat the instrument can resolve is a property of the measurement, not a\ndecision. What matters more between the outlet and the reservoir is a\ndecision, and the modeller's. The cost is the product of both, never one of\nthem, and this section names which recipe made them addable.\n\nThe literature offers two named recipes and states they are incompatible: one\nover sigma, which makes each residual dimensionless and statistically\ndefensible, and an equal share of the initial objective, which guarantees no\ndata type is invisible to the search. There is no third to invent, only a\nchoice to name and to record.",
+      "description": "How several scored targets become one cost.\n\n``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared\nhere and never read: a file that wrote them got the same cost. They are\nretired, accepted and ignored with a warning, so a sealed run that wrote\nthem out keeps replaying.",
       "properties": {
-        "weighting": {
-          "default": "manual",
-          "description": "How the members are made comparable before the weights apply. 'manual' takes the declared 'weight' of each block as the whole story, which is honest as long as the costs are already commensurable. 'error' divides each residual by what its instrument resolves, so the members become pure numbers first; it needs a residual criterion and an observation carrying an error model, and is refused without both.",
-          "enum": [
-            "manual",
-            "error"
-          ],
-          "examples": [
-            "manual"
-          ],
-          "title": "Weighting",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "nested_gauges": {
-          "default": "total",
-          "description": "How two gauges on imbricated catchments are read. 'total' scores each against its own full drained area, which is what a gauge measures; the residuals are then statistically dependent, and no standard correction exists for that. 'incremental' scores the downstream one on what its own reach adds, downstream minus upstream, which is the only mechanisable way to make the two independent. Neither is inferred: the overlap is measured and reported whichever is chosen.",
-          "enum": [
-            "total",
-            "incremental"
-          ],
-          "examples": [
-            "total"
-          ],
-          "title": "Nested Gauges",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
         "min_samples": {
           "default": 1,
           "description": "Fewest paired samples a member may be scored on. An alignment that collapses to three days still returns a number, and a weight of 65 per cent resting on three days is not what the file says it is.",
@@ -390,20 +362,6 @@
           "title": "Min Samples",
           "type": "integer",
           "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "on_member_failure": {
-          "default": "veto",
-          "description": "What one unscorable member does to the total. 'veto' makes the whole trial fail, which is the default because a partial cost is not comparable to a full one. 'drop' scores the survivors and records which member was left out, which has to be asked for explicitly.",
-          "enum": [
-            "veto",
-            "drop"
-          ],
-          "examples": [
-            "veto"
-          ],
-          "title": "On Member Failure",
-          "type": "string",
           "x-hmp-profile": "user"
         }
       },
@@ -708,33 +666,23 @@
           "x-hmp-profile": "user"
         },
         "time": {
-          "anyOf": [
-            {
-              "enum": [
-                "all",
-                "last",
-                "first"
-              ],
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
           "default": "all",
-          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one.",
+          "enum": [
+            "all",
+            "last",
+            "first"
+          ],
           "examples": [
             "all"
           ],
           "title": "Time",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "reducer": {
           "default": "none",
-          "description": "How the values kept by time are reduced before they are scored.",
+          "description": "How the values kept by time are reduced before they are scored against 'observed_values'. Refused beside 'observes': its record is paired with the series step by step.",
           "enum": [
             "mean",
             "sum",
@@ -789,18 +737,6 @@
           "type": "array",
           "items": {
             "type": "number"
-          }
-        },
-        "^time__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^time__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }
@@ -879,33 +815,23 @@
           "x-hmp-profile": "user"
         },
         "time": {
-          "anyOf": [
-            {
-              "enum": [
-                "all",
-                "last",
-                "first"
-              ],
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
           "default": "all",
-          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one.",
+          "enum": [
+            "all",
+            "last",
+            "first"
+          ],
           "examples": [
             "all"
           ],
           "title": "Time",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "reducer": {
           "default": "none",
-          "description": "How the values kept by time are reduced before they are scored.",
+          "description": "How the values kept by time are reduced before they are scored against 'observed_values'. Refused beside 'observes': its record is paired with the series step by step.",
           "enum": [
             "mean",
             "sum",
@@ -1015,18 +941,6 @@
           "items": {
             "type": "number"
           }
-        },
-        "^time__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^time__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },
@@ -1085,33 +999,23 @@
           "x-hmp-profile": "user"
         },
         "time": {
-          "anyOf": [
-            {
-              "enum": [
-                "all",
-                "last",
-                "first"
-              ],
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
           "default": "all",
-          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one.",
+          "enum": [
+            "all",
+            "last",
+            "first"
+          ],
           "examples": [
             "all"
           ],
           "title": "Time",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "reducer": {
           "default": "none",
-          "description": "How the values kept by time are reduced before they are scored.",
+          "description": "How the values kept by time are reduced before they are scored against 'observed_values'. Refused beside 'observes': its record is paired with the series step by step.",
           "enum": [
             "mean",
             "sum",
@@ -1166,18 +1070,6 @@
           "type": "array",
           "items": {
             "type": "number"
-          }
-        },
-        "^time__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^time__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }
@@ -1777,33 +1669,23 @@
           "x-hmp-profile": "user"
         },
         "time": {
-          "anyOf": [
-            {
-              "enum": [
-                "all",
-                "last",
-                "first"
-              ],
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          ],
           "default": "all",
-          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one.",
+          "enum": [
+            "all",
+            "last",
+            "first"
+          ],
           "examples": [
             "all"
           ],
           "title": "Time",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "reducer": {
           "default": "none",
-          "description": "How the values kept by time are reduced before they are scored.",
+          "description": "How the values kept by time are reduced before they are scored against 'observed_values'. Refused beside 'observes': its record is paired with the series step by step.",
           "enum": [
             "mean",
             "sum",
@@ -1912,18 +1794,6 @@
           "type": "array",
           "items": {
             "type": "number"
-          }
-        },
-        "^time__append$": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "^time__merge$": {
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }
@@ -2841,8 +2711,11 @@
               "type": "null"
             }
           ],
-          "default": null,
-          "description": "Percent water-balance discrepancy past which a trial is rejected instead of scored. The solver reports the figure on every run; unset, it is recorded and nothing acts on it, so a run at twelve per cent is ranked beside one that closed even though part of the water it routed came from nowhere. There is no default because there is no universal value: a steady solve on a coarse mesh closes to a fraction of a per cent, a transient one with a lake and a routed network legitimately sits higher.",
+          "default": 1.0,
+          "description": "Percent water-balance discrepancy of the whole model past which a trial is rejected instead of scored. The figure is the one the solver prints for the volume budget of the entire model, not the budget of a single package such as the lake package, which divides by small flows and reads higher. A rejected trial is marked failed, so it is neither ranked nor promoted: part of the water it routed came from nowhere and its cost is not comparable to a run that closed. Default 1.0 (one per cent). Raise it for a transient model whose lake or routed network legitimately sits higher. A TOML file has no null: to switch the gate off write a value no run reaches, such as 1000, or pass None from Python. The worst time step of the run decides, not the last.",
+          "examples": [
+            1.0
+          ],
           "title": "Reject Water Budget Above",
           "unit": "%",
           "x-hmp-profile": "user"
@@ -2947,16 +2820,6 @@
             true
           ],
           "title": "Use Cache",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "lightweight_extraction": {
-          "default": true,
-          "description": "Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.",
-          "examples": [
-            true
-          ],
-          "title": "Lightweight Extraction",
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
@@ -3132,16 +2995,6 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
-        "persist_model_distribution": {
-          "default": false,
-          "description": "Persist the candidate distribution alongside the session.",
-          "examples": [
-            false
-          ],
-          "title": "Persist Model Distribution",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
         "materialize_candidates": {
           "default": false,
           "description": "Write a standalone overlay TOML for each candidate under sessions/<case>/candidates/, so a trial can be replayed by hand.",
@@ -3154,7 +3007,7 @@
         },
         "aggregate": {
           "$ref": "#/$defs/CalibAggregateDecl",
-          "description": "How several scored targets become one cost: what made them comparable, how nested gauges are read, and what one unscorable member does.",
+          "description": "How several scored targets become one cost: the fewest paired samples a member may be scored on.",
           "x-hmp-profile": "user"
         },
         "uncertainty": {
@@ -3643,7 +3496,7 @@
     },
     "CrossingNotchConfig": {
       "additionalProperties": false,
-      "description": "Cut the embankments of roads, railways and bridges out of the ground.\n\nA DEM shows the embankment of a road across a valley as a wall: the flow\nrouting then fills behind it or digs through it, and the model top carries\nthe wall into the aquifer. The notch lowers the DEM along the channel at each\ncrossing to the bed level read on both sides of the structure, and nowhere\nelse. It is a correction of the ground: the routing chain and the model top\nboth start from the notched ground.\n\nThe notch follows the channel tree of ``[geographic.river_network]``, which\nis delineated a first time on the ground, notched, and delineated again.\nWeirs and dams are not notched: a weir is a drop of the bed, not a wall. A\nroad laid on a dam crest is not notched either: a crossing with a dam or a\nweir of the file within ``snap_radius``, a ``[geographic.dam_carve]`` line\nwithin ``snap_radius``, or a ``[geographic.enforce_lakes]`` polygon on its\nchannel reach is left alone and reported as ``dam_or_weir``.",
+      "description": "Cut the embankments of roads, railways and bridges out of the ground.\n\nA DEM shows the embankment of a road across a valley as a wall: the flow\nrouting then fills behind it or digs through it, and the model top carries\nthe wall into the aquifer. The notch lowers the DEM along the channel at each\ncrossing to the bed level read on both sides of the structure, and nowhere\nelse. It is a correction of the ground: the routing chain and the model top\nboth start from the notched ground.\n\nThe notch follows the channel tree of ``[geographic.river_network]``, which\nis delineated a first time on the ground, notched, and delineated again.\nWeirs and dams are not notched: a weir is a drop of the bed, not a wall. A\nroad laid on a dam crest is not notched either: a crossing with a dam or a\nweir of the file within ``snap_radius``, or a ``[geographic.enforce_lakes]``\npolygon on its channel reach is left alone and reported as ``dam_or_weir``.",
       "properties": {
         "enabled": {
           "default": false,
@@ -3758,7 +3611,7 @@
             }
           ],
           "default": 30.0,
-          "description": "A point structure (a bridge of the ROE) farther than this from the channel tree is ignored, and so is a channel pixel farther than this from its crossing, in metres. A dam or a weir of the file, or a dam_carve line, within this distance of a crossing stops its notch. Accepts inline units (e.g. 30, '30 m').",
+          "description": "A point structure (a bridge of the ROE) farther than this from the channel tree is ignored, and so is a channel pixel farther than this from its crossing, in metres. A dam or a weir of the file within this distance of a crossing stops its notch. Accepts inline units (e.g. 30, '30 m').",
           "examples": [
             30.0
           ],
@@ -4703,89 +4556,6 @@
             ],
             "type": "array"
           }
-        }
-      }
-    },
-    "DamCarveConfig": {
-      "additionalProperties": false,
-      "description": "Optional dam structure-carve of the ground.\n\nA raw DEM samples the concrete dam crest as terrain, so the aquifer column\nunder the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a\ncutoff-wall HFB band lands above the real seepage. This carves ONLY the dam\nfootprint of the ground down to the surrounding valley floor, so the\ncutoff wall can sit on the surveyed axis at the dam (not shifted downstream).\n\nThe ground is the DEM plus the corrections declared here and in\n``[geographic.crossings]``. Both the routing chain and the model top start\nfrom it, so the carved dam is seen by the flow routing and by the aquifer\nalike.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Carve the dam footprint of the ground down to the local valley floor, so the routing chain and the model top both see the dam removed and the cutoff wall sits at the true dam on a raw DEM.",
-          "examples": [
-            false
-          ],
-          "title": "Enabled",
-          "type": "boolean",
-          "x-hmp-profile": "user"
-        },
-        "line_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare filename resolves against <workspace>/data/cutoff_wall/. Usually the same surveyed voile axis as the cutoff_wall. Required when enabled.",
-          "title": "Line Path",
-          "x-hmp-profile": "user"
-        },
-        "buffer_m": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0.0,
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 40.0,
-          "description": "Half-width (metres) of the carved corridor around the dam trace. Make it a bit wider than one DEM/cell size so the whole dam body is brought to the valley floor.",
-          "examples": [
-            40.0
-          ],
-          "title": "Buffer M",
-          "x-hmp-profile": "user"
-        },
-        "search_radius_m": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-                  "type": "string"
-                }
-              ],
-              "gt": 0.0
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Radius (metres) of the neighborhood whose minimum elevation defines the valley floor the corridor is carved to. When omitted, derives 3 * buffer_m.",
-          "title": "Search Radius M",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "DamCarveConfig",
-      "type": "object",
-      "patternProperties": {
-        "^.+__delete$": {
-          "const": true,
-          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -8640,7 +8410,7 @@
             "transform": "log",
             "units": "1/s"
           },
-          "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface; the under-dam leakage calibration parameter. 0 means a perfectly sealed lakebed (no leakage).",
+          "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface over the whole lake bed, the handle of the lake-aquifer exchange. The flow through or under the dam is set by the cutoff_wall and the aquifer, not by this value. 0 means a perfectly sealed lakebed (no leakage).",
           "examples": [
             1e-06
           ],
@@ -8810,7 +8580,7 @@
             }
           ],
           "default": null,
-          "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB laid on the lake shore. The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers.",
+          "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB laid on the lake shore. The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers. The flow across its faces is published per layer as the cutoff_wall_flow series.",
           "x-hmp-profile": "user"
         },
         "rainfall": {
@@ -9274,7 +9044,7 @@
         },
         "to_downstream_reach": {
           "default": false,
-          "description": "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach at the foot of the dam (the channel is extended to it if needed). Robust to remeshing, unlike a fixed reach number. Keep lakeout = 0.",
+          "description": "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach on the foot of the dam, downstream of the cutoff wall when the lake has one. The SFR network draws a channel to the foot only with rectify_on_mesh; without a reach on the foot the build stops, it never takes the nearest reach, which can flow back into the lake. Robust to remeshing, unlike a fixed reach number. Keep lakeout = 0.",
           "examples": [
             false
           ],
@@ -9620,7 +9390,7 @@
         },
         "lakeout": {
           "default": 0,
-          "description": "Number of the lake that receives the discharge, counted from 1 in the order the lakes are declared. 0 sends the discharge out of the model.",
+          "description": "Number of the lake that receives the discharge, counted from 1 in the order the lakes are declared. 0 sends the discharge out of the model. A sill between two lakes is one outlet, on the upper lake; two WEIR outlets that spill into each other over the same crest are refused.",
           "examples": [
             0
           ],
@@ -12846,12 +12616,7 @@
         },
         "enforce_lakes": {
           "$ref": "#/$defs/LakeEnforcementConfig",
-          "description": "Optional lake hydro-enforcement of the routing DEM: carve the lake footprints so streams route into the lakes and drain to the outlet, without touching the model grid top.",
-          "x-hmp-profile": "user"
-        },
-        "dam_carve": {
-          "$ref": "#/$defs/DamCarveConfig",
-          "description": "Optional dam structure-carve of the ground: lower the dam footprint to the valley floor, for the routing chain and the model top alike, so a cutoff wall sits at the dam on a raw DEM.",
+          "description": "Optional lake footprint polygons that the crossing notch and the bed regularisation leave alone. The routing DEM is not carved at the lakes.",
           "x-hmp-profile": "user"
         },
         "crossings": {
@@ -14373,11 +14138,11 @@
     },
     "LakeEnforcementConfig": {
       "additionalProperties": false,
-      "description": "Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.\n\nA topographic breach/fill is lake-blind: on a dammed reservoir it carves a\nthalweg that misses the flat water body, so streams dead-end short of the lake\nand the outlet-delineated catchment excludes the reservoir. When enabled, the\nlake footprints are carved (a gentle ramp toward the outlet plus an outlet\nnotch) into a SEPARATE routing DEM used only for delineation; the model grid\ntop stays on the raw DEM, so the lake-aquifer geometry is untouched. It reuses\nthe lake footprint polygons already supplied for LAK cells -- no river source.",
+      "description": "Lake footprint polygons that the ground corrections leave alone.\n\nThe routing DEM is no longer carved at the lakes: the cell drainage ``D``\nalready makes the water cross a lake, and the carve (a ramp toward the\noutlet, an outlet notch, a stream capture) moved neither the basin, the\nnetwork nor the drains. The polygons stay a declared input for the two\nsteps that read them, the crossing notch and the bed regularisation.",
       "properties": {
         "enabled": {
           "default": false,
-          "description": "Carve the lake footprints into the routing DEM before D8 so streams converge into the lakes and drain to the outlet through them.",
+          "description": "Read the lake footprint polygons of lake_geometry_path as lakes of the ground, so the crossing notch and the bed regularisation leave them alone.",
           "examples": [
             false
           ],
@@ -14396,84 +14161,9 @@
             }
           ],
           "default": null,
-          "description": "Lake footprint polygons (gpkg/shp) to carve. A bare filename resolves against <workspace>/data/lake_geometry/. Required when enabled.",
+          "description": "Lake footprint polygons (gpkg/shp). A bare filename resolves against <workspace>/data/lake_geometry/. Required when enabled.",
           "title": "Lake Geometry Path",
           "x-hmp-profile": "user"
-        },
-        "slope": {
-          "default": 0.003,
-          "description": "Ramp gradient, in metres per metre of distance to the outlet. Small and positive so each lake slopes gently toward the outlet with no flat depression (a flat sink would make the breach crawl).",
-          "examples": [
-            0.003
-          ],
-          "exclusiveMinimum": 0.0,
-          "title": "Slope",
-          "type": "number",
-          "unit": "-",
-          "x-hmp-profile": "user"
-        },
-        "buffer_m": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 15.0,
-          "description": "Buffer (metres) applied to each lake footprint to bridge inter-lake sills and knit the shoreline into the carve.",
-          "examples": [
-            15.0
-          ],
-          "title": "Buffer M",
-          "x-hmp-profile": "user"
-        },
-        "capture_radius_m": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
-              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
-              "type": "string"
-            }
-          ],
-          "default": 0.0,
-          "description": "If > 0, run a SECOND delineation pass: any stream that dead-ends within this distance of a lake (a near-miss over a flat forebay) is carved to the lake and re-delineated, so its channel reaches the shoreline. 0 disables the capture pass (lake carve only).",
-          "examples": [
-            0.0
-          ],
-          "title": "Capture Radius M",
-          "x-hmp-profile": "user"
-        },
-        "capture_max_streams": {
-          "default": 8,
-          "description": "Capture pass: cap on how many near-miss stream terminals are carved to lakes per pass (kept by decreasing flow accumulation).",
-          "examples": [
-            8
-          ],
-          "minimum": 1,
-          "title": "Capture Max Streams",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "capture_min_acc_fraction": {
-          "default": 0.3,
-          "description": "Capture pass: keep only near-miss terminals whose flow accumulation is at least this fraction of the largest, so a tiny rivulet is not carved.",
-          "examples": [
-            0.3
-          ],
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Capture Min Acc Fraction",
-          "type": "number",
-          "x-hmp-profile": "expert"
         }
       },
       "title": "LakeEnforcementConfig",
@@ -24049,7 +23739,7 @@
         "catch_def": {
           "const": "txt",
           "default": "txt",
-          "description": "Catchment defined from an XYZ text grid (cell_size required).",
+          "description": "Catchment defined from an XYZ text grid (cell_size required). Not implemented: a document that selects it is refused when it loads.",
           "examples": [
             "txt"
           ],

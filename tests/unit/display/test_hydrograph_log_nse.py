@@ -2,16 +2,19 @@
 
 The run side is driven exactly as a plain run drives it: one simulated
 discharge series at the catchment pseudo-station, observations under their own
-gauge ids. The two calibration notions, the scoring window and the score, are
-handed to ``render()`` because ``display`` may not import ``calibration``.
+gauge ids. The scoring window and the score are the ones the run recorded on
+``[metrics] window``, read from the run: no option of the figure types them.
 """
 
 from __future__ import annotations
+
+import datetime
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.display.figure import option_names_of
 from hydromodpy.display.figures.hydrograph_log_nse import (
     SPLIT_COLORS,
     HydrographLogNseFigure,
@@ -87,6 +90,25 @@ class _Run:
 def _run(**kwargs) -> _Run:
     """A four-day run whose observed and simulated series both stay positive."""
     return _Run([2.0, 1.0, 0.5, 1.5], observed=[1.8, 1.1, 0.6, 1.4], **kwargs)
+
+
+def _scored(run: _Run, *, nse_log: float = 0.8123) -> _Run:
+    """The run with the score the derive step records: NSElog on 2 and 3 January."""
+    run.metrics = pd.DataFrame(
+        [
+            {
+                "station": "J7000610",
+                "variable": "discharge",
+                "metric": "nse_log",
+                "value": nse_log,
+                "nse_window_start": datetime.date(2011, 1, 2),
+                "nse_window_end": datetime.date(2011, 1, 3),
+                "nse_n": 2,
+                "metric_rule_version": "1",
+            }
+        ]
+    )
+    return run
 
 
 def _line(ax, label_prefix: str):
@@ -357,14 +379,10 @@ def test_no_floor_line_when_every_sample_is_positive(mpl) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_shades_the_scoring_window_and_counts_the_scored_samples(mpl) -> None:
+def test_shades_the_window_the_run_was_scored_on_and_counts_its_samples(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    HydrographLogNseFigure().render(
-        _run(),
-        ax,
-        scoring_window=("2011-01-02", "2011-01-03"),
-    )
+    HydrographLogNseFigure().render(_scored(_run()), ax)
 
     try:
         spans = [patch for patch in ax.patches if "scoring window" in str(patch.get_label())]
@@ -376,15 +394,23 @@ def test_shades_the_scoring_window_and_counts_the_scored_samples(mpl) -> None:
         mpl.close(fig)
 
 
-def test_annotates_the_nse_log_value(mpl) -> None:
+def test_annotates_the_nse_log_the_run_recorded(mpl) -> None:
     fig, ax = mpl.subplots()
 
-    HydrographLogNseFigure().render(_run(), ax, nse_log=0.8123)
+    HydrographLogNseFigure().render(_scored(_run()), ax)
 
     try:
         assert "NSElog = 0.812" in _note(ax)
     finally:
         mpl.close(fig)
+
+
+def test_the_window_and_the_score_are_no_options() -> None:
+    """Typed beside the figure, they disagreed with the score the run is ranked on."""
+    options = option_names_of(HydrographLogNseFigure)
+
+    assert "scoring_window" not in options
+    assert "nse_log" not in options
 
 
 def test_says_nothing_of_a_window_or_a_score_it_was_not_given(mpl) -> None:

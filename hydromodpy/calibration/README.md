@@ -278,8 +278,7 @@ distance is in metres, so write `normalize_cost = true` on the network block:
 each distance is then divided by the output's `validity_length` (Eq. 4,
 `"auto"` = 2 h_obs), and a gap of one validity length costs 1, as much as an
 NSE of 0. `normalize_cost` stays refused on the efficiency, already a pure
-number, and `[calibration.aggregate] weighting = "error"` does not apply to
-this pair: it needs residuals and an error model on each observation.
+number.
 
 A spin-up is left out by dates: `scoring_window.start` on the phase (or on
 `[calibration]`) is the first date scored, for every block alike. A series

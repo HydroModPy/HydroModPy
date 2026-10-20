@@ -17,6 +17,7 @@ Measured on the Nancon, site ``J0014010``: ``surface_bv`` is 64.45 km2 against
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from hydromodpy.core.logging import get_logger
@@ -24,6 +25,16 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 API_BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
+
+DEFAULT_WARN_RELATIVE_GAP = 0.20
+"""Relative gap beyond which the area disagreement is a WARNING.
+
+Measured: a fill on a DEM cut without margin annexed a neighbouring valley and
+gave 96.5 km2 for a 64.5 km2 catchment, +50 per cent. A D8 delineation on a coarse
+DEM stays within a few per cent of the published area.
+"""
+
+_HUBEAU_STATION_CODE = re.compile(r"^[A-Z]\d{7}(\d{2})?$")
 
 
 @dataclass(frozen=True)
@@ -91,7 +102,7 @@ def compare_catchment_area(
     station_id: str,
     delineated_km2: float,
     *,
-    warn_relative_gap: float = 0.10,
+    warn_relative_gap: float = DEFAULT_WARN_RELATIVE_GAP,
 ) -> CatchmentAreaComparison | None:
     """Compare a delineated catchment to its gauge's published area, and warn.
 
@@ -123,8 +134,32 @@ def compare_catchment_area(
     return comparison
 
 
+def check_gauge_area(
+    gauge: str | None,
+    catchment_area_km2: float | None,
+) -> CatchmentAreaComparison | None:
+    """Run the area guard on the gauge of a run, when it has a Hub'Eau one.
+
+    ``gauge`` is the station of the run (``gauge_of_run``), or None. A gauge that
+    is not a Hub'Eau code is left alone, and so is a run without an area. Never
+    raises, since the guard is only a cross-check.
+    """
+    if gauge is None or not catchment_area_km2 or catchment_area_km2 <= 0.0:
+        return None
+    station_id = str(gauge).strip().upper()
+    if not _HUBEAU_STATION_CODE.match(station_id):
+        return None
+    try:
+        return compare_catchment_area(station_id, float(catchment_area_km2))
+    except Exception:
+        logger.debug("Catchment area guard failed for %s", station_id, exc_info=True)
+        return None
+
+
 __all__ = [
+    "DEFAULT_WARN_RELATIVE_GAP",
     "CatchmentAreaComparison",
+    "check_gauge_area",
     "compare_catchment_area",
     "published_catchment_area_km2",
     "site_id_of_station",

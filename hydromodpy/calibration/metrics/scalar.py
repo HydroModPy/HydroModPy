@@ -17,6 +17,7 @@ from hydromodpy.calibration.criteria.series import (
     HIGHER_IS_BETTER,
     LOG_METRICS,
     METRICS,
+    SAMPLED_BY_DATE,
     clip_negatives_for_log_metric,
 )
 from hydromodpy.core.logging import get_logger
@@ -58,6 +59,24 @@ def _non_finite_diagnosis(observed: np.ndarray, simulated: np.ndarray) -> str:
     )
 
 
+def sampling_step_days(index: pd.Index) -> float | None:
+    """Median spacing of a dated index, in days.
+
+    ``None`` when the index is not dated or holds fewer than two distinct
+    stamps.
+    """
+    if not isinstance(index, pd.DatetimeIndex) or index.size < 2:
+        return None
+    gaps = np.diff(index.sort_values().asi8) / 86_400e9
+    gaps = gaps[gaps > 0.0]
+    return float(np.median(gaps)) if gaps.size else None
+
+
+def elapsed_days(index: pd.DatetimeIndex) -> np.ndarray:
+    """Date of each stamp of *index*, in days since the epoch."""
+    return np.asarray(index.asi8, dtype=float) / 86_400e9
+
+
 def score(
     observed: pd.Series,
     simulated: pd.Series,
@@ -89,7 +108,10 @@ def score(
     output frequency. The two are mutually exclusive at the schema level.
 
     ``metric_kwargs`` reaches the metric function, which is how ``nse_log``
-    receives an explicit ``eps`` instead of its adaptive default.
+    receives an explicit ``eps`` instead of its adaptive default. A metric of
+    :data:`~hydromodpy.calibration.criteria.series.SAMPLED_BY_DATE` also
+    receives the sampling step and the dates of the aligned series, as on the
+    block route, so a gap left by the pairing is read as a gap.
 
     ``time_method`` is how the simulated variable relates to its end stamps,
     ``"mean"`` for a flux and ``"point"`` for a state (see
@@ -146,7 +168,13 @@ def score(
                 objective,
                 n_clipped,
             )
-    value = float(metric(sim_values, obs_values, **(metric_kwargs or {})))
+    kwargs = dict(metric_kwargs or {})
+    if objective.lower() in SAMPLED_BY_DATE:
+        step = sampling_step_days(paired.index)
+        if step is not None:
+            kwargs.setdefault("sample_days", step)
+            kwargs.setdefault("times_days", elapsed_days(paired.index))
+    value = float(metric(sim_values, obs_values, **kwargs))
     if not np.isfinite(value):
         raise ValueError(
             f"Calibration metric {objective!r} returned a non-finite value. "
@@ -155,4 +183,4 @@ def score(
     return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
 
 
-__all__ = ["score"]
+__all__ = ["elapsed_days", "sampling_step_days", "score"]

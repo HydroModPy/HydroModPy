@@ -72,7 +72,6 @@ def _ground_from(tmp_path: Path, crossings: gpd.GeoDataFrame):
             max_depth=3.0,
             snap_radius=30.0,
         ),
-        dam_carve=SimpleNamespace(enabled=False),
         enforce_lakes=SimpleNamespace(enabled=False),
     )
     setup = SimpleNamespace(

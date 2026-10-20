@@ -337,9 +337,14 @@ def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: Calibrat
     catalogue itself used, and a zone of a heterogeneous field is faced with the
     ceiling of the property it is a zone of: ``Sy.zone_1`` is a specific yield and
     0.9 is not one, whatever the section is called.
+
+    The bounds of ``mode = "scale"`` are factors, not values of the property,
+    and are left alone: the product is faced with the registry when written.
     """
     bounds = list(getattr(decl, "bounds", ()) or ())
     if len(bounds) != 2 or target.registry_id is None:
+        return
+    if getattr(decl, "mode", "replace") == "scale":
         return
     from hydromodpy.spatial.field.core.physical_bounds import (
         PhysicalBoundsError,

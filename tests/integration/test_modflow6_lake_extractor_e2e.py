@@ -235,8 +235,8 @@ def test_lake_extractor_end_to_end_disv(tmp_path: Path) -> None:
 
     # Every connection is VERTICAL (under the footprint), so under-dam leakage
     # equals the total exchange.
-    assert "seepage_under_dam" in by_variable
-    assert by_variable["seepage_under_dam"][-1] == pytest.approx(exchange)
+    assert "lake_bed_vertical_exchange" in by_variable
+    assert by_variable["lake_bed_vertical_exchange"][-1] == pytest.approx(exchange)
 
     # The spillway series exists as a rate (no spill here -> 0 m3/s, but present).
     assert "ext_outflow" in by_variable

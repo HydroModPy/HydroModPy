@@ -298,7 +298,15 @@ class ParameterSpace:
                 )
             path = decl.get("path")
             target = decl.get("target")
-            assert_bounds_are_physical(name, low, high, decl.get("units"))
+            mode = str(decl.get("mode", "replace")).strip().lower()
+            if mode not in {"replace", "scale"}:
+                raise ValueError(
+                    f"Parameter {name!r}: mode must be 'replace' or 'scale', got {mode!r}"
+                )
+            # The bounds of a scale are factors, not values of the property: the
+            # product is faced with the registry when it is written.
+            if mode == "replace":
+                assert_bounds_are_physical(name, low, high, decl.get("units"))
             if prior not in {"uniform", "log_uniform", "normal"}:
                 raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
             if prior == "log_uniform" and low <= 0.0:
@@ -308,11 +316,6 @@ class ParameterSpace:
             _assert_path_is_not_the_mesh(name, target)
             _assert_path_is_not_a_stage_boundary(name, path)
             _assert_path_is_not_a_stage_boundary(name, target)
-            mode = str(decl.get("mode", "replace")).strip().lower()
-            if mode not in {"replace", "scale"}:
-                raise ValueError(
-                    f"Parameter {name!r}: mode must be 'replace' or 'scale', got {mode!r}"
-                )
             params.append(
                 CalibParameter(
                     name=name,

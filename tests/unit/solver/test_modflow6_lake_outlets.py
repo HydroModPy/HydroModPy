@@ -258,10 +258,10 @@ def test_lak_package_args_omit_outlets_when_none() -> None:
     assert "perioddata" not in args
 
 
-def test_reciprocal_lake_outlets_are_reported(caplog: pytest.LogCaptureFixture) -> None:
-    # Two lakes spilling into each other at the same invert: MF6 circulates water
-    # around the loop instead of routing it downstream. Conservative, so nothing
-    # else catches it; the builder must say so.
+def test_reciprocal_weirs_with_the_same_crest_are_refused() -> None:
+    # Two lakes spilling into each other over the same crest: MF6 circulates water
+    # around the loop (17.6 m3/s each way for a 0.04 m3/s net on the Cheze). The
+    # builder refuses it and names both outlets.
     lakes = {
         "reservoir": {
             "outlets": [
@@ -273,11 +273,28 @@ def test_reciprocal_lake_outlets_are_reported(caplog: pytest.LogCaptureFixture) 
             "outlets": [{"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
         },
     }
+    with pytest.raises(ValueError, match="Reciprocal") as err:
+        build_lake_outlets(None, lakes=lakes)
+    text = str(err.value)
+    assert "reservoir" in text and "preretenue" in text
+    assert "outlet 1" in text and "outlet 2" in text
+
+
+def test_reciprocal_outlets_with_different_crests_stay_a_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    lakes = {
+        "reservoir": {
+            "outlets": [{"couttype": "WEIR", "invert": 90.0, "width": 24.0, "lakeout": 2}]
+        },
+        "preretenue": {
+            "outlets": [{"couttype": "WEIR", "invert": 86.93, "width": 24.0, "lakeout": 1}],
+        },
+    }
     with caplog.at_level(logging.WARNING):
         rows = build_lake_outlets(None, lakes=lakes)
-    assert len(rows) == 3
+    assert len(rows) == 2
     assert "outlet loop" in caplog.text
-    assert "reservoir" in caplog.text and "preretenue" in caplog.text
 
 
 def test_lake_outlet_cascade_is_not_reported(caplog: pytest.LogCaptureFixture) -> None:

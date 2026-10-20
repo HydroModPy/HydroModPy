@@ -36,6 +36,7 @@ from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.core.flow_products import rankable_accumulation
 from hydromodpy.spatial.terrain import (
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,
@@ -126,6 +127,15 @@ def extract_catchment_from_point(
     engine = terrain_registry.create(engine_id, backend=backend)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # A basin beyond the float32 ln range is ranked on raw counts instead.
+    accumulation = rankable_accumulation(
+        engine,
+        accumulation,
+        [(float(x_outlet), float(y_outlet))],
+        snap_distance_m=float(snap_dist),
+        out=out_dir / "dem_acc_cells_for_snap.tif",
+    )
 
     with progress.status("Delineating watershed"):
         try:

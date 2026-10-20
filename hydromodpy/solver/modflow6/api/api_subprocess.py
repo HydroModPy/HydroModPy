@@ -85,8 +85,15 @@ def _api_subprocess_entry(
         # the terminal), so suppress it and redirect the stdout fd; the sink relays
         # progress to the parent instead.
         with progress.suppressed(), _silence_stdout_fd():
+            # This child already shields the parent from a libmf6 stop, so the
+            # initialize probe would only pay a second initialize.
             success = run_mf6_api(
-                sim_ws, callback, lib_path=lib_path, verbose=False, progress_sink=sink
+                sim_ws,
+                callback,
+                lib_path=lib_path,
+                verbose=False,
+                progress_sink=sink,
+                check_input=False,
             )
         result_queue.put((True, bool(success)))
     except BaseException as exc:  # noqa: BLE001 - relayed to the parent verbatim

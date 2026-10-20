@@ -38,6 +38,11 @@ start_datetime = "2015-01-01"
 end_datetime = "2020-12-31"
 step_value = "1 day"
 
+# The window every score of a run is read on, 2015 being the spin-up. The
+# window of project.toml, 2001-2002, lies outside this record.
+[metrics]
+window = { start = "2016-01-01", end = "2020-12-31" }
+
 # `sources__delete` drops the local source of project.toml, so each family
 # below has only its API source. The DEM stays the local file.
 [data.hydrography]
@@ -141,10 +146,6 @@ figures = [
 # The seepage of February 2020, near the largest saturated extent of the record.
 [display.overrides.seepage_map]
 time = "2020-02-15"
-
-# The scored window, shaded.
-[display.overrides.hydrograph_log_nse]
-scoring_window = ["2016-01-01", "2020-12-31"]
 
 # One hydrological year inside the run instead of the 2002 of project.toml.
 [display.overrides.flow_intermittence_map]

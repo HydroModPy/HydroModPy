@@ -19,6 +19,7 @@ that writes one of them in ``overrides`` too is refused when the file is read.
 from __future__ import annotations
 
 import datetime
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -43,6 +44,7 @@ def regime_overrides(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> dict
         return {}
     if phase.regime == "transient":
         return {"flow.flow_regime": "transient"}
+    _refuse_steady_lake_phase(phase, document)
     steady_start, steady_end = _steady_window(phase.steady_window, document)
     start, end = pd.Timestamp(steady_start), pd.Timestamp(steady_end)
     if (start.tzinfo is None) != (end.tzinfo is None):
@@ -63,6 +65,57 @@ def regime_overrides(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> dict
         "simulation.time.step_unit": "day",
         "simulation.time.step_value": span_days,
     }
+
+
+def _declared_lake_names(document: Mapping[str, Any]) -> list[str]:
+    """Return the lake names the raw document declares, empty when it has none."""
+    flow = document.get("flow")
+    sinks = flow.get("sinks_sources") if isinstance(flow, Mapping) else None
+    lakes = sinks.get("lakes") if isinstance(sinks, Mapping) else None
+    if isinstance(lakes, Mapping):
+        return [str(name) for name in lakes]
+    if isinstance(lakes, (list, tuple)):
+        return [
+            str(item.get("name", ""))
+            for item in lakes
+            if isinstance(item, Mapping) and item.get("name")
+        ] or ["lake"]
+    return []
+
+
+def _names_a_lake_parameter(parameter: str, lake_names: set[str]) -> bool:
+    """Whether a parameter name says it is a lake parameter.
+
+    ``bedleak`` and ``lake`` match anywhere in the name. A declared lake name must
+    be a whole word of it, so a lake called ``a`` does not claim ``recharge``.
+    """
+    lowered = parameter.lower()
+    if "bedleak" in lowered or "lake" in lowered:
+        return True
+    return any(token in lake_names for token in re.split(r"[^a-z0-9]+", lowered))
+
+
+def _refuse_steady_lake_phase(phase: CalibPhaseDecl, document: Mapping[str, Any]) -> None:
+    """Refuse a steady phase that fits a lake parameter.
+
+    A steady solve zeroes the lake inflow and withdrawal and holds the stage at
+    its initial value, so the lake is a fixed head and its bed leakance moves
+    nothing the objective can see. The search would return a value without
+    meaning and no warning. Fit lake parameters in a transient phase.
+    """
+    lakes = _declared_lake_names(document)
+    if not lakes:
+        return
+    names = {name.lower() for name in lakes if name}
+    flat = [name for name in phase.parameters if _names_a_lake_parameter(name, names)]
+    if flat:
+        raise ValueError(
+            f"phase '{phase.name}' is steady and fits {flat}, but the model declares a "
+            "lake: a steady solve holds the lake stage at its initial value and zeroes "
+            "its inflow and withdrawal, so the objective is flat in a lake parameter. "
+            "Give the phase regime = 'transient', or fit the lake parameter in a "
+            "transient phase."
+        )
 
 
 def _canonical_instant(value: Any, source: str) -> str:

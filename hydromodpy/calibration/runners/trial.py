@@ -64,6 +64,10 @@ from hydromodpy.core.state.execution import ExecutionRegistry
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
+from hydromodpy.simulation.planning.plan import (
+    WATER_BUDGET_METRIC,
+    WATER_BUDGET_WORST_METRIC,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -478,7 +482,12 @@ def run_trial_light(
         # test_calibration_reaches_solver_only_through_generic_ports).
         flow_overrides = {**flow_overrides, "trial_owns_its_recharge": True}
     retention = trial_ctx.kept_solves if sandbox is not None else None
-    recorder = RecordingLauncher() if retention is not None and retention.keeps_any else None
+    keeps_solves = retention is not None and retention.keeps_any
+    # The water-balance gate reads the figure the solver reported for the run, and
+    # only the recording launcher hands the run results back to the trial.
+    recorder = (
+        RecordingLauncher() if keeps_solves or reject_water_budget_above is not None else None
+    )
 
     t0 = time.monotonic()
     with progress.suppressed(), sandbox or nullcontext():
@@ -555,7 +564,8 @@ def run_trial_light(
         # A run whose water balance does not close routed water that came from
         # nowhere, so its cost is not comparable to a run that closed. Rejecting
         # it here, before it is scored, is what stops it being ranked and promoted.
-        verdict = water_budget_verdict(metrics, threshold=reject_water_budget_above)
+        gate_metrics = {**metrics, **_reported_water_budget(recorder)}
+        verdict = water_budget_verdict(gate_metrics, threshold=reject_water_budget_above)
         if verdict is not None and not verdict.passed:
             return TrialResult(
                 values=dict(values),
@@ -569,7 +579,8 @@ def run_trial_light(
         # Offered while the sandbox is still open: a solve the retention keeps
         # must not be deleted by the exit below.
         if (
-            retention is not None
+            keeps_solves
+            and retention is not None
             and sandbox is not None
             and recorder is not None
             and trial_id is not None
@@ -590,6 +601,30 @@ def run_trial_light(
 from collections.abc import Callable as _Callable  # noqa: E402
 
 TrialMetricFn = _Callable[..., tuple[float, Mapping[str, float]]]
+
+
+def _reported_water_budget(recorder: RecordingLauncher | None) -> dict[str, float]:
+    """Return the worst model water-balance discrepancy the trial's runs reported.
+
+    The figure is a run metric written by the solver adapter, not a component of
+    the objective, so it is read from the run results the recorder kept. Each of
+    the two keys keeps the largest magnitude over the runs, signed: the last step
+    under ``WATER_BUDGET_METRIC`` and the worst step under
+    ``WATER_BUDGET_WORST_METRIC``. A key no run reported is left out: absent is
+    not zero.
+    """
+    if recorder is None:
+        return {}
+    worst: dict[str, float] = {}
+    for result in recorder.results.values():
+        reported = getattr(result, "metrics", None) or {}
+        for key in (WATER_BUDGET_METRIC, WATER_BUDGET_WORST_METRIC):
+            if reported.get(key) is None:
+                continue
+            value = float(reported[key])
+            if math.isfinite(value) and (key not in worst or abs(value) > abs(worst[key])):
+                worst[key] = value
+    return worst
 
 
 def _default_metric_extractor(

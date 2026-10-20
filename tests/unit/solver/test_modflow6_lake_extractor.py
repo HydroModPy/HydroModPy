@@ -124,7 +124,7 @@ def test_lake_extractor_states_not_scaled_rates_to_m3_s(
     assert rec[(station, "gwf_exchange")]["value"] != pytest.approx(applied)
 
     # All three connections are VERTICAL, so under-dam leakage == total exchange.
-    assert rec[(station, "seepage_under_dam")]["value"] == pytest.approx(expected_exchange)
+    assert rec[(station, "lake_bed_vertical_exchange")]["value"] == pytest.approx(expected_exchange)
 
     # The exchange total also lands in the budget table, keyed by the lake station.
     assert len(budgets) == 1
@@ -155,7 +155,7 @@ def test_lake_extractor_drops_exchange_when_budget_is_missing(
     variables = {r["variable"] for r in timeseries}
     assert "stage" in variables
     assert "gwf_exchange" not in variables
-    assert "seepage_under_dam" not in variables
+    assert "lake_bed_vertical_exchange" not in variables
     assert not [b for b in budgets if b["component"] == "lak_gwf"]
     assert "m.lak.cbc" in caplog.text
 
@@ -238,3 +238,28 @@ def test_lake_extractor_keys_each_lake_and_timestep(tmp_path: Path) -> None:
     assert stage[(lake_station_id("lacA"), 1)] == pytest.approx(88.0)
     assert stage[(lake_station_id("lacB"), 0)] == pytest.approx(70.0)
     assert stage[(lake_station_id("lacB"), 1)] == pytest.approx(69.0)
+
+
+def test_outlet_inflow_is_observed_and_outlet_is_positive_outflow(tmp_path: Path) -> None:
+    """A lake fed by another lake publishes outlet_inflow; outlet follows ext_outflow's sign."""
+    info = [
+        {"lake_index": 0, "lake_id": "up", "n_conn": 1, "vertical_iconns": []},
+        {"lake_index": 1, "lake_id": "down", "n_conn": 1, "vertical_iconns": []},
+    ]
+    outlets = [[0, 0, 1, "WEIR", 90.0, 5.0, 0.0, 0.0]]
+    obs_continuous, meta = build_lake_obs_spec(stem="m", lake_conn_info=info, outlets=outlets)
+    names = {o[0] for o in next(iter(obs_continuous.values()))}
+    assert {"up_outlet_inflow", "down_outlet_inflow"} <= names
+    spec = LakeObsSpec.from_mapping(meta)
+    obs_path = tmp_path / spec.obs_csv
+    _write_obs_csv(
+        obs_path,
+        obs_continuous,
+        {"UP_OUTLET_0": -86400.0, "DOWN_OUTLET_INFLOW": 86400.0},
+    )
+    timeseries, _ = build_lake_records(
+        spec, obs_path, times=[_SECONDS_PER_STEP], seconds_per_time_unit=_SECONDS_PER_STEP
+    )
+    rec = {(r["station_id"], r["variable"]): r["value"] for r in timeseries}
+    assert rec[("lake:up", "outlet")] == pytest.approx(1.0)
+    assert rec[("lake:down", "outlet_inflow")] == pytest.approx(1.0)

@@ -1177,6 +1177,24 @@ class HydroModPyConfig(HydroModelBase):
                     "network, or remove [flow.sinks_sources.recharge.soil] and "
                     "load [data.runoff] as before."
                 )
+            if soil_active_bc & {"lake", "reservoir"}:
+                soil_sinks = getattr(flow_cfg, "sinks_sources", None)
+                soil_sfr = getattr(soil_sinks, "sfr", None) or {}
+                items = soil_sfr.items() if hasattr(soil_sfr, "items") else []
+                for network_id, network in items:
+                    flag = (
+                        network.get("route_drainage", True)
+                        if isinstance(network, dict)
+                        else getattr(network, "route_drainage", True)
+                    )
+                    if flag is False:
+                        raise ValueError(
+                            f"[flow.sinks_sources.sfr.{network_id}] sets route_drainage = "
+                            "false with a lake and [flow.sinks_sources.recharge.soil]: the "
+                            "water of the drains would leave the model and the lake would "
+                            "receive only its own rain. Remove route_drainage = false "
+                            "(it is on by default)."
+                        )
 
             for precip_source in (
                 getattr(getattr(data_cfg, "precipitation", None), "sources", []) or []

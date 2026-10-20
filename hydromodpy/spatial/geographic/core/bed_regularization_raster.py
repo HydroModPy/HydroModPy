@@ -397,6 +397,71 @@ def _confluence_blocks(
     return blocks
 
 
+WINDOW_MARGIN_M = 2_000.0
+"""Margin around the domain extent inside which the bed is fitted, in metres.
+
+The regional grid reaches tens of kilometres beyond the model. A channel there
+never enters the model, so fitting it only costs time. The margin keeps the
+reaches that cross the domain edge whole near it.
+"""
+
+
+def restrict_to_window(
+    channel: np.ndarray,
+    transform: Any,
+    bounds: tuple[float, float, float, float],
+    *,
+    margin_m: float,
+) -> np.ndarray:
+    """Return a copy of *channel* kept only inside *bounds* widened by *margin_m*.
+
+    ``bounds`` is ``(xmin, ymin, xmax, ymax)`` in the CRS of *transform*. A window
+    that misses the grid keeps nothing.
+    """
+    xmin, ymin, xmax, ymax = bounds
+    res_x, res_y = float(transform.a), -float(transform.e)
+    col0 = int(math.floor((xmin - margin_m - transform.c) / res_x))
+    col1 = int(math.ceil((xmax + margin_m - transform.c) / res_x))
+    row0 = int(math.floor((transform.f - (ymax + margin_m)) / res_y))
+    row1 = int(math.ceil((transform.f - (ymin - margin_m)) / res_y))
+    col0, col1 = max(col0, 0), min(col1, channel.shape[1])
+    row0, row1 = max(row0, 0), min(row1, channel.shape[0])
+    kept = np.zeros_like(channel)
+    if col0 < col1 and row0 < row1:
+        kept[row0:row1, col0:col1] = channel[row0:row1, col0:col1]
+    return kept
+
+
+def _domain_bounds(setup: object) -> tuple[float, float, float, float] | None:
+    """Extent of the domain the model computes on, or ``None`` without a watershed on disk.
+
+    The union of the watershed, its buffered copy and the buffered box. The
+    buffer can be wider than :data:`WINDOW_MARGIN_M`, and the bed must stay
+    fitted on every cell the model computes.
+    """
+    paths = getattr(setup, "paths", None)
+    watershed = getattr(paths, "watershed_shp", None)
+    if not watershed or not Path(watershed).exists():
+        return None
+    import geopandas as gpd
+
+    geographic_path = getattr(paths, "geographic_path", None)
+    candidates = [
+        watershed,
+        getattr(paths, "box_buff", None),
+        Path(str(geographic_path)) / "watershed_buff.shp" if geographic_path else None,
+    ]
+    boxes = [
+        gpd.read_file(path).total_bounds for path in candidates if path and Path(path).is_file()
+    ]
+    boxes = [box for box in boxes if np.all(np.isfinite(box))]
+    if not boxes:
+        return None
+    xmin, ymin = np.min([box[:2] for box in boxes], axis=0)
+    xmax, ymax = np.max([box[2:] for box in boxes], axis=0)
+    return float(xmin), float(ymin), float(xmax), float(ymax)
+
+
 def regularized_ground_from_config(
     config: object,
     setup: object,
@@ -423,6 +488,9 @@ def regularized_ground_from_config(
     channel_raw, channel_nodata = _read_on_grid(channel_tif, transform, shape, fill=0.0)
     channel = _valid(channel_raw, channel_nodata) & (channel_raw > 0)
     del channel_raw
+    domain = _domain_bounds(setup)
+    if domain is not None:
+        channel = restrict_to_window(channel, transform, domain, margin_m=WINDOW_MARGIN_M)
     d8_raw, d8_nodata = _read_on_grid(d8_tif, transform, shape, fill=0.0)
     d8 = np.where(_valid(d8_raw, d8_nodata), d8_raw, 0)
     del d8_raw
@@ -443,6 +511,7 @@ def regularized_ground_from_config(
             "d8_pointer": str(d8_tif),
             "crossings_path": None if crossings_path is None else str(crossings_path),
             "notch_footprint": gap is not None,
+            "window_margin_m": None if domain is None else WINDOW_MARGIN_M,
             "lakes": len(lakes),
         }
     )

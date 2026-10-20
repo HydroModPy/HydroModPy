@@ -49,10 +49,6 @@ from hydromodpy.spatial.geographic.core.ground_corrections import (
     notch_enabled,
     notch_lowered_pixels,
 )
-from hydromodpy.spatial.geographic.core.lake_enforcement import (
-    capture_from_config,
-    routing_dem_from_config,
-)
 from hydromodpy.spatial.geographic.core.pipeline_steps import (
     build_standard_catchment,
     build_standard_domain_polygons,
@@ -86,10 +82,6 @@ logger = get_logger(__name__)
 # context rebuilt from a v1 description reported the declared outlet as if
 # nothing had been snapped.
 _GEOGRAPHIC_CACHE_SCHEMA_VERSION = "hydromodpy_geographic_cache_v2"
-
-# Relative catchment-area change above which the stream-capture re-delineation is
-# reported as a moved divide rather than a connected channel.
-_CAPTURE_AREA_DRIFT_TOL = 0.05
 
 # The clips of the ground the model top is sampled from, one per domain_extent.
 _TOP_CLIP_ATTRIBUTES = ("watershed_box_buff_dem", "watershed_buff_dem", "watershed_dem")
@@ -255,7 +247,6 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
             # changing a single config value, so the config payload alone
             # cannot see it.
             "lake_geometry_path": _path_signature(config.enforce_lakes.lake_geometry_path),
-            "dam_carve_line_path": _path_signature(config.dam_carve.line_path),
         },
     }
     if config.crossings.enabled or config.bed_regularization.enabled:
@@ -666,8 +657,8 @@ def _redelineate(
 ) -> tuple[FlowProducts, float, CatchmentDomainProducts, RiverNetworkProducts]:
     """Condition, delineate, buffer and extract the network again on one routing DEM.
 
-    The second pass of the crossing notch and of the lake capture: same steps as
-    the first, on a routing DEM that was corrected after it.
+    The second pass of the crossing notch: same steps as the first, on a routing
+    DEM that was corrected after it.
     """
     flow_products = build_regional_flow_products(
         dem_init_path=routing_dem_path,
@@ -759,14 +750,12 @@ def build_geographic_runtime_context(
         river_network_products = cached_products.river_network_products
         catchment_area_km2 = cached_products.catchment_area_km2
     else:
-        # The ground is the DEM plus the declared corrections (the dam carve here, the
-        # crossing notch after the first delineation). The routing chain starts from it,
-        # and so does the model top (clipped below), so neither surface sees a
-        # structure the other does not.
-        # Routing conditioning: carve the lakes so streams route INTO them and drain
-        # to the outlet.
+        # The ground is the DEM plus the declared correction (the crossing notch, after
+        # the first delineation). The routing chain starts from it, and so does the
+        # model top (clipped below), so neither surface sees a structure the other
+        # does not.
         ground = ground_dem_from_config(config, setup)
-        routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
+        routing_dem_path = str(ground)
         if config.reg_fold is None:
             flow_products = build_regional_flow_products(
                 dem_init_path=routing_dem_path,
@@ -843,7 +832,7 @@ def build_geographic_runtime_context(
 
         # Crossing notch: the channel tree of the first delineation says where the
         # embankments cross it. The ground is notched there and the catchment is
-        # delineated again on it, before the lake capture reads its own channel.
+        # delineated again on it.
         if notch_enabled(config):
             channel = first_pass_channel(
                 config,
@@ -854,7 +843,7 @@ def build_geographic_runtime_context(
             )
             ground = ground_dem_from_config(config, setup, channel=channel)
             if notch_lowered_pixels(setup) > 0:
-                routing_dem_path = routing_dem_from_config(config, setup, dem_in_path=ground)
+                routing_dem_path = str(ground)
                 with progress.status("Re-delineating on the notched ground"):
                     (
                         flow_products,
@@ -869,56 +858,9 @@ def build_geographic_runtime_context(
                     )
             close_notch_report(setup, catchment_area_km2_after=catchment_area_km2)
 
-        # Second enforcement pass: carve any stream that dead-ends near a lake (a flat
-        # forebay near-miss) to the shoreline and re-delineate, so its channel reaches
-        # the lake instead of leaving unfed. Standard-catchment branch only.
-        captured_dem = capture_from_config(
-            config,
-            setup,
-            flow_direc=flow_products.direc,
-            link_id_tif=getattr(river_network_products, "stream_link_id_full_tif", None),
-            dem_in_path=routing_dem_path,
-        )
-        if captured_dem is not None and config.catch_def != "dem":
-            with progress.status("Re-delineating on captured streams"):
-                area_before_capture = catchment_area_km2
-                (
-                    flow_products,
-                    catchment_area_km2,
-                    domain_products,
-                    river_network_products,
-                ) = _redelineate(
-                    config=config,
-                    setup=setup,
-                    tool=tool,
-                    routing_dem_path=captured_dem,
-                )
-                # Capture must CONNECT a stream to the lake, never redraw the divide. A
-                # carved channel is a new low path: if it breaches the watershed boundary,
-                # the second delineation annexes the neighbouring basin and the model stops
-                # being the catchment that was asked for: a single carved channel of a
-                # few dozen cells is enough to more than double the area. Loud, because
-                # nothing downstream can tell the difference.
-                if area_before_capture > 0.0:
-                    drift = abs(catchment_area_km2 - area_before_capture) / area_before_capture
-                    if drift > _CAPTURE_AREA_DRIFT_TOL:
-                        logger.warning(
-                            "stream capture moved the watershed divide: the catchment went "
-                            "from %.2f to %.2f km2 (%+.0f %%) after re-delineating on the "
-                            "carved DEM. The carved channel most likely breached the divide "
-                            "and annexed a neighbouring basin, so the model no longer covers "
-                            "the requested catchment. Lower "
-                            "geographic.enforce_lakes.capture_radius_m, reduce buffer_m, or "
-                            "drop the capture pass and raise "
-                            "flow.sinks_sources.sfr.<id>.lake_feeder_snap instead.",
-                            area_before_capture,
-                            catchment_area_km2,
-                            100.0 * (catchment_area_km2 / area_before_capture - 1.0),
-                        )
-
         with progress.status("Clipping domain rasters"):
-            # The model TOP is clipped from the ground: the DEM with the dam carved and
-            # the crossings notched, as the routing above saw it.
+            # The model TOP is clipped from the ground: the DEM with the crossings
+            # notched, as the routing above saw it.
             raster_products = build_domain_rasters(
                 dem_init_path=ground_dem_path_from_config(config, setup),
                 correc_path=flow_products.correc,

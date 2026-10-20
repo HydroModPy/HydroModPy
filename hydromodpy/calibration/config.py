@@ -51,6 +51,7 @@ from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import (
     AfterValidator,
+    BeforeValidator,
     Field,
     TypeAdapter,
     ValidationError,
@@ -135,7 +136,20 @@ _METRIC_VALUE_DOCS: dict[str, str] = {
 """What each metric a TOML may select measures, shown beside every key that picks one."""
 
 CalibrationMethod = NonEmptyStr
-OutputTime = Literal["all", "last", "first"] | list[str]
+
+
+def _no_list_of_dates(value: Any) -> Any:
+    """Refuse a list of dates as the time of a series output: nothing selects them."""
+    if isinstance(value, list):
+        raise ValueError(
+            "time = [dates] selects nothing: the output would be read at every step, as "
+            "with 'all'. Bound what is scored with [metrics] window or scoring_window, or "
+            "write 'first' or 'last'."
+        )
+    return value
+
+
+OutputTime = Annotated[Literal["all", "last", "first"], BeforeValidator(_no_list_of_dates)]
 
 
 def _a_window_of_dates(window: dict[str, str]) -> dict[str, str]:
@@ -505,6 +519,14 @@ class ScoresAnObservedRecord:
                 "to score the loaded record, or 'observed_values' to score the vector "
                 "written here."
             )
+        reducer = getattr(self, "reducer", "none")
+        if self.observes is not None and reducer != "none":
+            raise ValueError(
+                f"an output declares observes={self.observes!r} and reducer={reducer!r}; "
+                "the record is paired with the simulated series step by step, so the "
+                "reduced value is never scored. Drop 'reducer', or score a vector "
+                "written in 'observed_values'."
+            )
         return self
 
 
@@ -556,12 +578,13 @@ class CalibOutputPoint(ScoresAnObservedRecord, HydroModelBase):
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
-        description="'all' keeps every time step; 'last' / 'first' selects one; "
-        "a list of ISO timestamps selects specific steps.",
+        description="'all' keeps every time step; 'last' / 'first' selects one.",
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="How the values kept by time are reduced before they are scored.",
+        description="How the values kept by time are reduced before they are scored "
+        "against 'observed_values'. Refused beside 'observes': its record is paired "
+        "with the series step by step.",
         json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
@@ -642,12 +665,13 @@ class CalibOutputBoundary(ScoresAnObservedRecord, HydroModelBase):
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
-        description="'all' keeps every time step; 'last' / 'first' selects one; "
-        "a list of ISO timestamps selects specific steps.",
+        description="'all' keeps every time step; 'last' / 'first' selects one.",
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="How the values kept by time are reduced before they are scored.",
+        description="How the values kept by time are reduced before they are scored "
+        "against 'observed_values'. Refused beside 'observes': its record is paired "
+        "with the series step by step.",
         json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
@@ -697,12 +721,13 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
-        description="'all' keeps every time step; 'last' / 'first' selects one; "
-        "a list of ISO timestamps selects specific steps.",
+        description="'all' keeps every time step; 'last' / 'first' selects one.",
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="How the values kept by time are reduced before they are scored.",
+        description="How the values kept by time are reduced before they are scored "
+        "against 'observed_values'. Refused beside 'observes': its record is paired "
+        "with the series step by step.",
         json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
@@ -762,12 +787,13 @@ class CalibOutputLake(ScoresAnObservedRecord, HydroModelBase):
     )
     time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
-        description="'all' keeps every time step; 'last' / 'first' selects one; "
-        "a list of ISO timestamps selects specific steps.",
+        description="'all' keeps every time step; 'last' / 'first' selects one.",
     )
     reducer: Annotated[OutputReducer, Profile.USER] = Field(
         default="none",
-        description="How the values kept by time are reduced before they are scored.",
+        description="How the values kept by time are reduced before they are scored "
+        "against 'observed_values'. Refused beside 'observes': its record is paired "
+        "with the series step by step.",
         json_schema_extra={"value_docs": _OUTPUT_REDUCER_VALUE_DOCS},
     )
     observed_values: Annotated[list[float] | None, Profile.USER] = Field(
@@ -1863,42 +1889,16 @@ class CalibPhaseDecl(HydroModelBase):
 class CalibAggregateDecl(HydroModelBase):
     """How several scored targets become one cost.
 
-    Two questions the word "weight" runs together. Whether an error is large for
-    what the instrument can resolve is a property of the measurement, not a
-    decision. What matters more between the outlet and the reservoir is a
-    decision, and the modeller's. The cost is the product of both, never one of
-    them, and this section names which recipe made them addable.
-
-    The literature offers two named recipes and states they are incompatible: one
-    over sigma, which makes each residual dimensionless and statistically
-    defensible, and an equal share of the initial objective, which guarantees no
-    data type is invisible to the search. There is no third to invent, only a
-    choice to name and to record.
+    ``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared
+    here and never read: a file that wrote them got the same cost. They are
+    retired, accepted and ignored with a warning, so a sealed run that wrote
+    them out keeps replaying.
     """
 
-    weighting: Annotated[Literal["manual", "error"], Profile.USER] = Field(
-        default="manual",
-        description=(
-            "How the members are made comparable before the weights apply. "
-            "'manual' takes the declared 'weight' of each block as the whole story, "
-            "which is honest as long as the costs are already commensurable. "
-            "'error' divides each residual by what its instrument resolves, so the "
-            "members become pure numbers first; it needs a residual criterion and an "
-            "observation carrying an error model, and is refused without both."
-        ),
+    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
+        {"weighting", "nested_gauges", "on_member_failure"}
     )
-    nested_gauges: Annotated[Literal["total", "incremental"], Profile.USER] = Field(
-        default="total",
-        description=(
-            "How two gauges on imbricated catchments are read. 'total' scores each "
-            "against its own full drained area, which is what a gauge measures; the "
-            "residuals are then statistically dependent, and no standard correction "
-            "exists for that. 'incremental' scores the downstream one on what its own "
-            "reach adds, downstream minus upstream, which is the only mechanisable way "
-            "to make the two independent. Neither is inferred: the overlap is measured "
-            "and reported whichever is chosen."
-        ),
-    )
+
     min_samples: Annotated[int, Profile.USER] = Field(
         default=1,
         ge=1,
@@ -1908,15 +1908,6 @@ class CalibAggregateDecl(HydroModelBase):
             "cent resting on three days is not what the file says it is."
         ),
         json_schema_extra={"unit": "-"},
-    )
-    on_member_failure: Annotated[Literal["veto", "drop"], Profile.USER] = Field(
-        default="veto",
-        description=(
-            "What one unscorable member does to the total. 'veto' makes the whole "
-            "trial fail, which is the default because a partial cost is not "
-            "comparable to a full one. 'drop' scores the survivors and records which "
-            "member was left out, which has to be asked for explicitly."
-        ),
     )
 
 
@@ -2054,6 +2045,11 @@ class CalibrationConfig(HydroModelBase):
     """
 
     model_legacy_keys = {"optimizer_kwargs": "method_options"}
+    # Declared and never read. Retired rather than refused: a run sealed while
+    # the frozen configuration spelled out every default carries them.
+    model_retired_keys: ClassVar[frozenset[str]] = frozenset(
+        {"lightweight_extraction", "persist_model_distribution"}
+    )
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "rerun_best_with_outputs": (
             "the best trial is promoted by default: save_runs = 'best_n' with "
@@ -2188,16 +2184,20 @@ class CalibrationConfig(HydroModelBase):
         json_schema_extra={"unit": "-"},
     )
     reject_water_budget_above: Annotated[float | None, Profile.USER] = Field(
-        default=None,
+        default=1.0,
         ge=0.0,
         description=(
-            "Percent water-balance discrepancy past which a trial is rejected instead "
-            "of scored. The solver reports the figure on every run; unset, it is "
-            "recorded and nothing acts on it, so a run at twelve per cent is ranked "
-            "beside one that closed even though part of the water it routed came from "
-            "nowhere. There is no default because there is no universal value: a steady "
-            "solve on a coarse mesh closes to a fraction of a per cent, a transient one "
-            "with a lake and a routed network legitimately sits higher."
+            "Percent water-balance discrepancy of the whole model past which a trial is "
+            "rejected instead of scored. The figure is the one the solver prints for the "
+            "volume budget of the entire model, not the budget of a single package such "
+            "as the lake package, which divides by small flows and reads higher. A "
+            "rejected trial is marked failed, so it is neither ranked nor promoted: part "
+            "of the water it routed came from nowhere and its cost is not comparable to "
+            "a run that closed. Default 1.0 (one per cent). Raise it for a transient "
+            "model whose lake or routed network legitimately sits higher. A TOML file "
+            "has no null: to switch the gate off write a value no run reaches, such as "
+            "1000, or pass None from Python. The worst time step of the run decides, "
+            "not the last."
         ),
         json_schema_extra={"unit": "%"},
     )
@@ -2272,12 +2272,6 @@ class CalibrationConfig(HydroModelBase):
         default=True,
         description="Enable params_hash content-addressable cache.",
     )
-    lightweight_extraction: Annotated[bool, Profile.DEV] = Field(
-        default=True,
-        description="Skip Parquet/Zarr writes for lumped models (GR4J, ...) and "
-        "read simulated series from the per-trial RAM cache instead. Only the "
-        "promoted runs go through the catalog write path.",
-    )
     objective: Annotated[MetricKind, Profile.USER] = Field(
         default="nse",
         description="Metric scoring the single simulated series, when no objective "
@@ -2333,10 +2327,6 @@ class CalibrationConfig(HydroModelBase):
         "a 300-400 point search otherwise writes nothing beyond trials.jsonl. Network "
         "and spatial outputs carry no series and are never written here.",
     )
-    persist_model_distribution: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Persist the candidate distribution alongside the session.",
-    )
     materialize_candidates: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
@@ -2346,8 +2336,8 @@ class CalibrationConfig(HydroModelBase):
     )
     aggregate: Annotated[CalibAggregateDecl, Profile.USER] = Field(
         default_factory=CalibAggregateDecl,
-        description="How several scored targets become one cost: what made them "
-        "comparable, how nested gauges are read, and what one unscorable member does.",
+        description="How several scored targets become one cost: the fewest paired "
+        "samples a member may be scored on.",
     )
     uncertainty: Annotated[CalibUncertaintyDecl, Profile.USER] = Field(
         default_factory=CalibUncertaintyDecl,
@@ -2411,43 +2401,6 @@ class CalibrationConfig(HydroModelBase):
             f"{forward_registry.ENTRY_POINT_GROUP!r} entry-point group, without a patch to "
             "HydroModPy."
         )
-
-    @model_validator(mode="after")
-    def _check_the_error_weighting_has_something_to_divide_by(self) -> CalibrationConfig:
-        """Refuse ``weighting = "error"`` where there is no residual, or no sigma.
-
-        One over sigma divides a residual by what its instrument resolves. An
-        efficiency score is not a residual: it is an aggregate already without a
-        unit, so there is nothing to divide. And sigma comes from an observation,
-        which means a loaded record: a vector typed into the file carries no error
-        model and never will.
-        """
-        if self.aggregate.weighting != "error":
-            return self
-        from hydromodpy.calibration.criteria import criterion_for
-
-        for block in self.objective_blocks:
-            try:
-                needs = criterion_for(str(block.metric)).requirements()
-            except ValueError:
-                continue
-            if needs.cost_is_dimensionless:
-                raise ValueError(
-                    f'[calibration.aggregate].weighting = "error" divides a residual by '
-                    f"what its instrument resolves, and block {block.name!r} is scored on "
-                    f"{block.metric!r}, an aggregate that is already a pure number. Score "
-                    'it on a residual metric, or set weighting = "manual" and say the '
-                    "shares in 'weight'."
-                )
-        if self.outputs and not any(
-            getattr(decl, "observes", None) for decl in self.outputs.values()
-        ):
-            raise ValueError(
-                '[calibration.aggregate].weighting = "error" needs an error model, which '
-                "comes from a loaded record: name a station in an output's 'observes'. A "
-                "vector written as 'observed_values' carries none."
-            )
-        return self
 
     @model_validator(mode="after")
     def _check_the_costs_can_be_added(self) -> CalibrationConfig:

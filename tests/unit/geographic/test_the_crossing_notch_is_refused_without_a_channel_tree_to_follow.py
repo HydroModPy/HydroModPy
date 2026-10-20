@@ -76,19 +76,6 @@ def test_a_limit_must_be_positive() -> None:
         _outlet(crossings={"max_depth": 0.0})
 
 
-@pytest.mark.parametrize("section", ["dam_carve", "crossings"])
-def test_a_corrected_ground_cannot_share_a_regional_flow_routed_on_the_raw_dem(section) -> None:
-    corrections = {
-        "dam_carve": {"dam_carve": {"enabled": True, "line_path": "dam.gpkg"}},
-        "crossings": {"crossings": {"enabled": True}, "river_network": _RIVER},
-    }[section]
-
+def test_a_corrected_ground_cannot_share_a_regional_flow_routed_on_the_raw_dem() -> None:
     with pytest.raises(ValidationError, match="reg_fold"):
-        _outlet(reg_fold="regional_job", **corrections)
-
-
-def test_the_description_of_dam_carve_says_it_corrects_the_ground() -> None:
-    description = GeographicConfig.model_fields["dam_carve"].description
-
-    assert "ground" in description
-    assert "routing chain" in description
+        _outlet(reg_fold="regional_job", crossings={"enabled": True}, river_network=_RIVER)

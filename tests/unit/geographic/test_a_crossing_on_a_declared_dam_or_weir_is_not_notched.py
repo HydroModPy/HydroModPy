@@ -72,17 +72,6 @@ def test_a_dam_or_weir_is_a_barrier_even_when_it_is_not_among_the_kinds_to_notch
     assert np.array_equal(out, valley.dem)
 
 
-def test_a_dam_carve_line_at_the_crossing_stops_the_notch() -> None:
-    valley = _pond_behind_a_dam()
-    crossings = bench.structures(("road", bench.road_along(DAM_ROW)))
-    line = LineString([(bench.x_of(bench.AXIS - 3), bench.y_of(DAM_ROW)), (bench.x_of(7), 95.0)])
-
-    out, report = bench.notch(valley, crossings, dam_lines=[line])
-
-    assert np.array_equal(out, valley.dem)
-    assert report.skipped == {"dam_or_weir": 1}
-
-
 def test_a_crossing_whose_chain_touches_a_declared_lake_is_left_alone() -> None:
     valley = _pond_behind_a_dam()
     crossings = bench.structures(("road", bench.road_along(DAM_ROW)))

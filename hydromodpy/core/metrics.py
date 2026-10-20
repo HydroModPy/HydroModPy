@@ -148,7 +148,31 @@ def correlation(sim, obs) -> float:
     return float(np.corrcoef(s, o)[0, 1])
 
 
-def _increments(sim: np.ndarray, obs: np.ndarray, step: int) -> tuple[np.ndarray, np.ndarray]:
+GAP_SAMPLES: float = 1.5
+"""Spacing, in samples, beyond which two neighbours lie on either side of a gap."""
+
+
+def _align_on_time(sim, obs, times) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Drop the NaN pairs of ``sim`` and ``obs``, and their positions in time.
+
+    ``times`` is the position of each sample on the time axis, counted in
+    samples of the series. ``None`` reads the vector as a regular series:
+    position ``i`` for entry ``i``, so a NaN left in place stays a gap.
+    """
+    s = np.asarray(sim, dtype=float).ravel()
+    o = np.asarray(obs, dtype=float).ravel()
+    if s.shape != o.shape:
+        raise ValueError(f"shape mismatch: sim={s.shape} obs={o.shape}")
+    t = np.arange(s.size, dtype=float) if times is None else np.asarray(times, dtype=float).ravel()
+    if t.shape != s.shape:
+        raise ValueError(f"shape mismatch: times={t.shape} sim={s.shape}")
+    mask = np.isfinite(s) & np.isfinite(o) & np.isfinite(t)
+    return s[mask], o[mask], t[mask]
+
+
+def _increments(
+    sim: np.ndarray, obs: np.ndarray, step: int, times=None
+) -> tuple[np.ndarray, np.ndarray]:
     """Increments over ``step`` samples, i.e. ``x[i + step] - x[i]``.
 
     ``step`` is a TOLERANCE, not a smoothing: a day-to-day increment (``step = 1``)
@@ -157,15 +181,27 @@ def _increments(sim: np.ndarray, obs: np.ndarray, step: int) -> tuple[np.ndarray
     timing is right to within a few days. Differencing over a longer window keeps
     the flux signal while making a small shift a minor perturbation instead of a
     sign flip.
+
+    An increment never spans a gap of the time axis (``times``, see
+    :func:`_align_on_time`), nor a step back to an earlier date where a second
+    series starts: each run of contiguous samples is differenced on its own.
     """
-    sim, obs = align(sim, obs)
+    sim, obs, t = _align_on_time(sim, obs, times)
     step = max(1, int(step))
-    if sim.size < step + 2:
+    spacing = np.diff(t)
+    breaks = np.flatnonzero((spacing <= 0.0) | (spacing > GAP_SAMPLES)) + 1
+    d_sim: list[np.ndarray] = []
+    d_obs: list[np.ndarray] = []
+    for s_run, o_run in zip(np.split(sim, breaks), np.split(obs, breaks), strict=True):
+        if s_run.size > step:
+            d_sim.append(s_run[step:] - s_run[:-step])
+            d_obs.append(o_run[step:] - o_run[:-step])
+    if sum(part.size for part in d_sim) < 2:
         return np.empty(0), np.empty(0)
-    return sim[step:] - sim[:-step], obs[step:] - obs[:-step]
+    return np.concatenate(d_sim), np.concatenate(d_obs)
 
 
-def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1) -> float:
+def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1, times=None) -> float:
     """Nash-Sutcliffe on the INCREMENTS rather than on the state itself.
 
     A reservoir level is an integral, so an efficiency computed on it is dominated
@@ -176,8 +212,11 @@ def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1) -> float:
 
     Use it ALONGSIDE a level metric, never alone: an increment score is blind to
     the absolute stage, so a model offset by ten metres can still score perfectly.
+
+    ``times`` places each sample on the time axis, in samples of the series
+    (see :func:`_increments`).
     """
-    d_sim, d_obs = _increments(sim, obs, step)
+    d_sim, d_obs = _increments(sim, obs, step, times)
     if d_sim.size == 0:
         return float("nan")
     denominator = float(np.sum((d_obs - d_obs.mean()) ** 2))
@@ -186,15 +225,15 @@ def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1) -> float:
     return float(1.0 - np.sum((d_sim - d_obs) ** 2) / denominator)
 
 
-def kge_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1) -> dict[str, float]:
+def kge_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1, times=None) -> dict[str, float]:
     """Kling-Gupta on the increments; see :func:`nse_delta` and :func:`_increments`."""
-    d_sim, d_obs = _increments(sim, obs, step)
+    d_sim, d_obs = _increments(sim, obs, step, times)
     if d_sim.size == 0:
         return {"kge": float("nan"), "r": float("nan"), "alpha": float("nan"), "beta": float("nan")}
     return kge(d_sim, d_obs)
 
 
-def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: int = 365) -> float:
+def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: float = 365, times=None) -> float:
     """Efficiency against a SEASONAL benchmark instead of the observed mean.
 
     ``NSE`` compares a model to a flat mean, a weak benchmark for a strongly
@@ -212,11 +251,14 @@ def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: int = 365) -> floa
     it is unaffected by where the series is cut.
 
     ``period`` is the cycle length in samples (365 for a daily series).
+    ``times`` places each sample on the time axis, in the same samples; unset,
+    entry ``i`` sits at ``i``. A record with a gap needs it, or the harmonics
+    are fitted out of phase past the gap.
     """
-    sim, obs = align(sim, obs)
-    if sim.size < 2 * int(period):
+    sim, obs, t = _align_on_time(sim, obs, times)
+    if sim.size == 0 or sim.size < 2 * int(period):
         return float("nan")
-    angle = 2.0 * np.pi * np.arange(obs.size, dtype=float) / float(period)
+    angle = 2.0 * np.pi * (t - t[0]) / float(period)
     design = np.column_stack(
         [
             np.ones_like(angle),

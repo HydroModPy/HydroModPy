@@ -40,6 +40,7 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     output_time_methods,
     pair_outputs_with_observations,
 )
+from hydromodpy.calibration.metrics.scalar import elapsed_days, sampling_step_days
 from hydromodpy.calibration.metrics.scalar import score as score_series
 from hydromodpy.calibration.optim.objective import SimulationOutput, build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
@@ -77,7 +78,7 @@ def slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
 
 def select_observable_times(result: ObservableResult, time: OutputTime) -> ObservableResult:
     """Select first or last values with their timestamps before pairing."""
-    if time == "all" or isinstance(time, list):
+    if time == "all":
         return result
     values = np.asarray(result.values).reshape(-1)
     times = None if result.times is None else pd.DatetimeIndex(result.times)
@@ -451,12 +452,14 @@ class ObservableScorer:
         objective = self._composite
         paired_counts: dict[str, int] = {}
         paired_dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
+        paired_times: dict[str, np.ndarray] = {}
         observed_by_output: Mapping[str, Sequence[float]] | None = None
         if self._observed:
             paired = self._align(series, starts)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
             paired_dates = dict(paired.dates)
+            paired_times = {name: elapsed_days(index) for name, index in paired.times.items()}
             observed_by_output = paired.observed
         if objective is None:
             objective = build_objective_from_config(
@@ -468,14 +471,15 @@ class ObservableScorer:
                     else None
                 ),
             )
-        # The sampling step of each dated output travels with the values: a
-        # seasonal criterion counts a year in the samples of the series.
+        # The sampling step and the paired dates of each dated output travel
+        # with the values: a seasonal criterion counts a year in the samples of
+        # the series, and reads a gap the pairing left as a gap.
         trial = SimulationOutput(
             sim_id="",
             stations=(),
             times=np.empty(0),
             values=simulated,
-            metadata={"sample_days": _sample_days(series)},
+            metadata={"sample_days": _sample_days(series), "sample_times": paired_times},
         )
         try:
             value = objective.evaluate(trial)
@@ -503,12 +507,9 @@ def _sample_days(series: Mapping[str, pd.Series]) -> dict[str, float]:
     """Median spacing of each dated output, in days. Outputs with one stamp are left out."""
     steps: dict[str, float] = {}
     for name, dated in series.items():
-        if not isinstance(dated.index, pd.DatetimeIndex) or dated.index.size < 2:
-            continue
-        gaps = np.diff(dated.index.sort_values().asi8) / 86_400e9
-        gaps = gaps[gaps > 0.0]
-        if gaps.size:
-            steps[str(name)] = float(np.median(gaps))
+        step = sampling_step_days(dated.index)
+        if step is not None:
+            steps[str(name)] = step
     return steps
 
 

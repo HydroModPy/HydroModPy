@@ -14,6 +14,7 @@ from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.physics.flow.time_forcing import compact_pre_resolved_forcings
+from hydromodpy.solver.modflow6.build import mf6_safe_name
 from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 from hydromodpy.solver.steady_initial_conditions import (
     cycles_have_settled,
@@ -101,6 +102,17 @@ def _read_final_head(head_path: Path, *, nlay: int, ncpl: int) -> np.ndarray:
     return np.asarray(raw, dtype=float)
 
 
+def _model_listing_path(model: object) -> Path:
+    """Return the listing MF6 wrote for an auxiliary model.
+
+    MF6 names the listing after the model name it was given, which is the safe
+    lowercase name, while the head file keeps the output stem. The two differ for a
+    name with a capital letter, a space or more than 16 characters.
+    """
+    safe = getattr(model, "model_name_mf6", None) or mf6_safe_name(str(model.model_name))
+    return Path(str(model.full_path)) / f"{safe}.lst"
+
+
 def _read_final_percent_discrepancy(list_path: Path) -> float | None:
     if not list_path.is_file():
         return None
@@ -177,7 +189,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
 
     output_name = str(getattr(steady_model, "model_output_name", steady_model.model_name))
     head_path = Path(str(steady_model.full_path)) / f"{output_name}.hds"
-    list_path = Path(str(steady_model.full_path)) / f"{output_name}.lst"
+    list_path = _model_listing_path(steady_model)
     if not success:
         if not _steady_initialization_balance_is_acceptable(list_path):
             raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
@@ -289,7 +301,7 @@ def _run_one_spinup_cycle(
         )
     output_name = str(getattr(cycle_model, "model_output_name", cycle_model.model_name))
     head_path = Path(str(cycle_model.full_path)) / f"{output_name}.hds"
-    list_path = Path(str(cycle_model.full_path)) / f"{output_name}.lst"
+    list_path = _model_listing_path(cycle_model)
     if not success and not _steady_initialization_balance_is_acceptable(list_path):
         raise RuntimeError(
             f"MODFLOW 6 spin-up cycle {cycle} failed to converge and its water budget does "

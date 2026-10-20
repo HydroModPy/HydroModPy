@@ -1,20 +1,10 @@
-"""How several targets become one cost must be written, not assumed.
+"""How several targets become one cost: the fewest pairs a member is scored on.
 
-Two questions the word "weight" runs together. Whether an error is large *for
-what the instrument can resolve* is a property of the measurement, not a
-decision. What matters more between the outlet and the reservoir is a decision,
-and the modeller's. The cost is the product of both, never one of them.
-
-The literature offers exactly two named recipes and says they are incompatible:
-one over sigma, which makes each residual dimensionless and defensible, and an
-equal share of the initial objective, which guarantees no data type is invisible.
-There is no third to invent. There is a choice to name and to record, which is
-what this section is for.
-
-``nested_gauges`` is the other declaration. Two gauges on imbricated catchments
-are not double counting, but their residuals are statistically dependent, and no
-standard correction exists. The only mechanisable rule is to read the downstream
-one incrementally, and either way the choice is written rather than inferred.
+``weighting``, ``nested_gauges`` and ``on_member_failure`` were declared here
+and never read, so a file that wrote ``weighting = "error"`` or
+``on_member_failure = "drop"`` got the same cost as one that did not. They
+are retired: accepted and ignored with a warning, so a sealed run that wrote
+them out keeps replaying, and gone from the schema.
 """
 
 from __future__ import annotations
@@ -43,91 +33,41 @@ def _config(aggregate: dict[str, object], **over: object) -> dict[str, object]:
 
 
 class TestTheDefaults:
-    def test_nothing_is_assumed_about_the_weighting(self) -> None:
-        decl = CalibAggregateDecl()
-
-        assert decl.weighting == "manual"
-        assert decl.nested_gauges == "total"
-        assert decl.on_member_failure == "veto"
-        assert decl.min_samples == 1
+    def test_one_pair_is_enough_by_default(self) -> None:
+        assert CalibAggregateDecl().min_samples == 1
 
     def test_a_calibration_carries_one_by_default(self) -> None:
         cfg = CalibrationConfig.model_validate({"parameters": {"K": {"bounds": [1e-8, 1e-2]}}})
 
-        assert cfg.aggregate.weighting == "manual"
+        assert cfg.aggregate.min_samples == 1
 
 
-class TestWhatItAccepts:
-    def test_an_error_weighting_on_a_residual_criterion_loads(self) -> None:
-        cfg = CalibrationConfig.model_validate(_config({"weighting": "error"}))
+class TestTheRetiredKeys:
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [("weighting", "error"), ("nested_gauges", "incremental"), ("on_member_failure", "drop")],
+    )
+    def test_an_aggregate_key_nothing_read_is_ignored_with_a_warning(
+        self, key: str, value: str
+    ) -> None:
+        with pytest.warns(DeprecationWarning, match=key):
+            cfg = CalibrationConfig.model_validate(_config({key: value}))
 
-        assert cfg.aggregate.weighting == "error"
+        assert key not in CalibAggregateDecl.model_fields
+        assert not hasattr(cfg.aggregate, key)
 
-    def test_reading_a_nested_gauge_incrementally_loads(self) -> None:
-        cfg = CalibrationConfig.model_validate(_config({"nested_gauges": "incremental"}))
+    @pytest.mark.parametrize("key", ["lightweight_extraction", "persist_model_distribution"])
+    def test_a_section_key_nothing_read_is_ignored_with_a_warning(self, key: str) -> None:
+        with pytest.warns(DeprecationWarning, match=key):
+            CalibrationConfig.model_validate({key: True})
 
-        assert cfg.aggregate.nested_gauges == "incremental"
-
-    def test_dropping_a_failed_member_loads(self) -> None:
-        cfg = CalibrationConfig.model_validate(_config({"on_member_failure": "drop"}))
-
-        assert cfg.aggregate.on_member_failure == "drop"
+        assert key not in CalibrationConfig.model_fields
 
 
 class TestWhatItRefuses:
-    def test_an_error_weighting_on_a_dimensionless_score_is_refused(self) -> None:
-        """One over sigma divides a residual. An efficiency score is not one."""
-        with pytest.raises(ValueError, match="error"):
-            CalibrationConfig.model_validate(
-                _config(
-                    {"weighting": "error"},
-                    objective_blocks=[
-                        {"name": "flows", "metric": "nse_log", "uses_outputs": ["q"]}
-                    ],
-                )
-            )
-
-    def test_the_refusal_names_the_block_and_the_metric(self) -> None:
-        with pytest.raises(ValueError) as caught:
-            CalibrationConfig.model_validate(
-                _config(
-                    {"weighting": "error"},
-                    objective_blocks=[{"name": "flows", "metric": "kge", "uses_outputs": ["q"]}],
-                )
-            )
-
-        message = str(caught.value)
-        assert "flows" in message
-        assert "kge" in message
-
-    def test_an_error_weighting_with_no_loaded_record_is_refused(self) -> None:
-        """Sigma comes from an observation; a typed vector carries none."""
-        with pytest.raises(ValueError, match="observes"):
-            CalibrationConfig.model_validate(
-                _config(
-                    {"weighting": "error"},
-                    outputs={
-                        "q": {
-                            "variable": "discharge",
-                            "support": "boundary",
-                            "boundary_id": "outlet",
-                            "observed_values": [1.0, 2.0],
-                        }
-                    },
-                )
-            )
-
     def test_a_min_samples_below_one_is_refused(self) -> None:
         with pytest.raises(ValueError):
             CalibrationConfig.model_validate(_config({"min_samples": 0}))
-
-    def test_an_unknown_weighting_is_refused(self) -> None:
-        with pytest.raises(ValueError):
-            CalibrationConfig.model_validate(_config({"weighting": "inverse_variance_ish"}))
-
-    def test_an_unknown_nested_reading_is_refused(self) -> None:
-        with pytest.raises(ValueError):
-            CalibrationConfig.model_validate(_config({"nested_gauges": "subtract_maybe"}))
 
 
 class TestMinSamplesReachesThePairing:

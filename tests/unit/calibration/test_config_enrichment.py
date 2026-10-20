@@ -96,17 +96,17 @@ class TestCalibOutputDecl:
         )
         assert decl.x.to("m").magnitude == 100.0
 
-    def test_time_accepts_list_of_timestamps(self):
-        decl = validate_calib_output(
-            {
-                "variable": "head",
-                "support": "cell",
-                "row": 0,
-                "col": 0,
-                "time": ["2020-01-01", "2020-06-01"],
-            }
-        )
-        assert decl.time == ["2020-01-01", "2020-06-01"]
+    def test_time_refuses_a_list_of_timestamps(self):
+        with pytest.raises(ValidationError, match="selects nothing"):
+            validate_calib_output(
+                {
+                    "variable": "head",
+                    "support": "cell",
+                    "row": 0,
+                    "col": 0,
+                    "time": ["2020-01-01", "2020-06-01"],
+                }
+            )
 
     @pytest.mark.parametrize(
         "support, extra",
@@ -233,12 +233,10 @@ class TestCalibrationConfigEnriched:
         cfg = CalibrationConfig.model_validate(
             {
                 "persist_iteration_detail": "full",
-                "persist_model_distribution": True,
                 "materialize_candidates": True,
             }
         )
         assert cfg.persist_iteration_detail == "full"
-        assert cfg.persist_model_distribution is True
         assert cfg.materialize_candidates is True
 
     @pytest.mark.parametrize(

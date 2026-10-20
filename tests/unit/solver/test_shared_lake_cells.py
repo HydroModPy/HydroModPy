@@ -14,6 +14,7 @@ from hydromodpy.solver.modflow6.builders import lake as lake_builder
 from hydromodpy.solver.modflow6.builders.lake import (
     _fill_lake_enclosed_cells,
     _resolve_shared_lake_cells,
+    own_lake_upstream_ifnos,
     resolve_downstream_spillway_reaches,
     resolve_spillway_seed_cells,
 )
@@ -134,37 +135,40 @@ def test_spillway_receiver_is_the_reach_on_the_toe_seed() -> None:
     assert resolved == {"res": 10}
 
 
-def test_spillway_receiver_falls_back_to_nearest_reach() -> None:
-    # The toe seed cell 1 is not a reach (extension off) -> nearest reach cell 2 (ifno 10).
-    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
-    resolved = resolve_downstream_spillway_reaches(
-        {"res": 1}, reach_cell_to_ifno={2: 10, 3: 20}, cell_centroids=centroids
-    )
-    assert resolved == {"res": 10}
+def test_spillway_without_a_reach_on_the_toe_seed_raises() -> None:
+    """No silent fallback on the nearest reach: it can be a tributary of the lake.
 
-
-def test_spillway_fallback_skips_a_feeder_of_its_own_lake() -> None:
-    """The nearest reach is refused when it already hands its flow to this lake.
-
-    Without the guard the overflow would go LAK -> SFR -> LAK: the lake would feed
-    its own inflow, and nothing checks it because the two mover rows are built
-    independently and merged as-is.
+    On the Cheze the nearest reach to the toe sat 2.8 km away and fed the reservoir
+    again, so 99 % of a configured release came back into it.
     """
     centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
-    resolved = resolve_downstream_spillway_reaches(
-        {"res": 1},
-        reach_cell_to_ifno={2: 10, 3: 20},
-        cell_centroids=centroids,
-        own_lake_terminal_ifnos={"res": {10}},
-    )
-    assert resolved == {"res": 20}  # the nearest one (10) feeds 'res', so 20 wins
+    with pytest.raises(ValueError, match="rectify_on_mesh"):
+        resolve_downstream_spillway_reaches(
+            {"res": 1}, reach_cell_to_ifno={2: 10, 3: 20}, cell_centroids=centroids
+        )
+
+
+def test_own_lake_upstream_reaches_cover_the_whole_catchment_of_the_lake() -> None:
+    """Terminal labels are 1-based; the forbidden set holds every reach draining to the lake."""
+    from types import SimpleNamespace as NS
+
+    reaches = [
+        NS(ifno=0, upstream=(), is_terminal_to_lake=False, terminal_lake=None),
+        NS(ifno=1, upstream=(0,), is_terminal_to_lake=True, terminal_lake=1),
+        NS(ifno=2, upstream=(), is_terminal_to_lake=False, terminal_lake=None),
+        NS(ifno=3, upstream=(2,), is_terminal_to_lake=True, terminal_lake=2),
+        NS(ifno=4, upstream=(), is_terminal_to_lake=False, terminal_lake=None),
+    ]
+    network = NS(reaches=reaches)
+    forbidden = own_lake_upstream_ifnos({"a": network}, lake_ids=["res", "forebay"])
+    assert forbidden == {"res": {0, 1}, "forebay": {2, 3}}
 
 
 def test_spillway_fallback_allows_a_feeder_of_another_lake() -> None:
     """A cascade stays legal: a forebay may spill into a reach feeding the main lake."""
     centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
     resolved = resolve_downstream_spillway_reaches(
-        {"forebay": 1},
+        {"forebay": 2},
         reach_cell_to_ifno={2: 10, 3: 20},
         cell_centroids=centroids,
         own_lake_terminal_ifnos={"forebay": set(), "main": {10}},
@@ -181,15 +185,4 @@ def test_spillway_exact_hit_on_own_feeder_raises() -> None:
             reach_cell_to_ifno={2: 10, 3: 20},
             cell_centroids=centroids,
             own_lake_terminal_ifnos={"res": {10}},
-        )
-
-
-def test_spillway_raises_when_every_reach_feeds_the_lake() -> None:
-    centroids = np.array([[0, 0], [10, 0], [20, 0], [40, 0]], dtype=float)
-    with pytest.raises(ValueError, match="no downstream SFR reach"):
-        resolve_downstream_spillway_reaches(
-            {"res": 1},
-            reach_cell_to_ifno={2: 10, 3: 20},
-            cell_centroids=centroids,
-            own_lake_terminal_ifnos={"res": {10, 20}},
         )

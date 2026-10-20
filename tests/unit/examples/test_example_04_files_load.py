@@ -89,6 +89,18 @@ def test_the_project_names_its_catchment_and_its_window_once() -> None:
 
 
 @pytest.mark.parametrize("name", FILES)
+def test_the_metrics_window_lies_inside_the_run(name: str) -> None:
+    """A window outside ``[simulation.time]`` leaves the run with no score and no message."""
+    cfg = HydroModPyConfig.from_toml(EXAMPLE_04 / name)
+    window = cfg.metrics.window if cfg.metrics is not None else None
+    time = cfg.simulation.time
+    if window is None or getattr(time, "start_datetime", None) is None:
+        return
+    assert time.start_datetime.date() <= window.start
+    assert window.end <= time.end_datetime.date()
+
+
+@pytest.mark.parametrize("name", FILES)
 def test_no_file_writes_a_retired_key(name: str) -> None:
     raw = load_toml_with_base_config(EXAMPLE_04 / name)
     assert "workspace" not in raw

@@ -20,9 +20,11 @@ model); a positive integer routes it directly to that downstream lake (1-based).
 
 For a *controlled* transfer (a fraction, a cap, or a threshold) the outlet keeps
 ``lakeout = 0`` (external) and carries an optional ``mover`` spec instead; the LAK
-outlet then feeds a MODFLOW 6 MVR record routed to the receiving lake. The two
-crossed-weir trick for a partially submerged sill (0 -> 1 and
-1 -> 0 at the same invert) is expressed as two plain WEIR outlets, one per lake.
+outlet then feeds a MODFLOW 6 MVR record routed to the receiving lake. A sill
+between two lakes is one WEIR outlet, on the upper lake, with ``lakeout`` naming
+the lower one. Two WEIR outlets that spill into each other over the same crest
+are refused: above the crest MF6 sends water both ways every time step instead
+of routing it.
 """
 
 from __future__ import annotations
@@ -78,9 +80,12 @@ class FlowLakeOutletMover(HydroModelBase):
     to_downstream_reach: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach at "
-            "the foot of the dam (the channel is extended to it if needed). Robust to "
-            "remeshing, unlike a fixed reach number. Keep lakeout = 0."
+            "Auto-resolve the LAK -> SFR receiver: route the spillway to the SFR reach on "
+            "the foot of the dam, downstream of the cutoff wall when the lake has one. "
+            "The SFR network draws a channel to the foot only with rectify_on_mesh; "
+            "without a reach on the foot the build stops, it never takes the nearest "
+            "reach, which can flow back into the lake. Robust to remeshing, unlike a "
+            "fixed reach number. Keep lakeout = 0."
         ),
     )
     discharge_xy: Annotated[tuple[float, float] | None, Profile.EXPERT] = Field(
@@ -169,7 +174,9 @@ class FlowLakeOutletWeir(HydroModelBase):
         ge=0,
         description=(
             "Number of the lake that receives the discharge, counted from 1 in the order "
-            "the lakes are declared. 0 sends the discharge out of the model."
+            "the lakes are declared. 0 sends the discharge out of the model. A sill "
+            "between two lakes is one outlet, on the upper lake; two WEIR outlets that "
+            "spill into each other over the same crest are refused."
         ),
         json_schema_extra={"unit": "-"},
     )
@@ -448,7 +455,9 @@ class FlowLakeConfig(HydroModelBase):
         ge=0.0,
         description=(
             "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the "
-            "lake-aquifer interface; the under-dam leakage calibration parameter. "
+            "lake-aquifer interface over the whole lake bed, the handle of the "
+            "lake-aquifer exchange. The flow through or under the dam is set by "
+            "the cutoff_wall and the aquifer, not by this value. "
             "0 means a perfectly sealed lakebed (no leakage)."
         ),
         json_schema_extra=field_metadata(
@@ -530,7 +539,8 @@ class FlowLakeConfig(HydroModelBase):
             "Optional dam cutoff wall / grout curtain on the dam axis, modeled as "
             "a MODFLOW 6 HFB laid on the lake shore. The barrier forces the "
             "under-dam seepage to dive below the wall instead of leaking through "
-            "the top layers."
+            "the top layers. The flow across its faces is published per layer as "
+            "the cutoff_wall_flow series."
         ),
     )
     rainfall: Annotated[FlowRateForcingConfig | None, Profile.USER] = Field(

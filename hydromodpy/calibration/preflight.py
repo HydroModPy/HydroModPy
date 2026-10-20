@@ -498,8 +498,10 @@ def _check_bounds_against_physics(
 
     if len(bounds) != 2:
         return []
+    # The bounds of a scale are factors: the product is faced when written.
     try:
-        assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
+        if getattr(decl, "mode", "replace") != "scale":
+            assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
     except ValueError as exc:
         return [PreflightFinding("error", where, str(exc))]
     if str(getattr(decl, "transform", "identity")).lower() == "log" and bounds[0] <= 0.0:

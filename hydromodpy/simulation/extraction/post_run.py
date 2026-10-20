@@ -15,6 +15,11 @@ from typing import Any
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.sinks_sources.wells import (
+    WELL_THROTTLE_WARNING_FRACTION,
+    WELLS_PUMPED_CHECK,
+    WELLS_PUMPED_METRIC,
+)
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
@@ -50,6 +55,37 @@ def record_run_execution_metrics(
             metric_name=str(metric_name),
             value=value,
         )
+    _check_wells_pumped(store, metrics)
+
+
+def _check_wells_pumped(store: Any, metrics: Mapping[str, Any]) -> None:
+    """Put the wells-pumped verdict in the checks of the run, when the run has wells.
+
+    The solver publishes only the volume it applied. A cut of more than the
+    share a cut is reported at fails the verdict, which stays non-fatal: the run
+    is sound, it only pumped less than it was told to.
+    """
+    raw = metrics.get(WELLS_PUMPED_METRIC)
+    facts = getattr(store, "facts", None)
+    if raw is None or facts is None:
+        return
+    try:
+        pumped = float(raw)
+    except (TypeError, ValueError):
+        return
+    if not math.isfinite(pumped):
+        return
+    passed = pumped >= 100.0 * (1.0 - WELL_THROTTLE_WARNING_FRACTION)
+    message = (
+        f"the wells pumped {pumped:.0f} % of the requested volume"
+        if passed
+        else (
+            f"the wells pumped {pumped:.0f} % of the requested volume: MODFLOW 6 "
+            "AUTO_FLOW_REDUCE cut the pumping of nearly dry cells. Put the well in a "
+            "deeper layer or lower its rate."
+        )
+    )
+    facts.note_validity(WELLS_PUMPED_CHECK, passed, pumped, message)
 
 
 def post_run_results(
@@ -269,6 +305,23 @@ def _resolve_run_start_datetime(ctx: RunContext) -> str | None:
     return None
 
 
+def _drainage_outside_routed(ctx: RunContext) -> bool:
+    """True when an SFR network of the run keeps the hillslope drainage out of its reaches."""
+    flow = getattr(getattr(ctx, "state", None), "setup", None)
+    flow = getattr(flow, "flow", None)
+    sinks_sources = getattr(flow, "sinks_sources", None)
+    networks = sinks_sources.get("sfr") if isinstance(sinks_sources, dict) else None
+    for payload in (networks or {}).values():
+        flag = (
+            payload.get("route_drainage")
+            if isinstance(payload, Mapping)
+            else getattr(payload, "route_drainage", None)
+        )
+        if flag is False:
+            return True
+    return False
+
+
 def derive_run_outputs(
     *,
     ctx: RunContext,
@@ -310,7 +363,10 @@ def derive_run_outputs(
             aggregate_catchment_timeseries,
         )
 
-        aggregate_catchment_timeseries(sim_id, store)
+        if _drainage_outside_routed(ctx):
+            aggregate_catchment_timeseries(sim_id, store, drainage_outside_routed=True)
+        else:
+            aggregate_catchment_timeseries(sim_id, store)
 
 
 def cleanup_solver_outputs(

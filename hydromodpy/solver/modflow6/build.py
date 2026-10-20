@@ -7,7 +7,7 @@ import json
 import os
 import re
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import flopy
 import numpy as np
@@ -52,6 +52,7 @@ from hydromodpy.solver.modflow6.builders import (
     log_xt3d_resolution,
     mask_recharge_on_lake_cells,
     mover_package_count,
+    own_lake_upstream_ifnos,
     recharge_to_spd,
     refuse_constant_heads_below_bottom,
     remove_drain_cells,
@@ -74,6 +75,7 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
+    mover_rows_reach_lake,
     sfr_networks_lie_on_the_river_network,
     sfr_networks_walk_the_descent,
 )
@@ -191,10 +193,12 @@ def mf6_safe_name(name: str, max_len: int = 16) -> str:
     """Return a safe MODFLOW 6 model name: no whitespace, hashed when too long.
 
     MODFLOW 6 rejects a model name that contains a space, so every whitespace run
-    collapses to a single underscore before the length check. Names longer than
-    ``max_len`` are hashed to stay unique and within the identifier limit.
+    collapses to a single underscore before the length check. The name is
+    lowercased: flopy compares ``model_name.lower()`` to a package path that keeps
+    its case, and a capital letter makes it fail to write the MVR. Names longer
+    than ``max_len`` are hashed to stay unique and within the identifier limit.
     """
-    text = re.sub(r"\s+", "_", str(name).strip())
+    text = re.sub(r"\s+", "_", str(name).strip()).lower()
     if len(text) <= max_len:
         return text
     if max_len <= 6:
@@ -414,6 +418,37 @@ def _build_descent_and_dam_feet(
         )
     _keep_dam_feet_and_leave_descent(model, descent, spillway_seed_by_lake, basin=basin)
     return descent, basin, spillway_seed_by_lake
+
+
+def _resolve_spillway_receivers(
+    sfr_networks: Mapping[str, Any],
+    spillway_seed_by_lake: Mapping[str, int],
+    *,
+    lake_ids: Sequence[str],
+    cell_centroids: np.ndarray,
+) -> dict[str, int]:
+    """Map each dam-toe seed to the reach on it, ``{lake id: reach ifno}``.
+
+    ``lake_ids`` is the lake order of the build, the order the SFR reaches are
+    numbered against: a reach's ``terminal_lake`` is the 1-based position of
+    its lake there. The reaches that end in a lake, with everything upstream
+    of them, are never the receiver of that lake's spillway, or the lake would
+    feed itself (a LAK -> SFR -> LAK loop).
+    """
+    if not sfr_networks or not spillway_seed_by_lake:
+        return {}
+    reach_cell_to_ifno = {
+        int(reach.cellid[1]): int(reach.ifno)
+        for network in sfr_networks.values()
+        for reach in network.reaches
+        if reach.cellid is not None
+    }
+    return resolve_downstream_spillway_reaches(
+        spillway_seed_by_lake,
+        reach_cell_to_ifno=reach_cell_to_ifno,
+        cell_centroids=cell_centroids,
+        own_lake_terminal_ifnos=own_lake_upstream_ifnos(sfr_networks, lake_ids=lake_ids),
+    )
 
 
 def _constant_head_cells(
@@ -1064,33 +1099,12 @@ def run_pre_processing(  # noqa: PLR0915
     )
 
     # Map each dam-toe seed to the reach that now sits on it (the spillway receiver).
-    downstream_reach_by_lake: dict[str, int] = {}
-    if sfr_networks and spillway_seed_by_lake:
-        reach_cell_to_ifno = {
-            int(reach.cellid[1]): int(reach.ifno)
-            for network in sfr_networks.values()
-            for reach in network.reaches
-            if reach.cellid is not None
-        }
-        # Reaches that already hand their flow to a lake, keyed by the SAME lake
-        # enumeration as lake_cells_by_number above, so a spillway is never routed to a
-        # feeder of its own lake (that would close a LAK -> SFR -> LAK loop).
-        terminals_by_lake_number: dict[int, set[int]] = {}
-        for network in sfr_networks.values():
-            for reach in network.reaches:
-                if reach.is_terminal_to_lake and reach.terminal_lake is not None:
-                    terminals_by_lake_number.setdefault(int(reach.terminal_lake), set()).add(
-                        int(reach.ifno)
-                    )
-        downstream_reach_by_lake = resolve_downstream_spillway_reaches(
-            spillway_seed_by_lake,
-            reach_cell_to_ifno=reach_cell_to_ifno,
-            cell_centroids=solver_mesh.cell_centroids(),
-            own_lake_terminal_ifnos={
-                lake_id: terminals_by_lake_number.get(number, set())
-                for number, lake_id in enumerate(lake_cell_ids_by_lake)
-            },
-        )
+    downstream_reach_by_lake = _resolve_spillway_receivers(
+        sfr_networks,
+        spillway_seed_by_lake,
+        lake_ids=list(lake_cell_ids_by_lake),
+        cell_centroids=solver_mesh.cell_centroids(),
+    )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path
     # covers both. Native DIS is reserved for the NWT backend, which only supports
@@ -1360,7 +1374,7 @@ def run_pre_processing(  # noqa: PLR0915
             # drain cell meets the lake before any reach. LAK must announce MOVER
             # for either, or MODFLOW 6 stops at the first DRN-to-LAK record.
             external_mover_to_lake=any(record.receiver == "LAK" for record in sfr_mover_records)
-            or any(str(row[2]).upper() == "LAK" for row in drainage_mover_rows),
+            or mover_rows_reach_lake(drainage_mover_rows),
             downstream_reach_by_lake=downstream_reach_by_lake,
         )
         if lak_args is not None:

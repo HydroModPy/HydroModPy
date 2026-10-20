@@ -34,6 +34,101 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- The lake-river stack closes the findings of the 2026-10-14 audit left open on 2026-10-15
+  (2026-10-20, nine commits `612011a41..cc6378260`). What changes for a user:
+  - Lake outlets run one way. Two WEIR outlets of two lakes toward each other at the same crest
+    are refused, naming both outlets: they made the water circulate instead of a sill. A
+    spillway without a reach on the dam foot is refused (enable `rectify_on_mesh`) instead of
+    falling back on the nearest reach, which sent the release back into the reservoir on the
+    Chèze; the SFR link below the dam is kept after the cut at the lake. With a cutoff wall the
+    dam foot is chosen downstream of the wall. The guard against a LAK to SFR to LAK loop maps
+    the 1-based `terminal_lake` and covers every reach upstream of the lake.
+  - Lake series: `outlet_inflow` is published and `outlet` is now a positive outflow (the
+    published series changes sign). `seepage_under_dam` is renamed `lake_bed_vertical_exchange`,
+    which is what it measures. The flow through a cutoff wall is published as `cutoff_wall_flow`
+    (FLOW-JA-FACE summed over the wall faces, per layer, stations `lake:<id>:layer<k>`).
+  - `[geographic.dam_carve]` and the `slope`, `buffer_m` and `capture_*` keys of
+    `[geographic.enforce_lakes]` are refused: the ramp, the outlet notch and the stream capture
+    moved neither the basin, the network nor the drains once the cell drainage D crosses the
+    lakes. The lake polygons stay for the crossing notch and the bed regularisation. On the
+    Chèze grid the lake stage moves by 1e-5 m and the run budget is unchanged.
+  - Calibration: `reject_water_budget_above` defaults to 1.0 % and reads the worst time step of
+    the whole-model volume budget, the figure the run checks report, not the lake package. A
+    rejected trial is neither ranked nor promoted. A steady phase that fits a lake parameter of
+    a model with a lake is refused (its objective is flat). MF6 names are lower case, so flopy
+    writes the MVR of a simulation named with capitals, and the steady start reads the listing
+    under the name MF6 wrote.
+  - `catch_def = "txt"` is refused. A basin past the float32 range of ln(accumulation) is
+    delineated. The Hub'Eau gauge area guard runs on the gauge of the run. The crossings box of
+    a polygon basin is its bounds plus its buffer, and the bed fit is windowed on the domain
+    (8.3 s to 2.0 s on the Chèze grid).
+  - The Voronoi engine (2.2.0) closes lake shores: rivers are cut at the lakes, the shore is
+    smoothed to the largest shore cell, a shore does not yield to a river, and a cell covered
+    for most of its area outside its region goes to the lake. On the Chèze, shore coverage goes
+    from 0.54 to 1.0 and the lake footprint over its polygon from 1.88 to 0.96.
+  - Each lake of a model without SFR takes the runoff of the ground it drains (D8 areas, not an
+    equal share). With `route_drainage = false` the discharge series is the routed series plus
+    the basin DRAIN, for calibration and for the published series alike.
+  - `route_drainage = false` under a lake in soil mode is refused. A well the solver throttles
+    is sealed with the run as the non-fatal validity `wells_pumped` (the report written on
+    2026-10-15 never read the budget file). The first-year spin-up message says 52 weeks.
+  - An MF6 input error at the API `initialize` raises `SolverInputError` with the end of
+    `mfsim.stdout` instead of ending Python (the check runs in a child interpreter first).
+  - `hmp doctor --fix-config` migrates `[workspace] project_root`, `if_exists = "replace"`,
+    `display.output_dir` and `calibration.rerun_best_with_outputs`; `[site]` stays to write by
+    hand.
+- `hmp calibrate` names the metric its best cost is, `cost: 0.1234 (1 - nse_log)`, as the phase
+  recap of `hmp run` already did (2026-10-20). A bare `cost: 0.12` on an efficiency read as a
+  poor score where it is `1 - NSE`.
+- A calibration output refuses what nothing reads (2026-10-20). Beside `observes`, a `reducer`
+  other than `"none"` is refused: the record is paired with the series step by step and the
+  reduced value was overwritten, so `none`, `mean` and `sum` gave the same cost. A list of dates
+  in `time` is refused on point, boundary, cell and lake outputs: it was documented as
+  selecting steps and read as `"all"`.
+- The bounds of a `mode = "scale"` parameter are factors, no longer faced with the physical
+  range of the property (2026-10-20). `Sy` scaled by `[0.5, 2]` was refused, "upper bound 2.0
+  outside [0.0001, 0.5]", by the load, the name resolution and `hmp config check` alike. The
+  product the run writes is still faced with that range.
+- `method = "da_mh_gp"` no longer hangs under `parallel > 1` or `batch_size > 1` (2026-10-20).
+  The chain proposes its next point only once the previous one is told, and the engine asked
+  for several in one batch: the second waited forever. It now returns one point per batch and
+  declares `supports_parallel = False`, so `hmp config check` says a parallel setting buys
+  nothing.
+- `method = "grid"` publishes its counted budget, the product of `points_per_dim`, so
+  `max_iter = "auto"` visits every point (2026-10-20). It took the 100 trials of an engine that
+  cannot count: a 5 x 5 x 5 grid was cut at 100 points, the last value of the first parameter
+  never visited, and the session still reported a converged search. An explicit `max_iter`
+  below the grid still truncates it.
+- `scatter_one_to_one` and `hydrograph_log_nse` print the scores the run recorded on
+  `[metrics] window`, with that window and its sample count, read from the seal or, before it,
+  from the facts of the run's store (`hydromodpy.results.run.sealed.metrics_of`) (2026-10-20).
+  The scatter computed its own NSE, RMSE and BIAS on every pair sharing a timestamp, spin-up
+  included; it now pairs as the run's score does and draws in gray the pairs that score left
+  out. The `scoring_window` and `nse_log` options of `hydrograph_log_nse` are removed: typed
+  beside the figure, they could disagree with the score the run is ranked on. Examples 04, 19
+  and 21 drop their `[display.overrides.hydrograph_log_nse]` tables.
+- The best trial of a session, the one promoted and resumed from, is a trial the search read
+  (2026-10-20). A speculative engine (Nelder-Mead with `parallel > 1`) solves candidates it then
+  leaves unread, and `best_trial` took the minimum over them too, so the promoted run could be a
+  point the search never returned. The `speculative_unused` mark is now journaled at every
+  `persist_iteration_detail`, `"none"` included.
+- `nse_seasonal`, `nse_delta`, `kge_delta` and `reservoir` read the dates of the series, not the
+  position in the vector (2026-10-20). The pairing drops the dates where the record has no value,
+  so past a gap the harmonics were fitted out of phase and an increment spanned the gap as one
+  step: on four daily years with 120 days missing, `nse_seasonal` read 0.98 for 0.31 and
+  `nse_delta` 0.95 for 0.48. Both routes hand the paired dates to the kernels, a NaN left in the
+  vector is a gap, and month ends are placed at their own dates.
+- The single-metric route (`variable` + `objective`) hands the sampling step of the aligned series
+  to `nse_seasonal` and `reservoir`, as the block route does (2026-10-20). It passed none, so a
+  monthly series was taken as daily: NaN on three years and a refused trial, where the block
+  route scored a number. A daily series now reads a year of 365.25 days, not 365 samples.
+- `distance_mean` of an empty simulated network is NaN (2026-10-20). The pair of an empty
+  network rebuilds `D_so` as `D_os - L_cap`, so `(D_so + D_os) / 2` was negative and ranked the
+  empty network below every real one (-1300 m for `D_os = 1200`, `L_cap = 5000`). `distance_gap`
+  still reads `L_cap`.
+- Example 04: `run_calibration_api_daily.toml` and `step6_soil_reservoir.toml` write
+  `[metrics] window` 2016-01-01 to 2020-12-31 (2026-10-20). They ran 2015-2020 and inherited the
+  2001-2002 window of `project.toml` through `base_config`, so their runs had no score.
 - Under `[calibration.protocol]`, `[metrics] window` reaches the transient stage (2026-10-20). The
   protocol wrote its own default, one year past `[simulation.time].start_datetime` with no end,
   before the project defaults ran, so the stage kept it and scored past the end of
@@ -761,6 +856,11 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `[calibration.aggregate]` `weighting`, `nested_gauges` and `on_member_failure`, and
+  `[calibration]` `lightweight_extraction` and `persist_model_distribution`, leave the schema
+  (2026-10-20). Nothing read them: `weighting = "error"` or `on_member_failure = "drop"` gave the
+  same cost as the defaults. They are retired, accepted and ignored with a warning, so a run
+  sealed while the frozen configuration spelled out every default keeps replaying.
 - `examples/projects/09_capability_gallery/` (figures and manifests of the retired documentation
   gallery, whose producers no longer exist; a copy lives outside the tree) and the always-skipped
   `tests/unit/solver/test_boussinesq_stationary_robust_solver_matrix.py`, which loaded a script of the

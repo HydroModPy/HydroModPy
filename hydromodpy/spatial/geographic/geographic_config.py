@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -145,7 +145,10 @@ class TxtCatchDef(_CatchDefBase):
 
     catch_def: Annotated[Literal["txt"], Profile.USER] = Field(
         default="txt",
-        description="Catchment defined from an XYZ text grid (cell_size required).",
+        description=(
+            "Catchment defined from an XYZ text grid (cell_size required). Not implemented: "
+            "a document that selects it is refused when it loads."
+        ),
     )
     cell_size: Annotated[LengthMeters, Profile.USER] = Field(
         gt=0,
@@ -367,22 +370,32 @@ class RiverNetworkConfig(HydroModelBase):
 
 
 class LakeEnforcementConfig(HydroModelBase):
-    """Hydro-enforce lakes into the ROUTING DEM before D8 flow routing.
+    """Lake footprint polygons that the ground corrections leave alone.
 
-    A topographic breach/fill is lake-blind: on a dammed reservoir it carves a
-    thalweg that misses the flat water body, so streams dead-end short of the lake
-    and the outlet-delineated catchment excludes the reservoir. When enabled, the
-    lake footprints are carved (a gentle ramp toward the outlet plus an outlet
-    notch) into a SEPARATE routing DEM used only for delineation; the model grid
-    top stays on the raw DEM, so the lake-aquifer geometry is untouched. It reuses
-    the lake footprint polygons already supplied for LAK cells -- no river source.
+    The routing DEM is no longer carved at the lakes: the cell drainage ``D``
+    already makes the water cross a lake, and the carve (a ramp toward the
+    outlet, an outlet notch, a stream capture) moved neither the basin, the
+    network nor the drains. The polygons stay a declared input for the two
+    steps that read them, the crossing notch and the bed regularisation.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "slope": "the lake ramp of the routing DEM is removed, D already crosses the lake",
+        "buffer_m": "the lake ramp of the routing DEM is removed, D already crosses the lake",
+        "capture_radius_m": (
+            "the stream capture is removed, D already crosses the lake; "
+            "raise flow.sinks_sources.sfr.<id>.lake_feeder_snap to feed a lake from a "
+            "dead-end reach"
+        ),
+        "capture_max_streams": "the stream capture is removed, D already crosses the lake",
+        "capture_min_acc_fraction": "the stream capture is removed, D already crosses the lake",
+    }
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=(
-            "Carve the lake footprints into the routing DEM before D8 so streams "
-            "converge into the lakes and drain to the outlet through them."
+            "Read the lake footprint polygons of lake_geometry_path as lakes of the "
+            "ground, so the crossing notch and the bed regularisation leave them alone."
         ),
     )
     lake_geometry_path: Annotated[
@@ -393,109 +406,8 @@ class LakeEnforcementConfig(HydroModelBase):
     ] = Field(
         default=None,
         description=(
-            "Lake footprint polygons (gpkg/shp) to carve. A bare filename resolves "
+            "Lake footprint polygons (gpkg/shp). A bare filename resolves "
             "against <workspace>/data/lake_geometry/. Required when enabled."
-        ),
-    )
-    slope: Annotated[float, Profile.USER] = Field(
-        default=0.003,
-        gt=0.0,
-        description=(
-            "Ramp gradient, in metres per metre of distance to the outlet. Small and positive "
-            "so each lake slopes gently toward the outlet with no flat depression "
-            "(a flat sink would make the breach crawl)."
-        ),
-        json_schema_extra={"unit": "-"},
-    )
-    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
-        default=15.0,
-        ge=0.0,
-        description=(
-            "Buffer (metres) applied to each lake footprint to bridge inter-lake "
-            "sills and knit the shoreline into the carve."
-        ),
-    )
-    capture_radius_m: Annotated[LengthMeters, Profile.USER] = Field(
-        default=0.0,
-        ge=0.0,
-        description=(
-            "If > 0, run a SECOND delineation pass: any stream that dead-ends within "
-            "this distance of a lake (a near-miss over a flat forebay) is carved to "
-            "the lake and re-delineated, so its channel reaches the shoreline. 0 "
-            "disables the capture pass (lake carve only)."
-        ),
-    )
-    capture_max_streams: Annotated[int, Profile.EXPERT] = Field(
-        default=8,
-        ge=1,
-        description=(
-            "Capture pass: cap on how many near-miss stream terminals are carved to "
-            "lakes per pass (kept by decreasing flow accumulation)."
-        ),
-    )
-    capture_min_acc_fraction: Annotated[float, Profile.EXPERT] = Field(
-        default=0.3,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Capture pass: keep only near-miss terminals whose flow accumulation is at "
-            "least this fraction of the largest, so a tiny rivulet is not carved."
-        ),
-    )
-
-
-class DamCarveConfig(HydroModelBase):
-    """Optional dam structure-carve of the ground.
-
-    A raw DEM samples the concrete dam crest as terrain, so the aquifer column
-    under the dam is lifted to the crest (~87 m on the Cheze 5 m DEM) and a
-    cutoff-wall HFB band lands above the real seepage. This carves ONLY the dam
-    footprint of the ground down to the surrounding valley floor, so the
-    cutoff wall can sit on the surveyed axis at the dam (not shifted downstream).
-
-    The ground is the DEM plus the corrections declared here and in
-    ``[geographic.crossings]``. Both the routing chain and the model top start
-    from it, so the carved dam is seen by the flow routing and by the aquifer
-    alike.
-    """
-
-    enabled: Annotated[bool, Profile.USER] = Field(
-        default=False,
-        description=(
-            "Carve the dam footprint of the ground down to the local valley "
-            "floor, so the routing chain and the model top both see the dam "
-            "removed and the cutoff wall sits at the true dam on a raw DEM."
-        ),
-    )
-    line_path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="dam_carve_line", category="geometry"),
-        VisibleWhen("enabled", True),
-    ] = Field(
-        default=None,
-        description=(
-            "Dam trace (gpkg/shp/csv) along which the ground is carved. A bare "
-            "filename resolves against <workspace>/data/cutoff_wall/. Usually the "
-            "same surveyed voile axis as the cutoff_wall. Required when enabled."
-        ),
-    )
-    buffer_m: Annotated[LengthMeters, Profile.USER] = Field(
-        default=40.0,
-        gt=0.0,
-        description=(
-            "Half-width (metres) of the carved corridor around the dam trace. "
-            "Make it a bit wider than one DEM/cell size so the whole dam body is "
-            "brought to the valley floor."
-        ),
-    )
-    search_radius_m: Annotated[LengthMeters | None, Profile.USER] = Field(
-        default=None,
-        gt=0.0,
-        description=(
-            "Radius (metres) of the neighborhood whose minimum elevation defines "
-            "the valley floor the corridor is carved to. When omitted, derives "
-            "3 * buffer_m."
         ),
     )
 
@@ -514,9 +426,8 @@ class CrossingNotchConfig(HydroModelBase):
     is delineated a first time on the ground, notched, and delineated again.
     Weirs and dams are not notched: a weir is a drop of the bed, not a wall. A
     road laid on a dam crest is not notched either: a crossing with a dam or a
-    weir of the file within ``snap_radius``, a ``[geographic.dam_carve]`` line
-    within ``snap_radius``, or a ``[geographic.enforce_lakes]`` polygon on its
-    channel reach is left alone and reported as ``dam_or_weir``.
+    weir of the file within ``snap_radius``, or a ``[geographic.enforce_lakes]``
+    polygon on its channel reach is left alone and reported as ``dam_or_weir``.
     """
 
     enabled: Annotated[bool, Profile.USER] = Field(
@@ -587,8 +498,8 @@ class CrossingNotchConfig(HydroModelBase):
         description=(
             "A point structure (a bridge of the ROE) farther than this from the "
             "channel tree is ignored, and so is a channel pixel farther than "
-            "this from its crossing, in metres. A dam or a weir of the file, or a "
-            "dam_carve line, within this distance of a crossing stops its notch. "
+            "this from its crossing, in metres. A dam or a weir of the file "
+            "within this distance of a crossing stops its notch. "
             "Accepts inline units (e.g. 30, '30 m')."
         ),
     )
@@ -686,6 +597,14 @@ class GeographicConfig(HydroModelBase):
     Synthetic mode builds an analytical support and bypasses external DEM
     delineation.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "dam_carve": (
+            "the dam carve of the ground is removed, it flattened a corridor "
+            "below the thalweg and the cell drainage D already makes the water "
+            "cross the dam; delete the [geographic.dam_carve] table"
+        ),
+    }
 
     model_retired_keys = frozenset({"bottom_path"})
     """``bottom_path`` named a bottom raster that nothing read.
@@ -796,17 +715,8 @@ class GeographicConfig(HydroModelBase):
     enforce_lakes: Annotated[LakeEnforcementConfig, Profile.USER] = Field(
         default_factory=LakeEnforcementConfig,
         description=(
-            "Optional lake hydro-enforcement of the routing DEM: carve the lake "
-            "footprints so streams route into the lakes and drain to the outlet, "
-            "without touching the model grid top."
-        ),
-    )
-    dam_carve: Annotated[DamCarveConfig, Profile.USER] = Field(
-        default_factory=DamCarveConfig,
-        description=(
-            "Optional dam structure-carve of the ground: lower the dam footprint "
-            "to the valley floor, for the routing chain and the model top alike, "
-            "so a cutoff wall sits at the dam on a raw DEM."
+            "Optional lake footprint polygons that the crossing notch and the bed "
+            "regularisation leave alone. The routing DEM is not carved at the lakes."
         ),
     )
     crossings: Annotated[CrossingNotchConfig, Profile.USER] = Field(
@@ -997,6 +907,17 @@ class GeographicConfig(HydroModelBase):
         )
 
     @model_validator(mode="after")
+    def _check_catchment_is_implemented(self) -> GeographicConfig:
+        """Refuse ``catch_def = "txt"``: no code rasterises an XYZ text grid."""
+        if isinstance(self.catchment, TxtCatchDef):
+            raise ValueError(
+                "geographic.catchment.catch_def = 'txt' is not implemented: nothing "
+                "rasterises an XYZ text grid. Use 'dem' with a raster, or "
+                "'from_outlet_coord' / 'from_polyg_shp' with a regional DEM."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_capped_breach_section(self) -> GeographicConfig:
         """Refuse limits declared for a method that has none."""
         if self.capped_breach is not None and self.dem_correc_type != "capped_breach":
@@ -1054,11 +975,7 @@ class GeographicConfig(HydroModelBase):
         """
         if self.reg_fold is None:
             return self
-        declared = [
-            name
-            for name, section in (("dam_carve", self.dam_carve), ("crossings", self.crossings))
-            if section.enabled
-        ]
+        declared = [name for name, section in (("crossings", self.crossings),) if section.enabled]
         if declared:
             raise ValueError(
                 f"[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
