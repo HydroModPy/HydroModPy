@@ -16,7 +16,7 @@ A calibration is an ask/tell loop. An optimizer adapter proposes points
 adapters live in ``calibration/optim/adapters/`` and register with
 ``@register_optimizer``; :doc:`../how-to/add-a-calibration-method` says how to
 add one. Each adapter declares ``EngineTraits``: how many parameters it moves,
-the transform it needs, whether it reads a signed residual, whether it stops on
+the search space it needs, whether it reads a signed residual, whether it stops on
 a precision and which of its options that precision writes, whether it can run
 trials side by side, start from a passed value, or be restarted usefully, and
 the metric it reads its cost as. ``hmp config check``
@@ -174,8 +174,10 @@ Each trial is fingerprinted by ``optim/cache.py:params_hash``, a SHA-256 of
 its canonical parameter record. With ``use_cache`` on (the default), the
 ``ParamsHashCache`` is loaded at session start from the completed and promoted
 iterations of the earlier sessions of the project. A hit skips the solver and
-returns the stored cost. This is what lets a re-run with a larger ``max_iter``
-replay the trials already solved. Turn it off when the inputs, the observations
+returns the stored cost. The key holds only what changes the cost of a trial at
+given values (the model, its inputs, the outputs, the objective blocks and the scoring
+window), so a re-run with a larger ``max_trials``, another method, seed, precision or
+narrower phase ``bounds`` replays the trials it proposes at values already solved. Turn it off when the inputs, the observations
 or the solver version changed, or to time the trials.
 
 What a search reports about itself
@@ -184,14 +186,14 @@ What a search reports about itself
 Every ``CalibrationReport`` carries two records in ``extra``:
 
 ``extra["search"]``
-   ``{converged, stopping_rule, max_iter, extension, n_evaluations}``,
+   ``{converged, stopping_rule, max_trials, extension, n_evaluations}``,
    whichever engine ran. ``stopping_rule`` is the option the engine stopped on,
    or ``"budget"``. A staged run reads ``converged`` to decide what to freeze.
 
 ``extra["bracket"]``
    ``{parameter, low, high, relative_width, closed}``, in physical units, once
    a bisection has found a sign change. It is what the search proved about the
-   root. It differs from ``parameter_intervals``, which reads a tolerance on
+   root. It differs from ``parameter_intervals``, which reads a ``cost_margin`` on
    the trials after the fact.
 
 The trial a bisection returns is the lowest-cost completed trial inside the
@@ -202,7 +204,7 @@ tie, and a tie goes to the trial nearest the middle of the bracket. A trial
 outside the bracket is returned only when no completed trial lies inside it,
 and a warning says so.
 
-``max_iter = "auto"`` is resolved by ``optim/stopping.py``: an engine that
+``max_trials = "auto"`` is resolved by ``optim/stopping.py``: an engine that
 publishes a ``CountedBudget`` (the bisection, the Latin hypercube) is granted
 its worst case, and any other engine a fixed default.
 

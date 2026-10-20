@@ -30,14 +30,14 @@ mode = "calibration"
 
 [calibration]
 method = "grid"
-max_iter = 20
+max_trials = 20
 seed = 42
 objective = "rmse"
 variable = "head"
 
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 mode = "replace"
 
@@ -110,13 +110,13 @@ def _write_analytic_bowl_toml(path: Path) -> Path:
     content = """
 [calibration]
 method = "grid"
-max_iter = 2
+max_trials = 2
 evaluator = "analytic_bowl"
 use_cache = false
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 """
     path.write_text(content, encoding="utf-8")
@@ -187,7 +187,7 @@ class TestObjectiveEntryPointIsNotAMetricName:
 [[calibration.phases]]
 name = "one"
 method = "grid"
-max_iter = 2
+max_trials = 2
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"

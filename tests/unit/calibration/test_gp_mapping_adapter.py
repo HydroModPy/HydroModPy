@@ -46,7 +46,7 @@ class TestGPMappingAdapter:
     def test_ask_one_returns_single_suggestion(self):
         """``ask(n=1)`` must produce exactly one ``ParamSuggestion``."""
         space = _quadratic_space()
-        opt = build_optimizer("gp_mapping", space, seed=42, n_init=4, max_iter=10)
+        opt = build_optimizer("gp_mapping", space, seed=42, n_init=4, max_trials=10)
         got = opt.ask(n=1)
         assert len(got) == 1
         assert isinstance(got[0], ParamSuggestion)
@@ -55,7 +55,7 @@ class TestGPMappingAdapter:
     def test_best_returns_lowest_objective(self):
         """``best()`` must surface the trial with the smallest objective."""
         space = _quadratic_space()
-        opt = build_optimizer("gp_mapping", space, seed=7, n_init=4, max_iter=6)
+        opt = build_optimizer("gp_mapping", space, seed=7, n_init=4, max_trials=6)
 
         # Feed a known sequence: ascending objective values.
         scripted = [2.0, 0.5, 3.0, 1.0]
@@ -85,7 +85,7 @@ class TestGPMappingAdapter:
             space,
             seed=123,
             n_init=8,
-            max_iter=30,
+            max_trials=30,
         )
 
         for _ in range(30):
@@ -128,7 +128,7 @@ class TestGPMappingAdvancedKwargs:
             jitter=1.0e-8,
         )
         assert opt.name == "gp_mapping"
-        assert opt._max_iter >= 4 + 3 * 2
+        assert opt._max_trials >= 4 + 3 * 2
         assert opt._batch_size == 2
         assert opt._n_restarts >= 12
         assert opt._kappa == pytest.approx(2.0)
@@ -156,7 +156,7 @@ class TestGPMappingAdvancedKwargs:
             space,
             seed=11,
             n_init=4,
-            max_iter=10,
+            max_trials=10,
             kappa=1.5,
         )
         for _ in range(10):

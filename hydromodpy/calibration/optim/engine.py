@@ -2,7 +2,7 @@
 
 The engine is solver-agnostic and pipeline-agnostic: it takes a callable
 ``evaluator(values: dict[str, float]) -> EvaluationResult`` and runs the
-ask/tell loop until the optimizer converges or ``max_iter`` is reached.
+ask/tell loop until the optimizer converges or ``max_trials`` is reached.
 
 ``save_runs`` modes (implemented via ``promote_best_n``):
 
@@ -13,22 +13,24 @@ ask/tell loop until the optimizer converges or ``max_iter`` is reached.
 
 Running out of budget is not converging. An engine that declares a stopping
 option (:func:`hydromodpy.calibration.optim.stopping.stopping_rule`) and
-reaches ``max_iter`` before meeting it has not converged: the session says so
+reaches ``max_trials`` before meeting it has not converged: the session says so
 in ``converged`` and the caller decides what that means, a staged calibration
 freezes nothing from it. An engine whose only rule is its budget converges
 when the budget is spent.
 
 An engine that can count its evaluations before the first solve publishes a
 ``counted_budget`` (:class:`~hydromodpy.calibration.optim.stopping.CountedBudget`).
-Only the root search does: ``max_iter = "auto"`` then runs its worst case, a
+Only the root search does: ``max_trials = "auto"`` then runs its worst case, a
 declared budget below its nominal case is refused before anything solves, one
 below its worst case is announced, and a budget that still runs out is extended
 once by exactly the ``evaluations_remaining`` the engine reports, never by a
 fraction of the budget. Every other engine gets no extension: re-running the same
-file with a larger ``max_iter`` replays the trials already solved from the
-params-hash cache. ``max_iter`` is outside the cache key; ``tolerance``,
-``seed``, ``method`` and ``method_options`` are in it, so changing one of them
-solves every trial again.
+file with a larger ``max_trials`` replays the trials already solved from the
+params-hash cache. The cache key holds only what changes the cost of a
+trial at given parameter values (the outputs, the blocks, the window and what the
+evaluator reads), so ``max_trials``, ``precision``, ``seed``, ``method``,
+``method_options`` and the bounds are all outside it. A search that changes one
+still replays the trials it proposes at values already solved.
 """
 
 from __future__ import annotations
@@ -99,10 +101,10 @@ class CalibrationSession:
     Set once the loop ends. A budget-only engine converges when it spends its
     budget; any other engine only when its own rule says so.
     """
-    max_iter: int = 0
+    max_trials: int = 0
     """The budget the engine ran with, ``"auto"`` resolved, before any extension."""
     extension: int = 0
-    """Evaluations granted beyond ``max_iter``: zero, or what a counting engine
+    """Evaluations granted beyond ``max_trials``: zero, or what a counting engine
     still needed when its budget ran out, once."""
 
     @property
@@ -138,7 +140,7 @@ class CalibrationEngine:
     space: ParameterSpace
     optimizer: Optimizer
     evaluator: EvaluatorFn
-    max_iter: int | str = 100
+    max_trials: int | str = 100
     """The evaluation budget, or ``"auto"`` to let a counting engine size it."""
     batch_size: int = 1
     parallel: int = 1
@@ -164,14 +166,14 @@ class CalibrationEngine:
     def run(self) -> CalibrationSession:
         sid = self.session_id or uuid.uuid4().hex
         reporter = self.progress or _NoopProgress()
-        budget = resolve_budget(self.optimizer, self.max_iter)
+        budget = resolve_budget(self.optimizer, self.max_trials)
         session = CalibrationSession(
             session_id=sid,
             optimizer=self.optimizer,
             space=self.space,
             started_at=time.time(),
             stopping_rule=stopping_rule(self.optimizer),
-            max_iter=budget,
+            max_trials=budget,
         )
         judged = session.stopping_rule != BUDGET_RULE
         # The trials of this session compare their mean recharge with each
@@ -192,10 +194,10 @@ class CalibrationEngine:
                     logger.warning(
                         "The search did NOT converge: %d evaluations (%d budget + %d "
                         "extension) did not meet its stopping rule (%s). Its best trial is "
-                        "where the budget ended, not an answer. Raise max_iter: a re-run "
+                        "where the budget ended, not an answer. Raise max_trials: a re-run "
                         "of the same file replays the trials already solved from the "
-                        "cache. A new tolerance, seed, method or method_options changes "
-                        "the cache key and solves every trial again.",
+                        "cache. So does a new precision, seed, method or method_options, "
+                        "for every trial it proposes at values already solved.",
                         n_done,
                         budget,
                         session.extension,
@@ -295,7 +297,7 @@ class CalibrationEngine:
 
         Only an engine that counts its evaluations up front publishes
         ``counted_budget``; the root search does, from its bounds, sweep,
-        tolerance and expansions. Refusing now costs nothing, refusing after the
+        precision and expansions. Refusing now costs nothing, refusing after the
         last solve costs the whole budget.
         """
         counted = getattr(self.optimizer, "counted_budget", None)

@@ -55,7 +55,7 @@ def handles(monkeypatch) -> list[_Handle]:
 
 
 def _space() -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, transform="log")])
+    return ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log")])
 
 
 def _staircase(root: float, value: float) -> float:
@@ -98,7 +98,7 @@ def _search(adapter: BisectionAdapter, evaluator, reporter):
         space=adapter.space,
         optimizer=adapter,
         evaluator=evaluator,
-        max_iter=AUTO_BUDGET,
+        max_trials=AUTO_BUDGET,
         progress=reporter,
     ).run()
 

@@ -25,8 +25,10 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.series import ObservedSeries
+from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
 from tests._helpers.tolerances import tol
@@ -94,16 +96,15 @@ def test_the_run_scores_the_window_on_whole_periods() -> None:
     assert n == 24
 
 
-def test_the_single_metric_route_scores_what_the_run_scores() -> None:
+def test_variable_and_objective_score_what_the_run_scores() -> None:
     observed, simulated = _series()
+    scorer = StationBlockScorer(
+        "discharge", "nse", [ObservedSeries(GAUGE, "discharge", observed)], scoring_window=_bounds()
+    )
 
-    cost = score(
-        observed,
-        simulated,
-        "nse",
-        scoring_window=_bounds(),
-        time_method="mean",
-        period_start=FIRST_PERIOD,
+    cost, _ = scorer.score(
+        {GAUGE: ObservableResult(GAUGE, simulated.to_numpy(), "m3/s", STAMPS)},
+        boundaries=[FIRST_PERIOD, *STAMPS],
     )
 
     value, _ = _run_score()

@@ -19,7 +19,7 @@ module only rebuilds the masks and the cells they share with the maps.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -38,12 +38,16 @@ from hydromodpy.core.stream_extent import (
     VisibleFlow,
     YearlyFlowCounts,
     calendar_years,
+    dry_steps,
     extent_masks,
     extent_step_problems,
     flowing_cells,
+    flowing_steps,
+    parse_extent_duration,
     parse_visible_flow,
 )
 from hydromodpy.core.stream_geometry import CriterionSupports, NetworkGeometry, criterion_supports
+from hydromodpy.core.time import nominal_step_days, parse_step_spec
 from hydromodpy.results.derive.stream_network import (
     has_recharge_source,
     network_comparison_from_run,
@@ -67,6 +71,7 @@ __all__ = (
     "flowing_share",
     "graph_role",
     "network_extents_from_run",
+    "run_step_days",
     "run_step_edges",
     "scored_cells",
     "unavailable_reason_for_extents",
@@ -163,6 +168,11 @@ def unavailable_reason_for_extents(
     edges = run_step_edges(sim)
     if edges is None:
         return "run carries no time axis, so its timesteps cannot be sorted into years"
+    if run_step_days(sim) is None:
+        return (
+            "run sealed no timestep (simulation.time.step_value), so a duration cannot be "
+            "counted in its timesteps"
+        )
     years = calendar_years(edges, window=scoring_window)
     if not years.years:
         touched = ", ".join(str(year) for year in years.incomplete) or "none"
@@ -174,6 +184,25 @@ def unavailable_reason_for_extents(
             )
         return f"run covers no complete calendar year (it touches {touched})"
     return None
+
+
+def run_step_days(sim: Run) -> float | None:
+    """Return the nominal timestep of a run in days, or None when it sealed none.
+
+    Read from the ``[simulation.time]`` step of the configuration the run
+    sealed: the extent rules are durations, and a duration is counted in the
+    steps of the run it is read on. A month is 30.4375 days.
+    """
+    snapshot = getattr(sim, "config_snapshot", None)
+    simulation = snapshot.get("simulation") if isinstance(snapshot, Mapping) else None
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    if not isinstance(time, Mapping) or time.get("step_value") is None:
+        return None
+    try:
+        value, unit = parse_step_spec(time["step_value"], time.get("step_unit"))
+    except ValueError:
+        return None
+    return nominal_step_days(value, unit)
 
 
 def run_step_edges(sim: Run) -> np.ndarray | None:
@@ -391,6 +420,8 @@ class NetworkExtents:
     counts: YearlyFlowCounts
     masks: ExtentMasks
     visible_flow: VisibleFlow
+    maximal_flowing_duration: str | None
+    minimal_dry_duration: str | None
     maximal_flowing_steps: int
     minimal_dry_steps: int
     year_quorum: float
@@ -425,8 +456,8 @@ class NetworkExtents:
 def network_extents_from_run(
     sim: Run,
     *,
-    maximal_flowing_steps: int = 1,
-    minimal_dry_steps: int = 1,
+    maximal_flowing_duration: str | None = None,
+    minimal_dry_duration: str | None = None,
     year_quorum: float = 0.5,
     visible_flow: str | VisibleFlow = DEFAULT_VISIBLE_FLOW,
     tau_specific_ratio: float = STREAM_CRITERION_DEFAULTS.tau_specific_ratio,
@@ -442,12 +473,14 @@ def network_extents_from_run(
 ) -> NetworkExtents:
     """Rebuild the maximal and minimal extents of a transient run.
 
-    The rules are those of ``[calibration.outputs.<n>.extent]``, counted in
-    timesteps over the complete calendar years of the run: the maximal extent
-    holds the cells flowing at least ``maximal_flowing_steps`` timesteps of a
-    year, the minimal one the cells flowing at every timestep but at most
-    ``minimal_dry_steps``, and a cell enters a climatological extent when it
-    meets its rule in at least ``year_quorum`` of the years. The criterion
+    The rules are those of ``[calibration.outputs.<n>.extent]``: durations,
+    counted in the run's timesteps over its complete calendar years. The
+    maximal extent holds the cells flowing at least ``maximal_flowing_duration``
+    of a year (rounded up to whole timesteps, at least one), the minimal one the
+    cells flowing at every timestep but at most ``minimal_dry_duration``
+    (rounded down). A duration left None is one timestep. A cell enters a
+    climatological extent when it meets its rule in at least ``year_quorum`` of
+    the years. The criterion
     settings of the output (``tau_specific_ratio``, ``diagonal_neighbors``,
     ``observed_rasterization``, the two ``heads_`` settings,
     ``observed_position_accuracy_m``) build both maps and the graph, with the
@@ -476,14 +509,29 @@ def network_extents_from_run(
     if edges is None:
         raise ValueError(f"network extents unavailable for {sim.sim_id}: run has no time axis.")
     years = calendar_years(edges, window=scoring_window)
+    step_days = run_step_days(sim)
+    if step_days is None:
+        raise ValueError(
+            f"network extents unavailable for {sim.sim_id}: the run sealed no timestep "
+            "(simulation.time.step_value) to count the durations in."
+        )
+    maximal_steps = flowing_steps(
+        parse_extent_duration(maximal_flowing_duration, location="maximal_flowing_duration"),
+        step_days,
+    )
+    dry = dry_steps(
+        parse_extent_duration(minimal_dry_duration, location="minimal_dry_duration"), step_days
+    )
     problems = extent_step_problems(
-        years.n_steps,
-        maximal_flowing_steps=maximal_flowing_steps,
-        minimal_dry_steps=minimal_dry_steps,
+        years.n_steps, maximal_flowing_steps=maximal_steps, minimal_dry_steps=dry
     )
     if problems:
         raise ValueError(
-            f"network extents unavailable for {sim.sim_id}: " + "; ".join(problems) + "."
+            f"network extents unavailable for {sim.sim_id}: maximal_flowing_duration = "
+            f"{maximal_flowing_duration!r} and minimal_dry_duration = "
+            f"{minimal_dry_duration!r} on a timestep of {step_days:g} days: "
+            + "; ".join(problems)
+            + "."
         )
 
     settings: dict[str, Any] = {
@@ -515,8 +563,8 @@ def network_extents_from_run(
     )
     masks = extent_masks(
         counts,
-        maximal_flowing_steps=maximal_flowing_steps,
-        minimal_dry_steps=minimal_dry_steps,
+        maximal_flowing_steps=maximal_steps,
+        minimal_dry_steps=dry,
         year_quorum=year_quorum,
     )
     return NetworkExtents(
@@ -528,8 +576,10 @@ def network_extents_from_run(
         counts=counts,
         masks=masks,
         visible_flow=visible,
-        maximal_flowing_steps=int(maximal_flowing_steps),
-        minimal_dry_steps=int(minimal_dry_steps),
+        maximal_flowing_duration=maximal_flowing_duration,
+        minimal_dry_duration=minimal_dry_duration,
+        maximal_flowing_steps=maximal_steps,
+        minimal_dry_steps=dry,
         year_quorum=float(year_quorum),
         tau_specific_ratio=float(tau_specific_ratio),
     )

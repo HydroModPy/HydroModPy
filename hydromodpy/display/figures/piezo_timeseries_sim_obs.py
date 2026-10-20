@@ -18,6 +18,7 @@ from hydromodpy.core.units.labels import axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
@@ -129,6 +130,7 @@ class PiezoTimeseriesSimObs(BaseFigure):
         ax.set_ylabel(axis_label(variable))
         ax.set_title(f"Piezo sim vs obs{run_suffix(sim)} @ {station}")
         ax.grid(True, ls=":", lw=0.4)
+        shade_before_window(ax, sim)
         ax.legend()
         style_date_axis(ax)
         return ax

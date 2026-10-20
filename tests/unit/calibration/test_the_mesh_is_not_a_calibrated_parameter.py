@@ -59,7 +59,7 @@ def test_a_target_naming_the_mesh_is_refused_too() -> None:
 
 def test_a_hydraulic_path_is_untouched() -> None:
     space = ParameterSpace.from_toml_mapping(
-        {"K": {"bounds": [1e-8, 1e-2], "transform": "log", "path": "flow.param.K.field.value"}}
+        {"K": {"bounds": [1e-8, 1e-2], "search_space": "log", "path": "flow.param.K.field.value"}}
     )
 
     assert [param.name for param in space] == ["K"]

@@ -96,8 +96,8 @@ class TrialResult:
     """Outcome of a single lightweight trial.
 
     ``primary_metric`` is the scalar used by the optimizer (lower is
-    better by convention - ScalarObjective already flips higher-is-better
-    metrics like NSE/KGE into costs). ``metrics`` holds the per-component
+    better by convention: the blocks already flip higher-is-better metrics
+    like NSE/KGE into costs). ``metrics`` holds the per-component
     breakdown. When ``status != "completed"``, ``primary_metric`` is
     ``nan`` and ``error`` carries the exception string.
     """

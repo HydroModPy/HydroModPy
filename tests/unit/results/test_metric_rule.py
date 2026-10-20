@@ -45,7 +45,7 @@ def test_nse_is_computed_on_the_declared_window_only():
     assert result.value > 0.5
     assert (result.nse_window_start, result.nse_window_end) == (WINDOW.start, WINDOW.end)
     assert result.nse_n == 366
-    assert result.metric_rule_version == METRIC_RULE_VERSION == "1"
+    assert result.metric_rule_version == METRIC_RULE_VERSION == "2"
 
 
 def test_without_a_window_there_is_no_score():
@@ -56,7 +56,7 @@ def test_without_a_window_there_is_no_score():
         nse_window_start=None,
         nse_window_end=None,
         nse_n=0,
-        metric_rule_version="1",
+        metric_rule_version="2",
     )
 
 
@@ -130,9 +130,16 @@ def test_the_window_is_ordered_and_the_rule_refuses_unknown_keys():
 def test_the_score_columns_are_the_ones_of_the_simulation_table():
     from hydromodpy.results.storage.parquet_schemas import SIMULATION_SCHEMA
 
+    # n_clipped belongs to the row of each metric, not to the headline NSE of the table.
     columns = set(MetricScore.model_fields) - {"metric", "value", "station", "variable"}
-    assert columns == {"nse_window_start", "nse_window_end", "nse_n", "metric_rule_version"}
-    assert columns <= set(SIMULATION_SCHEMA.names)
+    assert columns == {
+        "nse_window_start",
+        "nse_window_end",
+        "nse_n",
+        "n_clipped",
+        "metric_rule_version",
+    }
+    assert columns - {"n_clipped"} <= set(SIMULATION_SCHEMA.names)
 
 
 def _config(**sections):
@@ -190,7 +197,9 @@ def test_score_run_defaults_to_the_four_headline_metrics():
     assert [item.metric for item in score_run(observed, observed, RULE)] == list(HEADLINE_METRICS)
 
 
-def test_the_log_nse_of_a_negative_series_is_no_value():
+def test_the_log_nse_of_a_negative_series_is_clipped_and_counted():
     observed = _series(3)
     simulated = observed - 10.0
-    assert score(simulated, observed, RULE, "nse_log").value is None
+    result = score(simulated, observed, RULE, "nse_log")
+    assert result.value is not None
+    assert result.n_clipped == result.nse_n == 366

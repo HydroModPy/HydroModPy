@@ -126,7 +126,7 @@ class FlowBarrierConfig(HydroModelBase):
             "conductance. Mutually exclusive with k + thickness."
         ),
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")
+            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="1/s")
         ),
     )
     hydchr_unit: Annotated[str, Profile.USER] = Field(
@@ -138,7 +138,7 @@ class FlowBarrierConfig(HydroModelBase):
         gt=0.0,
         description="Barrier hydraulic conductivity [L/T]. Give it with thickness in place of hydchr.",
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(transform="log", prior="log_uniform", units="m/s")
+            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="m/s")
         ),
     )
     k_unit: Annotated[str, Profile.USER] = Field(

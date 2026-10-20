@@ -41,7 +41,7 @@ def _config(phases: list[dict]) -> CalibrationConfig:
             "parameters": {
                 "K": {
                     "bounds": [1e-9, 1e-3],
-                    "transform": "log",
+                    "search_space": "log",
                     "path": "flow.param.K.field.value",
                 },
                 "Sy": {"bounds": [1e-3, 3e-1], "path": "flow.param.Sy.field.value"},
@@ -80,7 +80,7 @@ class TestRefused:
 
     def test_rewriting_the_calibration_section(self) -> None:
         with pytest.raises(ValueError, match="own search"):
-            _config([{**STEADY, "overrides": {"calibration.max_iter": 3}}])
+            _config([{**STEADY, "overrides": {"calibration.max_trials": 3}}])
 
     @pytest.mark.parametrize("path", ["", ".flow", "flow."])
     def test_a_path_that_is_not_dotted(self, path: str) -> None:

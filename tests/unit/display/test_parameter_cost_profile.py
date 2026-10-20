@@ -424,15 +424,15 @@ def test_a_distance_cost_reads_the_interval_of_the_calibration_summary(mpl, tmp_
     # Example 04 reported [7.499e-05, 0.0001] on the console and on the
     # progress slide, and the profile drew [8.094e-05, 8.115e-05], a +10 %
     # rise of a 1.965 m cost. One mesh cell is the width, as in the summary.
-    from hydromodpy.calibration.optim.tolerance import tolerance_intervals
+    from hydromodpy.calibration.optim.cost_margin import margin_intervals
 
     run = _steady_run(tmp_path)
     rows = steady_bisection_rows()
-    summary = tolerance_intervals(
+    summary = margin_intervals(
         [{"K": row["parameters"]["K"]["value"], **row} for row in rows],
         ["K"],
-        tolerance=75.0,
-        mode="absolute",
+        margin=75.0,
+        kind="absolute",
     )[0]
     fig, ax = mpl.subplots()
 
@@ -467,7 +467,7 @@ def test_the_axes_name_the_units_of_the_parameter_and_of_the_cost(mpl, tmp_path)
 def test_an_efficiency_cost_is_dimensionless(mpl, tmp_path) -> None:
     config = {
         "method": "scipy_nelder_mead",
-        "parameters": {"Sy": {"bounds": [0.005, 0.35], "transform": "log", "units": "-"}},
+        "parameters": {"Sy": {"bounds": [0.005, 0.35], "search_space": "log", "units": "-"}},
         "objective_blocks": [
             {"name": "hydrograph", "metric": "nse_log", "weight": 1.0, "normalize_cost": False}
         ],

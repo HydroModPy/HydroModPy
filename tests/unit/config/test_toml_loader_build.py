@@ -113,7 +113,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 "",
                 "[calibration]",
                 'method = "random_search"',
-                "max_iter = 7",
+                "max_trials = 7",
                 "",
                 "[calibration.parameters.K]",
                 "bounds = [1.0e-6, 1.0e-3]",
@@ -127,7 +127,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
 
     assert cfg.calibration is not None
     assert cfg.calibration.method == "random_search"
-    assert cfg.calibration.max_iter == 7
+    assert cfg.calibration.max_trials == 7
     assert "K" in cfg.calibration.parameters
 
 

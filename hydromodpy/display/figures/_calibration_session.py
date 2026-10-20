@@ -14,7 +14,7 @@ promoted from. A run-shaped carrier with no directory behind it, such as the
 one the calibration report builds, keeps what it carries.
 
 The interval is the calibration's own rule, restated here because ``display``
-may not import ``calibration`` (``optim.tolerance``): the width written in
+may not import ``calibration`` (``optim.cost_margin``): the ``cost_margin`` written in
 ``[calibration.uncertainty]``, else one mesh cell on a search scored only on
 network distances in metres, else five per cent of the best cost. It is the
 range of the sampled values whose cost stays within that width of the lowest
@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.cost_margin import CostMargin, parse_cost_margin
 from hydromodpy.results.calibration_trials import (
     calibration_sessions,
     calibration_trials,
@@ -189,7 +190,7 @@ def returned_row(table: TrialTable, descriptor: Mapping[str, Any]) -> int | None
 def parameter_declaration(
     table: TrialTable, descriptor: Mapping[str, Any], name: str
 ) -> dict[str, Any]:
-    """Return what the session declared about one parameter: unit, bounds, transform.
+    """Return what the session declared about one parameter: unit, bounds, search space.
 
     Read from the search space of the journal, the parameters of the recorded
     configuration and the block the first trial wrote, the last one winning.
@@ -251,7 +252,7 @@ def cost_blocks(table: TrialTable, config: Mapping[str, Any]) -> list[CostBlock]
                 metric=text(block.get("metric")),
                 weight=float_or(block.get("weight"), 1.0),
                 normalized=bool(block.get("normalize_cost")),
-                transformed=str(block.get("transform") or "identity") != "identity",
+                transformed=str(block.get("cost_transform") or "identity") != "identity",
                 raw=table.diagnostic(column) if name and table.has_diagnostic(column) else None,
                 output=str(uses[0]) if uses else None,
             )
@@ -382,8 +383,11 @@ def read_tolerance(
     best_cost = float(finite.min())
     uncertainty = as_mapping(session_config(descriptor).get("uncertainty"))
     on_distances = scored_on_distances(blocks)
-    written = float_or(uncertainty.get("tolerance"), float("nan"))
-    mode = text(uncertainty.get("mode")) or ("absolute" if on_distances else "relative")
+    margin = _written_margin(uncertainty.get("cost_margin"))
+    written = float("nan") if margin is None else margin.value
+    mode = "absolute" if on_distances else "relative"
+    if margin is not None:
+        mode = margin.kind
     tolerance = written
     if not np.isfinite(tolerance):
         tolerance = (
@@ -408,6 +412,16 @@ def read_tolerance(
             missing=(f"a relative width is a fraction of the best cost, which is {best_cost:.4g}"),
         )
     return Tolerance(best_cost * (1.0 + tolerance), text=f"{tolerance:.0%}")
+
+
+def _written_margin(value: Any) -> CostMargin | None:
+    """Return the margin a session wrote, ``None`` when it wrote none or one that does not read."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return parse_cost_margin(value)
+    except ValueError:
+        return None
 
 
 def tolerance_interval(values: np.ndarray, cost: np.ndarray, threshold: float) -> Interval | None:

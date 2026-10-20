@@ -42,7 +42,7 @@ pulls ETP live from the SIM2 API instead, so it does not need that file.
 ## Other entries
 
 - `run_calibration_k.toml` - Optuna calibration of K against observed
-  discharge (KGE), Sy/Ss frozen, `max_iter = 3`. `hmp calibrate
+  discharge (KGE), Sy/Ss frozen, `max_trials = 3`. `hmp calibrate
   run_calibration_k.toml` completes its three trials (KGE 0.13, 0.20, 0.18,
   measured 2026-09-24) and promotes the best one to `runs/optuna_iter_0001`.
   The earlier `No DRAIN component in CBC` crash came from reading the

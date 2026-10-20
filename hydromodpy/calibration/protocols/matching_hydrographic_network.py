@@ -351,14 +351,14 @@ class MatchingHydrographicNetwork:
             "network_output",
             "steady_metric",
             "steady_method",
-            "steady_max_iter",
-            "steady_tolerance",
+            "steady_max_trials",
+            "steady_precision",
             "steady_method_options",
             "steady_window",
             "transient_metric",
             "transient_method",
-            "transient_max_iter",
-            "transient_tolerance",
+            "transient_max_trials",
+            "transient_precision",
             "transient_method_options",
             "discharge_variable",
             "observed_station_id",
@@ -730,7 +730,7 @@ def _phases(
             f"{opts.conductivity}, steady state over {over}."
         ),
         "method": opts.steady_method,
-        "max_iter": opts.steady_max_iter,
+        "max_trials": opts.steady_max_trials,
         "parameters": [opts.conductivity],
         "objective_blocks": [NETWORK_BLOCK],
         "freeze_on_success": True,
@@ -738,8 +738,8 @@ def _phases(
     }
     if opts.steady_window is not None:
         steady["steady_window"] = dict(opts.steady_window)
-    if opts.steady_tolerance is not None:
-        steady["tolerance"] = float(opts.steady_tolerance)
+    if opts.steady_precision is not None:
+        steady["precision"] = float(opts.steady_precision)
     if opts.steady_method_options:
         steady["method_options"] = dict(opts.steady_method_options)
     if opts.storage is None:
@@ -766,7 +766,7 @@ def _phases(
             f"{opts.conductivity} frozen, transient{scored}."
         ),
         "method": opts.transient_method,
-        "max_iter": opts.transient_max_iter,
+        "max_trials": opts.transient_max_trials,
         "parameters": [opts.storage],
         "depends_on": STEADY_STAGE,
         "regime": "transient",
@@ -780,8 +780,8 @@ def _phases(
         # its own at load time; discharge_target refuses the former by name.
         transient["variable"] = opts.discharge_variable
         transient["objective"] = opts.transient_metric
-    if opts.transient_tolerance is not None:
-        transient["tolerance"] = float(opts.transient_tolerance)
+    if opts.transient_precision is not None:
+        transient["precision"] = float(opts.transient_precision)
     if opts.transient_method_options:
         transient["method_options"] = dict(opts.transient_method_options)
     if opts.scoring_window is not None:

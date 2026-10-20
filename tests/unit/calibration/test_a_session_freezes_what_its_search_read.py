@@ -31,7 +31,7 @@ end_datetime = "2002-12-31"
 
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
@@ -78,7 +78,9 @@ def test_the_frozen_document_finds_the_map_the_search_read(tmp_path) -> None:
 def test_an_open_end_is_the_end_of_the_declared_period(tmp_path) -> None:
     path = _case(
         tmp_path,
-        CASE.replace("max_iter = 3\n", 'max_iter = 3\nscoring_window = { start = "2001-01-01" }\n'),
+        CASE.replace(
+            "max_trials = 3\n", 'max_trials = 3\nscoring_window = { start = "2001-01-01" }\n'
+        ),
     )
     cfg, raw = load_toml_calibration(path)
 
@@ -96,7 +98,9 @@ def test_no_window_is_the_whole_declared_period(tmp_path) -> None:
 
 
 def test_a_search_that_skips_samples_names_no_window(tmp_path) -> None:
-    path = _case(tmp_path, CASE.replace("max_iter = 3\n", "max_iter = 3\nwarmup_periods = 12\n"))
+    path = _case(
+        tmp_path, CASE.replace("max_trials = 3\n", "max_trials = 3\nwarmup_periods = 12\n")
+    )
     cfg, raw = load_toml_calibration(path)
 
     assert objective_window_of(cfg, raw) is None

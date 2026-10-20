@@ -16,9 +16,9 @@ import pytest
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import search_width, stopping_kwargs
 
-K = CalibParameter(name="K", lower=1e-8, upper=1e-2, transform="log")
-SY = CalibParameter(name="Sy", lower=1e-4, upper=0.5, transform="log")
-POROSITY = CalibParameter(name="n", lower=0.0, upper=0.4, transform="identity")
+K = CalibParameter(name="K", lower=1e-8, upper=1e-2, search_space="log")
+SY = CalibParameter(name="Sy", lower=1e-4, upper=0.5, search_space="log")
+POROSITY = CalibParameter(name="n", lower=0.0, upper=0.4, search_space="identity")
 
 
 def test_a_log_parameter_reads_a_precision_as_a_ratio() -> None:
@@ -34,14 +34,14 @@ def test_a_linear_parameter_reads_it_as_a_fraction_of_its_interval() -> None:
 
 
 def test_nelder_mead_gets_the_precision_as_an_absolute_width() -> None:
-    kwargs = stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), tolerance=0.10)
+    kwargs = stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=0.10)
     assert kwargs == {"xatol": pytest.approx(math.log10(1.1))}
 
 
 def test_the_strictest_parameter_sets_the_width() -> None:
     # One number stops the search for every parameter at once.
     space = ParameterSpace([K, POROSITY])
-    kwargs = stopping_kwargs("scipy_nelder_mead", space, tolerance=0.05)
+    kwargs = stopping_kwargs("scipy_nelder_mead", space, precision=0.05)
     assert kwargs["xatol"] == pytest.approx(
         min(search_width(K, 0.05), search_width(POROSITY, 0.05))
     )
@@ -50,21 +50,21 @@ def test_the_strictest_parameter_sets_the_width() -> None:
 def test_the_root_search_reads_the_same_number_unconverted() -> None:
     # rel_tol is already a relative width on the parameter's own value, and the
     # paper's one per cent is the engine's default, so the two agree.
-    kwargs = stopping_kwargs("bisection", ParameterSpace([K]), tolerance=0.01)
+    kwargs = stopping_kwargs("bisection", ParameterSpace([K]), precision=0.01)
     assert kwargs == {"rel_tol": 0.01}
 
 
 def test_the_declared_kwargs_pass_through_untouched_without_a_precision() -> None:
     declared = {"maxiter": 30, "xatol": 0.30}
     assert (
-        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), tolerance=None, declared=declared)
+        stopping_kwargs("scipy_nelder_mead", ParameterSpace([K]), precision=None, declared=declared)
         == declared
     )
 
 
 def test_the_precision_joins_the_other_declared_kwargs() -> None:
     kwargs = stopping_kwargs(
-        "scipy_nelder_mead", ParameterSpace([K]), tolerance=0.10, declared={"maxiter": 30}
+        "scipy_nelder_mead", ParameterSpace([K]), precision=0.10, declared={"maxiter": 30}
     )
     assert kwargs["maxiter"] == 30
     assert kwargs["xatol"] == pytest.approx(math.log10(1.1))
@@ -75,7 +75,7 @@ def test_saying_it_twice_is_refused() -> None:
         stopping_kwargs(
             "scipy_nelder_mead",
             ParameterSpace([K]),
-            tolerance=0.10,
+            precision=0.10,
             declared={"xatol": 0.30},
         )
 
@@ -83,8 +83,8 @@ def test_saying_it_twice_is_refused() -> None:
 def test_an_engine_that_stops_on_its_budget_refuses_a_precision() -> None:
     # Silently dropping it would report a search that honoured a request it never
     # read. The message has to name what does bound that engine.
-    with pytest.raises(ValueError, match="max_iter"):
-        stopping_kwargs("grid", ParameterSpace([K]), tolerance=0.10)
+    with pytest.raises(ValueError, match="max_trials"):
+        stopping_kwargs("grid", ParameterSpace([K]), precision=0.10)
 
 
 def test_the_built_optimizers_accept_what_the_translation_produces() -> None:
@@ -92,5 +92,5 @@ def test_the_built_optimizers_accept_what_the_translation_produces() -> None:
 
     space = ParameterSpace([K])
     for method, extra in (("scipy_nelder_mead", {}), ("bisection", {"sweep_points": 0})):
-        kwargs = stopping_kwargs(method, space, tolerance=0.05, declared=extra)
+        kwargs = stopping_kwargs(method, space, precision=0.05, declared=extra)
         assert build_optimizer(method, space, **kwargs) is not None

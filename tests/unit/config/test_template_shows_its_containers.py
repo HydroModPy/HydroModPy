@@ -24,7 +24,7 @@ def test_the_mapping_of_parameters_shows_one_entry(calibration_template: str) ->
     assert "# [calibration.parameters.<id>]" in calibration_template
     # The fields a parameter needs, not just the pointer line.
     assert "# bounds = " in calibration_template
-    assert "# transform = " in calibration_template
+    assert "# search_space = " in calibration_template
 
 
 def test_the_mapping_of_outputs_lists_every_support(calibration_template: str) -> None:

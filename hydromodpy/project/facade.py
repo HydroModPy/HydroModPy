@@ -784,7 +784,7 @@ class Project:
         objective_blocks: list[dict] | None = None,
         phases: list[dict] | None = None,
         method: str | None = None,
-        max_iter: int | None = None,
+        max_trials: int | None = None,
         save_runs: str | None = None,
         seed: int | None = None,
         phase: str | None = None,
@@ -833,7 +833,7 @@ class Project:
             Optimizer method name. Unset, the one the criteria call for: a root
             search for one log parameter scored on signed criteria only, a
             minimiser otherwise.
-        max_iter
+        max_trials
             Maximum number of optimizer iterations.
         save_runs
             Policy controlling which trial runs remain persisted.
@@ -938,8 +938,8 @@ class Project:
         payload: dict[str, object] = {}
         if method is not None:
             payload["method"] = method
-        if max_iter is not None:
-            payload["max_iter"] = max_iter
+        if max_trials is not None:
+            payload["max_trials"] = max_trials
         if save_runs is not None:
             payload["save_runs"] = save_runs
         if seed is not None:

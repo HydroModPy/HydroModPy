@@ -392,16 +392,15 @@ def _apply_evaluation_budget(
         points_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
         kwargs["points_per_dim"] = int(points_per_dim)
     elif method == "random_search":
-        kwargs["max_iter"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "optuna":
-        kwargs["max_iter"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "cma_es":
-        kwargs["max_evaluations"] = int(budget)
+        kwargs["max_trials"] = int(budget)
         if "popsize" in kwargs:
             kwargs["popsize"] = max(4, min(int(kwargs["popsize"]), int(budget)))
     elif method == "scipy_nelder_mead":
-        kwargs["maxiter"] = int(budget)
-        kwargs["maxfev"] = int(budget)
+        kwargs["max_trials"] = int(budget)
     elif method == "gp_mapping":
         batch_size = max(1, int(kwargs.get("batch_size", 1)))
         n_init_default = max(1, int(kwargs.get("n_init", batch_size)))
@@ -413,14 +412,16 @@ def _apply_evaluation_budget(
         base_init = max(2, int(kwargs.get("n_init", max(2, budget // 3))))
         n_init = min(base_init, max(2, int(budget) // 3))
         kwargs["n_init"] = int(n_init)
-        kwargs["max_iter"] = max(1, int(budget) - int(n_init))
+        kwargs["chain_length"] = max(1, int(budget) - int(n_init))
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
-            base_iter = max(1, int(profile.method_kwargs.get("max_iter", kwargs["max_iter"])))
+            base_iter = max(
+                1, int(profile.method_kwargs.get("chain_length", kwargs["chain_length"]))
+            )
             burn_fraction = max(0.0, min(0.8, float(burn_in) / float(base_iter)))
             kwargs["burn_in"] = min(
-                int(round(int(kwargs["max_iter"]) * burn_fraction)),
-                max(0, int(kwargs["max_iter"]) - 1),
+                int(round(int(kwargs["chain_length"]) * burn_fraction)),
+                max(0, int(kwargs["chain_length"]) - 1),
             )
     else:
         raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
@@ -839,7 +840,7 @@ def _build_twin_metric_fn(
                 uses_outputs=tuple(block.uses_outputs),
                 observed_by_output=observed_by_output,
                 normalize_cost=bool(block.normalize_cost),
-                transform=str(getattr(block, "transform", "identity")),
+                cost_transform=str(getattr(block, "cost_transform", "identity")),
             )
         )
         raw_weights.append(float(block.weight))
@@ -1703,8 +1704,8 @@ def synthesize_truth_observations_via_project_api(
             "target": str(target.target),
             "mode": str(target.mode),
         }
-        if target.transform is not None:
-            decl["transform"] = str(target.transform)
+        if target.search_space is not None:
+            decl["search_space"] = str(target.search_space)
         declarations[str(name)] = decl
     space = ParameterSpace.from_toml_mapping(declarations)
 

@@ -165,8 +165,10 @@ budget, which a run keeps by default.
 
 Over a transient run, the criterion counts, for each complete calendar year, the
 periods each cell flows, and builds a maximal and a minimal extent from those
-counts. Durations are counted in periods, never in days. How a network is
-scored against a mapped one is on {doc}`../downslope-distance`.
+counts. The two rules are durations, such as one month, rounded to whole periods
+of the run: up to at least one for the flowing rule, down to at least none for
+the dry one. How a network is scored against a mapped one is on
+{doc}`../downslope-distance`.
 
 In the code: `build_simulated_network`.
 

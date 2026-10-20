@@ -15,6 +15,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from hydromodpy.cli._conventions import profile_parser, verbosity_parser
+from hydromodpy.cli.effective_toml import (
+    ConfigFileError,
+    add_override_arguments,
+    cleanup_effective_toml,
+    materialize_effective_toml,
+)
 from hydromodpy.cli.helpers import (
     EXIT_CALIBRATION,
     EXIT_CONFIG,
@@ -45,6 +51,8 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp calibrate calibration.toml --list-phases\n"
             "  hmp calibrate calibration.toml --resume --phase phase_name\n"
             "  hmp calibrate calibration.toml --expand\n"
+            "  hmp calibrate calibration.toml --set calibration.seed=7\n"
+            "  hmp calibrate calibration.toml --overlay daily.toml --case calage_daily\n"
             "Checks before any solve: hmp config check calibration.toml"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -82,11 +90,22 @@ def register(subparsers) -> argparse.ArgumentParser:
         "without running anything. A file naming no protocol prints its own section. "
         "Refused together with --phase, --list-phases, --resume or --dry-run.",
     )
+    parser.add_argument(
+        "--case",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Name of the case: its session is sessions/<name>. Defaults to [simulation] "
+            "name, else the stem of the TOML. A calibration launched with --set or "
+            "--overlay keeps that name; use --case to name the variant."
+        ),
+    )
+    add_override_arguments(parser)
     parser.set_defaults(_handler=run)
     return parser
 
 
-def _expand_only(target: Path) -> None:
+def _expand_only(target: Path, *, shown_as: str) -> None:
     """Print the ``[calibration]`` section a protocol unfolds into, as TOML, and exit.
 
     Formatting only: :func:`hydromodpy.calibrate` does the unfolding and
@@ -110,9 +129,7 @@ def _expand_only(target: Path) -> None:
 
     protocol = expanded["protocol"]
     if protocol is None:
-        print(
-            f"# {target.name} declares no protocol: this is its [calibration] section as declared."
-        )
+        print(f"# {shown_as} declares no protocol: this is its [calibration] section as declared.")
     else:
         print(f"# Expanded from protocol {protocol['name']}, version {protocol['version']}")
         if protocol["citation"]:
@@ -134,16 +151,32 @@ def _phase_line(index: int, phase: dict[str, Any]) -> str:
 
     A method the phase does not name was chosen from its criteria, and the
     reason follows it. After the description, the width the phase reads its
-    interval with and where it comes from. A column is added only for a phase
-    that moves again what an earlier phase passed on: which parameters, from
-    which phase, and whether the search starts there.
+    interval with and where it comes from, then the bounds the phase narrows its
+    parameters to, when it writes any. A column names what the phase takes
+    from ``[calibration]`` among its budget, precision and options, when it takes
+    any. Another is added only for a phase that moves again what an earlier phase
+    passed on: which parameters, from which phase, and whether the search starts
+    there.
     """
     method = phase["method"]
+    search = phase.get("search", {})
     if phase.get("method_reason"):
         method = f"{method} ({phase['method_reason']})"
+    elif search.get("method", {}).get("source") == "section":
+        method = f"{method} (from [calibration])"
     line = f"{index}\t{phase['name']}\t{method}\t{phase['description']}"
     if phase.get("interval_width"):
         line = f"{line}\t{_width_text(phase['interval_width'])}"
+    if phase.get("bounds"):
+        narrowed = ", ".join(f"{name} {interval}" for name, interval in phase["bounds"].items())
+        line = f"{line}\tbounds {narrowed}"
+    taken = [
+        f"{key} {search[key]['value']}"
+        for key in ("max_trials", "precision", "method_options")
+        if search.get(key, {}).get("source") == "section"
+    ]
+    if taken:
+        line = f"{line}\ttakes from [calibration]: {', '.join(taken)}"
     reopens = phase.get("reopens")
     if not reopens:
         return line
@@ -184,31 +217,23 @@ _WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibrat
 
 
 def _width_text(width: dict[str, Any]) -> str:
-    """Return the width a phase reads its interval with, and where it comes from.
-
-    The origin named is the tolerance's. The mode's is added when it comes from
-    elsewhere, for instance a mode written and a tolerance left to the default.
-    """
+    """Return the width a phase reads its interval with, and where it comes from."""
     source = width["source"]
     if source == "default":
         value = width["rule"]
         origin = (
             "default, measured on the mesh when the phase runs"
-            if width["tolerance"] is None
+            if width["margin"] is None
             else "default"
         )
     else:
-        tolerance = float(width["tolerance"])
-        if width["mode"] == "relative":
-            value = f"{tolerance * 100:g} % of the best cost"
-        elif width["on_distances"]:
-            value = f"{tolerance:g} m"
-        else:
-            value = f"{tolerance:g} in the unit of the cost"
+        margin = float(width["margin"])
+        value = (
+            f"{margin * 100:g} % of the best cost"
+            if width["kind"] == "relative"
+            else f"{margin:g} m"
+        )
         origin = _WRITTEN_IN[source]
-    mode_source = width.get("mode_source", source)
-    if mode_source != source:
-        origin += f"; mode {width['mode']} {_WRITTEN_IN.get(mode_source, 'by default')}"
     return f"width {value} ({origin})"
 
 
@@ -332,7 +357,7 @@ def _format_calibration_result(result: Any) -> list[str]:
 def _scored_on_line(extra: Mapping[str, Any]) -> str | None:
     """Return the pairs the best cost was scored on, and the window it declares.
 
-    The single-metric route counts no pair, so only its window is printed.
+    A cost that paired no record, a network distance, prints only its window.
     """
     from hydromodpy.calibration.report import samples_text
 
@@ -418,7 +443,7 @@ def _roots_lines(roots: Mapping[str, Any]) -> list[str]:
 
 def _search_line(search: Mapping[str, Any]) -> str:
     """Return whether the search met its stopping rule, and what it spent."""
-    spent = f"{search.get('n_evaluations')} evaluation(s) of {search.get('max_iter')} declared"
+    spent = f"{search.get('n_evaluations')} evaluation(s) of {search.get('max_trials')} declared"
     extension = int(search.get("extension") or 0)
     if extension:
         spent += f" + {extension} extension"
@@ -452,7 +477,7 @@ def _print_dry_run(plan: Mapping[str, Any]) -> None:
     print(f"calibrated run: {plan['run_dir']} (save_runs = {plan['save_runs']})", file=sys.stderr)
     for phase in plan["phases"]:
         print(
-            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_iter']} "
+            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_trials']} "
             f"trials, scores on {phase['scoring_window']}",
             file=sys.stderr,
         )
@@ -460,8 +485,6 @@ def _print_dry_run(plan: Mapping[str, Any]) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
-
     expand = getattr(args, "expand", False)
     resume = getattr(args, "resume", False)
     dry_run = getattr(args, "dry_run", False)
@@ -481,12 +504,37 @@ def run(args: argparse.Namespace) -> None:
         print(f"Expected a .toml file, got: {target.suffix}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
+    effective: Path | None = None
     try:
-        raw_toml = load_toml_with_base_config(target)
-    except Exception:
-        raw_toml = {}
+        effective, raw_toml, _lineage = materialize_effective_toml(target, args=args)
+    except ConfigFileError as exc:
+        print(f"Config invalid: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    except FileNotFoundError as exc:
+        print(f"Missing file: {exc}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except ValueError as exc:
+        print(f"Invalid override: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    try:
+        _calibrate(args, target, effective or target, raw_toml)
+    finally:
+        cleanup_effective_toml(effective, source=target)
+
+
+def _calibrate(
+    args: argparse.Namespace, target: Path, run_path: Path, raw_toml: Mapping[str, Any]
+) -> None:
+    """Run, list or expand the calibration of ``run_path``, the file the user named or its copy.
+
+    ``target`` is the file the user named: messages say its name, never the
+    temporary copy's.
+    """
+    import hydromodpy as hmp
+
+    expand = getattr(args, "expand", False)
+    resume = getattr(args, "resume", False)
+    dry_run = getattr(args, "dry_run", False)
     apply_verbosity(args, raw_toml)
 
     from hydromodpy.config.sites.expansion import is_sites_project
@@ -503,19 +551,19 @@ def run(args: argparse.Namespace) -> None:
     if profile_arg is None:
         profile_arg = profile_arg_from_toml(raw_toml) if raw_toml else None
     if expand:
-        _expand_only(target)
+        _expand_only(run_path, shown_as=target.name)
         return
     if args.list_phases:
         from hydromodpy.calibration.preflight import comparison_line
 
         try:
-            phases = hmp.calibrate(target, list_phases=True)
+            phases = hmp.calibrate(run_path, list_phases=True)
         except ConfigError as exc:
             print(f"Config invalid: {exc}", file=sys.stderr)
             sys.exit(EXIT_CONFIG)
         if not phases:
             print(f"{target.name} declares no phases; it runs one search.", file=sys.stderr)
-            _print_single_search(target)
+            _print_single_search(run_path)
             return
         for index, phase in enumerate(phases):
             print(_phase_line(index, phase))
@@ -528,7 +576,7 @@ def run(args: argparse.Namespace) -> None:
     profile_output = resolve_profile_output(profile_arg, target)
     try:
         with profile_run(profile_output, description=f"hmp calibrate {target.name}"):
-            result = hmp.calibrate(target, phase=args.phase, resume=resume, dry_run=dry_run)
+            result = hmp.calibrate(run_path, phase=args.phase, resume=resume, dry_run=dry_run)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_SIGINT)

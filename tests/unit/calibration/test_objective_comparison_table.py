@@ -29,11 +29,11 @@ pytestmark = pytest.mark.fast
 
 SECTION = """
 [calibration]
-max_iter = 5
+max_trials = 5
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]

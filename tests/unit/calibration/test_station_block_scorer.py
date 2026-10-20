@@ -1,10 +1,11 @@
-"""The single-metric route is scored without a trial context.
+"""``variable`` + ``objective`` is scored without a trial context, by blocks.
 
-``variable`` + ``objective`` used to be one function that resolved the flow
-adapter, placed every gauge on the mesh, read its series and scored it. The
-second half is :class:`StationScorer`, and these hold what that separation is
-worth: the same observables score to the same cost whoever produced them, a
-model that is not the pipeline included.
+The one-line form used to be one function that resolved the flow adapter,
+placed every gauge on the mesh, read its series and scored it. The second half
+is :class:`StationBlockScorer`: one implicit output and one implicit block per
+scored station, handed to the block route. These hold what that is worth: the
+same observables score to the same cost whoever produced them, a model that is
+not the pipeline included.
 """
 
 from __future__ import annotations
@@ -15,8 +16,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.calibration.config import STATION_VARIABLES
 from hydromodpy.calibration.metrics.composite import PRODUCERS, build_metric_extractor
-from hydromodpy.calibration.metrics.observable_scoring import StationScorer
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.core.contracts.observables import ObservableResult
 
@@ -51,34 +53,35 @@ def _answer(station_id: str, values, *, dated: bool = True) -> ObservableResult:
 class TestTheProducersAndTheScorerNameTheSameVariables:
     def test_every_produced_variable_is_a_scored_one(self) -> None:
         """A route one half serves and the other does not is a KeyError at trial time."""
-        assert set(PRODUCERS) == set(StationScorer.SUPPORTED)
+        assert set(PRODUCERS) == set(STATION_VARIABLES)
 
     def test_a_variable_nothing_observes_is_refused_at_construction(self) -> None:
         with pytest.raises(NotImplementedError, match="is not supported"):
-            StationScorer("salinity", "rmse", [_observed("A", [1.0, 2.0, 3.0])])
+            StationBlockScorer("salinity", "rmse", [_observed("A", [1.0, 2.0, 3.0])])
 
 
 class TestScoringWithoutAContext:
     def test_a_head_answer_is_scored_with_no_trial_context_in_sight(self) -> None:
-        scorer = StationScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
+        scorer = StationBlockScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
 
         cost, components = scorer.score({"PZ1": _answer("PZ1", [10.5, 11.5, 12.5])})
 
         assert cost == pytest.approx(0.5)
-        assert components == {"cost:rmse@PZ1": pytest.approx(0.5)}
+        assert components["rmse@PZ1.raw_cost"] == pytest.approx(0.5)
+        assert components["head@PZ1.n_paired"] == 3.0
 
     def test_the_criterion_named_by_the_document_is_the_one_applied(self) -> None:
         """Changing the metric alone moves the number; the answer is untouched."""
         observed = [_observed("PZ1", [10.0, 11.0, 12.0])]
         answer = {"PZ1": _answer("PZ1", [10.5, 12.5, 12.5])}
 
-        rmse, _ = StationScorer("head", "rmse", observed).score(answer)
-        mae, _ = StationScorer("head", "mae", observed).score(answer)
+        rmse, _ = StationBlockScorer("head", "rmse", observed).score(answer)
+        mae, _ = StationBlockScorer("head", "mae", observed).score(answer)
 
         assert rmse != pytest.approx(mae)
 
     def test_several_heads_are_averaged(self) -> None:
-        scorer = StationScorer(
+        scorer = StationBlockScorer(
             "head",
             "rmse",
             [_observed("PZ1", [10.0, 11.0, 12.0]), _observed("PZ2", [10.0, 11.0, 12.0])],
@@ -91,13 +94,13 @@ class TestScoringWithoutAContext:
             }
         )
 
-        assert components["cost:rmse@PZ1"] == pytest.approx(0.5)
-        assert components["cost:rmse@PZ2"] == pytest.approx(1.5)
+        assert components["rmse@PZ1.raw_cost"] == pytest.approx(0.5)
+        assert components["rmse@PZ2.raw_cost"] == pytest.approx(1.5)
         assert cost == pytest.approx(1.0)
 
     def test_a_burn_in_reaches_the_criterion(self) -> None:
-        plain = StationScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
-        burnt = StationScorer(
+        plain = StationBlockScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
+        burnt = StationBlockScorer(
             "head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])], warmup_periods=2
         )
         answer = {"PZ1": _answer("PZ1", [13.0, 11.0, 12.0])}
@@ -107,8 +110,8 @@ class TestScoringWithoutAContext:
 
 
 class TestWhichStationDrivesTheSearch:
-    def test_the_declared_gauge_is_the_cost_and_the_others_stay_reported(self) -> None:
-        scorer = StationScorer(
+    def test_the_declared_gauge_alone_is_scored(self) -> None:
+        scorer = StationBlockScorer(
             "discharge",
             "rmse",
             [
@@ -127,13 +130,16 @@ class TestWhichStationDrivesTheSearch:
 
         assert scorer.target_station_id == "UP"
         assert cost == pytest.approx(1.0)
-        assert components["cost:rmse@OUTLET"] == pytest.approx(8.0)
+        assert [record.station_id for record in scorer.stations] == ["UP"]
+        assert not [key for key in components if "OUTLET" in key]
 
     def test_a_head_route_follows_no_single_station(self) -> None:
-        assert StationScorer("head", "rmse", [_observed("PZ1", [1.0])]).target_station_id is None
+        assert (
+            StationBlockScorer("head", "rmse", [_observed("PZ1", [1.0])]).target_station_id is None
+        )
 
     def test_a_missing_answer_for_the_followed_gauge_is_refused_by_name(self) -> None:
-        scorer = StationScorer(
+        scorer = StationBlockScorer(
             "discharge",
             "rmse",
             [
@@ -148,7 +154,7 @@ class TestWhichStationDrivesTheSearch:
 
     def test_a_gauge_the_producer_could_not_place_stays_unscored(self) -> None:
         """A piezometer outside the mesh has no counterpart; it is not invented."""
-        scorer = StationScorer(
+        scorer = StationBlockScorer(
             "head",
             "rmse",
             [_observed("PZ1", [10.0, 11.0, 12.0]), _observed("NOWHERE", [10.0, 11.0, 12.0])],
@@ -157,11 +163,11 @@ class TestWhichStationDrivesTheSearch:
         cost, components = scorer.score({"PZ1": _answer("PZ1", [10.5, 11.5, 12.5])})
 
         assert cost == pytest.approx(0.5)
-        assert "cost:rmse@NOWHERE" not in components
+        assert not [key for key in components if "NOWHERE" in key]
 
     def test_a_gauge_left_out_is_said_out_loud_once(self, caplog) -> None:
         """A station that vanishes from a report has to leave a line somewhere."""
-        scorer = StationScorer(
+        scorer = StationBlockScorer(
             "head",
             "rmse",
             [_observed("PZ1", [10.0, 11.0, 12.0]), _observed("NOWHERE", [10.0, 11.0, 12.0])],
@@ -177,13 +183,13 @@ class TestWhichStationDrivesTheSearch:
         assert "head" in said[0].getMessage()
 
     def test_an_answer_nobody_could_score_says_so(self) -> None:
-        scorer = StationScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
+        scorer = StationBlockScorer("head", "rmse", [_observed("PZ1", [10.0, 11.0, 12.0])])
 
-        with pytest.raises(ValueError, match="No finite head calibration costs"):
+        with pytest.raises(ValueError, match="served no head at any of the stations"):
             scorer.score({})
 
     def test_an_empty_series_is_refused_and_names_its_source(self) -> None:
-        scorer = StationScorer("lake_level", "rmse", [_observed("lac0", [10.0, 11.0, 12.0])])
+        scorer = StationBlockScorer("lake_level", "rmse", [_observed("lac0", [10.0, 11.0, 12.0])])
 
         with pytest.raises(NotImplementedError, match="fake_solver"):
             scorer.score({"lac0": _answer("lac0", [], dated=False)}, source="fake_solver")
@@ -195,7 +201,7 @@ class TestThePipelineTakesTheSameRoute:
     @staticmethod
     def _ctx():
         """A project loading one gauge, and no runoff to add to the budget."""
-        frame = pd.DataFrame({"datetime": _INDEX, "value": [1.0, 1.0, 1.0]})
+        frame = pd.DataFrame({"datetime": _DAY_BEFORE_INDEX, "value": [1.0, 1.0, 1.0]})
         record = SimpleNamespace(station_id="OUTLET", variable="discharge", data=frame)
         return SimpleNamespace(
             setup=SimpleNamespace(cell_mesh=None, domain=None, geographic=None, time_grid=None),
@@ -229,7 +235,7 @@ class TestThePipelineTakesTheSameRoute:
         metric_fn = build_metric_extractor("discharge", "rmse", ctx)
 
         through_pipeline = metric_fn(ctx, objective="rmse", variable="discharge")
-        bare = StationScorer(
+        bare = StationBlockScorer(
             "discharge", "rmse", [_observed("OUTLET", [1.0, 1.0, 1.0], "discharge")]
         ).score({"OUTLET": _answer("OUTLET", [2.0, 2.0, 2.0])})
 

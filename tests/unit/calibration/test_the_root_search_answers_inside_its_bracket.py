@@ -21,7 +21,7 @@ PLATEAU = 0.05
 
 
 def _space() -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, transform="log")])
+    return ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log")])
 
 
 def _stepped(sugg: ParamSuggestion) -> EvaluationResult:

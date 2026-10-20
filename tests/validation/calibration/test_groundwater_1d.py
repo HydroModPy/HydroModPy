@@ -36,7 +36,7 @@ def test_groundwater_1d_nelder_mead_recovers_truth() -> None:
     engine, _ = build_calibration(
         case=GROUNDWATER_1D_CASE,
         optimizer_name="scipy_nelder_mead",
-        max_iter=60,
+        max_trials=60,
     )
     session = engine.run()
 

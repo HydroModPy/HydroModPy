@@ -58,7 +58,7 @@ objective_blocks = { hydrograph = 0.7, network = 0.3 }
 # Two parameters and a cost with plateaus: a global sampler, reproducible
 # with the seed above. It stops on budget only.
 method = "optuna"
-max_iter = 60
+max_trials = 60
 
 # 2000 is spin-up: both criteria are read from 2001 on.
 [calibration.phases.scoring_window]

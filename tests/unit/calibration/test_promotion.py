@@ -49,11 +49,11 @@ K_PATH = "flow.param.K.field.value"
 def _cfg(**updates: Any) -> CalibrationConfig:
     payload = {
         "method": "grid",
-        "max_iter": 3,
+        "max_trials": 3,
         "objective": "nse",
         "variable": "discharge",
         "use_cache": False,
-        "parameters": {"K": {"bounds": [1e-6, 1e-3], "transform": "log", "path": K_PATH}},
+        "parameters": {"K": {"bounds": [1e-6, 1e-3], "search_space": "log", "path": K_PATH}},
     }
     payload.update(updates)
     return CalibrationConfig.model_validate(payload)
@@ -107,14 +107,14 @@ name = "nancon"
 
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 objective = "nse"
 variable = "discharge"
 use_cache = false
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 """
 
@@ -204,7 +204,7 @@ class TestTheCaseIsNamedByTheFileThatCarriesCalibration:
             '[simulation]\nname = "inherited"\n[calibration]\nmethod = "grid"\n'
         )
         path = tmp_path / "calage.toml"
-        path.write_text('base_config = "base.toml"\n[calibration]\nmax_iter = 2\n')
+        path.write_text('base_config = "base.toml"\n[calibration]\nmax_trials = 2\n')
 
         assert calibration_case_name(path) == "calage"
 
@@ -629,14 +629,14 @@ uses_outputs = ["q"]
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 3
+max_trials = 3
 parameters = ["Sy"]
 objective_blocks = ["q_block"]
 depends_on = "steady_k"

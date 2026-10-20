@@ -22,6 +22,7 @@ no network output reads the defaults, and says so.
 
 from __future__ import annotations
 
+import copy
 import datetime
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -34,7 +35,11 @@ from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
+from hydromodpy.core.stream_extent import (
+    DEFAULT_VISIBLE_FLOW,
+    parse_extent_duration,
+    parse_visible_flow,
+)
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError, resolve_state
 from hydromodpy.core.units.length import parse_to_m
@@ -72,8 +77,8 @@ ScoringWindow = tuple[pd.Timestamp | None, pd.Timestamp | None]
 class NetworkExtentRules:
     """The rules of ``[calibration.outputs.<n>.extent]``, with its defaults."""
 
-    maximal_flowing_steps: int = 1
-    minimal_dry_steps: int = 1
+    maximal_flowing_duration: str | None = None
+    minimal_dry_duration: str | None = None
     year_quorum: float = 0.5
     visible_flow: str = DEFAULT_VISIBLE_FLOW
 
@@ -178,7 +183,30 @@ def _calibration_section(sim: Run) -> Mapping[str, Any]:
     if not isinstance(snapshot, Mapping):
         return {}
     calibration = snapshot.get("calibration")
-    return calibration if isinstance(calibration, Mapping) else {}
+    if not isinstance(calibration, Mapping):
+        return {}
+    return _read_as_renamed(snapshot, calibration)
+
+
+def _read_as_renamed(
+    snapshot: Mapping[str, Any], calibration: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """Return the sealed ``[calibration]`` table under the names of today.
+
+    A run sealed before a key was renamed holds the old one. The snapshot is
+    read raw, so it goes through the rename the loader applies to a sealed
+    config, on a copy: the extent rules, for one, were counts of timesteps and
+    are now durations read with the step of the run's ``[simulation.time]``.
+    """
+    from hydromodpy.config.config_migration import migrate_sealed_config_doc
+
+    simulation = snapshot.get("simulation")
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    doc: dict[str, Any] = {"calibration": copy.deepcopy(dict(calibration))}
+    if isinstance(time, Mapping):
+        doc["simulation"] = {"time": copy.deepcopy(dict(time))}
+    migrate_sealed_config_doc(doc)
+    return doc["calibration"]
 
 
 def network_criterion_settings(sim: Run, *, output: str | None = None) -> NetworkCriterionSettings:
@@ -388,11 +416,13 @@ def _extent_rules(payload: Any, *, where: str) -> NetworkExtentRules | None:
     defaults = DEFAULT_EXTENT_RULES
     visible = str(payload.get("visible_flow", defaults.visible_flow))
     parse_visible_flow(visible)
+    maximal = payload.get("maximal_flowing_duration", defaults.maximal_flowing_duration)
+    parse_extent_duration(maximal, location=f"{where}.extent.maximal_flowing_duration")
+    minimal = payload.get("minimal_dry_duration", defaults.minimal_dry_duration)
+    parse_extent_duration(minimal, location=f"{where}.extent.minimal_dry_duration")
     return NetworkExtentRules(
-        maximal_flowing_steps=int(
-            payload.get("maximal_flowing_steps", defaults.maximal_flowing_steps)
-        ),
-        minimal_dry_steps=int(payload.get("minimal_dry_steps", defaults.minimal_dry_steps)),
+        maximal_flowing_duration=maximal,
+        minimal_dry_duration=minimal,
         year_quorum=float(payload.get("year_quorum", defaults.year_quorum)),
         visible_flow=visible,
     )

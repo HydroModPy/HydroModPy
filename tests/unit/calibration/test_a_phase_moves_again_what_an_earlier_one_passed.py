@@ -39,13 +39,13 @@ SY_ON_THE_GRID = 0.001 + 0.25 * (0.3 - 0.001)
 BASE = """
 [calibration]
 method = "grid"
-max_iter = 5
+max_trials = 5
 seed = 7
 use_cache = false
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
@@ -66,21 +66,21 @@ uses_outputs = ["q"]
 [[calibration.phases]]
 name = "k_first"
 method = "grid"
-max_iter = 5
+max_trials = 5
 parameters = ["K"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "sy_second"
 method = "grid"
-max_iter = 5
+max_trials = 5
 parameters = ["Sy"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "both_again"
 method = "{method}"
-max_iter = 4
+max_trials = 4
 parameters = ["K", "Sy"]
 objective_blocks = ["q_block"]
 """
@@ -89,11 +89,11 @@ objective_blocks = ["q_block"]
 TWICE = """
 [calibration]
 method = "grid"
-max_iter = 5
+max_trials = 5
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
@@ -359,16 +359,16 @@ def test_two_phases_freezing_the_same_parameter_run_and_the_latest_wins(
 ALIASED = """
 [calibration]
 method = "grid"
-max_iter = 5
+max_trials = 5
 
 [calibration.parameters.K1]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.K2]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.outputs.q]

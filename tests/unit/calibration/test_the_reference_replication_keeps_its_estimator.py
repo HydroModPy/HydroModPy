@@ -60,13 +60,8 @@ def test_stage_one_keeps_the_scripts_mean_offset_and_nelder_mead(calibration) ->
     assert calibration.objective_blocks[0].metric == "distance_mean"
     steady = calibration.phases[0]
     assert steady.method == "scipy_nelder_mead"
-    assert steady.max_iter == 60
-    assert steady.method_options == {
-        "maxiter": 30,
-        "maxfev": 60,
-        "xatol": 0.30,
-        "fatol": 0.05,
-    }
+    assert steady.max_trials == 60
+    assert steady.method_options == {"xatol": 0.30, "fatol": 0.05}
 
 
 # The steady trace of a Nancon session run with these options on 2026-09-08:
@@ -93,17 +88,16 @@ def _replay(sugg: ParamSuggestion) -> EvaluationResult:
     )
 
 
-def test_stage_one_meets_its_own_tolerance_well_inside_scipys_cap(calibration) -> None:
-    # SciPy's maxiter = 30 sits below the phase's max_iter = 60, and a simplex
-    # that SciPy stops on that cap reports not converged. On the recorded
-    # Nancon trace the simplex meets xatol and fatol after 9 solves, so the
-    # steady stage converges and freezes K for the transient one.
+def test_stage_one_meets_its_own_tolerance_well_inside_its_budget(calibration) -> None:
+    # A simplex that runs out of its max_trials = 60 reports not converged. On
+    # the recorded Nancon trace the simplex meets xatol and fatol after 9
+    # solves, so the steady stage converges and freezes K for the transient one.
     steady = calibration.phases[0]
     lower, upper = calibration.parameters["K"].bounds
-    space = ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
+    space = ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, search_space="log")])
     optimizer = ScipyNelderMead(space, **steady.method_options)
     engine = CalibrationEngine(
-        space=space, optimizer=optimizer, evaluator=_replay, max_iter=steady.max_iter
+        space=space, optimizer=optimizer, evaluator=_replay, max_trials=steady.max_trials
     )
 
     session = engine.run()
@@ -132,7 +126,7 @@ def test_stage_two_reads_storage_from_the_hydrograph_with_conductivity_frozen(ca
     assert storage.depends_on == STEADY_STAGE
     assert storage.parameters == ["Sy"]
     assert storage.objective_blocks == [HYDROGRAPH_BLOCK]
-    assert storage.max_iter == 120
+    assert storage.max_trials == 120
     assert storage.method_options["xatol"] == pytest.approx(3.7e-5)
     # The reference scores the whole calibration window, with no spin-up year cut.
     # The protocol leaves the first year out by default, so the file says so.

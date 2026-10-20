@@ -116,6 +116,7 @@ def transient_run(
     fresh.has_hydrographic_network = lambda role="generated": role in declared
     fresh.hydrographic_network = lambda role="generated": networks.get(role, networks["reference"])
     fresh._load_row = lambda: {"period_start": "2001-01-01" if with_period_start else None}
+    fresh.config_snapshot = {"simulation": {"time": {"step_value": 1, "step_unit": "month"}}}
     return fresh
 
 

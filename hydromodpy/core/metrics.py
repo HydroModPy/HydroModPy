@@ -8,7 +8,8 @@ References
 ----------
 - Nash, J. E., Sutcliffe, J. V. (1970). Journal of Hydrology, 10(3), 282-290.
 - Gupta, H. V., et al. (2009). Journal of Hydrology, 377(1-2), 80-91.
-- Moriasi, D. N., et al. (2007). Trans. ASABE, 50(3), 885-900. (PBIAS)
+- Moriasi, D. N., et al. (2007). Trans. ASABE, 50(3), 885-900. (PBIAS, with the
+  opposite sign: here ``pbias`` has the sign of ``bias``, positive = overestimation)
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ __all__ = [
     "nse_seasonal",
     "align",
     "bias",
+    "clip_negatives",
     "correlation",
     "kge",
     "log_floor",
@@ -79,24 +81,49 @@ def log_floor(observed) -> float:
     return max(1e-9, LOG_FLOOR_FRACTION * median)
 
 
-def log_nse(sim, obs, *, eps: float | None = None) -> float:
-    """NSE on log-transformed series; rejects negative values.
+def clip_negatives(sim, obs) -> tuple[np.ndarray, np.ndarray, int]:
+    """Clip the negative values of both series to zero and count them.
 
-    When ``eps`` is None, the offset of :func:`log_floor` is used, so the
-    metric stays scale-invariant.
+    The rule of every log-scale score: a discharge reconstructed below a dam
+    can hold a few negative values, which a logarithm cannot take. The count
+    is returned so a caller can report it, because a clipping that passes
+    unnoticed hides a sign error in a reconstruction. NaN entries are not
+    counted.
+    """
+    s = np.asarray(sim, dtype=float)
+    o = np.asarray(obs, dtype=float)
+    n_clipped = int(np.count_nonzero(s < 0.0) + np.count_nonzero(o < 0.0))
+    if n_clipped == 0:
+        return s, o, 0
+    return np.clip(s, 0.0, None), np.clip(o, 0.0, None), n_clipped
+
+
+def log_nse(sim, obs, *, eps: float | None = None) -> float:
+    """NSE on log-transformed series; negative values are clipped to zero.
+
+    The clipping is :func:`clip_negatives`; use it directly to learn how many
+    values were clipped. When ``eps`` is None, the offset of :func:`log_floor`
+    is used, read on the clipped observations, so the metric stays
+    scale-invariant.
     """
     s, o = align(sim, obs)
     if s.size == 0:
         return float("nan")
-    if np.any(s < 0) or np.any(o < 0):
-        raise ValueError("log_nse: series contain negative values")
+    s, o, _ = clip_negatives(s, o)
     if eps is None:
         eps = log_floor(o)
     return nse(np.log(s + eps), np.log(o + eps))
 
 
 def kge(sim, obs) -> dict[str, float]:
-    """Kling-Gupta Efficiency (2009) and its decomposition.
+    """Kling-Gupta Efficiency, 2009 form (Gupta et al.), and its decomposition.
+
+        KGE = 1 - sqrt((r - 1)² + (alpha - 1)² + (beta - 1)²)
+
+    ``r`` is the Pearson correlation, ``alpha = std(sim) / std(obs)`` and
+    ``beta = sum(sim) / sum(obs)``, the ratio of the means. The 2012 form
+    (Kling et al.) takes ``alpha`` as a ratio of coefficients of variation
+    and gives another number on the same series; it is not offered.
 
     Returns ``{"kge", "r", "alpha", "beta"}``.
     """
@@ -140,10 +167,11 @@ def bias(sim, obs) -> float:
 
 
 def pbias(sim, obs) -> float:
-    """Percent bias: 100 × Σ(obs - sim) / Σ(obs).
+    """Percent bias: 100 × Σ(sim - obs) / Σ(obs).
 
-    Positive values indicate model underestimation. |PBIAS| < 10 % is
-    considered "very good" by Moriasi et al. (2007).
+    Same sign as :func:`bias`: positive means the model overestimates. This
+    is the opposite of Moriasi et al. (2007), who write Σ(obs - sim); their
+    scale, |PBIAS| < 10 % "very good", applies to the magnitude.
     """
     s, o = align(sim, obs)
     if s.size == 0:
@@ -151,7 +179,7 @@ def pbias(sim, obs) -> float:
     denom = float(np.sum(o))
     if denom == 0:
         return float("nan")
-    return float(100.0 * float(np.sum(o - s)) / denom)
+    return float(100.0 * float(np.sum(s - o)) / denom)
 
 
 def correlation(sim, obs) -> float:

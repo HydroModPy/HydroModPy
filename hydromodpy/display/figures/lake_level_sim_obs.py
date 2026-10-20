@@ -17,6 +17,7 @@ from hydromodpy.core.metrics import bias, kge, nse, rmse
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
@@ -190,6 +191,7 @@ class LakeStageSimObs(BaseFigure):
         ax.set_ylabel("Stage [m]")
         ax.set_title(f"Lake stage sim vs obs - {lake}{run_suffix(sim, ' ({})')}")
         ax.grid(True, ls=":", lw=0.4)
+        shade_before_window(ax, sim)
         ax.legend(fontsize=10, framealpha=0.94, loc="upper left")
         style_date_axis(ax)
         return ax
@@ -259,6 +261,7 @@ class LakeVolumeSimObs(BaseFigure):
         ax.set_ylabel("Storage [Mm3]")
         ax.set_title(f"Lake storage sim vs obs - {lake}{run_suffix(sim, ' ({})')}")
         ax.grid(True, ls=":", lw=0.4)
+        shade_before_window(ax, sim)
         ax.legend(fontsize=9, framealpha=0.94, loc="upper left")
         style_date_axis(ax)
         return ax

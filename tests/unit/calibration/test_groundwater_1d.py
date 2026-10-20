@@ -90,7 +90,7 @@ class TestCalibrate:
         result = calibrate_groundwater(
             method="optuna",
             chronicle=chronicle,
-            max_iter=30,
+            max_trials=30,
             seed=42,
         )
         assert result["best"] is not None
@@ -114,7 +114,7 @@ class TestCalibrate:
                 "Syav": (0.08, 0.12),
                 "xi": (200.0, 240.0),
             },
-            max_iter=32,
+            max_trials=32,
             method_options={"points_per_dim": 2},
         )
         assert result["best"] is not None
@@ -128,7 +128,7 @@ class TestCalibrate:
         """Calling calibrate_groundwater without a chronicle builds one."""
         result = calibrate_groundwater(
             method="grid",
-            max_iter=8,
+            max_trials=8,
             method_options={"points_per_dim": 2},
         )
         assert result["best"] is not None

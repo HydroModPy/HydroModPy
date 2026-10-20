@@ -43,6 +43,11 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.evaluation import TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.cache import ParamsHashCache
+from hydromodpy.calibration.optim.cost_margin import (
+    IntervalWidth,
+    ParameterInterval,
+    margin_intervals,
+)
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
 from hydromodpy.calibration.optim.engine import CalibrationEngine
 from hydromodpy.calibration.optim.objective import (
@@ -56,12 +61,7 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.stopping import resolve_budget, stopping_kwargs
-from hydromodpy.calibration.optim.tolerance import (
-    IntervalWidth,
-    ParameterInterval,
-    tolerance_intervals,
-)
+from hydromodpy.calibration.optim.stopping import budget_kwargs, resolve_budget, stopping_kwargs
 from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
@@ -667,7 +667,7 @@ def calibration_trace(
     ]
 
 
-def _tolerance_intervals_or_none(
+def _margin_intervals_or_none(
     trace: list[dict[str, Any]],
     names: list[str],
     space: ParameterSpace,
@@ -676,41 +676,39 @@ def _tolerance_intervals_or_none(
     """Return the interval around each calibrated value, or nothing.
 
     A criterion solved at zero, such as the stream-network gap, has no fraction
-    of itself to take, so a relative tolerance means nothing there. Reporting
+    of itself to take, so a share of the best cost means nothing there. Reporting
     nothing is the honest answer rather than a number under a rule nobody chose,
     and the run says which line turns it back on. The same holds for one mesh
-    cell no trial measured, and for a relative width on network distances.
+    cell no trial measured, and for a share on network distances.
     """
-    if width.tolerance is None:
+    if width.margin is None:
         logger.warning(
             "No interval was reported around the calibrated values: the width is one "
             "mesh cell, and no trial measured the mesh. Write [calibration.uncertainty] "
-            "tolerance in metres to get one."
+            "cost_margin in metres, such as '25 m', to get one."
         )
         return []
-    if width.mode == "relative" and width.on_distances:
+    if width.kind == "relative" and width.on_distances:
         logger.warning(
-            "No interval was reported around the calibrated values: mode = 'relative' "
-            "reads the width as a fraction of the best cost, and this search is scored "
-            "only on network distances, in metres, where a fraction has no meaning. "
-            "Write mode = 'absolute' with a tolerance in metres, or leave both unwritten "
-            "for one mesh cell."
+            "No interval was reported around the calibrated values: cost_margin is a "
+            "share of the best cost, and this search is scored only on network "
+            "distances, in metres, where a fraction has no meaning. Write a length such "
+            "as '25 m', or leave it unwritten for one mesh cell."
         )
         return []
     bounds = {param.name: (param.lower, param.upper) for param in space}
     try:
-        return tolerance_intervals(
+        return margin_intervals(
             trace,
             names,
             bounds=bounds,
-            tolerance=float(width.tolerance),
-            mode=width.mode,
+            margin=float(width.margin),
+            kind=width.kind,
         )
     except ValueError as exc:
         logger.warning(
             "No interval was reported around the calibrated values: %s Write "
-            '[calibration.uncertainty] mode = "absolute" with a tolerance in the unit '
-            "of the cost to get one.",
+            "[calibration.uncertainty] cost_margin as a length such as '25 m' to get one.",
             exc,
         )
         return []
@@ -735,7 +733,7 @@ def _width_read_off_the_trials(
     width: IntervalWidth, best: EvaluationResult | None, history: Iterable[EvaluationResult]
 ) -> IntervalWidth:
     """Return ``width`` with its one mesh cell measured, and log the width read."""
-    if width.tolerance is None:
+    if width.margin is None:
         cell = _cell_measured_by_the_criterion([best, *history])
         if cell is not None:
             width = width.measured(cell)
@@ -746,8 +744,8 @@ def _width_read_off_the_trials(
     }[width.source]
     logger.info(
         "Interval width: %s %s (%s).",
-        "unmeasured" if width.tolerance is None else f"{width.tolerance:.4g}",
-        width.mode,
+        "unmeasured" if width.margin is None else f"{width.margin:.4g}",
+        width.kind,
         where,
     )
     return width
@@ -1047,7 +1045,7 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
         "search": {
             "converged": bool(session.converged),
             "stopping_rule": session.stopping_rule,
-            "max_iter": int(session.max_iter),
+            "max_trials": int(session.max_trials),
             "extension": int(session.extension),
             "n_evaluations": len(session.history),
         }
@@ -1139,7 +1137,7 @@ def _status_of_the_search(
         return status, error
     return "partial", (
         f"stopping rule ({session.stopping_rule}) not met after {len(session.history)} "
-        f"evaluations (max_iter = {session.max_iter}, extension = {session.extension})"
+        f"evaluations (max_trials = {session.max_trials}, extension = {session.extension})"
     )
 
 
@@ -1294,8 +1292,9 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     )
 
     kwargs = stopping_kwargs(
-        cfg.method, space, tolerance=cfg.tolerance, declared=cfg.method_options
+        cfg.method, space, precision=cfg.precision, declared=cfg.method_options
     )
+    kwargs.update(budget_kwargs(cfg.method, cfg.max_trials))
     if start_at is not None and engine_traits(cfg.method).accepts_a_start_point:
         kwargs["start_at"] = start_at
     if cfg.method == BisectionAdapter.name:
@@ -1551,9 +1550,9 @@ def run_calibration_core(
 
     # "auto" becomes the count the engine publishes, so the log and the progress
     # bar show what the run will spend.
-    budget = resolve_budget(optimizer, cfg.max_iter)
+    budget = resolve_budget(optimizer, cfg.max_trials)
     logger.info(
-        "Calibration %s phase %s | method=%s max_iter=%d save_runs=%s",
+        "Calibration %s phase %s | method=%s max_trials=%d save_runs=%s",
         persistence.directory.name,
         context.name,
         cfg.method,
@@ -1568,7 +1567,7 @@ def run_calibration_core(
         before_batch=lambda batch: persistence.assign_trial_numbers(
             [sugg.trial_id for sugg in batch], context
         ),
-        max_iter=budget,
+        max_trials=budget,
         batch_size=cfg.batch_size,
         parallel=cfg.parallel,
         cache=engine_cache,
@@ -1609,9 +1608,7 @@ def run_calibration_core(
         session.history,
     )
     intervals = (
-        []
-        if _closes_two_roots(session)
-        else _tolerance_intervals_or_none(trace, names, space, width)
+        [] if _closes_two_roots(session) else _margin_intervals_or_none(trace, names, space, width)
     )
     if correlated:
         for first, second, coefficient in correlated:
@@ -2011,7 +2008,7 @@ def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
         {
             "name": decl.name,
             "parameters": list(decl.parameters),
-            "max_iter": decl.max_iter,
+            "max_trials": cfg.max_trials_for(decl),
             "scoring_window": declared_window_text(cfg, decl),
         }
         for decl in cfg.phases or ()
@@ -2019,7 +2016,7 @@ def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
         {
             "name": DEFAULT_PHASE,
             "parameters": list(cfg.parameters),
-            "max_iter": cfg.max_iter,
+            "max_trials": cfg.max_trials,
             "scoring_window": declared_window_text(cfg),
         }
     ]

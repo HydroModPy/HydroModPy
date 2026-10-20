@@ -240,9 +240,9 @@ class TestTheIntervalOfANormalisedDistance:
     def test_a_gap_in_metres_is_read_in_mesh_cells(self) -> None:
         width = self._config(normalise=False).interval_width_for()
         assert width.on_distances is True
-        assert width.mode == "absolute"
+        assert width.kind == "absolute"
 
     def test_a_normalised_gap_is_read_as_any_other_cost(self) -> None:
         width = self._config(normalise=True).interval_width_for()
         assert width.on_distances is False
-        assert width.mode == "relative"
+        assert width.kind == "relative"

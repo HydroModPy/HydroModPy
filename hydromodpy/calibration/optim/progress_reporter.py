@@ -29,7 +29,7 @@ class ConsoleProgressReporter:
     def __init__(
         self,
         method: str,
-        max_iter: int,
+        max_trials: int,
         *,
         label: Callable[[], str | None] | None = None,
     ) -> None:
@@ -40,7 +40,7 @@ class ConsoleProgressReporter:
         self._crashed = 0
         self._cached = 0
         self._closed = False
-        self._task = progress.task(self._description(), total=max_iter)
+        self._task = progress.task(self._description(), total=max_trials)
         self._handle = self._task.__enter__()
 
     def update(self, trial_id: int, result: EvaluationResult) -> None:

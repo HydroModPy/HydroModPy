@@ -34,13 +34,14 @@ def test_the_case_defines_no_kernel_of_its_own() -> None:
         assert not hasattr(case, name)
 
 
-def test_a_non_positive_value_still_gives_nan_for_nse_log() -> None:
+def test_a_non_positive_value_follows_the_shared_nse_log_rule() -> None:
     observed = np.array([2.0, 0.0, 1.0, 3.0])
-    simulated = np.array([2.1, 0.5, 0.9, 2.8])
+    simulated = np.array([2.1, -0.5, 0.9, 2.8])
 
     bundle = case._compute_metrics(observed, simulated)
 
-    assert np.isnan(bundle["NSElog"])
+    assert np.isfinite(bundle["NSElog"])
+    assert bundle["NSElog"] == pytest.approx(core.log_nse(sim=simulated, obs=observed))
     assert np.isfinite(bundle["NSE"])
 
 

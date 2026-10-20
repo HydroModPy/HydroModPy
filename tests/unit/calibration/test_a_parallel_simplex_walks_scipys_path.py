@@ -32,7 +32,7 @@ from hydromodpy.calibration.optim.optimizer import (
     ParamSuggestion,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
+from hydromodpy.calibration.optim.sampling import search_space_center
 
 WIDTHS = (1, 2, 4, 8)
 
@@ -283,7 +283,7 @@ def test_a_value_is_given_back_once_for_a_proposed_point() -> None:
 
 SPACE = ParameterSpace(
     [
-        CalibParameter(name="K", lower=1e-7, upper=1e-3, transform="log"),
+        CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log"),
         CalibParameter(name="Sy", lower=0.01, upper=0.3),
     ]
 )
@@ -301,7 +301,7 @@ def _scipy_through_the_adapter_objective(maxiter: int, xatol: float | None):
     """SciPy run as the adapter set it up before it walked the port."""
     lower = np.array([p.lower_transformed for p in SPACE.parameters])
     upper = np.array([p.upper_transformed for p in SPACE.parameters])
-    x0 = transformed_prior_center(SPACE)
+    x0 = search_space_center(SPACE)
     options = {"maxiter": maxiter, "maxfev": maxiter, "adaptive": True}
     if xatol is not None:
         options["xatol"] = xatol
@@ -357,13 +357,13 @@ def _evaluate(sugg: ParamSuggestion) -> EvaluationResult:
     )
 
 
-def _engine_run(parallel: int, max_iter: int):
+def _engine_run(parallel: int, max_trials: int):
     values_of: dict[int, dict[str, float]] = {}
     session = CalibrationEngine(
         space=SPACE,
         optimizer=ScipyNelderMead(SPACE, maxiter=200, xatol=1e-6),
         evaluator=_evaluate,
-        max_iter=max_iter,
+        max_trials=max_trials,
         parallel=parallel,
         on_iteration=lambda sugg, _result: values_of.__setitem__(sugg.trial_id, dict(sugg.values)),
     ).run()
@@ -375,10 +375,10 @@ def _engine_run(parallel: int, max_iter: int):
     return session, values_of, used, unused, path
 
 
-@pytest.mark.parametrize("max_iter", [7, 25, 200])
-def test_a_parallel_run_ends_where_the_sequential_one_ends(max_iter: int) -> None:
-    sequential, seq_values, seq_used, seq_unused, seq_path = _engine_run(1, max_iter)
-    parallel, par_values, par_used, par_unused, par_path = _engine_run(4, max_iter)
+@pytest.mark.parametrize("max_trials", [7, 25, 200])
+def test_a_parallel_run_ends_where_the_sequential_one_ends(max_trials: int) -> None:
+    sequential, seq_values, seq_used, seq_unused, seq_path = _engine_run(1, max_trials)
+    parallel, par_values, par_used, par_unused, par_path = _engine_run(4, max_trials)
 
     assert not seq_unused
     assert par_path == seq_path
@@ -389,10 +389,10 @@ def test_a_parallel_run_ends_where_the_sequential_one_ends(max_iter: int) -> Non
     # The candidates solved for nothing are real solves: kept, and marked.
     assert par_unused
     assert len(parallel.history) == len(par_used) + len(par_unused)
-    if max_iter < 200:
-        # The budget binds: both stop on it, after exactly max_iter counted trials.
-        assert len(seq_used) == max_iter
+    if max_trials < 200:
+        # The budget binds: both stop on it, after exactly max_trials counted trials.
+        assert len(seq_used) == max_trials
         assert not sequential.converged
     else:
         assert sequential.converged
-        assert len(seq_used) < max_iter
+        assert len(seq_used) < max_trials

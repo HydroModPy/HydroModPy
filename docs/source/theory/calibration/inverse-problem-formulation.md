@@ -12,8 +12,8 @@ printed beside a value means. Every option of every method is in the reference
 
 The file declares the parameters $\theta = (\theta_1, \dots, \theta_p)$, each with a box
 $[a_i, b_i]$ under {toml}`calibration.parameters.<name>.bounds`. The search does not walk
-$\theta_i$ itself. It walks $y_i = g(\theta_i)$, with the transform
-{toml}`calibration.parameters.<name>.transform`:
+$\theta_i$ itself. It walks $y_i = g(\theta_i)$, with the search space
+{toml}`calibration.parameters.<name>.search_space`:
 
 $$
 g(\theta) = \theta \ \ \text{(identity)}, \qquad
@@ -32,7 +32,7 @@ $$
 where $J$ is the cost defined below. Every evaluation of $J$ is one run of the model, with
 the values of $\theta$ written in place of the configuration they name. A parameter not
 listed keeps the value of the file. A method that samples instead of stepping draws from
-the prior {toml}`calibration.parameters.<name>.prior`: uniform on $[a_i, b_i]$, uniform on
+the sampling {toml}`calibration.parameters.<name>.sampling`: uniform on $[a_i, b_i]$, uniform on
 $[\log_{10} a_i, \log_{10} b_i]$, or normal.
 
 ## From outputs to one cost
@@ -56,7 +56,7 @@ $$
   each distance is divided by the validity length $L$ of its output, two mesh cells under
   `"auto"`, so a gap of one validity length costs 1. An efficiency score is already a pure
   number, and the key is refused on it.
-- $T_b$ is {toml}`calibration.objective_blocks.transform`: the identity,
+- $T_b$ is {toml}`calibration.objective_blocks.cost_transform`: the identity,
   $\log_{10}(c + 10^{-6})$, or $-1/(c + 10^{-6})$. It reshapes a cost before the weighting.
   It is not the log of the series, which is what the metric `nse_log` takes.
 
@@ -94,7 +94,7 @@ changes sign. `distance_gap` scores $\lvert J_s \rvert$, but its zero is a cross
 the minimum of a smooth cost: the simulated network changes cell by cell, so $J_s$ steps
 over zero instead of reaching it. The method `bisection` uses that. It sweeps the box in
 log space, keeps the two neighbours where the sign changes, and halves that bracket until
-its relative width falls under the precision {toml}`calibration.tolerance`. It never stops
+its relative width falls under the precision {toml}`calibration.precision`. It never stops
 on the size of $\lvert J_s \rvert$, which may never get small. The value it returns is the
 completed trial of lowest cost inside the final bracket.
 
@@ -124,10 +124,10 @@ otherwise.
 :summary:
 ```
 
-## The likelihood of `da_mh_gp`
+## The score of `da_mh_gp`
 
-`da_mh_gp` is the only method that samples a distribution instead of returning one optimum.
-It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-posterior
+`da_mh_gp` is a sequential search: a Metropolis-Hastings chain that spends its runs around the
+low-cost region. It reads the cost of each trial as an $\mathrm{RMSE}$ and builds the log-score
 
 $$
 \ln \pi(y) = -\frac{1}{2}\left(\frac{\mathrm{RMSE}(\theta)}{\sigma_n}\right)^2 + \ln p(y) + \text{const},
@@ -143,20 +143,19 @@ $$
 
 A proposal $y' = y + \varepsilon$, with $\varepsilon \sim \mathcal{N}(0, \sigma_q^2)$ and
 $\sigma_q$ the option `proposal_sigma`, is dropped when it leaves the box. Otherwise a
-Gaussian process {cite:p}`rasmussen2006`, fitted to the log-posteriors already computed,
+Gaussian process {cite:p}`rasmussen2006`, fitted to the log-scores already computed,
 screens it. A proposal that passes the screen is then run through the model, which
 corrects the acceptance so the chain targets $\pi$ and not the surrogate
 ({cite:t}`christen2005`, delayed acceptance). The candidate the calibration returns is
-the state of highest log-posterior.
+the state of highest log-score.
 
-Read this likelihood for what it is. A Gaussian likelihood of $n$ independent residuals of
+Read this score for what it is. A Gaussian likelihood of $n$ independent residuals of
 standard deviation $\sigma$ is $-\tfrac{n}{2}(\mathrm{RMSE}/\sigma)^2$. The one above has no
-$n$: it scores the whole record as one residual of size $\mathrm{RMSE}$. The width of the
-sample therefore follows $\sigma_n$, a number of the file, and not the length of the record.
-It is a posterior on the parameters only when $\sigma_n$ is the error of that one aggregate,
-which nothing in the run establishes. On any metric other than `rmse`, the number squared is
-not a residual at all. Report the chain as the spread of the values that score within a few
-$\sigma_n$ of the best, and state $\sigma_n$ beside it.
+$n$: it scores the whole record as one residual of size $\mathrm{RMSE}$. The spread of the
+chain therefore follows $\sigma_n$, a number of the file, and not the length of the record, so
+it measures no uncertainty on the parameters. On any metric other than `rmse`, the number
+squared is not a residual at all. Use the chain to find the best state, and read the width of a
+value from {toml}`calibration.uncertainty.method` below.
 
 ## The width beside a value
 
@@ -165,11 +164,11 @@ Three methods, set by {toml}`calibration.uncertainty.method`, produce it. None o
 posterior.
 
 - `cost_profile`, the default, reads the trials already run. With $J^\ast$ the best cost and
-  $\tau$ the tolerance {toml}`calibration.uncertainty.tolerance`, a trial is kept when
-  $J \leq J^\ast(1 + \tau)$ in relative mode, or $J \leq J^\ast + \tau$ in absolute mode. The
-  interval of $\theta_i$ is the range of $\theta_i$ over the kept trials. The default is
-  $\tau = 0.05$, relative. A phase scored on network distances only takes one mesh cell,
-  absolute, because a fraction of a cost solved at zero is zero.
+  $\tau$ the margin {toml}`calibration.uncertainty.cost_margin`, a trial is kept when
+  $J \leq J^\ast(1 + \tau)$ for a share such as `"5%"`, or $J \leq J^\ast + \tau$ for a length
+  such as `"75 m"`. The interval of $\theta_i$ is the range of $\theta_i$ over the kept trials.
+  The default is $\tau = 0.05$, a share. A phase scored on network distances only takes one
+  mesh cell, a length, because a fraction of a cost solved at zero is zero.
 - `multistart` runs the whole search again from other starting points and reports the spread
   of the optima. A parameter whose optima span more than a factor ten is flagged as not
   identified.

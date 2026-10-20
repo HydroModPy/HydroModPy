@@ -69,8 +69,10 @@ class RunTimeseriesMixin:
         pandas.DataFrame
             Long-form table: ``station``, ``variable``, ``metric``, ``value``
             and the window each score was computed on (``nse_window_start``,
-            ``nse_window_end``, ``nse_n``, ``metric_rule_version``). A run scored
-            without a window carries no row, and a run that never completed
+            ``nse_window_end``, ``nse_n``, ``metric_rule_version``), then
+            ``n_clipped``, the negative values a log-scale score clipped to
+            zero (0 on ``nse_log`` when none, empty on a metric that never
+            clips). A run scored without a window carries no row, and a run that never completed
             has no seal and no row.
         """
         frame = metrics_frame(self._record() if is_sealed(self.dir) else None)

@@ -592,7 +592,7 @@ class Run(
             )
         provider = get_root_config_provider()
         try:
-            return provider.from_dict(snapshot)
+            return provider.from_dict(snapshot, sealed=True)
         except Exception as exc:
             raise ValueError(
                 f"The configuration of run '{self._sim_id[:8]}' no longer validates "

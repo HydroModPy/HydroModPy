@@ -9,6 +9,7 @@ import numpy as np
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.exceptions import ExtractError, IncompatibleMeshError, MeshError
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import (
     CF_EPOCH,
@@ -23,6 +24,10 @@ from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
+from hydromodpy.solver.modflow_common.mesh_descent import (
+    DESCENT_SIDECAR_SUFFIX,
+    read_descent_sidecar,
+)
 from hydromodpy.solver.modflow_common.period_steps import (
     budget_file_steps,
     group_steps_by_stamp,
@@ -102,6 +107,30 @@ def verify_dis_grid(
         float(shift.max()),
     )
     return float(shift.max())
+
+
+def catchment_basin_the_build_left(solver_output_dir: Path, *, n_cells: int) -> np.ndarray | None:
+    """Cells of the basin of D the build left beside the model, None without a catchment.
+
+    The calibration trial sums the drains over this basin. The budget row of
+    the catchment uses the same cells, so a saved run and its trial read the
+    same water. A basin that is only the largest one of a domain with neither
+    outlet nor polygon is no catchment.
+    """
+    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
+    if not files:
+        return None
+    try:
+        record = read_descent_sidecar(files[0])
+    except ValueError as exc:
+        logger.warning("No catchment budget row: unreadable descent sidecar (%s).", exc)
+        return None
+    if record is None or record.basin is None or record.basin_rule == "largest_basin":
+        return None
+    basin = np.asarray(record.basin, dtype=bool).ravel()
+    if basin.size != n_cells or not basin.any():
+        return None
+    return basin
 
 
 def _write_time_coordinate(
@@ -245,6 +274,7 @@ class ModflowNwtOutputAdapter:
                 ncol,
                 budget_terms=budget_terms,
                 flux_scale_to_m3_s=flux_scale_to_m3_s,
+                catchment_mask=catchment_basin_the_build_left(solver_output_dir, n_cells=n_cells),
             )
         else:
             record_budget_policy(store, sim_id, budget_terms, ())
@@ -278,6 +308,7 @@ class ModflowNwtOutputAdapter:
         *,
         budget_terms: BudgetKeep = BudgetKeep.everything(),
         flux_scale_to_m3_s: float = 1.0,
+        catchment_mask: np.ndarray | None = None,
     ) -> None:
         """Extract the scalar stress and storage terms of the .cbc file.
 
@@ -297,6 +328,11 @@ class ModflowNwtOutputAdapter:
         The budget table holds every scalar record. A per-cell field is built
         and written only for a term ``budget_terms`` keeps. The ``budget/``
         attributes record the policy and the terms kept.
+
+        ``catchment_mask`` adds a ``zone_id = 'catchment'`` row per record, the
+        sum over those cells. The domain row spans the buffered box; without
+        the catchment row, a run that keeps no per-cell drain has only it to
+        build its catchment discharge from.
         """
 
         cbb = open_cell_budget(cbc_path)
@@ -314,6 +350,7 @@ class ModflowNwtOutputAdapter:
 
         n_cells = nrow * ncol
         n_timesteps = len(times)
+        catchment_cells = np.flatnonzero(catchment_mask) if catchment_mask is not None else None
         budget_records: list[dict] = []
         budget_slab = slab_steps(nlay, n_cells)
         written: set[str] = set()
@@ -366,6 +403,25 @@ class ModflowNwtOutputAdapter:
                         "unit": "m3/s",
                     }
                 )
+                if catchment_cells is not None and arrays[0].ndim >= 2:
+                    in_basin = [arr.reshape(-1, n_cells)[:, catchment_cells] for arr in arrays]
+                    budget_records.append(
+                        {
+                            "timestep": t,
+                            "zone_id": CATCHMENT_BUDGET_ZONE,
+                            "component": comp_key,
+                            "flux_in": weighted_period_scalar(
+                                [float(np.maximum(cells, 0).sum()) for cells in in_basin], weights
+                            ),
+                            "flux_out": abs(
+                                weighted_period_scalar(
+                                    [float(np.minimum(cells, 0).sum()) for cells in in_basin],
+                                    weights,
+                                )
+                            ),
+                            "unit": "m3/s",
+                        }
+                    )
                 if per_cell and arrays[0].ndim >= 2:
                     arr = weighted_period_mean(arrays, weights)
                     field = arr.reshape(nlay, n_cells) if arr.ndim == 3 else arr.reshape(1, n_cells)

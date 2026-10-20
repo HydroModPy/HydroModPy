@@ -34,5 +34,5 @@ parameters = ["K"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
 method = "grid"
-max_iter = 3
+max_trials = 3
 method_options = { points_per_dim = 3 }

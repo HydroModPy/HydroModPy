@@ -104,7 +104,7 @@ class CalibrationTarget:
 
     calibrable: Calibrable | None
     """What the field itself declares about being searched, when it declares
-    anything: the space to sample in, the prior, the unit. It never decides that
+    anything: the space to search in, the sampling law, the unit. It never decides that
     this target exists; the walk already did."""
 
     current: float | None

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Annotated
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Opt
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:
@@ -107,6 +108,7 @@ class SfrReachTimeseries(BaseFigure):
             ax.set_yscale("log")
         ax.set_title(f"SFR {variable}{run_suffix(sim)} @ {network_id}:{ifno}")
         ax.grid(True, ls=":", lw=0.4)
+        shade_before_window(ax, sim)
         ax.legend(fontsize=13, framealpha=0.94)
         style_date_axis(ax)
         return ax

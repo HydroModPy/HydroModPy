@@ -6,9 +6,10 @@ both routes on a synthetic series:
 
 1. The key defaults off.
 2. :class:`TrialSeriesSink` records and drains, per thread.
-3. Both scorers (``StationScorer``, the single-metric route; ``ObservableScorer``,
-   the composite route) record into a sink they are built with, as a side effect
-   of scoring the same series they already align to compute a cost.
+3. Both forms of a cost (``variable`` + ``objective`` through
+   ``StationBlockScorer``, declared blocks through ``ObservableScorer``) record
+   into a sink they are built with, as a side effect of scoring the same series
+   they already align to compute a cost.
 4. :class:`PipelineTrialEvaluator` creates a sink only when the key is on, and
    only when it builds its own extractor: a caller-supplied ``metric_fn`` never
    sees one.
@@ -25,7 +26,10 @@ from hydromodpy.calibration.config import (
     CalibrationConfig,
     validate_calib_output,
 )
-from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer, StationScorer
+from hydromodpy.calibration.metrics.observable_scoring import (
+    ObservableScorer,
+    StationBlockScorer,
+)
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.calibration.runners.pipeline_evaluator import PipelineTrialEvaluator
@@ -69,9 +73,9 @@ def test_a_sink_drains_only_what_was_recorded_on_the_calling_thread() -> None:
     assert sink.drain() == []
 
 
-def test_the_single_metric_route_records_the_series_it_scored() -> None:
+def test_variable_and_objective_record_the_series_they_scored() -> None:
     sink = TrialSeriesSink()
-    scorer = StationScorer(
+    scorer = StationBlockScorer(
         "discharge",
         "nse_log",
         [ObservedSeries(station_id=STATION, variable="discharge", series=OBSERVED)],
@@ -92,7 +96,7 @@ def test_the_single_metric_route_records_the_series_it_scored() -> None:
     # alignment ``test_the_protocol_s_block_route_matches_the_single_metric_one``
     # notes): 3 of the 4 stamps are the ones actually scored.
     assert [row["station"] for row in rows] == [STATION] * len(EXPECTED_PAIR)
-    assert [row["output"] for row in rows] == ["discharge"] * len(EXPECTED_PAIR)
+    assert [row["output"] for row in rows] == [f"discharge@{STATION}"] * len(EXPECTED_PAIR)
     assert [row["time"] for row in rows] == list(EXPECTED_PAIR.index)
     np.testing.assert_allclose([row["simulated"] for row in rows], EXPECTED_PAIR["sim"])
     np.testing.assert_allclose([row["observed"] for row in rows], EXPECTED_PAIR["obs"])

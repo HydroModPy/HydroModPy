@@ -39,12 +39,12 @@ def centred_twin_case(definition: TwinCalibrationCaseDefinition) -> TwinCalibrat
     }
     # A case id of its own: the benchmark folder is named after it, and the
     # recovery test of the same twin may run beside this check.
-    # Nelder-Mead starts at the centre of the prior. A conductivity or a yield is
+    # Nelder-Mead starts at the centre of the sampling. A conductivity or a yield is
     # log-uniform unless the target says otherwise, which puts the start at the
-    # geometric mean of the bounds. A uniform prior on the identity transform
+    # geometric mean of the bounds. A uniform sampling in the identity search space
     # puts it at their plain mean, the truth.
     targets = {
-        name: replace(target, transform="identity", prior="uniform")
+        name: replace(target, search_space="identity", sampling="uniform")
         for name, target in (definition.parameter_targets or {}).items()
     }
     return replace(
@@ -56,7 +56,7 @@ def centred_twin_case(definition: TwinCalibrationCaseDefinition) -> TwinCalibrat
         method_profiles=(
             CalibrationMethodProfile(
                 name="scipy_nelder_mead",
-                method_kwargs={"maxiter": EVALUATIONS, "xatol": 1.0e-8, "fatol": 1.0e-8},
+                method_kwargs={"max_trials": EVALUATIONS, "xatol": 1.0e-8, "fatol": 1.0e-8},
             ),
         ),
         generate_case_figures=False,

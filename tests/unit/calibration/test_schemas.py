@@ -9,8 +9,8 @@ equivalent ground:
 
 - a minimal valid payload validates cleanly,
 - unknown top-level and per-parameter keys are rejected (``extra="forbid"``),
-- ``method``/``save_runs``/``transform``/``prior`` literal constraints,
-- invalid ``max_iter`` / ``save_best_n`` values are rejected,
+- ``method``/``save_runs``/``search_space``/``sampling`` literal constraints,
+- invalid ``max_trials`` / ``save_best_n`` values are rejected,
 - a small embedded TOML round-trips through ``tomllib.loads`` +
   ``model_validate``.
 
@@ -37,10 +37,10 @@ from hydromodpy.calibration.config import (
 def _minimal_payload() -> dict:
     return {
         "method": "grid",
-        "max_iter": 20,
+        "max_trials": 20,
         "save_runs": "none",
         "parameters": {
-            "K": {"bounds": [1.0e-6, 1.0e-3], "transform": "log"},
+            "K": {"bounds": [1.0e-6, 1.0e-3], "search_space": "log"},
             "Sy": {"bounds": [0.02, 0.30]},
         },
     }
@@ -57,7 +57,7 @@ class TestCalibrationConfigMinimalPayload:
         cfg = CalibrationConfig.model_validate({})
         # Unwritten, the method follows from the criteria when the run starts.
         assert cfg.method is None
-        assert cfg.max_iter == "auto"
+        assert cfg.max_trials == "auto"
         assert cfg.save_runs == "best_n"
         assert cfg.save_best_n == 1
         assert cfg.use_cache is True
@@ -68,10 +68,10 @@ class TestCalibrationConfigMinimalPayload:
     def test_accepts_minimal_valid_payload(self):
         cfg = CalibrationConfig.model_validate(_minimal_payload())
         assert cfg.method == "grid"
-        assert cfg.max_iter == 20
+        assert cfg.max_trials == 20
         assert set(cfg.parameters) == {"K", "Sy"}
-        assert cfg.parameters["K"].transform == "log"
-        assert cfg.parameters["Sy"].transform == "identity"  # default
+        assert cfg.parameters["K"].search_space == "log"
+        assert cfg.parameters["Sy"].search_space == "identity"  # default
 
     def test_parameters_typed_as_calib_parameter_decl(self):
         cfg = CalibrationConfig.model_validate(_minimal_payload())
@@ -128,13 +128,13 @@ class TestCalibrationConfigSaveRunsLiteral:
 
 
 class TestCalibrationConfigNumericBounds:
-    def test_max_iter_must_be_at_least_one(self):
-        with pytest.raises(ValidationError, match="max_iter"):
-            CalibrationConfig.model_validate({"max_iter": 0})
+    def test_max_trials_must_be_at_least_one(self):
+        with pytest.raises(ValidationError, match="max_trials"):
+            CalibrationConfig.model_validate({"max_trials": 0})
 
-    def test_max_iter_rejects_negative(self):
-        with pytest.raises(ValidationError, match="max_iter"):
-            CalibrationConfig.model_validate({"max_iter": -3})
+    def test_max_trials_rejects_negative(self):
+        with pytest.raises(ValidationError, match="max_trials"):
+            CalibrationConfig.model_validate({"max_trials": -3})
 
     def test_save_best_n_cannot_be_negative(self):
         with pytest.raises(ValidationError, match="save_best_n"):
@@ -151,35 +151,35 @@ class TestCalibrationConfigNumericBounds:
 
 
 class TestCalibParameterDeclTransform:
-    @pytest.mark.parametrize("transform", ["identity", "log", "logit"])
-    def test_accepts_supported_transform(self, transform: str):
-        decl = CalibParameterDecl.model_validate({"transform": transform})
-        assert decl.transform == transform
+    @pytest.mark.parametrize("search_space", ["identity", "log", "logit"])
+    def test_accepts_supported_search_space(self, search_space: str):
+        decl = CalibParameterDecl.model_validate({"search_space": search_space})
+        assert decl.search_space == search_space
 
-    @pytest.mark.parametrize("transform", ["sqrt", "inverse", "power", ""])
-    def test_rejects_unknown_transform(self, transform: str):
-        with pytest.raises(ValidationError, match="transform"):
-            CalibParameterDecl.model_validate({"transform": transform})
+    @pytest.mark.parametrize("search_space", ["sqrt", "inverse", "power", ""])
+    def test_rejects_unknown_search_space(self, search_space: str):
+        with pytest.raises(ValidationError, match="search_space"):
+            CalibParameterDecl.model_validate({"search_space": search_space})
 
 
 class TestCalibParameterDeclPrior:
-    @pytest.mark.parametrize("prior", ["uniform", "log_uniform", "normal"])
-    def test_accepts_supported_prior(self, prior: str):
-        decl = CalibParameterDecl.model_validate({"prior": prior})
-        assert decl.prior == prior
+    @pytest.mark.parametrize("sampling", ["uniform", "log_uniform", "normal"])
+    def test_accepts_supported_sampling(self, sampling: str):
+        decl = CalibParameterDecl.model_validate({"sampling": sampling})
+        assert decl.sampling == sampling
 
-    @pytest.mark.parametrize("prior", ["jeffreys", "beta", ""])
-    def test_rejects_unsupported_prior(self, prior: str):
-        with pytest.raises(ValidationError, match="prior"):
-            CalibParameterDecl.model_validate({"prior": prior})
+    @pytest.mark.parametrize("sampling", ["jeffreys", "beta", ""])
+    def test_rejects_unsupported_sampling(self, sampling: str):
+        with pytest.raises(ValidationError, match="sampling"):
+            CalibParameterDecl.model_validate({"sampling": sampling})
 
 
 class TestCalibParameterDeclDefaults:
     def test_empty_declaration_inherits_defaults(self):
         decl = CalibParameterDecl.model_validate({})
         assert decl.bounds is None
-        assert decl.transform == "identity"
-        assert decl.prior == "uniform"
+        assert decl.search_space == "identity"
+        assert decl.sampling == "uniform"
         assert decl.path is None
         assert decl.units is None
 
@@ -228,7 +228,7 @@ class TestTomlRoundTrip:
         toml_src = """
         [calibration]
         method = "grid"
-        max_iter = 50
+        max_trials = 50
         save_runs = "best_n"
         save_best_n = 5
         seed = 42
@@ -237,8 +237,8 @@ class TestTomlRoundTrip:
 
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
-        transform = "log"
-        prior = "log_uniform"
+        search_space = "log"
+        sampling = "log_uniform"
         path = "flow.properties.k_aquifer"
 
         [calibration.parameters.Sy]
@@ -247,16 +247,16 @@ class TestTomlRoundTrip:
         data = tomllib.loads(toml_src)
         cfg = CalibrationConfig.model_validate(data["calibration"])
         assert cfg.method == "grid"
-        assert cfg.max_iter == 50
+        assert cfg.max_trials == 50
         assert cfg.save_runs == "best_n"
         assert cfg.save_best_n == 5
         assert cfg.seed == 42
         assert cfg.objective == "kge"
         assert set(cfg.parameters) == {"K_aquifer", "Sy"}
-        assert cfg.parameters["K_aquifer"].transform == "log"
-        assert cfg.parameters["K_aquifer"].prior == "log_uniform"
+        assert cfg.parameters["K_aquifer"].search_space == "log"
+        assert cfg.parameters["K_aquifer"].sampling == "log_uniform"
         assert cfg.parameters["K_aquifer"].path == "flow.properties.k_aquifer"
-        assert cfg.parameters["Sy"].transform == "identity"
+        assert cfg.parameters["Sy"].search_space == "identity"
 
     def test_minimal_section_roundtrip(self):
         toml_src = """

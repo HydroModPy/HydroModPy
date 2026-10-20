@@ -25,7 +25,7 @@ objective = "nse_lo"
 
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
-transform = "log"
+search_space = "log"
 """
 
 

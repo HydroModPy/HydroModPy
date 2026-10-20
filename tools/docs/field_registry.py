@@ -453,8 +453,8 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
     if Calibrable is not None and isinstance(calib, Calibrable):
         calib_info = {
             "bounds": list(calib.bounds) if calib.bounds else None,
-            "transform": calib.transform,
-            "prior": calib.prior,
+            "search_space": calib.search_space,
+            "sampling": calib.sampling,
             "units": calib.units,
         }
         if unit is None and calib.units:

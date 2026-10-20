@@ -572,8 +572,8 @@ class _DrainageBC(FlowBoundaryConditionConfig):
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 units="m2/s",
                 is_the_value_of_its_instance=True,
             )

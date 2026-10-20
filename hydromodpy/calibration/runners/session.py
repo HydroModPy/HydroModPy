@@ -226,7 +226,7 @@ def search_space_payload(space: ParameterSpace) -> dict[str, Any]:
     return {
         param.name: {
             "bounds": [param.lower, param.upper],
-            "transform": param.transform,
+            "search_space": param.search_space,
             "target": param.effective_path,
             "units": param.units,
         }

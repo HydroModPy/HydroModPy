@@ -8,6 +8,7 @@ from hydromodpy.core.units.labels import CATCHMENT_OUTLET_STATION, axis_label, s
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import LogY, Station, Variable
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
@@ -98,6 +99,7 @@ class HydrographSimObs(BaseFigure):
             ax.set_yscale("log")
         ax.set_title(f"Hydrograph sim vs obs{run_suffix(sim)} @ {station_label(station)}")
         ax.grid(True, ls=":", lw=0.4)
+        shade_before_window(ax, sim)
         ax.legend(fontsize=9, framealpha=0.94)
         style_date_axis(ax)
         return ax

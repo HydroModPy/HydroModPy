@@ -33,12 +33,12 @@ _TOML = textwrap.dedent(
 
     [calibration.parameters.K]
     bounds = [1e-8, 1e-2]
-    transform = "log"
+    search_space = "log"
     units = "m/s"
 
     [calibration.parameters.Sy]
     bounds = [1e-4, 0.5]
-    transform = "log"
+    search_space = "log"
     units = "-"
 
     [calibration.outputs.seepage_network]
@@ -83,7 +83,7 @@ def test_a_protocol_that_nothing_expanded_is_refused_rather_than_ignored() -> No
         CalibrationConfig.model_validate(
             {
                 "protocol": "matching_hydrographic_network",
-                "parameters": {"K": {"bounds": [1e-8, 1e-2], "transform": "log"}},
+                "parameters": {"K": {"bounds": [1e-8, 1e-2], "search_space": "log"}},
             }
         )
 

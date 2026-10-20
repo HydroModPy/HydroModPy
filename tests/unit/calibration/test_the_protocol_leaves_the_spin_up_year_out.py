@@ -50,8 +50,8 @@ def _doc(start: object = "1995-01-01", end: object = "2020-12-31", **calibration
         "calibration": {
             "protocol": NAME,
             "parameters": {
-                "K": {"bounds": [1e-8, 1e-2], "transform": "log"},
-                "Sy": {"bounds": [1e-4, 0.5], "transform": "log"},
+                "K": {"bounds": [1e-8, 1e-2], "search_space": "log"},
+                "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
             "outputs": {
                 "seepage_network": {

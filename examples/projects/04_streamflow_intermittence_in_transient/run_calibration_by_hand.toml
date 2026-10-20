@@ -54,6 +54,7 @@ parameters = ["K"]
 regime = "steady"
 objective_blocks = ["network_extension"]
 method = "bisection"
+max_trials = "auto"   # the bisection budgets its own worst case
 
 # Phase two: Sy alone, monthly transient, K from phase one. It does not start
 # if phase one did not converge.
@@ -64,8 +65,8 @@ parameters = ["Sy"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
 method = "scipy_nelder_mead"
-max_iter = 30
-tolerance = 0.05
+max_trials = 30
+precision = 0.05
 depends_on = "steady_conductivity"
 # No scoring_window: the phase scores [metrics] window of project.toml,
 # 2001-2002, as the protocol writes it. 2000 is spin-up.

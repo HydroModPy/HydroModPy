@@ -27,8 +27,8 @@ from hydromodpy.calibration.runners.restarts import (
     start_points,
 )
 
-K = CalibParameter(name="K", lower=1e-8, upper=1e-2, transform="log")
-SY = CalibParameter(name="Sy", lower=1e-4, upper=0.5, transform="log")
+K = CalibParameter(name="K", lower=1e-8, upper=1e-2, search_space="log")
+SY = CalibParameter(name="Sy", lower=1e-4, upper=0.5, search_space="log")
 SPACE = ParameterSpace([K, SY])
 
 

@@ -15,7 +15,10 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.config import CalibObjectiveBlockDecl, validate_calib_output
-from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer, StationScorer
+from hydromodpy.calibration.metrics.observable_scoring import (
+    ObservableScorer,
+    StationBlockScorer,
+)
 from hydromodpy.calibration.metrics.series import ObservedSeries, time_grid_boundaries
 from hydromodpy.core.contracts.observables import ObservableResult
 
@@ -35,8 +38,8 @@ def _answer(value: float) -> ObservableResult:
     )
 
 
-def test_the_single_metric_route_scores_a_steady_discharge_on_its_year() -> None:
-    scorer = StationScorer(
+def test_variable_and_objective_score_a_steady_discharge_on_its_year() -> None:
+    scorer = StationBlockScorer(
         "discharge", "mae", [ObservedSeries("Q", "discharge", _RECORD)], observed_station_id="Q"
     )
 
@@ -48,7 +51,7 @@ def test_the_single_metric_route_scores_a_steady_discharge_on_its_year() -> None
 
 
 def test_the_window_start_moves_the_score_of_a_steady_stage() -> None:
-    scorer = StationScorer(
+    scorer = StationBlockScorer(
         "discharge", "mae", [ObservedSeries("Q", "discharge", _RECORD)], observed_station_id="Q"
     )
     spanning = (pd.Timestamp("1999-01-01"), _BOUNDS[1])
@@ -84,7 +87,7 @@ def test_the_weighted_route_takes_the_same_start_from_the_grid() -> None:
 
 def test_a_steady_head_is_still_read_at_its_stamp() -> None:
     # A head is the state at the stamp: the grid start does not widen it.
-    scorer = StationScorer("head", "mae", [ObservedSeries("P", "head", _RECORD)])
+    scorer = StationBlockScorer("head", "mae", [ObservedSeries("P", "head", _RECORD)])
 
     cost, _ = scorer.score({"P": _answer(5.0)}, boundaries=_BOUNDS)
 

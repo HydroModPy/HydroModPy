@@ -522,12 +522,12 @@ def _check_bounds_against_physics(
             assert_bounds_are_physical(name, float(bounds[0]), float(bounds[1]), decl.units)
     except ValueError as exc:
         return [PreflightFinding("error", where, str(exc))]
-    if str(getattr(decl, "transform", "identity")).lower() == "log" and bounds[0] <= 0.0:
+    if str(getattr(decl, "search_space", "identity")).lower() == "log" and bounds[0] <= 0.0:
         return [
             PreflightFinding(
                 "error",
                 where,
-                f'transform = "log" needs a lower bound above zero, got {bounds[0]:g}.',
+                f'search_space = "log" needs a lower bound above zero, got {bounds[0]:g}.',
             )
         ]
     return []
@@ -628,6 +628,10 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
                 blocks,
                 "[[calibration.objective_blocks]]",
             )
+        )
+        findings.extend(
+            PreflightFinding("error", f"{where} bounds", problem)
+            for problem in calibration.phase_bounds_problems(phase)
         )
         if phase.depends_on is not None and phase.depends_on not in ran:
             known = ", ".join(names) or "nothing"
@@ -757,21 +761,21 @@ def _check_engines(calibration: Any) -> list[PreflightFinding]:
                     f"this search declares {len(names)}: {', '.join(names)}.",
                 )
             )
-        if traits.required_transform is not None:
+        if traits.required_search_space is not None:
             wrong = [
                 name
                 for name, decl in (calibration.parameters or {}).items()
                 if name in names
-                and str(getattr(decl, "transform", "identity")) != traits.required_transform
+                and str(getattr(decl, "search_space", "identity")) != traits.required_search_space
             ]
             if wrong:
                 findings.append(
                     PreflightFinding(
                         "error",
                         where,
-                        f"{method!r} walks a {traits.required_transform!r} variable and "
+                        f"{method!r} walks a {traits.required_search_space!r} variable and "
                         f"its stopping rule is a width in it, but {', '.join(wrong)} "
-                        f"declare(s) another transform.",
+                        f"declare(s) another search space.",
                     )
                 )
         if traits.needs_signed_residual and not any(
@@ -853,8 +857,9 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
             if not observing:
                 if single_metric:
                     detail = (
-                        "scores on variable/objective directly, not on paired residuals: it "
-                        "builds no residual vector for a linearized width to be taken from. "
+                        "scores variable/objective, whose implicit outputs are built from the "
+                        "loaded records when the search starts: no declared output gives a "
+                        "linearized width a residual vector to be taken from. "
                         "A single-metric phase inherits none of the calibration's outputs, "
                         "whatever another output in this file declares -- see _phase_config -- "
                         "so naming observes elsewhere is not a remedy here. Read the width "
@@ -876,7 +881,7 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                 )
             except UncertaintyNotAvailableError as exc:
                 findings.append(PreflightFinding("error", where, str(exc)))
-    for where, method, tolerance, kwargs, restarts in _declared_precisions(calibration):
+    for where, method, precision, kwargs, restarts in _declared_precisions(calibration):
         if restarts is not None and method in known:
             from hydromodpy.calibration.runners.restarts import assert_restarts_can_explore
 
@@ -884,26 +889,26 @@ def _check_the_precision_can_be_honoured(calibration: Any) -> list[PreflightFind
                 assert_restarts_can_explore(method, int(restarts))
             except ValueError as exc:
                 findings.append(PreflightFinding("error", where, str(exc)))
-        if tolerance is None or method not in known:
+        if precision is None or method not in known:
             continue
         traits = engine_traits(method)
-        if traits.tolerance_option is None:
+        if traits.precision_option is None:
             findings.append(
                 PreflightFinding(
                     "error",
                     where,
-                    f"tolerance asks {method!r} to stop at a precision on the parameter, "
-                    "and that engine stops on its evaluation budget instead. Set max_iter, "
+                    f"precision asks {method!r} to stop at a precision on the parameter, "
+                    "and that engine stops on its evaluation budget instead. Set max_trials, "
                     "or run this search on an engine that converges on the parameter.",
                 )
             )
             continue
-        if traits.tolerance_option in (kwargs or {}):
+        if traits.precision_option in (kwargs or {}):
             findings.append(
                 PreflightFinding(
                     "error",
                     where,
-                    f"tolerance and method_options.{traits.tolerance_option} both set "
+                    f"precision and method_options.{traits.precision_option} both set "
                     f"the stopping rule of {method!r}. Keep one.",
                 )
             )
@@ -923,7 +928,7 @@ def _declared_precisions(
             (
                 "[calibration]",
                 calibration.method_for()[0],
-                calibration.tolerance,
+                calibration.precision,
                 dict(calibration.method_options or {}),
                 calibration.uncertainty.restarts,
             )
@@ -932,8 +937,8 @@ def _declared_precisions(
         (
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
-            phase.tolerance,
-            dict(phase.method_options or {}),
+            phase.precision,
+            calibration.method_options_for(phase),
             calibration.uncertainty_for(phase).restarts,
         )
         for phase in calibration.phases
@@ -943,7 +948,7 @@ def _declared_precisions(
 def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
     """Refuse a root-search budget below its nominal count, announce one below its worst.
 
-    The root search counts its evaluations from its bounds, sweep, tolerance and
+    The root search counts its evaluations from its bounds, sweep, precision and
     bracket expansions (:func:`~hydromodpy.calibration.optim.adapters.
     bisection_adapter.root_search_budget`), so a budget that cannot close the
     bracket even with the root inside the bounds is a configuration error,
@@ -961,14 +966,14 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
 
     findings: list[PreflightFinding] = []
     searches = zip(_budgets(calibration), _search_candidates(calibration), strict=True)
-    for (where, method, names, max_iter, tolerance, kwargs), (phase, _, _) in searches:
-        if method != BisectionAdapter.name or max_iter == AUTO_BUDGET or len(names) != 1:
+    for (where, method, names, max_trials, precision, kwargs), (phase, _, _) in searches:
+        if method != BisectionAdapter.name or max_trials == AUTO_BUDGET or len(names) != 1:
             continue
         decl = (calibration.parameters or {}).get(names[0])
         bounds = list(getattr(decl, "bounds", None) or ())
         if len(bounds) != 2:
             continue
-        rel_tol = tolerance if tolerance is not None else kwargs.get("rel_tol")
+        rel_tol = precision if precision is not None else kwargs.get("rel_tol")
         options = {
             key: value
             for key, value in (
@@ -986,14 +991,14 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
         except (TypeError, ValueError):
             # Bounds or options the other checks already refuse.
             continue
-        verdict = short_budget(counted, int(max_iter))
+        verdict = short_budget(counted, int(max_trials))
         if verdict is None:
             continue
         severity, detail = verdict
         if getattr(calibration, "protocol", None) is not None:
             detail += (
-                " A protocol stage takes its max_iter from [calibration.protocol] "
-                "steady_max_iter or transient_max_iter."
+                " A protocol stage takes its max_trials from [calibration.protocol] "
+                "steady_max_trials or transient_max_trials."
             )
         findings.append(PreflightFinding(severity, where, detail))
     return findings
@@ -1023,8 +1028,8 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
                 "[calibration]",
                 calibration.method_for()[0],
                 sorted(calibration.parameters or {}),
-                calibration.max_iter,
-                calibration.tolerance,
+                calibration.max_trials,
+                calibration.precision,
                 dict(calibration.method_options or {}),
             )
         ]
@@ -1033,21 +1038,21 @@ def _budgets(calibration: Any) -> list[tuple[str, str, list[str], Any, float | N
             f"[[calibration.phases]] {phase.name!r}",
             calibration.method_for(phase)[0],
             list(phase.parameters),
-            phase.max_iter,
-            phase.tolerance,
-            dict(phase.method_options or {}),
+            calibration.max_trials_for(phase),
+            calibration.precision_for(phase),
+            calibration.method_options_for(phase),
         )
         for phase in calibration.phases
     ]
 
 
 def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
-    """Refuse a relative width on a search scored only by network distances.
+    """Refuse a share of the best cost on a search scored only by network distances.
 
-    A relative width is a fraction of the best cost. A network distance is in
-    metres and solved at zero, so a fraction of it says nothing about how far a
-    stream may move. The width is read after the last solve, so this is where
-    it is named, before any of it is paid for.
+    A share is a fraction of the best cost. A network distance is in metres and
+    solved at zero, so a fraction of it says nothing about how far a stream may
+    move. The width is read after the last solve, so this is where it is named,
+    before any of it is paid for.
     """
     searches = [(None, "[calibration.uncertainty]")] if not calibration.phases else []
     searches += [
@@ -1056,20 +1061,17 @@ def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
     findings: list[PreflightFinding] = []
     for phase, where in searches:
         width = calibration.interval_width_for(phase)
-        if width.mode != "relative" or not width.on_distances:
+        if width.kind != "relative" or not width.on_distances:
             continue
-        written = (
-            "in this phase" if width.mode_source == "phase" else "in [calibration.uncertainty]"
-        )
+        written = "in this phase" if width.source == "phase" else "in [calibration.uncertainty]"
         findings.append(
             PreflightFinding(
                 "error",
                 where,
-                f"mode = 'relative', written {written}, reads the interval width as a "
-                "fraction of the best cost, and this search is scored only on network "
-                "distances, in metres, solved at zero: a fraction of a distance has no "
-                "meaning. Write mode = 'absolute' with a tolerance in metres, or leave "
-                "both unwritten for one mesh cell.",
+                f"cost_margin, written {written}, is a share of the best cost, and this "
+                "search is scored only on network distances, in metres, solved at zero: a "
+                "fraction of a distance has no meaning. Write a length such as '25 m', or "
+                "leave it unwritten for one mesh cell.",
             )
         )
     return findings

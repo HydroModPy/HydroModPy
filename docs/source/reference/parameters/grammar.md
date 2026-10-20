@@ -73,13 +73,14 @@ ancestor down, and a loop stops with `Detected circular base_config chain`. Once
 files are merged, `base_config` is gone, and the merged result is what the schema
 validates.
 
-`hmp run` adds two more layers on top of the chain, in this order: files given with
+`hmp run` and `hmp calibrate` add two more layers on top of the chain, in this order: files given with
 `--overlay`, then values given with `--set`. Environment variables named `HMP_SET_*` come
 last.
 
 ```bash
 hmp run run.toml --overlay daily.toml
 hmp run run.toml --set simulation.name=my_run
+hmp calibrate calibration.toml --set calibration.seed=7 --case calage_seed7
 HMP_SET_simulation__name=my_run hmp run run.toml
 ```
 

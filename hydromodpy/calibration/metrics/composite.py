@@ -6,13 +6,13 @@ discharge routed to its cell, adding the runoff forcing to a drain budget and
 scaling it by the area that cell drains. All of it is measured in the
 pipeline's own terms and none of it can be asked of a model that is not it.
 
-Scoring is the other half and it is not here. Both routes hand their
-observables to a scorer of
-:mod:`hydromodpy.calibration.metrics.observable_scoring`, which holds no
-context: ``[calibration.outputs]`` and ``[[calibration.objective_blocks]]`` go
-to :class:`~hydromodpy.calibration.metrics.observable_scoring.ObservableScorer`,
-``variable`` and ``objective`` to
-:class:`~hydromodpy.calibration.metrics.observable_scoring.StationScorer`.
+Scoring is the other half and it is not here. Every trial is scored by the
+block route of :mod:`hydromodpy.calibration.metrics.observable_scoring`, which
+holds no context: ``[calibration.outputs]`` and
+``[[calibration.objective_blocks]]`` go to
+:class:`~hydromodpy.calibration.metrics.observable_scoring.ObservableScorer`
+directly, ``variable`` and ``objective`` through the implicit blocks of
+:class:`~hydromodpy.calibration.metrics.observable_scoring.StationBlockScorer`.
 What this module produces is therefore the same thing a forward model produces,
 and the criterion that scores it cannot tell which one answered.
 """
@@ -28,7 +28,7 @@ import pandas as pd
 
 from hydromodpy.calibration.metrics.observable_scoring import (
     ObservableScorer,
-    StationScorer,
+    StationBlockScorer,
     observable_series,
     refuse_window_without_dates,
 )
@@ -255,9 +255,9 @@ PRODUCERS: Mapping[str, Callable[..., dict[str, ObservableResult]]] = {
 }
 """How the pipeline answers a station request, per calibration variable.
 
-Keyed on the vocabulary :attr:`StationScorer.SUPPORTED` declares, so the route
-a document names is either produced and scored or refused by the scorer before
-a search starts. A test holds the two in step."""
+Keyed on :data:`hydromodpy.calibration.config.STATION_VARIABLES`, so the
+variable a document names is either produced and scored or refused by the
+scorer before a search starts. A test holds the two in step."""
 
 
 def refuse_a_call_that_renames_the_route(
@@ -310,17 +310,17 @@ def build_metric_extractor(
     gauge the search follows are all chosen here, so a criterion swapped at
     call time would report a cost the document cannot account for.
 
-    When ``outputs`` and ``objective_blocks`` are both provided, the extractor
-    routes through :func:`build_objective_from_config`. Otherwise the
-    single-metric path runs against ``loaded_data`` (variable + objective).
-    Both branches are supported: the single-metric one is the standard TOML
-    route taken whenever no ``objective_blocks`` are declared.
+    When ``outputs`` and ``objective_blocks`` are both provided, they are
+    scored as declared. Otherwise ``variable`` + ``objective`` is read against
+    the records the project loaded, as one implicit output and one implicit
+    block per scored station (:class:`StationBlockScorer`), and scored by the
+    same blocks. Each station is answered by its producer in :data:`PRODUCERS`.
 
-    ``warmup_periods`` reaches both branches. ``scoring_window`` bounds the
-    scored samples in dates. On the composite branch it cuts the outputs that
-    name a station and picks the years of a two-bound network output; a block
-    on any other output carries no time axis to cut on, so the window is
-    refused there rather than ignored.
+    ``warmup_periods``, ``scoring_window`` and ``min_samples`` reach both.
+    ``scoring_window`` bounds the scored samples in dates. On declared blocks
+    it cuts the outputs that name a station and picks the years of a two-bound
+    network output; a block on any other output carries no time axis to cut
+    on, so the window is refused there rather than ignored.
 
     ``series_sink``, when given, is handed to the scorer that is built, which
     records every point/series output's scored series into it as a side
@@ -340,17 +340,19 @@ def build_metric_extractor(
     observed = load_observed(ctx, variable) if variable else []
     if not observed:
         logger.warning("No observations for variable=%r.", variable)
-    # Built once, before the search: the records, the criterion, the burn-in and
-    # the window do not move between samples, and none of them needs a context.
+    # Built once, before the search: the records, the implicit blocks, the
+    # burn-in and the window do not move between samples, and none of them
+    # needs a context.
     route = str(variable) if variable else None
     scorer = (
-        StationScorer(
+        StationBlockScorer(
             route,
             objective,
             observed,
             observed_station_id=observed_station_id,
             warmup_periods=warmup_periods,
             scoring_window=scoring_window,
+            min_samples=min_samples,
             series_sink=series_sink,
         )
         if observed
@@ -376,7 +378,7 @@ def build_metric_extractor(
                 adapter,
                 run_ctx,
                 trial_ctx,
-                observed,
+                scorer.stations,
                 time_index=resolve_time_index(trial_ctx, n_timesteps=0),
             )
             return scorer.score(
@@ -416,7 +418,7 @@ def _build_composite_metric_extractor(
     )
 
     def metric_fn(trial_ctx: Any, *, objective: str | None = None, variable: str | None = None):
-        # Dropped, not refused, unlike the single-metric route: this one is not
+        # Dropped, not refused, unlike variable + objective: this one is not
         # parametrised by the pair. The criterion, the weights and the compared
         # quantities are the blocks, so there is nothing a call could rename.
         del objective, variable
@@ -454,8 +456,8 @@ def refuse_a_burn_in_the_residuals_cannot_honour(
     A first-order width is read off the residual AT EACH OBSERVATION. A cost is
     not: leading samples are dropped before it is computed, by a block's own
     ``warmup`` on the composite route and by ``[calibration].warmup_periods``
-    reaching the criterion on the single-metric one. Two blocks may even drop
-    different counts, so there is no single vector that is both aligned once
+    reaching the implicit blocks of variable + objective. Two blocks may even
+    drop different counts, so there is no single vector that is both aligned once
     and scored by everything. A covariance built on the untruncated pairing
     describes the slope of a surface the search never climbed, over a window it
     was told to ignore.

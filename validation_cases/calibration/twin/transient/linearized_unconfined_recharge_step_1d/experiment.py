@@ -64,7 +64,7 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma0": 0.22,
             "popsize": 10,
-            "max_evaluations": 40,
+            "max_trials": 40,
             "seed": int(seed),
             "normalize": True,
         },
@@ -72,13 +72,13 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     )
 
 
-def _optuna_profile(*, seed: int = 13, max_iter: int = 40) -> CalibrationMethodProfile:
+def _optuna_profile(*, seed: int = 13, max_trials: int = 40) -> CalibrationMethodProfile:
     """Return one compact Optuna/TPE profile for transient K+Sy recovery."""
     return CalibrationMethodProfile(
         name="optuna",
         method_kwargs={
             "sampler": "tpe",
-            "max_iter": int(max_iter),
+            "max_trials": int(max_trials),
             "seed": int(seed),
         },
         persist_model_distribution=True,
@@ -153,7 +153,7 @@ def _da_mh_gp_profile(*, seed: int = 13) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma_noise": 0.1,
             "n_init": 10,
-            "max_iter": 96,
+            "chain_length": 96,
             "burn_in": 24,
             "thin": 2,
             "proposal_sigma": 0.04,
@@ -189,14 +189,14 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 16, "seed": 11},
+            method_kwargs={"max_trials": 16, "seed": 11},
             persist_model_distribution=True,
         ),
-        _optuna_profile(seed=13, max_iter=40),
+        _optuna_profile(seed=13, max_trials=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
         ),
         _gp_mapping_profile(seed=13),
@@ -235,15 +235,15 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24},
+            method_kwargs={"max_trials": 24},
             persist_model_distribution=True,
             repeat_seeds=(11, 23, 37),
         ),
-        _optuna_profile(seed=13, max_iter=40),
+        _optuna_profile(seed=13, max_trials=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 12, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
         ),
         _gp_mapping_profile(seed=13),
@@ -286,17 +286,17 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24, "seed": 11},
+            method_kwargs={"max_trials": 24, "seed": 11},
             persist_model_distribution=True,
             success_metric="best_fit_or_distribution",
         ),
-        _optuna_profile(seed=13, max_iter=48),
+        _optuna_profile(seed=13, max_trials=48),
         CalibrationMethodProfile(
             name="cma_es",
             method_kwargs={
                 "sigma0": 0.24,
                 "popsize": 12,
-                "max_evaluations": 56,
+                "max_trials": 56,
                 "seed": 13,
                 "normalize": True,
             },
@@ -305,7 +305,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
         ),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 16, "xatol": 1.0e-6, "fatol": 1.0e-6},
+            method_kwargs={"max_trials": 16, "xatol": 1.0e-6, "fatol": 1.0e-6},
             persist_model_distribution=False,
             success_metric="best_fit",
         ),
@@ -329,7 +329,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
             method_kwargs={
                 "sigma_noise": 0.1,
                 "n_init": 12,
-                "max_iter": 128,
+                "chain_length": 128,
                 "burn_in": 32,
                 "thin": 2,
                 "proposal_sigma": 0.05,

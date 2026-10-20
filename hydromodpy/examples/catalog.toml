@@ -69,32 +69,32 @@ sha256 = "f6134bbea0accc03bb0ec612b98d8d56be7123d83148257c4f404c05ad05e475"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration.toml"
-size = 1765
-sha256 = "6c69b9d5419dff9be8620c91fb66291aa31c6eb0b180286912d28e0706bf405d"
+size = 1767
+sha256 = "24593bb8558b0b0e62b2d8dfb42dbc0428cd2b792cc1344516c37bf8acbc6a70"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_api_daily.toml"
-size = 5594
-sha256 = "112a3d50766b230872888c4319a116dd07b1a05cc6c0b9cf2cd42c761ca441d8"
+size = 5596
+sha256 = "3e2fcd6f9f80cff8e01f8a51454a81b6028b912c1bb4c521e68ca8242b2a8605"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_bdtopage.toml"
-size = 4660
-sha256 = "172ae4bbf718ea509657a891d7b0e55f7fe76147c1d37907a8b957ba6d1455a1"
+size = 4669
+sha256 = "e62c57b9d079f32ebd2bd302a7c8beec73ae82561c34e2a170860bb1c87e8a2b"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_by_hand.toml"
-size = 2663
-sha256 = "86d70ad899377f18d67d2a101f9fe216079aaf554917bbfc6f80576366a9007b"
+size = 2730
+sha256 = "7d09c9772429583e5028d7caa5d2e1edee9a1ee78dca0870b76d0b94e3b8a510"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/run_calibration_composite.toml"
-size = 2801
-sha256 = "9b6579f83d6a7de6819a28ffe96320426c39a8d71ab852d31594b82ff1e3b118"
+size = 2803
+sha256 = "f2569d1529df10aac65cebc6e74defb76254a481c6c2319ec4e552648cbd4512"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/run_daily.toml"

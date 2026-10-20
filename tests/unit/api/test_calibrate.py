@@ -63,7 +63,7 @@ def test_calibrate_object_config_routes_to_project(monkeypatch, headless: bool) 
     """A non-path config opens a Project and delegates to ``project.calibrate``.
 
     ``headless`` reaches the Project constructor, not the verb kwargs; the
-    user kwargs (here ``max_iter``) reach ``calibrate`` untouched and never
+    user kwargs (here ``max_trials``) reach ``calibrate`` untouched and never
     leak a ``config_path``.
     """
     captured: dict = {}
@@ -73,11 +73,11 @@ def test_calibrate_object_config_routes_to_project(monkeypatch, headless: bool) 
     )
 
     fake_cfg = object()
-    result = hmp.calibrate(fake_cfg, headless=headless, max_iter=10)
+    result = hmp.calibrate(fake_cfg, headless=headless, max_trials=10)
     assert result == {"report": "from_object"}
     assert captured["init_cfg"] is fake_cfg
     assert captured["init_headless"] is headless
-    assert captured["verb_kwargs"] == {"max_iter": 10}
+    assert captured["verb_kwargs"] == {"max_trials": 10}
     assert "config_path" not in captured["verb_kwargs"]
     assert "headless" not in captured["verb_kwargs"]
     assert captured["closed"] is True
@@ -170,14 +170,14 @@ name = "k_steady"
 parameters = ["K"]
 regime = "steady"
 objective_blocks = ["hydrograph"]
-max_iter = 18
+max_trials = 18
 
 [[calibration.phases]]
 name = "sy_transient"
 parameters = ["Sy"]
 regime = "transient"
 objective_blocks = { hydrograph = 99, network = 1 }
-max_iter = 30
+max_trials = 30
 """
 
 PYTHON_MODE_PHASES_KWARGS = {
@@ -204,14 +204,14 @@ PYTHON_MODE_PHASES_KWARGS = {
             "parameters": ["K"],
             "regime": "steady",
             "objective_blocks": ["hydrograph"],
-            "max_iter": 18,
+            "max_trials": 18,
         },
         {
             "name": "sy_transient",
             "parameters": ["Sy"],
             "regime": "transient",
             "objective_blocks": {"hydrograph": 99, "network": 1},
-            "max_iter": 30,
+            "max_trials": 30,
         },
     ],
     "seed": 42,
@@ -573,7 +573,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
             objective_blocks=[
                 {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]}
             ],
-            phases=[{"name": "k_only", "parameters": ["K"], "max_iter": 5}],
+            phases=[{"name": "k_only", "parameters": ["K"], "max_trials": 5}],
         )
 
     assert isinstance(result, _FakeStagedReport)
@@ -620,7 +620,7 @@ def test_file_backed_python_phases_document_holds_only_what_python_gave(
     with Project(config_path, headless=True) as project:
         project.calibrate(
             parameters={"K": {"bounds": [1e-7, 1e-3]}},
-            phases=[{"name": "k_only", "parameters": ["K"], "max_iter": 5}],
+            phases=[{"name": "k_only", "parameters": ["K"], "max_trials": 5}],
         )
 
     written = HydroModPyConfig.from_toml(calls["doc_path"])
@@ -647,11 +647,16 @@ def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
             "parameters": ["K"],
             "depends_on": None,
             "freeze_on_success": True,
+            "search": {
+                "method": {"value": "bisection", "source": "phase"},
+                "max_trials": {"value": "auto", "source": "default"},
+                "precision": {"value": None, "source": "default"},
+                "method_options": {"value": {}, "source": "default"},
+            },
             "interval_width": {
-                "tolerance": 0.05,
-                "mode": "relative",
+                "margin": 0.05,
+                "kind": "relative",
                 "source": "default",
-                "mode_source": "default",
                 "on_distances": False,
                 "rule": "5 % of the best cost",
             },

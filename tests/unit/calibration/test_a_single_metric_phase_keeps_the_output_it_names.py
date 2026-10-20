@@ -58,7 +58,7 @@ def _config(phase: dict, **section) -> CalibrationConfig:
     )
 
 
-_SPACE = ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, transform="log")])
+_SPACE = ParameterSpace([CalibParameter(name="K", lower=1e-7, upper=1e-3, search_space="log")])
 
 
 def test_the_network_output_the_variable_names_is_kept() -> None:

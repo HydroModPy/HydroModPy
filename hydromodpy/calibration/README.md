@@ -18,7 +18,7 @@ root of the package.
 | `targets.py` | which parameters a resolved project exposes to calibration (`hmp config targets`) |
 | `parameter_resolution.py` | what a `[calibration.parameters.<name>]` name means as a config path, at load |
 | `criteria/` | how one simulated series is scored against one observed series: the scoring kernels (`METRICS` in `series.py`), their conventions, and the network distance |
-| `optim/` | how the search runs: parameter space, objective, optimizer protocol and registry, engine, stopping, params-hash cache, uncertainty (FOSM, tolerance) |
+| `optim/` | how the search runs: parameter space, objective, optimizer protocol and registry, engine, stopping, params-hash cache, uncertainty (FOSM, cost margin) |
 | `optim/adapters/` | the search methods themselves: grid, random, scipy, CMA-ES, Optuna, bisection, GP mapping, DA-MH-GP |
 | `persistence.py` | how a session is written: `sessions/<case>/` and its journal, nothing else |
 | `report.py` | how a finished session is read back for the report, from its directory |
@@ -85,10 +85,10 @@ hydromodpy/calibration/
   targets.py  parameter_resolution.py  persistence.py  report.py  preflight.py
   criteria/     base.py (Criterion, requirements)  series.py (METRICS and kernel conventions)
                 hydrographic_network_distance.py  registry.py (criterion_for)
-  optim/        parameters.py (ParameterSpace, set_by_path)  prior_sampling.py
+  optim/        parameters.py (ParameterSpace, set_by_path)  sampling.py
                 objective.py  optimizer.py (protocol, EngineTraits, registry, choose_method)
                 method_config.py  engine.py  stopping.py  cache.py  progress_reporter.py
-                fosm.py  tolerance.py  diagnostics.py  objective_mapping.py (trace parser for plots)
+                fosm.py  cost_margin.py  diagnostics.py  objective_mapping.py (trace parser for plots)
     adapters/   one module per search method
   evaluation/   port.py  forward.py  registry.py  forward_registry.py
                 analytic_bowl.py  linear_reservoir.py
@@ -128,9 +128,9 @@ from hydromodpy.calibration.optim.parameters import ParameterSpace
 @register_optimizer("mymethod")
 class MyMethod:
     name = "mymethod"
-    traits = EngineTraits(max_parameters=None, supports_parallel=False)
+    traits = EngineTraits(max_parameters=None, supports_parallel=False, takes_max_trials=True)
 
-    def __init__(self, space: ParameterSpace, *, max_iter: int = 100) -> None: ...
+    def __init__(self, space: ParameterSpace, *, max_trials: int = 100) -> None: ...
     def ask(self, n: int = 1) -> list[ParamSuggestion]: ...
     def tell(self, results: list[EvaluationResult]) -> None: ...
     def suggest_next(self) -> ParamSuggestion: ...
@@ -239,6 +239,11 @@ trial writes depends on `save_runs` (`CalibrationConfig`: `best_n` with
 
 The params hash (`optim/cache.py`: SHA-256 of the canonical JSON of the rounded
 parameter values and of a context that fingerprints the inputs) keys the cache.
+The context holds only what changes the cost of a trial at given values: the
+model and its inputs, the outputs, the objective blocks, the scoring window and
+what the evaluator reads. The method, its options, the seed, the precision, the
+budget and the bounds are outside it, so a search that changes one of them
+replays the trials it proposes at values already solved.
 With `use_cache = true` (the default) a run preloads the hashes of every
 `trials.jsonl` of the project (`runners/state.py:preload_hash_cache`), so a
 point evaluated in an earlier session of the same project is not solved again.
@@ -337,14 +342,14 @@ name = "k_steady"
 parameters = ["K"]
 regime = "steady"              # one period over [simulation.time], or steady_window
 objective_blocks = ["network"]
-max_iter = 18
+max_trials = 18
 
 [[calibration.phases]]
 name = "sy_transient"
 parameters = ["Sy"]            # K holds what k_steady found
 regime = "transient"
 objective_blocks = { hydrograph = 0.8, network_share = 0.2 }   # two pure numbers
-max_iter = 30
+max_trials = 30
 
 [calibration.phases.scoring_window]
 start = "2001-01-01"           # the network state read, December 2002, lies inside
@@ -361,7 +366,7 @@ name = "k_sy_transient"
 parameters = ["K", "Sy"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
-max_iter = 120
+max_trials = 120
 ```
 
 **In stages, then both together.** A third phase after the two stages above
@@ -374,7 +379,21 @@ name = "k_sy_refine"
 parameters = ["K", "Sy"]       # starts at k_steady's K and sy_transient's Sy
 regime = "transient"
 objective_blocks = ["hydrograph"]
-max_iter = 60
+max_trials = 60
+```
+
+**Narrower bounds in a later phase.** A phase may write `bounds` for the
+parameters it moves, inside the bounds `[calibration.parameters.<name>]` gives:
+the first phase searches wide, the refinement searches around what it found. A
+phase never widens a search; bounds outside the section's are refused when the
+file loads. `hmp calibrate --list-phases` prints them.
+
+```toml
+# not checked: fragment, continues the declarations of the first block
+[[calibration.phases]]
+name = "k_refine"
+parameters = ["K"]
+bounds = { K = [2e-6, 2e-5] }  # inside the bounds of [calibration.parameters.K]
 ```
 
 **The published method.** The same first two stages, with the options the
@@ -384,8 +403,8 @@ paper leaves open and its citation recorded in the session.
 # not checked: fragment, continues the declarations of the first block
 [calibration.protocol]
 name = "matching_hydrographic_network"
-steady_max_iter = 18
-transient_max_iter = 30
+steady_max_trials = 18
+transient_max_trials = 30
 ```
 
 The transient stage scores itself through an objective block that reads a
@@ -432,26 +451,38 @@ report = project.calibrate(
             "parameters": ["K"],
             "regime": "steady",
             "objective_blocks": ["network"],
-            "max_iter": 18,
+            "max_trials": 18,
         },
         {
             "name": "sy_transient",
             "parameters": ["Sy"],
             "regime": "transient",
             "objective_blocks": {"hydrograph": 0.8, "network_share": 0.2},
-            "max_iter": 30,
+            "max_trials": 30,
             "scoring_window": {"start": "2001-01-01"},
         },
     ],
 )
 ```
 
+A phase takes the search of `[calibration]` key by key: `method`,
+`max_trials`, `precision` and `method_options` written in the phase win, then
+the section's, then the default (a method chosen from what the phase scores,
+`max_trials = "auto"`). A precision of the section reaches only a phase whose
+engine stops on one, and not a phase that writes that stopping option itself;
+the options of the section reach a phase that runs the section's method, and
+`method_options = {}` in a phase states that it takes none.
+`hmp calibrate FILE --list-phases` says where each key comes from.
+
 Each phase also says how wide its answer is (`uncertainty`, same keys as
 `[calibration.uncertainty]`, which stays the default for every phase). Left
 unwritten, the width follows what the phase scores: a phase scored only by
 network distances takes one mesh cell, in metres (a stream cannot move by
-less); any other phase takes 5 % of its best cost. `hmp config check`
-refuses `mode = "relative"` on a phase scored only by network distances. The
+less); any other phase takes 5 % of its best cost. `cost_margin` writes it
+with its unit, `"5%"` of the best cost or `"75 m"` of network distance (a
+bare number is refused, and a length only on a search scored by network
+distances). `hmp config check` refuses a share on a phase scored only by
+network distances. The
 interval never moves the calibrated value; it says which values the search
 could not tell apart from it.
 
@@ -568,7 +599,7 @@ satisfies `Optimizer` (`optim/optimizer.py`: `name`, `ask`, `tell`,
   against one observed series; a TOML names it with `metric`.
 - **objective block**: one `[[calibration.objective_blocks]]` entry, an output,
   a criterion and a weight. The objective sums the blocks.
-- **parameter space**: the parameters with their bounds, transform and prior.
+- **parameter space**: the parameters with their bounds, search space and sampling.
 - **phase**: one search of a calibration: its parameters, regime, objective
   blocks with their shares, and method.
 - **protocol**: a named recipe tied to a publication, which writes phases.

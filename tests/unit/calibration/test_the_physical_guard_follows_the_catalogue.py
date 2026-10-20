@@ -34,7 +34,7 @@ class _Zones(HydroModelBase):
     values: Annotated[dict[str, float], Profile.USER] = Field(
         default_factory=dict,
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(transform="log", is_the_value_of_its_instance=True)
+            calibrable=Calibrable(search_space="log", is_the_value_of_its_instance=True)
         ),
     )
 

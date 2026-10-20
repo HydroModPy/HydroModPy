@@ -118,7 +118,11 @@ def _fake_ctx(bench, bounds):
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS))),
-        setup=SimpleNamespace(time_grid=SimpleNamespace(boundaries=bounds)),
+        setup=SimpleNamespace(
+            time_grid=SimpleNamespace(
+                boundaries=bounds, window=SimpleNamespace(step_value=1, step_unit="month")
+            )
+        ),
         model=SimpleNamespace(solver_mesh=solver_mesh, recharge=1.0e-8, dam_foot_cells={}),
     )
 
@@ -166,7 +170,7 @@ def _extract(monkeypatch, bench, output, stack, bounds):
 class TestTheSchema:
     def test_the_extent_table_takes_its_defaults(self, maps) -> None:
         extent = _output(maps, extent={}).extent
-        assert (extent.maximal_flowing_steps, extent.minimal_dry_steps) == (1, 1)
+        assert (extent.maximal_flowing_duration, extent.minimal_dry_duration) == (None, None)
         assert extent.year_quorum == 0.5
         assert extent.visible_flow == "1 L/s"
         assert (extent.weights.minimal, extent.weights.maximal) == (0.5, 0.5)
@@ -202,7 +206,11 @@ class TestTheSchema:
 
     @pytest.mark.parametrize(
         "extent",
-        [{"maximal_flowing_steps": 0}, {"minimal_dry_steps": -1}, {"year_quorum": 0.0}],
+        [
+            {"maximal_flowing_duration": "0 d"},
+            {"minimal_dry_duration": "-1 d"},
+            {"year_quorum": 0.0},
+        ],
     )
     def test_rules_out_of_range_are_refused_at_load(self, maps, extent) -> None:
         with pytest.raises(ValidationError):
@@ -400,9 +408,54 @@ class TestTwoBounds:
             _extract(monkeypatch, bench, output, _stack(bench, np.full(6, 50.0)), bounds)
 
     def test_a_rule_longer_than_the_year_is_refused(self, monkeypatch, bench, maps) -> None:
-        output = _output(maps, extent={"maximal_flowing_steps": 30})
-        with pytest.raises(ObjectiveError, match="maximal_flowing_steps = 30"):
+        output = _output(maps, extent={"maximal_flowing_duration": "30 months"})
+        with pytest.raises(ObjectiveError, match="maximal_flowing_duration = '30 months'"):
             self._run(monkeypatch, bench, output)
+
+    @pytest.mark.parametrize(
+        ("flowing", "dry", "steps"),
+        [
+            ("1 month", "1 month", (1, 1)),
+            ("45 d", "45 d", (2, 1)),
+            ("1 d", "1 d", (1, 0)),
+            (None, None, (1, 1)),
+        ],
+    )
+    def test_the_durations_are_counted_in_the_timesteps_of_the_run(
+        self, monkeypatch, bench, maps, flowing, dry, steps
+    ) -> None:
+        output = _output(
+            maps, extent={"maximal_flowing_duration": flowing, "minimal_dry_duration": dry}
+        )
+        _, diagnostics, _ = self._run(monkeypatch, bench, output)
+
+        assert (
+            diagnostics["net.maximal_flowing_steps"],
+            diagnostics["net.minimal_dry_steps"],
+        ) == steps
+        assert diagnostics["net.step_days"] == pytest.approx(30.4375)
+
+    def test_no_rule_counts_one_and_one_on_an_hourly_step_too(
+        self, monkeypatch, bench, maps
+    ) -> None:
+        adapter = _StackAdapter(_stack(bench, _seasonal_thresholds(3)))
+        ctx = _fake_ctx(bench, self.BOUNDS)
+        ctx.setup.time_grid.window = SimpleNamespace(step_value=1, step_unit="hour")
+        monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
+
+        diagnostics = extract_outputs(ctx, {"net": _output(maps, extent={})}).diagnostics
+
+        assert diagnostics["net.maximal_flowing_steps"] == 1
+        assert diagnostics["net.minimal_dry_steps"] == 1
+
+    def test_a_run_that_states_no_timestep_is_refused(self, monkeypatch, bench, maps) -> None:
+        adapter = _StackAdapter(_stack(bench, _seasonal_thresholds(3)))
+        ctx = _fake_ctx(bench, self.BOUNDS)
+        del ctx.setup.time_grid.window
+        monkeypatch.setattr(_solver_extract, "resolve_flow_adapter", lambda _ctx: (adapter, ctx))
+
+        with pytest.raises(ObjectiveError, match="no time window"):
+            extract_outputs(ctx, {"net": _output(maps, extent={})})
 
     def test_an_undated_stack_is_refused(self, monkeypatch, bench, maps) -> None:
         output = _output(maps, extent={})

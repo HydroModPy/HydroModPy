@@ -38,7 +38,7 @@ value = 5e-5
 
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]

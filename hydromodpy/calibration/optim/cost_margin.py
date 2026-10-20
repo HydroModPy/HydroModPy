@@ -7,7 +7,7 @@ one where it is flat over three decades. The first identifies the value, the
 second does not, and the report looked the same.
 
 The interval here is read off the trials the search already ran: the range of
-sampled values whose cost stays within a stated tolerance of the best. It rests
+sampled values whose cost stays within a stated margin of the best. It rests
 on no error model and on no extra run, which is what makes it always available.
 It is a statement about what the search saw, not a posterior: a parameter the
 search never varied far has a narrow interval because nothing else was tried,
@@ -15,7 +15,7 @@ not because the record constrains it. ``reaches_lower_bound`` and
 ``reaches_upper_bound`` are what separate the two cases, and they are the part
 of this to read first.
 
-The tolerance a file leaves unwritten follows what the search scores
+The margin a file leaves unwritten follows what the search scores
 (:func:`choose_interval_width`): one mesh cell on network distances, five per
 cent of the best cost otherwise.
 
@@ -37,51 +37,47 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.optim.diagnostics import _META_COLUMNS, iterations_to_dataframe
+from hydromodpy.core.cost_margin import CostMargin, MarginKind
 
-DEFAULT_TOLERANCE = 0.05
+DEFAULT_MARGIN = 0.05
 """Five per cent of the best cost, the default width of the interval."""
 
-ToleranceMode = Literal["relative", "absolute"]
-
 WidthSource = Literal["phase", "section", "default"]
-"""Where a width was written: in the phase, in [calibration.uncertainty], or nowhere."""
+"""Where a margin was written: in the phase, in [calibration.uncertainty], or nowhere."""
 
 ONE_MESH_CELL = "one mesh cell"
 FIVE_PER_CENT = "5 % of the best cost"
-IN_COST_UNITS = "0.05 in the unit of the cost"
 
 
 @dataclass(frozen=True)
 class IntervalWidth:
-    """The tolerance a search reads its interval with, and where it comes from.
+    """The margin a search reads its interval with, and where it comes from.
 
-    ``tolerance`` is ``None`` for one mesh cell until a trial measured the mesh:
-    the network criterion measures the cell, ``h_obs``, on the geometry it
-    builds, and the run reads it back through :meth:`measured`. ``source`` says where the
-    tolerance was written, ``mode_source`` where the mode was, and ``rule``
-    names the default when nothing wrote the tolerance. ``on_distances`` is
-    true when every block of the search is a network distance left in metres,
-    so an absolute tolerance is in metres.
+    ``margin`` is a fraction of the best cost when ``kind`` is ``"relative"``
+    and metres when it is ``"absolute"``. It is ``None`` for one mesh cell
+    until a trial measured the mesh: the network criterion measures the cell,
+    ``h_obs``, on the geometry it builds, and the run reads it back through
+    :meth:`measured`. ``source`` says where the margin was written, and
+    ``rule`` names the default when nothing wrote it. ``on_distances`` is true
+    when every block of the search is a network distance left in metres.
     """
 
-    tolerance: float | None
-    mode: ToleranceMode
+    margin: float | None
+    kind: MarginKind
     source: WidthSource
-    mode_source: WidthSource
     on_distances: bool
     rule: str | None = None
 
     def measured(self, cell_m: float) -> IntervalWidth:
         """Return this width with the one mesh cell set to ``cell_m`` metres."""
-        return replace(self, tolerance=float(cell_m))
+        return replace(self, margin=float(cell_m))
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly record for a report or a phase listing."""
         return {
-            "tolerance": self.tolerance,
-            "mode": self.mode,
+            "margin": self.margin,
+            "kind": self.kind,
             "source": self.source,
-            "mode_source": self.mode_source,
             "on_distances": self.on_distances,
             "rule": self.rule,
         }
@@ -90,29 +86,24 @@ class IntervalWidth:
 def choose_interval_width(
     on_distances: bool,
     *,
-    tolerance: tuple[float, WidthSource] | None = None,
-    mode: tuple[ToleranceMode, WidthSource] | None = None,
+    margin: tuple[CostMargin, WidthSource] | None = None,
 ) -> IntervalWidth:
     """Return the width a search reads its interval with.
 
     ``on_distances`` says the search is scored only by network distances
-    (``distance_gap``, ``distance_mean``) left in metres. ``tolerance`` and
-    ``mode`` are what the file wrote, each with where it was written, or
-    ``None``. A written value wins. Left unwritten, both follow what the
-    search scores. A search on network distances takes ``mode="absolute"`` and
-    one mesh cell, ``h_obs``: a stream cannot move by less than a cell, so two
-    gaps closer than that are not told apart. Any other search takes ``mode="relative"``
-    and five per cent of the best cost. An absolute mode written on any other
-    search keeps the old number, 0.05 in the unit of the cost.
+    (``distance_gap``, ``distance_mean``) left in metres. ``margin`` is what the
+    file wrote, with where it was written, or ``None``. A written margin wins.
+    Left unwritten, it follows what the search scores. A search on network
+    distances takes one mesh cell, ``h_obs``, in metres: a stream cannot move
+    by less than a cell, so two gaps closer than that are not told apart. Any
+    other search takes five per cent of the best cost.
     """
-    chosen_mode, mode_source = mode or ("absolute" if on_distances else "relative", "default")
-    if tolerance is not None:
-        value, source = tolerance
-        return IntervalWidth(float(value), chosen_mode, source, mode_source, on_distances)
-    if chosen_mode == "absolute" and on_distances:
-        return IntervalWidth(None, chosen_mode, "default", mode_source, on_distances, ONE_MESH_CELL)
-    rule = FIVE_PER_CENT if chosen_mode == "relative" else IN_COST_UNITS
-    return IntervalWidth(DEFAULT_TOLERANCE, chosen_mode, "default", mode_source, on_distances, rule)
+    if margin is not None:
+        written, source = margin
+        return IntervalWidth(float(written.value), written.kind, source, on_distances)
+    if on_distances:
+        return IntervalWidth(None, "absolute", "default", on_distances, ONE_MESH_CELL)
+    return IntervalWidth(DEFAULT_MARGIN, "relative", "default", on_distances, FIVE_PER_CENT)
 
 
 @dataclass(frozen=True)
@@ -123,8 +114,8 @@ class ParameterInterval:
     best: float
     lower: float
     upper: float
-    tolerance: float
-    mode: ToleranceMode
+    margin: float
+    kind: MarginKind
     threshold: float
     n_within: int
     n_trials: int
@@ -138,8 +129,8 @@ class ParameterInterval:
             "best": self.best,
             "lower": self.lower,
             "upper": self.upper,
-            "tolerance": self.tolerance,
-            "mode": self.mode,
+            "margin": self.margin,
+            "kind": self.kind,
             "threshold": self.threshold,
             "n_within": self.n_within,
             "n_trials": self.n_trials,
@@ -148,12 +139,12 @@ class ParameterInterval:
         }
 
 
-def tolerance_intervals(
+def margin_intervals(
     iterations: Iterable[Mapping[str, Any]] | pd.DataFrame,
     parameters: Iterable[str] | None = None,
     *,
-    tolerance: float = DEFAULT_TOLERANCE,
-    mode: ToleranceMode = "relative",
+    margin: float = DEFAULT_MARGIN,
+    kind: MarginKind = "relative",
     objective: str = "objective_value",
     bounds: Mapping[str, tuple[float, float]] | None = None,
 ) -> list[ParameterInterval]:
@@ -165,14 +156,14 @@ def tolerance_intervals(
         The calibration trace, in the ``calibration_iterations`` shape.
     parameters
         Which columns to read. ``None`` takes every non-meta column.
-    tolerance
+    margin
         Width of the interval. Read as a fraction of the best cost under
-        ``mode="relative"``, and in cost units under ``mode="absolute"``.
-    mode
+        ``kind="relative"``, and in cost units under ``kind="absolute"``.
+    kind
         ``"relative"`` is refused when the best cost is not strictly positive:
         a criterion solved at zero, such as the stream-network gap, has no
-        fraction of itself to speak of, and the tolerance has to be stated in
-        the unit of the cost.
+        fraction of itself to speak of, and the margin has to be stated as a
+        length.
     objective
         Name of the cost column.
     bounds
@@ -180,8 +171,8 @@ def tolerance_intervals(
         is marked, which is the difference between a determined value and one
         the search merely ran out of room to vary.
     """
-    if tolerance < 0.0:
-        raise ValueError(f"tolerance must not be negative, got {tolerance}")
+    if margin < 0.0:
+        raise ValueError(f"margin must not be negative, got {margin}")
 
     frame = iterations_to_dataframe(iterations)
     column = objective if objective in frame.columns else "objective"
@@ -192,18 +183,18 @@ def tolerance_intervals(
         return []
 
     best_cost = float(np.min(costs[finite]))
-    if mode == "relative":
+    if kind == "relative":
         if best_cost <= 0.0:
             raise ValueError(
-                f"a relative tolerance is a fraction of the best cost, which is "
-                f"{best_cost:g} here and leaves nothing to take a fraction of. State "
-                'the width in cost units instead: mode="absolute".'
+                f"a share of the best cost has nothing to take a fraction of when the "
+                f"best cost is {best_cost:g}. State the margin in the unit of the cost "
+                "instead, as a length such as '25 m'."
             )
-        threshold = best_cost * (1.0 + tolerance)
-    elif mode == "absolute":
-        threshold = best_cost + tolerance
+        threshold = best_cost * (1.0 + margin)
+    elif kind == "absolute":
+        threshold = best_cost + margin
     else:
-        raise ValueError(f"mode must be 'relative' or 'absolute', got {mode!r}")
+        raise ValueError(f"kind must be 'relative' or 'absolute', got {kind!r}")
 
     names = (
         [str(name) for name in parameters]
@@ -230,8 +221,8 @@ def tolerance_intervals(
                 best=float(values[best_row]),
                 lower=lower,
                 upper=upper,
-                tolerance=float(tolerance),
-                mode=mode,
+                margin=float(margin),
+                kind=kind,
                 threshold=float(threshold),
                 n_within=int(selected.size),
                 n_trials=int(np.count_nonzero(finite)),
@@ -243,14 +234,12 @@ def tolerance_intervals(
 
 
 __all__ = [
-    "DEFAULT_TOLERANCE",
+    "DEFAULT_MARGIN",
     "FIVE_PER_CENT",
-    "IN_COST_UNITS",
     "ONE_MESH_CELL",
     "IntervalWidth",
     "ParameterInterval",
-    "ToleranceMode",
     "WidthSource",
     "choose_interval_width",
-    "tolerance_intervals",
+    "margin_intervals",
 ]

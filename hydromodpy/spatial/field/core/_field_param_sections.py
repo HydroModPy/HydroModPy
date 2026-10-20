@@ -107,8 +107,8 @@ class FieldHomogeneousSection(HydroModelBase):
                 # not of the schema, so the file states it. What the schema does
                 # know is the space a search should walk, because a hydraulic
                 # property spans decades and a linear step wastes most of them.
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 is_the_value_of_its_instance=True,
                 description=(
                     "Scalar value of a homogeneous field parameter. The target every "
@@ -182,8 +182,8 @@ class FieldHeterogeneousSection(HydroModelBase):
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 is_the_value_of_its_instance=True,
             )
         ),
@@ -303,8 +303,8 @@ class FieldVerticalProfileSection(HydroModelBase):
         ),
         json_schema_extra=field_metadata(
             calibrable=Calibrable(
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 units="m",
                 description="Decay length of the exponential vertical profile.",
             )

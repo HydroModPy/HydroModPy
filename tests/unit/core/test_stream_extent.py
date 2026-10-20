@@ -346,7 +346,7 @@ class TestStepRules:
 
     def test_a_maximal_rule_longer_than_the_year_is_refused(self) -> None:
         problems = extent_step_problems([12], maximal_flowing_steps=30, minimal_dry_steps=1)
-        assert any("maximal_flowing_steps = 30" in problem for problem in problems)
+        assert any("maximal rule of 30 timestep(s)" in problem for problem in problems)
 
     def test_a_minimal_rule_looser_than_the_maximal_one_is_refused(self) -> None:
         problems = extent_step_problems([12], maximal_flowing_steps=6, minimal_dry_steps=8)
@@ -363,7 +363,7 @@ class TestStepRules:
             threshold_m3_s=_no_threshold(),
             metric=bench.metric,
         )
-        with pytest.raises(ValueError, match="maximal_flowing_steps"):
+        with pytest.raises(ValueError, match="maximal rule of 13 timestep"):
             extent_masks(counts, maximal_flowing_steps=13)
 
     @pytest.mark.parametrize(

@@ -15,7 +15,7 @@
 #   result = calibrate_groundwater(
 #       method="optuna",
 #       chronicle=chronicle,
-#       max_iter=50,
+#       max_trials=50,
 #       seed=42,
 #       bounds={ "Kam": [1.0, 10.0], ... [calibration.parameters] ... },
 #   )
@@ -98,7 +98,7 @@ head_floor_m = 1.0e-6
 
 [calibration]
 method = "optuna"
-max_iter = 50
+max_trials = 50
 seed = 42
 objective = "rmse"
 

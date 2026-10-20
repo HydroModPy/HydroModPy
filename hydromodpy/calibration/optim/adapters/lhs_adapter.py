@@ -8,15 +8,15 @@ does not guarantee. ``optimization="lloyd"`` is scipy's Lloyd-relaxation
 post-process: it spreads points apart for better spacing but, by scipy's own
 documentation, does not guarantee that this one-point-per-stratum property
 survives, so it can leave strata unsampled or hit more than once. Each unit
-column is then mapped into the transformed space of its parameter.
+column is then mapped into the search space of its parameter.
 
-A uniform prior is affine in transformed space: ``lower_transformed +
-u * (upper_transformed - lower_transformed)``. A log-uniform prior is mapped
+A uniform sampling is affine in search space: ``lower_transformed +
+u * (upper_transformed - lower_transformed)``. A log-uniform sampling is mapped
 through ``scipy.stats.loguniform.ppf``, its quantile function, in physical
-space, then converted to transformed space with ``to_physical`` undone by
-``to_transformed`` - the same function :mod:`prior_sampling` applies to one
+space, then converted to search space with ``to_physical`` undone by
+``to_transformed`` - the same function :mod:`sampling` applies to one
 Monte Carlo draw, applied here to a stratified column so the stratification
-survives the log mapping. A normal prior has no stratification scheme this
+survives the log mapping. A normal sampling has no stratification scheme this
 adapter implements, so it is refused by name rather than silently treated as
 uniform.
 """
@@ -39,16 +39,16 @@ from hydromodpy.calibration.optim.stopping import CountedBudget
 
 
 def _stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.ndarray:
-    """Map one stratified unit-interval column into *param*'s transformed space."""
-    if param.prior == "normal":
+    """Map one stratified unit-interval column into *param*'s search space."""
+    if param.sampling == "normal":
         raise ValueError(
-            f"lhs cannot stratify the 'normal' prior declared on parameter "
+            f"lhs cannot stratify the 'normal' sampling declared on parameter "
             f"{param.name!r}: a Latin hypercube design assumes a quantile function "
             "with a closed form over the unit interval, and clipping a normal to "
             "bounds breaks the one-point-per-stratum guarantee. Use 'uniform' or "
             "'log_uniform' on this parameter, or pick another method."
         )
-    if param.prior == "log_uniform":
+    if param.sampling == "log_uniform":
         physical = loguniform.ppf(unit_column, float(param.lower), float(param.upper))
         return np.asarray([param.to_transformed(float(v)) for v in physical], dtype=float)
     low, high = param.lower_transformed, param.upper_transformed

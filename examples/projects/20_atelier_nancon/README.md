@@ -35,7 +35,7 @@ hmp report render --open
 Measured on this checkout: `sim_steady_nwt.toml` ~24 s, `sim_steady_mf6.toml`
 ~48 s (both include the BD Topage WFS fetch), `sim_transient_nwt.toml`
 (36 monthly steps) ~38 s, `overview.toml` ~39 s (includes a live Hub'Eau
-fetch), `calibration_head.toml` at its shipped `max_iter = 15` is unmeasured
+fetch), `calibration_head.toml` at its shipped `max_trials = 15` is unmeasured
 here but one iteration takes ~2 s. `sim_mf6_unstructured.toml` builds a
 triangulated DISV mesh with gmsh first; its runtime is unmeasured.
 

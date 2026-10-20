@@ -25,6 +25,12 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
   whatever they held: a run keeps its whole per-cell budget and rebuilds every
   derived field on read, so neither table has anything left to switch
+- ``maximal_flowing_steps`` and ``minimal_dry_steps`` of a network output's
+  ``extent`` table, of ``[display.overrides.network_extent_bounds_map]`` and of
+  the dotted phase override of that figure -> ``maximal_flowing_duration`` and
+  ``minimal_dry_duration``: ``N`` timesteps become ``N`` times the
+  ``[simulation.time]`` step (``2`` monthly steps are ``"2 months"``). A file
+  that does not hold its step is left with the reason
 - ``roptim_max`` of a network output under ``[calibration.outputs.<name>]``
   dropped when it is 2, the paper's bound, which ``validity_length = "auto"``
   reproduces; any other value is refused, since a ratio has no length without
@@ -51,7 +57,8 @@ calibration layer does not import this one.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +66,8 @@ import tomlkit
 
 from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import is_sealed_run_config
+from hydromodpy.core.time import parse_step_spec
 
 _logger = get_logger(__name__)
 
@@ -88,6 +97,7 @@ def fix_config_file(path: str | Path) -> list[str]:
     doc = tomlkit.parse(path.read_text(encoding="utf-8-sig"))
     changes = migrate_config_doc(doc)
     changes.extend(_migrate_refused_keys(doc))
+    changes.extend(_rename_keys(doc, sealed=False))
     if changes:
         path.write_text(tomlkit.dumps(doc), encoding="utf-8")
     return changes
@@ -216,6 +226,584 @@ def _descend(scope: Any, parents: list[str]) -> Any:
     return node if isinstance(node, Mapping) else None
 
 
+class _CannotRewrite(Exception):
+    """A renamed key whose value the doctor cannot carry over; it is left, with the reason."""
+
+
+@dataclass(frozen=True)
+class KeyRename:
+    """One key a loader refuses under its old name, and what it is called now.
+
+    ``scope`` is the table that holds it, written as the path of the document:
+    ``calibration``, ``calibration.protocol``. ``name[*]`` walks each table of a
+    list (``calibration.phases[*]``) and ``{*}`` the tables a table holds under
+    free names (``calibration.parameters.{*}``).
+
+    ``convert(value, doc)`` returns the value to write under the new name, or
+    raises :class:`_CannotRewrite` with the reason when it cannot decide: the
+    doctor then leaves the key and says why.
+
+    ``sealed_drop`` makes the read of a sealed config drop the key instead of
+    renaming it, for an option that no longer exists and that a replay of the
+    run never needed. ``sealed_drop_unconverted`` drops it only when ``convert``
+    cannot decide, so the key falls back to the default of the new one and the
+    sealed run still reads.
+    """
+
+    scope: str
+    old: str
+    new: str
+    convert: Callable[[Any, Any], Any] | None = None
+    sealed_drop: bool = False
+    sealed_drop_unconverted: bool = False
+
+
+def _steps_to_duration(value: Any, doc: Any) -> str:
+    """Turn a count of timesteps into the duration it spanned, in the step's own unit.
+
+    The extent rules of a network output were counts of timesteps and are now
+    durations. ``N`` steps of the ``[simulation.time]`` step are written as
+    ``N`` times that step (``2`` monthly steps are ``"2 months"``), which the run
+    converts back to exactly ``N`` steps. A file that does not carry its step,
+    because ``base_config`` does, cannot be converted.
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise _CannotRewrite(f"{value!r} is not a count of timesteps")
+    simulation = doc.get("simulation") if isinstance(doc, Mapping) else None
+    time = simulation.get("time") if isinstance(simulation, Mapping) else None
+    if not isinstance(time, Mapping) or time.get("step_value") is None:
+        raise _CannotRewrite(
+            "the timestep is not in this file ([simulation.time] step_value), so the count "
+            "cannot be turned into a duration; write the duration, such as '1 month'"
+        )
+    if _a_phase_sets_the_step(doc):
+        raise _CannotRewrite(
+            "a phase overrides the timestep, so the count has no single duration; write "
+            "the duration, such as '1 month'"
+        )
+    try:
+        step, unit = parse_step_spec(_plain(time["step_value"]), _plain(time.get("step_unit")))
+    except ValueError as exc:
+        raise _CannotRewrite(f"the timestep cannot be read ({exc})") from exc
+    count = value * step
+    return f"{count} {unit}{'' if count == 1 else 's'}"
+
+
+def _a_phase_sets_the_step(doc: Any) -> bool:
+    """Whether a calibration phase overrides ``simulation.time.step_value`` or ``step_unit``."""
+    for _, phase in _tables_at(doc, "calibration.phases[*]"):
+        overrides = phase.get("overrides")
+        if isinstance(overrides, Mapping) and any(
+            str(key).startswith("simulation.time.step") for key in overrides
+        ):
+            return True
+    return False
+
+
+_EXTENT_RULE_SCOPES = (
+    "calibration.outputs.{*}.extent",
+    "display.overrides.network_extent_bounds_map",
+    "calibration.phases[*].overrides.display.overrides.network_extent_bounds_map",
+)
+"""Where the two extent rules are written: the output, the figure, a phase's figure."""
+
+_EXTENT_RULE_KEYS = (
+    ("maximal_flowing_steps", "maximal_flowing_duration"),
+    ("minimal_dry_steps", "minimal_dry_duration"),
+)
+
+RENAMED_KEYS: tuple[KeyRename, ...] = (
+    KeyRename("calibration", "max_iter", "max_trials"),
+    KeyRename("calibration.phases[*]", "max_iter", "max_trials"),
+    KeyRename("calibration.protocol", "steady_max_iter", "steady_max_trials"),
+    KeyRename("calibration.protocol", "transient_max_iter", "transient_max_trials"),
+    KeyRename("calibration", "tolerance", "precision"),
+    KeyRename("calibration.phases[*]", "tolerance", "precision"),
+    KeyRename("calibration.protocol", "steady_tolerance", "steady_precision"),
+    KeyRename("calibration.protocol", "transient_tolerance", "transient_precision"),
+    KeyRename("calibration.parameters.{*}", "transform", "search_space"),
+    KeyRename("calibration.parameters.{*}", "prior", "sampling"),
+    KeyRename("calibration.objective_blocks[*]", "transform", "cost_transform"),
+    *(
+        KeyRename(scope, old, new, convert=_steps_to_duration, sealed_drop_unconverted=True)
+        for scope in _EXTENT_RULE_SCOPES
+        for old, new in _EXTENT_RULE_KEYS
+    ),
+)
+"""Every key the loader refuses under its old name, with the name that replaced it.
+
+A user file is refused naming the new key, and ``hmp doctor --fix-config``
+rewrites it. A sealed run config is renamed on read, so a run on disk replays.
+Each model lists the old key in ``model_refused_keys``; its new field declares
+``renamed_from`` so the generated docs list the rename. The two keys of
+``[calibration.uncertainty]`` that said how wide an interval is, ``tolerance`` and
+``mode``, become one ``cost_margin`` and are rewritten apart
+(:func:`_rewrite_cost_margin`): the unit of the new value is read off what the
+search scores.
+"""
+
+
+def migrate_sealed_config_doc(doc: Any) -> list[str]:
+    """Rename, in memory, the keys a sealed run config wrote under an older name.
+
+    The frozen ``config.toml`` of a run is replayed as it was written, so the
+    loader reads it under the names of today. Runs before the protocol is
+    expanded: a protocol stage sealed with an old key would otherwise read as a
+    contradiction of the protocol that wrote it.
+    """
+    return _rename_keys(doc, sealed=True)
+
+
+def _rename_keys(doc: Any, *, sealed: bool) -> list[str]:
+    """Apply :data:`RENAMED_KEYS` to *doc*, for a file (the doctor) or a sealed read."""
+    changes: list[str] = []
+    for rule in RENAMED_KEYS:
+        for where, table in _tables_at(doc, rule.scope):
+            if rule.old not in table:
+                continue
+            label = f"{where}.{rule.old}" if where else rule.old
+            if sealed and rule.sealed_drop:
+                del table[rule.old]
+                changes.append(f"{label} dropped (sealed)")
+                continue
+            if rule.new in table:
+                changes.append(f"{label} left: {rule.new!r} is given too, keep one")
+                continue
+            value = _plain(table[rule.old])
+            if rule.convert is not None:
+                try:
+                    value = rule.convert(value, doc)
+                except _CannotRewrite as reason:
+                    if sealed and rule.sealed_drop_unconverted:
+                        del table[rule.old]
+                        changes.append(f"{label} dropped (sealed): {reason}")
+                    else:
+                        changes.append(f"{label} left: {reason}")
+                    continue
+            _move_key(table, rule.old, rule.new, value)
+            changes.append(f"{label} -> {rule.new}")
+    changes.extend(_rename_dotted_figure_overrides(doc, sealed=sealed))
+    changes.extend(_rewrite_search_options(doc, sealed=sealed))
+    changes.extend(_rewrite_cost_margin(doc, sealed=sealed))
+    return changes
+
+
+def _rename_dotted_figure_overrides(doc: Any, *, sealed: bool) -> list[str]:
+    """Rename the extent rules a calibration phase writes as a dotted figure override.
+
+    A phase reaches a figure option by its dotted path, such as
+    ``"display.overrides.network_extent_bounds_map.maximal_flowing_steps"``, as
+    :func:`_rename_phase_timesteps` does for ``timestep``. The same rule rewrites
+    the key and its value; a path whose new name is also written is left.
+    """
+    figure = _EXTENT_RULE_SCOPES[1]
+    rules = {f"{figure}.{rule.old}": rule for rule in RENAMED_KEYS if rule.scope == figure}
+    changes: list[str] = []
+    for where, phase in _tables_at(doc, "calibration.phases[*]"):
+        overrides = phase.get("overrides")
+        if not isinstance(overrides, Mapping):
+            continue
+        for key in list(overrides):
+            rule = rules.get(str(key))
+            if rule is None:
+                continue
+            label = f'{where}.overrides."{key}"'
+            renamed = f"{figure}.{rule.new}"
+            if renamed in overrides:
+                changes.append(f"{label} left: {renamed!r} is given too, keep one")
+                continue
+            try:
+                value = rule.convert(_plain(overrides[key]), doc) if rule.convert else None
+            except _CannotRewrite as reason:
+                if sealed and rule.sealed_drop_unconverted:
+                    del overrides[key]
+                    changes.append(f"{label} dropped (sealed): {reason}")
+                else:
+                    changes.append(f"{label} left: {reason}")
+                continue
+            _move_key(overrides, str(key), renamed, value)
+            changes.append(f'{label} -> "{renamed}"')
+    return changes
+
+
+_NETWORK_ESTIMATORS = frozenset({"distance_gap", "distance_mean"})
+_PROTOCOL_UNDECIDED = (
+    "the search it covers is written by a protocol, so it is not known whether it is scored "
+    "by network distances; write cost_margin by hand, '5%' or a length such as '25 m'"
+)
+_NO_UNIT_TO_WRITE = (
+    "an absolute width on a search that is no network distance was in the unit of the "
+    "cost, which has no unit to write; write a share such as '5%'"
+)
+
+
+def _rewrite_cost_margin(doc: Any, *, sealed: bool) -> list[str]:
+    """Turn ``tolerance`` and ``mode`` of the uncertainty tables into one ``cost_margin``.
+
+    The unit is the one the old mode implied: a relative width, or one left
+    unwritten on a search that is no network distance, was a share of the best
+    cost (``"5%"``); an absolute one, or one left unwritten on a search scored
+    only by network distances, was in metres. A phase read its keys over the
+    section's, so the pair a phase read is rewritten into the phase. What the
+    doctor cannot decide it leaves, with the reason. A sealed config drops what
+    it cannot write: the width only qualifies a calibrated value, it never
+    moved one, so the run replays the same.
+    """
+    calibration = doc.get("calibration") if isinstance(doc, Mapping) else None
+    if not isinstance(calibration, Mapping):
+        return []
+    section = calibration.get("uncertainty")
+    inherited = (
+        (_plain(section.get("tolerance")), _plain(section.get("mode")))
+        if isinstance(section, Mapping)
+        else (None, None)
+    )
+    changes: list[str] = []
+    phases = calibration.get("phases")
+    if isinstance(phases, Sequence) and not isinstance(phases, str):
+        for index, phase in enumerate(phases):
+            table = phase.get("uncertainty") if isinstance(phase, Mapping) else None
+            if isinstance(table, Mapping) and _has_a_width(table):
+                changes.extend(
+                    _rewrite_one_margin(
+                        phase,
+                        table,
+                        f"calibration.phases[{index}].uncertainty",
+                        inherited,
+                        _scored_on_distances(calibration, phase),
+                        sealed=sealed,
+                    )
+                )
+    if isinstance(section, Mapping) and _has_a_width(section):
+        changes.extend(
+            _rewrite_one_margin(
+                calibration,
+                section,
+                "calibration.uncertainty",
+                (None, None),
+                _scored_on_distances(calibration, None),
+                sealed=sealed,
+            )
+        )
+    return changes
+
+
+def _has_a_width(table: Mapping[str, Any]) -> bool:
+    return "tolerance" in table or "mode" in table
+
+
+@dataclass(frozen=True)
+class _Left:
+    """A width the doctor cannot rewrite, with the reason."""
+
+    reason: str
+
+
+def _rewrite_one_margin(
+    parent: Any,
+    table: Any,
+    label: str,
+    inherited: tuple[Any, Any],
+    distances: bool | None,
+    *,
+    sealed: bool,
+) -> list[str]:
+    """Rewrite one uncertainty table, reading the keys it lacks from *inherited*."""
+    if "cost_margin" in table:
+        return [f"{label}.tolerance left: 'cost_margin' is given too, keep one"]
+    tolerance = _plain(table["tolerance"]) if "tolerance" in table else inherited[0]
+    mode = _plain(table["mode"]) if "mode" in table else inherited[1]
+    verdict = _margin_text(tolerance, mode, distances)
+    if isinstance(verdict, _Left):
+        if not sealed:
+            return [f"{label} left: {verdict.reason}"]
+        for key in ("tolerance", "mode"):
+            table.pop(key, None)
+        return [f"{label}.tolerance dropped (sealed)"]
+    kept = "tolerance" in table
+    if isinstance(verdict, str):
+        if kept:
+            _move_key(table, "tolerance", "cost_margin", verdict)
+        else:
+            table["cost_margin"] = verdict
+    table.pop("mode", None)
+    table.pop("tolerance", None)
+    if isinstance(table, tomlkit.items.InlineTable):
+        fresh = tomlkit.inline_table()
+        fresh.update(table.unwrap())
+        parent["uncertainty"] = fresh
+    return [
+        f"{label}.tolerance -> cost_margin = {verdict!r}"
+        if isinstance(verdict, str)
+        else f"{label}.mode dropped"
+    ]
+
+
+def _margin_text(tolerance: Any, mode: Any, distances: bool | None) -> str | _Left | None:
+    """Return the ``cost_margin`` the old pair wrote, ``None`` to drop a mode, or why not."""
+    if tolerance is None:
+        consistent = (mode == "relative" and distances is False) or (
+            mode == "absolute" and distances is True
+        )
+        if consistent:
+            return None
+        if distances is None:
+            return _Left(_PROTOCOL_UNDECIDED)
+        return _Left(
+            f"mode = {mode!r} wrote no width, and it does not match what this search scores"
+        )
+    if isinstance(tolerance, bool) or not isinstance(tolerance, int | float):
+        return _Left(f"tolerance = {tolerance!r} is not a number")
+    if mode == "relative":
+        return f"{round(float(tolerance) * 100.0, 10):g}%"
+    if distances is None:
+        return _Left(_PROTOCOL_UNDECIDED)
+    if distances:
+        return f"{float(tolerance):g} m"
+    if mode == "absolute":
+        return _Left(_NO_UNIT_TO_WRITE)
+    return f"{round(float(tolerance) * 100.0, 10):g}%"
+
+
+def _scored_on_distances(
+    calibration: Mapping[str, Any], phase: Mapping[str, Any] | None
+) -> bool | None:
+    """Whether the search a table covers is scored only by network distances, or ``None``.
+
+    Read off the blocks of the document as the loader reads them: a phase scores
+    the blocks it names, or its own ``objective``, or every block; a search with
+    no block scores the section's ``objective``. A block with a cost transform or a
+    normalised cost is no longer in metres. ``None`` when a protocol still has
+    to write the phases and the blocks.
+    """
+    blocks = [
+        _plain(block)
+        for block in (calibration.get("objective_blocks") or ())
+        if isinstance(block, Mapping)
+    ]
+    if phase is not None:
+        named = _plain(phase.get("objective_blocks"))
+        if named:
+            blocks = [block for block in blocks if block.get("name") in list(named)]
+        elif phase.get("objective") is not None:
+            return str(_plain(phase["objective"])) in _NETWORK_ESTIMATORS
+    if blocks:
+        return all(
+            block.get("metric") in _NETWORK_ESTIMATORS
+            and block.get("cost_transform", "identity") == "identity"
+            and not block.get("normalize_cost")
+            for block in blocks
+        )
+    if calibration.get("protocol") is not None and not calibration.get("phases"):
+        return None
+    return str(_plain(calibration.get("objective", "nse"))) in _NETWORK_ESTIMATORS
+
+
+@dataclass(frozen=True)
+class _SearchScope:
+    """A table that writes one search: its method, its options and its budget."""
+
+    scope: str
+    method: str
+    options: tuple[str, ...]
+    budget: str
+    default_method: str | None = None
+
+
+_SEARCH_SCOPES = (
+    _SearchScope("calibration", "method", ("method_options", "optimizer_kwargs"), "max_trials"),
+    _SearchScope(
+        "calibration.phases[*]", "method", ("method_options", "optimizer_kwargs"), "max_trials"
+    ),
+    _SearchScope(
+        "calibration.protocol",
+        "steady_method",
+        ("steady_method_options", "steady_engine_options"),
+        "steady_max_trials",
+        default_method="bisection",
+    ),
+    _SearchScope(
+        "calibration.protocol",
+        "transient_method",
+        ("transient_method_options", "transient_engine_options"),
+        "transient_max_trials",
+        default_method="scipy_nelder_mead",
+    ),
+)
+
+# What a method option used to count, by (method, option). The budget of a search
+# is `max_trials` and nothing else: an option that counted evaluations moves into
+# it, one that counted something else is refused and left for the user.
+_BUDGET_OPTIONS = frozenset(
+    {("scipy_nelder_mead", "maxfev"), ("cma_es", "max_evaluations"), ("gp_mapping", "max_iter")}
+)
+_ITERATION_OPTIONS = frozenset({("scipy_nelder_mead", "maxiter"), ("scipy_de", "maxiter")})
+_RENAMED_OPTIONS = {("da_mh_gp", "max_iter"): "chain_length"}
+_OPTION_NAMES = frozenset({"maxfev", "max_evaluations", "max_iter", "maxiter"})
+
+
+def _rewrite_search_options(doc: Any, *, sealed: bool) -> list[str]:
+    """Rewrite the method options that bounded a search, now that ``max_trials`` does.
+
+    An option that counted evaluations (``maxfev``, ``max_evaluations``, the
+    ``max_iter`` of gp_mapping) is moved into the budget of the table that
+    writes it, the smaller of the two when both are written, since the search
+    stopped at the first one it met. ``maxiter`` counts iterations or
+    generations, not evaluations: the doctor leaves it, with the reason. A
+    sealed config drops both, because a run on disk is replayed as one solve and
+    never searches again. The chain of ``da_mh_gp`` is ``chain_length``.
+    """
+    changes: list[str] = []
+    for search in _SEARCH_SCOPES:
+        for where, table in _tables_at(doc, search.scope):
+            method = _plain(table.get(search.method)) or search.default_method
+            for options_key in search.options:
+                options = table.get(options_key)
+                if not isinstance(options, Mapping):
+                    continue
+                prefix = f"{where}.{options_key}" if where else options_key
+                before = len(changes)
+                for key in [key for key in options if key in _OPTION_NAMES]:
+                    label = f"{prefix}.{key}"
+                    changes.extend(
+                        _rewrite_option(table, options, key, method, label, search, sealed=sealed)
+                    )
+                if not options:
+                    del table[options_key]
+                elif len(changes) > before and isinstance(options, tomlkit.items.InlineTable):
+                    # A key taken out of an inline table leaves its spacing behind.
+                    fresh = tomlkit.inline_table()
+                    fresh.update(options.unwrap())
+                    table[options_key] = fresh
+    return changes
+
+
+def _rewrite_option(
+    table: Any,
+    options: Any,
+    key: str,
+    method: Any,
+    label: str,
+    search: _SearchScope,
+    *,
+    sealed: bool,
+) -> list[str]:
+    """Rewrite one method option, or say why it stays."""
+    if not isinstance(method, str):
+        return [f"{label} left: no method is written, so it is not known what {key} counted"]
+    pair = (method, key)
+    if pair in _RENAMED_OPTIONS:
+        new = _RENAMED_OPTIONS[pair]
+        if new in options:
+            return [f"{label} left: {new!r} is given too, keep one"]
+        _move_key(options, key, new, _plain(options[key]))
+        return [f"{label} -> {new}"]
+    if pair in _ITERATION_OPTIONS:
+        if sealed:
+            del options[key]
+            return [f"{label} dropped (sealed)"]
+        return [
+            f"{label} left: {key} is not an evaluation count (it counts the iterations of "
+            f"{method}); set {search.budget} to bound the search and drop {key}"
+        ]
+    if pair not in _BUDGET_OPTIONS:
+        return []
+    if sealed:
+        del options[key]
+        return [f"{label} dropped (sealed)"]
+    value = _plain(options[key])
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return [f"{label} left: {value!r} is not a positive integer"]
+    declared = _plain(table.get(search.budget))
+    kept = min(value, declared) if isinstance(declared, int) else value
+    del options[key]
+    _set_key(table, search.budget, kept, after=search.method)
+    return [f"{label} -> {search.budget} = {kept}"]
+
+
+def _move_key(table: Any, old: str, new: str, value: Any) -> None:
+    """Write *value* under ``new`` where ``old`` stood, and keep the comment of the line.
+
+    A file the doctor rewrites keeps its order, so the key stays under the
+    comment that introduces it.
+    """
+    position = _position(table, old)
+    comment = getattr(getattr(table.get(old), "trivia", None), "comment", "") or ""
+    del table[old]
+    item = _scalar_item(value, comment)
+    if position is None or item is None:
+        table[new] = value
+        if comment.startswith("#") and hasattr(table[new], "comment"):
+            table[new].comment(comment[1:].strip())
+        return
+    table.value._insert_at(position, new, item)
+
+
+def _set_key(table: Any, key: str, value: Any, *, after: str) -> None:
+    """Write ``key`` in *table*, just under ``after`` when the table has it."""
+    if key in table:
+        table[key] = value
+        return
+    position = _position(table, after)
+    item = _scalar_item(value, "")
+    if position is None or item is None:
+        table[key] = value
+        return
+    table.value._insert_at(position + 1, key, item)
+
+
+def _position(table: Any, key: str) -> int | None:
+    """Return where a tomlkit table holds ``key``, or ``None`` for any other mapping."""
+    found = getattr(getattr(getattr(table, "value", None), "_map", None), "get", None)
+    where = found(key) if callable(found) else None
+    return where if isinstance(where, int) and hasattr(table.value, "_insert_at") else None
+
+
+def _scalar_item(value: Any, comment: str) -> Any:
+    """Return *value* as a tomlkit item carrying *comment*, or ``None`` for a table or a list."""
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    item = tomlkit.item(value)
+    if comment.startswith("#"):
+        item.comment(comment[1:].strip())
+    return item
+
+
+def _tables_at(doc: Any, scope: str) -> list[tuple[str, Any]]:
+    """Return every table of *doc* that *scope* names, with where it sits.
+
+    ``a.b`` descends by name, ``a[*]`` walks the tables of a list, ``{*}`` walks
+    the tables under free names. A name that leads to no table is skipped.
+    """
+    found: list[tuple[str, Any]] = [("", doc)]
+    for token in scope.split("."):
+        stepped: list[tuple[str, Any]] = []
+        for where, node in found:
+            if not isinstance(node, Mapping):
+                continue
+            join = f"{where}." if where else ""
+            if token == "{*}":
+                stepped.extend(
+                    (f"{join}{key}", child)
+                    for key, child in node.items()
+                    if isinstance(child, Mapping)
+                )
+            elif token.endswith("[*]"):
+                name = token[:-3]
+                child = node.get(name)
+                members = [child] if isinstance(child, Mapping) else child
+                if isinstance(members, Sequence) and not isinstance(members, str):
+                    stepped.extend(
+                        (f"{join}{name}[{index}]", member)
+                        for index, member in enumerate(members)
+                        if isinstance(member, Mapping)
+                    )
+            elif isinstance(node.get(token), Mapping):
+                stepped.append((f"{join}{token}", node[token]))
+        found = stepped
+    return found
+
+
 def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) -> list[str]:
     """Apply every migration to *doc* in memory, for a config being read, not fixed.
 
@@ -225,6 +813,12 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
     ``fix_config_file`` writes to disk. Logs one line naming what changed and
     that ``hmp doctor`` persists it; says nothing when the document was
     already current.
+
+    A *source* that is the frozen config of a run already on disk
+    (:func:`~hydromodpy.core.state.paths.is_sealed_run_config`) also gets
+    :func:`migrate_sealed_config_doc`: the keys renamed since the run was sealed
+    are read under their new name, without a line to persist, since no one
+    edits a sealed file.
     """
     changes = migrate_config_doc(doc)
     loud = [change for change in changes if change not in _QUIET_CHANGES]
@@ -240,6 +834,11 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
         )
     elif changes:
         _logger.debug("%s: %s", source or "config", "; ".join(changes))
+    if source is not None and is_sealed_run_config(source):
+        sealed = migrate_sealed_config_doc(doc)
+        if sealed:
+            _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(sealed))
+        changes.extend(sealed)
     return changes
 
 
@@ -764,9 +1363,12 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
 
 
 __all__ = [
+    "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
+    "KeyRename",
     "drop_retired_results_tables",
     "fix_config_file",
     "migrate_config_doc",
     "migrate_config_doc_on_load",
+    "migrate_sealed_config_doc",
 ]

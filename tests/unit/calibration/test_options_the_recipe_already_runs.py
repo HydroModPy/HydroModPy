@@ -1,6 +1,6 @@
 """An option written the way the recipe runs it anyway has not moved off the recipe.
 
-Example 04 writes ``sweep_points = 7``, ``steady_tolerance = 0.01`` and the
+Example 04 writes ``sweep_points = 7``, ``steady_precision = 0.01`` and the
 spin-up window out, so the file can be read beside the paper. The bisection's own
 defaults are seven points and one per cent, and the protocol leaves the first
 year out on its own: ``--check`` listed all three as moved.
@@ -39,13 +39,13 @@ def test_another_value_is_away_from_the_recipe() -> None:
 
 
 def test_the_bisection_s_own_precision_written_out_runs_as_the_recipe() -> None:
-    assert _same(steady_tolerance=0.01) == {"steady_tolerance"}
-    assert _same(steady_tolerance=0.05) == frozenset()
+    assert _same(steady_precision=0.01) == {"steady_precision"}
+    assert _same(steady_precision=0.05) == frozenset()
 
 
 def test_a_precision_the_simplex_reads_as_a_width_is_always_a_choice() -> None:
     """Nelder-Mead writes its xatol from the bounds: no default equals a written number."""
-    assert _same(transient_tolerance=0.05) == frozenset()
+    assert _same(transient_precision=0.05) == frozenset()
 
 
 def test_the_spin_up_window_written_out_runs_as_the_recipe() -> None:

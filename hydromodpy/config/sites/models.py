@@ -34,6 +34,7 @@ from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.site import SITE_NAME_PATTERN
 from hydromodpy.core.toml_io.paths import parse as parse_dotted_path
+from hydromodpy.results.metric_rule import METRIC_NAMES
 
 RECIPE_NAME_PATTERN = SITE_NAME_PATTERN
 """Grammar of a recipe name, the same as a site name."""
@@ -164,6 +165,15 @@ class SitesSummaryConfig(HydroModelBase):
         description="Metrics of each case put in the summary tables, scored by the metric rule.",
         examples=[["nse", "kge"]],
     )
+    rank_by: Annotated[str, Profile.USER] = Field(
+        default="nse",
+        description=(
+            "Metric that ranks the cases of a site to pick its best one, by the direction of "
+            "the metric. The nse is always a column of the tables; any other one must be in "
+            "metrics. The order of metrics does not choose it."
+        ),
+        examples=["kge"],
+    )
     parameters: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description="Parameters of each case put in the summary tables, calibrated or set.",
@@ -206,6 +216,23 @@ class SitesSummaryConfig(HydroModelBase):
         for column in value:
             parse_dotted_path(column)
         return value
+
+    @field_validator("rank_by")
+    @classmethod
+    def _rank_by_is_a_metric_of_the_rule(cls, value: str) -> str:
+        if value not in METRIC_NAMES:
+            raise ValueError(
+                f"rank_by {value!r} is not a metric the run rule writes: {', '.join(METRIC_NAMES)}."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _rank_by_is_a_column(self) -> SitesSummaryConfig:
+        if self.rank_by != "nse" and self.rank_by not in self.metrics:
+            raise ValueError(
+                f"rank_by {self.rank_by!r} is not a column of the summary: add it to metrics."
+            )
+        return self
 
 
 class SitesExportRequest(HydroModelBase):

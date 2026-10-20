@@ -46,7 +46,7 @@ def test_unused_candidates_are_marked_in_the_journal_and_not_counted() -> None:
         space=_space(),
         optimizer=ScipyNelderMead(_space(), maxiter=12),
         evaluator=_bowl,
-        max_iter=12,
+        max_trials=12,
         parallel=4,
         progress=_Reporter(),
         on_iteration=on_iteration,

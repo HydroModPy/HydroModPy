@@ -140,8 +140,8 @@ class TestTheNameResolves:
 
         decl = calibration.parameters["thickness"]
         assert decl.path == "domain.depth_model.thickness"
-        assert decl.transform == "log"
-        assert decl.prior == "log_uniform"
+        assert decl.search_space == "log"
+        assert decl.sampling == "log_uniform"
         assert decl.units == "m"
 
     def test_the_long_spelling_resolves_to_the_same_value(self) -> None:
@@ -164,8 +164,8 @@ class TestTheNameResolves:
 
         decl = calibration.parameters["substratum_elevation"]
         assert decl.path == "domain.depth_model.substratum_elevation"
-        assert decl.transform == "identity"
-        assert decl.prior == "uniform"
+        assert decl.search_space == "identity"
+        assert decl.sampling == "uniform"
 
     def test_a_thickness_bound_past_the_registry_is_refused(self) -> None:
         calibration = _calibration(thickness={"bounds": [5.0, 20_000.0]})
@@ -279,7 +279,7 @@ class TestTheProjectFile:
 
         decl = cfg.calibration.parameters["thickness"]
         assert decl.path == "domain.depth_model.thickness"
-        assert decl.transform == "log"
+        assert decl.search_space == "log"
 
     def test_a_thickness_path_on_a_flat_substratum_stops_the_load(self, tmp_path: Path) -> None:
         from hydromodpy.config import HydroModPyConfig

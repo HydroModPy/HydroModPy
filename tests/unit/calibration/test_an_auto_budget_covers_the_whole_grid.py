@@ -1,4 +1,4 @@
-"""``max_iter = "auto"`` sizes a grid to every one of its points.
+"""``max_trials = "auto"`` sizes a grid to every one of its points.
 
 The grid published no counted budget, so ``"auto"`` gave it the budget of an
 engine that cannot count, 100: three parameters on five points each, 125
@@ -40,7 +40,7 @@ def test_the_whole_grid_is_visited() -> None:
     space = _space()
     optimizer = build_optimizer("grid", space, points_per_dim=[5, 5, 6])
     session = CalibrationEngine(
-        space=space, optimizer=optimizer, evaluator=_evaluate, max_iter="auto"
+        space=space, optimizer=optimizer, evaluator=_evaluate, max_trials="auto"
     ).run()
 
     assert len(session.history) == 150

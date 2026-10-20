@@ -152,16 +152,20 @@ class NetworkExtentBoundsMap(BaseFigure):
                 "extents. Left out, every complete year of the scoring window."
             ),
         ] = None,
-        maximal_flowing_steps: Annotated[
-            int | None,
+        maximal_flowing_duration: Annotated[
+            str | None,
             Opt(
-                f"Timesteps a cell has to flow in a year to enter the maximal extent. {_RULE} (1)."
+                "How long a cell has to flow in a year to enter the maximal extent, with "
+                'its unit ("30 d", "1 month"), rounded up to whole timesteps of the run, '
+                f"at least one. {_RULE} (one timestep)."
             ),
         ] = None,
-        minimal_dry_steps: Annotated[
-            int | None,
+        minimal_dry_duration: Annotated[
+            str | None,
             Opt(
-                f"Timesteps a cell may be dry in a year and stay in the minimal extent. {_RULE} (1)."
+                "How long a cell may be dry in a year and stay in the minimal extent, with "
+                'its unit ("1 month"), rounded down to whole timesteps of the run. '
+                f"{_RULE} (one timestep)."
             ),
         ] = None,
         year_quorum: Annotated[
@@ -205,8 +209,8 @@ class NetworkExtentBoundsMap(BaseFigure):
         extents = extents_from_run(
             sim,
             settings,
-            maximal_flowing_steps=maximal_flowing_steps,
-            minimal_dry_steps=minimal_dry_steps,
+            maximal_flowing_duration=maximal_flowing_duration,
+            minimal_dry_duration=minimal_dry_duration,
             year_quorum=year_quorum,
             visible_flow=visible_flow,
             tau_specific_ratio=tau,
@@ -238,8 +242,8 @@ def extents_from_run(
     sim: Run,
     settings: NetworkCriterionSettings,
     *,
-    maximal_flowing_steps: int | None = None,
-    minimal_dry_steps: int | None = None,
+    maximal_flowing_duration: str | None = None,
+    minimal_dry_duration: str | None = None,
     year_quorum: float | None = None,
     visible_flow: str | None = None,
     tau_specific_ratio: float | None = None,
@@ -253,11 +257,13 @@ def extents_from_run(
     """
     rules = settings.extent_rules
     knobs = {
-        "maximal_flowing_steps": int(
-            rules.maximal_flowing_steps if maximal_flowing_steps is None else maximal_flowing_steps
+        "maximal_flowing_duration": (
+            rules.maximal_flowing_duration
+            if maximal_flowing_duration is None
+            else maximal_flowing_duration
         ),
-        "minimal_dry_steps": int(
-            rules.minimal_dry_steps if minimal_dry_steps is None else minimal_dry_steps
+        "minimal_dry_duration": (
+            rules.minimal_dry_duration if minimal_dry_duration is None else minimal_dry_duration
         ),
         "year_quorum": float(rules.year_quorum if year_quorum is None else year_quorum),
         "visible_flow": str(rules.visible_flow if visible_flow is None else visible_flow),
@@ -284,8 +290,10 @@ def extent_notes(extents: NetworkExtents, year: int | None) -> list[str]:
     """Return the lines naming the rules the extents were cut by, and the counts."""
     years = extents.years.years
     rule = (
-        f"maximal: flowing >= {extents.maximal_flowing_steps} timestep(s) of a year; "
-        f"minimal: dry <= {extents.minimal_dry_steps} timestep(s)"
+        f"maximal: flowing >= {extents.maximal_flowing_duration or 'one timestep'} "
+        f"({extents.maximal_flowing_steps} timestep(s)) of a year; "
+        f"minimal: dry <= {extents.minimal_dry_duration or 'one timestep'} "
+        f"({extents.minimal_dry_steps} timestep(s))"
     )
     if year is None:
         rule += (

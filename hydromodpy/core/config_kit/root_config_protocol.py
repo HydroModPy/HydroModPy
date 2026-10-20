@@ -29,8 +29,11 @@ class RootConfigProvider(Protocol):
     def from_json(self, payload: str | bytes) -> BaseModel:
         """Build a validated root-config instance from a JSON payload."""
 
-    def from_dict(self, payload: dict[str, Any]) -> BaseModel:
-        """Build a validated root-config instance from a Python dict."""
+    def from_dict(self, payload: dict[str, Any], *, sealed: bool = False) -> BaseModel:
+        """Build a validated root-config instance from a Python dict.
+
+        ``sealed`` reads the frozen config of a run already on disk.
+        """
 
     def migrate_on_load(
         self, payload: dict[str, Any], *, source: str | Path | None = None

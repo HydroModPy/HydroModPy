@@ -87,7 +87,7 @@ def journal_run(
 
 NETWORK_CONFIG: dict[str, Any] = {
     "method": "bisection",
-    "parameters": {"K": {"bounds": [1e-7, 1e-3], "transform": "log", "units": "m/s"}},
+    "parameters": {"K": {"bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"}},
     "outputs": {"seepage_network": {"support": "network"}},
     "objective_blocks": [
         {
@@ -96,14 +96,14 @@ NETWORK_CONFIG: dict[str, Any] = {
             "weight": 1.0,
             "uses_outputs": ["seepage_network"],
             "normalize_cost": False,
-            "transform": "identity",
+            "search_space": "identity",
         }
     ],
-    "uncertainty": {"method": "cost_profile", "tolerance": None, "mode": None},
+    "uncertainty": {"method": "cost_profile", "cost_margin": None},
 }
 
 K_SPACE: dict[str, Any] = {
-    "K": {"bounds": [1e-7, 1e-3], "transform": "log", "units": "m/s"},
+    "K": {"bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"},
 }
 
 STEADY_K: list[float] = [
@@ -153,7 +153,7 @@ def steady_bisection_rows() -> list[dict[str, Any]]:
             "status": "completed",
             "objective_value": abs(residual),
             "parameters": {
-                "K": {"value": value, "bounds": [1e-7, 1e-3], "transform": "log", "units": "m/s"}
+                "K": {"value": value, "bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"}
             },
             "metrics": {
                 "seepage_network.J_signed": residual,
@@ -335,7 +335,7 @@ def two_root_rows() -> list[dict[str, Any]]:
                     "K": {
                         "value": value,
                         "bounds": [1e-7, 1e-3],
-                        "transform": "log",
+                        "search_space": "log",
                         "units": "m/s",
                     }
                 },

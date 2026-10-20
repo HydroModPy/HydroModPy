@@ -8,7 +8,7 @@ in the repository. A mechanism and a mechanism nobody can reach are not the same
 thing.
 
 Here, any layer that declares a field can say what a search would need to know
-about it: the physical range, the space to sample in, the prior, the unit. What
+about it: the physical range, the space to search in, the sampling law, the unit. What
 reads those declarations still lives in ``calibration/``; only the vocabulary is
 shared, which is what a kernel is for.
 """
@@ -33,8 +33,8 @@ class Calibrable:
             json_schema_extra=field_metadata(
                 calibrable=Calibrable(
                     bounds=(1e-7, 1e-2),
-                    transform="log",
-                    prior="log_uniform",
+                    search_space="log",
+                    sampling="log_uniform",
                     units="m/s",
                 ),
             ),
@@ -45,11 +45,11 @@ class Calibrable:
     """The range a search may move within. ``None`` says the field is calibrable
     but its range belongs to the site, so the file has to state it."""
 
-    transform: str = "identity"
-    """``identity``, ``log`` or ``logit``: the space the sampling walks in."""
+    search_space: str = "identity"
+    """``identity``, ``log`` or ``logit``: the space a search walks the value in."""
 
-    prior: str = "uniform"
-    """``uniform``, ``log_uniform`` or ``normal``."""
+    sampling: str = "uniform"
+    """``uniform``, ``log_uniform`` or ``normal``: the law starting points and draws follow."""
 
     units: str | None = None
     description: str = ""
@@ -69,8 +69,8 @@ class Calibrable:
         """Return a JSON-friendly record for a schema export or a catalogue."""
         return {
             "bounds": list(self.bounds) if self.bounds else None,
-            "transform": self.transform,
-            "prior": self.prior,
+            "search_space": self.search_space,
+            "sampling": self.sampling,
             "units": self.units,
             "description": self.description,
             "is_the_value_of_its_instance": self.is_the_value_of_its_instance,

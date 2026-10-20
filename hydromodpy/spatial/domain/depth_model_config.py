@@ -40,8 +40,8 @@ class ConstantThicknessDepthModel(HydroModelBase):
                 # past 0 .. 10 km. Log space because the thickness enters the
                 # transmissivity T = K * d as a factor, like K itself, and a search
                 # between 5 and 300 m covers almost two decades.
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 units="m",
                 description="Aquifer thickness below the topography, one value everywhere.",
             )
@@ -76,10 +76,10 @@ class FlatSubstratumDepthModel(HydroModelBase):
             calibrable=Calibrable(
                 # No bounds: an elevation range belongs to the site, and the
                 # registry refuses a bound past -500 .. 9000 m. Linear space and a
-                # uniform prior because an elevation has no natural zero: it can be
+                # uniform sampling because an elevation has no natural zero: it can be
                 # negative, and a metre matters as much at 10 m as at 100 m.
-                transform="identity",
-                prior="uniform",
+                search_space="identity",
+                sampling="uniform",
                 units="m",
                 description="Elevation of the flat substratum, one value everywhere.",
             )

@@ -90,7 +90,7 @@ def _cma_es_profile(*, seed: int = 7) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma0": 0.18,
             "popsize": 8,
-            "max_evaluations": 28,
+            "max_trials": 28,
             "seed": int(seed),
             "normalize": True,
         },
@@ -98,13 +98,13 @@ def _cma_es_profile(*, seed: int = 7) -> CalibrationMethodProfile:
     )
 
 
-def _optuna_profile(*, seed: int = 7, max_iter: int = 32) -> CalibrationMethodProfile:
+def _optuna_profile(*, seed: int = 7, max_trials: int = 32) -> CalibrationMethodProfile:
     """Return one compact Optuna/TPE profile for scalar steady twins."""
     return CalibrationMethodProfile(
         name="optuna",
         method_kwargs={
             "sampler": "tpe",
-            "max_iter": int(max_iter),
+            "max_trials": int(max_trials),
             "seed": int(seed),
         },
         persist_model_distribution=True,
@@ -119,7 +119,7 @@ def _da_mh_gp_profile(*, seed: int = 7) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma_noise": 0.1,
             "n_init": 10,
-            "max_iter": 96,
+            "chain_length": 96,
             "burn_in": 24,
             "thin": 2,
             "proposal_sigma": 0.05,
@@ -179,19 +179,19 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
         ),
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24, "seed": 7},
+            method_kwargs={"max_trials": 24, "seed": 7},
             persist_model_distribution=True,
         ),
-        _optuna_profile(seed=7, max_iter=32),
+        _optuna_profile(seed=7, max_trials=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
+            method_kwargs={"max_trials": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
             persist_model_distribution=False,
         ),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 32},
+            method_kwargs={"max_trials": 32},
             persist_model_distribution=False,
         ),
     ),
@@ -221,11 +221,11 @@ STEADY_DUPUIT_POSTERIOR_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24, "seed": 7},
+            method_kwargs={"max_trials": 24, "seed": 7},
             persist_model_distribution=True,
             success_metric="distribution",
         ),
-        _optuna_profile(seed=7, max_iter=32),
+        _optuna_profile(seed=7, max_trials=32),
         _cma_es_profile(seed=7),
         _gp_mapping_profile(seed=7),
         _da_mh_gp_profile(seed=7),
@@ -295,15 +295,15 @@ STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
         ),
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 32, "seed": 7},
+            method_kwargs={"max_trials": 32, "seed": 7},
             persist_model_distribution=True,
             success_metric="best_fit_or_distribution",
         ),
-        _optuna_profile(seed=7, max_iter=32),
+        _optuna_profile(seed=7, max_trials=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
+            method_kwargs={"max_trials": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),
@@ -344,15 +344,15 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
         ),
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 24},
+            method_kwargs={"max_trials": 24},
             persist_model_distribution=True,
             repeat_seeds=(7, 11, 19),
         ),
-        _optuna_profile(seed=7, max_iter=32),
+        _optuna_profile(seed=7, max_trials=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
+            method_kwargs={"max_trials": 30, "xatol": 1.0e-8, "fatol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),

@@ -25,7 +25,7 @@ ROOT = 600.0
 
 
 def _space(lower: float = 1.0, upper: float = 1.0e5, name: str = "K") -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name=name, lower=lower, upper=upper, transform="log")])
+    return ParameterSpace([CalibParameter(name=name, lower=lower, upper=upper, search_space="log")])
 
 
 def _evaluate(suggestion, *, root: float = ROOT, sign: float = 1.0) -> EvaluationResult:
@@ -48,10 +48,10 @@ def _evaluate(suggestion, *, root: float = ROOT, sign: float = 1.0) -> Evaluatio
     )
 
 
-def _run(adapter, *, max_iter: int = 40, **kwargs) -> list[EvaluationResult]:
+def _run(adapter, *, max_trials: int = 40, **kwargs) -> list[EvaluationResult]:
     """Drive the adapter the way the engine does: ask, evaluate, tell."""
     history: list[EvaluationResult] = []
-    while len(history) < max_iter:
+    while len(history) < max_trials:
         suggestions = adapter.ask(n=1)
         if not suggestions:
             break
@@ -216,11 +216,11 @@ class TestTransform:
         message = str(failure.value)
         assert "K" in message
         assert "identity" in message
-        assert 'transform = "log"' in message
+        assert 'search_space = "log"' in message
 
     def test_a_logit_transform_parameter_is_refused(self) -> None:
         space = ParameterSpace(
-            [CalibParameter(name="Sy", lower=0.01, upper=0.3, transform="logit")]
+            [CalibParameter(name="Sy", lower=0.01, upper=0.3, search_space="logit")]
         )
         with pytest.raises(OptimizerError, match="logit"):
             BisectionAdapter(space)

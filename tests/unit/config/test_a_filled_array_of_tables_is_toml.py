@@ -26,8 +26,8 @@ pytestmark = pytest.mark.fast
 
 _STAGED = {
     "parameters": {
-        "K": {"bounds": [1e-8, 1e-2], "transform": "log"},
-        "Sy": {"bounds": [1e-4, 0.5], "transform": "log"},
+        "K": {"bounds": [1e-8, 1e-2], "search_space": "log"},
+        "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
     },
     "phases": [
         {
@@ -95,7 +95,7 @@ def test_the_staged_calibration_reloads_into_itself(written: dict) -> None:
 def test_the_entry_parses_at_the_documented_default(tmp_path: Path) -> None:
     """``exclude_none`` defaults to False, and an unset optional is a None.
 
-    ``tolerance = `` is not a TOML line. The key steps out commented instead,
+    ``precision = `` is not a TOML line. The key steps out commented instead,
     and reload restores the None it already defaults to.
     """
     config = CalibrationConfig.model_validate(_STAGED)
@@ -106,7 +106,7 @@ def test_the_entry_parses_at_the_documented_default(tmp_path: Path) -> None:
         tomllib.loads(destination.read_text())["calibration"]
     )
 
-    assert reloaded.phases[0].tolerance is None
+    assert reloaded.phases[0].precision is None
     assert reloaded.model_dump(mode="json", exclude_none=True) == config.model_dump(
         mode="json", exclude_none=True
     )

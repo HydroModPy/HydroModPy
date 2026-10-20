@@ -37,8 +37,8 @@ class _Value(HydroModelBase):
         default=None,
         json_schema_extra=field_metadata(
             calibrable=Calibrable(
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
                 units="m/s",
                 is_the_value_of_its_instance=True,
             )
@@ -55,7 +55,7 @@ class _Lake(HydroModelBase):
 
     bedleak: Annotated[float, Profile.USER] = Field(
         default=1e-6,
-        json_schema_extra=field_metadata(calibrable=Calibrable(transform="log", units="1/s")),
+        json_schema_extra=field_metadata(calibrable=Calibrable(search_space="log", units="1/s")),
     )
     stage: Annotated[float, Profile.USER] = Field(
         default=12.0,
@@ -193,7 +193,7 @@ class TestWhatItRefuses:
 
         resolve_parameter_targets(calibration, _project())
 
-        assert calibration.parameters["K_aquifer"].transform == "log"
+        assert calibration.parameters["K_aquifer"].search_space == "log"
 
     def test_a_name_the_project_carries_several_times(self) -> None:
         calibration = _calibration(bedleak={"bounds": [1e-9, 1e-3]})
@@ -213,8 +213,8 @@ class TestWhoWinsOverWho:
         resolve_parameter_targets(calibration, _project())
 
         decl = calibration.parameters["K"]
-        assert decl.transform == "log"
-        assert decl.prior == "log_uniform"
+        assert decl.search_space == "log"
+        assert decl.sampling == "log_uniform"
         assert decl.units == "m/s"
 
     def test_a_path_written_by_hand_inherits_the_same_space(self) -> None:
@@ -231,15 +231,15 @@ class TestWhoWinsOverWho:
     def test_the_file_beats_the_field(self) -> None:
         """A declared 'identity' is a decision, not a default left standing."""
         calibration = _calibration(
-            K={"bounds": [1e-7, 1e-3], "transform": "identity", "units": "m/day"}
+            K={"bounds": [1e-7, 1e-3], "search_space": "identity", "units": "m/day"}
         )
 
         resolve_parameter_targets(calibration, _project())
 
         decl = calibration.parameters["K"]
-        assert decl.transform == "identity"
+        assert decl.search_space == "identity"
         assert decl.units == "m/day"
-        assert decl.prior == "log_uniform"
+        assert decl.sampling == "log_uniform"
 
 
 class TestTheRefusalSurvivesTheLoaders:

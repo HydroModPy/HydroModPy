@@ -184,8 +184,8 @@ Calibration adapters, objectives and criteria
   (:doc:`how-to/add-a-calibration-method`).
 - **Objective.** ``hydromodpy/calibration/optim/objective.py`` defines the
   ``Objective`` Protocol (``name`` and ``evaluate(sim)``) and its implementations,
-  among them ``ScalarObjective``, ``CompositeObjective`` and
-  ``ConfigBlockObjective``, which scores the declared blocks.
+  ``ConfigBlockObjective``, which scores one declared or implicit block, and
+  ``CompositeObjective``, their weighted sum.
 - **Criterion.** ``hydromodpy/calibration/criteria/`` defines the ``Criterion``
   Protocol (``requirements()`` and ``score(simulated, observed)``). A file names a
   criterion and ``criteria/registry.py`` answers. The scoring kernels are in

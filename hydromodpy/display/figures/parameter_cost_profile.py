@@ -168,11 +168,15 @@ class ParameterCostProfileFigure(BaseFigure):
         name, values = table.parameter_values(parameter)
         cost = _completed_cost(table.diagnostic(objective), table.frame)
         blocks = cost_blocks(table, session_config(descriptor))
-        if objective != "objective_value":
-            # A diagnostic drawn in place of the cost is not what the
-            # calibration read its interval on, so no block describes it.
+        if objective == "objective_value":
+            tolerance = read_tolerance(cost, blocks, table, descriptor)
+        else:
+            # The margin is read on the total cost only: a block cost drawn
+            # alone is no cost the calibration read an interval on.
             blocks = []
-        tolerance = read_tolerance(cost, blocks, table, descriptor)
+            tolerance = Tolerance(
+                None, missing="no interval is read on a cost other than the total"
+            )
         declaration = parameter_declaration(table, descriptor, name)
         profile = _profile(
             name,

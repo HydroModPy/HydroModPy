@@ -48,7 +48,7 @@ def one_failure_probe():
 PROBE_TOML = """
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 evaluator = "test_one_failure_probe"
 use_cache = false
 save_runs = "none"
@@ -56,7 +56,7 @@ method_options = { points_per_dim = 3 }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 
 [calibration.outputs.net]

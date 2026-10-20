@@ -46,6 +46,7 @@ from hydromodpy.calibration.optim.optimizer import (
     build_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
+from hydromodpy.calibration.optim.stopping import budget_kwargs
 from hydromodpy.core.metrics import rmse
 from hydromodpy.physics.hydrology.synthetic.forcing import (
     build_hydrological_step_series,
@@ -603,7 +604,7 @@ def make_groundwater_simulator(
 
 
 _DEFAULT_BOUNDS: dict[str, tuple[float, float, str]] = {
-    # (lower, upper, transform)
+    # (lower, upper, search space)
     "Kam": (1.0, 10.0, "identity"),
     "Kav": (0.2, 5.0, "identity"),
     "Syam": (0.05, 0.35, "identity"),
@@ -619,7 +620,7 @@ def default_parameter_space(
     overrides = overrides or {}
     params: list[CalibParameter] = []
     for name in MODEL_PARAMETER_ORDER:
-        low, high, transform = _DEFAULT_BOUNDS[name]
+        low, high, search_space = _DEFAULT_BOUNDS[name]
         if name in overrides:
             ov = overrides[name]
             low, high = float(ov[0]), float(ov[1])
@@ -628,7 +629,7 @@ def default_parameter_space(
                 name=name,
                 lower=low,
                 upper=high,
-                transform=transform,
+                search_space=search_space,
             )
         )
     return ParameterSpace(params)
@@ -691,7 +692,7 @@ def calibrate_groundwater(
     chronicle_config: Mapping[str, Any] | None = None,
     space: ParameterSpace | None = None,
     bounds: Mapping[str, tuple[float, float]] | None = None,
-    max_iter: int = 50,
+    max_trials: int = 50,
     seed: int | None = None,
     method_options: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -712,7 +713,7 @@ def calibrate_groundwater(
         Explicit parameter space. Defaults to :func:`default_parameter_space`.
     bounds : Mapping[str, tuple[float, float]] | None
         Alternative to a full ``space``: tweak bounds of default parameters.
-    max_iter : int
+    max_trials : int
         Maximum number of evaluations (ask/tell rounds) for the engine.
     seed : int | None
         Seed forwarded to the optimizer factory when it accepts one.
@@ -737,13 +738,14 @@ def calibrate_groundwater(
     factory_kwargs: dict[str, Any] = dict(method_options or {})
     if seed is not None and "seed" not in factory_kwargs:
         factory_kwargs["seed"] = seed
+    factory_kwargs.update(budget_kwargs(method, int(max_trials)))
     optimizer = build_optimizer(method, space, **factory_kwargs)
 
     engine = CalibrationEngine(
         space=space,
         optimizer=optimizer,
         evaluator=evaluator,
-        max_iter=int(max_iter),
+        max_trials=int(max_trials),
     )
     session = engine.run()
     best = session.best

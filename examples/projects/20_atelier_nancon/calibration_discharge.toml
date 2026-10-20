@@ -48,7 +48,7 @@ value = 1e-5
 # Sampler TPE d'Optuna.
 method = "optuna"
 # Petit budget pour une demo en direct ; augmenter pour la production.
-max_iter = 12
+max_trials = 12
 batch_size = 1
 # Promeut les 2 meilleures iterations en runs complets (Zarr + figures)
 # a la fin.
@@ -61,11 +61,11 @@ objective = "kge"
 variable = "discharge"
 use_cache = true
 
-# Deux parametres, deux priors : K couvre plusieurs decades (log), Sy est
+# Deux parametres, deux espaces de recherche : K couvre plusieurs decades (log), Sy est
 # une fraction.
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
 
 [calibration.parameters.Sy]
 bounds = [0.01, 0.30]
-prior = "uniform"
+sampling = "uniform"

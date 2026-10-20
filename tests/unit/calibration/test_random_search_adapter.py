@@ -35,8 +35,8 @@ def _log_space() -> ParameterSpace:
                 name="k",
                 lower=1e-6,
                 upper=1e-2,
-                transform="log",
-                prior="log_uniform",
+                search_space="log",
+                sampling="log_uniform",
             ),
         ]
     )

@@ -122,6 +122,7 @@ def test_an_unknown_bound_is_refused(mpl) -> None:
 def _sealed(**extent) -> dict:
     """A snapshot whose one network output scored two bounds by ``extent``."""
     return {
+        "simulation": {"time": {"step_value": 1, "step_unit": "month"}},
         "calibration": {
             "outputs": {
                 "streams": {
@@ -132,7 +133,7 @@ def _sealed(**extent) -> dict:
                     "extent": extent,
                 }
             }
-        }
+        },
     }
 
 

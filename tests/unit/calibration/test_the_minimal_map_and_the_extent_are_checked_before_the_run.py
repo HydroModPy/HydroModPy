@@ -31,7 +31,7 @@ method = "bisection"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -47,7 +47,7 @@ method = "bisection"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -71,7 +71,7 @@ regime = "{regime}"
 [[calibration.phases]]
 name = "sy_network"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["Sy"]
 objective_blocks = ["gap"]
 depends_on = "k_network"

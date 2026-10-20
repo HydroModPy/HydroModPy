@@ -108,8 +108,8 @@ class EngineTraits:
     max_parameters: int | None = None
     """How many parameters the engine can move at once. ``None`` means any number."""
 
-    required_transform: str | None = None
-    """The sampling transform the engine's stopping rule is written in."""
+    required_search_space: str | None = None
+    """The search space the engine's stopping rule is written in."""
 
     needs_signed_residual: bool = False
     """Whether the engine reads a signed residual the criterion has to publish."""
@@ -117,7 +117,7 @@ class EngineTraits:
     supports_parallel: bool = True
     """Whether several trials of one batch can be evaluated at once."""
 
-    tolerance_option: str | None = None
+    precision_option: str | None = None
     """Name of this engine's own option that a user-level precision writes.
 
     ``None`` says the engine has no parameter-side stopping rule at all, and a
@@ -140,11 +140,19 @@ class EngineTraits:
     search declare ``False``, because repeating them is the same computation twice
     and reporting its spread as an uncertainty would be a lie about a certainty."""
 
-    tolerance_reads: Literal["search_width", "relative_value"] | None = None
+    precision_reads: Literal["search_width", "relative_value"] | None = None
     """How that option reads its number. ``search_width`` is an absolute width in
     the space the search walks, so the precision is converted into that space.
     ``relative_value`` is already a relative width on the parameter's own value,
     so the number passes through."""
+
+    takes_max_trials: bool = False
+    """Whether the engine is built knowing the evaluations it may spend.
+
+    The surrogate that sizes its initial design on the budget, and the strategy
+    that plans its restarts on it, need the number before the first ask. The
+    runner hands it the ``max_trials`` of the search (``"auto"`` resolved), so
+    the budget is written once, in ``max_trials``, and never as a method option."""
 
     reads_cost_as: str | None = None
     """The metric the engine assumes its cost is, when it builds on the number.
@@ -182,15 +190,15 @@ nothing to meet, so every search gets one, and SciPy is installed by default.
 """
 
 
-def choose_method(transforms: Mapping[str, str], criteria: Iterable[str]) -> MethodChoice:
+def choose_method(search_spaces: Mapping[str, str], criteria: Iterable[str]) -> MethodChoice:
     """Return the search method of a search that names none, and why.
 
-    ``transforms`` maps each parameter the search moves to its transform.
+    ``search_spaces`` maps each parameter the search moves to its search space.
     ``criteria`` names the criterion of each objective block it scores.
 
     Each engine of :data:`CHOSEN_FROM` is faced with its ``EngineTraits``, as
     ``hmp calibrate --check`` faces a written method. The root search needs
-    ``max_parameters`` at most, each in ``required_transform``, and, since it
+    ``max_parameters`` at most, each in ``required_search_space``, and, since it
     ``needs_signed_residual``, a signed criterion on every block
     (``CriterionRequirements.signed``): only then is the cost the absolute value
     of the residual its bracket closes on, and the answer is the crossing, not a
@@ -214,16 +222,18 @@ def choose_method(transforms: Mapping[str, str], criteria: Iterable[str]) -> Met
     lacking = ""
     for method in CHOSEN_FROM:
         traits = engine_traits(method)
-        unmet = _unmet(traits, transforms, signed=signed)
+        unmet = _unmet(traits, search_spaces, signed=signed)
         if unmet is None:
-            return MethodChoice(method, _why(traits, transforms, lacking=lacking))
+            return MethodChoice(method, _why(traits, search_spaces, lacking=lacking))
         lacking = lacking or unmet
     # The last engine declares nothing to meet, so this is reached only when
     # someone gives it a constraint. Its own refusal then names what is wrong.
-    return MethodChoice(CHOSEN_FROM[-1], _why(DEFAULT_ENGINE_TRAITS, transforms, lacking=lacking))
+    return MethodChoice(
+        CHOSEN_FROM[-1], _why(DEFAULT_ENGINE_TRAITS, search_spaces, lacking=lacking)
+    )
 
 
-def _unmet(traits: EngineTraits, transforms: Mapping[str, str], *, signed: bool) -> str | None:
+def _unmet(traits: EngineTraits, search_spaces: Mapping[str, str], *, signed: bool) -> str | None:
     """Return what a search lacks to meet an engine's traits, or None when it meets them.
 
     The phrase opens the reason the next engine gives. An unsigned criterion
@@ -232,25 +242,23 @@ def _unmet(traits: EngineTraits, transforms: Mapping[str, str], *, signed: bool)
     if traits.needs_signed_residual and not signed:
         return ""
     criterion = "signed criterion" if signed else "criterion"
-    count = len(transforms)
+    count = len(search_spaces)
     if traits.max_parameters is not None and not 0 < count <= traits.max_parameters:
         return f"{criterion} on {count} parameters"
-    wanted = traits.required_transform
-    other = sorted(
-        name for name, transform in transforms.items() if wanted not in (None, transform)
-    )
+    wanted = traits.required_search_space
+    other = sorted(name for name, space in search_spaces.items() if wanted not in (None, space))
     if other:
         return f"{criterion}, {', '.join(other)} not in {wanted} space"
     return None
 
 
-def _why(traits: EngineTraits, transforms: Mapping[str, str], *, lacking: str) -> str:
+def _why(traits: EngineTraits, search_spaces: Mapping[str, str], *, lacking: str) -> str:
     """Return the reason an engine was chosen, in the words ``--list-phases`` prints."""
     if not traits.needs_signed_residual:
         return f"{lacking}, cost to minimise" if lacking else "cost to minimise"
-    count = len(transforms)
+    count = len(search_spaces)
     moved = "one" if count == 1 else str(count)
-    where = f" {traits.required_transform}" if traits.required_transform else ""
+    where = f" {traits.required_search_space}" if traits.required_search_space else ""
     return f"{moved}{where} parameter{'' if count == 1 else 's'}, signed criterion"
 
 

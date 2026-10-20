@@ -27,11 +27,11 @@ import numpy as np
 from hydromodpy.calibration import (
     CalibParameter,
     CalibrationEngine,
+    CompositeObjective,
+    ConfigBlockObjective,
     EvaluationResult,
-    ObservationSet,
     ParameterSpace,
     ParamSuggestion,
-    ScalarObjective,
     SimulationOutput,
     build_optimizer,
 )
@@ -85,13 +85,13 @@ class BrutsaertRecessionCase:
                     name="a",
                     lower=self.bounds["a"][0],
                     upper=self.bounds["a"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="b",
                     lower=self.bounds["b"][0],
                     upper=self.bounds["b"][1],
-                    transform="identity",
+                    search_space="identity",
                 ),
             ]
         )
@@ -99,7 +99,7 @@ class BrutsaertRecessionCase:
     def times(self) -> np.ndarray:
         return np.arange(self.n_days, dtype=float)
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         t = self.times()
         clean = recession_discharge(
             a=float(self.truth["a"]),
@@ -110,12 +110,7 @@ class BrutsaertRecessionCase:
         rng = np.random.default_rng(self.noise_seed)
         noise = rng.normal(0.0, self.log_noise_sigma, size=t.size)
         noisy = clean * np.exp(noise)
-        return ObservationSet(
-            stations=("outlet",),
-            times=t,
-            values={"outlet": noisy},
-            variable="discharge",
-        )
+        return {"outlet": noisy}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         t = self.times()
@@ -148,17 +143,32 @@ def build_calibration(
     case: BrutsaertRecessionCase = BRUTSAERT_RECESSION_CASE,
     *,
     optimizer_name: str = "scipy_nelder_mead",
-    max_iter: int = 80,
+    max_trials: int = 80,
     seed: int = 11,
     metric: str = "rmse",
-) -> tuple[CalibrationEngine, ScalarObjective]:
+) -> tuple[CalibrationEngine, CompositeObjective]:
     space = case.parameter_space()
     observations = case.synthetic_observations()
-    objective = ScalarObjective(observations, metric=metric)
+    # One block per station, equal weights: the mean of the station costs.
+    objective = CompositeObjective(
+        [
+            (
+                ConfigBlockObjective(
+                    name=f"{metric}@{station}",
+                    metric=metric,
+                    uses_outputs=[station],
+                    observed_by_output={station: observed},
+                ),
+                1.0,
+            )
+            for station, observed in observations.items()
+        ],
+        name=metric,
+    )
 
     optimizer_kwargs: dict[str, object] = {"seed": seed}
     if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_iter
+        optimizer_kwargs["maxiter"] = max_trials
     elif optimizer_name == "scipy_de":
         optimizer_kwargs.update({"maxiter": 20, "popsize": 10, "tol": 1e-4})
     elif optimizer_name == "grid":
@@ -181,7 +191,7 @@ def build_calibration(
         space=space,
         optimizer=optimizer,
         evaluator=evaluator,
-        max_iter=max_iter,
+        max_trials=max_trials,
     )
     return engine, objective
 

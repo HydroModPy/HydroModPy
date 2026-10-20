@@ -1,6 +1,6 @@
-"""The label of a cost says what the number is: metric, transform and scale.
+"""The label of a cost says what the number is: metric, cost transform and scale.
 
-``cost_metric_label`` named the metric alone. A block with ``transform = "log"``
+``cost_metric_label`` named the metric alone. A block with ``cost_transform = "log"``
 minimises ``log10(rmse)`` and one with ``normalize_cost`` minimises the RMSE over
 the spread of the record, yet both were labelled ``rmse``. The HTML report of a
 session listed ``best_objective`` with no label at all, beside an
@@ -22,7 +22,7 @@ from hydromodpy.reporting.calibration_report import _render_html
 def _config(blocks: list[dict[str, object]], **extra: object) -> CalibrationConfig:
     payload: dict[str, object] = {
         "method": "grid",
-        "max_iter": 3,
+        "max_trials": 3,
         "parameters": {"K": {"bounds": [1e-8, 1e-2], "path": "flow.param.K.field.value"}},
         "outputs": {
             "q": {
@@ -43,13 +43,13 @@ def _block(name: str, metric: str, **extra: object) -> dict[str, object]:
 
 
 def test_a_log_transform_is_named() -> None:
-    cfg = _config([_block("flows", "rmse", transform="log")])
+    cfg = _config([_block("flows", "rmse", cost_transform="log")])
 
     assert cost_metric_label(cfg) == "log10(rmse)"
 
 
 def test_an_inverse_transform_is_named() -> None:
-    cfg = _config([_block("flows", "nse", transform="inverse")])
+    cfg = _config([_block("flows", "nse", cost_transform="inverse")])
 
     assert cost_metric_label(cfg) == "-1 / (1 - nse)"
 
@@ -64,7 +64,7 @@ def test_each_block_of_a_sum_carries_its_own_reading() -> None:
     cfg = _config(
         [
             _block("flows", "nse_log"),
-            _block("residual", "rmse", normalize_cost=True, transform="log"),
+            _block("residual", "rmse", normalize_cost=True, cost_transform="log"),
         ]
     )
 
@@ -87,7 +87,7 @@ def test_a_phase_is_labelled_by_the_blocks_it_scores() -> None:
 
 
 def test_the_session_records_the_label_of_its_cost(tmp_path: Path) -> None:
-    cfg = _config([_block("flows", "rmse", transform="log")])
+    cfg = _config([_block("flows", "rmse", cost_transform="log")])
 
     persistence, _ = open_calibration_session(
         tmp_path,

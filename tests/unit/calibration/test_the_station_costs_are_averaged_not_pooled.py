@@ -1,10 +1,10 @@
 """One efficiency per station, then the weighted mean of the costs.
 
-Three routes must agree on that rule: ``ScalarObjective`` (one observation set,
-station weights), a composite of one block per output (block weights), and the
-arithmetic written out. A block over both outputs is the pooled computation the
-configuration no longer lets an efficiency use; it is kept here to show it is
-another number.
+A composite of one block per output (block weights) must agree with the
+arithmetic written out; ``variable`` + ``objective`` is read as exactly such a
+composite, at equal weights. A block over both outputs is the pooled
+computation the configuration no longer lets an efficiency use; it is kept here
+to show it is another number.
 """
 
 from __future__ import annotations
@@ -15,8 +15,6 @@ import pytest
 from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
-    ObservationSet,
-    ScalarObjective,
     SimulationOutput,
 )
 
@@ -43,19 +41,6 @@ def _simulation() -> SimulationOutput:
 def _by_hand(weights: dict[str, float]) -> float:
     costs = {name: 1.0 - _nse(SIMULATED[name], OBSERVED[name]) for name in OBSERVED}
     return sum(weights[n] * costs[n] for n in costs) / sum(weights.values())
-
-
-@pytest.mark.parametrize("weights", [{"a": 1.0, "b": 1.0}, {"a": 2.0, "b": 1.0}])
-def test_a_scalar_objective_averages_the_station_costs(weights: dict[str, float]) -> None:
-    observations = ObservationSet(
-        stations=("a", "b"), times=np.arange(5.0), values=OBSERVED, variable="discharge"
-    )
-
-    value = ScalarObjective(observations, metric="nse", station_weights=weights).evaluate(
-        _simulation()
-    )
-
-    assert value.total == pytest.approx(_by_hand(weights))
 
 
 @pytest.mark.parametrize("weights", [{"a": 1.0, "b": 1.0}, {"a": 2.0, "b": 1.0}])

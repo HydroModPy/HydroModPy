@@ -1,10 +1,10 @@
-"""The single-metric route hands the sampling step to the seasonal kernels.
+"""``variable`` + ``objective`` hands the sampling step to the seasonal kernels.
 
 ``nse_seasonal`` and ``reservoir`` count one year and ten days in samples of
-the series. The block route reads the step from the trial's dates; the
-single-metric route (``variable`` + ``objective``) passed none, so a monthly
-series was taken as daily: NaN on three years, and a refused trial, where the
-block route scores a number.
+the series. The block route reads the step from the trial's dates. The
+one-line form used to pass none, so a monthly series was taken as daily: NaN
+on three years, and a refused trial. It is now scored by implicit blocks, and
+reads the step as any block does.
 """
 
 from __future__ import annotations
@@ -14,10 +14,23 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.observable_scoring import (
+    StationBlockScorer,
+    sampling_step_days,
+)
+from hydromodpy.calibration.metrics.series import ObservedSeries
+from hydromodpy.core.contracts.observables import ObservableResult
 
 STAMPS = pd.date_range("2001-01-31", periods=36, freq="ME")
 STEP_DAYS = float(np.median(np.diff(STAMPS.asi8) / 86_400e9))
+
+
+def _cost(observed: pd.Series, simulated: pd.Series, metric: str) -> float:
+    scorer = StationBlockScorer("head", metric, [ObservedSeries("PZ", "head", observed)])
+    cost, _ = scorer.score(
+        {"PZ": ObservableResult("PZ", simulated.to_numpy(), "m", simulated.index)}
+    )
+    return cost
 
 
 def _monthly() -> tuple[pd.Series, pd.Series]:
@@ -31,7 +44,7 @@ def _monthly() -> tuple[pd.Series, pd.Series]:
 def test_a_monthly_series_scores_as_on_the_block_route(metric: str) -> None:
     observed, simulated = _monthly()
 
-    cost = score(observed, simulated, metric, time_method="point")
+    cost = _cost(observed, simulated, metric)
 
     block = SeriesCriterion(metric, METRICS[metric]).score(
         simulated.to_numpy(),
@@ -51,7 +64,7 @@ def test_a_daily_series_keeps_its_daily_score() -> None:
     )
     sim = obs + 0.05 * np.sin(days / 3.0)
 
-    cost = score(obs, sim, "nse_seasonal", time_method="point")
+    cost = _cost(obs, sim, "nse_seasonal")
 
     undated = SeriesCriterion("nse_seasonal", METRICS["nse_seasonal"]).score(
         sim.to_numpy(), obs.to_numpy()
@@ -60,8 +73,6 @@ def test_a_daily_series_keeps_its_daily_score() -> None:
 
 
 def test_the_step_is_the_median_spacing_in_days() -> None:
-    from hydromodpy.calibration.metrics.scalar import sampling_step_days
-
     assert sampling_step_days(pd.date_range("2001-01-01", periods=5, freq="D")) == 1.0
     assert sampling_step_days(pd.DatetimeIndex(["2001-01-01"])) is None
     assert sampling_step_days(pd.RangeIndex(4)) is None

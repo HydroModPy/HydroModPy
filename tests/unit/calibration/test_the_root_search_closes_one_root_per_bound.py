@@ -41,7 +41,7 @@ REL_TOL = 0.01
 
 
 def _space(lower: float = NANCON_BOUNDS[0], upper: float = NANCON_BOUNDS[1]) -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
+    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, search_space="log")])
 
 
 def _staircase(root: float, value: float) -> float:
@@ -115,9 +115,9 @@ def _one_bound(root: float = ROOT_MAX, *, n_bounds: bool = True):
     return evaluate
 
 
-def _run(adapter: BisectionAdapter, evaluator, max_iter: int | str = AUTO_BUDGET):
+def _run(adapter: BisectionAdapter, evaluator, max_trials: int | str = AUTO_BUDGET):
     return CalibrationEngine(
-        space=adapter.space, optimizer=adapter, evaluator=evaluator, max_iter=max_iter
+        space=adapter.space, optimizer=adapter, evaluator=evaluator, max_trials=max_trials
     ).run()
 
 
@@ -289,7 +289,7 @@ def test_the_halvings_left_count_both_brackets_and_the_combined_solve() -> None:
 def test_a_budget_counted_for_one_root_says_so_and_still_converges(caplog) -> None:
     adapter = BisectionAdapter(_space(), rel_tol=REL_TOL)
     with caplog.at_level(logging.WARNING):
-        session = _run(adapter, _two_bounds(), max_iter=40)
+        session = _run(adapter, _two_bounds(), max_trials=40)
 
     assert "counted for 1 root(s) and the outputs score 2" in caplog.text
     assert session.converged
@@ -325,13 +325,13 @@ def test_one_bound_asks_the_same_points_as_the_paper_search() -> None:
         space=first.space,
         optimizer=first,
         evaluator=lambda sugg: (today.append(sugg), plain(sugg))[1],
-        max_iter=AUTO_BUDGET,
+        max_trials=AUTO_BUDGET,
     ).run()
     session = CalibrationEngine(
         space=second.space,
         optimizer=second,
         evaluator=lambda sugg: (now.append(sugg), counted(sugg))[1],
-        max_iter=AUTO_BUDGET,
+        max_trials=AUTO_BUDGET,
     ).run()
 
     assert [dict(sugg.values) for sugg in now] == [dict(sugg.values) for sugg in today]
@@ -407,11 +407,11 @@ def test_eq4_skips_a_bound_weighted_zero() -> None:
 _TOML = """
 [calibration]
 method = "bisection"
-max_iter = {max_iter}
+max_trials = {max_trials}
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 units = "m/s"
 
 [calibration.outputs.net]
@@ -430,9 +430,9 @@ _EXTENT = "[calibration.outputs.net.extent]"
 _MINIMAL = 'minimal_stream_geometry_path = "permanent.gpkg"'
 
 
-def _load(tmp_path: Path, *, max_iter: int = 20, minimal: bool = True, extent: str = _EXTENT):
+def _load(tmp_path: Path, *, max_trials: int = 20, minimal: bool = True, extent: str = _EXTENT):
     path = tmp_path / "calibration.toml"
-    text = _TOML.format(max_iter=max_iter, minimal=_MINIMAL if minimal else "", extent=extent)
+    text = _TOML.format(max_trials=max_trials, minimal=_MINIMAL if minimal else "", extent=extent)
     path.write_text(textwrap.dedent(text), encoding="utf-8")
     for name in ("complete.gpkg", "permanent.gpkg"):
         (tmp_path / name).write_bytes(b"")
@@ -472,14 +472,14 @@ def test_anything_short_of_two_weighted_bounds_is_one_root(
 
 
 def test_the_preflight_counts_two_roots(tmp_path: Path) -> None:
-    findings = _check_the_budgets(_load(tmp_path, max_iter=20))
+    findings = _check_the_budgets(_load(tmp_path, max_trials=20))
 
     assert [finding.severity for finding in findings] == ["error"]
     assert "below the 24 evaluations" in findings[0].detail
 
 
 def test_the_preflight_counts_one_root_without_the_minimal_map(tmp_path: Path) -> None:
-    findings = _check_the_budgets(_load(tmp_path, max_iter=20, minimal=False))
+    findings = _check_the_budgets(_load(tmp_path, max_trials=20, minimal=False))
 
     assert [finding.severity for finding in findings] == ["warning"]
 
@@ -487,13 +487,13 @@ def test_the_preflight_counts_one_root_without_the_minimal_map(tmp_path: Path) -
 _SINGLE_METRIC_TOML = """
 [calibration]
 method = "bisection"
-max_iter = {max_iter}
+max_trials = {max_trials}
 variable = "net"
 objective = "distance_gap"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 units = "m/s"
 
 [calibration.outputs.net]
@@ -511,15 +511,15 @@ name = "steady"
 parameters = ["K"]
 variable = "net"
 objective = "distance_gap"
-max_iter = {max_iter}
+max_trials = {max_trials}
 """
 
 
-def _load_single_metric(tmp_path: Path, *, max_iter: int | str = 20, phase: bool = False):
-    budget = f'"{max_iter}"' if isinstance(max_iter, str) else str(max_iter)
+def _load_single_metric(tmp_path: Path, *, max_trials: int | str = 20, phase: bool = False):
+    budget = f'"{max_trials}"' if isinstance(max_trials, str) else str(max_trials)
     text = _SINGLE_METRIC_TOML.format(
-        max_iter=budget,
-        phase=_SINGLE_METRIC_PHASE.format(max_iter=budget) if phase else "",
+        max_trials=budget,
+        phase=_SINGLE_METRIC_PHASE.format(max_trials=budget) if phase else "",
     )
     path = tmp_path / "calibration.toml"
     path.write_text(textwrap.dedent(text), encoding="utf-8")
@@ -553,7 +553,7 @@ def test_a_single_metric_phase_on_two_bounds_is_counted_as_two_roots(tmp_path: P
     # two roots the preflight counts.
     from hydromodpy.calibration.runners.staged_runner import _phase_config
 
-    cfg = _load_single_metric(tmp_path, max_iter=AUTO_BUDGET, phase=True)
+    cfg = _load_single_metric(tmp_path, max_trials=AUTO_BUDGET, phase=True)
     phase_cfg = _phase_config(cfg, cfg.phases[0])
 
     assert _engine_kwargs(phase_cfg, _space(), start_at=None)["roots"] == 2

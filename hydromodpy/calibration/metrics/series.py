@@ -1,7 +1,7 @@
 """Series helpers: observation loading, time-index resolution, runoff postprocess.
 
-These primitives massage time series into shapes the scalar/composite scorers
-expect. They do not call the solver layer.
+These primitives massage time series into shapes the block scorer
+expects. They do not call the solver layer.
 """
 
 from __future__ import annotations
