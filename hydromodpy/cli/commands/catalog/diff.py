@@ -35,6 +35,55 @@ def _delta_to_list(delta: dict) -> list[dict]:
     ]
 
 
+def _side_of(entry: dict | None) -> dict | None:
+    if entry is None:
+        return None
+    return {
+        "value": entry["value"],
+        "window": _window_text(entry),
+        "n": entry["n"],
+    }
+
+
+def _window_text(entry: dict) -> str | None:
+    if entry["window_start"] is None:
+        return None
+    return f"{entry['window_start']}/{entry['window_end']}"
+
+
+def _metrics_to_list(delta: dict) -> list[dict]:
+    """Flatten a ``{(metric, station, variable): (a, b)}`` delta into JSON-serialisable rows."""
+    return [
+        {
+            "name": name,
+            "station": station,
+            "variable": variable,
+            "a": _side_of(a),
+            "b": _side_of(b),
+        }
+        for (name, station, variable), (a, b) in delta.items()
+    ]
+
+
+def _print_metrics(delta: dict) -> None:
+    if not delta:
+        print("metrics: identical")
+        return
+    print("metrics:")
+    for (name, station, variable), (a, b) in delta.items():
+        where = "/".join(str(part) for part in (station, variable) if part)
+        label = f"{name}@{where}" if where else name
+        print(f"  {label}: {_side_text(a)} -> {_side_text(b)}")
+
+
+def _side_text(entry: dict | None) -> str:
+    if entry is None:
+        return "absent"
+    window = _window_text(entry)
+    scored_on = "no window" if window is None else window
+    return f"{entry['value']!r} [{scored_on}, n={entry['n']}]"
+
+
 def _print_delta(title: str, delta: dict) -> None:
     if not delta:
         print(f"{title}: identical")
@@ -70,7 +119,7 @@ def run(args: argparse.Namespace) -> None:
                     "a": result["a"],
                     "b": result["b"],
                     "params": _delta_to_list(result["params"]),
-                    "metrics": _delta_to_list(result["metrics"]),
+                    "metrics": _metrics_to_list(result["metrics"]),
                 },
                 default=str,
             )
@@ -79,4 +128,4 @@ def run(args: argparse.Namespace) -> None:
 
     print(f"a: {result['a'][:8]}   b: {result['b'][:8]}")
     _print_delta("params", result["params"])
-    _print_delta("metrics", result["metrics"])
+    _print_metrics(result["metrics"])

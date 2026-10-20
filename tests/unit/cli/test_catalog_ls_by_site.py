@@ -65,9 +65,19 @@ def test_a_version_shows_the_overrides_it_was_run_with(monkeypatch, project, cap
     assert "overrides: flow.param.K.field.value=2e-05" in capsys.readouterr().out
 
 
+def test_best_refuses_runs_scored_at_different_stations(monkeypatch, project, capsys) -> None:
+    argv = ["hmp", "catalog", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
+
+    assert _run(monkeypatch, argv) != 0
+
+    err = capsys.readouterr().err
+    assert "different rules" in err
+    assert "--by site" in err
+
+
 def test_best_ranks_the_runs_best_first(monkeypatch, project, capsys) -> None:
     argv = ["hmp", "catalog", "ls", "-w", str(project), "--best", "nse", "--format", "json"]
-    assert _run(monkeypatch, argv) == 0
+    assert _run(monkeypatch, [*argv, "--mixed-windows"]) == 0
 
     assert [row["name"] for row in _rows(capsys)] == [
         "J0014010-base.v2",

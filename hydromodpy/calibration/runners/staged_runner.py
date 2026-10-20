@@ -74,6 +74,7 @@ from hydromodpy.calibration.protocols import (
     protocol_options_away_from_the_recipe,
     protocol_record,
 )
+from hydromodpy.calibration.report import samples_text
 from hydromodpy.calibration.runners.cli_runner import (
     SessionScope,
     _keep_trial_solves,
@@ -81,6 +82,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     _release_trial_solves,
     attach_a_linearized_width,
     closing_session,
+    declared_window_text,
     describe_dry_run,
     load_toml_calibration,
     open_calibration_session,
@@ -622,8 +624,10 @@ def _why_not_converged(report: CalibrationReport) -> str:
         f"its session {report.session_id} spent {report.n_iterations} trial(s) "
         f"(max_iter = {search.get('max_iter')}, plus {search.get('extension')} granted once) "
         f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
-        "candidate is where the budget ended, not a converged value. Raise max_iter or "
-        "loosen the tolerance; a re-run replays the trials already solved from the cache"
+        "candidate is where the budget ended, not a converged value. Raise max_iter: a "
+        "re-run of the same file replays the trials already solved from the cache. A new "
+        "tolerance, seed, method or method_options changes the cache key and solves every "
+        "trial again"
     )
 
 
@@ -1246,6 +1250,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
 
     ``comparisons`` is :func:`objective_comparison_table` for that phase: what
     each of its blocks, or its single metric, compares with what.
+    ``scoring_window`` says in words the window the phase scores on.
     """
     rows: list[dict[str, Any]] = []
     passed_by: dict[str, str] = {}
@@ -1276,6 +1281,7 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
             row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
         row["interval_width"] = cfg.interval_width_for(decl).to_dict()
         row["comparisons"] = objective_comparison_table(cfg, decl)
+        row["scoring_window"] = declared_window_text(cfg, decl)
         rows.append(row)
         if decl.freeze_on_success:
             passed_by.update({written_at(name): decl.name for name in decl.parameters})
@@ -1759,7 +1765,7 @@ def _methods_paragraph_for(
         for run in runs
         if run.report.extra.get("parameter_uncertainty_absent_note")
     }
-    return methods_paragraph(
+    paragraph = methods_paragraph(
         cfg.protocol.name,
         stages_that_ran=completed,
         calibrated=calibrated or None,
@@ -1770,6 +1776,34 @@ def _methods_paragraph_for(
         backend=backend,
         steady_window=steady_window,
     )
+    scoring = _scoring_sentence(runs)
+    return paragraph if scoring is None else f"{paragraph}\n\n{scoring}"
+
+
+def _scoring_sentence(runs: Sequence[PhaseRun]) -> str | None:
+    """Say what each stage minimised: its metric, and the pairs of its best cost.
+
+    Read off the report of each stage (``cost_metric``, ``cost_samples``,
+    ``cost_window``), so the dates are the ones the cost rests on, not the rule
+    of the protocol. A stage that counted no pair gives its declared window.
+    """
+    clauses = []
+    for position, run in enumerate(runs, start=1):
+        extra = run.report.extra or {}
+        metric = extra.get("cost_metric")
+        if not metric:
+            continue
+        clause = f"stage {position} ({run.name}) minimised {metric}"
+        window = extra.get("cost_window")
+        if extra.get("cost_samples"):
+            clause += f" on {samples_text(extra['cost_samples'])}, at its best trial"
+            clause += f" ({window})" if window else ""
+        elif window and str(window).startswith("window"):
+            clause += f" over the {window}, pairs not counted"
+        clauses.append(clause)
+    if not clauses:
+        return None
+    return "Scoring: " + "; ".join(clauses) + "."
 
 
 __all__ = [

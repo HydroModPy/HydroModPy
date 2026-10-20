@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     import duckdb
 
-INDEX_SCHEMA_VERSION: Final[str] = "4"
+INDEX_SCHEMA_VERSION: Final[str] = "7"
 """Version of the index schema. A different value in a file means: rebuild it."""
 
 INDEX_META_TABLE: Final[str] = "index_meta"
@@ -303,9 +303,6 @@ CREATE TABLE metrics (
     variable             VARCHAR,
     metric_name          VARCHAR NOT NULL,
     value                DOUBLE,
-    n_samples            BIGINT,
-    period_start         TIMESTAMPTZ,
-    period_end           TIMESTAMPTZ,
     nse_window_start     DATE,
     nse_window_end       DATE,
     nse_n                BIGINT,

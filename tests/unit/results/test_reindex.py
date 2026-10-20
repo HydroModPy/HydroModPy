@@ -171,10 +171,10 @@ def test_the_label_is_computed_and_dated_at_indexing(project):
 
     rows = _rows(project, "SELECT name, label, rule_version FROM simulations")
     assert rows == [
-        ("alpha", "exploratory", "1"),
-        ("beta", "exploratory", "1"),
-        ("calib", "calibrated", "1"),
-        ("calib_t2", "exploratory", "1"),
+        ("alpha", "exploratory", "2"),
+        ("beta", "exploratory", "2"),
+        ("calib", "calibrated", "2"),
+        ("calib_t2", "exploratory", "2"),
     ]
     assert _rows(project, "SELECT COUNT(*) FROM simulations WHERE label_date IS NULL") == [(0,)]
 

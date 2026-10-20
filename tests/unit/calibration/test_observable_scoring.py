@@ -112,7 +112,9 @@ def test_dates_window_then_warmup_are_identical_for_both_producers(
     observed = {
         "q": pd.Series([1.0, 2.0, 3.0, 4.0, 999.0], index=pd.date_range("2000-12-31", periods=5))
     }
-    options = dict(warmup_periods=1, scoring_window=(times[1], times[-1]), min_samples=3)
+    # The window holds the days 2001-01-01 to 2001-01-04: the stamp 2001-01-01
+    # closes 2000-12-31, which it leaves out.
+    options = dict(warmup_periods=1, scoring_window=(times[0], times[-1]), min_samples=3)
     _wire_pipeline(monkeypatch, results, observed)
     pipeline = composite.build_metric_extractor(
         None, None, object(), outputs=outputs, objective_blocks=blocks, **options

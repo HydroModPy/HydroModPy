@@ -57,8 +57,8 @@ class TestTheJacobian:
             return _simulate({"K": parameters["K"], "Sy": 0.5})
 
         forward_difference_jacobian(("K",), {"K": 100.0}, _record, relative_step=0.01)
-        # One reference run and one perturbed run, the latter a per cent away.
-        assert seen == [pytest.approx(100.0), pytest.approx(101.0)]
+        # One perturbed run, a per cent away, then the reference run.
+        assert seen == [pytest.approx(101.0), pytest.approx(100.0)]
 
     def test_a_parameter_sitting_at_zero_still_gets_a_step(self) -> None:
         # Zero has no scale of its own to take a fraction of.
@@ -69,7 +69,7 @@ class TestTheJacobian:
             return _simulate({"K": parameters["K"], "Sy": 0.0})
 
         forward_difference_jacobian(("K",), {"K": 0.0}, _record, relative_step=0.01)
-        assert seen[1] == pytest.approx(0.01)
+        assert seen[0] == pytest.approx(0.01)
 
     def test_a_run_that_returns_a_different_number_of_values_is_refused(self) -> None:
         calls = {"n": 0}

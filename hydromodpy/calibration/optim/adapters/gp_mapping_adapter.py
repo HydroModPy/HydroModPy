@@ -10,7 +10,9 @@ surrogate to the accumulated (x, y) pairs and pick the next point by
 maximising Expected Improvement against the best observed value.
 
 The optimizer declares convergence when EI at its argmax falls below a
-configurable threshold (default ``1e-6``).
+configurable threshold (default ``1e-6``). With a non-zero ``kappa`` the
+acquisition is the lower confidence bound and the criterion is the
+improvement that bound still promises, ``y_best - min LCB``.
 """
 
 from __future__ import annotations
@@ -265,8 +267,11 @@ class GPMappingOptimizer:
 
         y_best = float(np.min(y_train))
         candidates = self._maximise_acquisition(gp, y_best)
-        x_next, ei_next = candidates[0]
-        self._last_ei = float(ei_next)
+        x_next, score = candidates[0]
+        # In LCB mode the score is ``-min LCB``; the improvement the bound
+        # still promises is ``y_best - min LCB``, comparable to ``ei_tol``.
+        promised = score if self._kappa == 0.0 else y_best + score
+        self._last_ei = max(float(promised), 0.0)
         if self._last_ei < self._ei_tol:
             self._low_ei_streak += 1
         else:

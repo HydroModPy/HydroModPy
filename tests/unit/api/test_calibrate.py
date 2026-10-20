@@ -656,6 +656,7 @@ def test_calibrate_object_config_lists_its_phases(monkeypatch) -> None:
                 "rule": "5 % of the best cost",
             },
             "comparisons": [],
+            "scoring_window": "no window, all of the run",
         }
     ]
 

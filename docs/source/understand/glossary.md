@@ -165,10 +165,6 @@ summary
   The tables, map, figures and report over all the {term}`cases <case>` of a project, written
   under `summary/` by `hmp project collect`. It is rebuilt from the runs each time.
 
-GR4J
-  A rainfall-runoff model that treats a catchment as a single unit. HydroModPy can calibrate it
-  in place of the distributed model.
-
 groundwater
   Water that fills the pores of the ground below the {term}`water table`.
 

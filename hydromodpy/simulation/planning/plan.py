@@ -126,11 +126,10 @@ class RunContext:
     owner closes it: an adapter reads or writes through it during its own
     ``execute`` and keeps no reference past the call.
 
-    ``model``, ``output_dir`` and ``lumped_cache`` are what *this* run produced:
-    the solver model the adapter built, the directory the solver wrote into,
-    and the series a lightweight lumped run kept in RAM instead of writing.
-    All three are ``None`` while the run executes, because it has produced
-    nothing yet, and they are set on the contexts built after it completed.
+    ``model`` and ``output_dir`` are what *this* run produced: the solver model
+    the adapter built and the directory the solver wrote into. Both are ``None``
+    while the run executes, because it has produced nothing yet, and they are
+    set on the contexts built after it completed.
     They are carried here rather than looked up in a registry: every consumer
     asked the registry for the entry keyed by its own ``run.id``, which is not
     a registry lookup but a self-reference routed through shared mutable state.
@@ -143,7 +142,6 @@ class RunContext:
     store: Any = None
     model: Any = None
     output_dir: Path | None = None
-    lumped_cache: Any = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, RunState):
@@ -177,7 +175,6 @@ class RunContext:
             store=store,
             model=execution.models_by_run_id.get(run.id),
             output_dir=execution.output_dirs_by_run_id.get(run.id),
-            lumped_cache=execution.lumped_ram_cache,
         )
 
 

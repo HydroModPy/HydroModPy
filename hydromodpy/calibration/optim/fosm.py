@@ -84,22 +84,25 @@ def forward_difference_jacobian(
     """Return the (n_obs, n_par) derivative of the simulated vector.
 
     ``simulate`` runs the model at one parameter set and returns its value at each
-    observation, in a fixed order. One run per parameter, plus the reference one the
-    caller has already paid for.
+    observation, in a fixed order. One run per parameter, plus the reference one,
+    which runs last so the last simulated state is the reference's.
 
     A parameter the simulated vector does not respond to gives a column of zeros,
     which is not an error: it is the statement that this calibration could not see
     that parameter, and the covariance says so by refusing to invert.
     """
-    step_of = {}
-    base = np.asarray(simulate(reference), dtype=float).ravel()
-    columns = []
+    perturbed_runs = []
     for name in names:
         step = _step_for(float(reference[name]), relative_step)
-        step_of[name] = step
         moved = dict(reference)
         moved[name] = float(reference[name]) + step
         perturbed = np.asarray(simulate(moved), dtype=float).ravel()
+        perturbed_runs.append((name, step, perturbed))
+    # The reference runs last: a caller that keeps the vector of the last run
+    # (the residuals of the fit) then holds the reference's, not a perturbed one.
+    base = np.asarray(simulate(reference), dtype=float).ravel()
+    columns = []
+    for name, step, perturbed in perturbed_runs:
         if perturbed.size != base.size:
             raise ValueError(
                 f"perturbing {name!r} returned {perturbed.size} simulated value(s) and the "

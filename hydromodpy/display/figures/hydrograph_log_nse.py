@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.metrics import log_floor
 from hydromodpy.core.units.labels import (
     AXIS_LABELS,
     CATCHMENT_OUTLET_STATION,
@@ -69,12 +70,6 @@ and every common colour-vision deficiency.
 """
 
 OBSERVED_COLOR = "black"
-FLOOR_FRACTION = 0.01
-"""Fraction of the median observed flow used as the log floor.
-
-Same rule as the ``eps`` :func:`hydromodpy.core.metrics.log_nse` picks when
-none is given, so the floor of the figure is the floor of the score.
-"""
 
 _DEFAULT_VARIABLE = "discharge"
 _WINDOW_COLOR = "0.82"
@@ -162,11 +157,10 @@ class HydrographLogNseFigure(BaseFigure):
             drainage_variable=drainage_variable,
             runoff_variable=runoff_variable,
         )
-        level = _log_floor(floor, observed, total)
-
         score = run_score(
             sim, stations=[station_id for station_id, _ in observed], variable=variable
         )
+        level = _log_floor(floor, observed, total, _scored_stamps(sim, score, index))
         window = _shade_window(ax, score)
 
         on_floor: list[tuple[str, int, np.ndarray]] = []
@@ -419,24 +413,35 @@ def _on_index(values: pd.Series | np.ndarray, index: pd.DatetimeIndex, label: st
     return pd.Series(array, index=index)
 
 
+def _scored_stamps(sim: Run, score: RunScore | None, index: pd.DatetimeIndex) -> np.ndarray:
+    """Say which stamps of the simulation index the score read.
+
+    Every stamp when the run recorded no score window.
+    """
+    if score is None:
+        return np.ones(index.size, dtype=bool)
+    return score.scored(index, run_period_start(sim, index))
+
+
 def _log_floor(
     floor: float | None,
     observed: list[tuple[str, pd.Series]],
     total: pd.Series,
+    scored: np.ndarray,
 ) -> float:
     """Return the flow below which the log axis, like the score, cannot look.
 
-    Mirrors the default ``eps`` of :func:`hydromodpy.core.metrics.log_nse`:
-    one percent of the median positive observation, or of the median positive
-    simulation when the run carries no observation.
+    The :func:`hydromodpy.core.metrics.log_floor` of the score, read on the
+    stamps the score read: the observations paired with a simulated value
+    inside the scoring window, or the simulation when the run carries no
+    observation.
     """
     if floor is not None:
         return float(floor)
     pools = [series for _, series in observed] or [total]
-    values = np.concatenate([series.to_numpy(dtype="float64") for series in pools])
-    positives = values[np.isfinite(values) & (values > 0.0)]
-    median = float(np.median(positives)) if positives.size else 1.0
-    return max(1e-9, FLOOR_FRACTION * median)
+    read = scored & np.isfinite(total.to_numpy(dtype="float64"))
+    values = np.concatenate([series.to_numpy(dtype="float64")[read] for series in pools])
+    return log_floor(values)
 
 
 def _shade_window(ax: Axes, score: RunScore | None) -> RunScore | None:

@@ -7,7 +7,10 @@ Parquet view names, the solver vocabulary and the direction of every metric. The
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, TypeVar
+
+if TYPE_CHECKING:
+    import numpy as np
 
 GLOBAL_ZONE = "__global__"
 """Sentinel parameter zone used when no spatial zoning applies."""
@@ -120,18 +123,12 @@ METRIC_SENSE: dict[str, MetricSense] = {
     "nse_delta": "max",
     "nse_seasonal": "max",
     "kge": "max",
-    "kge_delta": "max",
     "kge_r": "max",
-    "r2": "max",
     "correlation": "max",
     "reservoir": "max",
     "rmse": "min",
     "mae": "min",
-    "mse": "min",
-    "objective_best": "min",
     "closure_max_abs_m3_s": "min",
-    "closure_mean_abs_m3_s": "min",
-    "closure_rmse_m3_s": "min",
     "closure_max_abs_mm_d": "min",
     "closure_relative_error_p95": "min",
     "distance_gap": "min",
@@ -141,7 +138,12 @@ METRIC_SENSE: dict[str, MetricSense] = {
     "kge_alpha": "one",
     "kge_beta": "one",
 }
-"""Direction of every metric the catalog knows how to rank."""
+"""Direction of every metric the catalog knows how to rank.
+
+Each key has a producer: the run kernels (``metric_rule.METRIC_NAMES``), the
+calibration criteria or the budget closure of a comparison. A test holds the
+two lists together.
+"""
 
 
 RETIRED_METRIC_NAMES: dict[str, str] = {"log_nse": "nse_log"}
@@ -177,6 +179,41 @@ def metric_sense(metric: str) -> MetricSense:
     return sense
 
 
+Value = TypeVar("Value", float, "np.ndarray")
+
+
+def _flips(metric: str) -> bool:
+    """Say whether ``metric`` rises with the fit, so its cost is one minus it.
+
+    Refuses a metric best at a target (zero or one): it is no cost as it stands.
+    """
+    sense = metric_sense(metric)
+    if sense in ("zero", "one"):
+        raise UnrankedMetricError(
+            f"Metric '{metric}' is best at {0 if sense == 'zero' else 1}, not at one end "
+            "of its range: it has no cost to minimise."
+        )
+    return sense == "max"
+
+
+def cost_of(metric: str, score: Value) -> Value:
+    """Return the cost a search minimises for a ``score`` of ``metric``.
+
+    One minus the score for a metric that rises with the fit (an efficiency,
+    perfect at 1); the score itself for one that falls (an error, a distance).
+    A value or an array.
+    """
+    return 1.0 - score if _flips(metric) else score
+
+
+def score_of(metric: str, cost: Value) -> Value:
+    """Return the score of ``metric`` that a search ``cost`` stands for.
+
+    The inverse of :func:`cost_of`.
+    """
+    return 1.0 - cost if _flips(metric) else cost
+
+
 def metric_rank_sql(metric: str, *, best: bool, column: str = "m.value") -> str:
     """Return the ``ORDER BY`` expression that puts the best (or worst) value first.
 
@@ -202,8 +239,10 @@ __all__ = [
     "UnrankedMetricError",
     "VALID_SOLVER_CODES",
     "canonical_solver_code",
+    "cost_of",
     "metric_rank_sql",
     "metric_sense",
+    "score_of",
     "solver_category",
     "validate_solver_code",
 ]

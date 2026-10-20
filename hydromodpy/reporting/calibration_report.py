@@ -33,7 +33,11 @@ from hydromodpy.results.derive.time_alignment import (
     observed_on_simulation_index,
     time_method_for,
 )
-from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.session.descriptor import (
+    ScoredSamples,
+    read_session,
+    scored_samples_text,
+)
 from hydromodpy.results.storage.contract import (
     REPORT_INDEX_FILENAME,
     RUN_FIGURES_DIRNAME,
@@ -510,7 +514,14 @@ def _render_html(
             continue
         if key == "best_sim_id":
             value = _hex(value)
+        if key == "best_objective" and session.get("objective_label"):
+            # A cost of 0.08 on an NSE reads as a poor score; the label says it is 1 - NSE.
+            value = f"{value} ({session['objective_label']})"
         rows_html.append(f"<tr><th>{html.escape(key)}</th><td>{html.escape(str(value))}</td></tr>")
+        if key == "best_objective":
+            scored = _scored_on(session)
+            if scored:
+                rows_html.append(f"<tr><th>scored on</th><td>{html.escape(scored)}</td></tr>")
     summary_rows = "\n      ".join(rows_html)
 
     figure_blocks = []
@@ -532,6 +543,22 @@ def _render_html(
         figures_html=figures_html,
         iterations_preview=html.escape(preview),
     )
+
+
+def _scored_on(session: Mapping[str, Any]) -> str | None:
+    """Return the pairs the best cost was scored on, and the window the session declares."""
+    window = session.get("objective_window")
+    declared = f"window {window['start']} to {window['end']}" if window else None
+    samples = {
+        name: ScoredSamples.model_validate(payload)
+        for name, payload in (session.get("objective_samples") or {}).items()
+    }
+    if samples:
+        text = f"{scored_samples_text(samples)}, best trial"
+        return text + (f" ({declared})" if declared else "")
+    if declared:
+        return f"{declared}, pairs not counted"
+    return None
 
 
 def _hex(value: Any) -> str:

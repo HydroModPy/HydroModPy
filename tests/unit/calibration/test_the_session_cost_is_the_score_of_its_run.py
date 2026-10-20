@@ -6,12 +6,14 @@ searches, and the run promoted from it is scored again by
 promotion tests use a stand-in, and ``fit_metrics`` was imported by its own
 tests only.
 
-They do not agree today (N1 of the audit of 2026-10-20). The session keeps the
-pairs whose END stamp falls in ``[start, end]``; the run keeps the periods
+They used to disagree (N1 of the audit of 2026-10-20). The session kept the
+pairs whose END stamp fell in ``[start, end]``; the run keeps the periods
 lying wholly in the window. On a monthly run and a 2001-2002 window the
-session scores December 2000 to November 2002, the run January 2001 to
-December 2002, 24 periods each. Aligning the session on the run's rule is
-decision m01; until then this test is expected to fail.
+session scored December 2000 to November 2002, the run January 2001 to
+December 2002, 24 periods each. Both now read the window through
+:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`
+(decision m01), and the cost is ``1 - NSE`` of the run to
+:data:`SAME_PAIRS`.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_ob
 from hydromodpy.calibration.metrics.scalar import score
 from hydromodpy.results.fit_metrics import score_timeseries
 from hydromodpy.results.metric_rule import DateWindow, MetricRule
+from tests._helpers.tolerances import tol
 
 GAUGE = "NANCON"
 FIRST_PERIOD = pd.Timestamp("2000-01-01")
@@ -34,18 +37,13 @@ FIRST_PERIOD = pd.Timestamp("2000-01-01")
 STAMPS = pd.date_range("2000-02-01", periods=36, freq="MS")
 WINDOW = (datetime.date(2001, 1, 1), datetime.date(2002, 12, 31))
 
-N1 = pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "N1: the session keeps the end stamps inside the window, the run keeps the "
-        "periods lying wholly in it; aligning them is decision m01."
-    ),
-)
+SAME_PAIRS = tol("session_cost_against_run_score__gap_of_1_cost_to_the_run_nse")
+"""Same pairs, same kernel: machine epsilon (tests/TOLERANCES.md row 179)."""
 
 
 def _series() -> tuple[pd.Series, pd.Series]:
     """A monthly simulated discharge and the daily record it is judged against."""
-    days = pd.date_range(FIRST_PERIOD, STAMPS[-1] - pd.Timedelta(days=1), freq="D")
+    days = pd.date_range(FIRST_PERIOD, STAMPS[-1] - pd.Timedelta(1, unit="D"), freq="D")
     t = np.arange(days.size, dtype=float)
     observed = pd.Series(
         1.0 + 0.6 * np.cos(2.0 * np.pi * t / 365.25) + 0.2 * np.sin(t / 17.0), index=days
@@ -96,7 +94,6 @@ def test_the_run_scores_the_window_on_whole_periods() -> None:
     assert n == 24
 
 
-@N1
 def test_the_single_metric_route_scores_what_the_run_scores() -> None:
     observed, simulated = _series()
 
@@ -110,10 +107,9 @@ def test_the_single_metric_route_scores_what_the_run_scores() -> None:
     )
 
     value, _ = _run_score()
-    assert 1.0 - cost == pytest.approx(value, abs=1e-9)
+    assert 1.0 - cost == pytest.approx(value, abs=SAME_PAIRS)
 
 
-@N1
 def test_the_block_route_scores_what_the_run_scores() -> None:
     observed, simulated = _series()
     paired = pair_outputs_with_observations(
@@ -130,4 +126,4 @@ def test_the_block_route_scores_what_the_run_scores() -> None:
 
     value, n = _run_score()
     assert paired.n_paired["hydrograph"] == n
-    assert 1.0 - result.cost == pytest.approx(value, abs=1e-9)
+    assert 1.0 - result.cost == pytest.approx(value, abs=SAME_PAIRS)

@@ -75,6 +75,7 @@ from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE, UnrankedMetricError, metric_sense
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.publication import redact
+from hydromodpy.results.run.sealed import INDEX_RULE, check_one_rule, rule_cell
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
     REPORT_INDEX_FILENAME,
@@ -115,14 +116,6 @@ COLLECT_PRODUCER: Final[str] = "project.summary"
 PLANNED_STATUS: Final[str] = "planned"
 """Status of a case of the plan that has no directory yet."""
 
-RULE_COLUMNS: Final[tuple[str, ...]] = (
-    "nse_variable",
-    "nse_window_start",
-    "nse_window_end",
-    "metric_rule_version",
-)
-"""Columns that make two scores comparable across the cohort."""
-
 DATE_COLUMNS: Final[frozenset[str]] = frozenset(
     {
         "label_date",
@@ -138,9 +131,6 @@ INTEGER_COLUMNS: Final[frozenset[str]] = frozenset(
     {"version", "attempt", "nse_n", "n_cases", "n_completed"}
 )
 """Columns that hold a count, kept integer when a cell is missing."""
-
-STATION_COLUMN: Final[str] = "nse_station"
-"""Column of the station a score was read at, compared inside one site."""
 
 CASE_COLUMNS: Final[tuple[str, ...]] = (
     "case_id",
@@ -283,10 +273,6 @@ class SummaryError(ConfigError):
     """``[sites.summary]`` or ``[[sites.export]]`` asks for something the collect cannot give."""
 
 
-class MixedWindowsError(DataError):
-    """Scores computed under different rules were about to be ranked together."""
-
-
 class UnreadableManifestError(DataError):
     """A sealed run or session whose seal does not read under this version."""
 
@@ -406,87 +392,31 @@ def rank_key(value: float, metric: str) -> float:
     return abs(number - 1.0)
 
 
-def _cell_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, float) and math.isnan(value):
-        return None
-    if isinstance(value, datetime):
-        return value.date().isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    text = str(value)
-    if text in ("NaT", "nan", "None"):
-        return None
-    return text[:10] if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-" else text
-
-
-def check_one_rule(
-    frame: pd.DataFrame, metric: str, *, by: str | None = None, mixed_windows: bool = False
-) -> None:
-    """Refuse to rank rows of ``frame`` whose ``metric`` was scored under different rules.
-
-    The rule is :data:`RULE_COLUMNS` across the whole frame and, inside each
-    group of ``by``, the station too. Rows without a finite value do not count.
-
-    Raises
-    ------
-    MixedWindowsError
-        Naming each rule and the rows under it, unless ``mixed_windows``.
-    """
-    if mixed_windows or frame.empty or metric not in frame.columns:
-        return
-    scored = frame[[_finite(value) for value in frame[metric]]]
-    columns = [column for column in RULE_COLUMNS if column in scored.columns]
-    rules: dict[tuple[str | None, ...], list[str]] = {}
-    for record in scored.to_dict("records"):
-        key = tuple(_cell_text(record.get(column)) for column in columns)
-        rules.setdefault(key, []).append(str(record.get("case_id") or record.get("name")))
-    if len(rules) > 1:
-        listed = "; ".join(
-            f"{_rule_words(dict(zip(columns, key, strict=True)))}: {', '.join(cases[:5])}"
-            + (f" and {len(cases) - 5} more" if len(cases) > 5 else "")
-            for key, cases in sorted(rules.items(), key=lambda item: str(item[0]))
-        )
-        raise MixedWindowsError(
-            f"'{metric}' was scored under {len(rules)} different rules: {listed}. The values "
-            "are not comparable; declare one [metrics] window for every case, or pass "
-            "--mixed-windows to rank them anyway."
-        )
-    if by is None or STATION_COLUMN not in scored.columns or by not in scored.columns:
-        return
-    for group, rows in scored.groupby(by, dropna=False):
-        stations = {_cell_text(value) for value in rows[STATION_COLUMN]}
-        if len(stations) > 1:
-            raise MixedWindowsError(
-                f"the cases of {by} {group} score '{metric}' at {len(stations)} stations "
-                f"({', '.join(sorted(str(s) for s in stations))}); pass --mixed-windows to "
-                "rank them anyway."
-            )
-
-
-def _rule_words(rule: Mapping[str, str | None]) -> str:
-    variable = rule.get("nse_variable") or "?"
-    start = rule.get("nse_window_start") or "no window"
-    end = rule.get("nse_window_end") or ""
-    version = rule.get("metric_rule_version") or "?"
-    window = f"{start} to {end}" if end else start
-    return f"{variable}, {window} (rule {version})"
-
-
 def rank_rows(
     frame: pd.DataFrame, metric: str, *, by: str | None = None, mixed_windows: bool = False
 ) -> pd.DataFrame:
     """Return the rows of ``frame`` with a finite ``metric``, best first.
 
     Under ``by``, only the best row of each group is kept, groups in name
-    order. Ties keep the first row of ``frame``. See :func:`check_one_rule`.
+    order. Ties keep the first row of ``frame``. Rows scored under different rules
+    are refused (:func:`~hydromodpy.results.run.sealed.check_one_rule`).
     """
     metric_sense(metric)
     if frame.empty or metric not in frame.columns:
         return frame.iloc[0:0]
-    check_one_rule(frame, metric, by=by, mixed_windows=mixed_windows)
     scored = frame[[_finite(value) for value in frame[metric]]].copy()
+    if not mixed_windows:
+        check_one_rule(
+            scored.to_dict("records"),
+            metric,
+            names=[
+                str(record.get("case_id") or record.get("name"))
+                for record in scored.to_dict("records")
+            ],
+            columns=INDEX_RULE,
+            groups=None if by is None else list(scored[by]),
+            group_name=by or "group",
+        )
     scored["_rank"] = [rank_key(value, metric) for value in scored[metric]]
     scored = scored.sort_values("_rank", kind="stable")
     if by is not None:
@@ -524,7 +454,7 @@ def collect_project(
     SummaryError
         For a figure, a column, a parameter name or an export the collect
         cannot give.
-    MixedWindowsError
+    hydromodpy.results.run.sealed.MixedWindowsError
         For scores under different rules, without ``mixed_windows``.
     """
     from hydromodpy.results.catalog import Catalog
@@ -1465,7 +1395,7 @@ def _write_readme(
 
     completed = by_case[by_case["status"] == "completed"]
     windows = {
-        (_cell_text(start), _cell_text(end))
+        (rule_cell(start), rule_cell(end))
         for start, end in zip(
             completed["nse_window_start"], completed["nse_window_end"], strict=True
         )
@@ -1587,14 +1517,11 @@ __all__ = [
     "CASE_COLUMNS",
     "CATALOG_CSV_FILENAME",
     "COHORT_FIGURE_MODULE_PREFIX",
-    "MixedWindowsError",
     "RO_CRATE_FILENAME",
-    "RULE_COLUMNS",
     "RunFacts",
     "SummaryError",
     "SummaryPaths",
     "UnreadableManifestError",
-    "check_one_rule",
     "collect_project",
     "names_text",
     "overrides_text",

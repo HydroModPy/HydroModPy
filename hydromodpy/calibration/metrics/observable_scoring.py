@@ -45,7 +45,7 @@ from hydromodpy.calibration.metrics.scalar import score as score_series
 from hydromodpy.calibration.optim.objective import SimulationOutput, build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
 from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_state
 from hydromodpy.results.derive.time_alignment import first_period_start, time_method_for
 
@@ -210,9 +210,11 @@ def refuse_a_network_state_outside_the_window(
     """Refuse a network state the window does not hold, naming both.
 
     A network output read in one state is dated at the stamp that closes the
-    period it reads, and the window keeps a stamp from ``start`` to ``end``,
-    both included, as it keeps the stamps of a series. A state outside the
-    window would be scored under the name of a windowed cost. A date the run
+    period it reads, and the window keeps a state whose stamp falls on a day
+    from ``start`` to ``end``, both included, as it keeps the states of a
+    series (:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`).
+    A state outside the window would be scored under the name of a windowed
+    cost. A date the run
     does not hold is refused here too, by the output that names it. Nothing is
     checked without a time grid: the stamp is unknown there.
     """
@@ -234,7 +236,7 @@ def refuse_a_network_state_outside_the_window(
         except TimeSelectionError as exc:
             raise ValueError(f"network output {name!r} has time = {time!r}: {exc}") from exc
         stamp = _naive_utc(boundaries[index + 1])
-        if (start is None or stamp >= start) and (end is None or stamp <= end):
+        if periods_in_window([stamp], method="point", start=start, end=end)[0]:
             continue
         raise ValueError(
             f"scoring_window {_day(start)} to {_day(end)} does not hold the network state "

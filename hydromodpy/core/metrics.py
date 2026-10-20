@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import numpy as np
 
+LOG_FLOOR_FRACTION = 0.01
+"""Share of the median positive observation that ``log_floor`` offsets by."""
+
 __all__ = [
     "kge_delta",
     "nse_delta",
@@ -23,6 +26,7 @@ __all__ = [
     "bias",
     "correlation",
     "kge",
+    "log_floor",
     "log_nse",
     "mae",
     "nse",
@@ -61,11 +65,25 @@ def nse(sim, obs) -> float:
     return float(1.0 - float(np.sum((s - o) ** 2)) / denom)
 
 
+def log_floor(observed) -> float:
+    """Offset added before the logarithm of a log-scale score.
+
+    The larger of ``1e-9`` and ``0.01 × median(observed > 0)``, taken on the
+    sample the score reads: the observations paired with a simulated value,
+    inside the scoring window. NaN entries are ignored. With no positive
+    observation the median counts as 1.
+    """
+    values = np.asarray(observed, dtype=float).ravel()
+    positives = values[np.isfinite(values) & (values > 0.0)]
+    median = float(np.median(positives)) if positives.size else 1.0
+    return max(1e-9, LOG_FLOOR_FRACTION * median)
+
+
 def log_nse(sim, obs, *, eps: float | None = None) -> float:
     """NSE on log-transformed series; rejects negative values.
 
-    When ``eps`` is None, an offset of ``max(1e-9, 0.01 × median(obs > 0))``
-    is used so the metric stays scale-invariant.
+    When ``eps`` is None, the offset of :func:`log_floor` is used, so the
+    metric stays scale-invariant.
     """
     s, o = align(sim, obs)
     if s.size == 0:
@@ -73,9 +91,7 @@ def log_nse(sim, obs, *, eps: float | None = None) -> float:
     if np.any(s < 0) or np.any(o < 0):
         raise ValueError("log_nse: series contain negative values")
     if eps is None:
-        positives = o[o > 0]
-        med = float(np.median(positives)) if positives.size else 1.0
-        eps = max(1e-9, 0.01 * med)
+        eps = log_floor(o)
     return nse(np.log(s + eps), np.log(o + eps))
 
 

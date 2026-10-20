@@ -42,6 +42,14 @@ COMPARISON_MANIFEST_SCHEMA = "hydromodpy.comparison.v2"
 
 METRICS_SCHEMA_VERSION = "comparison_metrics_v2"
 
+_CLOSURE_SCORES = {
+    "closure_max_abs_m3_s": "max_abs_closure_m3_s",
+    "closure_max_abs_mm_d": "max_abs_closure_mm_d",
+    "closure_relative_error_p95": "relative_closure_error_p95",
+}
+CLOSURE_METRIC_NAMES = tuple(_CLOSURE_SCORES)
+"""The scores of the budget closure the comparison manifest carries, lower is better."""
+
 
 @dataclass(frozen=True)
 class ComparisonOutcome:
@@ -139,11 +147,9 @@ def run_comparison(
     closure = _numerical_closure_manifest(outputs.closure_summary_rows)
     if closure:
         manifest["numerical_closure"] = closure
+        manifest.update({name: closure[field] for name, field in _CLOSURE_SCORES.items()})
         manifest.update(
             {
-                "closure_max_abs_m3_s": closure["max_abs_closure_m3_s"],
-                "closure_max_abs_mm_d": closure["max_abs_closure_mm_d"],
-                "closure_relative_error_p95": closure["relative_closure_error_p95"],
                 "closure_status": closure["diagnostic"],
                 "closure_status_code": closure["diagnostic_code"],
             }
@@ -235,6 +241,7 @@ def _max_finite(rows: list[dict[str, Any]], field: str) -> float | None:
 
 
 __all__ = (
+    "CLOSURE_METRIC_NAMES",
     "COMPARISON_MANIFEST_FILENAME",
     "ComparisonOutcome",
     "read_comparison_manifest",

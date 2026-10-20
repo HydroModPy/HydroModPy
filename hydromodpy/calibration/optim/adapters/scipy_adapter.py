@@ -279,8 +279,10 @@ class ScipyNelderMead:
     ):
         self.space = space
         self._seed = seed
-        self._maxiter = 100 if maxiter is None else int(maxiter)
-        self._maxfev = self._maxiter if maxfev is None else int(maxfev)
+        # Left unset, the session budget (``max_iter``, enforced by the engine
+        # loop) is the only cap; a hard 100 here ended a larger budget early.
+        self._maxiter: float = np.inf if maxiter is None else int(maxiter)
+        self._maxfev: float = self._maxiter if maxfev is None else int(maxfev)
         self._xatol = None if xatol is None else float(xatol)
         self._fatol = None if fatol is None else float(fatol)
         self._start_at = None if start_at is None else np.asarray(start_at, dtype=float).ravel()
@@ -322,7 +324,11 @@ class ScipyNelderMead:
         delta = 0.1 * (upper - lower)
         initial_simplex = np.tile(x0, (n + 1, 1))
         for i in range(n):
-            initial_simplex[i + 1, i] = float(np.clip(x0[i] + delta[i], lower[i], upper[i]))
+            vertex = float(np.clip(x0[i] + delta[i], lower[i], upper[i]))
+            if vertex == x0[i]:
+                # Clipped back onto the start (on the upper bound): step down.
+                vertex = float(np.clip(x0[i] - delta[i], lower[i], upper[i]))
+            initial_simplex[i + 1, i] = vertex
         tolerances: dict[str, float] = {}
         if self._xatol is not None:
             tolerances["xatol"] = self._xatol

@@ -32,7 +32,12 @@ from hydromodpy.calibration import (
     ParamSuggestion,
     build_optimizer,
 )
+from hydromodpy.core.metrics import align as _align_metric
 from hydromodpy.core.metrics import kge as _kge_metric
+from hydromodpy.core.metrics import log_nse as _log_nse_metric
+from hydromodpy.core.metrics import nse as _nse_metric
+from hydromodpy.core.metrics import rmse as _rmse_metric
+from hydromodpy.results.catalog.constants import cost_of
 
 # ---------------------------------------------------------------------------
 # Fixed physical context
@@ -306,55 +311,33 @@ def make_baseflow_simulator(
 # ---------------------------------------------------------------------------
 
 
-def _nse(obs: np.ndarray, sim: np.ndarray) -> float:
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    o, s = obs[mask], sim[mask]
-    denom = float(np.sum((o - o.mean()) ** 2))
-    if denom == 0.0:
-        return float("nan")
-    return 1.0 - float(np.sum((s - o) ** 2)) / denom
-
-
-def _nse_log(obs: np.ndarray, sim: np.ndarray) -> float:
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    o, s = obs[mask], sim[mask]
-    if np.any(o <= 0.0) or np.any(s <= 0.0):
-        return float("nan")
-    return _nse(np.log(o), np.log(s))
-
-
-def _kge_with_components(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
-    """KGE 2009 with ddof=1 components."""
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    o, s = obs[mask], sim[mask]
-    obs_mean = float(np.mean(o))
-    sim_mean = float(np.mean(s))
-    obs_std = float(np.std(o, ddof=1))
-    sim_std = float(np.std(s, ddof=1))
-    if obs_std == 0.0 or obs_mean == 0.0:
-        return {"KGE": float("nan"), "r": float("nan"), "alpha": float("nan"), "beta": float("nan")}
-    r = float(np.corrcoef(o, s)[0, 1])
-    alpha = sim_std / obs_std
-    beta = sim_mean / obs_mean
-    kge = 1.0 - float(np.sqrt((r - 1.0) ** 2 + (alpha - 1.0) ** 2 + (beta - 1.0) ** 2))
-    return {"KGE": kge, "r": r, "alpha": alpha, "beta": beta}
-
-
 def _compute_metrics(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
     """Compute the full performance-metric bundle used by the golden."""
     obs = np.asarray(obs, dtype=float).ravel()
     sim = np.asarray(sim, dtype=float).ravel()
     if obs.shape != sim.shape:
         raise ValueError("observed and simulated must have the same shape")
-    kge_parts = _kge_with_components(obs, sim)
+    kge_parts = _kge_metric(sim=sim, obs=obs)
     return {
-        "NSE": float(_nse(obs, sim)),
-        "NSElog": float(_nse_log(obs, sim)),
-        "KGE": float(kge_parts["KGE"]),
+        "NSE": float(_nse_metric(sim=sim, obs=obs)),
+        "NSElog": _nse_log_or_nan(obs, sim),
+        "KGE": float(kge_parts["kge"]),
         "r": float(kge_parts["r"]),
         "alpha": float(kge_parts["alpha"]),
         "beta": float(kge_parts["beta"]),
     }
+
+
+def _nse_log_or_nan(obs: np.ndarray, sim: np.ndarray) -> float:
+    """Return the core NSElog, or NaN when a scored value is not positive.
+
+    The core kernel raises on a negative value and accepts a zero; this case
+    reports NaN for both.
+    """
+    s, o = _align_metric(sim, obs)
+    if np.any(o <= 0.0) or np.any(s <= 0.0):
+        return float("nan")
+    return float(_log_nse_metric(sim=s, obs=o))
 
 
 # ---------------------------------------------------------------------------
@@ -364,17 +347,15 @@ def _compute_metrics(obs: np.ndarray, sim: np.ndarray) -> dict[str, float]:
 
 def _kge_cost(obs: np.ndarray, sim: np.ndarray) -> float:
     """``1 - KGE`` (minimization)."""
-    value = _kge_metric(sim, obs)["kge"]
+    value = _kge_metric(sim=sim, obs=obs)["kge"]
     if not np.isfinite(value):
         return 1e12
-    return 1.0 - float(value)
+    return cost_of("kge", float(value))
 
 
 def _rmse_cost(obs: np.ndarray, sim: np.ndarray) -> float:
-    mask = np.isfinite(obs) & np.isfinite(sim)
-    if mask.sum() == 0:
-        return 1e12
-    return float(np.sqrt(np.mean((sim[mask] - obs[mask]) ** 2)))
+    value = _rmse_metric(sim=sim, obs=obs)
+    return float(value) if np.isfinite(value) else 1e12
 
 
 _COST_FNS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {

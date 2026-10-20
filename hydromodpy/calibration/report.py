@@ -25,7 +25,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.session.descriptor import read_session
+from hydromodpy.results.session.descriptor import (
+    ScoredSamples,
+    read_session,
+    scored_samples_text,
+)
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.storage.contract import (
     PARQUET_FILE_SUFFIX,
@@ -191,7 +195,8 @@ class SessionReportData:
         Name of the session directory on disk (``<case>[.vN]``), so the
         report sits under the same name.
     session
-        The descriptor as a mapping, plus ``n_iterations`` and ``phase_name``.
+        The descriptor as a mapping, plus ``n_iterations``, ``best_objective``
+        (the cost of the best trial) and ``phase_name``.
     iterations
         The trials as plain rows, one per trial number.
     workspace_root
@@ -253,6 +258,7 @@ def load_session_report_data(session_dir: Path) -> SessionReportData:
     phases = persistence.phases()
     session_row = descriptor.model_dump(mode="json", by_alias=True)
     session_row["n_iterations"] = len(iterations)
+    session_row["best_objective"] = best.objective if best is not None else None
     session_row["phase_name"] = phases[-1].name if phases else None
     return SessionReportData(
         session_id=descriptor.session_id,
@@ -334,6 +340,16 @@ def _load_best_lake_level(run_dir: Path) -> tuple[pd.DataFrame | None, pd.DataFr
     return _series_of(table, variable="stage", station=station), None
 
 
+def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:
+    """Return the pairs of ``extra["cost_samples"]`` in words, one clause per output."""
+    return scored_samples_text({name: scored_entry(info) for name, info in samples.items()})
+
+
+def scored_entry(info: Mapping[str, Any]) -> ScoredSamples:
+    """Return one ``{n_paired, start, end}`` entry of a report as a :class:`ScoredSamples`."""
+    return ScoredSamples(n=info["n_paired"], first=info.get("start"), last=info.get("end"))
+
+
 def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:
     """Whether an interval holds the best trial alone, so it has no width.
 
@@ -387,4 +403,6 @@ __all__ = (
     "interval_is_degenerate",
     "load_session_report_data",
     "promotion_failures",
+    "samples_text",
+    "scored_entry",
 )

@@ -25,8 +25,8 @@ evaluations its rule needs, before the first solve, publishes that count
 declared number below its nominal case is refused, and at run time the engine
 is granted exactly what it says it still needs, once. An engine that cannot
 count gets no extension: a search stopped by its budget is reported as not
-converged, and a re-run with a larger ``max_iter`` replays the trials already
-solved from the params-hash cache.
+converged, and a re-run of the same file with a larger ``max_iter`` replays the
+trials already solved from the params-hash cache.
 """
 
 from __future__ import annotations

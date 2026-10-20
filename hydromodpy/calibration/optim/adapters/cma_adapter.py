@@ -31,6 +31,9 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
 
+_SEED_FOR_ZERO = 2**31 - 1
+"""The seed that stands for 0, which ``cma`` would draw from the clock."""
+
 
 @register_optimizer("cma_es")
 class CmaEsAdapter:
@@ -158,7 +161,9 @@ class CmaEsAdapter:
         if self._seed is not None:
             # Offset the seed per restart so successive strategies do not
             # replay identical pseudo-random batches.
-            options["seed"] = int(self._seed) + self._restarts_used
+            seed = int(self._seed) + self._restarts_used
+            # cma reads 0 as "seed from the clock"; a declared seed must repeat.
+            options["seed"] = seed if seed != 0 else _SEED_FOR_ZERO
         return self._cma_module.CMAEvolutionStrategy(list(x0_t), self._sigma0, options)
 
     def _try_restart(self) -> bool:

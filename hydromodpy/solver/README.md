@@ -66,9 +66,6 @@ hydromodpy/solver/
   boussinesq/    boussinesq.py  mesh.py  assembly/  adapters/  extractors/  ... (see its README)
 ```
 
-GR4J is not a solver backend. It is a lumped model in `calibration/lumped/`,
-run in memory and outside this registry.
-
 ## How a run reaches a backend
 
 1. **Choose.** `[solver] backend` selects the flow backend (`modflow6`,

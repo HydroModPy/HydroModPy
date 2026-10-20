@@ -41,6 +41,7 @@ __all__ = (
     "period_mean_on_index",
     "period_point_on_index",
     "period_value_on_index",
+    "periods_in_window",
 )
 
 logger = get_logger(__name__)
@@ -118,6 +119,56 @@ def period_edges(stamps: Any, *, start: Any = None) -> pd.DatetimeIndex:
             f"the first period starts at {first}, not before its end stamp {ordered[0]}."
         )
     return pd.DatetimeIndex([first, *list(ordered)]).as_unit("ns")
+
+
+def _day(bound: Any) -> pd.Timestamp | None:
+    """Return the midnight that opens the day of *bound*, naive UTC, or ``None``."""
+    if bound is None:
+        return None
+    return _naive_timestamp(bound).normalize()
+
+
+def periods_in_window(
+    stamps: Any,
+    *,
+    method: str,
+    start: Any = None,
+    end: Any = None,
+    grid: Any = None,
+    period_start: Any = None,
+) -> np.ndarray:
+    """Return which end-stamped values a window of days keeps, one flag per stamp.
+
+    The window holds the days ``start`` to ``end``, both included, read on the
+    naive UTC clock; a bound left ``None`` is open. A mean over a period
+    ``[s, e)`` counts when the whole period lies in the window: ``s`` on or
+    after the first day, ``e`` no later than the midnight after the last day.
+    A state counts when its stamp falls in the window. This is the rule of the
+    score of a run and of the cost of a calibration session alike.
+
+    The periods are cut on *grid*, every simulated stamp (default *stamps*),
+    and *period_start*, so a stamp missing from *stamps* never moves the start
+    of the period after it. A period whose start cannot be placed (one stamp,
+    no *period_start*) is outside a window that has a start.
+    """
+    index = _naive(stamps)
+    keep = np.ones(len(index), dtype=bool)
+    first_day = _day(start)
+    last_day = _day(end)
+    point = check_time_method(method) == "point"
+    if last_day is not None:
+        end_exclusive = last_day + pd.Timedelta(1, unit="D")
+        keep &= np.asarray(index < end_exclusive if point else index <= end_exclusive)
+    if first_day is None or len(index) == 0:
+        return keep
+    if point:
+        return keep & np.asarray(index >= first_day)
+    try:
+        edges = period_edges(index if grid is None else grid, start=period_start)
+    except ValueError:
+        return np.zeros(len(index), dtype=bool)
+    starts = pd.Series(edges[:-1], index=edges[1:]).reindex(index)
+    return keep & np.asarray(starts >= first_day, dtype=bool)
 
 
 def period_end_stamps(

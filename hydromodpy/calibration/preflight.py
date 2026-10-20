@@ -221,7 +221,12 @@ def protocol_lines(cfg: Any) -> tuple[list[str], list[str]]:
             verbose.append(f"  as the paper on {key}: {told}{suffix}")
     # An option moved off the recipe keeps the method but changes what the number
     # rests on, and only the file knows it moved.
-    same = options_the_recipe_already_runs(declared, cfg.calibration, time)
+    same = options_the_recipe_already_runs(
+        declared,
+        cfg.calibration,
+        time,
+        metrics_window=getattr(getattr(cfg, "metrics", None), "window", None),
+    )
     for option in record.get("options_away_from_the_recipe", ()):
         line = f"{option['key']} = {_rendered(option['here'])}"
         if option["key"] in same:
@@ -318,20 +323,24 @@ def _values_this_file_set(cfg: Any, keys: list[str]) -> dict[str, object]:
 def comparison_lines(cfg: Any, source: Path) -> list[str]:
     """Return what each phase, or the whole section, compares with what.
 
-    One block per line: its criterion, its share, the simulated quantity and
-    what it is compared against. A plain calibration with no
+    First ``[metrics] window``, the window the run is scored on. Then one
+    block per line: its criterion, its share, the simulated quantity and what
+    it is compared against, and the window the phase scores on. A plain calibration with no
     ``[[calibration.phases]]`` still runs one search, so it gets one table
     under ``[calibration]``. ``source`` anchors a relative
     ``stream_geometry_path`` the same way the run would.
     """
-    from hydromodpy.calibration.runners.cli_runner import resolve_stream_geometry_paths
+    from hydromodpy.calibration.runners.cli_runner import (
+        declared_window_text,
+        resolve_stream_geometry_paths,
+    )
     from hydromodpy.calibration.runners.staged_runner import objective_comparison_table
 
     calibration = getattr(cfg, "calibration", None)
     if calibration is None:
         return []
     resolve_stream_geometry_paths(calibration, Path(source))
-    lines: list[str] = []
+    lines: list[str] = [metrics_window_line(cfg)]
     for phase in calibration.phases or [None]:
         label = phase.name if phase is not None else "[calibration]"
         table = objective_comparison_table(calibration, phase)
@@ -339,7 +348,16 @@ def comparison_lines(cfg: Any, source: Path) -> list[str]:
             continue
         lines.append(f"compares ({label}):")
         lines.extend(f"  {comparison_line(row)}" for row in table)
+        lines.append(f"  scores on: {declared_window_text(calibration, phase)}")
     return lines
+
+
+def metrics_window_line(cfg: Any) -> str:
+    """Say ``[metrics] window``, the window the run is scored on, or that there is none."""
+    window = getattr(getattr(cfg, "metrics", None), "window", None)
+    if window is None:
+        return "[metrics] window: unset, the run carries no score"
+    return f"[metrics] window: {window.start} to {window.end}, the window the run is scored on"
 
 
 def comparison_line(row: Mapping[str, Any]) -> str:

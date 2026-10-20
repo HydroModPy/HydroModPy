@@ -216,7 +216,8 @@ class TestPairing:
                 )
             },
             simulated={"outlet": pd.Series([1.1, 2.2, 3.3], index=times)},
-            scoring_window=(pd.Timestamp("2000-01-02"), pd.Timestamp("2000-01-03")),
+            # The days of the last two records, which the last two stamps close.
+            scoring_window=(pd.Timestamp("2000-01-01"), pd.Timestamp("2000-01-02")),
         )
 
         assert paired.observed["outlet"] == [2.0, 3.0]
@@ -274,7 +275,6 @@ class TestTheExtractor:
         *,
         sim_outlet: list[float],
         sim_piezo: list[float],
-        piezo_times: list[str] | None = None,
     ) -> None:
         from hydromodpy.calibration.metrics import composite
         from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
@@ -282,9 +282,9 @@ class TestTheExtractor:
 
         # A discharge is the mean of the period its stamp closes, so the outlet
         # stamps close the two days _ctx() records. A head is the state AT its
-        # stamp, so by default the piezometer is stamped at the record instants.
+        # stamp, so the piezometer is stamped at the record instants.
         times = pd.DatetimeIndex(["2000-01-02", "2000-01-03"])
-        head_times = pd.DatetimeIndex(piezo_times or ["2000-01-01", "2000-01-02"])
+        head_times = pd.DatetimeIndex(["2000-01-01", "2000-01-02"])
         monkeypatch.setattr(
             composite,
             "extract_outputs",
@@ -334,21 +334,16 @@ class TestTheExtractor:
     def test_a_window_now_applies_because_the_series_carry_dates(self, monkeypatch) -> None:
         from hydromodpy.calibration.metrics.composite import build_metric_extractor
 
-        # The piezometer runs a day later here, so the window keeps one of its
-        # stamps: 2000-01-03 reads the nearest record instant, 2000-01-02.
-        self._extracted(
-            monkeypatch,
-            sim_outlet=[9.0, 2.0],
-            sim_piezo=[40.0, 41.0],
-            piezo_times=["2000-01-02", "2000-01-03"],
-        )
+        # The window opens on 2000-01-02: the outlet keeps the period of that
+        # day (stamped 2000-01-03), the piezometer its state at that instant.
+        self._extracted(monkeypatch, sim_outlet=[9.0, 2.0], sim_piezo=[40.0, 41.0])
         metric_fn = build_metric_extractor(
             None,
             None,
             _ctx(),
             outputs=self._outputs(),
             objective_blocks=self._blocks(),
-            scoring_window=(pd.Timestamp("2000-01-03"), None),
+            scoring_window=(pd.Timestamp("2000-01-02"), None),
         )
 
         total, components = metric_fn(None)

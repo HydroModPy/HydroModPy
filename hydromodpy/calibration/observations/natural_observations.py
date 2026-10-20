@@ -25,7 +25,8 @@ from hydromodpy.calibration.observations.network_cost import (
 from hydromodpy.calibration.observations.network_transient_truth import (
     CandidateScore,
 )
-from hydromodpy.core.metrics import log_nse
+from hydromodpy.core.metrics import log_floor, log_nse
+from hydromodpy.results.catalog.constants import cost_of
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,7 +163,7 @@ def discharge_log_nse_cost(
     score = float(log_nse(sim[finite], obs[finite], eps=effective_eps))
     if not np.isfinite(score):
         raise ValueError("NSElog is not finite for the observed discharge window.")
-    cost = float(1.0 - score)
+    cost = float(cost_of("nse_log", score))
     return cost, {
         "NSElog": score,
         "C_NSElog": cost,
@@ -423,9 +424,7 @@ def _resolve_log_nse_epsilon(obs: np.ndarray, eps: float | None) -> float:
         if not np.isfinite(value) or value < 0.0:
             raise ValueError("nse_log_epsilon must be finite and >= 0.")
         return value
-    positives = obs[obs > 0.0]
-    median = float(np.median(positives)) if positives.size else 1.0
-    return max(1.0e-9, 0.01 * median)
+    return log_floor(obs)
 
 
 def _score_window(

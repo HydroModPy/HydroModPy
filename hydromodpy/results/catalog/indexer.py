@@ -644,7 +644,8 @@ class _IndexWriter:
         return len(manifest.parameters)
 
     def _insert_metrics(self, sim_id: str, manifest: Manifest) -> int:
-        for metric in manifest.metrics:
+        scores = [metric for metric in manifest.metrics if not metric.is_runtime]
+        for metric in scores:
             self.insert(
                 "metrics",
                 {
@@ -653,14 +654,13 @@ class _IndexWriter:
                     "variable": metric.variable,
                     "metric_name": metric.metric,
                     "value": metric.value,
-                    "n_samples": metric.nse_n,
                     "nse_window_start": metric.nse_window_start,
                     "nse_window_end": metric.nse_window_end,
                     "nse_n": metric.nse_n,
                     "metric_rule_version": metric.metric_rule_version,
                 },
             )
-        return len(manifest.metrics)
+        return len(scores)
 
     def _insert_tracked_files(self, sim_id: str, manifest: Manifest) -> int:
         for entry in manifest.inputs:

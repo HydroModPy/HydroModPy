@@ -714,10 +714,11 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
     """Name the file and its protocol, one line per phase, then where to read on.
 
     A phase line gives its method, its number of runs, each best value with its
-    unit and interval, and the best cost with the metric it is. A single-phase
+    unit and interval, and the best cost with the metric it is and the pairs it
+    was scored on (the declared window when no pair was counted). A single-phase
     summary is read as one phase.
     """
-    from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
+    from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate, samples_text
     from hydromodpy.results.storage.contract import RUN_FIGURES_DIRNAME
 
     phases = summary.get("phases")
@@ -756,7 +757,12 @@ def _print_calibration_recap(summary: Mapping[str, Any], config_path: Path) -> N
         best = report.get("best_objective")
         if best is not None:
             metric = extra.get("cost_metric")
-            parts.append(f"cost {float(best):.4g}" + (f" ({metric})" if metric else ""))
+            cost = f"cost {float(best):.4g}" + (f" ({metric})" if metric else "")
+            if extra.get("cost_samples"):
+                cost += f" on {samples_text(extra['cost_samples'])}"
+            elif extra.get("cost_window"):
+                cost += f" on {extra['cost_window']}"
+            parts.append(cost)
         if extra.get("reused_from_disk"):
             parts.append("reused from a previous session")
         if extra.get("promotion_failures"):
@@ -972,7 +978,8 @@ def _materialize_effective_toml(
         dotted_path, raw_value = item.split("=", 1)
         lineage_overrides[dotted_path.strip()] = parse_override_value(raw_value)
     for name in env_set_names(os.environ):
-        dotted = name[len(ENV_SET_PREFIX) :].lower().replace(ENV_PATH_SEPARATOR, ".")
+        # The case after the prefix is the case of the key, as env_overrides applies it.
+        dotted = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
         lineage_overrides[dotted] = parse_override_value(os.environ[name])
     if overlays:
         lineage_overrides["overlay"] = [path.name for path in overlays]

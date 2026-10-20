@@ -32,19 +32,25 @@ def rank_simulations(
     station: str | None = None,
     best: bool = True,
     n: int = 5,
+    mixed_windows: bool = False,
 ) -> Any:
     """Rank the scores of the completed runs of one project. Returns a DataFrame.
 
-    One row per run and station scored on ``metric``; ``station`` keeps the
-    rows of one station only. ``best=True`` puts the best values first,
-    ``best=False`` the worst ones. The direction of the metric comes from
+    One row per run and station scored on ``metric``, with the window and the
+    rule version of the score; ``station`` keeps the rows of one station only.
+    ``best=True`` puts the best values first, ``best=False`` the worst ones.
+    The direction of the metric comes from
     :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: a metric missing
     from it raises :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
-    A missing or non-finite value never ranks.
+    A missing or non-finite value never ranks. The scores must share one rule
+    (station, variable, window, rule version): otherwise
+    :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is raised, unless
+    ``mixed_windows`` is true.
     """
     from hydromodpy.core.state.paths import resolve_project_root
     from hydromodpy.results.catalog import Catalog
     from hydromodpy.results.catalog.constants import metric_rank_sql
+    from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
 
     order = metric_rank_sql(metric, best=best)
     workspace_root = resolve_project_root(
@@ -53,8 +59,9 @@ def rank_simulations(
     station_clause = "" if station is None else "AND m.station_id = ? "
     with Catalog(workspace_root) as catalog:
         sql = (
-            "SELECT s.sim_id, s.name, sv.code AS solver, m.station_id AS station, "
-            "m.metric_name, m.value "
+            "SELECT s.sim_id, s.name, s.rel_dir, sv.code AS solver, m.station_id AS station, "
+            "m.variable, m.metric_name, m.value, m.nse_window_start, m.nse_window_end, "
+            "m.metric_rule_version "
             "FROM simulations s "
             "JOIN solvers sv ON s.solver_id = sv.id "
             "JOIN statuses st ON s.status_id = st.id "
@@ -62,13 +69,21 @@ def rank_simulations(
             "WHERE s.project = ? AND st.code = 'completed' "
             f"AND m.metric_name = ? {station_clause}"
             "AND m.value IS NOT NULL AND isfinite(m.value) "
-            f"ORDER BY {order} LIMIT ?"
+            f"ORDER BY {order}"
         )
         params: list[Any] = [project, metric]
         if station is not None:
             params.append(station)
-        params.append(int(n))
-        return catalog.connection.execute(sql, params).fetchdf()
+        frame = catalog.connection.execute(sql, params).fetchdf()
+    if not mixed_windows:
+        rule = frame.rename(columns={"station": METRICS_RULE.station})
+        check_one_rule(
+            rule.to_dict("records"),
+            metric,
+            names=list(frame["rel_dir"]),
+            columns=METRICS_RULE,
+        )
+    return frame.head(int(n)).drop(columns="rel_dir")
 
 
 def install_binaries(

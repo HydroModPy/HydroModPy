@@ -34,6 +34,87 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- The four decided items of the calibration and score audit of 2026-10-14 are applied: m01, m08,
+  m09 and m11 (2026-10-20, eight commits `d2e2dd729..829864b4a`). What changes for a user:
+  - A calibration session keeps the periods of its scoring window the way the run scores them:
+    a mean counts when its whole period lies in the window, a state when its stamp does
+    (`core.time.period_aggregation.periods_in_window`, one rule for both). The session cost is
+    now `1 - score` of the run it promotes. Under a start-only window a session scores one pair
+    fewer (24 months instead of 25 on example 04, 1827 days instead of 1828) and its cost moves
+    slightly. The cache key carries the scoring rule version: every trial cached before is
+    solved again, once.
+  - `evaluated` needs a score window that shares no day with the calibration window. A window
+    that overlaps it without being equal keeps the run `calibrated`, with the reason "scored on
+    a window that overlaps the calibration window". The label rules are version 2.
+  - The index never ranks two rules together. `Catalog.rank/best/worst`, `@best:`/`@worst:`,
+    `find(<metric>_gt=...)`, `Project.runs.best` and `hmp dev rank` raise `MixedWindowsError` on
+    scores of different stations, variables, windows or rule versions; `mixed_windows=True`
+    (`--mixed-windows` for `hmp dev rank`) ranks them anyway, and a named station
+    (`@best:nse@STATION`, `--station`) only needs one window and one version. The CLI verbs that
+    take an `@`-selector have no flag: name the run, narrow with `--site`, or resolve it from
+    Python. `hmp dev rank` prints each score's window. `v_best_per_project` holds one row per
+    project and rule, with the rule columns, and leaves unscored runs out. Index schema 7: run
+    `hmp catalog reindex`.
+  - A block whose metric rises with the fit (nse, nse_log, kge, nse_delta, nse_seasonal,
+    reservoir) over several outputs is refused at load: write one block per output, each with its
+    weight, so the costs average per station instead of pooling the stations into one efficiency.
+    rmse, mae and the network distances still pool several outputs. No example, documentation
+    page or protocol declared such a block.
+- The calibration and score audit of 2026-10-14 closes its second batch of fixes that needed no
+  decision (2026-10-20, 33 commits `2d77f617a..66cde23bd`). What changes for a user:
+  - Search engines. `gp_mapping` with `kappa != 0` no longer stops after three proposals on
+    positive costs: it compares the improvement the lower confidence bound still promises to
+    `ei_tol`. `scipy_nelder_mead` no longer stops at a hard 100 iterations: with no `maxiter` or
+    `maxfev` in `method_options` the session budget `max_iter` is its cap, and a start on an
+    upper bound no longer builds a flat initial simplex. `cma_es` with `seed = 0` repeats (cma
+    read 0 as "seed from the clock"). `uncertainty = "linearized"` reads the residuals of the
+    calibrated point, not of the last trial perturbed by 1 %. The "search did NOT converge"
+    warning promises a cache replay only for a larger `max_iter` on the same file: a new
+    `tolerance`, `seed`, `method` or `method_options` changes the cache key.
+  - Scores. A period the gridded runoff does not cover is a gap in the scored discharge, no
+    longer scored as baseflow only (the count is logged once). `normalize_cost` divides by the
+    standard deviation of the scored sample, after the burn-in, not of the whole record, and its
+    fallback is logged: a normalised block with a burn-in gets a different cost. The nse_log
+    epsilon is one rule, `core.metrics.log_floor`; the `hydrograph_log_nse` floor is read on the
+    scored sample. The Brutsaert recession case scores with the core kernels (its NSElog takes
+    the common epsilon). A score turns into a cost by `METRIC_SENSE` alone (`cost_of`,
+    `score_of`); the fit panel of `calibration_progress` frames a transformed efficiency block
+    and labels it "lower is better".
+  - Index and readers. Metric names come from one list: `METRIC_SENSE` drops `r2`, `mse`,
+    `kge_delta`, `objective_best`, `closure_mean_abs_m3_s` and `closure_rmse_m3_s`, which nothing
+    produces, and `v_metrics_wide` pivots the run kernels, one row per run, station and
+    variable. The index `metrics` table drops `n_samples`, `period_start` and `period_end`;
+    runtime numbers (solve time, budget discrepancy) stay in the run facts and the seal but leave
+    `hmp catalog show`, `hmp catalog diff`, `compare_pair` and the index (index schema 6: run
+    `hmp catalog reindex`). `hmp catalog diff` and `compare_pair` compare per (metric, station,
+    variable) and show each side's window and n; the diff JSON rows change shape.
+    `Catalog.find(<metric>_gt=...)` refuses an unknown or retired metric name instead of
+    returning nothing.
+  - "Same rule" is one definition and one exception, `MixedWindowsError` in
+    `results.run.sealed` (a `DataError`, no longer a bare `ValueError` from `RunSet.best`).
+    `hmp catalog ls --best` without `--by` refuses runs scored at different stations and
+    suggests `--by site`.
+  - Promotion. With `save_catalog = false` and `save_runs` other than `"none"`, the promotion
+    no longer hands out a `sim_id` for a run it never wrote: it is reported as failed with the
+    reason, the session closes `partial`, and `hmp project promote` refuses the same way.
+  - What a session prints. The cost is labelled with what it is, transform and normalisation
+    included (`log10(rmse / sd(observed))`, `1 - nse_log`), in `hmp calibrate`, the `hmp run`
+    recap and the session HTML report, which now shows the best cost at all; `session.json`
+    records it as `objective_label`. Beside the best cost the console and the HTML print the pairs
+    it was scored on (count, first and last period-end stamp, per output) and the declared window;
+    `session.json` keeps `objective_window` (the declared window, which `calibrated_by` reads)
+    and adds `objective_samples`. The single-metric route counts no pair and says so. The
+    `methods.md` of a protocol calibration states each stage's metric and scored pairs instead
+    of the generic spin-up sentence. A staged session records as `objective_name` the metric of
+    its last phase, the one its value belongs to, not `distance_gap + nse_log`. A session left
+    `partial` by a failed trial names the trials, and names the stopping rule only when it was
+    not met. A phase that did not converge no longer promises a replay after loosening the
+    tolerance.
+  - What a check prints. `hmp calibrate --list-phases`, `--dry-run` and `hmp config check` print
+    the window each phase scores on, and the check prints `[metrics] window`. `hmp config check`
+    compares a protocol `scoring_window` with the window the recipe really scores, `[metrics]
+    window` when declared. `lineage.overrides` keeps the case of an `HMP_SET_*` key
+    (`flow.param.K`, no longer `flow.param.k`).
 - The lake-river stack closes the findings of the 2026-10-14 audit left open on 2026-10-15
   (2026-10-20, nine commits `612011a41..cc6378260`). What changes for a user:
   - Lake outlets run one way. Two WEIR outlets of two lakes toward each other at the same crest

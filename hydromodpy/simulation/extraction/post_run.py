@@ -33,7 +33,10 @@ def record_run_execution_metrics(
     store: Any,
     result: RunExecutionResult,
 ) -> None:
-    """Persist lightweight solver-side execution metrics in the catalog."""
+    """Persist lightweight solver-side execution metrics in the facts of the run.
+
+    The store keeps them apart from the scores: the index and the readers of scores leave them out.
+    """
     if not ctx.run.is_solver_backed:
         return
     if store is None or sim_id in (None, ""):
@@ -48,10 +51,9 @@ def record_run_execution_metrics(
             continue
         if not math.isfinite(value):
             continue
-        store.write_metric(
+        store.write_runtime_metric(
             sim_id,
             station_id=str(ctx.run.id),
-            variable="runtime",
             metric_name=str(metric_name),
             value=value,
         )

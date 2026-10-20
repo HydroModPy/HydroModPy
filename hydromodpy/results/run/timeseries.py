@@ -22,7 +22,7 @@ from hydromodpy.results.derive.downsample import (
     should_downsample,
 )
 from hydromodpy.results.derive.time_alignment import normalize_period_bounds, solver_time_index
-from hydromodpy.results.manifest import is_sealed
+from hydromodpy.results.manifest import RUNTIME_VARIABLE, is_sealed
 from hydromodpy.results.run.sealed import metrics_frame
 from hydromodpy.results.run.tables import has_rows, read_run_table
 
@@ -62,6 +62,8 @@ class RunTimeseriesMixin:
     def metrics(self) -> pd.DataFrame:
         """Every score the seal of this run records, read from ``manifest.json``.
 
+        The runtime numbers of the solve (variable ``runtime``) are not scores.
+
         Returns
         -------
         pandas.DataFrame
@@ -71,7 +73,8 @@ class RunTimeseriesMixin:
             without a window carries no row, and a run that never completed
             has no seal and no row.
         """
-        return metrics_frame(self._record() if is_sealed(self.dir) else None)
+        frame = metrics_frame(self._record() if is_sealed(self.dir) else None)
+        return frame[frame["variable"] != RUNTIME_VARIABLE].reset_index(drop=True)
 
     def has_table(self, table: str) -> bool:
         """Return True when the run holds at least one row of ``table``.

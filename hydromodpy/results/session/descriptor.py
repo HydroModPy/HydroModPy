@@ -22,7 +22,8 @@ search completed is never written ``failed`` for what happened after it.
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Final, Literal
 
@@ -57,6 +58,33 @@ class BestTrial(HydroModelBase):
         return None if value is None else checked_rel_dir(value)
 
 
+class ScoredSamples(HydroModelBase):
+    """The pairs one dated output's cost was scored on.
+
+    A stamp closes its period, so ``first`` and ``last`` are the ends of the
+    first and last period scored, not the bounds of a window.
+    """
+
+    n: int = Field(ge=0, description="Number of paired samples scored")
+    first: date | None = Field(default=None, description="First period-end stamp scored")
+    last: date | None = Field(default=None, description="Last period-end stamp scored")
+
+
+def scored_samples_text(samples: Mapping[str, ScoredSamples]) -> str:
+    """Return the pairs of each output in words, one clause per output.
+
+    A stamp closes its period, so the dates are the ends of the first and
+    last period scored.
+    """
+    clauses = []
+    for name, scored in samples.items():
+        clause = f"{name} {scored.n} pair(s)"
+        if scored.first is not None and scored.last is not None:
+            clause += f", period ends {scored.first.isoformat()} to {scored.last.isoformat()}"
+        clauses.append(clause)
+    return "; ".join(clauses)
+
+
 class SessionDescriptor(HydroModelBase):
     """Identity, search and outcome of one calibration session."""
 
@@ -71,8 +99,26 @@ class SessionDescriptor(HydroModelBase):
     method: str = Field(description="Search method")
     search_space: dict[str, Any] = Field(default_factory=dict, description="Parameter to bounds")
     objective_name: str = Field(description="Objective the search minimised")
+    objective_label: str | None = Field(
+        default=None,
+        description=(
+            "What the objective value is, read as a cost: '1 - nse_log' for an "
+            "efficiency, 'log10(rmse)' for a transformed block"
+        ),
+    )
     objective_window: DateWindow | None = Field(
-        default=None, description="Window the objective was scored on"
+        default=None,
+        description=(
+            "Window the objective was scored on, as declared, a bound left open "
+            "closed by the dates of [simulation.time]"
+        ),
+    )
+    objective_samples: dict[str, ScoredSamples] = Field(
+        default_factory=dict,
+        description=(
+            "Per dated output, the pairs the cost of the best trial was scored on; "
+            "empty when no pair was counted"
+        ),
     )
     best: BestTrial | None = Field(default=None, description="Best trial so far")
     status: SessionStatus = Field(default="running")
@@ -164,12 +210,14 @@ def resolve_session_dir(project_root: str | Path, reference: str | None) -> Path
 __all__ = [
     "SESSION_SCHEMA",
     "BestTrial",
+    "ScoredSamples",
     "SessionDescriptor",
     "SessionStatus",
     "find_session_dir",
     "list_session_dirs",
     "read_session",
     "resolve_session_dir",
+    "scored_samples_text",
     "session_descriptor_path",
     "write_session",
 ]

@@ -36,6 +36,7 @@ from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
 from hydromodpy.results.session.descriptor import (
     BestTrial,
+    ScoredSamples,
     SessionDescriptor,
     SessionStatus,
     read_session,
@@ -121,6 +122,7 @@ class CalibrationPersistence:
         objective_name: str,
         search_space: Mapping[str, Any],
         objective_window: DateWindow | None,
+        objective_label: str | None = None,
     ) -> SessionDescriptor:
         """Write the opening descriptor and the running outcome."""
         now = datetime.now(UTC)
@@ -133,6 +135,7 @@ class CalibrationPersistence:
             method=method,
             search_space=dict(search_space),
             objective_name=objective_name,
+            objective_label=objective_label,
             objective_window=objective_window,
             started_at=now,
         )
@@ -182,8 +185,13 @@ class CalibrationPersistence:
         best: BestTrial | None,
         error: str | None = None,
         root_search: Mapping[str, Any] | None = None,
+        objective_samples: Mapping[str, ScoredSamples] | None = None,
     ) -> SessionDescriptor:
-        """Close the session: descriptor, then outcome."""
+        """Close the session: descriptor, then outcome.
+
+        ``objective_samples`` are the pairs the best cost was scored on, kept
+        beside the declared ``objective_window``.
+        """
         now = datetime.now(UTC)
         descriptor = read_session(self._directory).model_copy(
             update={
@@ -192,6 +200,7 @@ class CalibrationPersistence:
                 "best": best,
                 "error_message": error,
                 "root_search": dict(root_search) if root_search else None,
+                "objective_samples": dict(objective_samples or {}),
             }
         )
         write_session(self._directory, descriptor)

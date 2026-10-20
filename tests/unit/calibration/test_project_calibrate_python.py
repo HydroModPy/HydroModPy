@@ -32,6 +32,7 @@ from hydromodpy.calibration.runners import cli_runner as cli_runner_module
 from hydromodpy.calibration.runners import programmatic_runner as programmatic_runner_module
 from hydromodpy.calibration.runners import promotion as promotion_module
 from hydromodpy.calibration.runners.programmatic_runner import run_calibration_programmatic
+from tests._helpers.persisting_simulation import SimulationStub
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -135,6 +136,7 @@ def fake_pipeline(monkeypatch, tmp_path):
 
         class _Cfg(BaseModel):
             flow: _Flow = _Flow()
+            simulation: SimulationStub = SimulationStub()
 
         cfg = _Cfg()
         ctx = _FakeCtx(cfg, cfg_path, raw)

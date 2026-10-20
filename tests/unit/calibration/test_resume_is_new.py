@@ -32,6 +32,7 @@ from hydromodpy.core.interrupts import TerminationRequested
 from hydromodpy.results.session.descriptor import read_session
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.session.phase import read_phase
+from tests._helpers.persisting_simulation import persisting_simulation
 
 pytestmark = pytest.mark.unit
 
@@ -93,12 +94,13 @@ def _write(tmp_path: Path, document: str = BASE) -> Path:
 
 def _baseline() -> SimpleNamespace:
     return SimpleNamespace(
+        simulation=persisting_simulation(),
         flow=SimpleNamespace(
             param=SimpleNamespace(
                 K=SimpleNamespace(field=SimpleNamespace(value=K_TOML)),
                 Sy=SimpleNamespace(field=SimpleNamespace(value=SY_TOML)),
             )
-        )
+        ),
     )
 
 

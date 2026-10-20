@@ -29,7 +29,7 @@ class _FakeStore:
         self._rows = rows
         self.list_calls: list[dict[str, Any]] = []
         self.find_calls: list[dict[str, Any]] = []
-        self.best_calls: list[tuple[str, str]] = []
+        self.best_calls: list[tuple[str, str, bool]] = []
         self.delete_calls: list[tuple[str, bool]] = []
         self.getitem_calls: list[str] = []
 
@@ -41,8 +41,8 @@ class _FakeStore:
         self.find_calls.append(filters)
         return [f"run-{filters.get('solver', 'any')}"]
 
-    def best(self, project: str, metric: str) -> str:
-        self.best_calls.append((project, metric))
+    def best(self, project: str, metric: str, mixed_windows: bool = False) -> str:
+        self.best_calls.append((project, metric, mixed_windows))
         return f"best-{metric}"
 
     def delete(self, sim_id: str, *, remove_storage: bool = True) -> None:
@@ -140,8 +140,17 @@ def test_best_delegates_to_store_with_project_and_metric() -> None:
 
     run = accessor.best("nse")
 
-    assert store.best_calls == [("nancon", "nse")]
+    assert store.best_calls == [("nancon", "nse", False)]
     assert run == "best-nse"
+
+
+def test_best_passes_mixed_windows_to_the_store() -> None:
+    store = _FakeStore(_rows("x"))
+    accessor = ProjectRunsAccessor(_fake_project(store, project_name="nancon"))
+
+    accessor.best("nse", mixed_windows=True)
+
+    assert store.best_calls == [("nancon", "nse", True)]
 
 
 def test_best_returns_none_when_store_is_none() -> None:

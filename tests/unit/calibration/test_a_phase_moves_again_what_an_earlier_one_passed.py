@@ -26,6 +26,7 @@ from hydromodpy.calibration.runners import staged_runner
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration
 from hydromodpy.calibration.runners.staged_runner import phase_summaries, run_staged_calibration
 from hydromodpy.calibration.runners.trial import TrialContext
+from tests._helpers.persisting_simulation import SimulationStub
 
 K_TOML = 1e-5
 SY_TOML = 0.1
@@ -158,6 +159,7 @@ class _Flow(BaseModel):
 
 class _Model(BaseModel):
     flow: _Flow = Field(default_factory=_Flow)
+    simulation: SimulationStub = Field(default_factory=SimulationStub)
 
 
 class ToyPipeline:

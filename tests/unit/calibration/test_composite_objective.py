@@ -32,10 +32,10 @@ def test_config_block_warmup_drops_leading_periods_per_output() -> None:
     sim = {"a": [1.0, 2.0, 3.0, 4.0, 5.0], "b": [10.0, 20.0, 30.0, 40.0, 50.0]}
 
     warmed = ConfigBlockObjective(
-        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=2
+        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=2
     ).evaluate(sim)
     plain = ConfigBlockObjective(
-        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=0
+        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed, warmup=0
     ).evaluate(sim)
 
     # Per-output warmup drops the bad leading periods of both series -> perfect fit.
@@ -56,7 +56,7 @@ def test_config_block_refuses_mismatched_output_lengths_even_when_totals_match()
     sim = {"a": [1.0] * 30, "b": [2.0] * 30}
 
     block = ConfigBlockObjective(
-        name="x", metric="nse", uses_outputs=["a", "b"], observed_by_output=observed
+        name="x", metric="rmse", uses_outputs=["a", "b"], observed_by_output=observed
     )
 
     with pytest.raises(ValueError) as excinfo:
@@ -80,7 +80,7 @@ def test_config_block_names_the_offending_output_when_it_is_not_the_first() -> N
     sim = {"a": [1.0] * 10, "b": [2.0] * 30, "c": [3.0] * 30}
 
     block = ConfigBlockObjective(
-        name="x", metric="nse", uses_outputs=["a", "b", "c"], observed_by_output=observed
+        name="x", metric="rmse", uses_outputs=["a", "b", "c"], observed_by_output=observed
     )
 
     with pytest.raises(ValueError) as excinfo:

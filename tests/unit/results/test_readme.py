@@ -23,7 +23,7 @@ from hydromodpy.results.session.phase import PhaseDescriptor
 from hydromodpy.results.validity_rules import LabelResult, label_for, run_quantities
 from tests.unit.results._run_record_factory import NOW, WINDOW, make_record
 
-LABEL = LabelResult("calibrated", "1", ("promoted by session sess0001, completed",), ())
+LABEL = LabelResult("calibrated", "2", ("promoted by session sess0001, completed",), ())
 
 
 def _outcome() -> Outcome:
@@ -58,7 +58,7 @@ def test_the_run_readme_says_site_period_version_checks_label_and_score(tmp_path
     assert "HydroModPy 2.0.0a5, solver `modflow6`, mesh engine `voronoi`" in text
     assert "code reproducible: no" in text
     assert "water budget 0.8 % (accepted up to 2 %)" in text
-    assert "**calibrated** under rules 1." in text
+    assert "**calibrated** under rules 2." in text
     assert "NSE 0.81 on 2016-01-01 to 2020-12-31, 1827 samples, rule 1." in text
     assert "SolverError: mf6 did not converge at stress period 51" in text
     assert text.rstrip().endswith(f"sha256(manifest.json) = {digest}")
@@ -88,7 +88,7 @@ def test_the_label_of_the_day_is_the_one_rendered(tmp_path):
         record.checks, hydromodpy_version="2.0.0a4", quantities=run_quantities(solver="modflow6")
     )
     text = render_run_readme(record, None, result, manifest_sha256="0" * 64)
-    assert "**exploratory** under rules 1." in text
+    assert "**exploratory** under rules 2." in text
     assert "known issues: mf6_computation_top" in text
 
 
@@ -155,7 +155,7 @@ def test_the_summary_readme_counts_cases_sites_versions_and_lists_its_digests():
         collected_at=datetime(2026, 10, 20, 9, 15, tzinfo=UTC),
         period=WINDOW,
         label_date=date(2026, 10, 20),
-        rule_version="1",
+        rule_version="2",
         best="calibrated",
         catalog_written=False,
     )
@@ -163,7 +163,7 @@ def test_the_summary_readme_counts_cases_sites_versions_and_lists_its_digests():
 
     assert "287 completed of 300 planned cases, 2 sites, 2016-01-01 to 2020-12-31." in text
     assert "HydroModPy versions met: 2.0.0a5" in text
-    assert "labels computed on 2026-10-20 under rules 1" in text
+    assert "labels computed on 2026-10-20 under rules 2" in text
     assert "one row per site: the best calibrated case" in text
     assert "catalog.csv" not in text
     assert "- J0014010\n- J0020000" in text

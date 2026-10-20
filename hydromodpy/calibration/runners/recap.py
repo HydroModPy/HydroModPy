@@ -1,33 +1,49 @@
 """What the end of a calibration tells its reader, read off the run itself.
 
 The console recap of ``hmp calibrate`` names, for each phase, the best value of
-each parameter with its unit, the cost it reached and the metric that cost is,
-the run promoted from it and the session folder that holds its trials. Those
+each parameter with its unit, the cost it reached, the metric that cost is and
+the pairs it was scored on, the run promoted from it and the session folder
+that holds its trials. Those
 facts are known to the runner and to nobody after it, so the runner records
 them in the report and the CLI only formats them.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
+from typing import Any
 
-from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.calibration.config import (
+    CalibObjectiveBlockDecl,
+    CalibPhaseDecl,
+    CalibrationConfig,
+)
+from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
 from hydromodpy.calibration.criteria.series import HIGHER_IS_BETTER
+from hydromodpy.calibration.report import scored_entry
+from hydromodpy.results.session.descriptor import ScoredSamples
 from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 
 
-def cost_metric_label(cfg: CalibrationConfig) -> str:
-    """Name the metric the cost of a search is, the way a reader reads it.
+def cost_metric_label(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None) -> str:
+    """Name what the cost of a search is, the way a reader reads it.
 
     A score that rises with agreement (NSE, KGE) is minimised as one minus
-    itself, so the label says ``1 - nse_log`` rather than ``nse_log``. A cost
-    of several blocks is their weighted sum and names each block.
+    itself, so the label says ``1 - nse_log`` rather than ``nse_log``. A block
+    that divides its cost by a reference scale, or transforms it, says so:
+    ``log10(rmse / sd(observed))``. A cost of several blocks is their weighted
+    sum and names each block. ``phase`` reads the blocks that phase scores;
+    ``None`` reads the whole section.
     """
-    blocks = list(cfg.objective_blocks or ())
+    if phase is not None and phase.is_single_metric:
+        return _reading(phase.objective or cfg.objective)
+    blocks = [block for block, _weight in cfg.objective_blocks_for(phase)]
     if len(blocks) == 1:
-        return _reading(blocks[0].metric)
+        return _block_reading(blocks[0])
     if blocks:
-        parts = ", ".join(f"{block.name} {_reading(block.metric)}" for block in blocks)
+        parts = ", ".join(f"{block.name} {_block_reading(block)}" for block in blocks)
         return f"weighted sum of {parts}"
     return _reading(cfg.objective)
 
@@ -35,6 +51,46 @@ def cost_metric_label(cfg: CalibrationConfig) -> str:
 def _reading(metric: str) -> str:
     """Return how a cost built on ``metric`` reads."""
     return f"1 - {metric}" if str(metric) in HIGHER_IS_BETTER else str(metric)
+
+
+def _block_reading(block: CalibObjectiveBlockDecl) -> str:
+    """Return how the cost of one block reads, scale and transform included."""
+    text = _reading(block.metric)
+    if block.normalize_cost:
+        scale = "validity_length" if str(block.metric) in NETWORK_ESTIMATORS else "sd(observed)"
+        text = f"{text} / {scale}"
+    if block.transform == "log":
+        return f"log10({text})"
+    if block.transform == "inverse":
+        return f"-1 / ({text})"
+    return text
+
+
+def cost_samples(components: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Return, per dated output, the pairs a trial's cost was scored on.
+
+    The block route writes ``<name>.n_paired`` and, as ordinal days,
+    ``<name>.date_start`` / ``<name>.date_end`` into the components of every
+    trial: the first and last period-end stamp it kept. Empty when no output
+    was paired, as on the single-metric route, which records no count.
+    """
+    found = dict(components or {})
+    names = sorted({key.rsplit(".", 1)[0] for key in found if key.endswith(".n_paired")})
+    samples: dict[str, dict[str, Any]] = {}
+    for name in names:
+        entry: dict[str, Any] = {"n_paired": int(found[f"{name}.n_paired"])}
+        start = found.get(f"{name}.date_start")
+        end = found.get(f"{name}.date_end")
+        if start is not None and end is not None:
+            entry["start"] = date.fromordinal(int(start)).isoformat()
+            entry["end"] = date.fromordinal(int(end)).isoformat()
+        samples[name] = entry
+    return samples
+
+
+def scored_samples(components: Mapping[str, Any] | None) -> dict[str, ScoredSamples]:
+    """Return :func:`cost_samples` as the descriptor of a session records it."""
+    return {name: scored_entry(info) for name, info in cost_samples(components).items()}
 
 
 def parameter_units(cfg: CalibrationConfig) -> dict[str, str]:
@@ -49,4 +105,10 @@ def write_methods(session_dir: Path, paragraph: str) -> Path:
     return path
 
 
-__all__ = ["cost_metric_label", "parameter_units", "write_methods"]
+__all__ = [
+    "cost_metric_label",
+    "cost_samples",
+    "parameter_units",
+    "scored_samples",
+    "write_methods",
+]

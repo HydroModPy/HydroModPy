@@ -128,13 +128,13 @@ class ScipyNelderMeadMethodConfig(BaseModel):
     method: Literal["scipy_nelder_mead"] = "scipy_nelder_mead"
     maxiter: int | None = Field(
         default=None,
-        description="Simplex iterations, SciPy's maxiter. None leaves SciPy's own "
-        "limit; the search budget is max_iter.",
+        description="Simplex iterations, SciPy's maxiter. None sets no cap of its "
+        "own: the search budget max_iter ends the walk.",
     )
     maxfev: int | None = Field(
         default=None,
-        description="Evaluations, SciPy's maxfev. None leaves SciPy's own limit; the "
-        "search budget is max_iter.",
+        description="Evaluations, SciPy's maxfev. None takes maxiter, so with both "
+        "unset the search budget max_iter ends the walk.",
     )
     xatol: float | None = Field(
         default=None,
