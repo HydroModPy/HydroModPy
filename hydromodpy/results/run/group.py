@@ -44,7 +44,7 @@ from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.metric_rule import METRIC_NAMES
 from hydromodpy.results.run.point import RunPointProvider
-from hydromodpy.results.run.sealed import RULE_COLUMNS, headline_metrics, rule_of
+from hydromodpy.results.run.sealed import RULE_COLUMNS, check_one_rule, headline_metrics
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -260,15 +260,11 @@ class RunSet:
                     }
                 )
         frame = pd.DataFrame(rows, columns=["sim_id", *described, "value"])
-        rules = {rule_of(row) for row in rows}
-        if len(rules) > 1 and not mixed_windows:
-            listed = "; ".join(
-                f"{variable} at {station}, {start} to {end} (rule {version})"
-                for station, variable, start, end, version in sorted(rules, key=str)
-            )
-            raise ValueError(
-                f"The runs of this group score '{metric}' under different rules: {listed}. "
-                "Their values are not comparable; pass mixed_windows=True to rank them anyway."
+        if not mixed_windows:
+            check_one_rule(
+                rows,
+                metric,
+                names=[str(row["sim_id"])[:8] for row in rows],
             )
         return frame
 
@@ -308,9 +304,10 @@ class RunSet:
         Raises
         ------
         ValueError
-            Raised when the group is empty, when the metric has no declared
-            direction (:class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`),
-            or when the runs were scored under different rules (station,
+            Raised when the group is empty, or when the metric has no declared
+            direction (:class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`).
+        MixedWindowsError
+            Raised when the runs were scored under different rules (station,
             variable, window or rule version) and ``mixed_windows`` is false.
         KeyError
             Raised when no run of the group carries the metric, for instance

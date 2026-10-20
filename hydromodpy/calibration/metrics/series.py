@@ -268,7 +268,16 @@ def add_runoff_to_discharge(
         start=_window_start(ctx, pd.DatetimeIndex(target_index)),
     )
     runoff_m3_per_s = aligned * 1e-3 * catch_area_m2 / 86400.0
-    return simulated.add(runoff_m3_per_s, fill_value=0.0)
+    # A period without runoff stays a gap: baseflow alone is not a total
+    # discharge, and the score drops the pair.
+    n_missing = int(runoff_m3_per_s.isna().sum())
+    if n_missing:
+        _warn_once_without_runoff(
+            ctx,
+            f"calibration discharge: {n_missing} of {len(runoff_m3_per_s)} periods "
+            "have no runoff sample and are left out of the score.",
+        )
+    return simulated.add(runoff_m3_per_s)
 
 
 __all__ = [

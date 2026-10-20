@@ -25,6 +25,8 @@ on those periods by
 with the time method of the variable. A period averaged over its length (a
 discharge) counts when it lies entirely inside the window; a state read at
 its stamp (a head, a lake stage) counts when its stamp falls inside it. The
+rule is :func:`~hydromodpy.core.time.period_aggregation.periods_in_window`,
+which a calibration session reads its own window by too. The
 periods are those of the simulated series, so a gap in the observations never
 moves the start of the period after it. A pair with fewer than
 :data:`MIN_PAIRED_PERIODS` periods in the window (a steady run) is not scored.
@@ -39,16 +41,14 @@ The workflow, after extraction and before the seal, passes the result to the
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Final
 
-import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.time.period_aggregation import period_edges
+from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
 from hydromodpy.core.time.time_method import TimeMethod
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
@@ -209,13 +209,13 @@ def _dated_in_window(
     method: TimeMethod,
     period_start: Any,
 ) -> pd.DataFrame:
-    """Date each pair by the instant the rule reads it at, and drop what the window cuts.
+    """Keep the pairs the window holds and date each by the instant the rule reads it at.
 
-    A mean over a period is dated by the start of the period and kept only when
-    the whole period lies in the window. The periods are cut on every stamp of
-    *simulated*, not on the paired ones, so a gap in the observations leaves
-    the next period where it is. A point is dated by its stamp, which
-    :func:`~hydromodpy.results.metric_rule.score` checks against the window.
+    Which pairs count is :func:`~hydromodpy.core.time.period_aggregation.periods_in_window`,
+    the rule a calibration session reads its window by too. A mean over a
+    period is then dated by the start of the period, a point by its stamp. The
+    periods are cut on every stamp of *simulated*, not on the paired ones, so
+    a gap in the observations leaves the next period where it is.
     """
     empty = pd.DataFrame(
         {"sim": pd.Series(dtype=float), "obs": pd.Series(dtype=float)},
@@ -224,13 +224,22 @@ def _dated_in_window(
     if paired.empty:
         return empty
     stamps = pd.DatetimeIndex(paired.index)
-    if method != "mean" or rule.window is None:
+    if rule.window is None:
         return paired.set_axis(stamps)
+    grid = pd.DatetimeIndex(normalize_datetime_series(simulated).dropna().index)
+    inside = periods_in_window(
+        stamps,
+        method=method,
+        start=rule.window.start,
+        end=rule.window.end,
+        grid=grid,
+        period_start=period_start,
+    )
+    if method != "mean":
+        return paired.set_axis(stamps)[inside]
     starts = _period_starts(simulated, period_start)
     if starts is None:
         return empty
-    window_end = pd.Timestamp(datetime.combine(rule.window.end + timedelta(days=1), time.min))
-    inside = np.asarray(stamps <= window_end)
     return paired.set_axis(pd.DatetimeIndex(starts.reindex(stamps)))[inside]
 
 

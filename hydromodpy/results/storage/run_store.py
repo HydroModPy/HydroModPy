@@ -42,6 +42,7 @@ from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import (
+    RUNTIME_VARIABLE,
     InputEntry,
     Manifest,
     MetricRow,
@@ -743,6 +744,26 @@ class RunStore:
             ],
             schema=METRICS_SCHEMA,
             pk_cols=("sim_id", "station_id", "variable", "metric"),
+        )
+
+    def write_runtime_metric(
+        self,
+        sim_id: str | UUID,
+        station_id: str,
+        metric_name: str,
+        value: float,
+    ) -> None:
+        """Record a number of the run itself (solve time, budget), which is no score.
+
+        The row stays in the facts and the seal; the index and the readers of
+        scores leave it out (:data:`~hydromodpy.results.manifest.RUNTIME_VARIABLE`).
+        """
+        self.write_metric(
+            sim_id,
+            station_id,
+            metric_name,
+            value,
+            variable=RUNTIME_VARIABLE,
         )
 
     def write_provenance(

@@ -19,9 +19,11 @@ Labels, in order of precedence
    touches a quantity of the run. The run is declassed, whatever else it is.
 4. ``evaluated``: the run is calibrated (rule 5 holds) and was scored, with
    at least ``ValidityRules.min_scored_samples`` samples, on a window that
-   differs from the window the session scored (``calibrated_by.window``). It
-   is a split-sample: the calibrated parameters judged on days the search
-   never saw. A session window that was not recorded cannot be told apart, so
+   shares no day with the window the session scored (``calibrated_by.window``,
+   bounds included). It is a split-sample: the calibrated parameters judged on
+   days the search never saw. A window that overlaps the calibration window
+   without being equal to it keeps the run ``calibrated``, with a reason that
+   says so. A session window that was not recorded cannot be told apart, so
    the run stays ``calibrated``.
 5. ``calibrated``: the run was promoted by a session whose status is one of
    ``ValidityRules.calibrated_session_statuses`` (``completed`` only, by
@@ -67,8 +69,9 @@ from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.results.checks import CalibrationSessionStatus, Checks
+from hydromodpy.results.metric_rule import DateWindow
 
-RULE_VERSION: Final[str] = "1"
+RULE_VERSION: Final[str] = "2"
 """Version of the labelling rules. Bump it when a label changes meaning."""
 
 KNOWN_ISSUES_FILENAME: Final[str] = "known_issues.toml"
@@ -153,6 +156,11 @@ def run_quantities(
     return tuple(tokens)
 
 
+def _share_a_day(first: DateWindow, second: DateWindow) -> bool:
+    """Return whether two closed windows have a day in common."""
+    return first.start <= second.end and second.start <= first.end
+
+
 def label_for(
     checks: Checks,
     *,
@@ -197,16 +205,16 @@ def label_for(
         promoted = f"promoted by session {by.session_id}, {by.session_status}"
         if scored and by.window is not None and window != by.window:
             assert window is not None
-            return LabelResult(
-                "evaluated",
-                active.rule_version,
-                (
-                    promoted,
-                    f"scored on {window.start} to {window.end} with {checks.n_samples} samples, "
-                    f"outside the calibration window {by.window.start} to {by.window.end}",
-                ),
-                (),
-            )
+            scoring = f"scored on {window.start} to {window.end} with {checks.n_samples} samples"
+            calibration = f"the calibration window {by.window.start} to {by.window.end}"
+            if _share_a_day(window, by.window):
+                reason = (
+                    f"scored on a window that overlaps {calibration} "
+                    f"(run window {window.start} to {window.end}, {checks.n_samples} samples)"
+                )
+                return LabelResult("calibrated", active.rule_version, (promoted, reason), ())
+            reason = f"{scoring}, outside {calibration}"
+            return LabelResult("evaluated", active.rule_version, (promoted, reason), ())
         return LabelResult("calibrated", active.rule_version, (promoted,), ())
     reasons: list[str] = []
     if by is not None:

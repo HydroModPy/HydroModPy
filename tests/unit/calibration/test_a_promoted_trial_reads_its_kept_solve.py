@@ -571,7 +571,9 @@ def test_a_trial_without_a_kept_solve_is_solved_again_and_the_log_says_why(
             ),
         )
     monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
-    trial_ctx = SimpleNamespace(kept_solves=retention)
+    results = SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
+    base_cfg = SimpleNamespace(simulation=SimpleNamespace(results=results))
+    trial_ctx = SimpleNamespace(kept_solves=retention, base_cfg=base_cfg)
 
     with caplog.at_level(logging.INFO, logger=promotion_module.logger.name):
         outcome = promotion_module.promote_session(

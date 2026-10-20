@@ -37,7 +37,7 @@ from hydromodpy.core.metrics import (
     nse_seasonal,
     rmse,
 )
-from hydromodpy.results.catalog.constants import METRIC_SENSE
+from hydromodpy.results.catalog.constants import METRIC_SENSE, cost_of
 
 # Kernels that take a logarithm and therefore refuse a negative value.
 LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
@@ -220,7 +220,6 @@ class SeriesCriterion:
     def __init__(self, name: str, kernel: Any) -> None:
         self.name = str(name)
         self._kernel = kernel
-        self._higher_is_better = self.name in HIGHER_IS_BETTER
         self._takes_log = self.name in LOG_METRICS
 
     def requirements(self) -> CriterionRequirements:
@@ -271,7 +270,7 @@ class SeriesCriterion:
             raw = float(self._kernel(sim, obs, sample_days=sample_days, times_days=times_days))
         else:
             raw = float(self._kernel(sim, obs))
-        cost = (1.0 - raw) if self._higher_is_better else raw
+        cost = cost_of(self.name, raw)
         diagnostics = {"score": raw, "n_values": float(obs.size)}
         if self._takes_log:
             diagnostics["n_clipped"] = float(n_clipped)

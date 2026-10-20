@@ -3,7 +3,10 @@
 Best and worst follow the direction of the metric, read from
 :data:`hydromodpy.results.catalog.constants.METRIC_SENSE`: the top of ``nse`` is
 its highest value, the top of ``rmse`` its lowest, the top of ``bias`` the value
-closest to zero.
+closest to zero. Scores computed on different windows, at different stations or
+under different rule versions are not comparable: the command refuses them,
+naming each rule, unless ``--mixed-windows``. ``--station`` narrows the ranking
+to one gauge, and then only the window and the rule version must agree.
 """
 
 from __future__ import annotations
@@ -11,7 +14,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
 
 NAME: str = "rank"
 HELP: str = "Rank simulations of a project by a metric (best or worst N)"
@@ -29,6 +32,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--station", default=None, help="Rank the scores of one station only (default: all)"
     )
+    parser.add_argument(
+        "--mixed-windows",
+        action="store_true",
+        help="Rank scores computed on different windows, stations or rule versions together",
+    )
     parser.add_argument("-w", "--workspace", default=None, help="Project root")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--top", type=int, default=None, help="Show the N best simulations")
@@ -40,6 +48,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.cli._workers.dev import rank_simulations
     from hydromodpy.results.catalog.constants import UnrankedMetricError
+    from hydromodpy.results.run.sealed import MixedWindowsError
 
     if args.bottom is not None:
         n, best = args.bottom, False
@@ -56,10 +65,14 @@ def run(args: argparse.Namespace) -> None:
             station=args.station,
             best=best,
             n=n,
+            mixed_windows=args.mixed_windows,
         )
     except UnrankedMetricError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+    except MixedWindowsError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(exit_code_for(exc))
     if df.empty:
         print(
             f"No simulations with metric '{args.metric}' in project '{args.project}'",
@@ -71,5 +84,11 @@ def run(args: argparse.Namespace) -> None:
         display = row.name or str(row.sim_id)[:8]
         print(
             f"{label}#{idx}: {display}  sim_id={row.sim_id}  solver={row.solver}  "
-            f"station={row.station}  {args.metric}={row.value:.4f}"
+            f"station={row.station}  {args.metric}={row.value:.4f}  "
+            f"window={_day(row.nse_window_start)}..{_day(row.nse_window_end)}"
         )
+
+
+def _day(value: object) -> str:
+    """Return a window bound as a date, ``?`` when the score has none."""
+    return "?" if value is None or value != value else str(value)[:10]

@@ -123,11 +123,17 @@ def _freeze(persistence: CalibrationPersistence) -> None:
     (persistence.directory / "config.toml").write_text(FROZEN_CONFIG, encoding="utf-8")
 
 
+def _persisting_cfg(**extra: Any) -> SimpleNamespace:
+    """A base configuration whose runs persist, as a project file by default."""
+    results = SimpleNamespace(persistence=SimpleNamespace(save_catalog=True))
+    return SimpleNamespace(simulation=SimpleNamespace(results=results), **extra)
+
+
 def _fake_prepare(
     cfg_path, *, override_paths, steps=None, parameter_space=None, config_overrides=None
 ):
     return TrialContext(
-        base_cfg=SimpleNamespace(),
+        base_cfg=_persisting_cfg(),
         ctx=None,
         earliest=0,
         downstream_steps=(),
@@ -170,7 +176,7 @@ def recorder(monkeypatch) -> _Recorder:
 def _promote(project: Path, persistence, *, cfg: CalibrationConfig, status: str = "completed"):
     return promote_session(
         cfg=cfg,
-        trial_ctx=SimpleNamespace(kept_solves=None),
+        trial_ctx=SimpleNamespace(kept_solves=None, base_cfg=_persisting_cfg()),
         persistence=persistence,
         project_root=project,
         phase="main",
@@ -389,7 +395,7 @@ class TestThePromotionAfterAnInterruption:
     def _after_abort(self, project, persistence, *, kept_solves):
         return promote_best_after_abort(
             cfg=_cfg(),
-            trial_ctx=SimpleNamespace(kept_solves=kept_solves),
+            trial_ctx=SimpleNamespace(kept_solves=kept_solves, base_cfg=_persisting_cfg()),
             persistence=persistence,
             project_root=project,
             phase="main",
@@ -459,7 +465,7 @@ class TestThePromotionOfAnEarlierPhase:
             )
 
         sim_id = promote_phase_best(
-            trial_ctx=SimpleNamespace(kept_solves=None),
+            trial_ctx=SimpleNamespace(kept_solves=None, base_cfg=_persisting_cfg()),
             persistence=persistence,
             phase="steady_k",
             override_paths={"K": K_PATH},
@@ -644,7 +650,7 @@ def _staged_prepare(
 ):
     """A prepared pipeline whose baseline holds the declared K, as a fresh load does."""
     declared_k = SimpleNamespace(field=SimpleNamespace(value=1e-4))
-    base = SimpleNamespace(flow=SimpleNamespace(param=SimpleNamespace(K=declared_k)))
+    base = _persisting_cfg(flow=SimpleNamespace(param=SimpleNamespace(K=declared_k)))
     return TrialContext(
         base_cfg=base,
         ctx=None,

@@ -26,8 +26,9 @@ def compare_pair(
 ) -> pd.DataFrame:
     """Compare two simulations and return their metrics side-by-side.
 
-    Pivots the ``metrics`` table so each metric/station row carries one column
-    per simulation (``A`` for ``sim_a``, ``B`` for ``sim_b``). When the catalog
+    One row per (metric, station, variable) carries the score of each simulation
+    (``A`` for ``sim_a``, ``B`` for ``sim_b``), the window it was scored on
+    (``A_window``, as ``start/end``) and its samples (``A_n``). When the catalog
     holds no metrics for either reference, an empty DataFrame is returned.
 
     ``workspace`` defaults to the nearest ancestor of ``cwd`` holding a
@@ -42,22 +43,32 @@ def compare_pair(
         sid_a = catalog.resolve(sim_a)
         sid_b = catalog.resolve(sim_b)
         df = catalog.sql(
-            "SELECT sim_id, station_id, metric_name, value "
+            "SELECT sim_id, station_id, variable, metric_name, value, "
+            "nse_window_start, nse_window_end, nse_n "
             "FROM metrics WHERE sim_id IN (?, ?) "
-            "ORDER BY metric_name, station_id",
+            "ORDER BY metric_name, station_id, variable",
             [sid_a, sid_b],
         )
 
     if df.empty:
         return df
 
-    pivot = df.pivot_table(
-        index=["metric_name", "station_id"],
-        columns="sim_id",
-        values="value",
-        aggfunc="first",
-    )
-    return pivot.rename(columns={sid_a: "A", sid_b: "B"})
+    keys = ["metric_name", "station_id", "variable"]
+    df["window"] = [
+        None
+        if pd.isna(start)
+        else f"{pd.Timestamp(start).date().isoformat()}/{pd.Timestamp(end).date().isoformat()}"
+        for start, end in zip(df["nse_window_start"], df["nse_window_end"], strict=True)
+    ]
+    sides = []
+    for label, sid in (("A", sid_a), ("B", sid_b)):
+        side = df[df["sim_id"].astype(str) == str(sid)].drop_duplicates(keys).set_index(keys)
+        sides.append(
+            side[["value", "window", "nse_n"]].rename(
+                columns={"value": label, "window": f"{label}_window", "nse_n": f"{label}_n"}
+            )
+        )
+    return sides[0].join(sides[1], how="outer").sort_index()
 
 
 __all__ = ("compare_pair",)

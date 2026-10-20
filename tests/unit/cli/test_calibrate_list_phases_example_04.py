@@ -50,12 +50,14 @@ def test_the_protocol_file_shows_a_network_row_and_a_hydrograph_block_row(capsys
     assert lines[1] == (
         f"    network_extension\tdistance_gap\tshare 100%\trelease_flux (network)\tvs {GEOMETRY}"
     )
-    assert lines[2].startswith("1\ttransient_storage\tscipy_nelder_mead\t")
-    assert lines[3] == (
+    assert lines[2] == "    scores on: no window, all of the run"
+    assert lines[3].startswith("1\ttransient_storage\tscipy_nelder_mead\t")
+    assert lines[4] == (
         "    hydrograph\tnse_log\tshare 100%\tdischarge, station NANCON (whole-catchment "
         "series)\tvs station NANCON ([data.hydrometry])"
     )
-    assert len(lines) == 4
+    assert lines[5] == "    scores on: window 2001-01-01 to 2002-12-31"
+    assert len(lines) == 6
 
 
 def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
@@ -71,7 +73,9 @@ def test_the_composite_file_shows_one_phase_with_two_shares(capsys) -> None:
         "    hydrograph\tnse_log\tshare 70%\tdischarge, station NANCON (whole-catchment "
         "series)\tvs station NANCON ([data.hydrometry])"
     )
-    assert len(lines) == 3
+    # The file writes only the start: the window runs to the last paired sample.
+    assert lines[3] == "    scores on: window 2001-01-01 to the last paired sample"
+    assert len(lines) == 4
 
 
 def test_the_protocol_written_by_hand_lists_what_the_protocol_lists(capsys) -> None:

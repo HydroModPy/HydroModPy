@@ -40,7 +40,6 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.figure_options import OutputName, SessionId
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._calibration_session import (
-    EFFICIENCIES,
     NETWORK_METRICS,
     RESIDUAL_COSTS,
     CostBlock,
@@ -54,6 +53,8 @@ from hydromodpy.display.figures._calibration_session import (
     parameter_declaration,
     read_tolerance,
     returned_row,
+    rises_with_fit,
+    score_label,
     session_config,
     session_descriptor,
     text,
@@ -61,6 +62,7 @@ from hydromodpy.display.figures._calibration_session import (
 )
 from hydromodpy.display.figures._trial_diagnostics import TrialTable, trial_table
 from hydromodpy.display.style import HIGH_CONTRAST_TRIPLET, get_cmap
+from hydromodpy.results.catalog.constants import score_of
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -551,8 +553,8 @@ def _better_text(search: _Search) -> str:
                 "Better, for the stream network: a smaller mean of D_so and D_os, the two "
                 "distances between the simulated seepage cells and the mapped streams."
             )
-        elif metric in EFFICIENCIES:
-            name = EFFICIENCIES[metric]
+        elif rises_with_fit(metric):
+            name = score_label(metric)
             where = "at the gauge" if search.output_variable == "discharge" else ""
             detail = (
                 ", computed on log discharge so that low flows weigh as much as floods"
@@ -1029,14 +1031,18 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None
     runs = search.runs
     colours = (_BLUE, _RED, _SAND)
     names = []
+    drawn = []
+    rises = []
     for index, block in enumerate(blocks):
         colour = colours[index % len(colours)]
         metric = block.metric or ""
         raw = np.asarray(block.raw, dtype=float)
-        efficiency = metric in EFFICIENCIES and not block.transformed
-        values = 1.0 - raw if efficiency else raw
-        name = EFFICIENCIES[metric] if efficiency else metric_cost(block)
+        efficiency = rises_with_fit(metric) and not block.transformed
+        values = score_of(metric, raw) if efficiency else raw
+        name = score_label(metric) if efficiency else metric_cost(block)
         names.append(name)
+        drawn.append(values[np.isfinite(values)])
+        rises.append(efficiency)
         prefix = f"{block.name}: " if len(blocks) > 1 else ""
         finite = np.isfinite(values)
         ax.plot(runs[finite], values[finite], color=colour, lw=1.0, alpha=0.5, zorder=2)
@@ -1074,17 +1080,14 @@ def _draw_series(ax: Axes, search: _Search, blocks: Sequence[CostBlock]) -> None
                 zorder=5,
                 label=f"{prefix}{search.best_word} run: {name} = {values[best]:.3f}",
             )
-    finite = np.concatenate(
-        [(1.0 - b.raw if (b.metric in EFFICIENCIES) else b.raw)[np.isfinite(b.raw)] for b in blocks]
-    )
+    finite = np.concatenate(drawn)
     if finite.size:
         low, high = float(finite.min()), float(finite.max())
         span = high - low or abs(high) or 1.0
         ax.set_ylim(low - 0.6 * span, high + 0.25 * span)
     _run_axis(ax, search)
-    unit = "-" if all(block.metric in EFFICIENCIES for block in blocks) else metric_unit(blocks[0])
-    rises = all(block.metric in EFFICIENCIES for block in blocks)
-    way = "higher" if rises else "lower"
+    unit = "-" if all(rises) else metric_unit(blocks[0])
+    way = "higher" if all(rises) else "lower"
     ax.set_ylabel(f"{' / '.join(dict.fromkeys(names))} ({unit}), {way} is better")
     noun = "gauged discharge" if search.output_variable == "discharge" else "observed series"
     ax.set_title(f"Fit to the {noun}")

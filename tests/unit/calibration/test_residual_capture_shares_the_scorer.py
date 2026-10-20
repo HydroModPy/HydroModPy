@@ -182,7 +182,8 @@ class TestTheCaptureAndTheCostReadTheSamePairing:
             _outputs(),
             ctx=_ctx(),
             objective_blocks=[_block()],
-            scoring_window=(pd.Timestamp("2020-01-03"), None),
+            # The days from 2020-01-02 on: the periods the last two stamps close.
+            scoring_window=(pd.Timestamp("2020-01-02"), None),
         )
 
         capture_fn(None)

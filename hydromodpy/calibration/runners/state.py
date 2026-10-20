@@ -19,6 +19,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.storage.digests import sha256_directory, sha256_streaming
@@ -216,6 +217,9 @@ def build_cache_context(
         # Code identity: a model-build or solver fix must invalidate the cache so a
         # re-run does not return pre-fix objectives with zero re-solves.
         "code_version": str(_hmp_version),
+        # The session scores its window under the rule of the run: a cost from
+        # another rule kept other periods and is another number.
+        "metric_rule_version": METRIC_RULE_VERSION,
         "model": model_payload,
         "calibration": calibration_payload,
         "override_paths": dict(sorted(override_paths.items())),

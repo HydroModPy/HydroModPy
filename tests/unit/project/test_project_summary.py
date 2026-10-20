@@ -22,7 +22,6 @@ from hydromodpy.core.site.row import SITE_ROW_COLUMNS, SiteRow
 from hydromodpy.project import summary as summary_module
 from hydromodpy.project.summary import (
     CASE_COLUMNS,
-    MixedWindowsError,
     SummaryError,
     UnreadableManifestError,
     collect_project,
@@ -36,6 +35,7 @@ from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.plan_store import Plan, PlanCase, write_plan
 from hydromodpy.results.record import RunRecord
+from hydromodpy.results.run.sealed import MixedWindowsError
 from hydromodpy.results.storage.contract import TABLES_DIRNAME
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
 

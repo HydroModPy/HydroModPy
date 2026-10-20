@@ -540,7 +540,7 @@
           "x-hmp-profile": "user"
         },
         "uses_outputs": {
-          "description": "Outputs (by name) consumed by this block.",
+          "description": "Outputs (by name) consumed by this block. An error metric (rmse, mae) or a network distance may read several, pooled into one cost. A metric that rises with the fit (nse, kge and the other efficiencies) reads exactly one: write one block per output, each with its weight, so the costs average per station.",
           "items": {
             "type": "string"
           },

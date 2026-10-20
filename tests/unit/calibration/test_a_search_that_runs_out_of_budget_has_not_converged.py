@@ -629,8 +629,7 @@ def test_a_phase_built_on_an_unconverged_one_is_refused() -> None:
 
     message = str(caught.value)
     assert "max_iter = 120, plus 0 granted once" in message
-    assert "Raise max_iter or loosen the tolerance" in message
-    assert "replays the trials already solved from the cache" in message
+    assert "Raise max_iter: a re-run of the same file replays" in message
     assert "['transient']" in message
 
 
@@ -729,10 +728,10 @@ def test_a_simplex_that_meets_its_tolerance_converges() -> None:
 
 
 def test_a_simplex_stopped_by_its_own_evaluation_cap_has_not_converged() -> None:
-    # SciPy's own maxfev (100 by default) ends the thread with success False:
-    # the thread ending is not the simplex meeting its tolerance.
+    # SciPy's own maxfev, written in the options, ends the thread with success
+    # False: the thread ending is not the simplex meeting its tolerance.
     space = _two_dimensional_space()
-    optimizer = ScipyNelderMead(space, xatol=1e-12, fatol=1e-14)
+    optimizer = ScipyNelderMead(space, xatol=1e-12, fatol=1e-14, maxfev=100)
     engine = CalibrationEngine(
         space=space, optimizer=optimizer, evaluator=_rosenbrock, max_iter=200
     )

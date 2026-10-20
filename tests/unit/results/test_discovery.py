@@ -24,6 +24,7 @@ from hydromodpy.results.catalog.discovery import (
 )
 from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.record import RunRecord
+from hydromodpy.results.run.sealed import MixedWindowsError
 from hydromodpy.results.trash import trash_run
 from tests._helpers.sealed_runs import NOW, WINDOW, make_project, seal_run, write_attempt
 
@@ -139,9 +140,13 @@ def test_an_id_prefix_resolves(index: Catalog) -> None:
 
 def test_best_reads_the_metric_scored_under_the_rule_not_any_station(index: Catalog) -> None:
     # The lake row (0.95) carries no rule version: it never ranks a run as best.
-    assert index.resolve("@best:nse") == MONTHLY
-    assert index.resolve("@worst:nse") == MONTHLY_V2
+    assert index.resolve("@best:nse", site="nancon") == MONTHLY
+    assert index.resolve("@worst:nse", site="nancon") == MONTHLY_V2
     assert index.resolve("@best:nse@lake") == MONTHLY_V2
+    # Two gauges are two rules: across sites the selector refuses unless forced.
+    with pytest.raises(MixedWindowsError, match="J0014010"):
+        index.resolve("@best:nse")
+    assert index.resolve("@best:nse", mixed_windows=True) == MONTHLY
 
 
 def test_a_selector_narrows_to_one_site(index: Catalog) -> None:
@@ -220,7 +225,7 @@ def test_the_trash_answers_by_its_listing_name_or_by_the_directory(tmp_path: Pat
 
 def test_the_tree_asks_the_index_for_a_selector_and_an_id(project: Path) -> None:
     assert resolve_rel_dir(project, "@last") == "runs/beef1234"
-    assert resolve_rel_dir(project, "@best:nse") == "runs/nancon_monthly"
+    assert resolve_rel_dir(project, "@best:nse", site="nancon") == "runs/nancon_monthly"
     assert resolve_rel_dir(project, "@best:nse", site="J0014010") == "runs/J0014010-base"
     assert resolve_rel_dir(project, "@worst:nse", site="nancon") == "runs/nancon_monthly.v2"
     assert resolve_rel_dir(project, "3333") == "runs/J0014010-base"

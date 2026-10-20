@@ -32,11 +32,14 @@ import uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.calibration.config import CalibrationConfig, scoring_window_bounds
+from hydromodpy.calibration.config import (
+    CalibPhaseDecl,
+    CalibrationConfig,
+    scoring_window_bounds,
+)
 from hydromodpy.calibration.evaluation import TrialRequest
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.optim.cache import ParamsHashCache
@@ -75,7 +78,12 @@ from hydromodpy.calibration.runners.promotion import (
     promote_session,
     promotion_name_check,
 )
-from hydromodpy.calibration.runners.recap import cost_metric_label, parameter_units
+from hydromodpy.calibration.runners.recap import (
+    cost_metric_label,
+    cost_samples,
+    parameter_units,
+    scored_samples,
+)
 from hydromodpy.calibration.runners.restarts import run_restarts
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.session import (
@@ -546,8 +554,13 @@ def session_objective_name(cfg: CalibrationConfig) -> str:
 
     A search scored through blocks names their metrics, joined by ``" + "``
     when there are several. A single-metric search names its ``objective``.
+    A staged session keeps the value and the window of its last phase, so it
+    names what that phase scores.
     """
-    metrics = [str(block.metric) for block in cfg.objective_blocks or ()]
+    last = cfg.phases[-1] if cfg.phases else None
+    if last is not None and last.is_single_metric:
+        return str(last.objective or cfg.objective)
+    metrics = [str(block.metric) for block, _weight in cfg.objective_blocks_for(last)]
     if metrics:
         return " + ".join(dict.fromkeys(metrics))
     return str(cfg.objective)
@@ -556,6 +569,29 @@ def session_objective_name(cfg: CalibrationConfig) -> str:
 # ---------------------------------------------------------------------------
 # Core loop (caller-agnostic)
 # ---------------------------------------------------------------------------
+
+
+def declared_window_text(cfg: CalibrationConfig, phase: CalibPhaseDecl | None = None) -> str:
+    """Say the window a search scores on, as the file declares it.
+
+    ``cfg`` is the ``[calibration]`` section and ``phase`` one of its phases,
+    ``None`` for the section's own search. The phase's ``scoring_window``,
+    else the section's; a transient phase carries ``[metrics] window`` there
+    once the project defaults are applied. A bound left open reads as the
+    first or last paired sample. Without a window, the whole run is scored,
+    less the first ``warmup_periods`` paired samples.
+    """
+    window = getattr(cfg, "scoring_window", None)
+    if phase is not None and phase.scoring_window is not None:
+        window = phase.scoring_window
+    if window is not None and (window.start or window.end):
+        start = window.start or "the first paired sample"
+        end = window.end or "the last paired sample"
+        return f"window {start} to {end}"
+    warmup = getattr(cfg, "warmup_periods", None)
+    if warmup:
+        return f"no window, all of the run less the first {int(warmup)} paired sample(s)"
+    return "no window, all of the run"
 
 
 def _keep_trial_solves(cfg: CalibrationConfig, trial_ctx: TrialContext | None) -> None:
@@ -1145,31 +1181,15 @@ def _phase_objective_block_fractions(
 def _first_trial_pairing(history: list[EvaluationResult]) -> dict[str, dict[str, Any]] | None:
     """Return, per output, the dates and pair count the first trial retained.
 
-    Read from ``history[0]`` rather than recomputed for every trial: the
-    pairing a search follows is set before the first candidate is scored and
-    does not change trial to trial, so the first one already says it for the
-    whole phase (``ObservableScorer.score`` in ``metrics/observable_scoring.py``
-    writes ``<name>.n_paired`` and ``<name>.date_start`` / ``<name>.date_end``
-    into the components of every trial, from ``PairedOutputs``,
-    ``metrics/observed_pairing.py``). ``None`` when no output names a station:
-    nothing was paired.
+    Read from ``history[0]`` (:func:`~hydromodpy.calibration.runners.recap.cost_samples`):
+    the pairing a search sets up before its first candidate. A later trial
+    can keep fewer pairs, a dry cell drops one, so the cost of the best trial
+    is read with its own pairs (``extra["cost_samples"]``). ``None`` when no
+    output names a station: nothing was paired.
     """
     if not history:
         return None
-    components = history[0].components or {}
-    names = sorted({key.rsplit(".", 1)[0] for key in components if key.endswith(".n_paired")})
-    if not names:
-        return None
-    pairing: dict[str, dict[str, Any]] = {}
-    for name in names:
-        entry: dict[str, Any] = {"n_paired": int(components[f"{name}.n_paired"])}
-        start = components.get(f"{name}.date_start")
-        end = components.get(f"{name}.date_end")
-        if start is not None and end is not None:
-            entry["start"] = date.fromordinal(int(start)).isoformat()
-            entry["end"] = date.fromordinal(int(end)).isoformat()
-        pairing[name] = entry
-    return pairing
+    return cost_samples(history[0].components) or None
 
 
 def attach_a_linearized_width(
@@ -1638,6 +1658,10 @@ def run_calibration_core(
     # Read by the console recap, which cannot reach the configuration.
     extra["parameter_units"] = parameter_units(cfg)
     extra["cost_metric"] = cost_metric_label(cfg)
+    extra["cost_window"] = declared_window_text(cfg)
+    scored = cost_samples(best.components if best is not None else None)
+    if scored:
+        extra["cost_samples"] = scored
     extra["search_status"] = search_status(session)
 
     return CalibrationReport(
@@ -1726,12 +1750,14 @@ def promote_and_close(
             persistence.directory.name,
         )
     elif final_status == "partial":
-        error = str(report.extra.get("search", {}).get("stopping_rule") or "stopping rule not met")
+        error = _why_partial(persistence, report)
+    best_line = persistence.best_trial(phase)
     persistence.finalize_session(
         status=final_status,
-        best=best_pointer(persistence.best_trial(phase)),
+        best=best_pointer(best_line),
         error=error,
         root_search=root_search,
+        objective_samples=scored_samples(best_line.metrics if best_line is not None else None),
     )
     write_session_readme(persistence)
     extra = dict(report.extra)
@@ -1746,6 +1772,24 @@ def promote_and_close(
         best_sim_id=promotion.best_sim_id,
         best_rel_dir=promotion.best_rel_dir,
     )
+
+
+def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport) -> str:
+    """Say why a search closed ``partial``: the trials that failed, the rule not met.
+
+    A search can meet its stopping rule and still close ``partial`` because a
+    trial failed; the message then names the trials, not the rule.
+    """
+    failed = [line.trial for line in persistence.trials() if line.status in ("failed", "crashed")]
+    reasons = []
+    if failed:
+        shown = ", ".join(str(number) for number in failed[:10])
+        more = f" and {len(failed) - 10} more" if len(failed) > 10 else ""
+        reasons.append(f"{len(failed)} trial(s) failed: trial {shown}{more}")
+    search = report.extra.get("search") or {}
+    if search.get("converged") is False:
+        reasons.append(f"stopping rule ({search.get('stopping_rule')}) not met")
+    return "; ".join(reasons) or "stopping rule not met"
 
 
 def pointer_phase(persistence: CalibrationPersistence, phase: str) -> str:
@@ -1964,9 +2008,21 @@ def describe_dry_run(cfg_path: Path, *, project_root: Path) -> dict[str, Any]:
     case = calibration_case_name(cfg_path)
     dirname = next_version_dirname(project_root, case)
     phases = [
-        {"name": decl.name, "parameters": list(decl.parameters), "max_iter": decl.max_iter}
+        {
+            "name": decl.name,
+            "parameters": list(decl.parameters),
+            "max_iter": decl.max_iter,
+            "scoring_window": declared_window_text(cfg, decl),
+        }
         for decl in cfg.phases or ()
-    ] or [{"name": DEFAULT_PHASE, "parameters": list(cfg.parameters), "max_iter": cfg.max_iter}]
+    ] or [
+        {
+            "name": DEFAULT_PHASE,
+            "parameters": list(cfg.parameters),
+            "max_iter": cfg.max_iter,
+            "scoring_window": declared_window_text(cfg),
+        }
+    ]
     return {
         "case": case,
         "project_root": str(project_root),
@@ -2150,6 +2206,8 @@ def open_calibration_session(
         hydromodpy_version=HYDROMODPY_VERSION,
         method=session_method(cfg),
         objective_name=session_objective_name(cfg),
+        # The value the session keeps is the one of its last phase.
+        objective_label=cost_metric_label(cfg, cfg.phases[-1] if cfg.phases else None),
         search_space=search_space_payload(space),
         objective_window=objective_window_of(cfg, raw),
     )
@@ -2170,6 +2228,7 @@ __all__ = [
     "attach_a_linearized_width",
     "calibrated_status",
     "closing_session",
+    "declared_window_text",
     "describe_dry_run",
     "fail_session",
     "load_toml_calibration",

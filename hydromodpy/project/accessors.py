@@ -132,11 +132,18 @@ class ProjectRunsAccessor:
             return None
         return self._project._store[df.iloc[-1]["sim_id"]]
 
-    def best(self, metric: str) -> Run | None:
+    def best(self, metric: str, *, mixed_windows: bool = False) -> Run | None:
+        """Return the completed run of the project with the best ``metric``, ``None`` without index.
+
+        Runs scored under different rules (station, variable, window or rule
+        version) are refused with
+        :class:`~hydromodpy.results.run.sealed.MixedWindowsError` unless
+        ``mixed_windows`` is true.
+        """
         store = self._project._store
         if store is None:
             return None
-        return store.best(self._project._project_name, metric=metric)
+        return store.best(self._project._project_name, metric=metric, mixed_windows=mixed_windows)
 
     def delete(self, sim_id: str, *, remove_storage: bool = True) -> None:
         """Delete a simulation from the catalog (and optionally its artefacts)."""
@@ -242,7 +249,8 @@ def best_frame(
     (``RunSet.metrics``); best follows its direction. ``label`` keeps the
     runs of that label only, ``calibrated`` by default; ``None`` ranks every
     completed run. Runs of one group scored under different rules are
-    refused unless ``mixed_windows`` is true.
+    refused with :class:`~hydromodpy.results.run.sealed.MixedWindowsError`
+    unless ``mixed_windows`` is true.
 
     The frame carries the group column, ``case_id``, ``rel_dir``,
     ``sim_id``, ``label``, the global parameters of the run, the metric

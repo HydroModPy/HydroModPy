@@ -35,7 +35,7 @@ from __future__ import annotations
 import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from pydantic import Field, field_validator
 
@@ -220,6 +220,10 @@ class ParameterRow(HydroModelBase):
     calibrated: bool = Field(description="True when a calibration set the value")
 
 
+RUNTIME_VARIABLE: Final[str] = "runtime"
+"""Variable of a metric row that is a number of the run itself (solve time, budget), not a score."""
+
+
 class MetricRow(HydroModelBase):
     """One metric of a run, with the window and rule it was computed under.
 
@@ -236,6 +240,11 @@ class MetricRow(HydroModelBase):
     nse_window_end: date | None = Field(default=None, description="Last day scored, included")
     nse_n: int | None = Field(default=None, ge=0, description="Samples the score used")
     metric_rule_version: str | None = None
+
+    @property
+    def is_runtime(self) -> bool:
+        """Whether the row is a number of the run itself, which no score reader lists."""
+        return self.variable == RUNTIME_VARIABLE
 
 
 class ManifestArtifact(HydroModelBase):
@@ -446,6 +455,7 @@ __all__ = [
     "KEY_PACKAGES",
     "PARAMETERS_TABLE_NAME",
     "RUN_RECORD_MANIFEST_VERSION",
+    "RUNTIME_VARIABLE",
     "InputEntry",
     "Manifest",
     "ManifestArtifact",

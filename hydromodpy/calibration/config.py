@@ -1402,7 +1402,12 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     )
     uses_outputs: Annotated[list[str], Profile.USER] = Field(
         min_length=1,
-        description="Outputs (by name) consumed by this block.",
+        description=(
+            "Outputs (by name) consumed by this block. An error metric (rmse, mae) or a "
+            "network distance may read several, pooled into one cost. A metric that rises "
+            "with the fit (nse, kge and the other efficiencies) reads exactly one: write "
+            "one block per output, each with its weight, so the costs average per station."
+        ),
     )
     normalize_cost: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -1439,6 +1444,28 @@ class CalibObjectiveBlockDecl(HydroModelBase):
             "and bounds a network state too. Kept so older files load unchanged."
         ),
     )
+
+    @model_validator(mode="after")
+    def _check_an_efficiency_reads_one_output(self) -> CalibObjectiveBlockDecl:
+        """Refuse an efficiency over several outputs.
+
+        The pool of several stations has the spread between them as variance, so
+        one badly simulated station hides behind it. One block per output
+        averages the costs per station instead.
+        """
+        from hydromodpy.results.catalog.constants import METRIC_SENSE
+
+        metric = str(self.metric).lower()
+        if METRIC_SENSE.get(metric) == "max" and len(self.uses_outputs) > 1:
+            listed = ", ".join(repr(name) for name in self.uses_outputs)
+            raise ValueError(
+                f"block {self.name!r} scores {metric!r} on {len(self.uses_outputs)} outputs "
+                f"({listed}). An efficiency computed on the pool of several outputs is not "
+                "the mean of their efficiencies, and a poorly simulated station hides "
+                "behind the spread between stations. Write one block per output, each "
+                "with its weight, so the costs average per station."
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_the_normalisation_means_something(self) -> CalibObjectiveBlockDecl:

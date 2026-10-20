@@ -19,6 +19,7 @@ from hydromodpy.results.catalog.constants import UnrankedMetricError
 from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow, MetricScore
 from hydromodpy.results.run.group import RunSet
+from hydromodpy.results.run.sealed import MixedWindowsError
 from tests.unit.results._run_record_factory import (
     ATTEMPT_ID,
     SIM_ID,
@@ -178,7 +179,7 @@ def test_runs_scored_on_different_windows_are_not_ranked_together(scored, tmp_pa
     late = _seal(catalog, tmp_path, "e", 5, _metrics({"nse": 0.99}, other))
     group = RunSet([*ids.values(), late], catalog)
 
-    with pytest.raises(ValueError, match="discharge at J0014010, 2010-01-01 to 2012-12-31"):
+    with pytest.raises(MixedWindowsError, match="discharge at J0014010, 2010-01-01 to 2012-12-31"):
         group.best("nse")
     assert group.best("nse", mixed_windows=True).sim_id == late
 
@@ -190,9 +191,9 @@ def test_runs_scored_at_different_stations_are_not_ranked_together(scored, tmp_p
     )
     group = RunSet([*ids.values(), elsewhere], catalog)
 
-    with pytest.raises(ValueError, match="discharge at J9999999"):
+    with pytest.raises(MixedWindowsError, match="discharge at J9999999"):
         group.best("nse")
-    with pytest.raises(ValueError, match="different rules"):
+    with pytest.raises(MixedWindowsError, match="different rules"):
         group.compare("nse")
     assert group.best("nse", mixed_windows=True).sim_id == elsewhere
 

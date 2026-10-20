@@ -24,9 +24,11 @@ Only the root search does: ``max_iter = "auto"`` then runs its worst case, a
 declared budget below its nominal case is refused before anything solves, one
 below its worst case is announced, and a budget that still runs out is extended
 once by exactly the ``evaluations_remaining`` the engine reports, never by a
-fraction of the budget. Every other engine gets no extension: re-running with a
-larger ``max_iter`` replays the trials already solved from the params-hash
-cache.
+fraction of the budget. Every other engine gets no extension: re-running the same
+file with a larger ``max_iter`` replays the trials already solved from the
+params-hash cache. ``max_iter`` is outside the cache key; ``tolerance``,
+``seed``, ``method`` and ``method_options`` are in it, so changing one of them
+solves every trial again.
 """
 
 from __future__ import annotations
@@ -190,9 +192,10 @@ class CalibrationEngine:
                     logger.warning(
                         "The search did NOT converge: %d evaluations (%d budget + %d "
                         "extension) did not meet its stopping rule (%s). Its best trial is "
-                        "where the budget ended, not an answer. Raise max_iter or loosen "
-                        "the tolerance; a re-run replays the trials already solved from "
-                        "the cache.",
+                        "where the budget ended, not an answer. Raise max_iter: a re-run "
+                        "of the same file replays the trials already solved from the "
+                        "cache. A new tolerance, seed, method or method_options changes "
+                        "the cache key and solves every trial again.",
                         n_done,
                         budget,
                         session.extension,

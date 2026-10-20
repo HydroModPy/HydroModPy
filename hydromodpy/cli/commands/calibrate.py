@@ -165,6 +165,7 @@ def _print_single_search(target: Path) -> None:
     """
     from hydromodpy.calibration.preflight import comparison_line
     from hydromodpy.calibration.runners.cli_runner import (
+        declared_window_text,
         load_toml_calibration,
         resolve_stream_geometry_paths,
     )
@@ -176,6 +177,7 @@ def _print_single_search(target: Path) -> None:
     resolve_stream_geometry_paths(calibration, target)
     for row in objective_comparison_table(calibration, None):
         print(f"    {comparison_line(row)}")
+    print(f"    scores on: {declared_window_text(calibration)}")
 
 
 _WRITTEN_IN = {"phase": "written in the phase", "section": "written in [calibration.uncertainty]"}
@@ -222,7 +224,8 @@ def _format_calibration_result(result: Any) -> list[str]:
 
     Reads only what :class:`hydromodpy.calibration.report.CalibrationReport`
     already carries: the best value per parameter, the cost it was reached
-    at and the metric that cost is (``extra["cost_metric"]``), the interval or
+    at, the metric that cost is (``extra["cost_metric"]``) and the pairs it was
+    scored on (``extra["cost_samples"]``, ``extra["cost_window"]``), the interval or
     width beside a value when the run produced one, a
     caution when the trials could not tell two parameters apart, ``k_over_r``
     when a network calibration published one in ``extra``, and, when the
@@ -270,6 +273,9 @@ def _format_calibration_result(result: Any) -> list[str]:
         # A cost of 0.12 on an NSE reads as a poor score; the metric says it is 1 - NSE.
         metric = extra.get("cost_metric")
         lines.append(f"  cost: {best_objective:.6g}" + (f" ({metric})" if metric else ""))
+        scored = _scored_on_line(extra)
+        if scored:
+            lines.append(f"  scored on: {scored}")
     best_rel_dir = getattr(result, "best_rel_dir", None)
     if best_rel_dir:
         lines.append(f"  calibrated run: {best_rel_dir}")
@@ -320,13 +326,23 @@ def _format_calibration_result(result: Any) -> list[str]:
     elif "objective_block_fractions_absent_note" in extra:
         lines.append(f"  cost share: {extra['objective_block_fractions_absent_note']}")
 
-    pairing = extra.get("first_trial_pairing")
-    if pairing:
-        for name, info in pairing.items():
-            span = f" from {info['start']} to {info['end']}" if "start" in info else ""
-            lines.append(f"  {name}: {info['n_paired']} pair(s){span} (first trial)")
-
     return lines
+
+
+def _scored_on_line(extra: Mapping[str, Any]) -> str | None:
+    """Return the pairs the best cost was scored on, and the window it declares.
+
+    The single-metric route counts no pair, so only its window is printed.
+    """
+    from hydromodpy.calibration.report import samples_text
+
+    window = extra.get("cost_window")
+    samples = extra.get("cost_samples")
+    if samples:
+        return f"{samples_text(samples)}, best trial" + (f" ({window})" if window else "")
+    if window:
+        return f"{window}, pairs not counted"
+    return None
 
 
 def _roptim_line(name: str, verdict: Mapping[str, Any]) -> str:
@@ -436,7 +452,8 @@ def _print_dry_run(plan: Mapping[str, Any]) -> None:
     print(f"calibrated run: {plan['run_dir']} (save_runs = {plan['save_runs']})", file=sys.stderr)
     for phase in plan["phases"]:
         print(
-            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_iter']} trials",
+            f"  phase {phase['name']}: {', '.join(phase['parameters'])}, {phase['max_iter']} "
+            f"trials, scores on {phase['scoring_window']}",
             file=sys.stderr,
         )
     print(f"solves in parallel: {plan['solves_in_parallel']}", file=sys.stderr)
@@ -504,6 +521,8 @@ def run(args: argparse.Namespace) -> None:
             print(_phase_line(index, phase))
             for row in phase.get("comparisons", []):
                 print(f"    {comparison_line(row)}")
+            if phase.get("scoring_window"):
+                print(f"    scores on: {phase['scoring_window']}")
         return
 
     profile_output = resolve_profile_output(profile_arg, target)

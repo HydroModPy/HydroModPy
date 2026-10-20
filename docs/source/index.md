@@ -138,8 +138,7 @@ public data downloaded and cached.
 :link: reference/calibration-methods
 :link-type: doc
 
-Heads, discharge and mapped stream networks combined into calibrations you can replay,
-on the distributed model or on a lumped GR4J model.
+Heads, discharge and mapped stream networks combined into calibrations you can replay.
 :::
 
 :::{grid-item-card} Results you can reopen

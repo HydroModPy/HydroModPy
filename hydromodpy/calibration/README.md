@@ -17,7 +17,6 @@ root of the package.
 |---|---|
 | `targets.py` | which parameters a resolved project exposes to calibration (`hmp config targets`) |
 | `parameter_resolution.py` | what a `[calibration.parameters.<name>]` name means as a config path, at load |
-| `lumped/` | GR4J, the lumped model that runs in memory, outside the solver registry |
 | `criteria/` | how one simulated series is scored against one observed series: the scoring kernels (`METRICS` in `series.py`), their conventions, and the network distance |
 | `optim/` | how the search runs: parameter space, objective, optimizer protocol and registry, engine, stopping, params-hash cache, uncertainty (FOSM, tolerance) |
 | `optim/adapters/` | the search methods themselves: grid, random, scipy, CMA-ES, Optuna, bisection, GP mapping, DA-MH-GP |
@@ -107,7 +106,7 @@ hydromodpy/calibration/
                 state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
   reporting/    network_transient_html.py  network_transient/
-  lumped/  cases/
+  cases/
 ```
 
 ## Template of a search method
@@ -474,8 +473,9 @@ declared share when the blocks have different units.
    `CalibrationMethodConfig` union. Test it in
    `tests/unit/calibration/test_<method>_adapter.py`.
 2. **A criterion a TOML can name.** The kernel `(sim, obs) -> float` in
-   `criteria/series.py`, its name in `METRICS`, and in `HIGHER_IS_BETTER`,
-   `LOG_METRICS` or `DIMENSIONLESS` when that applies. Add the name to
+   `criteria/series.py`, its name in `METRICS`, its direction in `METRIC_SENSE`
+   (`results/catalog/constants.py`, which turns a score into a cost with
+   `cost_of`), and its name in `LOG_METRICS` or `DIMENSIONLESS` when that applies. Add the name to
    `MetricKind` in `config.py`: `test_metric_kind_matches_the_registry.py`
    keeps the two equal. `criteria/registry.py` builds from `METRICS`, with no
    second list.

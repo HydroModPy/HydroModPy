@@ -177,9 +177,10 @@ def _site_of(value: Any) -> str:
 def run(args: argparse.Namespace) -> None:
     apply_verbosity(args, {})
     from hydromodpy.cli._workers.catalog import list_simulations
-    from hydromodpy.project.summary import MixedWindowsError, rank_rows
+    from hydromodpy.project.summary import rank_rows
     from hydromodpy.results.catalog import iter_project_catalog_roots, short_id
     from hydromodpy.results.catalog.constants import UnrankedMetricError
+    from hydromodpy.results.run.sealed import MixedWindowsError
 
     workspace_root = _resolve_workspace(args.workspace)
     if not iter_project_catalog_roots(workspace_root):
@@ -218,6 +219,8 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_USAGE)
     except MixedWindowsError as exc:
         print(str(exc), file=sys.stderr)
+        if args.by is None:
+            print("--by site ranks the runs of each site apart.", file=sys.stderr)
         sys.exit(exit_code_for(exc))
     if args.best and args.limit is not None:
         df = df.head(int(args.limit))

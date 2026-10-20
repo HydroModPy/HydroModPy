@@ -143,7 +143,7 @@ def test_a_run_reads_its_checks_and_its_label_of_the_day(tmp_path) -> None:
     assert run.record.checks.score_window == WINDOW
     label = run.label()
     assert label.label == "calibrated"
-    assert label.rule_version == "1"
+    assert label.rule_version == "2"
 
 
 def test_a_failed_fatal_validity_labels_the_run_failed(tmp_path) -> None:

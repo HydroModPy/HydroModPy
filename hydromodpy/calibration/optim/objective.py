@@ -15,11 +15,14 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 
 from hydromodpy.calibration.criteria.series import (
-    HIGHER_IS_BETTER,
     LOG_METRICS,
     METRICS,
     SAMPLED_BY_DATE,
 )
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.constants import cost_of
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +116,6 @@ class ScalarObjective:
         self.name = metric
         self._observations = observations
         self._metric_fn = METRICS[metric]
-        self._higher_is_better = metric in HIGHER_IS_BETTER
         self._weights = dict(station_weights) if station_weights else {}
 
     def evaluate(self, sim: SimulationOutput) -> ObjectiveValue:
@@ -127,7 +129,7 @@ class ScalarObjective:
             if s is None:
                 continue
             value = float(self._metric_fn(s, o))
-            cost = (1.0 - value) if self._higher_is_better else value
+            cost = cost_of(self.name, value)
             components[f"cost:{self.name}@{station}"] = cost
             costs.append(cost)
             weights.append(float(self._weights.get(station, 1.0)))
@@ -505,7 +507,7 @@ class ConfigBlockObjective:
         }
         self._transform_name = str(transform).strip().lower() if transform else "identity"
         self._transform_fn = _resolve_transform(self._transform_name)
-        self._reference_scale = self._compute_reference_scale(observed)
+        self._warned_scale_fallback = False
 
     def _distances_in_validity_lengths(
         self, parts: Sequence[np.ndarray]
@@ -536,15 +538,32 @@ class ConfigBlockObjective:
             used.append(scales)
         return np.concatenate(divided), float(np.mean(np.concatenate(used)))
 
-    @staticmethod
-    def _compute_reference_scale(observed: np.ndarray) -> float:
-        if observed.size == 0:
+    def _reference_scale_of(self, observed: np.ndarray, simulated: np.ndarray) -> float:
+        """Return the spread the cost is divided by, read on the scored sample.
+
+        The observed values the metric reads: past the burn-in, paired with a
+        finite simulated value. The standard deviation answers; a sample with
+        none falls back on its mean absolute value, then on 1.0, and the
+        fallback is logged once per block.
+        """
+        if observed.size == 0 or self._scores_a_criterion:
             return 1.0
-        std = float(np.nanstd(observed))
+        paired = np.isfinite(observed) & np.isfinite(simulated)
+        sample = observed[paired] if paired.any() else observed
+        std = float(np.nanstd(sample))
         if std > 0.0 and np.isfinite(std):
             return std
-        mean_abs = float(np.mean(np.abs(observed)))
-        return mean_abs if mean_abs > 0.0 else 1.0
+        mean_abs = float(np.mean(np.abs(sample)))
+        scale, used = (mean_abs, "mean absolute value") if mean_abs > 0.0 else (1.0, "1.0")
+        if self._normalize_cost and not self._warned_scale_fallback:
+            self._warned_scale_fallback = True
+            logger.warning(
+                "Block %r: the scored observations have no spread, so normalize_cost "
+                "divides by their %s instead of their standard deviation.",
+                self.name,
+                used,
+            )
+        return scale
 
     @property
     def metric(self) -> str:
@@ -665,7 +684,7 @@ class ConfigBlockObjective:
                 total=float("inf"),
                 components={f"{self.name}.raw_cost": float("inf")},
             )
-        reference_scale = self._reference_scale
+        reference_scale = self._reference_scale_of(observed, simulated)
         if self._scales_distances:
             # Each distance by its own validity length, before the criterion
             # adds them: two bounds of one output may carry two lengths.

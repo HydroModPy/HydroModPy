@@ -37,6 +37,7 @@ from hydromodpy.results.calibration_trials import (
     calibration_trials,
     session_dir_of,
 )
+from hydromodpy.results.catalog.constants import METRIC_SENSE
 from hydromodpy.results.session.descriptor import read_session
 
 if TYPE_CHECKING:
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 NETWORK_METRICS: frozenset[str] = frozenset({"distance_gap", "distance_mean"})
 """Metrics scored on a network, in metres unless normalised."""
 
-EFFICIENCIES: dict[str, str] = {
+METRIC_LABELS: dict[str, str] = {
     "nse": "NSE",
     "nse_log": "NSElog",
     "kge": "KGE",
@@ -54,7 +55,7 @@ EFFICIENCIES: dict[str, str] = {
     "nse_seasonal": "seasonal NSE",
     "reservoir": "reservoir score",
 }
-"""Scores that rise with agreement: the search minimises one minus the score."""
+"""How the figures name a score. Whether it rises with the fit is ``METRIC_SENSE``'s to say."""
 
 NETWORK_COSTS: dict[str, str] = {
     "distance_gap": "|D_so - D_os|",
@@ -258,18 +259,28 @@ def cost_blocks(table: TrialTable, config: Mapping[str, Any]) -> list[CostBlock]
     return blocks
 
 
+def rises_with_fit(metric: str | None) -> bool:
+    """Whether ``metric`` rises with the fit, so the search minimises one minus it."""
+    return METRIC_SENSE.get(str(metric or "")) == "max"
+
+
+def score_label(metric: str) -> str:
+    """Return how the figures name the score ``metric``."""
+    return METRIC_LABELS.get(metric, metric)
+
+
 def metric_cost(block: CostBlock) -> str:
     """Return how the cost of one block reads, without its unit."""
     metric = block.metric or ""
-    if metric in EFFICIENCIES:
-        name = f"1 - {EFFICIENCIES[metric]}"
+    if rises_with_fit(metric):
+        name = f"1 - {score_label(metric)}"
     elif metric in NETWORK_COSTS:
         name = NETWORK_COSTS[metric]
     elif metric in RESIDUAL_COSTS:
         name = RESIDUAL_COSTS[metric]
     else:
         name = f"cost of {block.name}" if block.name else "cost"
-    if block.normalized and metric not in EFFICIENCIES:
+    if block.normalized and not rises_with_fit(metric):
         name = f"{name} / reference scale"
     return name
 
@@ -277,7 +288,7 @@ def metric_cost(block: CostBlock) -> str:
 def metric_unit(block: CostBlock) -> str:
     """Return the unit of the cost of one block."""
     metric = block.metric or ""
-    if block.normalized or block.transformed or metric in EFFICIENCIES:
+    if block.normalized or block.transformed or rises_with_fit(metric):
         return "-"
     if metric in NETWORK_COSTS:
         return "m"
@@ -467,8 +478,8 @@ def text(value: Any) -> str | None:
 
 __all__ = [
     "DEFAULT_TOLERANCE",
-    "EFFICIENCIES",
     "NETWORK_COSTS",
+    "METRIC_LABELS",
     "NETWORK_METRICS",
     "RESIDUAL_COSTS",
     "CostBlock",
@@ -490,6 +501,8 @@ __all__ = [
     "parameter_declaration",
     "read_tolerance",
     "returned_row",
+    "rises_with_fit",
+    "score_label",
     "scored_on_distances",
     "session_config",
     "session_descriptor",

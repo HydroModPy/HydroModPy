@@ -99,8 +99,7 @@ surface and atmosphere models fall outside this range. The limits are listed in
 Example 04 uses {term}`MODFLOW 6`. HydroModPy runs two other flow solvers behind the same
 configuration file: MODFLOW-NWT, an older code of the same family, and a Boussinesq solver
 that is part of HydroModPy. They do not support the same boundaries or the same meshes. Lakes,
-reservoirs and routed streams, for example, need MODFLOW 6. A lumped rainfall-runoff model,
-{term}`GR4J`, can be calibrated in place of the distributed model. The
+reservoirs and routed streams, for example, need MODFLOW 6. The
 {doc}`list of solvers <../reference/solvers>` says what each one supports. Every statement
 about the solver on this page is about example 04.
 

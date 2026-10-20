@@ -27,7 +27,7 @@ CURRENT = "2.0.0a5"
 MF6 = run_quantities(solver="modflow6", mesh_engine="voronoi", has_metrics=True)
 
 
-CALIBRATION_WINDOW = DateWindow(start=date(2016, 1, 1), end=date(2018, 12, 31))
+CALIBRATION_WINDOW = DateWindow(start=date(2010, 1, 1), end=date(2015, 12, 31))
 
 
 def _promoted(status: str, window: DateWindow | None = None, **overrides) -> Checks:
@@ -99,7 +99,7 @@ def test_evaluated_when_a_calibrated_run_is_scored_outside_the_calibration_windo
     result = label_for(checks, hydromodpy_version=CURRENT, quantities=MF6, issues=())
     assert result.label == "evaluated"
     assert "1827 samples" in result.reasons[1]
-    assert "outside the calibration window 2016-01-01 to 2018-12-31" in result.reasons[1]
+    assert "outside the calibration window 2010-01-01 to 2015-12-31" in result.reasons[1]
 
 
 def test_a_run_scored_on_the_calibration_window_stays_calibrated():
@@ -234,7 +234,7 @@ def test_an_issue_without_a_fix_commit_or_with_a_bad_id_is_refused():
 
 def test_the_label_carries_the_rule_version_a_reader_can_cite():
     result = label_for(make_checks(), hydromodpy_version=CURRENT, issues=())
-    assert result.rule_version == "1"
+    assert result.rule_version == "2"
     assert (
         make_identity()
         .labelled(result.label, label_date=WINDOW.end, rule_version=result.rule_version)

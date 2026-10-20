@@ -7,9 +7,12 @@ index holds, so ``arg_max(K, nse)`` answers over a site. The parameter
 columns are read from ``parameters`` when the view is written: a parameter
 whose name is not a plain identifier, or collides with a fixed column, stays
 in ``v_params_long`` only. ``v_simulation_summary`` is the same projection
-for sealed runs only. ``v_metrics_wide`` pivots the stored metrics on a fixed
-name list; ``v_params_long`` and ``v_params_keyed`` expose every parameter,
-zoned ones included.
+for sealed runs only. ``v_best_per_project`` holds the best scored run of each
+project under each rule (gauge, variable, window, rule version): two scores
+compete only under one rule, so a project scored on two windows has two rows.
+``v_metrics_wide`` pivots the stored metrics on the names of the run kernels,
+one row per run, station and variable; ``v_params_long`` and
+``v_params_keyed`` expose every parameter, zoned ones included.
 
 The DDL stays in a Postgres-compatible subset: no ``PIVOT``, no ``MAP``, no
 ``QUALIFY``. The views carry no file path, so they live in the index file
@@ -23,6 +26,7 @@ import re
 from typing import TYPE_CHECKING
 
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE, MESH_ENGINE_SQL
+from hydromodpy.results.metric_rule import METRIC_NAMES
 
 if TYPE_CHECKING:
     import duckdb
@@ -30,35 +34,10 @@ if TYPE_CHECKING:
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-# Metric names the wide projection pivots on. ``MAX(CASE WHEN ...)`` needs an
-# explicit column list, so a metric outside it stays in ``metrics``.
-_KNOWN_METRIC_NAMES: tuple[str, ...] = (
-    "nse",
-    "nse_log",
-    "kge",
-    "kge_r",
-    "kge_alpha",
-    "kge_beta",
-    "correlation",
-    "rmse",
-    "r2",
-    "bias",
-    "pbias",
-    "mae",
-    "mse",
-    "closure_n_periods",
-    "closure_max_abs_m3_s",
-    "closure_mean_abs_m3_s",
-    "closure_rmse_m3_s",
-    "closure_max_abs_mm_d",
-    "closure_relative_error_p95",
-    "closure_status_code",
-)
-
-
 def _wide_metric_columns() -> str:
+    """One column per metric the run kernels compute: ``MAX(CASE WHEN ...)`` needs the list."""
     lines = []
-    for name in _KNOWN_METRIC_NAMES:
+    for name in METRIC_NAMES:
         safe = name.replace("'", "''")
         lines.append(f"    MAX(CASE WHEN metric_name = '{safe}' THEN value END) AS {name}")
     return ",\n".join(lines)
@@ -220,16 +199,23 @@ def _v_cases_ddl(parameter_names: list[str]) -> str:
 
 _V_BEST_PER_PROJECT_DDL = """
 CREATE OR REPLACE VIEW v_best_per_project AS
-SELECT project, sim_id, nse, label, status, created_at
+SELECT
+    project, sim_id, nse,
+    nse_station, nse_variable, nse_window_start, nse_window_end, metric_rule_version,
+    label, status, created_at
 FROM (
     SELECT
-        project, sim_id, nse, label, status, created_at,
+        project, sim_id, nse,
+        nse_station, nse_variable, nse_window_start, nse_window_end, metric_rule_version,
+        label, status, created_at,
         ROW_NUMBER() OVER (
-            PARTITION BY project
-            ORDER BY nse DESC NULLS LAST
+            PARTITION BY
+                project, nse_station, nse_variable,
+                nse_window_start, nse_window_end, metric_rule_version
+            ORDER BY nse DESC
         ) AS rnk
     FROM v_simulation_summary
-    WHERE status = 'completed'
+    WHERE status = 'completed' AND nse IS NOT NULL
 ) t
 WHERE rnk = 1
 """
@@ -238,9 +224,11 @@ _V_METRICS_WIDE_DDL = f"""
 CREATE OR REPLACE VIEW v_metrics_wide AS
 SELECT
     sim_id,
+    station_id,
+    variable,
 {_wide_metric_columns()}
 FROM metrics
-GROUP BY sim_id
+GROUP BY sim_id, station_id, variable
 """
 
 _V_PARAMS_LONG_DDL = f"""

@@ -14,15 +14,19 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.criteria.series import (
-    HIGHER_IS_BETTER,
     LOG_METRICS,
     METRICS,
     SAMPLED_BY_DATE,
     clip_negatives_for_log_metric,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.period_aggregation import periods_in_window
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
-from hydromodpy.results.derive.time_alignment import align_observed_simulated
+from hydromodpy.results.catalog.constants import cost_of
+from hydromodpy.results.derive.time_alignment import (
+    align_observed_simulated,
+    normalize_datetime_series,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
@@ -105,7 +109,11 @@ def score(
 
     ``scoring_window`` says the same thing in dates rather than in samples, which
     is what a transient calibration wants: it means the same span whatever the
-    output frequency. The two are mutually exclusive at the schema level.
+    output frequency. The two are mutually exclusive at the schema level. The
+    window is read as the run reads its own
+    (:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`): a
+    mean counts when its whole period lies in it, a state when its stamp does.
+    ``warmup_periods`` is applied after the window.
 
     ``metric_kwargs`` reaches the metric function, which is how ``nse_log``
     receives an explicit ``eps`` instead of its adaptive default. A metric of
@@ -134,10 +142,16 @@ def score(
         raise ValueError("No overlapping finite observation/simulation samples for calibration")
     if scoring_window is not None:
         start, end = scoring_window
-        if start is not None:
-            paired = paired[paired.index >= start]
-        if end is not None:
-            paired = paired[paired.index <= end]
+        paired = paired[
+            periods_in_window(
+                paired.index,
+                method=time_method,
+                start=start,
+                end=end,
+                grid=normalize_datetime_series(simulated).dropna().index,
+                period_start=period_start,
+            )
+        ]
         if paired.empty:
             raise ValueError(f"scoring_window {start} to {end} leaves no aligned sample to score")
     skip = max(0, int(warmup_periods))
@@ -180,7 +194,7 @@ def score(
             f"Calibration metric {objective!r} returned a non-finite value. "
             + _non_finite_diagnosis(obs_values, sim_values)
         )
-    return (1.0 - value) if objective.lower() in HIGHER_IS_BETTER else value
+    return cost_of(objective, value)
 
 
 __all__ = ["elapsed_days", "sampling_step_days", "score"]

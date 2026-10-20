@@ -23,8 +23,13 @@ import pandas as pd
 
 from hydromodpy.calibration.config import CalibOutputDecl
 from hydromodpy.calibration.metrics.series import load_observed
+from hydromodpy.core.time.period_aggregation import periods_in_window
 from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
-from hydromodpy.results.derive.time_alignment import align_observed_simulated, time_method_for
+from hydromodpy.results.derive.time_alignment import (
+    align_observed_simulated,
+    normalize_datetime_series,
+    time_method_for,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
@@ -141,7 +146,10 @@ def pair_outputs_with_observations(
 
     ``scoring_window`` bounds the dates kept. It is applicable here and nowhere
     else in the block route: these series carry timestamps, which is exactly
-    what a window needs to cut on.
+    what a window needs to cut on. It is read as the run reads its own
+    (:func:`~hydromodpy.core.time.period_aggregation.periods_in_window`): a
+    mean counts when its whole period lies in it, a state when its stamp does.
+    The pairs stay indexed by their end stamps.
 
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
@@ -167,18 +175,21 @@ def pair_outputs_with_observations(
                 "carry timestamps to align on, and it carries none. The run's time grid "
                 "did not reach the extraction."
             )
-        frame = align_observed_simulated(
-            record,
-            series,
-            method=(time_methods or {}).get(name, DEFAULT_TIME_METHOD),
-            start=(period_starts or {}).get(name),
-        )
+        method = (time_methods or {}).get(name, DEFAULT_TIME_METHOD)
+        period_start = (period_starts or {}).get(name)
+        frame = align_observed_simulated(record, series, method=method, start=period_start)
         if scoring_window is not None:
             start, end = scoring_window
-            if start is not None:
-                frame = frame.loc[frame.index >= pd.Timestamp(start)]
-            if end is not None:
-                frame = frame.loc[frame.index <= pd.Timestamp(end)]
+            frame = frame.loc[
+                periods_in_window(
+                    frame.index,
+                    method=method,
+                    start=start,
+                    end=end,
+                    grid=normalize_datetime_series(series).dropna().index,
+                    period_start=period_start,
+                )
+            ]
         if frame.empty:
             window = ""
             if scoring_window is not None and any(bound is not None for bound in scoring_window):

@@ -22,6 +22,7 @@ import pytest
 import hydromodpy as hmp
 from hydromodpy.results.checks import CalibratedBy
 from hydromodpy.results.metric_rule import DateWindow
+from hydromodpy.results.run.sealed import MixedWindowsError
 from tests._helpers.sealed_runs import WINDOW, seal_run, write_attempt, write_session_dir
 
 pytestmark = pytest.mark.fast
@@ -222,7 +223,7 @@ def test_best_refuses_two_windows_inside_one_site(tmp_path: Path) -> None:
     seal_run(project, "nancon-base.v2", site="nancon", recipe="base", nse=0.9, window=other)
 
     with hmp.open(project) as proj:
-        with pytest.raises(ValueError, match="different rules"):
+        with pytest.raises(MixedWindowsError, match="different rules"):
             proj.best("nse", by="site", label=None)
         assert len(proj.best("nse", by="site", label=None, mixed_windows=True)) == 1
 

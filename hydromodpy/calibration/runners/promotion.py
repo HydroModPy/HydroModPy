@@ -131,6 +131,19 @@ def promotion_name_check(name: str) -> None:
         )
 
 
+NO_CATALOG_NO_RUN = (
+    "no run is written: [simulation.results.persistence] save_catalog is false, so a "
+    "promoted run has no directory to hold it. Set save_catalog = true, or "
+    'save_runs = "none" to keep only the journal of the search.'
+)
+"""Why a promotion writes nothing when the project does not persist its runs."""
+
+
+def _writes_runs(trial_ctx: TrialContext) -> bool:
+    """Say whether a promoted run of this session is written to disk at all."""
+    return bool(trial_ctx.base_cfg.simulation.results.persistence.save_catalog)
+
+
 def _values_of(row: Mapping[str, Any], override_paths: Mapping[str, str]) -> dict[str, float]:
     return {
         name: stored_parameter_value(row["parameters"][name])
@@ -228,6 +241,9 @@ def _promote_rows(
     override_paths: Mapping[str, str],
 ) -> PromotionOutcome:
     """Promote ``rows``, the first one as the calibrated run of the case."""
+    if not _writes_runs(trial_ctx):
+        logger.warning("%s", NO_CATALOG_NO_RUN)
+        return PromotionOutcome(failures=[NO_CATALOG_NO_RUN])
     session_dir = persistence.directory
     descriptor = persistence.descriptor
     session_id = descriptor.session_id
@@ -418,6 +434,9 @@ def promote_phase_best(
     best = persistence.best_trial(phase)
     if best is None:
         return None
+    if not _writes_runs(trial_ctx):
+        logger.warning("Phase %s: %s", phase, NO_CATALOG_NO_RUN)
+        return None
     session_dir = persistence.directory
     run_dir = phase_dir(session_dir, phase) / PHASE_BEST_DIRNAME
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -551,6 +570,8 @@ def promote_trial_from_session(
     hash_cfg, space, trial_ctx = replay_context(
         session_dir / SESSION_CONFIG_FILENAME, persistence, line
     )
+    if not _writes_runs(trial_ctx):
+        raise CalibrationError(f"trial {trial} is not promoted: {NO_CATALOG_NO_RUN}")
     values = physical_values(line.params)
     context = build_cache_context(
         cfg=hash_cfg,

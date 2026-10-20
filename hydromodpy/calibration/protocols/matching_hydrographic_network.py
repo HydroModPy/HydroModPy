@@ -80,8 +80,8 @@ class MatchingHydrographicNetwork:
         "Steady state, mean recharge over the record: move the conductivity until the "
         "simulated seepage network matches the mapped one.",
         "Transient at the forcing step, conductivity frozen: move the specific yield "
-        "against the observed hydrograph, scored after the first year of the run, the "
-        "spin-up, unless the file declares a scoring window.",
+        "against the observed hydrograph, scored on the scoring window the file declares, "
+        "else on [metrics] window, else after the first year of the run, the spin-up.",
     )
     references = (
         Reference(
@@ -792,35 +792,47 @@ def _phases(
 
 
 def options_the_recipe_already_runs(
-    opts: MatchingHydrographicNetworkOptions, calibration: Any, time: Any
+    opts: MatchingHydrographicNetworkOptions,
+    calibration: Any,
+    time: Any,
+    *,
+    metrics_window: Any = None,
 ) -> frozenset[str]:
     """Return the options a file wrote to the value the recipe runs anyway.
 
     The recipe leaves a stage's method options and its precision to the method,
-    and the spin-up window to the run's first year. A file that writes the same
-    thing out, ``sweep_points = 7`` beside a bisection whose default is seven,
-    has not moved off the recipe, and ``hmp calibrate --check`` must not say it
-    has. ``calibration`` is the validated ``[calibration]`` section and ``time``
-    ``[simulation.time]``.
+    and its scoring window to ``[metrics] window``, or to the run's first year
+    without one. A file that writes the same thing out, ``sweep_points = 7``
+    beside a bisection whose default is seven, has not moved off the recipe, and
+    ``hmp calibrate --check`` must not say it has. ``calibration`` is the
+    validated ``[calibration]`` section, ``time`` ``[simulation.time]`` and
+    ``metrics_window`` ``[metrics] window``, a mapping or the validated model.
     """
     same = set(opts.stage_options_run_as_their_method_does())
-    if opts.scoring_window is not None and _is_the_spin_up_window(
-        opts.scoring_window, calibration, time
+    if opts.scoring_window is not None and _is_the_default_window(
+        opts.scoring_window, calibration, time, metrics_window
     ):
         same.add("scoring_window")
     return frozenset(same)
 
 
-def _is_the_spin_up_window(window: Mapping[str, Any], calibration: Any, time: Any) -> bool:
-    """Say whether a declared window scores what the default spin-up window scores.
+def _is_the_default_window(
+    window: Mapping[str, Any], calibration: Any, time: Any, metrics_window: Any
+) -> bool:
+    """Say whether a declared window scores what the recipe's own window scores.
 
-    That default opens one year after the run starts and runs to its end. It is
-    only the recipe's when nothing on ``[calibration]`` bounds the scoring.
+    The recipe's window is ``[metrics] window`` when it writes both bounds
+    (:func:`_transient_window_by_default`), else one year after the run starts
+    to its end. It is only the recipe's when nothing on ``[calibration]``
+    bounds the scoring.
     """
     if getattr(calibration, "scoring_window", None) is not None:
         return False
     if getattr(calibration, "warmup_periods", None):
         return False
+    run_window = scoring_window_of_the_run(_raw_window(metrics_window))
+    if run_window is not None:
+        return _is_window(window, run_window)
     start = getattr(time, "start_datetime", None)
     end = getattr(time, "end_datetime", None)
     first_scored = _date_past_the_spin_up(start, end)
@@ -832,6 +844,13 @@ def _is_the_spin_up_window(window: Mapping[str, Any], calibration: Any, time: An
     if written_end is None:
         return True
     return end is not None and pd.Timestamp(written_end) >= pd.Timestamp(end)
+
+
+def _raw_window(window: Any) -> Mapping[str, Any] | None:
+    """Return ``[metrics] window`` as a raw mapping, from a mapping or its model."""
+    if window is None or isinstance(window, Mapping):
+        return window
+    return {"start": getattr(window, "start", None), "end": getattr(window, "end", None)}
 
 
 __all__ = [

@@ -9,7 +9,7 @@ formula fails there.
 Each formula is LaTeX, written for the score the kernel returns, in the
 notation of the theory page: ``s_t`` the simulated value, ``o_t`` the observed
 one, ``n`` the number of paired samples. Whether the cost is the score or one
-minus the score is not repeated here: ``series.HIGHER_IS_BETTER`` says it.
+minus the score is not repeated here: ``results.catalog.constants.cost_of`` says it.
 """
 
 from __future__ import annotations

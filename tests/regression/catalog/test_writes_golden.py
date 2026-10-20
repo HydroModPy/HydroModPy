@@ -69,7 +69,7 @@ def _capture_state(catalog: Catalog, sim_id: str) -> dict[str, Any]:
         [sim_id],
     ).fetchall()
     metrics = catalog.connection.execute(
-        "SELECT sim_id, station_id, variable, metric_name, value, n_samples "
+        "SELECT sim_id, station_id, variable, metric_name, value "
         "FROM metrics WHERE sim_id = ? ORDER BY metric_name",
         [sim_id],
     ).fetchall()
@@ -134,7 +134,7 @@ GOLDEN_PARAMETERS = (
     '[["<sim_id>", "K", "__global__", 1.5, "m/d", null], '
     '["<sim_id>", "S", "__global__", 0.0001, "1/m", null]]'
 )
-GOLDEN_METRICS = '[["<sim_id>", "P01", "head", "nse", 0.91, null]]'
+GOLDEN_METRICS = '[["<sim_id>", "P01", "head", "nse", 0.91]]'
 GOLDEN_RUN_ENV = json.dumps(
     [[SIM_ID_MASK, HYDROMODPY_VERSION, "modflow6", 42]],
     sort_keys=True,

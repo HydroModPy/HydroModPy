@@ -37,6 +37,7 @@ from hydromodpy.results.catalog.constants import (
     MESH_ENGINE_SQL,
     UnrankedMetricError,
     metric_rank_sql,
+    metric_sense,
 )
 from hydromodpy.results.catalog.registration import split_stem_version
 from hydromodpy.results.trash import TrashedEntry, list_trash
@@ -69,6 +70,11 @@ _UUID_FULL_RE = re.compile(
 _HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
 _LAST_SELECTOR_RE = re.compile(r"^(?:last|latest)(?:~(\d+))?$")
 _RANK_SELECTOR_RE = re.compile(r"^(best|worst):(.+)$")
+_SELECTOR_FORCE = (
+    "name the run by its directory, narrow the selector with --site, or pass "
+    "mixed_windows=True to resolve() to rank them anyway"
+)
+"""How a selector says to force it: the verbs that take one have no ``--mixed-windows``."""
 
 RULE_METRIC_SQL = (
     "m.metric_rule_version IS NOT NULL "
@@ -277,6 +283,7 @@ class DiscoveryMixin:
         *,
         project: str | None = None,
         site: str | None = None,
+        mixed_windows: bool = False,
     ) -> str:
         """Resolve a user reference to a simulation UUID.
 
@@ -289,6 +296,11 @@ class DiscoveryMixin:
            Best follows the direction of the metric: highest ``nse``, lowest
            ``rmse``, ``pbias`` closest to zero (see
            :data:`~hydromodpy.results.catalog.constants.METRIC_SENSE`).
+           ``@best`` and ``@worst`` rank scores, so the runs they rank must
+           share one rule (station, variable, window, rule version; with
+           ``@STATION``, all but the station): otherwise they raise
+           :class:`~hydromodpy.results.run.sealed.MixedWindowsError`, unless
+           ``mixed_windows`` is true.
         2. A relative directory: ``runs/<name>``, ``sessions/<name>``,
            ``sessions/<name>/trials/<nnnn>``.
         3. Full UUID (36 chars with dashes).
@@ -303,7 +315,9 @@ class DiscoveryMixin:
         if not ref_s:
             raise SimulationNotFoundError("Empty reference")
         if ref_s.startswith("@"):
-            return self._resolve_selector(ref_s[1:], project=project, site=site)
+            return self._resolve_selector(
+                ref_s[1:], project=project, site=site, mixed_windows=mixed_windows
+            )
 
         if "/" in ref_s:
             rel_dir = reference_rel_dir(ref_s)
@@ -385,7 +399,9 @@ class DiscoveryMixin:
         row = self._backend.fetch_one(sql, params)
         return str(row[0]) if row else None
 
-    def _resolve_selector(self, body: str, *, project: str | None, site: str | None) -> str:
+    def _resolve_selector(
+        self, body: str, *, project: str | None, site: str | None, mixed_windows: bool
+    ) -> str:
         """Resolve an ``@``-selector body (the part after ``@``)."""
         scope_sql, scope_params = _scope_clause(project, site)
         scope = _scope_words(project, site)
@@ -414,7 +430,14 @@ class DiscoveryMixin:
             except UnrankedMetricError as exc:
                 raise SimulationNotFoundError(f"'@{body}': {exc}") from exc
             sids = self._ranked_sim_ids(
-                metric, order, station=station, project=project, site=site, limit=1
+                metric,
+                order,
+                station=station,
+                project=project,
+                site=site,
+                limit=1,
+                mixed_windows=mixed_windows,
+                force=_SELECTOR_FORCE,
             )
             if sids:
                 return sids[0]
@@ -445,17 +468,25 @@ class DiscoveryMixin:
         project: str | None,
         site: str | None,
         limit: int,
+        mixed_windows: bool,
+        force: str | None = None,
     ) -> list[str]:
         """Return completed runs ranked on ``metric``, best (or worst) first.
 
         Without ``station``, the metric is the one scored under the run's
         metric rule, at its gauge and in its window. With ``station``, it is
         the value stored at that station. A missing or non-finite value never
-        ranks.
+        ranks. The runs that rank must share one rule: the station, the
+        variable, the window and the rule version of the ``metrics`` rows.
+        Otherwise :class:`~hydromodpy.results.run.sealed.MixedWindowsError` is
+        raised, unless ``mixed_windows`` is true; ``force`` says how to force it.
         """
+        from hydromodpy.results.run.sealed import FORCE_RANKING, METRICS_RULE, check_one_rule
+
         scope_sql, scope_params = _scope_clause(project, site)
+        rule = ", ".join(f"m.{name}" for name in METRICS_RULE.names)
         sql = (
-            "SELECT CAST(s.sim_id AS VARCHAR) FROM simulations s "
+            f"SELECT CAST(s.sim_id AS VARCHAR), s.rel_dir, {rule} FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
             "WHERE st.code = 'completed' AND m.metric_name = ? "
@@ -467,9 +498,17 @@ class DiscoveryMixin:
         else:
             sql += "AND m.station_id = ? "
             params.append(station)
-        sql += f"{scope_sql} ORDER BY {order} LIMIT ?"
-        rows = self._backend.fetch_all(sql, [*params, *scope_params, limit])
-        return [str(row[0]) for row in rows]
+        sql += f"{scope_sql} ORDER BY {order}"
+        rows = self._backend.fetch_all(sql, [*params, *scope_params])
+        if not mixed_windows:
+            check_one_rule(
+                [dict(zip(METRICS_RULE.names, row[2:], strict=True)) for row in rows],
+                metric,
+                names=[row[1] for row in rows],
+                columns=METRICS_RULE,
+                force=force or FORCE_RANKING,
+            )
+        return [str(row[0]) for row in rows[:limit]]
 
     def _not_found_message(self, ref: str, project: str | None) -> str:
         """Build a not-found message suggesting the closest directories and tags."""
@@ -497,7 +536,7 @@ class DiscoveryMixin:
         sid = self.resolve(ref)
         return Run(sid, self)
 
-    def find(self, **filters) -> RunSet:
+    def find(self, *, mixed_windows: bool = False, **filters) -> RunSet:
         """Return the runs that match every filter, newest first.
 
         Parameters
@@ -517,7 +556,14 @@ class DiscoveryMixin:
             - ``tags``: one tag the run carries.
             - ``<metric>_gt``, ``<metric>_gte``, ``<metric>_lt``,
               ``<metric>_lte``: bound on a metric scored under the run's
-              metric rule, for example ``nse_gt=0.7``.
+              metric rule, for example ``nse_gt=0.7``. A bound reads every score
+              against one number, so the runs it is applied to must share one
+              rule (station, variable, window, rule version): runs that carry
+              the metric under different rules raise
+              :class:`~hydromodpy.results.run.sealed.MixedWindowsError`.
+        mixed_windows
+            Apply the bounds although the runs were scored under different
+            rules. Refused by default.
 
         Returns
         -------
@@ -527,7 +573,12 @@ class DiscoveryMixin:
         Raises
         ------
         ValueError
-            If a keyword is none of the above. The message lists them.
+            If a keyword is none of the above, or names a metric the catalog
+            does not know (a retired spelling is refused with the name to write).
+            The message lists them.
+        MixedWindowsError
+            If a ``<metric>_gt`` style bound meets runs scored under different
+            rules and ``mixed_windows`` is false.
 
         Examples
         --------
@@ -549,6 +600,9 @@ class DiscoveryMixin:
         clauses: list[str] = []
         join_params: list = []
         clause_params: list = []
+        bounds: list[tuple[str, str]] = []
+        bound_clauses: list[str] = []
+        bound_params: list = []
         tag_join_added = False
 
         for key, val in filters.items():
@@ -561,6 +615,10 @@ class DiscoveryMixin:
                 clause_params.append(val)
             elif bound is not None:
                 metric, operator = bound
+                try:
+                    metric_sense(metric)
+                except UnrankedMetricError as exc:
+                    raise ValueError(f"Filter {key!r}: {exc}") from exc
                 alias = f"m_{len(joins)}"
                 joins.append(
                     f"JOIN metrics {alias} ON s.sim_id = {alias}.sim_id "
@@ -568,8 +626,9 @@ class DiscoveryMixin:
                     f"AND {RULE_METRIC_SQL.replace('m.', f'{alias}.')}"
                 )
                 join_params.append(metric)
-                clauses.append(f"{alias}.value {operator} ?")
-                clause_params.append(val)
+                bounds.append((metric, alias))
+                bound_clauses.append(f"{alias}.value {operator} ?")
+                bound_params.append(val)
             elif key in _CODE_FILTERS:
                 clauses.append(f"{_CODE_FILTERS[key]} = ?")
                 clause_params.append(val)
@@ -586,14 +645,52 @@ class DiscoveryMixin:
                 )
                 raise ValueError(f"Unknown filter {key!r}. Valid: {known}")
 
+        if bounds and not mixed_windows:
+            self._check_bounded_rules(bounds, joins, clauses, join_params + clause_params)
+        clauses += bound_clauses
         if joins:
             query += " " + " ".join(joins)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY s.created_at DESC"
 
-        rows = self._backend.fetch_all(query, join_params + clause_params)
+        rows = self._backend.fetch_all(query, join_params + clause_params + bound_params)
         return RunSet([str(r[0]) for r in rows], self)
+
+    def _check_bounded_rules(
+        self,
+        bounds: list[tuple[str, str]],
+        joins: list[str],
+        clauses: list[str],
+        params: list,
+    ) -> None:
+        """Refuse a ``<metric>_gt`` bound over runs scored under different rules.
+
+        The population is every run that matches the other filters and carries
+        the metric under its rule, the runs the bound drops included: one
+        threshold means the same thing only under one rule.
+        """
+        from hydromodpy.results.run.sealed import METRICS_RULE, check_one_rule
+
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        for metric, alias in bounds:
+            rule = ", ".join(f"{alias}.{name}" for name in METRICS_RULE.names)
+            rows = self._backend.fetch_all(
+                f"SELECT DISTINCT CAST(s.sim_id AS VARCHAR), s.rel_dir, {rule} "
+                "FROM simulations s "
+                "JOIN solvers sv ON s.solver_id = sv.id "
+                "JOIN statuses st ON s.status_id = st.id "
+                "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+                "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id "
+                f"{' '.join(joins)}{where}",
+                params,
+            )
+            check_one_rule(
+                [dict(zip(METRICS_RULE.names, row[2:], strict=True)) for row in rows],
+                metric,
+                names=[row[1] for row in rows],
+                columns=METRICS_RULE,
+            )
 
     def latest(self, project: str | None = None, *, site: str | None = None) -> Run:
         """Return the most recently created completed run.
@@ -644,9 +741,12 @@ class DiscoveryMixin:
     ) -> dict:
         """Compare two runs' parameters and metrics.
 
-        Returns ``{"a", "b", "params", "metrics"}`` where ``params``/``metrics``
-        map each differing key to ``(value_a, value_b)`` (``None`` when absent
-        from one side).
+        Returns ``{"a", "b", "params", "metrics"}``. ``params`` maps each
+        differing ``(name, zone)`` to ``(value_a, value_b)``. ``metrics`` maps
+        each differing ``(metric, station, variable)`` to one entry per run,
+        ``{"value", "window_start", "window_end", "n"}``: the score and the
+        window and samples it was computed on. An entry is ``None`` when the
+        run holds no such score.
         """
         sid_a = self.resolve(ref_a, project=project)
         sid_b = self.resolve(ref_b, project=project)
@@ -660,13 +760,22 @@ class DiscoveryMixin:
 
         def _metrics(sid: str) -> dict:
             rows = self._backend.fetch_all(
-                "SELECT metric_name, station_id, value FROM metrics WHERE sim_id = ?",
+                "SELECT metric_name, station_id, variable, value, "
+                "nse_window_start, nse_window_end, nse_n FROM metrics WHERE sim_id = ?",
                 [sid],
             )
-            return {(r[0], r[1]): r[2] for r in rows}
+            return {
+                (r[0], r[1], r[2]): {
+                    "value": r[3],
+                    "window_start": r[4],
+                    "window_end": r[5],
+                    "n": r[6],
+                }
+                for r in rows
+            }
 
         def _delta(map_a: dict, map_b: dict) -> dict:
-            keys = sorted(set(map_a) | set(map_b), key=lambda k: (str(k[0]), str(k[1])))
+            keys = sorted(set(map_a) | set(map_b), key=lambda k: tuple(str(part) for part in k))
             out: dict = {}
             for key in keys:
                 va, vb = map_a.get(key), map_b.get(key)
@@ -681,19 +790,42 @@ class DiscoveryMixin:
             "metrics": _delta(_metrics(sid_a), _metrics(sid_b)),
         }
 
-    def best(self, project: str, metric: str = "nse", *, site: str | None = None) -> Run:
+    def best(
+        self,
+        project: str,
+        metric: str = "nse",
+        *,
+        site: str | None = None,
+        mixed_windows: bool = False,
+    ) -> Run:
         """Return the completed run with the best value of ``metric`` under its rule.
 
         Best follows the direction of the metric: the highest ``nse``, the
         lowest ``rmse``, the ``pbias`` closest to zero. A metric with no
         declared direction raises
         :class:`~hydromodpy.results.catalog.constants.UnrankedMetricError`.
+        Runs scored under different rules (station, variable, window or rule
+        version) are not comparable: they raise
+        :class:`~hydromodpy.results.run.sealed.MixedWindowsError` unless
+        ``mixed_windows`` is true.
         """
-        return self.rank(project, metric, n=1, site=site)[0]
+        return self.rank(project, metric, n=1, site=site, mixed_windows=mixed_windows)[0]
 
-    def worst(self, project: str, metric: str = "nse", *, site: str | None = None) -> Run:
-        """Return the completed run with the worst value of ``metric`` under its rule."""
-        return self.rank(project, metric, n=1, best_first=False, site=site)[0]
+    def worst(
+        self,
+        project: str,
+        metric: str = "nse",
+        *,
+        site: str | None = None,
+        mixed_windows: bool = False,
+    ) -> Run:
+        """Return the completed run with the worst value of ``metric`` under its rule.
+
+        The mirror of :meth:`best`, with the same refusal of mixed rules.
+        """
+        return self.rank(
+            project, metric, n=1, best_first=False, site=site, mixed_windows=mixed_windows
+        )[0]
 
     def rank(
         self,
@@ -704,12 +836,17 @@ class DiscoveryMixin:
         n: int = 1,
         best_first: bool = True,
         site: str | None = None,
+        mixed_windows: bool = False,
     ) -> RunSet:
         """Return up to ``n`` completed runs ranked on ``metric`` under their metric rule.
 
         Without ``ascending`` the runs come best first (``best_first=True``)
         or worst first, following the direction of the metric. ``ascending``
         orders on the raw value instead, for a metric with no direction.
+        The scores must share one rule: runs scored at different stations, on
+        different variables, windows or rule versions raise
+        :class:`~hydromodpy.results.run.sealed.MixedWindowsError`, unless
+        ``mixed_windows`` is true.
         """
         from hydromodpy.results.run.group import RunSet
 
@@ -718,7 +855,13 @@ class DiscoveryMixin:
         else:
             order = f"m.value {'ASC' if ascending else 'DESC'}"
         sids = self._ranked_sim_ids(
-            metric, order, station=None, project=project, site=site, limit=n
+            metric,
+            order,
+            station=None,
+            project=project,
+            site=site,
+            limit=n,
+            mixed_windows=mixed_windows,
         )
         if not sids:
             raise KeyError(

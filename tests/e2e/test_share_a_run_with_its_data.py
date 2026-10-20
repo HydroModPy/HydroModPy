@@ -108,7 +108,8 @@ def test_a_run_shared_with_its_data_replays_elsewhere_with_the_same_heads(tmp_pa
     _ok(diff, "catalog diff")
     compared = json.loads(diff.stdout.strip().splitlines()[-1])
     assert compared["params"] == []
-    assert all("time_seconds" in row["name"] for row in compared["metrics"]), compared["metrics"]
+    # Only the solve time differs, and a runtime number is no score.
+    assert compared["metrics"] == [], compared["metrics"]
 
     replay = lab / "runs" / f"{RUN_NAME}.v2"
     manifest = json.loads((replay / "manifest.json").read_text(encoding="utf-8"))
