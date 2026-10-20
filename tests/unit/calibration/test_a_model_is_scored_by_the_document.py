@@ -117,7 +117,7 @@ def _config(**overrides: object) -> CalibrationConfig:
     """
     payload: dict[str, object] = {
         "method": "grid",
-        "max_iter": 4,
+        "max_trials": 4,
         "evaluator": "scored_forward_model",
         "parameters": {"k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2]}},
         "outputs": {"outlet_flow": _output()},

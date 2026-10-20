@@ -26,11 +26,21 @@ from hydromodpy.calibration.criteria.series import (
 )
 from hydromodpy.calibration.metrics import composite
 from hydromodpy.calibration.metrics.composite import build_metric_extractor
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
+from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.solver_extract import ExtractedOutputs
 from hydromodpy.calibration.optim.objective import build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.metrics import log_nse
+
+
+def _score(observed, simulated, metric: str, *, variable: str = "discharge", **options):
+    """Score two series as ``variable`` + ``objective`` does: through one implicit block."""
+    scorer = StationBlockScorer(
+        variable, metric, [ObservedSeries("S", variable, observed)], **options
+    )
+    answer = ObservableResult("S", simulated.to_numpy(), "-", simulated.index)
+    return scorer.score({"S": answer})
 
 
 class TestNseLogRegistration:
@@ -114,13 +124,13 @@ class TestNegativeDischargeClipping:
         assert value.components["b.n_clipped"] == 1.0
         assert np.isfinite(value.total)
 
-    def test_score_clips_before_the_log(self, caplog) -> None:
+    def test_variable_and_objective_clip_before_the_log_and_count(self) -> None:
         # Each simulated stamp closes the day observed one day before it.
         observed = pd.Series([1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-01", periods=4))
         simulated = pd.Series([-1.0, 2.0, 3.0, 4.0], index=pd.date_range("2020-01-02", periods=4))
-        cost = score(observed, simulated, "nse_log")
+        cost, components = _score(observed, simulated, "nse_log")
         assert np.isfinite(cost)
-        assert "clipped to zero" in caplog.text
+        assert components["nse_log@S.n_clipped"] == 1.0
 
 
 class TestScoringWindow:
@@ -150,8 +160,8 @@ class TestScoringWindow:
         simulated = pd.Series([9.0, 9.0, 1.0, 1.0], index=index)
         window = (pd.Timestamp("2020-01-03"), None)
 
-        full = score(observed, simulated, "rmse")
-        scored = score(observed, simulated, "rmse", scoring_window=window)
+        full, _ = _score(observed, simulated, "rmse", variable="head")
+        scored, _ = _score(observed, simulated, "rmse", variable="head", scoring_window=window)
 
         assert scored == pytest.approx(0.0)
         assert full > scored
@@ -159,11 +169,12 @@ class TestScoringWindow:
     def test_an_empty_window_is_an_error_not_an_empty_score(self) -> None:
         index = pd.date_range("2020-01-01", periods=3, freq="D")
         series = pd.Series([1.0, 2.0, 3.0], index=index)
-        with pytest.raises(ValueError, match="leaves no aligned sample"):
-            score(
+        with pytest.raises(ValueError, match="share no timestamp inside"):
+            _score(
                 series,
                 series,
                 "rmse",
+                variable="head",
                 scoring_window=(pd.Timestamp("2030-01-01"), None),
             )
 

@@ -18,22 +18,22 @@ from hydromodpy.results.storage.contract import SESSION_METHODS_FILENAME
 _PARAMETERS = {
     "K": {
         "bounds": [1e-7, 1e-3],
-        "transform": "log",
-        "prior": "log_uniform",
+        "search_space": "log",
+        "sampling": "log_uniform",
         "path": "flow.param.K.field.value",
         "units": "m/s",
     },
     "Sy": {
         "bounds": [0.005, 0.35],
-        "transform": "log",
-        "prior": "log_uniform",
+        "search_space": "log",
+        "sampling": "log_uniform",
         "path": "flow.param.Sy.field.value",
     },
 }
 
 
 def _cfg(**updates) -> CalibrationConfig:
-    payload = {"method": "grid", "max_iter": 3, "parameters": _PARAMETERS}
+    payload = {"method": "grid", "max_trials": 3, "parameters": _PARAMETERS}
     payload.update(updates)
     return CalibrationConfig.model_validate(payload)
 

@@ -107,7 +107,7 @@ parameters = ["K"]
 regime = "transient"
 objective_blocks = ["hydrograph"]
 method = "grid"
-max_iter = 5
+max_trials = 5
 method_options = { points_per_dim = 5 }
 # The five K do not depend on one another, so they are solved side by side,
 # each in its own folder: the grid takes the time of its slowest run.

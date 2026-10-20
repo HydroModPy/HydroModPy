@@ -184,8 +184,8 @@ def _register_root_config_contracts() -> None:
         def from_json(self, payload: str | bytes) -> HydroModPyConfig:
             return HydroModPyConfig.from_json(payload)
 
-        def from_dict(self, payload: dict[str, Any]) -> HydroModPyConfig:
-            return HydroModPyConfig.from_dict(payload)
+        def from_dict(self, payload: dict[str, Any], *, sealed: bool = False) -> HydroModPyConfig:
+            return HydroModPyConfig.from_dict(payload, sealed=sealed)
 
         def migrate_on_load(
             self, payload: dict[str, Any], *, source: str | Path | None = None

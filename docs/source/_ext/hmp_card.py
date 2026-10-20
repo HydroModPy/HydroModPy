@@ -98,7 +98,7 @@ def render_text(
                 lines.append(f"  value      {json.dumps(v)}" + (f"  {doc}" if doc else ""))
         if n.get("calibrable"):
             c = n["calibrable"]
-            lines.append(f"  calibrate  {c.get('transform')}, prior {c.get('prior')}")
+            lines.append(f"  calibrate  {c.get('search_space')}, sampling {c.get('sampling')}")
         if n.get("variants") and n.get("variant_field") and not n.get("is_tag"):
             lines.append(
                 f"  only if    {n['variant_field']} = {' | '.join(json.dumps(v) for v in n['variants'])}"

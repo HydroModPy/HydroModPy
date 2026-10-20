@@ -64,8 +64,8 @@ def test_every_setting_the_output_sealed_is_read() -> None:
                 observed_position_accuracy=25.0,
                 time="first",
                 extent={
-                    "maximal_flowing_steps": 3,
-                    "minimal_dry_steps": 2,
+                    "maximal_flowing_duration": "3 months",
+                    "minimal_dry_duration": "2 months",
                     "year_quorum": 0.75,
                     "visible_flow": "2%",
                     "weights": {"minimal": 0.5, "maximal": 0.5},
@@ -83,7 +83,10 @@ def test_every_setting_the_output_sealed_is_read() -> None:
     assert settings.observed_position_accuracy_m == 25.0
     assert settings.timestep == 0
     assert settings.extent == NetworkExtentRules(
-        maximal_flowing_steps=3, minimal_dry_steps=2, year_quorum=0.75, visible_flow="2%"
+        maximal_flowing_duration="3 months",
+        minimal_dry_duration="2 months",
+        year_quorum=0.75,
+        visible_flow="2%",
     )
     assert settings.note() == "criterion settings: calibration output 'streams'"
 

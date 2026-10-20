@@ -23,12 +23,13 @@ from collections.abc import Sequence
 import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import (
+    EngineTraits,
     EvaluationResult,
     ParamSuggestion,
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import transformed_prior_samples
+from hydromodpy.calibration.optim.sampling import search_space_samples
 
 try:
     from scipy.optimize import minimize as _scipy_minimize
@@ -74,12 +75,13 @@ class GPMappingOptimizer:
     ----------
     space
         Parameter space (bounds + transforms).
-    max_iter
-        Total evaluation budget (initial design included). Defaults to
-        ``30``; matches the budget used in the regression test.
+    max_trials
+        Total evaluation budget (initial design included). The engine hands
+        it the ``max_trials`` of the search; it is not a method option.
+        Defaults to ``30`` when the adapter is built by hand.
     n_init
         Initial Monte Carlo sample size (independent per dimension, not a
-        Latin hypercube). Defaults to ``10``. Clamped to ``max_iter`` to
+        Latin hypercube). Defaults to ``10``. Clamped to ``max_trials`` to
         avoid requesting more points than allowed.
     seed
         RNG seed for both the initial design and the EI restarts.
@@ -96,7 +98,7 @@ class GPMappingOptimizer:
     n_refine
         Number of refinement rounds beyond the initial Monte Carlo
         design. When provided, the effective budget
-        becomes ``max(max_iter, n_init + n_refine * batch_size)`` so callers
+        becomes ``max(max_trials, n_init + n_refine * batch_size)`` so callers
         get the requested refinement passes.
     batch_size
         Number of EI candidates returned per refinement round. Default
@@ -119,11 +121,13 @@ class GPMappingOptimizer:
 
     name = "gp_mapping"
 
+    traits = EngineTraits(takes_max_trials=True)
+
     def __init__(
         self,
         space: ParameterSpace,
         *,
-        max_iter: int = 30,
+        max_trials: int = 30,
         n_init: int = 10,
         seed: int | None = None,
         ei_tol: float = 1e-6,
@@ -146,10 +150,10 @@ class GPMappingOptimizer:
         n_init_clamped = max(1, int(n_init))
         if n_refine is not None:
             requested_budget = n_init_clamped + max(0, int(n_refine)) * self._batch_size
-            self._max_iter = max(int(max_iter), requested_budget)
+            self._max_trials = max(int(max_trials), requested_budget)
         else:
-            self._max_iter = int(max_iter)
-        self._n_init = max(1, min(n_init_clamped, self._max_iter))
+            self._max_trials = int(max_trials)
+        self._n_init = max(1, min(n_init_clamped, self._max_trials))
         self._seed = seed
         self._ei_tol = float(ei_tol)
         self._ei_patience = max(1, int(ei_patience))
@@ -168,7 +172,7 @@ class GPMappingOptimizer:
             [(p.lower_transformed, p.upper_transformed) for p in space.parameters],
             dtype=float,
         )
-        initial_design = transformed_prior_samples(space, self._rng, self._n_init)
+        initial_design = search_space_samples(space, self._rng, self._n_init)
         self._initial_points = [initial_design[i] for i in range(self._n_init)]
 
         self._trial_id = 0
@@ -190,7 +194,7 @@ class GPMappingOptimizer:
         for _ in range(n):
             if self._exhausted:
                 break
-            if len(self._x_history) + len(self._pending) >= self._max_iter:
+            if len(self._x_history) + len(self._pending) >= self._max_trials:
                 self._exhausted = True
                 break
             x_t = self._propose_next()

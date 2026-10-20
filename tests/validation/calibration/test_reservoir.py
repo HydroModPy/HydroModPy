@@ -37,7 +37,7 @@ def test_one_reservoir_nelder_mead_recovers_truth() -> None:
     engine, _ = build_calibration(
         case=ONE_RESERVOIR_CASE,
         optimizer_name="scipy_nelder_mead",
-        max_iter=120,
+        max_trials=120,
     )
     session = engine.run()
 
@@ -59,7 +59,7 @@ def test_two_reservoir_de_recovers_truth() -> None:
     engine, _ = build_calibration(
         case=TWO_RESERVOIR_CASE,
         optimizer_name="scipy_de",
-        max_iter=100,
+        max_trials=100,
     )
     session = engine.run()
 

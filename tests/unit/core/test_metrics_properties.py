@@ -26,6 +26,7 @@ from hypothesis import strategies as st
 from hydromodpy.core.metrics import (
     align,
     bias,
+    clip_negatives,
     correlation,
     kge,
     log_nse,
@@ -211,14 +212,14 @@ def test_a_gap_in_either_series_is_dropped_not_propagated(
 
 @given(pair=PAIRED_SERIES)
 @METRIC_PROPERTY
-def test_bias_and_percent_bias_report_opposite_signs(
+def test_bias_and_percent_bias_report_the_same_sign(
     pair: tuple[list[float], list[float]],
 ) -> None:
-    """PBIAS is positive when the model underestimates; BIAS is negative there.
+    """PBIAS and BIAS are both positive when the model overestimates.
 
-    The two are defined with the difference the other way round, which is a
-    standing trap when one of them is edited. Getting the sign wrong inverts
-    how every calibration report reads.
+    The two used to be defined with the difference the other way round
+    (decision m13 aligned them). Getting the sign wrong inverts how every
+    calibration report reads.
     """
     simulated, observed = (np.asarray(series, dtype=float) for series in pair)
     total_observed = float(np.sum(observed))
@@ -226,24 +227,27 @@ def test_bias_and_percent_bias_report_opposite_signs(
     mean_error = bias(simulated, observed)
     assume(abs(mean_error) > 1e-6)
     percent = pbias(simulated, observed)
-    assert math.copysign(1.0, percent) == -math.copysign(1.0, mean_error)
+    assert math.copysign(1.0, percent) == math.copysign(1.0, mean_error)
 
 
 @given(pair=PAIRED_SERIES)
 @METRIC_PROPERTY
-def test_log_nse_refuses_a_negative_series(
+def test_log_nse_clips_a_negative_series_instead_of_refusing_it(
     pair: tuple[list[float], list[float]],
 ) -> None:
-    """A log efficiency on a series that goes negative must raise, not return NaN.
+    """A log efficiency on a series that goes negative reads it clipped to zero.
 
-    ``log_nse`` is the low-flow metric, so it is pointed at discharge, and a
-    negative discharge means the series is wrong upstream. Returning NaN would
-    let the bad series through as an unscored run.
+    A discharge reconstructed below a dam can hold a few negative values. The
+    run score and the calibration cost clip them alike (decision m12), and
+    ``clip_negatives`` counts what was clipped.
     """
     simulated, observed = (np.asarray(series, dtype=float) for series in pair)
     assume(bool(np.any(simulated < 0.0) or np.any(observed < 0.0)))
-    with pytest.raises(ValueError):
-        log_nse(simulated, observed)
+    clipped_sim, clipped_obs, n_clipped = clip_negatives(simulated, observed)
+    assert n_clipped > 0
+    expected = log_nse(clipped_sim, clipped_obs)
+    got = log_nse(simulated, observed)
+    assert (math.isnan(got) and math.isnan(expected)) or got == pytest.approx(expected)
 
 
 @given(shorter=SERIES, longer=SERIES)

@@ -46,7 +46,7 @@ K_FROM_DISK = 9.9e-5
 BASE = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 save_runs = "none"
 
 [calibration.parameters.K]
@@ -71,14 +71,14 @@ uses_outputs = ["q"]
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 parameters = ["Sy"]
 objective_blocks = ["q_block"]
 depends_on = "steady_k"
@@ -168,7 +168,7 @@ class FakeRunner:
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,
-            n_iterations=cfg.max_iter,
+            n_iterations=cfg.max_trials,
             best_objective=self.objective,
             best_sim_id=None,
             best_trial=line.trial,
@@ -358,7 +358,9 @@ class TestTheSessionNamesTheMethodsItsPhasesRun:
         self, tmp_path, monkeypatch
     ) -> None:
         """No top-level method: the descriptor still names what ran, phase by phase."""
-        cfg_path = _write(tmp_path, BASE.replace('method = "grid"\nmax_iter = 4', "max_iter = 4"))
+        cfg_path = _write(
+            tmp_path, BASE.replace('method = "grid"\nmax_trials = 4', "max_trials = 4")
+        )
         fake = FakeRunner()
         _apply(monkeypatch, fake, marker="v1")
 

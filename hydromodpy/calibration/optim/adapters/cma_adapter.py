@@ -29,7 +29,7 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
+from hydromodpy.calibration.optim.sampling import search_space_center
 
 _SEED_FOR_ZERO = 2**31 - 1
 """The seed that stands for 0, which ``cma`` would draw from the clock."""
@@ -47,8 +47,9 @@ class CmaEsAdapter:
         Initial step size.
     popsize
         Population size.
-    max_evaluations
-        Evaluation budget.
+    max_trials
+        Evaluation budget. The engine hands it the ``max_trials`` of the
+        search; it is not a method option.
     normalize
         When ``True`` (default), rescale bounds to the unit cube before
         driving CMA-ES.
@@ -61,12 +62,12 @@ class CmaEsAdapter:
         a fresh ``CMAEvolutionStrategy`` from a perturbed ``x0`` (uniform
         offset within +/- ``0.1`` in transformed space, clipped to bounds)
         and continues consuming the remaining budget. The total number of
-        full-model evaluations stays capped by ``max_evaluations``.
+        full-model evaluations stays capped by ``max_trials``.
     """
 
     name = "cma_es"
 
-    traits = EngineTraits(accepts_a_start_point=True)
+    traits = EngineTraits(accepts_a_start_point=True, takes_max_trials=True)
 
     def __init__(
         self,
@@ -74,7 +75,7 @@ class CmaEsAdapter:
         *,
         sigma0: float = 0.25,
         popsize: int = 6,
-        max_evaluations: int = 30,
+        max_trials: int = 30,
         normalize: bool = True,
         seed: int | None = None,
         restarts: int = 0,
@@ -92,7 +93,7 @@ class CmaEsAdapter:
         self._cma_module = cma
         self._sigma0 = float(sigma0)
         self._popsize = int(popsize)
-        self._max_evaluations = int(max_evaluations)
+        self._max_trials = int(max_trials)
         self._normalize = bool(normalize)
         self._restarts = max(0, int(restarts))
         self._restarts_used = 0
@@ -102,7 +103,7 @@ class CmaEsAdapter:
         self._lower = np.asarray([p.lower_transformed for p in space.parameters], dtype=float)
         self._upper = np.asarray([p.upper_transformed for p in space.parameters], dtype=float)
         center = (
-            transformed_prior_center(space)
+            search_space_center(space)
             if start_at is None
             else np.clip(np.asarray(start_at, dtype=float).ravel(), self._lower, self._upper)
         )
@@ -140,7 +141,7 @@ class CmaEsAdapter:
     def _make_strategy(self, x0_t: np.ndarray):
         options: dict[str, object] = {
             "popsize": self._popsize,
-            "maxfevals": self._max_evaluations,
+            "maxfevals": self._max_trials,
             "bounds": self._bounds_t,
             "verbose": -9,
             # Disable convergence criteria that cause premature stops or
@@ -149,7 +150,7 @@ class CmaEsAdapter:
             "tolx": 1e-20,
             "tolfun": 1e-20,
             "tolfacupx": 1e20,
-            "tolflatfitness": self._max_evaluations,
+            "tolflatfitness": self._max_trials,
             # Disable the implicit maxstd-from-bounds behaviour that fires
             # the ``_stds_into_limits`` path on 1-D bounded problems and
             # raises ``set_i`` "dimension needed" before sigma_vec has
@@ -169,7 +170,7 @@ class CmaEsAdapter:
     def _try_restart(self) -> bool:
         if self._restarts_used >= self._restarts:
             return False
-        if self._n_eval >= self._max_evaluations:
+        if self._n_eval >= self._max_trials:
             return False
         self._restarts_used += 1
         offset = self._restart_rng.uniform(-0.1, 0.1, size=self._x0_t.shape)
@@ -193,7 +194,7 @@ class CmaEsAdapter:
             return  # current batch still needs telling
         if self._done:
             return
-        if self._n_eval >= self._max_evaluations:
+        if self._n_eval >= self._max_trials:
             self._done = True
             return
         if self._es.stop():
@@ -228,7 +229,7 @@ class CmaEsAdapter:
             }
             self._batch_trial_ids.append(self._trial_id)
             out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
-            if self._n_eval + len(self._batch_trial_ids) >= self._max_evaluations:
+            if self._n_eval + len(self._batch_trial_ids) >= self._max_trials:
                 break
         return out
 
@@ -267,7 +268,7 @@ class CmaEsAdapter:
             self._batch_xs = []
             self._batch_trial_ids = []
             self._batch_costs = []
-            if self._n_eval >= self._max_evaluations:
+            if self._n_eval >= self._max_trials:
                 self._done = True
             elif self._es.stop():
                 if not self._try_restart():

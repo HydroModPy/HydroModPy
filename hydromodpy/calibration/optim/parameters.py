@@ -1,4 +1,4 @@
-"""Calibrable parameters: annotations, space, transforms, discovery.
+"""Calibrable parameters: annotations, space, search spaces, discovery.
 
 A Pydantic field becomes calibrable by attaching a ``Calibrable`` instance via
 ``Field.json_schema_extra['calibrable']`` - or by being referenced in a TOML
@@ -19,32 +19,32 @@ from typing import Any
 
 
 # ---------------------------------------------------------------------------
-# Transforms
+# Search spaces
 # ---------------------------------------------------------------------------
 
 
-def _forward(transform: str, x: float) -> float:
-    if transform == "identity":
+def _forward(search_space: str, x: float) -> float:
+    if search_space == "identity":
         return x
-    if transform == "log":
+    if search_space == "log":
         if x <= 0.0:
-            raise ValueError(f"log transform requires positive values, got {x}")
+            raise ValueError(f"log search space requires positive values, got {x}")
         return math.log10(x)
-    if transform == "logit":
+    if search_space == "logit":
         if not (0.0 < x < 1.0):
-            raise ValueError(f"logit transform requires 0<x<1, got {x}")
+            raise ValueError(f"logit search space requires 0<x<1, got {x}")
         return math.log(x / (1.0 - x))
-    raise ValueError(f"Unknown transform: {transform!r}")
+    raise ValueError(f"Unknown search space: {search_space!r}")
 
 
-def _inverse(transform: str, y: float) -> float:
-    if transform == "identity":
+def _inverse(search_space: str, y: float) -> float:
+    if search_space == "identity":
         return y
-    if transform == "log":
+    if search_space == "log":
         return 10.0**y
-    if transform == "logit":
+    if search_space == "logit":
         return 1.0 / (1.0 + math.exp(-y))
-    raise ValueError(f"Unknown transform: {transform!r}")
+    raise ValueError(f"Unknown search space: {search_space!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ def _inverse(transform: str, y: float) -> float:
 
 @dataclass(frozen=True, slots=True)
 class CalibParameter:
-    """Resolved calibration dimension in physical and transformed space.
+    """Resolved calibration dimension in physical and search space.
 
     The object combines user TOML declarations with optional ``Calibrable``
     field metadata. Bounds are stored in physical units, while helper
@@ -65,8 +65,8 @@ class CalibParameter:
     name: str
     lower: float
     upper: float
-    transform: str = "identity"
-    prior: str = "uniform"
+    search_space: str = "identity"
+    sampling: str = "uniform"
     path: str | None = None  # dotted path into HydroModPyConfig (optional)
     target: str | None = None  # readable alias for ``path`` (wins when set)
     mode: str = "replace"  # "replace" writes the sample; "scale" multiplies the base
@@ -74,17 +74,17 @@ class CalibParameter:
 
     @property
     def lower_transformed(self) -> float:
-        return _forward(self.transform, self.lower)
+        return _forward(self.search_space, self.lower)
 
     @property
     def upper_transformed(self) -> float:
-        return _forward(self.transform, self.upper)
+        return _forward(self.search_space, self.upper)
 
     def to_physical(self, y: float) -> float:
-        return _inverse(self.transform, y)
+        return _inverse(self.search_space, y)
 
     def to_transformed(self, x: float) -> float:
-        return _forward(self.transform, x)
+        return _forward(self.search_space, x)
 
     @property
     def effective_path(self) -> str | None:
@@ -240,8 +240,8 @@ class ParameterSpace:
                     param.lower_transformed,
                     param.upper_transformed,
                 ],
-                "transform": param.transform,
-                "prior": param.prior,
+                "search_space": param.search_space,
+                "sampling": param.sampling,
                 "mode": param.mode,
                 "target": param.effective_path,
                 "units": param.units,
@@ -249,7 +249,7 @@ class ParameterSpace:
         return out
 
     def default_prior_mean_std(self) -> tuple[list[float], list[float]] | None:
-        """Return Normal-prior vectors in transformed space when declared."""
+        """Return normal-sampling vectors in search space when declared."""
         means: list[float] = []
         stds: list[float] = []
         has_normal = False
@@ -257,7 +257,7 @@ class ParameterSpace:
             low = param.lower_transformed
             high = param.upper_transformed
             span = high - low
-            if param.prior == "normal":
+            if param.sampling == "normal":
                 has_normal = True
                 means.append(0.5 * (low + high))
                 stds.append(max(span / 6.0, 1e-12))
@@ -286,15 +286,15 @@ class ParameterSpace:
             if bounds is None:
                 raise ValueError(f"Parameter {name!r} has no bounds")
             low, high = float(bounds[0]), float(bounds[1])
-            transform = decl.get("transform", "identity")
-            prior = decl.get("prior", "uniform")
+            search_space = decl.get("search_space", "identity")
+            sampling = decl.get("sampling", "uniform")
             if not low < high:
                 raise ValueError(f"Parameter {name!r}: lower bound must be < upper bound")
-            if transform == "log" and low <= 0.0:
-                raise ValueError(f"Parameter {name!r}: log transform requires lower > 0")
-            if transform == "logit" and not (0.0 < low < high < 1.0):
+            if search_space == "log" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log search space requires lower > 0")
+            if search_space == "logit" and not (0.0 < low < high < 1.0):
                 raise ValueError(
-                    f"Parameter {name!r}: logit transform requires 0 < lower < upper < 1"
+                    f"Parameter {name!r}: logit search space requires 0 < lower < upper < 1"
                 )
             path = decl.get("path")
             target = decl.get("target")
@@ -307,10 +307,10 @@ class ParameterSpace:
             # product is faced with the registry when it is written.
             if mode == "replace":
                 assert_bounds_are_physical(name, low, high, decl.get("units"))
-            if prior not in {"uniform", "log_uniform", "normal"}:
-                raise ValueError(f"Parameter {name!r}: unknown prior {prior!r}")
-            if prior == "log_uniform" and low <= 0.0:
-                raise ValueError(f"Parameter {name!r}: log_uniform prior requires lower > 0")
+            if sampling not in {"uniform", "log_uniform", "normal"}:
+                raise ValueError(f"Parameter {name!r}: unknown sampling {sampling!r}")
+            if sampling == "log_uniform" and low <= 0.0:
+                raise ValueError(f"Parameter {name!r}: log_uniform sampling requires lower > 0")
             units = decl.get("units")
             _assert_path_is_not_the_mesh(name, path)
             _assert_path_is_not_the_mesh(name, target)
@@ -321,8 +321,8 @@ class ParameterSpace:
                     name=name,
                     lower=low,
                     upper=high,
-                    transform=transform,
-                    prior=prior,
+                    search_space=search_space,
+                    sampling=sampling,
                     path=path,
                     target=target,
                     mode=mode,

@@ -34,7 +34,7 @@ method = "bisection"
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 
 [calibration.outputs.net]
 support = "network"
@@ -123,7 +123,7 @@ method = "bisection"
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 
 [calibration.outputs.net]
 support = "network"
@@ -163,7 +163,7 @@ def _in_memory_config(declared: str) -> CalibrationConfig:
             "parameters": {
                 "K": {
                     "bounds": [1e-9, 1e-3],
-                    "transform": "log",
+                    "search_space": "log",
                     "path": "flow.param.K.field.value",
                 }
             },

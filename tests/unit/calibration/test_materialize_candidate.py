@@ -416,10 +416,10 @@ class TestTheOverlayIsWrittenWholeOrNotAtAll:
     def test_the_document_lands_in_one_rename_and_leaves_no_staging_file(self, tmp_path):
         target = tmp_path / "sessions" / "calage" / "config.toml"
 
-        write_overlay_toml(target, {"calibration": {"method": "grid", "max_iter": 3}})
+        write_overlay_toml(target, {"calibration": {"method": "grid", "max_trials": 3}})
 
         assert tomllib.loads(target.read_text(encoding="utf-8")) == {
-            "calibration": {"method": "grid", "max_iter": 3}
+            "calibration": {"method": "grid", "max_trials": 3}
         }
         assert [path.name for path in target.parent.iterdir()] == ["config.toml"]
 

@@ -50,7 +50,7 @@ def test_the_refusal_points_at_the_phase_overrides() -> None:
 
 def test_a_hydraulic_property_is_untouched() -> None:
     space = ParameterSpace.from_toml_mapping(
-        {"K": {"bounds": [1e-8, 1e-2], "transform": "log", "path": "flow.param.K.field.value"}}
+        {"K": {"bounds": [1e-8, 1e-2], "search_space": "log", "path": "flow.param.K.field.value"}}
     )
 
     assert [param.name for param in space] == ["K"]

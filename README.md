@@ -1,8 +1,8 @@
 ![logo](https://github.com/HydroModPy/HydroModPy/blob/61d654ca738c488480fd22aa01c2b1002984eac9/docs/readthedocs/source/images/logoHydroModPy_long.png)
 
 **HydroModPy** is a Python toolbox for deploying catchment-scale shallow
-groundwater models. One TOML config drives MODFLOW 6, MODFLOW-NWT, Boussinesq
-and GR4J on the same hydrology, with reproducible inputs and ML-friendly
+groundwater models. One TOML config drives MODFLOW 6, MODFLOW-NWT and
+Boussinesq on the same hydrology, with reproducible inputs and ML-friendly
 outputs.
 
 [![PyPI](https://img.shields.io/pypi/v/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
@@ -16,8 +16,8 @@ outputs.
 
 ## What you get
 
-- **One config, four solvers.** A single `HydroModPyConfig` (Pydantic v2)
-  drives MODFLOW 6, MODFLOW-NWT, Boussinesq and GR4J on the same catchment.
+- **One config, three solvers.** A single `HydroModPyConfig` (Pydantic v2)
+  drives MODFLOW 6, MODFLOW-NWT and Boussinesq on the same catchment.
 - **Disk is the truth.** Every run is one plain directory under `runs/`,
   named after the run. The DuckDB file in `.hmp/` is only an index over
   those directories: delete it and `hmp catalog reindex` rebuilds it.

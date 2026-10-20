@@ -93,7 +93,7 @@ def resolve_parameter_targets(
     there by name or by writing its own path. Two spellings of the same
     quantity have to search the same space: a ``K`` that names itself and a
     ``K`` that writes ``flow.param.K.field.value`` both inherit the log space
-    the field declares, and a file that states a transform still beats it.
+    the field declares, and a file that states a search space still beats it.
 
     Mutates the declarations in place and re-reads nothing it already wrote, so
     running twice changes nothing. That is what lets both loaders call it
@@ -367,16 +367,16 @@ def _fill_what_the_file_left_unsaid(decl: Any, target: CalibrationTarget) -> Non
     """Complete a declaration from its target, never overriding what it states.
 
     ``model_fields_set`` is what makes this safe: a declaration carries
-    ``transform = "identity"`` as a default whether or not the file wrote it, so
+    ``search_space = "identity"`` as a default whether or not the file wrote it, so
     only the set of fields the file actually declared can say who wins.
     """
     written = decl.model_fields_set
     annotation = target.calibrable
     if annotation is not None:
-        if "transform" not in written:
-            decl.transform = annotation.transform
-        if "prior" not in written:
-            decl.prior = annotation.prior
+        if "search_space" not in written:
+            decl.search_space = annotation.search_space
+        if "sampling" not in written:
+            decl.sampling = annotation.sampling
         if decl.bounds is None and annotation.bounds is not None:
             decl.bounds = list(annotation.bounds)
     if "units" not in written and target.units:

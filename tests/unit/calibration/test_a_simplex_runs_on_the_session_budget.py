@@ -1,6 +1,6 @@
 """A Nelder-Mead search with no maxiter of its own spends the session budget.
 
-The adapter used to cap itself at 100 iterations whatever ``max_iter`` said, so
+The adapter used to cap itself at 100 iterations whatever ``max_trials`` said, so
 a budget of 250 stopped at 100 with the simplex reporting it had run dry.
 """
 
@@ -41,12 +41,12 @@ def _noise():
     return evaluate
 
 
-def _run(max_iter: int, **options):
+def _run(max_trials: int, **options):
     optimizer = build_optimizer(
         "scipy_nelder_mead", _space(), seed=1, xatol=0.0, fatol=0.0, **options
     )
     return CalibrationEngine(
-        space=optimizer.space, optimizer=optimizer, evaluator=_noise(), max_iter=max_iter
+        space=optimizer.space, optimizer=optimizer, evaluator=_noise(), max_trials=max_trials
     ).run()
 
 

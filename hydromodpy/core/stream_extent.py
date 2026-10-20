@@ -28,9 +28,14 @@ figures share:
    years, a cell belongs to a climatological mask when it meets the rule in at
    least ``year_quorum`` of the scored years.
 
-Durations are counted in TIMESTEPS, never in days: a rule in days would mean
-nothing on a weekly or a monthly run. Nothing here names a solver package or a
-calibration setting; the release flux arrives aggregated by the adapter.
+The counting is in TIMESTEPS. A user writes the rules as durations ("30 d",
+"1 month") and the caller converts them with the run's nominal step before
+counting: :func:`flowing_steps` rounds a duration up to a whole number of
+steps, at least one, and :func:`dry_steps` rounds down, at least zero. On a
+step of a month "45 d" is two flowing steps and one dry step. A rule left
+unwritten is one timestep, whatever the step. Nothing here names a solver
+package or a calibration setting; the release flux arrives aggregated by the
+adapter.
 """
 
 from __future__ import annotations
@@ -47,6 +52,7 @@ from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_network import SimulatedNetwork
 from hydromodpy.core.topographic_distance import DownslopeMetric
+from hydromodpy.core.units.parse import parse_to_canonical_magnitude
 from hydromodpy.core.units.volumetric_flow import parse_to_m3_per_s
 
 logger = get_logger(__name__)
@@ -380,6 +386,71 @@ def flow_persistence(counts: YearlyFlowCounts) -> np.ndarray:
     return counts.flowing / steps
 
 
+_DURATION_DIGITS = 9
+"""Digits kept of a duration over a step, so "1 month" over a month is exactly 1."""
+
+_BARE_NUMBER = re.compile(r"^\s*[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?\s*$")
+
+
+def parse_extent_duration(value: object, *, location: str = "duration") -> float | None:
+    """Read a duration such as ``"30 d"`` or ``"1 month"`` into days.
+
+    None is a rule left unwritten, which means one timestep (see
+    :func:`flowing_steps` and :func:`dry_steps`).
+
+    A duration needs its unit: a bare number would be read in days by one user
+    and in timesteps by the next, and the rule it feeds used to be a count of
+    timesteps. A month is the pint month, 30.4375 days, and a year 365.25 days.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, str):
+        raise ValueError(
+            f"{location} = {value!r} is not a duration. Write it with its unit, "
+            "such as '30 d' or '1 month'."
+        )
+    if not value.strip() or _BARE_NUMBER.match(value):
+        raise ValueError(
+            f"{location} = {value!r} carries no unit. Write a duration with its unit, "
+            "such as '30 d' or '1 month'."
+        )
+    days = parse_to_canonical_magnitude(value, location=location, canonical_unit="day")
+    if not math.isfinite(days) or days < 0.0:
+        raise ValueError(f"{location} = {value!r} must not be negative.")
+    return days
+
+
+def _steps_in(duration_days: float, step_days: float) -> float:
+    """Return how many timesteps a duration spans, with float noise rounded away."""
+    if not step_days > 0.0:
+        raise ValueError(f"the timestep must be positive, got {step_days} days.")
+    return round(float(duration_days) / float(step_days), _DURATION_DIGITS)
+
+
+def flowing_steps(duration_days: float | None, step_days: float) -> int:
+    """Return the timesteps a cell has to flow to flow for ``duration_days``.
+
+    Rounded up, since a step in which the cell flows counts as a whole step,
+    and never below one: the rule asks the cell to flow at all. No duration is
+    one timestep, whatever the step.
+    """
+    if duration_days is None:
+        return 1
+    return max(1, math.ceil(_steps_in(duration_days, step_days)))
+
+
+def dry_steps(duration_days: float | None, step_days: float) -> int:
+    """Return the timesteps a cell may be dry and stay within ``duration_days``.
+
+    Rounded down, since one step more would be dry for longer than the
+    duration, and never below zero. No duration is one timestep, whatever the
+    step.
+    """
+    if duration_days is None:
+        return 1
+    return max(0, math.floor(_steps_in(duration_days, step_days)))
+
+
 def extent_step_problems(
     n_steps: Sequence[int] | np.ndarray,
     *,
@@ -402,19 +473,20 @@ def extent_step_problems(
     n_max = int(maximal_flowing_steps)
     n_min = int(minimal_dry_steps)
     if n_max < 1:
-        problems.append(f"maximal_flowing_steps = {n_max} is below one timestep")
+        problems.append(f"the maximal rule of {n_max} timestep(s) is below one timestep")
     elif n_max > fewest:
         problems.append(
-            f"maximal_flowing_steps = {n_max} exceeds the {fewest} timestep(s) of the "
+            f"the maximal rule of {n_max} timestep(s) exceeds the {fewest} timestep(s) of the "
             "shortest complete year"
         )
     if n_min < 0:
-        problems.append(f"minimal_dry_steps = {n_min} is negative")
+        problems.append(f"the minimal rule of {n_min} dry timestep(s) is negative")
     elif fewest - n_min < max(n_max, 1):
         problems.append(
-            f"minimal_dry_steps = {n_min} leaves {fewest - n_min} flowing timestep(s) of "
-            f"{fewest} for the minimal mask, fewer than the {max(n_max, 1)} the maximal one "
-            "asks, so the permanent network would be looser than the complete one"
+            f"the minimal rule of {n_min} dry timestep(s) leaves {fewest - n_min} flowing "
+            f"timestep(s) of {fewest} for the minimal mask, fewer than the {max(n_max, 1)} "
+            "the maximal one asks, so the permanent network would be looser than the "
+            "complete one"
         )
     return problems
 
@@ -544,10 +616,13 @@ __all__ = (
     "VisibleFlow",
     "YearlyFlowCounts",
     "calendar_years",
+    "dry_steps",
     "extent_masks",
     "extent_step_problems",
     "flow_persistence",
     "flowing_cells",
+    "flowing_steps",
+    "parse_extent_duration",
     "parse_visible_flow",
     "quorum_count",
     "routed_discharge",

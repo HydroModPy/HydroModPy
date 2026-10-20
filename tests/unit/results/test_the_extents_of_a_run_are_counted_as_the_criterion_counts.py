@@ -111,9 +111,9 @@ class TestTheExtents:
         assert _cells(extents.simulated("minimal", year=2002)) == [OUTLET]
 
     def test_the_rules_are_counted_in_timesteps(self) -> None:
-        """Five flowing steps of twelve pass a maximal rule of five, not one of six."""
-        five = network_extents_from_run(transient_run(), maximal_flowing_steps=5)
-        six = network_extents_from_run(transient_run(), maximal_flowing_steps=6)
+        """Five flowing months of twelve pass a maximal rule of five, not one of six."""
+        five = network_extents_from_run(transient_run(), maximal_flowing_duration="5 months")
+        six = network_extents_from_run(transient_run(), maximal_flowing_duration="6 months")
 
         assert _cells(five.simulated("maximal")) == [OUTLET, MIDDLE, HEAD]
         assert _cells(six.simulated("maximal")) == [OUTLET]
@@ -186,8 +186,8 @@ class TestTheExtents:
             extents.observed("minimal")
 
     def test_rules_the_years_cannot_hold_are_refused_by_name(self) -> None:
-        with pytest.raises(ValueError, match="maximal_flowing_steps = 13"):
-            network_extents_from_run(transient_run(), maximal_flowing_steps=13)
+        with pytest.raises(ValueError, match="maximal rule of 13 timestep"):
+            network_extents_from_run(transient_run(), maximal_flowing_duration="13 months")
 
 
 class TestOneDefinitionOfFlowing:

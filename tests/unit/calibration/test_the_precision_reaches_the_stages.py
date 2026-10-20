@@ -35,12 +35,12 @@ station_ids = ["G1"]
 _PARAMETERS = """
 [calibration.parameters.K]
 bounds = [1e-8, 1e-2]
-transform = "log"
+search_space = "log"
 units = "m/s"
 
 [calibration.parameters.Sy]
 bounds = [1e-4, 0.5]
-transform = "log"
+search_space = "log"
 units = "-"
 
 """
@@ -66,11 +66,11 @@ def test_a_stage_precision_arrives_on_the_phase(tmp_path: Path) -> None:
         """
         [calibration.protocol]
         name = "matching_hydrographic_network"
-        steady_tolerance = 0.02
-        transient_tolerance = 0.05
+        steady_precision = 0.02
+        transient_precision = 0.05
         """,
     )
-    assert [phase.tolerance for phase in cfg.phases] == [0.02, 0.05]
+    assert [phase.precision for phase in cfg.phases] == [0.02, 0.05]
 
 
 def test_an_unstated_precision_leaves_the_engine_its_own_default(tmp_path: Path) -> None:
@@ -81,7 +81,7 @@ def test_an_unstated_precision_leaves_the_engine_its_own_default(tmp_path: Path)
         name = "matching_hydrographic_network"
         """,
     )
-    assert [phase.tolerance for phase in cfg.phases] == [None, None]
+    assert [phase.precision for phase in cfg.phases] == [None, None]
 
 
 def test_a_precision_an_engine_cannot_stop_on_is_refused_before_the_first_solve(
@@ -97,7 +97,7 @@ def test_a_precision_an_engine_cannot_stop_on_is_refused_before_the_first_solve(
         name = "sweep_k"
         method = "grid"
         parameters = ["K"]
-        tolerance = 0.01
+        precision = 0.01
         variable = "discharge"
         objective = "nse"
         """,
@@ -118,7 +118,7 @@ def test_saying_the_precision_twice_is_refused_before_the_first_solve(tmp_path: 
         name = "steady_k"
         method = "scipy_nelder_mead"
         parameters = ["K"]
-        tolerance = 0.01
+        precision = 0.01
         variable = "discharge"
         objective = "nse"
 
@@ -147,16 +147,16 @@ def test_a_precision_a_nelder_mead_stage_can_honour_passes_the_preflight(tmp_pat
         [calibration.protocol]
         name = "matching_hydrographic_network"
         steady_method = "scipy_nelder_mead"
-        steady_tolerance = 0.02
+        steady_precision = 0.02
         """,
     )
     findings = _findings_for(cfg, tmp_path)
-    assert not [finding for finding in findings if "tolerance" in finding.detail]
+    assert not [finding for finding in findings if "precision" in finding.detail]
 
 
-@pytest.mark.parametrize("tolerance", [0.0, -0.1])
+@pytest.mark.parametrize("precision", [0.0, -0.1])
 def test_a_precision_that_is_not_positive_is_refused_at_load(
-    tmp_path: Path, tolerance: float
+    tmp_path: Path, precision: float
 ) -> None:
     with pytest.raises(ConfigError, match="greater than 0"):
         _loaded(
@@ -164,6 +164,6 @@ def test_a_precision_that_is_not_positive_is_refused_at_load(
             f"""
             [calibration.protocol]
             name = "matching_hydrographic_network"
-            steady_tolerance = {tolerance}
+            steady_precision = {precision}
             """,
         )

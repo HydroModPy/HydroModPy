@@ -57,7 +57,7 @@ value = 1e-5
 
 [calibration]
 method = "optuna"
-max_iter = 15
+max_trials = 15
 batch_size = 1
 save_runs = "best_n"
 save_best_n = 2

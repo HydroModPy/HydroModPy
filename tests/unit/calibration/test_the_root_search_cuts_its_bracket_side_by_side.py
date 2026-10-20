@@ -63,7 +63,7 @@ Residual = Callable[[float], float]
 
 def _space() -> ParameterSpace:
     return ParameterSpace(
-        [CalibParameter(name="K", lower=BOUNDS[0], upper=BOUNDS[1], transform="log")]
+        [CalibParameter(name="K", lower=BOUNDS[0], upper=BOUNDS[1], search_space="log")]
     )
 
 
@@ -487,7 +487,7 @@ def _engine_run(parallel: int, **options):
         space=adapter.space,
         optimizer=adapter,
         evaluator=_two(_step(ROOT_MIN), _step(ROOT_MAX)),
-        max_iter=AUTO_BUDGET,
+        max_trials=AUTO_BUDGET,
         parallel=parallel,
     ).run()
     return adapter, session, rounds
@@ -523,12 +523,12 @@ def test_the_root_search_declares_it_runs_trials_side_by_side() -> None:
 _TOML = """
 [calibration]
 method = "bisection"
-max_iter = {max_iter}
+max_trials = {max_trials}
 {workers}
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 units = "m/s"
 
 [calibration.outputs.net]
@@ -550,16 +550,16 @@ _PHASE = """
 name = "steady"
 parameters = ["K"]
 objective_blocks = ["network"]
-max_iter = {max_iter}
+max_trials = {max_trials}
 {workers}
 """
 
 
-def _load(tmp_path: Path, *, workers: str = "", phase: str | None = None, max_iter: int = 24):
+def _load(tmp_path: Path, *, workers: str = "", phase: str | None = None, max_trials: int = 24):
     text = _TOML.format(
-        max_iter=max_iter,
+        max_trials=max_trials,
         workers=workers,
-        phase="" if phase is None else _PHASE.format(max_iter=max_iter, workers=phase),
+        phase="" if phase is None else _PHASE.format(max_trials=max_trials, workers=phase),
     )
     path = tmp_path / "calibration.toml"
     path.write_text(textwrap.dedent(text), encoding="utf-8")

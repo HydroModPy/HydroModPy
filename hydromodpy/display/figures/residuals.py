@@ -12,6 +12,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import ObservedStation, Opt, Station, Variable
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._observed import observed_series
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:
@@ -94,6 +95,8 @@ class Residuals(BaseFigure):
         ax_ts.set_ylabel(f"residual {axis_label(variable)}")
         ax_ts.grid(True, ls=":", lw=0.4)
         ax_ts.set_title(f"Residuals{run_suffix(sim)} @ {station_label(station)}")
+        if shade_before_window(ax_ts, sim):
+            ax_ts.legend(fontsize=8, framealpha=0.94)
         style_date_axis(ax_ts)
 
         ax_hist.hist(

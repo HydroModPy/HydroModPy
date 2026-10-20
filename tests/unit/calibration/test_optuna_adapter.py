@@ -18,7 +18,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 def _space_2d():
     return ParameterSpace(
         [
-            CalibParameter(name="K", lower=1e-6, upper=1e-3, transform="log"),
+            CalibParameter(name="K", lower=1e-6, upper=1e-3, search_space="log"),
             CalibParameter(name="Sy", lower=0.02, upper=0.30),
         ]
     )

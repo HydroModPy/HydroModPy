@@ -416,30 +416,40 @@
     },
     "CalibNetworkExtent": {
       "additionalProperties": false,
-      "description": "The transient two-bound mode of a network output.\n\nDeclared, the output stops reading one state. For every complete calendar\nyear of the run, the maximal simulated mask holds the cells flowing at\nleast ``maximal_flowing_steps`` timesteps, and the minimal one the cells\nflowing at every timestep but at most ``minimal_dry_steps``. A cell enters\nthe mask scored when it meets the rule in at least ``year_quorum`` of the\nscored years. Each bound is scored once by the distance criterion: the\nmaximal mask against the maximal map, the minimal mask against the minimal\nmap when one is declared. Durations count timesteps, not days.",
+      "description": "The transient two-bound mode of a network output.\n\nDeclared, the output stops reading one state. For every complete calendar\nyear of the run, the maximal simulated mask holds the cells flowing for at\nleast ``maximal_flowing_duration``, and the minimal one the cells flowing at\nevery timestep but for at most ``minimal_dry_duration``. A cell enters\nthe mask scored when it meets the rule in at least ``year_quorum`` of the\nscored years. Each bound is scored once by the distance criterion: the\nmaximal mask against the maximal map, the minimal mask against the minimal\nmap when one is declared. Both durations are converted to whole timesteps\nwith the run's step, so the same file means the same on a daily and a\nmonthly run.",
       "properties": {
-        "maximal_flowing_steps": {
-          "default": 1,
-          "description": "Timesteps a cell has to flow in a year to enter the maximal mask. At most the timestep count of the shortest complete year, checked on the run.",
-          "examples": [
-            1
+        "maximal_flowing_duration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "minimum": 1,
-          "title": "Maximal Flowing Steps",
-          "type": "integer",
-          "unit": "-",
+          "default": null,
+          "description": "How long a cell has to flow in a year to enter the maximal mask, with its unit: '30 d', '1 month'. Converted by the run's timestep, rounded up to whole timesteps and never below one. Left out, one timestep, whatever the step. At most the shortest complete year, checked on the run.",
+          "renamed_from": [
+            "calibration.outputs.extent.maximal_flowing_steps"
+          ],
+          "title": "Maximal Flowing Duration",
           "x-hmp-profile": "user"
         },
-        "minimal_dry_steps": {
-          "default": 1,
-          "description": "Timesteps a cell may be dry in a year and stay in the minimal mask. The year's timestep count minus this has to stay at least maximal_flowing_steps, checked on the run, so the minimal mask sits inside the maximal one.",
-          "examples": [
-            1
+        "minimal_dry_duration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "minimum": 0,
-          "title": "Minimal Dry Steps",
-          "type": "integer",
-          "unit": "-",
+          "default": null,
+          "description": "How long a cell may be dry in a year and stay in the minimal mask, with its unit: '1 d', '1 month'. Converted by the run's timestep and rounded down to whole timesteps, possibly none: '1 d' is one dry timestep on a daily run, none on a monthly one. Left out, one timestep, whatever the step. The year's timesteps minus these have to stay at least the flowing timesteps of the maximal rule, checked on the run, so the minimal mask sits inside the maximal one.",
+          "renamed_from": [
+            "calibration.outputs.extent.minimal_dry_steps"
+          ],
+          "title": "Minimal Dry Duration",
           "x-hmp-profile": "user"
         },
         "year_quorum": {
@@ -516,7 +526,7 @@
           "value_docs": {
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
-            "kge": "Kling-Gupta efficiency; separates correlation, variability and bias when NSE alone is ambiguous.",
+            "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
             "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
             "nse": "Nash-Sutcliffe efficiency against the observed mean; the standard choice for a level or discharge series.",
             "nse_delta": "NSE on the increments of the series rather than its level; a level is an integral and can hide flux errors that compensate, which only its increments show.",
@@ -559,9 +569,9 @@
           "type": "boolean",
           "x-hmp-profile": "user"
         },
-        "transform": {
+        "cost_transform": {
           "default": "identity",
-          "description": "Per-block cost transform applied before weighting. Note that transform='log' takes the logarithm of the cost, which is not the same thing as metric='nse_log', an NSE computed on log-transformed series.",
+          "description": "Transform applied to the cost of this block before weighting. Note that cost_transform='log' takes the logarithm of the cost, which is not the same thing as metric='nse_log', an NSE computed on log-transformed series.",
           "enum": [
             "identity",
             "log",
@@ -570,7 +580,10 @@
           "examples": [
             "identity"
           ],
-          "title": "Transform",
+          "renamed_from": [
+            "calibration.objective_blocks.transform"
+          ],
+          "title": "Cost Transform",
           "type": "string",
           "value_docs": {
             "identity": "Uses the block cost as computed, with no transform.",
@@ -1821,9 +1834,9 @@
           "title": "Bounds",
           "x-hmp-profile": "user"
         },
-        "transform": {
+        "search_space": {
           "default": "identity",
-          "description": "Transform applied before sampling. 'log' for strictly-positive quantities spanning orders of magnitude. Unset, the target's own field decides: a hydraulic conductivity declares 'log' where it is defined, so a file states this only to depart from it.",
+          "description": "Space the search walks the parameter in. 'log' for strictly-positive quantities spanning orders of magnitude. Unset, the target's own field decides: a hydraulic conductivity declares 'log' where it is defined, so a file states this only to depart from it.",
           "enum": [
             "identity",
             "log",
@@ -1832,7 +1845,10 @@
           "examples": [
             "identity"
           ],
-          "title": "Transform",
+          "renamed_from": [
+            "calibration.parameters.transform"
+          ],
+          "title": "Search Space",
           "type": "string",
           "value_docs": {
             "identity": "Searches the value as written.",
@@ -1841,7 +1857,7 @@
           },
           "x-hmp-profile": "user"
         },
-        "prior": {
+        "sampling": {
           "default": "uniform",
           "description": "Distribution, between the bounds, that starting points, random draws and Bayesian samplers take values from.",
           "enum": [
@@ -1852,7 +1868,10 @@
           "examples": [
             "uniform"
           ],
-          "title": "Prior",
+          "renamed_from": [
+            "calibration.parameters.prior"
+          ],
+          "title": "Sampling",
           "type": "string",
           "value_docs": {
             "log_uniform": "Every decade between the bounds is equally likely.",
@@ -1975,11 +1994,11 @@
             }
           ],
           "default": null,
-          "description": "Optimization method for this phase only. Unset, it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and why. Write it to depart from that choice, and whenever method_options are given. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'lhs' (stratified Latin hypercube, sized by method_options.n_samples), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
+          "description": "Optimization method for this phase only. Unset, the phase runs the method [calibration] writes; failing that it follows from what the phase scores: 'bisection' when the phase moves one parameter in log space and every one of its blocks is signed (distance_gap), since the answer is then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. hmp calibrate --list-phases prints the method and where it comes from. Write it to depart from that choice, and whenever method_options are given and [calibration] writes no method. Built-ins: 'grid' (regular sweep, sized by method_options.points_per_dim), 'lhs' (stratified Latin hypercube, sized by method_options.n_samples), 'random_search', 'bisection' (root of a signed criterion on one parameter, the stream-network stage), 'optuna' (TPE), 'cma_es', 'scipy_de', 'scipy_nelder_mead', 'gp_mapping', 'da_mh_gp'. An unknown name is refused when the optimizer is built, with the list installed here.",
           "title": "Method",
           "x-hmp-profile": "user"
         },
-        "max_iter": {
+        "max_trials": {
           "anyOf": [
             {
               "description": "Positive integer.",
@@ -1989,17 +2008,20 @@
             {
               "const": "auto",
               "type": "string"
+            },
+            {
+              "type": "null"
             }
           ],
-          "default": "auto",
-          "description": "Maximum number of evaluations for this phase. 'auto' lets an engine that counts its evaluations size it: the bisection budgets its worst case, and refuses before the first solve a number below its nominal count (see [calibration].max_iter). Any other engine gets 100 from 'auto', and no extension when it spends them before its stopping rule.",
-          "examples": [
-            "auto"
+          "default": null,
+          "description": "Maximum number of evaluations for this phase. Unset, the phase takes the max_trials of [calibration]. 'auto' lets an engine that counts its evaluations size it: the bisection budgets its worst case, and refuses before the first solve a number below its nominal count (see [calibration].max_trials). Any other engine gets 100 from 'auto', and no extension when it spends them before its stopping rule.",
+          "renamed_from": [
+            "calibration.phases.max_iter"
           ],
-          "title": "Max Iter",
+          "title": "Max Trials",
           "x-hmp-profile": "user"
         },
-        "tolerance": {
+        "precision": {
           "anyOf": [
             {
               "description": "Positive floating-point value.",
@@ -2011,8 +2033,11 @@
             }
           ],
           "default": null,
-          "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
-          "title": "Tolerance",
+          "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a parameter searched in log space that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other search space there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the phase takes the precision of [calibration] when its engine stops on one and the phase writes no stopping option of its own, else the engine's default applies. Written here, an engine that stops on its budget rather than on a precision refuses it rather than ignore it.",
+          "renamed_from": [
+            "calibration.phases.tolerance"
+          ],
+          "title": "Precision",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -2056,6 +2081,38 @@
           "minItems": 1,
           "title": "Parameters",
           "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "bounds": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "object",
+              "patternProperties": {
+                "^.+__delete$": {
+                  "const": true,
+                  "description": "Remove the inherited key. Only the literal true is accepted."
+                },
+                "^.+__append$": {
+                  "type": "array"
+                },
+                "^.+__merge$": {
+                  "type": "array"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[low, high] physical bounds this phase searches a parameter between, as {parameter = [low, high]}, in the unit the parameter declares. Only parameters the phase moves, and every interval has to lie inside the bounds of [calibration.parameters.<name>] (or the range the field annotates when the section writes none): a phase narrows a search, it never widens it. A parameter left out keeps the bounds of the section. hmp calibrate --list-phases prints them.",
+          "title": "Bounds",
           "x-hmp-profile": "user"
         },
         "outputs": {
@@ -2141,7 +2198,7 @@
           "value_docs": {
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
-            "kge": "Kling-Gupta efficiency; separates correlation, variability and bias when NSE alone is ambiguous.",
+            "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
             "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
             "nse": "Nash-Sutcliffe efficiency against the observed mean; the standard choice for a level or discharge series.",
             "nse_delta": "NSE on the increments of the series rather than its level; a level is an integral and can hide flux errors that compensate, which only its increments show.",
@@ -2162,19 +2219,27 @@
             }
           ],
           "default": null,
-          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one. Overrides the calibration-level value for this phase.",
+          "description": "Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
           "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
         },
         "method_options": {
-          "additionalProperties": true,
-          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them. A key the method does not take is refused when the file loads. hmp config check names the phase.",
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Options of this phase's method, named as that method names them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for 'optuna'. They belong to one method, so a phase that gives them writes method beside them, or runs the method [calibration] writes. Unset, the phase takes the method_options of [calibration] when it runs the method that section writes, and none otherwise; an empty table states that it takes none. A key the method does not take is refused when the file loads. hmp config check names the phase.",
           "renamed_from": [
             "calibration.phases.optimizer_kwargs"
           ],
           "title": "Method Options",
-          "type": "object",
           "x-hmp-profile": "user"
         },
         "regime": {
@@ -2353,7 +2418,7 @@
           "description": "How this phase's interval is obtained: 'cost_profile', 'multistart' or 'linearized', read as in [calibration.uncertainty] method.",
           "title": "Method",
           "value_docs": {
-            "cost_profile": "Reads the range of sampled values whose cost stayed within tolerance of the best, off the trace of the search. No extra model run.",
+            "cost_profile": "Reads the range of sampled values whose cost stayed within cost_margin of the best, off the trace of the search. No extra model run.",
             "linearized": "Linearizes the model about the optimum: one extra run per parameter gives a first-order covariance, and with it which parameters trade off.",
             "multistart": "Repeats the whole search restarts times from different starting points and reports the spread of the optima. It can see a second basin."
           },
@@ -2392,30 +2457,9 @@
           "unit": "-",
           "x-hmp-profile": "user"
         },
-        "tolerance": {
+        "cost_margin": {
           "anyOf": [
             {
-              "description": "Positive floating-point value.",
-              "exclusiveMinimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Width of this phase's interval: a fraction of the best cost when mode='relative', a number in the unit of the cost (metres for a network distance) when mode='absolute'. Unset here and in [calibration.uncertainty], one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise.",
-          "title": "Tolerance",
-          "unit": "- or cost unit",
-          "x-hmp-profile": "user"
-        },
-        "mode": {
-          "anyOf": [
-            {
-              "enum": [
-                "relative",
-                "absolute"
-              ],
               "type": "string"
             },
             {
@@ -2423,8 +2467,13 @@
             }
           ],
           "default": null,
-          "description": "How this phase's tolerance is read. Unset here and in [calibration.uncertainty], 'absolute' for a phase scored only by network distances, 'relative' otherwise.",
-          "title": "Mode",
+          "description": "Width of this phase's interval, with its unit: '5%' is a share of the best cost, '75 m' a length, for a phase scored only by network distances. Unset here and in [calibration.uncertainty], one mesh cell for a phase scored only by network distances, five per cent of the best cost otherwise.",
+          "renamed_from": [
+            "calibration.phases.uncertainty.tolerance",
+            "calibration.phases.uncertainty.mode"
+          ],
+          "title": "Cost Margin",
+          "unit": "% or m",
           "x-hmp-profile": "user"
         }
       },
@@ -2485,7 +2534,7 @@
       "properties": {
         "method": {
           "default": "cost_profile",
-          "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'tolerance' of the best, off the trace the search already produced, and costs no extra model run. 'multistart' runs the whole search 'restarts' times from 'restarts' different starting points and reports the spread of the optima it reaches, which is the only one of the two that can see a second basin; it costs that many times the runs. The calibrated value never moves either way: with 'multistart' it is the best of the restarts.",
+          "description": "How the interval around each calibrated value is obtained. 'cost_profile' reads the range of sampled values whose cost stayed within 'cost_margin' of the best, off the trace the search already produced, and costs no extra model run. 'multistart' runs the whole search 'restarts' times from 'restarts' different starting points and reports the spread of the optima it reaches, which is the only one of the two that can see a second basin; it costs that many times the runs. The calibrated value never moves either way: with 'multistart' it is the best of the restarts.",
           "enum": [
             "cost_profile",
             "multistart",
@@ -2497,7 +2546,7 @@
           "title": "Method",
           "type": "string",
           "value_docs": {
-            "cost_profile": "Reads the range of sampled values whose cost stayed within tolerance of the best, off the trace of the search. No extra model run.",
+            "cost_profile": "Reads the range of sampled values whose cost stayed within cost_margin of the best, off the trace of the search. No extra model run.",
             "linearized": "Linearizes the model about the optimum: one extra run per parameter gives a first-order covariance, and with it which parameters trade off.",
             "multistart": "Repeats the whole search restarts times from different starting points and reports the spread of the optima. It can see a second basin."
           },
@@ -2536,30 +2585,9 @@
           "unit": "-",
           "x-hmp-profile": "user"
         },
-        "tolerance": {
+        "cost_margin": {
           "anyOf": [
             {
-              "description": "Positive floating-point value.",
-              "exclusiveMinimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Width of the interval. A fraction of the best cost when mode='relative' (0.05 = five per cent), and a number in the unit of the cost when mode='absolute'. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances (distance_gap, distance_mean), because a stream cannot move by less than a cell; 0.05 otherwise, five per cent of the best cost. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins.",
-          "title": "Tolerance",
-          "unit": "- or cost unit",
-          "x-hmp-profile": "user"
-        },
-        "mode": {
-          "anyOf": [
-            {
-              "enum": [
-                "relative",
-                "absolute"
-              ],
               "type": "string"
             },
             {
@@ -2567,8 +2595,13 @@
             }
           ],
           "default": null,
-          "description": "How 'tolerance' is read. 'relative' is a fraction of the best cost and is the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: state the width in the unit of the cost with 'absolute', for example 25 metres. Unset, 'absolute' for a search scored only by network distances and 'relative' otherwise. hmp config check refuses 'relative' on a search scored only by network distances.",
-          "title": "Mode",
+          "description": "Width of the interval, written with its unit. '5%' is a share of the best cost, the usual choice for an efficiency score. A criterion solved at zero, such as the stream-network gap, has no fraction of itself to take: write a length, '25 m', which is only read by a search scored only by network distances (distance_gap, distance_mean). A bare number is refused. Unset, it follows what the search scores: one mesh cell, in metres, for a search scored only by network distances, because a stream cannot move by less than a cell; 5%, five per cent of the best cost, otherwise. The cell is the median distance between the centres of neighbouring cells, measured by the network criterion on the mesh it scores. A phase may write its own, which wins. hmp config check refuses a share on a search scored only by network distances.",
+          "renamed_from": [
+            "calibration.uncertainty.tolerance",
+            "calibration.uncertainty.mode"
+          ],
+          "title": "Cost Margin",
+          "unit": "% or m",
           "x-hmp-profile": "user"
         }
       },
@@ -2640,7 +2673,7 @@
           "title": "Forward Model",
           "x-hmp-profile": "user"
         },
-        "max_iter": {
+        "max_trials": {
           "anyOf": [
             {
               "description": "Positive integer.",
@@ -2653,14 +2686,17 @@
             }
           ],
           "default": "auto",
-          "description": "Maximum number of evaluations of the search. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_iter replays the trials already solved from the cache.",
+          "description": "Maximum number of evaluations of the search. It is the only bound on how long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_trials replays the trials already solved from the cache.",
           "examples": [
             "auto"
           ],
-          "title": "Max Iter",
+          "renamed_from": [
+            "calibration.max_iter"
+          ],
+          "title": "Max Trials",
           "x-hmp-profile": "user"
         },
-        "tolerance": {
+        "precision": {
           "anyOf": [
             {
               "description": "Positive floating-point value.",
@@ -2672,8 +2708,11 @@
             }
           ],
           "default": null,
-          "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a log-transformed parameter that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other transform there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
-          "title": "Tolerance",
+          "description": "How precisely the search has to pin a parameter before it stops, as a relative precision on the parameter itself: 0.01 asks for one per cent, 0.1 for ten. On a parameter searched in log space that is a ratio, which is how a conductivity is known in the first place, and it holds wherever the value sits; on any other search space there is no scale on the value to be relative to before the search has one, so it reads as a fraction of the declared interval. Each engine's own stopping option is written from it, so the same number survives a change of engine, and the engine's own option stays available for reproducing a published call verbatim. Unset, the engine's default applies. An engine that stops on its budget rather than on a precision refuses this rather than ignore it.",
+          "renamed_from": [
+            "calibration.tolerance"
+          ],
+          "title": "Precision",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -2846,7 +2885,7 @@
           "value_docs": {
             "distance_gap": "Balances the simulated stream network against the mapped one; zero marks the crossing.",
             "distance_mean": "Mean spatial offset between simulated and mapped streams; a diagnostic, not a substitute for distance_gap.",
-            "kge": "Kling-Gupta efficiency; separates correlation, variability and bias when NSE alone is ambiguous.",
+            "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, variability as the ratio of standard deviations); separates correlation, variability and bias when NSE alone is ambiguous.",
             "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
             "nse": "Nash-Sutcliffe efficiency against the observed mean; the standard choice for a level or discharge series.",
             "nse_delta": "NSE on the increments of the series rather than its level; a level is an integral and can hide flux errors that compensate, which only its increments show.",
@@ -2877,7 +2916,7 @@
             }
           ],
           "default": null,
-          "description": "Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one.",
+          "description": "Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
           "site_scoped": true,
           "title": "Observed Station Id",
           "x-hmp-profile": "user"
@@ -2896,7 +2935,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/CalibParameterDecl"
           },
-          "description": "Per-parameter declarations (bounds, transform, prior, path).",
+          "description": "Per-parameter declarations (bounds, search_space, sampling, path).",
           "title": "Parameters",
           "type": "object",
           "x-hmp-profile": "user",
@@ -3185,8 +3224,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": true,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m2/s"
           },
           "default": null,
@@ -3472,8 +3511,8 @@
             "bounds": null,
             "description": "Aquifer thickness below the topography, one value everywhere.",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m"
           },
           "default": 50.0,
@@ -4415,8 +4454,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "1/s"
           },
           "default": null,
@@ -4448,8 +4487,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m/s"
           },
           "default": null,
@@ -6276,8 +6315,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": true,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": null
           },
           "default": null,
@@ -6401,8 +6440,8 @@
             "bounds": null,
             "description": "Scalar value of a homogeneous field parameter. The target every calibration in the repository writes to.",
             "is_the_value_of_its_instance": true,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": null
           },
           "default": null,
@@ -6465,8 +6504,8 @@
             "bounds": null,
             "description": "Decay length of the exponential vertical profile.",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m"
           },
           "default": null,
@@ -6490,8 +6529,8 @@
             "bounds": null,
             "description": "Floor factor of the exponential vertical profile.",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": null,
@@ -6613,8 +6652,8 @@
             "bounds": null,
             "description": "Elevation of the flat substratum, one value everywhere.",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "m"
           },
           "default": 0.0,
@@ -6789,8 +6828,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "1/s"
           },
           "default": null,
@@ -6822,8 +6861,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m/s"
           },
           "default": null,
@@ -7654,8 +7693,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "m"
           },
           "default": 1.0,
@@ -8406,8 +8445,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "1/s"
           },
           "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface over the whole lake bed, the handle of the lake-aquifer exchange. The flow through or under the dam is set by the cutoff_wall and the aquifer, not by this value. 0 means a perfectly sealed lakebed (no leakage).",
@@ -10335,8 +10374,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "s/m^(1/3)"
           },
           "default": 0.035,
@@ -10354,8 +10393,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m/s"
           },
           "default": 1e-06,
@@ -11232,8 +11271,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": null
           },
           "default": 0.0,
@@ -11516,8 +11555,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "m3/s"
           },
           "default": null,
@@ -15590,7 +15629,7 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "steady_max_iter": {
+        "steady_max_trials": {
           "anyOf": [
             {
               "description": "Positive integer.",
@@ -15607,10 +15646,13 @@
           "examples": [
             "auto"
           ],
-          "title": "Steady Max Iter",
+          "renamed_from": [
+            "calibration.protocol.steady_max_iter"
+          ],
+          "title": "Steady Max Trials",
           "x-hmp-profile": "user"
         },
-        "steady_tolerance": {
+        "steady_precision": {
           "anyOf": [
             {
               "description": "Positive floating-point value.",
@@ -15623,13 +15665,16 @@
           ],
           "default": null,
           "description": "How precisely stage one has to pin the conductivity before it stops, as a relative precision on the conductivity: 0.01 is the paper's one per cent. Unset takes the engine's default, which for the bisection is that same one per cent.",
-          "title": "Steady Tolerance",
+          "renamed_from": [
+            "calibration.protocol.steady_tolerance"
+          ],
+          "title": "Steady Precision",
           "unit": "-",
           "x-hmp-profile": "user"
         },
         "steady_method_options": {
           "additionalProperties": true,
-          "description": "Options of the stage-one method, named as that method names them: for the bisection, sweep_points, bracket_expand, rel_tol and signed_component. Which ones exist depends on steady_method; a key the method does not know is refused when the file loads. Used to reproduce a published call; a precision is said once, in steady_tolerance.",
+          "description": "Options of the stage-one method, named as that method names them: for the bisection, sweep_points, bracket_expand, rel_tol and signed_component. Which ones exist depends on steady_method; a key the method does not know is refused when the file loads. Used to reproduce a published call; a precision is said once, in steady_precision.",
           "renamed_from": [
             "calibration.protocol.steady_engine_options"
           ],
@@ -15692,19 +15737,22 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "transient_max_iter": {
+        "transient_max_trials": {
           "default": 120,
-          "description": "Evaluation budget of stage two. The simplex cannot count what it needs, so it gets no extension: a stage two that spends this before its tolerance is reported as not converged, and a re-run with a larger budget replays the trials already solved from the cache.",
+          "description": "Evaluation budget of stage two. The simplex cannot count what it needs, so it gets no extension: a stage two that spends this before it reaches its precision is reported as not converged, and a re-run with a larger budget replays the trials already solved from the cache.",
           "examples": [
             120
           ],
           "minimum": 1,
-          "title": "Transient Max Iter",
+          "renamed_from": [
+            "calibration.protocol.transient_max_iter"
+          ],
+          "title": "Transient Max Trials",
           "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
-        "transient_tolerance": {
+        "transient_precision": {
           "anyOf": [
             {
               "description": "Positive floating-point value.",
@@ -15717,7 +15765,10 @@
           ],
           "default": null,
           "description": "How precisely stage two has to pin the storage before it stops, as a relative precision on the storage coefficient.",
-          "title": "Transient Tolerance",
+          "renamed_from": [
+            "calibration.protocol.transient_tolerance"
+          ],
+          "title": "Transient Precision",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -20622,8 +20673,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": true,
-            "prior": "log_uniform",
-            "transform": "log",
+            "sampling": "log_uniform",
+            "search_space": "log",
             "units": "m2/s"
           },
           "default": null,
@@ -21901,6 +21952,16 @@
           "type": "array",
           "x-hmp-profile": "user"
         },
+        "rank_by": {
+          "default": "nse",
+          "description": "Metric that ranks the cases of a site to pick its best one, by the direction of the metric. The nse is always a column of the tables; any other one must be in metrics. The order of metrics does not choose it.",
+          "examples": [
+            "kge"
+          ],
+          "title": "Rank By",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
         "parameters": {
           "description": "Parameters of each case put in the summary tables, calibrated or set.",
           "examples": [
@@ -22378,8 +22439,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "mm"
           },
           "description": "Available water capacity of the soil, in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; \"120 mm\" and \"12 cm\" also read. Between 0 and 1000 mm. Required, since it belongs to the site. In doubt, start from 150 mm and compare the recharge the soil alone prints for 50 to 250 mm with the gauged discharge (hmp run <file> --until load_data). With [data.soil_capacity], it is the mean capacity of the SAFRAN cells, and the raster spreads it over classes inside each cell. Calibrate it with [calibration.parameters.ru].",
@@ -22397,8 +22458,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": 0.6,
@@ -22420,8 +22481,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": 1.0,
@@ -22440,8 +22501,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": 0.0,
@@ -22463,8 +22524,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": 0.0,
@@ -22498,8 +22559,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "day"
           },
           "default": 0.0,
@@ -22525,8 +22586,8 @@
             "bounds": null,
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "-"
           },
           "default": null,
@@ -22554,8 +22615,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "day"
           },
           "default": 1.0,
@@ -22586,8 +22647,8 @@
             ],
             "description": "",
             "is_the_value_of_its_instance": false,
-            "prior": "uniform",
-            "transform": "identity",
+            "sampling": "uniform",
+            "search_space": "identity",
             "units": "day"
           },
           "default": 0.0,

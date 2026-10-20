@@ -14,14 +14,25 @@ import pandas as pd
 import pytest
 
 from hydromodpy.calibration.criteria.series import METRICS, SeriesCriterion
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
+from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import ConfigBlockObjective, SimulationOutput
+from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.metrics import kge, kge_delta, nse_delta, nse_seasonal
 from hydromodpy.results.derive.time_alignment import align_observed_simulated
 
 YEAR = 365.25
 DAYS = np.arange(4 * 365, dtype=float)
 KEPT = (DAYS < 400) | (DAYS >= 520)
+
+
+def _score(observed, simulated, metric: str, *, variable: str = "discharge", **options):
+    """Score two series as ``variable`` + ``objective`` does: through one implicit block."""
+    scorer = StationBlockScorer(
+        variable, metric, [ObservedSeries("S", variable, observed)], **options
+    )
+    answer = ObservableResult("S", simulated.to_numpy(), "-", simulated.index)
+    return scorer.score({"S": answer})
 
 
 def _stage() -> tuple[np.ndarray, np.ndarray]:
@@ -85,14 +96,14 @@ def test_the_criterion_reads_the_dates(metric: str) -> None:
     assert dated.cost == pytest.approx(criterion.score(sim, holed, sample_days=1.0).cost)
 
 
-def test_the_single_metric_route_reads_the_gap_the_pairing_left() -> None:
+def test_variable_and_objective_read_the_gap_the_pairing_left() -> None:
     sim, obs = _stage()
     stamps = pd.date_range("2001-01-01", periods=DAYS.size, freq="D")
     record = pd.Series(np.where(KEPT, obs, np.nan), index=stamps)
 
     simulated = pd.Series(sim, index=stamps)
 
-    cost = score(record, simulated, "nse_seasonal", time_method="point")
+    cost, _ = _score(record, simulated, "nse_seasonal", variable="head")
 
     paired = align_observed_simulated(record, simulated, method="point")
     days = paired.index.asi8 / 86_400e9

@@ -91,7 +91,7 @@ def test_without_a_window_nothing_is_scored() -> None:
     assert scores.score.value is None
     assert scores.score.nse_window_start is None
     assert scores.score.nse_n == 0
-    assert scores.score.metric_rule_version == "1"
+    assert scores.score.metric_rule_version == "2"
 
 
 def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:

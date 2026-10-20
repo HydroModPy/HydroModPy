@@ -149,6 +149,26 @@ def mesh_fingerprint(ctx: Any) -> dict[str, object] | None:
     }
 
 
+_COST_KEYS = (
+    "outputs",
+    "objective_blocks",
+    "objective",
+    "variable",
+    "scoring_window",
+    "warmup_periods",
+    "aggregate",
+    "reject_water_budget_above",
+    "forward_model",
+    "observed_station_id",
+)
+"""The keys of ``[calibration]`` that change the cost of a trial at given values.
+
+What a trial is scored on (the outputs, the blocks, the single series), over
+which samples (the window, the warm-up, the fewest paired samples), what makes
+it count (the water-balance rejection) and what produces the series (the forward
+model). The evaluator is added on its own, resolved, when it is not the default."""
+
+
 def build_cache_context(
     *,
     cfg: CalibrationConfig,
@@ -159,13 +179,17 @@ def build_cache_context(
 ) -> dict[str, object]:
     """Return the scientific context that scopes calibration cache hits.
 
-    Two evaluators asked the same parameters return different costs, so the
-    resolved evaluator id enters the key -- **resolved**, and only when it is not
-    the default. Both halves of that sentence are load-bearing. Resolved, because
-    an unset field and the default's own spelling name one evaluator and must not
-    key differently. Only when it is not the default, because the payload is the
-    whole calibration section and a key that appears in it for every document
-    would move the hash of every calibration computed before this field existed,
+    The key is a whitelist: what changes the cost of a trial at given parameter
+    values (:data:`_COST_KEYS`), and nothing else. The method, its options, the
+    seed, the precision, the budget, the bounds and the search words decide which
+    values are tried, never what a tried value costs, so changing one replays
+    the trials already solved. Two evaluators asked the same parameters return
+    different costs, so the resolved evaluator id enters the key -- **resolved**,
+    and only when it is not the default. Both halves of that sentence are
+    load-bearing. Resolved, because an unset field and the default's own spelling
+    name one evaluator and must not key differently. Only when it is not the
+    default, because a key that appears in the payload of every document would
+    move the hash of every calibration computed before this field existed,
     re-solving trials whose answer had not changed.
 
     ``trial_ctx`` is ``None`` when the named evaluator declares it needs no
@@ -185,35 +209,19 @@ def build_cache_context(
     model_payload.pop("overview", None)
     model_payload.pop("mesh", None)
 
-    calibration_payload = cfg.model_dump(mode="json")
-    for runtime_key in (
-        "max_iter",
-        "batch_size",
-        "parallel",
-        "save_runs",
-        "save_best_n",
-        "use_cache",
-        "persistence",
-        "persist_iteration_detail",
-        "materialize_candidates",
-        "promote_phases",
-        # How wide the answer is gets read off the trials after the search and
-        # changes no trial's cost, so a new width re-solves nothing.
-        "uncertainty",
-    ):
-        calibration_payload.pop(runtime_key, None)
+    section = cfg.model_dump(mode="json")
+    calibration_payload = {key: section[key] for key in _COST_KEYS if key in section}
 
     from hydromodpy.calibration.evaluation import registry as evaluation_registry
 
     resolved_evaluator = evaluation_registry.resolve_id(cfg.evaluator)
-    calibration_payload.pop("evaluator", None)
     if resolved_evaluator != evaluation_registry.DEFAULT_EVALUATOR_ID:
         calibration_payload["evaluator"] = resolved_evaluator
 
     from hydromodpy.core.version import __version__ as _hmp_version
 
     context: dict[str, object] = {
-        "schema": "hydromodpy.calibration.params_hash.v2",
+        "schema": "hydromodpy.calibration.params_hash.v3",
         # Code identity: a model-build or solver fix must invalidate the cache so a
         # re-run does not return pre-fix objectives with zero re-solves.
         "code_version": str(_hmp_version),
@@ -243,19 +251,16 @@ def build_cache_context(
 
 
 def _parameter_space_context(space: ParameterSpace) -> list[dict[str, object]]:
-    """Return serializable declarations for the calibrated dimensions."""
+    """Return the declarations of the calibrated dimensions that change a cost.
+
+    The bounds and the two search words say where the search looks, not what a
+    value costs, and the hash is taken on physical values.
+    """
     payload: list[dict[str, object]] = []
     for param in space:
         payload.append(
             {
                 "name": param.name,
-                "bounds": [param.lower, param.upper],
-                "transformed_bounds": [
-                    param.lower_transformed,
-                    param.upper_transformed,
-                ],
-                "transform": param.transform,
-                "prior": param.prior,
                 "path": param.path,
                 "target": param.target,
                 "mode": param.mode,

@@ -328,7 +328,7 @@ def write_session_dir(
             config_hash="c0ffee" * 10 + "c0ff",
             hydromodpy_version=VERSION,
             method="tpe",
-            search_space={"K": {"bounds": [1e-7, 1e-4], "transform": "log"}},
+            search_space={"K": {"bounds": [1e-7, 1e-4], "search_space": "log"}},
             objective_name=objective,
             objective_window=WINDOW,
             best=best,

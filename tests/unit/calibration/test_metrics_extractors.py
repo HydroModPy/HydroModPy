@@ -31,10 +31,10 @@ from hydromodpy.calibration.metrics import (
 )
 from hydromodpy.calibration.metrics import solver_extract as _solver_extract_module
 from hydromodpy.calibration.metrics.composite import _build_composite_metric_extractor  # noqa: F401
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
 from hydromodpy.calibration.metrics.observable_scoring import (
     slice_time as _slice_time,
 )
-from hydromodpy.calibration.metrics.scalar import score as _score
 from hydromodpy.calibration.metrics.solver_extract import (
     _coerce_length_to_m,
 )
@@ -62,6 +62,15 @@ def _empty_ctx():
 # ---------------------------------------------------------------------------
 # Single-metric path (no objective_blocks declared)
 # ---------------------------------------------------------------------------
+
+
+def _score(observed, simulated, metric: str, *, variable: str = "discharge", **options):
+    """Score two series as ``variable`` + ``objective`` does: through one implicit block."""
+    scorer = StationBlockScorer(
+        variable, metric, [ObservedSeries("S", variable, observed)], **options
+    )
+    answer = ObservableResult("S", simulated.to_numpy(), "-", simulated.index)
+    return scorer.score({"S": answer})
 
 
 class TestSingleMetricPath:
@@ -164,8 +173,8 @@ class TestHelpers:
     def test_score_raises_when_series_do_not_overlap(self):
         obs = pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"]))
         sim = pd.Series([1.0], index=pd.DatetimeIndex(["2021-01-01"]))
-        with pytest.raises(ValueError, match="No overlapping finite"):
-            _score(obs, sim, "rmse")
+        with pytest.raises(ValueError, match="share no timestamp"):
+            _score(obs, sim, "rmse", variable="head")
 
     def test_extract_outputs_raises_when_no_flow_run(self):
         out = validate_calib_output({"variable": "head", "support": "point", "x": 1.0, "y": 2.0})

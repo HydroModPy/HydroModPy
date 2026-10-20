@@ -37,7 +37,7 @@ def _descriptor(**overrides) -> SessionDescriptor:
         "config_hash": "c0ffee" * 10 + "c0ff",
         "hydromodpy_version": "2.0.0a5",
         "method": "tpe",
-        "search_space": {"K": {"bounds": [1e-7, 1e-4], "transform": "log"}},
+        "search_space": {"K": {"bounds": [1e-7, 1e-4], "search_space": "log"}},
         "objective_name": "nse_log",
         "started_at": NOW,
     }

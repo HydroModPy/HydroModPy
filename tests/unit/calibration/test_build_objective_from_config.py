@@ -6,7 +6,7 @@ Covers Phase 3 of the calibration integration:
 - Multi-block config returns a :class:`CompositeObjective` whose total is
   the weighted sum of each block's transformed cost.
 - ``normalize_cost`` divides the block cost by a reference scale.
-- Per-block ``transform`` (identity / log / inverse) is applied before
+- Per-block ``cost_transform`` (identity / log / inverse) is applied before
   weighting.
 - Missing simulated values fail loudly.
 """
@@ -243,7 +243,7 @@ class TestTransform:
                         "name": "head_block",
                         "metric": "rmse",
                         "uses_outputs": ["head_A"],
-                        "transform": "inverse",
+                        "cost_transform": "inverse",
                     }
                 ],
             }
@@ -270,7 +270,7 @@ class TestTransform:
                         "name": "head_block",
                         "metric": "rmse",
                         "uses_outputs": ["head_A"],
-                        "transform": "identity",
+                        "cost_transform": "identity",
                     }
                 ],
             }

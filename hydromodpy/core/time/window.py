@@ -34,6 +34,7 @@ from hydromodpy.core.units import (
     parse_scalar_and_unit,
     timedelta_to_seconds,
 )
+from hydromodpy.core.units.parse import parse_to_canonical_magnitude
 
 logger = get_logger(__name__)
 
@@ -283,6 +284,30 @@ def _parse_step_spec(
                 "simulation.time.step_value unit conflicts with simulation.time.step_unit."
             )
     return step_value, step_unit
+
+
+def parse_step_spec(raw_step_value: Any, raw_step_unit: Any = None) -> tuple[int, TimePeriodUnit]:
+    """Return the ``(step_value, step_unit)`` a ``[simulation.time]`` step spells.
+
+    ``("7 days", None)`` and ``(7, "day")`` both read ``(7, "day")``. Raises
+    ``ValueError`` with the user-facing reason when the spec is not a step.
+    """
+    return _parse_step_spec(raw_step_value=raw_step_value, raw_step_unit=raw_step_unit)
+
+
+def nominal_step_days(step_value: int, step_unit: str) -> float:
+    """Return the nominal length of one timestep in days.
+
+    A month is the pint month (30.4375 days) and a year 365.25 days, the same
+    conventions a duration written in the step's own unit is read with, so
+    ``"1 month"`` over a monthly step is exactly one step.
+    """
+    return parse_to_canonical_magnitude(
+        step_value,
+        location="simulation.time.step_value",
+        canonical_unit="day",
+        explicit_unit=step_unit,
+    )
 
 
 def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:

@@ -16,7 +16,7 @@ import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.runners.cli_runner import _tolerance_intervals_or_none
+from hydromodpy.calibration.runners.cli_runner import _margin_intervals_or_none
 
 _SPACE = ParameterSpace.from_toml_mapping(
     {"K": {"bounds": [1.0, 5.0], "path": "flow.param.K.field.value"}}
@@ -39,26 +39,29 @@ class TestTheDeclaration:
         # Unwritten stays unwritten: the width follows what the search scores,
         # and a search scored on an efficiency takes five per cent of its best.
         assert decl.method == "cost_profile"
-        assert decl.tolerance is None
-        assert decl.mode is None
+        assert decl.cost_margin is None
         width = cfg.interval_width_for()
-        assert (width.tolerance, width.mode, width.source) == (0.05, "relative", "default")
+        assert (width.margin, width.kind, width.source) == (0.05, "relative", "default")
 
-    def test_a_file_may_state_a_width_in_the_unit_of_the_cost(self) -> None:
+    def test_a_file_may_state_a_width_in_metres(self) -> None:
         cfg = CalibrationConfig.model_validate(
             {
                 "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
-                "uncertainty": {"mode": "absolute", "tolerance": 25.0},
+                "objective": "distance_gap",
+                "uncertainty": {"cost_margin": "25 m"},
             }
         )
 
-        assert cfg.uncertainty.mode == "absolute"
-        assert cfg.uncertainty.tolerance == 25.0
+        assert cfg.uncertainty.cost_margin == "25 m"
+        assert cfg.interval_width_for().margin == 25.0
 
     def test_a_negative_width_is_refused(self) -> None:
         with pytest.raises(ValueError):
             CalibrationConfig.model_validate(
-                {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "uncertainty": {"tolerance": -1.0}}
+                {
+                    "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
+                    "uncertainty": {"cost_margin": "-1%"},
+                }
             )
 
     def test_a_method_that_does_not_exist_is_refused(self) -> None:
@@ -74,25 +77,26 @@ class TestTheDeclaration:
 class TestWhatTheRunReports:
     def test_the_declared_width_is_the_one_used(self) -> None:
         decl = CalibrationConfig.model_validate(
-            {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "uncertainty": {"tolerance": 0.001}}
+            {"parameters": {"K": {"bounds": [1e-8, 1e-2]}}, "uncertainty": {"cost_margin": "0.1%"}}
         ).interval_width_for()
 
-        (interval,) = _tolerance_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
+        (interval,) = _margin_intervals_or_none(_SHARP, ["K"], _SPACE, decl)
 
-        assert interval.tolerance == 0.001
+        assert interval.margin == pytest.approx(0.001)
         assert interval.lower == interval.upper == 2.0
 
     def test_an_absolute_width_reaches_a_criterion_solved_at_zero(self) -> None:
         decl = CalibrationConfig.model_validate(
             {
                 "parameters": {"K": {"bounds": [1e-8, 1e-2]}},
-                "uncertainty": {"mode": "absolute", "tolerance": 15.0},
+                "objective": "distance_gap",
+                "uncertainty": {"cost_margin": "15 m"},
             }
         ).interval_width_for()
 
-        (interval,) = _tolerance_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl)
+        (interval,) = _margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl)
 
-        assert interval.mode == "absolute"
+        assert interval.kind == "absolute"
         assert interval.lower == 2.0
         assert interval.upper == 3.0
 
@@ -100,6 +104,6 @@ class TestWhatTheRunReports:
         decl = CalibrationConfig().interval_width_for()
 
         with caplog.at_level("WARNING"):
-            assert _tolerance_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl) == []
+            assert _margin_intervals_or_none(_AT_ZERO, ["K"], _SPACE, decl) == []
 
-        assert "absolute" in caplog.text
+        assert "'25 m'" in caplog.text

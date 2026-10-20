@@ -10,12 +10,12 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import physical_prior_sample
+from hydromodpy.calibration.optim.sampling import physical_sample
 
 
 @register_optimizer("random_search")
 class RandomSearchAdapter:
-    """Random sampling using each parameter prior declaration."""
+    """Random sampling using each parameter's sampling declaration."""
 
     name = "random_search"
 
@@ -34,7 +34,7 @@ class RandomSearchAdapter:
         out: list[ParamSuggestion] = []
         for _ in range(n):
             self._trial_id += 1
-            values = {p.name: physical_prior_sample(p, self._rng) for p in self.space}
+            values = {p.name: physical_sample(p, self._rng) for p in self.space}
             out.append(ParamSuggestion(trial_id=self._trial_id, values=values, source="ask"))
         return out
 

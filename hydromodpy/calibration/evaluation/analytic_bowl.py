@@ -29,8 +29,8 @@ dimension says which one the search is still far from.
 What it refuses to invent
 -------------------------
 A sample naming a parameter the space does not declare, a value that is not a
-finite number, and a value the parameter's own transform cannot take -- a
-negative conductivity under a log transform -- come back as a ``failed`` outcome
+finite number, and a value the parameter's own search space cannot take -- a
+negative conductivity under a log search space -- come back as a ``failed`` outcome
 carrying ``nan``, never as a finite cost. A failed trial that carries a number
 can win a search whose other trials were worse, which is the one failure mode
 this surface must not model. Each of the three is faced on the value itself,
@@ -65,7 +65,7 @@ class AnalyticBowlEvaluator:
 
     Built by :func:`hydromodpy.calibration.evaluation.registry.create`, which
     binds ``space`` -- the only option this evaluator names. The space is not
-    decoration: it carries the bounds and the transform each value has to be
+    decoration: it carries the bounds and the search space each value has to be
     read against, and without it a cost would be a number about nothing.
     """
 
@@ -78,7 +78,7 @@ class AnalyticBowlEvaluator:
         # rather than shown a missing-argument error from the constructor.
         if space is None:
             raise ValueError(
-                f"{self.evaluator_id!r} scores a sample against the bounds and the transform "
+                f"{self.evaluator_id!r} scores a sample against the bounds and the search space "
                 "its parameters declare, so it is built with the space the search runs over. "
                 "It was given none, and a cost computed without one would be a number about "
                 "nothing."
@@ -121,7 +121,7 @@ class AnalyticBowlEvaluator:
                 return self._failed(
                     started,
                     f"{name}={value!r} cannot be read against its own "
-                    f"{parameter.transform!r} transform: {exc}",
+                    f"{parameter.search_space!r} search space: {exc}",
                 )
             if not math.isfinite(position):
                 return self._failed(
@@ -171,7 +171,7 @@ def _unit_position(parameter: CalibParameter, value: float) -> float:
     A parameter whose bounds coincide has no width to be positioned on, so it
     sits at the optimum and contributes nothing: pinning a value is how a
     document takes a dimension out of a search, not how it makes it expensive.
-    The transform is still applied first, and it still raises on a value it
+    The search space is still applied first, and it still raises on a value it
     cannot take -- a pinned dimension takes a sample out of the cost, never out
     of the checks.
     """

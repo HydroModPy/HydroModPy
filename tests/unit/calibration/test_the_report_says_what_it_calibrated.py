@@ -16,9 +16,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from hydromodpy.calibration.optim.cost_margin import ParameterInterval
 from hydromodpy.calibration.optim.optimizer import EvaluationResult
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
-from hydromodpy.calibration.optim.tolerance import ParameterInterval
 from hydromodpy.calibration.runners.cli_runner import (
     _log_parameter_interval,
     _network_ratios_extra,
@@ -31,8 +31,8 @@ def _interval(*, reaches_lower: bool = False, reaches_upper: bool = False) -> Pa
         best=5.0e-3,
         lower=5.0e-3,
         upper=8.0e-3,
-        tolerance=0.05,
-        mode="relative",
+        margin=0.05,
+        kind="relative",
         threshold=0.1,
         n_within=3,
         n_trials=20,

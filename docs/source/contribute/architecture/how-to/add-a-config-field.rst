@@ -267,7 +267,7 @@ key appears. This is what the reference reads from a declaration:
      - ``Profile.USER``, ``Profile.DEV``, ``Profile.EXPERT`` in the annotation.
    * - When the key is read
      - ``VisibleWhen("sibling", value)`` in the annotation.
-   * - The *calibrable* badge and its transform
+   * - The *calibrable* badge and its search space
      - ``field_metadata(calibrable=Calibrable(...))``.
    * - The *experimental* and *deprecated* badges
      - ``field_metadata(stability="experimental")`` and ``Field(deprecated=...)``.

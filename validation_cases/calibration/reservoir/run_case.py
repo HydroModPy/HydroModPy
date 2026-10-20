@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> None:
         default="scipy_nelder_mead",
         choices=("scipy_nelder_mead", "scipy_de", "grid"),
     )
-    parser.add_argument("--max-iter", type=int, default=120)
+    parser.add_argument("--max-trials", type=int, default=120)
     parser.add_argument("--seed", type=int, default=13)
     args = parser.parse_args(argv)
 
@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> None:
     engine, _ = build_calibration(
         case=case,
         optimizer_name=args.optimizer,
-        max_iter=args.max_iter,
+        max_trials=args.max_trials,
         seed=args.seed,
     )
     session = engine.run()

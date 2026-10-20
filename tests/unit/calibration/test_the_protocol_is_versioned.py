@@ -46,8 +46,8 @@ def _doc(protocol: object) -> dict[str, object]:
         "calibration": {
             "protocol": protocol,
             "parameters": {
-                "K": {"bounds": [1e-8, 1e-2], "transform": "log"},
-                "Sy": {"bounds": [1e-4, 0.5], "transform": "log"},
+                "K": {"bounds": [1e-8, 1e-2], "search_space": "log"},
+                "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
             "outputs": {
                 "seepage_network": {

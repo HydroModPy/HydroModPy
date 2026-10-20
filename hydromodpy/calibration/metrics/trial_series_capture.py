@@ -3,15 +3,14 @@
 Only opt-in, when ``[calibration].persist_trial_series`` is on. A trial writes
 no field (fields.zarr is never touched here), only the point/series values an
 output was actually scored on, at their own aligned time stamps: the pairs
-:mod:`hydromodpy.calibration.metrics.scalar` and
-:mod:`hydromodpy.calibration.metrics.observed_pairing` already build to
+:mod:`hydromodpy.calibration.metrics.observed_pairing` already builds to
 compute a cost, kept instead of being reduced to one.
 
 Why thread-local
 -----------------
 One :class:`TrialSeriesSink` is built once per calibration session and shared
-by every trial, because the scorer that records into it (``StationScorer`` or
-``ObservableScorer``) is itself built once and reused across trials. Trials
+by every trial, because the scorer that records into it
+(``ObservableScorer``) is itself built once and reused across trials. Trials
 run concurrently through a ``ThreadPoolExecutor``
 (:mod:`hydromodpy.calibration.optim.engine`), so a plain list would race.
 ``threading.local`` instead gives every worker thread its own ``rows``: a

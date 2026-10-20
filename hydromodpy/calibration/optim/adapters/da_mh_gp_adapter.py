@@ -1,9 +1,10 @@
 """Delayed-Acceptance Metropolis-Hastings with Gaussian-process surrogate.
 
-Two-stage MCMC for expensive simulators: stage 1 filters proposals with a
-sklearn GaussianProcessRegressor surrogate of the log-posterior; stage 2
-corrects the acceptance ratio with one full-model call, so the chain targets
-the exact posterior. The surrogate is retrained every ``retrain_interval``
+A sequential search for expensive simulators, written as a two-stage
+Metropolis-Hastings chain: stage 1 filters proposals with a sklearn
+GaussianProcessRegressor surrogate of the log-score; stage 2 corrects the
+acceptance ratio with one full-model call, so the chain targets the score
+and not the surrogate. The best state it visits is the candidate. The surrogate is retrained every ``retrain_interval``
 new evaluations. The objective is assumed to return **RMSE**; the
 log-likelihood is built internally as ``-0.5 * (RMSE / sigma_noise)**2``.
 The sampler pulls evaluations from the engine via a background thread
@@ -105,7 +106,7 @@ class DaMhGpOptimizer:
     """Delayed-Acceptance Metropolis-Hastings with GP surrogate.
 
     The evaluator must return **RMSE**; the log-likelihood is built internally
-    as ``-0.5 * (RMSE / sigma_noise)**2``. Parameters: ``max_iter`` (chain
+    as ``-0.5 * (RMSE / sigma_noise)**2``. Parameters: ``chain_length`` (chain
     length, default 200), ``burn_in``, ``proposal_sigma`` (random-walk std in
     the transformed space, scalar or per-dimension), ``n_init`` (Sobol design
     size), ``retrain_interval``, ``sigma_noise`` (> 0), ``full_mh_prob`` (in
@@ -124,7 +125,7 @@ class DaMhGpOptimizer:
         self,
         space: ParameterSpace,
         *,
-        max_iter: int = 200,
+        chain_length: int = 200,
         burn_in: int = 20,
         proposal_sigma: float | Sequence[float] = 0.1,
         n_init: int = 20,
@@ -140,7 +141,7 @@ class DaMhGpOptimizer:
     ):
         """Construct the DA-MH-GP optimizer.
 
-        - ``thin`` : thinning interval applied to ``posterior_samples``.
+        - ``thin`` : thinning interval applied to ``posterior_samples`` (the chain after burn-in).
           Keeps every ``thin``-th post-burn-in sample. Default ``1`` keeps
           all samples.
         - ``gp_alpha`` : GP noise floor passed as ``alpha`` to the
@@ -149,7 +150,7 @@ class DaMhGpOptimizer:
         - ``cache_decimals`` : rounding precision (number of decimals) used
           to dedupe full-model evaluations in the surrogate's training
           cache. When set, repeated proposals at the same rounded location
-          reuse the cached log-posterior instead of re-submitting the
+          reuse the cached log-score instead of re-submitting the
           evaluation. ``None`` (default) disables caching.
         """
         if not _SKLEARN_AVAILABLE:
@@ -160,7 +161,7 @@ class DaMhGpOptimizer:
         self.space = space
         self._dim = space.dim
 
-        self._max_iter = int(max_iter)
+        self._chain_length = int(chain_length)
         self._burn_in = int(max(0, burn_in))
         self._n_init = max(2, int(n_init))
         self._retrain_interval = max(1, int(retrain_interval))
@@ -218,7 +219,7 @@ class DaMhGpOptimizer:
         self._worker.start()
 
     # ------------------------------------------------------------------
-    # Log-posterior helpers
+    # Log-score helpers
     # ------------------------------------------------------------------
 
     def _in_bounds(self, x: np.ndarray) -> bool:
@@ -242,10 +243,10 @@ class DaMhGpOptimizer:
         return tuple(np.round(np.asarray(x_t, dtype=float), self._cache_decimals).tolist())
 
     def _evaluate_true(self, x_t: np.ndarray) -> float:
-        """Fetch the true RMSE from the engine and convert it to a log-posterior.
+        """Fetch the true RMSE from the engine and convert it to a log-score.
 
         When ``cache_decimals`` is set, identical proposals (after rounding)
-        reuse the previously computed log-posterior instead of re-submitting
+        reuse the previously computed log-score instead of re-submitting
         the evaluation through the engine bridge.
         """
         if not self._in_bounds(x_t):
@@ -320,8 +321,8 @@ class DaMhGpOptimizer:
         mu_cur = self._gp_mean(gp, x_cur)
         new_evals = 0
 
-        for _ in range(self._max_iter):
-            # Record current state before the step so the chain length equals max_iter.
+        for _ in range(self._chain_length):
+            # Record current state before the step so the chain length equals chain_length.
             self._chain.append(x_cur.copy())
             self._chain_logpost.append(log_true_cur)
 
@@ -391,10 +392,10 @@ class DaMhGpOptimizer:
             self._bridge.feed(float(value))
 
     def best(self) -> EvaluationResult | None:
-        """Return the posterior mode as an EvaluationResult.
+        """Return the best state of the chain as an EvaluationResult.
 
-        The mode is the chain sample with the highest log-posterior. We find
-        the evaluation closest to that mode in transformed space and enrich
+        The best state is the chain sample with the highest log-score. We find
+        the evaluation closest to that state in transformed space and enrich
         its metadata with ``posterior_mode`` (physical-space values).
         """
         valid = [r for r in self._results if r.status == "completed"]

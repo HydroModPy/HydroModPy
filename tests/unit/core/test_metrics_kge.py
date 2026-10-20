@@ -60,11 +60,11 @@ def test_pbias_zero_when_perfect():
     assert pbias(obs, obs) == pytest.approx(0.0)
 
 
-def test_pbias_negative_when_sim_overshoots():
-    """Σ(obs - sim) is negative when sim > obs, so PBIAS < 0."""
+def test_pbias_positive_when_sim_overshoots():
+    """Σ(sim - obs) is positive when sim > obs, so PBIAS > 0, like bias."""
     obs = np.array([1.0, 2.0, 3.0])
     sim = obs + 1.0
-    assert pbias(sim, obs) < 0.0
+    assert pbias(sim, obs) > 0.0
 
 
 def test_pbias_zero_total_obs_returns_nan():

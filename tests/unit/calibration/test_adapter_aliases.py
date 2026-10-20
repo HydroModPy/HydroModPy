@@ -37,7 +37,7 @@ class TestCanonicalAdapters:
             _two_dim_space(),
             sigma0=0.25,
             popsize=4,
-            max_evaluations=8,
+            max_trials=8,
             seed=42,
         )
         assert opt.name == "cma_es"
@@ -104,7 +104,7 @@ class TestCmaEsAdapter:
             space,
             sigma0=0.3,
             popsize=6,
-            max_evaluations=60,
+            max_trials=60,
             seed=42,
         )
         trial_to_vec: dict[int, dict[str, float]] = {}
@@ -142,7 +142,7 @@ class TestCmaEsAdapter:
             space,
             sigma0=0.25,
             popsize=4,
-            max_evaluations=8,
+            max_trials=8,
             seed=1,
         )
         sugg = opt.ask(n=4)
@@ -160,7 +160,7 @@ class TestCmaEsAdapter:
             space,
             sigma0=0.25,
             popsize=4,
-            max_evaluations=12,
+            max_trials=12,
             seed=2,
             restarts=1,
         )

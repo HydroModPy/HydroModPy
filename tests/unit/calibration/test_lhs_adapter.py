@@ -36,7 +36,7 @@ def _space() -> ParameterSpace:
 
 
 def _log_space() -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="k", lower=1e-6, upper=1e-2, transform="log")])
+    return ParameterSpace([CalibParameter(name="k", lower=1e-6, upper=1e-2, search_space="log")])
 
 
 def _strata_indices(values: list[float], low: float, high: float, n: int) -> list[int]:
@@ -69,7 +69,9 @@ class TestStratification:
             assert -2.0 <= p.values["y"] <= 2.0
 
     def test_normal_prior_is_refused_naming_the_parameter(self) -> None:
-        space = ParameterSpace([CalibParameter(name="theta", lower=0.0, upper=1.0, prior="normal")])
+        space = ParameterSpace(
+            [CalibParameter(name="theta", lower=0.0, upper=1.0, sampling="normal")]
+        )
         with pytest.raises(ValueError, match="theta"):
             build_optimizer("lhs", space, n_samples=5, seed=0)
 
@@ -159,7 +161,7 @@ class TestBudget:
         opt = build_optimizer("lhs", _space(), n_samples=17, seed=0)
         assert resolve_budget(opt, "auto") == 17
 
-    def test_written_max_iter_below_n_samples_is_refused(self) -> None:
+    def test_written_max_trials_below_n_samples_is_refused(self) -> None:
         opt = build_optimizer("lhs", _space(), n_samples=17, seed=0)
         verdict = short_budget(opt.counted_budget, 10)
         assert verdict is not None
@@ -167,7 +169,7 @@ class TestBudget:
         assert severity == "error"
         assert "17" in message
 
-    def test_written_max_iter_at_or_above_n_samples_is_accepted(self) -> None:
+    def test_written_max_trials_at_or_above_n_samples_is_accepted(self) -> None:
         opt = build_optimizer("lhs", _space(), n_samples=17, seed=0)
         assert short_budget(opt.counted_budget, 17) is None
         assert short_budget(opt.counted_budget, 30) is None

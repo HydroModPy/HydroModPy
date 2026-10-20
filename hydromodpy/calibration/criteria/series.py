@@ -4,8 +4,8 @@ The ten scoring kernels stay exactly what they were: this wraps each one and
 takes over the two conventions that used to live in the objective and had to be
 re-applied by every caller. The sign, because half the kernels return a score
 where higher is better and a cost must be minimised. And the clipping, because a
-log metric refuses a negative value while a discharge reconstructed below a dam
-legitimately holds a few.
+log metric cannot take a negative value while a discharge reconstructed below a
+dam legitimately holds a few.
 
 Both were correct where they were. Neither was declared, so nothing could be
 asked about a metric before running it: whether its cost carries a unit, whether
@@ -29,6 +29,7 @@ from hydromodpy.calibration.criteria.hydrographic_network_distance import (
     distance_mean,
 )
 from hydromodpy.core.metrics import (
+    clip_negatives,
     kge,
     log_nse,
     mae,
@@ -39,7 +40,7 @@ from hydromodpy.core.metrics import (
 )
 from hydromodpy.results.catalog.constants import METRIC_SENSE, cost_of
 
-# Kernels that take a logarithm and therefore refuse a negative value.
+# Kernels that take a logarithm: negative values are clipped to zero and counted.
 LOG_METRICS: frozenset[str] = frozenset({"nse_log"})
 
 # Kernels whose cost is already a pure number: an efficiency score has no unit
@@ -54,7 +55,7 @@ _OBSERVED_UNIT = "observed unit"
 
 
 def _kge_score(sim: np.ndarray, obs: np.ndarray) -> float:
-    """Scalar KGE score; calibration needs a single number, not the decomposition."""
+    """Scalar KGE score (2009 form); calibration needs a single number, not the decomposition."""
     return float(kge(sim, obs)["kge"])
 
 
@@ -203,15 +204,11 @@ def clip_negatives_for_log_metric(
 ) -> tuple[np.ndarray, np.ndarray, int]:
     """Clip negatives to zero for a log metric and count what was clipped.
 
-    Returning the count is what stops the clipping from passing unnoticed, which
-    would hide a sign error in a reconstruction.
+    The rule is :func:`hydromodpy.core.metrics.clip_negatives`, the one the
+    score of a run follows too. Returning the count is what stops the clipping
+    from passing unnoticed, which would hide a sign error in a reconstruction.
     """
-    sim = np.asarray(simulated, dtype=float)
-    obs = np.asarray(observed, dtype=float)
-    n_clipped = int(np.count_nonzero(sim < 0.0) + np.count_nonzero(obs < 0.0))
-    if n_clipped == 0:
-        return sim, obs, 0
-    return np.clip(sim, 0.0, None), np.clip(obs, 0.0, None), n_clipped
+    return clip_negatives(simulated, observed)
 
 
 class SeriesCriterion:

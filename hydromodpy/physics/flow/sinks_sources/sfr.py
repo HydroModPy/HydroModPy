@@ -256,7 +256,7 @@ class FlowReachNetworkConfig(HydroModelBase):
             "leakage (pure routing)."
         ),
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(transform="log", prior="log_uniform", units="m/s")
+            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="m/s")
         ),
     )
     streambed_k_unit: Annotated[str, Profile.USER] = Field(

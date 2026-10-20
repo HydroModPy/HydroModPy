@@ -267,6 +267,7 @@ def _row(item: MetricScore) -> MetricRow:
         nse_window_start=item.nse_window_start,
         nse_window_end=item.nse_window_end,
         nse_n=item.nse_n,
+        n_clipped=item.n_clipped,
         metric_rule_version=item.metric_rule_version,
     )
 

@@ -126,6 +126,6 @@ The names below are written in roman type. Each is a value of
 :groups: scores
 ```
 
-$\mathrm{NSE}_{\log}$ is not {toml}`transform|calibration.objective_blocks.transform`
-set to `log`. The metric takes the logarithm of the series. The transform takes
+$\mathrm{NSE}_{\log}$ is not {toml}`cost_transform|calibration.objective_blocks.cost_transform`
+set to `log`. The metric takes the logarithm of the series. The cost transform takes
 the logarithm of a cost that is already computed.

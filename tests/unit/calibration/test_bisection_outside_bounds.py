@@ -1,7 +1,7 @@
-"""A root found outside the declared bounds says something about the prior.
+"""A root found outside the declared bounds says something about the declared bounds.
 
 The search widens its bracket a decade at a time, which is what lets it find a
-sign change a cautious prior missed. Several decades out is a different matter:
+sign change a cautious pair of bounds missed. Several decades out is a different matter:
 it is usually the residual failing to respond to the parameter at all. Measured
 on the Nancon with the streams in SFR, the simulated network holds the reaches
 by construction whatever the conductivity, the residual stays positive across
@@ -20,7 +20,7 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 
 
 def _space(lower: float = 1.0, upper: float = 1.0e3) -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
+    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, search_space="log")])
 
 
 def _evaluate(suggestion, *, root: float) -> EvaluationResult:
@@ -36,9 +36,9 @@ def _evaluate(suggestion, *, root: float) -> EvaluationResult:
     )
 
 
-def _run(adapter: BisectionAdapter, *, root: float, max_iter: int = 60) -> None:
+def _run(adapter: BisectionAdapter, *, root: float, max_trials: int = 60) -> None:
     seen = 0
-    while seen < max_iter:
+    while seen < max_trials:
         suggestions = adapter.ask(n=1)
         if not suggestions:
             return

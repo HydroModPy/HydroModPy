@@ -24,13 +24,13 @@ from hydromodpy.calibration.criteria.series import (
     RESERVOIR_INCREMENT_DAYS,
     SeriesCriterion,
 )
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.observable_scoring import StationBlockScorer
+from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.optim.objective import (
     ConfigBlockObjective,
-    ObservationSet,
-    ScalarObjective,
     SimulationOutput,
 )
+from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.metrics import kge_delta, nse, nse_delta, nse_seasonal
 
 SEASON = 365
@@ -283,8 +283,19 @@ class TestReservoirComposite:
 
 
 # ---------------------------------------------------------------------------
-# Calibration seams: registry, scalar score, objective blocks
+# Calibration seams: registry, variable + objective, objective blocks
 # ---------------------------------------------------------------------------
+
+
+def _lake_cost(observed: np.ndarray, simulated: np.ndarray, index: pd.DatetimeIndex) -> float:
+    """Score a lake stage on ``reservoir`` as ``variable = "lake_level"`` does."""
+    scorer = StationBlockScorer(
+        "lake_level",
+        "reservoir",
+        [ObservedSeries("lac0", "lake_level", pd.Series(observed, index))],
+    )
+    cost, _ = scorer.score({"lac0": ObservableResult("lac0", simulated, "m", index)})
+    return cost
 
 
 class TestCalibrationWiring:
@@ -293,55 +304,34 @@ class TestCalibrationWiring:
         assert metric in METRICS
         assert metric in HIGHER_IS_BETTER
 
-    def test_scalar_objective_turns_the_score_into_a_cost(self) -> None:
+    def test_a_block_turns_the_score_into_a_cost(self) -> None:
         simulated, observed = _daily_reservoir(0.2)
-        times = np.arange(TWO_SEASONS, dtype=float)
-        objective = ScalarObjective(
-            ObservationSet(
-                stations=("lac0",),
-                times=times,
-                values={"lac0": observed},
-                variable="lake_level",
-            ),
+        block = ConfigBlockObjective(
+            name="lake",
             metric="reservoir",
+            uses_outputs=["lac0"],
+            observed_by_output={"lac0": observed},
         )
-        value = objective.evaluate(
-            SimulationOutput(
-                sim_id="sim-test",
-                stations=("lac0",),
-                times=times,
-                values={"lac0": simulated},
-            )
-        )
+        value = block.evaluate({"lac0": simulated})
         assert value.total == pytest.approx(1.0 - 0.75)
-        assert value.components["cost:reservoir@lac0"] == pytest.approx(0.25)
+        assert value.components["lake.raw_cost"] == pytest.approx(0.25)
 
-    def test_score_helper_returns_the_flipped_cost(self) -> None:
+    def test_a_lake_level_route_returns_the_flipped_cost(self) -> None:
         simulated, observed = _daily_reservoir(0.2)
         index = pd.date_range("2001-01-01", periods=TWO_SEASONS, freq="D")
         # A reservoir stage is the state AT its stamp, so the stage simulated
         # at an instant pairs with the reading taken at that same instant, as
         # the lake_level route scores it. A period mean would pair it with the
         # reading of the day before.
-        cost = score(
-            pd.Series(observed, index=index),
-            pd.Series(simulated, index=index),
-            "reservoir",
-            time_method="point",
-        )
+        cost = _lake_cost(observed, simulated, index)
         # The dated series reads a year of 365.25 days, as the block route
         # does; the fixture cycles on 365 samples, hence the tolerance.
         assert cost == pytest.approx(0.25, abs=1e-2)
 
-    def test_score_helper_rejects_a_chronicle_too_short_to_score(self) -> None:
+    def test_a_chronicle_too_short_to_score_costs_infinity(self) -> None:
         simulated, observed = _daily_reservoir(0.2)
         index = pd.date_range("2001-01-01", periods=100, freq="D")
-        with pytest.raises(ValueError, match="non-finite"):
-            score(
-                pd.Series(observed[:100], index=index),
-                pd.Series(simulated[:100], index=index),
-                "reservoir",
-            )
+        assert _lake_cost(observed[:100], simulated[:100], index) == float("inf")
 
     def test_objective_block_costs_infinity_when_the_metric_is_undefined(self) -> None:
         simulated, observed = _daily_reservoir(0.2)

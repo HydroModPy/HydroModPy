@@ -13,15 +13,18 @@ Format
 ------
 :class:`MetricRule` is what the configuration declares; :class:`MetricScore`
 is what a run stores next to the value: ``nse_window_start``,
-``nse_window_end``, ``nse_n`` and ``metric_rule_version``. The four columns
+``nse_window_end``, ``nse_n``, ``n_clipped`` and ``metric_rule_version``. The window columns
 keep the ``nse_`` prefix whatever the metric, because that is their name in
 ``simulation.parquet`` and in the summaries.
 
 Without a window there is no score: ``value`` is ``None`` and ``nse_n`` is 0.
 A window is inclusive of both days. The kernels are the ones of
 :mod:`hydromodpy.core.metrics`; a value they cannot compute (constant
-observations, empty overlap, a log of a negative value) is ``None`` too,
-never ``NaN``.
+observations, empty overlap) is ``None`` too, never ``NaN``.
+
+``nse_log`` clips a negative value to zero, as the calibration cost does, and
+the score says how many it clipped in ``n_clipped``: 0 when nothing was
+clipped, ``None`` on a metric that never clips.
 
 The rule of a run comes from its configuration
 (:meth:`MetricRule.from_config`): ``[metrics] station``, else ``[site]
@@ -47,7 +50,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 if TYPE_CHECKING:
     from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
-METRIC_RULE_VERSION: Final[str] = "1"
+METRIC_RULE_VERSION: Final[str] = "2"
 """Version of the scoring rule. Bump it when a score stops being comparable."""
 
 
@@ -108,21 +111,20 @@ class MetricScore(HydroModelBase):
     nse_window_start: date | None = Field(description="First day scored, null without a window")
     nse_window_end: date | None = Field(description="Last day scored, null without a window")
     nse_n: int = Field(ge=0, description="Samples the score used")
+    n_clipped: int | None = Field(
+        default=None,
+        ge=0,
+        description="Negative values clipped to zero before a log-scale score; "
+        "null on a metric that never clips",
+    )
     metric_rule_version: str = Field(description="Version of the rule the score follows")
-
-
-def _log_nse(sim: np.ndarray, obs: np.ndarray) -> float:
-    """NSE of the logs, undefined (NaN) on a series that holds a negative value."""
-    if (sim < 0).any() or (obs < 0).any():
-        return math.nan
-    return kernels.log_nse(sim, obs)
 
 
 _KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
     "nse": kernels.nse,
     "kge": lambda sim, obs: kernels.kge(sim, obs)["kge"],
     "rmse": kernels.rmse,
-    "nse_log": _log_nse,
+    "nse_log": kernels.log_nse,
     "mae": kernels.mae,
     "bias": kernels.bias,
     "pbias": kernels.pbias,
@@ -135,9 +137,13 @@ _KERNELS: dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
 METRIC_NAMES: Final[tuple[str, ...]] = tuple(_KERNELS)
 """The metrics :func:`score` knows: the four headline scores, then the panel of a run.
 
-The ``kge_*`` entries are the decomposition of the KGE: ``r`` tells timing,
+The ``kge_*`` entries are the decomposition of the KGE, 2009 form (``beta`` is the
+ratio of the sums, ``alpha`` the ratio of the standard deviations): ``r`` tells timing,
 ``alpha`` amplitude and ``beta`` volume, which a bare score cannot separate.
 """
+
+CLIPPED_METRICS: Final[frozenset[str]] = frozenset({"nse_log"})
+"""The metrics that clip a negative value to zero, and so report ``n_clipped``."""
 
 HEADLINE_METRICS: Final[tuple[str, ...]] = ("nse", "kge", "rmse", "nse_log")
 """The metrics :func:`score_run` computes unless told otherwise."""
@@ -172,6 +178,7 @@ def score(
             nse_window_start=None,
             nse_window_end=None,
             nse_n=0,
+            n_clipped=0 if metric in CLIPPED_METRICS else None,
             metric_rule_version=rule.version,
         )
     sim = _within(simulated, rule.window)
@@ -179,8 +186,12 @@ def score(
     paired = pd.concat([sim.rename("sim"), obs.rename("obs")], axis=1, join="inner").dropna()
     n = int(len(paired))
     value: float | None = None
+    n_clipped = 0 if metric in CLIPPED_METRICS else None
     if n > 0:
-        raw = float(kernel(paired["sim"].to_numpy(), paired["obs"].to_numpy()))
+        sim_values, obs_values = paired["sim"].to_numpy(), paired["obs"].to_numpy()
+        if metric in CLIPPED_METRICS:
+            n_clipped = kernels.clip_negatives(sim_values, obs_values)[2]
+        raw = float(kernel(sim_values, obs_values))
         value = None if math.isnan(raw) else raw
     return MetricScore(
         metric=metric,
@@ -190,6 +201,7 @@ def score(
         nse_window_start=rule.window.start,
         nse_window_end=rule.window.end,
         nse_n=n,
+        n_clipped=n_clipped,
         metric_rule_version=rule.version,
     )
 

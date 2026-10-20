@@ -18,7 +18,7 @@ because the phase does not list it.
 A phase that lists a parameter an earlier phase passed on moves it again. The
 passed value is not written into its baseline, so no trial overwrites what the
 search proposes. The search starts from that value when the engine declares
-``accepts_a_start_point``; the other coordinates of that start are the prior
+``accepts_a_start_point``; the other coordinates of that start are the sampling
 centre. An engine that takes no start point keeps its own start. When two
 phases pass on the same parameter, the latest wins, and the report names both:
 ``frozen`` lists each of them, and the later phase lists the value it re-opened.
@@ -53,6 +53,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.metrics.observed_pairing import OBSERVED_FAMILY_BY_VARIABLE
 from hydromodpy.calibration.metrics.series import DATA_FAMILY_SECTION
+from hydromodpy.calibration.optim.cost_margin import IntervalWidth
 from hydromodpy.calibration.optim.objective import (
     mean_objective_block_fractions,
     objective_block_fractions,
@@ -63,8 +64,7 @@ from hydromodpy.calibration.optim.parameters import (
     ParameterSpace,
     apply_parameter_to_config,
 )
-from hydromodpy.calibration.optim.prior_sampling import transformed_prior_center
-from hydromodpy.calibration.optim.tolerance import IntervalWidth
+from hydromodpy.calibration.optim.sampling import search_space_center
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
@@ -329,11 +329,11 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
     # A phase that names no method gets the one its criteria call for, written
     # here so the session, the params hash and the report all read that name.
     payload["method"] = cfg.method_for(decl)[0]
-    payload["max_iter"] = decl.max_iter
-    payload["tolerance"] = decl.tolerance
+    payload["max_trials"] = cfg.max_trials_for(decl)
+    payload["precision"] = cfg.precision_for(decl)
     payload["batch_size"] = cfg.batch_size_for(decl)
     payload["parallel"] = cfg.parallel_for(decl)
-    payload["method_options"] = dict(decl.method_options)
+    payload["method_options"] = cfg.method_options_for(decl)
     # The phase's own keys over [calibration.uncertainty]: the method, its
     # restarts or its perturbation, and the width the interval is read with.
     payload["uncertainty"] = cfg.uncertainty_for(decl).model_dump()
@@ -345,7 +345,12 @@ def _phase_config(cfg: CalibrationConfig, decl: CalibPhaseDecl) -> CalibrationCo
         payload["observed_station_id"] = decl.observed_station_id
     if decl.scoring_window is not None:
         payload["scoring_window"] = decl.scoring_window.model_dump()
+    problems = cfg.phase_bounds_problems(decl)
+    if problems:
+        raise ConfigValidationError(problems[0])
     payload["parameters"] = {name: payload["parameters"][name] for name in decl.parameters}
+    for name, interval in (decl.bounds or {}).items():
+        payload["parameters"][name]["bounds"] = list(interval)
     if decl.is_single_metric:
         # The extractor prefers blocks over the variable whenever both are
         # present, so a phase inheriting the blocks of another one would be
@@ -541,7 +546,7 @@ def _passed_start(
 ) -> np.ndarray | None:
     """Return where a phase that moves passed values again starts its search.
 
-    The passed values, and the prior centre for the other parameters. One
+    The passed values, and the sampling centre for the other parameters. One
     coordinate per parameter of ``space``, in transformed space, as
     ``run_calibration_core(start_at=...)`` reads it. ``None`` when the phase
     re-opens nothing, or when its engine takes no start point: the engine then
@@ -558,7 +563,7 @@ def _passed_start(
             method,
         )
         return None
-    start = transformed_prior_center(space)
+    start = search_space_center(space)
     passed = {item.name: item.value for item in reopened}
     for index, param in enumerate(space.parameters):
         if param.name in passed:
@@ -622,12 +627,12 @@ def _why_not_converged(report: CalibrationReport) -> str:
         )
     return (
         f"its session {report.session_id} spent {report.n_iterations} trial(s) "
-        f"(max_iter = {search.get('max_iter')}, plus {search.get('extension')} granted once) "
+        f"(max_trials = {search.get('max_trials')}, plus {search.get('extension')} granted once) "
         f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
-        "candidate is where the budget ended, not a converged value. Raise max_iter: a "
-        "re-run of the same file replays the trials already solved from the cache. A new "
-        "tolerance, seed, method or method_options changes the cache key and solves every "
-        "trial again"
+        "candidate is where the budget ended, not a converged value. Raise max_trials: a "
+        "re-run of the same file replays the trials already solved from the cache. So does a "
+        "new precision, seed, method or method_options, for every trial it proposes at "
+        "values already solved"
     )
 
 
@@ -1231,11 +1236,26 @@ def objective_comparison_table(
 # ---------------------------------------------------------------------------
 
 
+def _search_rows(cfg: CalibrationConfig, decl: Any, method: str) -> dict[str, dict[str, Any]]:
+    """Return the four search keys of a phase, each with its value and where it comes from."""
+    sources = cfg.search_sources_for(decl)
+    values = {
+        "method": method,
+        "max_trials": cfg.max_trials_for(decl),
+        "precision": cfg.precision_for(decl),
+        "method_options": cfg.method_options_for(decl),
+    }
+    return {key: {"value": values[key], "source": sources[key]} for key in values}
+
+
 def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
     """Describe the declared phases in declaration order, without running anything.
 
-    ``method`` is the method the phase runs. A phase that names none also
-    carries ``method_reason``, why its criteria call for that one.
+    ``method`` is the method the phase runs. A phase that names none, in itself
+    or in ``[calibration]``, also carries ``method_reason``, why its criteria
+    call for that one. ``search`` gives the value of ``method``, ``max_trials``,
+    ``precision`` and ``method_options`` the phase runs with, each with where it
+    comes from: the phase, the section, or the default.
     ``interval_width`` is the width the phase reads its interval with and where
     it comes from (``IntervalWidth.to_dict``); one mesh cell has no number
     before the mesh exists.
@@ -1279,6 +1299,9 @@ def phase_summaries(cfg: CalibrationConfig | None) -> list[dict[str, Any]]:
         if reopens:
             row["reopens"] = reopens
             row["starts_from_passed_values"] = engine_traits(method).accepts_a_start_point
+        if decl.bounds:
+            row["bounds"] = {name: list(interval) for name, interval in decl.bounds.items()}
+        row["search"] = _search_rows(cfg, decl, method)
         row["interval_width"] = cfg.interval_width_for(decl).to_dict()
         row["comparisons"] = objective_comparison_table(cfg, decl)
         row["scoring_window"] = declared_window_text(cfg, decl)

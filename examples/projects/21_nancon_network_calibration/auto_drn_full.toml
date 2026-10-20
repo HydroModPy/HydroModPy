@@ -242,7 +242,7 @@ use_cache = false
 # --- Parametres ---
 # K en log : le critere porte sur le rapport K/R et l'ecart signe change
 # de signe une seule fois sur plusieurs decades. La dichotomie REFUSE un
-# parametre qui n'est pas en transform = "log".
+# parametre qui n'est pas en search_space = "log".
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
 
@@ -285,7 +285,7 @@ uses_outputs = ["seepage_network"]
 name = "steady_conductivity"
 description = "Zero de l'ecart signe D_so - D_os, par dichotomie sur K."
 method = "bisection"
-max_iter = 20
+max_trials = 20
 parameters = ["K"]
 objective_blocks = ["abherve_gap"]
 freeze_on_success = true
@@ -311,7 +311,7 @@ sweep_points = 7
 name = "transient_storage"
 description = "NSE des logarithmes du debit journalier 2001-2002, K gele."
 method = "grid"
-max_iter = 6
+max_trials = 6
 batch_size = 6
 parallel = 6
 parameters = ["Sy"]

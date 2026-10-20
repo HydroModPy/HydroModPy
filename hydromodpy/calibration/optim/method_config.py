@@ -55,7 +55,7 @@ class GridMethodConfig(BaseModel):
 
 
 class RandomSearchMethodConfig(BaseModel):
-    """Independent draws from the prior of each parameter.
+    """Independent draws from the sampling of each parameter.
 
     It never decides it has converged, so it runs to its budget. Use it as a
     cheap baseline to judge another method against.
@@ -99,11 +99,6 @@ class ScipyDEMethodConfig(BaseModel):
     model_config = _MODEL_CONFIG
 
     method: Literal["scipy_de"] = "scipy_de"
-    maxiter: int = Field(
-        default=100,
-        description="Generations of the population, SciPy's maxiter. A generation "
-        "costs popsize times the number of parameters evaluations.",
-    )
     popsize: int = Field(
         default=15,
         description="Population size, as a multiple of the number of parameters, SciPy's popsize.",
@@ -117,7 +112,7 @@ class ScipyDEMethodConfig(BaseModel):
 class ScipyNelderMeadMethodConfig(BaseModel):
     """A local simplex, ``scipy.optimize.minimize(method='Nelder-Mead')``.
 
-    It starts from the centre of the priors, or from the value an earlier
+    It starts from the centre of the sampling, or from the value an earlier
     phase passed on. It is the method a search that names none gets when its cost has
     no sign to bracket. Use it when the range is already narrow, or to refine
     the result of a coarse search.
@@ -126,20 +121,10 @@ class ScipyNelderMeadMethodConfig(BaseModel):
     model_config = _MODEL_CONFIG
 
     method: Literal["scipy_nelder_mead"] = "scipy_nelder_mead"
-    maxiter: int | None = Field(
-        default=None,
-        description="Simplex iterations, SciPy's maxiter. None sets no cap of its "
-        "own: the search budget max_iter ends the walk.",
-    )
-    maxfev: int | None = Field(
-        default=None,
-        description="Evaluations, SciPy's maxfev. None takes maxiter, so with both "
-        "unset the search budget max_iter ends the walk.",
-    )
     xatol: float | None = Field(
         default=None,
         description="Width of the simplex at which it stops, in the space the search "
-        "walks (log10 units for a log parameter). Written from calibration.tolerance; "
+        "walks (log10 units for a log parameter). Written from calibration.precision; "
         "set one or the other.",
     )
     fatol: float | None = Field(
@@ -166,10 +151,6 @@ class CmaEsMethodConfig(BaseModel):
         "else in the space the search walks.",
     )
     popsize: int = Field(default=6, description="Points evaluated per generation.")
-    max_evaluations: int = Field(
-        default=30,
-        description="Evaluations the strategy may spend, restarts included.",
-    )
     normalize: bool = Field(
         default=True,
         description="Rescale the box to the unit cube before the strategy runs.",
@@ -258,13 +239,9 @@ class GPMappingMethodConfig(BaseModel):
     model_config = _MODEL_CONFIG
 
     method: Literal["gp_mapping"] = "gp_mapping"
-    max_iter: int = Field(
-        default=30,
-        description="Evaluations of the real model, the initial design included.",
-    )
     n_init: int = Field(
         default=10,
-        description="Random points of the initial design, drawn from the priors.",
+        description="Random points of the initial design, drawn from the sampling of each parameter.",
     )
     ei_tol: float = Field(
         default=1e-6,
@@ -285,7 +262,8 @@ class GPMappingMethodConfig(BaseModel):
     n_refine: int | None = Field(
         default=None,
         description="Refinement rounds after the initial design. When set, the "
-        "budget becomes at least n_init + n_refine * batch_size.",
+        "design is sized so that n_init + n_refine * batch_size evaluations fit "
+        "in the search budget max_trials.",
     )
     batch_size: int = Field(
         default=1,
@@ -312,15 +290,21 @@ class DaMhGpMethodConfig(BaseModel):
     The surrogate screens each proposal and one run of the real model corrects
     the acceptance. It reads the cost as an RMSE, with the log-likelihood
     ``-0.5 * (cost / sigma_noise)**2``, so score it on ``rmse``. The best
-    candidate is the mode of the chain. It needs scikit-learn, which the base
-    install carries. Use it when you want a sample of plausible values rather
-    than one optimum.
+    candidate is the best state the chain visited. It needs scikit-learn, which
+    the base install carries. It is a sequential search: it spends its runs
+    around the low-cost region instead of spreading them over the box. Use it
+    when an RMSE cost is smooth enough for a surrogate to screen proposals and
+    the runs are better spent near the best values than across the bounds.
     """
 
     model_config = _MODEL_CONFIG
 
     method: Literal["da_mh_gp"] = "da_mh_gp"
-    max_iter: int = Field(default=200, description="Length of the chain.")
+    chain_length: int = Field(
+        default=200,
+        description="Length of the chain, in states. The search budget max_trials "
+        "bounds the evaluations of the real model it spends.",
+    )
     burn_in: int = Field(
         default=20,
         description="First states of the chain left out of the sample.",
@@ -389,6 +373,45 @@ CalibrationMethodConfig = Annotated[
 _METHOD_CONFIG_ADAPTER: TypeAdapter[CalibrationMethodConfig] = TypeAdapter(CalibrationMethodConfig)
 
 
+_BUDGET_IS_MAX_TRIALS = "the budget of a search is [calibration] max_trials, and only that"
+
+REFUSED_OPTIONS: Mapping[str, Mapping[str, str]] = {
+    "scipy_nelder_mead": {
+        "maxfev": f"it counted evaluations, and {_BUDGET_IS_MAX_TRIALS}",
+        "maxiter": f"it is not an evaluation count (simplex iterations), and {_BUDGET_IS_MAX_TRIALS}",
+    },
+    "scipy_de": {
+        "maxiter": f"it is not an evaluation count (generations), and {_BUDGET_IS_MAX_TRIALS}",
+    },
+    "cma_es": {"max_evaluations": f"it counted evaluations, and {_BUDGET_IS_MAX_TRIALS}"},
+    "gp_mapping": {"max_iter": f"it counted evaluations, and {_BUDGET_IS_MAX_TRIALS}"},
+    "da_mh_gp": {"max_iter": "it is the length of the chain, now called chain_length"},
+}
+"""Option names a method used to take, with what to write instead.
+
+They are refused rather than unknown, so the message says where the number goes.
+``max_trials`` is refused for every method: it is a key of the search, written
+beside ``method``, never one of its options.
+"""
+
+
+def refused_options_problem(method: str, method_options: Mapping[str, Any] | None) -> str | None:
+    """Return why ``method_options`` carries a key that moved, or ``None``."""
+    if not method_options:
+        return None
+    reasons = REFUSED_OPTIONS.get(str(method), {})
+    moved = [f"{key}: {reasons[key]}" for key in method_options if key in reasons]
+    if "max_trials" in method_options:
+        moved.append(
+            "max_trials: it is the budget of the search, written beside method as "
+            "[calibration] max_trials, in a phase or in the protocol stage, "
+            "not one of the options of the method"
+        )
+    if not moved:
+        return None
+    return f"{method!r} does not take " + "; ".join(moved) + "."
+
+
 def validate_method_kwargs(
     method: str,
     method_options: Mapping[str, Any] | None,
@@ -396,8 +419,13 @@ def validate_method_kwargs(
     """Validate ``(method, method_options)`` against the discriminated union.
 
     Raises :class:`pydantic.ValidationError` when ``method`` is unknown or
-    when ``method_options`` carries keys foreign to that optimizer.
+    when ``method_options`` carries keys foreign to that optimizer, and
+    :class:`ValueError` naming where the number goes when a key moved to
+    ``max_trials`` or ``chain_length``.
     """
+    refused = refused_options_problem(method, method_options)
+    if refused is not None:
+        raise ValueError(refused)
     payload: dict[str, Any] = {"method": method}
     if method_options:
         payload.update(method_options)
@@ -429,6 +457,9 @@ def method_options_problem(method: str, method_options: Mapping[str, Any] | None
     model = _MODELS_BY_METHOD.get(str(method))
     if model is None:
         return None
+    refused = refused_options_problem(str(method), method_options)
+    if refused is not None:
+        return refused
     try:
         validate_method_kwargs(str(method), method_options)
     except ValidationError as exc:
@@ -475,7 +506,7 @@ def default_relative_precision(method: str, method_options: Mapping[str, Any]) -
 
     Only for a method whose stopping option already is a relative precision on
     the parameter, the bisection's ``rel_tol``: its default is then the number
-    a file would write as ``tolerance``. ``None`` for a method that reads the
+    a file would write as ``precision``. ``None`` for a method that reads the
     precision as a width in its own variable, which has no such number, and when
     ``method_options`` already sets that option.
     """
@@ -483,8 +514,8 @@ def default_relative_precision(method: str, method_options: Mapping[str, Any]) -
 
     model = _MODELS_BY_METHOD.get(str(method))
     traits = engine_traits(str(method))
-    option = traits.tolerance_option
-    if model is None or option is None or traits.tolerance_reads != "relative_value":
+    option = traits.precision_option
+    if model is None or option is None or traits.precision_reads != "relative_value":
         return None
     if option in method_options:
         return None
@@ -503,9 +534,11 @@ __all__ = [
     "GPMappingMethodConfig",
     "DaMhGpMethodConfig",
     "CalibrationMethodConfig",
+    "REFUSED_OPTIONS",
     "default_relative_precision",
     "method_options_are_its_defaults",
     "method_options_problem",
+    "refused_options_problem",
     "typed_methods",
     "validate_method_kwargs",
 ]

@@ -93,7 +93,7 @@ _PHASE = """
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -111,7 +111,7 @@ uses_outputs = ["net"]
 name = "conductivity"
 parameters = ["K"]
 method = "grid"
-max_iter = 4
+max_trials = 4
 regime = "{regime}"
 {window}
 """

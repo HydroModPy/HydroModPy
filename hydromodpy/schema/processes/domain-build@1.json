@@ -127,8 +127,8 @@
                   "bounds": null,
                   "description": "Aquifer thickness below the topography, one value everywhere.",
                   "is_the_value_of_its_instance": false,
-                  "prior": "log_uniform",
-                  "transform": "log",
+                  "sampling": "log_uniform",
+                  "search_space": "log",
                   "units": "m"
                 },
                 "default": 50.0,
@@ -165,8 +165,8 @@
                   "bounds": null,
                   "description": "Elevation of the flat substratum, one value everywhere.",
                   "is_the_value_of_its_instance": false,
-                  "prior": "uniform",
-                  "transform": "identity",
+                  "sampling": "uniform",
+                  "search_space": "identity",
                   "units": "m"
                 },
                 "default": 0.0,

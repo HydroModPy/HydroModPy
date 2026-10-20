@@ -52,11 +52,11 @@ value = 0.05
 _GOOD = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 """
@@ -267,7 +267,7 @@ class TestRegimes:
 
     [calibration.parameters.K]
     bounds = [1e-7, 1e-3]
-    transform = "log"
+    search_space = "log"
     path = "flow.param.K.field.value"
     units = "m/s"
 
@@ -344,7 +344,7 @@ class TestALinearizedWidth:
     _LINEARIZED = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 warmup_periods = WARMUP
 
 [calibration.uncertainty]
@@ -353,7 +353,7 @@ perturbation = 0.01
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -392,7 +392,7 @@ class TestALinearizedWidthOnAPhasedDocument:
     _PHASED = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 warmup_periods = 6
 
 [calibration.uncertainty]
@@ -401,7 +401,7 @@ perturbation = 0.01
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -439,7 +439,7 @@ warmup = 0
 [[calibration.phases]]
 name = "p1"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["K"]
 outputs = ["gauge1"]
 objective_blocks = ["block1"]
@@ -447,7 +447,7 @@ objective_blocks = ["block1"]
 [[calibration.phases]]
 name = "p2"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["Sy"]
 outputs = ["gauge2"]
 objective_blocks = ["block2"]
@@ -481,7 +481,7 @@ class TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks:
     _DOC = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.uncertainty]
 method = "linearized"
@@ -489,7 +489,7 @@ perturbation = 0.01
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -514,7 +514,7 @@ normalize_cost = true
 [[calibration.phases]]
 name = "p1"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["K"]
 """
 
@@ -538,7 +538,7 @@ class TestALinearizedWidthOnASingleMetricPhase:
     _DOC = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.uncertainty]
 method = "linearized"
@@ -546,14 +546,14 @@ perturbation = 0.01
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
 [[calibration.phases]]
 name = "p1"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -587,7 +587,7 @@ class TestASingleMetricPhaseAlongsideAGloballyObservedOutput:
     _DOC = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.uncertainty]
 method = "linearized"
@@ -595,7 +595,7 @@ perturbation = 0.01
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 units = "m/s"
 
@@ -614,7 +614,7 @@ normalize_cost = true
 [[calibration.phases]]
 name = "p1"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -623,7 +623,7 @@ freeze_on_success = false
 [[calibration.phases]]
 name = "p2"
 method = "grid"
-max_iter = 4
+max_trials = 4
 parameters = ["K"]
 objective_blocks = ["b1"]
 """
@@ -952,7 +952,7 @@ class TestASingleMetricPhaseScoringANetworkOutput:
 _GAUGED = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

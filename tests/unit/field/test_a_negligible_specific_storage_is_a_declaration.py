@@ -75,7 +75,7 @@ def test_the_ceiling_did_not_move() -> None:
 def test_the_floor_stays_a_number_a_log_search_can_walk() -> None:
     """These bounds double as the span of a log-space search.
 
-    `_field_param_sections` declares `transform="log"` on a field value and
+    `_field_param_sections` declares `search_space="log"` on a field value and
     `targets.py` hands the registry range to the search as its physical bounds.
     A floor of zero would say "no confined storage" plainer than 1e-12 does, and
     would put -inf in the sampler.

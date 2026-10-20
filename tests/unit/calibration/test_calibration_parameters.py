@@ -11,12 +11,12 @@ from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpa
 
 class TestCalibParameter:
     def test_identity_transform_roundtrip(self):
-        p = CalibParameter(name="x", lower=0.0, upper=10.0, transform="identity")
+        p = CalibParameter(name="x", lower=0.0, upper=10.0, search_space="identity")
         assert p.to_transformed(5.0) == 5.0
         assert p.to_physical(5.0) == 5.0
 
     def test_log_transform_roundtrip(self):
-        p = CalibParameter(name="k", lower=1e-6, upper=1e-3, transform="log")
+        p = CalibParameter(name="k", lower=1e-6, upper=1e-3, search_space="log")
         assert math.isclose(p.lower_transformed, -6.0)
         assert math.isclose(p.upper_transformed, -3.0)
         y = p.to_transformed(1e-4)
@@ -24,12 +24,12 @@ class TestCalibParameter:
         assert math.isclose(p.to_physical(y), 1e-4)
 
     def test_log_rejects_nonpositive(self):
-        p = CalibParameter(name="k", lower=1e-6, upper=1.0, transform="log")
+        p = CalibParameter(name="k", lower=1e-6, upper=1.0, search_space="log")
         with pytest.raises(ValueError):
             p.to_transformed(0.0)
 
     def test_logit_transform_roundtrip(self):
-        p = CalibParameter(name="s", lower=0.05, upper=0.5, transform="logit")
+        p = CalibParameter(name="s", lower=0.05, upper=0.5, search_space="logit")
         x = 0.2
         y = p.to_transformed(x)
         assert math.isclose(p.to_physical(y), x, rel_tol=1e-9)
@@ -60,7 +60,9 @@ class TestParameterSpace:
             ParameterSpace.from_toml_mapping({"K": {}})
 
     def test_transformed_bounds(self):
-        space = ParameterSpace([CalibParameter(name="k", lower=1e-6, upper=1e-3, transform="log")])
+        space = ParameterSpace(
+            [CalibParameter(name="k", lower=1e-6, upper=1e-3, search_space="log")]
+        )
         tb = space.transformed_bounds
         assert math.isclose(tb["k"][0], -6.0)
         assert math.isclose(tb["k"][1], -3.0)

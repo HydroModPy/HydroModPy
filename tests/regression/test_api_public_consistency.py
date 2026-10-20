@@ -141,6 +141,6 @@ def test_calibrate_object_branch_keeps_project(monkeypatch) -> None:
     _FakeProject.calibrate_result = {"branch": "object"}
     monkeypatch.setattr("hydromodpy.project.Project", _FakeProject)
 
-    result = hmp.calibrate(object(), max_iter=5)
+    result = hmp.calibrate(object(), max_trials=5)
     assert result == {"branch": "object"}
-    assert _FakeProject.last_calibrate_kwargs == {"max_iter": 5}
+    assert _FakeProject.last_calibrate_kwargs == {"max_trials": 5}

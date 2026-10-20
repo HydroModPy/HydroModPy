@@ -1,26 +1,23 @@
 """Score model observables without a live workflow context.
 
-Two scorers live here, one per scoring route a document can take, and they hold
-the same contract: named observables in, a cost and its components out. Neither
-touches a trial context, a solver adapter or a mesh, which is what lets a model
-that is not HydroModPy be scored by the criteria of a HydroModPy document.
+One route scores every trial: named observables in, a cost and its components
+out, through :class:`ObservableScorer` and the blocks of
+:mod:`hydromodpy.calibration.optim.objective`. Nothing here touches a trial
+context, a solver adapter or a mesh, which is what lets a model that is not
+HydroModPy be scored by the criteria of a HydroModPy document.
 
-:class:`ObservableScorer` serves the composite route, the
-``[calibration.outputs]`` and ``[[calibration.objective_blocks]]`` of F6.
-:class:`StationScorer` serves the single-metric route, ``variable`` and
-``objective``, where the observations are the records a project loaded and the
-cost is reported per station.
+:class:`ObservableScorer` reads ``[calibration.outputs]`` and
+``[[calibration.objective_blocks]]``. :class:`StationBlockScorer` is the
+one-line form, ``variable`` and ``objective``: it turns the records a project
+loaded into one implicit output and one implicit block per station
+(:func:`hydromodpy.calibration.config.implicit_station_scoring`) and hands the
+answers, keyed by station, to an :class:`ObservableScorer`.
 
 What stays with the producer is everything measured in one model's own terms:
 resolving the flow adapter, placing a station on a mesh, adding the runoff
 forcing to a drain budget and scaling it by the area a cell drains, preparing
 the two distances of a stream network. A scorer that carried those would be
 advertising a shape only HydroModPy can produce.
-
-:class:`ObservableScorer` already has a second consumer, the evaluator that
-scores a named forward model. :class:`StationScorer` has only the pipeline
-today: what the split buys there is that the route can acquire one without the
-criterion moving, not that it already has.
 """
 
 from __future__ import annotations
@@ -28,11 +25,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.calibration.config import STATION_VARIABLES, implicit_station_scoring
 from hydromodpy.calibration.metrics.downslope_network import MAXIMAL_SUFFIX, MINIMAL_SUFFIX
 from hydromodpy.calibration.metrics.observed_pairing import (
     PairedOutputs,
@@ -40,14 +38,12 @@ from hydromodpy.calibration.metrics.observed_pairing import (
     output_time_methods,
     pair_outputs_with_observations,
 )
-from hydromodpy.calibration.metrics.scalar import elapsed_days, sampling_step_days
-from hydromodpy.calibration.metrics.scalar import score as score_series
 from hydromodpy.calibration.optim.objective import SimulationOutput, build_objective_from_config
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_edges, periods_in_window
 from hydromodpy.core.time.selection import TimeSelectionError, period_label, resolve_state
-from hydromodpy.results.derive.time_alignment import first_period_start, time_method_for
+from hydromodpy.results.derive.time_alignment import first_period_start
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl, OutputTime
@@ -56,6 +52,24 @@ if TYPE_CHECKING:
     from hydromodpy.calibration.optim.objective import Objective
 
 logger = get_logger(__name__)
+
+
+def sampling_step_days(index: pd.Index) -> float | None:
+    """Median spacing of a dated index, in days.
+
+    ``None`` when the index is not dated or holds fewer than two distinct
+    stamps.
+    """
+    if not isinstance(index, pd.DatetimeIndex) or index.size < 2:
+        return None
+    gaps = np.diff(index.sort_values().asi8) / 86_400e9
+    gaps = gaps[gaps > 0.0]
+    return float(np.median(gaps)) if gaps.size else None
+
+
+def elapsed_days(index: pd.DatetimeIndex) -> np.ndarray:
+    """Date of each stamp of *index*, in days since the epoch."""
+    return np.asarray(index.asi8, dtype=float) / 86_400e9
 
 
 def slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
@@ -96,11 +110,10 @@ def select_observable_times(result: ObservableResult, time: OutputTime) -> Obser
 
 
 def observable_series(result: ObservableResult, *, name: str) -> pd.Series:
-    """Rebuild a pandas series from an observable, for the scoring helpers.
+    """Rebuild a pandas series from an observable, for the producers.
 
-    ``score`` aligns on a time index, so an observable that carries one keeps
-    it; one that does not falls back to a positional index, exactly as the
-    binary readers did before.
+    An observable that carries a time index keeps it; one that does not falls
+    back to a positional index, exactly as the binary readers did before.
     """
     values = np.asarray(result.values, dtype=float).reshape(-1)
     if result.times is not None and len(result.times) == values.size:
@@ -537,27 +550,16 @@ def selected_period_start(
     return first_period_start(selected.index, bounds)
 
 
-def _first_period_start(series: pd.Series, boundaries: Sequence[Any] | None) -> Any:
-    """Return the start of the first period of a dated series, or ``None``."""
-    if not isinstance(series.index, pd.DatetimeIndex):
-        return None
-    return first_period_start(series.index, boundaries)
-
-
 def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: str | None):
-    """Return the observed station whose cost the optimizer minimises.
+    """Return the discharge station the one-line form scores.
 
-    Every loaded gauge is compared to the simulated discharge AT ITS OWN
-    POSITION, the way ``head`` already is: the producer gives each one its cell
-    and reads the discharge routed to it, with its runoff scaled by the area
-    that cell drains. Each cost is reported as ``cost:<objective>@<station_id>``.
-
-    What this function picks is which of those costs the search follows. One
-    station drives it and the others stay diagnostic, because a weighted sum
-    across gauges needs weights, an error model and a decision about nested
-    gauges sharing the same water, none of which this single-metric route
-    carries. Averaging them, which is what this did before, gave every gauge the
-    same say whatever its record was worth.
+    The gauge is compared to the simulated discharge AT ITS OWN POSITION, the
+    way ``head`` already is: the producer gives it its cell and reads the
+    discharge routed to it, with its runoff scaled by the area that cell
+    drains. One gauge and not several, because a weighted sum across gauges
+    needs weights, an error model and a decision about nested gauges sharing
+    the same water, none of which ``variable`` + ``objective`` carries: those
+    are written as blocks.
     """
     if not observed:
         raise ValueError("No observed discharge station is available for calibration")
@@ -575,40 +577,32 @@ def discharge_target(observed: Sequence[ObservedSeries], declared_station_id: st
         return observed[0]
     raise ValueError(
         f"{len(observed)} discharge stations are loaded ({sorted(by_id)}) but a trial can only "
-        "read one simulated discharge series here, the whole-catchment outlet: this "
-        "single-metric route holds one variable and one objective, nothing to keep a cost per "
-        "gauge. Comparing each gauge at its own position needs the weighted-block route "
+        "read one simulated discharge series here, the whole-catchment outlet: "
+        "variable + objective holds one variable and one objective, nothing to weigh a cost "
+        "per gauge. Comparing each gauge at its own position needs the weighted-block route "
         "instead, one per-cell discharge observable per station: declare "
         '[calibration.outputs.<name>] variable = "discharge", support = "cell", its own '
         'row/col/layer, and observes = "<station>", one block per output. Score the gauge '
         "that sits at the outlet here by naming it in calibration.observed_station_id (or on "
-        "the phase), or load only that one with station_ids on the hydrometry source. The "
-        "others stay reported, unscored."
+        "the phase), or load only that one with station_ids on the hydrometry source."
     )
 
 
-class StationScorer:
-    """Score one variable at the stations a project loaded, out of a context.
+class StationBlockScorer:
+    """Score ``variable`` + ``objective`` through one implicit block per station.
 
-    The single-metric route of a document -- ``variable`` and ``objective``,
-    no block -- used to be one function that resolved the flow adapter, placed
-    every gauge on the mesh, read its series and scored it. The second half of
-    that is what this holds: the observed records, the criterion, the burn-in
-    and the window are bound once, before the search, and one sample is scored
-    from the observables a producer answered with. Nothing here reads a trial
-    context, so a model that is not the HydroModPy pipeline is scored by the
-    same criterion on the same terms.
+    The records the project loaded are bound once, before the search: each
+    scored station becomes an output that observes it and a block that reads
+    that output (:func:`~hydromodpy.calibration.config.implicit_station_scoring`),
+    and an :class:`ObservableScorer` scores them, as it scores any declared
+    block. A discharge scores the one gauge :func:`discharge_target` picks; a
+    head or a lake level scores every loaded station, at equal weights.
 
-    A station is keyed by its id, which is how the records are keyed, so a
-    producer answers in the vocabulary the project loaded. One the producer
-    could not serve is left unscored rather than invented: a gauge whose cell
-    falls outside the mesh has no simulated counterpart, and that has always
-    been reported as a missing component. The one exception is the station that
-    drives the search, whose absence is refused by name.
+    A producer answers by station id, the vocabulary the project loaded. A
+    station it could not serve, a piezometer whose cell falls outside the mesh,
+    is left out of that trial rather than invented, and said so once. The one
+    exception is the discharge gauge, whose absence is refused by name.
     """
-
-    SUPPORTED: ClassVar[tuple[str, ...]] = ("discharge", "head", "lake_level")
-    """The variables a loaded observation family exists for."""
 
     def __init__(
         self,
@@ -619,35 +613,71 @@ class StationScorer:
         observed_station_id: str | None = None,
         warmup_periods: int = 0,
         scoring_window: tuple[pd.Timestamp | None, pd.Timestamp | None] | None = None,
+        min_samples: int = 1,
         series_sink: TrialSeriesSink | None = None,
     ) -> None:
-        if str(variable) not in self.SUPPORTED:
+        if str(variable) not in STATION_VARIABLES:
             raise NotImplementedError(
-                f"Calibration variable {variable!r} is not supported on the single-metric "
-                f"route. Supported: {', '.join(self.SUPPORTED)}."
+                f"Calibration variable {variable!r} is not supported by variable + objective. "
+                f"Supported: {', '.join(STATION_VARIABLES)}."
             )
         self._variable = str(variable)
-        self._objective = str(objective)
-        # A head or a lake level is the state at the stamp, a discharge the
-        # mean over the period the stamp closes.
-        self._time_method = time_method_for(self._variable)
-        self._observed: list[ObservedSeries] = list(observed)
-        self._warmup_periods = int(warmup_periods)
-        self._scoring_window = scoring_window
         # Which gauge drives the search is a property of the document, so it is
         # resolved once here and not re-derived for every sample.
         self._target: ObservedSeries | None = (
-            discharge_target(self._observed, observed_station_id)
+            discharge_target(observed, observed_station_id)
             if self._variable == "discharge"
             else None
         )
+        self._records: list[ObservedSeries] = (
+            [self._target] if self._target is not None else _one_record_per_station(observed)
+        )
+        outputs, blocks = implicit_station_scoring(
+            self._variable, str(objective), [record.station_id for record in self._records]
+        )
+        self._outputs = outputs
+        self._blocks = blocks
+        self._output_of: dict[str, str] = {
+            record.station_id: name for record, name in zip(self._records, outputs, strict=True)
+        }
+        self._observed: dict[str, pd.Series] = {
+            self._output_of[record.station_id]: record.series for record in self._records
+        }
+        self._options: dict[str, Any] = {
+            "warmup_periods": int(warmup_periods),
+            "scoring_window": scoring_window,
+            "min_samples": int(min_samples),
+            "series_sink": series_sink,
+        }
+        # One scorer per set of served stations; the full set is built here, so
+        # what the scorer refuses is refused before the search.
+        self._scorers: dict[frozenset[str], ObservableScorer] = {}
+        self._scorer_for(frozenset(outputs))
         self._unscored: set[str] = set()
-        self._series_sink = series_sink
+
+    @property
+    def stations(self) -> list[ObservedSeries]:
+        """The records a producer is asked to answer for, in scoring order."""
+        return list(self._records)
 
     @property
     def target_station_id(self) -> str | None:
-        """The station the search follows, or ``None`` when every one is averaged."""
+        """The discharge gauge the search follows, or ``None`` when stations are averaged."""
         return None if self._target is None else self._target.station_id
+
+    def _scorer_for(self, served: frozenset[str]) -> ObservableScorer:
+        scorer = self._scorers.get(served)
+        if scorer is None:
+            scorer = ObservableScorer(
+                {name: decl for name, decl in self._outputs.items() if name in served},
+                [block for block in self._blocks if set(block.uses_outputs) <= served],
+                observed_records={
+                    name: series for name, series in self._observed.items() if name in served
+                },
+                **self._options,
+            )
+            self._scorers[served] = scorer
+        return scorer
 
     def score(
         self,
@@ -656,84 +686,65 @@ class StationScorer:
         source: str = "the model",
         boundaries: Sequence[Any] | None = None,
     ) -> tuple[float, dict[str, float]]:
-        """Return the cost the search follows and the cost of every station.
+        """Return the cost and its components from answers keyed by station.
 
         ``boundaries`` are the run's time-grid bounds, from which each series
         takes the start of its first period.
         """
-        components: dict[str, float] = {}
-        finite: list[float] = []
-        for record in self._observed:
-            result = simulated.get(record.station_id)
+        answered: dict[str, ObservableResult] = {}
+        for record in self._records:
+            station = record.station_id
+            result = simulated.get(station)
             if result is None:
-                if self._target is not None and record.station_id == self._target.station_id:
+                if self._target is not None:
                     raise NotImplementedError(
-                        f"{source} served no {self._variable} for station "
-                        f"{record.station_id!r}, which is the one the search follows."
+                        f"{source} served no {self._variable} for station {station!r}, "
+                        "which is the one the search follows."
                     )
-                self._say_it_went_unscored(record.station_id, source)
+                self._say_it_went_unscored(station, source)
                 continue
-            series = observable_series(result, name=self._variable)
-            if series.empty:
+            if np.asarray(result.values).size == 0:
                 raise NotImplementedError(
                     f"{source} returned no {self._variable} calibration series for station "
-                    f"{record.station_id!r}"
+                    f"{station!r}"
                 )
-            cost = score_series(
-                record.series,
-                series,
-                self._objective,
-                warmup_periods=self._warmup_periods,
-                scoring_window=self._scoring_window,
-                time_method=self._time_method,
-                period_start=_first_period_start(series, boundaries),
-                series_sink=self._series_sink,
-                output=self._variable,
-                station=record.station_id,
+            name = self._output_of[station]
+            answered[name] = replace(result, request_id=name)
+        if not answered:
+            raise ValueError(
+                f"{source} served no {self._variable} at any of the stations "
+                f"{sorted(self._output_of)}, so no cost can be computed."
             )
-            components[f"cost:{self._objective}@{record.station_id}"] = cost
-            if np.isfinite(cost):
-                finite.append(cost)
-        return self._followed_cost(components, finite), components
+        return self._scorer_for(frozenset(answered)).score(answered, boundaries=boundaries)
 
     def _say_it_went_unscored(self, station_id: str, source: str) -> None:
-        """Say once that a station is reported without a cost.
+        """Say once that a station is left out of the cost.
 
-        A gauge whose cell falls outside the mesh has no simulated counterpart
-        and is left out rather than invented, which is what this route has
-        always done. Said out loud because the alternative is a station that
-        disappears from a report between two runs without a line anywhere: the
-        component it used to carry is simply absent. Once per scorer, not once
-        per trial, because a search calls this a thousand times.
-
-        The engine dispatches trials through a thread pool and this scorer is
-        shared by all of them, so the worst a race can do here is print the
-        same line twice. Nothing else on this object is written after
-        construction.
+        Once per scorer, not once per trial, because a search calls this a
+        thousand times. Trials share this scorer across threads, so the worst
+        a race can do here is print the same line twice.
         """
         if station_id in self._unscored:
             return
         self._unscored.add(station_id)
         logger.warning(
-            "%s served no %s for station %r: it is reported without a cost and the search "
+            "%s served no %s for station %r: it is left out of the cost and the search "
             "does not follow it.",
             source,
             self._variable,
             station_id,
         )
 
-    def _followed_cost(self, components: Mapping[str, float], finite: Sequence[float]) -> float:
-        """Reduce the per-station costs to the one number the optimizer reads."""
-        if self._target is not None:
-            primary = components[f"cost:{self._objective}@{self._target.station_id}"]
-            if not np.isfinite(primary):
-                raise ValueError(
-                    f"Discharge cost at the calibration station {self._target.station_id!r} is "
-                    f"{primary}. Check the observed record covers the scored window."
-                )
-            return float(primary)
-        if not finite:
-            raise ValueError(
-                f"No finite {self._variable.replace('_', '-')} calibration costs were produced"
+
+def _one_record_per_station(observed: Sequence[ObservedSeries]) -> list[ObservedSeries]:
+    """Keep the first record of each station, and say which ones were dropped."""
+    kept: dict[str, ObservedSeries] = {}
+    for record in observed:
+        if record.station_id in kept:
+            logger.warning(
+                "Station %r is loaded twice; the first record is scored and the other ignored.",
+                record.station_id,
             )
-        return float(np.mean(finite))
+            continue
+        kept[record.station_id] = record
+    return list(kept.values())

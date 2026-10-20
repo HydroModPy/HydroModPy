@@ -327,6 +327,9 @@ path carries the ``sim_id`` or a part of it.
 **A run launched with** ``--set`` **or** ``--overlay`` **keeps its name.** The override is written
 in the frozen ``config.toml`` and in ``manifest.lineage.overrides``, and the version suffix takes
 the collision. ``--case <name>`` names the variant for whoever prefers a telling name.
+``hmp calibrate`` takes the same three flags: its session and promoted run keep the name of the
+file the user named (or ``--case``), never the name of the effective copy the command writes
+beside it.
 
 **The version is computed on disk and never given out twice.**
 :func:`~hydromodpy.results.catalog.registration.reserve_version_dirname` takes ``N`` as one more

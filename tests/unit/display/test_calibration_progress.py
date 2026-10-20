@@ -40,7 +40,7 @@ class _SessionRun:
 
 
 def _parameter(value: float, *, bounds: list[float], units: str) -> dict:
-    return {"value": value, "bounds": bounds, "transform": "log", "units": units}
+    return {"value": value, "bounds": bounds, "search_space": "log", "units": units}
 
 
 def _network_metrics(k: float, output: str = "seepage_network") -> dict:
@@ -87,7 +87,7 @@ def bisection_session() -> _SessionRun:
             high = middle
     config = {
         "method": "bisection",
-        "parameters": {"K": {"bounds": [1e-7, 1e-3], "transform": "log", "units": "m/s"}},
+        "parameters": {"K": {"bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"}},
         "outputs": {"seepage_network": {"support": "network"}},
         "objective_blocks": [
             {
@@ -128,7 +128,7 @@ def nelder_mead_session() -> _SessionRun:
     values = [0.04, 0.045, 0.05, 0.06, 0.055, 0.065, 0.059, 0.061, 0.0605, 0.0598]
     config = {
         "method": "scipy_nelder_mead",
-        "parameters": {"Sy": {"bounds": [0.005, 0.35], "transform": "log", "units": "-"}},
+        "parameters": {"Sy": {"bounds": [0.005, 0.35], "search_space": "log", "units": "-"}},
         "outputs": {"hydrograph": {"support": "point", "variable": "discharge"}},
         "objective_blocks": [
             {
@@ -164,8 +164,8 @@ def optuna_session(n_runs: int = 40, seed: int = 7) -> _SessionRun:
     config = {
         "method": "optuna",
         "parameters": {
-            "K": {"bounds": [1e-7, 1e-3], "transform": "log", "units": "m/s"},
-            "Sy": {"bounds": [0.005, 0.35], "transform": "log", "units": "-"},
+            "K": {"bounds": [1e-7, 1e-3], "search_space": "log", "units": "m/s"},
+            "Sy": {"bounds": [0.005, 0.35], "search_space": "log", "units": "-"},
         },
         "outputs": {
             "seepage_network": {"support": "network"},

@@ -239,6 +239,12 @@ class MetricRow(HydroModelBase):
     nse_window_start: date | None = Field(default=None, description="First day scored")
     nse_window_end: date | None = Field(default=None, description="Last day scored, included")
     nse_n: int | None = Field(default=None, ge=0, description="Samples the score used")
+    n_clipped: int | None = Field(
+        default=None,
+        ge=0,
+        description="Negative values clipped to zero before a log-scale score; "
+        "null on a metric that never clips",
+    )
     metric_rule_version: str | None = None
 
     @property

@@ -257,10 +257,10 @@ Nash-Sutcliffe efficiency computed on the logarithms, which gives weight to the 
 {term}`scoring window` (2001 and 2002); 2000, the spin-up year, is not scored.
 
 **The scores of this run.** The run metrics table covers the 36 months, spin-up included:
-{term}`Nash-Sutcliffe efficiency <NSE>` (NSE) 0.68, and volume bias ({term}`PBIAS <percent bias>`) +20.5%. A positive PBIAS means that the model underestimates: here the simulated
+{term}`Nash-Sutcliffe efficiency <NSE>` (NSE) 0.68, and volume bias ({term}`PBIAS <percent bias>`) -20.5%. A negative PBIAS means that the model underestimates: here the simulated
 discharge is lower than the measured one, so the model is too dry. Recomputed on the 2001 and
 2002 window only, from the stored series, the same measures give an NSE of about 0.94 and a bias
-of about +8%. The first year therefore weighs a lot: the model clearly underestimates the
+of about -8%. The first year therefore weighs a lot: the model clearly underestimates the
 discharge of 2000.
 
 To put these numbers in context, Moriasi et al. (2007) propose, for catchment models at the

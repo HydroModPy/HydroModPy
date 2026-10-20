@@ -452,7 +452,9 @@ def render_card(builder, fromdoc: str, path: str, n: dict, line_text: str | None
     cal = n.get("calibrable")
     if cal:
         bounds_link = uri(builder, fromdoc, "calibration.parameters.<name>.bounds")
-        txt = f"yes, search space {esc(cal.get('transform'))}, prior {esc(cal.get('prior'))}"
+        txt = (
+            f"yes, search space {esc(cal.get('search_space'))}, sampling {esc(cal.get('sampling'))}"
+        )
         if cal.get("bounds"):
             txt += f", default bounds {esc(cal['bounds'])}"
         else:

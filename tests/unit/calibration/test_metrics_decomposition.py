@@ -13,19 +13,14 @@ import pandas as pd
 import pytest
 
 
-def test_scalar_module_exposes_score() -> None:
-    from hydromodpy.calibration.metrics import scalar
+def test_observable_scoring_module_exposes_the_block_scorers() -> None:
+    from hydromodpy.calibration.metrics import observable_scoring
 
-    obs = pd.Series(
-        [1.0, 2.0, 3.0],
-        index=pd.DatetimeIndex(["2020-01-01", "2020-01-02", "2020-01-03"]),
-    )
-    # A simulated stamp closes the day observed one day before it.
-    sim = pd.Series(
-        [1.5, 2.5, 3.5],
-        index=pd.DatetimeIndex(["2020-01-02", "2020-01-03", "2020-01-04"]),
-    )
-    assert scalar.score(obs, sim, "rmse") == pytest.approx(0.5)
+    assert callable(observable_scoring.ObservableScorer)
+    assert callable(observable_scoring.StationBlockScorer)
+    assert observable_scoring.sampling_step_days(
+        pd.date_range("2020-01-01", periods=3, freq="D")
+    ) == pytest.approx(1.0)
 
 
 def test_series_module_exposes_observed_series_and_helpers() -> None:

@@ -27,11 +27,11 @@ import numpy as np
 from hydromodpy.calibration import (
     CalibParameter,
     CalibrationEngine,
+    CompositeObjective,
+    ConfigBlockObjective,
     EvaluationResult,
-    ObservationSet,
     ParameterSpace,
     ParamSuggestion,
-    ScalarObjective,
     SimulationOutput,
     build_optimizer,
 )
@@ -120,13 +120,13 @@ class OneReservoirCase:
                     name="k",
                     lower=self.bounds["k"][0],
                     upper=self.bounds["k"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="n",
                     lower=self.bounds["n"][0],
                     upper=self.bounds["n"][1],
-                    transform="identity",
+                    search_space="identity",
                 ),
             ]
         )
@@ -134,7 +134,7 @@ class OneReservoirCase:
     def _inflow(self) -> np.ndarray:
         return make_inflow(self.n_days, seed=self.inflow_seed)
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         inflow = self._inflow()
         clean = solve_one_reservoir(
             k=float(self.truth["k"]),
@@ -145,12 +145,7 @@ class OneReservoirCase:
         noisy = clean + rng.normal(
             0.0, self.noise_sigma * max(clean.max(), 1.0e-6), size=clean.size
         )
-        return ObservationSet(
-            stations=("outlet",),
-            times=np.arange(self.n_days, dtype=float),
-            values={"outlet": np.maximum(noisy, 0.0)},
-            variable="discharge",
-        )
+        return {"outlet": np.maximum(noisy, 0.0)}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         inflow = self._inflow()
@@ -186,13 +181,13 @@ class TwoReservoirCase:
                     name="k1",
                     lower=self.bounds["k1"][0],
                     upper=self.bounds["k1"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="k2",
                     lower=self.bounds["k2"][0],
                     upper=self.bounds["k2"][1],
-                    transform="log",
+                    search_space="log",
                 ),
             ]
         )
@@ -200,7 +195,7 @@ class TwoReservoirCase:
     def _inflow(self) -> np.ndarray:
         return make_inflow(self.n_days, seed=self.inflow_seed)
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         inflow = self._inflow()
         clean = solve_two_reservoirs(
             k1=float(self.truth["k1"]),
@@ -213,12 +208,7 @@ class TwoReservoirCase:
         noisy = clean + rng.normal(
             0.0, self.noise_sigma * max(clean.max(), 1.0e-6), size=clean.size
         )
-        return ObservationSet(
-            stations=("outlet",),
-            times=np.arange(self.n_days, dtype=float),
-            values={"outlet": np.maximum(noisy, 0.0)},
-            variable="discharge",
-        )
+        return {"outlet": np.maximum(noisy, 0.0)}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         inflow = self._inflow()
@@ -257,17 +247,32 @@ def build_calibration(
     case: OneReservoirCase | TwoReservoirCase = ONE_RESERVOIR_CASE,
     *,
     optimizer_name: str = "scipy_nelder_mead",
-    max_iter: int = 100,
+    max_trials: int = 100,
     seed: int = 13,
     metric: str = "rmse",
-) -> tuple[CalibrationEngine, ScalarObjective]:
+) -> tuple[CalibrationEngine, CompositeObjective]:
     space = case.parameter_space()
     observations = case.synthetic_observations()
-    objective = ScalarObjective(observations, metric=metric)
+    # One block per station, equal weights: the mean of the station costs.
+    objective = CompositeObjective(
+        [
+            (
+                ConfigBlockObjective(
+                    name=f"{metric}@{station}",
+                    metric=metric,
+                    uses_outputs=[station],
+                    observed_by_output={station: observed},
+                ),
+                1.0,
+            )
+            for station, observed in observations.items()
+        ],
+        name=metric,
+    )
 
     optimizer_kwargs: dict[str, object] = {"seed": seed}
     if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_iter
+        optimizer_kwargs["maxiter"] = max_trials
     elif optimizer_name == "scipy_de":
         optimizer_kwargs.update({"maxiter": 25, "popsize": 10, "tol": 1e-4})
     elif optimizer_name == "grid":
@@ -290,7 +295,7 @@ def build_calibration(
         space=space,
         optimizer=optimizer,
         evaluator=evaluator,
-        max_iter=max_iter,
+        max_trials=max_trials,
     )
     return engine, objective
 

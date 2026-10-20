@@ -316,8 +316,8 @@ _SOLVER_IDS = {
 _CALIBRATION_TOML = """
 [calibration]
 method = "bisection"
-max_iter = 20
-tolerance = {rel_tol!r}
+max_trials = 20
+precision = {rel_tol!r}
 save_runs = "none"
 
 [calibration.method_options]

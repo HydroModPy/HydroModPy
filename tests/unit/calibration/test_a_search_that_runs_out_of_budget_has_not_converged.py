@@ -2,7 +2,7 @@
 
 The root search counts its evaluations before the first solve: its sweep, one
 halving per step down to the tolerance, two evaluations per bracket expansion.
-``max_iter = "auto"`` budgets the worst case, a declared budget below the
+``max_trials = "auto"`` budgets the worst case, a declared budget below the
 nominal case is refused, one below the worst case is announced, and a budget
 that still runs out gets exactly the halvings left, once. An engine that cannot
 count gets no extension at all. A search that did not meet its rule says so, the
@@ -63,7 +63,7 @@ NANCON_BOUNDS = (1e-7, 1e-3)
 
 
 def _log_space(lower: float = 1.0, upper: float = 1.0e3) -> ParameterSpace:
-    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, transform="log")])
+    return ParameterSpace([CalibParameter(name="K", lower=lower, upper=upper, search_space="log")])
 
 
 def _root_at(root: float, calls: list[int] | None = None):
@@ -88,9 +88,9 @@ def _nancon(**kwargs) -> BisectionAdapter:
     return BisectionAdapter(_log_space(*NANCON_BOUNDS), **kwargs)
 
 
-def _run(adapter: BisectionAdapter, root: float, max_iter: int | str):
+def _run(adapter: BisectionAdapter, root: float, max_trials: int | str):
     return CalibrationEngine(
-        space=adapter.space, optimizer=adapter, evaluator=_root_at(root), max_iter=max_iter
+        space=adapter.space, optimizer=adapter, evaluator=_root_at(root), max_trials=max_trials
     ).run()
 
 
@@ -174,7 +174,7 @@ def test_auto_budgets_the_worst_case_of_a_counting_engine() -> None:
     adapter = _nancon()
 
     assert resolve_budget(adapter, AUTO_BUDGET) == 23
-    assert _run(adapter, 2.09e-4, AUTO_BUDGET).max_iter == 23
+    assert _run(adapter, 2.09e-4, AUTO_BUDGET).max_trials == 23
 
 
 def test_auto_gives_an_engine_that_cannot_count_its_usual_hundred() -> None:
@@ -200,14 +200,14 @@ def test_a_budget_below_the_nominal_count_is_refused_before_the_first_solve() ->
     adapter = _nancon()
     calls: list[int] = []
     engine = CalibrationEngine(
-        space=adapter.space, optimizer=adapter, evaluator=_root_at(2.09e-4, calls), max_iter=10
+        space=adapter.space, optimizer=adapter, evaluator=_root_at(2.09e-4, calls), max_trials=10
     )
 
     with pytest.raises(OptimizerError) as caught:
         engine.run()
 
     assert calls == []
-    assert "max_iter = 10 is below the 15 evaluations" in str(caught.value)
+    assert "max_trials = 10 is below the 15 evaluations" in str(caught.value)
     assert '"auto" (23 here' in str(caught.value)
 
 
@@ -216,7 +216,7 @@ def test_a_budget_below_the_worst_case_is_announced_with_what_it_covers(caplog) 
         session = _run(_nancon(), 2.09e-4, 18)
 
     assert session.converged
-    assert "max_iter = 18 covers 1 bracket expansion(s) of the 4" in caplog.text
+    assert "max_trials = 18 covers 1 bracket expansion(s) of the 4" in caplog.text
     assert "the worst case needs 23" in caplog.text
 
 
@@ -250,7 +250,7 @@ def test_a_budget_two_halvings_short_is_granted_exactly_two(caplog) -> None:
         session = _run(_nancon(), 3e-3, 15)
 
     assert session.converged
-    assert session.max_iter == 15
+    assert session.max_trials == 15
     assert session.extension == 2
     assert len(session.history) == 17
     assert "needs 2 more to meet its stopping rule (rel_tol). Granting exactly those 2" in (
@@ -286,7 +286,7 @@ class _FarFromItsRule:
     """A judged engine that never converges and says it still needs fifty solves."""
 
     name = "far"
-    traits = EngineTraits(tolerance_option="xatol")
+    traits = EngineTraits(precision_option="xatol")
     evaluations_remaining = 50
 
     def __init__(self) -> None:
@@ -309,7 +309,7 @@ class _FarFromItsRule:
 def test_a_need_beyond_half_the_budget_is_not_granted(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         session = CalibrationEngine(
-            space=_log_space(), optimizer=_FarFromItsRule(), evaluator=_root_at(50.0), max_iter=10
+            space=_log_space(), optimizer=_FarFromItsRule(), evaluator=_root_at(50.0), max_trials=10
         ).run()
 
     assert not session.converged
@@ -327,7 +327,7 @@ def test_an_engine_with_a_rule_names_it_and_a_budget_engine_does_not() -> None:
 def test_a_budget_engine_converges_when_it_spends_its_budget(caplog) -> None:
     optimizer = build_optimizer("random_search", _log_space(), seed=3)
     engine = CalibrationEngine(
-        space=_log_space(), optimizer=optimizer, evaluator=_root_at(50.0), max_iter=4
+        space=_log_space(), optimizer=optimizer, evaluator=_root_at(50.0), max_trials=4
     )
     with caplog.at_level(logging.WARNING):
         session = engine.run()
@@ -357,8 +357,8 @@ def test_the_protocol_writes_auto_for_its_steady_stage() -> None:
         "calibration": {
             "protocol": "matching_hydrographic_network",
             "parameters": {
-                "K": {"bounds": list(NANCON_BOUNDS), "transform": "log"},
-                "Sy": {"bounds": [1e-4, 0.5], "transform": "log"},
+                "K": {"bounds": list(NANCON_BOUNDS), "search_space": "log"},
+                "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
             "outputs": {
                 "seepage_network": {"support": "network", "stream_geometry_path": "n.gpkg"}
@@ -368,18 +368,21 @@ def test_the_protocol_writes_auto_for_its_steady_stage() -> None:
 
     steady, transient = expand_calibration_protocol(doc)["calibration"]["phases"]
 
-    assert (steady["method"], steady["max_iter"]) == ("bisection", AUTO_BUDGET)
-    assert transient["max_iter"] == 120
+    assert (steady["method"], steady["max_trials"]) == ("bisection", AUTO_BUDGET)
+    assert transient["max_trials"] == 120
 
 
 def test_the_budget_fields_take_auto_or_a_positive_integer() -> None:
-    assert MatchingHydrographicNetworkOptions(name="matching_hydrographic_network").steady_max_iter
-    assert CalibPhaseDecl(name="p", parameters=["K"]).max_iter == AUTO_BUDGET
-    assert CalibPhaseDecl(name="p", parameters=["K"], max_iter=12).max_iter == 12
+    assert MatchingHydrographicNetworkOptions(
+        name="matching_hydrographic_network"
+    ).steady_max_trials
+    assert CalibPhaseDecl(name="p", parameters=["K"]).max_trials is None
+    assert CalibPhaseDecl(name="p", parameters=["K"], max_trials="auto").max_trials == AUTO_BUDGET
+    assert CalibPhaseDecl(name="p", parameters=["K"], max_trials=12).max_trials == 12
     with pytest.raises(ValueError):
-        CalibPhaseDecl(name="p", parameters=["K"], max_iter=0)
+        CalibPhaseDecl(name="p", parameters=["K"], max_trials=0)
     with pytest.raises(ValueError):
-        CalibPhaseDecl(name="p", parameters=["K"], max_iter="many")
+        CalibPhaseDecl(name="p", parameters=["K"], max_trials="many")
 
 
 _HEAD = """
@@ -397,12 +400,12 @@ station_ids = ["G1"]
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 units = "m/s"
 
 [calibration.parameters.Sy]
 bounds = [1e-4, 0.5]
-transform = "log"
+search_space = "log"
 units = "-"
 
 [calibration.outputs.seepage_network]
@@ -425,14 +428,14 @@ def test_the_preflight_refuses_a_steady_budget_below_fifteen(tmp_path: Path) -> 
         """
         [calibration.protocol]
         name = "matching_hydrographic_network"
-        steady_max_iter = 10
+        steady_max_trials = 10
         """,
     )
 
     assert [finding.severity for finding in findings] == ["error"]
     assert findings[0].where == "[[calibration.phases]] 'steady_conductivity'"
-    assert "max_iter = 10 is below the 15 evaluations" in findings[0].detail
-    assert "steady_max_iter" in findings[0].detail
+    assert "max_trials = 10 is below the 15 evaluations" in findings[0].detail
+    assert "steady_max_trials" in findings[0].detail
 
 
 def test_the_preflight_announces_a_steady_budget_below_the_worst_case(tmp_path: Path) -> None:
@@ -441,7 +444,7 @@ def test_the_preflight_announces_a_steady_budget_below_the_worst_case(tmp_path: 
         """
         [calibration.protocol]
         name = "matching_hydrographic_network"
-        steady_max_iter = 18
+        steady_max_trials = 18
         """,
     )
 
@@ -456,8 +459,8 @@ def test_the_preflight_reads_the_stage_options_into_the_count(tmp_path: Path) ->
         """
         [calibration.protocol]
         name = "matching_hydrographic_network"
-        steady_max_iter = 16
-        steady_tolerance = 0.001
+        steady_max_trials = 16
+        steady_precision = 0.001
         """,
     )
 
@@ -474,7 +477,7 @@ def test_the_preflight_passes_auto_and_a_budget_that_covers_the_worst_case(
         f"""
         [calibration.protocol]
         name = "matching_hydrographic_network"
-        steady_max_iter = {budget}
+        steady_max_trials = {budget}
         """,
     )
 
@@ -489,8 +492,8 @@ def test_the_preflight_leaves_an_engine_that_cannot_count_alone(tmp_path: Path) 
         name = "matching_hydrographic_network"
         steady_method = "scipy_nelder_mead"
         steady_metric = "distance_mean"
-        steady_max_iter = 3
-        transient_max_iter = 2
+        steady_max_trials = 3
+        transient_max_trials = 2
         """,
     )
 
@@ -508,7 +511,7 @@ def test_the_report_records_the_verdict_and_the_open_bracket() -> None:
         space=adapter.space,
         optimizer=adapter,
         evaluator=_root_at(5e-11),
-        max_iter=16,
+        max_trials=16,
     ).run()
 
     extra = _search_outcome_extra(session)
@@ -518,7 +521,7 @@ def test_the_report_records_the_verdict_and_the_open_bracket() -> None:
     assert extra["search"] == {
         "converged": True,
         "stopping_rule": "rel_tol",
-        "max_iter": 16,
+        "max_trials": 16,
         "extension": 7,
         "n_evaluations": 23,
     }
@@ -533,7 +536,7 @@ def test_the_report_publishes_an_open_bracket_when_nothing_was_granted(caplog) -
     assert adapter.counted_budget.nominal == 14
     with caplog.at_level(logging.WARNING):
         session = CalibrationEngine(
-            space=adapter.space, optimizer=adapter, evaluator=_root_at(4e-3), max_iter=14
+            space=adapter.space, optimizer=adapter, evaluator=_root_at(4e-3), max_trials=14
         ).run()
 
     extra = _search_outcome_extra(session)
@@ -541,7 +544,7 @@ def test_the_report_publishes_an_open_bracket_when_nothing_was_granted(caplog) -
     assert extra["search"] == {
         "converged": False,
         "stopping_rule": "rel_tol",
-        "max_iter": 14,
+        "max_trials": 14,
         "extension": 0,
         "n_evaluations": 14,
     }
@@ -568,7 +571,7 @@ def test_the_report_publishes_the_closed_bracket_in_physical_units() -> None:
 def test_a_minimiser_publishes_no_bracket() -> None:
     optimizer = build_optimizer("random_search", _log_space(), seed=3)
     session = CalibrationEngine(
-        space=_log_space(), optimizer=optimizer, evaluator=_root_at(50.0), max_iter=3
+        space=_log_space(), optimizer=optimizer, evaluator=_root_at(50.0), max_trials=3
     ).run()
 
     extra = _search_outcome_extra(session)
@@ -584,7 +587,7 @@ def _report(*, converged: bool | None) -> CalibrationReport:
         extra["search"] = {
             "converged": converged,
             "stopping_rule": "xatol",
-            "max_iter": 120,
+            "max_trials": 120,
             "extension": 0,
             "n_evaluations": 120,
         }
@@ -628,8 +631,8 @@ def test_a_phase_built_on_an_unconverged_one_is_refused() -> None:
         _require_result_for_dependents(decl, _report(converged=False), remaining)
 
     message = str(caught.value)
-    assert "max_iter = 120, plus 0 granted once" in message
-    assert "Raise max_iter: a re-run of the same file replays" in message
+    assert "max_trials = 120, plus 0 granted once" in message
+    assert "Raise max_trials: a re-run of the same file replays" in message
     assert "['transient']" in message
 
 
@@ -638,7 +641,7 @@ def _session_that(*, converged: bool) -> SimpleNamespace:
         converged=converged,
         stopping_rule="rel_tol",
         history=[None] * 17,
-        max_iter=15,
+        max_trials=15,
         extension=2,
     )
 
@@ -648,7 +651,7 @@ def test_an_unconverged_search_closes_its_session_as_partial() -> None:
 
     assert status == "partial"
     assert error == (
-        "stopping rule (rel_tol) not met after 17 evaluations (max_iter = 15, extension = 2)"
+        "stopping rule (rel_tol) not met after 17 evaluations (max_trials = 15, extension = 2)"
     )
 
 
@@ -671,8 +674,8 @@ def test_a_converged_search_keeps_the_status_its_trials_earned() -> None:
 def _two_dimensional_space() -> ParameterSpace:
     return ParameterSpace(
         [
-            CalibParameter(name="K", lower=1.0, upper=1.0e3, transform="log"),
-            CalibParameter(name="S", lower=1.0, upper=1.0e3, transform="log"),
+            CalibParameter(name="K", lower=1.0, upper=1.0e3, search_space="log"),
+            CalibParameter(name="S", lower=1.0, upper=1.0e3, search_space="log"),
         ]
     )
 
@@ -703,7 +706,9 @@ def _bowl(sugg: ParamSuggestion) -> EvaluationResult:
 def test_a_simplex_that_spends_its_budget_gets_no_extension(caplog) -> None:
     space = _two_dimensional_space()
     optimizer = ScipyNelderMead(space, maxiter=1000, maxfev=1000, xatol=1e-12, fatol=1e-14)
-    engine = CalibrationEngine(space=space, optimizer=optimizer, evaluator=_rosenbrock, max_iter=20)
+    engine = CalibrationEngine(
+        space=space, optimizer=optimizer, evaluator=_rosenbrock, max_trials=20
+    )
     with caplog.at_level(logging.WARNING):
         session = engine.run()
 
@@ -718,7 +723,7 @@ def test_a_simplex_that_spends_its_budget_gets_no_extension(caplog) -> None:
 def test_a_simplex_that_meets_its_tolerance_converges() -> None:
     space = _two_dimensional_space()
     optimizer = ScipyNelderMead(space, maxiter=500, maxfev=500)
-    engine = CalibrationEngine(space=space, optimizer=optimizer, evaluator=_bowl, max_iter=200)
+    engine = CalibrationEngine(space=space, optimizer=optimizer, evaluator=_bowl, max_trials=200)
 
     session = engine.run()
 
@@ -733,7 +738,7 @@ def test_a_simplex_stopped_by_its_own_evaluation_cap_has_not_converged() -> None
     space = _two_dimensional_space()
     optimizer = ScipyNelderMead(space, xatol=1e-12, fatol=1e-14, maxfev=100)
     engine = CalibrationEngine(
-        space=space, optimizer=optimizer, evaluator=_rosenbrock, max_iter=200
+        space=space, optimizer=optimizer, evaluator=_rosenbrock, max_trials=200
     )
 
     session = engine.run()

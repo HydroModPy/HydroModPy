@@ -260,8 +260,8 @@ outlet
 
 percent bias
   Volume gap between the simulated flow and the measured flow, as a percentage of the measured
-  volume. Abbreviated PBIAS. It is positive when the model underestimates, that is when it is
-  too dry, and negative when it overestimates.
+  volume. Abbreviated PBIAS. It has the sign of the mean error, simulated minus measured: positive
+  when the model overestimates, that is when it is too wet, and negative when it underestimates.
 
 perennial flow
   A stream that flows all year. On the intermittence map: a cell that flows at every time step

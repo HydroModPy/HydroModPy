@@ -1,13 +1,12 @@
-"""B11: the protocol's block route scores the same as the old single-metric one.
+"""B11: the protocol's block costs what ``variable`` + ``objective`` costs.
 
 Before B11 the transient stage of ``matching_hydrographic_network`` wrote its
-cost as ``variable`` + ``objective``, read by :class:`StationScorer`. After
-B11 it writes a ``point`` output that ``observes`` the gauge and a block,
-read by :class:`ObservableScorer` / ``ConfigBlockObjective``. Both call the
-same low-level alignment (``align_observed_simulated``) and the same
-registered criterion (``hydromodpy.calibration.criteria.series``), so the
-same simulated series against the same observed record has to cost the same
-on both routes.
+cost as ``variable`` + ``objective``. After B11 it writes a ``point`` output
+that ``observes`` the gauge and a block. Since m10 the one-line form is itself
+read as an implicit output and block (:class:`StationBlockScorer`), so both
+reach the same :class:`ObservableScorer`, the same alignment and the same
+registered criterion: the same simulated series against the same observed
+record has to cost the same either way.
 
 Measured on a real Nancon run before this test was written: bit-identical,
 0.07916512462058523 both ways (example 04, session
@@ -22,7 +21,10 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputPoint
-from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer, StationScorer
+from hydromodpy.calibration.metrics.observable_scoring import (
+    ObservableScorer,
+    StationBlockScorer,
+)
 from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.core.contracts.observables import ObservableResult
 from hydromodpy.core.time.period_aggregation import period_edges
@@ -35,7 +37,7 @@ SIMULATED = (OBSERVED * 0.8 + 0.1).to_numpy()
 
 
 def test_the_block_route_and_the_single_metric_route_cost_the_same() -> None:
-    single = StationScorer(
+    single = StationBlockScorer(
         "discharge",
         "nse_log",
         [ObservedSeries(station_id=STATION, variable="discharge", series=OBSERVED)],
@@ -64,7 +66,7 @@ def test_the_block_route_and_the_single_metric_route_cost_the_same() -> None:
     )
 
     assert block_cost == single_cost
-    assert single_components[f"cost:nse_log@{STATION}"] == single_cost
+    assert single_components[f"nse_log@{STATION}.raw_cost"] == single_cost
     assert block_components["hydrograph.raw_cost"] == single_cost
     # One edge sample does not close a period on this boundary set; both
     # routes read the same alignment function and agree on how many do.

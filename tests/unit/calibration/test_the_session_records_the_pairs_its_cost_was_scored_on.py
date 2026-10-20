@@ -64,7 +64,7 @@ end_datetime = 2020-12-31
 
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 evaluator = "test_daily_scored_set_probe"
 use_cache = false
 save_runs = "none"
@@ -73,7 +73,7 @@ scoring_window = { start = "2016-01-01" }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 
 [calibration.outputs.net]

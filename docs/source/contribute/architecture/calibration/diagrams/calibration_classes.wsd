@@ -12,7 +12,8 @@ package "hydromodpy.calibration.optim" {
   class CalibParameter {
     +name
     +bounds
-    +transform
+    +search_space
+    +sampling
   }
 
   interface Optimizer {
@@ -41,7 +42,7 @@ package "hydromodpy.calibration.optim" {
     +space
     +optimizer
     +evaluator
-    +max_iter
+    +max_trials
     +cache
     +run() : CalibrationSession
   }

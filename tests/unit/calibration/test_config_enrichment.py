@@ -163,7 +163,7 @@ class TestCalibObjectiveBlockDecl:
         assert decl.metric == "rmse"
         assert decl.weight == 1.0
         assert decl.normalize_cost is False
-        assert decl.transform == "identity"
+        assert decl.cost_transform == "identity"
 
     def test_weight_must_be_positive(self):
         with pytest.raises(ValidationError, match="weight"):
@@ -172,16 +172,16 @@ class TestCalibObjectiveBlockDecl:
             )
 
     @pytest.mark.parametrize("transform", ["identity", "log", "inverse"])
-    def test_accepts_supported_transforms(self, transform: str):
+    def test_accepts_supported_cost_transforms(self, transform: str):
         decl = CalibObjectiveBlockDecl.model_validate(
-            {"name": "b", "uses_outputs": ["x"], "transform": transform}
+            {"name": "b", "uses_outputs": ["x"], "cost_transform": transform}
         )
-        assert decl.transform == transform
+        assert decl.cost_transform == transform
 
-    def test_rejects_unsupported_transform(self):
-        with pytest.raises(ValidationError, match="transform"):
+    def test_rejects_unsupported_cost_transform(self):
+        with pytest.raises(ValidationError, match="cost_transform"):
             CalibObjectiveBlockDecl.model_validate(
-                {"name": "b", "uses_outputs": ["x"], "transform": "power"}
+                {"name": "b", "uses_outputs": ["x"], "cost_transform": "power"}
             )
 
     def test_rejects_extra_keys(self):
@@ -201,7 +201,7 @@ class TestCalibrationConfigEnriched:
         cfg = CalibrationConfig.model_validate(
             {
                 "method": "cma_es",
-                "max_iter": 80,
+                "max_trials": 80,
                 "objective": "rmse",
                 "variable": "head",
                 "outputs": {
@@ -328,7 +328,7 @@ class TestEnrichedTomlRoundTrip:
         toml_src = """
         [calibration]
         method   = "cma_es"
-        max_iter = 80
+        max_trials = 80
         seed     = 42
         objective = "rmse"
         variable = "head"
@@ -337,7 +337,7 @@ class TestEnrichedTomlRoundTrip:
 
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
-        transform = "log"
+        search_space = "log"
         target = "flow.param.K.field.value"
         mode   = "replace"
 

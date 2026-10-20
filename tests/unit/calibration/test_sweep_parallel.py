@@ -75,7 +75,7 @@ def test_calibration_engine_parallel_four_trials() -> None:
         space=space,
         optimizer=optimizer,
         evaluator=_constant_evaluator(0.0),
-        max_iter=4,
+        max_trials=4,
         batch_size=4,
         parallel=4,
     )
@@ -112,7 +112,7 @@ def test_calibration_engine_parallel_uses_threads() -> None:
         space=_unit_space(),
         optimizer=optimizer,
         evaluator=_evaluator,
-        max_iter=4,
+        max_trials=4,
         batch_size=4,
         parallel=4,
     )
@@ -139,7 +139,7 @@ def test_calibration_engine_parallel_one_is_sequential() -> None:
         space=_unit_space(),
         optimizer=optimizer,
         evaluator=_evaluator,
-        max_iter=4,
+        max_trials=4,
         batch_size=4,
         parallel=1,
     )

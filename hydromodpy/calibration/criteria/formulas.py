@@ -58,6 +58,9 @@ METRIC_FORMULAS: dict[str, MetricFormula] = {
         reads="Correlation, variability and bias in one number.",
         where=r"r = \mathrm{corr}(s, o),\quad \alpha = \sigma_s / \sigma_o,\quad "
         r"\beta = \textstyle\sum_t s_t \big/ \sum_t o_t",
+        note="The 2009 form of Gupta et al.: alpha is the ratio of the standard deviations "
+        "and beta the ratio of the sums. The 2012 form, which takes alpha as a ratio of "
+        "coefficients of variation, is not used and scores the same series differently.",
     ),
     "nse_delta": MetricFormula(
         score=r"\mathrm{NSE}(\Delta s,\ \Delta o)",

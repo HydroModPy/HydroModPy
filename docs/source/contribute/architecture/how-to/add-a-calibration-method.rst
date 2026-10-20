@@ -34,7 +34,7 @@ configuration surface. The Protocol, ``Optimizer``, lives in
        def converged(self) -> bool: ...
 
 ``ParameterSpace`` aggregates the ``[calibration.parameters.*]``
-declarations (bounds, transform, prior, dotted path).
+declarations (bounds, search space, sampling, dotted path).
 ``ParamSuggestion`` carries one parameter point;
 ``EvaluationResult`` carries the matching scalar objective plus
 metadata. ``ask`` proposes one or more points at once; ``tell`` feeds back
@@ -54,6 +54,7 @@ Skeleton:
 .. code-block:: python
 
    from hydromodpy.calibration.optim.optimizer import (
+       EngineTraits,
        EvaluationResult,
        ParamSuggestion,
        register_optimizer,
@@ -64,15 +65,16 @@ Skeleton:
    @register_optimizer("mymethod")
    class MyMethodOptimizer:
        name = "mymethod"
+       traits = EngineTraits(takes_max_trials=True)
 
-       def __init__(self, space: ParameterSpace, *, max_iter: int = 100) -> None:
+       def __init__(self, space: ParameterSpace, *, max_trials: int = 100) -> None:
            self._space = space
-           self._max_iter = max_iter
+           self._max_trials = max_trials
            self._iter = 0
            self._best: EvaluationResult | None = None
 
        def ask(self, n: int = 1) -> list[ParamSuggestion]:
-           # propose n points in the internal sampling space
+           # propose n points in the internal search space
            ...
 
        def tell(self, results: list[EvaluationResult]) -> None:
@@ -88,7 +90,7 @@ Skeleton:
            return self._best
 
        def converged(self) -> bool:
-           return self._iter >= self._max_iter
+           return self._iter >= self._max_trials
 
 Registration
 ------------
@@ -140,27 +142,28 @@ before anything solves.
    class MyMethodOptimizer:
        traits = EngineTraits(
            max_parameters=1,            # None means any number
-           required_transform="log",    # the variable the stopping rule is written in
+           required_search_space="log",  # the variable the stopping rule is written in
            needs_signed_residual=True,  # the criterion has to publish one
            supports_parallel=False,
-           tolerance_option="rel_tol",       # this engine's own stopping option
-           tolerance_reads="relative_value",  # how that option reads its number
+           takes_max_trials=True,       # built knowing the budget of the search
+           precision_option="rel_tol",       # this engine's own stopping option
+           precision_reads="relative_value",  # how that option reads its number
        )
 
-The last two are what lets a file state its precision once. ``calibration.tolerance``
+The last two are what lets a file state its precision once. ``calibration.precision``
 is a relative precision on the parameter, and it is translated into whichever
 option the engine names:
 
-``tolerance_reads="relative_value"``
+``precision_reads="relative_value"``
    the option is already a relative width on the parameter's own value, so the
    number passes through unconverted. Declare it only on an engine that also
-   declares ``required_transform="log"``, where a ratio and a width in the search
+   declares ``required_search_space="log"``, where a ratio and a width in the search
    variable are the same statement.
 
-``tolerance_reads="search_width"``
+``precision_reads="search_width"``
    the option is an absolute width in the variable the search walks, so the
-   precision is converted into that variable: ``log10(1 + tolerance)`` decades on
-   a log-transformed parameter, a fraction of the declared interval on any other,
+   precision is converted into that variable: ``log10(1 + precision)`` decades on
+   a parameter searched in log space, a fraction of the declared interval on any other,
    and the strictest of them when the search moves several.
 
 An engine that stops on its evaluation budget, or on the spread of its own
@@ -168,6 +171,13 @@ population, declares neither and leaves them ``None``. A precision handed to it
 is then refused with a message naming what does bound it, rather than accepted
 and dropped: a run reporting that it honoured a request it never read is worse
 than a run refusing the request.
+
+The budget is the same kind of statement. ``calibration.max_trials`` is the one
+number that bounds a search, and no engine option counts evaluations of its own:
+an engine that sizes its plan on the budget (an initial design, a restart
+schedule) declares ``takes_max_trials=True`` and receives it as its
+``max_trials`` constructor argument, ``"auto"`` resolved. An option that counts
+something else, such as the length of a chain, keeps its own name.
 
 Everything a stopping rule needs beyond that precision stays in
 ``method_options``, in the engine's own units, which is how a published call is
@@ -192,15 +202,15 @@ engine may be handed.
 
 ``accepts_a_start_point``
    whether the engine takes ``start_at``, a coordinate per calibrated parameter in
-   transformed space. Only ``scipy_nelder_mead`` and ``cma_es`` do, and they are
+   search space. Only ``scipy_nelder_mead`` and ``cma_es`` do, and they are
    exactly the engines a new seed cannot move: the simplex is built around
-   ``transformed_prior_center(space)`` and would otherwise return the same answer
+   ``search_space_center(space)`` and would otherwise return the same answer
    every time. Accept the keyword and begin there instead of at your own default.
 
 The first restart is left with the engine's own start and the file's own seed, so
 it is the single search it replaces: the answer a file already published stays in
 the set and the others are added around it. The remaining starts are drawn from the
-declared priors with a seeded generator, so a rerun draws the same set.
+declared sampling with a seeded generator, so a rerun draws the same set.
 
 The constraint the method obeys is stated by the project: a calibration always
 reports one manipulable value, and an interval sits beside it, never in its place.
@@ -259,21 +269,21 @@ optional never breaks the other methods.
            "(pip install -e \".[calibration]\")"
        ) from exc
 
-Sampling-space coordinates
---------------------------
+Search-space coordinates
+------------------------
 
-The engine asks the optimizer in the **sampling space** declared by
-``[calibration.parameters.*].transform`` (``identity``, ``log``,
+The engine asks the optimizer in the **search space** declared by
+``[calibration.parameters.*].search_space`` (``identity``, ``log``,
 ``logit``). Samples are converted back to physical units before
 injection. Implementations should sample uniformly in
-``[0, 1]^n`` or in the configured prior distribution; the engine
-takes care of the inverse transform.
+``[0, 1]^n`` or in the configured sampling distribution; the engine
+takes care of the inverse mapping.
 
 Distribution-valued methods
 ---------------------------
 
-Methods that produce a posterior (``da_mh_gp``, ``gp_mapping``) expose
-the samples through the ``calibration_posterior`` figure. Make sure
+Methods that keep a chain of visited states (``da_mh_gp``, ``gp_mapping``)
+expose the samples through the ``calibration_posterior`` figure. Make sure
 your adapter writes the per-iteration trace through ``tell`` so the
 post-loop figure registry can plot it.
 

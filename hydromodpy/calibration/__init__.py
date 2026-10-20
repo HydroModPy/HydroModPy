@@ -23,8 +23,6 @@ from hydromodpy.calibration.optim.objective import (
     ConfigBlockObjective,
     Objective,
     ObjectiveValue,
-    ObservationSet,
-    ScalarObjective,
     SimulationOutput,
     build_objective_from_config,
 )
@@ -60,9 +58,7 @@ __all__ = [
     "Optimizer",
     "Objective",
     "ObjectiveValue",
-    "ObservationSet",
     "SimulationOutput",
-    "ScalarObjective",
     "CompositeObjective",
     "ConfigBlockObjective",
     "build_objective_from_config",

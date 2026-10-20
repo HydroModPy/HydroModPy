@@ -32,11 +32,11 @@ SY_CALIBRATED = 0.07
 BASE = """
 [calibration]
 method = "grid"
-max_iter = 4
+max_trials = 4
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
@@ -75,7 +75,7 @@ TWO_PHASES = """
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 outputs = ["q"]
 objective_blocks = ["q_block"]
@@ -83,7 +83,7 @@ objective_blocks = ["q_block"]
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 parameters = ["Sy"]
 objective_blocks = ["h_block"]
 depends_on = "steady_k"
@@ -93,7 +93,7 @@ NO_FREEZE = """
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 freeze_on_success = false
@@ -101,7 +101,7 @@ freeze_on_success = false
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 parameters = ["Sy", "K"]
 objective_blocks = ["h_block"]
 depends_on = "steady_k"
@@ -115,14 +115,14 @@ INDEPENDENT = """
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 objective_blocks = ["h_block"]
 parameters = ["Sy"]
 """
@@ -134,14 +134,14 @@ BAD_SECOND_PHASE = """
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 objective_blocks = ["h_block"]
 parameters = ["Sy"]
 method_options = { rel_tol = 0.01 }
@@ -240,7 +240,7 @@ class FakeRunner:
         return CalibrationReport(
             session_id=persistence.descriptor.session_id,
             method=cfg.method,
-            n_iterations=cfg.max_iter,
+            n_iterations=cfg.max_trials,
             best_objective=self.best_objective,
             best_sim_id=None,
             duration_s=1.0,
@@ -276,8 +276,8 @@ def test_each_phase_runs_the_search_it_declares(tmp_path, runner) -> None:
     run_staged_calibration(_write(tmp_path))
 
     steady, transient = (call.cfg for call in runner.calls)
-    assert (steady.method, steady.max_iter) == ("bisection", 12)
-    assert (transient.method, transient.max_iter) == ("grid", 30)
+    assert (steady.method, steady.max_trials) == ("bisection", 12)
+    assert (transient.method, transient.max_trials) == ("grid", 30)
     assert list(steady.parameters) == ["K"]
     assert list(transient.parameters) == ["Sy"]
     assert runner.calls[0].space.names == ("K",)
@@ -609,7 +609,7 @@ NELDER_PHASES = """
 [[calibration.phases]]
 name = "steady_k"
 method = "scipy_nelder_mead"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 outputs = ["q"]
@@ -678,7 +678,7 @@ def test_a_phase_may_ask_for_restarts_the_section_does_not(tmp_path, runner) -> 
 [[calibration.phases]]
 name = "steady_k"
 method = "scipy_nelder_mead"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["q_block"]
 uncertainty = { method = "multistart", restarts = 3 }
@@ -686,7 +686,7 @@ uncertainty = { method = "multistart", restarts = 3 }
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 parameters = ["Sy"]
 objective_blocks = ["h_block"]
 depends_on = "steady_k"
@@ -703,12 +703,11 @@ depends_on = "steady_k"
 def test_each_phase_hands_the_search_its_own_width(tmp_path, runner) -> None:
     section = """
 [calibration.uncertainty]
-mode = "absolute"
-tolerance = 0.5
+cost_margin = "20%"
 """
     phases = TWO_PHASES.replace(
         'depends_on = "steady_k"',
-        'depends_on = "steady_k"\nuncertainty = { mode = "relative", tolerance = 0.1 }',
+        'depends_on = "steady_k"\nuncertainty = { cost_margin = "10%" }',
     )
     path = tmp_path / "calibration.toml"
     path.write_text(BASE + section + phases, encoding="utf-8")
@@ -716,10 +715,18 @@ tolerance = 0.5
     run_staged_calibration(path)
 
     steady, transient = (call.interval_width for call in runner.calls)
-    assert (steady.tolerance, steady.mode, steady.source) == (0.5, "absolute", "section")
-    assert (transient.tolerance, transient.mode, transient.source) == (0.1, "relative", "phase")
+    assert (steady.margin, steady.kind, steady.source) == (
+        pytest.approx(0.2),
+        "relative",
+        "section",
+    )
+    assert (transient.margin, transient.kind, transient.source) == (
+        pytest.approx(0.1),
+        "relative",
+        "phase",
+    )
     # The phase configuration carries the same keys, for the session and the report.
-    assert runner.calls[1].cfg.uncertainty.tolerance == 0.1
+    assert runner.calls[1].cfg.uncertainty.cost_margin == "10%"
 
 
 # -- linearized uncertainty ---------------------------------------------------
@@ -849,7 +856,7 @@ def test_a_single_metric_phase_keeps_its_report_and_names_why_no_width_is_attach
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -894,7 +901,7 @@ uses_outputs = ["net"]
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 objective_blocks = ["net_block"]
 """
@@ -995,7 +1002,7 @@ def test_a_reused_single_metric_phase_gets_the_structural_note_not_the_reuse_one
 [[calibration.phases]]
 name = "steady_k"
 method = "bisection"
-max_iter = 12
+max_trials = 12
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -1003,7 +1010,7 @@ objective = "nse"
 [[calibration.phases]]
 name = "transient_sy"
 method = "grid"
-max_iter = 30
+max_trials = 30
 parameters = ["Sy"]
 objective_blocks = ["h_block"]
 depends_on = "steady_k"

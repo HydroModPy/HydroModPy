@@ -21,7 +21,7 @@ chronicle = build_noisy_groundwater_chronicle()  # see [chronicle] in the draft
 result = calibrate_groundwater(
     method="optuna",
     chronicle=chronicle,
-    max_iter=50,
+    max_trials=50,
     seed=42,
     bounds={"Kam": [1.0, 10.0]},  # see [calibration.parameters] in the draft
 )

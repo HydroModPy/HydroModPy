@@ -707,10 +707,15 @@ class RunStore:
         *,
         variable: str = "head",
         n_samples: int | None = None,
+        n_clipped: int | None = None,
         period_start: Any | None = None,
         period_end: Any | None = None,
     ) -> None:
-        """Record one metric in the facts and in ``metrics.parquet``."""
+        """Record one metric in the facts and in ``metrics.parquet``.
+
+        *n_clipped* is the number of negative values a log-scale score clipped
+        to zero; leave it unset on a metric that never clips.
+        """
         sid = self._check_sim(sim_id)
         start = coerce_timestamp_utc(period_start)
         end = coerce_timestamp_utc(period_end)
@@ -723,6 +728,7 @@ class RunStore:
                 nse_window_start=None if start is None else start.date(),
                 nse_window_end=None if end is None else end.date(),
                 nse_n=None if n_samples is None else int(n_samples),
+                n_clipped=None if n_clipped is None else int(n_clipped),
             )
         )
         if not self._persistence.save_parquet:
@@ -737,6 +743,7 @@ class RunStore:
                     "metric": metric_name,
                     "value": float(value),
                     "n_samples": None if n_samples is None else int(n_samples),
+                    "n_clipped": None if n_clipped is None else int(n_clipped),
                     "valid_from": pd.Timestamp.now(tz="UTC"),
                     "period_start": period_start,
                     "period_end": period_end,

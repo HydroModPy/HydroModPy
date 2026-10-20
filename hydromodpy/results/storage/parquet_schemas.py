@@ -276,6 +276,15 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
             metadata=_field_meta(description="Number of samples used"),
         ),
         pa.field(
+            "n_clipped",
+            pa.int64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Negative values clipped to zero before a log-scale score; "
+                "null on a metric that never clips"
+            ),
+        ),
+        pa.field(
             "valid_from",
             pa.timestamp("ms", tz="UTC"),
             nullable=False,

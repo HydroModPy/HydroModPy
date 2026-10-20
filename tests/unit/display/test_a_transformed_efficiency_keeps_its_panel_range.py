@@ -1,6 +1,6 @@
 """The fit panel of a transformed efficiency frames the values it draws.
 
-A block with a ``transform`` draws its cost, not its efficiency. The panel used
+A block with a ``cost_transform`` draws its cost, not its efficiency. The panel used
 to take its range from the efficiency (one minus the cost) and its "higher is
 better" from the metric alone, so the points fell off the axis under a label
 that read them the wrong way up.
@@ -34,7 +34,7 @@ def mpl():
 def _with_log_transform(run):
     session = run.calibration_sessions.iloc[0].to_dict()
     config = json.loads(session["config"])
-    config["objective_blocks"][0]["transform"] = "log"
+    config["objective_blocks"][0]["cost_transform"] = "log"
     run.calibration_sessions.loc[0, "config"] = json.dumps(config)
     return run
 

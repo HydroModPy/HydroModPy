@@ -1460,7 +1460,7 @@ symbols:
     pages: [notation]
   - id: kge
     symbol: \mathrm{KGE}
-    meaning: Kling-Gupta efficiency
+    meaning: Kling-Gupta efficiency, 2009 form
     unit: "-"
     set_by: "``kge``"
     group: scores

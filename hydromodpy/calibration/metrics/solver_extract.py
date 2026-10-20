@@ -54,12 +54,16 @@ from hydromodpy.core.stream_extent import (
     Bound,
     CalendarYears,
     calendar_years,
+    dry_steps,
     extent_masks,
     extent_step_problems,
+    flowing_steps,
+    parse_extent_duration,
     parse_visible_flow,
     yearly_flow_counts,
 )
 from hydromodpy.core.stream_network import build_simulated_network
+from hydromodpy.core.time import nominal_step_days
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.time.selection import TimeSelectionError
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
@@ -197,13 +201,13 @@ def observable_request_for_output(
                         "snap from: neither the loader nor the solver placed it."
                     )
             if cell is None and str(output.variable) == "discharge":
-                # The same fallback the single-metric route takes, and for the
+                # The same fallback the variable + objective producer takes, and for the
                 # same reason: a discharge station is deliberately not placed by
                 # its coordinate, so a project whose loader resolved no cell for
                 # it has the whole-catchment series and nothing else. That series
                 # is what an outlet gauge measures. Refusing here instead would
                 # leave the weighted-block route unable to score a gauge on any
-                # project the single-metric route scores fine, which is the
+                # project variable + objective scores fine, which is the
                 # opposite of the comparability this lookup exists for.
                 logger.info(
                     "Output %s scores station %s on the whole-catchment discharge: no cell "
@@ -218,7 +222,7 @@ def observable_request_for_output(
                     f"Output {name!r} is scored against station {station!r}, whose cell "
                     "the project could not resolve. A named station is located by its own "
                     "record, not by the coordinates written here, so that this output and "
-                    "the single-metric route read the same cell."
+                    "variable + objective read the same cell."
                 )
         else:
             xy = point_xy_from_output(output)
@@ -758,6 +762,7 @@ def _score_two_bounds(
     maps: NetworkMaps,
     time_bounds: Sequence[Any] | None,
     scoring_window: tuple[Any, Any] | None = None,
+    step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Score the yearly extent masks of a transient run against one or two maps.
 
@@ -773,6 +778,10 @@ def _score_two_bounds(
     diagnostic. With one bound the unsuffixed components carry it, as in one
     state; with two, only the suffixed ones exist and the pair holds both,
     each weighted.
+
+    The extent rules are durations. ``step_days`` is the run's nominal timestep:
+    the flowing duration is rounded up to whole timesteps (at least one), the dry
+    one down (at least none), and the scoring counts those timesteps.
     """
     geometry = maps.maximal
     stack = np.asarray(result.values)
@@ -784,16 +793,23 @@ def _score_two_bounds(
             "a steady phase in one state, without the extent table."
         )
     years = _scored_years(name, _timestep_edges(name, result, n_times, time_bounds), scoring_window)
+    if step_days is None:
+        raise ObjectiveError(
+            f"Output {name!r}: the extent rules are durations, counted in the timesteps of "
+            "the run, and the run carries no time window to read its timestep from "
+            "(simulation.time.step_value)."
+        )
+    maximal_steps = flowing_steps(parse_extent_duration(extent.maximal_flowing_duration), step_days)
+    dry = dry_steps(parse_extent_duration(extent.minimal_dry_duration), step_days)
     problems = extent_step_problems(
-        years.n_steps,
-        maximal_flowing_steps=extent.maximal_flowing_steps,
-        minimal_dry_steps=extent.minimal_dry_steps,
+        years.n_steps, maximal_flowing_steps=maximal_steps, minimal_dry_steps=dry
     )
     if problems:
         raise ObjectiveError(
             f"Output {name!r}: the extent table cannot be read on this run: "
-            + "; ".join(problems)
-            + "."
+            f"maximal_flowing_duration = {extent.maximal_flowing_duration!r} and "
+            f"minimal_dry_duration = {extent.minimal_dry_duration!r} on a timestep of "
+            f"{step_days:g} days: " + "; ".join(problems) + "."
         )
     visible = parse_visible_flow(extent.visible_flow)
     counts = yearly_flow_counts(
@@ -806,8 +822,8 @@ def _score_two_bounds(
     )
     masks = extent_masks(
         counts,
-        maximal_flowing_steps=extent.maximal_flowing_steps,
-        minimal_dry_steps=extent.minimal_dry_steps,
+        maximal_flowing_steps=maximal_steps,
+        minimal_dry_steps=dry,
         year_quorum=extent.year_quorum,
     )
     options = _scoring_options(output)
@@ -868,8 +884,9 @@ def _score_two_bounds(
             "last_year_scored": float(masks.years[-1]),
             "n_steps_min_per_year": float(years.n_steps.min()),
             "year_quorum": float(extent.year_quorum),
-            "maximal_flowing_steps": float(extent.maximal_flowing_steps),
-            "minimal_dry_steps": float(extent.minimal_dry_steps),
+            "maximal_flowing_steps": float(maximal_steps),
+            "minimal_dry_steps": float(dry),
+            "step_days": float(step_days),
             "visible_flow_m3_s": visible.discharge_m3_s,
             "visible_flow_outlet_share": visible.outlet_share,
         }
@@ -904,6 +921,7 @@ def score_network_output(
     saturated_thickness: ObservableResult | None = None,
     time_bounds: Sequence[Any] | None = None,
     scoring_window: tuple[Any, Any] | None = None,
+    step_days: float | None = None,
 ) -> tuple[list[float], dict[str, float]]:
     """Turn one per-cell release field into the distances a block scores.
 
@@ -924,7 +942,8 @@ def score_network_output(
       ``_maximal_validation``, outside the cost.
     - the two-bound mode: ``J_signed_<bound>_y<year>`` per scored year,
       ``year_scored_y<year>`` (1 scored, 0 left out) per year the run
-      touches, ``n_years_scored`` and the rules it applied.
+      touches, ``n_years_scored`` and the rules it applied, as timesteps
+      (``maximal_flowing_steps``, ``minimal_dry_steps``) of ``step_days`` days.
     - both maps: ``frac_minimal_outside_maximal``.
     - every bound: ``roptim_valid`` (``Doptim <= validity_length_m``),
       ``validity_length_m`` and ``validity_length_provenance``, the code of
@@ -940,6 +959,8 @@ def score_network_output(
     years it holds, which is how a spin-up year leaves the score. The scorer
     checks that it holds the one state
     (:func:`~hydromodpy.calibration.metrics.observable_scoring.refuse_a_network_state_outside_the_window`).
+    ``step_days`` is the run's nominal timestep in days, which the two-bound
+    mode turns its duration rules into timesteps with.
 
     The static geometry is rebuilt here at every trial, once per map. It is
     one graph build and three ``O(n_cells)`` passes, measured under a second on
@@ -958,7 +979,7 @@ def score_network_output(
         n_bounds = 1
     else:
         pair, scored = _score_two_bounds(
-            name, output, output.extent, result, maps, time_bounds, scoring_window
+            name, output, output.extent, result, maps, time_bounds, scoring_window, step_days
         )
         n_bounds = len(pair) // 2
 
@@ -1080,8 +1101,9 @@ def extract_outputs(
         if _is_a_gauge_comparable_discharge(output, request):
             # A gauge measures the whole streamflow; a drain budget is baseflow
             # alone. The runoff forcing is what makes the two comparable, scaled
-            # by the area this cell drains, exactly as the single-metric route
-            # does it. Without this the two routes score different quantities.
+            # by the area this cell drains, exactly as the producer of variable +
+            # objective does it. Without this the two would score different
+            # quantities.
             if request.support != "cell":
                 # The catchment series drains the whole basin, and the forcing
                 # is already areal over it: there is no upstream area to ask for.
@@ -1134,6 +1156,7 @@ def extract_outputs(
                 saturated_thickness=thickness,
                 time_bounds=time_grid_boundaries(ctx),
                 scoring_window=scoring_window,
+                step_days=context_step_days(ctx),
             )
             diagnostics.update(scored)
             continue
@@ -1172,6 +1195,22 @@ def extract_outputs(
     return ExtractedOutputs(
         observables=observables, values=simulated, series=series, diagnostics=diagnostics
     )
+
+
+def context_step_days(ctx: Any) -> float | None:
+    """Return the nominal timestep of the run in days, or None when it states none.
+
+    Read from the window of the run's time grid, the step ``[simulation.time]``
+    wrote. A steady grid has none worth reading, and the two-bound mode refuses
+    a steady run before it asks.
+    """
+    time_grid = getattr(getattr(ctx, "setup", None), "time_grid", None)
+    window = getattr(time_grid, "window", None)
+    value = getattr(window, "step_value", None)
+    unit = getattr(window, "step_unit", None)
+    if value is None or unit is None:
+        return None
+    return nominal_step_days(value, unit)
 
 
 def catchment_area_the_discharge_sums(run_ctx: RunContext, ctx: Any) -> float | None:

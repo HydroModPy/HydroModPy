@@ -44,6 +44,12 @@ mode = "simulation"
 [simulation]
 name = "persist_trial_series_probe"
 
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
 [[simulation.process]]
 id = "flow"
 type = "flow"
@@ -126,16 +132,18 @@ def project(tmp_path: Path) -> Path:
 
 
 def _wire_the_station(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hand the single-metric route a station, the way a project's loader would.
+    """Hand ``variable`` + ``objective`` a station, the way a project's loader would.
 
     ``load_observed`` and ``resolve_station_cells`` both read
     ``ctx.loaded_data.piezometry``, which a synthetic project never loads
     (there is no ``[data.piezometry]`` source here, by design: the run is
     about the trial loop, not about reading a record off disk). Patched at
     the name ``composite.py`` imported, the same way ``test_observable_
-    scoring.py`` wires a producer for its own unit tests.
+    scoring.py`` wires a producer for its own unit tests. The record is dated,
+    as a loaded one always is, and the run has one dated period to pair it on.
     """
-    observed = [ObservedSeries(station_id=STATION, variable="head", series=pd.Series([5.0]))]
+    record = pd.Series([5.0, 5.0, 5.0], index=pd.date_range("2003-01-01", periods=3, freq="D"))
+    observed = [ObservedSeries(station_id=STATION, variable="head", series=record)]
     monkeypatch.setattr(composite, "load_observed", lambda ctx, variable: observed)
     monkeypatch.setattr(
         composite, "resolve_station_cells", lambda ctx, obs, **kwargs: {STATION: _CELL}
@@ -167,7 +175,7 @@ def test_two_trials_on_persist_trial_series_write_two_files(
             "parameters": {
                 "K": {
                     "bounds": [1e-6, 1e-4],
-                    "transform": "log",
+                    "search_space": "log",
                     "path": "flow.param.K.field.value",
                 }
             },
@@ -214,5 +222,5 @@ def test_two_trials_on_persist_trial_series_write_two_files(
     # from the other worker's thread.
     for table in (table_1, table_2):
         assert table["station"].tolist() == [STATION]
-        assert table["output"].tolist() == ["head"]
+        assert table["output"].tolist() == [f"head@{STATION}"]
     assert table_1["simulated"].iloc[0] != table_2["simulated"].iloc[0]

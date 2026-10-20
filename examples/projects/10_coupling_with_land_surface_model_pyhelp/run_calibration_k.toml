@@ -60,7 +60,7 @@ uses_outputs = ["seepage_network"]
 [[calibration.phases]]
 name = "steady_conductivity"
 method = "bisection"
-max_iter = 20
+max_trials = 20
 parameters = ["K"]
 objective_blocks = ["abherve_gap"]
 

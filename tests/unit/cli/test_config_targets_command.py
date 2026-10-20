@@ -145,7 +145,7 @@ _LAKE_TOML = textwrap.dedent(
 
     [calibration]
     method = "optuna"
-    max_iter = 4
+    max_trials = 4
 
     [calibration.parameters.bedleak]
     bounds = [1e-8, 1e-5]

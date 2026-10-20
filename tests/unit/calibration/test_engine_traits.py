@@ -107,7 +107,7 @@ class TestWhatTheEngineDeclares:
         traits = engine_traits("bisection")
 
         assert traits.max_parameters == 1
-        assert traits.required_transform == "log"
+        assert traits.required_search_space == "log"
         assert traits.needs_signed_residual is True
 
     def test_an_engine_that_constrains_nothing_declares_nothing(self) -> None:
@@ -116,7 +116,7 @@ class TestWhatTheEngineDeclares:
         traits = engine_traits("grid")
 
         assert traits.max_parameters is None
-        assert traits.required_transform is None
+        assert traits.required_search_space is None
         assert traits.needs_signed_residual is False
 
 
@@ -149,7 +149,7 @@ class TestWhatPreflightCatches:
         assert "nse_log" in _messages(findings)
 
     def test_a_root_search_on_a_linear_parameter_is_refused(self, tmp_path) -> None:
-        # The only transform written in this file: the field declares 'log', so
+        # The only search space written in this file: the field declares 'log', so
         # a linear parameter has to say so, and what the file states wins.
         (tmp_path / "net.gpkg").write_bytes(b"")
         findings = _check(
@@ -160,7 +160,7 @@ class TestWhatPreflightCatches:
 
             [calibration.parameters.K]
             bounds = [1e-7, 1e-3]
-            transform = "identity"
+            search_space = "identity"
 
             [calibration.outputs.net]
             support = "network"
@@ -173,7 +173,7 @@ class TestWhatPreflightCatches:
             """,
         )
 
-        assert "transform" in _messages(findings)
+        assert "search space" in _messages(findings)
 
     def test_a_method_nobody_registered_is_refused(self, tmp_path) -> None:
         findings = _check(

@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from hydromodpy.cli.commands.run import _materialize_effective_toml
+from hydromodpy.cli.effective_toml import materialize_effective_toml
 
 
 def test_the_trace_names_the_key_the_override_set(tmp_path: Path, monkeypatch) -> None:
@@ -18,7 +18,7 @@ def test_the_trace_names_the_key_the_override_set(tmp_path: Path, monkeypatch) -
     config.write_text('[simulation]\nname = "case"\n', encoding="utf-8")
     monkeypatch.setenv("HMP_SET_flow__param__K__field__value", "1e-5")
 
-    temp, raw, lineage = _materialize_effective_toml(
+    temp, raw, lineage = materialize_effective_toml(
         config, args=argparse.Namespace(overlay=[], set_overrides=[])
     )
     if temp is not None:

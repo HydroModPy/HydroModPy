@@ -151,7 +151,7 @@ def test_the_report_hands_the_figures_the_rows_a_session_wrote() -> None:
             "status": "completed",
             "sim_id": "deadbeef",
             "parameters": {
-                "K": {"value": 1e-4, "transform": "log"},
+                "K": {"value": 1e-4, "search_space": "log"},
                 "bedleak": {"value": 2e-6},
             },
         },

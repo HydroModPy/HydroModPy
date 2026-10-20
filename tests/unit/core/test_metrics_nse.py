@@ -50,9 +50,9 @@ def test_nse_returns_python_float():
     assert isinstance(score, float)
 
 
-def test_log_nse_rejects_negative_values():
-    with pytest.raises(ValueError):
-        log_nse(np.array([-1.0, 2.0]), np.array([1.0, 2.0]))
+def test_log_nse_clips_negative_values_to_zero():
+    sim, obs = np.array([-1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.5])
+    assert log_nse(sim, obs) == pytest.approx(log_nse(np.array([0.0, 2.0, 3.0]), obs))
 
 
 def test_log_nse_perfect_match():

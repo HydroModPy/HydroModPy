@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import tempfile
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -34,6 +33,13 @@ from typing import Any
 from pydantic import ValidationError
 
 from hydromodpy.cli._conventions import profile_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.effective_toml import (
+    ConfigFileError,
+    add_override_arguments,
+    cleanup_effective_toml,
+    materialize_effective_toml,
+    resolve_case_name,
+)
 from hydromodpy.cli.helpers import (
     EXIT_CASES_FAILED,
     EXIT_CONFIG,
@@ -50,14 +56,7 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import data_cache_path_for, display_path, resolve_project_root
-from hydromodpy.core.toml_io.overrides import (
-    ENV_PATH_SEPARATOR,
-    ENV_SET_PREFIX,
-    env_overrides,
-    env_set_names,
-    parse_override_value,
-    set_overrides,
-)
+from hydromodpy.core.toml_io.overrides import set_overrides
 
 logger = get_logger(__name__)
 
@@ -246,21 +245,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "debugging or to keep deterministic step ordering."
         ),
     )
-    parser.add_argument(
-        "--overlay",
-        action="append",
-        default=[],
-        type=Path,
-        help="TOML overlay applied after base_config inheritance. Repeatable.",
-    )
-    parser.add_argument(
-        "--set",
-        action="append",
-        default=[],
-        dest="set_overrides",
-        metavar="PATH=VALUE",
-        help="Dotted TOML override applied after overlays, e.g. flow.param.K.field.value=2e-5.",
-    )
+    add_override_arguments(parser)
     parser.set_defaults(_handler=run)
     return parser
 
@@ -464,10 +449,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     effective_path: Path | None = None
     try:
-        effective_path, raw_toml, lineage_overrides = _materialize_effective_toml(
+        effective_path, raw_toml, lineage_overrides = materialize_effective_toml(
             config_path, args=args
         )
-    except _ConfigFileError as exc:
+    except ConfigFileError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except FileNotFoundError as exc:
@@ -492,7 +477,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     from hydromodpy.config.sites.expansion import is_sites_project
 
     if is_sites_project(raw_toml):
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         if not dry_run:
             _launch_sites_project(config_path, args=args)
             return
@@ -503,24 +488,24 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _check_single_site(run_path, raw_toml)
     except ValidationError as exc:
         print(f"Config invalid: {exc}", file=sys.stderr)
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     try:
         workflow = resolve_workflow(run_path, cli_workflow=None)
     except WorkflowError as exc:
         print(str(exc), file=sys.stderr)
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     resume = getattr(args, "resume", None)
     resume_ref = resume
     if resume == "":
-        resume = _case_name(getattr(args, "case", None), raw_toml, config_path)
+        resume = resolve_case_name(getattr(args, "case", None), raw_toml, config_path)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
     no_display = bool(getattr(args, "no_display", False))
@@ -528,7 +513,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     parallel = not bool(getattr(args, "no_parallel", False))
     force = bool(getattr(args, "force", False))
     fresh = bool(getattr(args, "fresh", False))
-    case_name = _case_name(getattr(args, "case", None), raw_toml, config_path)
+    case_name = resolve_case_name(getattr(args, "case", None), raw_toml, config_path)
 
     if dry_run:
         if profile_output is not None:
@@ -541,7 +526,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             from_step=from_step,
             until_step=until_step,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         return
 
     if resume is not None and workflow not in ("simulation", "calibration"):
@@ -550,7 +535,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             f"(detected '{workflow}').",
             file=sys.stderr,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     if resume_ref and workflow == "calibration":
@@ -559,7 +544,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             f"pass a bare --resume, not --resume {resume_ref}.",
             file=sys.stderr,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     if (from_step is not None or until_step is not None) and workflow == "calibration":
@@ -571,7 +556,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             f"hmp run {config_path.name} --until load_data --set workflow.mode=simulation",
             file=sys.stderr,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     if (from_step is not None or until_step is not None) and workflow != "simulation":
@@ -580,7 +565,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             f"'simulation' workflow (detected '{workflow}').",
             file=sys.stderr,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     if force and workflow != "simulation":
@@ -590,7 +575,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             f"identical completed run.",
             file=sys.stderr,
         )
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
     if frozen:
@@ -601,7 +586,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             _verify_frozen_inputs_strict(run_path, raw_toml)
         except FrozenVerificationError as exc:
             print(f"--frozen: {exc}", file=sys.stderr)
-            _cleanup_effective_toml(effective_path, source=config_path)
+            cleanup_effective_toml(effective_path, source=config_path)
             sys.exit(EXIT_CONFIG)
 
     project_root = _resolve_project_root(config_path, raw_toml.get("workspace"))
@@ -644,7 +629,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _close_dead_attempt(project_root, case_name, exc)
         raise
     finally:
-        _cleanup_effective_toml(effective_path, source=config_path)
+        cleanup_effective_toml(effective_path, source=config_path)
         if workflow in INDEXED_WORKFLOWS and not dry_run and not os.environ.get(LAUNCHED_ENV):
             _index_after_worker(project_root)
 
@@ -835,21 +820,6 @@ def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) ->
     return project_root
 
 
-def _case_name(case: str | None, raw_toml: Mapping[str, Any], config_path: Path) -> str:
-    """Return the name of the run: ``--case``, else ``[simulation] name``, else the TOML stem.
-
-    The stem is the one of the file the user named, never the effective copy
-    ``--set`` and ``--overlay`` write beside it.
-    """
-    if case:
-        return str(case)
-    simulation = raw_toml.get("simulation") if isinstance(raw_toml, Mapping) else None
-    declared = simulation.get("name") if isinstance(simulation, Mapping) else None
-    if declared:
-        return str(declared)
-    return config_path.stem
-
-
 def _close_dead_attempt(project_root: Path, case_name: str, exc: BaseException) -> None:
     """Write ``failed`` for the attempt of this process when it died without writing its outcome.
 
@@ -942,115 +912,6 @@ def _resolve_workspace_data_dir(
         if (candidate / "data").is_dir():
             return candidate / "data"
     return project_root / "data"
-
-
-def _materialize_effective_toml(
-    config_path: Path,
-    *,
-    args: argparse.Namespace,
-) -> tuple[Path | None, dict[str, Any], dict[str, Any]]:
-    """Return the source TOML or a temporary one with the overlays applied.
-
-    The third member is what changed on top of the file, keyed by dotted
-    path for ``--set`` and ``HMP_SET_*`` and under ``overlay`` for the
-    overlay files, the way ``lineage.overrides`` seals it.
-    """
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-    from hydromodpy.core.toml_io.merge import merge_toml_payloads
-    from hydromodpy.core.toml_io.writer import dumps
-
-    overlays = [Path(path).expanduser().resolve() for path in getattr(args, "overlay", []) or []]
-    set_items = list(getattr(args, "set_overrides", []) or [])
-    cli_payload = set_overrides(set_items)
-    env_payload = env_overrides(os.environ)
-
-    base_payload = _load_config_file(config_path, load_toml_with_base_config)
-    overlay_payloads = [_load_config_file(path, load_toml_with_base_config) for path in overlays]
-    raw_toml = merge_toml_payloads(
-        {},
-        base_chain=[base_payload],
-        overlays=overlay_payloads,
-        cli_overrides=cli_payload,
-        env_overrides=env_payload,
-    )
-    lineage_overrides: dict[str, Any] = {}
-    for item in set_items:
-        dotted_path, raw_value = item.split("=", 1)
-        lineage_overrides[dotted_path.strip()] = parse_override_value(raw_value)
-    for name in env_set_names(os.environ):
-        # The case after the prefix is the case of the key, as env_overrides applies it.
-        dotted = name[len(ENV_SET_PREFIX) :].replace(ENV_PATH_SEPARATOR, ".")
-        lineage_overrides[dotted] = parse_override_value(os.environ[name])
-    if overlays:
-        lineage_overrides["overlay"] = [path.name for path in overlays]
-    if not overlays and not cli_payload and not env_payload:
-        return None, raw_toml, lineage_overrides
-
-    with tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        prefix=f".{config_path.stem}.effective.",
-        suffix=".toml",
-        dir=config_path.parent,
-        delete=False,
-    ) as handle:
-        handle.write(dumps(raw_toml))
-        temp_path = Path(handle.name)
-    return temp_path, raw_toml, lineage_overrides
-
-
-class _ConfigFileError(Exception):
-    """A configuration file, or a file of its base_config chain, cannot be read."""
-
-
-def _load_config_file(path: Path, loader: Any) -> dict[str, Any]:
-    """Load one file with its base_config chain, naming the file at fault."""
-    import tomllib
-
-    try:
-        return loader(path)
-    except tomllib.TOMLDecodeError as exc:
-        culprit = _first_unreadable_file(path) or path
-        raise _ConfigFileError(f"Invalid TOML in {culprit}: {exc}") from exc
-    except (TypeError, ValueError) as exc:
-        raise _ConfigFileError(f"Invalid configuration file {path}: {exc}") from exc
-
-
-def _first_unreadable_file(path: Path) -> Path | None:
-    """Follow the base_config chain from *path* and return the first file that fails to parse."""
-    import tomllib
-
-    from hydromodpy.core.toml_io.loader import _read_toml
-    from hydromodpy.core.toml_io.paths import is_declared_absolute_path
-
-    seen: set[Path] = set()
-    current: Path | None = path.resolve()
-    while current is not None and current not in seen:
-        seen.add(current)
-        try:
-            raw = _read_toml(current)
-        except tomllib.TOMLDecodeError:
-            return current
-        except OSError:
-            return None
-        base = raw.get("base_config")
-        if not isinstance(base, str) or not base:
-            return None
-        base_path = Path(base).expanduser()
-        if not is_declared_absolute_path(base_path):
-            base_path = current.parent / base_path
-        current = base_path.resolve()
-    return None
-
-
-def _cleanup_effective_toml(path: Path | None, *, source: Path) -> None:
-    """Remove a temporary effective TOML if one was created."""
-    if path is None or path == source:
-        return
-    try:
-        path.unlink()
-    except FileNotFoundError:
-        pass
 
 
 def _print_sites_dry_run(config_path: Path, *, args: argparse.Namespace) -> None:

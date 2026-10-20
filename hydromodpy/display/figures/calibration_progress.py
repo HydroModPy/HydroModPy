@@ -342,8 +342,8 @@ def _parameters(table: TrialTable, descriptor: Mapping[str, Any]) -> list[_Param
         info = parameter_declaration(table, descriptor, name)
         bounds = _bounds(info.get("bounds"))
         positive = bool(np.all(values[np.isfinite(values)] > 0.0))
-        transform = str(info.get("transform") or "").lower()
-        log = positive and (transform == "log" or (not transform and _spans_decades(values)))
+        search_space = str(info.get("search_space") or "").lower()
+        log = positive and (search_space == "log" or (not search_space and _spans_decades(values)))
         parameters.append(
             _Parameter(
                 name=name,

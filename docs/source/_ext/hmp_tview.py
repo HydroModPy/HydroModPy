@@ -74,7 +74,7 @@ def chips(n: dict, *, in_variant: bool) -> list[str]:
         vals = " | ".join(json.dumps(v) for v in w["values"])
         out.append(f'<span class="tc tc-when">only if {esc(w["field"])} = {esc(vals)}</span>')
     if n.get("calibrable"):
-        tr = n["calibrable"].get("transform")
+        tr = n["calibrable"].get("search_space")
         out.append(
             f'<span class="tc tc-cal">calibrable{" · " + esc(tr) if tr and tr != "identity" else ""}</span>'
         )
@@ -945,7 +945,7 @@ def gen_pages(srcdir: Path) -> None:
         ),
         "calibrable": (
             "Every key of the HydroModPy TOML file a calibration can move, "
-            "with its unit, search space, prior and valid range.",
+            "with its unit, search space, sampling and valid range.",
             "Calibrable parameters",
             "A calibration moves the keys below. Name one in "
             "{toml}`calibration.parameters.<name>.path` and give its range in "
@@ -1102,12 +1102,12 @@ class CalibrableDirective(SphinxDirective):
             label = f" <span class='hmp-muted'>{esc(n['label'])}</span>" if n.get("label") else ""
             rows.append(
                 f'<tr><td><a href="{esc(H.uri(builder, doc, p))}"><code>{esc(p).replace(".", ".<wbr>")}</code></a>{label}</td>'
-                f"<td>{esc(unit_of(n) or '')}</td><td>{esc(c.get('transform') or '')}</td>"
-                f"<td>{esc(c.get('prior') or '')}</td><td>{bounds}</td><td>{esc(rng)}</td></tr>"
+                f"<td>{esc(unit_of(n) or '')}</td><td>{esc(c.get('search_space') or '')}</td>"
+                f"<td>{esc(c.get('sampling') or '')}</td><td>{bounds}</td><td>{esc(rng)}</td></tr>"
             )
         table = (
             '<div class="hmp-matrix-wrap hmp-cal-list"><table class="hmp-qt hmp-cal">'
-            "<thead><tr><th>Key</th><th>Unit</th><th>Search space</th><th>Prior</th>"
+            "<thead><tr><th>Key</th><th>Unit</th><th>Search space</th><th>Sampling</th>"
             "<th>Default bounds</th><th>Valid range</th></tr></thead><tbody>"
             + "".join(rows)
             + "</tbody></table></div>"

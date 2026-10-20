@@ -24,7 +24,7 @@ def _space() -> ParameterSpace:
 
 
 def _first_batch(seed: int | None) -> list[dict[str, float]]:
-    opt = build_optimizer("cma_es", _space(), popsize=5, max_evaluations=30, seed=seed)
+    opt = build_optimizer("cma_es", _space(), popsize=5, max_trials=30, seed=seed)
     return [s.values for s in opt.ask(n=5)]
 
 
@@ -47,7 +47,7 @@ def _seed_handed_to_cma(monkeypatch, seed: int, restarts_used: int = 0) -> int:
         return real(x0, sigma0, options)
 
     monkeypatch.setattr(cma, "CMAEvolutionStrategy", spy)
-    opt = build_optimizer("cma_es", _space(), popsize=5, max_evaluations=30, seed=seed)
+    opt = build_optimizer("cma_es", _space(), popsize=5, max_trials=30, seed=seed)
     opt._restarts_used = restarts_used
     opt._make_strategy(opt._x0_t)
     return seen[-1]

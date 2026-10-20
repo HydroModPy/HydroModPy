@@ -69,13 +69,13 @@ project_root = "{workspace.as_posix()}"
 [calibration]
 evaluator = "scored_forward_model"
 {names_model}method = "grid"
-max_iter = 25
+max_trials = 25
 method_options = {{ points_per_dim = 5 }}
 
 [calibration.parameters.k]
 path = "flow.properties.k_aquifer"
 bounds = [1e-6, 1e-2]
-transform = "log"
+search_space = "log"
 
 [calibration.parameters.porosity]
 path = "flow.properties.porosity"

@@ -44,7 +44,7 @@ def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
         method_kwargs={
             "sigma0": 0.22,
             "popsize": 14,
-            "max_evaluations": 126,
+            "max_trials": 126,
             "seed": int(seed),
             "normalize": True,
             "restarts": 1,
@@ -59,7 +59,7 @@ def _optuna_profile(*, seed: int = 17) -> CalibrationMethodProfile:
         name="optuna",
         method_kwargs={
             "sampler": "tpe",
-            "max_iter": 96,
+            "max_trials": 96,
             "seed": int(seed),
         },
         persist_model_distribution=True,
@@ -156,7 +156,7 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
     method_profiles=(
         CalibrationMethodProfile(
             name="random_search",
-            method_kwargs={"max_iter": 96},
+            method_kwargs={"max_trials": 96},
             persist_model_distribution=True,
             repeat_seeds=(17, 29),
             success_metric="distribution",
@@ -165,7 +165,7 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
         _cma_es_profile(seed=17),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
-            method_kwargs={"maxiter": 42, "xatol": 1.0e-8, "fatol": 1.0e-8},
+            method_kwargs={"max_trials": 42, "xatol": 1.0e-8, "fatol": 1.0e-8},
             persist_model_distribution=False,
         ),
     ),

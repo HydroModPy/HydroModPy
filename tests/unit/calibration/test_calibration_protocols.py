@@ -50,8 +50,8 @@ def _doc(**calibration: object) -> dict[str, object]:
         "calibration": {
             "protocol": "matching_hydrographic_network",
             "parameters": {
-                "K": {"bounds": [1e-8, 1e-2], "transform": "log"},
-                "Sy": {"bounds": [1e-4, 0.5], "transform": "log"},
+                "K": {"bounds": [1e-8, 1e-2], "search_space": "log"},
+                "Sy": {"bounds": [1e-4, 0.5], "search_space": "log"},
             },
             "outputs": {
                 "seepage_network": {
@@ -260,13 +260,13 @@ class TestWhatItWrites:
                     "name": "matching_hydrographic_network",
                     "steady_method": "optuna",
                     "steady_metric": "distance_mean",
-                    "steady_max_iter": 40,
+                    "steady_max_trials": 40,
                 }
             )
         )
         steady = swapped["calibration"]["phases"][0]
         assert steady["method"] == "optuna"
-        assert steady["max_iter"] == 40
+        assert steady["max_trials"] == 40
         assert swapped["calibration"]["objective_blocks"][0]["metric"] == "distance_mean"
 
 
@@ -320,8 +320,8 @@ class TestNamingTheRoles:
             }
         )
         doc["calibration"]["parameters"] = {
-            "hk_bedrock": {"bounds": [1e-8, 1e-2], "transform": "log"},
-            "sy_bedrock": {"bounds": [1e-4, 0.5], "transform": "log"},
+            "hk_bedrock": {"bounds": [1e-8, 1e-2], "search_space": "log"},
+            "sy_bedrock": {"bounds": [1e-4, 0.5], "search_space": "log"},
         }
 
         phases = expand_calibration_protocol(doc)["calibration"]["phases"]
@@ -343,7 +343,7 @@ class TestNamingTheRoles:
 
 class TestItLeavesTheRestAlone:
     def test_a_document_without_a_protocol_is_returned_unchanged(self) -> None:
-        doc = {"calibration": {"method": "grid", "max_iter": 10}}
+        doc = {"calibration": {"method": "grid", "max_trials": 10}}
 
         assert expand_calibration_protocol(doc) == doc
 
@@ -398,7 +398,7 @@ class TestItReadsBackWhatItWrote:
     def test_a_stage_that_is_not_the_one_it_writes_is_still_refused(self) -> None:
         once = expand_calibration_protocol(_doc())
         tampered = copy.deepcopy(once["calibration"]["phases"])
-        tampered[0]["max_iter"] = 21
+        tampered[0]["max_trials"] = 21
 
         with pytest.raises(ValueError, match="phases"):
             expand_calibration_protocol(_doc(phases=tampered))
@@ -438,7 +438,7 @@ def _sealed_before_the_regime(start: str = "1995-01-01", end: str = "2020-12-31"
             "description": "Match the simulated seepage network to the mapped one by "
             f"moving K, steady state over {start}..{end}.",
             "method": "bisection",
-            "max_iter": 20,
+            "max_trials": 20,
             "parameters": ["K"],
             "objective_blocks": ["network_extension"],
             "freeze_on_success": True,
@@ -454,7 +454,7 @@ def _sealed_before_the_regime(start: str = "1995-01-01", end: str = "2020-12-31"
             "name": "transient_storage",
             "description": "Read Sy from the observed hydrograph, K frozen, transient.",
             "method": "scipy_nelder_mead",
-            "max_iter": 120,
+            "max_trials": 120,
             "parameters": ["Sy"],
             "variable": "discharge",
             "objective": "nse_log",
@@ -467,11 +467,11 @@ def _sealed_before_the_regime(start: str = "1995-01-01", end: str = "2020-12-31"
 def _sealed_doc(**calibration: object) -> dict[str, object]:
     """``_doc()`` as a run sealed then dumps it: the protocol table carries its defaults.
 
-    Only the one that has moved since matters here: ``steady_max_iter`` was 20
+    Only the one that has moved since matters here: ``steady_max_trials`` was 20
     when these stages were sealed, and a dumped file says so.
     """
     declared = calibration.pop("protocol", {"name": "matching_hydrographic_network"})
-    protocol = {"steady_max_iter": 20, **dict(declared)}
+    protocol = {"steady_max_trials": 20, **dict(declared)}
     return _doc(protocol=protocol, **calibration)
 
 

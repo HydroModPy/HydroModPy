@@ -54,14 +54,14 @@ def _reading(metric: str) -> str:
 
 
 def _block_reading(block: CalibObjectiveBlockDecl) -> str:
-    """Return how the cost of one block reads, scale and transform included."""
+    """Return how the cost of one block reads, scale and cost transform included."""
     text = _reading(block.metric)
     if block.normalize_cost:
         scale = "validity_length" if str(block.metric) in NETWORK_ESTIMATORS else "sd(observed)"
         text = f"{text} / {scale}"
-    if block.transform == "log":
+    if block.cost_transform == "log":
         return f"log10({text})"
-    if block.transform == "inverse":
+    if block.cost_transform == "inverse":
         return f"-1 / ({text})"
     return text
 
@@ -71,8 +71,10 @@ def cost_samples(components: Mapping[str, Any] | None) -> dict[str, dict[str, An
 
     The block route writes ``<name>.n_paired`` and, as ordinal days,
     ``<name>.date_start`` / ``<name>.date_end`` into the components of every
-    trial: the first and last period-end stamp it kept. Empty when no output
-    was paired, as on the single-metric route, which records no count.
+    trial: the first and last period-end stamp it kept. ``variable`` +
+    ``objective`` is scored by that route too, its outputs named
+    ``<variable>@<station>``. Empty when no output was paired, as for a
+    network distance.
     """
     found = dict(components or {})
     names = sorted({key.rsplit(".", 1)[0] for key in found if key.endswith(".n_paired")})

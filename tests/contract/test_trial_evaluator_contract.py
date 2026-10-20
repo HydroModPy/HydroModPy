@@ -113,14 +113,14 @@ def _space() -> ParameterSpace:
                 name="k",
                 lower=1e-6,
                 upper=1e-2,
-                transform="log",
+                search_space="log",
                 path="flow.properties.k_aquifer",
             ),
             CalibParameter(
                 name="porosity",
                 lower=0.01,
                 upper=0.3,
-                transform="identity",
+                search_space="identity",
                 path="flow.properties.porosity",
             ),
         ]
@@ -154,10 +154,14 @@ def _config(**overrides: object) -> CalibrationConfig:
     """
     payload: dict[str, object] = {
         "method": "grid",
-        "max_iter": 9,
+        "max_trials": 9,
         "method_options": {"points_per_dim": 3},
         "parameters": {
-            "k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2], "transform": "log"},
+            "k": {
+                "path": "flow.properties.k_aquifer",
+                "bounds": [1e-6, 1e-2],
+                "search_space": "log",
+            },
             "porosity": {"path": "flow.properties.porosity", "bounds": [0.01, 0.3]},
         },
         "outputs": {

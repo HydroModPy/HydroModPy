@@ -16,7 +16,7 @@ from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 
 _DECLARED = {
     "method": "scipy_nelder_mead",
-    "max_iter": 5,
+    "max_trials": 5,
     "parameters": {"k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2]}},
 }
 

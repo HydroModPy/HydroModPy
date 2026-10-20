@@ -93,7 +93,7 @@ def registered_quadratic():
 def _config(**overrides: object) -> CalibrationConfig:
     payload: dict[str, object] = {
         "method": "grid",
-        "max_iter": 5,
+        "max_trials": 5,
         "parameters": {"k": {"path": "flow.properties.k_aquifer", "bounds": [1e-6, 1e-2]}},
         "method_options": {"points_per_dim": 5},
     }
@@ -333,7 +333,7 @@ class TestASearchRunsOnANamedEvaluator:
             "[calibration]\n"
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
-            "max_iter = 3\n"
+            "max_trials = 3\n"
             "method_options = { points_per_dim = 3 }\n"
             "[calibration.parameters.k]\n"
             'path = "flow.properties.k_aquifer"\n'
@@ -363,7 +363,7 @@ class TestASearchRunsOnANamedEvaluator:
             "[calibration]\n"
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
-            "max_iter = 3\n"
+            "max_trials = 3\n"
             "method_options = { points_per_dim = 3 }\n"
             "[calibration.parameters.k]\n"
             'path = "flow.properties.k_aquifer"\n'
@@ -464,7 +464,7 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
             "[calibration]\n"
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
-            "max_iter = 2\n"
+            "max_trials = 2\n"
             "[calibration.parameters.k]\n"
             'path = "flow.properties.k_aquifer"\n'
             "bounds = [1e-6, 1e-2]\n"
@@ -488,7 +488,7 @@ class TestWhatNeedsTheModelIsRefusedNotFaked:
             "[calibration]\n"
             'evaluator = "test_quadratic"\n'
             'method = "grid"\n'
-            "max_iter = 3\n"
+            "max_trials = 3\n"
             "method_options = { points_per_dim = 3 }\n"
             "[calibration.uncertainty]\n"
             'method = "linearized"\n'

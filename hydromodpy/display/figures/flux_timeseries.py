@@ -26,6 +26,7 @@ from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
 from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
+from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
 
 if TYPE_CHECKING:
@@ -158,6 +159,8 @@ class FluxTimeseries(BaseFigure):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.grid(True, ls=":", lw=0.4, alpha=0.6)
+        if isinstance(index, pd.DatetimeIndex):
+            shade_before_window(ax, sim)
         handles, labels = ax.get_legend_handles_labels()
         if bar_ax is not None:
             extra = bar_ax.get_legend_handles_labels()

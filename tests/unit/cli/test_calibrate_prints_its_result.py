@@ -72,8 +72,8 @@ def test_the_tolerance_interval_is_shown_beside_its_value() -> None:
                     "best": 6.4e-5,
                     "lower": 5e-5,
                     "upper": 7e-5,
-                    "tolerance": 0.05,
-                    "mode": "relative",
+                    "margin": 0.05,
+                    "kind": "relative",
                     "threshold": 0.13,
                     "n_within": 2,
                     "n_trials": 4,
@@ -99,8 +99,8 @@ def test_a_value_stuck_on_a_search_bound_is_flagged() -> None:
                     "best": 1e-3,
                     "lower": 9e-4,
                     "upper": 1e-3,
-                    "tolerance": 0.05,
-                    "mode": "relative",
+                    "margin": 0.05,
+                    "kind": "relative",
                     "threshold": 1e-4,
                     "n_within": 1,
                     "n_trials": 4,
@@ -141,8 +141,8 @@ def test_a_fosm_width_is_shown_and_wins_over_a_tolerance_interval() -> None:
                     "best": 6.4e-5,
                     "lower": 5e-5,
                     "upper": 7e-5,
-                    "tolerance": 0.05,
-                    "mode": "relative",
+                    "margin": 0.05,
+                    "kind": "relative",
                     "threshold": 0.13,
                     "n_within": 2,
                     "n_trials": 4,
@@ -321,7 +321,7 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
             "search": {
                 "converged": True,
                 "stopping_rule": "rel_tol",
-                "max_iter": 15,
+                "max_trials": 15,
                 "extension": 0,
                 "n_evaluations": 15,
             },
@@ -369,7 +369,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
             "search": {
                 "converged": False,
                 "stopping_rule": "rel_tol",
-                "max_iter": 10,
+                "max_trials": 10,
                 "extension": 5,
                 "n_evaluations": 15,
             },
@@ -507,8 +507,8 @@ def test_an_interval_holding_the_best_trial_alone_says_so() -> None:
                     "best": 3.909e-05,
                     "lower": 3.909e-05,
                     "upper": 3.909e-05,
-                    "tolerance": 0.05,
-                    "mode": "relative",
+                    "margin": 0.05,
+                    "kind": "relative",
                     "threshold": 0.0035,
                     "n_within": 1,
                     "n_trials": 60,
@@ -521,7 +521,7 @@ def test_an_interval_holding_the_best_trial_alone_says_so() -> None:
 
     lines = "\n".join(_format_calibration_result(report))
 
-    assert "no other trial within the tolerance" in lines
+    assert "no other trial within the cost margin" in lines
     assert "[3.909e-05, 3.909e-05]" not in lines
 
 

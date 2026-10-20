@@ -223,5 +223,5 @@ def test_an_interval_holding_the_best_trial_alone_is_not_printed_as_zero_width(
     run_command._print_calibration_recap(report, Path("calibrate_k.toml"))
 
     line = capsys.readouterr().err.splitlines()[1]
-    assert "K = 8.107e-05 m/s (no other trial within the tolerance)" in line
+    assert "K = 8.107e-05 m/s (no other trial within the cost margin)" in line
     assert " in [" not in line

@@ -49,6 +49,7 @@ on_error = "warn"
 # site, and the cohort figures.
 [sites.summary]
 metrics = ["nse", "kge"]
+rank_by = "nse"
 parameters = ["K"]
 figures = ["map", "distribution"]
 variables = ["K", "nse"]

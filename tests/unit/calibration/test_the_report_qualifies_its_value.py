@@ -13,8 +13,8 @@ flat over three decades.
 
 from __future__ import annotations
 
+from hydromodpy.calibration.optim.cost_margin import margin_intervals
 from hydromodpy.calibration.optim.diagnostics import correlated_parameter_pairs
-from hydromodpy.calibration.optim.tolerance import tolerance_intervals
 
 
 def _trace() -> list[dict[str, object]]:
@@ -47,7 +47,7 @@ def test_two_parameters_moving_together_are_still_reported() -> None:
 
 
 def test_the_interval_qualifies_the_reported_value() -> None:
-    (interval,) = tolerance_intervals(_trace(), bounds={"K": (1.0, 4.0)})
+    (interval,) = margin_intervals(_trace(), bounds={"K": (1.0, 4.0)})
 
     assert interval.best == 3.0
     assert interval.lower == 3.0

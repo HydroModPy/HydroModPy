@@ -88,6 +88,57 @@
       ],
       "title": "DateWindow",
       "type": "object"
+    },
+    "ScoredSamples": {
+      "additionalProperties": false,
+      "description": "The pairs one dated output's cost was scored on.\n\nA stamp closes its period, so ``first`` and ``last`` are the ends of the\nfirst and last period scored, not the bounds of a window.",
+      "properties": {
+        "first": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First period-end stamp scored",
+          "title": "First",
+          "x-hmp-profile": "user"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last period-end stamp scored",
+          "title": "Last",
+          "x-hmp-profile": "user"
+        },
+        "n": {
+          "description": "Number of paired samples scored",
+          "examples": [
+            1
+          ],
+          "minimum": 0,
+          "title": "N",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "n"
+      ],
+      "title": "ScoredSamples",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -171,6 +222,20 @@
       "type": "string",
       "x-hmp-profile": "user"
     },
+    "objective_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the objective value is, read as a cost: '1 - nse_log' for an efficiency, 'log10(rmse)' for a transformed block",
+      "title": "Objective Label",
+      "x-hmp-profile": "user"
+    },
     "objective_name": {
       "description": "Objective the search minimised",
       "examples": [
@@ -178,6 +243,15 @@
       ],
       "title": "Objective Name",
       "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "objective_samples": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ScoredSamples"
+      },
+      "description": "Per dated output, the pairs the cost of the best trial was scored on; empty when no pair was counted",
+      "title": "Objective Samples",
+      "type": "object",
       "x-hmp-profile": "user"
     },
     "objective_window": {
@@ -190,7 +264,7 @@
         }
       ],
       "default": null,
-      "description": "Window the objective was scored on",
+      "description": "Window the objective was scored on, as declared, a bound left open closed by the dates of [simulation.time]",
       "x-hmp-profile": "user"
     },
     "root_search": {

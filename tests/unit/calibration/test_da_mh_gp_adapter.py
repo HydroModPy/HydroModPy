@@ -65,7 +65,7 @@ class TestDaMhGpSmoke:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=20,
+            chain_length=20,
             n_init=4,
             burn_in=5,
             proposal_sigma=0.5,
@@ -80,7 +80,7 @@ class TestDaMhGpSmoke:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=30,
+            chain_length=30,
             n_init=6,
             burn_in=10,
             proposal_sigma=0.5,
@@ -91,7 +91,7 @@ class TestDaMhGpSmoke:
             space=space,
             optimizer=opt,
             evaluator=_make_quadratic_evaluator(),
-            max_iter=100,
+            max_trials=100,
         )
         session = engine.run()
         completed = [r for r in session.history if r.status == "completed"]
@@ -107,7 +107,7 @@ class TestDaMhGpBest:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=40,
+            chain_length=40,
             n_init=6,
             burn_in=10,
             proposal_sigma=0.4,
@@ -118,7 +118,7 @@ class TestDaMhGpBest:
             space=space,
             optimizer=opt,
             evaluator=_make_quadratic_evaluator(target=(1.0, -2.0)),
-            max_iter=100,
+            max_trials=100,
         )
         engine.run()
         best = opt.best()
@@ -142,7 +142,7 @@ class TestDaMhGpBest:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=40,
+            chain_length=40,
             n_init=6,
             burn_in=10,
             proposal_sigma=0.4,
@@ -165,7 +165,7 @@ class TestDaMhGpBest:
             space=space,
             optimizer=opt,
             evaluator=_eval,
-            max_iter=100,
+            max_trials=100,
         )
         engine.run()
         best = opt.best()
@@ -186,7 +186,7 @@ class TestDaMhGpBest:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=5,
+            chain_length=5,
             n_init=3,
             burn_in=0,
             proposal_sigma=0.2,
@@ -197,14 +197,14 @@ class TestDaMhGpBest:
 
 
 class TestDaMhGpChain:
-    def test_chain_length_matches_max_iter(self):
-        """Full chain length should equal the requested ``max_iter`` MCMC budget."""
+    def test_chain_length_matches_the_option(self):
+        """Full chain length should equal the requested ``chain_length`` MCMC budget."""
         space = _quadratic_space()
-        max_iter = 25
+        chain_length = 25
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=max_iter,
+            chain_length=chain_length,
             n_init=4,
             burn_in=5,
             proposal_sigma=0.5,
@@ -215,20 +215,20 @@ class TestDaMhGpChain:
             space=space,
             optimizer=opt,
             evaluator=_make_quadratic_evaluator(),
-            max_iter=200,
+            max_trials=200,
         )
         engine.run()
-        assert opt.chain.shape == (max_iter, 2)
+        assert opt.chain.shape == (chain_length, 2)
 
     def test_posterior_samples_excludes_burn_in(self):
         """``posterior_samples`` drops the burn-in prefix and is in physical units."""
         space = _quadratic_space()
-        max_iter = 30
+        chain_length = 30
         burn_in = 7
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=max_iter,
+            chain_length=chain_length,
             n_init=4,
             burn_in=burn_in,
             proposal_sigma=0.3,
@@ -239,11 +239,11 @@ class TestDaMhGpChain:
             space=space,
             optimizer=opt,
             evaluator=_make_quadratic_evaluator(),
-            max_iter=200,
+            max_trials=200,
         )
         engine.run()
         samples = opt.posterior_samples
-        assert samples.shape == (max_iter - burn_in, 2)
+        assert samples.shape == (chain_length - burn_in, 2)
         assert np.all((samples[:, 0] >= -4.0) & (samples[:, 0] <= 4.0))
         assert np.all((samples[:, 1] >= -4.0) & (samples[:, 1] <= 4.0))
 
@@ -274,7 +274,7 @@ class TestDaMhGpAdvancedKwargs:
             space,
             sigma_noise=0.1,
             n_init=4,
-            max_iter=64,
+            chain_length=64,
             burn_in=10,
             thin=2,
             proposal_sigma=0.4,
@@ -285,7 +285,7 @@ class TestDaMhGpAdvancedKwargs:
             cache_decimals=10,
         )
         assert opt.name == "da_mh_gp"
-        assert opt._max_iter == 64
+        assert opt._chain_length == 64
         assert opt._proposal_std[0] == pytest.approx(0.4)
         assert opt._gp_alpha == pytest.approx(1.0e-6)
         assert opt._thin == 2
@@ -301,13 +301,13 @@ class TestDaMhGpAdvancedKwargs:
     def test_thin_reduces_posterior_sample_count(self):
         """thin>1 must reduce posterior_samples length proportionally."""
         space = _quadratic_space()
-        max_iter = 30
+        chain_length = 30
         burn_in = 6
         thin = 3
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=max_iter,
+            chain_length=chain_length,
             n_init=4,
             burn_in=burn_in,
             proposal_sigma=0.3,
@@ -319,11 +319,11 @@ class TestDaMhGpAdvancedKwargs:
             space=space,
             optimizer=opt,
             evaluator=_make_quadratic_evaluator(),
-            max_iter=200,
+            max_trials=200,
         )
         engine.run()
         samples = opt.posterior_samples
-        expected_len = int(np.ceil((max_iter - burn_in) / thin))
+        expected_len = int(np.ceil((chain_length - burn_in) / thin))
         assert samples.shape == (expected_len, 2)
 
     def test_cache_decimals_dedupes_repeated_proposals(self):
@@ -332,7 +332,7 @@ class TestDaMhGpAdvancedKwargs:
         opt = build_optimizer(
             "da_mh_gp",
             space,
-            max_iter=4,
+            chain_length=4,
             n_init=2,
             proposal_sigma=0.1,
             sigma_noise=0.5,

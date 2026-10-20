@@ -26,7 +26,7 @@ def _space(*parameters: CalibParameter) -> ParameterSpace:
     return ParameterSpace(parameters)
 
 
-LOG_K = CalibParameter(name="k", lower=1e-6, upper=1e-2, transform="log")
+LOG_K = CalibParameter(name="k", lower=1e-6, upper=1e-2, search_space="log")
 POROSITY = CalibParameter(name="porosity", lower=0.1, upper=0.3)
 
 
@@ -162,7 +162,7 @@ class TestWhatItRefusesToInvent:
         earlier, and they are asserted in their own test rather than folded in
         here, where they would look like coverage of an order they never reach.
         """
-        pinned_log = CalibParameter(name="k", lower=1e-4, upper=1e-4, transform="log")
+        pinned_log = CalibParameter(name="k", lower=1e-4, upper=1e-4, search_space="log")
 
         outcome = _ask(_bowl(pinned_log), {"k": -5.0})
 

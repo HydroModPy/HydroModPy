@@ -124,7 +124,7 @@ def test_a_parallel_batch_is_numbered_in_the_order_the_optimizer_made_it(
         before_batch=lambda batch: persistence.assign_trial_numbers(
             [sugg.trial_id for sugg in batch], PHASE
         ),
-        max_iter=2,
+        max_trials=2,
         batch_size=2,
         parallel=2,
     )

@@ -27,8 +27,8 @@ to ``hmp report compare`` and is kept.
 
 Rules
 -----
-- The best case of a site ranks the first metric of ``[sites.summary]
-  metrics`` by its direction; ``best = "calibrated"`` keeps the calibrated
+- The best case of a site ranks ``[sites.summary] rank_by`` (default
+  ``nse``) by its direction; ``best = "calibrated"`` keeps the calibrated
   cases only. A site without a best case says why in ``best_reason``.
 - ``[sites.summary] parameters`` orders the parameter columns and warns when
   no sealed run carries one; every other global parameter follows. A
@@ -872,7 +872,7 @@ def _by_site(
 
     metrics, _, columns = _extra_columns(summary)
     metric_columns = ["nse", *metrics]
-    ranked_by = summary.metrics[0] if summary.metrics else "nse"
+    ranked_by = summary.rank_by
     candidates = by_case[by_case["status"] == "completed"]
     if summary.best == "calibrated":
         candidates = candidates[candidates["label"] == "calibrated"]

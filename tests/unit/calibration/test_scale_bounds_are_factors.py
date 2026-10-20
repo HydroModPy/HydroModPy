@@ -48,7 +48,7 @@ def test_the_product_is_still_faced_with_the_ceiling() -> None:
 
 
 def test_the_check_says_nothing_of_a_scale() -> None:
-    decl = SimpleNamespace(mode="scale", units=None, transform="identity")
+    decl = SimpleNamespace(mode="scale", units=None, search_space="identity")
 
     assert _check_bounds_against_physics("calibration.parameters.Sy", "Sy", decl, [0.5, 2.0]) == []
 

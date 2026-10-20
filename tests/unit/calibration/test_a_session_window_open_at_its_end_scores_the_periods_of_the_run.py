@@ -3,8 +3,9 @@
 A protocol phase declares ``scoring_window = {start = ...}`` without an end.
 The session compared that start with the END stamp of each pair, so it kept
 the period closing on the start day as well: 25 months against the 24 the run
-scores on example 04 (N1 of the audit of 2026-10-20, RAPPORT §1.3). Both
-session routes now read the window as the run does.
+scores on example 04 (N1 of the audit of 2026-10-20, RAPPORT §1.3). The
+session now reads the window as the run does, whether the cost is written as
+blocks or as ``variable`` + ``objective``.
 """
 
 from __future__ import annotations
@@ -15,9 +16,12 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.calibration.config import CalibObjectiveBlockDecl, validate_calib_output
-from hydromodpy.calibration.metrics.observable_scoring import ObservableScorer
+from hydromodpy.calibration.metrics.observable_scoring import (
+    ObservableScorer,
+    StationBlockScorer,
+)
 from hydromodpy.calibration.metrics.observed_pairing import pair_outputs_with_observations
-from hydromodpy.calibration.metrics.scalar import score
+from hydromodpy.calibration.metrics.series import ObservedSeries
 from hydromodpy.calibration.metrics.trial_series_capture import TrialSeriesSink
 from hydromodpy.core.contracts.observables import ObservableResult
 
@@ -50,20 +54,20 @@ def test_the_block_route_keeps_the_24_months_of_the_run() -> None:
     assert paired.dates["hydrograph"] == (pd.Timestamp("2001-02-01"), pd.Timestamp("2003-01-01"))
 
 
-def test_the_single_metric_route_keeps_the_24_months_of_the_run() -> None:
+def test_variable_and_objective_keep_the_24_months_of_the_run() -> None:
     observed, simulated = _series()
     sink = TrialSeriesSink()
-
-    score(
-        observed,
-        simulated,
+    scorer = StationBlockScorer(
+        "discharge",
         "nse",
+        [ObservedSeries("NANCON", "discharge", observed)],
         scoring_window=START_ONLY,
-        time_method="mean",
-        period_start=FIRST_PERIOD,
         series_sink=sink,
-        output="discharge",
-        station="NANCON",
+    )
+
+    scorer.score(
+        {"NANCON": ObservableResult("NANCON", simulated.to_numpy(), "m3/s", STAMPS)},
+        boundaries=[FIRST_PERIOD, *STAMPS],
     )
 
     times = [pd.Timestamp(row["time"]) for row in sink.drain()]

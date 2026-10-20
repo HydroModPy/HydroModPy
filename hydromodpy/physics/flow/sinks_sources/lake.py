@@ -461,7 +461,7 @@ class FlowLakeConfig(HydroModelBase):
             "0 means a perfectly sealed lakebed (no leakage)."
         ),
         json_schema_extra=field_metadata(
-            calibrable=Calibrable(transform="log", prior="log_uniform", units="1/s")
+            calibrable=Calibrable(search_space="log", sampling="log_uniform", units="1/s")
         ),
         examples=[1.0e-6],
     )

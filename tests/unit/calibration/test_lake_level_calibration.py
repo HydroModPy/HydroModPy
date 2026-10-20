@@ -404,4 +404,4 @@ class TestSingleMetricLakeLevelPath:
 
         total, components = metric_fn(ctx, objective="rmse", variable="lake_level")
         assert total == pytest.approx(0.5)
-        assert components["cost:rmse@lac0"] == pytest.approx(0.5)
+        assert components["rmse@lac0.raw_cost"] == pytest.approx(0.5)

@@ -1,10 +1,10 @@
 """A phase that did not converge says what a re-run really replays.
 
-The message told the user to "raise max_iter or loosen the tolerance" and
-promised that a re-run replays the trials already solved. The tolerance is in
-the cache key, as are the seed, the method and its options: changing any of
-them solves every trial again. Only max_iter keeps the cache, as the engine
-warning already says.
+The message told the user to "raise max_trials or loosen the tolerance" and
+promised that a re-run replays the trials already solved. The cache key holds
+only what changes the cost of a trial, so a new max_trials, precision, seed,
+method or option replays the trials it proposes at values already solved, as the
+engine warning already says.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def _report() -> CalibrationReport:
             "search": {
                 "converged": False,
                 "stopping_rule": "xatol",
-                "max_iter": 120,
+                "max_trials": 120,
                 "extension": 0,
                 "n_evaluations": 120,
             }
@@ -36,12 +36,12 @@ def _report() -> CalibrationReport:
     )
 
 
-def test_only_a_higher_max_iter_is_promised_the_cache() -> None:
+def test_a_new_search_setting_is_promised_the_cache_only_at_the_values_solved() -> None:
     message = _why_not_converged(_report())
 
     assert "loosen the tolerance" not in message
     assert (
-        "Raise max_iter: a re-run of the same file replays the trials already solved from "
-        "the cache. A new tolerance, seed, method or method_options changes the cache key "
-        "and solves every trial again"
+        "Raise max_trials: a re-run of the same file replays the trials already solved from "
+        "the cache. So does a new precision, seed, method or method_options, for every "
+        "trial it proposes at values already solved"
     ) in message

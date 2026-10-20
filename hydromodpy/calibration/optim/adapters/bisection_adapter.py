@@ -76,7 +76,7 @@ points (two when ``sweep_points`` is zero), ``s = d / (S - 1)`` the sweep step,
 On the Nancon, [1e-7, 1e-3] m/s, seven sweep points and one per cent: 15
 evaluations inside the bounds, 17, 19, 21 and 23 after one to four expansions;
 two roots cost 24 inside the bounds and 26 to 32 after expansions.
-``max_iter = "auto"`` budgets the worst case; a declared budget below the
+``max_trials = "auto"`` budgets the worst case; a declared budget below the
 nominal case is refused before the first solve. When a budget still runs out,
 the adapter publishes the halvings its brackets still need
 (:attr:`BisectionAdapter.evaluations_remaining`), and the engine grants exactly
@@ -378,12 +378,12 @@ class BisectionAdapter:
 
     traits = EngineTraits(
         max_parameters=1,
-        required_transform="log",
+        required_search_space="log",
         needs_signed_residual=True,
         supports_parallel=True,
         restarts_explore_differently=False,
-        tolerance_option="rel_tol",
-        tolerance_reads="relative_value",
+        precision_option="rel_tol",
+        precision_reads="relative_value",
     )
     """The same three refusals the constructor makes, readable before it runs."""
 
@@ -407,13 +407,13 @@ class BisectionAdapter:
                 "bisected along its first axis is the worst failure this method has."
             )
         parameter = space.parameters[0]
-        if parameter.transform != "log":
+        if parameter.search_space != "log":
             raise OptimizerError(
                 f"the bisection adapter walks a log10 variable, but parameter "
-                f"{parameter.name!r} declares transform = {parameter.transform!r}. Its "
-                "stopping rule is a width in that variable, so on any other transform it "
+                f"{parameter.name!r} declares search_space = {parameter.search_space!r}. Its "
+                "stopping rule is a width in that variable, so on any other search space it "
                 "reads as an absolute width and reports convergence on a bracket orders "
-                'of magnitude wide. Declare transform = "log" for this parameter.'
+                'of magnitude wide. Declare search_space = "log" for this parameter.'
             )
         if float(rel_tol) <= 0.0:
             raise OptimizerError(f"rel_tol must be strictly positive, got {rel_tol}.")
@@ -501,7 +501,7 @@ class BisectionAdapter:
             logger.warning(
                 "The budget was counted for %d root(s) and the outputs score %d: the "
                 "declarations the runner read did not name every bound. The search closes "
-                "%d; max_iter may run short, and the engine grants what it still needs once.",
+                "%d; max_trials may run short, and the engine grants what it still needs once.",
                 self._declared_roots,
                 len(targets),
                 len(targets),

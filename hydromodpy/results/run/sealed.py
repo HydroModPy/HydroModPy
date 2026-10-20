@@ -124,7 +124,7 @@ def metrics_of(run: Run) -> pd.DataFrame:
 
 
 def _metrics_table(metrics: Sequence[MetricRow]) -> pd.DataFrame:
-    columns = ["station", "variable", "metric", "value", *WINDOW_COLUMNS]
+    columns = ["station", "variable", "metric", "value", *WINDOW_COLUMNS, "n_clipped"]
     return pd.DataFrame([metric.model_dump() for metric in metrics], columns=columns)
 
 

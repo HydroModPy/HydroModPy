@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-NO_OTHER_TRIAL = "no other trial within the tolerance"
+NO_OTHER_TRIAL = "no other trial within the cost margin"
 """What a recap says in place of an interval that only holds the best trial."""
 
 
@@ -68,7 +68,7 @@ class CalibrationReport:
     """Optimizer method name (e.g. ``"optuna"``)."""
 
     n_iterations: int
-    """Number of trials actually run (could be < ``max_iter`` if the optimizer converged)."""
+    """Number of trials actually run (could be < ``max_trials`` if the optimizer converged)."""
 
     best_objective: float | None
     """Best (minimum) objective value achieved."""
@@ -355,7 +355,7 @@ def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:
 
     ``interval`` is a :meth:`ParameterInterval.to_dict` record. Printed as
     ``[x, x]``, such an interval reads as a value known exactly, when it only
-    says that no other trial scored within the tolerance.
+    says that no other trial scored within the cost margin.
     """
     n_within = interval.get("n_within")
     if n_within is not None and int(n_within) <= 1:

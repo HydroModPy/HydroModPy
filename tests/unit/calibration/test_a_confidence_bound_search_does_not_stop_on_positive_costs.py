@@ -40,7 +40,7 @@ def _tell(opt, sugg) -> None:
 
 
 def test_a_confidence_bound_search_does_not_stop_after_three_proposals():
-    opt = build_optimizer("gp_mapping", _space(), seed=11, n_init=4, max_iter=20, kappa=1.5)
+    opt = build_optimizer("gp_mapping", _space(), seed=11, n_init=4, max_trials=20, kappa=1.5)
     n_init = 4
     for _ in range(n_init + 3):
         (sugg,) = opt.ask(1)
@@ -50,7 +50,7 @@ def test_a_confidence_bound_search_does_not_stop_after_three_proposals():
 
 def test_a_confidence_bound_search_stops_once_the_bound_promises_nothing():
     opt = build_optimizer(
-        "gp_mapping", _space(), seed=11, n_init=4, max_iter=60, kappa=1.5, ei_tol=1e6
+        "gp_mapping", _space(), seed=11, n_init=4, max_trials=60, kappa=1.5, ei_tol=1e6
     )
     for _ in range(60):
         got = opt.ask(1)
@@ -64,7 +64,7 @@ def test_a_confidence_bound_search_stops_once_the_bound_promises_nothing():
 
 
 def test_the_confidence_bound_score_is_the_improvement_it_promises():
-    opt = build_optimizer("gp_mapping", _space(), seed=11, n_init=4, max_iter=20, kappa=1.5)
+    opt = build_optimizer("gp_mapping", _space(), seed=11, n_init=4, max_trials=20, kappa=1.5)
     for _ in range(5):
         (sugg,) = opt.ask(1)
         _tell(opt, sugg)

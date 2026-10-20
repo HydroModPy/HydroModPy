@@ -26,11 +26,11 @@ pytestmark = pytest.mark.fast
 
 STAGED = """
 [calibration]
-max_iter = 5
+max_trials = 5
 
 [calibration.parameters.K]
 bounds = [1e-9, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
@@ -148,6 +148,7 @@ def test_list_phases_names_the_reason(tmp_path, capsys) -> None:
         "bisection (one log parameter, signed criterion)",
         "",
         "width one mesh cell (default, measured on the mesh when the phase runs)",
+        "takes from [calibration]: max_trials 5",
     ]
     assert lines[2].split("\t")[2] == "scipy_nelder_mead (cost to minimise)"
     # k_written moves K again, which a column after the width says.
@@ -168,9 +169,14 @@ def test_list_phases_names_the_method_of_a_file_without_phases(tmp_path, capsys)
 
 
 def test_method_options_without_a_method_are_refused() -> None:
-    with pytest.raises(ValidationError, match="method_options and no method"):
-        CalibPhaseDecl.model_validate(
-            {"name": "p", "parameters": ["K"], "method_options": {"sweep_points": 3}}
+    with pytest.raises(ValidationError, match="phase 'p' gives method_options and no method"):
+        CalibrationConfig.model_validate(
+            {
+                "parameters": {"K": {"bounds": [1e-7, 1e-3]}},
+                "phases": [
+                    {"name": "p", "parameters": ["K"], "method_options": {"sweep_points": 3}}
+                ],
+            }
         )
     with pytest.raises(ValidationError, match=r"\[calibration\] gives method_options"):
         CalibrationConfig.model_validate({"method_options": {"points_per_dim": 3}})
@@ -196,13 +202,13 @@ def test_the_default_is_no_longer_grid() -> None:
 
 SINGLE_STAGE = """
 [calibration]
-max_iter = 6
+max_trials = 6
 evaluator = "analytic_bowl"
 use_cache = false
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 """
 
@@ -293,7 +299,7 @@ def test_python_mode_resolves_a_bare_name_and_chooses_as_the_toml_does(tmp_path)
         )
     python_cfg = mocked.call_args.args[0]
 
-    assert python_cfg.parameters["K"].transform == "log"
+    assert python_cfg.parameters["K"].search_space == "log"
     assert python_cfg.parameters["K"].path == toml_cfg.parameters["K"].path
     assert python_cfg.method_for() == toml_cfg.method_for()
     assert python_cfg.method_for() == ("bisection", "one log parameter, signed criterion")

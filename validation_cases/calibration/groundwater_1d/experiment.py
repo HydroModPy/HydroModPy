@@ -15,7 +15,8 @@ Gaussian noise. Calibration recovers ``(T, S)`` from the noisy heads.
 
 The experiment uses only numpy, the forward model is ~30 lines; the
 point of the file is to exercise the new ``hydromodpy.calibration`` API
-(ParameterSpace, ScalarObjective, CalibrationEngine, build_optimizer).
+(ParameterSpace, a CompositeObjective of ConfigBlockObjective blocks,
+CalibrationEngine, build_optimizer).
 """
 
 from __future__ import annotations
@@ -28,11 +29,11 @@ import numpy as np
 from hydromodpy.calibration import (
     CalibParameter,
     CalibrationEngine,
+    CompositeObjective,
+    ConfigBlockObjective,
     EvaluationResult,
-    ObservationSet,
     ParameterSpace,
     ParamSuggestion,
-    ScalarObjective,
     SimulationOutput,
     build_optimizer,
 )
@@ -125,28 +126,23 @@ class Groundwater1DCase:
                     name="T",
                     lower=self.bounds["T"][0],
                     upper=self.bounds["T"][1],
-                    transform="log",
+                    search_space="log",
                 ),
                 CalibParameter(
                     name="S",
                     lower=self.bounds["S"][0],
                     upper=self.bounds["S"][1],
-                    transform="log",
+                    search_space="log",
                 ),
             ]
         )
 
-    def synthetic_observations(self) -> ObservationSet:
+    def synthetic_observations(self) -> dict[str, np.ndarray]:
         times, x, heads = solve_heads(**self.truth, **self.model_kwargs)
         j = int(np.argmin(np.abs(x - self.well_position)))
         rng = np.random.default_rng(self.noise_seed)
         noisy = heads[:, j] + rng.normal(0.0, self.noise_sigma, size=times.size)
-        return ObservationSet(
-            stations=("well_mid",),
-            times=times,
-            values={"well_mid": noisy},
-            variable="head",
-        )
+        return {"well_mid": noisy}
 
     def simulate(self, values: Mapping[str, float]) -> SimulationOutput:
         times, x, heads = solve_heads(
@@ -178,18 +174,33 @@ def build_calibration(
     case: Groundwater1DCase = GROUNDWATER_1D_CASE,
     *,
     optimizer_name: str = "scipy_nelder_mead",
-    max_iter: int = 60,
+    max_trials: int = 60,
     seed: int = 7,
     metric: str = "rmse",
-) -> tuple[CalibrationEngine, ScalarObjective]:
+) -> tuple[CalibrationEngine, CompositeObjective]:
     """Assemble a ready-to-run CalibrationEngine for this case."""
     space = case.parameter_space()
     observations = case.synthetic_observations()
-    objective = ScalarObjective(observations, metric=metric)
+    # One block per station, equal weights: the mean of the station costs.
+    objective = CompositeObjective(
+        [
+            (
+                ConfigBlockObjective(
+                    name=f"{metric}@{station}",
+                    metric=metric,
+                    uses_outputs=[station],
+                    observed_by_output={station: observed},
+                ),
+                1.0,
+            )
+            for station, observed in observations.items()
+        ],
+        name=metric,
+    )
 
     optimizer_kwargs: dict[str, object] = {"seed": seed}
     if optimizer_name == "scipy_nelder_mead":
-        optimizer_kwargs["maxiter"] = max_iter
+        optimizer_kwargs["maxiter"] = max_trials
     elif optimizer_name == "scipy_de":
         optimizer_kwargs.update({"maxiter": 15, "popsize": 8, "tol": 1e-4})
     elif optimizer_name == "grid":
@@ -212,7 +223,7 @@ def build_calibration(
         space=space,
         optimizer=optimizer,
         evaluator=evaluator,
-        max_iter=max_iter,
+        max_trials=max_trials,
     )
     return engine, objective
 

@@ -10,7 +10,7 @@ Tests below cover the equivalent ground:
 - interaction with :class:`ParamsHashCache`,
 - the ``on_iteration`` callback hook,
 - graceful termination when the optimizer runs out of suggestions,
-- edge cases ``max_iter=0`` and ``batch_size > max_iter``.
+- edge cases ``max_trials=0`` and ``batch_size > max_trials``.
 """
 
 from __future__ import annotations
@@ -103,21 +103,21 @@ class TestEngineRun:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=10,
+            max_trials=10,
         )
         session = engine.run()
         assert len(session.history) == 3
         assert {r.trial_id for r in session.history} == {1, 2, 3}
 
-    def test_respects_max_iter_when_budget_is_binding(self):
-        """``max_iter`` caps iterations even if the optimizer has more points."""
+    def test_respects_max_trials_when_budget_is_binding(self):
+        """``max_trials`` caps iterations even if the optimizer has more points."""
         space = _unit_space()
         opt = build_optimizer("grid", space, points_per_dim=20)
         engine = CalibrationEngine(
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=4,
+            max_trials=4,
         )
         session = engine.run()
         assert len(session.history) == 4
@@ -130,7 +130,7 @@ class TestEngineRun:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=100,
+            max_trials=100,
         )
         session = engine.run()
         assert session.best is not None
@@ -157,7 +157,7 @@ class TestEngineRun:
                 status="completed",
             )
 
-        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=convex, max_iter=9)
+        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=convex, max_trials=9)
         session = engine.run()
 
         assert len(session.history) == 9  # full 3x3 cartesian product
@@ -173,7 +173,7 @@ class TestEngineRun:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=10,
+            max_trials=10,
         )
         session = engine.run()
         assert session.duration_s >= 0.0
@@ -181,8 +181,8 @@ class TestEngineRun:
 
 
 class TestEngineEdgeCases:
-    def test_max_iter_zero_runs_no_iterations(self):
-        """``max_iter=0`` must produce an empty session with no evaluator call."""
+    def test_max_trials_zero_runs_no_iterations(self):
+        """``max_trials=0`` must produce an empty session with no evaluator call."""
         space = _unit_space()
         opt = build_optimizer("grid", space, points_per_dim=5)
         calls: list[int] = []
@@ -191,14 +191,14 @@ class TestEngineEdgeCases:
             calls.append(sugg.trial_id)
             return _simple_evaluator(sugg)
 
-        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=_never, max_iter=0)
+        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=_never, max_trials=0)
         session = engine.run()
         assert calls == []
         assert session.history == []
         assert session.best is None
 
-    def test_batch_size_larger_than_max_iter_is_clamped(self):
-        """When ``batch_size > max_iter`` the engine clamps the per-ask ``n``."""
+    def test_batch_size_larger_than_max_trials_is_clamped(self):
+        """When ``batch_size > max_trials`` the engine clamps the per-ask ``n``."""
         space = _unit_space()
         # Use a stub that returns 5 suggestions if asked - we expect only 3.
         opt = _StubOptimizer([{"x": 0.1}, {"x": 0.2}, {"x": 0.3}, {"x": 0.4}, {"x": 0.5}])
@@ -206,7 +206,7 @@ class TestEngineEdgeCases:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=3,
+            max_trials=3,
             batch_size=100,
         )
         session = engine.run()
@@ -232,7 +232,7 @@ class TestEngineEdgeCases:
             return _simple_evaluator(sugg)
 
         engine = CalibrationEngine(
-            space=space, optimizer=opt, evaluator=_slow, max_iter=4, parallel=4
+            space=space, optimizer=opt, evaluator=_slow, max_trials=4, parallel=4
         )
         session = engine.run()
 
@@ -247,7 +247,7 @@ class TestEngineEdgeCases:
         def _never(sugg):
             raise RuntimeError("evaluator should not run when no suggestions")
 
-        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=_never, max_iter=10)
+        engine = CalibrationEngine(space=space, optimizer=opt, evaluator=_never, max_trials=10)
         session = engine.run()
         assert session.history == []
         assert session.best is None
@@ -268,7 +268,7 @@ class TestOnIterationCallback:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=10,
+            max_trials=10,
             on_iteration=lambda _s, r: received.append(r.trial_id),
         )
         engine.run()
@@ -283,7 +283,7 @@ class TestOnIterationCallback:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=10,
+            max_trials=10,
             on_iteration=lambda s, r: captured.append((s, r)),
         )
         engine.run()
@@ -304,7 +304,7 @@ class TestOnIterationCallback:
                 space=space,
                 optimizer=build_optimizer("grid", space, points_per_dim=2),
                 evaluator=_simple_evaluator,
-                max_iter=2,
+                max_trials=2,
                 cache=cache,
                 on_iteration=lambda s, r: captured.append((s, r)),
             )
@@ -341,7 +341,7 @@ class TestEngineCacheIntegration:
             space=space,
             optimizer=opt,
             evaluator=_counting_evaluator,
-            max_iter=10,
+            max_trials=10,
             cache=cache,
         )
         session = engine.run()
@@ -374,7 +374,7 @@ class TestEngineCacheIntegration:
             space=space,
             optimizer=opt,
             evaluator=_evaluator,
-            max_iter=10,
+            max_trials=10,
             cache=cache,
         )
         engine.run()
@@ -398,7 +398,7 @@ class TestEngineCacheIntegration:
             space=space,
             optimizer=opt,
             evaluator=_evaluator,
-            max_iter=10,
+            max_trials=10,
             cache=None,
         )
         engine.run()
@@ -414,7 +414,7 @@ class TestEngineCacheIntegration:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=5,
+            max_trials=5,
             cache=cache,
         )
         session = engine.run()
@@ -433,7 +433,7 @@ class TestEngineCacheIntegration:
             space=space,
             optimizer=opt,
             evaluator=_simple_evaluator,
-            max_iter=5,
+            max_trials=5,
             cache=cache,
             cache_context=context,
         )

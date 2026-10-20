@@ -49,7 +49,7 @@ def _optimizer():
     return build_optimizer(
         "da_mh_gp",
         _space(),
-        max_iter=12,
+        chain_length=12,
         n_init=4,
         burn_in=2,
         proposal_sigma=0.5,
@@ -66,7 +66,7 @@ def test_the_engine_says_it_runs_one_trial_at_a_time() -> None:
 def test_a_parallel_setting_finishes(setting: dict[str, int]) -> None:
     optimizer = _optimizer()
     engine = CalibrationEngine(
-        space=_space(), optimizer=optimizer, evaluator=_evaluate, max_iter=12, **setting
+        space=_space(), optimizer=optimizer, evaluator=_evaluate, max_trials=12, **setting
     )
     outcome: dict[str, object] = {}
     worker = threading.Thread(target=lambda: outcome.update(session=engine.run()), daemon=True)

@@ -45,8 +45,8 @@ class TestWhatIsAnnotated:
         found = _annotation(FieldHomogeneousSection, "value")
 
         assert found is not None
-        assert found.transform == "log"
-        assert found.prior == "log_uniform"
+        assert found.search_space == "log"
+        assert found.sampling == "log_uniform"
 
     def test_it_leaves_the_range_to_the_site(self) -> None:
         """A conductivity range is a property of the catchment, not of the schema."""

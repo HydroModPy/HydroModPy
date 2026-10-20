@@ -102,7 +102,7 @@ class TestPopulationContract:
             "cma_es",
             _two_dim_space(),
             popsize=5,
-            max_evaluations=50,
+            max_trials=50,
             seed=0,
         )
         sugg = opt.ask(n=5)
@@ -117,7 +117,7 @@ class TestPopulationContract:
             "cma_es",
             _two_dim_space(),
             popsize=popsize,
-            max_evaluations=40,
+            max_trials=40,
             seed=1,
         )
         # Asking for more than popsize at once only yields the current batch.
@@ -139,7 +139,7 @@ class TestPopulationContract:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=8,
+            max_trials=8,
             seed=3,
         )
         for sugg in opt.ask(n=4):
@@ -160,7 +160,7 @@ class TestTellUpdatesState:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=40,
+            max_trials=40,
             seed=5,
         )
         batch = opt.ask(n=4)
@@ -179,7 +179,7 @@ class TestTellUpdatesState:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=40,
+            max_trials=40,
             seed=6,
         )
         batch = opt.ask(n=4)
@@ -211,7 +211,7 @@ class TestTellUpdatesState:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=40,
+            max_trials=40,
             seed=7,
         )
         batch = opt.ask(n=4)
@@ -240,7 +240,7 @@ class TestConvergence:
             _two_dim_space(),
             sigma0=0.3,
             popsize=6,
-            max_evaluations=120,
+            max_trials=120,
             seed=42,
         )
         gen_best = _run_to_convergence(opt)
@@ -264,7 +264,7 @@ class TestConvergence:
             _one_dim_space(),
             sigma0=0.3,
             popsize=6,
-            max_evaluations=90,
+            max_trials=90,
             seed=11,
         )
 
@@ -292,7 +292,7 @@ class TestReproducibility:
                 _two_dim_space(),
                 sigma0=0.3,
                 popsize=5,
-                max_evaluations=40,
+                max_trials=40,
                 seed=123,
             )
             seen: list[tuple[float, float]] = []
@@ -311,8 +311,8 @@ class TestReproducibility:
         assert run_a == run_b
 
     def test_different_seed_changes_suggestions(self) -> None:
-        opt_a = build_optimizer("cma_es", _two_dim_space(), popsize=5, max_evaluations=20, seed=1)
-        opt_b = build_optimizer("cma_es", _two_dim_space(), popsize=5, max_evaluations=20, seed=2)
+        opt_a = build_optimizer("cma_es", _two_dim_space(), popsize=5, max_trials=20, seed=1)
+        opt_b = build_optimizer("cma_es", _two_dim_space(), popsize=5, max_trials=20, seed=2)
         first_a = [(s.values["x"], s.values["y"]) for s in opt_a.ask(n=5)]
         first_b = [(s.values["x"], s.values["y"]) for s in opt_b.ask(n=5)]
         assert first_a != first_b
@@ -330,7 +330,7 @@ class TestStrategyContract:
             _two_dim_space(),
             sigma0=0.42,
             popsize=7,
-            max_evaluations=21,
+            max_trials=21,
             seed=0,
         )
         assert opt._sigma0 == pytest.approx(0.42)
@@ -344,7 +344,7 @@ class TestStrategyContract:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=12,
+            max_trials=12,
             seed=100,
             restarts=2,
         )
@@ -366,7 +366,7 @@ class TestStrategyContract:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=8,
+            max_trials=8,
             seed=0,
             normalize=True,
         )
@@ -382,7 +382,7 @@ class TestStrategyContract:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=8,
+            max_trials=8,
             seed=0,
             normalize=False,
         )
@@ -410,7 +410,7 @@ class TestBudgetExhaustion:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=budget,
+            max_trials=budget,
             seed=9,
         )
         told = 0
@@ -430,7 +430,7 @@ class TestBudgetExhaustion:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=40,
+            max_trials=40,
             seed=8,
         )
         sugg = opt.suggest_next()
@@ -443,7 +443,7 @@ class TestBudgetExhaustion:
             "cma_es",
             _two_dim_space(),
             popsize=4,
-            max_evaluations=4,
+            max_trials=4,
             seed=10,
         )
         batch = opt.ask(n=4)
@@ -461,7 +461,7 @@ class TestBudgetExhaustion:
 
 class TestRegistration:
     def test_cma_es_name_resolves(self) -> None:
-        opt = build_optimizer("cma_es", _two_dim_space(), max_evaluations=8, seed=0)
+        opt = build_optimizer("cma_es", _two_dim_space(), max_trials=8, seed=0)
         assert opt.name == "cma_es"
 
     def test_bare_cma_name_is_not_registered(self) -> None:

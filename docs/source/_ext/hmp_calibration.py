@@ -76,23 +76,23 @@ def _table(head: list[str], rows: list[list[str]], widths: str) -> str:
 def method_parameters(m: dict[str, Any]) -> str:
     count = m["max_parameters"]
     moved = "Any number" if count is None else ("One" if count == 1 else f"Up to {count}")
-    space = m["required_transform"]
+    space = m["required_search_space"]
     return f"{moved}, in {space} space only" if space else moved
 
 
 def method_stops(m: dict[str, Any]) -> str:
-    option = m["tolerance_option"]
+    option = m["precision_option"]
     if option is None:
         return (
             "On its budget, or on a rule of its own options. "
-            ":toml:`calibration.tolerance` is refused."
+            ":toml:`calibration.precision` is refused."
         )
-    if m["tolerance_reads"] == "relative_value":
+    if m["precision_reads"] == "relative_value":
         how = "a relative precision on the parameter, passed through as is"
     else:
         how = "a width in the space the search walks, converted from the relative precision"
     return (
-        f"On a precision on the parameter: :toml:`calibration.tolerance` writes "
+        f"On a precision on the parameter: :toml:`calibration.precision` writes "
         f"``{option}``, {how}."
     )
 
@@ -100,10 +100,10 @@ def method_stops(m: dict[str, Any]) -> str:
 def method_budget(m: dict[str, Any]) -> str:
     if m["counts_its_budget"]:
         return (
-            '``max_iter = "auto"`` counts the evaluations its rule needs before the first '
+            '``max_trials = "auto"`` counts the evaluations its rule needs before the first '
             "solve. A smaller number is refused or warned by ``hmp config check``."
         )
-    return f'``max_iter = "auto"`` gives {m["uncounted_budget"]} evaluations.'
+    return f'``max_trials = "auto"`` gives {m["uncounted_budget"]} evaluations.'
 
 
 def method_facts(m: dict[str, Any]) -> list[tuple[str, str]]:
@@ -172,7 +172,7 @@ def methods_summary_rst(rows: list[dict[str, Any]], *, link: bool) -> str:
                 name,
                 m["summary"],
                 method_parameters(m),
-                "precision" if m["tolerance_option"] else "budget",
+                "precision" if m["precision_option"] else "budget",
                 "yes" if m["supports_parallel"] else "no",
             ]
         )

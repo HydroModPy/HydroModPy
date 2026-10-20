@@ -23,7 +23,7 @@ import numpy as np
 
 from hydromodpy.calibration.optim.optimizer import engine_traits
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import transformed_prior_samples
+from hydromodpy.calibration.optim.sampling import search_space_samples
 
 
 @dataclass(frozen=True)
@@ -82,14 +82,14 @@ def assert_restarts_can_explore(method: str, restarts: int) -> None:
 
 
 def start_points(space: ParameterSpace, *, restarts: int, seed: int | None) -> list[np.ndarray]:
-    """Return one start per restart, drawn from the declared priors.
+    """Return one start per restart, drawn from the declared sampling of each parameter.
 
     The first is left to the engine, which is what makes restart one identical to
     the single search it replaces: the answer a file already published stays in the
     set, and the others are added around it.
     """
     rng = np.random.default_rng(seed)
-    drawn = transformed_prior_samples(space, rng, max(0, restarts - 1))
+    drawn = search_space_samples(space, rng, max(0, restarts - 1))
     return [None, *[np.asarray(row, dtype=float) for row in drawn]]
 
 

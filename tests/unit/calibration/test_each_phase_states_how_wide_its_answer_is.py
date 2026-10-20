@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.evaluation import registry as evaluation_registry
 from hydromodpy.calibration.evaluation.port import TrialOutcome, TrialRequest
-from hydromodpy.calibration.optim.tolerance import FIVE_PER_CENT, ONE_MESH_CELL
+from hydromodpy.calibration.optim.cost_margin import FIVE_PER_CENT, ONE_MESH_CELL
 from hydromodpy.calibration.preflight import preflight_calibration
 from hydromodpy.calibration.runners.cli_runner import load_toml_calibration, run_calibration_cli
 from hydromodpy.calibration.runners.staged_runner import _phase_config, phase_summaries
@@ -37,16 +37,16 @@ pytestmark = pytest.mark.fast
 
 SECTION = """
 [calibration]
-max_iter = 5
+max_trials = 5
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 target = "flow.param.K.field.value"
 
 [calibration.parameters.Sy]
 bounds = [0.005, 0.35]
-transform = "log"
+search_space = "log"
 target = "flow.param.Sy.field.value"
 
 [calibration.outputs.net]
@@ -144,8 +144,8 @@ def test_the_cell_is_measured_next_to_the_mapped_cells() -> None:
 def test_a_phase_scored_on_network_distances_takes_one_mesh_cell(tmp_path) -> None:
     width = _widths(_config(tmp_path))["k_network"]
 
-    assert width["tolerance"] is None
-    assert (width["mode"], width["source"], width["rule"]) == ("absolute", "default", ONE_MESH_CELL)
+    assert width["margin"] is None
+    assert (width["kind"], width["source"], width["rule"]) == ("absolute", "default", ONE_MESH_CELL)
     assert width["on_distances"] is True
 
 
@@ -154,54 +154,64 @@ def test_a_phase_scored_on_a_hydrograph_takes_five_per_cent(tmp_path) -> None:
     # does not make this phase one scored on distances.
     width = _widths(_config(tmp_path))["sy_hydrograph"]
 
-    assert (width["tolerance"], width["mode"]) == (0.05, "relative")
+    assert (width["margin"], width["kind"]) == (0.05, "relative")
     assert (width["source"], width["rule"]) == ("default", FIVE_PER_CENT)
 
 
 def test_a_transformed_distance_is_no_longer_in_metres(tmp_path) -> None:
     text = SECTION.replace(
         'metric = "distance_gap"\nuses_outputs = ["net"]',
-        'metric = "distance_gap"\nuses_outputs = ["net"]\ntransform = "log"',
+        'metric = "distance_gap"\nuses_outputs = ["net"]\ncost_transform = "log"',
     ) + PHASES.format(k_extra="", sy_extra="")
     cfg, _raw = load_toml_calibration(_write(tmp_path, text))
 
     width = _widths(cfg)["k_network"]
 
-    assert (width["tolerance"], width["mode"], width["on_distances"]) == (0.05, "relative", False)
+    assert (width["margin"], width["kind"], width["on_distances"]) == (0.05, "relative", False)
 
 
-def test_the_section_still_applies_to_a_phase_that_writes_none(tmp_path) -> None:
-    cfg = _config(
-        tmp_path, section='\n[calibration.uncertainty]\nmode = "absolute"\ntolerance = 150.0\n'
-    )
+def test_the_section_applies_to_the_phases_it_can_bound_and_to_no_other(tmp_path) -> None:
+    cfg = _config(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "150 m"\n')
     widths = _widths(cfg)
 
-    for name in ("k_network", "sy_hydrograph"):
-        assert (widths[name]["tolerance"], widths[name]["mode"]) == (150.0, "absolute")
-        assert widths[name]["source"] == "section"
+    assert (widths["k_network"]["margin"], widths["k_network"]["kind"]) == (150.0, "absolute")
+    assert widths["k_network"]["source"] == "section"
+    # A length bounds a distance: the hydrograph phase reads its own default.
+    assert (widths["sy_hydrograph"]["margin"], widths["sy_hydrograph"]["kind"]) == (
+        0.05,
+        "relative",
+    )
+    assert widths["sy_hydrograph"]["source"] == "default"
+
+
+def test_a_share_in_the_section_applies_to_every_phase_that_can_read_it(tmp_path) -> None:
+    cfg = _config(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "8%"\n')
+
+    assert [
+        (width["margin"], width["kind"], width["source"]) for width in _widths(cfg).values()
+    ] == [(pytest.approx(0.08), "relative", "section")] * 2
 
 
 def test_a_value_written_in_the_phase_wins_over_the_section_and_the_default(tmp_path) -> None:
     cfg = _config(
         tmp_path,
-        section='\n[calibration.uncertainty]\nmode = "absolute"\ntolerance = 150.0\n',
-        k_extra="uncertainty = { tolerance = 225.0 }",
-        sy_extra='uncertainty = { mode = "relative", tolerance = 0.1 }',
+        section='\n[calibration.uncertainty]\ncost_margin = "150 m"\n',
+        k_extra='uncertainty = { cost_margin = "225 m" }',
+        sy_extra='uncertainty = { cost_margin = "10%" }',
     )
     widths = _widths(cfg)
 
-    assert (widths["k_network"]["tolerance"], widths["k_network"]["source"]) == (225.0, "phase")
-    # The mode the phase did not write is the section's.
-    assert widths["k_network"]["mode_source"] == "section"
-    assert (widths["sy_hydrograph"]["tolerance"], widths["sy_hydrograph"]["mode"]) == (
-        0.1,
+    assert (widths["k_network"]["margin"], widths["k_network"]["source"]) == (225.0, "phase")
+    assert (widths["sy_hydrograph"]["margin"], widths["sy_hydrograph"]["kind"]) == (
+        pytest.approx(0.1),
         "relative",
     )
     assert widths["sy_hydrograph"]["source"] == "phase"
     # The phase runs under its own keys, the section's filling the others.
     k_phase = next(decl for decl in cfg.phases if decl.name == "k_network")
-    assert _phase_config(cfg, k_phase).uncertainty.tolerance == 225.0
-    assert _phase_config(cfg, k_phase).uncertainty.mode == "absolute"
+    assert _phase_config(cfg, k_phase).uncertainty.cost_margin == "225 m"
+    sy_phase = next(decl for decl in cfg.phases if decl.name == "sy_hydrograph")
+    assert _phase_config(cfg, sy_phase).uncertainty.cost_margin == "10%"
 
 
 def test_a_phase_that_names_another_method_leaves_the_section_restarts(tmp_path) -> None:
@@ -239,7 +249,7 @@ def test_the_width_does_not_enter_the_params_hash(tmp_path) -> None:
     # a new width re-solves nothing.
     plain = _config(tmp_path)
     widened = plain.model_copy(
-        update={"uncertainty": plain.uncertainty.model_copy(update={"tolerance": 300.0})}
+        update={"uncertainty": plain.uncertainty.model_copy(update={"cost_margin": "300 m"})}
     )
 
     def context(cfg: CalibrationConfig) -> dict:
@@ -306,7 +316,7 @@ def test_check_passes_the_defaults(tmp_path) -> None:
 
 
 def test_check_refuses_a_relative_width_written_in_a_network_phase(tmp_path) -> None:
-    findings = _width_findings(_check(tmp_path, k_extra='uncertainty = { mode = "relative" }'))
+    findings = _width_findings(_check(tmp_path, k_extra='uncertainty = { cost_margin = "5%" }'))
 
     assert [(item.severity, item.where) for item in findings] == [
         ("error", "[[calibration.phases]] 'k_network'")
@@ -317,7 +327,7 @@ def test_check_refuses_a_relative_width_written_in_a_network_phase(tmp_path) -> 
 def test_check_refuses_a_relative_width_the_section_hands_a_network_phase(tmp_path) -> None:
     # The hydrograph phase takes the same relative width and is not named.
     findings = _width_findings(
-        _check(tmp_path, section='\n[calibration.uncertainty]\nmode = "relative"\n')
+        _check(tmp_path, section='\n[calibration.uncertainty]\ncost_margin = "5%"\n')
     )
 
     assert [item.where for item in findings] == ["[[calibration.phases]] 'k_network'"]
@@ -333,7 +343,7 @@ objective = "distance_gap"
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 """
 
@@ -342,7 +352,7 @@ SINGLE_METRIC_PHASE = """
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 
 [[calibration.phases]]
@@ -363,7 +373,7 @@ def test_a_single_metric_distance_takes_one_mesh_cell(tmp_path, template, phase)
 
     width = cfg.interval_width_for(cfg.phases[0] if phase else None)
 
-    assert (width.tolerance, width.mode, width.rule) == (None, "absolute", ONE_MESH_CELL)
+    assert (width.margin, width.kind, width.rule) == (None, "absolute", ONE_MESH_CELL)
 
 
 @pytest.mark.parametrize(
@@ -371,12 +381,12 @@ def test_a_single_metric_distance_takes_one_mesh_cell(tmp_path, template, phase)
     [
         (
             SINGLE_METRIC_SECTION,
-            '\n[calibration.uncertainty]\nmode = "relative"\n',
+            '\n[calibration.uncertainty]\ncost_margin = "5%"\n',
             "[calibration.uncertainty]",
         ),
         (
             SINGLE_METRIC_PHASE,
-            'uncertainty = { mode = "relative" }',
+            'uncertainty = { cost_margin = "5%" }',
             "[[calibration.phases]] 'k_gap'",
         ),
     ],
@@ -394,14 +404,12 @@ def test_check_refuses_a_relative_width_on_a_single_metric_distance(
     assert [(item.severity, item.where) for item in findings] == [("error", where)]
 
 
-def test_list_phases_says_where_the_mode_comes_from_when_the_tolerance_is_default(
-    tmp_path, capsys
-) -> None:
+def test_list_phases_says_where_each_width_comes_from(tmp_path, capsys) -> None:
     import argparse
 
     from hydromodpy.cli.commands import calibrate as calibrate_cmd
 
-    text = SECTION + '\n[calibration.uncertainty]\nmode = "absolute"\n'
+    text = SECTION + '\n[calibration.uncertainty]\ncost_margin = "150 m"\n'
     path = _write(tmp_path, text + PHASES.format(k_extra="", sy_extra=""))
     calibrate_cmd.run(
         argparse.Namespace(config=path, check=False, list_phases=True, phase=None, profile=None)
@@ -412,14 +420,8 @@ def test_list_phases_says_where_the_mode_comes_from_when_the_tolerance_is_defaul
     k_line, sy_line = (
         line for line in capsys.readouterr().out.splitlines() if not line.startswith(" ")
     )
-    assert k_line.split("\t")[4] == (
-        "width one mesh cell (default, measured on the mesh when the phase runs; "
-        "mode absolute written in [calibration.uncertainty])"
-    )
-    assert sy_line.split("\t")[4] == (
-        "width 0.05 in the unit of the cost (default; "
-        "mode absolute written in [calibration.uncertainty])"
-    )
+    assert k_line.split("\t")[4] == "width 150 m (written in [calibration.uncertainty])"
+    assert sy_line.split("\t")[4] == "width 5 % of the best cost (default)"
 
 
 # -- the run reads the cell off its trials and reports the width it used ----
@@ -453,7 +455,7 @@ def gap_in_metres():
 SINGLE_SEARCH = """
 [calibration]
 method = "grid"
-max_iter = 9
+max_trials = 9
 evaluator = "test_gap_in_metres"
 use_cache = false
 method_options = {{ points_per_dim = 9 }}
@@ -461,7 +463,7 @@ method_options = {{ points_per_dim = 9 }}
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 
 [calibration.outputs.net]
@@ -484,17 +486,17 @@ def test_the_run_reads_one_mesh_cell_off_the_trials(tmp_path, gap_in_metres) -> 
     report = _run(tmp_path)
 
     width = report.extra["interval_width"]
-    assert (width["tolerance"], width["mode"]) == (60.0, "absolute")
+    assert (width["margin"], width["kind"]) == (60.0, "absolute")
     assert (width["source"], width["rule"]) == ("default", ONE_MESH_CELL)
     (interval,) = report.extra["parameter_intervals"]
     assert interval["threshold"] == pytest.approx(report.best_objective + 60.0)
-    assert interval["mode"] == "absolute"
+    assert interval["kind"] == "absolute"
 
 
 def test_the_run_reports_a_written_width_and_where_it_was_written(tmp_path, gap_in_metres) -> None:
-    report = _run(tmp_path, '\n[calibration.uncertainty]\nmode = "absolute"\ntolerance = 120.0\n')
+    report = _run(tmp_path, '\n[calibration.uncertainty]\ncost_margin = "120 m"\n')
 
     width = report.extra["interval_width"]
-    assert (width["tolerance"], width["source"]) == (120.0, "section")
+    assert (width["margin"], width["source"]) == (120.0, "section")
     (interval,) = report.extra["parameter_intervals"]
     assert interval["threshold"] == pytest.approx(report.best_objective + 120.0)

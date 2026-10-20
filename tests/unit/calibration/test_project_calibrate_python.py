@@ -198,7 +198,7 @@ def _baseline_cfg() -> CalibrationConfig:
     return CalibrationConfig.model_validate(
         {
             "method": "grid",
-            "max_iter": 3,
+            "max_trials": 3,
             "save_runs": "none",
             "objective": "nse",
             "variable": "discharge",
@@ -206,8 +206,8 @@ def _baseline_cfg() -> CalibrationConfig:
             "parameters": {
                 "K": {
                     "bounds": [1e-6, 1e-3],
-                    "transform": "log",
-                    "prior": "log_uniform",
+                    "search_space": "log",
+                    "sampling": "log_uniform",
                     "path": "flow.param.K.field.value",
                 }
             },
@@ -357,7 +357,7 @@ base_config = "{project_toml.as_posix()}"
 
 [calibration]
 method = "grid"
-max_iter = 2
+max_trials = 2
 save_runs = "none"
 objective = "nse"
 variable = "discharge"
@@ -409,7 +409,7 @@ class TestProjectCalibratePythonModeDispatch:
                     }
                 },
                 method="grid",
-                max_iter=2,
+                max_trials=2,
                 save_runs="none",
             )
             assert result is sentinel
@@ -455,7 +455,7 @@ class TestProjectCalibratePythonModeDispatch:
                     }
                 },
                 method="grid",
-                max_iter=2,
+                max_trials=2,
                 save_runs="none",
             )
             assert result is sentinel

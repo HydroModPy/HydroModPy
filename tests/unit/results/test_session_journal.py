@@ -49,7 +49,7 @@ def _session(project: Path, name: str = "calage", session_id: str = SESSION_ID):
         hydromodpy_version="2.0.0a5",
         method="optuna",
         objective_name="rmse",
-        search_space={"K_aquifer": {"bounds": [1e-6, 1e-3], "transform": "log"}},
+        search_space={"K_aquifer": {"bounds": [1e-6, 1e-3], "search_space": "log"}},
         objective_window=None,
     )
     return persistence

@@ -34,6 +34,63 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Calibration audit of 2026-10-14, windows (2026-10-20, decisions m03 and m04). A `[metrics]
+  window` that shares no day with `[simulation.time]` is refused when a file is loaded, naming both
+  periods (`d97ebb8a4`); the frozen config of a run already on disk that carries such a window still
+  reads, with a warning, and the run has no score (`b7059b9ea`). Series figures of a run
+  (hydrograph, hydrograph_sim_obs, piezometer and lake sim/obs, sfr_reach_timeseries,
+  flux_timeseries, residuals) shade what precedes the `[metrics] window` start, read from the run;
+  there is no `spinup_end` key (`6d562725e`). The validation window (m05), the single `window` type
+  (m06), the refusal of `warmup_periods` (m07) and example 04 split in calibration and validation
+  (m24) are not done yet.
+- Calibration audit of 2026-10-14, metrics (2026-10-20, decisions m10, m12, m13, m14). One scoring
+  route: a calibration written `variable` + `objective` is scored by implicit blocks, one output
+  `<variable>@<station>` and one block `<objective>@<station>` per scored station, with the trial
+  costs of before; `ScalarObjective` and `ObservationSet` are removed (`814c99829`, `29ce59fdc`).
+  The trial components of that form are renamed (`cost:<objective>@<station>` becomes
+  `<objective>@<station>.raw_cost`, with `.n_values`, `.n_paired`, `.date_start`, `.date_end`); only
+  the gauge `observed_station_id` names is scored; an undefined metric gives the trial an infinite
+  cost instead of raising; `aggregate.min_samples` applies to it. `nse_log` clips a negative value
+  to zero and counts it, for a run as for the calibration cost, and the run writes `n_clipped` on its
+  metric row and in the index (`fc82b7684`). `pbias` is `100 x sum(s - o) / sum(o)`, positive when the
+  model overestimates, the sign of `bias` (`91722e2b3`). The metric rule is version 2: runs scored
+  under 1 and 2 no longer rank together, and the calibration cache is solved again once. The KGE is
+  written as its 2009 form everywhere it is described (`2b0a96d0b`, `67dec1fce`). Index schema 8:
+  run `hmp catalog reindex`. The cost naming (m15) is not done yet.
+- Calibration audit of 2026-10-14, parameter surface (2026-10-20, decisions m17 to m23 and m28). A
+  renamed key in a file is refused with its new name, `hmp doctor --fix-config` rewrites it, and the
+  frozen config of a run on disk reads under the new names (`a8d1dc2fb`). Renamed:
+  `max_iter` -> `max_trials`, the only search budget (protocol `steady_max_trials`,
+  `transient_max_trials`; `Project.calibrate(max_trials=)`); the budget options of the methods
+  (`maxfev`, `maxiter`, `max_evaluations`, gp_mapping `max_iter`) are refused, the doctor moves an
+  evaluation count into `max_trials`, and da_mh_gp `max_iter` is `chain_length`; gp_mapping and
+  cma_es spend `max_trials` (100 under "auto", no longer 30) (`963963e05`). `tolerance` ->
+  `precision` (protocol `steady_precision`, `transient_precision`); `uncertainty.tolerance` and
+  `mode` -> `cost_margin`, "5%" of the best cost or a length such as "75 m" on a search scored only
+  by network distances (`5896f4685`). `parameters.<p>.transform` -> `search_space`, `prior` ->
+  `sampling`, `objective_blocks[].transform` -> `cost_transform`, and `Calibrable` follows
+  (`2c67560a2`). `extent.maximal_flowing_steps` and `minimal_dry_steps` -> `maximal_flowing_duration`
+  and `minimal_dry_duration`, durations converted by the run's step (flowing rounded up, dry rounded
+  down); left unwritten they are one time step, as before (`b701911a3`, `627d8db2c`). A phase that
+  writes no `method`, `max_trials`, `precision` or `method_options` takes them from `[calibration]`,
+  and `--list-phases` says where each comes from (`95690355c`). `hmp calibrate` takes `--set`,
+  `--overlay` and `--case`, and a calibration launched with them is named after the user's file or
+  `--case`, not after the temporary copy (`c5ab86112`, `87f7206c0`). `[sites.summary] rank_by`
+  names the ranking metric (default "nse"); the order of `metrics` no longer chooses it
+  (`b94e1e562`). The trial cache is keyed on what changes a cost only: a new method, seed,
+  precision, budget, method options, bounds or search space replays the trials already solved;
+  params_hash v3 solves every earlier trial again, once (`687cc62f3`). The removal of
+  `observed_station_id` (m16) is not done yet.
+- Calibration audit of 2026-10-14, methods (2026-10-20, decisions m25 to m30). The GR4J package
+  without a model, `hydromodpy.calibration.lumped`, is removed and the docs no longer announce GR4J
+  (`2db8dd8b0`, `a41feb5fe`). `da_mh_gp` is described as a sequential search, not a posterior
+  (`fc2adb018`, `9704e675c`). A phase may write `bounds` for its parameters, inside the section's
+  bounds or the field's range, refused otherwise (`cdc36c404`). The acceptable interval of
+  `cost_profile` is read on the total cost only; a block cost drawn alone gets no interval
+  (`eca1327b4`, `476e77916`). A MODFLOW-NWT run writes the catchment budget row, so a run without
+  the per-cell budget reads its `_catchment` discharge on the catchment and its score matches its
+  trial cost (Nançon, session `26952cbc`: KGE 0.24 -> 0.87) (`2876df91d`). Trials are not truncated
+  (m31).
 - The four decided items of the calibration and score audit of 2026-10-14 are applied: m01, m08,
   m09 and m11 (2026-10-20, eight commits `d2e2dd729..829864b4a`). What changes for a user:
   - A calibration session keeps the periods of its scoring window the way the run scores them:

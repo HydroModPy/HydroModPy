@@ -2,8 +2,8 @@
 
 The new architecture ships a weighted multi-block composite objective as a
 building block users compose when writing their own ``metric_fn``. Each
-block pairs a :class:`ScalarObjective` with a positive weight; weights are
-normalised to sum to 1.0. An optional ``transform`` (``"identity"``,
+block pairs a :class:`ConfigBlockObjective` with a positive weight; weights are
+normalised to sum to 1.0. An optional ``cost_transform`` (``"identity"``,
 ``"log"`` or ``"inverse"``) is applied to each block total before the
 weighted sum is computed.
 """
@@ -19,8 +19,6 @@ from hydromodpy.calibration.optim.objective import (
     CompositeObjective,
     ConfigBlockObjective,
     ObjectiveValue,
-    ObservationSet,
-    ScalarObjective,
     SimulationOutput,
 )
 
@@ -131,13 +129,10 @@ def test_a_trial_the_optimizer_used_to_step_over_is_not_turned_into_an_exception
 # ---------------------------------------------------------------------------
 
 
-def _make_obs(station: str, values: np.ndarray, *, variable: str = "head") -> ObservationSet:
-    times = np.arange(values.size, dtype=float)
-    return ObservationSet(
-        stations=(station,),
-        times=times,
-        values={station: values},
-        variable=variable,
+def _block(station: str, values: np.ndarray, metric: str) -> ConfigBlockObjective:
+    """One block scoring ``metric`` on the output named after ``station``."""
+    return ConfigBlockObjective(
+        name=station, metric=metric, uses_outputs=[station], observed_by_output={station: values}
     )
 
 
@@ -167,8 +162,8 @@ def test_equal_weight_composite_two_nse_blocks_returns_mean_cost() -> None:
     sim_a = obs_a + 0.5
     sim_b = obs_b + 2.0
 
-    block_a = ScalarObjective(_make_obs("A", obs_a), metric="nse")
-    block_b = ScalarObjective(_make_obs("B", obs_b), metric="nse")
+    block_a = _block("A", obs_a, "nse")
+    block_b = _block("B", obs_b, "nse")
 
     sim = _make_sim({"A": sim_a, "B": sim_b})
 
@@ -193,8 +188,8 @@ def test_weighted_composite_reflects_weights() -> None:
     sim_a = obs_a + 0.1
     sim_b = obs_b + 5.0  # much worse fit on B
 
-    block_a = ScalarObjective(_make_obs("A", obs_a), metric="nse")
-    block_b = ScalarObjective(_make_obs("B", obs_b), metric="nse")
+    block_a = _block("A", obs_a, "nse")
+    block_b = _block("B", obs_b, "nse")
 
     sim = _make_sim({"A": sim_a, "B": sim_b})
 
@@ -223,8 +218,8 @@ def test_unequal_weights_are_normalized_to_sum_one() -> None:
     sim_a = obs_a + 0.3
     sim_b = obs_b + 1.5
 
-    block_a = ScalarObjective(_make_obs("A", obs_a), metric="rmse")
-    block_b = ScalarObjective(_make_obs("B", obs_b), metric="rmse")
+    block_a = _block("A", obs_a, "rmse")
+    block_b = _block("B", obs_b, "rmse")
     sim = _make_sim({"A": sim_a, "B": sim_b})
 
     raw_composite = CompositeObjective([(block_a, 3.0), (block_b, 1.0)])
@@ -249,54 +244,54 @@ def test_components_dict_is_merged_from_all_blocks() -> None:
     sim_a = obs_a + 0.5
     sim_b = obs_b + 2.0
 
-    block_a = ScalarObjective(_make_obs("A", obs_a), metric="nse")
-    block_b = ScalarObjective(_make_obs("B", obs_b), metric="nse")
+    block_a = _block("A", obs_a, "nse")
+    block_b = _block("B", obs_b, "nse")
     sim = _make_sim({"A": sim_a, "B": sim_b})
 
     composite = CompositeObjective([(block_a, 1.0), (block_b, 1.0)])
     out = composite.evaluate(sim)
 
-    # Both per-station components from the two ScalarObjective blocks
-    # survive in the merged components dict.
-    assert "cost:nse@A" in out.components
-    assert "cost:nse@B" in out.components
-    # Per-block totals are also surfaced; both blocks carry the same
-    # ``.name`` ("nse") so one of them is disambiguated by index.
+    # The components of both blocks survive in the merged components dict.
+    assert "A.raw_cost" in out.components
+    assert "B.raw_cost" in out.components
+    # Per-block totals are also surfaced, one per block.
     total_keys = [k for k in out.components if k.endswith(".total")]
     assert len(total_keys) == 2
 
 
 def test_transform_log_keeps_minimization_order() -> None:
-    """``transform="log"`` preserves lower-is-better ordering."""
+    """``cost_transform="log"`` preserves lower-is-better ordering."""
     # Build two identity-fit blocks (costs near zero after metric).
     obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
     sim_values = obs.copy()
 
-    block = ScalarObjective(_make_obs("A", obs), metric="rmse")
+    block = _block("A", obs, "rmse")
     sim = _make_sim({"A": sim_values})
 
     # Raw (identity) cost with a perfect fit => ~0.
-    identity_composite = CompositeObjective([(block, 1.0)], transform="identity")
+    identity_composite = CompositeObjective([(block, 1.0)], cost_transform="identity")
     identity_total = identity_composite.evaluate(sim).total
     assert identity_total == pytest.approx(0.0, abs=1.0e-12)
 
-    log_composite = CompositeObjective([(block, 1.0)], transform="log")
+    log_composite = CompositeObjective([(block, 1.0)], cost_transform="log")
     log_total = log_composite.evaluate(sim).total
     assert math.isfinite(log_total)
 
-    bad_block = ScalarObjective(_make_obs("A", obs), metric="rmse")
+    bad_block = _block("A", obs, "rmse")
     bad_sim = _make_sim({"A": obs + 10.0})
-    bad_log_total = CompositeObjective([(bad_block, 1.0)], transform="log").evaluate(bad_sim).total
+    bad_log_total = (
+        CompositeObjective([(bad_block, 1.0)], cost_transform="log").evaluate(bad_sim).total
+    )
     assert log_total < bad_log_total
 
 
 def test_transform_inverse_keeps_minimization_order() -> None:
-    """``transform="inverse"`` preserves lower-is-better ordering."""
+    """``cost_transform="inverse"`` preserves lower-is-better ordering."""
     obs = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="rmse")
+    block = _block("A", obs, "rmse")
     sim = _make_sim({"A": obs.copy()})  # perfect fit -> cost ~0
 
-    inverse_composite = CompositeObjective([(block, 1.0)], transform="inverse")
+    inverse_composite = CompositeObjective([(block, 1.0)], cost_transform="inverse")
     bad_sim = _make_sim({"A": obs + 10.0})
     assert inverse_composite.evaluate(sim).total < inverse_composite.evaluate(bad_sim).total
 
@@ -313,7 +308,7 @@ def test_empty_blocks_raises() -> None:
 
 def test_non_positive_weight_raises() -> None:
     obs = np.array([1.0, 2.0, 3.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="nse")
+    block = _block("A", obs, "nse")
     with pytest.raises(ValueError, match="weight must be finite and > 0"):
         CompositeObjective([(block, 0.0)])
     with pytest.raises(ValueError, match="weight must be finite and > 0"):
@@ -322,22 +317,22 @@ def test_non_positive_weight_raises() -> None:
 
 def test_non_finite_weight_raises() -> None:
     obs = np.array([1.0, 2.0, 3.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="nse")
+    block = _block("A", obs, "nse")
     with pytest.raises(ValueError, match="weight must be finite and > 0"):
         CompositeObjective([(block, float("nan"))])
 
 
 def test_unknown_transform_raises() -> None:
     obs = np.array([1.0, 2.0, 3.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="nse")
-    with pytest.raises(ValueError, match="Unknown transform"):
-        CompositeObjective([(block, 1.0)], transform="zigzag")
+    block = _block("A", obs, "nse")
+    with pytest.raises(ValueError, match="Unknown cost_transform"):
+        CompositeObjective([(block, 1.0)], cost_transform="zigzag")
 
 
 def test_malformed_block_tuple_raises() -> None:
     obs = np.array([1.0, 2.0, 3.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="nse")
-    with pytest.raises(TypeError, match="must be a .*tuple"):
+    block = _block("A", obs, "nse")
+    with pytest.raises(TypeError, match="must be an .*tuple"):
         CompositeObjective([block])  # forgot the weight
 
 
@@ -349,8 +344,8 @@ def test_malformed_block_tuple_raises() -> None:
 def test_composite_has_name_and_evaluate() -> None:
     """CompositeObjective satisfies the Objective Protocol surface."""
     obs = np.array([1.0, 2.0, 3.0])
-    block = ScalarObjective(_make_obs("A", obs), metric="nse")
+    block = _block("A", obs, "nse")
     composite = CompositeObjective([(block, 1.0)], name="my_composite")
     assert composite.name == "my_composite"
     assert hasattr(composite, "evaluate")
-    assert composite.transform == "identity"
+    assert composite.cost_transform == "identity"

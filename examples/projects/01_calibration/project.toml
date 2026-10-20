@@ -125,7 +125,7 @@ enabled = false
 
 [calibration]
 method = "optuna"
-max_iter = 20
+max_trials = 20
 save_runs = "best_n"
 save_best_n = 3
 seed = 42
@@ -137,7 +137,7 @@ variable = "head"
 
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
-transform = "log"
+search_space = "log"
 # Native flow parameters keep the TOML subsection path.
 path = "flow.param.K.field.value"
 units = "m/s"

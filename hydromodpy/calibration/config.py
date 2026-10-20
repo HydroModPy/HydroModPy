@@ -4,7 +4,7 @@ Minimal TOML::
 
     [calibration]
     method       = "grid"
-    max_iter     = 200
+    max_trials   = 200
     save_runs    = "best_n"
     save_best_n  = 10
     seed         = 42
@@ -21,7 +21,7 @@ Enriched TOML (twin-benchmark style)::
 
     [calibration]
     method = "cma_es"
-    max_iter = 80
+    max_trials = 80
     seed = 42
 
     [calibration.parameters.K_aquifer]
@@ -55,6 +55,7 @@ from pydantic import (
     Field,
     TypeAdapter,
     ValidationError,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -71,12 +72,28 @@ from hydromodpy.core.config_kit.types import (
     PositiveInt,
 )
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+from hydromodpy.core.cost_margin import parse_cost_margin
 from hydromodpy.core.stream_criterion_defaults import (
     STREAM_CRITERION_DEFAULTS,
     ObservedRasterization,
 )
-from hydromodpy.core.stream_extent import DEFAULT_VISIBLE_FLOW, parse_visible_flow
+from hydromodpy.core.stream_extent import (
+    DEFAULT_VISIBLE_FLOW,
+    parse_extent_duration,
+    parse_visible_flow,
+)
 from hydromodpy.core.units import Length
+
+
+def renamed_to(new: str, meaning: str) -> str:
+    """Return the refusal of a key that got a new name, for ``model_refused_keys``.
+
+    *meaning* says in one clause what the new key is, so a reader who never saw
+    the old name still learns what to write. ``hmp doctor --fix-config`` rewrites
+    the file (``hydromodpy.config.config_migration.RENAMED_KEYS``).
+    """
+    return f"renamed to {new!r} ({meaning}); hmp doctor --fix-config <file> rewrites it"
+
 
 SaveRunsMode = Literal["none", "best_n", "all"]
 ParameterMode = Literal["replace", "scale"]
@@ -115,8 +132,9 @@ _METRIC_VALUE_DOCS: dict[str, str] = {
     "rmse": "Root-mean-square error, in the observed unit; penalizes large misfits most.",
     "nse": "Nash-Sutcliffe efficiency against the observed mean; the "
     "standard choice for a level or discharge series.",
-    "kge": "Kling-Gupta efficiency; separates correlation, variability "
-    "and bias when NSE alone is ambiguous.",
+    "kge": "Kling-Gupta efficiency, 2009 form (bias as the ratio of sums, "
+    "variability as the ratio of standard deviations); separates correlation, "
+    "variability and bias when NSE alone is ambiguous.",
     "mae": "Mean absolute error, in the observed unit; less sensitive to outliers than RMSE.",
     "nse_log": "NSE on log-transformed series; weights low flows as "
     "heavily as peaks, good for recessions.",
@@ -197,6 +215,16 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "steady_engine_options": "steady_method_options",
         "transient_engine_options": "transient_method_options",
     }
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "steady_max_iter": renamed_to("steady_max_trials", "evaluations stage one may run"),
+        "transient_max_iter": renamed_to("transient_max_trials", "evaluations stage two may run"),
+        "steady_tolerance": renamed_to(
+            "steady_precision", "how finely stage one pins the conductivity"
+        ),
+        "transient_tolerance": renamed_to(
+            "transient_precision", "how finely stage two pins the storage"
+        ),
+    }
 
     name: Annotated[Literal["matching_hydrographic_network"], Profile.USER] = Field(
         description=(
@@ -243,8 +271,9 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "several decades, which is what a root search wants; any registered engine is "
         "accepted.",
     )
-    steady_max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
+    steady_max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
         default="auto",
+        json_schema_extra=field_metadata(renamed_from=["calibration.protocol.steady_max_iter"]),
         description="Evaluation budget of stage one. 'auto' lets an engine that counts "
         "its evaluations size it: the bisection budgets its worst case, S + 2E + "
         "ceil(log2(1 / t)) for a root found after its E bracket expansions, 23 on "
@@ -252,13 +281,15 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "gets 100. A number below the bisection's nominal count, S + ceil(log2(s / t)) "
         "for a root inside the bounds (15 there), is refused before the first solve.",
     )
-    steady_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    steady_precision: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="How precisely stage one has to pin the conductivity before it "
         "stops, as a relative precision on the conductivity: 0.01 is the paper's one "
         "per cent. Unset takes the engine's default, which for the bisection is that "
         "same one per cent.",
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(
+            unit="-", renamed_from=["calibration.protocol.steady_tolerance"]
+        ),
     )
     steady_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -266,7 +297,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         "them: for the bisection, sweep_points, bracket_expand, rel_tol and "
         "signed_component. Which ones exist depends on steady_method; a key the "
         "method does not know is refused when the file loads. Used to reproduce a "
-        "published call; a precision is said once, in steady_tolerance.",
+        "published call; a precision is said once, in steady_precision.",
         json_schema_extra=field_metadata(
             renamed_from=["calibration.protocol.steady_engine_options"]
         ),
@@ -289,20 +320,24 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
             "as 'scipy_nelder_mead'."
         ),
     )
-    transient_max_iter: Annotated[int, Profile.USER] = Field(
+    transient_max_trials: Annotated[int, Profile.USER] = Field(
         default=120,
         ge=1,
         description="Evaluation budget of stage two. The simplex cannot count what it "
-        "needs, so it gets no extension: a stage two that spends this before its "
-        "tolerance is reported as not converged, and a re-run with a larger budget "
+        "needs, so it gets no extension: a stage two that spends this before it "
+        "reaches its precision is reported as not converged, and a re-run with a larger budget "
         "replays the trials already solved from the cache.",
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(
+            unit="-", renamed_from=["calibration.protocol.transient_max_iter"]
+        ),
     )
-    transient_tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    transient_precision: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="How precisely stage two has to pin the storage before it stops, "
         "as a relative precision on the storage coefficient.",
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(
+            unit="-", renamed_from=["calibration.protocol.transient_tolerance"]
+        ),
     )
     transient_method_options: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,
@@ -362,7 +397,7 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
 
         The recipe leaves a stage's method options and its precision to the
         method. ``steady_method_options = {sweep_points = 7}`` or
-        ``steady_tolerance = 0.01`` beside a bisection, whose defaults are seven
+        ``steady_precision = 0.01`` beside a bisection, whose defaults are seven
         points and one per cent, restate the recipe and do not move off it.
         """
         from hydromodpy.calibration.optim.method_config import (
@@ -376,11 +411,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
             options = dict(getattr(self, f"{stage}_method_options") or {})
             if options and method_options_are_its_defaults(method, options):
                 same.add(f"{stage}_method_options")
-            precision = getattr(self, f"{stage}_tolerance")
+            precision = getattr(self, f"{stage}_precision")
             if precision is not None and default_relative_precision(method, options) == float(
                 precision
             ):
-                same.add(f"{stage}_tolerance")
+                same.add(f"{stage}_precision")
         return frozenset(same)
 
 
@@ -407,6 +442,11 @@ class CalibParameterDecl(HydroModelBase):
     for multiplicative factors applied to an existing config value.
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "transform": renamed_to("search_space", "the space the search walks the parameter in"),
+        "prior": renamed_to("sampling", "the law that starting points and random draws follow"),
+    }
+
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
         min_length=2,
@@ -415,10 +455,11 @@ class CalibParameterDecl(HydroModelBase):
         "Falls back to what the field annotates when the file omits it, which most "
         "fields deliberately leave unset because a range belongs to the site.",
     )
-    transform: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
+    search_space: Annotated[Literal["identity", "log", "logit"], Profile.USER] = Field(
         default="identity",
-        json_schema_extra={
-            "value_docs": {
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.parameters.transform"],
+            value_docs={
                 "identity": "Searches the value as written.",
                 "log": (
                     "Searches the logarithm of the value: for a positive quantity that "
@@ -428,29 +469,30 @@ class CalibParameterDecl(HydroModelBase):
                     "Searches log(x / (1 - x)): for a share strictly between 0 and 1. "
                     "Both bounds must lie inside (0, 1)."
                 ),
-            }
-        },
-        description="Transform applied before sampling. 'log' for "
+            },
+        ),
+        description="Space the search walks the parameter in. 'log' for "
         "strictly-positive quantities spanning orders of magnitude. Unset, the "
         "target's own field decides: a hydraulic conductivity declares 'log' where "
         "it is defined, so a file states this only to depart from it.",
     )
-    prior: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
+    sampling: Annotated[Literal["uniform", "log_uniform", "normal"], Profile.USER] = Field(
         default="uniform",
         description=(
             "Distribution, between the bounds, that starting points, random draws and "
             "Bayesian samplers take values from."
         ),
-        json_schema_extra={
-            "value_docs": {
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.parameters.prior"],
+            value_docs={
                 "uniform": "Every value between the bounds is equally likely.",
                 "log_uniform": "Every decade between the bounds is equally likely.",
                 "normal": (
                     "A normal law centred between the bounds, with a standard deviation "
                     "of a sixth of their span, cut at the bounds."
                 ),
-            }
-        },
+            },
+        ),
     )
     path: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -846,30 +888,50 @@ class CalibNetworkExtent(HydroModelBase):
     """The transient two-bound mode of a network output.
 
     Declared, the output stops reading one state. For every complete calendar
-    year of the run, the maximal simulated mask holds the cells flowing at
-    least ``maximal_flowing_steps`` timesteps, and the minimal one the cells
-    flowing at every timestep but at most ``minimal_dry_steps``. A cell enters
+    year of the run, the maximal simulated mask holds the cells flowing for at
+    least ``maximal_flowing_duration``, and the minimal one the cells flowing at
+    every timestep but for at most ``minimal_dry_duration``. A cell enters
     the mask scored when it meets the rule in at least ``year_quorum`` of the
     scored years. Each bound is scored once by the distance criterion: the
     maximal mask against the maximal map, the minimal mask against the minimal
-    map when one is declared. Durations count timesteps, not days.
+    map when one is declared. Both durations are converted to whole timesteps
+    with the run's step, so the same file means the same on a daily and a
+    monthly run.
     """
 
-    maximal_flowing_steps: Annotated[int, Profile.USER] = Field(
-        default=1,
-        ge=1,
-        description="Timesteps a cell has to flow in a year to enter the maximal mask. "
-        "At most the timestep count of the shortest complete year, checked on the run.",
-        json_schema_extra={"unit": "-"},
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "maximal_flowing_steps": renamed_to(
+            "maximal_flowing_duration",
+            "how long a cell has to flow in a year, with its unit, such as '1 month'",
+        ),
+        "minimal_dry_steps": renamed_to(
+            "minimal_dry_duration",
+            "how long a cell may be dry in a year, with its unit, such as '1 month'",
+        ),
+    }
+
+    maximal_flowing_duration: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="How long a cell has to flow in a year to enter the maximal mask, "
+        "with its unit: '30 d', '1 month'. Converted by the run's timestep, rounded up to "
+        "whole timesteps and never below one. Left out, one timestep, whatever the step. "
+        "At most the shortest complete year, checked on the run.",
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.outputs.extent.maximal_flowing_steps"]
+        ),
     )
-    minimal_dry_steps: Annotated[int, Profile.USER] = Field(
-        default=1,
-        ge=0,
-        description="Timesteps a cell may be dry in a year and stay in the minimal mask. "
-        "The year's timestep count minus this has to stay at least "
-        "maximal_flowing_steps, checked on the run, so the minimal mask sits inside the "
+    minimal_dry_duration: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="How long a cell may be dry in a year and stay in the minimal mask, "
+        "with its unit: '1 d', '1 month'. Converted by the run's timestep and rounded "
+        "down to whole timesteps, possibly none: '1 d' is one dry timestep on a daily "
+        "run, none on a monthly one. Left out, one timestep, whatever the step. The "
+        "year's timesteps minus these have to stay at least the flowing timesteps of "
+        "the maximal rule, checked on the run, so the minimal mask sits inside the "
         "maximal one.",
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.outputs.extent.minimal_dry_steps"]
+        ),
     )
     year_quorum: Annotated[float, Profile.USER] = Field(
         default=0.5,
@@ -893,6 +955,15 @@ class CalibNetworkExtent(HydroModelBase):
         description="Share of each bound in the value returned when both maps are "
         "declared. Only the maximal bound is scored without a minimal map.",
     )
+
+    @field_validator("maximal_flowing_duration", "minimal_dry_duration", mode="before")
+    @classmethod
+    def _readable_duration(cls, value: Any, info: ValidationInfo) -> Any:
+        """Refuse a duration the criterion could not read at the first trial."""
+        days = parse_extent_duration(value, location=str(info.field_name))
+        if days is not None and info.field_name == "maximal_flowing_duration" and not days > 0.0:
+            raise ValueError("maximal_flowing_duration must be longer than zero.")
+        return value
 
     @field_validator("visible_flow")
     @classmethod
@@ -1384,6 +1455,10 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     signals in one calibration session.
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "transform": renamed_to("cost_transform", "the function applied to the cost of this block"),
+    }
+
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
@@ -1419,20 +1494,21 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         "under 'auto': a gap of one validity length costs 1, as much as an NSE of 0 on "
         "nse_log. Refused on an efficiency score, already a pure number.",
     )
-    transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
+    cost_transform: Annotated[ObjectiveTransform, Profile.USER] = Field(
         default="identity",
-        description="Per-block cost transform applied before weighting. Note that "
-        "transform='log' takes the logarithm of the cost, which is not the same "
+        description="Transform applied to the cost of this block before weighting. Note "
+        "that cost_transform='log' takes the logarithm of the cost, which is not the same "
         "thing as metric='nse_log', an NSE computed on log-transformed series.",
-        json_schema_extra={
-            "value_docs": {
+        json_schema_extra=field_metadata(
+            renamed_from=["calibration.objective_blocks.transform"],
+            value_docs={
                 "identity": "Uses the block cost as computed, with no transform.",
                 "log": "Takes log10 of the cost plus a small epsilon, compressing "
                 "large costs before weighting.",
                 "inverse": "Takes -1 / (cost + epsilon), sharpening the gradient near "
                 "a cost of zero.",
-            }
-        },
+            },
+        ),
     )
     warmup: Annotated[NonNegativeInt | None, Profile.EXPERT] = Field(
         default=None,
@@ -1556,7 +1632,7 @@ def _same_instant(a: Any, b: Any) -> bool:
 _OPTIONS_WITHOUT_A_METHOD = (
     "{where} gives method_options and no method. They are options of one method, "
     "and a search that names no method gets the one its criteria call for. Write "
-    "method beside them, or drop them."
+    "method beside them or under [calibration], or drop them."
 )
 
 
@@ -1584,7 +1660,7 @@ UncertaintyMethod = Literal["cost_profile", "multistart", "linearized"]
 
 _UNCERTAINTY_METHOD_VALUE_DOCS: dict[str, str] = {
     "cost_profile": (
-        "Reads the range of sampled values whose cost stayed within tolerance of the "
+        "Reads the range of sampled values whose cost stayed within cost_margin of the "
         "best, off the trace of the search. No extra model run."
     ),
     "multistart": (
@@ -1619,6 +1695,33 @@ def _refuse_a_posterior(data: Any, where: str) -> None:
         )
 
 
+_UNCERTAINTY_REFUSED_KEYS: Mapping[str, str] = {
+    "tolerance": renamed_to(
+        "cost_margin", "write '5%' or '25 m', a share of the best cost or a length"
+    ),
+    "mode": renamed_to(
+        "cost_margin", "its unit says what mode said: '5%' is relative, '25 m' absolute"
+    ),
+}
+"""The two keys that said how wide an interval is, now one margin that carries its unit."""
+
+
+def _checked_cost_margin(value: Any) -> Any:
+    """Return *value* when it reads as a share or a length, else raise ``ValueError``."""
+    if value is None:
+        return value
+    parse_cost_margin(value)
+    return value.strip()
+
+
+def _margin_in_metres_needs_distances(where: str, text: str) -> str:
+    return (
+        f"{where} cost_margin = {text!r} is a length, and no search it covers is scored only "
+        "by network distances (distance_gap, distance_mean): a length bounds a cost in "
+        "metres. Write a share such as '5%', or leave it unwritten."
+    )
+
+
 class CalibPhaseUncertaintyDecl(HydroModelBase):
     """How wide one phase says its answer is, key by key over ``[calibration.uncertainty]``.
 
@@ -1628,6 +1731,8 @@ class CalibPhaseUncertaintyDecl(HydroModelBase):
     ``perturbation`` belong to a method: a phase that names another method than
     the section does not inherit them.
     """
+
+    model_refused_keys: ClassVar[Mapping[str, str]] = _UNCERTAINTY_REFUSED_KEYS
 
     method: Annotated[UncertaintyMethod | None, Profile.USER] = Field(
         default=None,
@@ -1647,21 +1752,26 @@ class CalibPhaseUncertaintyDecl(HydroModelBase):
         "of each calibrated value.",
         json_schema_extra={"unit": "-"},
     )
-    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    cost_margin: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Width of this phase's interval: a fraction of the best cost when "
-        "mode='relative', a number in the unit of the cost (metres for a network "
-        "distance) when mode='absolute'. Unset here and in [calibration.uncertainty], "
-        "one mesh cell for a phase scored only by network distances, five per cent of "
-        "the best cost otherwise.",
-        json_schema_extra={"unit": "- or cost unit"},
+        description="Width of this phase's interval, with its unit: '5%' is a share of "
+        "the best cost, '75 m' a length, for a phase scored only by network distances. "
+        "Unset here and in [calibration.uncertainty], one mesh cell for a phase scored "
+        "only by network distances, five per cent of the best cost otherwise.",
+        json_schema_extra=field_metadata(
+            unit="% or m",
+            renamed_from=[
+                "calibration.phases.uncertainty.tolerance",
+                "calibration.phases.uncertainty.mode",
+            ],
+        ),
     )
-    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
-        default=None,
-        description="How this phase's tolerance is read. Unset here and in "
-        "[calibration.uncertainty], 'absolute' for a phase scored only by network "
-        "distances, 'relative' otherwise.",
-    )
+
+    @field_validator("cost_margin", mode="before")
+    @classmethod
+    def _read_the_margin(cls, value: Any) -> Any:
+        """Refuse a margin without its unit, or that is neither a share nor a length."""
+        return _checked_cost_margin(value)
 
     @model_validator(mode="before")
     @classmethod
@@ -1692,6 +1802,10 @@ class CalibPhaseDecl(HydroModelBase):
     """
 
     model_legacy_keys = {"optimizer_kwargs": "method_options"}
+    model_refused_keys: ClassVar[Mapping[str, str]] = {
+        "max_iter": renamed_to("max_trials", "evaluations this phase may run"),
+        "tolerance": renamed_to("precision", "how finely this phase pins its parameters"),
+    }
 
     name: Annotated[NonEmptyStr, Profile.USER] = Field(
         description="Phase identifier, unique in the calibration and used in the "
@@ -1704,12 +1818,14 @@ class CalibPhaseDecl(HydroModelBase):
     method: Annotated[CalibrationMethod | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Optimization method for this phase only. Unset, it follows from what the "
+            "Optimization method for this phase only. Unset, the phase runs the "
+            "method [calibration] writes; failing that it follows from what the "
             "phase scores: 'bisection' when the phase moves one parameter in log space "
             "and every one of its blocks is signed (distance_gap), since the answer is "
             "then a zero to find; 'scipy_nelder_mead' otherwise, a cost to minimise. "
-            "hmp calibrate --list-phases prints the method and why. Write it to "
-            "depart from that choice, and whenever method_options are given. "
+            "hmp calibrate --list-phases prints the method and where it comes from. "
+            "Write it to depart from that choice, and whenever method_options are given "
+            "and [calibration] writes no method. "
             "Built-ins: 'grid' (regular sweep, sized by "
             "method_options.points_per_dim), 'lhs' (stratified Latin hypercube, "
             "sized by method_options.n_samples), 'random_search', 'bisection' (root of "
@@ -1719,30 +1835,34 @@ class CalibPhaseDecl(HydroModelBase):
             "with the list installed here."
         ),
     )
-    max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
-        default="auto",
-        description="Maximum number of evaluations for this phase. 'auto' lets an "
+    max_trials: Annotated[PositiveInt | Literal["auto"] | None, Profile.USER] = Field(
+        default=None,
+        description="Maximum number of evaluations for this phase. Unset, the phase "
+        "takes the max_trials of [calibration]. 'auto' lets an "
         "engine that counts its evaluations size it: the bisection budgets its worst "
         "case, and refuses before the first solve a number below its nominal count "
-        "(see [calibration].max_iter). Any other engine gets 100 from 'auto', and no "
+        "(see [calibration].max_trials). Any other engine gets 100 from 'auto', and no "
         "extension when it spends them before its stopping rule.",
+        json_schema_extra=field_metadata(renamed_from=["calibration.phases.max_iter"]),
     )
-    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    precision: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description=(
             "How precisely the search has to pin a parameter before it stops, as a "
             "relative precision on the parameter itself: 0.01 asks for one per cent, "
-            "0.1 for ten. On a log-transformed parameter that is a ratio, which is "
+            "0.1 for ten. On a parameter searched in log space that is a ratio, which is "
             "how a conductivity is known in the first place, and it holds wherever the "
-            "value sits; on any other transform there is no scale on the value to be "
+            "value sits; on any other search space there is no scale on the value to be "
             "relative to before the search has one, so it reads as a fraction of the "
             "declared interval. Each engine's own stopping option is written from it, "
             "so the same number survives a change of engine, and the engine's own "
             "option stays available for reproducing a published call verbatim. Unset, "
-            "the engine's default applies. An engine that stops on its budget rather "
-            "than on a precision refuses this rather than ignore it."
+            "the phase takes the precision of [calibration] when its engine stops on "
+            "one and the phase writes no stopping option of its own, else the engine's "
+            "default applies. Written here, an engine that stops on its budget rather "
+            "than on a precision refuses it rather than ignore it."
         ),
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(unit="-", renamed_from=["calibration.phases.tolerance"]),
     )
     batch_size: Annotated[int | None, Profile.USER] = Field(
         default=None,
@@ -1763,6 +1883,15 @@ class CalibPhaseDecl(HydroModelBase):
         min_length=1,
         description="Names of the calibration parameters this phase may move. Every "
         "other parameter keeps the value it entered the phase with.",
+    )
+    bounds: Annotated[dict[str, list[float]] | None, Profile.USER] = Field(
+        default=None,
+        description="[low, high] physical bounds this phase searches a parameter between, "
+        "as {parameter = [low, high]}, in the unit the parameter declares. Only parameters "
+        "the phase moves, and every interval has to lie inside the bounds of "
+        "[calibration.parameters.<name>] (or the range the field annotates when the "
+        "section writes none): a phase narrows a search, it never widens it. A parameter "
+        "left out keeps the bounds of the section. hmp calibrate --list-phases prints them.",
     )
     outputs: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
@@ -1793,16 +1922,19 @@ class CalibPhaseDecl(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one. Overrides the calibration-level value for this phase.",
+        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one. Overrides the calibration-level value for this phase.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
-    method_options: Annotated[dict[str, Any], Profile.USER] = Field(
-        default_factory=dict,
+    method_options: Annotated[dict[str, Any] | None, Profile.USER] = Field(
+        default=None,
         description="Options of this phase's method, named as that method names "
         "them: sweep_points for 'bisection', points_per_dim for 'grid', sampler for "
         "'optuna'. They belong to one method, so a phase that gives them writes "
-        "method beside them. A key the method does not take is refused when the "
-        "file loads. hmp config check names the phase.",
+        "method beside them, or runs the method [calibration] writes. Unset, the phase "
+        "takes the method_options of [calibration] when it runs the method that section "
+        "writes, and none otherwise; an empty table states that it takes none. A key "
+        "the method does not take is refused when the file loads. hmp config check "
+        "names the phase.",
         json_schema_extra=field_metadata(renamed_from=["calibration.phases.optimizer_kwargs"]),
     )
     regime: Annotated[Literal["steady", "transient"] | None, Profile.USER] = Field(
@@ -1873,18 +2005,35 @@ class CalibPhaseDecl(HydroModelBase):
         """
         return self.variable is not None or self.objective is not None
 
+    @field_validator("bounds")
+    @classmethod
+    def _each_interval_is_two_ordered_values(
+        cls, value: dict[str, list[float]] | None
+    ) -> dict[str, list[float]] | None:
+        """Refuse an interval that is not [low, high] with low below high."""
+        for name, interval in (value or {}).items():
+            if len(interval) != 2:
+                raise ValueError(
+                    f"bounds of {name!r} has to be [low, high], two values, got {interval!r}."
+                )
+            if not interval[0] < interval[1]:
+                raise ValueError(
+                    f"bounds of {name!r} = {interval!r}: the lower bound must be below the upper."
+                )
+        return value
+
     @model_validator(mode="after")
     def _name_the_engine_the_options_belong_to(self) -> CalibPhaseDecl:
-        """Refuse method_options on a phase that names no method, or that its method refuses.
+        """Refuse method_options its own method does not take, when the file loads.
 
-        The options belong to one method, and a phase that names none gets the
-        one its criteria call for. The options would then reach a method the
-        file never chose. An option the method does not take is refused here,
-        when the file loads, and not when this phase starts.
+        A phase that names no method runs the one ``[calibration]`` writes, or
+        failing that the one its criteria call for, and
+        :meth:`CalibrationConfig._check_phases` reads the options against it.
         """
-        _check_the_method_takes_its_options(
-            f"phase {self.name!r}", self.method, self.method_options
-        )
+        if self.method is not None:
+            _check_the_method_takes_its_options(
+                f"phase {self.name!r}", self.method, self.method_options or {}
+            )
         return self
 
     @model_validator(mode="after")
@@ -1948,13 +2097,15 @@ class CalibUncertaintyDecl(HydroModelBase):
     trace and not a posterior.
     """
 
+    model_refused_keys: ClassVar[Mapping[str, str]] = _UNCERTAINTY_REFUSED_KEYS
+
     method: Annotated[UncertaintyMethod, Profile.USER] = Field(
         default="cost_profile",
         json_schema_extra={"value_docs": _UNCERTAINTY_METHOD_VALUE_DOCS},
         description=(
             "How the interval around each calibrated value is obtained. "
             "'cost_profile' reads the range of sampled values whose cost stayed within "
-            "'tolerance' of the best, off the trace the search already produced, and "
+            "'cost_margin' of the best, off the trace the search already produced, and "
             "costs no extra model run. 'multistart' runs the whole search 'restarts' "
             "times from 'restarts' different starting points and reports the spread of "
             "the optima it reaches, which is the only one of the two that can see a "
@@ -2031,32 +2182,32 @@ class CalibUncertaintyDecl(HydroModelBase):
             )
         return self
 
-    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    cost_margin: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Width of the interval. A fraction of the best cost when mode='relative' "
-            "(0.05 = five per cent), and a number in the unit of the cost when "
-            "mode='absolute'. Unset, it follows what the search scores: one mesh cell, "
-            "in metres, for a search scored only by network distances (distance_gap, "
-            "distance_mean), because a stream cannot move by less than a cell; 0.05 "
-            "otherwise, five per cent of the best cost. The cell is the median distance "
-            "between the centres of neighbouring cells, measured by the network "
-            "criterion on the mesh it scores. A phase may write its own, which wins."
+            "Width of the interval, written with its unit. '5%' is a share of the best "
+            "cost, the usual choice for an efficiency score. A criterion solved at zero, "
+            "such as the stream-network gap, has no fraction of itself to take: write a "
+            "length, '25 m', which is only read by a search scored only by network "
+            "distances (distance_gap, distance_mean). A bare number is refused. Unset, it "
+            "follows what the search scores: one mesh cell, in metres, for a search scored "
+            "only by network distances, because a stream cannot move by less than a cell; "
+            "5%, five per cent of the best cost, otherwise. The cell is the median distance "
+            "between the centres of neighbouring cells, measured by the network criterion "
+            "on the mesh it scores. A phase may write its own, which wins. hmp config "
+            "check refuses a share on a search scored only by network distances."
         ),
-        json_schema_extra={"unit": "- or cost unit"},
-    )
-    mode: Annotated[Literal["relative", "absolute"] | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "How 'tolerance' is read. 'relative' is a fraction of the best cost and is "
-            "the usual choice for an efficiency score. A criterion solved at zero, such "
-            "as the stream-network gap, has no fraction of itself to take: state the "
-            "width in the unit of the cost with 'absolute', for example 25 metres. "
-            "Unset, 'absolute' for a search scored only by network distances and "
-            "'relative' otherwise. hmp config check refuses 'relative' on a search "
-            "scored only by network distances."
+        json_schema_extra=field_metadata(
+            unit="% or m",
+            renamed_from=["calibration.uncertainty.tolerance", "calibration.uncertainty.mode"],
         ),
     )
+
+    @field_validator("cost_margin", mode="before")
+    @classmethod
+    def _read_the_margin(cls, value: Any) -> Any:
+        """Refuse a margin without its unit, or that is neither a share nor a length."""
+        return _checked_cost_margin(value)
 
 
 class CalibrationConfig(HydroModelBase):
@@ -2090,6 +2241,8 @@ class CalibrationConfig(HydroModelBase):
             "hmp calibrate --resume reuses the completed phases of the session of the "
             "case; nothing in the file says so."
         ),
+        "max_iter": renamed_to("max_trials", "the evaluations the search may run"),
+        "tolerance": renamed_to("precision", "how finely the search pins a parameter"),
     }
 
     protocol: Annotated[CalibrationProtocolDecl | None, Profile.USER] = Field(
@@ -2155,10 +2308,12 @@ class CalibrationConfig(HydroModelBase):
             "no other evaluator."
         ),
     )
-    max_iter: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
+    max_trials: Annotated[PositiveInt | Literal["auto"], Profile.USER] = Field(
         default="auto",
+        json_schema_extra=field_metadata(renamed_from=["calibration.max_iter"]),
         description=(
-            "Maximum number of evaluations of the search. 'auto' lets an engine that "
+            "Maximum number of evaluations of the search. It is the only bound on how "
+            "long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that "
             "counts its evaluations before the first solve size its own budget. Only "
             "the bisection does: with d the declared interval in decades, t = "
             "log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / "
@@ -2170,18 +2325,18 @@ class CalibrationConfig(HydroModelBase):
             "worst case is announced, and a budget that still runs out gets exactly "
             "the halvings left, once. Any other engine gets 100 from 'auto' and no "
             "extension: a search that spends its budget before its own stopping rule "
-            "is reported as not converged, and a re-run with a larger max_iter "
+            "is reported as not converged, and a re-run with a larger max_trials "
             "replays the trials already solved from the cache."
         ),
     )
-    tolerance: Annotated[PositiveFloat | None, Profile.USER] = Field(
+    precision: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description=(
             "How precisely the search has to pin a parameter before it stops, as a "
             "relative precision on the parameter itself: 0.01 asks for one per cent, "
-            "0.1 for ten. On a log-transformed parameter that is a ratio, which is "
+            "0.1 for ten. On a parameter searched in log space that is a ratio, which is "
             "how a conductivity is known in the first place, and it holds wherever the "
-            "value sits; on any other transform there is no scale on the value to be "
+            "value sits; on any other search space there is no scale on the value to be "
             "relative to before the search has one, so it reads as a fraction of the "
             "declared interval. Each engine's own stopping option is written from it, "
             "so the same number survives a change of engine, and the engine's own "
@@ -2189,7 +2344,7 @@ class CalibrationConfig(HydroModelBase):
             "the engine's default applies. An engine that stops on its budget rather "
             "than on a precision refuses this rather than ignore it."
         ),
-        json_schema_extra={"unit": "-"},
+        json_schema_extra=field_metadata(unit="-", renamed_from=["calibration.tolerance"]),
     )
     batch_size: Annotated[int, Profile.USER] = Field(
         default=1,
@@ -2315,7 +2470,7 @@ class CalibrationConfig(HydroModelBase):
     )
     observed_station_id: Annotated[str | None, Profile.USER] = Field(
         default=None,
-        description="Observed station whose cost the optimizer minimises. Every loaded gauge is already scored at its own mesh cell, on the discharge routed to that cell, and every cost is reported; naming one says which of them drives the search. Required with several stations loaded, optional with one.",
+        description="Discharge station whose record a discharge calibration fits, scored at its own mesh cell on the discharge routed to that cell. The other loaded gauges are not scored. Required with several discharge stations loaded, optional with one.",
         json_schema_extra=field_metadata(site_scoped=True),
     )
     method_options: Annotated[dict[str, Any], Profile.USER] = Field(
@@ -2329,7 +2484,7 @@ class CalibrationConfig(HydroModelBase):
     )
     parameters: Annotated[dict[str, CalibParameterDecl], Profile.USER] = Field(
         default_factory=dict,
-        description="Per-parameter declarations (bounds, transform, prior, path).",
+        description="Per-parameter declarations (bounds, search_space, sampling, path).",
     )
     outputs: Annotated[dict[str, CalibOutputDecl], Profile.USER] = Field(
         default_factory=dict,
@@ -2539,43 +2694,160 @@ class CalibrationConfig(HydroModelBase):
             )
         validate_method_kwargs(method, self.method_options)
 
+    def phase_bounds_problems(self, phase: CalibPhaseDecl) -> list[str]:
+        """Return why the bounds a phase writes cannot hold, or nothing.
+
+        A phase moves the parameters it lists, between bounds that lie inside the
+        section's. A parameter whose section bounds are not known yet (a field's
+        range, filled in once the project is resolved) is not faced here; it is
+        faced again when the phase is built.
+        """
+        problems: list[str] = []
+        for name, interval in (phase.bounds or {}).items():
+            if name not in phase.parameters:
+                problems.append(
+                    f"phase {phase.name!r} writes bounds for {name!r}, which it does not "
+                    f"move; it moves {list(phase.parameters)}."
+                )
+                continue
+            declared = self.parameters[name].bounds if name in self.parameters else None
+            if declared is not None and not (
+                declared[0] <= interval[0] and interval[1] <= declared[1]
+            ):
+                problems.append(
+                    f"phase {phase.name!r} searches {name!r} between {interval}, which is "
+                    f"not inside the bounds of [calibration.parameters.{name}], {declared}: "
+                    "a phase narrows a search, it never widens it."
+                )
+        return problems
+
     def method_for(self, phase: CalibPhaseDecl | None = None) -> tuple[str, str | None]:
         """Return the method this calibration, or one of its phases, runs, and why.
 
-        A method the file writes comes back as written, with no reason. One it
-        leaves unwritten is chosen from what the search scores, by
-        ``optim.optimizer.choose_method``, and the reason says why. ``phase``
-        reads the parameters that phase moves and the blocks it scores, selected
-        as the staged runner selects them; ``None`` reads the whole section.
+        A method the file writes comes back as written, with no reason: the
+        phase's own, else the section's. One it leaves unwritten is chosen from
+        what the search scores, by ``optim.optimizer.choose_method``, and the
+        reason says why. ``phase`` reads the parameters that phase moves and the
+        blocks it scores, selected as the staged runner selects them; ``None``
+        reads the whole section.
         """
-        written = self.method if phase is None else phase.method
+        written = self.method if phase is None or phase.method is None else phase.method
         if written is not None:
             return written, None
         from hydromodpy.calibration.optim.optimizer import choose_method
 
         moved = self.parameters if phase is None else phase.parameters
-        transforms = {
-            name: str(self.parameters[name].transform) for name in moved if name in self.parameters
+        search_spaces = {
+            name: str(self.parameters[name].search_space)
+            for name in moved
+            if name in self.parameters
         }
-        choice = choose_method(transforms, self._criteria_scored_by(phase))
+        choice = choose_method(search_spaces, self._criteria_scored_by(phase))
         return choice.method, choice.reason
+
+    def max_trials_for(self, phase: CalibPhaseDecl | None = None) -> int | str:
+        """Return the budget a search runs with: the phase's, else the section's."""
+        own = None if phase is None else phase.max_trials
+        return self.max_trials if own is None else own
+
+    def precision_for(self, phase: CalibPhaseDecl | None = None) -> float | None:
+        """Return the precision a search pins its parameters to: the phase's, else the section's.
+
+        A precision written in the phase is returned as written, and
+        ``hmp config check`` refuses it on an engine that stops on its budget. The
+        section's reaches a phase only when the phase's engine stops on a
+        precision, and not when the phase already writes that stopping option
+        itself: the phase's own option departs from it, deliberately.
+        """
+        if phase is None:
+            return self.precision
+        if phase.precision is not None:
+            return phase.precision
+        if self.precision is None:
+            return None
+        from hydromodpy.calibration.optim.optimizer import engine_traits
+
+        option = engine_traits(self.method_for(phase)[0]).precision_option
+        if option is None or option in self.method_options_for(phase):
+            return None
+        return self.precision
+
+    def method_options_for(self, phase: CalibPhaseDecl | None = None) -> dict[str, Any]:
+        """Return the options a search's method runs with: the phase's, else the section's.
+
+        An empty table in the phase states that it takes none. The section's
+        reach a phase that names no options when that phase runs the method the
+        section writes, since options belong to one method. A protocol writes
+        its stages in full, so the options beside it reach none of them.
+        """
+        if phase is None:
+            return dict(self.method_options)
+        if phase.method_options is not None:
+            return dict(phase.method_options)
+        if self.protocol is not None or self.method is None:
+            return {}
+        if self.method_for(phase)[0] != self.method:
+            return {}
+        return dict(self.method_options)
+
+    def search_sources_for(self, phase: CalibPhaseDecl) -> dict[str, str]:
+        """Say where each key of a phase's search comes from: ``phase``, ``section`` or ``default``."""
+        return {
+            "method": (
+                "phase"
+                if phase.method is not None
+                else "section"
+                if self.method is not None
+                else "default"
+            ),
+            "max_trials": (
+                "phase"
+                if phase.max_trials is not None
+                else "section"
+                if "max_trials" in self.model_fields_set
+                else "default"
+            ),
+            "precision": (
+                "phase"
+                if phase.precision is not None
+                else "section"
+                if self.precision_for(phase) is not None
+                else "default"
+            ),
+            "method_options": (
+                "phase"
+                if phase.method_options is not None
+                else "section"
+                if self.method_options_for(phase)
+                else "default"
+            ),
+        }
 
     def uncertainty_for(self, phase: CalibPhaseDecl | None = None) -> CalibUncertaintyDecl:
         """Return the uncertainty a search reads: the phase's keys over the section's.
 
         ``None`` reads the section alone. A phase that names another method than
         the section does not inherit the section's ``restarts`` or
-        ``perturbation``, which belong to the section's method.
+        ``perturbation``, which belong to the section's method. Nor does a phase
+        scored by anything but network distances inherit a margin in metres.
         """
         own = None if phase is None else phase.uncertainty
-        if own is None:
-            return self.uncertainty
-        written = own.model_dump(exclude_none=True)
         merged = self.uncertainty.model_dump()
+        written = {} if own is None else own.model_dump(exclude_none=True)
         if written.get("method", self.uncertainty.method) != self.uncertainty.method:
             merged["restarts"] = None
             merged["perturbation"] = None
+        if (
+            phase is not None
+            and "cost_margin" not in written
+            and merged["cost_margin"] is not None
+            and parse_cost_margin(merged["cost_margin"]).kind == "absolute"
+            and not self._scored_on_network_distances(phase)
+        ):
+            merged["cost_margin"] = None
         merged.update(written)
+        if merged == self.uncertainty.model_dump():
+            return self.uncertainty
         return CalibUncertaintyDecl.model_validate(merged)
 
     def parallel_for(self, phase: CalibPhaseDecl | None = None) -> int:
@@ -2591,30 +2863,22 @@ class CalibrationConfig(HydroModelBase):
     def interval_width_for(self, phase: CalibPhaseDecl | None = None) -> Any:
         """Return the width a search reads its interval with, and where it comes from.
 
-        A tolerance or a mode written in the phase wins, then the one written in
-        ``[calibration.uncertainty]``. Left unwritten, both follow what the search
-        scores, by ``optim.tolerance.choose_interval_width``. ``phase`` reads the
+        A ``cost_margin`` written in the phase wins, then the one written in
+        ``[calibration.uncertainty]``. Left unwritten, it follows what the search
+        scores, by ``optim.cost_margin.choose_interval_width``. ``phase`` reads the
         blocks that phase scores; ``None`` reads the whole section.
 
-        The answer is an ``optim.tolerance.IntervalWidth``. The signature does not
-        name it because this module imports ``optim`` only inside a function.
+        The answer is an ``optim.cost_margin.IntervalWidth``. The signature does
+        not name it because this module imports ``optim`` only inside a function.
         """
-        from hydromodpy.calibration.optim.tolerance import choose_interval_width
+        from hydromodpy.calibration.optim.cost_margin import choose_interval_width
 
-        own = None if phase is None else phase.uncertainty
-
-        def written(key: str) -> tuple[Any, str] | None:
-            if own is not None and getattr(own, key) is not None:
-                return getattr(own, key), "phase"
-            if getattr(self.uncertainty, key) is not None:
-                return getattr(self.uncertainty, key), "section"
-            return None
-
-        return choose_interval_width(
-            self._scored_on_network_distances(phase),
-            tolerance=written("tolerance"),
-            mode=written("mode"),
-        )
+        own = None if phase is None or phase.uncertainty is None else phase.uncertainty.cost_margin
+        text = self.uncertainty_for(phase).cost_margin
+        written = None
+        if text is not None:
+            written = (parse_cost_margin(text), "phase" if own is not None else "section")
+        return choose_interval_width(self._scored_on_network_distances(phase), margin=written)
 
     def objective_blocks_for(
         self, phase: CalibPhaseDecl | None = None
@@ -2664,7 +2928,7 @@ class CalibrationConfig(HydroModelBase):
 
         Read as :meth:`_criteria_scored_by` reads the criteria: a single-metric
         phase scores its own ``objective`` or the section's, and a search with
-        no block scores the section's ``objective``. A block with a transform is
+        no block scores the section's ``objective``. A block with a cost transform is
         no longer in metres, and neither is one with ``normalize_cost``, whose
         distance is counted in validity lengths. The single-metric route has
         neither.
@@ -2678,7 +2942,7 @@ class CalibrationConfig(HydroModelBase):
             return str(self.objective) in NETWORK_ESTIMATORS
         return all(
             str(block.metric) in NETWORK_ESTIMATORS
-            and block.transform == "identity"
+            and block.cost_transform == "identity"
             and not block.normalize_cost
             for block in blocks
         )
@@ -2719,6 +2983,9 @@ class CalibrationConfig(HydroModelBase):
                 if phase.freeze_on_success:
                     frozen_by[path] = phase.name
 
+            for problem in self.phase_bounds_problems(phase):
+                raise ValueError(problem)
+
             unknown_outputs = sorted(set(phase.outputs) - declared_outputs)
             if unknown_outputs:
                 raise ValueError(
@@ -2732,6 +2999,10 @@ class CalibrationConfig(HydroModelBase):
                     f"[[calibration.objective_blocks]] declares {declared}."
                 )
 
+            if phase.method is None and phase.method_options:
+                _check_the_method_takes_its_options(
+                    f"phase {phase.name!r}", self.method, phase.method_options
+                )
             if phase.depends_on is not None:
                 if phase.depends_on not in seen[:index]:
                     raise ValueError(
@@ -2778,6 +3049,45 @@ class CalibrationConfig(HydroModelBase):
                         f"phase {phase.name!r} writes an uncertainty that does not hold "
                         f"once read over [calibration.uncertainty]: {reasons}"
                     ) from None
+        return self
+
+    @model_validator(mode="after")
+    def _check_a_margin_in_metres_has_a_distance_to_bound(self) -> CalibrationConfig:
+        """Refuse a ``cost_margin`` in metres on a search that scores no network distance.
+
+        A length bounds a cost that is itself a length. A phase that writes one
+        and scores something else is refused; one that only inherits it from the
+        section reads the default instead (:meth:`uncertainty_for`), and the
+        section's own is refused when no search it covers scores distances. A
+        protocol not yet expanded has no stage to read.
+        """
+        if self.protocol is not None and not self.phases:
+            return self
+        searches: list[tuple[str, CalibPhaseDecl | None]] = [("[calibration.uncertainty]", None)]
+        if self.phases:
+            searches = [
+                (f"phase {phase.name!r} uncertainty", phase)
+                for phase in self.phases
+                if phase.uncertainty is not None and phase.uncertainty.cost_margin is not None
+            ]
+        for where, phase in searches:
+            own = self.uncertainty if phase is None else phase.uncertainty
+            if own is None or own.cost_margin is None:
+                continue
+            if parse_cost_margin(own.cost_margin).kind != "absolute":
+                continue
+            if not self._scored_on_network_distances(phase):
+                raise ValueError(_margin_in_metres_needs_distances(where, own.cost_margin))
+        section = self.uncertainty.cost_margin
+        if (
+            self.phases
+            and section is not None
+            and parse_cost_margin(section).kind == "absolute"
+            and not any(self._scored_on_network_distances(phase) for phase in self.phases)
+        ):
+            raise ValueError(
+                _margin_in_metres_needs_distances("[calibration.uncertainty]", section)
+            )
         return self
 
     @model_validator(mode="after")
@@ -2946,6 +3256,44 @@ class CalibrationConfig(HydroModelBase):
         return self
 
 
+STATION_VARIABLES: tuple[str, ...] = ("discharge", "head", "lake_level")
+"""The ``variable`` values the one-line form scores at the stations a project loads."""
+
+
+def implicit_station_scoring(
+    variable: str, objective: str, stations: list[str]
+) -> tuple[dict[str, CalibOutputDecl], list[CalibObjectiveBlockDecl]]:
+    """Return the output and the block ``variable`` + ``objective`` stand for, per station.
+
+    The one-line form is scored by the block route: each station gets an
+    output named ``<variable>@<station>`` that observes it, and a block named
+    ``<objective>@<station>`` of weight one that reads it, so several stations
+    average their costs. The stations are the ones the project loaded, known
+    once the records are, not when the file is read. The burn-in and the window
+    are the section's or the phase's: the block declares none of its own.
+    """
+    if variable not in STATION_VARIABLES:
+        raise NotImplementedError(
+            f"Calibration variable {variable!r} is scored at no loaded station. "
+            f"Supported: {', '.join(STATION_VARIABLES)}, or the name of a "
+            "[calibration.outputs] entry."
+        )
+    outputs: dict[str, CalibOutputDecl] = {}
+    blocks: list[CalibObjectiveBlockDecl] = []
+    for station in stations:
+        name = f"{variable}@{station}"
+        if variable == "lake_level":
+            outputs[name] = CalibOutputLake(variable="stage", lake_id=station, observes=station)
+        else:
+            outputs[name] = CalibOutputPoint(variable=variable, observes=station)
+        blocks.append(
+            CalibObjectiveBlockDecl(
+                name=f"{objective}@{station}", metric=objective, uses_outputs=[name]
+            )
+        )
+    return outputs, blocks
+
+
 def apply_project_defaults(
     section: Mapping[str, Any],
     *,
@@ -3072,6 +3420,8 @@ def _site_of(gauge: str | None) -> Any:
 __all__ = [
     "CalibrationConfig",
     "apply_project_defaults",
+    "implicit_station_scoring",
+    "STATION_VARIABLES",
     "CalibParameterDecl",
     "CalibOutputDecl",
     "CalibOutputPoint",

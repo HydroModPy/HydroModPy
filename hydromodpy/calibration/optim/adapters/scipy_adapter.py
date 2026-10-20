@@ -30,9 +30,9 @@ from hydromodpy.calibration.optim.optimizer import (
     register_optimizer,
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.calibration.optim.prior_sampling import (
-    transformed_prior_center,
-    transformed_prior_samples,
+from hydromodpy.calibration.optim.sampling import (
+    search_space_center,
+    search_space_samples,
 )
 from hydromodpy.core.exceptions import OptimizerError
 
@@ -217,7 +217,7 @@ class ScipyDE(_ScipyAdapterBase):
 
         bounds = self._bounds_transformed()
         rng = np.random.default_rng(self._seed)
-        init = transformed_prior_samples(
+        init = search_space_samples(
             self.space,
             rng,
             max(5, self._popsize * max(1, self.space.dim)),
@@ -260,8 +260,8 @@ class ScipyNelderMead:
     traits = EngineTraits(
         supports_parallel=True,
         accepts_a_start_point=True,
-        tolerance_option="xatol",
-        tolerance_reads="search_width",
+        precision_option="xatol",
+        precision_reads="search_width",
     )
 
     name = "scipy_nelder_mead"
@@ -279,7 +279,7 @@ class ScipyNelderMead:
     ):
         self.space = space
         self._seed = seed
-        # Left unset, the session budget (``max_iter``, enforced by the engine
+        # Left unset, the session budget (``max_trials``, enforced by the engine
         # loop) is the only cap; a hard 100 here ended a larger budget early.
         self._maxiter: float = np.inf if maxiter is None else int(maxiter)
         self._maxfev: float = self._maxiter if maxfev is None else int(maxfev)
@@ -304,7 +304,7 @@ class ScipyNelderMead:
         spread read off identical runs would be zero by construction.
         """
         if self._start_at is None:
-            return transformed_prior_center(self.space)
+            return search_space_center(self.space)
         if self._start_at.size != lower.size:
             raise OptimizerError(
                 f"start_at carries {self._start_at.size} value(s) and the space declares "

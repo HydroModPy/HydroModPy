@@ -54,7 +54,7 @@ value = 1e-4
 
 [calibration]
 method = "grid"
-max_iter = 5
+max_trials = 5
 save_runs = "{save_runs}"
 save_best_n = 2
 seed = 42
@@ -64,8 +64,8 @@ use_cache = true
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-transform = "log"
-prior = "log_uniform"
+search_space = "log"
+sampling = "log_uniform"
 path = "flow.param.K.field.value"
 """
 
@@ -246,7 +246,7 @@ class TestRunCalibrationCli:
         toml = _write(tmp_path, save_runs="all", name="run")
         summary = run_calibration_cli(toml, metric_fn=quadratic_metric)
         assert summary["save_runs"] == "all"
-        # grid with max_iter=5: 5 trials, each one promoted
+        # grid with max_trials=5: 5 trials, each one promoted
         assert summary["promoted"] == 5
         assert len(fake_pipeline) == 5
 
@@ -319,7 +319,7 @@ class TestRunCalibrationCli:
             """\
 [calibration]
 method = "grid"
-max_iter = 3
+max_trials = 3
 objective = "nse"
 variable = "discharge"
 
@@ -433,13 +433,13 @@ class TestConfigOverridePaths:
         cfg = CalibrationConfig.model_validate(
             {
                 "method": "grid",
-                "max_iter": 5,
+                "max_trials": 5,
                 "objective": "nse",
                 "variable": "discharge",
                 "parameters": {
                     "K": {
                         "bounds": [1e-6, 1e-3],
-                        "transform": "log",
+                        "search_space": "log",
                         "path": "flow.param.K.field.value",
                     },
                     "Sy": {
@@ -460,7 +460,7 @@ class TestConfigOverridePaths:
         cfg = CalibrationConfig.model_validate(
             {
                 "method": "grid",
-                "max_iter": 5,
+                "max_trials": 5,
                 "objective": "nse",
                 "variable": "discharge",
                 "parameters": {
@@ -760,7 +760,7 @@ window = { start = "2001-01-01", end = "2002-12-31" }
 
 [calibration]
 method = "grid"
-max_iter = 2
+max_trials = 2
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
@@ -797,7 +797,7 @@ gauge = "NANCON"
 
 [calibration]
 method = "grid"
-max_iter = 2
+max_trials = 2
 observed_station_id = "OTHER"
 
 [calibration.parameters.K]
@@ -816,15 +816,15 @@ class TestAnIntervalOfOneTrial:
     def test_the_log_says_no_other_trial_rather_than_a_zero_width_interval(self, caplog):
         import logging
 
-        from hydromodpy.calibration.optim.tolerance import ParameterInterval
+        from hydromodpy.calibration.optim.cost_margin import ParameterInterval
 
         interval = ParameterInterval(
             name="K",
             best=1e-6,
             lower=1e-6,
             upper=1e-6,
-            tolerance=0.05,
-            mode="relative",
+            margin=0.05,
+            kind="relative",
             threshold=0.0179,
             n_within=1,
             n_trials=5,
@@ -835,5 +835,5 @@ class TestAnIntervalOfOneTrial:
         with caplog.at_level(logging.INFO, logger=runner_module.logger.name):
             runner_module._log_parameter_interval(interval, None)
 
-        assert "no other trial within the tolerance" in caplog.text
+        assert "no other trial within the cost margin" in caplog.text
         assert "[1e-06, 1e-06]" not in caplog.text

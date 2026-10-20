@@ -35,7 +35,7 @@ def test_recession_brutsaert_nelder_mead_recovers_truth() -> None:
     engine, _ = build_calibration(
         case=BRUTSAERT_RECESSION_CASE,
         optimizer_name="scipy_nelder_mead",
-        max_iter=100,
+        max_trials=100,
     )
     session = engine.run()
 

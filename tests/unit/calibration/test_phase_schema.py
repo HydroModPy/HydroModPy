@@ -13,7 +13,11 @@ def _config(phases: list[dict], **overrides) -> CalibrationConfig:
     payload = {
         "method": "grid",
         "parameters": {
-            "K": {"bounds": [1e-9, 1e-3], "transform": "log", "path": "flow.param.K.field.value"},
+            "K": {
+                "bounds": [1e-9, 1e-3],
+                "search_space": "log",
+                "path": "flow.param.K.field.value",
+            },
             "Sy": {"bounds": [1e-3, 3e-1], "path": "flow.param.Sy.field.value"},
         },
         "outputs": {

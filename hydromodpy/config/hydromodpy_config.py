@@ -31,11 +31,14 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
-from hydromodpy.config.config_migration import migrate_config_doc_on_load
+from hydromodpy.config.config_migration import (
+    migrate_config_doc_on_load,
+    migrate_sealed_config_doc,
+)
 from hydromodpy.config.metrics_config import MetricsConfig
 from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.config.sites.models import SitesConfig
@@ -64,6 +67,7 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
     IncompatibleCapabilitiesError,
 )
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.site import SiteConfig
 from hydromodpy.core.state.paths import resolve_project_root
 from hydromodpy.core.time.window import (
@@ -103,8 +107,10 @@ from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshConfig
 
+logger = get_logger(__name__)
+
 WorkflowMode = Literal["simulation", "calibration", "overview"]
-ValidationContext = Literal["toml", "api"]
+ValidationContext = Literal["toml", "api", "snapshot"]
 Verbosity = Literal["quiet", "normal", "verbose", "debug"]
 
 ANALYSIS_SECTION_REFUSAL = (
@@ -895,8 +901,35 @@ class HydroModPyConfig(HydroModelBase):
             raise ValueError(exc.message) from exc
         return self
 
+    def _check_the_metrics_window_meets_the_run(self, *, sealed: bool) -> None:
+        """Refuse a ``[metrics] window`` that shares no day with ``[simulation.time]``.
+
+        A sealed document, the frozen config of a run already on disk, is read
+        as it was run: the window only warns, and the run has no score.
+        """
+        window = getattr(getattr(self, "metrics", None), "window", None)
+        run = getattr(getattr(self, "simulation", None), "time", None)
+        run_start = getattr(run, "start_datetime", None)
+        run_end = getattr(run, "end_datetime", None)
+        if window is None or run_start is None or run_end is None:
+            return
+        if window.end >= run_start.date() and window.start <= run_end.date():
+            return
+        missed = (
+            f"[metrics] window runs from {window.start} to {window.end} and shares no "
+            f"day with [simulation.time], which runs from {run_start.date()} to "
+            f"{run_end.date()}"
+        )
+        if sealed:
+            logger.warning("%s: this sealed run has no score.", missed)
+            return
+        raise ValueError(
+            f"{missed}: the run would be scored on nothing. Move the window inside the "
+            "run, or remove it."
+        )
+
     @model_validator(mode="after")
-    def _check_cross_section_coherence(self) -> HydroModPyConfig:
+    def _check_cross_section_coherence(self, info: ValidationInfo) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.
 
         Currently enforced invariants (architecture spec
@@ -917,6 +950,8 @@ class HydroModPyConfig(HydroModelBase):
           is declared, since only the soil reservoir reads that raster.
         * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
           without it the workflow delineates and loads, then writes no report.
+        * ``[metrics] window`` shares at least one day with ``[simulation.time]``,
+          else the run is scored on nothing.
         """
         if self.site is not None and self.sites is not None:
             raise ValueError(
@@ -924,6 +959,11 @@ class HydroModPyConfig(HydroModelBase):
                 "of each case from its row of the site table. Remove [site], or remove "
                 "[sites] to model one catchment."
             )
+
+        context = info.context if isinstance(info.context, Mapping) else {}
+        self._check_the_metrics_window_meets_the_run(
+            sealed=context.get("validation_context") == "snapshot"
+        )
 
         if getattr(getattr(self, "workflow", None), "mode", None) == "overview" and (
             getattr(self, "overview", None) is None
@@ -1339,10 +1379,15 @@ class HydroModPyConfig(HydroModelBase):
         payload: Mapping[str, Any],
         *,
         base_dir: str | Path | None = None,
+        sealed: bool = False,
     ) -> HydroModPyConfig:
-        """Load and validate configuration from a Python mapping."""
+        """Load and validate configuration from a Python mapping.
+
+        ``sealed`` reads the frozen config of a run already on disk: a check that
+        refuses what a run cannot be scored on only warns there.
+        """
         base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
-        return cls._from_payload(payload, base=base, context="api")
+        return cls._from_payload(payload, base=base, context="snapshot" if sealed else "api")
 
     @classmethod
     def _from_payload(
@@ -1366,8 +1411,14 @@ class HydroModPyConfig(HydroModelBase):
         It is converted here rather than at each of its raise sites, which is
         what keeps the rule true for the next loader somebody writes.
         """
+        document = copy.deepcopy(dict(payload))
+        if context == "snapshot":
+            # A sealed config is read under the key names of today, before the
+            # protocol is expanded: it compares the stages the run froze with the
+            # ones it writes, and a stage frozen under an old key would differ.
+            migrate_sealed_config_doc(document)
         try:
-            raw = expand_calibration_protocol(copy.deepcopy(dict(payload)))
+            raw = expand_calibration_protocol(document)
         except ValidationError as exc:
             # Pydantic's ValidationError IS a ValueError, so this clause has to
             # come first: a protocol validating its own options against a model
@@ -1654,8 +1705,8 @@ class HydroModPyConfig(HydroModelBase):
         workspace = merged.get("workspace")
         project_root = workspace.get("project_root") if isinstance(workspace, Mapping) else None
         if project_root:
-            return cls.from_dict(merged, base_dir=project_root)
-        return cls.model_validate(merged)
+            return cls.from_dict(merged, base_dir=project_root, sealed=True)
+        return cls.model_validate(merged, context={"validation_context": "snapshot"})
 
 
 # Resolve the config forward references (and wire the DI graph) lazily, the first
