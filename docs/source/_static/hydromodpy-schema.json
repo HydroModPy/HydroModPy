@@ -1932,7 +1932,7 @@
             }
           ],
           "default": null,
-          "description": "Unit the bounds are written in, such as 'm/s'. The bounds are checked against the physical range of the target in this unit. Unset, the unit the target declares applies.",
+          "description": "Unit the bounds are written in, such as 'm/s'. Each sampled value is written as it is into the target, so for a parameter the catalogue resolves it has to be the unit that target declares, which it is when left unset; another one is refused when the file loads, with the bounds converted. For a path outside the catalogue it is the unit the bounds are checked against the physical range in.",
           "examples": [
             "m/s"
           ],
@@ -2014,7 +2014,7 @@
             }
           ],
           "default": null,
-          "description": "Maximum number of evaluations for this phase. Unset, the phase takes the max_trials of [calibration]. 'auto' lets an engine that counts its evaluations size it: the bisection budgets its worst case, and refuses before the first solve a number below its nominal count (see [calibration].max_trials). Any other engine gets 100 from 'auto', and no extension when it spends them before its stopping rule.",
+          "description": "Maximum number of evaluations for this phase. Unset, the phase takes the max_trials of [calibration]. 'auto' lets an engine that counts its evaluations size it: the bisection budgets its worst case, the grid and the Latin hypercube their design, and each refuses before the first solve a number below its nominal count (see [calibration].max_trials). Any other engine gets 100 from 'auto', and no extension when it spends them before its stopping rule.",
           "renamed_from": [
             "calibration.phases.max_iter"
           ],
@@ -2686,7 +2686,7 @@
             }
           ],
           "default": "auto",
-          "description": "Maximum number of evaluations of the search. It is the only bound on how long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Only the bisection does: with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_trials replays the trials already solved from the cache.",
+          "description": "Maximum number of evaluations of the search. It is the only bound on how long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that counts its evaluations before the first solve size its own budget. Three do. The grid and the Latin hypercube count their design, one evaluation per point, and refuse a smaller number before the first solve, since a sweep cut short is not its design. The bisection counts with d the declared interval in decades, t = log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / (S - 1) and E = bracket_expand, a root inside the bounds costs S + ceil(log2(s / t)) and one found after e expansions S + 2e + ceil(log2(1 / t)); 'auto' budgets the largest, 23 on [1e-7, 1e-3] m/s with seven points and one per cent (15 inside the bounds). A number below the nominal count is refused before the first solve, one below the worst case is announced, and a budget that still runs out gets exactly the halvings left, once. Any other engine gets 100 from 'auto' and no extension: a search that spends its budget before its own stopping rule is reported as not converged, and a re-run with a larger max_trials replays the trials already solved from the cache.",
           "examples": [
             "auto"
           ],
@@ -3052,11 +3052,6 @@
         "uncertainty": {
           "$ref": "#/$defs/CalibUncertaintyDecl",
           "description": "How wide the search reports its own answer to be. The calibrated value is unaffected; this only decides the interval printed beside it. It is the default of every phase, and a phase may write its own keys.",
-          "x-hmp-profile": "user"
-        },
-        "persistence": {
-          "$ref": "#/$defs/PersistenceConfig",
-          "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.",
           "x-hmp-profile": "user"
         }
       },
@@ -15838,7 +15833,7 @@
             }
           ],
           "default": null,
-          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional, for every block it scores, a network one included. A date that does not parse is refused when the file is read. Unset, and with no scoring_window on [calibration], stage two scores from one year after [simulation.time].start_datetime: the first year is spin-up. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
+          "description": "Dates bounding the samples stage two scores on, as {start, end} in ISO 8601, either one optional, for every block it scores, a network one included. A date that does not parse is refused when the file is read. Unset, stage two scores the window of [metrics] when the file writes one, and otherwise from one year after [simulation.time].start_datetime: the first year is spin-up. A scoring_window or warmup_periods on [calibration] replaces both. A run of one year or less is scored whole. Write start = the run's own start to score the spin-up year too.",
           "title": "Scoring Window",
           "x-hmp-profile": "user"
         }

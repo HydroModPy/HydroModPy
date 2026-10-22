@@ -85,6 +85,7 @@ from hydromodpy.calibration.runners.recap import (
     scored_samples,
 )
 from hydromodpy.calibration.runners.restarts import run_restarts
+from hydromodpy.calibration.runners.resume import trials_another_cost_scored
 from hydromodpy.calibration.runners.sandbox import keep_trial_scratch
 from hydromodpy.calibration.runners.session import (
     calibration_case_name,
@@ -1200,10 +1201,11 @@ def attach_a_linearized_width(
 ) -> CalibrationReport:
     """Attach a first-order width to the answer the search returned.
 
-    One model run per parameter, around the optimum, and the optimum itself is not
-    re-run: the derivatives are taken from the reference the caller already paid for.
-    A calibration whose parameters the data cannot separate is refused a width rather
-    than given a fabricated one, and the failure says which.
+    One model run per parameter around the optimum, then the optimum itself, last,
+    so the residuals read are the fit's. A calibration whose parameters the data
+    cannot separate is refused a width rather than given a fabricated one, and the
+    failure says which. A run that fails, or that a water-budget rejection marks
+    failed, leaves no width either: its vector is never reused for another one.
     """
     import numpy as np
 
@@ -1238,7 +1240,8 @@ def attach_a_linearized_width(
         return report
 
     def _simulate(values):
-        run_trial_light(
+        captured.clear()
+        result = run_trial_light(
             trial_ctx,
             dict(values),
             objective=cfg.objective,
@@ -1247,6 +1250,13 @@ def attach_a_linearized_width(
             trial_id=-1,
             reject_water_budget_above=cfg.reject_water_budget_above,
         )
+        if result.status != "completed" or "simulated" not in captured:
+            moved = ", ".join(f"{name} = {float(value):.4g}" for name, value in values.items())
+            reason = f": {result.error}" if result.error else ""
+            raise UncertaintyNotAvailableError(
+                f"the run at {moved} ended {result.status}{reason}, so no derivative is "
+                "taken there."
+            )
         return np.asarray(captured["simulated"], dtype=float)
 
     names = [name for name in space.names if name in report.best_parameters]
@@ -1256,9 +1266,13 @@ def attach_a_linearized_width(
         len(names),
         perturbation,
     )
-    jacobian = forward_difference_jacobian(
-        names, report.best_parameters, _simulate, relative_step=perturbation
-    )
+    try:
+        jacobian = forward_difference_jacobian(
+            names, report.best_parameters, _simulate, relative_step=perturbation
+        )
+    except UncertaintyNotAvailableError as exc:
+        logger.warning("No width is reported: %s", exc)
+        return report
     residuals = np.asarray(captured["simulated"], dtype=float) - np.asarray(
         captured["observed"], dtype=float
     )
@@ -1454,6 +1468,7 @@ def run_calibration_core(
         override_paths=override_paths,
         objective_entrypoint=objective,
     )
+    refuse_a_phase_another_cost_scored(persistence, context.name, cache_context)
 
     materialize_root: Path | None = None
     if cfg.materialize_candidates:
@@ -1748,6 +1763,9 @@ def promote_and_close(
         )
     elif final_status == "partial":
         error = _why_partial(persistence, report)
+    elif final_status == "failed":
+        failed = _failed_trials(persistence)
+        error = f"no trial completed; {failed}" if failed else "no trial completed"
     best_line = persistence.best_trial(phase)
     persistence.finalize_session(
         status=final_status,
@@ -1777,16 +1795,22 @@ def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport)
     A search can meet its stopping rule and still close ``partial`` because a
     trial failed; the message then names the trials, not the rule.
     """
-    failed = [line.trial for line in persistence.trials() if line.status in ("failed", "crashed")]
-    reasons = []
-    if failed:
-        shown = ", ".join(str(number) for number in failed[:10])
-        more = f" and {len(failed) - 10} more" if len(failed) > 10 else ""
-        reasons.append(f"{len(failed)} trial(s) failed: trial {shown}{more}")
+    failed = _failed_trials(persistence)
+    reasons = [failed] if failed else []
     search = report.extra.get("search") or {}
     if search.get("converged") is False:
         reasons.append(f"stopping rule ({search.get('stopping_rule')}) not met")
     return "; ".join(reasons) or "stopping rule not met"
+
+
+def _failed_trials(persistence: CalibrationPersistence) -> str | None:
+    """Name the trials of the session that failed or crashed, the first ten in full."""
+    failed = [line.trial for line in persistence.trials() if line.status in ("failed", "crashed")]
+    if not failed:
+        return None
+    shown = ", ".join(str(number) for number in failed[:10])
+    more = f" and {len(failed) - 10} more" if len(failed) > 10 else ""
+    return f"{len(failed)} trial(s) failed: trial {shown}{more}"
 
 
 def pointer_phase(persistence: CalibrationPersistence, phase: str) -> str:
@@ -2169,6 +2193,39 @@ def session_method(cfg: CalibrationConfig) -> str:
     if cfg.phases:
         return " + ".join(cfg.method_for(phase)[0] for phase in cfg.phases)
     return cfg.method_for()[0]
+
+
+def refuse_a_phase_another_cost_scored(
+    persistence: CalibrationPersistence, phase_name: str, cache_context: Mapping[str, Any]
+) -> None:
+    """Refuse to add trials to a phase whose earlier trials another cost scored.
+
+    A reopened session (``--resume``, ``--phase``) keeps its journal, and the
+    best trial is chosen over every line of the phase. A document changed in
+    anything that moves a cost (model, input files, outputs, objective, scoring
+    window) would let a trial scored the old way be promoted under the new one.
+    A changed budget, method, precision or bound moves no cost and passes.
+    """
+    differ, unchecked = trials_another_cost_scored(
+        persistence, phase_name, cache_context=cache_context
+    )
+    if differ:
+        raise CalibrationError(
+            f"{persistence.directory.name} holds {len(differ)} trial(s) of phase "
+            f"{phase_name!r} that this document does not score the same way: the model, "
+            "its input files, the outputs, the objective or the scoring window changed "
+            "since they ran. A session keeps one cost, so that its best trial is a fair "
+            "pick. Start a new session (drop --resume or --phase), or give the variant "
+            "its own --case."
+        )
+    if unchecked:
+        logger.warning(
+            "%d trial(s) of phase %r in %s recorded no fingerprint: this run cannot check "
+            "that the same cost scored them.",
+            len(unchecked),
+            phase_name,
+            persistence.directory.name,
+        )
 
 
 def open_calibration_session(

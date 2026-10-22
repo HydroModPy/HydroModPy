@@ -28,7 +28,7 @@ from hydromodpy.cli.helpers import (
     EXIT_SIGINT,
     EXIT_USAGE,
     apply_verbosity,
-    exit_if_promotion_failed,
+    exit_if_session_unfinished,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -603,4 +603,4 @@ def _calibrate(
     )
     for line in lines:
         print(line, file=sys.stderr)
-    exit_if_promotion_failed(result)
+    exit_if_session_unfinished(result)

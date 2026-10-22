@@ -55,6 +55,11 @@ def _stratified_column(param: CalibParameter, unit_column: np.ndarray) -> np.nda
     return low + unit_column * (high - low)
 
 
+def design_budget(n_samples: int) -> CountedBudget:
+    """Count the points of the design, before the first solve."""
+    return CountedBudget(counts=(int(n_samples),), step="design point")
+
+
 @register_optimizer("lhs")
 class LhsAdapter:
     """Stratified Latin hypercube design over transformed bounds."""
@@ -93,7 +98,7 @@ class LhsAdapter:
     @property
     def counted_budget(self) -> CountedBudget:
         """The whole design, counted up front: ``"auto"`` budgets exactly it."""
-        return CountedBudget(counts=(self.n_samples,), step="design point")
+        return design_budget(self.n_samples)
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []
@@ -126,4 +131,4 @@ class LhsAdapter:
         return self._cursor >= self.n_samples
 
 
-__all__ = ["LhsAdapter"]
+__all__ = ["LhsAdapter", "design_budget"]

@@ -20,6 +20,12 @@ _PROJECT_TOML = """\
 [simulation]
 name = "hillslope"
 
+[simulation.time]
+start_datetime = "2003-01-01 00:00:00"
+end_datetime = "2003-01-02 00:00:00"
+step_value = "1 day"
+coverage_policy = "ignore"
+
 [[simulation.process]]
 id = "flow"
 type = "flow"
@@ -103,7 +109,7 @@ use_cache = false
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-4]
-transform = "log"
+search_space = "log"
 path = "flow.param.K.field.value"
 """
 
@@ -123,11 +129,16 @@ def project(tmp_path: Path) -> Path:
 
 
 def _wire_the_station(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hand the single-metric route a station, the way a project's loader would."""
+    """Hand the single-metric route a station, the way a project's loader would.
+
+    The record is dated, as a loaded one always is, and the run has one dated
+    period to pair it on.
+    """
     from hydromodpy.calibration.metrics import composite
     from hydromodpy.calibration.metrics.series import ObservedSeries
 
-    observed = [ObservedSeries(station_id=STATION, variable="head", series=pd.Series([5.0]))]
+    record = pd.Series([5.0, 5.0, 5.0], index=pd.date_range("2003-01-01", periods=3, freq="D"))
+    observed = [ObservedSeries(station_id=STATION, variable="head", series=record)]
     monkeypatch.setattr(composite, "load_observed", lambda ctx, variable: observed)
     monkeypatch.setattr(
         composite, "resolve_station_cells", lambda ctx, obs, **kwargs: {STATION: _CELL}

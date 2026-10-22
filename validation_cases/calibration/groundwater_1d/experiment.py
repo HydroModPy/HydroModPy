@@ -204,7 +204,8 @@ def build_calibration(
     elif optimizer_name == "scipy_de":
         optimizer_kwargs.update({"maxiter": 15, "popsize": 8, "tol": 1e-4})
     elif optimizer_name == "grid":
-        optimizer_kwargs["points_per_dim"] = 9
+        # The finest regular grid the budget covers: a grid cut short is refused.
+        optimizer_kwargs["points_per_dim"] = max(2, int(max_trials ** (1 / space.dim) + 1e-9))
     optimizer = build_optimizer(optimizer_name, space, **optimizer_kwargs)
 
     def evaluator(sugg: ParamSuggestion) -> EvaluationResult:

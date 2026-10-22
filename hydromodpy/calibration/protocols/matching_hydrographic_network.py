@@ -119,13 +119,15 @@ class MatchingHydrographicNetwork:
     support: Mapping[str, str] = {
         # A case in this repository runs the two stages on MODFLOW 6, DIS and DISV.
         "modflow6": "tested",
-        # Nothing structural forbids it: NWT serves a head at a cell and a per-cell
-        # release flux, which is all stage one reads. Nobody has run it.
-        "modflow_nwt": "expected_untested",
-        # Boussinesq computes a saturation excess per cell and its mesh carries the
-        # connectivity, the areas and the elevations, so the criterion is reachable.
-        # Nobody has run the two stages end to end.
-        "boussinesq": "expected_untested",
+        # The twin of the stream-network criterion runs stage one on NWT, on the
+        # hillslope it runs on MODFLOW 6. Stage two reads a discharge, which NWT
+        # serves as MODFLOW 6 does.
+        "modflow_nwt": "tested",
+        # Its adapter declares the per-cell release flux servable, but its
+        # extraction serves only heads and discharge, so the stream-network
+        # criterion of stage one cannot score a trial. The twin leaves it out for
+        # that reason.
+        "boussinesq": "unsupported",
     }
 
     deviations = (

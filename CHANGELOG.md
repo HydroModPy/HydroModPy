@@ -34,6 +34,29 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Calibration audit of 2026-10-22, batch q01 (2026-10-22). `hmp calibrate --resume` refuses a
+  session whose journal holds trials this document scores another way, and a session a live process
+  of this host still writes; each trial row carries its `params_hash` (`8c6c7210d`). The promoted
+  run is the trial `session.json` names, a speculative trial never ranking first (`a4a076e5e`). The
+  cache preload skips a session journal this version cannot read, with a warning (`483921ff1`). No
+  linearized width is reported when a perturbed run fails (`2f67eb2cb`). Bounds written in another
+  unit than the target are refused with the converted bounds (`ebf7e1df1`, `00a0881c3`). A declared
+  output that no block and no `variable` scores is refused when the file loads (`6270f4095`).
+  `[calibration.persistence]` is retired: still read, ignored with a warning (`d0ead4259`).
+  `hmp calibrate` and `hmp run` exit with code 21 when the session closed failed, partial or
+  aborted, and print the reason `session.json` gives (`c43d85122`). `grid` and `lhs` stop when every
+  point of their design is solved: a `max_trials` below the design is refused before the first
+  solve and by `hmp config check`, and `"auto"` budgets the design (`8111574df`). The trial cache
+  key holds the content of `stream_geometry_path` and `minimal_stream_geometry_path`, sidecars of a
+  shapefile included, so a network calibration solves its trials again once and a session written
+  before cannot be resumed (`a6531e8cd`). `nse`, `log_nse`, `nse_delta` and `nse_seasonal` give NaN
+  when the observed spread is no larger than rounding; the metric rule version is unchanged, so a
+  cached cost of such a series stays as it was (`1f54dccc2`). The network protocol is tested on
+  MODFLOW-NWT and unsupported on Boussinesq (`55a766eac`). Docstrings and pages corrected: the
+  default rasterization `heads`, the validity bound, the default window of the second stage, the
+  three rasterization rules, the method how-to and the diagnostics notes (`c41e9c6cf`, `6f60087b9`,
+  `a1f2833ae`, `2e6b25de0`). The code identity of the cache key and the release flux Boussinesq
+  declares without serving it are not done yet.
 - Calibration audit of 2026-10-14, windows (2026-10-20, decisions m03 and m04). A `[metrics]
   window` that shares no day with `[simulation.time]` is refused when a file is loaded, naming both
   periods (`d97ebb8a4`); the frozen config of a run already on disk that carries such a window still

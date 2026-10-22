@@ -112,7 +112,7 @@ class TestEngineRun:
     def test_respects_max_trials_when_budget_is_binding(self):
         """``max_trials`` caps iterations even if the optimizer has more points."""
         space = _unit_space()
-        opt = build_optimizer("grid", space, points_per_dim=20)
+        opt = build_optimizer("random_search", space, seed=0)
         engine = CalibrationEngine(
             space=space,
             optimizer=opt,
@@ -184,7 +184,7 @@ class TestEngineEdgeCases:
     def test_max_trials_zero_runs_no_iterations(self):
         """``max_trials=0`` must produce an empty session with no evaluator call."""
         space = _unit_space()
-        opt = build_optimizer("grid", space, points_per_dim=5)
+        opt = build_optimizer("random_search", space, seed=0)
         calls: list[int] = []
 
         def _never(sugg):

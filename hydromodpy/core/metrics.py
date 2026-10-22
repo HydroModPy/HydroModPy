@@ -19,6 +19,15 @@ import numpy as np
 LOG_FLOOR_FRACTION = 0.01
 """Share of the median positive observation that ``log_floor`` offsets by."""
 
+SPREAD_FLOOR = 1e-12
+"""Spread, as a share of the largest observed magnitude, below which there is none.
+
+The spread is the root mean square of the deviations an efficiency divides by.
+A constant series has a mean that is not exactly its value in floating point,
+so its deviations are rounding noise and not zeros, and an efficiency divided
+by them is a huge finite number instead of NaN.
+"""
+
 __all__ = [
     "kge_delta",
     "nse_delta",
@@ -56,15 +65,28 @@ def nse(sim, obs) -> float:
 
         NSE = 1 - Σ(sim - obs)² / Σ(obs - mean(obs))²
 
-    Returns NaN if ``obs`` is constant (denominator vanishes).
+    Returns NaN if ``obs`` is constant: its spread is no larger than rounding
+    (:data:`SPREAD_FLOOR`).
     """
     s, o = align(sim, obs)
     if s.size == 0:
         return float("nan")
     denom = float(np.sum((o - o.mean()) ** 2))
-    if denom <= 0.0:
+    if _no_spread(denom, o.size, o):
         return float("nan")
     return float(1.0 - float(np.sum((s - o) ** 2)) / denom)
+
+
+def _no_spread(sum_of_squares: float, n: int, observed) -> bool:
+    """Whether ``n`` deviations of ``observed`` summing to ``sum_of_squares`` are rounding.
+
+    ``observed`` gives the magnitude the spread is compared to; its NaN entries
+    are ignored.
+    """
+    values = np.asarray(observed, dtype=float).ravel()
+    values = values[np.isfinite(values)]
+    magnitude = float(np.max(np.abs(values))) if values.size else 0.0
+    return sum_of_squares <= n * (SPREAD_FLOOR * magnitude) ** 2
 
 
 def log_floor(observed) -> float:
@@ -264,7 +286,7 @@ def nse_delta(sim: np.ndarray, obs: np.ndarray, *, step: int = 1, times=None) ->
     if d_sim.size == 0:
         return float("nan")
     denominator = float(np.sum((d_obs - d_obs.mean()) ** 2))
-    if denominator <= 0.0:
+    if _no_spread(denominator, d_obs.size, obs):
         return float("nan")
     return float(1.0 - np.sum((d_sim - d_obs) ** 2) / denominator)
 
@@ -315,6 +337,6 @@ def nse_seasonal(sim: np.ndarray, obs: np.ndarray, *, period: float = 365, times
     coefficients, *_ = np.linalg.lstsq(design, obs, rcond=None)
     benchmark = design @ coefficients
     denominator = float(np.sum((obs - benchmark) ** 2))
-    if denominator <= 0.0:
+    if _no_spread(denominator, obs.size, obs):
         return float("nan")
     return float(1.0 - np.sum((sim - obs) ** 2) / denominator)

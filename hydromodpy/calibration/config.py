@@ -62,7 +62,6 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
-from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import (
     NonEmptyStr,
@@ -362,10 +361,11 @@ class MatchingHydrographicNetworkOptions(HydroModelBase):
         description="Dates bounding the samples stage two scores on, as {start, end} in "
         "ISO 8601, either one optional, for every block it scores, a network one "
         "included. A date that does not parse is refused when the file is read. Unset, "
-        "and with no scoring_window on [calibration], stage two scores from one year "
-        "after [simulation.time].start_datetime: the first year is spin-up. A run of "
-        "one year or less is scored whole. Write start = the run's own start to score "
-        "the spin-up year too.",
+        "stage two scores the window of [metrics] when the file writes one, and "
+        "otherwise from one year after [simulation.time].start_datetime: the first "
+        "year is spin-up. A scoring_window or warmup_periods on [calibration] replaces "
+        "both. A run of one year or less is scored whole. Write start = the run's own "
+        "start to score the spin-up year too.",
     )
 
     @model_validator(mode="before")
@@ -516,9 +516,12 @@ class CalibParameterDecl(HydroModelBase):
     units: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Unit the bounds are written in, such as 'm/s'. The bounds are checked "
-            "against the physical range of the target in this unit. Unset, the unit the "
-            "target declares applies."
+            "Unit the bounds are written in, such as 'm/s'. Each sampled value is written "
+            "as it is into the target, so for a parameter the catalogue resolves it has to "
+            "be the unit that target declares, which it is when left unset; another one is "
+            "refused when the file loads, with the bounds converted. For a path outside "
+            "the catalogue it is the unit the bounds are checked against the physical "
+            "range in."
         ),
         examples=["m/s"],
     )
@@ -1840,7 +1843,8 @@ class CalibPhaseDecl(HydroModelBase):
         description="Maximum number of evaluations for this phase. Unset, the phase "
         "takes the max_trials of [calibration]. 'auto' lets an "
         "engine that counts its evaluations size it: the bisection budgets its worst "
-        "case, and refuses before the first solve a number below its nominal count "
+        "case, the grid and the Latin hypercube their design, and each refuses before "
+        "the first solve a number below its nominal count "
         "(see [calibration].max_trials). Any other engine gets 100 from 'auto', and no "
         "extension when it spends them before its stopping rule.",
         json_schema_extra=field_metadata(renamed_from=["calibration.phases.max_iter"]),
@@ -2224,9 +2228,10 @@ class CalibrationConfig(HydroModelBase):
 
     model_legacy_keys = {"optimizer_kwargs": "method_options"}
     # Declared and never read. Retired rather than refused: a run sealed while
-    # the frozen configuration spelled out every default carries them.
+    # the frozen configuration spelled out every default carries them. The
+    # promoted run follows [simulation.results.persistence], never this table.
     model_retired_keys: ClassVar[frozenset[str]] = frozenset(
-        {"lightweight_extraction", "persist_model_distribution"}
+        {"lightweight_extraction", "persist_model_distribution", "persistence"}
     )
     model_refused_keys: ClassVar[Mapping[str, str]] = {
         "rerun_best_with_outputs": (
@@ -2314,8 +2319,11 @@ class CalibrationConfig(HydroModelBase):
         description=(
             "Maximum number of evaluations of the search. It is the only bound on how "
             "long a search runs: no method option counts evaluations of its own. 'auto' lets an engine that "
-            "counts its evaluations before the first solve size its own budget. Only "
-            "the bisection does: with d the declared interval in decades, t = "
+            "counts its evaluations before the first solve size its own budget. Three "
+            "do. The grid and the Latin hypercube count their design, one evaluation "
+            "per point, and refuse a smaller number before the first solve, since a "
+            "sweep cut short is not its design. The bisection counts with d the "
+            "declared interval in decades, t = "
             "log10(1 + rel_tol), S the sweep points (counted as 2 for sweep_points 0), s = d / "
             "(S - 1) and E = bracket_expand, a root inside the bounds costs S + "
             "ceil(log2(s / t)) and one found after e expansions S + 2e + "
@@ -2526,11 +2534,6 @@ class CalibrationConfig(HydroModelBase):
         description="How wide the search reports its own answer to be. The calibrated "
         "value is unaffected; this only decides the interval printed beside it. It is "
         "the default of every phase, and a phase may write its own keys.",
-    )
-    persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
-        default_factory=PersistenceConfig,
-        description="Single switch governing every persistence sink "
-        "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
 
     @field_validator("evaluator")
@@ -3236,6 +3239,36 @@ class CalibrationConfig(HydroModelBase):
             f"the output(s) {listed} can be read by none of the criteria this calibration "
             f"declares, which score {sorted(readable)}. They are computed at every trial "
             f"and weigh nothing. Declare a block on them with one of: {', '.join(wanted)}."
+        )
+
+    @model_validator(mode="after")
+    def _refuse_outputs_the_station_route_leaves_aside(self) -> CalibrationConfig:
+        """Refuse declared outputs when the file scores the loaded stations instead.
+
+        Runs after the implicit block is built. With no block at all and a
+        ``variable`` that names no output, the one-line form scores every
+        loaded station of that variable, and an output declared beside it is
+        never scored: the calibration fits the stations while the file reads as
+        fitting the output, and ``hmp config check`` used to say OK. An output
+        that blocks exist beside may still feed the residuals of a linearized
+        width, and a network output on this route has its own refusal in the
+        preflight, so both are left to those.
+        """
+        if not self.outputs or self.objective_blocks:
+            return self
+        named = {self.variable, *(phase.variable for phase in self.phases or () if phase.variable)}
+        aside = sorted(
+            name
+            for name, output in self.outputs.items()
+            if name not in named and str(output.support) != "network"
+        )
+        if not aside:
+            return self
+        raise ValueError(
+            f"the output(s) {aside} are declared and nothing scores them: there is no "
+            f"objective block, and variable = {self.variable!r} scores the stations the "
+            "project loads. Write variable = '<output>' to score one of them, or declare "
+            "[[calibration.objective_blocks]] that read them."
         )
 
     @model_validator(mode="after")

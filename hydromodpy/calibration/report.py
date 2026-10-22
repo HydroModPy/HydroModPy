@@ -29,6 +29,7 @@ from hydromodpy.results.session.descriptor import (
     ScoredSamples,
     read_session,
     scored_samples_text,
+    session_descriptor_path,
 )
 from hydromodpy.results.session.journal import read_trials
 from hydromodpy.results.storage.contract import (
@@ -396,6 +397,26 @@ def promotion_failures(result: Any) -> list[str]:
     return lines
 
 
+def unfinished_session(result: Any) -> str | None:
+    """Return one line saying how the session of a calibration closed, unless completed.
+
+    Reads ``session.json`` of the session a calibration report, or its
+    ``to_dict`` summary, names. ``None`` when that session closed
+    ``completed``, or when the result names no folder holding a descriptor.
+    """
+    summary = result.to_dict() if hasattr(result, "to_dict") else result
+    if not isinstance(summary, Mapping) or not summary.get("session_dir"):
+        return None
+    session_dir = Path(summary["session_dir"])
+    if not session_descriptor_path(session_dir).is_file():
+        return None
+    descriptor = read_session(session_dir)
+    if descriptor.status == "completed":
+        return None
+    reason = f": {descriptor.error_message}" if descriptor.error_message else ""
+    return f"Session {session_dir.name} closed {descriptor.status}{reason}"
+
+
 __all__ = (
     "NO_OTHER_TRIAL",
     "CalibrationReport",
@@ -405,4 +426,5 @@ __all__ = (
     "promotion_failures",
     "samples_text",
     "scored_entry",
+    "unfinished_session",
 )

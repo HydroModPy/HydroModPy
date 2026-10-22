@@ -99,7 +99,7 @@ def test_what_does_not_change_the_cost_of_a_trial_leaves_the_key_alone(change: d
         {"reject_water_budget_above": 5.0},
         {"observed_station_id": "B2"},
         {"aggregate": {"min_samples": 30}},
-        {"outputs": {"gauge": OUTPUT}},
+        {"outputs": {"gauge": OUTPUT}, "variable": "gauge"},
         {
             "parameters": {
                 "k": {

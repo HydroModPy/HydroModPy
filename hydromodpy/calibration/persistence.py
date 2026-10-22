@@ -32,8 +32,10 @@ from pathlib import Path
 from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
+from hydromodpy.core.exceptions import CalibrationError
+from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.metric_rule import DateWindow
-from hydromodpy.results.outcome import Outcome, OutcomeError, write_outcome
+from hydromodpy.results.outcome import Outcome, OutcomeError, read_outcome, write_outcome
 from hydromodpy.results.session.descriptor import (
     BestTrial,
     ScoredSamples,
@@ -157,7 +159,17 @@ class CalibrationPersistence:
         return descriptor
 
     def resume_session(self) -> SessionDescriptor:
-        """Reopen an existing session: its status goes back to ``running``."""
+        """Reopen an existing session: its status goes back to ``running``.
+
+        A session that another live process of this host still writes is
+        refused: two writers would give their trials the same numbers.
+        """
+        previous = read_outcome(self._directory)
+        if previous is not None and previous.status == "running" and _another_live_writer(previous):
+            raise CalibrationError(
+                f"{self._directory.name} is still written by process {previous.pid} on this "
+                "host. Let it end, or stop it, before resuming the session."
+            )
         descriptor = read_session(self._directory)
         descriptor = descriptor.model_copy(
             update={"status": "running", "ended_at": None, "error_message": None}
@@ -341,6 +353,11 @@ class CalibrationPersistence:
         is not on the path of the search, so the point the search froze is
         not it, and the promoted run must be that point.
         """
+        ranked = self._ranked(phase, restart=restart)
+        return ranked[0] if ranked else None
+
+    def _ranked(self, phase: str | None, *, restart: int | None = None) -> list[TrialLine]:
+        """Return the scored trials the search read, lowest objective first."""
         candidates = [
             line
             for line in self.trials(phase)
@@ -350,9 +367,7 @@ class CalibrationPersistence:
             and not line.metrics.get(SPECULATIVE_UNUSED)
             and (restart is None or line.restart == restart)
         ]
-        if not candidates:
-            return None
-        return min(candidates, key=lambda line: (line.objective, line.trial))
+        return sorted(candidates, key=lambda line: (line.objective, line.trial))
 
     def link_trial(self, trial: int, *, sim_id: str | None, rel_dir: str | None) -> TrialLine:
         """Rewrite the line of a trial with the run it became; the last line wins."""
@@ -366,14 +381,21 @@ class CalibrationPersistence:
         return [trial_row(line) for line in self.trials(phase)]
 
     def top_n(self, n: int, phase: str | None = None) -> list[dict[str, Any]]:
-        """Return the ``n`` completed trials of lowest objective, as rows."""
-        completed = [
-            line
-            for line in self.trials(phase)
-            if line.status == "completed" and line.objective is not None
-        ]
-        ranked = sorted(completed, key=lambda line: (line.objective, line.trial))
-        return [trial_row(line) for line in ranked[: max(0, int(n))]]
+        """Return the ``n`` best trials, as rows, ranked like :meth:`best_trial`.
+
+        The first row is the trial the search froze, so the run promoted from it
+        is the value the session reports.
+        """
+        return [trial_row(line) for line in self._ranked(phase)[: max(0, int(n))]]
+
+
+def _another_live_writer(outcome: Outcome) -> bool:
+    """Whether an outcome names a live process of this host other than this one."""
+    return (
+        outcome.host == socket.gethostname()
+        and outcome.pid != os.getpid()
+        and process_is_alive(outcome.pid)
+    )
 
 
 def best_pointer(line: TrialLine | None) -> BestTrial | None:

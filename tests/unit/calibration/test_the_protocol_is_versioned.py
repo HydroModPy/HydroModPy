@@ -104,12 +104,13 @@ class TestTheSupportMatrix:
 
         assert {"modflow6", "modflow_nwt", "boussinesq"} <= set(support)
 
-    def test_it_separates_a_tested_backend_from_an_untried_one(self) -> None:
-        """Publishing "supported" for both would be the dishonest simplification."""
+    def test_it_separates_a_tested_backend_from_one_that_cannot_serve_it(self) -> None:
+        """Publishing "supported" for all three would be the dishonest simplification."""
         support = protocol_record("matching_hydrographic_network")["support"]
 
         assert support["modflow6"] == "tested"
-        assert support["modflow_nwt"] == "expected_untested"
+        assert support["modflow_nwt"] == "tested"
+        assert support["boussinesq"] == "unsupported"
 
 
 class TestTheDeviations:

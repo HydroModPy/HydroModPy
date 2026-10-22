@@ -80,7 +80,7 @@ Skeleton:
        def tell(self, results: list[EvaluationResult]) -> None:
            self._iter += len(results)
            for result in results:
-               if self._best is None or result.objective < self._best.objective:
+               if self._best is None or result.objective_value < self._best.objective_value:
                    self._best = result
 
        def suggest_next(self) -> ParamSuggestion:

@@ -15,16 +15,18 @@ Running out of budget is not converging. An engine that declares a stopping
 option (:func:`hydromodpy.calibration.optim.stopping.stopping_rule`) and
 reaches ``max_trials`` before meeting it has not converged: the session says so
 in ``converged`` and the caller decides what that means, a staged calibration
-freezes nothing from it. An engine whose only rule is its budget converges
+freezes nothing from it. The grid and the Latin hypercube stop when every point
+of their design is solved. An engine whose only rule is its budget converges
 when the budget is spent.
 
 An engine that can count its evaluations before the first solve publishes a
 ``counted_budget`` (:class:`~hydromodpy.calibration.optim.stopping.CountedBudget`).
-Only the root search does: ``max_trials = "auto"`` then runs its worst case, a
-declared budget below its nominal case is refused before anything solves, one
-below its worst case is announced, and a budget that still runs out is extended
-once by exactly the ``evaluations_remaining`` the engine reports, never by a
-fraction of the budget. Every other engine gets no extension: re-running the same
+The root search, the grid and the Latin hypercube do: ``max_trials = "auto"``
+then runs the worst case, a declared budget below the nominal case is refused
+before anything solves, one below the worst case of the root search is
+announced, and a budget that still runs out is extended once by exactly the
+``evaluations_remaining`` the engine reports, never by a fraction of the
+budget. Every other engine gets no extension: re-running the same
 file with a larger ``max_trials`` replays the trials already solved from the
 params-hash cache. The cache key holds only what changes the cost of a
 trial at given parameter values (the outputs, the blocks, the window and what the
@@ -296,9 +298,10 @@ class CalibrationEngine:
         """Refuse a budget below the nominal count, announce one below the worst.
 
         Only an engine that counts its evaluations up front publishes
-        ``counted_budget``; the root search does, from its bounds, sweep,
-        precision and expansions. Refusing now costs nothing, refusing after the
-        last solve costs the whole budget.
+        ``counted_budget``. The root search counts them from its bounds, sweep,
+        precision and expansions, the grid and the Latin hypercube from their
+        design. Refusing now costs nothing, refusing after the last solve costs
+        the whole budget.
         """
         counted = getattr(self.optimizer, "counted_budget", None)
         if not isinstance(counted, CountedBudget):
@@ -391,6 +394,10 @@ class CalibrationEngine:
     ) -> EvaluationResult:
         meta = dict(result.metadata or {})
         meta.setdefault("parameters", self.space.describe_values(sugg.values))
+        # Recorded without a cache too, so a resumed session can still check
+        # that one cost scored every trial of its journal.
+        if self.cache_context is not None:
+            meta.setdefault("params_hash", params_hash(sugg.values, context=self.cache_context))
         return EvaluationResult(
             trial_id=result.trial_id,
             sim_id=result.sim_id,

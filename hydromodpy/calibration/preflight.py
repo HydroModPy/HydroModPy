@@ -946,50 +946,30 @@ def _declared_precisions(
 
 
 def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
-    """Refuse a root-search budget below its nominal count, announce one below its worst.
+    """Refuse a budget below the nominal count of its engine, announce one below its worst.
 
-    The root search counts its evaluations from its bounds, sweep, precision and
-    bracket expansions (:func:`~hydromodpy.calibration.optim.adapters.
-    bisection_adapter.root_search_budget`), so a budget that cannot close the
-    bracket even with the root inside the bounds is a configuration error,
-    found here rather than after the budget is spent. ``"auto"`` is always
-    enough. Every other engine cannot count, and nothing is checked. A search
-    scored on a network output with two bounds closes two roots, and is
-    counted so. It is counted for the points the engine asks at once,
-    ``max(batch_size, parallel)``, since each round of cuts places that many.
+    Three engines count their evaluations before the first solve. The root
+    search counts them from its bounds, sweep, precision and bracket expansions
+    (:func:`~hydromodpy.calibration.optim.adapters.bisection_adapter.
+    root_search_budget`), so a budget that cannot close the bracket even with
+    the root inside the bounds is a configuration error, found here rather
+    than after the budget is spent. The grid and the Latin hypercube count
+    their design, and a budget below it would cut the sweep short. ``"auto"``
+    is always enough. Every other engine cannot count, and nothing is checked.
     """
-    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
-        BisectionAdapter,
-        root_search_budget,
-    )
     from hydromodpy.calibration.optim.stopping import AUTO_BUDGET, short_budget
 
     findings: list[PreflightFinding] = []
     searches = zip(_budgets(calibration), _search_candidates(calibration), strict=True)
     for (where, method, names, max_trials, precision, kwargs), (phase, _, _) in searches:
-        if method != BisectionAdapter.name or max_trials == AUTO_BUDGET or len(names) != 1:
+        if max_trials == AUTO_BUDGET:
             continue
-        decl = (calibration.parameters or {}).get(names[0])
-        bounds = list(getattr(decl, "bounds", None) or ())
-        if len(bounds) != 2:
-            continue
-        rel_tol = precision if precision is not None else kwargs.get("rel_tol")
-        options = {
-            key: value
-            for key, value in (
-                ("rel_tol", rel_tol),
-                ("sweep_points", kwargs.get("sweep_points")),
-                ("bracket_expand", kwargs.get("bracket_expand")),
-            )
-            if value is not None
-        }
-        if kwargs.get("signed_component") in (None, "J_signed"):
-            options["roots"] = _roots_of_the_search(calibration, phase)
-        options["batch"] = max(calibration.batch_size_for(phase), calibration.parallel_for(phase))
         try:
-            counted = root_search_budget(float(bounds[0]), float(bounds[1]), **options)
+            counted = _counted_budget(calibration, phase, method, names, precision, kwargs)
         except (TypeError, ValueError):
             # Bounds or options the other checks already refuse.
+            continue
+        if counted is None:
             continue
         verdict = short_budget(counted, int(max_trials))
         if verdict is None:
@@ -1002,6 +982,54 @@ def _check_the_budgets(calibration: Any) -> list[PreflightFinding]:
             )
         findings.append(PreflightFinding(severity, where, detail))
     return findings
+
+
+def _counted_budget(
+    calibration: Any,
+    phase: Any | None,
+    method: str,
+    names: list[str],
+    precision: float | None,
+    kwargs: dict,
+) -> Any | None:
+    """Return the evaluations a search counts before its first solve, or None.
+
+    A root search scored on a network output with two bounds closes two roots,
+    and is counted so. It is counted for the points the engine asks at once,
+    ``max(batch_size, parallel)``, since each round of cuts places that many.
+    """
+    from hydromodpy.calibration.optim.adapters.bisection_adapter import (
+        BisectionAdapter,
+        root_search_budget,
+    )
+    from hydromodpy.calibration.optim.adapters.grid_adapter import GridAdapter, grid_budget
+    from hydromodpy.calibration.optim.adapters.lhs_adapter import LhsAdapter, design_budget
+
+    if method == GridAdapter.name:
+        return grid_budget(len(names), kwargs.get("points_per_dim"))
+    if method == LhsAdapter.name:
+        n_samples = kwargs.get("n_samples")
+        return design_budget(int(n_samples)) if n_samples is not None else None
+    if method != BisectionAdapter.name or len(names) != 1:
+        return None
+    decl = (calibration.parameters or {}).get(names[0])
+    bounds = list(getattr(decl, "bounds", None) or ())
+    if len(bounds) != 2:
+        return None
+    rel_tol = precision if precision is not None else kwargs.get("rel_tol")
+    options = {
+        key: value
+        for key, value in (
+            ("rel_tol", rel_tol),
+            ("sweep_points", kwargs.get("sweep_points")),
+            ("bracket_expand", kwargs.get("bracket_expand")),
+        )
+        if value is not None
+    }
+    if kwargs.get("signed_component") in (None, "J_signed"):
+        options["roots"] = _roots_of_the_search(calibration, phase)
+    options["batch"] = max(calibration.batch_size_for(phase), calibration.parallel_for(phase))
+    return root_search_budget(float(bounds[0]), float(bounds[1]), **options)
 
 
 def _roots_of_the_search(calibration: Any, phase: Any | None) -> int:

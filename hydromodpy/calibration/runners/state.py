@@ -18,6 +18,7 @@ import numpy as np
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.calibration.optim.cache import ParamsHashCache
 from hydromodpy.calibration.optim.parameters import ParameterSpace
+from hydromodpy.core.exceptions import StorageError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.metric_rule import METRIC_RULE_VERSION
 from hydromodpy.results.session.descriptor import list_session_dirs
@@ -92,8 +93,16 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
     fingerprint, so a trial of another build or another model never matches.
     """
     n_before = len(cache)
+    unreadable: list[str] = []
     for session_dir in list_session_dirs(project_root):
-        for line in read_trials(session_dir):
+        try:
+            lines = read_trials(session_dir)
+        except (StorageError, ValueError) as exc:
+            # A journal this build cannot read holds no cost it can trust: the
+            # points it solved are solved again, and the search goes on.
+            unreadable.append(f"{session_dir.name} ({type(exc).__name__})")
+            continue
+        for line in lines:
             params_hash = line.params_hash
             if (
                 not params_hash
@@ -109,6 +118,13 @@ def preload_hash_cache(project_root: Path, cache: ParamsHashCache) -> int:
                 status="completed",
                 components=dict(line.metrics) if line.metrics else None,
             )
+    if unreadable:
+        logger.warning(
+            "The trial cache skips %d session journal(s) this version cannot read, so "
+            "their points are solved again: %s.",
+            len(unreadable),
+            ", ".join(unreadable),
+        )
     added = len(cache) - n_before
     if added:
         logger.info(
@@ -196,6 +212,11 @@ def build_cache_context(
     prepared model, and then the three members read off it -- the resolved
     configuration, the input-file fingerprints and the mesh -- describe a model
     that was never built and are left out rather than faked.
+
+    A map file an output scores against enters by its content
+    (:func:`_observed_map_digests`), since a map rewritten at the same path
+    changes every network cost. Only a document that names one carries that
+    member, so the hash of every other calibration stays what it was.
     """
     # Direct attribute access and not getattr with a default: a TrialContext
     # always carries base_cfg, so a default here would hide its absence
@@ -238,6 +259,10 @@ def build_cache_context(
         "mesh": mesh_fingerprint(trial_ctx.ctx) if trial_ctx is not None else None,
     }
 
+    maps = _observed_map_digests(cfg)
+    if maps:
+        context["observed_maps"] = maps
+
     if objective_entrypoint:
         context["objective_entrypoint"] = objective_entrypoint
 
@@ -268,6 +293,43 @@ def _parameter_space_context(space: ParameterSpace) -> list[dict[str, object]]:
             }
         )
     return payload
+
+
+_SHAPEFILE_PARTS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
+"""The files a shapefile is read from: geometry, index, attributes, CRS, encoding."""
+
+
+def _observed_map_digests(cfg: CalibrationConfig) -> dict[str, str]:
+    """Return the content digest of each map file an output scores against.
+
+    Keyed by ``<output>.<field>``. The paths are the ones the run reads, already
+    anchored on the file that declares them.
+    """
+    digests: dict[str, str] = {}
+    for name, output in sorted((cfg.outputs or {}).items()):
+        for field in ("stream_geometry_path", "minimal_stream_geometry_path"):
+            declared = getattr(output, field, None)
+            if declared:
+                digests[f"{name}.{field}"] = _map_digest(Path(declared))
+    return digests
+
+
+def _map_digest(path: Path) -> str:
+    """Return the sha256 of a map, with its sidecars for a shapefile.
+
+    ``"missing"`` when nothing is there: the criterion names the file it could
+    not read at the first trial.
+    """
+    if path.is_dir():
+        return sha256_directory(path)
+    if not path.is_file():
+        return "missing"
+    if path.suffix.lower() != ".shp":
+        return sha256_streaming(path)
+    upper = path.suffix.isupper()
+    parts = [path.with_suffix(part.upper() if upper else part) for part in _SHAPEFILE_PARTS]
+    joined = ";".join(f"{part.suffix}:{sha256_streaming(part)}" for part in parts if part.is_file())
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
 def _input_file_fingerprints(config: object) -> list[dict[str, object]]:

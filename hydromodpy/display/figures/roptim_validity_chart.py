@@ -7,6 +7,12 @@ calibration valid while ``r_optim`` stays under two: past that, the two
 networks agree only at a scale coarser than the one the model claims to
 resolve.
 
+A run does not judge the ratio. It bounds ``D_optim`` by its validity length
+in metres, two cells by default, which a declared positional accuracy widens
+and an output may set. This chart draws one bound on the ratio for every site,
+two by default, so a site whose run widened its validity length can sit past
+the line and still be valid in its run.
+
 One catchment cannot say whether its own ``r_optim`` is ordinary, so this chart
 puts a set of sites on the same axes against their calibrated transmissivity,
 and shades the zone the bound excludes. A site past the bound keeps its marker
@@ -130,7 +136,9 @@ class RoptimValidityChart(BaseFigure):
         bound: Annotated[
             float,
             Opt(
-                "Largest r_optim at which a calibration stays valid; the zone beyond it is shaded.",
+                "Largest r_optim drawn as valid, two by default as in the paper; the "
+                "zone beyond it is shaded. A run judges D_optim against its own "
+                "validity length, which is two cells only by default.",
                 unit="-",
             ),
         ] = DEFAULT_VALIDITY_BOUND,

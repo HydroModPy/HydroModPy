@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.persistence import CalibrationPersistence
+from hydromodpy.calibration.persistence import SPECULATIVE_UNUSED, CalibrationPersistence
 from hydromodpy.calibration.runners.trial import promote_prepared_trial
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import CalibrationError
@@ -114,7 +114,16 @@ def select_trials_to_promote(
             for row in persistence.load_iterations(phase)
             if row["status"] == "completed" and row["objective_value"] is not None
         ]
-        return sorted(rows, key=lambda row: (row["objective_value"], row["iteration"]))
+        # The first row becomes runs/<case>: a speculative trial, solved and
+        # never read by the search, may be kept but never ahead of the best.
+        return sorted(
+            rows,
+            key=lambda row: (
+                bool((row["metrics"] or {}).get(SPECULATIVE_UNUSED)),
+                row["objective_value"],
+                row["iteration"],
+            ),
+        )
     return []
 
 

@@ -118,7 +118,7 @@ recharge, {eq}`eq-sources`. The release flux is the union of
 field. A steady phase reads one state of the run.
 
 **The mapped network** $\mathcal{O}$ is a set of lines, drawn on the cells by
-one of two rules chosen by
+one of three rules chosen by
 {toml}`observed_rasterization|calibration.outputs.<name>.observed_rasterization`.
 
 *Heads* (the default) keeps only where the map says a stream starts, and lets the
@@ -156,6 +156,11 @@ The map is one cell wide, like the simulated network. A reach that crosses no
 segment marks the cell holding its midpoint instead, and the count is published
 per trial as `n_observed_features_fallback`. This is the rule for a map that is
 not a tree: canals, braids, polders, karst.
+
+*Touch* keeps every cell a line touches, corners included. Each diagonal step of
+the map then gains the two cells that share the corner, so a model that
+reproduces the map exactly is pulled towards a smaller K. It is kept to replay a
+session recorded before 2026-09.
 
 In the code: `trace_from_heads`.
 

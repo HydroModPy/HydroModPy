@@ -546,8 +546,9 @@ declared share when the blocks have different units.
 - `optim.optimizer.{available_optimizers, build_optimizer, register_optimizer}`:
   the registry of search methods.
 - `optim.objective.{Objective, build_objective_from_config}`: the cost.
-- `optim.diagnostics.{convergence_rate, parameter_correlation}`: what the report
-  reads about a finished search.
+- `optim.diagnostics.correlated_parameter_pairs`: the parameters a finished search
+  moved together, which the report flags. `convergence_rate` fits the decrease of
+  the best cost, and no report reads it.
 - `metrics.composite.build_metric_extractor`: how the outputs of a trial are
   extracted.
 

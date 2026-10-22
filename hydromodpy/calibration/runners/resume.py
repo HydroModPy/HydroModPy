@@ -116,6 +116,32 @@ def fingerprint_matches(stage: ReusableStage, *, cache_context: Mapping[str, Any
     return params_hash(stage.parameters, context=cache_context) == stage.params_hash
 
 
+def trials_another_cost_scored(
+    persistence: CalibrationPersistence, phase_name: str, *, cache_context: Mapping[str, Any]
+) -> tuple[list[int], list[int]]:
+    """Return the completed trials of a phase that today's cost would not reproduce.
+
+    A reopened session adds its trials to the same journal, and the best trial
+    of a phase is chosen over every line of it. That choice is fair only when
+    one cost scored them all. Each completed trial's recorded ``params_hash``
+    is recomputed under ``cache_context``. The first list holds the trials
+    whose hash differs, the second those that recorded none and cannot be
+    checked.
+    """
+    from hydromodpy.calibration.optim.cache import params_hash
+
+    differ: list[int] = []
+    unchecked: list[int] = []
+    for line in persistence.trials(phase_name):
+        if line.status != "completed":
+            continue
+        if line.params_hash is None:
+            unchecked.append(line.trial)
+        elif params_hash(physical_values(line.params), context=cache_context) != line.params_hash:
+            differ.append(line.trial)
+    return differ, unchecked
+
+
 __all__ = [
     "ReusableStage",
     "best_parameters_of",
@@ -123,4 +149,5 @@ __all__ = [
     "fingerprint_matches",
     "physical_values",
     "reusable_stage",
+    "trials_another_cost_scored",
 ]

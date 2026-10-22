@@ -17,6 +17,27 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import CountedBudget
 
+DEFAULT_POINTS_PER_DIM = 5
+"""Points per parameter when ``points_per_dim`` is left unwritten."""
+
+
+def grid_axes_sizes(n_parameters: int, points_per_dim: int | list[int] | None) -> list[int]:
+    """Return how many points the grid places along each parameter."""
+    if points_per_dim is None:
+        points_per_dim = DEFAULT_POINTS_PER_DIM
+    if isinstance(points_per_dim, int):
+        return [points_per_dim] * n_parameters
+    if len(points_per_dim) != n_parameters:
+        raise ValueError("points_per_dim length must match space dim")
+    return list(points_per_dim)
+
+
+def grid_budget(n_parameters: int, points_per_dim: int | list[int] | None) -> CountedBudget:
+    """Count the points of the grid, before the first solve."""
+    return CountedBudget(
+        counts=(math.prod(grid_axes_sizes(n_parameters, points_per_dim)),), step="grid point"
+    )
+
 
 @register_optimizer("grid")
 class GridAdapter:
@@ -35,15 +56,9 @@ class GridAdapter:
         points_per_dim: int | list[int] | None = None,
         seed: int | None = None,
     ):
-        if points_per_dim is None:
-            points_per_dim = 5
         self.space = space
-        if isinstance(points_per_dim, int):
-            per_dim = [points_per_dim] * space.dim
-        else:
-            if len(points_per_dim) != space.dim:
-                raise ValueError("points_per_dim length must match space dim")
-            per_dim = list(points_per_dim)
+        self._points_per_dim = points_per_dim
+        per_dim = grid_axes_sizes(space.dim, points_per_dim)
         axes: list[np.ndarray] = []
         for p, n in zip(space.parameters, per_dim, strict=False):
             low, high = p.lower_transformed, p.upper_transformed
@@ -52,12 +67,11 @@ class GridAdapter:
         self._grid: Iterator[tuple[float, ...]] = iter(itertools.product(*axes))
         self._history: list[EvaluationResult] = []
         self._trial_id = 0
-        self._exhausted = False
 
     @property
     def counted_budget(self) -> CountedBudget:
         """The whole grid, counted up front: ``"auto"`` budgets every point of it."""
-        return CountedBudget(counts=(self._n_points,), step="grid point")
+        return grid_budget(self.space.dim, self._points_per_dim)
 
     def ask(self, n: int = 1) -> list[ParamSuggestion]:
         out: list[ParamSuggestion] = []
@@ -65,7 +79,6 @@ class GridAdapter:
             try:
                 point = next(self._grid)
             except StopIteration:
-                self._exhausted = True
                 break
             self._trial_id += 1
             values = {
@@ -90,7 +103,8 @@ class GridAdapter:
         return min(valid, key=lambda r: r.objective_value)
 
     def converged(self) -> bool:
-        return self._exhausted
+        """Whether every point of the grid was handed out."""
+        return self._trial_id >= self._n_points
 
 
-__all__ = ["GridAdapter"]
+__all__ = ["DEFAULT_POINTS_PER_DIM", "GridAdapter", "grid_axes_sizes", "grid_budget"]
