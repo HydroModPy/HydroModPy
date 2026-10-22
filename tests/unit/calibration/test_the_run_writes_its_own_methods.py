@@ -190,17 +190,19 @@ class TestItReportsTheDepartures:
 
 
 class TestItReportsTheBackend:
-    def test_an_untested_backend_is_stated(self) -> None:
+    def test_an_unsupported_backend_is_stated(self) -> None:
         text = methods_paragraph(
-            NAME, stages_that_ran=["steady_conductivity"], backend="modflow_nwt"
+            NAME, stages_that_ran=["steady_conductivity"], backend="boussinesq"
         )
 
-        assert "not covered by a test case" in text
+        assert "not supported on the boussinesq backend" in text
 
-    def test_a_tested_backend_needs_no_caveat(self) -> None:
-        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], backend="modflow6")
+    @pytest.mark.parametrize("backend", ["modflow6", "modflow_nwt"])
+    def test_a_tested_backend_needs_no_caveat(self, backend: str) -> None:
+        text = methods_paragraph(NAME, stages_that_ran=["steady_conductivity"], backend=backend)
 
         assert "not covered by a test case" not in text
+        assert "not supported" not in text
 
 
 class TestItReportsTheSteadyWindow:

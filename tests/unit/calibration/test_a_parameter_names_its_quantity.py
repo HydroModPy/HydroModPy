@@ -229,16 +229,20 @@ class TestWhoWinsOverWho:
         assert addressed.parameters["K"].model_dump() == named.parameters["K"].model_dump()
 
     def test_the_file_beats_the_field(self) -> None:
-        """A declared 'identity' is a decision, not a default left standing."""
+        """A declared 'identity' is a decision, not a default left standing.
+
+        The unit is the exception: the sample is written in the unit the field
+        reads, so a file may only restate it (test_bounds_in_another_unit_are_refused).
+        """
         calibration = _calibration(
-            K={"bounds": [1e-7, 1e-3], "search_space": "identity", "units": "m/day"}
+            K={"bounds": [1e-7, 1e-3], "search_space": "identity", "units": "m/s"}
         )
 
         resolve_parameter_targets(calibration, _project())
 
         decl = calibration.parameters["K"]
         assert decl.search_space == "identity"
-        assert decl.units == "m/day"
+        assert decl.units == "m/s"
         assert decl.sampling == "log_uniform"
 
 

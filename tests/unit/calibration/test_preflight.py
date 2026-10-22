@@ -53,6 +53,7 @@ _GOOD = """
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]
@@ -345,6 +346,8 @@ class TestALinearizedWidth:
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
+variable = "gauge"
 warmup_periods = WARMUP
 
 [calibration.uncertainty]
@@ -371,7 +374,7 @@ observes = "NANCON"
         findings = self._findings(tmp_path, 6)
 
         assert any(item.severity == "error" for item in findings)
-        assert "warmup_periods drops the first 6" in _messages(findings)
+        assert "nse_gauge drops 6 leading sample(s)" in _messages(findings)
 
     def test_without_one_the_width_is_not_refused(self, tmp_path) -> None:
         # A purely negative assertion (the burn-in message is absent) would
@@ -393,6 +396,7 @@ class TestALinearizedWidthOnAPhasedDocument:
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 warmup_periods = 6
 
 [calibration.uncertainty]
@@ -440,6 +444,7 @@ warmup = 0
 name = "p1"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["K"]
 outputs = ["gauge1"]
 objective_blocks = ["block1"]
@@ -448,6 +453,7 @@ objective_blocks = ["block1"]
 name = "p2"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["Sy"]
 outputs = ["gauge2"]
 objective_blocks = ["block2"]
@@ -482,6 +488,7 @@ class TestALinearizedWidthOnAPhaseThatNamesNeitherOutputsNorBlocks:
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 
 [calibration.uncertainty]
 method = "linearized"
@@ -515,6 +522,7 @@ normalize_cost = true
 name = "p1"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["K"]
 """
 
@@ -539,6 +547,7 @@ class TestALinearizedWidthOnASingleMetricPhase:
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 
 [calibration.uncertainty]
 method = "linearized"
@@ -554,6 +563,7 @@ units = "m/s"
 name = "p1"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -588,6 +598,7 @@ class TestASingleMetricPhaseAlongsideAGloballyObservedOutput:
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 
 [calibration.uncertainty]
 method = "linearized"
@@ -615,6 +626,7 @@ normalize_cost = true
 name = "p1"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["K"]
 variable = "discharge"
 objective = "nse"
@@ -624,6 +636,7 @@ freeze_on_success = false
 name = "p2"
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 parameters = ["K"]
 objective_blocks = ["b1"]
 """
@@ -953,6 +966,7 @@ _GAUGED = """
 [calibration]
 method = "grid"
 max_trials = 4
+method_options = { points_per_dim = 2 }
 
 [calibration.parameters.K]
 bounds = [1e-7, 1e-3]

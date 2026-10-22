@@ -137,21 +137,26 @@ def exit_code_for(exc: BaseException) -> int:
     return EXIT_GENERIC
 
 
-def exit_if_promotion_failed(result: Any) -> None:
-    """Name each failed promotion, then exit with the calibration code.
+def exit_if_session_unfinished(result: Any) -> None:
+    """Say why a calibration session did not complete, then exit with the calibration code.
 
-    Called once the search results are printed: they stay valid and are kept,
-    only the replayed runs are missing. Returns when every promotion succeeded.
+    Called once the search results are printed: they stay in the session
+    folder. A failed promotion is named run by run, since it leaves a replayed
+    run missing and closes the session ``partial``. A session closed
+    ``failed``, ``partial`` or ``aborted`` for another reason is named with
+    the reason ``session.json`` gives. Returns when the session completed.
     """
-    from hydromodpy.calibration.report import promotion_failures
+    from hydromodpy.calibration.report import promotion_failures, unfinished_session
     from hydromodpy.core.exceptions import CalibrationError
 
     failures = promotion_failures(result)
-    if not failures:
-        return
     for line in failures:
         print(f"  Promotion failed: {line}", file=sys.stderr)
-    sys.exit(exit_code_for(CalibrationError(f"{len(failures)} promotion(s) failed")))
+    unfinished = None if failures else unfinished_session(result)
+    if unfinished is not None:
+        print(f"  {unfinished}.", file=sys.stderr)
+    if failures or unfinished is not None:
+        sys.exit(exit_code_for(CalibrationError("the calibration session did not complete")))
 
 
 # ---------------------------------------------------------------------------
@@ -495,7 +500,7 @@ __all__ = (
     "EXIT_CASES_FAILED",
     "EXIT_SIGINT",
     "exit_code_for",
-    "exit_if_promotion_failed",
+    "exit_if_session_unfinished",
     "find_project_root",
     "find_workspace_root",
     "find_data_workspace",

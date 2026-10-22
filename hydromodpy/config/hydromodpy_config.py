@@ -233,8 +233,8 @@ def _declared_flow_engine(cfg: HydroModPyConfig) -> str | None:
 
 _ROOT_PERSISTENCE_REFUSAL = (
     "Section [persistence] is not read by any run. Write its keys under "
-    "[simulation.results.persistence], which a run reads, or under "
-    "[calibration.persistence] for the outputs of a calibration."
+    "[simulation.results.persistence], which a run reads, and so does the run "
+    "a calibration promotes."
 )
 
 

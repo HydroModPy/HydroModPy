@@ -48,7 +48,7 @@ from hydromodpy.cli.helpers import (
     EXIT_USAGE,
     apply_verbosity,
     exit_code_for,
-    exit_if_promotion_failed,
+    exit_if_session_unfinished,
     profile_arg_from_toml,
     profile_run,
     resolve_profile_output,
@@ -662,7 +662,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if workflow == "calibration" and verbosity in ("quiet", "normal"):
         if verbosity == "normal" and isinstance(summary, Mapping):
             _print_calibration_recap(summary, config_path)
-        exit_if_promotion_failed(summary)
+        exit_if_session_unfinished(summary)
         return
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
@@ -677,7 +677,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             continue
         print(f"  {key}: {value}", file=sys.stderr)
     if workflow == "calibration":
-        exit_if_promotion_failed(summary)
+        exit_if_session_unfinished(summary)
 
 
 def _print_overview_recap(summary: Mapping[str, Any]) -> None:

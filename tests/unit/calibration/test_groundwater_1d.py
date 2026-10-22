@@ -126,11 +126,7 @@ class TestCalibrate:
 
     def test_calibrate_uses_default_chronicle_when_none_given(self):
         """Calling calibrate_groundwater without a chronicle builds one."""
-        result = calibrate_groundwater(
-            method="grid",
-            max_trials=8,
-            method_options={"points_per_dim": 2},
-        )
+        result = calibrate_groundwater(method="random_search", max_trials=8)
         assert result["best"] is not None
         # The returned chronicle is usable downstream.
         assert "obs_vector" in result["chronicle"]

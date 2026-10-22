@@ -16,8 +16,11 @@ report a search that honoured a request it never read.
 The same declaration tells the engine loop what "converged" means. An engine
 that names a stopping option can run out of budget before meeting it, and that
 search did not converge: its answer is wherever the budget happened to end. An
-engine that names none stops on its budget by design, so spending it is its
-rule and not a failure.
+engine that sweeps a design it counts up front, the grid and the Latin
+hypercube, stops when every point of the design is solved: a sweep cut short
+by its budget is not its design, so it did not converge either. Any other
+engine that names no option stops on its budget by design, so spending it is
+its rule and not a failure.
 
 The budget itself follows the same logic. An engine that can count the
 evaluations its rule needs, before the first solve, publishes that count
@@ -46,14 +49,19 @@ BUDGET_RULE = "budget"
 
 
 def stopping_rule(optimizer: Any) -> str:
-    """Name the rule *optimizer* stops on: its stopping option, or ``"budget"``.
+    """Name the rule *optimizer* stops on: its stopping option, its design, or ``"budget"``.
 
     Read on the instance, from the traits its class declares, because the engine
-    loop holds an optimizer and not the name it was built from.
+    loop holds an optimizer and not the name it was built from. An engine with
+    no stopping option that counts its evaluations up front sweeps a design,
+    and its rule is to solve every point of it.
     """
     traits = getattr(optimizer, "traits", None)
     if isinstance(traits, EngineTraits) and traits.precision_option is not None:
         return traits.precision_option
+    counted = getattr(optimizer, "counted_budget", None)
+    if isinstance(counted, CountedBudget):
+        return f"every {counted.step}"
     return BUDGET_RULE
 
 
@@ -132,11 +140,19 @@ def short_budget(
 
     Below the nominal count the search cannot meet its rule even when the answer
     is where the file said, so it is an error. Between the nominal and the worst
-    count it is a warning that says how many steps the budget covers.
+    count it is a warning that says how many steps the budget covers. A design
+    has a single count, one evaluation per point.
     """
     budget = int(max_trials)
     if budget >= counted.worst:
         return None
+    if len(counted.counts) == 1:
+        return "error", (
+            f"max_trials = {budget} is below the {counted.nominal} evaluations of this "
+            f"search, one per {counted.step}, and a sweep cut short is not its design. "
+            f'Write max_trials = "auto" ({counted.nominal} here), or ask for fewer points '
+            "in method_options."
+        )
     if budget < counted.nominal:
         return "error", (
             f"max_trials = {budget} is below the {counted.nominal} evaluations this search "

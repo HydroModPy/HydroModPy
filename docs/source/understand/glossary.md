@@ -311,9 +311,11 @@ runoff
 scoring window
   Period over which simulated and measured flow are compared. In example 04, 2001 and 2002;
   the year 2000 is used as {term}`spin-up`. The window of a run's scores is also the default
-  window of a calibration, which may narrow it.
+  window of a calibration, which may narrow it. Under the network protocol with no window
+  written, the second stage scores from one year after the start of the run.
 
-  *In the file:* {toml}`metrics.window`, {toml}`calibration.protocol.scoring_window`.
+  *In the file:* {toml}`metrics.window`, {toml}`calibration.scoring_window`, and for the network
+  protocol {toml}`calibration.protocol.scoring_window`.
 
 seepage
   Cell where the {term}`water table` reaches the ground surface and where water leaves the
@@ -352,9 +354,11 @@ specific yield
 
 spin-up
   Start of the simulation that is not scored, while the initial state of the model fades out.
-  In example 04, the year 2000.
+  In example 04, the year 2000. The second stage of the network protocol leaves the first year
+  out when no window is written.
 
-  *In the file:* {toml}`calibration.protocol.scoring_window`.
+  *In the file:* {toml}`calibration.warmup_periods`, or a {term}`scoring window` that starts
+  after it.
 
 spring
   A place where groundwater comes out of the ground. A {term}`seepage` cell is a spring of

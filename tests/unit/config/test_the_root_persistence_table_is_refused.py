@@ -1,8 +1,8 @@
 """The root [persistence] table is refused with the table to write.
 
-No run read it: the run catalog reads [simulation.results.persistence] and a
-calibration reads [calibration.persistence]. A file that set
-field_precision = "exact" at the root still stored compact heads.
+No run read it: a run reads [simulation.results.persistence], and so does the
+run a calibration promotes. A file that set field_precision = "exact" at the
+root still stored compact heads.
 """
 
 from __future__ import annotations

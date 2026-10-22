@@ -111,6 +111,7 @@ def _write_analytic_bowl_toml(path: Path) -> Path:
 [calibration]
 method = "grid"
 max_trials = 2
+method_options = { points_per_dim = 2 }
 evaluator = "analytic_bowl"
 use_cache = false
 

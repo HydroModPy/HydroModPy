@@ -396,8 +396,10 @@ class TestTheDocumentNamesTheModel:
 
 class TestWhatTheRouteRefuses:
     def test_a_document_without_criteria_has_nothing_to_ask_for(self) -> None:
-        with pytest.raises(CalibrationError, match="objective_blocks"):
-            ScoredForwardEvaluator(cfg=_config(objective_blocks=[]))
+        # Refused when the file loads: its output is scored by nothing, and the
+        # one-line form would score the loaded stations instead.
+        with pytest.raises(ValidationError, match="nothing scores them"):
+            _config(objective_blocks=[])
 
     def test_an_output_naming_a_station_is_refused_by_name(self) -> None:
         with pytest.raises(CalibrationError) as refusal:

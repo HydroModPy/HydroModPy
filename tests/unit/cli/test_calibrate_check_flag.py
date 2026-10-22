@@ -41,6 +41,7 @@ _TEMPLATE = textwrap.dedent(
     [calibration]
     method = "grid"
     max_trials = 4
+    method_options = { points_per_dim = 4 }
 
     [calibration.parameters.K]
     bounds = [1e-7, 1e-3]

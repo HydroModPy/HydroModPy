@@ -19,7 +19,7 @@ from hydromodpy.cli.commands.calibrate import (
     _format_calibration_result,
     _format_staged_calibration_result,
 )
-from hydromodpy.cli.helpers import EXIT_CALIBRATION, exit_if_promotion_failed
+from hydromodpy.cli.helpers import EXIT_CALIBRATION, exit_if_session_unfinished
 
 
 def _report(**overrides: object) -> CalibrationReport:
@@ -532,11 +532,11 @@ def test_a_failed_promotion_exits_with_the_calibration_code(capsys) -> None:
     )
 
     with pytest.raises(SystemExit) as exited:
-        exit_if_promotion_failed(report)
+        exit_if_session_unfinished(report)
 
     assert exited.value.code == EXIT_CALIBRATION
     assert "Promotion failed: iteration 57: step 'display' failed" in capsys.readouterr().err
 
 
 def test_a_report_whose_promotions_succeeded_does_not_exit() -> None:
-    exit_if_promotion_failed(_report(best_parameters={"K": 3.909e-05}))
+    exit_if_session_unfinished(_report(best_parameters={"K": 3.909e-05}))

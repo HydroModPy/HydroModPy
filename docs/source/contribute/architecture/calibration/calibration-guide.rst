@@ -175,10 +175,11 @@ its canonical parameter record. With ``use_cache`` on (the default), the
 ``ParamsHashCache`` is loaded at session start from the completed and promoted
 iterations of the earlier sessions of the project. A hit skips the solver and
 returns the stored cost. The key holds only what changes the cost of a trial at
-given values (the model, its inputs, the outputs, the objective blocks and the scoring
-window), so a re-run with a larger ``max_trials``, another method, seed, precision or
-narrower phase ``bounds`` replays the trials it proposes at values already solved. Turn it off when the inputs, the observations
-or the solver version changed, or to time the trials.
+given values (the model, its inputs, the content of the maps a network output is scored
+against, the outputs, the objective blocks and the scoring window), so a re-run with a
+larger ``max_trials``, another method, seed, precision or narrower phase ``bounds``
+replays the trials it proposes at values already solved. Turn it off when the inputs,
+the observations or the solver version changed, or to time the trials.
 
 What a search reports about itself
 ----------------------------------
@@ -235,9 +236,10 @@ The runners are thin wrappers around three primitives, for a custom loop:
        )
 
 ``calibration/optim/diagnostics.py`` reads a persisted trace:
-``convergence_rate`` fits the decrease of the best cost, and
-``parameter_correlation`` gives the correlation of the parameters over the
-trials, the source of the ``moved together`` caution.
+``convergence_rate`` fits the decrease of the best cost, and no report reads
+it. ``parameter_correlation`` gives the correlation of the parameters over the
+trials, and ``correlated_parameter_pairs`` the pairs past the threshold, the
+source of the ``moved together`` caution.
 
 Test cases without a solver
 ---------------------------

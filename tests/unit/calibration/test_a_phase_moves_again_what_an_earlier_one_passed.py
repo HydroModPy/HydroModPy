@@ -282,9 +282,11 @@ def test_under_grid_list_phases_says_the_engine_takes_no_start_point(tmp_path, c
 
 
 def test_under_grid_the_engine_keeps_its_own_start(tmp_path, toy) -> None:
-    report = run_staged_calibration(
-        _write(tmp_path, BASE.format(method="grid")), metric_fn=toy.metric
+    # Two points per parameter keep the 2 x 2 grid of the last phase within its 4 trials.
+    document = BASE.format(method="grid").replace(
+        "max_trials = 4\n", "max_trials = 4\nmethod_options = { points_per_dim = 2 }\n"
     )
+    report = run_staged_calibration(_write(tmp_path, document), metric_fn=toy.metric)
 
     # The grid's first point is its lower corner, not a passed value.
     k, sy = toy.first_trial_of(2)

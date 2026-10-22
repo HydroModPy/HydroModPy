@@ -132,6 +132,7 @@ def resolve_parameter_targets(
                 continue
         _refuse_a_replaced_recharge_rate(name, target, project_config)
         _fill_what_the_file_left_unsaid(decl, target)
+        _refuse_bounds_in_another_unit(name, decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
 
 
@@ -326,6 +327,47 @@ def _refuse_a_depth_model_path_the_catalogue_does_not_carry(
     if why is None:
         return
     raise UnresolvedParameterName(f"[calibration.parameters.{name}] path = {path!r} {why}")
+
+
+def _refuse_bounds_in_another_unit(name: str, decl: Any, target: CalibrationTarget) -> None:
+    """Refuse bounds written in another unit than the one the target is read in.
+
+    The sampled value is written as it is into the field, which reads it in its
+    own unit. Bounds in ``m/s`` on a conductivity the project declares in
+    ``m/day`` would put every candidate 86 400 times too low, so the file is
+    refused, with the bounds converted when the two units convert. A factor of
+    ``mode = "scale"`` carries no unit and is left alone.
+    """
+    if "units" not in decl.model_fields_set or not decl.units or not target.units:
+        return
+    if getattr(decl, "mode", "replace") == "scale":
+        return
+    written, read = str(decl.units).strip(), str(target.units).strip()
+    if written == read:
+        return
+    from hydromodpy.core.units.parse import parse_to_canonical_magnitude
+
+    try:
+        factor = parse_to_canonical_magnitude(
+            1.0,
+            location=f"[calibration.parameters.{name}]",
+            canonical_unit=read,
+            explicit_unit=written,
+        )
+    except ValueError:
+        factor = None
+    if factor == 1.0:
+        return
+    bounds = list(getattr(decl, "bounds", None) or ())
+    suggestion = ""
+    if factor is not None and len(bounds) == 2:
+        low, high = (float(bound) * factor for bound in bounds)
+        suggestion = f" write bounds = [{low:.6g}, {high:.6g}], or"
+    raise ConfigError(
+        f"[calibration.parameters.{name}] writes its bounds in {written!r}, and "
+        f"{target.name!r} is read in {read!r}. Each sampled value is written as it is, so "
+        f"the two have to agree:{suggestion} drop 'units' to search in {read!r}."
+    )
 
 
 def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: CalibrationTarget) -> None:

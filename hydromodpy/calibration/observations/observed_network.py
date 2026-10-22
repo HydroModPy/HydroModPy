@@ -11,9 +11,9 @@ chain of the descent graph, one cell wide; the criterion's zero is the equality
 of two mean distances, so a map drawn thicker than that chain moves the root
 with no hydrogeological reason.
 
-The default rule, ``"crossing"``, keeps the cell holding each point where a
-line crosses the segment joining two edge-sharing cell centres. On a
-structured grid it is WhiteboxTools ``VectorLinesToRaster``, the tool of
+Two rules draw cells from the lines. ``"crossing"`` keeps the cell holding each
+point where a line crosses the segment joining two edge-sharing cell centres.
+On a structured grid it is WhiteboxTools ``VectorLinesToRaster``, the tool of
 Abherve et al. (2023), and a model that reproduces the map exactly scores
 J = 0 in D8 as in D4. ``"touch"`` keeps every cell the line intersects,
 corners included: each diagonal step of the map gains the two cells sharing
@@ -23,7 +23,7 @@ a perfect match. It is kept to replay a session recorded before 2026-09.
 Neither rule is the centroid rule, which on a Voronoi mesh drops about half the
 cells of a line one cell wide.
 
-The third rule, ``"heads"``, draws no cell from the lines: it keeps their free
+The default rule, ``"heads"``, draws no cell from the lines: it keeps their free
 ends (:func:`observed_head_candidates`) and the criterion traces them down its
 own graph (:mod:`hydromodpy.core.stream_heads`).
 """

@@ -199,6 +199,7 @@ def _baseline_cfg() -> CalibrationConfig:
         {
             "method": "grid",
             "max_trials": 3,
+            "method_options": {"points_per_dim": 3},
             "save_runs": "none",
             "objective": "nse",
             "variable": "discharge",

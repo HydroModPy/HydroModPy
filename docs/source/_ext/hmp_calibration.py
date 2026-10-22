@@ -82,6 +82,11 @@ def method_parameters(m: dict[str, Any]) -> str:
 
 def method_stops(m: dict[str, Any]) -> str:
     option = m["precision_option"]
+    if option is None and m["counts_its_budget"]:
+        return (
+            "When every point of its design is solved: a budget below the design is "
+            "refused. :toml:`calibration.precision` is refused."
+        )
     if option is None:
         return (
             "On its budget, or on a rule of its own options. "
@@ -95,6 +100,12 @@ def method_stops(m: dict[str, Any]) -> str:
         f"On a precision on the parameter: :toml:`calibration.precision` writes "
         f"``{option}``, {how}."
     )
+
+
+def method_stops_on(m: dict[str, Any]) -> str:
+    if m["precision_option"]:
+        return "precision"
+    return "design" if m["counts_its_budget"] else "budget"
 
 
 def method_budget(m: dict[str, Any]) -> str:
@@ -172,7 +183,7 @@ def methods_summary_rst(rows: list[dict[str, Any]], *, link: bool) -> str:
                 name,
                 m["summary"],
                 method_parameters(m),
-                "precision" if m["precision_option"] else "budget",
+                method_stops_on(m),
                 "yes" if m["supports_parallel"] else "no",
             ]
         )
