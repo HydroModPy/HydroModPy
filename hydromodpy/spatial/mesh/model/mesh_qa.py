@@ -21,8 +21,11 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DECLARATION_KEYS",
+    "STRAIGHT_CORNER_DEG",
     "MeshQA",
+    "cell_corner_angles",
     "compute_mesh_qa",
+    "edge_bisection_offset",
     "edge_nonorthogonality",
     "edge_size_ratio",
 ]
@@ -43,6 +46,13 @@ the cell side (square root of the area)."""
 
 NONORTHOGONALITY_LIMIT_DEG = 30.0
 """Angle [deg] above which a face counts in ``nonorthogonality_deg["share_gt_30"]``."""
+
+STRAIGHT_CORNER_DEG = 0.1
+"""A corner within this angle [deg] of 180 is straight, not reflex.
+
+The 1 mm merge of the Voronoi vertices bends a straight run of faces by about
+0.02 deg next to a 5 m face; stored meshes measured put straight corners within
+1e-6 deg of 180."""
 
 
 @dataclass(frozen=True)
@@ -147,6 +157,74 @@ def edge_nonorthogonality(
     measured = np.flatnonzero(keep)[seen]
     angles[measured] = np.degrees(np.arctan2(along[seen], across[seen]))
     return angles
+
+
+def edge_bisection_offset(
+    centers: np.ndarray, vertices: np.ndarray, geometry: DerivedGeometry, keep: np.ndarray
+) -> np.ndarray:
+    """Return, per mesh edge, how far from the face middle the centre-to-centre line crosses it.
+
+    The distance runs along the face, from its middle to the point where the line
+    through the two cell centres meets the line of the face, over the face length.
+    It is 0 when the line bisects the face and 0.5 when it passes through a face
+    end. ``keep`` selects the edges measured, interior edges with two cells. The
+    value is ``NaN`` on every other edge and where the line of the centres is
+    parallel to the face.
+    """
+    cells = geometry.edge_cells[keep]
+    nodes = geometry.edge_nodes[keep]
+    length = geometry.edge_length[keep]
+    start = vertices[nodes[:, 0]]
+    tangent = (vertices[nodes[:, 1]] - start) / length[:, None]
+    first = centers[cells[:, 0]] - start
+    second = centers[cells[:, 1]] - start
+    side_first = tangent[:, 0] * first[:, 1] - tangent[:, 1] * first[:, 0]
+    side_second = tangent[:, 0] * second[:, 1] - tangent[:, 1] * second[:, 0]
+    along_first = first[:, 0] * tangent[:, 0] + first[:, 1] * tangent[:, 1]
+    along_second = second[:, 0] * tangent[:, 0] + second[:, 1] * tangent[:, 1]
+    gap = side_first - side_second
+    crossing = gap != 0.0
+    along = along_first[crossing] + (along_second[crossing] - along_first[crossing]) * (
+        side_first[crossing] / gap[crossing]
+    )
+    offsets = np.full(keep.shape[0], np.nan)
+    offsets[np.flatnonzero(keep)[crossing]] = (
+        np.abs(along - 0.5 * length[crossing]) / length[crossing]
+    )
+    return offsets
+
+
+def cell_corner_angles(padded: np.ndarray, vertices: np.ndarray) -> np.ndarray:
+    """Return the interior angle [deg] at each corner of each cell, in the padded layout.
+
+    The angle at a reflex corner exceeds 180. ``NaN`` on the padding, at a corner
+    next to a zero-length edge and in a cell of zero area.
+    """
+    padded = np.asarray(padded, dtype=np.int64)
+    count = (padded >= 0).sum(axis=1)
+    column = np.arange(padded.shape[1])[None, :]
+    held = column < count[:, None]
+    last = np.maximum(count - 1, 0)[:, None]
+    before = np.where(held, np.where(column == 0, last, column - 1), 0)
+    after = np.where(held, np.where(column == last, 0, column + 1), 0)
+    nodes = np.where(padded >= 0, padded, 0)
+    corner = vertices[nodes]
+    previous = vertices[np.take_along_axis(nodes, before, axis=1)]
+    following = vertices[np.take_along_axis(nodes, after, axis=1)]
+    # Relative to the first corner: in Lambert-93 the absolute shoelace loses the sign.
+    here = corner - corner[:, :1]
+    there = following - corner[:, :1]
+    shoelace = here[..., 0] * there[..., 1] - there[..., 0] * here[..., 1]
+    orientation = np.sign(np.where(held, shoelace, 0.0).sum(axis=1))
+    incoming = corner - previous
+    outgoing = following - corner
+    cross = incoming[..., 0] * outgoing[..., 1] - incoming[..., 1] * outgoing[..., 0]
+    dot = incoming[..., 0] * outgoing[..., 0] + incoming[..., 1] * outgoing[..., 1]
+    angles = 180.0 - np.degrees(np.arctan2(cross, dot)) * orientation[:, None]
+    flat = (np.hypot(incoming[..., 0], incoming[..., 1]) == 0.0) | (
+        np.hypot(outgoing[..., 0], outgoing[..., 1]) == 0.0
+    )
+    return np.where(held & ~flat & (orientation != 0.0)[:, None], angles, np.nan)
 
 
 def _is_member(sorted_keys: np.ndarray, probe: np.ndarray) -> np.ndarray:

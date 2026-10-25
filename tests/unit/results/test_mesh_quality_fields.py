@@ -1,8 +1,9 @@
-"""The four mesh quality fields are rebuilt on read from the stored mesh, never stored.
+"""The mesh quality fields are rebuilt on read from the stored mesh, never stored.
 
 A hand-built grid of 2 rows and 3 columns of widths 10, 20 and 80 m (rows 10 m high)
-gives the values by arithmetic. A Voronoi dual of a committed bundle checks the
-per-cell values against the quantile QA the engine measured on the same mesh.
+gives the values by arithmetic, and an L-shaped cell beside a square gives a reflex
+corner. A Voronoi dual of a committed bundle checks the per-cell values against the
+quantile QA the engine measured on the same mesh.
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from hydromodpy.results.derive.virtual_fields import (
 )
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.mesh_layout import mesh_layout_from_cell_mesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
@@ -106,6 +109,47 @@ def test_a_centre_off_its_centroid_shows_in_the_offset_and_the_angles(tmp_path):
     store.close()
 
 
+def test_a_centre_off_its_centroid_moves_the_crossing_off_the_face_middle(tmp_path):
+    store = _store(tmp_path / "fields.zarr", _grid(shift_first_centre=(3.0, 4.0)))
+
+    offset = mesh_quality_values(store.root, "mesh_bisection_offset")
+
+    # From (8, 19) to (20, 15) the line meets x = 10 at y = 19 - 4/6, on a face
+    # centred on y = 15: (4 - 4/6) / 10 = 1/3. From (8, 19) to (5, 5) it meets
+    # y = 10 at x = 8 - 3 * 9/14, on a face centred on x = 5: 3/28.
+    np.testing.assert_allclose(offset, [1 / 3, 1 / 3, 0.0, 3 / 28, 0.0, 0.0], atol=1e-12)
+    store.close()
+
+
+def test_the_cells_of_a_grid_have_right_angles_and_no_concavity(tmp_path):
+    store = _store(tmp_path / "fields.zarr", _grid())
+
+    np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_min_angle"), 90.0)
+    np.testing.assert_array_equal(mesh_quality_values(store.root, "mesh_concavity"), 0.0)
+    store.close()
+
+
+def test_an_l_shaped_cell_has_a_reflex_corner_of_270_degrees(tmp_path):
+    corners = np.array(
+        [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2], [2, 2]], dtype=float
+    ) * 10.0 + [350_000.0, 6_780_000.0]
+    cells = (np.array([0, 1, 2, 3, 4, 5]), np.array([3, 2, 6, 4]))
+    mesh = HydroMesh(vertices=corners, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
+    l_and_square = build_planar_cell_mesh(
+        mesh,
+        np.array([[350_005.0, 6_780_005.0], [350_015.0, 6_780_015.0]]),
+        center_kind="cell_center",
+        crs_wkt=TEST_CRS_WKT,
+        identity=MeshIdentity("voronoi", "0", "", None),
+        declarations=DECLARATIONS,
+    )
+    store = _store(tmp_path / "fields.zarr", l_and_square)
+
+    np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_concavity"), [90.0, 0.0])
+    np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_min_angle"), [90.0, 90.0])
+    store.close()
+
+
 def test_a_face_shorter_than_the_qa_threshold_is_left_out_of_the_angles(tmp_path):
     cell_mesh = _grid(shift_first_centre=(3.0, 4.0))
     store = _store(tmp_path / "fields.zarr", cell_mesh, qa={"min_face_length_m": 15.0})
@@ -138,8 +182,14 @@ def test_a_cell_with_no_neighbour_has_no_ratio_and_no_angle(tmp_path):
 def test_a_run_stored_before_the_cell_mesh_layout_serves_the_geometry_fields_only(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid(), layout=False)
 
-    assert available_virtual_fields(store.root) == ["mesh_cell_area", "mesh_neighbour_ratio"]
+    assert available_virtual_fields(store.root) == [
+        "mesh_cell_area",
+        "mesh_concavity",
+        "mesh_min_angle",
+        "mesh_neighbour_ratio",
+    ]
     assert mesh_quality_unavailable_reason(store.root, "mesh_cell_area") is None
+    assert mesh_quality_unavailable_reason(store.root, "mesh_bisection_offset") is not None
     reason = mesh_quality_unavailable_reason(store.root, "mesh_center_offset")
     assert reason is not None
     assert "before the cell-mesh layout" in reason
@@ -182,8 +232,15 @@ def test_the_per_cell_extremes_of_a_voronoi_dual_are_the_qa_extremes(tmp_path):
     ratio = mesh_quality_values(store.root, "mesh_neighbour_ratio")
     offset = mesh_quality_values(store.root, "mesh_center_offset")
     angle = mesh_quality_values(store.root, "mesh_nonorthogonality")
+    bisection = mesh_quality_values(store.root, "mesh_bisection_offset")
+    smallest = mesh_quality_values(store.root, "mesh_min_angle")
+    concavity = mesh_quality_values(store.root, "mesh_concavity")
 
     assert area.shape == ratio.shape == offset.shape == angle.shape == (cell_mesh.n_cells,)
+    assert bisection.shape == smallest.shape == concavity.shape == (cell_mesh.n_cells,)
+    assert np.nanmin(bisection) >= 0.0
+    assert ((smallest > 0.0) & (smallest < 180.0)).all()
+    assert (concavity >= 0.0).all()
     np.testing.assert_allclose(area, cell_mesh.geometry.areas, rtol=1e-12)
     assert np.nanmax(ratio) == pytest.approx(qa.neighbour_ratio["max"], rel=1e-12)
     assert np.nanmax(offset) == pytest.approx(qa.center_offset["max"], rel=1e-12)

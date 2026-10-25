@@ -389,10 +389,9 @@ every cell of a mesh lies in $\Omega$.
 ## 9. The checks the code applies
 
 The mesh is refused when its inputs are wrong, and a run stops when the grid it solves is not
-the mesh that was stored. The code does not compute a minimum angle, an aspect ratio or a
-skewness, and it refuses no mesh for its shape, with the exception of the build of the `voronoi`
-engine. The table lists what it does check. Where a limit is a number, the table names the
-constant that holds it.
+the mesh that was stored. The code refuses no mesh for its shape, with the exception of the
+build of the `voronoi` engine. The table lists what it does check. Where a limit is a number,
+the table names the constant that holds it.
 
 | What is checked | Rule | What happens | Where |
 |---|---|---|---|
@@ -414,6 +413,22 @@ its cell, the non-orthogonality and, for each line family, how much of the line 
 follow. Four fields give the same per cell, computed on read: `mesh_cell_area`,
 `mesh_neighbour_ratio`, `mesh_center_offset` and `mesh_nonorthogonality`. The report is not a
 verdict: a mesh with a poor report still runs.
+
+Three more fields exist per cell only, also computed on read, and the layer `mesh_cells` of
+`hmp export` carries all seven. `mesh_bisection_offset` measures the second assumption of the
+two-point flux, that the line joining two centres crosses their face in its middle. On a face of
+length $L$, where that line crosses the face at a distance $s$ from its first end, the offset is
+
+$$
+\beta = \frac{\lvert s - L/2 \rvert}{L},
+$$ (eq-bisection-offset)
+
+which is 0 for a bisected face and 0.5 when the line passes through a face end; a cell takes the
+largest $\beta$ of its faces. A Voronoi face is orthogonal to the line of its generators, but it
+is bisected only when each generator lies at the same distance from the two ends of the face.
+`mesh_min_angle` is the smallest interior angle of the cell, the usual measure of a triangle.
+`mesh_concavity` is how far the largest interior angle exceeds 180°, 0 for a convex cell; a
+corner within `STRAIGHT_CORNER_DEG` of 180° counts as straight.
 
 ## Assumptions
 
