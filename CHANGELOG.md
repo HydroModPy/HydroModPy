@@ -34,6 +34,33 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Calibration audit leftovers fixed on 2026-10-25 (thirteen commits `6feb2dfdc..a07541e77`).
+  `Project.best` and `[sites.summary] best = "calibrated"` keep the `evaluated` runs, the calibrated
+  runs scored out of their calibration window; `label="calibrated"` keeps the in-window ones only.
+  An observed gauge is scored only against the simulated series of its own name, or against the single
+  simulated series when it is the station of the metric rule: an upstream gauge is no longer scored
+  against the outlet discharge, and a gauge left unscored is logged and sealed as the failed, non-fatal
+  check `observations_scored`. A pair dropped because the simulated value is NaN (a dry cell) is
+  counted: trial component `<output>.n_sim_nan`, `n_sim_nan` in `objective_samples` of `session.json`,
+  and a new column `n_sim_nan` of the run metric rows, `metrics.parquet` and the index, with a warning;
+  `[calibration.aggregate] min_samples` applies to every scored output and stays 1. Index schema 9:
+  run `hmp catalog reindex`. `units` of a calibrated parameter converts: bounds written in another unit
+  of the same quantity are converted into the unit of the target (m/s on a conductivity read in m/day:
+  86 400), a unit of another quantity is refused naming both, and `units` beside `mode = "scale"` is
+  refused. A lake `bedleak`, SFR `streambed_k`, barrier `hydchr` or `k` and well `flux` is searched in
+  the unit its own field names (`bedleak_unit = "1/day"` was read 86 400 times off) and carries a
+  physical range; `hmp config targets` prints every range in the unit of its target. A search says why
+  it stopped, `rule_met`, `plan_exhausted` or `budget_spent`, sealed as `stop_state` in `session.json`,
+  each phase and `checks.calibrated_by`, and printed by the console, the READMEs and the HTML report;
+  `converged` is true only in the first two. A phase whose search has no rule of its own (random_search,
+  cma_es) still passes its best trial on and says it "froze the best of a budget-only search"; a search
+  with a rule stopped by its budget freezes nothing, as before. Every calibration launch (`hmp
+  calibrate`, `hmp run` in calibration mode, both `--dry-run`, `hmp.calibrate`, `Project.calibrate`)
+  runs the checks of `hmp config check` first, on the effective document and phase by phase,
+  overrides included, and stops with exit code 14 before anything is prepared; the checks of the
+  prepared model run once, before the session is reserved; a `path` outside the catalogue that reaches
+  a value of the config warns instead of refusing. Example 21's `auto_sfr_drn.toml` is no longer
+  refused: each phase is checked with its own overrides.
 - Calibration audit of 2026-10-22, batch q01 (2026-10-22). `hmp calibrate --resume` refuses a
   session whose journal holds trials this document scores another way, and a session a live process
   of this host still writes; each trial row carries its `params_hash` (`8c6c7210d`). The promoted

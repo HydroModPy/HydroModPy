@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import builtins
 import dataclasses
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -35,6 +35,7 @@ from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.view import Session
+from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -48,9 +49,6 @@ logger = get_logger(__name__)
 
 CASE_KINDS: tuple[str, ...] = ("run", "session")
 """Kinds of result directory that stand for a case; a kept trial is not one."""
-
-BEST_LABEL = "calibrated"
-"""Label :meth:`~hydromodpy.project.Project.best` ranks by default."""
 
 
 class ProjectDataAccessor:
@@ -240,15 +238,17 @@ def best_frame(
     metric: str = "nse",
     *,
     by: Literal["site", "recipe"] | None = "site",
-    label: str | None = BEST_LABEL,
+    label: str | Sequence[str] | None = CALIBRATED_LABELS,
     mixed_windows: bool = False,
 ) -> pd.DataFrame:
     """Return the best completed run of each group, one row per group.
 
     The metric is read at the gauge of each run, in the window of its rule
     (``RunSet.metrics``); best follows its direction. ``label`` keeps the
-    runs of that label only, ``calibrated`` by default; ``None`` ranks every
-    completed run. Runs of one group scored under different rules are
+    runs of that label, or of those labels, only: the calibrated runs by
+    default, ``calibrated`` and ``evaluated`` (an evaluated run is a calibrated
+    run scored out of its calibration window); ``None`` ranks every completed
+    run. Runs of one group scored under different rules are
     refused with :class:`~hydromodpy.results.run.sealed.MixedWindowsError`
     unless ``mixed_windows`` is true.
 
@@ -268,11 +268,12 @@ def best_frame(
     rows = rows[(rows["kind"] == "run") & (rows["status"] == "completed")]
     if rows.empty:
         logger.warning("best(%r): no completed run in the index of this project.", metric)
+    labels = (label,) if isinstance(label, str) else tuple(label or ())
     groups = [(None, rows)] if by is None else list(rows.groupby(by, dropna=False, sort=True))
     out: list[dict[str, Any]] = []
     left_out: list[tuple[str, pd.DataFrame, bool]] = []
     for key, completed in groups:
-        group = completed if label is None else completed[completed["label"] == label]
+        group = completed if label is None else completed[completed["label"].isin(labels)]
         sim_ids = [str(sid) for sid in group["sim_id"]]
         ranked = RunSet(sim_ids, catalog).compare(metric, mixed_windows=mixed_windows)
         if ranked.empty:
@@ -300,13 +301,11 @@ def best_frame(
             }
         )
         out.append(row)
-    _warn_left_out(metric, left_out, label)
+    _warn_left_out(metric, left_out, " or ".join(labels))
     return pd.DataFrame(out)
 
 
-def _warn_left_out(
-    metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str | None
-) -> None:
+def _warn_left_out(metric: str, left_out: list[tuple[str, pd.DataFrame, bool]], label: str) -> None:
     """Name once the groups :func:`best_frame` left out, by reason."""
     from hydromodpy.project.summary import names_text, unscored_reason
 
@@ -451,7 +450,6 @@ class Workspace:
 
 
 __all__ = [
-    "BEST_LABEL",
     "CASE_KINDS",
     "ProjectDataAccessor",
     "ProjectRunsAccessor",

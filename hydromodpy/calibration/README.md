@@ -29,7 +29,7 @@ root of the package.
 | `metrics/` | how the outputs of one trial are extracted and paired with observations, and the evaluator that scores a forward model |
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
 | `reporting/` | the diagnostic page of the B0 network validation case |
-| `preflight.py` | `hmp config check` on a calibration file: every check before the first solve |
+| `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
 | `cases/` | two demonstrators kept as regression fixtures |
 
 ## Import rules
@@ -105,6 +105,7 @@ hydromodpy/calibration/
                 session.py (case name, session directory, frozen config)
                 state.py (params-hash context, cache preload)  failure_watch.py
                 kept_solves.py (trial solves kept on disk for their promotion)
+                prepared_model.py (the checks that need the prepared model)
   reporting/    network_transient_html.py  network_transient/
   cases/
 ```
@@ -149,11 +150,16 @@ is read rather than inside the adapter.
    (`protocols.expand_calibration_protocol`), and each parameter name is
    resolved to a config path (`parameter_resolution.resolve_parameter_targets`).
    Validators refuse an unknown criterion, evaluator or forward model here.
-   An unknown search method is refused when the run starts
-   (`CalibrationConfig.validate_registry`), which also resolves a method left
-   unwritten, through `method_for` (`optim.optimizer.choose_method`).
-2. **Check.** `hmp config check` runs `preflight.check_calibration_file`:
-   every check, one report, no solve.
+   An unknown search method loads, and is refused by the preflight below,
+   before anything is prepared. `CalibrationConfig.validate_registry` refuses
+   it again when the search starts, and resolves a method left unwritten,
+   through `method_for` (`optim.optimizer.choose_method`).
+2. **Check.** Every launch, `hmp calibrate`, `hmp run`, `--dry-run`,
+   `hmp.calibrate` and `Project.calibrate`, runs `preflight.preflight_launch`
+   on the document it runs (`--set`, `--overlay` and `HMP_SET_*` written in),
+   each phase with its own overrides: every check, one report, no solve, and
+   an error stops the launch before anything is prepared. `hmp config check`
+   prints the same findings.
 3. **Start.** `runners/cli_runner.py` (one search), `staged_runner.py`
    (phases) or `programmatic_runner.py` (from Python) names the case
    (`runners/session.py`: the stem of the file that carries `[calibration]`,
@@ -170,7 +176,11 @@ is read rather than inside the adapter.
    The steps before it run once and are shared by every trial; the steps from it
    up to the solve and the extraction run again for each trial
    (`run_trial_light`); the persistent steps downstream run only for a promoted
-   trial (`promote_prepared_trial`).
+   trial (`promote_prepared_trial`). Right after each preparation, once per
+   search or per phase and before the session is reserved,
+   `runners/prepared_model.check_the_prepared_model` checks what only the
+   prepared model shows: a bound the field refuses, and the drain and
+   release-package conductances a network search relies on.
 5. **Trial.** The engine asks the optimizer for a point, skips it if its params
    hash is cached (`optim/cache.py`), and hands it to the evaluator. The default
    one, `runners/pipeline_evaluator.py`, sets the values, runs the solver
@@ -268,7 +278,7 @@ start from.
 One rule links the phases, in declaration order:
 
 > A phase moves the parameters it lists. Every other parameter holds the last
-> value an earlier converged phase found for it, or the value of the model
+> value an earlier settled phase found for it, or the value of the model
 > file when no phase has calibrated it yet. A phase that lists a parameter an
 > earlier phase calibrated moves it again, starting from that value when its
 > search method accepts a start point.

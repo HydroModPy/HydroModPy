@@ -178,7 +178,10 @@ class FakeRunner:
             best_parameters=best,
             workspace=project_root,
             session_dir=persistence.directory,
-            extra={"search_status": "completed", "search": {"converged": True}},
+            extra={
+                "search_status": "completed",
+                "search": {"stop_state": "rule_met", "converged": True, "stopping_rule": "xatol"},
+            },
         )
 
 

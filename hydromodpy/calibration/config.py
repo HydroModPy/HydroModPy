@@ -451,7 +451,8 @@ class CalibParameterDecl(HydroModelBase):
         default=None,
         min_length=2,
         max_length=2,
-        description="[low, high] physical bounds, in the unit the target declares. "
+        description="[low, high] physical bounds, in 'units' when the file writes it, "
+        "else in the unit the target declares. "
         "Falls back to what the field annotates when the file omits it, which most "
         "fields deliberately leave unset because a range belongs to the site.",
     )
@@ -516,12 +517,14 @@ class CalibParameterDecl(HydroModelBase):
     units: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
-            "Unit the bounds are written in, such as 'm/s'. Each sampled value is written "
-            "as it is into the target, so for a parameter the catalogue resolves it has to "
-            "be the unit that target declares, which it is when left unset; another one is "
-            "refused when the file loads, with the bounds converted. For a path outside "
-            "the catalogue it is the unit the bounds are checked against the physical "
-            "range in."
+            "Unit the bounds are written in, such as 'm/s'. For a parameter the catalogue "
+            "resolves, bounds in another unit of the same quantity are converted when the "
+            "file loads into the unit the target is read in, and the search draws, writes "
+            "and reports its samples in that unit ('hmp config targets' lists it). A unit "
+            "of another quantity is refused. Unset, the unit of the target applies. With "
+            "mode = 'scale' the bounds are factors without a unit, and writing one is "
+            "refused. For a path outside the catalogue it is the unit the bounds are "
+            "checked against the physical range in."
         ),
         examples=["m/s"],
     )
@@ -1796,9 +1799,12 @@ class CalibPhaseDecl(HydroModelBase):
     ``freeze_on_success`` means this phase passes the values it found to the
     phases after it. A later phase holds them fixed, unless it lists the
     parameter: it then moves it again, starting from the passed value when its
-    method accepts a start point. It reads "pass on if the phase converged",
-    never "pass on if the result is good": a validity indicator qualifies a
-    result, and a phase that returns a coarse agreement still returns a number.
+    method accepts a start point. It reads "pass on if the search settled",
+    never "pass on if the result is good": the engine met its own rule or
+    solved every point of its plan, or an engine with no rule of its own (a
+    random search) spent its budget, which the phase then says. A validity
+    indicator qualifies a result, and a phase that returns a coarse agreement
+    still returns a number.
     The state of that indicator travels to the later phases and into the
     report, so a value calibrated on top of a doubtful one carries the mention
     all the way out.
@@ -1978,15 +1984,21 @@ class CalibPhaseDecl(HydroModelBase):
     depends_on: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Name of the phase that must run first. The values it passes on "
-        "enter this one fixed, except those this phase lists and moves again.",
+        "enter this one fixed, except those this phase lists and moves again. When that "
+        "phase freezes its values and its search stops on its budget before a rule of its "
+        "own, this phase is refused rather than run on the values of the file.",
     )
     freeze_on_success: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Pass the values this phase found to the phases after it. A later "
         "phase holds them fixed, unless it lists the parameter: it then moves it again, "
         "starting from the passed value when its method accepts a start point. When two "
-        "phases pass on the same parameter, the later one wins. Success means the phase "
-        "converged, not that its validity indicator is good.",
+        "phases pass on the same parameter, the later one wins. Success means the search "
+        "met its own rule or solved every point of its plan, not that its validity "
+        "indicator is good. A search with no rule of its own (random_search, cma_es) that "
+        "spends its budget also passes on its best trial, and the phase says it froze the "
+        "best of a budget-only search. One with a rule that its budget stops first passes "
+        "nothing on.",
     )
     uncertainty: Annotated[CalibPhaseUncertaintyDecl | None, Profile.USER] = Field(
         default=None,

@@ -113,6 +113,9 @@ def run_calibration(config_path: str | Path, *, phase: str | None = None) -> dic
         if phase is not None
         else declared_calibration_phases(target)
     )
+    from hydromodpy.calibration.preflight import preflight_launch
+
+    preflight_launch(target)
     if declared:
         from hydromodpy.calibration.runners.staged_runner import (
             StagedCalibrationReport,

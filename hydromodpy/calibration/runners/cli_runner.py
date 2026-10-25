@@ -61,7 +61,12 @@ from hydromodpy.calibration.optim.optimizer import (
     engine_traits,
 )
 from hydromodpy.calibration.optim.progress_reporter import ConsoleProgressReporter
-from hydromodpy.calibration.optim.stopping import budget_kwargs, resolve_budget, stopping_kwargs
+from hydromodpy.calibration.optim.stopping import (
+    budget_kwargs,
+    resolve_budget,
+    settled,
+    stopping_kwargs,
+)
 from hydromodpy.calibration.persistence import (
     DEFAULT_PHASE,
     CalibrationPersistence,
@@ -72,6 +77,10 @@ from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.calibration.report import NO_OTHER_TRIAL, interval_is_degenerate
 from hydromodpy.calibration.runners.failure_watch import ConsecutiveFailureWatch
 from hydromodpy.calibration.runners.kept_solves import TrialSolveRetention, retention_capacity
+from hydromodpy.calibration.runners.prepared_model import (
+    check_the_prepared_model,
+    network_outputs_of,
+)
 from hydromodpy.calibration.runners.promotion import (
     PromotionOutcome,
     promote_best_after_abort,
@@ -111,7 +120,6 @@ from hydromodpy.calibration.runners.trial import (
 )
 from hydromodpy.core.exceptions import (
     CalibrationError,
-    ObjectiveError,
     UncertaintyNotAvailableError,
 )
 from hydromodpy.core.interrupts import TerminationRequested, terminate_as_interrupt
@@ -120,7 +128,7 @@ from hydromodpy.core.state.paths import run_dir_rel, session_dir_rel
 from hydromodpy.core.stream_geometry import VALIDITY_PROVENANCE_BY_CODE
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.core.workspace.path_registry import in_run_scratch
-from hydromodpy.results.checks import CalibrationSessionStatus
+from hydromodpy.results.checks import CalibrationSessionStatus, StopState
 from hydromodpy.results.session.descriptor import SessionStatus
 
 if TYPE_CHECKING:
@@ -293,261 +301,6 @@ def _api_isolation_needed(parallel: int) -> bool:
     Fortran INPUT state never collides across threads.
     """
     return parallel > 1
-
-
-def _assert_bounds_valid(trial_ctx: Any, space: ParameterSpace) -> None:
-    """Reject calibration bounds that fall outside the target field's valid range.
-
-    Field validation (e.g. a specific yield must stay in its physical range)
-    only fires when the process is built, not on plain attribute assignment, so
-    a bad bound is silent until each trial that samples there crashes at fork.
-    This probe injects every parameter's lower and upper bound into a copy of the
-    config and rebuilds the flow once; a build failure means the bound is out of
-    range, so fail fast with a clear message instead of losing trials.
-
-    Only flow-targeted parameters are probed (the common case: K, Sy, Ss,
-    bedleak, ...). A base flow that already fails to build is left for the run to
-    surface, so a pre-existing config issue is never blamed on a bound.
-    """
-    from hydromodpy.calibration.optim.parameters import apply_parameter_to_config
-    from hydromodpy.physics.flow import Flow
-
-    base_cfg = getattr(trial_ctx, "base_cfg", None) or getattr(
-        getattr(trial_ctx, "ctx", None), "cfg", None
-    )
-    if base_cfg is None or not hasattr(base_cfg, "model_copy"):
-        return
-    try:
-        Flow(config=base_cfg.flow)
-    except Exception:
-        return
-    for param in space:
-        if param.effective_path is None or not param.effective_path.startswith("flow."):
-            continue
-        for label, value in (("lower", param.lower), ("upper", param.upper)):
-            probe = base_cfg.model_copy(deep=True)
-            apply_parameter_to_config(probe, param, float(value))
-            try:
-                Flow(config=probe.flow)
-            except Exception as exc:
-                lines = [ln.strip() for ln in str(exc).splitlines() if ln.strip()]
-                detail = next(
-                    (ln for ln in lines if "outside" in ln.lower()),
-                    lines[-1] if lines else str(exc),
-                )
-                raise ValueError(
-                    f"calibration parameter {param.name!r} {label} bound {value:g} is outside "
-                    f"the valid range for {param.effective_path!r}: {detail}"
-                ) from exc
-
-
-_CONDUCTIVITY_PARAM_IDS: tuple[str, ...] = ("K", "Kx", "Ky", "Kz")
-
-
-def moves_a_hydraulic_conductivity(paths: Iterable[str | None]) -> bool:
-    """True when one of ``paths`` addresses a hydraulic conductivity field.
-
-    Matches ``flow.param.K``, ``Kx``, ``Ky`` or ``Kz`` at any depth under it
-    (a per-zone value included) and nothing else: ``flow.param.Ss`` shares the
-    ``flow.param`` prefix but not the id. Shared by the two guards below and by
-    :mod:`hydromodpy.calibration.preflight`, which faces the same declared
-    parameters before a project config resolves into a live ``ParameterSpace``.
-    """
-    for path in paths:
-        if path is None:
-            continue
-        parts = str(path).split(".")
-        if len(parts) >= 3 and parts[0] == "flow" and parts[1] == "param":
-            if parts[2] in _CONDUCTIVITY_PARAM_IDS:
-                return True
-    return False
-
-
-def network_outputs_scored(
-    outputs: Mapping[str, Any],
-    *,
-    variable: str | None = None,
-    objective: str | None = None,
-) -> list[str]:
-    """Return the names of the network outputs one search scores.
-
-    ``outputs`` are the outputs the search reads. A single-metric search, its
-    own ``variable`` and ``objective`` instead of blocks, passes both: the
-    staged runner empties its ``outputs`` (``_phase_config`` in
-    ``staged_runner.py``), so its ``variable`` is the output, and only a
-    network estimator (``NETWORK_ESTIMATORS``) scores a network output. The
-    runner guards and :mod:`hydromodpy.calibration.preflight` both resolve a
-    search through this, so a check made before the run and the one made at
-    the first solve read the same outputs.
-    """
-    names = sorted(
-        name for name, output in outputs.items() if getattr(output, "support", None) == "network"
-    )
-    if names or not variable:
-        return names
-    from hydromodpy.calibration.criteria.registry import NETWORK_ESTIMATORS
-
-    return [variable] if str(objective) in NETWORK_ESTIMATORS else []
-
-
-def _network_outputs_of(cfg: CalibrationConfig) -> list[str]:
-    """Return the network outputs the search ``cfg`` describes scores, by name.
-
-    A configuration with no block is a single-metric search, whether the
-    whole-file route or a phase narrowed by the staged runner.
-    """
-    if cfg.objective_blocks:
-        return network_outputs_scored(cfg.outputs)
-    return network_outputs_scored(cfg.outputs, variable=cfg.variable, objective=cfg.objective)
-
-
-def _assert_network_conductance_proportional(
-    cfg: CalibrationConfig, trial_ctx: Any, space: ParameterSpace
-) -> None:
-    """Face a fixed drain conductance with what a K-moving network criterion needs.
-
-    The criterion calibrates the ratio K/R, and that only holds, while a search
-    moves K, if the drain conductance follows the conductivity:
-    ``C = K * cell_area / drain_bed_thickness_m`` on every backend (the
-    fallback in ``drain_conductance.hk_fallback_drain_conductance`` on both
-    MODFLOW backends, ``fluxes.derived_drain_conductance_m2_s`` on
-    Boussinesq). All three apply it only when the configured conductance is not
-    strictly positive. A fixed value breaks the invariance from a factor 1.05
-    onwards, and the run still completes and returns a number, so a K-moving
-    search is refused before the first solve.
-
-    A search that drives some other parameter with the conductance fixed is a
-    different question: the network criterion can be pointed at any parameter,
-    and nothing here can say whether that search means something, so it gets a
-    warning instead of a refusal, naming that its result depends on the chosen
-    conductance.
-
-    The outputs are resolved by :func:`network_outputs_scored`, so a phase
-    scored through its own ``variable``/``objective`` is seen even though the
-    staged runner empties its ``cfg.outputs``.
-    """
-    network_outputs = _network_outputs_of(cfg)
-    if not network_outputs:
-        return
-    flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
-    if flow is None or "drainage" not in flow.active_bc:
-        return
-    boundary = flow.bc.get("drainage")
-    if boundary is None or boundary.value is None or float(boundary.value) <= 0.0:
-        return
-    names = ", ".join(repr(name) for name in network_outputs)
-    detail = (
-        f"flow.bc.drainage.value is {float(boundary.value):g} {boundary.units}, a fixed "
-        "drain conductance (the fallback, C = K * cell_area / drain_bed_thickness_m in "
-        "hydromodpy/solver/modflow_common/drain_conductance.py, only applies when the "
-        "configured value is not strictly positive)."
-    )
-    if moves_a_hydraulic_conductivity(param.effective_path for param in space):
-        raise ObjectiveError(
-            f"Network calibration output(s) {names}: {detail} The criterion calibrates "
-            "the ratio K/R, which holds only while the conductance follows the K this "
-            "search moves. A fixed conductance leaves that invariance from a factor 1.05 "
-            "onwards, so the calibrated ratio would mean nothing. Set the value to zero."
-        )
-    logger.warning(
-        "Network calibration output(s) %s: %s This search does not move a hydraulic "
-        "conductivity, so the K/R invariance is not at stake, but the result still "
-        "depends on the conductance chosen.",
-        names,
-        detail,
-    )
-
-
-_ADVANCED_PACKAGE_LABEL: Mapping[str, str] = {
-    "sfr": "SFR (routed stream reaches)",
-    "lake": "LAK",
-    "reservoir": "LAK",
-}
-"""Display label for the active_bc ids the registry declares 'advanced_package'.
-
-RIV and GHB would join this table -- neither ties its conductance to K by
-construction -- but neither is a constructible ``flow.active_bc`` id today:
-``FLOW_BOUNDARY_DEFINITIONS`` (``boundary_condition_registry.py``) declares no
-'riv' and no 'ghb' entry, so ``flow.active_bc = ["riv"]`` is refused at config
-load, before a calibration ever reaches this guard.
-"""
-
-
-def _active_advanced_packages(flow: Any) -> list[str]:
-    """Return the active ``flow.active_bc`` ids in the 'advanced_package' family.
-
-    That family is exactly the boundaries whose conductance a package builds
-    from its own data, never derived from K: SFR and LAK today.
-
-    DRN is not in it: its family is 'head_dependent_exchange', and its
-    conductance falls back to ``K * cell_area / drain_bed_thickness_m``
-    whenever none is configured (``drain_conductance.py``), so it already
-    follows K.
-
-    CHD is not in it either: its family is 'dirichlet', fixing a head rather
-    than a conductance. Dividing the steady-state flow equation by K leaves a
-    fixed head unchanged, so K/R stays intact under any CHD whatever K does.
-    """
-    from hydromodpy.physics.flow.boundary_condition_registry import boundary_definition
-
-    offenders: list[str] = []
-    for bc_id in getattr(flow, "active_bc", None) or ():
-        definition = boundary_definition(bc_id)
-        if definition is not None and definition.family == "advanced_package":
-            offenders.append(bc_id)
-    return offenders
-
-
-def release_package_conductance_conflict(
-    network_outputs: Sequence[str], flow: Any, *, moves_k: bool
-) -> str | None:
-    """Return the refusal message for a K-moving network search over a fixed
-    release-package conductance, or ``None`` when the search can trust it.
-
-    ``network_outputs`` are the names :func:`network_outputs_scored` resolves
-    for the search. Shared by the runner guard, which raises this as an
-    :class:`ObjectiveError`, and by :mod:`hydromodpy.calibration.preflight`,
-    which reports the same text as an error finding for ``hmp calibrate
-    --check`` before any solve pays for the mistake.
-    """
-    if not moves_k or flow is None:
-        return None
-    if not network_outputs:
-        return None
-    offending_ids = _active_advanced_packages(flow)
-    if not offending_ids:
-        return None
-    labels = sorted({_ADVANCED_PACKAGE_LABEL.get(bc_id, bc_id.upper()) for bc_id in offending_ids})
-    named = " and ".join(labels)
-    names = ", ".join(repr(name) for name in network_outputs)
-    return (
-        f"Network calibration output(s) {names} move a hydraulic conductivity while "
-        f"{named} is active. DRN's conductance follows K, through the "
-        "K * cell_area / drain_bed_thickness_m fallback; CHD fixes a head, so dividing "
-        f"the flow equation by K leaves it unchanged. {named} builds its own conductance "
-        "from its own package data instead, so the K/R this search calibrates would not "
-        f"mean what the criterion assumes. A K-proportional conductance for {named} is "
-        "future work."
-    )
-
-
-def _assert_active_release_packages_follow_k(
-    cfg: CalibrationConfig, trial_ctx: Any, space: ParameterSpace
-) -> None:
-    """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
-
-    Checked before the first solve, same as
-    :func:`_assert_network_conductance_proportional`, and on the outputs the
-    same resolution reads: a single-metric phase scoring a network output
-    through its own ``variable`` is seen here too. A run with one of these
-    packages active still completes and still returns a K/R that does not
-    mean what the criterion assumes.
-    """
-    flow = getattr(getattr(trial_ctx, "base_cfg", None), "flow", None)
-    moves_k = moves_a_hydraulic_conductivity(param.effective_path for param in space)
-    message = release_package_conductance_conflict(_network_outputs_of(cfg), flow, moves_k=moves_k)
-    if message is not None:
-        raise ObjectiveError(message)
 
 
 def session_objective_name(cfg: CalibrationConfig) -> str:
@@ -1029,9 +782,10 @@ def _network_ratios_extra(
 def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     """Return how the search stopped, and the root search's final bracket.
 
-    ``search`` records whether the engine met its own stopping rule, the
-    declared budget and the extension granted once. A staged calibration reads
-    ``search["converged"]`` and freezes nothing from a phase that did not.
+    ``search`` records why the engine stopped (``stop_state``), whether that
+    is convergence, the rule, the declared budget and the extension granted
+    once. A staged calibration freezes nothing from a phase whose search is
+    not :func:`~hydromodpy.calibration.optim.stopping.settled`.
     ``bracket`` exists only for the root search: the interval whose two ends
     change sign, in physical units, which is what the search proved about the
     root beyond the trial it returns.
@@ -1044,6 +798,7 @@ def _search_outcome_extra(session: CalibrationSession) -> dict[str, Any]:
     """
     extra: dict[str, Any] = {
         "search": {
+            "stop_state": session.stop_state,
             "converged": bool(session.converged),
             "stopping_rule": session.stopping_rule,
             "max_trials": int(session.max_trials),
@@ -1125,16 +880,17 @@ def _log_the_two_roots(roots: Mapping[str, Any]) -> None:
 def _status_of_the_search(
     session: CalibrationSession, status: str, error: str | None
 ) -> tuple[str, str | None]:
-    """Return the session status to persist, ``partial`` when the rule was not met.
+    """Return the session status to persist, ``partial`` when the search did not settle.
 
     ``extra["search"]`` lives on the in-memory report only. A resumed staged
     chain reads the catalog instead, and reuses a phase whose session closed as
     ``completed``. A search that spent its budget before its stopping rule was
     met must not close as ``completed``, or a resume would freeze the value the
     live run refused to freeze. ``partial`` already means "trials ran, the stage
-    did not finish", which is what the resume reader skips.
+    did not finish", which is what the resume reader skips. A search with no
+    rule of its own that spent its budget settled, and stays ``completed``.
     """
-    if status != "completed" or session.converged:
+    if status != "completed" or session.settled:
         return status, error
     return "partial", (
         f"stopping rule ({session.stopping_rule}) not met after {len(session.history)} "
@@ -1314,7 +1070,7 @@ def _engine_kwargs(cfg: CalibrationConfig, space: ParameterSpace, *, start_at: A
     if cfg.method == BisectionAdapter.name:
         declared = cfg.outputs or {}
         kwargs["roots"] = roots_scored(
-            declared[name] for name in _network_outputs_of(cfg) if name in declared
+            declared[name] for name in network_outputs_of(cfg) if name in declared
         )
         # The width the engine asks for, so the counted budget, and "auto"
         # sized from it, count the bracket cut into that many parts.
@@ -1427,14 +1183,6 @@ def run_calibration_core(
         metric_fn = load_metric_fn_entry_point(objective)
 
     use_api_isolation = _api_isolation_needed(cfg.parallel)
-    # Both probe the configuration the pipeline was built from. An evaluator that
-    # declares it needs no prepared model built none, so there is nothing to
-    # probe: guarded here rather than left to two getattr chains that would
-    # return early and look like a check that passed.
-    if trial_ctx is not None:
-        _assert_bounds_valid(trial_ctx, space)
-        _assert_network_conductance_proportional(cfg, trial_ctx, space)
-        _assert_active_release_packages_follow_k(cfg, trial_ctx, space)
 
     # The evaluator is resolved by the name the document wrote, and built with
     # only the options its class names.
@@ -1649,6 +1397,11 @@ def run_calibration_core(
             "First trial paired: %s",
             "; ".join(
                 f"{name} {info['n_paired']} pair(s)"
+                + (
+                    f" ({info['n_sim_nan']} lost to a NaN simulated value)"
+                    if info.get("n_sim_nan")
+                    else ""
+                )
                 + (f" from {info['start']} to {info['end']}" if "start" in info else "")
                 for name, info in pairing.items()
             ),
@@ -1697,15 +1450,16 @@ def run_calibration_core(
 def search_status(session: CalibrationSession) -> SessionStatus:
     """Return the status a finished search leaves its phase in.
 
-    ``completed`` when every trial ran and the stopping rule was met;
-    ``partial`` when trials ran but some failed or the budget ended before the
-    rule; ``failed`` when nothing completed.
+    ``completed`` when every trial ran and the search settled (its rule met,
+    its plan exhausted, or the budget of a search with no rule of its own
+    spent); ``partial`` when trials ran but some failed or the budget ended
+    before a rule the engine has; ``failed`` when nothing completed.
     """
     n_total = len(session.history)
     n_ok = sum(1 for item in session.history if item.status in ("completed", "cached"))
     if n_total == 0 or n_ok == 0:
         return "failed"
-    if n_ok < n_total or not session.converged:
+    if n_ok < n_total or not session.settled:
         return "partial"
     return "completed"
 
@@ -1735,8 +1489,14 @@ def promote_and_close(
     phase: str,
     status: SessionStatus,
     root_search: Mapping[str, Any] | None = None,
+    stop_note: str | None = None,
 ) -> CalibrationReport:
-    """Promote the trials of ``phase`` and close the session; return the final report."""
+    """Promote the trials of ``phase`` and close the session; return the final report.
+
+    ``stop_note`` names the phases of a staged session that froze the best of
+    a budget-only search, written in ``session.json``.
+    """
+    stop_state, stopping_rule = search_stop(report, persistence, phase)
     promotion = PromotionOutcome()
     if trial_ctx is not None and cfg.save_runs != "none" and status != "failed":
         promotion = promote_session(
@@ -1747,6 +1507,8 @@ def promote_and_close(
             phase=phase,
             session_status=calibrated_status(status),
             override_paths=resolve_override_paths(cfg),
+            stop_state=stop_state,
+            stopping_rule=stopping_rule,
         )
     final_status: SessionStatus = status
     error: str | None = None
@@ -1773,6 +1535,9 @@ def promote_and_close(
         error=error,
         root_search=root_search,
         objective_samples=scored_samples(best_line.metrics if best_line is not None else None),
+        stop_state=stop_state,
+        stopping_rule=stopping_rule,
+        stop_note=stop_note,
     )
     write_session_readme(persistence)
     extra = dict(report.extra)
@@ -1789,6 +1554,23 @@ def promote_and_close(
     )
 
 
+def search_stop(
+    report: CalibrationReport, persistence: CalibrationPersistence, phase: str
+) -> tuple[StopState | None, str | None]:
+    """Return why the search of ``phase`` stopped, and the rule it stops on.
+
+    Read on the search record of the report, or, for a phase reused from disk,
+    whose report carries none, on the descriptor of that phase.
+    """
+    search = report.extra.get("search")
+    if isinstance(search, Mapping):
+        return search.get("stop_state"), search.get("stopping_rule")
+    reused = persistence.phase(phase)
+    if reused is not None:
+        return reused.stop_state, reused.stopping_rule
+    return None, None
+
+
 def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport) -> str:
     """Say why a search closed ``partial``: the trials that failed, the rule not met.
 
@@ -1798,7 +1580,7 @@ def _why_partial(persistence: CalibrationPersistence, report: CalibrationReport)
     failed = _failed_trials(persistence)
     reasons = [failed] if failed else []
     search = report.extra.get("search") or {}
-    if search.get("converged") is False:
+    if search and not settled(search["stop_state"], search["stopping_rule"]):
         reasons.append(f"stopping rule ({search.get('stopping_rule')}) not met")
     return "; ".join(reasons) or "stopping rule not met"
 
@@ -2126,6 +1908,7 @@ def run_calibration_cli(
         if evaluation_registry.needs_prepared_model(cfg.evaluator)
         else None
     )
+    check_the_prepared_model(cfg, trial_ctx, space)
     persistence, _reopened = open_calibration_session(
         project_root,
         case,
@@ -2297,6 +2080,7 @@ __all__ = [
     "search_status",
     "session_method",
     "session_objective_name",
+    "search_stop",
     "session_status_of",
     "write_session_readme",
 ]

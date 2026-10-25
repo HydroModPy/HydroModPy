@@ -54,7 +54,7 @@ from hydromodpy.results.catalog.registration import (
     reserve_version_dirname,
     split_stem_version,
 )
-from hydromodpy.results.checks import CalibratedBy, CalibrationSessionStatus
+from hydromodpy.results.checks import CalibratedBy, CalibrationSessionStatus, StopState
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.session.descriptor import (
     BestTrial,
@@ -170,12 +170,15 @@ def promote_session(
     phase: str,
     session_status: CalibrationSessionStatus,
     override_paths: Mapping[str, str],
+    stop_state: StopState | None = None,
+    stopping_rule: str | None = None,
 ) -> PromotionOutcome:
     """Promote the trials of the last phase and return what was written.
 
     The best trial takes ``runs/<case>/``, paired with the session, keeps the
-    project's ``keep_per_cell_budget`` and carries ``checks.calibrated_by``
-    and the facts of :func:`promotion_facts`. Every other kept trial takes
+    project's ``keep_per_cell_budget`` and carries ``checks.calibrated_by``,
+    with why the search of that phase stopped, and the facts of
+    :func:`promotion_facts`. Every other kept trial takes
     ``sessions/<case>/trials/<n>/`` with the ``consumers`` budget policy.
     """
     rows = select_trials_to_promote(cfg, persistence, phase)
@@ -189,6 +192,8 @@ def promote_session(
         phase=phase,
         session_status=session_status,
         override_paths=override_paths,
+        stop_state=stop_state,
+        stopping_rule=stopping_rule,
     )
 
 
@@ -248,6 +253,8 @@ def _promote_rows(
     phase: str,
     session_status: CalibrationSessionStatus,
     override_paths: Mapping[str, str],
+    stop_state: StopState | None = None,
+    stopping_rule: str | None = None,
 ) -> PromotionOutcome:
     """Promote ``rows``, the first one as the calibrated run of the case."""
     if not _writes_runs(trial_ctx):
@@ -284,6 +291,8 @@ def _promote_rows(
                 trial=number,
                 session_status=session_status,
                 window=descriptor.objective_window,
+                stop_state=stop_state,
+                stopping_rule=stopping_rule,
             )
             promotion = promotion_facts(descriptor, row)
             kind = "promoted"
@@ -602,6 +611,9 @@ def promote_trial_from_session(
     status: CalibrationSessionStatus = (
         descriptor.status if descriptor.status in ("completed", "partial", "aborted") else "partial"
     )
+    # The phase of the trial says why its search stopped; a search without
+    # phases says it on the session itself.
+    stopped = persistence.phase(line.phase) or descriptor
     promote_prepared_trial(
         trial_ctx,
         moved,
@@ -622,6 +634,8 @@ def promote_trial_from_session(
             trial=line.trial,
             session_status=status,
             window=descriptor.objective_window,
+            stop_state=stopped.stop_state,
+            stopping_rule=stopped.stopping_rule,
         ),
     )
     rel_dir = run_dir_rel(run_dir.name)

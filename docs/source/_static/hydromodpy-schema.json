@@ -1830,7 +1830,7 @@
             }
           ],
           "default": null,
-          "description": "[low, high] physical bounds, in the unit the target declares. Falls back to what the field annotates when the file omits it, which most fields deliberately leave unset because a range belongs to the site.",
+          "description": "[low, high] physical bounds, in 'units' when the file writes it, else in the unit the target declares. Falls back to what the field annotates when the file omits it, which most fields deliberately leave unset because a range belongs to the site.",
           "title": "Bounds",
           "x-hmp-profile": "user"
         },
@@ -1932,7 +1932,7 @@
             }
           ],
           "default": null,
-          "description": "Unit the bounds are written in, such as 'm/s'. Each sampled value is written as it is into the target, so for a parameter the catalogue resolves it has to be the unit that target declares, which it is when left unset; another one is refused when the file loads, with the bounds converted. For a path outside the catalogue it is the unit the bounds are checked against the physical range in.",
+          "description": "Unit the bounds are written in, such as 'm/s'. For a parameter the catalogue resolves, bounds in another unit of the same quantity are converted when the file loads into the unit the target is read in, and the search draws, writes and reports its samples in that unit ('hmp config targets' lists it). A unit of another quantity is refused. Unset, the unit of the target applies. With mode = 'scale' the bounds are factors without a unit, and writing one is refused. For a path outside the catalogue it is the unit the bounds are checked against the physical range in.",
           "examples": [
             "m/s"
           ],
@@ -1963,7 +1963,7 @@
     },
     "CalibPhaseDecl": {
       "additionalProperties": false,
-      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means this phase passes the values it found to the\nphases after it. A later phase holds them fixed, unless it lists the\nparameter: it then moves it again, starting from the passed value when its\nmethod accepts a start point. It reads \"pass on if the phase converged\",\nnever \"pass on if the result is good\": a validity indicator qualifies a\nresult, and a phase that returns a coarse agreement still returns a number.\nThe state of that indicator travels to the later phases and into the\nreport, so a value calibrated on top of a doubtful one carries the mention\nall the way out.",
+      "description": "One stage of a calibration that runs in several.\n\nA phase selects, by name, from the parameters, outputs and objective blocks\nthe calibration already declares: nothing is redeclared, so the two stages\nof a method cannot drift apart in a single file. What a phase carries of\nits own is its search: a method, a budget, and which parameters it is\nallowed to move.\n\n``freeze_on_success`` means this phase passes the values it found to the\nphases after it. A later phase holds them fixed, unless it lists the\nparameter: it then moves it again, starting from the passed value when its\nmethod accepts a start point. It reads \"pass on if the search settled\",\nnever \"pass on if the result is good\": the engine met its own rule or\nsolved every point of its plan, or an engine with no rule of its own (a\nrandom search) spent its budget, which the phase then says. A validity\nindicator qualifies a result, and a phase that returns a coarse agreement\nstill returns a number.\nThe state of that indicator travels to the later phases and into the\nreport, so a value calibrated on top of a doubtful one carries the mention\nall the way out.",
       "properties": {
         "name": {
           "description": "Phase identifier, unique in the calibration and used in the session directory and in the report.",
@@ -2323,13 +2323,13 @@
             }
           ],
           "default": null,
-          "description": "Name of the phase that must run first. The values it passes on enter this one fixed, except those this phase lists and moves again.",
+          "description": "Name of the phase that must run first. The values it passes on enter this one fixed, except those this phase lists and moves again. When that phase freezes its values and its search stops on its budget before a rule of its own, this phase is refused rather than run on the values of the file.",
           "title": "Depends On",
           "x-hmp-profile": "user"
         },
         "freeze_on_success": {
           "default": true,
-          "description": "Pass the values this phase found to the phases after it. A later phase holds them fixed, unless it lists the parameter: it then moves it again, starting from the passed value when its method accepts a start point. When two phases pass on the same parameter, the later one wins. Success means the phase converged, not that its validity indicator is good.",
+          "description": "Pass the values this phase found to the phases after it. A later phase holds them fixed, unless it lists the parameter: it then moves it again, starting from the passed value when its method accepts a start point. When two phases pass on the same parameter, the later one wins. Success means the search met its own rule or solved every point of its plan, not that its validity indicator is good. A search with no rule of its own (random_search, cma_es) that spends its budget also passes on its best trial, and the phase says it froze the best of a budget-only search. One with a rule that its budget stops first passes nothing on.",
           "examples": [
             true
           ],
@@ -3221,6 +3221,7 @@
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": "m2/s"
           },
           "default": null,
@@ -3508,6 +3509,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": "m"
           },
           "default": 50.0,
@@ -4451,6 +4453,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "hydchr_unit",
             "units": "1/s"
           },
           "default": null,
@@ -4484,6 +4487,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "k_unit",
             "units": "m/s"
           },
           "default": null,
@@ -6312,6 +6316,7 @@
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": null
           },
           "default": null,
@@ -6437,6 +6442,7 @@
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": null
           },
           "default": null,
@@ -6501,6 +6507,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": "m"
           },
           "default": null,
@@ -6526,6 +6533,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": null,
@@ -6649,6 +6657,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "m"
           },
           "default": 0.0,
@@ -6825,6 +6834,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "hydchr_unit",
             "units": "1/s"
           },
           "default": null,
@@ -6858,6 +6868,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "k_unit",
             "units": "m/s"
           },
           "default": null,
@@ -7690,6 +7701,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "m"
           },
           "default": 1.0,
@@ -8442,6 +8454,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "bedleak_unit",
             "units": "1/s"
           },
           "description": "Lake-bed leakance [1/T] = K_bed / thickness_bed. Resistance of the lake-aquifer interface over the whole lake bed, the handle of the lake-aquifer exchange. The flow through or under the dam is set by the cutoff_wall and the aquifer, not by this value. 0 means a perfectly sealed lakebed (no leakage).",
@@ -10371,6 +10384,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "s/m^(1/3)"
           },
           "default": 0.035,
@@ -10390,6 +10404,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": "streambed_k_unit",
             "units": "m/s"
           },
           "default": 1e-06,
@@ -11268,6 +11283,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": null
           },
           "default": 0.0,
@@ -11552,6 +11568,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": "units",
             "units": "m3/s"
           },
           "default": null,
@@ -20670,6 +20687,7 @@
             "is_the_value_of_its_instance": true,
             "sampling": "log_uniform",
             "search_space": "log",
+            "unit_field": null,
             "units": "m2/s"
           },
           "default": null,
@@ -22016,7 +22034,7 @@
           "type": "string",
           "value_docs": {
             "any": "The best case of the site, calibrated or not.",
-            "calibrated": "The best calibrated case of the site."
+            "calibrated": "The best calibrated case of the site, scored in its calibration window or out of it (evaluated)."
           },
           "x-hmp-profile": "user"
         },
@@ -22436,6 +22454,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "mm"
           },
           "description": "Available water capacity of the soil, in mm of water: what the roots can draw between field capacity and wilting point. A bare number is in mm; \"120 mm\" and \"12 cm\" also read. Between 0 and 1000 mm. Required, since it belongs to the site. In doubt, start from 150 mm and compare the recharge the soil alone prints for 50 to 250 mm with the gauged discharge (hmp run <file> --until load_data). With [data.soil_capacity], it is the mean capacity of the SAFRAN cells, and the raster spreads it over classes inside each cell. Calibrate it with [calibration.parameters.ru].",
@@ -22455,6 +22474,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": 0.6,
@@ -22478,6 +22498,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": 1.0,
@@ -22498,6 +22519,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": 0.0,
@@ -22521,6 +22543,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": 0.0,
@@ -22556,6 +22579,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "day"
           },
           "default": 0.0,
@@ -22583,6 +22607,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "-"
           },
           "default": null,
@@ -22612,6 +22637,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "day"
           },
           "default": 1.0,
@@ -22644,6 +22670,7 @@
             "is_the_value_of_its_instance": false,
             "sampling": "uniform",
             "search_space": "identity",
+            "unit_field": null,
             "units": "day"
           },
           "default": 0.0,

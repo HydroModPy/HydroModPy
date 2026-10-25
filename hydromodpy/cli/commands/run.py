@@ -518,6 +518,15 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if dry_run:
         if profile_output is not None:
             print("[dry-run] --profile ignored (nothing is executed)", file=sys.stderr)
+        if workflow == "calibration":
+            from hydromodpy.calibration.preflight import preflight_launch
+
+            try:
+                preflight_launch(run_path)
+            except ConfigError as exc:
+                print(f"Config invalid: {exc}", file=sys.stderr)
+                cleanup_effective_toml(effective_path, source=config_path)
+                sys.exit(EXIT_CONFIG)
         _print_dry_run(
             workflow,
             run_path,

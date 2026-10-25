@@ -41,6 +41,39 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
+        "stop_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "rule_met",
+                "plan_exhausted",
+                "budget_spent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the search of that phase stopped: rule_met, plan_exhausted or budget_spent; none when not recorded",
+          "title": "Stop State",
+          "x-hmp-profile": "user"
+        },
+        "stopping_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The rule that search stops on, 'budget' for one with no rule of its own",
+          "title": "Stopping Rule",
+          "x-hmp-profile": "user"
+        },
         "trial": {
           "description": "Trial number, unique in the session",
           "examples": [

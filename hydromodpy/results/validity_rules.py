@@ -36,6 +36,14 @@ The water budget is not a label: ``checks.budget_pct`` stays a column, and
 only a failed *fatal* validity (which the calibration raises on a budget it
 rejects) reaches the label.
 
+Why the search stopped (``calibrated_by.stop_state``) is not a label either.
+It reaches the label through the session status alone: a search stopped by
+its budget before a rule of its own closes its session ``partial``, so its
+run is ``exploratory`` (rule 6), never ``failed``, since its numbers are
+those of a solved model. A search with no rule of its own that spent its
+budget closes ``completed``, so its run is ``calibrated`` (rule 5), and the
+run README says why its search stopped.
+
 Format of ``known_issues.toml``
 -------------------------------
 The register ships in the wheel next to this module and is read with
@@ -79,6 +87,9 @@ KNOWN_ISSUES_FILENAME: Final[str] = "known_issues.toml"
 
 Label = Literal["exploratory", "calibrated", "evaluated", "failed"]
 """What a reader may call a run today."""
+
+CALIBRATED_LABELS: Final[tuple[Label, ...]] = ("calibrated", "evaluated")
+"""Labels of a calibrated run: an evaluated run is calibrated, scored out of its window."""
 
 
 class KnownIssue(HydroModelBase):
@@ -229,6 +240,7 @@ def label_for(
 
 
 __all__ = [
+    "CALIBRATED_LABELS",
     "KNOWN_ISSUES_FILENAME",
     "RULE_VERSION",
     "KnownIssue",

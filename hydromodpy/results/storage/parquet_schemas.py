@@ -285,6 +285,15 @@ METRICS_SCHEMA: Final[pa.Schema] = pa.schema(
             ),
         ),
         pa.field(
+            "n_sim_nan",
+            pa.int64(),
+            nullable=True,
+            metadata=_field_meta(
+                description="Periods of the window dropped because the simulated value is "
+                "NaN (a dry cell); null when not counted"
+            ),
+        ),
+        pa.field(
             "valid_from",
             pa.timestamp("ms", tz="UTC"),
             nullable=False,

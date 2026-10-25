@@ -14,8 +14,13 @@ What is paired
 --------------
 An observed variable is stored with the ``_obs`` suffix (``discharge_obs`` at
 gauge ``J0014010``). It meets the simulated variable of the same name at the
-same station, or, when the simulated variable sits at one station only (the
-catchment discharge), at that station.
+same station. When the simulated variable sits at one station only (the
+catchment discharge), it also meets the observations of the rule station, and
+of that station alone: an upstream gauge is never scored against the outlet.
+An observed gauge that meets no simulated series is listed in
+:attr:`RunScores.unscored`, logged as a warning and sealed as the failed,
+non-fatal check :data:`UNSCORED_OBSERVATIONS_CHECK`, which the README of the
+run prints.
 
 Which periods count
 -------------------
@@ -30,6 +35,9 @@ which a calibration session reads its own window by too. The
 periods are those of the simulated series, so a gap in the observations never
 moves the start of the period after it. A pair with fewer than
 :data:`MIN_PAIRED_PERIODS` periods in the window (a steady run) is not scored.
+A period of the window the record covers and the simulated value leaves NaN
+(a dry cell) is dropped from the pairs, counted on each row as ``n_sim_nan``
+and warned about.
 
 Who calls it
 ------------
@@ -53,6 +61,7 @@ from hydromodpy.core.time.time_method import TimeMethod
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,
+    simulated_nan_stamps,
     time_method_for,
 )
 from hydromodpy.results.manifest import MetricRow
@@ -76,7 +85,28 @@ HEADLINE_METRIC: Final[str] = "nse"
 MIN_PAIRED_PERIODS: Final[int] = 2
 """Fewest paired periods in the window a pair is scored on; a steady run has one."""
 
+UNSCORED_OBSERVATIONS_CHECK: Final[str] = "observations_scored"
+"""Name of the check a run fails, non-fatally, when an observed gauge meets no simulated series."""
+
 _COLUMNS: Final[tuple[str, ...]] = ("station_id", "variable", "time", "value")
+
+
+@dataclass(frozen=True, slots=True)
+class UnscoredObservation:
+    """An observed series no simulated series of the run meets."""
+
+    station: str
+    variable: str
+    simulated_at: tuple[str, ...]
+    """Stations the run simulates *variable* at."""
+
+    def sentence(self) -> str:
+        """The reason, in words."""
+        where = ", ".join(self.simulated_at) or "no station"
+        return (
+            f"{self.variable} observed at {self.station} is not scored: "
+            f"the run simulates it at {where}, not at {self.station}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,11 +116,19 @@ class RunScores:
     ``rows`` holds one entry per paired series and metric, empty without a
     window. ``score`` is the NSE at the rule station: its value is ``None``
     without a window, without a station, or when that station observes nothing
-    the run simulates.
+    the run simulates. ``unscored`` lists the observed series of the run that
+    meet no simulated series.
     """
 
     rows: tuple[MetricRow, ...]
     score: MetricScore
+    unscored: tuple[UnscoredObservation, ...] = ()
+
+    def unscored_message(self) -> str | None:
+        """The message of :data:`UNSCORED_OBSERVATIONS_CHECK`, ``None`` when every series met."""
+        if not self.unscored:
+            return None
+        return "; ".join(item.sentence() for item in self.unscored) + "."
 
 
 def fit_metrics(run_dir: str | Path, *, rule: MetricRule, period_start: Any = None) -> RunScores:
@@ -119,23 +157,38 @@ def score_timeseries(
     *timeseries* has the columns ``station_id``, ``variable``, ``time`` and
     ``value``, simulated and observed rows together.
     """
-    pairs = _pairs(timeseries)
+    pairs, unscored = _pairs(timeseries, rule.station)
     rows: list[MetricRow] = []
     at_station: dict[str, MetricScore] = {}
     for station, variable, simulated, observed in pairs:
         scores = _score_pair(simulated, observed, rule, station, variable, period_start)
         nse = next(item for item in scores if item.metric == HEADLINE_METRIC)
         if rule.window is not None and nse.nse_n > 0:
-            rows.extend(_row(item) for item in scores)
+            lost = _simulated_nan_in_window(simulated, observed, rule, variable, period_start)
+            if lost:
+                logger.warning(
+                    "%s at %s: %d period(s) of the window dropped because the simulated "
+                    "value is NaN (a dry cell?); the rows say so in n_sim_nan.",
+                    variable,
+                    station,
+                    lost,
+                )
+            rows.extend(_row(item, n_sim_nan=lost) for item in scores)
         if rule.station is not None and station == rule.station:
             at_station[variable] = nse
-    return RunScores(rows=tuple(rows), score=_headline(at_station, rule))
+    return RunScores(rows=tuple(rows), score=_headline(at_station, rule), unscored=tuple(unscored))
 
 
-def _pairs(timeseries: pd.DataFrame) -> list[tuple[str, str, pd.Series, pd.Series]]:
-    """Return ``(station, variable, simulated, observed)`` for every observed series."""
+def _pairs(
+    timeseries: pd.DataFrame, rule_station: str | None
+) -> tuple[list[tuple[str, str, pd.Series, pd.Series]], list[UnscoredObservation]]:
+    """Return ``(station, variable, simulated, observed)`` for every observed series that meets one.
+
+    The second list holds the observed series of a variable the run simulates
+    that meet no simulated series; each is logged as a warning.
+    """
     if timeseries.empty:
-        return []
+        return [], []
     frame = timeseries.assign(
         station_id=timeseries["station_id"].astype(str),
         variable=timeseries["variable"].astype(str),
@@ -144,6 +197,7 @@ def _pairs(timeseries: pd.DataFrame) -> list[tuple[str, str, pd.Series, pd.Serie
         name for name in frame["variable"].unique() if name.endswith(OBSERVED_SUFFIX)
     )
     pairs: list[tuple[str, str, pd.Series, pd.Series]] = []
+    unscored: list[UnscoredObservation] = []
     for observed_name in observed_names:
         variable = observed_name[: -len(OBSERVED_SUFFIX)]
         simulated_rows = frame[frame["variable"] == variable]
@@ -152,21 +206,22 @@ def _pairs(timeseries: pd.DataFrame) -> list[tuple[str, str, pd.Series, pd.Serie
         for station in sorted(observed_rows["station_id"].unique()):
             if station in sim_stations:
                 sim_station = station
-            elif len(sim_stations) == 1:
+            elif len(sim_stations) == 1 and station == rule_station:
                 sim_station = sim_stations[0]
-            else:
+            elif not sim_stations:
                 logger.debug(
-                    "Not scoring %s at %s: the run simulates it at %d station(s), none of them %s.",
-                    variable,
-                    station,
-                    len(sim_stations),
-                    station,
+                    "Not scoring %s at %s: the run does not simulate it.", variable, station
                 )
+                continue
+            else:
+                missed = UnscoredObservation(station, variable, tuple(sim_stations))
+                logger.warning("%s.", missed.sentence())
+                unscored.append(missed)
                 continue
             simulated = _series(simulated_rows[simulated_rows["station_id"] == sim_station])
             observed = _series(observed_rows[observed_rows["station_id"] == station])
             pairs.append((station, variable, simulated, observed))
-    return pairs
+    return pairs, unscored
 
 
 def _series(rows: pd.DataFrame) -> pd.Series:
@@ -200,6 +255,29 @@ def _score_pair(
     return score_run(
         nothing["sim"], nothing["obs"], rule, METRIC_NAMES, station=station, variable=variable
     )
+
+
+def _simulated_nan_in_window(
+    simulated: pd.Series,
+    observed: pd.Series,
+    rule: MetricRule,
+    variable: str,
+    period_start: Any,
+) -> int:
+    """Count the periods of the window the record covers and the simulated value leaves NaN."""
+    method = time_method_for(variable)
+    dry = simulated_nan_stamps(observed, simulated, method=method, start=period_start)
+    if rule.window is None or dry.empty:
+        return 0
+    inside = periods_in_window(
+        dry,
+        method=method,
+        start=rule.window.start,
+        end=rule.window.end,
+        grid=pd.DatetimeIndex(normalize_datetime_series(simulated).index),
+        period_start=period_start,
+    )
+    return int(inside.sum())
 
 
 def _dated_in_window(
@@ -257,8 +335,8 @@ def _period_starts(simulated: pd.Series, period_start: Any) -> pd.Series | None:
     return pd.Series(edges[:-1], index=edges[1:])
 
 
-def _row(item: MetricScore) -> MetricRow:
-    """The manifest row of one score."""
+def _row(item: MetricScore, *, n_sim_nan: int) -> MetricRow:
+    """The manifest row of one score; *n_sim_nan* is what a NaN simulated value took out."""
     return MetricRow(
         station=item.station,
         variable=item.variable,
@@ -268,6 +346,7 @@ def _row(item: MetricScore) -> MetricRow:
         nse_window_end=item.nse_window_end,
         nse_n=item.nse_n,
         n_clipped=item.n_clipped,
+        n_sim_nan=n_sim_nan,
         metric_rule_version=item.metric_rule_version,
     )
 
@@ -303,7 +382,9 @@ __all__ = [
     "MIN_PAIRED_PERIODS",
     "OBSERVED_SUFFIX",
     "TIMESERIES_TABLE",
+    "UNSCORED_OBSERVATIONS_CHECK",
     "RunScores",
+    "UnscoredObservation",
     "fit_metrics",
     "score_timeseries",
 ]

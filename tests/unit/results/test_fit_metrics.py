@@ -97,10 +97,12 @@ def test_without_a_window_nothing_is_scored() -> None:
 def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
-
-    scores = score_timeseries(
-        _frame(_closing(days), values, days, values), rule=MetricRule(window=YEAR_2001)
+    frame = pd.DataFrame(
+        _rows(GAUGE, "discharge", _closing(days), values)
+        + _rows(GAUGE, "discharge_obs", days, values)
     )
+
+    scores = score_timeseries(frame, rule=MetricRule(window=YEAR_2001))
 
     assert {row.station for row in scores.rows} == {GAUGE}
     assert scores.score.value is None
@@ -110,11 +112,11 @@ def test_without_a_station_the_rows_exist_but_the_headline_is_empty() -> None:
 def test_the_headline_is_read_at_the_rule_station_only() -> None:
     days = pd.date_range("2001-01-01", "2001-12-31", freq="D", tz="UTC")
     values = np.linspace(1.0, 4.0, len(days))
-    frame = pd.concat(
-        [
-            _frame(_closing(days), values, days, values, gauge="OTHER"),
-            pd.DataFrame(_rows(GAUGE, "discharge_obs", days, values * 2.0)),
-        ]
+    frame = pd.DataFrame(
+        _rows("OTHER", "discharge", _closing(days), values)
+        + _rows("OTHER", "discharge_obs", days, values)
+        + _rows(GAUGE, "discharge", _closing(days), values)
+        + _rows(GAUGE, "discharge_obs", days, values * 2.0)
     )
 
     scores = score_timeseries(frame, rule=MetricRule(station=GAUGE, window=YEAR_2001))

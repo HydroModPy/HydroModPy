@@ -70,6 +70,13 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "vka": PhysicalBound("-", 1e-3, 1e2, "vertical anisotropy Kv/Kh"),
     "transmissivity": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),
     "t": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),
+    # ---- Exchange with lakes, streams and barriers -------------------------
+    # Zero is a sealed bed or wall, which the fields accept. A leakance is
+    # K_bed / thickness_bed, so the ceiling is the conductivity ceiling over a
+    # centimetre of bed.
+    "streambed_k": PhysicalBound("m/s", 0.0, 1e2, "streambed hydraulic conductivity"),
+    "bedleak": PhysicalBound("1/s", 0.0, 1e4, "lake-bed leakance"),
+    "hydchr": PhysicalBound("1/s", 0.0, 1e4, "barrier hydraulic characteristic"),
     # ---- Storage --------------------------------------------------------
     # The floor sits three decades under any attainable specific storage. A
     # rigid matrix at the porosity floor of this very table still stores
@@ -194,40 +201,15 @@ def validate_physical_value(
 def _in_canonical_unit(value: float, unit: str, canonical: str) -> float | None:
     """Return ``value`` expressed in ``canonical``, or None if that is not a conversion.
 
-    Two units are the same quantity or they are not. Spelling is settled first,
-    because ``1/m`` and ``m-1`` are one unit written twice and the schema and
-    this registry chose different sides; a scale factor follows only where the
-    quantity has one.
+    Two units are the same quantity or they are not. ``1/m`` and ``m-1`` are one
+    unit written twice, and the schema and this registry chose different sides.
     """
-    from hydromodpy.core.units.hydraulic_conductivity import (
-        factor_to_m_per_s,
-        normalize_m_per_s_unit,
-    )
-    from hydromodpy.core.units.length import factor_to_m, normalize_length_unit
+    from hydromodpy.core.units.parse import convert_between_units
 
-    def spelled(token: str) -> str:
-        return str(token).strip().lower().replace(" ", "").replace("**", "")
-
-    source, target = spelled(unit), spelled(canonical)
-    if source == target:
-        return value
-
-    inverse_length = {"m-1": "m", "1/m": "m", "m^-1": "m", "cm-1": "cm", "1/cm": "cm"}
-    if source in inverse_length and target in inverse_length:
-        # 1 cm-1 is 100 m-1: the factor of the length inverts with it.
-        return value * factor_to_m(inverse_length[target]) / factor_to_m(inverse_length[source])
-
-    for normalize, factor in (
-        (normalize_m_per_s_unit, factor_to_m_per_s),
-        (normalize_length_unit, factor_to_m),
-    ):
-        try:
-            if normalize(source) == normalize(target):
-                return value
-            return value * factor(source) / factor(target)
-        except (ValueError, KeyError):
-            continue
-    return None
+    try:
+        return convert_between_units(value, from_unit=unit, to_unit=canonical)
+    except ValueError:
+        return None
 
 
 __all__ = [

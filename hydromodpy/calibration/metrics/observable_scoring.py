@@ -370,6 +370,7 @@ class ObservableScorer:
         # The window is faced with the network states once, on the first time
         # grid a trial brings: every trial of a search runs the same grid.
         self._states_checked: bool = False
+        self._warned_dry: set[str] = set()
 
     def pair(
         self,
@@ -468,11 +469,14 @@ class ObservableScorer:
         paired_counts: dict[str, int] = {}
         paired_dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
         paired_times: dict[str, np.ndarray] = {}
+        lost: dict[str, int] = {}
         observed_by_output: Mapping[str, Sequence[float]] | None = None
         if self._observed:
             paired = self._align(series, starts)
             simulated.update(paired.simulated)
             paired_counts = dict(paired.n_paired)
+            lost = dict(paired.n_simulated_nan)
+            self._say_pairs_were_lost(lost)
             paired_dates = dict(paired.dates)
             paired_times = {name: elapsed_days(index) for name, index in paired.times.items()}
             observed_by_output = paired.observed
@@ -508,6 +512,7 @@ class ObservableScorer:
         components.update(
             {f"{name}.n_paired": float(count) for name, count in paired_counts.items()}
         )
+        components.update({f"{name}.n_sim_nan": float(count) for name, count in lost.items()})
         # Dates are not a float, and components carries only floats, so the
         # retained span travels as an ordinal day number -- day precision is
         # all a hydrological record needs, and it survives the round trip
@@ -516,6 +521,26 @@ class ObservableScorer:
             components[f"{name}.date_start"] = float(pd.Timestamp(start).toordinal())
             components[f"{name}.date_end"] = float(pd.Timestamp(end).toordinal())
         return float(value.total), components
+
+    def _say_pairs_were_lost(self, lost: Mapping[str, int]) -> None:
+        """Warn once per output that a NaN simulated value took pairs out of its cost.
+
+        Once, not once per trial: the count of every trial is in its
+        components, ``<output>.n_sim_nan``. A race between threads can at
+        worst print the line twice.
+        """
+        for name, count in lost.items():
+            if count == 0 or name in self._warned_dry:
+                continue
+            self._warned_dry.add(name)
+            logger.warning(
+                "Output %r lost %d pair(s) of the window because the simulated value is NaN "
+                "(a dry cell?): the sample its cost is scored on depends on the trial. "
+                "Each trial records the count as %s.n_sim_nan.",
+                name,
+                count,
+                name,
+            )
 
 
 def _sample_days(series: Mapping[str, pd.Series]) -> dict[str, float]:

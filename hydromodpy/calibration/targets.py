@@ -111,10 +111,12 @@ class CalibrationTarget:
     """What the configuration holds today, which is where a bound is usually centred."""
 
     units: str | None
-    """The unit a sibling field declares, when one does."""
+    """The unit the model reads this value in: the field its annotation names
+    (``bedleak_unit``), else a sibling ``unit`` field, else the annotation."""
 
     physical_bounds: tuple[float, float] | None
-    """The range the physical registry enforces, or ``None`` when it knows this id not."""
+    """The range the physical registry enforces, written in ``units``, or ``None``
+    when it knows this id not."""
 
     registry_id: str | None
     """The id the physical range was read under, or ``None``.
@@ -208,7 +210,7 @@ def _walk(
             # not 'mm/day' from the sibling 'units' FlowEtpConfig carries for
             # its 'values' payload.
             declared = declared_calibrable(sub_info)
-            leaf_units = declared.units if declared is not None else None
+            leaf_units = _unit_the_leaf_is_read_in(node, declared)
             _walk(
                 getattr(node, field_name, None),
                 prefix=f"{prefix}.{field_name}",
@@ -291,12 +293,13 @@ def _named(found: list[_Found]) -> list[CalibrationTarget]:
             name=name,
             calibrable=item.calibrable,
             current=item.current,
-            units=item.units or (item.calibrable.units if item.calibrable else None),
+            units=_units_of(item),
             physical_bounds=_physical_bounds_for(
                 item.path,
                 item.instances[0] if item.instances else None,
                 item.path.rsplit(".", 1)[-1],
                 leaf_first=not _is_the_value_of_its_instance(item.calibrable),
+                units=_units_of(item),
             ),
             registry_id=_registry_id_for(
                 item.path,
@@ -324,6 +327,21 @@ def _declared_units(node: BaseModel) -> str | None:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def _unit_the_leaf_is_read_in(node: BaseModel, declared: Calibrable | None) -> str | None:
+    """Return the unit a leaf declares: the field its annotation names, else its own unit.
+
+    ``bedleak`` is read in whatever ``bedleak_unit`` says, so the SI unit its
+    annotation carries is only the default of that field.
+    """
+    if declared is None:
+        return None
+    if declared.unit_field is not None:
+        named = getattr(node, declared.unit_field, None)
+        if isinstance(named, str) and named.strip():
+            return named.strip()
+    return declared.units
 
 
 def _is_the_value_of_its_instance(calibrable: Calibrable | None) -> bool:
@@ -355,14 +373,40 @@ def _registry_id_for(
     return None
 
 
+def _units_of(item: _Found) -> str | None:
+    return item.units or (item.calibrable.units if item.calibrable else None)
+
+
 def _physical_bounds_for(
-    path: str, instance: str | None, leaf: str, *, leaf_first: bool = False
+    path: str,
+    instance: str | None,
+    leaf: str,
+    *,
+    leaf_first: bool = False,
+    units: str | None = None,
 ) -> tuple[float, float] | None:
+    """Return the registry range of this value, written in the unit it is read in.
+
+    The registry keeps one canonical unit per quantity. A conductivity read in
+    ``m/day`` is offered its range in ``m/day``, because a bound is written from
+    it next to the current value. A unit that does not convert gets no range
+    rather than one in the wrong unit.
+    """
     key = _registry_id_for(path, instance, leaf, leaf_first=leaf_first)
     if key is None:
         return None
     bound = PHYSICAL_BOUNDS[key]
-    return (bound.lo, bound.hi)
+    if units is None:
+        return (bound.lo, bound.hi)
+    from hydromodpy.core.units.parse import convert_between_units
+
+    try:
+        return (
+            convert_between_units(bound.lo, from_unit=bound.canonical_unit, to_unit=units),
+            convert_between_units(bound.hi, from_unit=bound.canonical_unit, to_unit=units),
+        )
+    except ValueError:
+        return None
 
 
 __all__ = [

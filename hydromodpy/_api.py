@@ -508,7 +508,9 @@ def calibrate(
         a config object instead of a TOML path.
     hydromodpy.core.exceptions.ConfigError
         If the configuration cannot be read and the answer depends on reading
-        it (``phase``, ``list_phases`` or ``expand``).
+        it (``phase``, ``list_phases`` or ``expand``), or if the preflight,
+        the checks of ``hmp config check``, refuses the calibration a run or a
+        dry run would start. Every error is named, before anything is prepared.
     hydromodpy.core.exceptions.ConfigMissingError
         If neither ``config_path`` nor ``parameters`` is supplied.
     hydromodpy.core.exceptions.CalibrationError
@@ -546,6 +548,7 @@ def calibrate(
         if expand:
             return _expand_calibration_section(target)
 
+        from hydromodpy.calibration.preflight import preflight_launch
         from hydromodpy.calibration.runners.cli_runner import (
             load_toml_calibration,
             run_calibration_cli,
@@ -571,6 +574,9 @@ def calibrate(
             return run_calibration_cli(target, **kwargs)
         if list_phases:
             return phase_summaries(cfg)
+        # The gate of every launch, dry run included: what `hmp config check`
+        # refuses stops here, before anything is prepared.
+        preflight_launch(target)
         if cfg.phases:
             return run_staged_calibration(target, phase=phase, **kwargs)
         if phase is not None:

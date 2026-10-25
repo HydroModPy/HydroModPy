@@ -14,7 +14,7 @@ import re
 import pint
 
 from hydromodpy.core.units.registry import UREG
-from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.scalar import canonical_unit_token, parse_scalar_and_unit
 
 _POWER_SHORTHAND_RE = re.compile(r"(?P<base>[A-Za-z]+)(?P<power>[2-9])(?![A-Za-z0-9])")
 
@@ -127,8 +127,77 @@ def canonical_unit_short_form(
     return f"{pint_unit}"
 
 
+_DIMENSIONLESS_TOKENS: frozenset[str] = frozenset({"", "-", "1", "dimensionless"})
+
+_EXPONENT_SHORTHAND_RE = re.compile(r"(?P<base>[A-Za-z]+)-(?P<power>[1-9])(?![A-Za-z0-9])")
+
+
+def convert_between_units(value: float, *, from_unit: str, to_unit: str) -> float:
+    """Return ``value`` written in ``from_unit`` expressed in ``to_unit``.
+
+    Two spellings of one unit give the value back unchanged. Otherwise the
+    shared registry converts, and a unit of another dimension, or one it does
+    not know, raises ``ValueError`` naming both units.
+    """
+    source, target = canonical_unit_token(from_unit), canonical_unit_token(to_unit)
+    if source == target:
+        return float(value)
+    if source in _DIMENSIONLESS_TOKENS and target in _DIMENSIONLESS_TOKENS:
+        return float(value)
+    by_family = _convert_within_a_family(float(value), from_unit, to_unit)
+    if by_family is not None:
+        return by_family
+    try:
+        quantity = float(value) * UREG.Unit(_pint_token(from_unit))
+        return float(quantity.to(UREG.Unit(_pint_token(to_unit))).magnitude)
+    except pint.DimensionalityError as exc:
+        raise ValueError(
+            f"unit {from_unit!r} does not convert to {to_unit!r}: they measure "
+            "different quantities."
+        ) from exc
+    except (pint.UndefinedUnitError, AssertionError, AttributeError, TypeError) as exc:
+        raise ValueError(
+            f"unit {from_unit!r} cannot be read, so it does not convert to {to_unit!r}."
+        ) from exc
+
+
+def _convert_within_a_family(value: float, from_unit: str, to_unit: str) -> float | None:
+    """Convert through the alias table both units belong to, or return None.
+
+    The tables know spellings pint does not read, such as ``1/mn`` or ``m3s-1``.
+    """
+    from hydromodpy.core.units.hydraulic_conductance import factor_to_m2_per_s
+    from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
+    from hydromodpy.core.units.leakance import factor_to_per_s
+    from hydromodpy.core.units.length import factor_to_m
+    from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
+
+    for factor in (
+        factor_to_m_per_s,
+        factor_to_per_s,
+        factor_to_m,
+        factor_to_m3_per_s,
+        factor_to_m2_per_s,
+    ):
+        try:
+            return value * factor(from_unit) / factor(to_unit)
+        except (ValueError, KeyError):
+            # Not this family: the next table, then pint, decide.
+            continue
+    return None
+
+
+def _pint_token(unit: str) -> str:
+    """Rewrite ``unit`` for pint, including the ``s-1`` and ``m-1`` exponent shorthand."""
+    token = _EXPONENT_SHORTHAND_RE.sub(
+        lambda match: f"{match.group('base')}**-{match.group('power')}", str(unit).strip()
+    )
+    return _to_pint_syntax(token)
+
+
 __all__ = [
     "canonical_unit_short_form",
     "check_unit_compatible",
+    "convert_between_units",
     "parse_to_canonical_magnitude",
 ]

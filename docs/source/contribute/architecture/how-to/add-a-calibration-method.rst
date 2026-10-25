@@ -124,6 +124,12 @@ that satisfies ``Optimizer`` (``ask``, ``tell``, ``suggest_next``,
 ``CalibrationEngine(optimizer=...)`` (``optim/engine.py``), with no
 registration.
 
+``converged`` says whether the engine met a rule of its own. The engine loop
+turns it into the stop state of the session (``stop_state`` in
+``optim/stopping.py``): an engine that declares no stopping option and uses
+its whole budget spent it, whatever ``converged`` says, since its own end
+then only coincides with the budget.
+
 Saying what the engine can be handed
 ------------------------------------
 

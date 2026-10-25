@@ -29,7 +29,8 @@ Rules
 -----
 - The best case of a site ranks ``[sites.summary] rank_by`` (default
   ``nse``) by its direction; ``best = "calibrated"`` keeps the calibrated
-  cases only. A site without a best case says why in ``best_reason``.
+  cases only, the evaluated ones included (scored out of their calibration
+  window). A site without a best case says why in ``best_reason``.
 - ``[sites.summary] parameters`` orders the parameter columns and warns when
   no sealed run carries one; every other global parameter follows. A
   parameter whose name is a column of the summary is left out with a warning:
@@ -84,6 +85,7 @@ from hydromodpy.results.storage.contract import (
     RUN_REPORT_DIRNAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 from hydromodpy.schema.media_types import (
     GEOPACKAGE_MEDIA_TYPE,
     JSON_MEDIA_TYPE,
@@ -875,7 +877,7 @@ def _by_site(
     ranked_by = summary.rank_by
     candidates = by_case[by_case["status"] == "completed"]
     if summary.best == "calibrated":
-        candidates = candidates[candidates["label"] == "calibrated"]
+        candidates = candidates[candidates["label"].isin(CALIBRATED_LABELS)]
     best = rank_rows(candidates, ranked_by, by="site", mixed_windows=mixed_windows)
     best_by_site = {record["site"]: record for record in best.to_dict("records")}
     sites = sorted({str(site) for site in by_case["site"] if _clean(site) is not None})

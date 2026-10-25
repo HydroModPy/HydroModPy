@@ -19,9 +19,12 @@ add one. Each adapter declares ``EngineTraits``: how many parameters it moves,
 the search space it needs, whether it reads a signed residual, whether it stops on
 a precision and which of its options that precision writes, whether it can run
 trials side by side, start from a passed value, or be restarted usefully, and
-the metric it reads its cost as. ``hmp config check``
-(``calibration/preflight.py``) faces every search with these traits before
-anything solves, and the reference page renders them.
+the metric it reads its cost as. The preflight (``calibration/preflight.py``)
+faces every search with these traits, phase by phase with the overrides of each
+phase, before anything is prepared. Every launch runs it first (``hmp calibrate``,
+``hmp run``, ``--dry-run``, ``hmp.calibrate``, ``Project.calibrate``), on the
+document the launch runs, ``--set``, ``--overlay`` and ``HMP_SET_*`` included,
+and ``hmp config check`` prints it. The reference page renders the traits.
 
 Specific terms:
 
@@ -65,9 +68,15 @@ From the file to the trials
 
 A staged calibration runs one session per phase. Each ``session.json`` carries
 the phase name, its index and its parent session, so a rebuilt index gives the
-chain back. A phase that converges freezes its values (``FrozenParameter``,
-with the configuration path) for the phases after it; one that does not
-freezes nothing, and a phase that depends on it is refused.
+chain back. A phase whose search settled freezes its values
+(``FrozenParameter``, with the configuration path) for the phases after it.
+The search settled when its engine met its own rule or solved every point of
+its plan, or when an engine with no rule of its own (``random_search``,
+``cma_es``) spent its budget; that phase says it froze the best of a
+budget-only search. A phase whose engine has a rule the budget stopped first
+freezes nothing, and a phase that depends on it is refused. The rule is
+``settled`` in ``optim/stopping.py``, and the session closes ``completed`` by
+the same rule.
 
 What a trial replays
 --------------------
@@ -187,9 +196,14 @@ What a search reports about itself
 Every ``CalibrationReport`` carries two records in ``extra``:
 
 ``extra["search"]``
-   ``{converged, stopping_rule, max_trials, extension, n_evaluations}``,
-   whichever engine ran. ``stopping_rule`` is the option the engine stopped on,
-   or ``"budget"``. A staged run reads ``converged`` to decide what to freeze.
+   ``{stop_state, converged, stopping_rule, max_trials, extension, n_evaluations}``,
+   whichever engine ran. ``stop_state`` is ``rule_met``, ``plan_exhausted`` or
+   ``budget_spent``, and ``converged`` is true for the first two only.
+   ``stopping_rule`` is the option the engine stops on, ``every grid point`` or
+   ``every design point`` for a design, or ``"budget"``. A staged run reads
+   ``stop_state`` and ``stopping_rule`` to decide what to freeze. The stop
+   state is sealed in ``session.json``, in each phase and in
+   ``checks.calibrated_by`` of the promoted run.
 
 ``extra["bracket"]``
    ``{parameter, low, high, relative_width, closed}``, in physical units, once

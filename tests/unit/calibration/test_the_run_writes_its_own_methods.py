@@ -337,7 +337,7 @@ class TestTheStagedReportCarriesIt:
 
         assert "steady_window" not in summary
 
-    def test_it_is_built_from_the_stages_that_converged(self) -> None:
+    def test_it_is_built_from_the_stages_that_settled(self) -> None:
         """Not from the stages that were planned: that is the whole property."""
         import inspect
 
@@ -345,4 +345,4 @@ class TestTheStagedReportCarriesIt:
 
         source = inspect.getsource(staged_runner._methods_paragraph_for)
 
-        assert "_converged(run.report)" in source
+        assert "_settled(run.report)" in source

@@ -16,8 +16,8 @@ Why the objective is built this way is in
 A file names a method with {toml}`calibration.method`, or per phase with
 {toml}`calibration.phases.method`. Left unset, the search gets the first method whose
 conditions it meets: `hmp calibrate FILE --list-phases` prints the choice and the reason, for
-each phase or for the one search of a file without phases. A name that is not registered is refused when the file loads, with the list of the names that
-are.
+each phase or for the one search of a file without phases. A name that is not registered is refused before anything is prepared, at the start of
+every launch and by `hmp config check`, with the list of the names that are.
 
 ```{hmp-calibration-methods}
 ```

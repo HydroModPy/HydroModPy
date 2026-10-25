@@ -12,6 +12,9 @@ Format
 ------
 See :class:`PhaseDescriptor`, schema id :data:`PHASE_SCHEMA`. ``frozen`` maps a parameter to its value and
 names the phase it came from, as in ``{"K": 6.1e-6, "from": "steady_k"}``.
+``stop_state`` and ``stopping_rule`` say why the search of the phase stopped,
+and ``stop_note`` says when the phase froze the best of a budget-only search;
+a phase written before they existed reads without them.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.results.checks import StopState
 from hydromodpy.results.session.descriptor import BestTrial, SessionStatus
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME, SESSION_PHASES_DIRNAME
 from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
@@ -45,6 +49,20 @@ class PhaseDescriptor(HydroModelBase):
     )
     best: BestTrial | None = Field(default=None, description="Best trial of the phase")
     restarts: int = Field(default=0, ge=0, description="Times the phase restarted")
+    stop_state: StopState | None = Field(
+        default=None,
+        description="Why the search of the phase stopped: rule_met, plan_exhausted or "
+        "budget_spent; none until it closes",
+    )
+    stopping_rule: str | None = Field(
+        default=None,
+        description="The rule that search stops on, 'budget' for one with no rule of its own",
+    )
+    stop_note: str | None = Field(
+        default=None,
+        description="'froze the best of a budget-only search' when the phase passed on "
+        "the best trial of a search with no rule of its own; none otherwise",
+    )
 
 
 def phases_dir(session_dir: str | Path) -> Path:

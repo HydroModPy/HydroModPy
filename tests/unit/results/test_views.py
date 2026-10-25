@@ -167,6 +167,7 @@ def test_the_metrics_of_a_run_carry_their_window(tmp_path) -> None:
         "nse_n",
         "metric_rule_version",
         "n_clipped",
+        "n_sim_nan",
     ]
     row = frame.iloc[0]
     assert (row["station"], row["metric"], row["value"]) == ("J0014010", "nse", 0.81)

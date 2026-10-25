@@ -573,7 +573,7 @@ def test_file_backed_python_phases_document_keeps_the_projects_own_paths(
             objective_blocks=[
                 {"name": "network", "metric": "distance_gap", "uses_outputs": ["streams"]}
             ],
-            phases=[{"name": "k_only", "parameters": ["K"], "max_trials": 5}],
+            phases=[{"name": "k_only", "parameters": ["K"], "max_trials": "auto"}],
         )
 
     assert isinstance(result, _FakeStagedReport)

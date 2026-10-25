@@ -61,11 +61,14 @@ def score_run_under_its_rule(ctx: WorkflowContext, *, store: RunStore) -> None:
     """Score the series of the run against its observations and record the result.
 
     The rows go to the metrics of the facts, the NSE at the rule station to
-    their headline score, both sealed by the record. A score that cannot be
+    their headline score, both sealed by the record. An observed gauge that
+    meets no simulated series fails the non-fatal check
+    :data:`~hydromodpy.results.fit_metrics.UNSCORED_OBSERVATIONS_CHECK`, which
+    the README of the run prints. A score that cannot be
     computed is logged and the run keeps its results: the seal says
     ``nse = NULL`` and the table says why.
     """
-    from hydromodpy.results.fit_metrics import fit_metrics
+    from hydromodpy.results.fit_metrics import UNSCORED_OBSERVATIONS_CHECK, fit_metrics
     from hydromodpy.results.metric_rule import MetricRule
 
     site = store.facts.site
@@ -78,6 +81,11 @@ def score_run_under_its_rule(ctx: WorkflowContext, *, store: RunStore) -> None:
     for row in scores.rows:
         store.facts.put_metric(row)
     store.facts.score = scores.score
+    message = scores.unscored_message()
+    if message is not None:
+        store.facts.note_validity(
+            UNSCORED_OBSERVATIONS_CHECK, False, float(len(scores.unscored)), message
+        )
 
 
 class DeriveStep:
