@@ -14,10 +14,16 @@ Format
 ------
 See :class:`SessionDescriptor`. ``best`` names the winning trial by number
 and, once promoted, by the ``sim_id`` and directory of the run. ``status`` is
-``completed`` when the stopping rule was met, ``partial`` when the budget
-ran out first or when the promotion of its best trial failed, ``aborted``
-on a signal, ``failed`` on an error of the search itself. A session whose
-search completed is never written ``failed`` for what happened after it.
+``completed`` when the search met its rule, exhausted its plan, or spent the
+budget of a search with no rule of its own; ``partial`` when the budget ran
+out before a rule the engine has, or when the promotion of its best trial
+failed; ``aborted`` on a signal; ``failed`` on an error of the search itself.
+A session whose search completed is never written ``failed`` for what
+happened after it. ``stop_state`` says which of the three ways the search
+of the phase whose best the session holds stopped
+(:data:`~hydromodpy.results.checks.StopState`), and ``stop_note`` names the
+phases of a staged session that froze the best of a budget-only search. A
+session written before they existed reads without them.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.core.state.paths import parse_rel_dir, session_dir_rel, sessions_dir_for
+from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
@@ -66,6 +73,12 @@ class ScoredSamples(HydroModelBase):
     """
 
     n: int = Field(ge=0, description="Number of paired samples scored")
+    n_sim_nan: int | None = Field(
+        default=None,
+        ge=0,
+        description="Pairs of the window dropped because the simulated value is NaN "
+        "(a dry cell); null when not counted",
+    )
     first: date | None = Field(default=None, description="First period-end stamp scored")
     last: date | None = Field(default=None, description="Last period-end stamp scored")
 
@@ -79,6 +92,8 @@ def scored_samples_text(samples: Mapping[str, ScoredSamples]) -> str:
     clauses = []
     for name, scored in samples.items():
         clause = f"{name} {scored.n} pair(s)"
+        if scored.n_sim_nan:
+            clause += f" ({scored.n_sim_nan} lost to a NaN simulated value)"
         if scored.first is not None and scored.last is not None:
             clause += f", period ends {scored.first.isoformat()} to {scored.last.isoformat()}"
         clauses.append(clause)
@@ -127,6 +142,20 @@ class SessionDescriptor(HydroModelBase):
     error_message: str | None = Field(default=None, description="Why a failed session failed")
     root_search: dict[str, Any] | None = Field(
         default=None, description="Bracket or roots a root search closed with"
+    )
+    stop_state: StopState | None = Field(
+        default=None,
+        description="Why the search stopped: rule_met, plan_exhausted or budget_spent; "
+        "for a staged session, the search of the last phase; none until it closes",
+    )
+    stopping_rule: str | None = Field(
+        default=None,
+        description="The rule that search stops on, 'budget' for one with no rule of its own",
+    )
+    stop_note: str | None = Field(
+        default=None,
+        description="The phases that froze the best of a budget-only search, in words; "
+        "none when no phase did",
     )
 
     @model_validator(mode="after")

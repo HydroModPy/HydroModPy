@@ -658,6 +658,7 @@ class _IndexWriter:
                     "nse_window_end": metric.nse_window_end,
                     "nse_n": metric.nse_n,
                     "n_clipped": metric.n_clipped,
+                    "n_sim_nan": metric.n_sim_nan,
                     "metric_rule_version": metric.metric_rule_version,
                 },
             )

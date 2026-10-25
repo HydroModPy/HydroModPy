@@ -11,13 +11,15 @@ ask/tell loop until the optimizer converges or ``max_trials`` is reached.
                 into full simulations (caller-supplied promoter callable).
 - ``"all"``:   each iteration is already a full simulation.
 
-Running out of budget is not converging. An engine that declares a stopping
-option (:func:`hydromodpy.calibration.optim.stopping.stopping_rule`) and
-reaches ``max_trials`` before meeting it has not converged: the session says so
-in ``converged`` and the caller decides what that means, a staged calibration
-freezes nothing from it. The grid and the Latin hypercube stop when every point
-of their design is solved. An engine whose only rule is its budget converges
-when the budget is spent.
+Running out of budget is not converging. The session says why the search
+stopped in ``stop_state`` (:func:`hydromodpy.calibration.optim.stopping.
+stop_state`): the engine met its own rule, exhausted the plan it counted up
+front (the grid, the Latin hypercube), or spent its budget first. Only the
+first two are ``converged``. An engine whose only rule is its budget spends it
+by design: it has not converged, but there was no rule to miss, so the
+session is ``settled`` and a staged calibration freezes its best, saying so.
+An engine with a rule that spent its budget first is neither, and a staged
+calibration freezes nothing from it.
 
 An engine that can count its evaluations before the first solve publishes a
 ``counted_budget`` (:class:`~hydromodpy.calibration.optim.stopping.CountedBudget`).
@@ -54,16 +56,18 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.stopping import (
-    BUDGET_RULE,
     CountedBudget,
     remaining_grant,
     resolve_budget,
+    settled,
     short_budget,
+    stop_state,
     stopping_rule,
 )
 from hydromodpy.core.exceptions import OptimizerError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import recharge_session
+from hydromodpy.results.checks import BUDGET_RULE, StopState, stop_text
 
 logger = get_logger(__name__)
 
@@ -96,18 +100,24 @@ class CalibrationSession:
     started_at: float = 0.0
     finished_at: float | None = None
     stopping_rule: str = BUDGET_RULE
-    """The rule the engine stops on: its stopping option, or ``"budget"``."""
-    converged: bool = False
-    """Whether the search met ``stopping_rule`` before its budget ran out.
-
-    Set once the loop ends. A budget-only engine converges when it spends its
-    budget; any other engine only when its own rule says so.
-    """
+    """The rule the engine stops on: its stopping option, its design, or ``"budget"``."""
+    stop_state: StopState = "budget_spent"
+    """Why the search stopped, set once the loop ends."""
     max_trials: int = 0
     """The budget the engine ran with, ``"auto"`` resolved, before any extension."""
     extension: int = 0
     """Evaluations granted beyond ``max_trials``: zero, or what a counting engine
     still needed when its budget ran out, once."""
+
+    @property
+    def converged(self) -> bool:
+        """Whether the search met its own rule or exhausted its plan."""
+        return self.stop_state != "budget_spent"
+
+    @property
+    def settled(self) -> bool:
+        """Whether its answer may be built on (:func:`~hydromodpy.calibration.optim.stopping.settled`)."""
+        return settled(self.stop_state, self.stopping_rule)
 
     @property
     def best(self) -> EvaluationResult | None:
@@ -191,8 +201,23 @@ class CalibrationEngine:
                         _, n_done = self._run_until(
                             budget + session.extension, n_done, session, reporter
                         )
-                session.converged = (not judged) or bool(self.optimizer.converged())
-                if not session.converged:
+                session.stop_state = stop_state(
+                    self.optimizer,
+                    met=bool(self.optimizer.converged()),
+                    spent=n_done >= budget + session.extension,
+                )
+                if session.converged:
+                    logger.info(
+                        "The search %s.", stop_text(session.stop_state, session.stopping_rule)
+                    )
+                elif not judged:
+                    logger.warning(
+                        "The search spent its budget of %d evaluations: it has no rule of its "
+                        "own, so it did not converge, and its best trial is the best of a "
+                        "budget-only search.",
+                        n_done,
+                    )
+                else:
                     logger.warning(
                         "The search did NOT converge: %d evaluations (%d budget + %d "
                         "extension) did not meet its stopping rule (%s). Its best trial is "

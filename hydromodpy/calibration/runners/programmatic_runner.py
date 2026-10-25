@@ -33,6 +33,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     refuse_an_objective_that_is_not_an_entry_point,
     run_one_search,
 )
+from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promotion_name_check
 from hydromodpy.calibration.runners.state import (
     override_paths as resolve_override_paths,
@@ -127,7 +128,7 @@ def _document_of(project: Any, cfg_path: Path) -> dict[str, Any]:
     return dict(load_toml_with_base_config(cfg_path))
 
 
-def _with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationConfig:
+def with_project_defaults(cfg: CalibrationConfig, project: Any) -> CalibrationConfig:
     """Write ``[site] gauge`` and ``[metrics] window`` of the project into ``cfg``."""
     config = getattr(project, "config", None)
     site = getattr(config, "site", None)
@@ -179,7 +180,7 @@ def run_calibration_programmatic(
 
     ws_root = _project_root(project, workspace)
     src_path = getattr(project, "_config_path", None)
-    cfg = _with_project_defaults(cfg, project)
+    cfg = with_project_defaults(cfg, project)
 
     if cfg.phases:
         from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
@@ -221,6 +222,7 @@ def run_calibration_programmatic(
         if evaluation_registry.needs_prepared_model(cfg.evaluator)
         else None
     )
+    check_the_prepared_model(cfg, trial_ctx, space)
     case = _case_name(project, cfg_path)
     promotion_name_check(case)
     raw = _document_of(project, cfg_path)
@@ -268,4 +270,4 @@ def run_calibration_programmatic(
     return report.to_dict()
 
 
-__all__ = ["run_calibration_programmatic"]
+__all__ = ["run_calibration_programmatic", "with_project_defaults"]

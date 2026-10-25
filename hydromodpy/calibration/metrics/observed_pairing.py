@@ -10,7 +10,9 @@ observation.
 record, aligns it on the simulated timestamps, and hands both back as the plain
 vectors a block already knows how to score. Alignment is where the honesty is:
 what neither series covers is dropped from both, and a pair with nothing in
-common is refused by name rather than scored on an empty overlap.
+common is refused by name rather than scored on an empty overlap. A period the
+simulated side leaves NaN (a dry cell) is dropped too, and counted, because
+then the sample scored depends on the parameters of the trial.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from hydromodpy.core.time.time_method import DEFAULT_TIME_METHOD
 from hydromodpy.results.derive.time_alignment import (
     align_observed_simulated,
     normalize_datetime_series,
+    simulated_nan_stamps,
     time_method_for,
 )
 
@@ -56,6 +59,9 @@ class PairedOutputs:
     times: dict[str, pd.DatetimeIndex] = field(default_factory=dict)
     """Every retained stamp per output, index for index with the vectors: a
     gap the pairing left is a gap of these dates."""
+    n_simulated_nan: dict[str, int] = field(default_factory=dict)
+    """Periods of the window per output that the record covers and the
+    simulated value leaves NaN, dropped from the pairs."""
 
     def dates_scored(self) -> int:
         """Return the smallest number of samples any output contributed."""
@@ -153,7 +159,13 @@ def pair_outputs_with_observations(
 
     ``min_samples`` is the fewest pairs a member may be scored on. An overlap
     that collapses to three days still produces a number, and a weight of 65 per
-    cent resting on three days is not what the file says it is.
+    cent resting on three days is not what the file says it is. Every output
+    paired here honours it, whatever its support.
+
+    A period of the window the record covers and the simulated value leaves
+    NaN is dropped from both series and counted in
+    :attr:`PairedOutputs.n_simulated_nan`. A period the record leaves empty is
+    not counted.
 
     ``series_sink``, when given, records each output's aligned, windowed pair
     as it is built, keyed by the output name and, through ``stations``, by the
@@ -164,6 +176,7 @@ def pair_outputs_with_observations(
     counts: dict[str, int] = {}
     dates: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
     times: dict[str, pd.DatetimeIndex] = {}
+    lost: dict[str, int] = {}
 
     for name, record in observed.items():
         series = simulated.get(name)
@@ -178,6 +191,24 @@ def pair_outputs_with_observations(
         method = (time_methods or {}).get(name, DEFAULT_TIME_METHOD)
         period_start = (period_starts or {}).get(name)
         frame = align_observed_simulated(record, series, method=method, start=period_start)
+        dry = simulated_nan_stamps(record, series, method=method, start=period_start)
+        if scoring_window is not None and len(dry):
+            dry = dry[
+                periods_in_window(
+                    dry,
+                    method=method,
+                    start=scoring_window[0],
+                    end=scoring_window[1],
+                    grid=normalize_datetime_series(series).index,
+                    period_start=period_start,
+                )
+            ]
+        lost[name] = len(dry)
+        nan_clause = (
+            f", after {len(dry)} period(s) were dropped because the simulated value is NaN"
+            if len(dry)
+            else ""
+        )
         if scoring_window is not None:
             start, end = scoring_window
             frame = frame.loc[
@@ -195,13 +226,13 @@ def pair_outputs_with_observations(
             if scoring_window is not None and any(bound is not None for bound in scoring_window):
                 window = f" inside {scoring_window[0]} to {scoring_window[1]}"
             raise ValueError(
-                f"output {name!r} and the record it observes share no timestamp{window}: "
-                f"the record runs {_span(record)} and the run {_span(series)}."
+                f"output {name!r} and the record it observes share no timestamp{window}"
+                f"{nan_clause}: the record runs {_span(record)} and the run {_span(series)}."
             )
         if len(frame) < int(min_samples):
             raise ValueError(
                 f"output {name!r} and the record it observes share {len(frame)} dated "
-                f"sample(s), fewer than the {int(min_samples)} "
+                f"sample(s){nan_clause}, fewer than the {int(min_samples)} "
                 "[calibration.aggregate].min_samples asks for. A cost on that few is "
                 "not the cost the weights describe."
             )
@@ -225,6 +256,7 @@ def pair_outputs_with_observations(
         n_paired=counts,
         dates=dates,
         times=times,
+        n_simulated_nan=lost,
     )
 
 

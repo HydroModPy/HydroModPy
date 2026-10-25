@@ -34,6 +34,7 @@ from typing import Any, Literal
 from hydromodpy.calibration.optim.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.core.exceptions import CalibrationError
 from hydromodpy.core.state.paths import process_is_alive
+from hydromodpy.results.checks import StopState
 from hydromodpy.results.metric_rule import DateWindow
 from hydromodpy.results.outcome import Outcome, OutcomeError, read_outcome, write_outcome
 from hydromodpy.results.session.descriptor import (
@@ -198,11 +199,17 @@ class CalibrationPersistence:
         error: str | None = None,
         root_search: Mapping[str, Any] | None = None,
         objective_samples: Mapping[str, ScoredSamples] | None = None,
+        stop_state: StopState | None = None,
+        stopping_rule: str | None = None,
+        stop_note: str | None = None,
     ) -> SessionDescriptor:
         """Close the session: descriptor, then outcome.
 
         ``objective_samples`` are the pairs the best cost was scored on, kept
-        beside the declared ``objective_window``.
+        beside the declared ``objective_window``. ``stop_state`` and
+        ``stopping_rule`` say why the search whose best the session holds
+        stopped; an interrupted session records none. ``stop_note`` names the
+        phases that froze the best of a budget-only search.
         """
         now = datetime.now(UTC)
         descriptor = read_session(self._directory).model_copy(
@@ -213,6 +220,9 @@ class CalibrationPersistence:
                 "error_message": error,
                 "root_search": dict(root_search) if root_search else None,
                 "objective_samples": dict(objective_samples or {}),
+                "stop_state": stop_state,
+                "stopping_rule": stopping_rule,
+                "stop_note": stop_note,
             }
         )
         write_session(self._directory, descriptor)
@@ -258,12 +268,26 @@ class CalibrationPersistence:
         return descriptor
 
     def finish_phase(
-        self, name: str, *, status: SessionStatus, best: BestTrial | None
+        self,
+        name: str,
+        *,
+        status: SessionStatus,
+        best: BestTrial | None,
+        stop_state: StopState | None = None,
+        stopping_rule: str | None = None,
+        stop_note: str | None = None,
     ) -> PhaseDescriptor:
-        """Close a phase with its status, its best trial and the restarts it ran."""
+        """Close a phase with its status, its best trial, the restarts it ran and why it stopped."""
         restarts = max((line.restart for line in self.trials(name)), default=0)
         descriptor = read_phase(self._directory, name).model_copy(
-            update={"status": status, "best": best, "restarts": restarts}
+            update={
+                "status": status,
+                "best": best,
+                "restarts": restarts,
+                "stop_state": stop_state,
+                "stopping_rule": stopping_rule,
+                "stop_note": stop_note,
+            }
         )
         write_phase(self._directory, descriptor)
         return descriptor

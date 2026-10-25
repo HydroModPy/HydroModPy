@@ -10,7 +10,7 @@ engine warning already says.
 from __future__ import annotations
 
 from hydromodpy.calibration.report import CalibrationReport
-from hydromodpy.calibration.runners.staged_runner import _why_not_converged
+from hydromodpy.calibration.runners.staged_runner import _why_unsettled
 
 
 def _report() -> CalibrationReport:
@@ -26,6 +26,7 @@ def _report() -> CalibrationReport:
         best_parameters={"K": 2.1e-4},
         extra={
             "search": {
+                "stop_state": "budget_spent",
                 "converged": False,
                 "stopping_rule": "xatol",
                 "max_trials": 120,
@@ -37,7 +38,7 @@ def _report() -> CalibrationReport:
 
 
 def test_a_new_search_setting_is_promised_the_cache_only_at_the_values_solved() -> None:
-    message = _why_not_converged(_report())
+    message = _why_unsettled(_report())
 
     assert "loosen the tolerance" not in message
     assert (

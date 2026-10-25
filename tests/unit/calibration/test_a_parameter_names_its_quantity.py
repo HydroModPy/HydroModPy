@@ -232,7 +232,8 @@ class TestWhoWinsOverWho:
         """A declared 'identity' is a decision, not a default left standing.
 
         The unit is the exception: the sample is written in the unit the field
-        reads, so a file may only restate it (test_bounds_in_another_unit_are_refused).
+        reads, so bounds in another unit are converted into it
+        (test_bounds_in_another_unit_are_converted_to_the_target).
         """
         calibration = _calibration(
             K={"bounds": [1e-7, 1e-3], "search_space": "identity", "units": "m/s"}

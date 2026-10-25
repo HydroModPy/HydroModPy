@@ -279,6 +279,8 @@ def test_python_mode_resolves_a_bare_name_and_chooses_as_the_toml_does(tmp_path)
 
     project_toml = _write(tmp_path, PROJECT.format(root=tmp_path.as_posix()), "project.toml")
     toml_cfg, _raw = load_toml_calibration(_write(tmp_path, BARE_K_ON_THE_GAP))
+    # The launch preflight looks for the geometry where the run would.
+    (tmp_path / "streams.gpkg").write_bytes(b"")
 
     class _Project:
         config = HydroModPyConfig.from_toml(project_toml)

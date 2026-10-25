@@ -37,6 +37,43 @@ CHECKS_SCHEMA: Final[str] = "hydromodpy.checks.v1"
 CalibrationSessionStatus = Literal["completed", "partial", "aborted"]
 """How the session that promoted a run ended."""
 
+StopState = Literal["rule_met", "plan_exhausted", "budget_spent"]
+"""Why a search stopped.
+
+``rule_met``: the engine's own stopping rule was met. ``plan_exhausted``: every
+point an engine planned up front (a grid, a Latin hypercube) was solved.
+``budget_spent``: the budget ended first, or the engine stopped proposing
+before its rule was met. Only the first two are convergence.
+"""
+
+BUDGET_RULE: Final[str] = "budget"
+"""The rule of an engine that declares none of its own: it stops on max_trials."""
+
+
+FROZE_BUDGET_ONLY: Final[str] = "froze the best of a budget-only search"
+"""What a phase says when it passes on the best trial of a search with no rule of its own."""
+
+
+def stop_text(state: StopState | None, rule: str | None) -> str:
+    """Return why a search stopped, in words, from its state and its rule."""
+    if state == "rule_met":
+        return f"met its own rule ({rule})"
+    if state == "plan_exhausted":
+        return f"exhausted its plan ({rule} solved)"
+    if state == "budget_spent" and rule == BUDGET_RULE:
+        return "spent its budget, a budget-only search with no rule of its own"
+    if state == "budget_spent":
+        return f"spent its budget before its rule ({rule}) was met"
+    return "not recorded"
+
+
+def stop_line(state: StopState | None, rule: str | None) -> str:
+    """Return why a search stopped and whether that is convergence, in words."""
+    if state is None:
+        return stop_text(state, rule)
+    verdict = "not converged" if state == "budget_spent" else "converged"
+    return f"{stop_text(state, rule)}, {verdict}"
+
 
 @dataclass(frozen=True)
 class Validity:
@@ -63,6 +100,15 @@ class CalibratedBy(HydroModelBase):
     session_status: CalibrationSessionStatus = Field(description="How the session ended")
     window: DateWindow | None = Field(
         default=None, description="Window the session scored its objective on"
+    )
+    stop_state: StopState | None = Field(
+        default=None,
+        description="Why the search of that phase stopped: rule_met, plan_exhausted or "
+        "budget_spent; none when not recorded",
+    )
+    stopping_rule: str | None = Field(
+        default=None,
+        description="The rule that search stops on, 'budget' for one with no rule of its own",
     )
 
 
@@ -126,4 +172,15 @@ class Checks(HydroModelBase):
         }
 
 
-__all__ = ["CHECKS_SCHEMA", "CalibratedBy", "CalibrationSessionStatus", "Checks", "Validity"]
+__all__ = [
+    "BUDGET_RULE",
+    "CHECKS_SCHEMA",
+    "CalibratedBy",
+    "CalibrationSessionStatus",
+    "Checks",
+    "FROZE_BUDGET_ONLY",
+    "StopState",
+    "Validity",
+    "stop_line",
+    "stop_text",
+]

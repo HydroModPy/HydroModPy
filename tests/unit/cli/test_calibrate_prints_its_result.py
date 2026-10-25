@@ -319,6 +319,7 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
                 "closed": True,
             },
             "search": {
+                "stop_state": "rule_met",
                 "converged": True,
                 "stopping_rule": "rel_tol",
                 "max_trials": 15,
@@ -332,7 +333,9 @@ def test_the_eq4_verdict_the_bracket_and_the_search_are_printed() -> None:
 
     assert "  roptim (net) = 0.42, Doptim = 31.5 m <= 150 m (auto), Eq. 4 holds" in lines
     assert "  bracket on K: [6.3e-05, 6.36e-05], width 0.95% (closed)" in lines
-    assert "  search: converged on its rule (rel_tol), 15 evaluation(s) of 15 declared" in lines
+    assert (
+        "  search: met its own rule (rel_tol), converged, 15 evaluation(s) of 15 declared" in lines
+    )
 
 
 def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> None:
@@ -367,6 +370,7 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
                 "closed": False,
             },
             "search": {
+                "stop_state": "budget_spent",
                 "converged": False,
                 "stopping_rule": "rel_tol",
                 "max_trials": 10,
@@ -381,7 +385,10 @@ def test_a_failed_verdict_an_open_bracket_and_an_unconverged_search_say_so() -> 
     assert "roptim (net) = 3.1, Doptim = 232.5 m > 150 m (auto), Eq. 4 fails" in text
     assert "roptim (empty): not a number" in text
     assert "(open, the budget ran out first)" in text
-    assert "search: did NOT converge on its rule (rel_tol), 15 evaluation(s) of 10 declared" in text
+    assert (
+        "search: spent its budget before its rule (rel_tol) was met, not converged, "
+        "15 evaluation(s) of 10 declared" in text
+    )
     assert "+ 5 extension" in text
 
 

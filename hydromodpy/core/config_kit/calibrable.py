@@ -52,6 +52,16 @@ class Calibrable:
     """``uniform``, ``log_uniform`` or ``normal``: the law starting points and draws follow."""
 
     units: str | None = None
+    """The unit the value is read in. With ``unit_field`` it is only the default of that field."""
+
+    unit_field: str | None = None
+    """The sibling field that names the unit the model reads this value in.
+
+    ``bedleak`` is read in ``bedleak_unit``, which a file may set to ``1/day``.
+    Declared here, the catalogue reads that field and a sample drawn in it means
+    what the model reads, instead of being taken in the SI unit of ``units``.
+    """
+
     description: str = ""
 
     is_the_value_of_its_instance: bool = False
@@ -72,6 +82,7 @@ class Calibrable:
             "search_space": self.search_space,
             "sampling": self.sampling,
             "units": self.units,
+            "unit_field": self.unit_field,
             "description": self.description,
             "is_the_value_of_its_instance": self.is_the_value_of_its_instance,
         }

@@ -89,7 +89,9 @@ def method_stops(m: dict[str, Any]) -> str:
         )
     if option is None:
         return (
-            "On its budget, or on a rule of its own options. "
+            "On its budget, or on a rule of its own options. Spending the budget is "
+            "not convergence: the search says it spent its budget, and a phase freezes "
+            "its best saying it froze the best of a budget-only search. "
             ":toml:`calibration.precision` is refused."
         )
     if m["precision_reads"] == "relative_value":
@@ -112,7 +114,8 @@ def method_budget(m: dict[str, Any]) -> str:
     if m["counts_its_budget"]:
         return (
             '``max_trials = "auto"`` counts the evaluations its rule needs before the first '
-            "solve. A smaller number is refused or warned by ``hmp config check``."
+            "solve. A smaller number is refused or warned before anything is prepared, at "
+            "every launch and by ``hmp config check``."
         )
     return f'``max_trials = "auto"`` gives {m["uncounted_budget"]} evaluations.'
 

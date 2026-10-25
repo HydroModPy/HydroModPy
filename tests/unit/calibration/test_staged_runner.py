@@ -156,13 +156,17 @@ def _write(tmp_path: Path, phases: str = TWO_PHASES) -> Path:
 
 
 def _baseline() -> SimpleNamespace:
-    """A configuration tree the calibrated paths can be written into."""
+    """A configuration tree the calibrated paths can be written into.
+
+    No boundary is active, which is what the checks of the prepared model read.
+    """
     return SimpleNamespace(
         flow=SimpleNamespace(
+            active_bc=[],
             param=SimpleNamespace(
                 K=SimpleNamespace(field=SimpleNamespace(value=K_TOML)),
                 Sy=SimpleNamespace(field=SimpleNamespace(value=SY_TOML)),
-            )
+            ),
         )
     )
 

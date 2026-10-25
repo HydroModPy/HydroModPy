@@ -71,7 +71,8 @@ def cost_samples(components: Mapping[str, Any] | None) -> dict[str, dict[str, An
 
     The block route writes ``<name>.n_paired`` and, as ordinal days,
     ``<name>.date_start`` / ``<name>.date_end`` into the components of every
-    trial: the first and last period-end stamp it kept. ``variable`` +
+    trial: the first and last period-end stamp it kept. ``<name>.n_sim_nan``
+    counts the pairs a NaN simulated value took out. ``variable`` +
     ``objective`` is scored by that route too, its outputs named
     ``<variable>@<station>``. Empty when no output was paired, as for a
     network distance.
@@ -81,6 +82,9 @@ def cost_samples(components: Mapping[str, Any] | None) -> dict[str, dict[str, An
     samples: dict[str, dict[str, Any]] = {}
     for name in names:
         entry: dict[str, Any] = {"n_paired": int(found[f"{name}.n_paired"])}
+        lost = found.get(f"{name}.n_sim_nan")
+        if lost is not None:
+            entry["n_sim_nan"] = int(lost)
         start = found.get(f"{name}.date_start")
         end = found.get(f"{name}.date_end")
         if start is not None and end is not None:

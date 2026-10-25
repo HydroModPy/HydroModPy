@@ -347,8 +347,13 @@ def samples_text(samples: Mapping[str, Mapping[str, Any]]) -> str:
 
 
 def scored_entry(info: Mapping[str, Any]) -> ScoredSamples:
-    """Return one ``{n_paired, start, end}`` entry of a report as a :class:`ScoredSamples`."""
-    return ScoredSamples(n=info["n_paired"], first=info.get("start"), last=info.get("end"))
+    """Return one ``{n_paired, n_sim_nan, start, end}`` entry of a report as a :class:`ScoredSamples`."""
+    return ScoredSamples(
+        n=info["n_paired"],
+        n_sim_nan=info.get("n_sim_nan"),
+        first=info.get("start"),
+        last=info.get("end"),
+    )
 
 
 def interval_is_degenerate(interval: Mapping[str, Any]) -> bool:

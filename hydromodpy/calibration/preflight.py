@@ -19,10 +19,15 @@ the run.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+
+from hydromodpy.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 Severity = Literal["error", "warning"]
 
@@ -65,26 +70,163 @@ def preflight_calibration(config: Any, *, source: str | Path) -> list[PreflightF
 
     where_from = Path(source).expanduser().resolve()
     findings: list[PreflightFinding] = []
+    searched, unwritable = _search_configs(config, calibration, where_from)
+    findings.extend(unwritable)
     findings.extend(_check_parameters(config, calibration))
     findings.extend(_check_outputs(calibration, where_from, config))
     findings.extend(_check_blocks(calibration))
     findings.extend(_check_phases(calibration))
-    findings.extend(_check_the_regimes(calibration, where_from))
+    findings.extend(_check_the_regimes(calibration, config, where_from))
     findings.extend(_check_engines(calibration))
     findings.extend(_check_the_precision_can_be_honoured(calibration))
     findings.extend(_check_the_budgets(calibration))
     findings.extend(_check_the_interval_widths(calibration))
-    findings.extend(_check_the_backend_can_serve_the_outputs(config, calibration))
+    findings.extend(_check_the_backend_can_serve_the_outputs(calibration, searched))
     findings.extend(_check_the_network_criterion_is_not_asked_to_pick_a_ridge(calibration))
-    findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, config))
+    findings.extend(_check_the_network_search_can_trust_its_release_packages(calibration, searched))
     findings.extend(_check_the_minimal_maps_are_there(calibration, where_from))
-    findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, config))
+    findings.extend(_check_an_extent_is_scored_on_a_transient_run(calibration, searched))
     findings.extend(_check_a_network_estimator_names_its_network_output(calibration))
     findings.extend(
-        _check_the_scoring_windows_hold_what_they_score(calibration, config, where_from)
+        _check_the_scoring_windows_hold_what_they_score(calibration, searched, where_from)
     )
     findings.extend(_check_the_observed_stations_are_loaded(calibration, config))
     return findings
+
+
+def preflight_launch(
+    config_path: str | Path, *, config: Any | None = None, calibration: Any | None = None
+) -> list[PreflightFinding]:
+    """Check the calibration a launch is about to run, before anything is prepared.
+
+    ``config_path`` is the effective document: the file the user named, or
+    the copy ``--set``, ``--overlay`` and ``HMP_SET_*`` were written into. It
+    is loaded the way the run loads it, protocol expanded and project defaults
+    written, and every search is checked with the overrides of its phase.
+    ``config`` is that project configuration when the caller holds it already,
+    and ``calibration`` the section a Python launch runs in place of the
+    file's. A file that does not load as a project is left to the run, which
+    says why with its own context. See :func:`refuse_what_the_preflight_refuses`.
+    """
+    import warnings
+
+    from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
+
+    path = Path(config_path).expanduser().resolve()
+    if not hasattr(config, "model_copy"):
+        # No configuration held, or one that is not a validated model: the
+        # file is the configuration.
+        try:
+            with warnings.catch_warnings():
+                # The run's own loading prints what the file has to change.
+                warnings.simplefilter("ignore")
+                config = get_root_config_provider().from_toml(path)
+        except Exception:
+            logger.debug("No project configuration to preflight in %s", path, exc_info=True)
+            return []
+    if calibration is not None:
+        # A copy: the checks anchor geometry paths, and the run anchors its own.
+        config = config.model_copy(update={"calibration": calibration.model_copy(deep=True)})
+    return refuse_what_the_preflight_refuses(config, source=path)
+
+
+def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> list[PreflightFinding]:
+    """Run the preflight at a launch: raise on its errors, log its warnings once.
+
+    The one gate every launch passes, ``hmp calibrate``, ``hmp run``,
+    ``--dry-run``, ``hmp.calibrate`` and ``Project.calibrate``, so the launch
+    refuses what ``hmp config check`` refuses, with every finding at once.
+    Raises :class:`~hydromodpy.core.exceptions.ConfigError`, the code of a
+    file to fix. Returns the findings, warnings only.
+    """
+    from hydromodpy.core.exceptions import ConfigError
+
+    findings = preflight_calibration(config, source=source)
+    errors = [finding for finding in findings if finding.severity == "error"]
+    if errors:
+        lines = "\n".join(f"  {finding.where}: {finding.detail}" for finding in errors)
+        raise ConfigError(
+            f"the calibration is refused before anything is prepared or solved, "
+            f"{len(errors)} error(s):\n{lines}"
+        )
+    seen: set[str] = set()
+    for finding in findings:
+        text = f"{finding.where}: {finding.detail}"
+        if text not in seen:
+            seen.add(text)
+            logger.warning("%s", text)
+    return findings
+
+
+def _search_configs(
+    config: Any, calibration: Any, source: Path
+) -> tuple[dict[str | None, Any], list[PreflightFinding]]:
+    """Return the project configuration each search runs, keyed by phase name.
+
+    A phase runs the project with its regime and its own ``overrides``
+    written in, the way ``prepare_trials`` writes them, so a check on the
+    model a search runs reads that model and not the file's base. Key
+    ``None`` is the search of a file without phases. A phase whose overrides
+    cannot be written is a finding, and its project checks are left out.
+    """
+    phases = list(calibration.phases or ())
+    if not phases:
+        return {None: config}, []
+    from hydromodpy.calibration.optim.parameters import set_by_path
+    from hydromodpy.calibration.runners.phase_regime import phase_overrides
+
+    document: Mapping[str, Any] = {}
+    if any(getattr(phase, "regime", None) is not None for phase in phases):
+        try:
+            document = _raw_document(config, source)
+        except (OSError, ValueError):
+            # The regime check reports the file it cannot read.
+            document = {}
+    configs: dict[str | None, Any] = {}
+    findings: list[PreflightFinding] = []
+    for phase in phases:
+        try:
+            overrides = phase_overrides(phase, document)
+        except (KeyError, ValueError):
+            # A regime that cannot be written is the regime check's finding.
+            overrides = dict(phase.overrides or {})
+        if not overrides:
+            configs[phase.name] = config
+            continue
+        written = copy.deepcopy(config)
+        try:
+            for dotted, value in overrides.items():
+                set_by_path(written, str(dotted), value)
+        except ValueError as exc:
+            findings.append(
+                PreflightFinding(
+                    "error",
+                    f"[[calibration.phases]] {phase.name!r} overrides",
+                    f"cannot be written into the configuration: {exc}",
+                )
+            )
+            continue
+        configs[phase.name] = written
+    return configs, findings
+
+
+def _config_of(searched: Mapping[str | None, Any], phase: Any | None) -> Any | None:
+    """Return the project configuration one search runs, or ``None`` when unknown."""
+    return searched.get(None if phase is None else phase.name)
+
+
+def _raw_document(config: Any, source: Path) -> Mapping[str, Any]:
+    """Return the raw document a phase reads its regime from.
+
+    The file, ``base_config`` merged, as the run reads it. A project built in
+    memory has no file, and the document is its configuration, dumped the way
+    ``Project.calibrate`` writes it for the staged runner.
+    """
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    if source.is_file() or not hasattr(config, "model_dump"):
+        return load_toml_with_base_config(source)
+    return config.model_dump(mode="json", exclude_none=True)
 
 
 @dataclass(frozen=True)
@@ -495,18 +637,57 @@ def _check_parameters(cfg: Any, calibration: Any) -> list[PreflightFinding]:
             )
             continue
         if target not in reachable:
-            near = ", ".join(sorted(reachable)[:6]) or "nothing"
+            missing = _no_field_on_the_way(cfg, target)
+            if missing is not None:
+                near = ", ".join(sorted(reachable)[:6]) or "nothing"
+                findings.append(
+                    PreflightFinding(
+                        "error",
+                        where,
+                        f"path {target!r} is not a value this configuration carries: "
+                        f"{missing}. `hmp config targets` lists the values a parameter "
+                        f"reaches by name; it starts with {near}.",
+                    )
+                )
+                continue
+            # The documented way out: the trial writes the value as given.
             findings.append(
                 PreflightFinding(
-                    "error",
+                    "warning",
                     where,
-                    f"path {target!r} is not a value this configuration carries. "
-                    f"`hmp config targets` lists them; it starts with {near}.",
+                    f"path {target!r} is not in the catalogue `hmp config targets` "
+                    "lists, so its unit and its physical range are not known here. "
+                    "The trial writes the sampled value there as given.",
                 )
             )
-            continue
         findings.extend(_check_bounds_against_physics(where, name, decl, bounds))
     return findings
+
+
+def _no_field_on_the_way(config: Any, path: str) -> str | None:
+    """Say which segment of ``path`` names nothing in ``config``, or ``None``.
+
+    Walked the way a trial writes a parameter
+    (:func:`~hydromodpy.calibration.optim.parameters.set_by_path`): every
+    segment has to exist, except a last one under a mapping, which the write
+    adds as a key.
+    """
+    parts = str(path).split(".")
+    target: Any = config
+    for depth, part in enumerate(parts):
+        reached = ".".join(parts[:depth]) or "the configuration root"
+        if isinstance(target, Mapping):
+            if part in target:
+                target = target[part]
+                continue
+            if depth == len(parts) - 1:
+                return None
+            known = ", ".join(sorted(str(key) for key in target)[:12]) or "nothing"
+            return f"no {part!r} under {reached}, which holds {known}"
+        if not hasattr(target, part):
+            return f"no {part!r} under {reached}"
+        target = getattr(target, part)
+    return None
 
 
 def _check_bounds_against_physics(
@@ -647,7 +828,7 @@ def _check_phases(calibration: Any) -> list[PreflightFinding]:
     return findings
 
 
-def _check_the_regimes(calibration: Any, source: Path) -> list[PreflightFinding]:
+def _check_the_regimes(calibration: Any, config: Any, source: Path) -> list[PreflightFinding]:
     """Write every phase's regime the way the run will, and report what cannot be.
 
     A steady phase reads its window from ``steady_window`` or from
@@ -661,10 +842,9 @@ def _check_the_regimes(calibration: Any, source: Path) -> list[PreflightFinding]
     if not phases:
         return []
     from hydromodpy.calibration.runners.phase_regime import regime_overrides
-    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     try:
-        document = load_toml_with_base_config(source)
+        document = _raw_document(config, source)
     except (OSError, ValueError) as exc:
         return [
             PreflightFinding(
@@ -1106,38 +1286,44 @@ def _check_the_interval_widths(calibration: Any) -> list[PreflightFinding]:
 
 
 def _check_the_backend_can_serve_the_outputs(
-    config: Any, calibration: Any
+    calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
-    """Face each declared output with what the chosen backend says it can serve.
+    """Face each output with what the chosen backend says it can serve.
 
     A backend answers on the resolved configuration in three states, so this
     separates two refusals a binary answer confuses: one declaration away, with
     the declaration named, and out of reach on this backend whatever the file
     says. Both used to arrive at the first extraction, hours into a search.
+    A phase asks on the model its overrides write, for the outputs it scores.
     """
-    adapter = _flow_adapter_for(config)
-    if adapter is None:
-        return []
-    declared = getattr(adapter, "declared_observables", None)
-    if declared is None:
-        return []
-    support_by_name = {item.name: item for item in declared(config)}
     findings: list[PreflightFinding] = []
-    for name, decl in (calibration.outputs or {}).items():
-        observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
-        if observable is None:
+    for phase, _where, _names in _search_candidates(calibration):
+        config = _config_of(searched, phase)
+        adapter = _flow_adapter_for(config) if config is not None else None
+        declared = getattr(adapter, "declared_observables", None)
+        if declared is None:
             continue
-        support = support_by_name.get(observable)
-        if support is None or support.is_servable_now:
-            continue
-        findings.append(
-            PreflightFinding(
+        support_by_name = {item.name: item for item in declared(config)}
+        outputs = (
+            calibration.outputs or {}
+            if phase is None
+            else _outputs_scored_by_search(calibration, phase)
+        )
+        for name, decl in outputs.items():
+            observable = _OBSERVABLE_BY_SUPPORT.get(str(getattr(decl, "support", "")))
+            if observable is None:
+                continue
+            support = support_by_name.get(observable)
+            if support is None or support.is_servable_now:
+                continue
+            finding = PreflightFinding(
                 "error",
                 f"[calibration.outputs.{name}]",
                 f"this output reads {observable!r}, which the chosen backend does not "
                 f"serve as configured: {support.reason}",
             )
-        )
+            if finding not in findings:
+                findings.append(finding)
     return findings
 
 
@@ -1358,26 +1544,26 @@ def _check_the_network_criterion_is_not_asked_to_pick_a_ridge(
 
 
 def _check_the_network_search_can_trust_its_release_packages(
-    calibration: Any, project_config: Any
+    calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
     """Refuse a K-moving network search next to an SFR or LAK with a fixed conductance.
 
-    Checked against the project's base ``flow.active_bc``. A phase that turns a
-    package off through its own ``overrides`` (as ``auto_sfr_drn.toml`` does by
-    hand) is not replayed here: this preflight reads the declared file, not a
-    resolved run, so a false positive is possible on such a phase and the
-    runner guard right before the first solve, which sees the actual flow that
-    phase built, has the last word.
+    Checked against the ``flow.active_bc`` of the model each search runs: a
+    phase that turns a package off through its own ``overrides``, as
+    ``auto_sfr_drn.toml`` does, is checked without it.
     """
-    from hydromodpy.calibration.runners.cli_runner import (
+    from hydromodpy.calibration.runners.prepared_model import (
         moves_a_hydraulic_conductivity,
         network_outputs_scored,
         release_package_conductance_conflict,
     )
 
-    flow = getattr(project_config, "flow", None)
     findings: list[PreflightFinding] = []
     for phase, where, names in _search_candidates(calibration):
+        config = _config_of(searched, phase)
+        if config is None:
+            continue
+        flow = getattr(config, "flow", None)
         outputs = _outputs_scored_by_search(calibration, phase)
         if phase is not None and phase.is_single_metric:
             network = network_outputs_scored(
@@ -1425,7 +1611,7 @@ def _search_regime(project_config: Any, phase: Any | None) -> str | None:
     """Return the flow regime one search runs, or ``None`` when nothing says.
 
     A phase's ``regime`` first, then a ``flow.flow_regime`` its overrides
-    write, then the project's own ``[flow]``.
+    write, then the ``[flow]`` of ``project_config``.
     """
     written = getattr(phase, "regime", None)
     if written is None:
@@ -1438,7 +1624,7 @@ def _search_regime(project_config: Any, phase: Any | None) -> str | None:
 
 
 def _check_an_extent_is_scored_on_a_transient_run(
-    calibration: Any, project_config: Any
+    calibration: Any, searched: Mapping[str | None, Any]
 ) -> list[PreflightFinding]:
     """Refuse an extent table on a network output a steady search scores.
 
@@ -1448,7 +1634,8 @@ def _check_an_extent_is_scored_on_a_transient_run(
     """
     findings: list[PreflightFinding] = []
     for phase, where, _ in _search_candidates(calibration):
-        if _search_regime(project_config, phase) != "steady":
+        config = _config_of(searched, phase)
+        if config is None or _search_regime(config, phase) != "steady":
             continue
         outputs = _outputs_scored_by_search(calibration, phase)
         for name, output in sorted(outputs.items()):
@@ -1517,7 +1704,7 @@ def _check_a_network_estimator_names_its_network_output(
 
 
 def _check_the_scoring_windows_hold_what_they_score(
-    calibration: Any, project_config: Any, source: Path
+    calibration: Any, searched: Mapping[str | None, Any], source: Path
 ) -> list[PreflightFinding]:
     """Refuse a scoring window that cannot hold what its search scores.
 
@@ -1528,9 +1715,8 @@ def _check_the_scoring_windows_hold_what_they_score(
     reads, the first, the last or the one holding its date, and the window has
     to hold that stamp. The stamp is read on the time grid the search runs:
     one period over the steady window for a steady phase, the project's own
-    grid otherwise. A date on ``time`` that grid does not hold is refused too,
-    window or not. A phase that rewrites ``[simulation.time]`` in its own
-    overrides is left to the run.
+    grid otherwise, written with the phase's overrides. A date on ``time`` that
+    grid does not hold is refused too, window or not.
     """
     import pandas as pd
 
@@ -1554,7 +1740,8 @@ def _check_the_scoring_windows_hold_what_they_score(
         if not blocks:
             continue
         outputs = _outputs_scored_by_search(calibration, phase)
-        edges = _search_edges(project_config, phase, source, document)
+        config = _config_of(searched, phase)
+        edges = None if config is None else _search_edges(config, phase, source, document)
         declared = getattr(phase, "scoring_window", None) or calibration.scoring_window
         # Validated when the file was read, so both bounds parse.
         window = (
@@ -1621,27 +1808,23 @@ def _search_edges(
     """Return the period bounds of the time grid one search runs, or ``None``.
 
     A steady phase runs one period over its steady window, read from the raw
-    document as the run reads it. Any other search runs the project's grid.
-    ``None`` when that cannot be told here: a phase that rewrites
-    ``[simulation.time]`` in its overrides, a steady window the regime check
-    already refuses, or a project with no dated grid. ``document`` caches the
-    raw document between searches, read once.
+    document as the run reads it. Any other search runs the grid of
+    ``project_config``, the model the search runs, its phase's overrides
+    written in. ``None`` when that cannot be told here: a steady window the
+    regime check already refuses, or a project with no dated grid.
+    ``document`` caches the raw document between searches, read once.
     """
     import pandas as pd
 
     from hydromodpy.core.time.selection import grid_edges
     from hydromodpy.core.time.window import resolve_simulation_time_grid
 
-    overrides = getattr(phase, "overrides", None) or {}
-    if any(str(path).startswith("simulation.time.") for path in overrides):
-        return None
     if getattr(phase, "regime", None) == "steady":
         from hydromodpy.calibration.runners.phase_regime import regime_overrides
-        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
         if not document:
             try:
-                document.append(load_toml_with_base_config(source))
+                document.append(_raw_document(project_config, source))
             except (OSError, ValueError):
                 document.append(None)
         if document[0] is None:

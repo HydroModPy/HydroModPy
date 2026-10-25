@@ -196,7 +196,8 @@ class SitesSummaryConfig(HydroModelBase):
         description="Which case of a site the by-site table keeps as its best.",
         json_schema_extra={
             "value_docs": {
-                "calibrated": "The best calibrated case of the site.",
+                "calibrated": "The best calibrated case of the site, scored in its "
+                "calibration window or out of it (evaluated).",
                 "any": "The best case of the site, calibrated or not.",
             }
         },

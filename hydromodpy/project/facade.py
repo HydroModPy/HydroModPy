@@ -66,7 +66,6 @@ from hydromodpy.core.state.paths import (
     summary_dir_for,
 )
 from hydromodpy.project.accessors import (
-    BEST_LABEL,
     ProjectDataAccessor,
     ProjectRunsAccessor,
     ProjectSessions,
@@ -81,6 +80,7 @@ from hydromodpy.project.state import (
     PROJECT_ATTR_TO_STATE_FIELD,
     ProjectState,
 )
+from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -508,14 +508,16 @@ class Project:
         metric: str = "nse",
         *,
         by: Literal["site", "recipe"] | None = "site",
-        label: str | None = BEST_LABEL,
+        label: str | Sequence[str] | None = CALIBRATED_LABELS,
         mixed_windows: bool = False,
     ) -> pd.DataFrame:
         """Return the best completed run of each site, one row each.
 
         The metric is read at the gauge of each run, in the window of its
         rule; best follows its direction. The calibrated runs are ranked by
-        default; ``label=None`` ranks every completed run. ``by=None`` gives
+        default, the ``evaluated`` ones included (scored out of their
+        calibration window); ``label="calibrated"`` keeps the runs scored in
+        it, ``label=None`` ranks every completed run. ``by=None`` gives
         the single best run of the project. A site of completed runs left
         out is named once in a warning, with why: no run scored (declare
         ``[metrics] window``), or none of ``label``.
@@ -858,7 +860,9 @@ class Project:
             Raised when neither ``config_path`` nor ``parameters`` is supplied.
         ConfigError
             Raised when ``phase`` is given and ``config_path`` cannot be read,
-            because the answer is what the file says.
+            because the answer is what the file says, and when the preflight,
+            the checks of ``hmp config check``, refuses the calibration, before
+            anything is prepared.
         CalibrationError
             Raised when ``[[calibration.phases]]`` cannot be run as declared,
             and when ``phase`` names a phase no configuration declares.
@@ -883,12 +887,15 @@ class Project:
                 declared_phases = calibration_phases_or_raise(target)
             else:
                 declared_phases = declared_calibration_phases(target)
+            if phase is not None and not declared_phases:
+                raise CalibrationError(no_such_phase(target.name, phase))
+            from hydromodpy.calibration.preflight import preflight_launch
+
+            preflight_launch(target)
             if declared_phases:
                 from hydromodpy.calibration.runners.staged_runner import run_staged_calibration
 
                 return run_staged_calibration(target, phase=phase, **kwargs)
-            if phase is not None:
-                raise CalibrationError(no_such_phase(target.name, phase))
             # The plain runner returns its dict unless asked; every other
             # branch returns the report object by default.
             kwargs.setdefault("return_report", True)
@@ -906,13 +913,16 @@ class Project:
                 declared = [decl.name for decl in (getattr(embedded, "phases", None) or [])]
                 source = self._config_path
                 if declared and source is not None:
+                    from hydromodpy.calibration.preflight import preflight_launch
                     from hydromodpy.calibration.runners.staged_runner import (
                         run_staged_calibration,
                     )
 
+                    preflight_launch(Path(source).resolve())
                     return run_staged_calibration(Path(source).resolve(), phase=phase, **kwargs)
                 if not declared and phase is not None:
                     raise CalibrationError(no_such_phase("this configuration", phase))
+                _preflight_in_memory(self, embedded)
                 # A declaration on a project built in memory has no file to fork
                 # each phase from: run_calibration_programmatic writes one next
                 # to this project's sessions/ and runs the staged runner on it.
@@ -976,6 +986,7 @@ class Project:
             from hydromodpy.calibration.parameter_resolution import resolve_parameter_targets
 
             resolve_parameter_targets(cfg, project_config)
+        _preflight_in_memory(self, cfg)
         return run_calibration_programmatic(
             cfg,
             project=self,
@@ -1067,6 +1078,24 @@ class Project:
             "<table style='font-size:0.85em;border-collapse:collapse'>"
             f"{body}</table></div>"
         )
+
+
+def _preflight_in_memory(project: Project, calibration: Any) -> None:
+    """Run the launch preflight on a calibration held in memory, on this project.
+
+    The project's configuration with ``calibration`` in place of its own, the
+    project defaults written in as the run writes them. A project built in
+    memory has no file, and the checks anchor on its root.
+    """
+    from hydromodpy.calibration.preflight import preflight_launch
+    from hydromodpy.calibration.runners.programmatic_runner import with_project_defaults
+
+    config = getattr(project, "config", None)
+    source = getattr(project, "_config_path", None)
+    if source is None:
+        root = getattr(getattr(config, "workspace", None), "project_root", None)
+        source = Path(root if root is not None else Path.cwd()) / "project.toml"
+    preflight_launch(source, config=config, calibration=with_project_defaults(calibration, project))
 
 
 def open_project(path: str | Path) -> Project:

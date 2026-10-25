@@ -206,11 +206,36 @@ def align_observed_simulated(
     return paired.dropna() if dropna else paired
 
 
+def simulated_nan_stamps(
+    observed: pd.Series,
+    simulated: pd.Series,
+    *,
+    method: str = DEFAULT_TIME_METHOD,
+    start: Any = None,
+) -> pd.DatetimeIndex:
+    """Return the end stamps whose simulated value is NaN while the record has one.
+
+    These are the pairs :func:`align_observed_simulated` drops because of the
+    simulated side, a dry cell for instance. The periods are cut on every
+    simulated stamp, NaN ones included, so each stamp keeps its own period.
+    A period the record leaves empty is not one of them. The stamps are
+    tz-naive UTC.
+    """
+    sim = normalize_datetime_series(simulated)
+    if sim.empty or not sim.isna().any():
+        return pd.DatetimeIndex([])
+    grid = pd.DatetimeIndex(sim.index).as_unit("ns")
+    obs_aligned = observed_on_simulation_index(observed, grid, method=method, start=start)
+    covered = obs_aligned.reindex(grid).notna().to_numpy()
+    return grid[sim.isna().to_numpy() & covered]
+
+
 __all__ = [
     "align_observed_simulated",
     "first_period_start",
     "normalize_datetime_series",
     "observed_on_simulation_index",
     "run_period_start",
+    "simulated_nan_stamps",
     "time_method_for",
 ]

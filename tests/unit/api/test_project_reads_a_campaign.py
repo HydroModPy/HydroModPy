@@ -213,7 +213,7 @@ def test_best_names_the_sites_it_leaves_out_and_why(tmp_path: Path, caplog) -> N
     assert list(every["site"]) == ["couesnon"]
     assert calibrated.empty
     assert "no sealed run of nancon is scored: declare [metrics] window" in caplog.text
-    assert "no calibrated run of couesnon is scored; label=None ranks every" in caplog.text
+    assert "no calibrated or evaluated run of couesnon is scored; label=None ranks every" in caplog.text
 
 
 def test_best_refuses_two_windows_inside_one_site(tmp_path: Path) -> None:

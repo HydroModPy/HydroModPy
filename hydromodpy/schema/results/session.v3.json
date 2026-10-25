@@ -132,6 +132,21 @@
           "title": "N",
           "type": "integer",
           "x-hmp-profile": "user"
+        },
+        "n_sim_nan": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pairs of the window dropped because the simulated value is NaN (a dry cell); null when not counted",
+          "title": "N Sim Nan",
+          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -339,6 +354,53 @@
       ],
       "title": "Status",
       "type": "string",
+      "x-hmp-profile": "user"
+    },
+    "stop_note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The phases that froze the best of a budget-only search, in words; none when no phase did",
+      "title": "Stop Note",
+      "x-hmp-profile": "user"
+    },
+    "stop_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "rule_met",
+            "plan_exhausted",
+            "budget_spent"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Why the search stopped: rule_met, plan_exhausted or budget_spent; for a staged session, the search of the last phase; none until it closes",
+      "title": "Stop State",
+      "x-hmp-profile": "user"
+    },
+    "stopping_rule": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The rule that search stops on, 'budget' for one with no rule of its own",
+      "title": "Stopping Rule",
       "x-hmp-profile": "user"
     }
   },

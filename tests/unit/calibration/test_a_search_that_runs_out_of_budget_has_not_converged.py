@@ -36,7 +36,6 @@ from hydromodpy.calibration.optim.optimizer import (
 from hydromodpy.calibration.optim.parameters import CalibParameter, ParameterSpace
 from hydromodpy.calibration.optim.stopping import (
     AUTO_BUDGET,
-    BUDGET_RULE,
     UNCOUNTED_BUDGET,
     CountedBudget,
     remaining_grant,
@@ -53,11 +52,12 @@ from hydromodpy.calibration.runners.cli_runner import (
     load_toml_calibration,
 )
 from hydromodpy.calibration.runners.staged_runner import (
-    _converged,
     _frozen_by,
     _require_result_for_dependents,
+    _settled,
 )
 from hydromodpy.core.exceptions import CalibrationError, OptimizerError
+from hydromodpy.results.checks import BUDGET_RULE
 
 NANCON_BOUNDS = (1e-7, 1e-3)
 
@@ -324,7 +324,7 @@ def test_an_engine_with_a_rule_names_it_and_a_budget_engine_does_not() -> None:
     assert stopping_rule(build_optimizer("random_search", _log_space(), seed=1)) == BUDGET_RULE
 
 
-def test_a_budget_engine_converges_when_it_spends_its_budget(caplog) -> None:
+def test_a_budget_engine_spends_its_budget_and_settles_unconverged(caplog) -> None:
     optimizer = build_optimizer("random_search", _log_space(), seed=3)
     engine = CalibrationEngine(
         space=_log_space(), optimizer=optimizer, evaluator=_root_at(50.0), max_trials=4
@@ -332,10 +332,13 @@ def test_a_budget_engine_converges_when_it_spends_its_budget(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         session = engine.run()
 
-    assert session.converged
+    assert session.stop_state == "budget_spent"
+    assert not session.converged
+    assert session.settled
     assert session.extension == 0
     assert len(session.history) == 4
     assert "Granting" not in caplog.text
+    assert "the best of a budget-only search" in caplog.text
 
 
 # --------------------------------------------------------------------------- #
@@ -519,6 +522,7 @@ def test_the_report_records_the_verdict_and_the_open_bracket() -> None:
     # Four expansions leave the bracket eight halvings wide at 16 evaluations,
     # and eight is exactly half the budget: granted, and closed.
     assert extra["search"] == {
+        "stop_state": "rule_met",
         "converged": True,
         "stopping_rule": "rel_tol",
         "max_trials": 16,
@@ -542,6 +546,7 @@ def test_the_report_publishes_an_open_bracket_when_nothing_was_granted(caplog) -
     extra = _search_outcome_extra(session)
 
     assert extra["search"] == {
+        "stop_state": "budget_spent",
         "converged": False,
         "stopping_rule": "rel_tol",
         "max_trials": 14,
@@ -577,7 +582,8 @@ def test_a_minimiser_publishes_no_bracket() -> None:
     extra = _search_outcome_extra(session)
 
     assert "bracket" not in extra
-    assert extra["search"]["converged"] is True
+    assert extra["search"]["converged"] is False
+    assert extra["search"]["stop_state"] == "budget_spent"
     assert extra["search"]["stopping_rule"] == BUDGET_RULE
 
 
@@ -585,6 +591,7 @@ def _report(*, converged: bool | None) -> CalibrationReport:
     extra = {}
     if converged is not None:
         extra["search"] = {
+            "stop_state": "rule_met" if converged else "budget_spent",
             "converged": converged,
             "stopping_rule": "xatol",
             "max_trials": 120,
@@ -605,13 +612,13 @@ def _report(*, converged: bool | None) -> CalibrationReport:
     )
 
 
-def test_a_phase_that_did_not_converge_is_not_converged() -> None:
-    assert not _converged(_report(converged=False))
-    assert _converged(_report(converged=True))
+def test_a_phase_that_did_not_converge_is_not_settled() -> None:
+    assert not _settled(_report(converged=False))
+    assert _settled(_report(converged=True))
 
 
 def test_a_report_without_a_search_record_is_judged_on_its_candidate() -> None:
-    assert _converged(_report(converged=None))
+    assert _settled(_report(converged=None))
 
 
 def test_nothing_is_frozen_from_a_phase_that_did_not_converge(caplog) -> None:
@@ -639,6 +646,7 @@ def test_a_phase_built_on_an_unconverged_one_is_refused() -> None:
 def _session_that(*, converged: bool) -> SimpleNamespace:
     return SimpleNamespace(
         converged=converged,
+        settled=converged,
         stopping_rule="rel_tol",
         history=[None] * 17,
         max_trials=15,

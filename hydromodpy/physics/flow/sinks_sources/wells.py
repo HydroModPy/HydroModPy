@@ -531,7 +531,7 @@ class FlowWellConfig(HydroModelBase):
             "Negative = pumping, positive = injection."
         ),
         # A pumping rate is negative, so a log transform is not available to it.
-        json_schema_extra=field_metadata(calibrable=Calibrable(units="m3/s")),
+        json_schema_extra=field_metadata(calibrable=Calibrable(units="m3/s", unit_field="units")),
     )
     forcing: Annotated[FlowWellForcingConfig | None, Profile.USER] = Field(
         default=None,

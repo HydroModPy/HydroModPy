@@ -31,6 +31,7 @@ LAZY_IMPORTS: dict[str, str] = {
     "parse_to_m": "hydromodpy.core.units.length:parse_to_m",
     "canonical_unit_short_form": "hydromodpy.core.units.parse:canonical_unit_short_form",
     "check_unit_compatible": "hydromodpy.core.units.parse:check_unit_compatible",
+    "convert_between_units": "hydromodpy.core.units.parse:convert_between_units",
     "parse_to_canonical_magnitude": "hydromodpy.core.units.parse:parse_to_canonical_magnitude",
     "RADIATION_CANONICAL_UNITS": "hydromodpy.core.units.radiation:RADIATION_CANONICAL_UNITS",
     "convert_to_w_per_m2": "hydromodpy.core.units.radiation:convert_to_w_per_m2",

@@ -187,6 +187,7 @@ class SimulationStore(Protocol):
         variable: str = "head",
         n_samples: int | None = None,
         n_clipped: int | None = None,
+        n_sim_nan: int | None = None,
         period_start: Any | None = None,
         period_end: Any | None = None,
     ) -> None:

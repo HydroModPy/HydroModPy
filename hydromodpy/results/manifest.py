@@ -245,6 +245,12 @@ class MetricRow(HydroModelBase):
         description="Negative values clipped to zero before a log-scale score; "
         "null on a metric that never clips",
     )
+    n_sim_nan: int | None = Field(
+        default=None,
+        ge=0,
+        description="Periods of the window the record covers and the simulated value "
+        "leaves NaN (a dry cell), dropped from the pairs; null when not counted",
+    )
     metric_rule_version: str | None = None
 
     @property

@@ -138,7 +138,7 @@ def test_the_session_readme_names_the_method_phases_best_trial_and_promoted_run(
     assert text.startswith("# Calibration J0014010-calage\n")
     assert "method `tpe`, objective `nse_log`, status **completed**" in text
     assert "7 trials in `trials.jsonl`" in text
-    assert "| steady_k | completed | 0 | {} | 3 |" in text
+    assert "| steady_k | completed | 0 | {} | 3 | not recorded |" in text
     assert "transient_sy" in text and "'from': 'steady_k'" in text
     assert "trial 7, objective -0.84" in text
     assert "calibrated run: `runs/J0014010-calage` (sim_id `" in text

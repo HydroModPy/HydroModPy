@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.calibration.runners.cli_runner import _assert_bounds_valid
+from hydromodpy.calibration.runners.prepared_model import _assert_bounds_valid
 
 pytestmark = pytest.mark.fast
 
@@ -142,7 +142,7 @@ class TestDrainConductanceIsProportional:
         return [_param(name, 1e-7, 1e-3, path=path)]
 
     def _check(self, flow, cfg, *, moves_k: bool = True) -> None:
-        from hydromodpy.calibration.runners.cli_runner import (
+        from hydromodpy.calibration.runners.prepared_model import (
             _assert_network_conductance_proportional,
         )
 
@@ -273,7 +273,7 @@ class TestReleasePackagesFollowK:
         )
 
     def _check(self, active_bc: list[str], *, moves_k: bool = True, cfg=None) -> None:
-        from hydromodpy.calibration.runners.cli_runner import (
+        from hydromodpy.calibration.runners.prepared_model import (
             _assert_active_release_packages_follow_k,
         )
 

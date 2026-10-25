@@ -129,6 +129,7 @@
                   "is_the_value_of_its_instance": false,
                   "sampling": "log_uniform",
                   "search_space": "log",
+                  "unit_field": null,
                   "units": "m"
                 },
                 "default": 50.0,
@@ -167,6 +168,7 @@
                   "is_the_value_of_its_instance": false,
                   "sampling": "uniform",
                   "search_space": "identity",
+                  "unit_field": null,
                   "units": "m"
                 },
                 "default": 0.0,

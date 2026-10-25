@@ -28,6 +28,7 @@ from hydromodpy.core.state.paths import sessions_dir_for
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.display.figure_registry import get as _get_figure
 from hydromodpy.display.figure_registry import names as _figure_names
+from hydromodpy.results.checks import stop_line
 from hydromodpy.results.derive.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
@@ -502,6 +503,8 @@ def _render_html(
         "method",
         "objective_name",
         "status",
+        "stop_state",
+        "stop_note",
         "n_iterations",
         "best_objective",
         "best_sim_id",
@@ -511,6 +514,12 @@ def _render_html(
     ):
         value = session.get(key)
         if value is None:
+            continue
+        if key == "stop_state":
+            rows_html.append(
+                "<tr><th>search stopped</th><td>"
+                f"{html.escape(stop_line(value, session.get('stopping_rule')))}</td></tr>"
+            )
             continue
         if key == "best_sim_id":
             value = _hex(value)

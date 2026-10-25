@@ -131,8 +131,8 @@ def resolve_parameter_targets(
                 # and the space and the preflight judge it on their own terms.
                 continue
         _refuse_a_replaced_recharge_rate(name, target, project_config)
+        _convert_bounds_into_the_unit_of_the_target(name, decl, target)
         _fill_what_the_file_left_unsaid(decl, target)
-        _refuse_bounds_in_another_unit(name, decl, target)
         _refuse_bounds_the_registry_rules_out(name, decl, target)
 
 
@@ -329,45 +329,57 @@ def _refuse_a_depth_model_path_the_catalogue_does_not_carry(
     raise UnresolvedParameterName(f"[calibration.parameters.{name}] path = {path!r} {why}")
 
 
-def _refuse_bounds_in_another_unit(name: str, decl: Any, target: CalibrationTarget) -> None:
-    """Refuse bounds written in another unit than the one the target is read in.
+def _convert_bounds_into_the_unit_of_the_target(
+    name: str, decl: Any, target: CalibrationTarget
+) -> None:
+    """Rewrite bounds written in another unit into the unit the target is read in.
 
     The sampled value is written as it is into the field, which reads it in its
     own unit. Bounds in ``m/s`` on a conductivity the project declares in
-    ``m/day`` would put every candidate 86 400 times too low, so the file is
-    refused, with the bounds converted when the two units convert. A factor of
-    ``mode = "scale"`` carries no unit and is left alone.
+    ``m/day`` are multiplied by 86 400 here, so the search draws in ``m/day``
+    and the journal says ``m/day``. A unit of another dimension is refused.
+
+    The bounds of ``mode = "scale"`` are factors and carry no unit, so a unit
+    written there is refused. Restating the unit of the target is accepted,
+    because that is what a configuration sealed after this step holds.
+
+    Runs before the field fills in what the file left unsaid, so only bounds
+    the file wrote are converted. Once converted the declaration holds the unit
+    of the target, which makes a second pass change nothing.
     """
-    if "units" not in decl.model_fields_set or not decl.units or not target.units:
+    if "units" not in decl.model_fields_set or not decl.units:
         return
-    if getattr(decl, "mode", "replace") == "scale":
-        return
-    written, read = str(decl.units).strip(), str(target.units).strip()
+    written = str(decl.units).strip()
+    read = str(target.units).strip() if target.units else None
     if written == read:
         return
-    from hydromodpy.core.units.parse import parse_to_canonical_magnitude
-
-    try:
-        factor = parse_to_canonical_magnitude(
-            1.0,
-            location=f"[calibration.parameters.{name}]",
-            canonical_unit=read,
-            explicit_unit=written,
+    if getattr(decl, "mode", "replace") == "scale":
+        raise ConfigError(
+            f"[calibration.parameters.{name}] writes units = {written!r} with "
+            'mode = "scale". Its bounds are factors applied to the value the project '
+            "holds, and a factor has no unit: drop 'units'."
         )
-    except ValueError:
-        factor = None
-    if factor == 1.0:
+    if read is None:
         return
-    bounds = list(getattr(decl, "bounds", None) or ())
-    suggestion = ""
-    if factor is not None and len(bounds) == 2:
-        low, high = (float(bound) * factor for bound in bounds)
-        suggestion = f" write bounds = [{low:.6g}, {high:.6g}], or"
-    raise ConfigError(
-        f"[calibration.parameters.{name}] writes its bounds in {written!r}, and "
-        f"{target.name!r} is read in {read!r}. Each sampled value is written as it is, so "
-        f"the two have to agree:{suggestion} drop 'units' to search in {read!r}."
-    )
+    from hydromodpy.core.units.parse import convert_between_units
+
+    bounds = decl.bounds if "bounds" in decl.model_fields_set else None
+    try:
+        converted = [
+            convert_between_units(float(bound), from_unit=written, to_unit=read)
+            for bound in bounds or ()
+        ]
+        # A unit that cannot be read must still be refused when no bound is written.
+        convert_between_units(1.0, from_unit=written, to_unit=read)
+    except ValueError as exc:
+        raise ConfigError(
+            f"[calibration.parameters.{name}] writes its bounds in {written!r}, and "
+            f"{target.name!r} is read in {read!r}: {exc} Write the bounds in {read!r}, "
+            "or in a unit of the same quantity."
+        ) from None
+    if bounds is not None:
+        decl.bounds = converted
+    decl.units = read
 
 
 def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: CalibrationTarget) -> None:

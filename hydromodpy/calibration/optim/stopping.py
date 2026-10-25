@@ -13,14 +13,17 @@ whose stopping rule is a budget and not a precision declares nothing, and a
 precision handed to it is refused rather than dropped: silently ignoring it would
 report a search that honoured a request it never read.
 
-The same declaration tells the engine loop what "converged" means. An engine
-that names a stopping option can run out of budget before meeting it, and that
-search did not converge: its answer is wherever the budget happened to end. An
+The same declaration tells the engine loop why a search stopped, in one of
+three states (:data:`~hydromodpy.results.checks.StopState`). An engine that
+names a stopping option met it (``rule_met``) or ran out of budget first
+(``budget_spent``): its answer is then wherever the budget happened to end. An
 engine that sweeps a design it counts up front, the grid and the Latin
-hypercube, stops when every point of the design is solved: a sweep cut short
-by its budget is not its design, so it did not converge either. Any other
-engine that names no option stops on its budget by design, so spending it is
-its rule and not a failure.
+hypercube, solved every point of it (``plan_exhausted``) or was cut short by
+its budget, which is not its design either. Only the first two are
+convergence. An engine that names no option has no rule of its own: it
+spends its budget by design (``budget_spent``), unless a rule of its own
+options ends it first. It did not converge, but there was no rule to miss, so
+its answer may still be built on (:func:`settled`), and the caller says so.
 
 The budget itself follows the same logic. An engine that can count the
 evaluations its rule needs, before the first solve, publishes that count
@@ -40,12 +43,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from hydromodpy.calibration.optim.optimizer import EngineTraits, engine_traits
+from hydromodpy.results.checks import BUDGET_RULE, StopState
 
 PRECISION_FIELD = "calibration.precision"
 """Where the precision is declared, for the message an engine refusal prints."""
-
-BUDGET_RULE = "budget"
-"""The rule of an engine that declares no stopping option: it stops on max_trials."""
 
 
 def stopping_rule(optimizer: Any) -> str:
@@ -63,6 +64,37 @@ def stopping_rule(optimizer: Any) -> str:
     if isinstance(counted, CountedBudget):
         return f"every {counted.step}"
     return BUDGET_RULE
+
+
+def stop_state(optimizer: Any, *, met: bool, spent: bool) -> StopState:
+    """Return why *optimizer* stopped, from whether it met its rule and spent its budget.
+
+    *met* is what the engine says of itself (``converged()``), *spent* whether
+    the budget, extension included, is used up. An engine with a stopping
+    option or a counted design is judged on *met* alone. An engine with no
+    rule of its own that used its whole budget spent it, whatever it says:
+    its own end then only coincides with the budget.
+    """
+    if stopping_rule(optimizer) == BUDGET_RULE:
+        return "rule_met" if met and not spent else "budget_spent"
+    if not met:
+        return "budget_spent"
+    traits = getattr(optimizer, "traits", None)
+    if isinstance(traits, EngineTraits) and traits.precision_option is not None:
+        return "rule_met"
+    return "plan_exhausted"
+
+
+def settled(state: StopState, rule: str) -> bool:
+    """Whether the answer of a search that stopped in *state* may be built on.
+
+    This is the one rule a staged calibration freezes by, and a session closes
+    ``completed`` by. A search that met its rule or exhausted its plan
+    settled. So did a search with no rule of its own that spent its budget:
+    its best trial is the best of a budget-only search, and the caller says
+    so. A search that spent its budget before a rule it has did not.
+    """
+    return state != "budget_spent" or rule == BUDGET_RULE
 
 
 AUTO_BUDGET = "auto"
@@ -276,7 +308,6 @@ def search_width(parameter: Any, precision: float) -> float:
 
 __all__ = [
     "AUTO_BUDGET",
-    "BUDGET_RULE",
     "PRECISION_FIELD",
     "UNCOUNTED_BUDGET",
     "CountedBudget",
@@ -286,6 +317,8 @@ __all__ = [
     "short_budget",
     "engine_stopping_value",
     "search_width",
+    "settled",
+    "stop_state",
     "stopping_kwargs",
     "stopping_rule",
 ]

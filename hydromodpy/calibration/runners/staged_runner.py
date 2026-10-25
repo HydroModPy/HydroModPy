@@ -9,9 +9,14 @@ any other. What staging adds is what happens between two phases.
 Passing values on
 -----------------
 A phase moves the parameters it lists. Every other parameter holds the last
-value an earlier converged phase passed on, otherwise the value of the model
+value an earlier settled phase passed on, otherwise the value of the model
 file. A phase passes its values on when it declares ``freeze_on_success`` and
-converges. A held value is written once into the baseline configuration every
+its search settled (:func:`hydromodpy.calibration.optim.stopping.settled`):
+its engine met its own rule or exhausted its plan, or, for an engine with no
+rule of its own such as a random search, spent its budget. That last phase
+passes on the best of a budget-only search and says so, in its descriptor,
+in ``session.json`` and on the console. A phase whose engine has a rule the
+budget stopped first passes nothing on. A held value is written once into the baseline configuration every
 trial of the phase forks from. It is not in that phase's parameter space,
 because the phase does not list it.
 
@@ -65,6 +70,7 @@ from hydromodpy.calibration.optim.parameters import (
     apply_parameter_to_config,
 )
 from hydromodpy.calibration.optim.sampling import search_space_center
+from hydromodpy.calibration.optim.stopping import settled
 from hydromodpy.calibration.persistence import (
     CalibrationPersistence,
     PhaseContext,
@@ -93,6 +99,7 @@ from hydromodpy.calibration.runners.cli_runner import (
     session_status_of,
 )
 from hydromodpy.calibration.runners.phase_regime import phase_overrides, regime_overrides
+from hydromodpy.calibration.runners.prepared_model import check_the_prepared_model
 from hydromodpy.calibration.runners.promotion import promote_phase_best, promotion_name_check
 from hydromodpy.calibration.runners.recap import write_methods
 from hydromodpy.calibration.runners.restarts import RestartSpread
@@ -115,6 +122,7 @@ from hydromodpy.calibration.runners.trial import TrialMetricFn, prepare_trials
 from hydromodpy.core.exceptions import CalibrationError, ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.workspace.path_registry import in_run_scratch
+from hydromodpy.results.checks import FROZE_BUDGET_ONLY
 from hydromodpy.results.session.descriptor import SessionStatus
 from hydromodpy.solver.base.solver_config import SolverConfig, solver_name_of_backend
 
@@ -179,6 +187,8 @@ class PhaseRun:
     """The passed values this phase moved again, each with the phase that found it."""
     status: SessionStatus = "completed"
     """What the phase descriptor says of the search: completed, partial or failed."""
+    stop_note: str | None = None
+    """``FROZE_BUDGET_ONLY`` when the phase passed on the best of a budget-only search."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly view of the phase, report included."""
@@ -189,6 +199,8 @@ class PhaseRun:
             "status": self.status,
             "frozen": [item.to_dict() for item in self.frozen],
         }
+        if self.stop_note:
+            summary["stop_note"] = self.stop_note
         if self.reopened:
             summary["reopened"] = [item.to_dict() for item in self.reopened]
         summary["report"] = self.report.to_dict()
@@ -200,7 +212,7 @@ class StagedCalibrationReport:
     """Outcome of a calibration run in phases.
 
     ``phases`` keeps the runs in the order they ran and ``frozen`` gathers,
-    in the same order, every value a converged phase declared frozen, with
+    in the same order, every value a settled phase declared frozen, with
     the path it is written to. A parameter two phases froze appears twice; the
     later value is the one the phases after both of them hold.
     """
@@ -586,40 +598,49 @@ def _freeze_into_baseline(trial_ctx: TrialContext, held: Sequence[FrozenParamete
         apply_parameter_to_config(trial_ctx.base_cfg, item.parameter, item.value)
 
 
-def _converged(report: CalibrationReport) -> bool:
+def _settled(report: CalibrationReport) -> bool:
     """Whether a phase produced a candidate the next phases can build on.
 
-    Convergence, not quality: a coarse agreement still returns a number. What
+    Settled, not quality: a coarse agreement still returns a number. What
     disqualifies a phase is having no best candidate at all, a best cost that
     is the failed-evaluation sentinel, or a search that spent its budget before
-    its own stopping rule was met. A root search may have been granted, once,
-    the exact halvings it still needed; no other engine gets an extension. That
-    last candidate is wherever the budget ended, and freezing it would hand
-    the next phase a value the search never settled on.
+    a stopping rule of its own was met
+    (:func:`~hydromodpy.calibration.optim.stopping.settled`). A root search may
+    have been granted, once, the exact halvings it still needed; no other
+    engine gets an extension. That last candidate is wherever the budget ended,
+    and freezing it would hand the next phase a value the search never settled
+    on. A search with no rule of its own settles on its budget: its best is the
+    best of a budget-only search, which :func:`_frozen_by` says.
     """
     if report.best_parameters is None or report.best_objective is None:
         return False
-    if _unconverged_search(report) is not None:
+    if _unsettled_search(report) is not None:
         return False
     return math.isfinite(report.best_objective) and report.best_objective < FAILED_EVAL_COST
 
 
-def _unconverged_search(report: CalibrationReport) -> Mapping[str, Any] | None:
-    """Return the report's search record when it says the rule was not met, else None.
+def _froze_budget_only(report: CalibrationReport) -> bool:
+    """Whether the settled search of a phase is a budget-only one that spent its budget."""
+    search = report.extra.get("search")
+    return isinstance(search, Mapping) and search.get("stop_state") == "budget_spent"
+
+
+def _unsettled_search(report: CalibrationReport) -> Mapping[str, Any] | None:
+    """Return the report's search record when it says the search did not settle, else None.
 
     The record is ``extra["search"]``, written by the runner that solved the
     phase. A report without one (a phase reused from disk) is judged on its
     best candidate alone.
     """
     search = report.extra.get("search")
-    if isinstance(search, Mapping) and search.get("converged") is False:
+    if isinstance(search, Mapping) and not settled(search["stop_state"], search["stopping_rule"]):
         return search
     return None
 
 
-def _why_not_converged(report: CalibrationReport) -> str:
+def _why_unsettled(report: CalibrationReport) -> str:
     """Say why a phase produced nothing to freeze, in the terms a user can act on."""
-    search = _unconverged_search(report)
+    search = _unsettled_search(report)
     if search is None:
         return (
             f"its session {report.session_id} produced no result over {report.n_iterations} "
@@ -629,7 +650,7 @@ def _why_not_converged(report: CalibrationReport) -> str:
         f"its session {report.session_id} spent {report.n_iterations} trial(s) "
         f"(max_trials = {search.get('max_trials')}, plus {search.get('extension')} granted once) "
         f"before its stopping rule ({search.get('stopping_rule')}) was met, so its best "
-        "candidate is where the budget ended, not a converged value. Raise max_trials: a "
+        "candidate is where the budget ended, not a settled value. Raise max_trials: a "
         "re-run of the same file replays the trials already solved from the cache. So does a "
         "new precision, seed, method or method_options, for every trial it proposes at "
         "values already solved"
@@ -644,18 +665,28 @@ def _frozen_by(
     """Return what this phase hands to the phases that depend on it."""
     if not decl.freeze_on_success:
         return ()
-    if not _converged(report):
+    if not _settled(report):
         logger.warning(
-            "Phase %s did not converge (%s); its parameters stay free for the next phases.",
+            "Phase %s did not settle (%s); its parameters stay free for the next phases.",
             decl.name,
-            _why_not_converged(report),
+            _why_unsettled(report),
         )
         return ()
+    if _froze_budget_only(report):
+        logger.warning(
+            "Phase %s %s: %s has no stopping rule of its own, so it did not converge, and "
+            "the %d trial(s) it spent pass on their lowest cost. A larger max_trials may "
+            "find a lower one.",
+            decl.name,
+            FROZE_BUDGET_ONLY,
+            report.method,
+            report.n_iterations,
+        )
     values = report.best_parameters or {}
     missing = [name for name in decl.parameters if name not in values]
     if missing:
         raise CalibrationError(
-            f"phase {decl.name!r} converged but its best candidate carries no value for "
+            f"phase {decl.name!r} settled but its best candidate carries no value for "
             f"{missing}; there is nothing to freeze for the phases that depend on it."
         )
     return tuple(
@@ -780,15 +811,15 @@ def _require_result_for_dependents(
     instead of against what its dependency was meant to fix, and nothing in the
     result would say so.
     """
-    if not decl.freeze_on_success or _converged(report):
+    if not decl.freeze_on_success or _settled(report):
         return
     dependents = [plan.decl.name for plan in remaining if plan.decl.depends_on == decl.name]
     if not dependents:
         return
     raise CalibrationError(
         f"phase {decl.name!r} freezes what {dependents} calibrate on top of, but "
-        f"{_why_not_converged(report)}. Running {dependents} now would calibrate them "
-        f"against the values the TOML declares. Make {decl.name!r} converge, then run "
+        f"{_why_unsettled(report)}. Running {dependents} now would calibrate them "
+        f"against the values the TOML declares. Make {decl.name!r} settle, then run "
         "the staged calibration again."
     )
 
@@ -1429,6 +1460,7 @@ def run_staged_calibration(
                 raise ConfigValidationError(
                     f"phase {decl.name!r} cannot prepare its trials: {exc}"
                 ) from exc
+            check_the_prepared_model(phase_cfg, trial_ctx, space)
             scope.trial_ctx = trial_ctx
             if persistence is None:
                 persistence, _ = open_calibration_session(
@@ -1468,6 +1500,8 @@ def run_staged_calibration(
             if disk_result is not None:
                 report, froze = disk_result
                 status: SessionStatus = "completed"
+                reused = persistence.phase(decl.name)
+                stop_note = reused.stop_note if froze and reused is not None else None
                 reused_from_disk.append(decl.name)
                 logger.info(
                     "Phase %s already completed in session %s; reusing its best trial "
@@ -1533,11 +1567,16 @@ def run_staged_calibration(
                     frozen=held,
                 )
                 froze = _frozen_by(decl, report, declared)
+                stop_note = FROZE_BUDGET_ONLY if froze and _froze_budget_only(report) else None
                 status = str(report.extra.get("search_status", "completed"))
+                search = report.extra.get("search") or {}
                 persistence.finish_phase(
                     decl.name,
                     status=status,
                     best=best_pointer(persistence.best_trial(decl.name)),
+                    stop_state=search.get("stop_state"),
+                    stopping_rule=search.get("stopping_rule"),
+                    stop_note=stop_note,
                 )
                 solved_reports.append(report)
                 if cfg.promote_phases and position < len(plans) - 1:
@@ -1562,6 +1601,7 @@ def run_staged_calibration(
                     frozen=froze,
                     reopened=reopened_values,
                     status=status,
+                    stop_note=stop_note,
                 )
             )
             ran.add(decl.name)
@@ -1599,6 +1639,10 @@ def run_staged_calibration(
                 for key in ("bracket", "roots")
                 if key in last_report.extra
             },
+            stop_note="; ".join(
+                f"phase {run.name} {run.stop_note}" for run in runs if run.stop_note
+            )
+            or None,
         )
         runs[-1] = replace(runs[-1], report=final)
         if final.extra.get("promotion_failures"):
@@ -1753,7 +1797,7 @@ def _methods_paragraph_for(
 
     if cfg.protocol is None:
         return None
-    completed = [run.name for run in runs if _converged(run.report)]
+    completed = [run.name for run in runs if _settled(run.report)]
     calibrated = {item.name: float(item.value) for item in frozen}
     # Read on the network outputs only: a gauge is not the criterion the
     # deviations describe.

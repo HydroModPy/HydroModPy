@@ -30,7 +30,7 @@ from pathlib import Path
 from pyproj import Transformer
 
 from hydromodpy.core.io.atomic_replace import staged_path
-from hydromodpy.results.checks import Checks
+from hydromodpy.results.checks import Checks, stop_line, stop_text
 from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import ManifestSite
 from hydromodpy.results.metric_rule import DateWindow
@@ -190,8 +190,11 @@ def render_session_readme(
         f"- HydroModPy {descriptor.hydromodpy_version}, configuration hash "
         f"`{descriptor.config_hash}` (`{SESSION_CONFIG_FILENAME}`)",
         f"- {len(trials)} trials in `{SESSION_TRIALS_FILENAME}`",
-        "",
+        f"- search stopped: {stop_line(descriptor.stop_state, descriptor.stopping_rule)}",
     ]
+    if descriptor.stop_note:
+        lines.append(f"- {descriptor.stop_note}")
+    lines.append("")
     if descriptor.error_message:
         lines += [f"Error: {descriptor.error_message}", ""]
     if descriptor.search_space:
@@ -202,13 +205,17 @@ def render_session_readme(
         lines += [
             "## Phases",
             "",
-            "| phase | status | restarts | frozen | best trial |",
-            "|---|---|---|---|---|",
+            "| phase | status | restarts | frozen | best trial | stopped |",
+            "|---|---|---|---|---|---|",
         ]
         for phase in phases:
             best = "none" if phase.best is None else str(phase.best.trial)
+            stopped = stop_text(phase.stop_state, phase.stopping_rule)
+            if phase.stop_note:
+                stopped += f"; {phase.stop_note}"
             lines.append(
-                f"| {phase.name} | {phase.status} | {phase.restarts} | {phase.frozen or '{}'} | {best} |"
+                f"| {phase.name} | {phase.status} | {phase.restarts} | {phase.frozen or '{}'} "
+                f"| {best} | {stopped} |"
             )
         lines.append("")
     lines += ["## Best trial", ""]
@@ -344,6 +351,8 @@ def _checks_section(checks: Checks) -> list[str]:
             f"- promoted by session `{by.session_id}` (phase {by.phase or 'none'}, "
             f"trial {by.trial}, session {by.session_status})"
         )
+        if by.stop_state is not None:
+            lines.append(f"- its search {stop_line(by.stop_state, by.stopping_rule)}")
     for validity in checks.validities:
         verdict = "passed" if validity.passed else ("FAILED, fatal" if validity.fatal else "failed")
         lines.append(f"- {validity.name}: {verdict}. {validity.message}")

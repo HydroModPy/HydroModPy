@@ -53,7 +53,8 @@ def register(subparsers) -> argparse.ArgumentParser:
             "  hmp calibrate calibration.toml --expand\n"
             "  hmp calibrate calibration.toml --set calibration.seed=7\n"
             "  hmp calibrate calibration.toml --overlay daily.toml --case calage_daily\n"
-            "Checks before any solve: hmp config check calibration.toml"
+            "Every launch, --dry-run included, runs the checks of\n"
+            "hmp config check calibration.toml before anything is prepared."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -442,13 +443,14 @@ def _roots_lines(roots: Mapping[str, Any]) -> list[str]:
 
 
 def _search_line(search: Mapping[str, Any]) -> str:
-    """Return whether the search met its stopping rule, and what it spent."""
+    """Return why the search stopped, whether that is convergence, and what it spent."""
+    from hydromodpy.results.checks import stop_line
+
     spent = f"{search.get('n_evaluations')} evaluation(s) of {search.get('max_trials')} declared"
     extension = int(search.get("extension") or 0)
     if extension:
         spent += f" + {extension} extension"
-    verdict = "converged" if search.get("converged") else "did NOT converge"
-    return f"search: {verdict} on its rule ({search.get('stopping_rule')}), {spent}"
+    return f"search: {stop_line(search.get('stop_state'), search.get('stopping_rule'))}, {spent}"
 
 
 def _format_staged_calibration_result(result: Any) -> list[str]:
@@ -467,6 +469,9 @@ def _format_staged_calibration_result(result: Any) -> list[str]:
             continue
         lines.append(f"phase {phase_run.name}:")
         lines.extend(phase_lines)
+        stop_note = getattr(phase_run, "stop_note", None)
+        if stop_note:
+            lines.append(f"  {stop_note}")
     return lines
 
 
