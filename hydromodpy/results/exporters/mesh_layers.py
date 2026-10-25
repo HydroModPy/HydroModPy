@@ -5,7 +5,7 @@ Three layers describe the mesh a run was solved on:
 ``mesh_cells``
     One polygon per cell, with its area, the families it belongs to, its zone,
     its topography and its quality (centre offset, neighbour ratio,
-    non-orthogonality).
+    non-orthogonality, bisection offset, smallest angle, concavity).
 ``mesh_seeds``
     One point per cell, at the centre the solver used, with the rule that
     placed it and the families of the cell.
@@ -45,6 +45,9 @@ _QUALITY_COLUMNS = {
     "center_offset": "mesh_center_offset",
     "neighbour_ratio": "mesh_neighbour_ratio",
     "nonorthogonality_deg": "mesh_nonorthogonality",
+    "bisection_offset": "mesh_bisection_offset",
+    "min_angle_deg": "mesh_min_angle",
+    "concavity_deg": "mesh_concavity",
 }
 
 
@@ -247,8 +250,9 @@ def _cells(root: Any, store: Any, sim_id: str) -> gpd.GeoDataFrame:
         columns["zone"] = _zone_names(mesh)
     if "topography" in mesh:
         columns["topography"] = np.asarray(mesh["topography"][:], dtype=np.float64)
-    for column in ("center_offset", "neighbour_ratio", "nonorthogonality_deg"):
-        columns[column] = mesh_quality_values(root, _QUALITY_COLUMNS[column])
+    for column, field in _QUALITY_COLUMNS.items():
+        if column != "area_m2":
+            columns[column] = mesh_quality_values(root, field)
     if "descent_basin" in mesh:
         columns["in_basin"] = np.asarray(mesh["descent_basin"][:]).astype(bool)
     return gpd.GeoDataFrame(columns, geometry=_cell_polygons(vertices, connectivity))

@@ -13,7 +13,9 @@ from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import (
+    cell_corner_angles,
     compute_mesh_qa,
+    edge_bisection_offset,
     edge_nonorthogonality,
     edge_size_ratio,
 )
@@ -287,3 +289,78 @@ def test_size_fidelity_is_the_cell_side_over_the_size_asked() -> None:
         _qa(mesh, centers, target_size=np.full(3, DX))
     with pytest.raises(ValueError, match="target_size"):
         _qa(mesh, centers, target_size=np.zeros(NROW * NCOL))
+
+
+def _edge(geometry, first: int, second: int) -> int:
+    """Return the row of the edge between two cells."""
+    return int(np.flatnonzero((geometry.edge_cells == [first, second]).all(axis=1))[0])
+
+
+def test_the_bisection_offset_runs_from_the_face_middle_to_its_end() -> None:
+    mesh, centers = _grid()
+    geometry = derive_geometry(mesh)
+    vertices = np.asarray(mesh.vertices)
+    interior = geometry.edge_cells[:, 1] >= 0
+    face = _edge(geometry, 0, 1)
+
+    centred = edge_bisection_offset(centers, vertices, geometry, interior)
+    # Both centres moved up to the top edge of the row: the line runs through a face end.
+    raised = centers.copy()
+    raised[[0, 1], 1] += 0.5 * DY
+    at_the_end = edge_bisection_offset(raised, vertices, geometry, interior)
+    # Both centres on the line of the face: no crossing to measure.
+    on_the_face = centers.copy()
+    on_the_face[[0, 1]] = [[X0 + DX, Y0 - 5.0], [X0 + DX, Y0 - 20.0]]
+    parallel = edge_bisection_offset(on_the_face, vertices, geometry, interior)
+
+    np.testing.assert_allclose(centred[interior], 0.0, atol=1e-9)
+    assert np.isnan(centred[~interior]).all()
+    assert at_the_end[face] == pytest.approx(0.5)
+    assert np.isnan(parallel[face])
+
+
+def test_the_bisection_offset_of_a_slanted_line_is_its_crossing_over_the_face() -> None:
+    mesh, centers = _grid()
+    geometry = derive_geometry(mesh)
+    interior = geometry.edge_cells[:, 1] >= 0
+    shifted = centers.copy()
+    shifted[0] += [3.0, 4.0]
+
+    offset = edge_bisection_offset(shifted, np.asarray(mesh.vertices), geometry, interior)
+
+    # From (15.5, -8.5) to (37.5, -12.5) relative to the origin, the line meets
+    # x = 25 at y = -8.5 - 4 * 9.5 / 22, a face of 25 m centred on y = -12.5.
+    crossing = -8.5 - 4.0 * 9.5 / 22.0
+    assert offset[_edge(geometry, 0, 1)] == pytest.approx(abs(crossing + 12.5) / DX)
+
+
+L_SHAPE = np.array([[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]], dtype=float)
+RIGHT_TRIANGLE = np.array([[0, 0], [2, 0], [0, 1]], dtype=float)
+
+
+def test_the_corner_angles_see_a_reflex_corner_whatever_the_winding() -> None:
+    vertices = np.vstack([L_SHAPE, RIGHT_TRIANGLE]) * 10.0 + [X0, Y0]
+    padded = np.array(
+        [
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [6, 7, 8, -1, -1, -1],
+        ]
+    )
+
+    angles = cell_corner_angles(padded, vertices)
+
+    np.testing.assert_allclose(angles[0], [90.0, 90.0, 90.0, 270.0, 90.0, 90.0], atol=1e-9)
+    np.testing.assert_allclose(angles[1], angles[0][::-1], atol=1e-9)
+    small = np.degrees(np.arctan2(1.0, 2.0))
+    np.testing.assert_allclose(angles[2, :3], [90.0, small, 90.0 - small], atol=1e-9)
+    assert np.isnan(angles[2, 3:]).all()
+
+
+def test_a_corner_next_to_a_repeated_vertex_has_no_angle() -> None:
+    square = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+
+    angles = cell_corner_angles(np.array([[0, 1, 1, 2, 3]]), square)
+
+    assert np.isnan(angles[0, [1, 2]]).all()
+    np.testing.assert_allclose(angles[0, [0, 3, 4]], 90.0, atol=1e-12)

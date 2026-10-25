@@ -1,16 +1,17 @@
 """Quality of the stored mesh, one value per cell, rebuilt on read and never stored.
 
-Four static fields describe how good the cells of a run are: ``mesh_cell_area``,
-``mesh_neighbour_ratio``, ``mesh_center_offset`` and ``mesh_nonorthogonality``.
-They use the formulas of the mesh QA (:mod:`hydromodpy.spatial.mesh.model.mesh_qa`),
-by cell instead of by quantile, on the geometry derived from the stored vertices
-and connectivity.
+Seven static fields describe how good the cells of a run are: ``mesh_cell_area``,
+``mesh_neighbour_ratio``, ``mesh_center_offset``, ``mesh_nonorthogonality``,
+``mesh_bisection_offset``, ``mesh_min_angle`` and ``mesh_concavity``. They use the
+formulas of :mod:`hydromodpy.spatial.mesh.model.mesh_qa`, by cell, on the geometry
+derived from the stored vertices and connectivity.
 
-The area and the neighbour ratio need geometry only, so every run serves them.
-The offset and the non-orthogonality need the cell centres of the mesh, which a
-run stores since the cell-mesh layout (``mesh/face_x``, ``mesh/face_y``). A run
-sealed before has the vertex mean at best, not the centre the solver used: those
-two fields are refused with the reason rather than computed on a guess.
+The area, the neighbour ratio, the smallest angle and the concavity need geometry
+only, so every run serves them. The offset, the non-orthogonality and the bisection
+offset need the cell centres of the mesh, which a run stores since the cell-mesh
+layout (``mesh/face_x``, ``mesh/face_y``). A run sealed before has the vertex mean
+at best, not the centre the solver used: those three fields are refused with the
+reason rather than computed on a guess.
 """
 
 from __future__ import annotations
@@ -27,6 +28,9 @@ from hydromodpy.spatial.mesh.model.derived_geometry import (
 )
 from hydromodpy.spatial.mesh.model.mesh_qa import (
     RELATIVE_FACE_TOLERANCE,
+    STRAIGHT_CORNER_DEG,
+    cell_corner_angles,
+    edge_bisection_offset,
     edge_nonorthogonality,
     edge_size_ratio,
 )
@@ -74,13 +78,32 @@ MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
             "degree",
             "area: maximum",
         ),
+        _descriptor(
+            "mesh_bisection_offset",
+            "Largest distance from the middle of a face of the cell to where the line "
+            "joining the two cell centres crosses it, over the face length",
+            "1",
+            "area: maximum",
+        ),
+        _descriptor(
+            "mesh_min_angle",
+            "Smallest interior angle at a corner of the cell",
+            "degree",
+            "area: minimum",
+        ),
+        _descriptor(
+            "mesh_concavity",
+            "Largest excess over 180 degrees of an interior angle of the cell, 0 for a convex cell",
+            "degree",
+            "area: maximum",
+        ),
     )
 }
 """The descriptors of the quality fields, kept out of the field registry.
 
 The registry lists what a store can hold; these fields are only ever computed."""
 
-_NEEDS_CENTRES = frozenset({"mesh_center_offset", "mesh_nonorthogonality"})
+_NEEDS_CENTRES = frozenset({"mesh_center_offset", "mesh_nonorthogonality", "mesh_bisection_offset"})
 
 
 def mesh_quality_unavailable_reason(root: Any, name: str) -> str | None:
@@ -166,11 +189,44 @@ def _shortest_measured_face(mesh: Any, geometry: DerivedGeometry) -> float:
     return RELATIVE_FACE_TOLERANCE * float(np.median(geometry.edge_length))
 
 
-def _nonorthogonality(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+def _measured_faces(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    """Return the interior faces long enough for an angle or an offset to mean anything."""
     interior = geometry.edge_cells[:, 1] >= 0
-    keep = interior & (geometry.edge_length > _shortest_measured_face(mesh, geometry))
-    vertices = np.asarray(mesh["vertices"][:], dtype=np.float64)[:, :2]
-    return _cell_max(geometry, edge_nonorthogonality(_centres(mesh), vertices, geometry, keep))
+    return interior & (geometry.edge_length > _shortest_measured_face(mesh, geometry))
+
+
+def _vertices(mesh: Any) -> np.ndarray:
+    return np.asarray(mesh["vertices"][:], dtype=np.float64)[:, :2]
+
+
+def _nonorthogonality(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    keep = _measured_faces(mesh, geometry)
+    return _cell_max(
+        geometry, edge_nonorthogonality(_centres(mesh), _vertices(mesh), geometry, keep)
+    )
+
+
+def _bisection_offset(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    keep = _measured_faces(mesh, geometry)
+    return _cell_max(
+        geometry, edge_bisection_offset(_centres(mesh), _vertices(mesh), geometry, keep)
+    )
+
+
+def _min_angle(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    angles = cell_corner_angles(geometry.padded_connectivity, _vertices(mesh))
+    smallest = np.where(np.isnan(angles), np.inf, angles).min(axis=1)
+    smallest[np.isinf(smallest)] = np.nan
+    return smallest
+
+
+def _concavity(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    """Return the largest reflex excess of each cell; a corner within the tolerance is straight."""
+    angles = cell_corner_angles(geometry.padded_connectivity, _vertices(mesh))
+    largest = np.where(np.isnan(angles), -np.inf, angles).max(axis=1)
+    excess = np.where(largest - 180.0 > STRAIGHT_CORNER_DEG, largest - 180.0, 0.0)
+    excess[np.isinf(largest)] = np.nan
+    return excess
 
 
 _COMPUTE: dict[str, Callable[[Any, DerivedGeometry], np.ndarray]] = {
@@ -178,4 +234,7 @@ _COMPUTE: dict[str, Callable[[Any, DerivedGeometry], np.ndarray]] = {
     "mesh_neighbour_ratio": _neighbour_ratio,
     "mesh_center_offset": _center_offset,
     "mesh_nonorthogonality": _nonorthogonality,
+    "mesh_bisection_offset": _bisection_offset,
+    "mesh_min_angle": _min_angle,
+    "mesh_concavity": _concavity,
 }

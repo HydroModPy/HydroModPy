@@ -474,6 +474,18 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- Three more mesh quality fields per cell (2026-10-22), computed on read like the four before.
+  `mesh_bisection_offset` measures where the line joining two cell centres crosses their face,
+  from the face middle, over the face length: 0 for a bisected face, 0.5 through a face end, and
+  a cell takes the largest value of its faces. `mesh_min_angle` is the smallest interior angle of
+  the cell. `mesh_concavity` is the excess of the largest interior angle over 180 degrees, 0 for a
+  convex cell; a corner within `STRAIGHT_CORNER_DEG` (0.1 degree) of 180 is straight. The
+  `mesh_cells` layer of `hmp export` carries them as `bisection_offset`, `min_angle_deg` and
+  `concavity_deg`. A run sealed before the cell-mesh layout serves the angle and the concavity
+  and refuses the bisection offset, which needs the cell centres. On the stored Flume meshes the
+  smallest angle is 64 degrees at the first percentile (29 at worst) on the v2 Voronoi and 21
+  (9.5) on the d2 triangles, and no cell is concave. `MeshQA` is unchanged: adding them to its
+  quantiles changes the schema of the mesh cache.
 - A `barriers` face family in the mesh (2026-10-19): the `triangle` and `voronoi` faces follow
   each lake cutoff wall and each `[flow.sinks_sources.flow_barriers]` line exactly, wings,
   joints and free ends included; `regular` publishes the staircase of the faces the line crosses.

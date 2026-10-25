@@ -711,7 +711,8 @@ def available_virtual_fields(root: Any) -> list[str]:
     concentration: ``concentration_seepage`` also a seepage mask,
     ``mass_seepage`` also a budget group, ``mass_accumulated`` nothing more.
     The mesh quality fields need the stored geometry, and the cell centres for
-    the offset and the non-orthogonality (:mod:`hydromodpy.results.derive.mesh_quality`).
+    the offset, the non-orthogonality and the bisection offset
+    (:mod:`hydromodpy.results.derive.mesh_quality`).
     A field an older run stored under ``derived/`` stands in for its rebuild
     upstream. A store that declares the ``"consumers"`` budget policy serves a
     field built from budget terms only when it kept every term the field reads

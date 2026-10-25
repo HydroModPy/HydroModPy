@@ -206,6 +206,9 @@ def test_the_cells_carry_their_area_families_and_quality(catalog, new_run):
     np.testing.assert_allclose(cells["center_offset"], 0.0, atol=1e-9)
     np.testing.assert_allclose(cells["neighbour_ratio"], 1.0)
     np.testing.assert_allclose(cells["nonorthogonality_deg"], 0.0, atol=1e-6)
+    np.testing.assert_allclose(cells["bisection_offset"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(cells["min_angle_deg"], 90.0)
+    np.testing.assert_array_equal(cells["concavity_deg"], 0.0)
     assert "zone" not in cells
     assert "in_basin" not in cells
 
@@ -371,3 +374,6 @@ def test_a_legacy_run_lists_the_area_but_not_the_centre_fields(catalog, old_run)
     assert "mesh_neighbour_ratio" in names
     assert "mesh_center_offset" not in names
     assert "mesh_nonorthogonality" not in names
+    assert "mesh_bisection_offset" not in names
+    assert names["mesh_min_angle"] is ExportKind.field
+    assert names["mesh_concavity"] is ExportKind.field
