@@ -18,8 +18,8 @@ The code builds the cells in this order.
 1. The top from the DEM $Z$, the bottom from the depth model.
 2. A planar mesh from the engine of {toml}`mesh.engine`: squares ({ref}`mesh-structured`),
    triangles ({ref}`mesh-triangle`) or Voronoi cells ({ref}`mesh-voronoi`). The planner first
-   cleans the lines the mesh follows ({ref}`mesh-cleanup`), and the last two engines follow a
-   size field ({ref}`mesh-size`).
+   cleans the lines the mesh follows and smooths the outline of the catchment
+   ({ref}`mesh-cleanup`), and the last two engines follow a size field ({ref}`mesh-size`).
 3. One top ({ref}`mesh-top`) and one bottom per cell.
 4. A check of the thickness ({ref}`mesh-acceptance`), then the layers ({ref}`mesh-layers`).
 5. The export to MODFLOW 6 as a DISV grid. A cell with no valid top or bottom is inactive.
@@ -76,14 +76,39 @@ or contact end that runs along another line, and it snaps a line end onto a line
 touches. A barrier is never cut back, because its length is physical. The log and the mesh QA
 count each change.
 
+The delineated catchment is the outline of a pixel mask, so it is a staircase. The planner
+smooths it once, before the size field and the families read it. It does so for the `triangle`
+and `voronoi` engines, and only where the mesh follows the outline. That is the case with
+{toml}`mesh.families.watershed_boundary` at `face`, or when {toml}`geographic.domain_extent`
+makes the domain the catchment or its buffer. The planner cuts each corner of a step at half a
+pixel, then simplifies the line with a tolerance of half a pixel (Douglas-Peucker). No point of
+the new outline lies more than one pixel from the staircase, and the area moves by a few
+thousandths. A corner between two edges longer than two pixels belongs to the shape and stays.
+The end of a river, the end of a barrier and a vertex of a lake shore that touch the outline stay
+on it, so the outlet keeps its place. A box, the `regular` engine, a triangulation read from a
+file and a catchment that the mesh does not follow keep their outline. If the smoothed polygon
+is not valid, the outline stays a staircase and the notes say so.
+
+On example 04 (DEM of 75 m, catchment of 64.6 km²), the outline goes from 423 to 160 vertices.
+The area moves by -0.08 % and no point moves by more than 0.81 pixel. With the catchment as the
+domain and a `cell_size` of 100 m, the Voronoi cells with an isoperimetric quotient under 0.6
+(4π times the area over the squared perimeter) go from 118 to 5 out of about 7300. On the
+`triangle` engine the gain shows with the buffer as the domain. The mesh goes from 27 918 to
+24 002 cells, and the triangles with a corner under 20 degrees from 144 to 0. With the catchment
+or a box as the domain, the count barely changes, and a few triangles stay along the outline
+(4 under 20 degrees out of 21 000 on example 04). A cell that touches the outline can change
+side on a band of 0.8 pixel at most.
+
 ### The size field
 
 The `triangle` and `voronoi` engines mesh under one size field $\ell(\mathbf{x})$, the wanted
-cell size on the DEM grid. The background size $\ell_g$ is {toml}`mesh.cell_size`, or the DEM
-pixel when unset. Each refined line or zone adds a term. For the rivers, the size is
+cell size on the DEM grid. For every engine, a size is the side of the square that has the mean
+area of a cell ({ref}`mesh-budget`). The background size $\ell_g$ is {toml}`mesh.cell_size`, or
+the DEM pixel when unset. Each refined line or zone adds a term. For the rivers, the size is
 $\ell_s$ = {toml}`mesh.river_cell_size` on the line and grows back to $\ell_g$ over the
 distance $\xi_s$ = {toml}`mesh.river_band`. Lake shores and the zones of
-{toml}`mesh.refinement_zone.cell_size` are other terms. The field reads
+{toml}`mesh.refinement_zone.cell_size` ({ref}`mesh-refinement-zones`) are other terms. The field
+reads
 
 $$
 \ell(\mathbf{x}) = \min\Bigl(\ell_b(\mathbf{x}),\ \min_k\bigl[\ell_{s,k}
@@ -107,6 +132,45 @@ from a file ignores the field.
       against the distance to the river. A band of 20 m asks for a slope of 2, and
       ``build_size_field`` holds it at 0.5.
 ```
+
+(mesh-refinement-zones)=
+### Refinement zones drawn by a field
+
+A refinement zone is a vector layer, or the pixels of the DEM where a field passes a threshold.
+The user writes the field in {toml}`mesh.refinement_zone.where` and the threshold in
+{toml}`mesh.refinement_zone.below` or {toml}`mesh.refinement_zone.above`. The zone is a term of
+the size field, like a polygon. The cells inside it have the size
+{toml}`mesh.refinement_zone.cell_size`, and the size grows back to the background over
+{toml}`mesh.refinement_zone.buffer`, at $\sigma_{\max}$ at most. The `triangle` and `voronoi`
+engines follow these zones. The `regular` engine does not grade its cells, so it ignores them,
+and the mesh QA says so.
+
+The field `height_above_stream` is the height of a pixel above the first stream pixel it drains
+to (HAND, {cite:p}`nobre2011hand`). The code fills the depressions of a copy of the DEM by a
+priority flood {cite:p}`barnes2014priority`, seeded on the streams and on the edge of the grid.
+Then each pixel follows the steepest descent of that copy to the first stream pixel, and takes
+its height on the raw DEM. The streams are the river network traced from the DEM with the
+threshold of `[geographic.river_network]`. A mapped network never enters. A pixel below its
+stream gets 0, and a pixel whose path leaves the grid with no stream gets no height. On a grid
+of 464 by 420 pixels the computation takes less than a second.
+
+The fields `watertable_depth` and `seepage` come from an earlier run of the project, named in
+{toml}`mesh.refinement_zone.run`. A first run on a coarse mesh gives the depth of the water table
+or the seepage, which is the drain outflow per cell area in mm/d. The second mesh refines where
+that field passed the threshold at any time step. The minimum over time is compared to `below`
+and the maximum to `above`, so the seepage front of a wet winter counts even when the run ends in
+summer. The first run is named as `restart_from` names a run, and it must be sealed. Its `sim_id`
+enters the mesh request and the mesh cache key, so another first run gives another mesh. The
+frozen `config.toml` of the new run writes that `sim_id` in place of the name, so a replay reads
+the same run even after a later version of it exists. A replay needs that run to be still in the
+project, and it stops with a message when the run is gone.
+
+On the Nançon catchment (64.6 km², DEM of 25 m, network threshold 0.05 km²), the zone where the
+ground is less than 2 m above the stream covers 20 % of the catchment. A Voronoi mesh of 75 m
+with this zone at 25 m holds 40 043 cells, against 14 897 at 75 m and 134 074 at 25 m. The ramp
+around the zone also costs cells, because the size is below 75 m on 58 % of the catchment. The
+size ratio between two neighbouring cells exceeds 1.5 on 2 % of the faces, against 0.3 % on the
+uniform mesh of 75 m.
 
 (mesh-gap)=
 ### The gap between face lines
@@ -139,6 +203,16 @@ The centre of a triangle is the mean of its vertices, so a connection has an ang
 for one input, so the engine keeps the first one in `.hmp/mesh_cache/`. It reuses it while the
 request, the engine version and the builds of Gmsh and of the geometry libraries stay the same.
 {toml}`mesh.triangle.path` reads an existing triangulation instead.
+
+Gmsh reads a size as the length of an edge, so the engine multiplies each size it gives to Gmsh
+by a factor measured for the algorithm: 1.62 for `delaunay`, 1.58 for `meshadapt` and 1.52 for
+`frontal`. A triangle then has an edge about 1.5 times longer than {toml}`mesh.cell_size`, and the
+count follows $A_\Omega/\ell^2$ ({ref}`mesh-budget`). When the request has a size field, the
+engine also resamples the lines at this edge length, because Gmsh keeps every vertex it
+receives. The corners of the barriers stay fixed vertices. With lines in the request, Gmsh still
+adds cells around them, at the bends and at the confluences. So the count stays above the
+integral of the size field, by 11 % with one river and by 35 % on the dense network of the
+Flume. Without lines, the field of the Flume gives 1.05.
 
 (mesh-voronoi)=
 ## 4. The Voronoi engine
@@ -319,7 +393,8 @@ as {toml}`domain.layers.pinch_out` says:
 
 With `pass_through`, a column whose layers are all too thin keeps its thickest layer active.
 `idomain` is 1 for an active cell, 0 for an inactive one and -1 for a pass-through cell.
-MODFLOW 6 connects the cells above and below a pass-through cell. MODFLOW-NWT has no such
+MODFLOW 6 connects the cells above and below a pass-through cell. A lake over such a column
+reads the active cells under it ({ref}`lakes-connections`). MODFLOW-NWT has no such
 cell, so it refuses `pass_through` in the file and in the grid. The build refuses an active
 cell whose top is at or below its bottom. The code stores the layering with
 `vertical_layout = "surfaces"` on `mesh/` ({doc}`../contribute/architecture/storage-layout`).
@@ -336,37 +411,46 @@ calibration read the same cell ({doc}`solvers`).
 (mesh-budget)=
 ## 8. How many cells a size costs
 
-The cost of a run grows with the number of cells, so this section compares a grid and a mesh
-at equal cell count. Over an area $A_\Omega$, a grid of pixel side $\Delta$ has
-$N_S = A_\Omega/\Delta^2$ cells. An equilateral triangle of side $\ell$ has the area
-$\frac{\sqrt3}{4}\ell^2$, and a Voronoi hexagon has $\frac{\sqrt3}{2}\ell^2$ when neighbouring
-seeds are $\ell$ apart, so
+The cost of a run grows with the number of cells, so this section counts them. For the three
+engines, {toml}`mesh.cell_size` is the side $\ell$ of the square that has the mean area of a
+cell. Over an area $A_\Omega$, a mesh then holds about $A_\Omega/\ell^2$ cells. The grid of
+pixel side $\Delta$ is the case $N_S = A_\Omega/\Delta^2$. With a size field,
+$A_\Omega/\ell^2$ becomes $\int_\Omega \ell(\mathbf{x})^{-2}\,\mathrm{d}A$.
+
+The same count does not give the same edge. An equilateral triangle of side $\ell_T$ has the
+area $\frac{\sqrt3}{4}\ell_T^2$, and a Voronoi hexagon has $\frac{\sqrt3}{2}\ell_V^2$ when
+neighbouring seeds are $\ell_V$ apart, so
 
 $$
-N_T = \frac{4}{\sqrt3}\,\frac{A_\Omega}{\ell^2} \approx 2.31\,\frac{A_\Omega}{\ell^2},
+N_T = \frac{4}{\sqrt3}\,\frac{A_\Omega}{\ell_T^2} \approx 2.31\,\frac{A_\Omega}{\ell_T^2},
 \qquad
-N_V = \frac{2}{\sqrt3}\,\frac{A_\Omega}{\ell^2} \approx 1.15\,\frac{A_\Omega}{\ell^2}.
+N_V = \frac{2}{\sqrt3}\,\frac{A_\Omega}{\ell_V^2} \approx 1.15\,\frac{A_\Omega}{\ell_V^2}.
 $$ (eq-cell-count)
 
-With a size field, $A_\Omega/\ell^2$ becomes $\int_\Omega \ell(\mathbf{x})^{-2}\,\mathrm{d}A$.
-At the cost of the grid, Voronoi generators are $\Delta \sqrt{2/\sqrt3} \approx 1.07\,\Delta$
-apart and triangles have a side of $\Delta \sqrt{4/\sqrt3} \approx 1.52\,\Delta$. For the
-`voronoi` engine, {toml}`mesh.cell_size` is the square root of the cell area, so a size equal
-to the pixel gives the cell count of the grid. For the `triangle` engine it is the side Gmsh
-aims at, so the same size gives about 2.3 times the count. Gmsh makes 2.6 to 2.7 times on a
-uniform field.
+Setting $N_T = N_V = A_\Omega/\ell^2$ gives $\ell_T = \sqrt{4/\sqrt3}\,\ell \approx 1.52\,\ell$ and
+$\ell_V = \sqrt{2/\sqrt3}\,\ell \approx 1.07\,\ell$. So at the cell count of a grid of pixel
+$\Delta$, the Voronoi generators are $1.07\,\Delta$ apart and the triangles have a side of
+$1.52\,\Delta$.
+
+A square of 4 km at a `cell_size` of 100 m expects 1600 cells. The `regular` and `voronoi`
+engines give 1600, and the `triangle` engine gives 1652, which is 3 % more. The engine contract
+holds every engine to 10 % of the expected count on a uniform size. With lines to follow, the
+`triangle` engine stays above the integral ({ref}`mesh-triangle`). On the Flume, with cells of
+25 m along the rivers in a background of 150 m, the count over the integral is 1.00 for `voronoi`
+and 1.35 for `triangle`.
 
 Example 04 declares no `[mesh]` section. The header of `step1_minimal.toml` counts 21406 cells
 of 75 m, about $120\ \mathrm{km^2}$, and does not say if the inactive cells are in. The same
-count means Voronoi generators about 81 m apart, a {toml}`mesh.cell_size` of 75 m, or
-triangles of about 114 m. A real mesh refines near the interfaces, so the count of a run is the
-$\mathrm{ncpl}$ of its DISV file. Also, $N_S$ counts the whole raster box, while a mesh lies in
-$\Omega$.
+count means a {toml}`mesh.cell_size` of 75 m for each engine, with Voronoi generators about 81 m
+apart and triangles of about 114 m. A real mesh refines near the interfaces, so the count of a
+run is the $\mathrm{ncpl}$ of its DISV file. Also, $N_S$ counts the whole raster box, while a
+mesh lies in $\Omega$.
 
 ```{eval-rst}
 .. plot:: theory/figures/mesh_cell_count.py
-   :alt: Number of cells against cell size for the three layouts.
-   :caption: :eq:`eq-cell-count` for :math:`A_\Omega` = 120 km². Each dot holds 21406 cells.
+   :alt: Number of cells against the pixel side, the seed distance and the triangle side.
+   :caption: :eq:`eq-cell-count` for :math:`A_\Omega` = 120 km². Each dot holds 21406 cells. The
+      Voronoi dot sits at 1.07 times the pixel side and the triangle dot at 1.52 times.
 ```
 
 (mesh-acceptance)=
@@ -386,7 +470,7 @@ table lists the checks that the sections above do not give.
 | Thick cells | thickness above the larger of 10 times the median and 500 m | warning on triangle and Voronoi meshes: `Aquifer thickness outliers:` |
 | Cell shape | no triangle corner under 20 degrees, no face crossed more than 0.25 of its length from its middle, no concave cell | warning at build |
 | Imported triangulation | no vertex inside an edge that does not hold it, no two vertices closer than 1e-9 of the extent | a T-junction is refused with its coordinates, duplicates warn |
-| Active cells | one group joined by faces and vertical connections | warning with the number and sizes of the groups |
+| Active cells | one group, counted on the grid the solver reads after the lake mask. Faces join cells, so do vertical connections (a pass-through cell joins the layers above and below it), and so does a lake, for the active cells it touches | warning with the number and sizes of the groups |
 | Point on the mesh | a point outside the mesh lies within one cell size (the square root of the area) of a cell | no cell for the point, and a warning that names it, on every solver |
 
 Eight fields measure the cells one by one, computed on read: `mesh_cell_area`,
@@ -398,6 +482,38 @@ carries the eight, and it names the two angle columns `min_angle_deg` and `max_a
 quality report `MeshQA` is stored as the attribute `qa` of `mesh/`. It holds their quantiles,
 the number of concave cells and, for each line family, how much of the line the faces follow. A
 mesh with a poor report still runs.
+
+(mesh-catchment-fraction)=
+## 10. The catchment of a cell
+
+The delineated catchment is a polygon, and its outline can cross a cell. The solver build stores
+for each face the share of its area that lies inside the polygon, from 0 to 1, as
+`catchment_fraction`. A cell inside has 1 and a cell outside has 0. The share is exact in
+between, because the code intersects the polygon with the cells that the outline cuts, and with
+no other. The basin of the descent D, the cells whose descent passes through the outlet, does not
+change ({ref}`streams-route-drainage`). It stays all or nothing, and it still gives the
+`catchment` line of the budget and the discharge at the outlet, which are hydraulic quantities.
+
+A total over the catchment of a quantity that varies in space sums the cell values with the
+shares. `catchment_total` does it for a term of the budget stored per cell, such as the recharge
+or the seepage. `catchment_mean` averages a variable with the share times the area of the cell,
+so a small cell counts less than a large one. A run with no stored share counts the whole cells
+of the basin of D and logs it. The shares also cover the cells outside the basin that the polygon
+touches. A distorted disc over a grid of 75 m shows why. A mask by cell centre gives the area of
+the polygon within -0.03 % (standard deviation 0.13 %) for a radius of 3 km, and within -0.06 %
+(0.45 %) for 1 km. Weights limited to the basin lose the part of the polygon that falls in the
+neighbouring cells, and give -0.67 % and -2.0 %.
+
+On example 04 the polygon is the staircase of the DEM, so it cuts no cell of the grid and every
+share is 0 or 1. The totals still differ a little from the budget line, because the basin of D
+and the polygon disagree on whole cells. The basin holds 34 cells outside the polygon (0.19 km²),
+and the polygon holds 8 cells outside the basin (0.045 km²). The recharge over the catchment is
+0.23 % below the line of the budget, and the seepage 1.2 % below, mostly through river cells near
+the outlet that the polygon leaves out. A cut cell needs a triangle or a Voronoi mesh, or a grid
+coarser than the DEM.
+
+A synthetic domain has no catchment polygon and no outlet. It stores no share, its basin of D
+is the largest basin of the domain, and `catchment_total` and `catchment_mean` refuse it.
 
 ## Assumptions
 
@@ -436,6 +552,10 @@ mesh with a poor report still runs.
 - A nodata value read as an elevation gives a cell kilometres deep with a clean top, and the
   run converges. The thickness warning is the only sign, and a structured grid does not emit
   it.
+- Under Newton, XT3D can fail to converge on triangle cells, and the run stops with E401. The
+  cause and the two ways out are on {doc}`solvers/xt3d-on-irregular-disv-meshes`.
+- A refinement zone that reads an earlier run needs that run in the project. A run copied to
+  another project stops with a message when it replays.
 
 ## Parameters of this page
 
@@ -461,6 +581,10 @@ mesh.families.geology
 mesh.families.lakes
 mesh.families.barriers
 mesh.families.watershed_boundary
+mesh.refinement_zone.where
+mesh.refinement_zone.below
+mesh.refinement_zone.above
+mesh.refinement_zone.run
 mesh.triangle.path
 mesh.triangle.algorithm
 mesh.voronoi.seeds
@@ -495,6 +619,9 @@ hydromodpy.spatial.mesh.planning
 hydromodpy.spatial.mesh.ops.voronoi
 hydromodpy.spatial.mesh.ops.zonal_stats
 hydromodpy.spatial.mesh.ops.mesh_orthogonality
+hydromodpy.spatial.mesh.ops.vector_cell_mask
+hydromodpy.spatial.mesh.refinement
+hydromodpy.workflow.steps.mesh_run_fields
 hydromodpy.spatial.mesh.structured_grid.sgrid_generation
 hydromodpy.spatial.domain.layering
 hydromodpy.core.vertical_column
@@ -514,7 +641,11 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The engines and their registry | `hydromodpy/spatial/mesh/engines/` (`regular`, `triangle`, `voronoi`), `hydromodpy/spatial/mesh/registry.py` |
 | The request and the planner | `hydromodpy/spatial/mesh/request.py`, `hydromodpy/spatial/mesh/planning/plan.py` (`plan_mesh_request`) |
 | The cleaning of the lines | `hydromodpy/spatial/mesh/planning/cleanup.py` (`clean_lines`, `drop_small_holes`) |
+| The smoothing of the catchment outline | `hydromodpy/spatial/mesh/planning/catchment_outline.py` (`smooth_catchment`, `smooth_polygon`) |
 | The size field and the gap term | `hydromodpy/spatial/mesh/sizing/size_field.py` (`build_size_field`), `hydromodpy/spatial/mesh/sizing/gap.py` (`gap_terms`) |
+| The refinement zones drawn by a field | `hydromodpy/spatial/mesh/refinement/refinement_zones.py` (`RefinementZoneConfig`), `refinement/height_above_stream.py`, `refinement/run_fields.py`, `hydromodpy/spatial/mesh/planning/refinement.py`, `hydromodpy/workflow/steps/mesh_run_fields.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`_zone_runs`), `hydromodpy/workflow/steps/prepare_solver/dispatch.py` (`frozen_config_document`) |
+| The size of a triangle | `hydromodpy/spatial/mesh/engines/triangle/gmsh_cdt.py` (`MESH_SIZE_PER_CELL_SIZE`) |
+| The catchment fraction and the weighted totals | `hydromodpy/spatial/mesh/ops/vector_cell_mask.py` (`cell_area_fraction`), `hydromodpy/solver/modflow_common/mesh_descent.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
 | The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`, `_bottom_under_lowered_top`, `_cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |

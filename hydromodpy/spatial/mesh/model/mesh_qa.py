@@ -23,6 +23,7 @@ __all__ = [
     "BISECTION_OFFSET_WARNING",
     "DECLARATION_KEYS",
     "MIN_ANGLE_WARNING_DEG",
+    "ORTHOGONAL_P95_DEG",
     "SHAPE_KEYS",
     "STRAIGHT_CORNER_DEG",
     "MeshQA",
@@ -66,6 +67,9 @@ MIN_ANGLE_WARNING_DEG = 20.0
 
 BISECTION_OFFSET_WARNING = 0.25
 """A cell with a face whose bisection offset exceeds this share is counted in the build warning."""
+
+ORTHOGONAL_P95_DEG = 1.0
+"""A mesh whose 95th percentile of non-orthogonality is under this angle is orthogonal."""
 
 SHAPE_KEYS = ("bisection_offset", "min_angle_deg", "max_angle_deg", "n_concave_cells")
 """The QA entries :func:`cell_shape_qa` measures, added after the first cache schema."""
@@ -335,8 +339,12 @@ def quality_warnings(qa: MeshQA) -> tuple[str, ...]:
             f"{sharp} of {qa.n_cells} cells are triangles with a corner under "
             f"{MIN_ANGLE_WARNING_DEG:g} degrees (smallest {qa.min_angle_deg['min']:.1f})."
         )
+    # On an orthogonal mesh the two-point flux stays consistent wherever the line of
+    # the centres crosses the face, so the offset alone is no reason to warn. On the
+    # generated Voronoi it crosses half the cells or more.
     skewed = int(qa.bisection_offset["n_cells_gt_0_25"])
-    if skewed:
+    orthogonal = qa.nonorthogonality_deg.get("p95", float("inf")) < ORTHOGONAL_P95_DEG
+    if skewed and not orthogonal:
         warnings.append(
             f"{skewed} of {qa.n_cells} cells have a face crossed by the line of the two "
             f"centres more than {BISECTION_OFFSET_WARNING:g} of its length from its middle "

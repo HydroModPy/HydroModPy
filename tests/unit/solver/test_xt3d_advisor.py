@@ -212,7 +212,7 @@ def _with_tensor(model, *, k22_ratio: float, angle1: float | None = None):
 def test_off_axis_k22_on_a_structured_grid_turns_xt3d_on_with_a_runtime_warning() -> None:
     model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
     assert model.solver_mesh.is_structured
-    with pytest.warns(RuntimeWarning, match="about 9 to 11") as caught:
+    with pytest.warns(RuntimeWarning, match="about 10 times on ten layers") as caught:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is True
     assert decision.source == "auto_on"
@@ -292,4 +292,23 @@ def test_the_warning_reaches_the_log_under_a_global_runtime_warning_ignore() -> 
         warnings.simplefilter("ignore", RuntimeWarning)
         resolve_xt3d_decision(model, model.solver_mesh)
     warned = [r.getMessage() for r in records if r.levelno == logging.WARNING]
-    assert any("about 9 to 11" in message for message in warned)
+    assert any("about 10 times on ten layers" in message for message in warned)
+
+
+def test_xt3d_on_triangles_under_newton_warns_about_convergence() -> None:
+    model = _model_on(_solver_mesh(_ORTHO))
+    assert model.modflow_config.runtime.mf6_newton is True
+    with _capture_advisor_logs(logging.WARNING) as records, _no_runtime_warning():
+        decision = resolve_xt3d_decision(model, model.solver_mesh)
+    assert decision.enabled is True
+    assert any("can cycle without converging" in r.getMessage() for r in records)
+
+
+def test_xt3d_on_triangles_without_newton_does_not_warn() -> None:
+    model = _model_on(_solver_mesh(_ORTHO))
+    model.modflow_config = model.modflow_config.model_copy(
+        update={"runtime": model.modflow_config.runtime.model_copy(update={"mf6_newton": False})}
+    )
+    with _capture_advisor_logs(logging.WARNING) as records:
+        resolve_xt3d_decision(model, model.solver_mesh)
+    assert not any("can cycle without converging" in r.getMessage() for r in records)

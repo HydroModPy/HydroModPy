@@ -3,10 +3,11 @@
 The planner fixes the intent of each line family, builds the size field of a
 graded engine, which also follows the gaps between face lines (``gap.py``),
 and resamples its lines at the local size, on the geometry cleaned first
-(``cleanup.py``). A non-graded engine
-(``regular``) gets the raw lines and no size field. A triangulation read from
-a file is meshed as it is: no size field, raw lines, its own outline as the
-domain. A generated Voronoi mesh gets the lake shores it can follow at its
+(``cleanup.py``). A graded engine also gets the staircase of the catchment
+outline smoothed, before anything reads it (``catchment_outline.py``). A
+non-graded engine (``regular``) gets the raw lines and no size field. A
+triangulation read from a file is meshed as it is: no size field, raw lines,
+its own outline as the domain. A generated Voronoi mesh gets the lake shores it can follow at its
 cell size (``lake_shores.py``) and the rivers off the lakes.
 """
 
@@ -27,6 +28,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
+from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_catchment
 from hydromodpy.spatial.mesh.planning.cleanup import (
     CLEANUP_PIXEL_SHARE,
     GeometryCleanup,
@@ -99,17 +101,21 @@ class _Sizing:
 def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshRequest:
     """Return the request the engine of *mesh_cfg* meshes the project inputs with.
 
-    The geometry is cleaned first, for every engine (``cleanup.py``). The
-    holes of the domain, the lakes and the catchment smaller than one local
-    cell squared go: no cell fits in such a hole, and its ring only seeds
-    cells a few metres apart. Then close vertices merge and loose line ends
-    are cut back and snapped, at a tenth of the DEM pixel. The sizes are read
-    again on the cleaned geometry. A triangulation read is meshed as it is.
+    A graded engine first gets the staircase of the catchment outline smoothed,
+    where the mesh follows it (``catchment_outline.py``). Then the geometry is
+    cleaned, for every engine (``cleanup.py``). The holes of the domain, the
+    lakes and the catchment smaller than one local cell squared go: no cell
+    fits in such a hole, and its ring only seeds cells a few metres apart.
+    Then close vertices merge and loose line ends are cut back and snapped, at
+    a tenth of the DEM pixel. The sizes are read again on the cleaned
+    geometry. A triangulation read is meshed as it is.
     """
     graded = registry.get(mesh_cfg.engine).capabilities.graded
     triangulation = inputs.input_triangulation
     pixel = _pixel_size(inputs.dem_grid)
     cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
+    if graded and triangulation is None:
+        inputs = smooth_catchment(inputs, mesh_cfg.families, cleanup, pixel)
     domain = inputs.domain if triangulation is None else domain_polygon_of(triangulation)
     sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
     if triangulation is None:

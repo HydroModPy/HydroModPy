@@ -21,6 +21,7 @@ import zarr
 from hydromodpy.analysis.comparison.runs import ComparisonCaseError, ComparisonReferenceError
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_VALIDATION
 from hydromodpy.cli.main import main as hmp_main
+from hydromodpy.core.field_routing import DOMAIN_BUDGET_ZONE
 from hydromodpy.reporting.comparison.compare import (
     compare_runs,
     comparison_name,
@@ -88,7 +89,7 @@ def _write_budget(run_dir: Path, *, drain_out: float) -> None:
     rows = [
         {
             "timestep": step,
-            "zone_id": "__global__",
+            "zone_id": DOMAIN_BUDGET_ZONE,
             "component": component,
             "unit": "m3/s",
             "flux_in": flux_in,
@@ -349,6 +350,28 @@ def test_the_command_maps_refusals_to_typed_exit_codes(
         / "index.html"
     )
     assert page.is_file()
+
+
+@pytest.mark.parametrize(
+    ("flags", "zone"),
+    [([], "domain"), (["--budget-zone", "catchment"], "catchment")],
+    ids=["default", "catchment"],
+)
+def test_the_command_forwards_the_budget_zone(
+    project: Path, monkeypatch: pytest.MonkeyPatch, flags: list[str], zone: str
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_compare_runs(refs, **options):
+        seen.update(options)
+        return []
+
+    monkeypatch.setattr("hydromodpy.reporting.comparison.compare.compare_runs", fake_compare_runs)
+    monkeypatch.chdir(project)
+
+    hmp_main(["report", "compare", "a", "b", *flags])
+
+    assert seen["budget_zone"] == zone
 
 
 def test_by_site_joins_the_references_on_the_site(project: Path) -> None:

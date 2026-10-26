@@ -43,7 +43,9 @@ class Grid:
         i.e. ``catch_area`` stored in the catalog converted to m².
         For the area of the catchment as the run saw it, sum
         ``run.mesh.cell_areas()`` over ``run.catchment_mask``, which is one
-        value per face. ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``
+        value per face. For the polygon area on the mesh, weigh the same
+        areas by ``views.catchment_weights(run)``, the share of each face
+        inside the polygon. ``int(run.catchment_mask.sum()) * grid.cell_size ** 2``
         holds only for a run sealed before the basin of D was stored and whose
         cells are the DEM pixels, where the mask is the DEM raster mask.
     """

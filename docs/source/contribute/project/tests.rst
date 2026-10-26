@@ -126,7 +126,9 @@ Subfamilies:
 - *numerical*: stress and multi-backend cases without a clean closed
   form (PETSc-backed Boussinesq overflow, headwater cases).
 - *calibration twin*: inverse chain on synthetic truth, optimizer
-  orchestration, recovery metrics.
+  orchestration, recovery metrics. An observation point is located on the polygons of the mesh,
+  on the route of the truth as on the route of the trial, so a point on a cell edge reads the
+  same cell on both.
 - *solver_sanity*: external solver against analytical references; may
   deliberately *not* validate the HydroModPy launcher.
 

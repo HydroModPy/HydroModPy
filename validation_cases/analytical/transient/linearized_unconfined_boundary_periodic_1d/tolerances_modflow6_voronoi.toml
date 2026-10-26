@@ -1,14 +1,14 @@
 [space_time]
-rmse = 0.013
-max_abs_error = 0.073
+rmse = 0.0129
+max_abs_error = 0.0728
 row_spread = 1e-9
 
 [final_profile]
-rmse = 0.012
-max_abs_error = 0.037
+rmse = 0.0118
+max_abs_error = 0.0366
 
 [tide]
-decay_length_relative_error = 0.12
+decay_length_relative_error = 0.119
 lag_length_relative_error = 0.143
 
 [doc]
@@ -22,4 +22,10 @@ backward Euler with one step per hourly period (see tolerances.toml); the
 dual cells are twice as large as the triangles, which adds to the RMSE. The
 row spread is zero by construction: the comparison bins the cells into one
 profile.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: tide.decay_length_relative_error 0.12 to 0.119 (measure 0.0592);
+final_profile.rmse 0.012 to 0.0118 (measure 0.00589);
+final_profile.max_abs_error 0.037 to 0.0366 (measure 0.0183); space_time.rmse
+0.013 to 0.0129 (measure 0.00643); space_time.max_abs_error 0.073 to 0.0728
+(measure 0.0364).
 """

@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.analysis.comparison.config import BudgetZone
 from hydromodpy.analysis.comparison.runtime.mesh import resolve_run_cells
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, DOMAIN_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
@@ -30,6 +32,9 @@ if TYPE_CHECKING:
     from hydromodpy.analysis.comparison.runtime.run_source import RunSource
 
 logger = get_logger(__name__)
+
+_ZONE_IDS: dict[str, str] = {"domain": DOMAIN_BUDGET_ZONE, "catchment": CATCHMENT_BUDGET_ZONE}
+"""Zone id of the budget table that each :data:`BudgetZone` reads."""
 
 
 def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
@@ -669,8 +674,15 @@ def _load_table_budget_rows(
     summary: Mapping[str, Any],
     store: RunSource | None,
     sim_id: str | None,
+    budget_zone: BudgetZone = "domain",
 ) -> list[dict[str, Any]]:
-    """Load the budgets.parquet rows of a run and normalize them to comparison terms."""
+    """Load the budgets.parquet rows of one zone of a run, normalized to comparison terms.
+
+    The table holds a row for the model domain and, on a run with a catchment,
+    a second one for the whole faces of the basin of D that lie inside the
+    domain. Adding both counts the water of the basin twice, so only the rows
+    of *budget_zone* are read. A run with no row in that zone gives no row.
+    """
     if store is None or sim_id in (None, ""):
         return []
     try:
@@ -678,6 +690,14 @@ def _load_table_budget_rows(
     except Exception:
         return []
     if table is None or table.empty:
+        return []
+    table = table.loc[table["zone_id"].astype(str) == _ZONE_IDS[budget_zone]]
+    if table.empty:
+        logger.warning(
+            "Run %s has no '%s' budget zone, so its budget is left out of the comparison.",
+            sim_id,
+            budget_zone,
+        )
         return []
 
     config_path_raw = summary.get("config_path")
@@ -772,8 +792,14 @@ def write_budget_exports(
     *,
     comparison_root: Path,
     simulation_summaries: Iterable[Mapping[str, Any]],
+    budget_zone: BudgetZone = "domain",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write budget diagnostics: the budget table of each run and its Boussinesq states."""
+    """Write budget diagnostics: the budget table of each run and its Boussinesq states.
+
+    Every row sums the one zone *budget_zone* names and says so in its
+    ``budget_zone`` column. A Boussinesq state is summed over its whole mesh,
+    which is the model domain, so it enters the domain exports only.
+    """
     from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
 
     rows: list[dict[str, Any]] = []
@@ -782,8 +808,18 @@ def write_budget_exports(
         if source is None:
             continue
         with source:
-            rows.extend(_load_table_budget_rows(summary, source, source.sim_id))
-            rows.extend(_load_boussinesq_budget_rows(summary, store=source, sim_id=source.sim_id))
+            run_rows = _load_table_budget_rows(summary, source, source.sim_id, budget_zone)
+            boussinesq = _load_boussinesq_budget_rows(summary, store=source, sim_id=source.sim_id)
+            if boussinesq and budget_zone != "domain":
+                logger.warning(
+                    "Run %s holds a Boussinesq state summed over its whole mesh, which has no "
+                    "'%s' budget zone, so it is left out of the comparison.",
+                    source.sim_id,
+                    budget_zone,
+                )
+                boussinesq = []
+            run_rows.extend(boussinesq)
+            rows.extend({**row, "budget_zone": budget_zone} for row in run_rows)
 
     rows = _with_comparable_outflow_rows(rows)
 
@@ -800,6 +836,7 @@ def write_budget_exports(
             "simulation_label",
             "solver",
             "mesh_mode",
+            "budget_zone",
             "component",
             "unit",
             "time_role",
@@ -828,6 +865,7 @@ def write_budget_exports(
         item = wide_index.setdefault(
             key,
             {
+                "budget_zone": row["budget_zone"],
                 "component": row["component"],
                 "unit": row["unit"],
                 "comparison_time_key": time_key,
@@ -850,6 +888,7 @@ def write_budget_exports(
         wide_path,
         wide_rows,
         [
+            "budget_zone",
             "component",
             "unit",
             "comparison_time_key",

@@ -1,6 +1,6 @@
 [head_profile]
-rmse = 0.009
-max_abs_error = 0.027
+rmse = 0.00896
+max_abs_error = 0.0262
 row_spread = 1e-9
 
 [doc]
@@ -11,4 +11,7 @@ face, so the reference poses it on the faces. Each cell is read at its node and
 the profile is the area-weighted mean per 10 m column, for the model and the
 reference alike. The row spread is zero by construction: the loader tiles one
 profile.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: head_profile.rmse 0.009 to 0.00896 (measure 0.00448);
+head_profile.max_abs_error 0.027 to 0.0262 (measure 0.0131).
 """

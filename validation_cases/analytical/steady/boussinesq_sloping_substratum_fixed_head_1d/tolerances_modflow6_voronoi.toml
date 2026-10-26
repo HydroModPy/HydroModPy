@@ -1,5 +1,5 @@
 [head_profile]
-rmse = 0.031
+rmse = 0.0308
 max_abs_error = 0.056
 row_spread = 1e-9
 
@@ -10,4 +10,10 @@ RMSE 1.54e-2 m, max error 2.80e-2 m, against 1.57e-2 m and 2.36e-2 m on the
 triangle strip. Each cell is read at its node and the profile is the
 area-weighted mean per 10 m column, for the model and the reference alike. The
 row spread is the float noise of the area-weighted mean.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: head_profile.rmse 0.031 to 0.0308 (measure 0.0154). Already at twice
+the measure: head_profile.max_abs_error 0.056 (measure 0.028). Kept at a
+numerical floor, where twice the measure guarantees nothing:
+head_profile.row_spread 1e-9 (measure 1.78e-15, float rounding of the
+area-weighted mean).
 """

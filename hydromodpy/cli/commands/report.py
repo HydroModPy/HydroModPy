@@ -123,6 +123,15 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Compare runs solved on different meshes of the same site.",
     )
+    compare_p.add_argument(
+        "--budget-zone",
+        choices=("domain", "catchment"),
+        default="domain",
+        help=(
+            "Zone of the budget the comparison sums: the whole model domain (default) or "
+            "the delineated catchment, the basin of D inside the domain."
+        ),
+    )
 
     catchment_p = sub.add_parser(
         "catchment",
@@ -200,6 +209,7 @@ def _cmd_compare(args: argparse.Namespace) -> None:
                 by_site=args.by == "site",
                 variables=variables,
                 allow_different_mesh=args.allow_different_mesh,
+                budget_zone=args.budget_zone,
             )
     except ComparisonReferenceError as exc:
         print(str(exc), file=sys.stderr)

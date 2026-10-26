@@ -37,6 +37,18 @@ def _budget_time_field(rows: list[Mapping[str, Any]]) -> tuple[bool, str, str]:
     return use_elapsed_seconds, x_field, _time_axis_label(use_elapsed_seconds=use_elapsed_seconds)
 
 
+_BUDGET_ZONE_NAMES = {"domain": "model domain", "catchment": "delineated catchment"}
+
+
+def _budget_zone_suffix(rows: Iterable[Mapping[str, Any]]) -> str:
+    """Return `` (zone)`` naming the one zone the budget rows sum, empty when they do not say."""
+    zones = {str(row.get("budget_zone", "")) for row in rows} - {""}
+    if len(zones) != 1:
+        return ""
+    zone = zones.pop()
+    return f" ({_BUDGET_ZONE_NAMES.get(zone, zone)})"
+
+
 def _budget_component_points(
     budget_rows: list[Mapping[str, Any]],
     *,

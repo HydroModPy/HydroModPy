@@ -19,7 +19,10 @@ from hydromodpy.spatial.geographic.core.derived_features import (
     GeographicDerivedFeatures,
 )
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
-from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
+from hydromodpy.spatial.geographic.synthetic.config import (
+    SYNTHETIC_CATCH_DEF,
+    SyntheticGeographicConfig,
+)
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
@@ -120,7 +123,7 @@ class SyntheticGeographic:
         self.workspace = workspace
         self.paths = _build_paths(self.output_dir)
 
-        self.catch_def = "synthetic"
+        self.catch_def = SYNTHETIC_CATCH_DEF
         self.zone_kind = "uniform"
         self.x_outlet = None
         self.y_outlet = None

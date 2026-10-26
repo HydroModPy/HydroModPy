@@ -144,6 +144,7 @@ def write_comparison_output_bundle(
     budget_artifacts, budget_rows = write_budget_exports(
         comparison_root=comparison_root,
         simulation_summaries=summaries,
+        budget_zone=cfg.budget_zone,
     )
     data_artifacts.extend(budget_artifacts)
     closure_artifacts, closure_detail_rows, closure_summary_rows = write_numerical_closure_exports(

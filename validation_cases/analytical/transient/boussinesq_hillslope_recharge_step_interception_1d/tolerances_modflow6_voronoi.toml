@@ -25,4 +25,7 @@ bounds sit half a step above the onset and max and twice the RMSE. The head stay
 below the surface for the 120 days (largest clearance -2.8e-3 m), so the DRN
 never acts. Reversal is a solver-closure bound. The row spread is zero by
 construction.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing: uniformity.row_spread 1e-9
+(measure 8.88e-16, float rounding of the area-weighted mean).
 """

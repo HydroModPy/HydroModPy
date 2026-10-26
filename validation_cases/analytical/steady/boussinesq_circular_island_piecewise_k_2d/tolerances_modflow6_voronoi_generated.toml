@@ -16,4 +16,8 @@ error of the upstream cell under Newton. The spread is the error of a mesh
 without the symmetry of the node rings; the freeboard is lower than the
 structured grid's 0.91 m because a generated cell can sit a few decimetres
 above the coast. Measured 2026-10-14.
+B9 of the unified mesh, measured again on 2026-10-26. Already at twice the
+measure: radial_profile.azimuthal_spread 0.126 (measure 0.0626);
+radial_profile.rmse 0.123 (measure 0.0614); radial_profile.max_abs_error 0.2
+(measure 0.0999).
 """

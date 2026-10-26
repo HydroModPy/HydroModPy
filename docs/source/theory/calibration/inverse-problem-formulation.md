@@ -22,8 +22,10 @@ g(\theta) = \ln\frac{\theta}{1 - \theta} \ \ \text{(logit)}.
 $$
 
 A conductivity spans several decades, so it is walked in $\log_{10}$: a step of the search
-is then a factor on $K$, not an increment. A logit needs $0 < a_i < b_i < 1$. The calibrated
-problem is
+is then a factor on $K$, not an increment. A logit needs $0 < a_i < b_i < 1$. A target whose
+physical range reaches below zero, such as an angle of the K tensor, is walked as written, with a
+uniform sampling, whatever search space the field declares for K. Bounds such as $[-30, 30]$
+degrees need no `search_space`. The calibrated problem is
 
 $$
 \theta^\ast = \arg\min_{\theta \in [a, b]} J(\theta),
@@ -63,6 +65,12 @@ $$
 Without normalisation, a cost in metres and a cost without unit add up, and the unit sets
 the balance instead of the weight. A file with no block scores one series with
 {toml}`calibration.objective` and {toml}`calibration.variable`: one block of weight one.
+
+A cell output reads one cell of the grid. Without
+{toml}`calibration.outputs.<name>.layer`, it reads the top active cell of its column, like any
+point given without a layer ({ref}`mesh-top-active`). A column with no active cell reads layer 0,
+and a row or a column outside the grid is refused with the name of the output. A layer written in the
+file is used as it is.
 
 Only the dated pairs inside the scoring window enter $c_b$.
 {toml}`calibration.scoring_window` names the first and last dates that count, so the

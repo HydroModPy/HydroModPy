@@ -203,7 +203,9 @@ mid-column, three layers by $-2.8\,\%$ at the top, and five layers by $-1.0\,\%$
 **Vertical conductivity.** MODFLOW 6 reads $K_z = K / \beta$, with $\beta$ the
 {toml}`modflow6.process_specific.vka`, layer by layer, so a depth factor on $K$
 reaches $K_z$. A parameter with the id `Kv` replaces it with a conductivity per
-cell, and a file that gives `Kv` and a `vka` other than 1 is refused.
+cell, and a file that gives `Kv` and a `vka` other than 1 is refused. MODFLOW-NWT reads the
+same `Kv` as the vertical conductivity of `UPW`: the code writes `layvka = 0` and `vka = Kv`,
+converted to the time unit of the solver like $K$. A `Kv` that is not positive is refused.
 
 The code refuses a $K$ that is zero, negative or not finite on an active cell. A
 heterogeneous $K$ whose zones do not cover the whole domain produces exactly that.

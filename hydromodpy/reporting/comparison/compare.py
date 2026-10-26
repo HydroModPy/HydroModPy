@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.analysis.comparison.config import BudgetZone
 from hydromodpy.analysis.comparison.run_comparison import run_comparison
 from hydromodpy.analysis.comparison.runs import (
     ComparedRun,
@@ -69,6 +70,7 @@ def compare_runs(
     by_site: bool = False,
     variables: Sequence[str] | None = None,
     allow_different_mesh: bool = False,
+    budget_zone: BudgetZone = "domain",
 ) -> list[Path]:
     """Compare the runs *refs* name and return the ``index.html`` of each comparison.
 
@@ -107,6 +109,7 @@ def compare_runs(
             comparison_id=comparison_id,
             variables=variables,
             allow_different_mesh=allow_different_mesh,
+            budget_zone=budget_zone,
         )
         pages.append(
             write_comparison_web_report(

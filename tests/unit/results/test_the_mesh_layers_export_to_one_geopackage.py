@@ -218,6 +218,8 @@ def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
     n_cells = _grid().n_cells
     basin = np.zeros(n_cells, dtype=bool)
     basin[[4, 5, 8]] = True
+    fraction = np.where(basin, 0.75, 0.0)
+    fraction[4] = 1.0
     flags = np.zeros(n_cells, dtype=bool)
 
     def write_descent(store: RunStore, sid: str) -> None:
@@ -240,6 +242,7 @@ def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
                     "basin_seeded_at_outlet": False,
                     "basin_version": 1,
                 },
+                catchment_fraction=fraction,
             )
         finally:
             zarr_store.close()
@@ -250,6 +253,7 @@ def test_the_cells_say_which_ones_the_basin_of_d_holds(project):
 
     cells = gpd.read_file(path, layer="mesh_cells")
     assert cells.index[cells["in_basin"]].tolist() == [4, 5, 8]
+    np.testing.assert_array_equal(cells["catchment_fraction"].to_numpy(), fraction)
 
 
 def test_a_seed_sits_on_the_solver_centre_and_names_its_families(catalog, new_run):

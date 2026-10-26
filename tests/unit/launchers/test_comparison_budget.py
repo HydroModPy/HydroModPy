@@ -164,6 +164,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
                 [
                     {
                         "timestep": 0,
+                        "zone_id": "0",
                         "component": "rcha",
                         "flux_in": 2.5,
                         "flux_out": 0.0,
@@ -171,6 +172,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
                     },
                     {
                         "timestep": 0,
+                        "zone_id": "0",
                         "component": "chd",
                         "flux_in": 0.1,
                         "flux_out": 0.4,
@@ -178,6 +180,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
                     },
                     {
                         "timestep": 0,
+                        "zone_id": "0",
                         "component": "sto-sy",
                         "flux_in": 0.2,
                         "flux_out": 1.0,
@@ -185,6 +188,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
                     },
                     {
                         "timestep": 1,
+                        "zone_id": "0",
                         "component": "rcha",
                         "flux_in": 0.0,
                         "flux_out": 0.0,

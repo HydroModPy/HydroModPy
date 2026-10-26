@@ -11,6 +11,12 @@ the sum is restricted here rather than left to the backend. The support is the
 basin of the descent D the build stored on the model. A model without one falls
 back on the old support ``polygon_covers``: the cells whose centre the
 delineated catchment polygon covers.
+
+The delineated polygon is read by
+:func:`hydromodpy.spatial.geographic.delineated_catchment.catchment_outline`.
+A synthetic geographic delineates no catchment: its box is the domain, so it
+gives neither a polygon nor an outlet, and a synthetic run carries the domain
+alone.
 """
 
 from __future__ import annotations
@@ -21,11 +27,13 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
+from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
 
 logger = get_logger(__name__)
 
 
-def polygon_cell_mask(geographic: object, cell_centroids: np.ndarray) -> np.ndarray | None:
+def polygon_cell_mask(geographic: object | None, cell_centroids: np.ndarray) -> np.ndarray | None:
     """Cells whose centre the delineated catchment polygon covers, None without a polygon.
 
     The old support ``polygon_covers``. The build compares the basin of D with
@@ -33,30 +41,56 @@ def polygon_cell_mask(geographic: object, cell_centroids: np.ndarray) -> np.ndar
     """
     import shapely
 
-    shp = getattr(geographic, "watershed_shp", None)
-    if not shp or not os.path.exists(str(shp)):
+    frame = catchment_outline(geographic)
+    if frame is None:
         return None
-    import geopandas as gpd
-
-    gdf = gpd.read_file(str(shp))
-    if gdf.empty:
-        return None
-    polygon = gdf.geometry.union_all()
+    polygon = frame.geometry.union_all()
     shapely.prepare(polygon)
     centroids = np.asarray(cell_centroids, dtype=float).reshape(-1, 2)
     return np.asarray(shapely.covers(polygon, shapely.points(centroids)), dtype=bool)
 
 
+def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
+    """Share of each cell's area inside the delineated catchment polygon, None without one.
+
+    The weight of a catchment total of a spatial quantity (GSFLOW practice):
+    1 inside the polygon, 0 outside, the intersected share on its outline. The
+    polygon is taken in the frame of its file, which is the frame the solver
+    mesh was built in, as :func:`polygon_cell_mask` assumes. A polygon that
+    declares no CRS gives no fraction rather than a guessed frame.
+    """
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction, cell_polygons
+
+    frame = catchment_outline(geographic)
+    if frame is None:
+        return None
+    if frame.crs is None:
+        logger.warning(
+            "The catchment polygon %s declares no CRS, so the run stores no catchment "
+            "fraction and its catchment totals count a boundary cell whole.",
+            getattr(geographic, "watershed_shp", "?"),
+        )
+        return None
+    polygons = cell_polygons(
+        np.asarray(solver_mesh.planar_mesh.vertices, dtype=float),
+        solver_mesh.cell_mesh.geometry.padded_connectivity,
+    )
+    return cell_area_fraction(
+        polygons, list(frame.geometry), mesh_crs=frame.crs, geometry_crs=frame.crs
+    )
+
+
 def catchment_cell_mask(model: Any) -> np.ndarray:
     """Cells of the catchment the gauge closes on: the basin of D the model carries.
 
-    A model without a basin of D (or whose basin is only the largest one of a
-    domain with neither outlet nor polygon) sums over the cells whose centre
-    the delineated catchment covers. That support is refused by name rather
-    than defaulted to the whole domain: without the polygon nothing can say
-    which water a gauge closes on, and a discharge objective scored on the
-    wrong support optimises against the wrong water while looking perfectly
-    healthy.
+    A model on a synthetic domain sums over every cell: the domain is its own
+    support, as its budget carries the domain row alone. A model without a
+    basin of D (or whose basin is only the largest one of a domain with neither
+    outlet nor polygon) sums over the cells whose centre the delineated
+    catchment covers. That support is refused by name rather than defaulted to
+    the whole domain: without the polygon nothing can say which water a gauge
+    closes on, and a discharge objective scored on the wrong support optimises
+    against the wrong water while looking perfectly healthy.
     """
     basin = getattr(model, "descent_basin", None)
     if basin is not None and basin.is_catchment:
@@ -70,6 +104,9 @@ def catchment_cell_mask(model: Any) -> np.ndarray:
             int(basin.outlet),
         )
         return mask
+    geographic = getattr(model, "geographic", None)
+    if getattr(geographic, "catch_def", None) == SYNTHETIC_CATCH_DEF:
+        return _synthetic_domain_support(model)
     if basin is None:
         logger.warning(
             "Discharge observable: model %s carries no basin of D, so the drain is summed "
@@ -78,6 +115,23 @@ def catchment_cell_mask(model: Any) -> np.ndarray:
             getattr(model, "model_name", "?"),
         )
     return _polygon_support(model)
+
+
+def _synthetic_domain_support(model: Any) -> np.ndarray:
+    """Every cell of a synthetic domain, which delineates no catchment."""
+    solver_mesh = getattr(model, "solver_mesh", None)
+    if solver_mesh is None:
+        raise ValueError(
+            "a discharge observable needs the solver mesh to place its support on the "
+            "cells, and this model carries none."
+        )
+    logger.info(
+        "Discharge observable: model %s lies on a synthetic domain, which delineates no "
+        "catchment, so the drain is summed over all its %d cells.",
+        getattr(model, "model_name", "?"),
+        int(solver_mesh.n_cells),
+    )
+    return np.ones(int(solver_mesh.n_cells), dtype=bool)
 
 
 def _polygon_support(model: Any) -> np.ndarray:
@@ -115,4 +169,8 @@ def _polygon_support(model: Any) -> np.ndarray:
     return mask
 
 
-__all__ = ["catchment_cell_mask", "polygon_cell_mask"]
+__all__ = [
+    "catchment_cell_mask",
+    "polygon_cell_fraction",
+    "polygon_cell_mask",
+]

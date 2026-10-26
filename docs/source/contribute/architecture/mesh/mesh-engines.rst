@@ -36,7 +36,10 @@ The request
 ``MeshRequest`` is plain frozen data (``spatial/mesh/request.py``). It holds the domain polygon,
 the CRS, the DEM grid (``RasterGridSpec``), the nominal cell size, the line families, the size
 field, the seed, the options of the engine, an optional input triangulation and the notes of the
-planner. ``canonical_hash()`` names it, so two requests with the same hash ask for the same mesh.
+planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
+``canonical_hash()`` names it, so two requests with the same hash ask for the same mesh. The list
+of ``source_runs`` enters the hash when it is not empty, so a request with no such run keeps its
+hash.
 The engine and its version enter the identity hash of the run, so a run on another generator is
 never taken for an identical run.
 
@@ -53,9 +56,17 @@ The planner
   geology contacts, lake shores and the catchment boundary are ``face`` lines.
 - It clips the lines to the domain and cleans them, for every engine but a triangulation read
   from a file. The rules are on :ref:`mesh-cleanup`.
+- For the graded engines, it smooths the staircase of the catchment outline where the mesh
+  follows it (``planning/catchment_outline.py``). The rules are on :ref:`mesh-cleanup` too.
 - For an engine that grades its cells, it builds the size field (``sizing/size_field.py``) and
   the term for the gap between face lines (``sizing/gap.py``), which ``[mesh] gap_cells = 0``
   switches off. The rule is on :doc:`/theory/mesh`.
+- It turns each ``[[mesh.refinement_zone]]`` drawn by a field into a term of the size field
+  (``planning/refinement.py``). The zone is a set of DEM pixels, a ``PixelRegion`` of the size
+  field. The height above the stream comes from ``refinement/height_above_stream.py``. A field of
+  an earlier run is read by the workflow step (``workflow/steps/mesh_run_fields.py``), because
+  ``spatial`` cannot import ``results``, and it reaches the planner as pixels. The ``regular``
+  engine does not grade its cells, so the planner drops these zones and the QA says so.
 - For a triangulation read from a file (``planning/input_mesh.py``), it reads the ``.msh`` file
   of ``[mesh.triangle] path`` instead of planning one. It refuses a T-junction, a vertex inside
   the edge of a triangle that does not hold it, and gives its coordinates. It warns about
@@ -194,7 +205,10 @@ point whose name is not the ``engine_id`` of its class or is the name of a built
 identity key on it. The engine raises ``MeshRequestError`` for a request it cannot honour and
 ``MeshGenerationError`` for a mesh it cannot build. The contract tests are
 ``tests/contract/test_mesh_engine_contract.py`` for every registered engine and
-``tests/contract/test_mesh_conformance_reaches_an_installed_engine.py`` for a plugin.
+``tests/contract/test_mesh_conformance_reaches_an_installed_engine.py`` for a plugin. The contract
+gives ``cell_size`` one meaning: a uniform size gives the area over the square of that size,
+within 10 % (row 182 of ``tests/TOLERANCES.md``), and a plugin meets it too. An engine whose own
+parameter is an edge length converts it, as the ``triangle`` engine does.
 
 See also
 --------

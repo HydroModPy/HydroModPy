@@ -56,4 +56,22 @@ def domain_area_m2(sim: Run) -> float:
     return float(face_areas(sim).sum())
 
 
-__all__ = ["domain_area_m2", "face_areas", "face_centroids", "face_polygons"]
+def basin_area_m2(sim: Run) -> float:
+    """Return the area of the whole faces of the basin of D, in m2.
+
+    This is the support of the ``catchment`` row of the budget, so it is the
+    denominator that row needs to become a depth. It is not the area of the
+    delineated polygon: the row counts each face whole. Raises ``ValueError``
+    when the run stores no basin of D, because a guessed area would put a wrong
+    depth on the axis.
+    """
+    stored = sim.descent.stored_basin()
+    if stored is None:
+        raise ValueError(
+            f"Run {sim.sim_id} stores no basin of D, so the area of its catchment budget "
+            "row is unknown. Draw the fluxes in m3/s."
+        )
+    return float(face_areas(sim)[np.asarray(stored[0], dtype=bool)].sum())
+
+
+__all__ = ["basin_area_m2", "domain_area_m2", "face_areas", "face_centroids", "face_polygons"]

@@ -1,0 +1,23 @@
+[recession]
+coefficient_relative_error = 0.0406
+exponent_abs_error = 0.00157
+late_relative_rmse = 0.033
+
+[uniformity]
+row_spread = 1e-5
+
+[monotonicity]
+max_positive_increment_m3_s = 1e-12
+
+[doc]
+reason = """
+Twice the error measured on 2026-10-26 on the Voronoi dual of the triangle strip
+(rule B9 of the unified mesh): coefficient error +2.03 %, |b - 3/2| 7.8e-4,
+late RMSE 1.65 %. The outlet nodes lie on the east edge, so the drainage length
+is the full 50 m and the first-order upstream weighting next to the dry outlet
+is the only error. The shared band of tolerances.toml (0.05, 0.01, 0.04) was
+written for the MODFLOW 6 structured grid and MODFLOW-NWT, which read +4 %; the
+triangles read +2.3 %. The row spread (3.3e-16 m measured) and the monotonicity
+bound stay at the values of tolerances.toml: they sit at a numerical floor, where
+twice the measure guarantees nothing.
+"""

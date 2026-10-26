@@ -756,7 +756,7 @@
     },
     "CalibOutputCell": {
       "additionalProperties": false,
-      "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid, optionally with a non-zero ``layer``.",
+      "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid. Without a ``layer`` the output reads the top active cell of the\ncolumn, like any point given without a layer.",
       "properties": {
         "observes": {
           "anyOf": [
@@ -816,14 +816,19 @@
           "x-hmp-profile": "user"
         },
         "layer": {
-          "default": 0,
-          "description": "Layer of the cell, counted from 0 at the top.",
-          "examples": [
-            0
+          "anyOf": [
+            {
+              "description": "Non-negative integer.",
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "minimum": 0,
+          "default": null,
+          "description": "Layer of the cell, counted from 0 at the top. Unset, the output reads the top active cell of the column, which is not layer 0 where that layer is pinched out or inactive.",
           "title": "Layer",
-          "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -15155,7 +15160,7 @@
       "properties": {
         "cell_size": {
           "default": 40.0,
-          "description": "Target cell size, in metres, in the lake shoreline band.",
+          "description": "Target cell size, in metres, in the lake shoreline band: the side of the square of the same mean area as the cells, as mesh.cell_size.",
           "examples": [
             40.0
           ],
@@ -15204,14 +15209,14 @@
             }
           ],
           "default": null,
-          "description": "Optional target cell size, in metres, inside the whole lake footprint (marnage / bathymetry resolution). When omitted, the interior keeps the background size.",
+          "description": "Optional target cell size, in metres, inside the whole lake footprint (marnage / bathymetry resolution), with the meaning of mesh.cell_size. When omitted, the interior keeps the background size.",
           "title": "Interior Size",
           "unit": "m",
           "x-hmp-profile": "user"
         },
         "dam_cell_size": {
           "default": 30.0,
-          "description": "Target cell size, in metres, in the hydraulic-structure zones (cutoff wall, sill).",
+          "description": "Target cell size, in metres, in the hydraulic-structure zones (cutoff wall, sill), with the meaning of mesh.cell_size.",
           "examples": [
             30.0
           ],
@@ -16010,7 +16015,7 @@
             }
           ],
           "default": null,
-          "description": "Cell size in metres of the regular grid, or background cell size of the triangle and voronoi engines. Unset, the DEM pixel size.",
+          "description": "Cell size in metres, the side of the square of the same mean area as the cells, whatever the engine: a domain of area A gets about A / cell_size^2 cells, and a regular, a triangle and a voronoi cell of this size have about the same area. It is the side of the regular grid cells and the background size of the triangle and voronoi engines. Unset, the DEM pixel size.",
           "title": "Cell Size",
           "unit": "m",
           "x-hmp-profile": "user"
@@ -16026,7 +16031,7 @@
             }
           ],
           "default": null,
-          "description": "Cell size in metres along the rivers. Unset, the DEM pixel size; never finer than the DEM pixel.",
+          "description": "Cell size in metres along the rivers, the side of the square of the same mean area as the cells, as cell_size. Unset, the DEM pixel size; never finer than the DEM pixel.",
           "title": "River Cell Size",
           "unit": "m",
           "x-hmp-profile": "user"
@@ -16048,7 +16053,7 @@
           "x-hmp-profile": "user"
         },
         "refinement_zone": {
-          "description": "Zones of local refinement, one [[mesh.refinement_zone]] table per vector layer, each with its own cell size.",
+          "description": "Zones of local refinement, one [[mesh.refinement_zone]] table each, with its own cell size, which has the meaning of cell_size: a vector layer, or the pixels where a field passes a threshold (the height above the stream traced from the DEM, or the water-table depth or the seepage of an earlier run). The triangle and voronoi engines grade their cells on them; the regular engine does not grade its cells and ignores them, which the mesh QA notes.",
           "items": {
             "$ref": "#/$defs/RefinementZoneConfig"
           },
@@ -16066,7 +16071,7 @@
             }
           ],
           "default": null,
-          "description": "Local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet). The table switches it on.",
+          "description": "Local refinement on the lake shoreline band and the hydraulic structures (cutoff wall, sill, dam outlet), with sizes that have the meaning of cell_size. The table switches it on.",
           "x-hmp-profile": "user"
         },
         "families": {
@@ -16127,7 +16132,7 @@
         },
         "outside_factor": {
           "default": 2.0,
-          "description": "Cell size outside the catchment, as a multiple of cell_size.",
+          "description": "Cell size outside the catchment, as a multiple of cell_size; the cells there have about outside_factor^2 times the area of a cell_size cell.",
           "examples": [
             2.0
           ],
@@ -16164,7 +16169,7 @@
         },
         "gap_cells": {
           "default": 2.0,
-          "description": "Cells across the gap between two face lines (lake shores, barriers, geology contacts, catchment boundary) or between one and the domain outline: the cell size there is the gap divided by this number, never finer than the DEM pixel. 0 switches it off.",
+          "description": "Cells across the gap between two face lines (lake shores, barriers, geology contacts, catchment boundary) or between one and the domain outline: the cell size there, with the meaning of cell_size, is the gap divided by this number, never finer than the DEM pixel. 0 switches it off.",
           "examples": [
             2.0
           ],
@@ -17369,7 +17374,7 @@
             }
           ],
           "default": null,
-          "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D turns on where a consistent result needs it, with a RuntimeWarning: a tilted K tensor (a non-zero flow parameter angle2 or angle3, which MF6 reads only under XT3D), and a K22 different from K on a cell whose angle1 is not a multiple of 90 degrees, or anywhere on an unstructured mesh. Without XT3D the two-point flux drops the cross terms of such a tensor, and the head error does not shrink with refinement. XT3D also turns on, with an INFO log, on triangle cells and on a significantly non-orthogonal mesh. A structured grid with K along its axes, or an orthogonal mesh with K22 equal to K, keeps it off. XT3D multiplies the MF6 run time by about 9 to 11. true turns it on without a warning; false turns it off, with a RuntimeWarning when a consistent result needs it.",
+          "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D turns on where a consistent result needs it, with a RuntimeWarning: a tilted K tensor (a non-zero flow parameter angle2 or angle3, which MF6 reads only under XT3D), and a K22 different from K on a cell whose angle1 is not a multiple of 90 degrees, or anywhere on an unstructured mesh. Without XT3D the two-point flux drops the cross terms of such a tensor, and the head error does not shrink with refinement. XT3D also turns on, with an INFO log, on triangle cells and on a significantly non-orthogonal mesh. A structured grid with K along its axes, or an orthogonal mesh with K22 equal to K, keeps it off. XT3D costs from about 1.5 times the MF6 run time on one layer to about 10 times on ten layers. true turns it on without a warning; false turns it off, with a RuntimeWarning when a consistent result needs it.",
           "title": "Mf6 Enable Xt3D",
           "x-hmp-profile": "expert"
         },
@@ -18428,11 +18433,25 @@
               "type": "string"
             }
           ],
-          "description": "Maximum snapping distance (metres) to move the outlet to the nearest stream cell. Accepts inline units (e.g. 50, '50 m', '0.05 km').",
+          "description": "Width (metres) of the square window the outlet is moved inside, centred on the declared coordinate. Not a maximum displacement: the window reaches floor(snap_dist / (2 * cell size)) cells on each side, so a value equal to the cell size moves nothing, and 150 m on a 25 m grid reaches 3 cells, 75 m. snap_method says where the outlet lands in the window. Accepts inline units (e.g. 50, '50 m', '0.05 km').",
           "examples": [
             "150 m"
           ],
           "title": "Snap Dist",
+          "x-hmp-profile": "user"
+        },
+        "snap_method": {
+          "default": "window",
+          "description": "Where the outlet lands inside the window of snap_dist. 'window' (default) takes the cell with the largest flow accumulation, so it can land on a larger stream that lies in the window beside the one the outlet was declared on. 'jenson' takes the nearest cell of the stream network drawn from the DEM (Jenson and Domingue 1988, as used by Lindsay, Rothwell and Davies 2008), so it stays on the nearest stream, and it refuses an outlet with no stream cell in its window. The network is the cells that drain more than the threshold of [geographic.river_network] (threshold_area_km2 in km^2, or threshold_cells), which 'jenson' needs even when that section is not enabled. It is computed from the DEM: no observed network is read.",
+          "enum": [
+            "window",
+            "jenson"
+          ],
+          "examples": [
+            "window"
+          ],
+          "title": "Snap Method",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "buff_area": {
@@ -20542,20 +20561,112 @@
     },
     "RefinementZoneConfig": {
       "additionalProperties": false,
-      "description": "One user-provided refinement zone layer.",
+      "description": "One zone of local refinement: a vector layer, or where a field passes a threshold.",
       "properties": {
         "path": {
-          "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory.",
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Vector layer (gpkg / shp / GeoJSON) of polygons (zones) and/or points or lines (corridors). A bare filename resolves against <workspace>/data/refinement_zone/; relative paths resolve against that directory, the data directory, then the config directory. Give path or where, not both.",
           "examples": [
             "refinement_zone.gpkg"
           ],
-          "format": "path",
           "title": "Path",
-          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "enum": [
+                "height_above_stream",
+                "watertable_depth",
+                "seepage"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field whose threshold draws the zone, on the pixels of the DEM, instead of a vector layer. The zone is the set of pixels where the field is below the value of below, or above the value of above. Give path or where, not both.",
+          "examples": [
+            "height_above_stream",
+            "watertable_depth",
+            "seepage"
+          ],
+          "title": "Where",
+          "value_docs": {
+            "height_above_stream": "Height in metres of the ground above the stream it drains to, computed from the DEM and the river network traced from it ([geographic.river_network]). The mapped network never enters. Takes below.",
+            "seepage": "Drain outflow per cell area, in mm/d, in the run named by run, at any of its time steps: its maximum over time is compared to above, its minimum to below.",
+            "watertable_depth": "Depth in metres of the water table below the ground in the run named by run, at any of its time steps: its minimum over time is compared to below, its maximum to above."
+          },
+          "x-hmp-profile": "user"
+        },
+        "below": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The zone holds the pixels where the field of where is below this value: metres for height_above_stream and watertable_depth, mm/d for seepage.",
+          "examples": [
+            2.0
+          ],
+          "title": "Below",
+          "unit": "m, or mm/d for seepage",
+          "x-hmp-profile": "user"
+        },
+        "above": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The zone holds the pixels where the field of where is above this value: metres for watertable_depth, mm/d for seepage. Not read for height_above_stream.",
+          "examples": [
+            0.5
+          ],
+          "title": "Above",
+          "unit": "m, or mm/d for seepage",
+          "x-hmp-profile": "user"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The earlier run of this project whose field draws the zone, for watertable_depth and seepage: its name, with or without its .vN (the latest version without), or its full sim_id. The run must be sealed and hold the field. The mesh then depends on that run: its sim_id enters the mesh request and the mesh cache key.",
+          "examples": [
+            "nancon_coarse"
+          ],
+          "title": "Run",
           "x-hmp-profile": "user"
         },
         "cell_size": {
-          "description": "Target cell size, in metres, inside the zone.",
+          "description": "Target cell size, in metres, inside the zone: the side of the square of the same mean area as the cells, as mesh.cell_size.",
           "examples": [
             20.0
           ],
@@ -20576,7 +20687,7 @@
             }
           ],
           "default": null,
-          "description": "Corridor half-width, in metres, for point / line features, and transition distance back to the background size. When omitted, derives 2 * cell_size. Must be >= cell_size so the corridor holds at least one target cell.",
+          "description": "Distance in metres over which the size grows back to the background size outside the zone, and corridor half-width for the point and line features of a layer. When omitted, derives 2 * cell_size. Must be >= cell_size so a corridor holds at least one target cell.",
           "title": "Buffer",
           "unit": "m",
           "x-hmp-profile": "user"

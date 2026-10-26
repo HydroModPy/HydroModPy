@@ -23,7 +23,8 @@ logger = get_logger(__name__)
 # cross terms, so the head error does not shrink with refinement. A steady well
 # with K22 = K/10 and angle1 = 30 gave a head RMSE of 2.2 m on a 7 m drawdown at
 # 40 m and 20 m cells, 0.04 then 0.01 m under XT3D. XT3D multiplies the MF6 run
-# time by about 9 to 11. Triangles and grid non-orthogonality turn XT3D on with
+# time from about 1.5 times on one layer to about 10 times on ten layers.
+# Triangles and grid non-orthogonality turn XT3D on with
 # an INFO log, since the conductance-flux error there scales like
 # sin(non-orthogonality). Below these limits the two-point flux is accurate and
 # XT3D is pure cost. See Provost et al. (2017), TM 6-A56.
@@ -198,16 +199,34 @@ def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
         )
         if advice.required:
             _warn_xt3d(
-                f"XT3D is on because {advice.reason}. XT3D multiplies the MODFLOW 6 run "
-                "time by about 9 to 11. Without it the heads would be off by a share of "
+                f"XT3D is on because {advice.reason}. XT3D costs from about 1.5 times the "
+                "MODFLOW 6 run time on one layer to about 10 times on ten layers. Without "
+                "it the heads would be off by a share of "
                 "the drawdown that grid refinement does not reduce. Set "
                 "modflow6.runtime.mf6_enable_xt3d = true to keep it on without this warning."
             )
         elif solver_mesh is not None:
             logger.info("XT3D auto-%s: %s", "on" if advice.enabled else "off", advice.reason)
+    if decision.enabled and solver_mesh is not None and _newton_on_triangles(model, solver_mesh):
+        logger.warning(
+            "XT3D on triangle cells under Newton can cycle without converging. MODFLOW 6 "
+            "scales the XT3D face area by the upstream saturation, while the cross term "
+            "of XT3D stays non-zero at equal heads, so the discrete system can have no "
+            "root. If the run stops with E401, mesh with the voronoi engine, which needs "
+            "no XT3D, or set modflow6.runtime.mf6_enable_xt3d = false (heads about 0.1 m "
+            "RMSE off XT3D on the Nancon)."
+        )
     if solver_mesh is not None:
         model._xt3d_decision = decision
     return decision
+
+
+def _newton_on_triangles(model, solver_mesh) -> bool:
+    """Whether the run is Newton on a mesh of triangle cells."""
+    runtime = getattr(model.modflow_config, "runtime", None)
+    if not bool(getattr(runtime, "mf6_newton", False)) or solver_mesh.is_structured:
+        return False
+    return solver_mesh.cell_mesh.mesh.cell_types[0] is CellType.TRIANGLE
 
 
 def xt3d_is_enabled(model, solver_mesh=None) -> bool:

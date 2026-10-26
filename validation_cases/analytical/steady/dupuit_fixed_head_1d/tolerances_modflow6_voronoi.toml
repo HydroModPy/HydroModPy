@@ -1,6 +1,6 @@
 [head_profile]
-rmse = 0.015
-max_abs_error = 0.036
+rmse = 0.0146
+max_abs_error = 0.0352
 row_spread = 1e-9
 
 [doc]
@@ -12,4 +12,10 @@ the profile is the area-weighted mean per 10 m column, for the model and the
 reference alike. The largest cell error, 3.3e-2 m, is the interior node 10 m
 from the east face, between face nodes 25 m apart; the column mean halves it.
 The row spread is zero by construction: the loader tiles one profile.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: head_profile.rmse 0.015 to 0.0146 (measure 0.00727);
+head_profile.max_abs_error 0.036 to 0.0352 (measure 0.0176). Kept at a
+numerical floor, where twice the measure guarantees nothing:
+head_profile.row_spread 1e-9 (measure 8.88e-16, float rounding of the
+area-weighted mean).
 """

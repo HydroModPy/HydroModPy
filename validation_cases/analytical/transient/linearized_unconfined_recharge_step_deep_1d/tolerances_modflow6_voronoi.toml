@@ -17,4 +17,7 @@ weights. Backward Euler is first order in time: on the Voronoi dual of the
 boundary step, 1, 4 and 8 sub-steps per period give a space-time RMSE of
 1.4e-3, 3.7e-4 and 1.8e-4 m. The side heads sit on the faces, where the cells
 are seeded.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing: final_profile.rmse 1.4e-5
+(measure 6.91e-6, below the default head closure of 1e-4 m).
 """

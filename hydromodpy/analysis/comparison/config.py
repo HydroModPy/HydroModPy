@@ -31,6 +31,9 @@ from hydromodpy.core.config_kit.validators import validate_optional_identifier
 MeshMode = Literal["triangle", "voronoi", "sgrid", "structured", "unstructured", "unknown"]
 """Mesh kind of a compared run, read from ``geometry.mesh_topology`` of its manifest."""
 
+BudgetZone = Literal["domain", "catchment"]
+"""Zone of the budget table a comparison sums: the whole model domain or the delineated catchment."""
+
 
 def _normalize_optional_mesh_label(value: object) -> str | None:
     text = validate_optional_identifier(value)
@@ -249,6 +252,14 @@ class ComparisonSpec(HydroModelBase):
     fine_raster: ComparisonFineRaster | None = Field(
         default=None, description="Shared raster used to compare maps cell for cell."
     )
+    budget_zone: BudgetZone = Field(
+        default="domain",
+        description=(
+            "Zone of the budget table the budget exports sum, one per comparison. The "
+            "catchment zone is the whole faces of the basin of D, inside the domain, so "
+            "the two are never added."
+        ),
+    )
     simulation: list[ComparisonSimulation] = Field(
         min_length=1, description="The compared runs, reference first."
     )
@@ -276,6 +287,7 @@ class ComparisonSpec(HydroModelBase):
 
 
 __all__ = (
+    "BudgetZone",
     "ComparisonFineRaster",
     "ComparisonObservable",
     "ComparisonSimulation",

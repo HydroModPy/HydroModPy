@@ -257,6 +257,8 @@ def _cells(root: Any, store: Any, sim_id: str) -> gpd.GeoDataFrame:
             columns[column] = mesh_quality_values(root, field)
     if "descent_basin" in mesh:
         columns["in_basin"] = np.asarray(mesh["descent_basin"][:]).astype(bool)
+    if "catchment_fraction" in mesh:
+        columns["catchment_fraction"] = np.asarray(mesh["catchment_fraction"][:], dtype=np.float64)
     return gpd.GeoDataFrame(columns, geometry=_cell_polygons(vertices, connectivity))
 
 

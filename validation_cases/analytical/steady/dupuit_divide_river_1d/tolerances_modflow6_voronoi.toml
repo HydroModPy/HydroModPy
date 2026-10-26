@@ -1,6 +1,6 @@
 [head_profile]
-rmse = 0.0072
-max_abs_error = 0.02
+rmse = 0.00713
+max_abs_error = 0.0198
 row_spread = 1e-9
 
 [doc]
@@ -11,4 +11,10 @@ nodes of the face sit on, and the east river head sits on the cells seeded on
 the east face. Each cell is read at its node and the profile is the
 area-weighted mean per 10 m column, for the model and the reference alike. The
 row spread is the float noise of the area-weighted mean.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: head_profile.rmse 0.0072 to 0.00713 (measure 0.00356);
+head_profile.max_abs_error 0.02 to 0.0198 (measure 0.00987). Kept at a
+numerical floor, where twice the measure guarantees nothing:
+head_profile.row_spread 1e-9 (measure 8.88e-16, float rounding of the
+area-weighted mean).
 """

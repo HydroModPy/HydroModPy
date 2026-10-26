@@ -14,4 +14,7 @@ Each cell is read at its node and the profile is the area-weighted mean per 2 m
 column, for the model and the reference alike. What is left is the default
 MODFLOW 6 head closure of 1e-4 m, as on the triangles. The row spread is zero
 by construction: the loader tiles one profile.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing: head_profile.row_spread 1e-9
+(measure 8.88e-16, float rounding of the area-weighted mean).
 """

@@ -17,6 +17,8 @@ It computes the basin of D at the catchment outlet, once per build
 (:func:`run_basin`), the catchment every consumer of the run reads. On a domain
 that is the catchment itself (``geographic.domain_extent = "watershed"``) D is
 flooded from that outlet and the constant-head cells, not from the whole rim.
+The basin carries the share of each cell's area inside the delineated polygon,
+the weight of a catchment total of a spatial quantity.
 
 The build leaves D and its basin beside the model as ``<model>.descent.npz``:
 the extractors never see the model, so they read this sidecar back with
@@ -27,7 +29,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, get_args
 
@@ -44,7 +46,10 @@ from hydromodpy.core.descent import (
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE, resolve_outlet
-from hydromodpy.solver.modflow_common.catchment_support import polygon_cell_mask
+from hydromodpy.solver.modflow_common.catchment_support import (
+    polygon_cell_fraction,
+    polygon_cell_mask,
+)
 
 logger = get_logger(__name__)
 
@@ -72,6 +77,7 @@ _ADJACENCY_KINDS = ("shared_nodes", "shared_faces")
 _REPORT_COUNTS = ("n_raised", "n_lake_flooded", "n_pinned_raised", "n_channel", "n_pinned")
 _REPORT_MAXIMA_M = ("max_raise_m", "max_lake_flood_m", "max_pinned_raise_m")
 _BASIN_KEYS = ("basin", "basin_outlet", "basin_rule", "basin_area_m2", "basin_seeded_at_outlet")
+_FRACTION_KEY = "catchment_fraction"
 
 # File names written by spatial.geographic.core.river_network.
 _LINK_NAME = "dem_stream_link_id_full.tif"
@@ -457,6 +463,11 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
     the domain. Call it before D drops its adjacency. The polygon is compared
     with the basin: a gap above ``CATCHMENT_MISMATCH_WARNING_SHARE`` of its
     area is a warning, as in the stream criterion.
+
+    A basin that closes a catchment carries the share of each cell's area
+    inside the delineated polygon (``catchment_fraction``), when the run has
+    one. It weights the catchment totals of a spatial quantity and leaves the
+    cells of the basin as they are.
     """
     areas = _cell_areas(solver_mesh)
     near, within = _outlet_search(geographic, solver_mesh, descent)
@@ -480,7 +491,27 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
         basin.seeded_at_outlet,
     )
     _count_constant_head_sinks(descent, basin, within, areas)
+    if basin.is_catchment:
+        fraction = polygon_cell_fraction(geographic, solver_mesh)
+        if fraction is not None:
+            basin = replace(basin, catchment_fraction=fraction)
+            _report_the_fraction(basin, fraction, areas)
     return basin
+
+
+def _report_the_fraction(basin: DescentBasin, fraction: np.ndarray, areas: np.ndarray) -> None:
+    """Log how many cells the polygon outline cuts and the area the fraction weighs."""
+    cut = (fraction > 0.0) & (fraction < 1.0)
+    logger.info(
+        "Catchment fraction: the polygon outline cuts %d cell(s), %d of them in the basin "
+        "of D (%.2f %% of its cells); the polygon weighs %.3f km2 on the mesh against "
+        "%.3f km2 for the basin.",
+        int(cut.sum()),
+        int((cut & basin.mask).sum()),
+        100.0 * float((cut & basin.mask).sum()) / max(1, int(basin.mask.sum())),
+        float((areas * fraction).sum()) / 1.0e6,
+        float(areas[basin.mask].sum()) / 1.0e6,
+    )
 
 
 def _domain_is_the_catchment(geographic: object | None) -> bool:
@@ -602,6 +633,8 @@ class DescentRecord:
     ``basin`` is the basin of D at the catchment outlet (outlet included),
     with the fields of :class:`hydromodpy.core.descent.DescentBasin`. It is
     None for a sidecar written before the basin was stored.
+    ``catchment_fraction`` is the share of each cell's area inside the
+    delineated polygon, None without a polygon.
     """
 
     receiver: np.ndarray
@@ -627,6 +660,7 @@ class DescentRecord:
     basin_rule: str = ""
     basin_area_m2: float = float("nan")
     basin_seeded_at_outlet: bool = False
+    catchment_fraction: np.ndarray | None = None
 
     def report(self) -> dict[str, int | float]:
         """The build report as plain scalars, counts then maxima in metres."""
@@ -679,6 +713,8 @@ def write_descent_sidecar(
                 "basin_seeded_at_outlet": np.asarray(bool(basin.seeded_at_outlet)),
             }
         )
+        if basin.catchment_fraction is not None:
+            payload[_FRACTION_KEY] = np.asarray(basin.catchment_fraction, dtype=np.float64)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(path, **payload)
@@ -701,8 +737,9 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
     ValueError
         When the file lacks an array, its arrays disagree on the cell count,
         its adjacency is not one this module writes, a dam foot is not a cell
-        of the mesh, or its basin lacks a field, names an unknown rule or an
-        outlet outside it.
+        of the mesh, its basin lacks a field, names an unknown rule or an
+        outlet outside it, or its catchment fraction comes without a basin or
+        leaves [0, 1].
     """
     path = Path(path)
     if not path.is_file():
@@ -759,6 +796,12 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
                 "basin_area_m2": float(payload["basin_area_m2"]),
                 "basin_seeded_at_outlet": bool(payload["basin_seeded_at_outlet"]),
             }
+        if _FRACTION_KEY in names:
+            if "basin" not in names:
+                raise ValueError(
+                    f"the descent sidecar {path.name} holds a catchment fraction without a basin."
+                )
+            arrays[_FRACTION_KEY] = np.asarray(payload[_FRACTION_KEY], dtype=np.float64).reshape(-1)
     sizes = {name: int(values.size) for name, values in arrays.items()}
     if len(set(sizes.values())) != 1:
         raise ValueError(f"the descent sidecar {path.name} mixes cell counts: {sizes}.")
@@ -771,6 +814,12 @@ def read_descent_sidecar(path: str | Path) -> DescentRecord | None:
         raise ValueError(f"the descent sidecar {path.name} holds a dam foot outside the mesh.")
     if "basin" in arrays:
         _check_stored_basin(path.name, arrays["basin"], basin_fields)
+    if _FRACTION_KEY in arrays:
+        fraction = arrays[_FRACTION_KEY]
+        if not np.all((fraction >= 0.0) & (fraction <= 1.0)):
+            raise ValueError(
+                f"the descent sidecar {path.name} holds a catchment fraction outside [0, 1]."
+            )
     return DescentRecord(
         **arrays, dam_foot=dam_foot, adjacency=adjacency, **scalars, **basin_fields
     )

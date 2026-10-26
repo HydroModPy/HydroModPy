@@ -10,7 +10,9 @@ public field vocabulary (``recharge``, ``drain``, ``well``, ...) whatever the
 solver, so the figure needs no per-backend knowledge. The table may hold a
 row for the whole model domain and one for the delineated catchment; the
 catchment one is drawn when it exists, so the figure never sums the two
-overlapping zones into one another.
+overlapping zones into one another. In ``mm/period`` a row is divided by the
+area of its own zone, the whole faces of the basin of D for the catchment row
+and the whole domain for the domain row.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 import pandas as pd
 
-from hydromodpy.core.field_routing import select_budget_zone
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, select_budget_zone
 from hydromodpy.core.units.labels import AXIS_LABELS, axis_label
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Opt
@@ -28,6 +30,7 @@ from hydromodpy.display.figure_registry import register
 from hydromodpy.display.figures._instant import run_edges
 from hydromodpy.display.figures._scoring_window import shade_before_window
 from hydromodpy.display.maps.axes import style_date_axis
+from hydromodpy.display.maps.mesh_geometry import basin_area_m2, domain_area_m2
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -54,8 +57,7 @@ _STORAGE_PREFIX = "storage"
 # happens on a few periods), not a distributed flux, so they read as bars,
 # not as a step line that flattens to zero between pumping periods.
 _BAR_COMPONENTS: frozenset[str] = frozenset({"well"})
-# Depth equivalent of a flux over the active model domain.
-_DEPTH_UNIT = "mm/period over the model domain"
+_DEPTH_TOKEN = "mm/period"
 
 
 @register
@@ -78,7 +80,8 @@ class FluxTimeseries(BaseFigure):
         units: Annotated[
             str,
             Opt(
-                '"m3/s", or "mm/period" for the depth equivalent over the model domain, '
+                '"m3/s", or "mm/period" for the depth equivalent over the area of the zone '
+                "drawn (the catchment when the budget has one, else the model domain), "
                 "which is how a recharge is compared to a discharge."
             ),
         ] = "m3/s",
@@ -105,7 +108,7 @@ class FluxTimeseries(BaseFigure):
             raise ValueError("budget holds no boundary flux component to plot")
 
         index, end, xlabel = _time_axis(sim, net.index)
-        scale, ylabel = _scaling(sim, units, index)
+        scale, ylabel = _scaling(sim, units, index, frame, frame_label)
 
         line_components = [c for c in net.columns if c not in _BAR_COMPONENTS]
         bar_components = [c for c in net.columns if c in _BAR_COMPONENTS]
@@ -151,7 +154,7 @@ class FluxTimeseries(BaseFigure):
                     linewidth=0.4,
                     label=" ".join(component.split("_")),
                 )
-            unit_token = "mm/period" if _DEPTH_UNIT in ylabel else AXIS_LABELS["flux"][1]
+            unit_token = _DEPTH_TOKEN if _DEPTH_TOKEN in ylabel else AXIS_LABELS["flux"][1]
             bar_ax.set_ylabel(f"Managed pumping ({unit_token})", color=bar_color)
             bar_ax.tick_params(axis="y", labelcolor=bar_color)
             _align_zero_axes(ax, bar_ax)
@@ -190,23 +193,37 @@ def _time_axis(sim: Run, timesteps: pd.Index) -> tuple[pd.Index, object, str]:
     return edges[:-1], edges[-1], "Date"
 
 
-def _scaling(sim: Run, units: str, index: pd.Index) -> tuple[float, str]:
-    """Return the multiplicative factor and axis label for the requested units."""
+def _scaling(
+    sim: Run, units: str, index: pd.Index, frame: pd.DataFrame, frame_label: str
+) -> tuple[float, str]:
+    """Return the multiplicative factor and axis label for the requested units.
+
+    A depth divides the flux by the area of the zone the rows of ``frame`` sum
+    over. The catchment row is the budget of the whole faces of the basin of
+    D, so its area is theirs. The domain row, or a table without zones, is
+    divided by the active domain, which is larger whenever the grid extends
+    past the catchment (a buffered box).
+    """
     token = str(units).strip().lower()
     if token in ("m3/s", "m3 s-1", ""):
         return 1.0, axis_label("flux")
     if token not in ("mm/period", "mm"):
         raise ValueError(f"flux_timeseries: unsupported units '{units}' (m3/s or mm/period)")
-    from hydromodpy.display.maps.mesh_geometry import domain_area_m2
-
-    # The budget is a domain balance, so the depth equivalent must divide by
-    # the ACTIVE domain area. Using the catchment area would inflate every
-    # component whenever the grid extends past the catchment (buffered box).
-    area = domain_area_m2(sim)
+    if _is_catchment_frame(frame):
+        area = basin_area_m2(sim)
+    else:
+        area = domain_area_m2(sim)
     if not area:
-        raise ValueError("mm/period requires a positive model domain area")
+        raise ValueError(f"mm/period requires a positive area for {frame_label}")
     seconds = _period_seconds(index)
-    return 1000.0 * seconds / float(area), axis_label("flux", _DEPTH_UNIT)
+    return 1000.0 * seconds / float(area), axis_label("flux", f"{_DEPTH_TOKEN} over {frame_label}")
+
+
+def _is_catchment_frame(frame: pd.DataFrame) -> bool:
+    """Return True when every row of the frame is the catchment zone."""
+    if "zone_id" not in frame.columns:
+        return False
+    return set(frame["zone_id"].astype(str)) == {CATCHMENT_BUDGET_ZONE}
 
 
 def _period_seconds(index: pd.Index) -> float:

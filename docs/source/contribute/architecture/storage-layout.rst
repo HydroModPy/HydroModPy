@@ -354,6 +354,17 @@ of :mod:`hydromodpy.core.state.paths`.
 **An identical case is skipped from disk**: the worker reads ``identity.config_hash`` in
 ``runs/<case>/manifest.json``, never the index. ``if_exists`` is ``version`` or ``fail``.
 
+**The hash reads the run a case starts from.** A ``restart_from``, and a ``run`` of a
+``[[mesh.refinement_zone]]``, name an earlier run. Before it hashes the configuration, the code
+replaces that name by the ``sim_id`` of the sealed run it designates
+(``hydromodpy/results/source_runs.py``, ``resolve_source_runs``). A reference is a store path, a
+run name with or without ``.vN``, a full ``sim_id`` or a prefix of eight characters at least. So a
+later version of the source run gives another hash, and the frozen ``config.toml``, which holds the
+``sim_id``, hashes like the configuration it came from. A reference that names no sealed run is
+hashed as written. The frozen ``config.toml`` of a run whose mesh read an earlier run writes the
+``sim_id`` of that run in the zone, taken from the ``zone_runs`` of the mesh summary, so a replay
+reads the same run. It stops with a message when that run is no longer in the project.
+
 Trash and tombstones
 --------------------
 
@@ -668,6 +679,19 @@ arrays are new datasets, so ``zarr_schema_version`` does not change. A run seale
 ``descent_*`` array, and its readers rebuild D from the stored top, with no channel pin, no
 constant-head seed and no lake. A run sealed with D but before ``descent_basin`` has no basin, and
 each reader of the catchment says which older support it falls back to.
+
+**Catchment fraction.** When the basin of D closes a catchment and the run has a delineated
+polygon, the store also holds ``mesh/catchment_fraction``: a float64 value per face in [0, 1], the
+share of the area of the face that lies inside the polygon, with ``units = "1"``. A cell inside the
+polygon has 1. The build writes it with ``descent_basin`` and the sidecar of D carries it. It does
+not change the basin, which stays all or nothing, and it weights the total over the catchment of a
+quantity that varies in space (``hydromodpy.results.derive.views.catchment_total``, see
+:doc:`/theory/mesh`). The sidecar and the store refuse a fraction with no basin, a value outside
+[0, 1] and an array of another size than the mesh. The array is optional and additive, so
+``zarr_schema_version`` stays at 3. A run sealed without it, or without a polygon, counts the whole
+cells of its basin of D, and its readers say so. A synthetic domain has no polygon and no outlet,
+so it stores no fraction, its basin is the largest one of the domain, and its budget has the
+domain row only.
 
 **Soil reservoir.** A run whose recharge comes from
 ``[flow.sinks_sources.recharge.soil]`` writes its daily columns under

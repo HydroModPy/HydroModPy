@@ -13,6 +13,9 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
 from hydromodpy.core.units import LengthMeters
 
+SYNTHETIC_CATCH_DEF = "synthetic"
+"""The ``catch_def`` of a synthetic geographic, whose box is its domain and no catchment."""
+
 
 class SyntheticGridConfig(HydroModelBase):
     """Structured-grid support used to generate one synthetic DEM."""

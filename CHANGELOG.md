@@ -34,6 +34,99 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- The mesh build no longer warns about the bisection offset on an orthogonal mesh (2026-10-26).
+  On a mesh whose 95th percentile of non-orthogonality is under 1 degree, the two-point flux stays
+  consistent wherever the line of the two centres crosses the face. The warning fired on 44 to 70
+  per cent of the cells of a generated Voronoi mesh. The QA still reports the offset, and a
+  non-orthogonal mesh still warns.
+- A comparison exports the budget of one zone, and `flux_timeseries` divides each line by the area
+  of its own zone (2026-10-26). The budget exports of `hmp report compare` added the `catchment` row
+  to the domain row, so a run that carried both counted the water of the catchment twice. On example
+  04 the mean recharge was 2.02 m3/s, 54 % above the 1.31 m3/s of the domain.
+  `budget_timeseries_long.csv` and `budget_timeseries_wide.csv` hold one zone and a `budget_zone`
+  column. `--budget-zone {domain,catchment}` picks the zone, the domain by default, and
+  `ComparisonSpec.budget_zone`, `run_comparison` and `compare_runs` take it too. A Boussinesq state
+  has no `catchment` zone, so it enters the domain export only, and a catchment export leaves it out
+  with a warning. The numerical closure reads the same rows, and the three budget figures of the
+  comparison name their zone in the title. `flux_timeseries` in `mm/period` divided the `catchment`
+  line by the area of the whole domain, so its depths were 0.54 times too small on example 04 (64.77
+  km2 of basin, 120.41 km2 of domain). It divides by the whole cells of the basin of D for the
+  `catchment` line and by the active domain for the domain line, and the axis names the zone. A run
+  with a `catchment` line and no stored basin is refused, with the advice to plot m3/s. On example
+  04 the recharge of the catchment line gives 0.943 mm/d, like the domain line. The CSV of an
+  earlier export are not comparable with the new ones (`542595c7d`).
+- A lake over a pinched or sloping stack connects to every active cell that faces its water
+  (2026-10-26). The bank connections went to the occupied layer index only, and only where the
+  neighbour was active in that layer. A neighbour whose layer was pinched out had no bank, and on a
+  sloping stack the deeper layers that face the lake were ignored. A bank now joins the water slice
+  of a lake column to each active cell of the neighbour column that holds a part of it, whatever its
+  layer, and a band thinner than 1 mm is dropped. A flat stack gives the same rows as before. On a
+  lake of 20 columns with layers that follow the terrain, the bank rows go from 14 to 27, the
+  lake-aquifer exchange rises by 1.6 % (1.7045e-2 to 1.7311e-2 m3/s) and the stage moves from
+  103.7300 to 103.7314 m. The balance of the LAK package stays under 0.01 % in these cases. A carved
+  lake bed on a stack with pass-through cells keeps them flat, so the first active cell under the
+  lake has its top on the carved bed, where the minimum thickness of the carve had put it 0.5 m
+  lower than the bed the lake table holds. A lake in the active-shore mode connects to the top
+  active cell of the column, where it connected to layer 0, a pass-through cell on a stack pinched
+  from the top. The count of bank connections that a cutoff wall seals can drop, because it counts
+  the connections that exist (`d0b98e761`).
+- MODFLOW-NWT reads a flow `Kv` as the vertical conductivity of UPW (2026-10-26). `Kv` was dropped
+  and the vertical conductivity stayed K. The code writes `layvka = 0` and `vka = Kv`, in the time
+  unit of the solver like K, because `layvka = 0` is what makes `vka` a conductivity. Without `Kv`
+  nothing changes. A `Kv` that is not positive is refused, and so is a `Kv` beside a `vka` other
+  than 1, as in MODFLOW 6. The results of an NWT run with a `Kv` change, and a calibration of `Kv`
+  under NWT has an effect now. No example sets `Kv` with NWT (`cf15eb392`).
+- The warning about disconnected active cells runs on the final grid, after the lake mask
+  (2026-10-26). It counts a pass-through cell as a link between the layers above and below it, and a
+  lake as a link between the active cells it touches, as MODFLOW 6 does. It no longer reports false
+  groups when a whole layer is pinched or when a lake takes the only active cell of its columns. The
+  text says `no face, vertical connection or lake joins` (`cf15eb392`).
+- A calibration output with `support = "cell"` and no `layer` reads the top active cell of its
+  column (2026-10-26), like any point given without a layer. It read layer 0, a pass-through cell on
+  a pinched stack. `CalibOutputCell.layer` is optional. The adapter answers through a new method of
+  the `CellLocator` protocol, `top_active_layer(ctx, row, col)`, which MODFLOW 6, MODFLOW-NWT and
+  Boussinesq implement. A column with no active cell reads layer 0, a row or a column off the grid
+  is refused, and so is an adapter that cannot answer, both naming the output. A layer written in
+  the file keeps its meaning. A target whose physical range reaches below zero, which today means
+  the three angles of the K tensor, is searched as written with a uniform sampling. It inherited the
+  log space of K, and a bound such as [-30, 30] stopped the load with `log search space requires
+  lower > 0`. `Project.run(properties=...)` takes `Kv`, `K22` and the three angles beside K, Sy and
+  Ss, where they were dropped without a word. A name that is no property is refused, and so is a
+  property that the solver does not read, such as `K22` under NWT (`f0d4875b9`, `e6084958a`).
+- The head series `head_domain_low`, `head_domain_mid` and `head_domain_high` of a comparison pick
+  their cells by surface elevation (2026-10-26). They took the cell at the rank 0.2, 0.5 and 0.8 of
+  the index in `observables.csv`, which has no relation to elevation. They now draw the median cell
+  of the lower, middle and upper third of the active cells of the reference run, sorted by the
+  elevation of `mesh/topography`, or the top of `mesh/z_interfaces`. A run whose head map has
+  another cell count is left out, where it was read at the same indices. Without a reference run,
+  the cells come from the first run that has a head map. A run that stores no elevation draws no
+  figure, and the new `head_domain_figures_skipped.json` at the root of the comparison says why. A
+  figure whose plot fails is logged. The images written before are not comparable (`2edff003e`).
+- Validation cases that failed before the mesh campaign pass again (2026-10-26). A twin observation
+  point on a cell edge reads the same cell on the route of the truth and on the route of the trial,
+  because both locate it on the polygons of the mesh. The truth route rounded on a regular grid. The
+  cost at the true value of the piecewise-K twin on MODFLOW 6 goes from 0.040145 to under 1e-12. The
+  loader of the Brutsaert cases reads the boundary flux on the domain row of the budget, since a
+  synthetic run carries a `catchment` row beside it, and the truth discharge no longer adds that
+  row. The NWT recharge-step case declares `HEADTOL = 1e-9` m and `FLUXTOL = 1e-10` m3/s in its own
+  file, so every step closes at 0.00 % where the defaults left up to 1.47 %. The goldens `fast_mf6`
+  and `extensive_mf6` take the 15-decimal floats that MODFLOW 6 reads since the DISV input is
+  widened (the p50 of the water-table depth moves by 1.15e-4 relative, the mean depth of the
+  extensive one from 0.448996 to 0.449116 m), and the offline test of the data seal no longer
+  expects the provenance children. No tolerance moves. The benchmark figures of the `modflow6` and
+  `modflow_nwt` columns of the twins can move a little (`c7b7fbad2`, `8c19288ac`, `51c14c706`,
+  `b1e2a84e1`, `4bb5b0754`).
+- A mesh refined by an earlier run replays from that run (2026-10-26). The frozen `config.toml`
+  writes the `sim_id` that a `[[mesh.refinement_zone]]` `run` read in place of its name, taken from
+  the new `zone_runs` key of the mesh summary. So `hmp catalog rerun` and `hmp run --resume` read
+  the same run even after a later version of it exists, and a replay whose source is gone stops with
+  a message that names it. The run identity hash reads the `sim_id` of the run that `[flow]
+  restart_from` and the zones name (`hydromodpy/results/source_runs.py`). A resume of an interrupted
+  run no longer starts from zero, a `.v2` of the source gives another hash, and the three forms of
+  `restart_from` (name, table, path) hash alike. The hash of a run with a `restart_from` or a zone
+  with `run` changes once, so such a run is recomputed once. A run with neither keeps its hash. The
+  message of a river mesh without a network threshold names the zone when a `height_above_stream`
+  zone asks for the network (`d3469a487`, `6381a97ae`).
 - A run calibrated by a `[calibration] protocol` replays from its own frozen `config.toml`
   (2026-10-19). The load writes `[site] gauge` into each stage and `[metrics] window` into a
   transient stage without one after it expands the protocol, so the frozen stages read as a
@@ -485,6 +578,61 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- Mesh refinement where the water table is shallow (2026-10-26). A `[[mesh.refinement_zone]]` table
+  takes a criterion `where` in place of a vector layer `path`, with a threshold `below` or `above`
+  and, for a field of an earlier run, `run`. `where = "height_above_stream"` refines the DEM pixels
+  less than `below` metres above the stream they drain to (HAND, on the DEM of the mesh grid and the
+  network traced from it with `[geographic.river_network]`). A mapped network never enters, and such
+  a zone turns the traced network on. `where = "watertable_depth"` and `where = "seepage"` read the
+  field in the `fields.zarr` of the sealed run that `run` names, at any time step. The minimum over
+  time is compared to `below` and the maximum to `above`, and the seepage is the drain outflow per
+  cell area in mm/d. A zone is a term of the size field, with its `cell_size` inside and a ramp at
+  `max_slope` over `buffer` outside. The `regular` engine ignores the zones and the mesh QA says so.
+  `MeshRequest` carries `source_runs`, the sorted `sim_id` of the runs read. It enters the hash of
+  the request when it is not empty, so the existing meshes keep their hash. A table with neither or
+  both of `path` and `where` is refused. On the Nançon (25 m DEM, network threshold 0.05 km2), the
+  zone below 2 m covers 20 % of the catchment. A Voronoi mesh of 75 m with that zone at 25 m holds
+  40 043 cells, against 14 897 at 75 m and 134 074 at 25 m (`abed303ff`).
+- The outlet can snap by the Jenson rule (2026-10-26). `[geographic.catchment] snap_method` is
+  `"window"` (default) or `"jenson"`. `window` moves the outlet to the cell of the largest flow
+  accumulation inside the square window of width `snap_dist`, and it can jump onto a larger stream
+  that lies beside the declared one. `jenson` takes the nearest cell of the stream network drawn
+  from the DEM, so it stays on the nearest stream, and it refuses an outlet with no stream cell in
+  its window. It needs the threshold of `[geographic.river_network]`, `threshold_area_km2` or
+  `threshold_cells`. The section need not be enabled, and the load refuses a file without the
+  threshold. A mapped network is never read. The terrain port `delineate` takes `snap`, `"window"`
+  or `JensonSnap`, and an engine that cannot serve it raises `TerrainCapabilityError`. The
+  description of `snap_dist` said a maximum distance, and it is the width of the window. The default
+  and the cache fingerprint of a project at `window` do not change. On example 04 (window of 3 by 3
+  cells), `window` moves the outlet by 130 m and gives 11 488 cells (64.620 km2), and `jenson` moves
+  it by 36 m and gives 11 483 cells (64.592 km2). With a window of 900 m, `window` gives 64.851 km2
+  and `jenson` still 64.592 km2 (`85836796d`).
+- `parameter_map` and `parameter_section` draw K22, K33 and the three angles of the K tensor
+  (2026-10-26): `hydraulic_conductivity_k22`, `hydraulic_conductivity_k33` and
+  `conductivity_tensor_angle1` to `3`. K22 and K33 take the scale rule of K, and the conductivity
+  panels of a `parameter_section` share one scale. `angle1` is in degrees on a full turn, from 0 to
+  360, with the cyclic colour map `twilight` and a tick every 90 degrees. `angle2` and `angle3` are
+  linear. The `cmap` of both figures defaults to `None`, which is viridis, and `twilight` for
+  `angle1`. Without `variables`, `parameter_section` adds K22 and the angles when the run holds
+  them, and K33 only when it differs from K. A variable that the run does not hold is refused by
+  name with `FigureNotApplicable`, where `parameter_section` dropped it without a word, and so is a
+  variable that is not an aquifer property, such as `head` (`8105d417f`).
+- The catchment fraction (2026-10-26). A run with a delineated polygon stores
+  `mesh/catchment_fraction`, the share of the area of each face inside the polygon, from 0 to 1, and
+  the `mesh_cells` layer of `hmp export` carries it as `catchment_fraction`. The share is exact for
+  the cells that the outline cuts. The basin of D stays all or nothing, and so do the `catchment`
+  row of the budget, the discharge at the outlet and the calibration. `views.catchment_weights(run)`
+  returns the shares, and `views.catchment_total(run, variable)` sums a per-cell budget term, such
+  as `recharge` or `drain`, with them: the recharge and the seepage over the catchment, per time
+  step. The shares also cover the cells outside the basin that the polygon touches, because weights
+  limited to the basin lose the part of the polygon in the neighbouring cells. On a distorted disc
+  over a grid of 75 m, a mask by cell centre misses the area by -0.03 % (standard deviation 0.13 %)
+  at a radius of 3 km and by -0.06 % (0.45 %) at 1 km, and weights limited to the basin by -0.67 %
+  and -2.0 %. The array is optional, so the Zarr schema stays 3, and a run sealed without it counts
+  the whole cells of its basin and says so. On example 04 the grid is the DEM, so no cell is cut and
+  every share is 0 or 1. The recharge over the catchment is 0.23 % below the `catchment` row and the
+  seepage 1.2 % below, because the basin of D and the polygon disagree on 34 and 8 whole cells
+  (`2b4ac4f0b`).
 - The cell shape in the mesh QA, and a build warning (2026-10-26). `MeshQA` gains
   `bisection_offset` (quantiles over the interior faces longer than `min_face_length_m`, and
   `n_cells_gt_0_25`, the cells with a face above `BISECTION_OFFSET_WARNING`), `min_angle_deg` and
@@ -1032,15 +1180,103 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `mesh.cell_size` means the same for the three engines (2026-10-26): the side of the square that
+  has the mean area of a cell. The `triangle` engine gave it to Gmsh as an edge length and made 2.6
+  times the cells of `A / cell_size^2` on a uniform field and 3.09 times on the Flume. The adapter
+  multiplies each size by a factor measured for the algorithm, 1.62 for `delaunay`, 1.58 for
+  `meshadapt` and 1.52 for `frontal`, and it resamples the lines of a sized request at that edge. A
+  square of 4 km at 100 m gives 1600 cells for `regular` and `voronoi` and 1652 for `triangle`. The
+  engine contract checks it within 10 % for every engine, plugins included (row 182 of
+  `tests/TOLERANCES.md`). A generated triangle mesh changes resolution at equal `cell_size`: it has
+  2.3 to 2.6 times fewer cells (65 876 become 28 866 on the Flume v2 sizes), and the cached triangle
+  meshes are rebuilt, since the engine moves to 1.2.0. With lines to follow, Gmsh adds cells around
+  them, so `triangle` stays 11 % above the integral of the size field with one river and 35 % on the
+  dense network of the Flume. The `regular` and `voronoi` engines, a `.msh` read and the validation
+  cases, which read a file, do not change. The size of the triangle fixtures in the tests is divided
+  by the factor (`50aad8403`, `85ca68f1d`).
+- The planner smooths the pixel staircase of the catchment outline before meshing (2026-10-26). It
+  does so for the `triangle` and `voronoi` engines, where the mesh follows the outline:
+  `mesh.families.watershed_boundary = "face"`, or `geographic.domain_extent` at `"watershed"` or
+  `"watershed_buff"`. Each step corner is cut at half a pixel and the line is simplified at half a
+  pixel, so no point lies more than one pixel from the staircase. The end of a river, the end of a
+  barrier and a vertex of a lake shore that touch the outline stay on it. A box, `regular` and a
+  triangulation read from a file keep their outline. No key changes, but the request hash does, so
+  the cached meshes of such a request are rebuilt. A cell that touches the outline can change side
+  on a band of 0.8 pixel at most. On example 04 the outline goes from 423 to 160 vertices and the
+  area moves by -0.08 %. With the catchment as the domain, the Voronoi cells with an isoperimetric
+  quotient under 0.6 go from 118 to 5 out of about 7300. With the buffer as the domain, the
+  `triangle` mesh goes from 27 918 to 24 002 cells and the triangles under 20 degrees from 144 to 0.
+  With the catchment or a box as the domain, the `triangle` count does not change (`cc2eb8443`).
+- A view that says catchment reads the catchment (2026-10-26). `views.catchment_mean` averages a
+  variable over the delineated catchment, weighted by the share of each face inside the polygon and
+  by its area. It was an unweighted mean over the active domain. It refuses a synthetic run and a
+  run with no basin of D, and no public view averages a field over the active domain now (read
+  `run.field`). On example 04 the mean depth of the water table is 10.74 m on the catchment against
+  11.17 m on the domain. `drainage_density`, `cell_field_active_metrics` and the overlap and
+  distance metrics of the simulated network count the active cells of the basin of D, whole, and the
+  key `catchment_cell_count` is that count. A run with no stored basin of D keeps the active domain
+  and logs it. On example 04 the count goes from 21 406 to 11 514 cells and the mean drainage
+  density from 5.3 % to 6.2 %. The precision of the simulated cells against the reference network
+  goes from 0.375 to 0.596 and the F1 from 0.447 to 0.575, because the 403 active cells outside the
+  catchment no longer count as false positives. The coverage of the reference stays at 0.555.
+  `saturated_fraction` and `recharge_forcing` keep the active domain, the cells with a finite top,
+  and their docstrings say so. The CSV written before are not comparable (`542595c7d`, `8f061a194`,
+  `92b66ffa0`).
+- A synthetic domain has no catchment (2026-10-26). `catchment_outline` gives nothing for a
+  synthetic geography, and the box stays the domain. The basin of D is the largest basin of the
+  domain, and no `catchment` row is written in the budget. It held 12 cells of 960 on the flat
+  Brutsaert case, with the warning `Watershed polygon and basin of D: 12 basin cells against 960`.
+  The `_catchment` series of a MODFLOW synthetic run carry the whole domain, the discharge
+  observable sums every cell with an INFO line, and the stream criterion closes on the largest basin
+  of its own graph. The `_catchment` numbers of a synthetic run sealed before are not comparable
+  with the new ones (`2b4ac4f0b`).
+- A lake column with no active cell under the lake is refused at build (2026-10-26). The message
+  names the lake, the number of columns and the first cell, and three ways out: fewer
+  `occupied_layers`, a smaller `min_thickness` of the `[[domain.layers.layer]]` under the lake, or
+  `pinch_out = "keep_min_thickness"`. The run passed before, with the lake resting on the base of
+  the model. A carved bed on a column whose layers under the top one are all pass-through cells is
+  refused too (`d0b98e761`).
+- XT3D on triangle cells under Newton warns that it can cycle (2026-10-26). MODFLOW 6 scales the
+  XT3D face area by the saturation of the upstream cell, but the cross term of XT3D is not zero at
+  equal heads, so the discrete system can have no root. The steady Nançon on triangles stops with
+  E401 after 500 outer iterations, in MODFLOW 6.6.3 and 6.8.1, whatever the IMS options, the
+  starting heads or the size of the cells, and ghost nodes (GNC) cycle in the same way. The build
+  logs a warning with two ways out. The `voronoi` engine needs no XT3D and converges on the same
+  inputs in 21 outer iterations. `mf6_enable_xt3d = false` converges in 23, with heads about 0.1 m
+  RMSE from XT3D. The cost wording is measured: XT3D costs from about 1.5 times the MODFLOW 6 run
+  time on one layer to about 10 times on ten, and the description of `mf6_enable_xt3d` and the
+  tensor warning say so (`7970fb843`).
+- `hmp dev lock archive` and `hmp data archive` write `zarr_schema_version = "3"` in the lockfile of
+  the archive (2026-10-26). A default of `"2"`, which the `data` layer could not read from
+  `results`, was stale. `write_lockfile` and `archive_lockfile` take `zarr_schema_version` and
+  `parquet_schema_version` as arguments with no default (`cf15eb392`, `14e8065a3`).
+- The page of TOML changes shows a moved table as a rename (2026-10-26).
+  `config_migration.MOVED_TABLES`, a list of `TableMove(old, new)`, declares
+  `modflow6.sgrid.vertical` and `modflownwt.sgrid.vertical` going to `domain.layers` once, and the
+  migration and the page both read it. The page lists them under Renamed with the note that they
+  still load, and the dotted override of a phase goes from `modflow6.sgrid.vertical.<key>` to
+  `domain.layers.<key>`. The keys that kept their name are compared from one release to the next, so
+  a change of default, profile, shape or unit shows under Changed. Against 2.0.0a4, the page has two
+  Renamed lines where it had two Removed and one Added, and four more Changed lines. No config
+  changes (`ae94557b9`).
+- The Voronoi validation tolerances are twice the measured error (2026-10-26). Of 103 lines
+  remeasured on 58 tests, 41 are tightened (38 values in 15 `tolerances_modflow6_voronoi*.toml`
+  files), 8 were already at twice the error, 30 stay on a numerical floor, 21 stay as twin noise and
+  3 share a value with the other meshes. The Voronoi leg of the Brutsaert thin case reads its own
+  new file instead of the band shared with the structured grid and NWT: 0.05 becomes 0.0406 on the
+  coefficient, 0.01 becomes 1.57e-3 on the exponent and 0.04 becomes 0.033 on the late RMSE. The two
+  azimuth spreads of the islands on a triangulation seed stay on a floor, because they follow the
+  iteration path and moved from 5.2e-5 to 4.0e-6 m between two runs. No run result changes. A
+  Voronoi validation test fails when its error passes twice the value of 2026-10-26 (`5cb6f2efc`).
 - XT3D turns on by itself for a K tensor off the mesh axes (2026-10-26): a `K22` different
   from K on a cell whose `angle1` is not a multiple of 90 degrees, or on any cell of an
   unstructured mesh, beside the tilted tensor (`angle2` or `angle3`). The two-point flux drops
   the cross terms of such a tensor: around a well with `K22 = K/10` and `angle1 = 30`, the head
   error is a third of the drawdown and does not shrink when the cells are halved, while XT3D
-  converges. Both cases raise a `RuntimeWarning`, also logged, that XT3D multiplies the
-  MODFLOW 6 run time by about 9 to 11. `mf6_enable_xt3d = true` silences it, and `false` on such
-  a tensor warns that the result is inconsistent. Triangles and a non-orthogonal mesh turn
-  XT3D on as before.
+  converges. Both cases raise a `RuntimeWarning`, also logged, that XT3D costs from about 1.5
+  times the MODFLOW 6 run time on one layer to about 10 times on ten. `mf6_enable_xt3d = true`
+  silences it, and `false` on such a tensor warns that the result is inconsistent. Triangles and
+  a non-orthogonal mesh turn XT3D on as before.
 - Boussinesq refuses a `[domain.layers]` it would ignore (2026-10-26): more than one layer in
   any mode, and the `surfaces` mode. It solves one layer and reads K and Sy at the top of the
   aquifer. A phase override under `domain.layers` is checked on load, and the old dotted
@@ -1246,6 +1482,17 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The bundle reader of a run and what lived on it (2026-10-26). `resolve_bundle_cells` is
+  `resolve_run_cells(store, sim_id, *, expected_size=None)` and reads the mesh stored in
+  `fields.zarr` only. Nothing writes `<run>/mesh/mesh_catchment_bundle/cells.csv` since the exporter
+  left on 14 October. `RUN_MESH_BUNDLE_RELPATH` and `bundle_cells_from_dir` go, and
+  `load_variable_series` and `mask_depth_series_from_head_nodata` no longer take `run_folder`. The
+  bundle was the only source of `storage_coefficient`, `z_top` and `z_bottom` of a cell, so the
+  three fields of `CellCentroidTable` go, with the export `boussinesq_obstacle_diagnostics.csv` of a
+  comparison, which was empty for every sealed run. The columns `surface_top_m` and
+  `surface_bottom_m` of `observables.csv` and `timeseries_long.csv`, always empty, go with the
+  surface lines of the series figures. `catchment_mesh_bundle_reader` stays, because the 16
+  committed bundles of the validation cases are read by it. No TOML key changes (`5861d49d7`).
 - `[calibration.aggregate]` `weighting`, `nested_gauges` and `on_member_failure`, and
   `[calibration]` `lightweight_extraction` and `persist_model_distribution`, leave the schema
   (2026-10-20). Nothing read them: `weighting = "error"` or `on_member_failure = "drop"` gave the

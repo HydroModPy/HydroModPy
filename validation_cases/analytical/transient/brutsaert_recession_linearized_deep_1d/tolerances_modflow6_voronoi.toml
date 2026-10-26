@@ -5,14 +5,14 @@
 [discharge]
 # Twice the measurement: RMSE 4.4e-4, maximum 6.9e-4 (triangles 9.3e-4 and
 # 2.4e-3).
-relative_rmse = 9e-4
-relative_max_error = 1.4e-3
+relative_rmse = 0.000876
+relative_max_error = 0.00139
 
 [recession]
 # Known gap, 1.1 times the measurement: -0.663 %.
 coefficient_relative_error = 7.3e-3
 # Fitted b against 1; measured 3.5e-4.
-exponent_abs_error = 7e-4
+exponent_abs_error = 0.000699
 # Known gap, 1.1 times the measurement: 1.955 %.
 late_relative_rmse = 2.2e-2
 
@@ -46,4 +46,11 @@ The dual keeps the ILUT fill of 40 of the triangle config, which stops the
 linear solver from stalling on this matrix. The row spread is zero by
 construction: the loader bins the dual by node abscissa into one profile
 (7e-15 m measured).
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: recession.exponent_abs_error 7e-4 to 6.99e-4 (measure 3.49e-4);
+discharge.relative_rmse 9e-4 to 8.76e-4 (measure 4.38e-4);
+discharge.relative_max_error 0.0014 to 0.00139 (measure 6.92e-4). Kept at a
+numerical floor, where twice the measure guarantees nothing:
+uniformity.row_spread 1e-9 (measure 7.11e-15, float rounding of the
+area-weighted mean).
 """
