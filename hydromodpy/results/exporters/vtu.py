@@ -41,8 +41,8 @@ def export_vtu(
         Destination ``.vtu`` file.
     layer : int, optional
         Layer of a field of several layers. Left out, every layer is written,
-        one cell array per layer named ``<variable>_layer<N>``; a field of one
-        layer keeps its bare name.
+        one cell array per layer named ``<variable>_layer<N>``, ``N`` counted
+        from 0 at the top; a field of one layer keeps its bare name.
     values : numpy.ndarray, optional
         The per-cell values to write, when the caller computed them.
 
@@ -101,7 +101,7 @@ def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[st
     n_layers = int(data.shape[0])
     if n_layers == 1:
         return {variable: data[0]}
-    return {f"{variable}_layer{index + 1}": data[index] for index in range(n_layers)}
+    return {f"{variable}_layer{index}": data[index] for index in range(n_layers)}
 
 
 def _build_meshio_cells(connectivity: np.ndarray) -> tuple[list, list[np.ndarray]]:

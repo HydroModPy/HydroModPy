@@ -270,13 +270,9 @@ def build_ocean_boundary_chd_spd(
     if ocean_series is None or not np.any(mask):
         return spd, mask
 
-    cell_ids = np.where(mask)[0]
+    layer_cells = _active_layer_cells(model, np.where(mask)[0])
     for kper, head in enumerate(np.asarray(ocean_series, dtype=float)):
-        period_cells: list[list[float]] = []
-        for ilay in range(int(model.nlay)):
-            for cid in cell_ids.tolist():
-                period_cells.append([ilay, cid, float(head)])
-        spd[kper] = period_cells
+        spd[kper] = [[ilay, cid, float(head)] for ilay, cid in layer_cells]
     return spd, mask
 
 
@@ -309,13 +305,9 @@ def build_stream_boundary_chd_spd(
     if stream_series is None or not np.any(mask):
         return spd, mask
 
-    cell_ids = np.where(mask)[0]
+    layer_cells = _active_layer_cells(model, np.where(mask)[0])
     for kper, head in enumerate(np.asarray(stream_series, dtype=float)):
-        period_cells: list[list[float]] = []
-        for ilay in range(int(model.nlay)):
-            for cid in cell_ids.tolist():
-                period_cells.append([ilay, cid, float(head)])
-        spd[kper] = period_cells
+        spd[kper] = [[ilay, cid, float(head)] for ilay, cid in layer_cells]
     return spd, mask
 
 
@@ -332,13 +324,29 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
         if boundary is None:
             continue
         series = resolve_side_boundary_series(model, boundary=boundary, bc_id=bc_id)
+        support = np.asarray(
+            boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id), dtype=np.int64
+        )
+        layer_cells = _active_layer_cells(model, support[~dem_mask_flat[support]])
         for kper, head in enumerate(series):
-            for ilay in range(int(model.nlay)):
-                for cid in boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id):
-                    if bool(dem_mask_flat[cid]):
-                        continue
-                    spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
+            for ilay, cid in layer_cells:
+                spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
     return {kper: list(period_map.values()) for kper, period_map in spd.items()}
+
+
+def _active_layer_cells(model, cell_ids: np.ndarray) -> list[tuple[int, int]]:
+    """Return the ``(layer, cell)`` pairs of ``cell_ids`` that are active, layer by layer.
+
+    A constant head is written on every active layer of its column and never
+    on an inactive or pass-through cell, which MODFLOW 6 refuses.
+    """
+    idomain = np.asarray(model.solver_mesh.idomain)
+    cells = np.asarray(cell_ids, dtype=np.int64).reshape(-1)
+    return [
+        (ilay, int(cid))
+        for ilay in range(int(idomain.shape[0]))
+        for cid in cells[idomain[ilay, cells] > 0].tolist()
+    ]
 
 
 def side_boundary_owner_by_cell(model) -> dict[int, str]:
@@ -369,7 +377,7 @@ def refuse_constant_heads_below_bottom(
     model,
     *,
     botm: np.ndarray,
-    inactive_mask: np.ndarray,
+    idomain: np.ndarray,
     ocean_spd: Mapping[int, list[list[float]]],
     stream_spd: Mapping[int, list[list[float]]],
     side_spd: Mapping[int, list[list[float]]],
@@ -390,7 +398,7 @@ def refuse_constant_heads_below_bottom(
         One line per boundary with the cells, their bottom and the head.
     """
     botm = np.asarray(botm, dtype=float)
-    inactive = np.asarray(inactive_mask, dtype=bool)
+    inactive = np.asarray(idomain) <= 0
     side_owner = side_boundary_owner_by_cell(model) if any(side_spd.values()) else {}
     # (owner, layer, cell) -> (period, head, bottom) of the first period below.
     below: dict[tuple[str, int, int], tuple[int, float, float]] = {}
@@ -413,8 +421,8 @@ def refuse_constant_heads_below_bottom(
     def _cell_name(lay: int, cid: int) -> str:
         if structured_shape is not None:
             ncol = int(structured_shape[1])
-            return f"layer {lay + 1} row {cid // ncol + 1} column {cid % ncol + 1}"
-        return f"layer {lay + 1} cell {cid + 1}"
+            return f"layer {lay} row {cid // ncol} column {cid % ncol}"
+        return f"layer {lay} cell {cid}"
 
     lines: list[str] = []
     for label in sorted({key[0] for key in below}):
@@ -491,6 +499,10 @@ def build_drain_stress_period_data(
     A configured conductance is one value per cell, whatever its area: see
     :func:`report_per_cell_conductance_spread`.
 
+    A drain sits on the top active cell of each open column (``model.dem_mask``
+    closes the columns with no active cell and the lake footprint), at the top
+    of that cell, with the conductivity of its layer.
+
     The drain geometry and elevation are static, so the per-cell conductance is a
     pure function of the period's configured conductance value. A period is
     emitted only when that value changes (period 0 always); MF6 reuses the
@@ -515,7 +527,8 @@ def build_drain_stress_period_data(
     )
     cell_ids = np.flatnonzero(drained)
     drained_sink = np.zeros(cell_ids.size, dtype=bool) if sink_flat is None else sink_flat[cell_ids]
-    tops = np.asarray(solver_mesh.top, dtype=float)[cell_ids]
+    layers = solver_mesh.top_active_layer()[cell_ids]
+    tops = solver_mesh.top_active_cell_top()[cell_ids]
     areas = cell_areas[cell_ids]
     drn_spd: dict[int, list[list[float]]] = {}
     previous_cond: float | None = None
@@ -524,7 +537,11 @@ def build_drain_stress_period_data(
         if previous_cond is not None and configured_cond_value == previous_cond:
             continue
         previous_cond = configured_cond_value
-        hk = None if configured_cond_value > 0.0 else np.asarray(model.hk[0], dtype=float)[cell_ids]
+        hk = (
+            None
+            if configured_cond_value > 0.0
+            else np.asarray(model.hk, dtype=float).reshape(-1, n_cells)[layers, cell_ids]
+        )
         period_cells: list[list[float]] = []
         for row, cell_id in enumerate(cell_ids.tolist()):
             if drained_sink[row]:
@@ -544,7 +561,7 @@ def build_drain_stress_period_data(
                 bed_thickness=bed_thickness,
                 band_depth=band_depth,
             )
-            period_cells.append([0, cell_id, elevation, cond_value])
+            period_cells.append([int(layers[row]), cell_id, elevation, cond_value])
         drn_spd[kper] = period_cells
     return drn_spd
 

@@ -52,7 +52,6 @@ def _rectify(records, top, adj, receiver, *, lakes=None, spillway=frozenset(), n
         mesh_top=top,
         lake_cell_to_number=lakes or {},
         idomain=np.ones((1, n), dtype=int),
-        nlay=1,
         location="test",
         spillway_seeds=set(spillway),
         **kwargs,

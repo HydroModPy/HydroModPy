@@ -43,6 +43,7 @@ def test_extract_saturated_thickness_reads_the_uppermost_layer(tmp_path, monkeyp
         "model",
         top=np.array([10.0, 10.0, 10.0]),
         bottom=np.array([0.0, 0.0, 0.0]),
+        layer=np.zeros(3, dtype=int),
         time_index=index,
     )
 
@@ -66,6 +67,7 @@ def test_extract_saturated_thickness_clips_below_the_aquifer_base(tmp_path, monk
         "model",
         top=np.array([30.0, 30.0, 30.0]),
         bottom=np.array([10.0, 10.0, 10.0]),
+        layer=np.zeros(3, dtype=int),
     )
 
     # Head at 8 m sits below the 10 m base: zero thickness, never negative.
@@ -81,12 +83,32 @@ def test_extract_saturated_thickness_validates_the_bounds(tmp_path, monkeypatch)
 
     with pytest.raises(ValueError, match="top holds 3 cells but bottom holds 2"):
         extractors.extract_saturated_thickness_by_cell_from_hds(
-            tmp_path, "model", top=np.zeros(3), bottom=np.zeros(2)
+            tmp_path, "model", top=np.zeros(3), bottom=np.zeros(2), layer=np.zeros(3, dtype=int)
         )
 
 
 def test_extract_saturated_thickness_needs_the_head_file(tmp_path):
     with pytest.raises(ObservableNotAvailableError, match="HDS file not found"):
         extractors.extract_saturated_thickness_by_cell_from_hds(
-            tmp_path, "model", top=np.zeros(3), bottom=np.zeros(3)
+            tmp_path, "model", top=np.zeros(3), bottom=np.zeros(3), layer=np.zeros(3, dtype=int)
         )
+
+
+def test_the_saturated_thickness_reads_the_top_active_cell_of_each_column(tmp_path, monkeypatch):
+    import flopy.utils.binaryfile as bf
+
+    monkeypatch.setattr(bf, "HeadFile", _FakeHeadFile)
+    (tmp_path / "model.hds").write_text("", encoding="utf-8")
+
+    # Cell 0 reads layer 1 (its top cell is inactive), cell 2 is a closed column.
+    frame = extractors.extract_saturated_thickness_by_cell_from_hds(
+        tmp_path,
+        "model",
+        top=np.array([10.0, 10.0, 10.0]),
+        bottom=np.array([-10.0, -10.0, -10.0]),
+        layer=np.array([1, 0, -1]),
+    )
+
+    assert frame.iloc[0, 0] == pytest.approx(5.0)
+    assert frame.iloc[0, 1] == pytest.approx(18.0)
+    assert np.isnan(frame.iloc[0, 2])

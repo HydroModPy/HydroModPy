@@ -49,7 +49,8 @@ def export_netcdf(
     variables : list[str]
         Field names to export (e.g. ``["head", "watertable_depth"]``). A field
         stored per layer is written as one variable per layer, named ``<var>``
-        on a single-layer model and ``<var>_layer<N>`` otherwise.
+        on a single-layer model and ``<var>_layer<N>`` otherwise, ``N``
+        counted from 0 at the top like every layer index of HydroModPy.
     output_path : str or Path
         Destination ``.nc`` file.
     timesteps : list[int], optional
@@ -123,7 +124,7 @@ def export_netcdf(
     ds.attrs["simulation_id"] = sim_id
     # The mesh says how large it is; a root written before the seal says 0.
     ds.attrs["n_cells"] = int(connectivity.shape[0])
-    ds.attrs["n_layers"] = max(int(len(z_interfaces)) - 1, 1)
+    ds.attrs["n_layers"] = max(int(z_interfaces.shape[0]) - 1, 1)
 
     # Mesh topology variable (scalar placeholder per UGRID convention)
     ds["mesh2d"] = xr.DataArray(
@@ -152,7 +153,15 @@ def export_netcdf(
             "_FillValue": -1,
         },
     )
-    ds["z_interfaces"] = xr.DataArray(z_interfaces, dims=("n_z_interface",))
+    ds["z_interfaces"] = xr.DataArray(
+        z_interfaces,
+        dims=("n_z_interface", "n_face"),
+        attrs={
+            "long_name": "Altitude of layer interfaces: model top, then the bottom of each layer",
+            "units": "m",
+            "positive": "up",
+        },
+    )
     if crs_attrs:
         ds["crs"] = xr.DataArray(np.int32(0), attrs=crs_attrs)
         mdal_crs = _mdal_crs_attrs(crs_attrs)
@@ -280,10 +289,10 @@ def _add_field(
         return
     n_layers = data.shape[1] if timed else data.shape[0]
     for index in range(n_layers):
-        name = var_name if n_layers == 1 else f"{var_name}_layer{index + 1}"
+        name = var_name if n_layers == 1 else f"{var_name}_layer{index}"
         layer_attrs = dict(attrs)
         if n_layers > 1 and layer_attrs.get("long_name"):
-            layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index + 1})"
+            layer_attrs["long_name"] = f"{layer_attrs['long_name']} (layer {index})"
         layer_data = data[:, index, :] if timed else data[index]
         ds[name] = xr.DataArray(layer_data, dims=dims, attrs=layer_attrs)
 

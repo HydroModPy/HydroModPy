@@ -15,6 +15,7 @@ import numpy as np
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
 from hydromodpy.display.figure_options import Cmap, Opt, Overlays
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._scalar_face_map import top_active_values
 from hydromodpy.display.figures.parameter_section import LOG_SCALE_DECADES, PARAMETER_FIELDS
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
@@ -51,7 +52,13 @@ class ParameterMap(BaseFigure):
                 '"specific_storage".'
             ),
         ] = "hydraulic_conductivity",
-        layer: Annotated[int, Opt("Model layer to draw, 0 for the top one.")] = 0,
+        layer: Annotated[
+            int | None,
+            Opt(
+                "Model layer to draw, counted from 0 at the top. Left out, the top "
+                "active cell of each column."
+            ),
+        ] = None,
         log: Annotated[
             bool | None,
             Opt(
@@ -74,12 +81,15 @@ class ParameterMap(BaseFigure):
             raise ValueError(f"parameter_map: {variable!r} is not in this run")
 
         values = np.atleast_2d(np.asarray(sim.field(variable), dtype="float64"))
-        if not 0 <= layer < values.shape[0]:
+        if layer is None:
+            plane = top_active_values(sim, values)
+        elif 0 <= layer < values.shape[0]:
+            plane = values[int(layer)]
+        else:
             raise ValueError(
                 f"parameter_map: layer {layer} is outside the {values.shape[0]} "
                 "layer(s) this run has"
             )
-        plane = values[int(layer)]
 
         collection = render_face_field(
             ax,
@@ -100,9 +110,8 @@ class ParameterMap(BaseFigure):
             timestep=0,
         )
         style_relative_km_axes(ax)
-        ax.set_title(
-            f"{self.field_descriptor_for(variable).long_name}{run_suffix(sim)}\nlayer {int(layer)}"
-        )
+        where = "top active cell" if layer is None else f"layer {int(layer)}"
+        ax.set_title(f"{self.field_descriptor_for(variable).long_name}{run_suffix(sim)}\n{where}")
         return ax
 
 

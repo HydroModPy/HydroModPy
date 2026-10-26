@@ -37,4 +37,6 @@ def solver_mesh_of(
         },
         structured_shape=planar.structured_shape,
     )
-    return SolverMesh(cell_mesh=cell_mesh, top=top, botm=botm, inactive_mask=inactive_mask)
+    return SolverMesh(
+        cell_mesh=cell_mesh, top=top, botm=botm, idomain=np.where(inactive_mask, 0, 1)
+    )

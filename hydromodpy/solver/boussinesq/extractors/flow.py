@@ -11,6 +11,7 @@ import numpy as np
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.time import CF_EPOCH, CF_TIME_UNITS, cf_time_axis_seconds
+from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS
 from hydromodpy.solver.boussinesq.export_payload import first_period_snapshot
 
 logger = get_logger(__name__)
@@ -314,6 +315,8 @@ class BoussinesqOutputAdapter:
                 z_interfaces=np.vstack([z_top, z_bottom]),
                 n_cells=int(n_cells),
                 n_layers=1,
+                idomain=np.ones((1, int(n_cells)), dtype=np.int8),
+                vertical_layout=VERTICAL_LAYOUT_COLUMN_FRACTIONS,
             )
         finally:
             sz.close()

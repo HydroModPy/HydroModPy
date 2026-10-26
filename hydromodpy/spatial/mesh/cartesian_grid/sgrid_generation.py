@@ -14,7 +14,8 @@ Design responsibilities
   `Surface` (`resample_to_shape(...)`).
 - This builder handles only:
   - geometric consistency checks for vertical construction,
-  - vertical layering (`constant`, `decay`, `list`),
+  - vertical layering (`constant`, `decay`, `list`, `surfaces`), through
+    :func:`layer_stack`, which the unstructured extrusion calls too,
   - assembly of a `StructuredGridSpec` POPO.
 
 Important convention
@@ -38,6 +39,7 @@ import numpy as np
 
 from hydromodpy.spatial.surface import Surface
 
+from .layer_surfaces import LayerStack, surface_layer_stack
 from .sgrid_config import VerticalGridConfig
 
 
@@ -47,6 +49,8 @@ class StructuredGridSpec:
 
     ``xvertices`` and ``yvertices`` follow the MODFLOW convention: row 0 is
     the top of the grid (largest y), row ``nrow`` is the bottom (``yoff``).
+    ``idomain`` has the shape of ``botm``: 1 active, 0 outside the domain, -1 a
+    pinched cell of a layering by surfaces.
     """
 
     delc: np.ndarray
@@ -60,6 +64,7 @@ class StructuredGridSpec:
     ncol: int
     xvertices: np.ndarray
     yvertices: np.ndarray
+    idomain: np.ndarray
     crs: Any = None
 
 
@@ -77,14 +82,18 @@ class StructuredGridBuilder:
         top_surface: Surface,
         bottom_surface: Surface,
         vertical_config: VerticalGridConfig | Mapping[str, object] | None = None,
+        base_surfaces: Mapping[str, Surface] | None = None,
     ) -> StructuredGridSpec:
         """
         Build one structured grid from two absolute-elevation surfaces.
 
         The method intentionally separates three steps:
         1. Validate horizontal/geometric compatibility of inputs.
-        2. Compute vertical layer proportions.
-        3. Build `botm` and return a `StructuredGridSpec`.
+        2. Build `botm` and `idomain` with :func:`layer_stack`.
+        3. Return a `StructuredGridSpec`.
+
+        ``base_surfaces`` holds the layer bases a layering by surfaces reads, on
+        the grid of ``top_surface``.
         """
         cfg = coerce_vertical_config(vertical_config)
 
@@ -117,16 +126,18 @@ class StructuredGridBuilder:
 
         assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
 
-        # 2) Vertical proportions from config.
-        allp, nlay = layer_proportions(
-            genmtd_lay=cfg.genmtd_lay,
-            nlay=cfg.nlay,
-            lay_decay=cfg.lay_decay,
-            lay_proportions=cfg.lay_proportions,
+        # 2) Layer bottoms and idomain from config.
+        bases = {}
+        for name, surface in (base_surfaces or {}).items():
+            values = np.asarray(surface.as_array(), dtype=float)
+            if values.shape != top.shape:
+                raise ValueError(
+                    f"The layer base {name!r} has shape {values.shape}, the top {top.shape}."
+                )
+            bases[name] = values
+        stack = layer_stack(
+            top=top, bottom=bot, invalid=invalid, vertical_config=cfg, bases=bases, nodata=nodata
         )
-
-        # 3) Build layer bottoms and assemble the StructuredGridSpec.
-        botm = self._build_botm(top=top, bot=bot, nodata=nodata, allp=allp)
 
         nrow = int(support.nrows)
         ncol = int(support.ncols)
@@ -148,46 +159,62 @@ class StructuredGridBuilder:
             delc=delc,
             delr=delr,
             top=top,
-            botm=botm,
+            botm=stack.botm,
             xoff=xmin,
             yoff=ymin,
-            nlay=int(nlay),
+            nlay=int(stack.botm.shape[0]),
             nrow=nrow,
             ncol=ncol,
             xvertices=xvertices,
             yvertices=yvertices,
+            idomain=stack.idomain,
             crs=support.crs,
         )
 
-    @staticmethod
-    def _build_botm(top, bot, nodata, allp):
-        """
-        Build layer-bottom array `botm` from top and bottom absolute surfaces.
 
-        Pedagogical formulation
-        -----------------------
-        For each layer `k`, the cumulative proportion `allp[k]` is in [0, 1]:
-        - 0 means at top elevation,
-        - 1 means at bottom elevation.
+def layer_stack(
+    *,
+    top: np.ndarray,
+    bottom: np.ndarray,
+    invalid: np.ndarray,
+    vertical_config: VerticalGridConfig,
+    bases: Mapping[str, np.ndarray] | None = None,
+    nodata: float,
+) -> LayerStack:
+    """Return the layer bottoms and the ``idomain`` of the cells, shape ``(nlay, *cells)``.
 
-        The interpolation formula is:
-            z_k = top - (top - bot) * allp[k]
-
-        Then nodata is propagated so invalid cells stay invalid in all layers.
-        """
-        top = np.asarray(top, dtype=float)
-        bot = np.asarray(bot, dtype=float)
-        allp = np.asarray(allp, dtype=float)
-        if allp.ndim != 1 or allp.size == 0:
-            raise ValueError("allp must be a non-empty 1D array.")
-
-        # Broadcast `top` and `bot` over all layers and apply cumulative
-        # interpolation fractions (`allp`) to obtain each layer bottom surface.
-        botm = top[None, :, :] - ((top - bot)[None, :, :] * allp[:, None, None])
-
-        # Keep nodata mask consistent for all layers.
-        botm[:, bot <= nodata] = nodata
-        return botm
+    ``top`` and ``bottom`` are the top and the base of the aquifer, ``invalid``
+    the cells outside the domain, which get ``nodata`` and ``idomain`` 0. With
+    shares of the column (``constant``, ``decay``, ``list``) the bottom of layer
+    ``k`` is ``top - (top - bottom) * allp[k]``, with ``allp`` the cumulative
+    share, and every valid cell is active. With ``surfaces`` each layer ends on
+    its own base, ``bases`` holding the rasters it reads by name, and a thin
+    cell pinches out (:mod:`.layer_surfaces`).
+    """
+    top = np.asarray(top, dtype=float)
+    bottom = np.asarray(bottom, dtype=float)
+    invalid = np.asarray(invalid, dtype=bool)
+    if vertical_config.genmtd_lay == "surfaces":
+        return surface_layer_stack(
+            top=top,
+            bottom=bottom,
+            invalid=invalid,
+            layers=vertical_config.layer or [],
+            bases=bases or {},
+            mode=vertical_config.pinch_out,
+            nodata=nodata,
+        )
+    allp, nlay = layer_proportions(
+        genmtd_lay=vertical_config.genmtd_lay,
+        nlay=vertical_config.nlay,
+        lay_decay=vertical_config.lay_decay,
+        lay_proportions=vertical_config.lay_proportions,
+    )
+    shape = (nlay,) + (1,) * top.ndim
+    botm = top[None, ...] - ((top - bottom)[None, ...] * np.asarray(allp).reshape(shape))
+    botm[:, invalid] = float(nodata)
+    idomain = np.broadcast_to(np.where(invalid, 0, 1), botm.shape).astype(int)
+    return LayerStack(botm=botm, idomain=idomain)
 
 
 def coerce_vertical_config(

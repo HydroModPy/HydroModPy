@@ -106,7 +106,7 @@ def test_only_the_top_of_the_first_layer_moves() -> None:
     np.testing.assert_allclose(layer_0, layer_0.max())
     np.testing.assert_array_equal(mesh.top, GROUND)
     assert kwargs["xorigin"] == kwargs["yorigin"] == 0.0
-    np.testing.assert_array_equal(kwargs["idomain"], mesh.idomain())
+    np.testing.assert_array_equal(kwargs["idomain"], mesh.idomain)
 
 
 def test_the_well_turnoff_stays_a_tenth_of_the_aquifer() -> None:
@@ -172,6 +172,7 @@ def _fake_grid_file(monkeypatch, tmp_path: Path, *, top: np.ndarray, bot: np.nda
         grid_type = "dis"
         top1d = top
         bot1d = bot
+        idomain = np.ones(GROUND.size, dtype=int)
         modelgrid = SimpleNamespace(xvertices=xs, yvertices=ys)
 
         def __init__(self, path: str) -> None:
@@ -207,7 +208,7 @@ def test_the_store_keeps_the_ground_not_the_computational_top(tmp_path, monkeypa
         mesh = store.root["mesh"]
         np.testing.assert_array_equal(mesh["topography"][:], GROUND)
         np.testing.assert_array_equal(mesh["layer_thickness"][:][0], GROUND - SUBSTRATUM)
-        assert mesh["z_interfaces"][:][0] == GROUND[0]
+        np.testing.assert_array_equal(mesh["z_interfaces"][0], GROUND)
     finally:
         store.close()
 

@@ -380,7 +380,7 @@ def refuse_constant_heads_below_bottom(
     for label in sorted({key[0] for key in below}):
         cells = sorted((key, value) for key, value in below.items() if key[0] == label)
         named = ", ".join(
-            f"layer {lay + 1} row {row + 1} column {col + 1} "
+            f"layer {lay} row {row} column {col} "
             f"(head {head:.2f} m, bottom {bottom:.2f} m, period {kper + 1})"
             for (_, lay, row, col), (kper, head, bottom) in cells[:_MAX_CELLS_NAMED]
         )

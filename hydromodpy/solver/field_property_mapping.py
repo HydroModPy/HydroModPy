@@ -1,7 +1,8 @@
 """The one mapping of the hydraulic properties of a flow onto a cell mesh.
 
 Every solver reads K, Kv, Sy and Ss from ``map_flow_properties``: one value per
-cell, evaluated at each layer-centre depth. A homogeneous parameter is its value
+cell, evaluated at each layer-centre depth. MODFLOW 6 also reads the rest of the
+K tensor, K22 and the three angles, the same way. A homogeneous parameter is its value
 times its vertical profile. A heterogeneous one is the zone-weighted mean of its
 zone values on the fractions ``zone_fractions`` gives for its spatial support.
 MODFLOW passes the layer-centre depths of its solver mesh, Boussinesq one layer
@@ -30,8 +31,26 @@ FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = (
     ("Kv", ("Kv", "kv", "K33", "k33"), "kv", "Vertical hydraulic conductivity"),
     ("Sy", ("Sy", "SY", "sy", "S", "s"), "sy", "Specific yield"),
     ("Ss", ("Ss", "SS", "ss"), "ss", "Specific storage"),
+    ("K22", ("K22", "k22"), "k22", "Hydraulic conductivity along the second tensor axis"),
+    ("angle1", ("angle1",), "angle1", "Azimuth of the K tensor (degrees)"),
+    ("angle2", ("angle2",), "angle2", "Dip of the K tensor (degrees)"),
+    ("angle3", ("angle3",), "angle3", "Rotation of the K tensor about its first axis (degrees)"),
 )
 """Canonical name, flow parameter aliases, output name and label of each property."""
+
+K_TENSOR_PROPERTIES: tuple[str, ...] = ("K22", "angle1", "angle2", "angle3")
+"""The part of the K tensor past K and Kv, which only MODFLOW 6 reads."""
+
+
+def k_tensor_parameter_ids(parameters: Mapping[str, object]) -> list[str]:
+    """The flow parameter ids in ``parameters`` that set K22 or an angle."""
+    aliases = {
+        alias
+        for canonical, names, _, _ in FLOW_PROPERTY_SPECS
+        if canonical in K_TENSOR_PROPERTIES
+        for alias in names
+    }
+    return [str(param_id) for param_id in parameters if param_id in aliases]
 
 
 def coerce_spatial_support_field(zone_obj, *, support_id: str | None = None):
@@ -259,7 +278,9 @@ def _cell_values(
 
 __all__ = [
     "FLOW_PROPERTY_SPECS",
+    "K_TENSOR_PROPERTIES",
     "coerce_spatial_support_field",
+    "k_tensor_parameter_ids",
     "map_flow_properties",
     "require_positive_conductivity",
     "resolve_field_param",

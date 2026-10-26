@@ -40,7 +40,7 @@ An engine reads no file and no config. The workflow step is the only place that 
 | `registry.py` | Engine id to class, plus the `hydromodpy.mesh.engine` entry-point group |
 | `request.py` | `MeshRequest`, `LineFamilySpec`, `RasterGridSpec`, `SizeField` |
 | `planning/` | `plan_mesh_request`: from the project to a request |
-| `sizing/` | Size field of the graded engines |
+| `sizing/` | Size field of the graded engines, and its terms on the gaps between face lines (`gap.py`) |
 | `refinement/` | Models of the lake refinement and the refinement zones |
 | `config/` | The `[mesh]` Pydantic models (`mesh.py`) |
 | `engines/regular/` | Square cells of the DEM grid, bit for bit the FloPy grid |

@@ -16,6 +16,7 @@ from hydromodpy.core.units.time import (
     CF_TIME_UNITS,
     cf_time_axis_seconds,
 )
+from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS, layer_interfaces
 from hydromodpy.solver.modflow_common.budget_components import (
     canonical_budget_component,
     is_scalar_budget_component,
@@ -189,6 +190,7 @@ class ModflowNwtOutputAdapter:
         model_name: str | None = None,
         budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
+        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     ) -> None:
         """Read .hds and .cbc files and write fields into the store.
 
@@ -200,6 +202,8 @@ class ModflowNwtOutputAdapter:
 
         ``budget_terms`` says which per-cell budget terms go under
         ``budget/``. The lumped budget table holds every term whatever it says.
+        ``vertical_layout`` says how the layers were built, as ``[domain.layers]``
+        gives it; the store keeps it on ``mesh/``.
         """
         import flopy.utils.binaryfile as bf
 
@@ -292,7 +296,14 @@ class ModflowNwtOutputAdapter:
         head_file.close()
 
         self._write_surface_elevation(
-            sim_id, store, solver_output_dir, model_name, nlay, nrow, ncol
+            sim_id,
+            store,
+            solver_output_dir,
+            model_name,
+            nlay,
+            nrow,
+            ncol,
+            vertical_layout=vertical_layout,
         )
 
     def _extract_budget(
@@ -539,11 +550,16 @@ class ModflowNwtOutputAdapter:
         nlay: int,
         nrow: int,
         ncol: int,
+        *,
+        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     ) -> None:
-        """Check the DIS grid against the stored mesh, then add the topography and thicknesses.
+        """Check the DIS grid against the stored mesh, then add the vertical geometry.
 
         The mesh was written once, before the run, from the regular grid. The
         grid the solver read is compared with it and a difference stops the run.
+        What is added is the topography, the interfaces of every cell, the layer
+        thicknesses and the ``idomain`` read from IBOUND (a constant-head cell,
+        IBOUND < 0, is an active cell).
         """
         try:
             import warnings
@@ -561,33 +577,28 @@ class ModflowNwtOutputAdapter:
                 m = flopy.modflow.Modflow.load(
                     str(nam_path),
                     model_ws=str(solver_output_dir),
-                    load_only=["DIS"],
+                    load_only=["DIS", "BAS6"],
                     check=False,
                     verbose=False,
                     exe_name="mfnwt",
                 )
             top = np.asarray(m.dis.top.array, dtype="float64").ravel()[:n_cells]
-            botm = np.asarray(m.dis.botm.array, dtype="float64")
-            botm_per_layer = botm.reshape(-1, n_cells) if botm.ndim == 3 else None
-            z_flat = (
-                np.concatenate([top[:1], botm[:, 0, 0]])
-                if botm.ndim == 3
-                else np.array([float(top[0]), float(top[0]) - 10.0])
-            )
-            layer_thickness = None
-            if botm_per_layer is not None:
-                interfaces = np.vstack([top[None, :], botm_per_layer])
-                layer_thickness = -np.diff(interfaces, axis=0)
+            botm = np.asarray(m.dis.botm.array, dtype="float64").reshape(-1, n_cells)
+            interfaces = layer_interfaces(top, botm)
+            ibound = np.asarray(m.bas6.ibound.array).reshape(botm.shape)
+            idomain = np.where(ibound != 0, 1, 0)
 
             sz = store.open_zarr(sim_id)
             try:
                 verify_dis_grid(m.modelgrid, sz.root, nrow=nrow, ncol=ncol, sim_id=sim_id)
                 sz.write_topography(
                     topography=top,
-                    z_interfaces=z_flat,
+                    z_interfaces=interfaces,
                     n_cells=n_cells,
-                    n_layers=int(z_flat.size - 1),
-                    layer_thickness=layer_thickness,
+                    n_layers=int(botm.shape[0]),
+                    layer_thickness=interfaces[:-1] - interfaces[1:],
+                    idomain=idomain,
+                    vertical_layout=vertical_layout,
                     grid_type="dis",
                 )
                 write_descent_sidecar_to_store(

@@ -177,6 +177,15 @@ VARIABLES: tuple[VariableSpec, ...] = (
         "geotiff_cog",
     ),
     VariableSpec(
+        "layer_base",
+        "layer_base",
+        "raster",
+        "raster",
+        "m",
+        "base of a layer (elevation)",
+        "geotiff_cog",
+    ),
+    VariableSpec(
         "soil_capacity",
         "soil_capacity",
         "raster",

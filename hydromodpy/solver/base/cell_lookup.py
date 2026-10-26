@@ -31,14 +31,20 @@ def locate_cell_on_cell_mesh(
 def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int, int, int] | None:
     """Return the cell selector that holds ``(x, y)`` on ``ctx``'s solver mesh, or ``None``.
 
-    The selector is ``(0, 0, cell_id)`` on every mesh, which is the flat selector
-    a DISV head extractor reads. ``None`` without a solver mesh, or for a point
-    farther than one cell size from the mesh (see :func:`locate_cell_on_cell_mesh`).
+    The selector is ``(layer, 0, cell_id)``, the flat selector a DISV head
+    extractor reads. A point has no layer, so it reads the top active cell of
+    its column (layer 0 for a column with no active cell). ``None`` without a
+    solver mesh, or for a point farther than one cell size from the mesh (see
+    :func:`locate_cell_on_cell_mesh`).
     """
     mesh = getattr(ctx.model, "solver_mesh", None)
     if mesh is None:
         return None
-    return locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
+    located = locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
+    if located is None:
+        return None
+    cell_id = located[2]
+    return (max(int(mesh.top_active_layer()[cell_id]), 0), 0, cell_id)
 
 
 __all__ = ["locate_cell_on_cell_mesh", "locate_cell_on_solver_mesh"]

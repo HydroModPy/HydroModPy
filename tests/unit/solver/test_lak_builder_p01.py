@@ -80,7 +80,7 @@ def test_lake_cells_are_inactive_on_the_surface_layer() -> None:
     mesh = build_hmp_solver_mesh(geometry)
     masked = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lac0": geometry.lake_cell_ids})
 
-    idomain = masked.idomain()
+    idomain = masked.idomain
     lake_cells = geometry.lake_cell_ids
     # idomain = 0 on exactly the lake cells in layer 0, and 1 everywhere else.
     assert np.all(idomain[0, lake_cells] == 0)

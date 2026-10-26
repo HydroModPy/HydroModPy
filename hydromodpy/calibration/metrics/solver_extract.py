@@ -527,12 +527,12 @@ def catchment_saturation(
     of catchment area left out is published. MODFLOW writes one sentinel for a
     dry cell (HDRY) and another for a cell it never computed (HNOFLO), and the
     extractor maps both to NaN, so the thickness alone cannot tell them apart.
-    The mesh can: its inactive mask is what became IDOMAIN = 0. When it has
-    one, the share splits into ``d_sat_dry_fraction`` (active, no water table:
-    a physical state that biases ``d_sat_m`` upward) and
-    ``d_sat_inactive_fraction`` (outside the solved domain, a lake footprint
-    for one: a modelling choice, not a state). A mesh without the mask keeps
-    the single ``d_sat_unset_fraction``.
+    The model can: its ``inactive_mask`` names the closed columns, with no
+    active cell or under a lake. When it has one, the share splits into
+    ``d_sat_dry_fraction`` (open column, no water table: a physical state that
+    biases ``d_sat_m`` upward) and ``d_sat_inactive_fraction`` (outside the
+    solved domain, a lake footprint for one: a modelling choice, not a state).
+    A model without the mask keeps the single ``d_sat_unset_fraction``.
 
     Empty when the backend serves no saturated thickness, and when it serves
     one on another cell count: these values never enter the scored pair, so a

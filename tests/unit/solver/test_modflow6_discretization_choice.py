@@ -59,7 +59,7 @@ def _build_gwf_disv(tmp_path, mesh: SolverMesh):
         gwf,
         nlay=mesh.nlay,
         **mesh.to_disv_kwargs(),
-        idomain=mesh.idomain(),
+        idomain=mesh.idomain,
         xorigin=0.0,
         yorigin=0.0,
         length_units="METERS",

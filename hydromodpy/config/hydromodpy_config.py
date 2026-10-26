@@ -101,6 +101,7 @@ from hydromodpy.solver.base.solver_config import (
     backend_following_the_process,
     solver_name_of_backend,
 )
+from hydromodpy.solver.field_property_mapping import k_tensor_parameter_ids
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
@@ -821,6 +822,86 @@ class HydroModPyConfig(HydroModelBase):
             + (f" ({', '.join(readers)})." if readers else ".")
         )
 
+    def _check_the_layering(self, solver_cfg: SolverConfig | None) -> None:
+        """Refuse a layering its data or its solver cannot serve; warn on a coarse K profile.
+
+        A layering by surfaces reads its rasters by name from ``[data.layer_base]``,
+        and the two lists must match. MODFLOW-NWT has no vertical pass-through
+        cell, so it reads such a layering only when a thin layer keeps its minimum
+        thickness. A vertical profile of K on one layer is summed up by K at the
+        middle of the column: with H/d = 2.5 the transmissivity is off by -22 % to
+        +75 % with the water table, and five equal layers bring it near -1 %.
+        """
+        domain = getattr(self, "domain", None)
+        layers = getattr(domain, "layers", None)
+        if layers is None:
+            return
+        layer_base = getattr(getattr(self, "data", None), "layer_base", None)
+        declared = set() if layer_base is None else {source.name for source in layer_base.sources}
+        read = set(layers.base_surface_names)
+        if read - declared:
+            raise ValueError(
+                f"[domain.layers] reads the base surfaces {sorted(read - declared)}, and "
+                "[data.layer_base] does not declare them. Add one "
+                "[[data.layer_base.sources]] entry per name, with its raster."
+            )
+        if declared - read:
+            raise ValueError(
+                f"[data.layer_base] declares {sorted(declared - read)}, and no layer of "
+                "[domain.layers] reads them as its surface. Give a layer that surface, or "
+                "remove the entries."
+            )
+        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
+        if getattr(engine, "value", engine) == "modflow_nwt" and layers.has_pass_through_cells:
+            raise ValueError(
+                "[domain.layers] pinch_out = 'pass_through' makes a thin layer a vertical "
+                "pass-through cell (idomain -1), which MODFLOW-NWT does not have. Write "
+                "pinch_out = 'keep_min_thickness', or run MODFLOW 6."
+            )
+        params = getattr(getattr(self, "flow", None), "param", None) or {}
+        for param_id, param in params.items():
+            profile = getattr(param, "field_vertical_profile", None)
+            if str(param_id).lower() != "k" or profile is None or profile.mode == "none":
+                continue
+            if layers.layer_count < 5:
+                logger.warning(
+                    "flow.param.%s has a vertical profile and [domain.layers] builds %d "
+                    "layer(s). One layer sums the profile up by K at mid-column, off by "
+                    "-22 %% to +75 %% of the transmissivity at H/d = 2.5 as the water table "
+                    "moves; five equal layers bring it near -1 %%. Use at least five layers.",
+                    param_id,
+                    layers.layer_count,
+                )
+
+    def _check_the_conductivity_tensor(self, solver_cfg: SolverConfig | None) -> None:
+        """Refuse a K tensor its solver cannot read, and an angle with a depth profile.
+
+        K22 and the three angles of the tensor reach the NPF package of MODFLOW 6
+        only. MODFLOW-NWT and Boussinesq would drop them in silence, so the load
+        refuses them there. An angle is a direction: a vertical profile would
+        scale it with depth, which has no meaning.
+        """
+        params = getattr(getattr(self, "flow", None), "param", None) or {}
+        tensor_ids = k_tensor_parameter_ids(params)
+        if not tensor_ids:
+            return
+        for param_id in tensor_ids:
+            profile = getattr(params[param_id], "field_vertical_profile", None)
+            if param_id.startswith("angle") and profile is not None and profile.mode != "none":
+                raise ValueError(
+                    f"flow.param.{param_id} has a vertical profile, which would scale the "
+                    "angle with depth. Remove [flow.param."
+                    f"{param_id}.field_vertical_profile]; give the angle per zone instead."
+                )
+        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
+        engine_value = getattr(engine, "value", engine)
+        if engine_value in {"modflow_nwt", "boussinesq"}:
+            raise ValueError(
+                f"flow.param sets {', '.join(tensor_ids)}, the K tensor past K and Kv, "
+                f"which only MODFLOW 6 reads; {engine_value} would drop it. Remove these "
+                "parameters, or run MODFLOW 6."
+            )
+
     def _check_cell_addressing_needs_a_regular_mesh(self) -> None:
         """Refuse a ``[lay, row, col]`` address when the mesh has no rows and columns.
 
@@ -925,6 +1006,10 @@ class HydroModPyConfig(HydroModelBase):
           since MODFLOW-NWT builds no channel mask.
         * ``[data.soil_capacity]`` declared ⇒ ``[flow.sinks_sources.recharge.soil]``
           is declared, since only the soil reservoir reads that raster.
+        * ``[domain.layers]`` by surfaces reads only bases ``[data.layer_base]``
+          declares, ``[data.layer_base]`` declares only bases a layer reads, and
+          MODFLOW-NWT reads it only with ``pinch_out = "keep_min_thickness"``.
+          A vertical K profile on fewer than five layers is warned about.
         * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
           without it the workflow delineates and loads, then writes no report.
         * ``[metrics] window`` shares at least one day with ``[simulation.time]``,
@@ -1249,6 +1334,9 @@ class HydroModPyConfig(HydroModelBase):
                 "file declares no [flow.sinks_sources.recharge.soil]: declare the "
                 "soil section, or remove [data.soil_capacity]."
             )
+
+        self._check_the_layering(solver_cfg)
+        self._check_the_conductivity_tensor(solver_cfg)
 
         # Last, so a fault of the solver itself is named before a mesh it would not read.
         if solver_cfg is not None:

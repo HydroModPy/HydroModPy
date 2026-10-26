@@ -550,6 +550,7 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
 
     _DEFAULT_PARAM_UNITS: ClassVar[dict[str, str]] = {
         "K": "m/s",
+        "K22": "m/s",
         "Kx": "m/s",
         "Ky": "m/s",
         "Kz": "m/s",

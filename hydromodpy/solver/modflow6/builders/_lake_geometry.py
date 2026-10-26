@@ -102,7 +102,7 @@ def _first_active_layer_below(
 ) -> int | None:
     """Return the first active layer below the lake's occupied layers, or None."""
     for lay in range(occupied_layers, nlay):
-        if int(idomain[lay, cell_id]) == 1:
+        if int(idomain[lay, cell_id]) > 0:
             return lay
     return None
 
@@ -142,7 +142,7 @@ def _fill_lake_enclosed_cells(
 
     n_cells = int(solver_mesh.n_cells)
     adjacency = solver_mesh.face_adjacency()
-    active0 = np.asarray(solver_mesh.idomain()[0] > 0)
+    active0 = solver_mesh.top_active_layer() >= 0
     areas = solver_mesh.cell_areas()
     n_edges = (solver_mesh.cell_mesh.geometry.padded_connectivity >= 0).sum(axis=1).tolist()
 

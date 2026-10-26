@@ -130,7 +130,7 @@ class TriangleMeshEngine:
     """Triangles of a gmsh constrained Delaunay triangulation (or of a read ``.msh``)."""
 
     engine_id: ClassVar[str] = "triangle"
-    engine_version: ClassVar[str] = "1.0.0"
+    engine_version: ClassVar[str] = "1.1.0"
     capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
         cell_types=(CellType.TRIANGLE,),
         structured=False,

@@ -1,8 +1,9 @@
 """Turn ``[mesh]`` and the project inputs into one mesh request.
 
 The planner fixes the intent of each line family, builds the size field of a
-graded engine and resamples its lines at the local size, on the geometry
-cleaned first (``cleanup.py``). A non-graded engine
+graded engine, which also follows the gaps between face lines (``gap.py``),
+and resamples its lines at the local size, on the geometry cleaned first
+(``cleanup.py``). A non-graded engine
 (``regular``) gets the raw lines and no size field. A triangulation read from
 a file is meshed as it is: no size field, raw lines, its own outline as the
 domain. A generated Voronoi mesh gets the lake shores it can follow at its
@@ -46,6 +47,7 @@ from hydromodpy.spatial.mesh.request import (
     RasterGridSpec,
     SizeField,
 )
+from hydromodpy.spatial.mesh.sizing.gap import gap_terms
 from hydromodpy.spatial.mesh.sizing.size_field import (
     OutsideCoarsening,
     SizeTerm,
@@ -139,9 +141,12 @@ def _sizing(
 ) -> _Sizing:
     """The families, size field and nominal size of *inputs* on *domain*.
 
-    A graded engine gets the size field and the families resampled on it, and
-    a barrier line that runs along a lake ring gets the ring vertices there. A
-    triangulation read, and a non-graded engine, get the raw families and no field.
+    A graded engine gets the size field, its gap terms included, and the
+    families resampled on it. A generated Voronoi mesh with lakes first
+    picks the shores it follows on the field without gaps, then sizes the
+    gaps of those shores. A barrier line that runs along a lake ring gets
+    the ring vertices there. A triangulation read, and a non-graded engine,
+    get the raw families and no field.
     """
     families = _families(mesh_cfg, inputs, domain, pixel=pixel)
     if not graded or inputs.input_triangulation is not None:
@@ -152,28 +157,36 @@ def _sizing(
             notes=tuple(_ignored_settings(mesh_cfg, graded=graded)),
         )
     h0 = max(mesh_cfg.cell_size or pixel, pixel)
-    size_field = build_size_field(
-        inputs.dem_grid,
-        h0=h0,
-        h_floor=pixel,
-        terms=_size_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel),
-        outside=_outside(mesh_cfg, inputs),
-        max_slope=mesh_cfg.max_slope,
-    )
+    terms = _size_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel)
+
+    def field(gaps: list[SizeTerm]) -> SizeField:
+        return build_size_field(
+            inputs.dem_grid,
+            h0=h0,
+            h_floor=pixel,
+            terms=[*terms, *gaps],
+            outside=_outside(mesh_cfg, inputs),
+            max_slope=mesh_cfg.max_slope,
+        )
+
     shore_notes: tuple[str, ...] = ()
     if _follows_shores_by_pairs(mesh_cfg, inputs):
+        # The gaps are those of the shores the mesh follows: an arm the
+        # smoothing leaves out needs no cells.
         families, shore_notes = _followed_shores(
-            families, inputs, domain, size_field, margin=_river_margin(mesh_cfg, pixel)
+            families, inputs, domain, field([]), margin=_river_margin(mesh_cfg, pixel)
         )
+    gaps = _gap_terms(mesh_cfg, families, domain, h0=h0, pixel=pixel)
+    size_field = field(gaps)
+    notes = (*_gap_notes(gaps, mesh_cfg), *shore_notes)
     split = split_barriers(
         families,
         node_tolerance(domain),
-        shortest=KINK_MIN_SHARE * float(size_field.values.min()),
+        shortest=lambda xy: KINK_MIN_SHARE * sample_size_field(size_field, xy),
     )
     resampled = resample_families(
         split.families, domain=domain, size_field=size_field, fixed_points=split.fixed_points
     )
-    notes = shore_notes
     if resampled.short_fixed_edges:
         notes += (
             f"{resampled.short_fixed_edges} line edges between fixed nodes are shorter "
@@ -432,6 +445,46 @@ def _size_terms(
             )
         )
     return terms
+
+
+def _gap_terms(
+    mesh_cfg: MeshConfig,
+    families: tuple[LineFamilySpec, ...],
+    domain: Polygon,
+    *,
+    h0: float,
+    pixel: float,
+) -> list[SizeTerm]:
+    """The terms of the gaps between the face lines and the domain outline (``gap.py``).
+
+    Lines closer than the cleanup tolerance touch: no cell fits between them.
+    """
+    if mesh_cfg.gap_cells == 0.0:
+        return []
+    lines = [line for family in families if family.intent == "face" for line in family.lines]
+    return gap_terms(
+        lines,
+        domain=domain,
+        h0=h0,
+        pixel=pixel,
+        cells_across=mesh_cfg.gap_cells,
+        touch=CLEANUP_PIXEL_SHARE * pixel,
+    )
+
+
+def _gap_notes(terms: list[SizeTerm], mesh_cfg: MeshConfig) -> tuple[str, ...]:
+    """One note when the size follows a gap: how many chords, down to which size."""
+    if not terms:
+        return ()
+    chords = sum(len(shapely.get_parts(term.region)) for term in terms)
+    finest = min(term.size_m for term in terms)
+    _logger.info(
+        "The cell size follows %d gaps between face lines, down to %.1f m.", chords, finest
+    )
+    return (
+        f"gaps: the cell size follows {chords} gaps between face lines or the domain "
+        f"outline, {mesh_cfg.gap_cells:g} cells across, down to {finest:.1f} m",
+    )
 
 
 def _barrier_corner_terms(

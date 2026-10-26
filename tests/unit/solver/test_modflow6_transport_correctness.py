@@ -38,7 +38,7 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
         inactive_mask=np.zeros((1, ncpl), dtype=bool),
     )
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain(), xorigin=0.0, yorigin=0.0
+        gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain, xorigin=0.0, yorigin=0.0
     )
     flopy.mf6.ModflowGwfic(gwf, strt=5.0)
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0)

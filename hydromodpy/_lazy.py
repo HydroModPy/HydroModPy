@@ -114,6 +114,8 @@ LAZY_IMPORTS: dict[str, str] = {
     "LakeWithdrawalSourceConfig": "hydromodpy.data.variables.lake_withdrawal.config",
     "SubstratumConfig": "hydromodpy.data.variables.substratum.config",
     "CustomSubstratumSource": "hydromodpy.data.variables.substratum.config",
+    "LayerBaseConfig": "hydromodpy.data.variables.layer_base.config",
+    "CustomLayerBaseSource": "hydromodpy.data.variables.layer_base.config",
     "SoilCapacityConfig": "hydromodpy.data.variables.soil_capacity.config",
     "CustomSoilCapacitySource": "hydromodpy.data.variables.soil_capacity.config",
     "CrossingsConfig": "hydromodpy.data.variables.crossings.config",

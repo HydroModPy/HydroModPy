@@ -4,17 +4,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
 
 logger = get_logger(__name__)
 
-# XT3D advisor triggers. The horizontal K is isotropic (the NPF package receives
-# no k22 or angle), so besides triangles the only thing XT3D corrects is the grid
-# non-orthogonality, and the conductance-flux error scales like
-# sin(non-orthogonality). Below these the two-point flux is accurate and XT3D is
-# pure cost; above them XT3D earns its cost. See Provost et al. (2017), TM 6-A56.
+# XT3D advisor triggers. MODFLOW 6 reads angle2 and angle3 only under XT3D, so a
+# tilted K tensor turns it on. K22 and angle1 enter the two-point flux through
+# the conductivity along each connection, which drops the cross terms; XT3D is
+# the consistent option there, left to mf6_enable_xt3d. Besides these and
+# triangles, XT3D corrects the grid non-orthogonality, and the conductance-flux
+# error scales like sin(non-orthogonality). Below these the two-point flux is
+# accurate and XT3D is pure cost; above them XT3D earns its cost. See Provost et
+# al. (2017), TM 6-A56.
 _NONORTH_FRAC_GT30_TRIGGER = 0.05
 _NONORTH_P95_TRIGGER_DEG = 30.0
 
@@ -35,10 +40,24 @@ def xt3d_requested_value(model) -> bool | None:
     return None if value is None else bool(value)
 
 
+def k_tensor_is_tilted(model) -> bool:
+    """Whether angle2 or angle3 is non-zero on a cell: MODFLOW 6 reads them only under XT3D."""
+    for name in ("angle2", "angle3"):
+        values = getattr(model, name, None)
+        if values is not None and np.any(np.asarray(values, dtype=float) != 0.0):
+            return True
+    return False
+
+
 def _recommend_xt3d(model, solver_mesh) -> tuple[bool, str]:
     """Compute whether XT3D is worth enabling for this model + mesh, with a reason."""
     if solver_mesh is None:
         return False, "grid not resolved yet"
+    if k_tensor_is_tilted(model):
+        return True, (
+            "the K tensor is tilted (angle2 or angle3 is not zero), and MODFLOW 6 "
+            "reads these angles only under XT3D"
+        )
     if solver_mesh.is_structured:
         return False, "structured grid: the conductance two-point flux is exact"
     if solver_mesh.cell_mesh.mesh.cell_types[0] is CellType.TRIANGLE:
@@ -53,7 +72,7 @@ def _recommend_xt3d(model, solver_mesh) -> tuple[bool, str]:
             f"{100 * m['frac_gt_30']:.1f}% of connections >30 deg): XT3D improves accuracy"
         )
     return False, (
-        f"isotropic K and a near-orthogonal mesh (median {m['median']:.1f} deg, "
+        f"an untilted K tensor and a near-orthogonal mesh (median {m['median']:.1f} deg, "
         f"p95 {m['p95']:.0f} deg): the conductance flux is accurate, XT3D adds cost only"
     )
 
@@ -62,8 +81,9 @@ def resolve_xt3d_decision(model, solver_mesh=None) -> Xt3dDecision:
     """Resolve XT3D once and memoize it on the model.
 
     Honour an explicit ``mf6_enable_xt3d`` override (and WARN if it disagrees with
-    the model checks); otherwise decide automatically from the K field and the
-    mesh non-orthogonality, logging the chosen value and the reason at INFO.
+    the model checks); otherwise decide automatically from the K tensor, the
+    cell type and the mesh non-orthogonality, logging the chosen value and the
+    reason at INFO. The tensor arrays must be on the model before the first call.
     """
     cached = getattr(model, "_xt3d_decision", None)
     if cached is not None:
@@ -143,6 +163,7 @@ def resolve_xt3d_npf_options(model, solver_mesh=None) -> list[str] | None:
 
 
 __all__ = [
+    "k_tensor_is_tilted",
     "log_xt3d_resolution",
     "resolve_ims_complexity",
     "resolve_xt3d_npf_options",

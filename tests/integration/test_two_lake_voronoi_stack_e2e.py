@@ -74,7 +74,7 @@ def _build_mesh() -> tuple[SolverMesh, dict[str, list[int]]]:
         cell_mesh=cell_mesh,
         top=np.zeros(cell_mesh.n_cells),
         botm=np.zeros((_NLAY, cell_mesh.n_cells)),
-        inactive_mask=np.zeros((_NLAY, cell_mesh.n_cells), dtype=bool),
+        idomain=np.ones((_NLAY, cell_mesh.n_cells), dtype=int),
     )
     xy = np.asarray(probe.cell_centroids(), dtype=float)
     ground = _ground(xy)
@@ -91,7 +91,7 @@ def _build_mesh() -> tuple[SolverMesh, dict[str, list[int]]]:
         cell_mesh=cell_mesh,
         top=top,
         botm=botm,
-        inactive_mask=np.zeros((_NLAY, cell_mesh.n_cells), dtype=bool),
+        idomain=np.ones((_NLAY, cell_mesh.n_cells), dtype=int),
     )
     return mesh, cells
 
@@ -236,7 +236,7 @@ def stack(tmp_path_factory) -> SimpleNamespace:
         sim, modelname=_NAME, save_flows=True, newtonoptions="NEWTON UNDER_RELAXATION"
     )
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=mesh.nlay, idomain=mesh.idomain(), **mesh.to_disv_kwargs(), length_units="METERS"
+        gwf, nlay=mesh.nlay, idomain=mesh.idomain, **mesh.to_disv_kwargs(), length_units="METERS"
     )
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1e-4, k33=1e-5, save_specific_discharge=True)
     flopy.mf6.ModflowGwfsto(gwf, iconvert=1, sy=0.1, ss=1e-5, transient={0: True})

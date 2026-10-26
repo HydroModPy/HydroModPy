@@ -45,7 +45,9 @@ def solver_mesh_from(
         },
         structured_shape=planar.structured_shape,
     )
-    return SolverMesh(cell_mesh=cell_mesh, top=top, botm=botm, inactive_mask=inactive_mask)
+    return SolverMesh(
+        cell_mesh=cell_mesh, top=top, botm=botm, idomain=np.where(inactive_mask, 0, 1)
+    )
 
 
 def solver_mesh_from_sgrid(
@@ -144,5 +146,5 @@ def solver_mesh_from_structured_arrays(
         cell_mesh=cell_mesh,
         top=top_flat,
         botm=botm_flat,
-        inactive_mask=mask,
+        idomain=np.where(mask, 0, 1),
     )

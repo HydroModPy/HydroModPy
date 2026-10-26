@@ -86,7 +86,7 @@ class VoronoiMeshEngine:
     """Voronoi cells around generated generators, or around the vertices of a read triangulation."""
 
     engine_id: ClassVar[str] = "voronoi"
-    engine_version: ClassVar[str] = "2.2.0"
+    engine_version: ClassVar[str] = "2.4.0"
     capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
         cell_types=(CellType.POLYGON,),
         structured=False,

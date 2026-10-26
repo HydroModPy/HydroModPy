@@ -213,8 +213,13 @@ def excluded_release_records_for_model(model: Any) -> dict[str, str]:
     return excluded
 
 
-def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
-    """Return the top and the base of the aquifer, one value per cell."""
+def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return the top and the base of the aquifer and the water-table layer, per cell.
+
+    The water-table layer is the top active layer of the column, -1 on a column
+    no surface process reaches (``model.inactive_mask``: no active cell, or a
+    lake footprint).
+    """
     mesh = getattr(model, "solver_mesh", None)
     if mesh is None:
         raise ObservableNotAvailableError(
@@ -224,7 +229,10 @@ def _aquifer_bounds(model: Any) -> tuple[np.ndarray, np.ndarray]:
     botm = np.asarray(mesh.botm, dtype=float)
     if botm.ndim == 1:
         botm = botm.reshape(1, -1)
-    return top, botm[-1].reshape(-1)
+    layer = mesh.top_active_layer()
+    closed = np.asarray(model.inactive_mask, dtype=bool).reshape(-1)
+    layer[closed] = -1
+    return top, botm[-1].reshape(-1), layer
 
 
 def _networks_route_drainage(model: Any) -> bool:
@@ -433,12 +441,13 @@ def extract_common_modflow_observables(
                 )
 
     if thickness_requests:
-        top, bottom = _aquifer_bounds(model)
+        top, bottom, layer = _aquifer_bounds(model)
         frame = extract_saturated_thickness_by_cell_from_hds(
             output_dir,
             model_name,
             top=top,
             bottom=bottom,
+            layer=layer,
             time_index=time_index,
         )
         for request in thickness_requests:

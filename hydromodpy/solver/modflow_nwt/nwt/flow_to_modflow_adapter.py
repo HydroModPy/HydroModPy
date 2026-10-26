@@ -167,7 +167,7 @@ class FlowToModflowAdapter:
         self.drain_band_depth_m = float(drain_band_depth_m)
         self.drain_bed_thickness_m = float(drain_bed_thickness_m)
         self.drain_conductance_floor_m2_s = float(drain_conductance_floor_m2_s)
-        self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.inactive_mask[0])
+        self.inactive_mask = solver_mesh.reshape_to_grid(solver_mesh.closed_surface())
         self.flow_runtime_overrides = (
             None if flow_runtime_overrides is None else dict(flow_runtime_overrides)
         )

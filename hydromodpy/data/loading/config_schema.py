@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
     from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
     from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
+    from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
     from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -71,6 +72,7 @@ SUPPORTED_DATA_MANAGER_TYPES = (
     "lake_levels",
     "lake_outflow",
     "lake_withdrawal",
+    "layer_base",
     "oceanic",
     "piezometry",
     "precipitation",
@@ -238,6 +240,13 @@ class DataManagersConfig(HydroModelBase):
         default=None,
         description="Substratum configuration (aquifer-bottom raster, elevation or thickness).",
     )
+    layer_base: Annotated[LayerBaseConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Layer base configuration (one elevation raster per named layer base, read by "
+            "[domain.layers] with genmtd_lay = 'surfaces')."
+        ),
+    )
     soil_capacity: Annotated[SoilCapacityConfig | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -382,6 +391,7 @@ class DataManagersConfig(HydroModelBase):
         from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
         from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
         from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
+        from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
         from hydromodpy.data.variables.piezometry.config import PiezometryConfig
         from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
         from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -421,6 +431,7 @@ class DataManagersConfig(HydroModelBase):
             "radiation": RadiationConfig,
             "soil_moisture": SoilMoistureConfig,
             "substratum": SubstratumConfig,
+            "layer_base": LayerBaseConfig,
             "soil_capacity": SoilCapacityConfig,
         }
 
@@ -497,6 +508,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.data.variables.lake_levels.config import LakeLevelsConfig
     from hydromodpy.data.variables.lake_outflow.config import LakeOutflowConfig
     from hydromodpy.data.variables.lake_withdrawal.config import LakeWithdrawalConfig
+    from hydromodpy.data.variables.layer_base.config import LayerBaseConfig
     from hydromodpy.data.variables.piezometry.config import PiezometryConfig
     from hydromodpy.data.variables.precipitation.config import PrecipitationConfig
     from hydromodpy.data.variables.radiation.config import RadiationConfig
@@ -534,6 +546,7 @@ def _rebuild_forward_refs() -> None:
             "RadiationConfig": RadiationConfig,
             "SoilMoistureConfig": SoilMoistureConfig,
             "SubstratumConfig": SubstratumConfig,
+            "LayerBaseConfig": LayerBaseConfig,
             "SoilCapacityConfig": SoilCapacityConfig,
         }
     )

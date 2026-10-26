@@ -24,7 +24,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import (
     StructuredGridBuilder,
     assert_bottom_below_top,
     coerce_vertical_config,
-    layer_proportions,
+    layer_stack,
 )
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.raster_support import RasterSupport
@@ -62,6 +62,28 @@ def resolve_domain_surfaces(
 
     surface_topo.assert_same_geographic_domain(substratum)
     return surface_topo, substratum
+
+
+def resolve_layer_bases(
+    *,
+    domain: DomainLike,
+    vertical_config: VerticalGridConfig | None,
+) -> dict[str, Surface]:
+    """Return the base surfaces the layering reads, by name, from ``domain.layer_bases``.
+
+    Only a layering by surfaces reads any. A name the domain does not hold raises.
+    """
+    names = () if vertical_config is None else vertical_config.base_surface_names
+    if not names:
+        return {}
+    held = getattr(domain, "layer_bases", None) or {}
+    missing = sorted(set(names) - set(held))
+    if missing:
+        raise ValueError(
+            f"[domain.layers] reads the base surfaces {missing}, and the domain holds "
+            f"{sorted(held) or 'none'}. Declare them under [[data.layer_base.sources]]."
+        )
+    return {name: held[name] for name in names}
 
 
 # A valid cell thicker than this multiple of the median, and thicker than the floor
@@ -387,8 +409,9 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     nodata: float,
     top_sampling: TopSamplingConfig | None = None,
     channel_mask: np.ndarray | None = None,
+    base_surfaces: dict[str, Surface] | None = None,
 ) -> SolverMesh:
-    """Extrude an unstructured cell mesh: top and bottom sampled at the cell centres."""
+    """Extrude an unstructured cell mesh: top, bottom and layer bases sampled at the cell centres."""
     hydro_mesh = cell_mesh.mesh
     x_centers, y_centers = cell_mesh.centers.T
 
@@ -444,21 +467,21 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     assert_bottom_below_top(top=top_flat, bot=bottom_flat, nodata=nodata)
     _warn_on_outlier_thickness(top=top_flat, bot=bottom_flat, valid=~invalid)
 
-    allp, nlay = layer_proportions(
-        genmtd_lay=cfg.genmtd_lay,
-        nlay=cfg.nlay,
-        lay_decay=cfg.lay_decay,
-        lay_proportions=cfg.lay_proportions,
-    )
-    botm = top_flat[None, :] - ((top_flat - bottom_flat)[None, :] * allp[:, None])
-    botm[:, invalid] = float(nodata)
-    inactive_mask = np.tile(invalid.reshape(1, -1), (nlay, 1))
-    return SolverMesh(
-        cell_mesh=cell_mesh,
+    bases = {
+        name: np.asarray(
+            PreparedSurfaceSampler.from_surface(surface).sample(x_centers, y_centers), dtype=float
+        ).reshape(-1)
+        for name, surface in (base_surfaces or {}).items()
+    }
+    stack = layer_stack(
         top=top_flat,
-        botm=botm,
-        inactive_mask=inactive_mask,
+        bottom=bottom_flat,
+        invalid=invalid,
+        vertical_config=cfg,
+        bases=bases,
+        nodata=nodata,
     )
+    return SolverMesh(cell_mesh=cell_mesh, top=top_flat, botm=stack.botm, idomain=stack.idomain)
 
 
 _GRID_MATCH_RTOL = 1e-9
@@ -527,13 +550,15 @@ def _build_structured_solver_mesh(
     nodata: float,
     top_sampling: TopSamplingConfig | None,
     channel_mask: np.ndarray | None,
+    base_surfaces: dict[str, Surface] | None = None,
 ) -> tuple[SolverMesh, Surface, Surface]:
     """Extrude a regular mesh on the surfaces, resampled to its shape when they differ.
 
     The planar grid is the mesh's. The surfaces give only the vertical part: top,
-    layer bottoms and the inactive mask. Returns the solver mesh and the surfaces
-    at the resolution of the mesh.
+    layer bottoms, layer bases and the ``idomain``. Returns the solver mesh and the
+    top and bottom surfaces at the resolution of the mesh.
     """
+    base_surfaces = dict(base_surfaces or {})
     nrow, ncol = cell_mesh.structured_shape
     if cell_mesh.mesh.structured_shape != cell_mesh.structured_shape:
         raise MeshError("A regular cell mesh must carry its shape on its HydroMesh too.")
@@ -555,6 +580,12 @@ def _build_structured_solver_mesh(
             name=bottom_surface.name,
         )
         top_surface.assert_same_geographic_domain(bottom_surface)
+        base_surfaces = {
+            name: surface.resample_to_shape(
+                nrow, ncol, resampling="bilinear", nodata=float(nodata), name=surface.name
+            )
+            for name, surface in base_surfaces.items()
+        }
     if top_surface.support is None:
         raise ValueError("Top surface must carry a RasterSupport.")
     _assert_grid_matches_cell_mesh(top_surface.support, cell_mesh)
@@ -575,20 +606,18 @@ def _build_structured_solver_mesh(
             channel_mask=channel_mask,
         )
 
-    top = np.asarray(top_surface.as_array(), dtype=float)
-    bottom = np.asarray(bottom_surface.as_array(), dtype=float)
     # The builder keeps the vertical part only: its own planar vertices are ignored.
     spec = StructuredGridBuilder().build_from_surfaces(
         top_surface=top_surface,
         bottom_surface=bottom_surface,
         vertical_config=vertical_config,
+        base_surfaces=base_surfaces,
     )
-    inactive = ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= nodata) | (bottom <= nodata)
     solver_mesh = SolverMesh(
         cell_mesh=cell_mesh,
         top=spec.top.reshape(-1),
         botm=spec.botm.reshape(spec.nlay, -1),
-        inactive_mask=np.tile(inactive.reshape(1, -1), (spec.nlay, 1)),
+        idomain=spec.idomain.reshape(spec.nlay, -1),
     )
     return solver_mesh, top_surface, bottom_surface
 
@@ -606,7 +635,8 @@ def build_spatial_discretization(
     The planar part is ``cell_mesh``: a regular grid (``structured_shape`` set) or
     any unstructured one. The vertical part comes from ``domain.surface_topo``,
     ``domain.substratum`` and ``vertical_config``, the ``[domain.layers]`` table that
-    every solver reads. A regular mesh whose shape differs from the surfaces gets
+    every solver reads; a layering by surfaces also reads ``domain.layer_bases``,
+    and its pinched cells get ``idomain`` -1. A regular mesh whose shape differs from the surfaces gets
     them resampled to it, and its bounds and steps must equal those of the surfaces
     to 1e-9 relative.
 
@@ -615,7 +645,9 @@ def build_spatial_discretization(
     serves an unstructured mesh and a regular grid coarser than the DEM; a grid
     whose cells are the DEM pixels already holds the pixel values.
 
-    A warning reports active cells that fall in more than one connected group.
+    The interfaces are checked once built: an active cell with a top at or
+    below its bottom raises. A warning reports active cells that fall in more
+    than one connected group.
     """
     top_sampling: TopSamplingConfig | None = None
     if sgrid_config is not None:
@@ -624,6 +656,7 @@ def build_spatial_discretization(
     nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
 
     top_surface, bottom_surface = resolve_domain_surfaces(domain=domain)
+    base_surfaces = resolve_layer_bases(domain=domain, vertical_config=vertical_config)
 
     if cell_mesh.structured_shape is not None:
         solver_mesh, top_surface, bottom_surface = _build_structured_solver_mesh(
@@ -634,6 +667,7 @@ def build_spatial_discretization(
             nodata=nodata,
             top_sampling=top_sampling,
             channel_mask=channel_mask,
+            base_surfaces=base_surfaces,
         )
     else:
         solver_mesh = _build_extruded_solver_mesh_from_runtime_planar(
@@ -644,7 +678,9 @@ def build_spatial_discretization(
             nodata=nodata,
             top_sampling=top_sampling,
             channel_mask=channel_mask,
+            base_surfaces=base_surfaces,
         )
+    solver_mesh.check_interfaces()
     warn_on_disconnected_active_cells(solver_mesh)
 
     return SolverGridContext(
@@ -662,4 +698,5 @@ def build_spatial_discretization(
 __all__ = [
     "build_spatial_discretization",
     "resolve_domain_surfaces",
+    "resolve_layer_bases",
 ]

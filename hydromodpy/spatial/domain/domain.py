@@ -4,6 +4,7 @@ Domain assembly logic built on top of `Surface` and `DomainConfig`.
 This module keeps the high-level orchestration of the model domain:
 - accept one already-prepared topographic surface,
 - derive the vertical lower surface from the configured depth model,
+- place the layer bases a layering by surfaces reads,
 - expose a compact georeferencing view,
 - build thematic zones (currently geology) from explicit external artefacts.
 
@@ -38,6 +39,7 @@ class Domain:
     ----------------
     - store the topographic surface support of the domain,
     - build the lower surface (`substratum`) from `depth_model`,
+    - place the layer bases (`layer_bases`) a layering by surfaces reads,
     - keep a lightweight georeferencing mapping for legacy consumers,
     - store declared thematic zones (such as geology) once they are built outside.
 
@@ -45,6 +47,7 @@ class Domain:
     ----------------------
     - `surface_topo`
     - `substratum`
+    - `layer_bases`
     - `zones`
     - `georeferencing`
     """
@@ -55,12 +58,15 @@ class Domain:
         *,
         surface_topo: Surface,
         substratum_source: Surface | None = None,
+        layer_base_sources: Mapping[str, Surface] | None = None,
         active_cells: np.ndarray | None = None,
     ):
         self.config = self._coerce_config(config)
         self.surface_topo: Surface = surface_topo
         self.substratum: Surface | None = None
+        self.layer_bases: dict[str, Surface] = {}
         self._substratum_source = substratum_source
+        self._layer_base_sources = dict(layer_base_sources or {})
         self._active_cells = active_cells
         self.zones: dict[str, object] = {}
         if self.surface_topo.support is not None:
@@ -116,6 +122,57 @@ class Domain:
             self.substratum = self._substratum_from_raster(depth_model)
         else:
             raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
+        self.layer_bases = self._layer_bases_from_rasters()
+
+    def _domain_cells(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return the cells where the top carries data, and those narrowed to ``active_cells``."""
+        support = self.surface_topo.support
+        top = self.surface_topo.as_array()
+        has_top = np.isfinite(top)
+        if support is not None and support.nodata is not None:
+            has_top &= top != float(support.nodata)
+        cells = has_top if self._active_cells is None else has_top & self._active_cells
+        return has_top, cells
+
+    def _layer_bases_from_rasters(self) -> dict[str, Surface]:
+        """Place every layer base ``[domain.layers]`` reads, on the grid of the top surface.
+
+        A base is an elevation raster of ``[[data.layer_base.sources]]``. It must
+        carry a value on every cell of the domain, like a substratum raster.
+        """
+        names = self.config.layers.base_surface_names
+        extra = sorted(set(self._layer_base_sources) - set(names))
+        if extra:
+            raise ValueError(
+                f"Layer base rasters {extra} were given, and [domain.layers] reads "
+                f"{sorted(names) or 'none'}."
+            )
+        missing = sorted(set(names) - set(self._layer_base_sources))
+        if missing:
+            raise ConfigError(
+                f"[domain.layers] reads the base surfaces {missing}, and none was given to "
+                "the domain. Declare them under [[data.layer_base.sources]]."
+            )
+        if not names:
+            return {}
+        support = self.surface_topo.support
+        if support is None:
+            raise ValueError("The top surface has no RasterSupport to place a layer base on.")
+        has_top, cells = self._domain_cells()
+        bases: dict[str, Surface] = {}
+        for name in names:
+            values = self._layer_base_sources[name].reprojected_onto(support, name=name).as_array()
+            n_uncovered = int(np.count_nonzero(cells & ~np.isfinite(values)))
+            if n_uncovered:
+                raise DataContractViolation(
+                    f"The layer base raster {name!r} leaves {n_uncovered} of the "
+                    f"{int(np.count_nonzero(cells))} cells of the domain without a value. It "
+                    "must cover the whole extent the domain is built on."
+                )
+            if support.nodata is not None:
+                values = np.where(has_top, values, float(support.nodata))
+            bases[name] = Surface(name=name, values=values, support=support)
+        return bases
 
     def _substratum_from_raster(self, depth_model: RasterDepthModel) -> Surface:
         """Place the substratum from a raster, on the grid of the top surface.
@@ -138,10 +195,7 @@ class Domain:
             )
 
         top = self.surface_topo.as_array()
-        has_top = np.isfinite(top)
-        if support.nodata is not None:
-            has_top &= top != float(support.nodata)
-        cells = has_top if self._active_cells is None else has_top & self._active_cells
+        has_top, cells = self._domain_cells()
         n_cells = int(np.count_nonzero(cells))
         if n_cells == 0:
             raise ValueError("The domain holds no cell with a top elevation.")

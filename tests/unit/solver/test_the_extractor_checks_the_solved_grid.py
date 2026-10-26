@@ -171,7 +171,12 @@ def _store_with_mesh(path: Path, *, with_mesh: bool = True) -> SimulationZarr:
     handle = SimulationZarr.create(path, n_cells=N_CELLS, n_layers=1)
     if with_mesh:
         vertices, rings = quad_mesh(NROW, NCOL)
-        handle.write_mesh(vertices, rings, np.array([10.0, 0.0]), structured_shape=(NROW, NCOL))
+        handle.write_mesh(
+            vertices,
+            rings,
+            np.tile([[10.0], [0.0]], (1, N_CELLS)),
+            structured_shape=(NROW, NCOL),
+        )
     return handle
 
 
@@ -212,6 +217,7 @@ def _mf6_extract_surface(monkeypatch, tmp_path: Path, store, grb) -> None:
     ground = np.linspace(5.0, 6.0, N_CELLS)
     grb.top1d = ground
     grb.bot1d = ground - 10.0
+    grb.idomain = np.ones(N_CELLS, dtype=int)
     monkeypatch.setattr(flopy.mf6.utils, "MfGrdFile", lambda path: grb)
     (tmp_path / "m.disv.grb").write_bytes(b"")
     np.savez(tmp_path / f"m{GROUND_SIDECAR_SUFFIX}", ground=ground)

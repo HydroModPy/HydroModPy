@@ -29,7 +29,7 @@ def test_apply_lake_idomain_mask_deactivates_surface_layer_of_lake_cells() -> No
     # Central cell (row 1, col 1) -> flat id 4 in row-major order.
     masked = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lac0": [4]})
 
-    idomain = masked.idomain()
+    idomain = masked.idomain
     assert idomain.shape == (3, 9)
     # Lake cell inactive on the occupied (top) layer ...
     assert idomain[0, 4] == 0
@@ -44,7 +44,7 @@ def test_apply_lake_idomain_mask_deactivates_surface_layer_of_lake_cells() -> No
 def test_apply_lake_idomain_mask_respects_occupied_layers() -> None:
     mesh = _grid(2, 2, nlay=3)
     masked = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lac0": [0]}, occupied_layers=2)
-    idomain = masked.idomain()
+    idomain = masked.idomain
     assert idomain[0, 0] == 0
     assert idomain[1, 0] == 0
     # The deepest layer stays active so the lake has somewhere to leak.
@@ -53,13 +53,13 @@ def test_apply_lake_idomain_mask_respects_occupied_layers() -> None:
 
 def test_apply_lake_idomain_mask_leaves_original_mesh_unchanged() -> None:
     mesh = _grid(2, 3, nlay=2)
-    before = mesh.idomain().copy()
+    before = mesh.idomain.copy()
 
     apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lac0": [0, 1]})
 
     # The frozen mesh is replaced, never mutated in place.
-    assert np.array_equal(mesh.idomain(), before)
-    assert np.all(mesh.idomain() == 1)
+    assert np.array_equal(mesh.idomain, before)
+    assert np.all(mesh.idomain == 1)
 
 
 def test_apply_lake_idomain_mask_rejects_full_column_occupation() -> None:
@@ -71,7 +71,7 @@ def test_apply_lake_idomain_mask_rejects_full_column_occupation() -> None:
 def test_apply_lake_idomain_mask_handles_multiple_lakes() -> None:
     mesh = _grid(2, 4, nlay=2)
     masked = apply_lake_idomain_mask(mesh, lake_cell_ids_by_lake={"lac0": [0], "lac1": [7]})
-    idomain = masked.idomain()
+    idomain = masked.idomain
     assert idomain[0, 0] == 0
     assert idomain[0, 7] == 0
     assert idomain[0, [1, 2, 3, 4, 5, 6]].tolist() == [1, 1, 1, 1, 1, 1]
@@ -86,7 +86,7 @@ def test_apply_lake_idomain_mask_respects_per_lake_occupied_layers() -> None:
         lake_cell_ids_by_lake={"surface": [0], "deep": [3]},
         occupied_layers_by_lake={"surface": 1, "deep": 2},
     )
-    idomain = masked.idomain()
+    idomain = masked.idomain
     # Surface lake: only layer 0 inactive.
     assert idomain[0, 0] == 0
     assert idomain[1, 0] == 1

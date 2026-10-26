@@ -127,7 +127,7 @@ def _run(ws: Path, exe: str, *, strt0: float, strt1: float) -> tuple[dict, dict]
         sim, modelname="twolake", save_flows=True, newtonoptions="NEWTON UNDER_RELAXATION"
     )
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=masked.nlay, idomain=masked.idomain(), **masked.to_disv_kwargs()
+        gwf, nlay=masked.nlay, idomain=masked.idomain, **masked.to_disv_kwargs()
     )
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0, k33=0.1, save_flows=True)
     flopy.mf6.ModflowGwfsto(gwf, iconvert=1, sy=0.2, ss=1e-5, transient={0: True})

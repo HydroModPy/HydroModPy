@@ -54,7 +54,14 @@ def test_prepare_runtime_builds_the_cell_mesh_after_the_data_are_loaded(
             )
 
     class _DummyRunDomain:
-        def __init__(self, config, surface_topo, substratum_source=None, active_cells=None) -> None:
+        def __init__(
+            self,
+            config,
+            surface_topo,
+            substratum_source=None,
+            layer_base_sources=None,
+            active_cells=None,
+        ) -> None:
             self.config = config
             self.surface_topo = surface_topo
 

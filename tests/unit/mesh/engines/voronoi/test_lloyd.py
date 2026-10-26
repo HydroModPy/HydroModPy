@@ -85,6 +85,7 @@ def test_relax_holds_the_fixed_seeds_and_reports_its_moves() -> None:
     assert report.cap == 6
     assert not report.converged
     assert 0.0 < report.move_p50 <= report.move_p99 <= report.move_max
+    assert report.move_p50 <= report.move_rms <= report.move_max
     free = report.seeds[n_fixed:]
     assert shapely.contains_xy(domain, free[:, 0], free[:, 1]).all()
     extras = report.extras()
@@ -92,6 +93,7 @@ def test_relax_holds_the_fixed_seeds_and_reports_its_moves() -> None:
         "lloyd_iterations",
         "lloyd_cap",
         "lloyd_converged",
+        "lloyd_move_rms",
         "lloyd_move_p50",
         "lloyd_move_p99",
         "lloyd_move_max",
@@ -100,13 +102,15 @@ def test_relax_holds_the_fixed_seeds_and_reports_its_moves() -> None:
     assert extras["lloyd_converged"] == 0.0
 
 
-def test_relax_stops_once_the_largest_move_is_under_the_tolerance() -> None:
+def test_relax_stops_once_the_root_mean_square_move_is_under_the_tolerance() -> None:
     h = _sampler(10.0)
     seeds, n_fixed, domain = _seeds(h)
-    report = relax(seeds, n_fixed, h, domain, _no_disks(), tolerance=0.5)
+    probe = relax(seeds, n_fixed, h, domain, _no_disks(), cap=8)
+    tolerance = 0.5 * (probe.move_rms + probe.move_max)
+    report = relax(seeds, n_fixed, h, domain, _no_disks(), tolerance=tolerance)
     assert report.converged
     assert report.iterations < LLOYD_CAP
-    assert report.move_max < 0.5
+    assert report.move_rms < tolerance < report.move_max
 
 
 def test_no_free_seed_ends_in_a_hard_disk() -> None:

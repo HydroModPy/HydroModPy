@@ -146,12 +146,12 @@ def _run_label(root: Any) -> str:
 
 
 def _surface_elevation(root: Any, n_cells: int) -> np.ndarray:
-    """Per-cell surface elevation: the mesh topography, else the first interface everywhere."""
+    """Per-cell surface elevation: the mesh topography, else the top interface of each cell."""
     mesh = root["mesh"]
     if "topography" in mesh:
         return np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
     if "z_interfaces" in mesh:
-        return np.full(n_cells, float(mesh["z_interfaces"][:][0]), dtype="float64")
+        return np.asarray(mesh["z_interfaces"][0], dtype="float64").reshape(-1)[:n_cells]
     raise KeyError("No surface elevation data in the store")
 
 

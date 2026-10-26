@@ -133,7 +133,7 @@ def test_the_network_routes_downstream_on_chain_cells(engine: str) -> None:
         cell_mesh=cell_mesh,
         top=np.full(n_cells, 100.0),
         botm=np.full((1, n_cells), 50.0),
-        inactive_mask=np.zeros((1, n_cells), dtype=bool),
+        idomain=np.ones((1, n_cells), dtype=int),
     )
     network = resolve_sfr_networks(_model(), solver_mesh=solver_mesh)["net"]
     assert network.downstream_increasing

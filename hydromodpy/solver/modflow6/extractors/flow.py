@@ -20,6 +20,7 @@ from hydromodpy.core.units.time import (
     cf_time_axis_seconds,
     factor_to_seconds,
 )
+from hydromodpy.core.vertical_column import VERTICAL_LAYOUT_COLUMN_FRACTIONS, layer_interfaces
 from hydromodpy.solver.modflow6.build import (
     FLOW_PROPERTY_SIDECAR_SUFFIX,
     mf6_safe_name,
@@ -306,11 +307,14 @@ class Modflow6OutputAdapter:
         model_name: str | None = None,
         budget_terms: BudgetKeep = BudgetKeep.everything(),
         start_datetime: object | None = None,
+        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     ) -> None:
         """Read MF6 .hds and .cbc files and write into the store.
 
         ``budget_terms`` says which per-cell budget terms go under
         ``budget/``. The lumped budget table holds every term whatever it says.
+        ``vertical_layout`` says how the layers were built, as ``[domain.layers]``
+        gives it; the store keeps it on ``mesh/``.
         """
         import flopy.utils.binaryfile as bf
 
@@ -440,6 +444,7 @@ class Modflow6OutputAdapter:
             model_name,
             nlay,
             n_cells,
+            vertical_layout=vertical_layout,
         )
 
     def _extract_budget(
@@ -1075,16 +1080,19 @@ class Modflow6OutputAdapter:
         model_name: str,
         nlay: int,
         n_cells: int,
+        *,
+        vertical_layout: str = VERTICAL_LAYOUT_COLUMN_FRACTIONS,
     ) -> None:
         """Check the solved grid against the stored mesh and add the vertical geometry.
 
         The mesh itself was written once, before the run. The grid file is
         compared with it and a difference stops the run: nothing is sealed on
         cells it does not belong to. What is added is what the solved model
-        knows, ``topography``, ``z_interfaces`` and ``layer_thickness``. The top
-        of the grid file is the computational top, so they are built from the
-        ground the build left beside the model; a missing ground file is an
-        error.
+        knows: ``topography``, the interfaces of every cell (``z_interfaces``,
+        ``(n_layers + 1, n_cells)``), ``layer_thickness`` and the ``idomain`` of
+        the grid file, lake mask included. The top of the grid file is the
+        computational top, so the interfaces start from the ground the build
+        left beside the model; a missing ground file is an error.
         """
         if not getattr(store, "save_zarr", True):
             return
@@ -1109,11 +1117,13 @@ class Modflow6OutputAdapter:
                 written_top=np.asarray(top_raw, dtype="float64").ravel()[:n_cells],
             )
             botm = np.asarray(bot_raw, dtype="float64")
-            botm_per_layer = botm.reshape(nlay, n_cells) if botm.size == nlay * n_cells else None
-            if botm_per_layer is not None:
-                z_flat = np.concatenate([top[:1], botm_per_layer[:, 0]])
-            else:
-                z_flat = np.array([float(top.mean()), float(top.mean()) - 10.0])
+            if botm.size != nlay * n_cells:
+                raise SolverInputError(
+                    f"the grid file of sim {sim_id} holds {botm.size} cell bottoms, "
+                    f"not {nlay} layers of {n_cells} cells."
+                )
+            interfaces = layer_interfaces(top, botm.reshape(nlay, n_cells))
+            idomain = np.asarray(grd.idomain).reshape(nlay, n_cells)
 
             sz = store.open_zarr(sim_id)
             try:
@@ -1121,10 +1131,12 @@ class Modflow6OutputAdapter:
                 streambed = _streambed_face_arrays(solver_output_dir, model_name, n_cells)
                 sz.write_topography(
                     topography=top,
-                    z_interfaces=z_flat,
+                    z_interfaces=interfaces,
                     n_cells=n_cells,
-                    n_layers=int(z_flat.size - 1),
-                    layer_thickness=_layer_thickness(top, botm_per_layer),
+                    n_layers=nlay,
+                    layer_thickness=interfaces[:-1] - interfaces[1:],
+                    idomain=idomain,
+                    vertical_layout=vertical_layout,
                     streambed_top=None if streambed is None else streambed[0],
                     streambed_connection=None if streambed is None else streambed[1],
                     grid_type=grid_type,
@@ -1179,15 +1191,3 @@ def _write_flow_properties(sz: Any, solver_output_dir: Path, *, n_cells: int) ->
             if values.ndim != 2 or values.shape[1] != n_cells:
                 continue
             sz.write_static_field(variable, values, subgroup="derived")
-
-
-def _layer_thickness(top: np.ndarray, botm_per_layer: np.ndarray | None) -> np.ndarray | None:
-    """Return the ``(n_layers, n_faces)`` thickness from the model top and bottoms.
-
-    ``None`` when the grid file did not expose per-layer bottoms, in which case
-    the mesh keeps only the reference ``z_interfaces`` column.
-    """
-    if botm_per_layer is None:
-        return None
-    interfaces = np.vstack([np.asarray(top, dtype="float64")[None, :], botm_per_layer])
-    return np.diff(interfaces, axis=0) * -1.0

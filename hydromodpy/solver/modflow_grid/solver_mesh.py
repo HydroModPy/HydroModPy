@@ -12,12 +12,18 @@ distinction is handled internally and exposed via ``is_structured``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import sqrt
 from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.vertical_column import (
+    IDOMAIN_VALUES,
+    check_layer_interfaces,
+    top_active_layer,
+)
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
@@ -42,14 +48,15 @@ class SolverMesh:
         Top elevation per cell.
     botm : ndarray, shape (nlay, n_cells)
         Bottom elevation per cell per layer.
-    inactive_mask : ndarray, shape (nlay, n_cells)
-        Boolean mask where True = inactive cell.
+    idomain : ndarray, shape (nlay, n_cells)
+        MODFLOW IDOMAIN per cell: 1 active, 0 inactive, -1 vertical
+        pass-through. A cell is active when its value is above 0.
     """
 
     cell_mesh: PlanarCellMesh
     top: np.ndarray
     botm: np.ndarray
-    inactive_mask: np.ndarray
+    idomain: np.ndarray
 
     def __post_init__(self) -> None:
         n_cells = self.cell_mesh.n_cells
@@ -65,10 +72,14 @@ class SolverMesh:
             raise ValueError(f"botm must have shape (nlay, {n_cells}), got {botm.shape}")
         object.__setattr__(self, "botm", botm)
 
-        mask = np.asarray(self.inactive_mask, dtype=bool)
-        if mask.shape != botm.shape:
-            raise ValueError(f"inactive_mask must have shape {botm.shape}, got {mask.shape}")
-        object.__setattr__(self, "inactive_mask", mask)
+        idomain = np.asarray(self.idomain)
+        if idomain.shape != botm.shape:
+            raise ValueError(f"idomain must have shape {botm.shape}, got {idomain.shape}")
+        if not np.isin(idomain, IDOMAIN_VALUES).all():
+            raise ValueError("idomain holds only -1, 0 and 1.")
+        idomain = idomain.astype(int)
+        idomain.setflags(write=False)
+        object.__setattr__(self, "idomain", idomain)
 
     # -- Properties -----------------------------------------------------------
 
@@ -154,9 +165,38 @@ class SolverMesh:
         centers_z = 0.5 * (tops + self.botm)
         return np.maximum(0.0, self.top.reshape(1, -1) - centers_z)
 
-    def idomain(self) -> np.ndarray:
-        """Return MODFLOW IDOMAIN, shape (nlay, n_cells): 1 active, 0 inactive."""
-        return np.where(self.inactive_mask, 0, 1).astype(int)
+    @property
+    def inactive_mask(self) -> np.ndarray:
+        """Return the cells that are not active, ``idomain <= 0``, shape (nlay, n_cells)."""
+        return self.idomain <= 0
+
+    def check_interfaces(self) -> None:
+        """Refuse interfaces an active cell cannot hold (see ``check_layer_interfaces``)."""
+        check_layer_interfaces(self.top, self.botm, self.idomain)
+
+    def top_active_layer(self) -> np.ndarray:
+        """Return the top active layer of each column, -1 for a column with none."""
+        return top_active_layer(self.idomain)
+
+    def closed_surface(self, covered_cells: Iterable[int] = ()) -> np.ndarray:
+        """Return the columns no surface process reaches, shape (n_cells,).
+
+        A column is closed when it holds no active cell, or when it is one of
+        ``covered_cells`` (the footprint of an inactive lake, whose surface LAK
+        owns). Drains, recharge, evapotranspiration and the constant-head
+        supports skip these columns and act on the top active cell of the others.
+        """
+        closed = self.top_active_layer() < 0
+        cells = np.fromiter((int(c) for c in covered_cells), dtype=np.int64)
+        closed[cells] = True
+        return closed
+
+    def top_active_cell_top(self) -> np.ndarray:
+        """Return the top elevation of the top active cell of each column, NaN for none."""
+        layer = self.top_active_layer()
+        tops = np.vstack([self.top.reshape(1, -1), self.botm[:-1]])
+        cells = np.arange(self.n_cells)
+        return np.where(layer < 0, np.nan, tops[np.maximum(layer, 0), cells])
 
     # -- Reshape helpers (structured only) ------------------------------------
 
@@ -311,7 +351,7 @@ class SolverMesh:
             "bounds": list(self.planar_mesh.bounds()),
             "top_range": [float(np.nanmin(self.top)), float(np.nanmax(self.top))],
             "botm_range": [float(np.nanmin(self.botm)), float(np.nanmax(self.botm))],
-            "n_active_cells": int(np.sum(~self.inactive_mask)),
-            "n_inactive_cells": int(np.sum(self.inactive_mask)),
+            "n_active_cells": int(np.sum(self.idomain > 0)),
+            "n_inactive_cells": int(np.sum(self.idomain <= 0)),
             "cell_types": [ct.value for ct in self.planar_mesh.cell_types],
         }

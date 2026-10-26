@@ -63,7 +63,7 @@ def regular_solver_mesh(
         cell_mesh=cell_mesh,
         top=np.full(n_cells, top),
         botm=np.full((1, n_cells), top - 9.0),
-        inactive_mask=np.zeros((1, n_cells), dtype=bool),
+        idomain=np.ones((1, n_cells), dtype=int),
     )
 
 
@@ -136,7 +136,7 @@ def _build_unstructured_runtime(
         cell_mesh=replace(cell_mesh_of(planar_mesh), face_families=faces),
         top=np.asarray([10.0, 10.0], dtype=float),
         botm=np.asarray([[1.0, 1.0]], dtype=float),
-        inactive_mask=np.zeros((1, 2), dtype=bool),
+        idomain=np.ones((1, 2), dtype=int),
     )
 
 

@@ -91,7 +91,12 @@ def _mf6_fallback_conductance(*, bed_thickness: float) -> np.ndarray:
     )
     spd = build_drain_stress_period_data(
         model,
-        solver_mesh=SimpleNamespace(top=TOP_M, cell_areas=lambda: AREA_M2),
+        solver_mesh=SimpleNamespace(
+            top=TOP_M,
+            cell_areas=lambda: AREA_M2,
+            top_active_layer=lambda: np.zeros(3, dtype=int),
+            top_active_cell_top=lambda: TOP_M,
+        ),
         drainage_cond_series=np.asarray([0.0]),
         ocean_support_mask=np.zeros(3, dtype=bool),
         stream_support_mask=np.zeros(3, dtype=bool),

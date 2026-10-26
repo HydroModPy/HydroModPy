@@ -191,6 +191,8 @@ def extract_run_outputs(
     for keyword, value in _dry_cell_sentinels(ctx).items():
         if _accepts_kwarg(extractor.extract, keyword):
             extract_kwargs[keyword] = value
+    if _accepts_kwarg(extractor.extract, "vertical_layout"):
+        extract_kwargs["vertical_layout"] = ctx.state.cfg.domain.layers.vertical_layout
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
 
     _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)

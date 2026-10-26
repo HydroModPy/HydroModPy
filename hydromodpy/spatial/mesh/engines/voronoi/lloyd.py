@@ -2,16 +2,18 @@
 
 Each iteration moves every free seed to the centroid of its clipped cell for
 the density ``rho = h^-4``. The centroid integrates ``rho`` with one point per
-fan triangle ``(seed, a, b)`` of the cell ring, at the triangle centroid: a
-coarser quadrature of the same density, cheaper than three points and with the
-same size fidelity.
+fan triangle ``(seed, a, b)`` of the cell ring, at the triangle centroid. Three
+points per triangle integrate the density better, but on a graded field they
+pull the seeds further from the area centroid of their cells and raise the size
+ratio between neighbours, so the engine keeps one point.
 
 The new position is then projected out of the hard disks (the Berge balls of
 the conformal face vertices, the Gabriel disks of the river chain segments),
 then out of the protection disks of the constraint seeds. A move that still
 ends in a hard disk, or outside the domain, is refused: the seed keeps its
-position. The relaxation stops when the largest move falls under the tolerance,
-as a share of the local size, or at the iteration cap; the report says which.
+position. The relaxation stops when the root mean square of the moves falls
+under the tolerance, as a share of the local size, or at the iteration cap; the
+report says which and gives the largest move as well.
 """
 
 from __future__ import annotations
@@ -43,7 +45,7 @@ LLOYD_CAP = 25
 """Most Lloyd iterations; the QA reports whether the tolerance was reached before."""
 
 LLOYD_TOLERANCE = 0.01
-"""Default stop: the largest free seed move under this share of its local size."""
+"""Default stop: the root mean square of the free seed moves under this share of the size."""
 
 BERGE_BALL_SCALE = 1.02
 """Hard radius of a Berge ball, as a multiple of its radius ``R_v``."""
@@ -83,6 +85,7 @@ class LloydReport:
     iterations: int
     cap: int
     converged: bool
+    move_rms: float
     move_p50: float
     move_p99: float
     move_max: float
@@ -94,6 +97,7 @@ class LloydReport:
             "lloyd_iterations": float(self.iterations),
             "lloyd_cap": float(self.cap),
             "lloyd_converged": float(self.converged),
+            "lloyd_move_rms": self.move_rms,
             "lloyd_move_p50": self.move_p50,
             "lloyd_move_p99": self.move_p99,
             "lloyd_move_max": self.move_max,
@@ -170,15 +174,15 @@ def relax(
 ) -> LloydReport:
     """Relax the seeds after the first *n_fixed*, all in the local frame.
 
-    Stops when the largest move of an iteration is under *tolerance* times the
-    local size, or after *cap* iterations. ``rejected`` counts the refused moves
-    over all iterations.
+    Stops when the root mean square of the moves of an iteration, each as a
+    share of the local size, is under *tolerance*, or after *cap* iterations.
+    ``rejected`` counts the refused moves over all iterations.
     """
     points = np.array(seeds, dtype=np.float64, copy=True)
     fixed = int(n_fixed)
     n_free = len(points) - fixed
     if n_free <= 0 or cap <= 0:
-        return LloydReport(points, 0, cap, n_free <= 0, 0.0, 0.0, 0.0, 0)
+        return LloydReport(points, 0, cap, n_free <= 0, 0.0, 0.0, 0.0, 0.0, 0)
     shapely.prepare(domain)
     envelope = voronoi_envelope(domain, h.h_max)
     hard = DiskSet(invariants.hard_center, invariants.hard_radius)
@@ -186,6 +190,7 @@ def relax(
     rejected = 0
     iterations = 0
     move = np.zeros(n_free)
+    rms = np.inf
     while iterations < cap:
         iterations += 1
         cells = voronoi_cells(points, domain, envelope)
@@ -197,14 +202,16 @@ def relax(
         target[refused] = previous[refused]
         rejected += int(refused.sum())
         move = np.hypot(*(target - previous).T) / h(target)
+        rms = float(np.sqrt(np.mean(move**2)))
         points[fixed:] = target
-        if move.max() < tolerance:
+        if rms < tolerance:
             break
     return LloydReport(
         seeds=points,
         iterations=iterations,
         cap=cap,
-        converged=bool(move.max() < tolerance),
+        converged=rms < tolerance,
+        move_rms=rms,
         move_p50=float(np.median(move)),
         move_p99=float(np.percentile(move, 99)),
         move_max=float(move.max()),

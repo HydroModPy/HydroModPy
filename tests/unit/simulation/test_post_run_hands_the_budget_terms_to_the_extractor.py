@@ -19,6 +19,7 @@ from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, Simulati
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.spatial.domain import DomainConfig
 
 
 class _Extractor:
@@ -70,7 +71,12 @@ def _context(tmp_path: Path) -> RunContext:
     )
     plan = SimulationPlan(name="demo", description="demo", runs=(run,))
     state = RunState(
-        cfg=SimpleNamespace(modflownwt=ModflowConfig(), solver=SolverConfig(), observation=None),
+        cfg=SimpleNamespace(
+            modflownwt=ModflowConfig(),
+            solver=SolverConfig(),
+            observation=None,
+            domain=DomainConfig(),
+        ),
         setup=SimpleNamespace(time_grid=None),
     )
     return RunContext(plan=plan, run=run, state=state, output_dir=tmp_path)

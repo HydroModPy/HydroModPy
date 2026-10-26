@@ -287,7 +287,7 @@ def test_modflowgwflak_builds_with_expected_nlakeconn_and_laktab(tmp_path: Path)
         gwf,
         nlay=masked.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         xorigin=0.0,
         yorigin=0.0,
         length_units="METERS",

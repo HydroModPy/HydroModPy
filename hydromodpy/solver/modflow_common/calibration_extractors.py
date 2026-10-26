@@ -19,6 +19,7 @@ import pandas as pd
 
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.vertical_column import values_at_layer
 from hydromodpy.physics.flow.history_contract import saturated_thickness_from_head_history
 from hydromodpy.solver.modflow_common.period_steps import (
     budget_file_steps,
@@ -539,18 +540,18 @@ def extract_saturated_thickness_by_cell_from_hds(
     *,
     top: np.ndarray,
     bottom: np.ndarray,
+    layer: np.ndarray,
     time_index: pd.DatetimeIndex | None = None,
 ) -> pd.DataFrame:
     """Return saturated thickness by stress period and cell, in metres.
 
     One row per stress period: the thickness at its last saved step.
 
-    The water table is the head of the uppermost layer, the definition
-    ``results/derive/derived.py`` already applies; a MODFLOW head array is
-    layer-major, so the first ``n_cells`` values of the flattened snapshot are
-    that layer. ``bottom`` is the base of the whole aquifer, ``botm[-1]``, not
-    the bottom of layer 0: what the method calibrates is the transmissivity of
-    the aquifer, not of its top slice.
+    The water table is the head of the top active cell of each column, the
+    layer ``layer`` names per cell; a cell where it is -1 (a closed column)
+    has no water table and reads ``NaN``. ``bottom`` is the base of the whole
+    aquifer, ``botm[-1]``, not the bottom of the top layer: what the method
+    calibrates is the transmissivity of the aquifer, not of its top slice.
 
     MODFLOW writes a large sentinel into dry and no-flow cells; those become
     ``NaN`` here, as in :func:`extract_head_from_hds`, rather than a full or
@@ -571,18 +572,22 @@ def extract_saturated_thickness_by_cell_from_hds(
     if bottom_m.size != n_cells:
         raise ValueError(f"top holds {n_cells} cells but bottom holds {bottom_m.size}.")
 
+    layer_m = np.asarray(layer, dtype=np.int64).reshape(-1)
+    if layer_m.size != n_cells:
+        raise ValueError(f"top holds {n_cells} cells but layer holds {layer_m.size}.")
+
     hf = bf.HeadFile(str(hds_path))
     try:
         times = _period_end_times(hf)
         heads = np.full((len(times), n_cells), np.nan, dtype="float64")
         for step, totim in enumerate(times):
             snapshot = np.asarray(hf.get_data(totim=totim), dtype=float).reshape(-1)
-            if snapshot.size < n_cells:
+            if snapshot.size < n_cells or snapshot.size % n_cells:
                 raise ValueError(
-                    f"head snapshot holds {snapshot.size} values, fewer than the "
-                    f"{n_cells} cells declared by top."
+                    f"head snapshot holds {snapshot.size} values, not a whole number of "
+                    f"layers of the {n_cells} cells declared by top."
                 )
-            heads[step] = snapshot[:n_cells]
+            heads[step] = values_at_layer(snapshot.reshape(-1, n_cells), layer_m)
     finally:
         hf.close()
 

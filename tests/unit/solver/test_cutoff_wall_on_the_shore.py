@@ -94,7 +94,7 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
         cell_mesh=cell_mesh,
         top=np.full(n_cells, 10.0),
         botm=np.stack([np.full(n_cells, 5.0), np.zeros(n_cells)]),
-        inactive_mask=np.zeros((2, n_cells), dtype=bool),
+        idomain=np.ones((2, n_cells), dtype=int),
     )
     coords = [list(xy) for xy in declared.coords]
     payload = {

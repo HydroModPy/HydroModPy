@@ -68,13 +68,14 @@ def computational_top(
 
 
 def raised_cells(solver_mesh: Any, open_water_cell_ids: Iterable[int]) -> np.ndarray:
-    """Return the cells whose top is raised: active in the top layer, not open water.
+    """Return the cells whose top is raised: top active cell in layer 0, not open water.
 
-    A lake column keeps its ground. Raising the top of the cell under a lake
-    would push the cell into the lake, so the thickness contrast stays at the
-    banks.
+    MODFLOW 6 reads ``top`` as the top of layer 0 only, so a column whose top
+    active cell lies deeper keeps its interfaces. A lake column keeps its
+    ground. Raising the top of the cell under a lake would push the cell into
+    the lake, so the thickness contrast stays at the banks.
     """
-    raised = ~np.asarray(solver_mesh.inactive_mask, dtype=bool)[0].copy()
+    raised = solver_mesh.top_active_layer() == 0
     lake_cells = np.asarray(sorted({int(cid) for cid in open_water_cell_ids}), dtype=int)
     raised[lake_cells] = False
     return raised
@@ -120,7 +121,7 @@ def disv_grid_kwargs(model: Any) -> dict[str, Any]:
     return {
         "nlay": solver_mesh.nlay,
         **kwargs,
-        "idomain": solver_mesh.idomain(),
+        "idomain": solver_mesh.idomain,
         "xorigin": 0.0,
         "yorigin": 0.0,
         "length_units": "METERS",

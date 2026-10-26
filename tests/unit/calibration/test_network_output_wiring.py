@@ -86,7 +86,7 @@ def _fake_run_ctx(bench, *, lake_cells=()):
     solver_mesh = SimpleNamespace(
         top=bench.elevation,
         botm=np.zeros((1, N_CELLS)),
-        inactive_mask=np.zeros((1, N_CELLS), dtype=bool),
+        idomain=np.ones((1, N_CELLS), dtype=int),
         planar_mesh=planar_mesh,
         n_cells=N_CELLS,
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
@@ -95,6 +95,7 @@ def _fake_run_ctx(bench, *, lake_cells=()):
     )
     model = SimpleNamespace(
         solver_mesh=solver_mesh,
+        inactive_mask=np.zeros(N_CELLS, dtype=bool),
         recharge=1.0e-8,
         lake_cell_ids_by_lake={"lac": list(lake_cells)} if lake_cells else {},
         dam_foot_cells={},
