@@ -90,7 +90,8 @@ class TestMesh:
         mesh = sz.root["mesh"]
         np.testing.assert_array_equal(mesh["vertices"][:], verts)
         np.testing.assert_array_equal(mesh["face_node_connectivity"][:], conn)
-        np.testing.assert_array_equal(mesh["z_interfaces"][:], z)
+        # One column given for the whole mesh is stored under every cell.
+        np.testing.assert_array_equal(mesh["z_interfaces"][:], np.tile(z[:, None], (1, 4)))
 
     def test_mesh_attrs(self, sz):
         verts, conn, z = _make_mesh(4)

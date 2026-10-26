@@ -158,10 +158,11 @@ class MeshVoronoiConfig(HydroModelBase):
         default=0.01,
         gt=0.0,
         description=(
-            "Stop of the Lloyd relaxation of the generated generators: the largest "
-            "displacement of a free generator in one iteration, as a share of its local "
-            "cell size. The relaxation also stops after 25 iterations, and the mesh QA "
-            "reports whether the tolerance was reached."
+            "Stop of the Lloyd relaxation of the generated generators: the root mean "
+            "square of the displacements of the free generators in one iteration, as a "
+            "share of their local cell size. The relaxation also stops after 25 "
+            "iterations, and the mesh QA reports whether the tolerance was reached and "
+            "the largest displacement."
         ),
         json_schema_extra={"unit": "-"},
     )
@@ -285,6 +286,28 @@ class MeshConfig(HydroModelBase):
         description="Largest growth of the cell size per metre of distance, which bounds the size ratio of two neighbours.",
         json_schema_extra={"unit": "m/m"},
     )
+    gap_cells: Annotated[float, Profile.DEV, VisibleWhen("engine", _TRIANGULATED_ENGINES)] = Field(
+        default=2.0,
+        ge=0.0,
+        description=(
+            "Cells across the gap between two face lines (lake shores, barriers, "
+            "geology contacts, catchment boundary) or between one and the domain "
+            "outline: the cell size there is the gap divided by this number, never "
+            "finer than the DEM pixel. 0 switches it off."
+        ),
+        json_schema_extra={"unit": "cells"},
+    )
+
+    @field_validator("gap_cells")
+    @classmethod
+    def _check_gap_cells(cls, value: float) -> float:
+        """Refuse less than one cell across a gap, except 0 which switches the term off."""
+        if 0.0 < value < 1.0:
+            raise ValueError(
+                f"mesh.gap_cells = {value} asks for less than one cell across a gap: "
+                "give 1 or more, or 0 to switch the gap term off."
+            )
+        return value
 
     @field_validator("engine", mode="before")
     @classmethod

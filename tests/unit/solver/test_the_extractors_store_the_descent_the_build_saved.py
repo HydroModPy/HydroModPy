@@ -31,7 +31,9 @@ N_CELLS = TOP.size
 def store(tmp_path: Path):
     handle = SimulationZarr.create(tmp_path / "run.zarr", n_cells=N_CELLS, n_layers=1)
     vertices, connectivity = quad_mesh(3, 3)
-    handle.write_mesh(vertices, connectivity, np.array([10.0, 0.0]), topography=TOP.ravel())
+    handle.write_mesh(
+        vertices, connectivity, np.tile([[10.0], [0.0]], (1, N_CELLS)), topography=TOP.ravel()
+    )
     yield handle
     handle.close()
 
@@ -150,6 +152,7 @@ def test_the_nwt_extractor_stores_the_descent_right_after_the_mesh(tmp_path) -> 
     flopy.modflow.ModflowDis(
         model, nlay=1, nrow=3, ncol=3, delr=1.0, delc=1.0, top=TOP, botm=TOP.min() - 10.0
     )
+    flopy.modflow.ModflowBas(model, ibound=1, strt=TOP)
     model.write_input()
     descent = grid_descent(TOP)
     write_descent_sidecar(descent, tmp_path, "nwt")
@@ -186,6 +189,7 @@ def test_the_mf6_extractor_stores_the_descent_right_after_the_mesh(tmp_path, mon
         grid_type = "dis"
         top1d = TOP.ravel()
         bot1d = TOP.ravel() - 10.0
+        idomain = np.ones(N_CELLS, dtype=int)
         modelgrid = SimpleNamespace(xvertices=xs, yvertices=ys)
 
         def __init__(self, path: str) -> None:

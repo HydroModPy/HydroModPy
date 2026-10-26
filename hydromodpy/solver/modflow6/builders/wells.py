@@ -22,7 +22,7 @@ def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, 
 
 
 def _validate_resolved_well_cell(model, *, well_id: str, lay: int, cell_id: int) -> None:
-    """A WEL cell must exist in the grid and be active (idomain != 0).
+    """A WEL cell must exist in the grid and be active (idomain > 0).
 
     MODFLOW errors here are cryptic, so we fail early naming the well. Layers and
     cells are 0-based. The per-layer mask ``solver_mesh.inactive_mask`` (nlay,
@@ -66,13 +66,13 @@ def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[st
         return "cell", {"cell": tuple(location.cell)}
     if kind == "absolute_xy":
         return "absolute_xy", {
-            "layer": int(location.layer),
+            "layer": location.layer,
             "x": float(location.x),
             "y": float(location.y),
         }
     if kind == "relative_xy":
         return "relative_xy", {
-            "layer": int(location.layer),
+            "layer": location.layer,
             "x_rel": float(location.x_rel),
             "y_rel": float(location.y_rel),
         }
@@ -126,7 +126,6 @@ def resolve_well_disv_cell(
         _validate_resolved_well_cell(model, well_id=well_id, lay=lay_cell[0], cell_id=lay_cell[1])
         return lay_cell
 
-    layer = int(fields["layer"])
     if location_kind == "absolute_xy":
         x_m = float(fields["x"])
         y_m = float(fields["y"])
@@ -145,8 +144,16 @@ def resolve_well_disv_cell(
             f"flow.sinks_sources.wells.{well_id} coordinates ({x_m}, {y_m}) are outside "
             "the mesh domain."
         )
-    _validate_resolved_well_cell(model, well_id=well_id, lay=layer, cell_id=cell_id)
-    return (layer, cell_id)
+    layer = fields["layer"]
+    if layer is None:
+        layer = int(solver_mesh.top_active_layer()[cell_id])
+        if layer < 0:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} lies in a column with no active cell "
+                f"(cell {cell_id}); place the well inside the catchment."
+            )
+    _validate_resolved_well_cell(model, well_id=well_id, lay=int(layer), cell_id=cell_id)
+    return (int(layer), cell_id)
 
 
 def build_well_stress_period_data(

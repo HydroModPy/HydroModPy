@@ -23,6 +23,7 @@ from hydromodpy.spatial.mesh.planning.refinement import load_refinement_zones
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
 from hydromodpy.spatial.mesh.request import InputTriangulation, RasterGridSpec
+from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
 _WKT = 'PROJCS["RGF93 / Lambert-93"]'
 _GRID = RasterGridSpec(
@@ -309,3 +310,32 @@ def test_the_lloyd_tolerance_reaches_the_generated_voronoi_engine_only(tmp_path:
         "seeds": "generated",
         "lloyd_tolerance": 0.05,
     }
+
+
+_ARM_LAKE = Polygon(
+    [(100, 100), (900, 100), (900, 500), (500, 500), (500, 140), (460, 140), (460, 500), (100, 500)]
+)
+
+
+def test_the_size_holds_two_cells_across_a_narrow_lake_arm_unless_gap_cells_is_zero(
+    tmp_path: Path,
+) -> None:
+    def arm_size(cfg: MeshConfig) -> tuple[float, tuple[str, ...]]:
+        request = plan_mesh_request(cfg, _inputs(tmp_path, lakes=(_ARM_LAKE,)))
+        return float(sample_size_field(request.size_field, np.array([[480.0, 300.0]]))[0]), (
+            request.notes
+        )
+
+    on = MeshConfig(engine="triangle", cell_size=80.0)
+    off = MeshConfig(engine="triangle", cell_size=80.0, gap_cells=0.0)
+    size_on, notes_on = arm_size(on)
+    size_off, notes_off = arm_size(off)
+    assert size_on <= 20.0
+    assert size_off > 20.0
+    assert any(note.startswith("gaps: ") for note in notes_on)
+    assert not any(note.startswith("gaps: ") for note in notes_off)
+
+
+def test_less_than_one_cell_across_a_gap_is_refused() -> None:
+    with pytest.raises(ValueError, match="less than one cell across a gap"):
+        MeshConfig(engine="voronoi", gap_cells=0.5)

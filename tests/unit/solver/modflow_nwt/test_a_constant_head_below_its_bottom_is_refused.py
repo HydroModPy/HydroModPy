@@ -53,7 +53,7 @@ def test_a_static_side_head_below_the_top_layer_is_refused() -> None:
     message = str(excinfo.value)
     assert "MODFLOW-NWT" in message
     assert "flow.bc.west_side: 2 cell(s)" in message
-    assert "layer 1 row 1 column 1 (head 5.00 m, bottom 10.00 m, period 1)" in message
+    assert "layer 0 row 0 column 0 (head 5.00 m, bottom 10.00 m, period 1)" in message
     assert "domain.depth_model" in message
 
 
@@ -71,7 +71,7 @@ def test_a_chd_row_below_its_bottom_names_the_period() -> None:
         refuse_constant_heads_below_bottom(adapter, ibound=ibound, strt=strt, chd_spd=chd_spd)
     message = str(excinfo.value)
     assert "flow.bc.east_side" in message
-    assert "column 3 (head 8.00 m, bottom 10.00 m, period 2)" in message
+    assert "column 2 (head 8.00 m, bottom 10.00 m, period 2)" in message
 
 
 def test_the_build_refuses_before_any_package_is_assembled() -> None:

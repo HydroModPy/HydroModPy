@@ -99,6 +99,8 @@ class Mesh:
     vertices: np.ndarray
     face_node_connectivity: np.ndarray
     z_interfaces: np.ndarray
+    """Interfaces of every cell, ``(n_layers + 1, n_faces)``: row 0 is the model
+    top, row ``k + 1`` the bottom of layer ``k``."""
     topography: np.ndarray | None = None
     """Per-face model top, when persisted in the mesh group."""
     crs: str | None = None

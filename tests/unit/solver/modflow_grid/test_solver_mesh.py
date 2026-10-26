@@ -76,7 +76,7 @@ def test_idomain_from_inactive_mask() -> None:
     sm = solver_mesh_from_structured_arrays(
         nrow=1, ncol=2, top=np.zeros((1, 2)), botm=-np.ones((1, 1, 2)), inactive_mask=mask
     )
-    assert sm.idomain().tolist() == [[1, 0]]
+    assert sm.idomain.tolist() == [[1, 0]]
 
 
 def test_structured_arrays_put_row_0_at_the_north_like_modflow() -> None:
@@ -168,18 +168,18 @@ def test_post_init_rejects_wrong_top_size() -> None:
             cell_mesh=cell_mesh,
             top=np.zeros(3),
             botm=np.zeros((1, 2)),
-            inactive_mask=np.zeros((1, 2), bool),
+            idomain=np.ones((1, 2), int),
         )
 
 
 def test_post_init_rejects_mask_shape_mismatch() -> None:
     cell_mesh = _unstructured_two_quads().cell_mesh
-    with pytest.raises(ValueError, match="inactive_mask"):
+    with pytest.raises(ValueError, match="idomain"):
         SolverMesh(
             cell_mesh=cell_mesh,
             top=np.zeros(2),
             botm=np.zeros((2, 2)),
-            inactive_mask=np.zeros((1, 2), bool),  # nlay mismatch vs botm
+            idomain=np.ones((1, 2), int),  # nlay mismatch vs botm
         )
 
 

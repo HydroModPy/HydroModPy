@@ -20,11 +20,12 @@ from hydromodpy.calibration.metrics.solver_extract import (
 from hydromodpy.core.exceptions import ObservableNotAvailableError
 
 
-def _run_ctx(*, top, botm, inactive_mask=None):
+def _run_ctx(*, top, botm, closed=None):
     mesh = SimpleNamespace(top=np.asarray(top, dtype=float), botm=np.asarray(botm, dtype=float))
-    if inactive_mask is not None:
-        mesh.inactive_mask = np.asarray(inactive_mask, dtype=bool)
-    return SimpleNamespace(model=SimpleNamespace(solver_mesh=mesh))
+    model = SimpleNamespace(solver_mesh=mesh)
+    if closed is not None:
+        model.inactive_mask = np.asarray(closed, dtype=bool)
+    return SimpleNamespace(model=model)
 
 
 def _geometry(catchment, areas):
@@ -51,12 +52,12 @@ def test_area_weighted_over_the_catchment_at_the_last_state() -> None:
 
 def test_the_unset_share_splits_into_dry_and_inactive_when_the_mesh_says_which() -> None:
     # MODFLOW writes HDRY on a dry cell and HNOFLO on one it never computed,
-    # and both come back NaN. The inactive mask of the top layer is what tells
+    # and both come back NaN. The closed columns of the model are what tell
     # them apart; a lake footprint is one such cell, and it is not a dry state.
     run_ctx = _run_ctx(
         top=[100.0] * 4,
         botm=[[90.0] * 4, [70.0] * 4],
-        inactive_mask=[[False, False, True, False], [False, False, True, False]],
+        closed=[False, False, True, False],
     )
     geometry = _geometry([True, True, True, True], [1.0, 2.0, 3.0, 4.0])
     thickness = SimpleNamespace(values=np.array([10.0, np.nan, np.nan, 20.0]))
@@ -70,7 +71,7 @@ def test_the_unset_share_splits_into_dry_and_inactive_when_the_mesh_says_which()
 
 
 def test_a_mask_on_another_mesh_keeps_the_single_unset_share() -> None:
-    run_ctx = _run_ctx(top=[100.0] * 2, botm=[[70.0] * 2], inactive_mask=[[False] * 3])
+    run_ctx = _run_ctx(top=[100.0] * 2, botm=[[70.0] * 2], closed=[False] * 3)
     thickness = SimpleNamespace(values=np.array([10.0, np.nan]))
 
     out = catchment_saturation(run_ctx, _geometry([True, True], [1.0, 1.0]), thickness)

@@ -147,7 +147,11 @@ def build_well_stress_period_data(
                     f"flow.sinks_sources.wells.{well_id} uses coordinate-based addressing "
                     "but solver grid geometry is unavailable"
                 )
-            cell = well.resolve_cell(grid)
+            layer, row, col = well.resolve_cell(grid)
+            if layer is None:
+                flat = row * int(adapter.solver_mesh.ncol) + col
+                layer = max(int(adapter.solver_mesh.top_active_layer()[flat]), 0)
+            cell = (layer, row, col)
         forcing = getattr(well, "forcing", None)
         if forcing is not None:
             raw_values = resolve_period_values_from_forcing(

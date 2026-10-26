@@ -645,6 +645,59 @@
             "title": "CustomLakeGeometrySource",
             "type": "object"
           },
+          "CustomLayerBaseSource": {
+            "additionalProperties": false,
+            "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in metres.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
+            "properties": {
+              "source": {
+                "const": "custom",
+                "default": "custom",
+                "description": "Discriminator tag selecting the 'custom' layer base provider.",
+                "examples": [
+                  "custom"
+                ],
+                "title": "Source",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "name": {
+                "description": "Name a layer of [[domain.layers.layer]] gives as its surface to end on this base.",
+                "examples": [
+                  "example"
+                ],
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "title": "Name",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "path": {
+                "description": "Path to a raster of the base elevation of a layer in m (GeoTIFF, ASC).",
+                "examples": [
+                  "data/input.csv"
+                ],
+                "format": "path",
+                "title": "Path",
+                "type": "string",
+                "x-hmp-profile": "user"
+              },
+              "default_crs": {
+                "default": "EPSG:2154",
+                "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+                "examples": [
+                  "EPSG:2154"
+                ],
+                "title": "Default Crs",
+                "type": "string",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "name",
+              "path"
+            ],
+            "title": "CustomLayerBaseSource",
+            "type": "object"
+          },
           "CustomSoilCapacitySource": {
             "additionalProperties": false,
             "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
@@ -734,7 +787,7 @@
             "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
             "properties": {
               "types": {
-                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+                "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
                 "items": {
                   "type": "string"
                 },
@@ -1092,6 +1145,19 @@
                 ],
                 "default": null,
                 "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness).",
+                "x-hmp-profile": "user"
+              },
+              "layer_base": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LayerBaseConfig"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Layer base configuration (one elevation raster per named layer base, read by [domain.layers] with genmtd_lay = 'surfaces').",
                 "x-hmp-profile": "user"
               },
               "soil_capacity": {
@@ -3596,6 +3662,27 @@
               "source"
             ],
             "title": "LakeWithdrawalSourceConfig",
+            "type": "object"
+          },
+          "LayerBaseConfig": {
+            "additionalProperties": false,
+            "description": "Top-level layer base variable configuration: one named raster per base.\n\nExample TOML::\n\n    [[data.layer_base.sources]]\n    source = \"custom\"\n    name = \"weathered_base\"\n    path = \"data/layer_base/weathered_base.tif\"",
+            "properties": {
+              "sources": {
+                "description": "One raster per layer base, each under its own name.",
+                "items": {
+                  "$ref": "#/$defs/CustomLayerBaseSource"
+                },
+                "minItems": 1,
+                "title": "Sources",
+                "type": "array",
+                "x-hmp-profile": "user"
+              }
+            },
+            "required": [
+              "sources"
+            ],
+            "title": "LayerBaseConfig",
             "type": "object"
           },
           "OceanicConfig": {

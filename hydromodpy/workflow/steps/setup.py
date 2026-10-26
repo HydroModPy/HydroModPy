@@ -14,7 +14,11 @@ from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport
-from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
+from hydromodpy.spatial.domain.build import (
+    build_domain,
+    read_layer_base_sources,
+    read_substratum_source,
+)
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
 from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS
 from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
@@ -488,6 +492,7 @@ def run_setup(
         substratum_source=read_substratum_source(
             cfg.domain.depth_model, getattr(cfg, "data", None)
         ),
+        layer_base_sources=read_layer_base_sources(cfg.domain.layers, getattr(cfg, "data", None)),
     )
     domain_cfg = setup_state.domain.config
     setup_state.domain_config_source = cfg.domain
@@ -568,6 +573,9 @@ def rebuild_domain_if_stale(run_state: WorkflowContext) -> bool:
         zone_ids=armed_zone_ids,
         substratum_source=read_substratum_source(
             run_state.cfg.domain.depth_model, getattr(run_state.cfg, "data", None)
+        ),
+        layer_base_sources=read_layer_base_sources(
+            run_state.cfg.domain.layers, getattr(run_state.cfg, "data", None)
         ),
     )
     # The spatial supports the project materialized are lateral zonations; a
@@ -782,6 +790,9 @@ def rebuild_substratum_if_depth_model_moved(run_state: WorkflowContext) -> bool:
         surface_topo=domain.surface_topo,
         zone_ids=tuple(domain.config.zone_ids),
         substratum_source=read_substratum_source(declared, getattr(run_state.cfg, "data", None)),
+        layer_base_sources=read_layer_base_sources(
+            domain.config.layers, getattr(run_state.cfg, "data", None)
+        ),
     )
     for zone_id, zone in domain.zones.items():
         rebuilt.set_zone(zone_id, zone)

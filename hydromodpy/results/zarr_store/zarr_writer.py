@@ -202,18 +202,26 @@ def _write_array(
     return arr
 
 
-def _z_interface_dimensions(values: np.ndarray) -> tuple[str, ...]:
-    """Return the axes of ``z_interfaces``, which is a column or a map.
+def _interfaces(values: np.ndarray, n_cells: int | None) -> np.ndarray:
+    """Return ``z_interfaces`` as a ``(n_layers + 1, n_faces)`` float array, or raise.
 
-    MODFLOW writes the vertical column of one reference cell, Boussinesq writes
-    the top and bottom of every cell, and both are legal content of the same
-    array name.
+    Every cell carries its own column: row 0 is the top of the model, row
+    ``k + 1`` the bottom of layer ``k``. A single column given for a mesh of
+    known size is the column of every cell.
     """
-    if values.ndim == 1:
-        return (field_registry.AXIS_LAYER_INTERFACE,)
-    if values.ndim == 2:
-        return (field_registry.AXIS_LAYER_INTERFACE, field_registry.AXIS_FACE)
-    raise ValueError(f"z_interfaces has 1 or 2 axes, got shape {values.shape}")
+    interfaces = np.asarray(values, dtype="float64")
+    if interfaces.ndim == 1 and n_cells is not None:
+        interfaces = np.tile(interfaces.reshape(-1, 1), (1, int(n_cells)))
+    if interfaces.ndim != 2 or interfaces.shape[0] < 2:
+        raise ValueError(
+            "z_interfaces holds one column per cell, shape (n_layers + 1, n_faces); "
+            f"got shape {interfaces.shape}"
+        )
+    if n_cells is not None and interfaces.shape[1] != int(n_cells):
+        raise IncompatibleMeshError(
+            f"z_interfaces describes {interfaces.shape[1]} cells, the mesh {int(n_cells)}"
+        )
+    return interfaces
 
 
 _Z_INTERFACE_ATTRS: dict[str, object] = {
@@ -221,6 +229,11 @@ _Z_INTERFACE_ATTRS: dict[str, object] = {
     "units": "m",
     "standard_name": "altitude",
     "positive": "up",
+}
+
+_IDOMAIN_FLAGS: dict[str, object] = {
+    "flag_values": [-1, 0, 1],
+    "flag_meanings": "pass_through inactive active",
 }
 
 
@@ -246,11 +259,8 @@ def write_mesh(
 ) -> None:
     """Write the UGRID-1.0 mesh group, including the optional topography array.
 
-    ``layer_thickness`` is the ``(n_layers, n_faces)`` saturated-thickness
-    geometry of the model. ``z_interfaces`` only carries the vertical column of
-    one reference cell, which is enough for metadata but not for a cross-section:
-    the per-face thickness is what lets any figure rebuild the aquifer base
-    under each cell.
+    ``z_interfaces`` is the ``(n_layers + 1, n_faces)`` column of every cell
+    and ``layer_thickness`` the ``(n_layers, n_faces)`` thickness it implies.
 
     ``layout`` adds the cell centres, the family bit fields, the zone codes, the
     edge tables and the engine attributes. Without it the group holds exactly
@@ -282,13 +292,13 @@ def write_mesh(
                 "start_index": int(start_index),
             },
         )
-        interfaces = np.asarray(z_interfaces, dtype="float64")
+        interfaces = _interfaces(z_interfaces, int(np.asarray(face_node_connectivity).shape[0]))
         _write_array(
             store_obj,
             mesh,
             "z_interfaces",
             interfaces,
-            dimension_names=_z_interface_dimensions(interfaces),
+            dimension_names=(field_registry.AXIS_LAYER_INTERFACE, field_registry.AXIS_FACE),
             attrs=_Z_INTERFACE_ATTRS,
         )
         if layer_indices is not None:
@@ -343,7 +353,7 @@ def write_mesh(
                 "start_index": int(start_index),
                 "n_nodes": n_nodes,
                 "n_cells": n_cells,
-                "n_layers": int(len(z_interfaces) - 1),
+                "n_layers": int(interfaces.shape[0] - 1),
             }
         )
         if grid_type:
@@ -373,8 +383,23 @@ def _write_vertical_arrays(
     layer_thickness: np.ndarray | None,
     streambed_top: np.ndarray | None,
     streambed_connection: np.ndarray | None,
+    idomain: np.ndarray | None = None,
 ) -> None:
     """Write the per-face arrays that depend on the solved model, when given."""
+    if idomain is not None:
+        domain = np.atleast_2d(np.asarray(idomain))
+        if not np.isin(domain, (-1, 0, 1)).all():
+            raise ValueError("idomain holds only -1, 0 and 1.")
+        idomain_arr = _write_array(
+            store_obj,
+            mesh,
+            "idomain",
+            domain.astype("int8"),
+            dimension_names=field_registry.static_field_dimensions(2),
+        )
+        update_attrs(
+            idomain_arr, {**attrs_for_field("idomain", idomain_arr.dtype), **_IDOMAIN_FLAGS}
+        )
     for name, values in (
         ("streambed_top", streambed_top),
         ("streambed_connection", streambed_connection),
@@ -610,6 +635,8 @@ def write_topography(
     n_cells: int | None = None,
     n_layers: int | None = None,
     layer_thickness: np.ndarray | None = None,
+    idomain: np.ndarray | None = None,
+    vertical_layout: str | None = None,
     streambed_top: np.ndarray | None = None,
     streambed_connection: np.ndarray | None = None,
     grid_type: str | None = None,
@@ -620,6 +647,12 @@ def write_topography(
     connectivity. When ``mesh/face_node_connectivity`` is stored, ``n_cells`` is
     compared to it and a different count raises ``IncompatibleMeshError``; a store
     with no stored geometry takes ``n_cells`` as given.
+
+    ``z_interfaces`` is the ``(n_layers + 1, n_faces)`` column of every cell,
+    ``idomain`` the ``(n_layers, n_faces)`` activity of the solved model (1
+    active, 0 inactive, -1 vertical pass-through, stored as int8), and
+    ``vertical_layout`` names how the layers were built, as a ``mesh/``
+    attribute. A reader needs nothing else to rebuild the stack.
     """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
@@ -638,13 +671,17 @@ def write_topography(
         )
         update_attrs(topo_arr, attrs_for_field("topography", topo_arr.dtype))
         if z_interfaces is not None:
-            interfaces = np.asarray(z_interfaces, dtype="float64")
+            stored_cells = (
+                int(mesh["face_node_connectivity"].shape[0])
+                if "face_node_connectivity" in mesh
+                else n_cells
+            )
             _write_array(
                 store_obj,
                 mesh,
                 "z_interfaces",
-                interfaces,
-                dimension_names=_z_interface_dimensions(interfaces),
+                _interfaces(z_interfaces, stored_cells),
+                dimension_names=(field_registry.AXIS_LAYER_INTERFACE, field_registry.AXIS_FACE),
                 attrs=_Z_INTERFACE_ATTRS,
             )
         _write_vertical_arrays(
@@ -653,6 +690,7 @@ def write_topography(
             layer_thickness=layer_thickness,
             streambed_top=streambed_top,
             streambed_connection=streambed_connection,
+            idomain=idomain,
         )
         mesh_attrs: dict[str, object] = {}
         if n_cells is not None:
@@ -661,6 +699,8 @@ def write_topography(
             mesh_attrs["n_layers"] = int(n_layers)
         if grid_type:
             mesh_attrs["grid_type"] = str(grid_type)
+        if vertical_layout:
+            mesh_attrs["vertical_layout"] = str(vertical_layout)
         if mesh_attrs:
             update_attrs(mesh, mesh_attrs)
 

@@ -83,12 +83,14 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
 def aquifer_extent(
     run_ctx: RunContext, n_cells: int
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Return the imposed aquifer thickness and the top-layer inactive cells, per cell.
+    """Return the imposed aquifer thickness and the closed columns, per cell.
 
-    Both are read on the mesh the model was built from. The thickness is the
-    top minus the base of the lowest layer. ``inactive_mask`` is what became
-    IDOMAIN = 0, lake cells included. Each is None when the mesh does not carry
-    it, or carries it on another cell count.
+    The thickness is read on the mesh the model was built from: the top minus
+    the base of the lowest layer. A closed column has no top active cell to
+    read a water table from: it holds no active cell, or a lake covers it. The
+    model says which in ``inactive_mask``, the mask its surface processes skip.
+    Each is None when the model does not carry it, or carries it on another
+    cell count.
     """
     mesh = run_ctx.model.solver_mesh
     thickness = None
@@ -100,11 +102,10 @@ def aquifer_extent(
         if base.size == n_cells and top.size == n_cells:
             thickness = top - base
     inactive = None
-    mask = getattr(mesh, "inactive_mask", None)
+    mask = getattr(run_ctx.model, "inactive_mask", None)
     if mask is not None:
-        layers = np.asarray(mask, dtype=bool)
-        first = layers.reshape(-1) if layers.ndim == 1 else layers[0].reshape(-1)
-        inactive = first if first.size == n_cells else None
+        closed = np.asarray(mask, dtype=bool).reshape(-1)
+        inactive = closed if closed.size == n_cells else None
     return thickness, inactive
 
 

@@ -68,6 +68,7 @@ def build_domain(
     surface_topo: Surface,
     zone_ids: Iterable[str] = (),
     substratum_source: Surface | None = None,
+    layer_base_sources: Mapping[str, Surface] | None = None,
     active_cells: np.ndarray | None = None,
 ) -> Domain:
     """Build the domain geometry *config* defines on *surface_topo*.
@@ -77,13 +78,15 @@ def build_domain(
     them afterwards.
 
     *substratum_source* is the raster a raster depth model reads, on its own
-    grid. *active_cells* narrows the cells that raster must cover, for a caller
+    grid. *layer_base_sources* holds, by name, the layer bases a layering by
+    surfaces reads, on their own grids. *active_cells* narrows the cells that raster must cover, for a caller
     that masks the top rather than clipping it.
     """
     return Domain(
         config=domain_config_for_build(config, zone_ids=zone_ids),
         surface_topo=surface_topo,
         substratum_source=substratum_source,
+        layer_base_sources=layer_base_sources,
         active_cells=active_cells,
     )
 
@@ -113,4 +116,37 @@ def read_substratum_source(depth_model: object, data: object | None) -> Surface 
     )
 
 
-__all__ = ["build_domain", "domain_config_for_build", "read_substratum_source"]
+def read_layer_base_sources(layers: object, data: object | None) -> dict[str, Surface]:
+    """Read the layer bases a layering by surfaces reads, by name.
+
+    *layers* is the ``[domain.layers]`` table and *data* the ``[data]`` section,
+    whose ``layer_base`` member holds one raster per name. Each raster is read
+    on its own grid, and the domain reprojects it onto the top. A layering that
+    reads no base reads nothing.
+    """
+    names = tuple(getattr(layers, "base_surface_names", ()) or ())
+    if not names:
+        return {}
+    layer_base = getattr(data, "layer_base", None)
+    declared = {} if layer_base is None else {source.name: source for source in layer_base.sources}
+    missing = sorted(set(names) - set(declared))
+    if missing:
+        raise ConfigError(
+            f"[domain.layers] reads the base surfaces {missing}, and [data.layer_base] "
+            f"declares {sorted(declared) or 'none'}. Add one [[data.layer_base.sources]] "
+            "entry per name."
+        )
+    return {
+        name: Surface.from_raster(
+            declared[name].path, name=f"{name}_source", default_crs=declared[name].default_crs
+        )
+        for name in names
+    }
+
+
+__all__ = [
+    "build_domain",
+    "domain_config_for_build",
+    "read_layer_base_sources",
+    "read_substratum_source",
+]

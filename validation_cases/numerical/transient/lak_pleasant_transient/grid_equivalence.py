@@ -304,7 +304,7 @@ def _build_irregular_simulation(
         gwf,
         nlay=geometry.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         length_units="meters",
     )
     flopy.mf6.ModflowGwfnpf(
@@ -356,7 +356,7 @@ def _irregular_chd(geometry: PleasantTransientGeometry, mesh: SolverMesh) -> lis
     domain = geometry.ncol * geometry.cell_size_m
     margin = geometry.cell_size_m * 0.6
     centroids = mesh.cell_centroids()
-    idomain = mesh.idomain()
+    idomain = mesh.idomain
     rows: list[list[Any]] = []
     for cell in range(mesh.n_cells):
         x = float(centroids[cell, 0])

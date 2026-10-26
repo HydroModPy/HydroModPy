@@ -43,6 +43,7 @@ def _model(tmp_path: Path) -> SimpleNamespace:
         full_path=str(tmp_path),
         model_output_name=MODEL_NAME,
         hk=np.full((N_LAYERS, N_CELLS), 2.0e-5),
+        k33=np.full((N_LAYERS, N_CELLS), 2.0e-6),
         sy=np.full((N_LAYERS, N_CELLS), 0.01),
         ss=np.full((N_LAYERS, N_CELLS), 1.0e-6),
     )
@@ -61,13 +62,14 @@ def test_the_sidecar_is_written_before_the_model_folder_exists(tmp_path: Path) -
     assert sidecar.is_file()
 
 
-def test_the_extractor_persists_the_three_properties_under_derived(tmp_path: Path) -> None:
+def test_the_extractor_persists_the_four_properties_under_derived(tmp_path: Path) -> None:
     _save_flow_property_sidecar(_model(tmp_path))
     sink = _Sink()
     _write_flow_properties(sink, tmp_path, n_cells=N_CELLS)
 
     assert set(sink.written) == {
         "hydraulic_conductivity",
+        "hydraulic_conductivity_k33",
         "specific_yield",
         "specific_storage",
     }

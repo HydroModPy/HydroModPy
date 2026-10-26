@@ -225,7 +225,7 @@ def build_hmp_simulation(workspace: Path, *, geometry: PleasantTransientGeometry
         gwf,
         nlay=geom.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         length_units="meters",
     )
     flopy.mf6.ModflowGwfnpf(

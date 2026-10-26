@@ -204,7 +204,12 @@ def test_nwt_drn_fallback_uses_same_shared_helper() -> None:
 def _unequal_area_mesh() -> SimpleNamespace:
     """Six drained cells of 0.5 to 12 m2, like the triangles of a refined gmsh mesh."""
     areas = np.array([0.5, 1.0, 2.0, 4.0, 8.0, 12.0])
-    return SimpleNamespace(top=np.full(6, 5.0), cell_areas=lambda: areas)
+    return SimpleNamespace(
+        top=np.full(6, 5.0),
+        cell_areas=lambda: areas,
+        top_active_layer=lambda: np.zeros(6, dtype=int),
+        top_active_cell_top=lambda: np.full(6, 5.0),
+    )
 
 
 def _build(model, mesh, series) -> dict:

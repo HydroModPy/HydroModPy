@@ -203,6 +203,13 @@ VARIABLE_SPECS: dict[str, VariableSpec] = {
         manager_class="SubstratumManager",
         apply_simulation_window=False,
     ),
+    "layer_base": VariableSpec(
+        config_module="hydromodpy.data.variables.layer_base.config",
+        config_class="LayerBaseConfig",
+        manager_module="hydromodpy.data.variables.layer_base.manager",
+        manager_class="LayerBaseManager",
+        apply_simulation_window=False,
+    ),
     "soil_capacity": VariableSpec(
         config_module="hydromodpy.data.variables.soil_capacity.config",
         config_class="SoilCapacityConfig",

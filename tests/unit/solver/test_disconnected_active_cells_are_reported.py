@@ -24,7 +24,7 @@ def _two_layers(mask_top: np.ndarray, mask_bottom: np.ndarray):
     mesh = regular_solver_mesh(3, 3)
     botm = np.vstack([mesh.botm[0], mesh.botm[0] - 1.0])
     inactive = np.vstack([mask_top.reshape(-1), mask_bottom.reshape(-1)]).astype(bool)
-    return dataclasses.replace(mesh, botm=botm, inactive_mask=inactive)
+    return dataclasses.replace(mesh, botm=botm, idomain=np.where(inactive, 0, 1))
 
 
 def test_a_fully_active_grid_is_one_group(caplog) -> None:

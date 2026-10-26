@@ -148,7 +148,7 @@ def test_the_start_heads_are_not_read_from_another_mesh(tmp_path: Path) -> None:
         cell_mesh=mesh,
         top=np.full(6, 10.0),
         botm=np.zeros((1, 6)),
-        inactive_mask=np.zeros((1, 6), dtype=bool),
+        idomain=np.ones((1, 6), dtype=int),
     )
 
     with pytest.raises(IncompatibleMeshError, match="another mesh"):
@@ -162,7 +162,7 @@ def test_the_start_heads_of_the_same_mesh_are_the_prior_heads(tmp_path: Path) ->
         cell_mesh=mesh,
         top=np.full(6, 10.0),
         botm=np.zeros((1, 6)),
-        inactive_mask=np.zeros((1, 6), dtype=bool),
+        idomain=np.ones((1, 6), dtype=int),
     )
 
     strt = build_start_heads(_model(prior), solver_mesh)

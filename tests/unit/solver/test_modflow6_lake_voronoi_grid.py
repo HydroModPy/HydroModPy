@@ -189,7 +189,7 @@ def test_lake_cells_resolve_on_irregular_triangular_mesh() -> None:
 
 def test_lake_cells_become_idomain_zero() -> None:
     masked, lake_cells, _rows = _connectiondata_on_triangular_mesh()
-    idomain = masked.idomain()
+    idomain = masked.idomain
     for cell in lake_cells:
         assert idomain[0, cell] == 0  # occupied surface layer inactive
         assert idomain[1, cell] == 1  # aquifer below stays active to leak into
@@ -210,7 +210,7 @@ def test_horizontal_targets_only_active_non_lake_neighbours() -> None:
     horizontal = [r for r in rows if r[3] == "HORIZONTAL"]
     assert horizontal, "the lake must have bank-seepage HORIZONTAL connections"
     lake_set = set(lake_cells)
-    idomain = masked.idomain()
+    idomain = masked.idomain
     for r in horizontal:
         lay, neighbour = int(r[2][0]), int(r[2][1])
         assert lay == 0  # surface lake occupies layer 0 only

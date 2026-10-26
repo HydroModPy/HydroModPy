@@ -16,6 +16,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_stream_boundary_chd_spd,
     refuse_constant_heads_below_bottom,
 )
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 
 from ._test_modflow6_boundary_conditions_builders import (
     _build_model,
@@ -216,7 +217,7 @@ def test_a_side_head_below_the_cell_bottom_is_refused_by_boundary_and_cell() -> 
         refuse_constant_heads_below_bottom(
             model,
             botm=botm,
-            inactive_mask=np.zeros((1, 6), dtype=bool),
+            idomain=np.ones((1, 6), dtype=int),
             ocean_spd={},
             stream_spd={},
             side_spd=side,
@@ -225,21 +226,21 @@ def test_a_side_head_below_the_cell_bottom_is_refused_by_boundary_and_cell() -> 
 
     message = str(excinfo.value)
     assert "flow.bc.west_side: 2 cell(s)" in message
-    assert "layer 1 row 1 column 1 (head -5.00 m, bottom 0.00 m, period 1)" in message
-    assert "layer 1 row 2 column 1" in message
+    assert "layer 0 row 0 column 0 (head -5.00 m, bottom 0.00 m, period 1)" in message
+    assert "layer 0 row 1 column 0" in message
     assert "east_side" not in message
 
 
 def test_a_side_head_above_the_bottom_or_on_an_inactive_cell_passes() -> None:
     model = _side_model_with_heads(west=-5.0, east=5.0)
     side = build_side_boundary_chd_spd(model)
-    inactive = np.zeros((1, 6), dtype=bool)
-    inactive[0, [0, 3]] = True  # the two west cells
+    idomain = np.ones((1, 6), dtype=int)
+    idomain[0, [0, 3]] = 0  # the two west cells
 
     refuse_constant_heads_below_bottom(
         model,
         botm=np.zeros((1, 6), dtype=float),
-        inactive_mask=inactive,
+        idomain=idomain,
         ocean_spd={},
         stream_spd={},
         side_spd=side,
@@ -256,18 +257,18 @@ def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
     refuse_constant_heads_below_bottom(
         model,
         botm=np.zeros((1, 6), dtype=float),
-        inactive_mask=np.zeros((1, 6), dtype=bool),
+        idomain=np.ones((1, 6), dtype=int),
         ocean_spd={},
         stream_spd=stream,
         side_spd=side,
     )
 
     stream = {0: [[0, 1, -1.0]], 1: [[0, 1, -1.0]]}
-    with pytest.raises(SolverInputError, match=r"flow\.bc\.stream: 1 cell\(s\): layer 1 cell 2"):
+    with pytest.raises(SolverInputError, match=r"flow\.bc\.stream: 1 cell\(s\): layer 0 cell 1"):
         refuse_constant_heads_below_bottom(
             model,
             botm=np.zeros((1, 6), dtype=float),
-            inactive_mask=np.zeros((1, 6), dtype=bool),
+            idomain=np.ones((1, 6), dtype=int),
             ocean_spd={},
             stream_spd=stream,
             side_spd=side,
@@ -353,3 +354,23 @@ def test_modflow6_cannot_pick_boundary_cells_without_a_solver_mesh() -> None:
 
     with pytest.raises(ValueError, match="reads the cells of the solver mesh"):
         build_side_boundary_chd_spd(model)
+
+
+def test_a_constant_head_is_written_only_on_the_active_cells_of_its_column() -> None:
+    model = _side_model_with_heads(west=8.0, east=8.0)
+    base = model.solver_mesh
+    idomain = np.ones((2, 6), dtype=int)
+    idomain[0, 0] = 0  # the top cell of the first west column is inactive
+    idomain[1, 3] = -1  # the lower cell of the second west column is a pass-through
+    model.solver_mesh = SolverMesh(
+        cell_mesh=base.cell_mesh,
+        top=base.top,
+        botm=np.vstack([base.top - 4.0, base.top - 9.0]),
+        idomain=idomain,
+    )
+    model.nlay = 2
+
+    rows = build_side_boundary_chd_spd(model)[0]
+
+    west = sorted((row[0], row[1]) for row in rows if row[1] in (0, 3))
+    assert west == [(0, 3), (1, 0)]

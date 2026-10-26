@@ -12,7 +12,7 @@ vertices along each stretch.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -83,14 +83,17 @@ class BarrierSplit:
 
 
 def split_barriers(
-    families: Sequence[LineFamilySpec], tolerance: float, *, shortest: float = 0.0
+    families: Sequence[LineFamilySpec],
+    tolerance: float,
+    *,
+    shortest: Callable[[np.ndarray], np.ndarray] | None = None,
 ) -> BarrierSplit:
     """Cut each barrier line where it leaves a ring of the lake family.
 
     A segment of a barrier line runs along a ring when its two ends and its
     middle lie within *tolerance* [m] of it. A wing, the piece between a
-    stretch and a free end, shorter than *shortest* [m] is left out: no cell
-    resolves it, and its few metres would shrink the circles of the ring
+    stretch and a free end, shorter than ``shortest(xy)`` [m] at the point
+    where it leaves the stretch is left out: no cell there resolves it, and its few metres would shrink the circles of the ring
     segments at the stretch end until they lose their pairs. Without a barrier
     or a ring family, or without such a segment, the families are kept as they
     are.
@@ -132,15 +135,21 @@ def split_barriers(
 
 
 def _without_short_wings(
-    parts: list[int | _Stretch], pieces: Sequence[LineString], shortest: float
+    parts: list[int | _Stretch],
+    pieces: Sequence[LineString],
+    shortest: Callable[[np.ndarray], np.ndarray] | None,
 ) -> tuple[int | _Stretch, ...]:
-    """*parts* without a first or last piece shorter than *shortest* next to a stretch."""
+    """*parts* without a first or last piece next to a stretch shorter than *shortest* there."""
     kept = list(parts)
+    if shortest is None:
+        return tuple(kept)
     if len(kept) > 1 and isinstance(kept[-1], int) and isinstance(kept[-2], _Stretch):
-        if pieces[kept[-1]].length < shortest:
+        wing = pieces[kept[-1]]
+        if wing.length < shortest(np.asarray(wing.coords[:1]))[0]:
             kept.pop()
     if len(kept) > 1 and isinstance(kept[0], int) and isinstance(kept[1], _Stretch):
-        if pieces[kept[0]].length < shortest:
+        wing = pieces[kept[0]]
+        if wing.length < shortest(np.asarray(wing.coords[-1:]))[0]:
             kept.pop(0)
     return tuple(kept)
 

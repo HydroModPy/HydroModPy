@@ -123,11 +123,14 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
     if domain is None:
         return
 
-    z_intf = np.asarray(domain.z_interfaces, dtype=float)
-
     cell_mesh = ctx.setup.cell_mesh
     if cell_mesh is None:
         raise MeshError("step_persist_mesh: the mesh step built no cell mesh")
+    # The domain mean column under every cell, until the solver extractor
+    # replaces it with the interfaces of the solved model.
+    z_intf = np.tile(
+        np.asarray(domain.z_interfaces, dtype=float).reshape(-1, 1), (1, cell_mesh.n_cells)
+    )
     summary = ctx.setup.mesh_summary or {}
     # Three columns with z = 0: ``node_coordinates`` is declared as "x y z".
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]

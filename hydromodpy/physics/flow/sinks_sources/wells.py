@@ -421,9 +421,12 @@ class FlowWellLocationAbsoluteXY(HydroModelBase):
         default="absolute_xy",
         description="Discriminator tag for the absolute-xy well location.",
     )
-    layer: Annotated[int, Profile.USER] = Field(
-        default=0,
-        description="Model layer the point lies in, counted from 0 at the top.",
+    layer: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Model layer the point lies in, counted from 0 at the top. Left out, the "
+            "well takes the top active cell of its column."
+        ),
         json_schema_extra={"unit": "-"},
     )
     x: Annotated[float, Profile.USER] = Field(
@@ -442,7 +445,7 @@ class FlowWellLocationAbsoluteXY(HydroModelBase):
     @field_validator("layer", mode="before")
     @classmethod
     def _validate_layer(cls, value):
-        return _coerce_layer(value)
+        return None if value is None else _coerce_layer(value)
 
     @field_validator("x", "y", mode="before")
     @classmethod
@@ -457,9 +460,12 @@ class FlowWellLocationRelativeXY(HydroModelBase):
         default="relative_xy",
         description="Discriminator tag for the relative-xy well location.",
     )
-    layer: Annotated[int, Profile.USER] = Field(
-        default=0,
-        description="Model layer the point lies in, counted from 0 at the top.",
+    layer: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Model layer the point lies in, counted from 0 at the top. Left out, the "
+            "well takes the top active cell of its column."
+        ),
         json_schema_extra={"unit": "-"},
     )
     x_rel: Annotated[float, Profile.USER] = Field(
@@ -484,7 +490,7 @@ class FlowWellLocationRelativeXY(HydroModelBase):
     @field_validator("layer", mode="before")
     @classmethod
     def _validate_layer(cls, value):
-        return _coerce_layer(value)
+        return None if value is None else _coerce_layer(value)
 
     @field_validator("x_rel", "y_rel", mode="before")
     @classmethod
@@ -617,8 +623,12 @@ class FlowWellConfig(HydroModelBase):
 
         return self
 
-    def resolve_cell(self, grid: GridReference) -> tuple[int, int, int]:
-        """Resolve this well location against one solver grid."""
+    def resolve_cell(self, grid: GridReference) -> tuple[int | None, int, int]:
+        """Resolve this well location against one solver grid.
+
+        The layer is ``None`` when the location names none: the caller places
+        the well on the top active cell of the column.
+        """
         location = self.location
         if isinstance(location, FlowWellLocationCell):
             return location.cell
@@ -649,7 +659,8 @@ class FlowWellConfig(HydroModelBase):
             row = int(grid.nrow) - 1
         if col < 0 or col >= int(grid.ncol) or row < 0 or row >= int(grid.nrow):
             raise ValueError("well coordinates could not be resolved to a structured grid cell.")
-        return (int(location.layer), row, col)
+        layer = None if location.layer is None else int(location.layer)
+        return (layer, row, col)
 
 
 WELL_THROTTLE_WARNING_FRACTION = 0.1

@@ -31,6 +31,11 @@ the family bit fields, the zone codes, the edge tables and the engine attributes
 of ``mesh/``. The layout arrays are synthetic and only valid in shape, since the
 geometry of this golden (22 nodes, connectivity 0..39) has no real edges.
 
+Both digests were re-captured with schema 3: ``mesh/z_interfaces`` holds one
+column per cell, shape (layer interface, face), so its single chunk is
+``c/0/0``, and ``zarr_schema_version`` is ``"3"``. The column given to the
+writer is the same under every cell.
+
 Everything entering the digest is byte-identical on Linux and on Windows:
 
 * member names are ``as_posix()`` relatives, so no path separator and no
@@ -69,8 +74,8 @@ _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
 # The root attributes carry no ``project`` nor ``processing_level``: the
 # identity of the run poses them at the seal, not the ACDD composer.
-EXPECTED_DIGEST = "cd6de14073164257582bc1e531b072ba0579c2116f8c0dea5df6826d6dbb578d"
-EXPECTED_LAYOUT_DIGEST = "3e5a38d953b5973968e678b0bc7d0debd1f429ee2f55f2e127479acb1e4326d2"
+EXPECTED_DIGEST = "2d501fd1f4a2bc60cf84f8428b7197565e4227f48c1b5bcf9bbb10fdb47a07f3"
+EXPECTED_LAYOUT_DIGEST = "1fbbca98c7844350076328d8c404db837a408d75944a56c6ebc33c8530fe7fa7"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",
@@ -83,7 +88,7 @@ STORE_MEMBERS: tuple[str, ...] = (
     "mesh/topology/zarr.json",
     "mesh/vertices/c/0/0",
     "mesh/vertices/zarr.json",
-    "mesh/z_interfaces/c/0",
+    "mesh/z_interfaces/c/0/0",
     "mesh/z_interfaces/zarr.json",
     "mesh/zarr.json",
     "meta/zarr.json",
@@ -121,7 +126,7 @@ LAYOUT_STORE_MEMBERS: tuple[str, ...] = (
     "mesh/topology/zarr.json",
     "mesh/vertices/c/0/0",
     "mesh/vertices/zarr.json",
-    "mesh/z_interfaces/c/0",
+    "mesh/z_interfaces/c/0/0",
     "mesh/z_interfaces/zarr.json",
     "mesh/zarr.json",
     "meta/zarr.json",

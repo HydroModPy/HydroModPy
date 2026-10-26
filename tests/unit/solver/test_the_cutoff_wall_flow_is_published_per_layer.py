@@ -94,7 +94,7 @@ def _run_wall_model(ws: Path) -> tuple[float, float]:
     flopy.mf6.ModflowTdis(sim, time_units="seconds", nper=1, perioddata=[(86400.0, 1, 1.0)])
     flopy.mf6.ModflowIms(sim, complexity="SIMPLE")
     gwf = flopy.mf6.ModflowGwf(sim, modelname="m", save_flows=True)
-    flopy.mf6.ModflowGwfdisv(gwf, nlay=mesh.nlay, idomain=mesh.idomain(), **mesh.to_disv_kwargs())
+    flopy.mf6.ModflowGwfdisv(gwf, nlay=mesh.nlay, idomain=mesh.idomain, **mesh.to_disv_kwargs())
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=1e-4, k33=1e-5)
     flopy.mf6.ModflowGwfic(gwf, strt=50.0)
     chd = [[(k, 0), 60.0] for k in range(2)] + [[(k, 3), 50.0] for k in range(2)]

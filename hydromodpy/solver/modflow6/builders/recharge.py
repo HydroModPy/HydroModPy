@@ -440,7 +440,6 @@ def build_soil_evta_payload(
         return None
 
     ncpl = int(model.ncpl)
-    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     # Same exclusion as the routed-recharge EVT list builder: the lake's own
     # rainfall is handled by LAK, and CHD cells never receive MF6 ET.
     skip = np.asarray(ocean_support_mask, dtype=bool).reshape(-1) | np.asarray(
@@ -449,6 +448,7 @@ def build_soil_evta_payload(
     for cid in lake_cell_ids:
         if 0 <= int(cid) < ncpl:
             skip[int(cid)] = True
+    top_flat = evt_surface(solver_mesh, ~skip)
 
     rate_by_period: dict[int, np.ndarray] = {}
     for kper in range(int(model.nper)):
@@ -797,15 +797,40 @@ def _evt_keep_mask_and_top_layer(
     ncpl = int(model.ncpl)
     ocean_mask_flat = np.asarray(ocean_support_mask, dtype=bool).reshape(-1)
     stream_mask_flat = np.asarray(stream_support_mask, dtype=bool).reshape(-1)
-    active_by_layer = solver_mesh.idomain() == 1
-    has_active = active_by_layer.any(axis=0)
-    top_layer_by_cell = np.argmax(active_by_layer, axis=0)  # first active layer per cell
+    top_layer_by_cell = solver_mesh.top_active_layer()
+    has_active = top_layer_by_cell >= 0
+    top_layer_by_cell = np.maximum(top_layer_by_cell, 0)
     skip = ocean_mask_flat | stream_mask_flat
     for cid in lake_cell_ids:
         if 0 <= int(cid) < ncpl:
             skip[int(cid)] = True
     keep = ~skip & has_active
     return keep, top_layer_by_cell
+
+
+def areal_layer_index(solver_mesh) -> np.ndarray | None:
+    """Return the layer RCHA and EVTA act on per column, or None when layer 0 serves.
+
+    Without a layer array the two packages act on layer 0. MODFLOW 6 moves the
+    flux of an inactive top cell (``idomain`` 0) down to the first active cell by
+    itself, but drops the flux of a pass-through cell (``idomain`` -1). A stack
+    with a pass-through cell therefore names the top active layer of each column
+    (0 for a column with none, whose rate is nil). Any other stack gets None and
+    its files do not change.
+    """
+    if not (np.asarray(solver_mesh.idomain) < 0).any():
+        return None
+    return np.maximum(solver_mesh.top_active_layer(), 0)
+
+
+def evt_surface(solver_mesh, keep: np.ndarray) -> np.ndarray:
+    """Return the EVT surface: the top of the top active cell where ``keep``, the model top elsewhere.
+
+    The rate is zero outside ``keep``, so the surface written there is inert.
+    """
+    top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
+    keep = np.asarray(keep, dtype=bool).reshape(-1) & (solver_mesh.top_active_layer() >= 0)
+    return np.where(keep, solver_mesh.top_active_cell_top(), top)
 
 
 def evt_routing_is_layer0_only(
@@ -857,7 +882,6 @@ def build_evt_array_stress_period_data(
     if evt_payload is None:
         return None
 
-    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     ncpl = int(model.ncpl)
@@ -868,6 +892,7 @@ def build_evt_array_stress_period_data(
         stream_support_mask=stream_support_mask,
         lake_cell_ids=lake_cell_ids,
     )
+    top_flat = evt_surface(solver_mesh, keep)
 
     rate_by_period: dict[int, np.ndarray] = {}
     previous: np.ndarray | None = None
@@ -914,7 +939,6 @@ def build_evt_stress_period_data(
     if evt_payload is None:
         return None
 
-    top_flat = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     # evt_extinction_depth in meters; floor only guards a degenerate zero depth.
     evt_depth = max(float(model.modflow_config.process_specific.evt_extinction_depth), 1e-6)
     ncpl = int(model.ncpl)
@@ -925,6 +949,7 @@ def build_evt_stress_period_data(
         stream_support_mask=stream_support_mask,
         lake_cell_ids=lake_cell_ids,
     )
+    top_flat = evt_surface(solver_mesh, keep)
 
     evt_spd: dict[int, list[list[float]]] = {}
     for kper in range(int(model.nper)):
@@ -1006,6 +1031,7 @@ __all__ = [
     "build_evt_stress_period_data",
     "build_soil_evta_payload",
     "evt_list_spd_to_array_payload",
+    "areal_layer_index",
     "evt_routing_is_layer0_only",
     "clip_negative_payload",
     "copy_runtime_payload",

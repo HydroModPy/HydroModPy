@@ -307,8 +307,8 @@ def _read_watershed(sim: Run):
 def plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
     """Draw cell topography with the same terrain palette as context maps.
 
-    It reads the per-cell ``topography`` of the mesh. ``z_interfaces`` is a
-    single column under MODFLOW, so it cannot colour the cells.
+    It reads the per-cell ``topography`` of the mesh and draws nothing
+    without it.
     """
     import numpy as np
     from matplotlib.collections import PolyCollection

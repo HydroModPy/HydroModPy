@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
+from hydromodpy.core.vertical_column import top_active_layer, values_at_layer
 from hydromodpy.display.figure import BaseFigure, run_suffix
 from hydromodpy.display.figure_options import CmapOrOwn, Layer, Overlays, Timestep, Vmax, Vmin
 from hydromodpy.display.figures._instant import instant_label
@@ -27,6 +28,18 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
     from hydromodpy.results.run import Run
+
+
+def top_active_values(sim: Run, values: np.ndarray) -> np.ndarray:
+    """Return a ``(layer, face)`` field at the top active cell of each column.
+
+    The stored ``idomain`` says which cell that is; a run without one shows
+    layer 0. A column with no active cell is NaN.
+    """
+    if not sim.has_field("idomain"):
+        return np.asarray(values[0], dtype="float64")
+    layer = top_active_layer(np.asarray(sim.field("idomain")))
+    return values_at_layer(values, layer)
 
 
 class ScalarFaceMap(BaseFigure):
@@ -58,9 +71,9 @@ class ScalarFaceMap(BaseFigure):
         """Return the per-face values to draw. Override to post-process."""
         values = np.asarray(sim.field(self.field_name(), timestep=timestep, layer=layer))
         if values.ndim > 1:
-            # Layered field with no explicit layer selection: show the top layer,
-            # which is the one the surface processes act on.
-            values = values[0]
+            # Layered field with no explicit layer selection: show the top active
+            # cell of each column, the one the surface processes act on.
+            values = top_active_values(sim, values)
         return values
 
     def label(self) -> str:

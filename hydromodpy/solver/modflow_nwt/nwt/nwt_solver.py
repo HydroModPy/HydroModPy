@@ -20,6 +20,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.core.descent import Descent, DescentBasin
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
@@ -287,7 +288,10 @@ class ModflowNwt:
         return result.as_dis_kwargs()
 
     def _build_spatial_discretization(self):
-        """Build the structured spatial grid from validated domain surfaces."""
+        """Build the structured spatial grid from validated domain surfaces.
+
+        A grid with a vertical pass-through cell is refused: NWT has none.
+        """
         if self.cell_mesh.structured_shape is None:
             raise ValueError("MODFLOW NWT requires a structured grid")
         self.grid_ctx = build_spatial_discretization(
@@ -297,8 +301,14 @@ class ModflowNwt:
             cell_mesh=self.cell_mesh,
         )
         self.solver_mesh = self.grid_ctx.solver_mesh
+        if (self.solver_mesh.idomain < 0).any():
+            raise ConfigError(
+                "The layering holds vertical pass-through cells (idomain -1), which "
+                "MODFLOW-NWT does not have. Write [domain.layers] pinch_out = "
+                "'keep_min_thickness', or run MODFLOW 6."
+            )
         self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
-        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
+        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.closed_surface())
         self.nlay = self.solver_mesh.nlay
         self.nrow = self.solver_mesh.nrow
         self.ncol = self.solver_mesh.ncol

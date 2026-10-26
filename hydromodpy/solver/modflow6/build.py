@@ -22,6 +22,7 @@ from hydromodpy.solver.modflow6.builders import (
     PRIVATE_TRIAL_RECHARGE_KEY,
     TRIAL_RECHARGE_DIRNAME,
     apply_lake_idomain_mask,
+    areal_layer_index,
     assemble_constant_head_stress_period_data,
     bind_recharge_from_flow,
     bind_soil_etp_from_flow,
@@ -88,6 +89,8 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 from hydromodpy.solver.modflow6.support.flopy_header_cache import install_flopy_header_cache
 from hydromodpy.solver.modflow6.support.flopy_structure_warmup import warm_flopy_structure
 from hydromodpy.solver.modflow6.support.property_mapping import (
+    K_TENSOR_NPF_NAMES,
+    k_tensor_npf_kwargs,
     resolve_flow_property_arrays,
     resolve_k33_field,
     resolve_required_flow_properties,
@@ -412,7 +415,7 @@ def _build_descent_and_dam_feet(
             lake_cells_by_id=lake_cell_ids_by_lake,
             cell_adjacency=solver_mesh.face_adjacency(),
             cell_centroids=solver_mesh.cell_centroids(),
-            idomain=solver_mesh.idomain(),
+            idomain=solver_mesh.idomain,
             mesh_top=solver_mesh.top,
             outlet_xy=outlet_xy,
         )
@@ -746,17 +749,34 @@ def resolve_flow_regime(model) -> str | None:
 FLOW_PROPERTY_SIDECAR_SUFFIX = ".flow_properties.npz"
 """Name of the file the builder leaves beside the model for the extractor."""
 
+_TENSOR_SIDECAR_NAMES = {
+    "k22": "hydraulic_conductivity_k22",
+    "angle1": "conductivity_tensor_angle1",
+    "angle2": "conductivity_tensor_angle2",
+    "angle3": "conductivity_tensor_angle3",
+}
+"""Stored name of each NPF tensor array, as the field registry declares it."""
+
 
 def _save_flow_property_sidecar(model) -> None:
-    """Leave the resolved K, Sy and Ss arrays beside the MODFLOW 6 model.
+    """Leave the resolved K, K33, Sy and Ss arrays beside the MODFLOW 6 model.
 
-    The extractor reads the model folder, not the builder, and MODFLOW never
-    writes its own input back out. Without this file a run keeps no trace of
-    the conductivity field it was actually given, so nothing can draw it.
-    Arrays are (nlay, n_cells) in SI units, the clock MF6 runs on.
+    K22 and the three angles join them when the flow sets them. The extractor
+    reads the model folder, not the builder, and MODFLOW never writes its own
+    input back out. Without this file a run keeps no trace of the conductivity
+    field it was actually given, so nothing can draw it. Arrays are
+    (nlay, n_cells) in SI units, the clock MF6 runs on, and angles in degrees.
     The model folder may not exist yet (the runtime-mesh path builds the
     arrays before flopy creates it), so it is created here.
     """
+    arrays = {
+        "hydraulic_conductivity": model.hk,
+        "hydraulic_conductivity_k33": model.k33,
+        "specific_yield": model.sy,
+        "specific_storage": model.ss,
+    }
+    for name, values in k_tensor_npf_kwargs(model).items():
+        arrays[_TENSOR_SIDECAR_NAMES[name]] = values
     try:
         os.makedirs(model.full_path, exist_ok=True)
         np.savez(
@@ -764,9 +784,10 @@ def _save_flow_property_sidecar(model) -> None:
                 model.full_path,
                 f"{model.model_output_name}{FLOW_PROPERTY_SIDECAR_SUFFIX}",
             ),
-            hydraulic_conductivity=np.atleast_2d(np.asarray(model.hk, dtype="float64")),
-            specific_yield=np.atleast_2d(np.asarray(model.sy, dtype="float64")),
-            specific_storage=np.atleast_2d(np.asarray(model.ss, dtype="float64")),
+            **{
+                name: np.atleast_2d(np.asarray(values, dtype="float64"))
+                for name, values in arrays.items()
+            },
         )
     except OSError:
         logger.debug("Could not write flow property sidecar", exc_info=True)
@@ -881,7 +902,8 @@ def run_pre_processing(  # noqa: PLR0915
     solver_mesh = model.grid_ctx.solver_mesh
     model.solver_mesh = solver_mesh
     model.top_elevation = solver_mesh.top  # (ncpl,)
-    model.inactive_mask = solver_mesh.inactive_mask[0]  # (ncpl,)
+    # (ncpl,) columns no surface process reaches; the lake footprint joins below.
+    model.inactive_mask = solver_mesh.closed_surface()
     model.nlay = solver_mesh.nlay
     model.ncpl = solver_mesh.n_cells
     model.dem = model.top_elevation  # flat (ncpl,)
@@ -902,7 +924,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
     require_positive_conductivity(
         model.hk,
-        active_mask=~np.asarray(solver_mesh.inactive_mask, dtype=bool),
+        active_mask=solver_mesh.idomain > 0,
         flow=model.flow,
     )
     model.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
@@ -914,6 +936,18 @@ def run_pre_processing(  # noqa: PLR0915
         model.modflow_config.process_specific.vka,
         label="flow vertical anisotropy",
     )
+    # K22 and the angles exist only when the flow sets them. They are read
+    # before the first XT3D decision, which a tilted tensor turns on.
+    for name in K_TENSOR_NPF_NAMES:
+        values = flow_params.get(name)
+        setattr(model, name, None if values is None else solver_mesh.flatten_from_grid(values))
+    if model.k22 is not None:
+        require_positive_conductivity(
+            model.k22,
+            active_mask=solver_mesh.idomain > 0,
+            flow=model.flow,
+            property_label="K22",
+        )
     log_xt3d_resolution(model, solver_mesh)
     _save_flow_property_sidecar(model)
 
@@ -1022,7 +1056,7 @@ def run_pre_processing(  # noqa: PLR0915
             occupied_layers_by_cell=occupied_layers_by_cell,
         )
         model.solver_mesh = solver_mesh
-        model.inactive_mask = solver_mesh.inactive_mask[0]
+        model.inactive_mask = solver_mesh.closed_surface(model._lake_cell_ids)
         model.dem_mask = model.inactive_mask
 
     # Measured here and not on the raw grid: the lake mask moves the surface the
@@ -1031,6 +1065,7 @@ def run_pre_processing(  # noqa: PLR0915
         solver_mesh,
         sink_fill=bool(model.sink_fill),
         model_name=model.model_name,
+        covered_cells=model._lake_cell_ids,
     )
 
     # The CHD supports are built here, before SFR, because the descent D below
@@ -1042,7 +1077,7 @@ def run_pre_processing(  # noqa: PLR0915
     refuse_constant_heads_below_bottom(
         model,
         botm=solver_mesh.botm,
-        inactive_mask=solver_mesh.inactive_mask,
+        idomain=solver_mesh.idomain,
         ocean_spd=ocean_chd_spd,
         stream_spd=stream_chd_spd,
         side_spd=side_chd_spd,
@@ -1134,6 +1169,9 @@ def run_pre_processing(  # noqa: PLR0915
         # Vertical conductivity: a per-cell Kv field or the uniform kh/vka ratio.
         # Vertical anisotropy is grid-aligned, so it needs no XT3D.
         k33=model.k33,
+        # K22 and the angles only when the flow sets them. A tilted tensor
+        # (angle2 or angle3) turns XT3D on unless mf6_enable_xt3d is written.
+        **k_tensor_npf_kwargs(model),
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,
         wetdry=wetdry,
@@ -1168,12 +1206,15 @@ def run_pre_processing(  # noqa: PLR0915
         shared_dir=_shared_recharge_dir(model),
     )
     del rch_spd
+    # A stack with a pass-through cell names the top active layer of each column.
+    areal_layer = areal_layer_index(solver_mesh)
     model.rch = flopy.mf6.ModflowGwfrcha(
         model.gwf,
         recharge=recharge_payload,
         auxiliary=["CONCENTRATION"],
         aux=empty_recharge_aux(model),
         pname="RCHA",
+        **({} if areal_layer is None else {"irch": areal_layer}),
     )
     soil_evta = build_soil_evta_payload(
         model,
@@ -1233,6 +1274,7 @@ def run_pre_processing(  # noqa: PLR0915
             rate=soil_rate,
             save_flows=True,
             pname="EVTA",
+            **({} if areal_layer is None else {"ievt": areal_layer}),
         )
     elif evt_array is not None:
         rate_by_period, evt_surface, evt_depth = evt_array

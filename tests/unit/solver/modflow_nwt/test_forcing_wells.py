@@ -190,9 +190,9 @@ def test_well_flux_length_mismatch_raises():
         adapter._build_well_stress_period_data()
 
 
-def test_well_relative_xy_defaults_to_layer_zero():
+def test_a_well_without_a_layer_leaves_it_to_the_top_active_cell():
     well = FlowWellConfig(location={"kind": "relative_xy", "x_rel": 0.5, "y_rel": 0.5}, flux=-1e-4)
-    assert well.location.layer == 0
+    assert well.location.layer is None
 
 
 def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():

@@ -50,7 +50,7 @@ def test_solver_mesh_idomain_matches_active_mask_multilayer() -> None:
         botm=np.array([[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]]),
         inactive_mask=mask,
     )
-    idomain = mesh.idomain()
+    idomain = mesh.idomain
     assert idomain.tolist() == [[1, 1, 0], [0, 1, 1]]
     assert idomain.dtype == np.dtype(int)
     assert np.array_equal(idomain, np.where(mask, 0, 1).astype(int))
@@ -58,7 +58,7 @@ def test_solver_mesh_idomain_matches_active_mask_multilayer() -> None:
 
 def test_solver_mesh_idomain_all_active_is_all_ones() -> None:
     mesh = _mesh(top=np.array([1.0]), botm=np.array([[0.0]]), inactive_mask=np.array([[False]]))
-    assert mesh.idomain().tolist() == [[1]]
+    assert mesh.idomain.tolist() == [[1]]
 
 
 def test_gwt_and_gwf_idomain_identical_via_shared_helper() -> None:
@@ -68,7 +68,7 @@ def test_gwt_and_gwf_idomain_identical_via_shared_helper() -> None:
         botm=np.array([[0.0, 0.0, 0.0, 0.0]]),
         inactive_mask=mask,
     )
-    idomain = mesh.idomain()
+    idomain = mesh.idomain
     assert idomain.tolist() == [[1, 0, 1, 0]]
     assert idomain.shape == (1, 4)
     assert idomain.dtype == np.dtype(int)
@@ -91,7 +91,7 @@ def test_gwt_disv_receives_idomain_with_inactive_cell(tmp_path: Path) -> None:
         gwf,
         nlay=mesh.nlay,
         **mesh.to_disv_kwargs(),
-        idomain=mesh.idomain(),
+        idomain=mesh.idomain,
         xorigin=0.0,
         yorigin=0.0,
         length_units="METERS",

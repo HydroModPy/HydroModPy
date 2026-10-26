@@ -1,4 +1,4 @@
-"""Hydraulic properties of a MODFLOW 6 model: the K/Kv/Sy/Ss arrays and ``k33``."""
+"""Hydraulic properties of a MODFLOW 6 model: K, Kv, Sy, Ss, ``k33`` and the K tensor."""
 
 from __future__ import annotations
 
@@ -8,14 +8,22 @@ import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.field_property_mapping import K_TENSOR_PROPERTIES
+from hydromodpy.solver.modflow_common.property_mapping import (
+    MODFLOW_PROPERTIES,
+    resolve_required_flow_properties,
+)
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays as resolve_flat_flow_property_arrays,
 )
-from hydromodpy.solver.modflow_common.property_mapping import (
-    resolve_required_flow_properties,
-)
 
 logger = get_logger(__name__)
+
+MODFLOW6_PROPERTIES = (*MODFLOW_PROPERTIES, *K_TENSOR_PROPERTIES)
+"""MODFLOW 6 reads the whole K tensor: K, Kv as K33, K22 and the three angles."""
+
+K_TENSOR_NPF_NAMES = ("k22", "angle1", "angle2", "angle3")
+"""The NPF arrays of the K tensor past ``k`` and ``k33``, named as FloPy names them."""
 
 
 def resolve_flow_property_arrays(
@@ -27,7 +35,7 @@ def resolve_flow_property_arrays(
     optional_fill_values: Mapping[str, float] | None = None,
     runtime_property_overrides: Mapping[str, object] | None = None,
 ) -> dict[str, np.ndarray]:
-    """Map K, Kv, Sy and Ss onto a MODFLOW 6 solver mesh.
+    """Map K, Kv, Sy, Ss, K22 and the three angles onto a MODFLOW 6 solver mesh.
 
     The flat arrays of the shared mapping, in the grid shape of the mesh: a
     regular grid gives ``(nlay, nrow, ncol)`` and ``(nrow, ncol)``, the shape
@@ -41,6 +49,7 @@ def resolve_flow_property_arrays(
         required_properties=required_properties,
         optional_fill_values=optional_fill_values,
         runtime_property_overrides=runtime_property_overrides,
+        properties=MODFLOW6_PROPERTIES,
     )
     return {name: solver_mesh.reshape_to_grid(values) for name, values in flat.items()}
 
@@ -98,7 +107,30 @@ def resolve_k33_field(
     return hk / ratio
 
 
+def k_tensor_npf_kwargs(model) -> dict[str, np.ndarray]:
+    """The K22 and angle arrays the flow sets, keyed as NPF takes them.
+
+    A property the flow leaves out is not written, so MODFLOW 6 applies its own
+    default: K22 equal to K, and every angle zero. MODFLOW 6 refuses ANGLE2
+    without ANGLE3 and the reverse, and reads them after ANGLE1, so a dip or a
+    rotation writes the three angles, a missing one as zero.
+    """
+    kwargs = {
+        name: values
+        for name in K_TENSOR_NPF_NAMES
+        if (values := getattr(model, name, None)) is not None
+    }
+    tilt = [kwargs[name] for name in ("angle2", "angle3") if name in kwargs]
+    if tilt:
+        for name in ("angle1", "angle2", "angle3"):
+            kwargs.setdefault(name, np.zeros_like(np.asarray(tilt[0], dtype=float)))
+    return kwargs
+
+
 __all__ = [
+    "K_TENSOR_NPF_NAMES",
+    "MODFLOW6_PROPERTIES",
+    "k_tensor_npf_kwargs",
     "resolve_flow_property_arrays",
     "resolve_k33_field",
     "resolve_required_flow_properties",

@@ -249,7 +249,7 @@ def _two_lake_mvr_sim(tmp_path, *, exe: str):
     gwf = flopy.mf6.ModflowGwf(sim, modelname="lac_test", newtonoptions="NEWTON UNDER_RELAXATION")
     disv_kwargs = masked.to_disv_kwargs()
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=masked.nlay, **disv_kwargs, idomain=masked.idomain(), xorigin=0.0, yorigin=0.0
+        gwf, nlay=masked.nlay, **disv_kwargs, idomain=masked.idomain, xorigin=0.0, yorigin=0.0
     )
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=1.0, k33=0.1)
     flopy.mf6.ModflowGwfsto(gwf, iconvert=1, sy=0.2, ss=1e-5, transient={0: True})
@@ -435,7 +435,7 @@ def test_flopy_writes_lak_mover_option_and_mvr_record(tmp_path) -> None:
     gwf = flopy.mf6.ModflowGwf(sim, modelname="t", newtonoptions="NEWTON")
     disv_kwargs = masked.to_disv_kwargs()
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=masked.nlay, **disv_kwargs, idomain=masked.idomain(), xorigin=0.0, yorigin=0.0
+        gwf, nlay=masked.nlay, **disv_kwargs, idomain=masked.idomain, xorigin=0.0, yorigin=0.0
     )
     flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
     flopy.mf6.ModflowGwfic(gwf, strt=90.0)

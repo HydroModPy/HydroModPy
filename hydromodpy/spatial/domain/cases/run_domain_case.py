@@ -35,7 +35,11 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.core.workspace import Workspace
 from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.domain.build import build_domain, read_substratum_source
+from hydromodpy.spatial.domain.build import (
+    build_domain,
+    read_layer_base_sources,
+    read_substratum_source,
+)
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import DomainGeographicContext
 from hydromodpy.spatial.geographic.structure_binders import (
@@ -164,6 +168,7 @@ def run_domain_case_from_toml(
         cfg.domain,
         surface_topo=surface_topo,
         substratum_source=read_substratum_source(cfg.domain.depth_model, cfg.data),
+        layer_base_sources=read_layer_base_sources(cfg.domain.layers, cfg.data),
     )
     catchment_zone_loaded = False
     if catchment_zone_field is not None:

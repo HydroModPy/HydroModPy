@@ -38,6 +38,7 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.vertical_column import top_active_layer
 
 logger = get_logger(__name__)
 
@@ -154,13 +155,6 @@ def _adjacent_lake(
     return best
 
 
-def _first_active_layer(idomain: np.ndarray, cell2d: int, nlay: int) -> int | None:
-    for lay in range(nlay):
-        if int(idomain[lay, cell2d]) == 1:
-            return lay
-    return None
-
-
 def rectify_reach_graph(
     records: Sequence[Any],
     *,
@@ -169,7 +163,6 @@ def rectify_reach_graph(
     mesh_top: np.ndarray,
     lake_cell_to_number: Mapping[int, int],
     idomain: np.ndarray,
-    nlay: int,
     location: str,
     max_stub_upstream: int = 2,
     min_component_cells: int = 2,
@@ -195,7 +188,8 @@ def rectify_reach_graph(
     """
     top = np.asarray(mesh_top, dtype=float).reshape(-1)
     receiver = np.asarray(receiver).reshape(-1)
-    active = np.asarray(idomain > 0).any(axis=0)
+    top_layer = top_active_layer(idomain)
+    active = top_layer >= 0
 
     # Seed cells = the delineated stream cells, keyed by cell2d with their attributes.
     seeds: dict[int, Any] = {}
@@ -323,7 +317,7 @@ def rectify_reach_graph(
     index_of = {cell: i for i, cell in enumerate(downstream_of)}
     nodes: list[dict[str, Any]] = []
     for cell in downstream_of:
-        layer = _first_active_layer(idomain, cell, nlay)
+        layer = int(top_layer[cell]) if top_layer[cell] >= 0 else None
         nodes.append(
             _channel_node(
                 attr_of[cell],

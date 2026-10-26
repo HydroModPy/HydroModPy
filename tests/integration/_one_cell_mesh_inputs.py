@@ -124,7 +124,7 @@ def _vertical_part(cell_mesh: PlanarCellMesh, thicknesses: tuple[float, ...]) ->
         cell_mesh=cell_mesh,
         top=top,
         botm=botm,
-        inactive_mask=np.zeros((len(thicknesses), n), dtype=bool),
+        idomain=np.ones((len(thicknesses), n), dtype=int),
     )
 
 
@@ -464,7 +464,7 @@ def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
     flopy.mf6.ModflowTdis(simulation, nper=NPER, perioddata=[(86_400.0, 1, 1.0)] * NPER)
     gwf = flopy.mf6.ModflowGwf(simulation, modelname="one")
     flopy.mf6.ModflowGwfdisv(
-        gwf, nlay=solver_mesh.nlay, **solver_mesh.to_disv_kwargs(), idomain=solver_mesh.idomain()
+        gwf, nlay=solver_mesh.nlay, **solver_mesh.to_disv_kwargs(), idomain=solver_mesh.idomain
     )
     npf = flopy.mf6.ModflowGwfnpf(gwf, k=solver_mesh.flatten_from_grid(properties["hk"]))
     sto = flopy.mf6.ModflowGwfsto(

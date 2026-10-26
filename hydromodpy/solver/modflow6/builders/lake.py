@@ -38,6 +38,7 @@ import shapely
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units.leakance import parse_to_per_s
+from hydromodpy.core.vertical_column import top_active_layer
 from hydromodpy.solver.modflow6.builders._lake_connection import (
     _abacus_rows,
     _lak_output_stem,
@@ -189,12 +190,12 @@ def apply_lake_idomain_mask(
     cell to leak into; the count must leave at least one active layer per column.
 
     The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
-    fresh inactive mask. Applying this *before* the DISV / idomain / dem_mask
+    fresh ``idomain``. Applying this *before* the DISV / idomain / dem_mask
     derivations keeps RCH, EVT and DRN consistent with the lake footprint.
     """
     n_cells = int(solver_mesh.n_cells)
     nlay = int(solver_mesh.nlay)
-    mask = np.asarray(solver_mesh.inactive_mask, dtype=bool).copy()
+    idomain = np.array(solver_mesh.idomain, copy=True)
     for lake_id, cell_ids in lake_cell_ids_by_lake.items():
         per_cell = (occupied_layers_by_cell or {}).get(lake_id)
         lake_layers = int(
@@ -220,8 +221,8 @@ def apply_lake_idomain_mask(
                     f"least one active layer below the lake (nlay={nlay}); the VERTICAL "
                     "connection needs an aquifer cell to leak into."
                 )
-            mask[:layers, cell] = True
-    return dataclasses.replace(solver_mesh, inactive_mask=mask)
+            idomain[:layers, cell] = 0
+    return dataclasses.replace(solver_mesh, idomain=idomain)
 
 
 def carve_lake_bed(
@@ -440,7 +441,7 @@ def build_lake_connectiondata(
       an active, non-lake neighbour at that layer (bank seepage).
 
     ``solver_mesh`` must already carry the lake idomain mask so that
-    ``idomain == 1`` identifies active non-lake neighbours. ``sealed_faces``
+    ``idomain > 0`` identifies active non-lake neighbours. ``sealed_faces``
     holds the ``(cell_a, cell_b)`` pairs, ``cell_a < cell_b``, a cutoff wall
     bars: no HORIZONTAL connection crosses them.
     """
@@ -451,7 +452,7 @@ def build_lake_connectiondata(
     if not lake_set:
         raise ValueError("build_lake_connectiondata requires at least one lake cell.")
 
-    idomain = solver_mesh.idomain()  # (nlay, n_cells)
+    idomain = solver_mesh.idomain  # (nlay, n_cells)
     top = np.asarray(solver_mesh.top, dtype=float)
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
     nlay = int(solver_mesh.nlay)
@@ -495,7 +496,7 @@ def build_lake_connectiondata(
                     continue  # degenerate (zero-length) edge: skip
                 if neighbour in lake_set:
                     continue  # never connect a lake to another lake cell
-                if int(idomain[lay, neighbour]) != 1:
+                if int(idomain[lay, neighbour]) <= 0:
                     continue  # neighbour inactive at this layer
                 if _neighbour_behind_wall(cid, neighbour):
                     sealed[0] += 1
@@ -1302,7 +1303,7 @@ def resolve_spillway_seed_cells(
     seeds: dict[str, int] = {}
     centroids = np.asarray(cell_centroids, dtype=float)
     top = np.asarray(mesh_top, dtype=float).reshape(-1)
-    active0 = np.asarray(idomain[0] > 0)
+    active0 = top_active_layer(idomain) >= 0
     all_lake_cells = {int(c) for cells in lake_cells_by_id.values() for c in cells}
     for lake_id, definition in _active_lake_definitions(model).items():
         ref = _downstream_spillway_ref(definition, outlet_xy)

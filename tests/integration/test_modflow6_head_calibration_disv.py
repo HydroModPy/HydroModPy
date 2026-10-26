@@ -58,7 +58,7 @@ def test_extract_head_from_hds_reads_disv_off_row_zero(tmp_path: Path) -> None:
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
     flopy.mf6.ModflowIms(sim, complexity="SIMPLE")
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
-    flopy.mf6.ModflowGwfdisv(gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain())
+    flopy.mf6.ModflowGwfdisv(gwf, nlay=1, **mesh.to_disv_kwargs(), idomain=mesh.idomain)
     flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
     flopy.mf6.ModflowGwfic(gwf, strt=5.0)
     # West column high, east column low: every column gets a distinct head, so a

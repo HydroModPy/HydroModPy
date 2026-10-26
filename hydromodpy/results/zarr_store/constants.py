@@ -19,9 +19,11 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 # cfchecker flags them as missing standard_name.
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
-# Schema version of the Zarr layout produced by HydroModPy V1 (P6).
-# Stored in the ``meta`` group attributes and validated on open.
-ZARR_SCHEMA_VERSION = "2"
+# Schema version of the Zarr layout. Stored in the ``meta`` group attributes and
+# validated on open. Version 3 stores the vertical geometry of every cell:
+# ``mesh/z_interfaces`` (layer_interface, face), ``mesh/idomain`` (layer, face)
+# and the ``vertical_layout`` attribute of ``mesh/``.
+ZARR_SCHEMA_VERSION = "3"
 
 # Subgroups created at store init. ``budget`` is created by the extraction,
 # which writes the per-cell terms and the attributes that say what it kept.

@@ -11,9 +11,9 @@ Current inference scope (V3)
   (``lake_bathymetry``, ``lake_levels``, ``lake_outflow``) are not auto-inferred
   so the catalog never accumulates data nothing reads; declare them explicitly if
   needed.
-- ``substratum`` is never inferred: the domain layer reads its raster path
-  directly from config, before the data step runs, so it is loaded only when
-  listed in ``[data].types``.
+- ``substratum`` and ``layer_base`` are never inferred: the domain layer reads
+  their raster paths directly from config, before the data step runs, so they
+  are loaded only when listed in ``[data].types``.
 - ``[flow.sinks_sources.recharge.soil]`` -> activate precipitation and etp
 - ``[data.soil_capacity]`` declared -> activate ``soil_capacity`` (the section
   can be written without listing it in ``data.types``, like the other

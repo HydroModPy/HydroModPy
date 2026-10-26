@@ -183,7 +183,7 @@ def test_carved_mesh_builds_a_valid_disv(tmp_path):
         gwf,
         nlay=masked.nlay,
         **masked.to_disv_kwargs(),
-        idomain=masked.idomain(),
+        idomain=masked.idomain,
         xorigin=0.0,
         yorigin=0.0,
         length_units="METERS",

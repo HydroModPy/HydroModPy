@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.vertical_column import top_active_layer
 from hydromodpy.results import field_registry
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run.array import lookup_zarr_path
@@ -75,7 +76,8 @@ class PointRequest:
 
     Exactly one of ``(x, y)`` or ``cell`` identifies the cell. At most one of
     ``layer`` or ``depth`` picks the layer; ``depth`` is metres below the local
-    model top and resolves against the mesh layer thicknesses.
+    model top and resolves against the mesh layer thicknesses. With neither,
+    the point reads the top active cell of its column.
     """
 
     x: float | None = None
@@ -188,7 +190,12 @@ def _cell_centroid(mesh: Any, cell: int) -> tuple[float, float]:
 
 
 def _resolve_layer(run: Run, mesh: Any, cell: int, request: PointRequest) -> int | None:
-    """Return the layer index to read, from an explicit index or from a depth."""
+    """Return the layer index to read: explicit, from a depth, else the top active cell.
+
+    A point with neither a layer nor a depth reads the top active cell of its
+    column, the layer the stored ``idomain`` names; ``None`` when the run
+    stores no ``idomain``.
+    """
     n_layers = int(run.n_layers or 1)
     if request.layer is not None:
         layer = int(request.layer)
@@ -198,18 +205,32 @@ def _resolve_layer(run: Run, mesh: Any, cell: int, request: PointRequest) -> int
             raise IndexError(f"Layer {request.layer} is out of range for {n_layers} layers.")
         return layer
     if request.depth is None:
-        return None
+        return _top_active_layer_at(run, cell)
     return _layer_at_depth(run, mesh, cell, float(request.depth), n_layers)
+
+
+def _top_active_layer_at(run: Run, cell: int) -> int | None:
+    """Top active layer of one column from the stored ``idomain``, ``None`` without one.
+
+    A column with no active cell reads layer 0.
+    """
+    sz = run._catalog.open_zarr(run.sim_id)
+    try:
+        mesh_grp = sz.root.get("mesh")
+        if mesh_grp is None or "idomain" not in mesh_grp:
+            return None
+        column = np.asarray(mesh_grp["idomain"][:, cell]).reshape(-1, 1)
+    finally:
+        sz.close()
+    return max(int(top_active_layer(column)[0]), 0)
 
 
 def _layer_at_depth(run: Run, mesh: Any, cell: int, depth: float, n_layers: int) -> int:
     """Return the layer holding *depth* metres below the local model top."""
     thickness = _layer_thickness(run, cell, n_layers)
     if thickness is None:
-        z = np.asarray(mesh.z_interfaces, dtype="float64").ravel()
-        if z.size < 2:
-            return 0
-        thickness = np.abs(np.diff(z))[:n_layers]
+        column = np.asarray(mesh.z_interfaces, dtype="float64")[:, cell]
+        thickness = np.abs(np.diff(column))[:n_layers]
     bottoms = np.cumsum(np.asarray(thickness, dtype="float64"))
     index = int(np.searchsorted(bottoms, depth, side="left"))
     return min(index, n_layers - 1)
@@ -313,7 +334,8 @@ class RunPointProvider:
         cell
             Zero-based cell index. Mutually exclusive with ``x`` / ``y``.
         layer
-            Zero-based layer index; negative counts from the bottom.
+            Zero-based layer index; negative counts from the bottom. Without a
+            layer or a depth, the point reads the top active cell of its column.
         depth
             Metres below the local model top, resolved against the mesh layer
             thicknesses. Mutually exclusive with ``layer``.

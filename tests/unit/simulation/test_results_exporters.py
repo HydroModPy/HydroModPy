@@ -148,9 +148,9 @@ class TestNetCDFExport:
         # dimension and ignores an array carrying a third one, so a layered
         # field is written one variable per layer.
         assert "head" not in ds
-        assert ds["head_layer1"].dims == ("time", "n_face")
+        assert ds["head_layer0"].dims == ("time", "n_face")
+        assert ds["head_layer0"].shape == (3, 6)
         assert ds["head_layer1"].shape == (3, 6)
-        assert ds["head_layer2"].shape == (3, 6)
         assert "layer" not in ds.dims
         ds.close()
 
@@ -171,7 +171,7 @@ class TestNetCDFExport:
         out = exports / "multi.nc"
         _export(catalog, sid, variables=["head", "watertable_depth"], file=out)
         ds = xr.open_dataset(out, decode_times=False)
-        assert "head_layer1" in ds
+        assert "head_layer0" in ds
         assert "watertable_depth" in ds
         assert ds["watertable_depth"].dims == ("time", "n_face")
         ds.close()
@@ -181,7 +181,7 @@ class TestNetCDFExport:
         out = exports / "subset.nc"
         _export(catalog, sid, variables="head", file=out, time=[0, 2])
         ds = xr.open_dataset(out, decode_times=False)
-        assert ds["head_layer1"].shape[0] == 2
+        assert ds["head_layer0"].shape[0] == 2
         np.testing.assert_array_equal(ds["time"].values, np.array([0, 172800]))
         ds.close()
 
@@ -250,7 +250,7 @@ class TestVTUExport:
         out = exports / "layers.vtu"
         _export(catalog, sid, variables="head", file=out, time=0)
         mesh = meshio.read(str(out))
-        assert {"head_layer1", "head_layer2"} <= set(mesh.cell_data)
+        assert {"head_layer0", "head_layer1"} <= set(mesh.cell_data)
 
 
 class TestGeoTIFFExport:

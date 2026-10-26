@@ -218,9 +218,12 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=None,
         description=(
             "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
-            "on triangle cells, and on other cells when the mesh is significantly "
-            "non-orthogonal; the orthogonal Voronoi cells keep it off. It adds "
-            "cost but improves accuracy on non-orthogonal grids."
+            "when the K tensor is tilted (a non-zero flow parameter angle2 or "
+            "angle3, which MF6 reads only under XT3D), on triangle cells, and on "
+            "other cells when the mesh is significantly non-orthogonal; the "
+            "orthogonal Voronoi cells keep it off. It adds cost but improves "
+            "accuracy on non-orthogonal grids and with an anisotropic K whose axes "
+            "do not follow the grid."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
@@ -251,8 +254,9 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' "
             "flow parameter instead, which is mutually exclusive with a non-unit vka and is a "
             "direct conductivity, never a mode-switched value. Vertical anisotropy is "
-            "grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed "
-            "here) would auto-activate XT3D."
+            "grid-aligned and needs no XT3D. The rest of the tensor is set by the flow "
+            "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a non-zero angle2 or "
+            "angle3 turns XT3D on."
         ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(

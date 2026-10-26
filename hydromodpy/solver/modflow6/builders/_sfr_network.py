@@ -99,14 +99,6 @@ def _active_sfr_definitions(model) -> dict[str, dict[str, Any]]:
     return definitions
 
 
-def _first_active_layer(idomain: np.ndarray, cell_id: int, nlay: int) -> int | None:
-    """Return the first active layer of one column scanned from the top, or None."""
-    for lay in range(nlay):
-        if int(idomain[lay, cell_id]) == 1:
-            return lay
-    return None
-
-
 def _reach_width(width_cfg: object, *, strahler: int, area_km2: float, location: str) -> float:
     """Resolve one reach width [m] from the configured width law."""
     kind = str(_attr(width_cfg, "kind") or "constant")
@@ -164,8 +156,7 @@ def _rectify_network_on_mesh(
         face_adjacency=face_adjacency,
         mesh_top=np.asarray(solver_mesh.top, dtype=float).reshape(-1),
         lake_cell_to_number=dict(lake_number_of),
-        idomain=solver_mesh.idomain(),
-        nlay=int(solver_mesh.nlay),
+        idomain=solver_mesh.idomain,
         location=location,
         max_stub_upstream=max_stub_upstream,
         min_component_cells=min_component_cells,
@@ -190,8 +181,7 @@ def _resolve_trace_network(
         raise ValueError(f"{location} reach_trace holds no reach.")
 
     pieces_by_parent = _reach_pieces(solver_mesh, parents, location=location)
-    idomain = solver_mesh.idomain()
-    nlay = int(solver_mesh.nlay)
+    top_layer = solver_mesh.top_active_layer()
     connected = definition.get("connected_to_aquifer") is not False
     min_slope = float(definition.get("min_slope") or 1e-4)
     width_cfg = definition.get("width")
@@ -228,8 +218,8 @@ def _resolve_trace_network(
                 break
             cellid: tuple[int, int] | None = None
             if connected:
-                layer = _first_active_layer(idomain, cell2d, nlay)
-                if layer is None:
+                layer = int(top_layer[cell2d])
+                if layer < 0:
                     # The reach crosses a cell outside the active aquifer (e.g. a
                     # boundary reach when the domain is masked to the watershed).
                     # Keep it as a routing-only, aquifer-disconnected sub-reach
@@ -441,7 +431,7 @@ def _resolve_explicit_network(
 
     rows = list(definition.get("reaches") or [])
     n = len(rows)
-    idomain = solver_mesh.idomain()
+    idomain = solver_mesh.idomain
     connected_default = definition.get("connected_to_aquifer") is not False
 
     records: list[SfrReachRecord] = []
@@ -524,7 +514,7 @@ def _explicit_reach_cellid(
     layer, cell2d = well_cell_to_disv(ncol=int(solver_mesh.ncol), lay=lay, row=row, col=col)
     if cell2d < 0 or cell2d >= int(solver_mesh.n_cells):
         raise ValueError(f"{location}.cell is outside the grid ({solver_mesh.n_cells} cells).")
-    if int(idomain[layer, cell2d]) != 1:
+    if int(idomain[layer, cell2d]) <= 0:
         raise ValueError(
             f"{location}.cell (layer {layer}, cell {cell2d}) is inactive; an SFR reach "
             "must sit on an active aquifer cell."

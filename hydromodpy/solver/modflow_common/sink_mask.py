@@ -29,6 +29,8 @@ the catchment against 4.12 % in the buffer.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import numpy as np
 
 from hydromodpy.core.depression_filling import fill_depressions_on_graph
@@ -41,19 +43,24 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 __all__ = ("closed_depression_mask", "resolve_sink_mask")
 
 
-def closed_depression_mask(solver_mesh: SolverMesh) -> np.ndarray:
+def closed_depression_mask(
+    solver_mesh: SolverMesh, *, covered_cells: Iterable[int] = ()
+) -> np.ndarray:
     """Return the cells of the mesh top no descent leaves the domain from.
 
     A priority flood seeded on every cell water can leave the mesh through
-    raises the closed depressions and nothing else. Inactive cells carry a
-    non-finite elevation, so the flood neither crosses them nor raises them:
-    the boundary of the active region is the escape.
+    raises the closed depressions and nothing else. Closed columns (no active
+    cell, or a lake footprint in ``covered_cells``) carry a non-finite
+    elevation, so the flood neither crosses them nor raises them: the boundary
+    of the open surface is the escape.
 
     Parameters
     ----------
     solver_mesh
         The mesh the flow model is built on. Its top is the surface flooded and
         its planar connectivity is the graph the flood walks.
+    covered_cells
+        Columns a lake covers, closed like inactive ones.
 
     Returns
     -------
@@ -68,7 +75,7 @@ def closed_depression_mask(solver_mesh: SolverMesh) -> np.ndarray:
     """
     connectivity = _rectangular_connectivity(solver_mesh)
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
-    active = ~np.asarray(solver_mesh.inactive_mask[0], dtype=bool).reshape(-1)
+    active = ~solver_mesh.closed_surface(covered_cells)
     surface = np.where(active & np.isfinite(top), top, np.nan)
     finite = np.isfinite(surface)
     if not finite.any():
@@ -99,6 +106,7 @@ def resolve_sink_mask(
     *,
     sink_fill: bool,
     model_name: str,
+    covered_cells: Iterable[int] = (),
 ) -> np.ndarray | None:
     """Return the sink mask this model must use, or ``None`` when off.
 
@@ -109,7 +117,7 @@ def resolve_sink_mask(
     if not sink_fill:
         return None
     try:
-        return closed_depression_mask(solver_mesh)
+        return closed_depression_mask(solver_mesh, covered_cells=covered_cells)
     except ValueError as exc:
         raise ValueError(f"model {model_name!r}: {exc}") from exc
 

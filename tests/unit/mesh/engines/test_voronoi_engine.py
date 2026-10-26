@@ -279,7 +279,7 @@ def test_the_identity_names_the_engine_the_request_and_its_seed() -> None:
     cell_mesh = VoronoiMeshEngine().build(request)
 
     assert cell_mesh.identity.engine_id == "voronoi"
-    assert cell_mesh.identity.engine_version == "2.2.0"
+    assert cell_mesh.identity.engine_version == "2.4.0"
     assert cell_mesh.identity.request_hash == request.canonical_hash()
     assert cell_mesh.identity.seed == request.seed
     assert cell_mesh.qa.declarations == VoronoiMeshEngine.capabilities.declarations()
@@ -324,6 +324,7 @@ def test_the_qa_reports_the_relaxation_the_seeds_and_the_libraries() -> None:
         "lloyd_iterations",
         "lloyd_cap",
         "lloyd_converged",
+        "lloyd_move_rms",
         "lloyd_move_p50",
         "lloyd_move_max",
         "n_seeds_free",

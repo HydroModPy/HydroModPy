@@ -40,7 +40,7 @@ def test_well_cell_on_inactive_cell_raises() -> None:
     model = _build_model()
     mask = np.zeros((1, 6), dtype=bool)
     mask[0, 4] = True  # cell (0,1,1) -> cell_id 4 is inactive
-    model.solver_mesh = replace(model.solver_mesh, inactive_mask=mask)
+    model.solver_mesh = replace(model.solver_mesh, idomain=np.where(mask, 0, 1))
     _with_well(model, {"kind": "cell", "cell": (0, 1, 1)})
     with pytest.raises(ValueError, match=r"W1 targets an inactive cell.*layer 0, cell 4"):
         build_well_stress_period_data(model, 2)
@@ -50,7 +50,9 @@ def test_well_cell_on_inactive_cell_raises_per_layer_mask() -> None:
     mask = np.zeros((2, 6), dtype=bool)
     mask[1, 4] = True  # layer 1, cell 4 inactive; layer 0, cell 4 active
 
-    two_layers = replace(_build_model().solver_mesh, botm=np.zeros((2, 6)), inactive_mask=mask)
+    two_layers = replace(
+        _build_model().solver_mesh, botm=np.zeros((2, 6)), idomain=np.where(mask, 0, 1)
+    )
 
     # W1 in the inactive layer-1 cell raises.
     model = _build_model()
