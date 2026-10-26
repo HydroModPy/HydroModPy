@@ -1,0 +1,6 @@
+# ANGLE2 = -20 deg: K11 falls toward the east. The exact vertical head gradient
+# changes sign.
+
+[flow.param.angle2.field]
+kind = "homogeneous"
+value = -20.0

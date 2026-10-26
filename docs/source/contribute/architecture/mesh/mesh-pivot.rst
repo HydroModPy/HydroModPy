@@ -1,15 +1,11 @@
 The mesh pivot and the cell mesh
 ================================
 
-HydroModPy manipulates several 2D and 3D mesh types to discretize hydrogeological
-parameters (conductivity, storage, recharge) and to pass them to the solvers.
-``HydroMesh`` is the one exchange format between them, and ``PlanarCellMesh`` is the planar
-mesh every solver and every workflow step reads. This page covers the mesh classes, the
-pivot, the cell mesh with its families, and their place in the solver pipeline. Code:
-``hydromodpy/spatial/field/`` (the mesh classes of the field layer) and
-``hydromodpy/spatial/mesh/`` (the pivot, the cell mesh, the engines and the adapters). How a
-cell mesh is built is on :doc:`mesh-engines`, and the grid the MODFLOW family reads is on
-:doc:`../solver/backends`.
+HydroModPy has several mesh types to place parameters such as conductivity and recharge.
+``HydroMesh`` is the exchange format between them. ``PlanarCellMesh`` is the mesh that every
+solver and every workflow step reads. The code is in ``hydromodpy/spatial/field/`` and
+``hydromodpy/spatial/mesh/``. The engines are on :doc:`mesh-engines`, and the grid of the MODFLOW
+family is on :doc:`../solver/backends`.
 
 Mesh types
 ----------
@@ -30,46 +26,27 @@ Mesh types
    `-- GmshPlanarMesh2D                 spatial/mesh/gmsh_grid/gmsh_planar_mesh.py
          _kind = "gmsh_2d"              triangles or quads from a .msh file
 
-Every ``BaseFieldMesh`` exposes the node coordinates (``x_plot``, ``y_plot``), ``shape``,
-``n_nodes`` and ``n_cells``, the cells as ``MeshCell`` objects (``cells``,
-``iter_cells()``), ``cell_centroids()``, ``to_cell_values(values)``,
-``plot_cell_values(ax, values)`` and ``to_hydro_mesh()``. A ``MeshWithValues`` pairs a mesh
-with one value per cell. It is the return type of ``FieldParam.to_mesh_field()``.
-
-A square test mesh, from ``hydromodpy/spatial/field/cases/square/field_mesh_square.py``:
+Every ``BaseFieldMesh`` has ``shape``, ``n_nodes``, ``n_cells``, ``cell_centroids()``,
+``to_cell_values()`` and ``to_hydro_mesh()``. A ``MeshWithValues`` pairs a mesh with one value
+per cell, and ``FieldParam.to_mesh_field()`` returns it.
+``GmshPlanarMesh2D.from_file("domain.msh")`` reads a Gmsh mesh. A test mesh looks like this:
 
 .. code-block:: python
 
    from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 
+   # mesh_kind: "structured", "triangular_structured" or "triangular_unstructured"
    mesh = FieldMeshSquare.from_unit_square(target_n_cells=400, mesh_kind="structured")
    mesh.n_cells      # 400
    mesh.shape        # (21, 21) nodes
 
-``mesh_kind`` is ``"structured"``, ``"triangular_structured"`` or
-``"triangular_unstructured"``. A Gmsh mesh is read with
-``GmshPlanarMesh2D.from_file("domain.msh")``.
-
 Placing a parameter on a mesh
 -----------------------------
 
-Three objects discretize a parameter:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 76
-
-   * - Object
-     - Role
-   * - ``Field``
-     - The spatial geometry that defines zones (``spatial/field/core/field_spatial.py``).
-   * - ``FieldParam``
-     - The parameter: a scalar or one value per zone, with a unit and an optional
-       vertical profile (``spatial/field/core/field_param.py``).
-   * - ``BaseFieldMesh``
-     - The cells on which to discretize.
-
-A homogeneous parameter gives one value per cell:
+A ``FieldParam`` (``spatial/field/core/field_param.py``) is a scalar or one value per zone, with
+a unit and an optional vertical profile. A ``Field`` (``spatial/field/core/field_spatial.py``)
+gives the zones, and a ``BaseFieldMesh`` gives the cells. A homogeneous parameter gives one value
+per cell:
 
 .. code-block:: python
 
@@ -78,22 +55,18 @@ A homogeneous parameter gives one value per cell:
    K = FieldParam(identifier="K", kind="homogeneous", unit="m/s", value=1e-4)
    result = K.to_mesh_field(mesh=mesh)     # MeshWithValues, every cell 1e-4
 
-A heterogeneous parameter takes the zone-weighted mean in each cell: the mesh gets the
-fraction of every zone from a ``Field`` (``field.on_mesh(mesh, ...)``), and the parameter
-(``kind="heterogeneous"``, ``values_by_key``, ``field_spatial_id``) is discretized with
-that distribution. A vertical profile (``mode`` of ``none``, ``exponential`` or
-``tabulated``) multiplies the value by a factor that depends on depth;
-``FieldParam.vertical_factor(depth)`` returns it. Values are stored in SI units whatever
-the input unit. The solvers do not go through ``BaseFieldMesh``: they map the parameters on the
-cells of the cell mesh, see :ref:`consumers-read-the-cell-mesh`. The field layer is described
-in :doc:`../field/index`.
+A heterogeneous parameter (``kind="heterogeneous"``, ``values_by_key``, ``field_spatial_id``)
+takes the zone-weighted mean in each cell, with the zone fractions of ``field.on_mesh(mesh, ...)``.
+A vertical profile (``none``, ``exponential`` or ``tabulated``) multiplies the value by
+``FieldParam.vertical_factor(depth)``. ``FieldParam`` stores values in SI units. The solvers do
+not use this path. They map the parameters on the cell mesh, see
+:ref:`consumers-read-the-cell-mesh`. The field layer is in :doc:`../field/index`.
 
 The pivot
 ---------
 
-``HydroMesh`` (``spatial/mesh/model/hydro_mesh.py``) is a frozen dataclass that represents any
-2D or 3D mesh the same way, in the data model of meshio: vertices, cell blocks, per-cell
-and per-node data.
+``HydroMesh`` (``spatial/mesh/model/hydro_mesh.py``) is a frozen dataclass. It describes any 2D
+or 3D mesh the same way, in the data model of meshio.
 
 .. code-block:: python
 
@@ -106,9 +79,8 @@ and per-node data.
        structured_shape=None,                               # (nrow, ncol) for a regular grid
    )
 
-Before it, each mesh type had its own data model and plotting code, and generic code
-could not be written without coupling to a concrete type. Now every type converts to the
-pivot, and the pivot serves the plot, the disk formats and the solver adapters:
+Every mesh type converts to the pivot with ``to_hydro_mesh()``. The pivot serves the plot, the
+disk formats and the solver adapters:
 
 .. code-block:: text
 
@@ -117,52 +89,35 @@ pivot, and the pivot serves the plot, the disk formats and the solver adapters:
    PolygonFieldMesh ------+-- to_hydro_mesh -+-- to_flopy_disv_args()
    GmshPlanarMesh2D ------+                  +-- to_meshio()
 
-The mesh engines build a ``HydroMesh`` directly, inside the cell mesh described below.
-
-The cell types are ``TRIANGLE``, ``QUADRILATERAL``, ``POLYGON`` (ragged cells, such as the
-cells of the ``voronoi`` engine), ``WEDGE`` and ``HEXAHEDRON`` (``CellType``, with string
-aliases such as ``"tri"`` and ``"triangular_prism"``). A ``POLYGON`` block stores its
-connectivity as a tuple of rows of different lengths.
-``is_structured`` is true when ``structured_shape`` is set. That hint lets the plot use
-``pcolormesh`` and lets an export use DIS instead of DISV. ``with_cell_data(**fields)``
-and ``with_point_data(**fields)`` return a new instance, because the class is frozen.
-
-The existing classes stay in place. Each keeps its own logic (generation, validation,
-association with a ``FieldParam``) and produces or consumes a ``HydroMesh`` through
-``to_hydro_mesh()``. New code takes a ``HydroMesh`` as input and output and does not
-depend on a concrete class.
+``CellType`` has ``TRIANGLE``, ``QUADRILATERAL``, ``POLYGON`` (ragged cells, as in the
+``voronoi`` engine), ``WEDGE`` and ``HEXAHEDRON``. It accepts aliases such as ``"tri"`` and
+``"triangular_prism"``. ``is_structured`` is true when ``structured_shape`` is set. The plot then
+uses ``pcolormesh``. ``SolverMesh.to_dis_kwargs()`` writes the DIS grid of MODFLOW-NWT only for a
+cell mesh with a ``structured_shape``. ``with_cell_data`` and ``with_point_data`` return a new
+instance because the class is frozen. New code takes and returns a ``HydroMesh``, so it does
+not depend on a concrete mesh class.
 
 Plot, disk and solver adapters
 ------------------------------
 
-**Plot.** ``plot_cell_values(ax, hydro_mesh, values, cmap=..., show_mesh=...)`` in
-``spatial/mesh/plotting.py`` picks the renderer from the topology: ``pcolormesh`` for a
-structured quadrilateral mesh, ``tripcolor`` for triangles, ``PolyCollection`` otherwise.
-The ``plot_cell_values`` methods of the mesh classes delegate to it.
-
-**Disk.** VTU is the recommended format: it is self-describing, opens in ParaView,
-PyVista and QGIS, and round-trips through ``HydroMesh``. Use ``write_vtu`` and
-``read_vtu`` from ``spatial/mesh/io``, or the public functions of
-``spatial/mesh/gmsh_grid/exchange_api.py`` (``load_planar_as_hydro_mesh``,
-``save_hydro_mesh_vtu``, ``load_hydro_mesh_vtu``).
-``to_meshio`` and ``from_meshio`` in ``spatial/mesh/adapters`` convert to and from
-``meshio``, an optional dependency imported on demand. A run stores its cell mesh in the
-Zarr store and exports it as a GeoPackage, see :doc:`../storage-layout`.
-
-**FloPy.** ``to_flopy_disv_args(hydro_mesh, top=..., botm=...)`` returns the keyword
-arguments of a MODFLOW 6 DISV package (``nvert``, ``vertices``, ``ncpl``, ``cell2d``,
-``top``, ``botm``).
-
-Dependencies stay light: the core (``model/cell_types.py``, ``model/hydro_mesh.py``)
-needs only numpy, the plot needs matplotlib, and the adapters import meshio and flopy
-only when called.
+``plot_cell_values`` in ``spatial/mesh/plotting.py`` uses ``pcolormesh`` for a structured
+quadrilateral mesh, ``tripcolor`` for triangles and ``PolyCollection`` otherwise. VTU is the
+recommended disk format. It describes itself, opens in ParaView, PyVista and QGIS, and
+round-trips through ``HydroMesh``. Use ``write_vtu`` and ``read_vtu`` from ``spatial/mesh/io``,
+or ``load_planar_as_hydro_mesh``, ``save_hydro_mesh_vtu`` and ``load_hydro_mesh_vtu`` from
+``spatial/mesh/gmsh_grid/exchange_api.py``. ``to_meshio`` and ``from_meshio`` in
+``spatial/mesh/adapters`` need meshio, which is imported on demand.
+``to_flopy_disv_args(hydro_mesh, top=..., botm=...)`` returns the arguments of a MODFLOW 6 DISV
+package (``nvert``, ``vertices``, ``ncpl``, ``cell2d``, ``top``, ``botm``). The core needs only
+numpy, the plot needs matplotlib, and the adapters import meshio and flopy when called. A run
+stores its cell mesh in Zarr and exports it as a GeoPackage, see :doc:`../storage-layout`.
 
 Cell mesh
 ---------
 
-``PlanarCellMesh`` (``spatial/mesh/model/planar_cell_mesh.py``) is the mesh the solvers and
+``PlanarCellMesh`` (``spatial/mesh/model/planar_cell_mesh.py``) is the mesh that the solvers and
 the workflow steps read, as ``setup.cell_mesh``. It wraps one planar ``HydroMesh`` block of
-triangles, quadrilaterals or polygons, unchanged, and holds what every consumer would
+triangles, quadrilaterals or polygons, unchanged. It also holds what every consumer would
 otherwise recompute:
 
 .. list-table::
@@ -172,8 +127,8 @@ otherwise recompute:
    * - Attribute
      - Content
    * - ``centers``, ``center_kind``
-     - The one cell centre rule, ``(n_cells, 2)``: ``generator`` (Voronoi), ``cell_center``
-       (regular grid) or ``vertex_mean`` (triangles).
+     - The one cell centre rule, shape ``(n_cells, 2)``. ``center_kind`` is ``generator``
+       (Voronoi), ``cell_center`` (regular grid) or ``vertex_mean`` (triangles).
    * - ``crs_wkt``
      - The CRS of the vertices, as WKT. It is required.
    * - ``face_families``, ``cell_chains``
@@ -183,56 +138,52 @@ otherwise recompute:
    * - ``identity``
      - ``MeshIdentity``: engine id, engine version, request hash and seed.
    * - ``qa``
-     - ``MeshQA``: area, size, centre offset and non-orthogonality quantiles, the shape of
-       the cells (quantiles of the bisection offset, of the smallest and of the largest corner,
-       and the number of concave cells), degenerate faces, family coverage, and the engine
+     - ``MeshQA``: quantiles of area, size, centre offset, non-orthogonality and cell shape,
+       then the concave cells, the degenerate faces, the family coverage and the engine
        declarations (``graded``, ``exact_faces``, ``deterministic``, ``needs_cache``).
-       ``quality_warnings`` turns the shape entries into build warnings and never a refusal.
-       A cache entry stored before the shape entries is read as it was, and they are measured on
-       the stored mesh and centres.
+       ``quality_warnings`` turns the shape entries into build warnings and never refuses a mesh.
    * - ``structured_shape``
      - ``(nrow, ncol)`` of a regular grid, otherwise ``None``.
 
 ``cell_mesh.geometry`` is a ``DerivedGeometry`` (``spatial/mesh/model/derived_geometry.py``),
-derived once on first use with vectorised numpy. It holds the ``-1`` padded connectivity
-(the format of the Zarr store), the areas and area centroids, the edge table keyed by
-vertex ids (``edge_nodes``, ``edge_cells``, length and midpoint) and the CSR adjacency of
-the interior edges. An edge shared by more than two cells raises ``ValueError``.
-``cell_mesh.connectivity_rows`` returns the cells as one array: the block itself for
-triangles and quadrilaterals, the padded rows for polygons.
+derived once on first use. It holds the ``-1`` padded connectivity (the format of the Zarr
+store), the areas and area centroids, the edge table (``edge_nodes``, ``edge_cells``, length and
+midpoint) and the CSR adjacency of the interior edges. An edge shared by more than two cells
+raises ``ValueError``. ``cell_mesh.connectivity_rows`` returns the cells as one array. It is the
+block itself for triangles and quadrilaterals, and the padded rows for polygons.
 
-An engine builds a cell mesh from a request (:doc:`mesh-engines`). A Boussinesq validation
-bundle, a folder of CSV files, is read into one by ``cell_mesh_from_bundle`` in
-``spatial/mesh/gmsh_grid/bundle_cell_mesh.py``. A consumer that samples a field on the cells
-calls ``to_field_mesh(cell_mesh.mesh)`` in ``adapters/field_mesh_adapter.py``.
+``cell_mesh_from_bundle`` in ``spatial/mesh/gmsh_grid/bundle_cell_mesh.py`` reads a Boussinesq
+validation bundle, a folder of CSV files. ``to_field_mesh(cell_mesh.mesh)`` in
+``adapters/field_mesh_adapter.py`` gives a field mesh to a consumer that samples a field on the
+cells.
 
 Line families
 ~~~~~~~~~~~~~
 
-A family is a set of lines the mesh honours, under one name. It has one of two intents, and
-the cell mesh keeps what each intent needs:
+A family is a set of lines that the mesh honours, under one name. Its intent decides what the
+cell mesh keeps.
 
-- **Cell family** (``rivers``). The line runs through the cells. ``cell_chains`` holds one
-  ordered chain of cells per line, upstream to downstream, and ``CellChain.offset_m`` the
-  distance from each chain cell centre to the line. It is optional: the ``voronoi`` engine
-  publishes it, and it is ``None`` where the cell holds the line.
-- **Face family** (``geology``, ``lakes``, ``barriers``, ``watershed_boundary``). The line
-  lies on cell faces. ``face_families`` has one row per mesh edge on a line: the two cells
-  (``-1`` outside the domain), the two vertices, and the zone on each side. An edge on the
-  lines of two families (a cutoff wall along a lake shore) has a row in each. The four sides
-  of the domain are face families named ``boundary:<side>``.
+- A cell family (``rivers``) runs through the cells. ``cell_chains`` holds one chain of cells per
+  line, from upstream to downstream. ``CellChain.offset_m`` gives the distance from each cell
+  centre to the line. The ``voronoi`` engine fills it, and it is ``None`` where the cell holds the
+  line.
+- A face family (``geology``, ``lakes``, ``barriers``, ``watershed_boundary``) lies on cell
+  faces. ``face_families`` has one row per mesh edge on a line, with the two cells (``-1``
+  outside the domain), the two vertices and the zone on each side. An edge on two families, such
+  as a cutoff wall along a lake shore, has a row in each. The four sides of the domain are face
+  families named ``boundary:<side>``.
 
-An engine says in its capabilities how it forms each kind (``cell_families``): exactly, by
-rasterizing the line, or from the faces. The quality report states how far the cells and
-faces are from the source lines. The intent of each family comes from ``[mesh.families]``.
+The ``cell_families`` capability of an engine says how it forms a cell family: exactly, by
+rasterizing the line, or from the faces. The intent of each family comes from
+``[mesh.families]``.
 
 .. _consumers-read-the-cell-mesh:
 
 Consumers read the cell mesh
 ----------------------------
 
-Every solver reads the cell mesh, never a producer's own support. One function serves
-every engine for each question a consumer asks:
+Every consumer reads the cell mesh, and none reads an engine-specific support. One function
+serves every engine for each question:
 
 .. list-table::
    :header-rows: 1
@@ -246,20 +197,18 @@ every engine for each question a consumer asks:
    * - Cells of a side, of the river, of a label
      - ``side_cells``, ``stream_cells``, ``label_cells`` in ``spatial/mesh/ops/family_cells.py``.
    * - Cell that holds a point
-     - ``locate_cells`` in ``spatial/mesh/ops/cell_location.py``. ``locate_cells_near`` takes
-       the nearest cell only within one cell size (the square root of its area) of a point
-       outside the mesh and gives no cell beyond, so a gauge or a piezometer that is far from
-       the mesh is named in a warning and not moved to an edge cell. The solvers reach it
-       through ``locate_cell_on_solver_mesh`` in ``solver/base/cell_lookup.py``, which takes the
-       top active layer of the column as the layer.
+     - ``locate_cells`` in ``spatial/mesh/ops/cell_location.py``. For a point outside the mesh,
+       ``locate_cells_near`` gives the nearest cell only within one cell size (the square root
+       of its area), and otherwise gives no cell and warns. The solvers call
+       ``locate_cell_on_solver_mesh`` in ``solver/base/cell_lookup.py``, which uses the top active
+       layer of the column.
    * - Forcing grids and stations on the cells
      - ``discretize_fields_on_cells`` and ``discretize_points_on_cells`` in
        ``spatial/mesh/forcing/``. The method ``area`` (``_area.py``) clips each cell by the
-       pixels its box reaches, once per source grid, and needs the planar mesh, which every
-       flow adapter passes to the one forcing path.
+       pixels its box reaches and needs the planar mesh.
    * - Zone fractions of a cell
-     - ``zone_fractions`` in ``spatial/field/zone_fractions.py``: the zone the engine gave the
-       cell when its faces lie on the contacts, else the exact polygon areas of a vector
+     - ``zone_fractions`` in ``spatial/field/zone_fractions.py``. It uses the zone the engine
+       gave the cell when the faces lie on the contacts, else the polygon areas of a vector
        geology source, else the sampling of the support.
    * - K, Sy and Ss on the cells
      - ``map_flow_properties`` in ``solver/field_property_mapping.py``, for MODFLOW 6,
@@ -270,8 +219,8 @@ every engine for each question a consumer asks:
      - The basin of the descent D, computed once per build and stored with the mesh
        (``mesh/descent_basin``), see :doc:`../storage-layout`.
 
-A river is read from its cell chains on every engine. A triangle mesh keeps the faces of the
-river line as face rows too.
+Every engine gives a river as cell chains. A triangle mesh also keeps the faces of the river
+line as face rows.
 
 Module layout
 -------------
@@ -279,47 +228,38 @@ Module layout
 .. code-block:: text
 
    hydromodpy/spatial/mesh/
-   |-- __init__.py          CellType, CellBlock, HydroMesh, PlanarCellMesh
-   |-- model/               cell_types.py, hydro_mesh.py, grid_wrappers.py (RegularGrid),
-   |                        planar_cell_mesh.py, derived_geometry.py, mesh_qa.py
+   |-- model/               the mesh classes, DerivedGeometry, MeshQA, RegularGrid
    |-- port.py              MeshEngine, MeshEngineCapabilities
-   |-- registry.py          engine id -> engine class, entry-point group hydromodpy.mesh.engine
+   |-- registry.py          engine id to class, entry-point group hydromodpy.mesh.engine
    |-- request.py           MeshRequest, LineFamilySpec, RasterGridSpec, SizeField
-   |-- cache.py             the meshes an engine cannot rebuild bit for bit
+   |-- cache.py             meshes an engine cannot rebuild bit for bit
    |-- engines/             regular/, triangle/, voronoi/
-   |-- planning/            plan_mesh_request: the project to a request; cleanup.py cleans the
-   |                        lines before any size is computed, input_mesh.py checks a
-   |                        triangulation read from a file
-   |-- sizing/              the size field of the graded engines: size_field.py builds it,
-   |                        gap.py gives the terms of the gap between face lines
-   |-- refinement/          the models of [[mesh.refinement_zone]] and [mesh.lake_refinement]
+   |-- planning/            plan_mesh_request, cleanup.py, input_mesh.py
+   |-- sizing/              size_field.py, gap.py
+   |-- refinement/          models of [[mesh.refinement_zone]] and [mesh.lake_refinement]
    |-- config/              the [mesh] models
-   |-- forcing/             grids and stations sampled on the cell centres, and the
-   |                        interpolation of values onto them (spatial_interpolation.py)
-   |-- ops/                 the shared cell helpers (families, location, chains, voronoi)
-   |-- (the vertical layers are not here: spatial/domain/layers_config.py and layering.py)
-   |-- adapters/            meshio_adapter.py, field_mesh_adapter.py, flopy_adapter.py,
-   |                        cell_mesh.py
-   |-- io/                  vtu_io.py
-   |-- plotting.py          plot_cell_values
-   |-- structured_grid/     the structured grid of the regular engine (sgrid_generation.py) and
-   |                        the keys of the top sampling (sgrid_config.py)
-   `-- gmsh_grid/           the reader of a .msh and GmshPlanarMesh2D, the reader of a
-                            Boussinesq validation bundle, exchange_api.py
+   |-- forcing/             grids and stations on the cell centres, spatial_interpolation.py
+   |-- ops/                 shared cell helpers
+   |-- adapters/            meshio, field mesh, FloPy, cell_mesh.py
+   |-- io/                  VTU
+   |-- plotting.py
+   |-- structured_grid/     grid of the regular engine, keys of the top sampling
+   `-- gmsh_grid/           .msh and bundle readers, GmshPlanarMesh2D, exchange_api.py
+
+The vertical layers live outside this folder, in ``spatial/domain/layers_config.py`` and
+``layering.py``.
 
 What the solvers read
 ---------------------
 
-The mesh a solver reads is not the pivot itself but the ``SolverMesh`` of
-``hydromodpy/solver/modflow_grid/solver_mesh.py``, built from the cell mesh and the
-vertical layers. The layers come from ``[domain.layers]``, which both MODFLOW backends read:
-``spatial/domain/layering.py`` turns shares or surfaces into the bottoms and the integer
-``idomain`` of the stack (``layer_stack``), and ``discretization_spatial.py`` samples the base
-rasters on the cell centres or resamples them to a regular grid. ``SolverMesh`` holds the
-``idomain`` (1, 0 or -1) and checks the interfaces once built. The run stores both, see
-:doc:`../storage-layout`. After the mesh, ``solver/modflow_grid/active_connectivity.py``
-counts the groups of active cells that no face or vertical connection joins and warns when
-there is more than one.
+A solver reads the ``SolverMesh`` of ``hydromodpy/solver/modflow_grid/solver_mesh.py``. It is
+built from the cell mesh and the vertical layers of ``[domain.layers]``, which both MODFLOW
+backends read. ``layer_stack`` in ``spatial/domain/layering.py`` turns shares or surfaces into
+the layer bottoms and the integer ``idomain`` (1, 0 or -1). ``discretization_spatial.py``, next
+to ``solver_mesh.py``, samples the base rasters on the cell centres or resamples them to a
+regular grid. ``SolverMesh`` checks the interfaces once it is built, and the run stores them with
+the ``idomain``, see :doc:`../storage-layout`. ``active_connectivity.py`` warns when some groups
+of active cells have no connection to the rest.
 
 .. list-table::
    :header-rows: 1
@@ -328,40 +268,29 @@ there is more than one.
    * - Backend
      - Mesh it reads
    * - MODFLOW 6
-     - DISV for every engine. A regular grid is written as DISV too, through
+     - DISV for every engine. A regular grid is also written as DISV, through
        ``SolverMesh.to_disv_kwargs()``, which calls ``to_flopy_disv_args``.
    * - MODFLOW-NWT
      - A DIS grid, which only the ``regular`` engine gives.
    * - Boussinesq
-     - The triangles of the cell mesh. The validation cases give it a bundle, which
+     - The triangles of the cell mesh. A validation case gives a bundle, which
        ``cell_mesh_from_bundle`` turns into a cell mesh.
 
-Each flow adapter declares the engines it reads in ``accepted_meshes``, see
-:doc:`mesh-engines`. Parameter discretization (``FieldParam``) works on every mesh type, and
-so do the plot and the VTU I/O.
+Each flow adapter declares the engines it reads in ``accepted_meshes``, see :doc:`mesh-engines`.
 
 Design choices
 --------------
 
-**Why not xugrid or UGRID NetCDF as the pivot?** xugrid handles 2D and layered
-pseudo-3D (UGRID2D), but not fully 3D unstructured meshes. UGRID NetCDF stays relevant
-as an output format for per-cell time series. As an internal pivot, vertices and
-connectivity are simpler, more general and free of dependencies.
-
-**Why not meshio directly?** meshio is an optional I/O dependency and not a pivot
-type. ``meshio.Mesh`` is mutable, supports about thirty cell types, most of them
-useless here, and stores ``cell_data`` as lists of lists per block. ``HydroMesh`` is a
-strict, normalised subset of its model with round trips through the adapters.
-
-**Why a frozen dataclass?** A mesh that cannot change after construction makes the data
-flow easier to reason about and removes a class of accidental mutation.
+xugrid handles 2D and layered pseudo-3D meshes (UGRID2D) but not fully 3D unstructured ones, so
+it cannot be the pivot. meshio is an optional I/O dependency. Its ``meshio.Mesh`` is mutable and
+supports about thirty cell types, most of them useless here. ``HydroMesh`` is a strict, frozen
+subset of that model, with round trips through the adapters.
 
 See also
 --------
 
 - :doc:`mesh-engines` for the port, the planner and the three engines.
-- :doc:`voronoi-engine` and :doc:`triangle-engine` for the two engines that mesh the catchment
-  under a size field.
+- :doc:`voronoi-engine` and :doc:`triangle-engine` for the two engines that use a size field.
 - :doc:`index` for the mesh section.
 - :doc:`../storage-layout` for the mesh in the Zarr store and its Parquet tables.
 - :doc:`../solver/backends` for the DIS and BAS contracts that consume the regular grid.

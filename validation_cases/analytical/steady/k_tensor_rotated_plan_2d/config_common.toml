@@ -1,0 +1,89 @@
+# A confined strip 1000 m long and 50 m wide, 10 m thick, with a head of 110 m
+# held on the west end and 100 m on the east end, no flow on the north and south
+# sides, no recharge. The heads stand far above the top of the layer, so the
+# transmissivity is uniform and the problem is linear. K11 = 1e-4 m/s and
+# K22 = 1e-5 m/s; each variant gives ANGLE1.
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "Rotated K tensor, plan view"
+description = "Steady confined flow along a strip with a rotated horizontal K tensor."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_k_tensor_rotated_plan"
+
+[geographic.synthetic.grid]
+length_x = "1000.0 m"
+length_y = "50.0 m"
+nx = 200
+ny = 10
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 0.0
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "10.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = []
+active_bc = ["west_side", "east_side"]
+param_list = ["K", "K22", "angle1"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.param.K22.field]
+kind = "homogeneous"
+value = "1e-5 m/s"
+
+[flow.ic]
+type = "custom"
+value = "105.0 m"
+
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "110.0 m"
+
+[flow.bc.east_side]
+kind = "dirichlet"
+value = "100.0 m"
+
+# The problem is linear, so the solve needs no damping. DBD under-relaxation and
+# the default ILUT(5) stalled near a 1e-9 m closure on this strip of 200
+# columns; a near-complete factorization on the RCM order reaches it in a few
+# outer iterations.
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_under_relaxation = "NONE"
+mf6_backtracking_number = 0
+mf6_linear_acceleration = "BICGSTAB"
+mf6_preconditioner_levels = 60
+mf6_preconditioner_drop_tolerance = 0.0
+mf6_reordering_method = "rcm"
+mf6_outer_dvclose = 1e-9
+mf6_inner_dvclose = 1e-10
+mf6_inner_rclose = 1e-10
+mf_verbose = false
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[display]
+enabled = false

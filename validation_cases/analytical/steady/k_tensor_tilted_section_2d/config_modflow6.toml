@@ -1,0 +1,6 @@
+# ANGLE2 = +20 deg. MODFLOW 6 turns the K11 axis about the K22 axis, clockwise
+# seen from +y: from +x toward +z, so K11 rises toward the east.
+
+[flow.param.angle2.field]
+kind = "homogeneous"
+value = 20.0

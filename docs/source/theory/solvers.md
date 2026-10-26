@@ -198,9 +198,9 @@ the missing terms {cite:p}`provost2017`. HydroModPy decides about it once per ru
 rule and its trigger are on {doc}`solvers/xt3d-on-irregular-disv-meshes`. XT3D makes the
 matrix non-symmetric, so the IMS preset is promoted when needed
 ({ref}`solvers-newton-ims`). Two tensors need XT3D for a consistent result, so HydroModPy
-turns it on and raises a `RuntimeWarning` on its cost. The first is a dip or a rotation
-(`angle2` or `angle3` not zero), because MODFLOW 6 reads these two angles only under XT3D. A dip
-or a rotation writes the three angles, the missing ones as zero, since MODFLOW 6 refuses
+turns it on and raises a `RuntimeWarning` on its cost. The first is a tilted tensor
+(`angle2` or `angle3` not zero), because MODFLOW 6 reads these two angles only under XT3D. A
+tilt writes the three angles, the missing ones as zero, since MODFLOW 6 refuses
 `ANGLE2` without `ANGLE3`. The second is a `K22` different from $K$ on a cell whose `angle1` is
 not a multiple of 90 degrees, or on any cell of an unstructured mesh. The axes of the tensor
 then leave the connections and the two-point flux drops the cross terms
@@ -482,7 +482,7 @@ messages, are these.
   is the whole message for barriers.
 - **Layers and tensor.** MODFLOW-NWT has no pass-through cell: `pinch_out = "pass_through"` is
   refused when the file is read, and the build refuses a grid that holds one. `K22` and the
-  angles need MODFLOW 6, and the file is refused with MODFLOW-NWT or Boussinesq. A dip outside
+  angles need MODFLOW 6, and the file is refused with MODFLOW-NWT or Boussinesq. An `angle2` outside
   $[-90, 90]$ degrees and an angle with a vertical profile are refused. Boussinesq solves one
   layer and reads no {toml}`domain.layers`, so it refuses more than one layer and the
   `surfaces` mode.

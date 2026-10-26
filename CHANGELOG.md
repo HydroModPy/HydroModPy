@@ -34,6 +34,11 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- HydroModPy's own `RuntimeWarning`s reach the log again (2026-10-26). `flopy.plot.plotutil`
+  ignores every `RuntimeWarning` when flopy is imported, so an unsettled cyclic spin-up, a
+  steady initialisation closed on its budget only, the fixed EVT extinction depth of a routed
+  deficit, a lake footprint far from its abacus, a failed GP surrogate fit and a failed HELP3O
+  download were silent in a run. Each is now logged as a warning too.
 - Calibration audit leftovers fixed on 2026-10-25 (thirteen commits `6feb2dfdc..a07541e77`).
   `Project.best` and `[sites.summary] best = "calibrated"` keep the `evaluated` runs, the calibrated
   runs scored out of their calibration window; `label="calibrated"` keeps the in-window ones only.
@@ -592,8 +597,9 @@ Each release section includes the following standard categories:
 - K tensor in MODFLOW 6 (2026-10-26). Four new flow parameters complete the
   conductivity tensor beside `K` and `Kv`: `K22`, the conductivity along the
   second axis (MODFLOW 6 takes K when it is left out), and `angle1`, `angle2`,
-  `angle3`, the azimuth, the dip and the rotation of the tensor in degrees (zero
-  when left out). Each is a `[flow.param.<id>]` like K, homogeneous or per zone,
+  `angle3` in degrees (zero when left out). `angle1` turns the first axis from east
+  towards north, so a compass azimuth N30E is `angle1 = 60`; `angle2` raises that
+  axis above the horizontal; `angle3` turns the tensor about it. Each is a `[flow.param.<id>]` like K, homogeneous or per zone,
   and `K22` takes a vertical profile like K. They reach the NPF package only when
   the flow sets them, so a run without them writes the same files as before. A
   non-zero `angle2` or `angle3` turns XT3D on, because MODFLOW 6 reads these two
@@ -601,11 +607,18 @@ Each release section includes the following standard categories:
   warning. A dip or a rotation writes the three angles, the missing ones as zero,
   since MODFLOW 6 refuses ANGLE2 without ANGLE3. The load refuses `K22` or an
   angle with MODFLOW-NWT or Boussinesq, which would drop them, an angle with a
-  vertical profile, and a dip outside [-90, 90] degrees. `K22` is checked
+  vertical profile, and an `angle2` outside [-90, 90] degrees. `K22` is checked
   positive on every active cell like K. The run store now keeps K33 as
   `derived/hydraulic_conductivity_k33` for every MODFLOW 6 run, and
   `derived/hydraulic_conductivity_k22` and `derived/conductivity_tensor_angle1..3`
   when the flow sets them; all are fields of `Run.field`.
+- Two validation cases check the K tensor against Darcy's law (2026-10-26):
+  `k_tensor_rotated_plan_2d` (`angle1` of plus and minus 30 degrees, `K22 = K/10`) and
+  `k_tensor_tilted_section_2d` (`angle2` of plus and minus 20 degrees, `Kv = K/10`). A long
+  strip with a head at each end carries a plane head far from the ends, whose direction and
+  flow follow from the tensor. Heads match to 1e-8 m and the end flows to 4e-7, and a wrong
+  sign or axis fails every case. A unit test also holds the median seed offset of a graded
+  `voronoi` mesh under a quarter of `max_slope`, the floor of a graded Voronoi mesh.
 - Three more mesh quality fields per cell (2026-10-22), computed on read like the four before.
   `mesh_bisection_offset` measures where the line joining two cell centres crosses their face,
   from the face middle, over the face length: 0 for a bisected face, 0.5 through a face end, and
@@ -1013,6 +1026,23 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- XT3D turns on by itself for a K tensor off the mesh axes (2026-10-26): a `K22` different
+  from K on a cell whose `angle1` is not a multiple of 90 degrees, or on any cell of an
+  unstructured mesh, beside the tilted tensor (`angle2` or `angle3`). The two-point flux drops
+  the cross terms of such a tensor: around a well with `K22 = K/10` and `angle1 = 30`, the head
+  error is a third of the drawdown and does not shrink when the cells are halved, while XT3D
+  converges. Both cases raise a `RuntimeWarning`, also logged, that XT3D multiplies the
+  MODFLOW 6 run time by about 9 to 11. `mf6_enable_xt3d = true` silences it, and `false` on such
+  a tensor warns that the result is inconsistent. Triangles and a non-orthogonal mesh turn
+  XT3D on as before.
+- Boussinesq refuses a `[domain.layers]` it would ignore (2026-10-26): more than one layer in
+  any mode, and the `surfaces` mode. It solves one layer and reads K and Sy at the top of the
+  aquifer. A phase override under `domain.layers` is checked on load, and the old dotted
+  overrides `modflow6.sgrid.vertical.*` and `modflownwt.sgrid.vertical.*` now migrate to
+  `domain.layers.*` like the tables do. A sealed run still reads, with a warning.
+- `hydromodpy.spatial.mesh.cartesian_grid` is `hydromodpy.spatial.mesh.structured_grid`
+  (2026-10-26), with no alias, and `spatial_interpolation` moves to
+  `hydromodpy.spatial.mesh.forcing`, where the forcing readers use it.
 - The layering is `[domain.layers]` (2026-10-26): the split of the aquifer between the top and the
   base of `[domain.depth_model]` (`genmtd_lay`, `nlay`, `lay_decay`, `lay_proportions`, `nodata`)
   is one table that MODFLOW 6 and MODFLOW-NWT both read, so a project has one layering whatever

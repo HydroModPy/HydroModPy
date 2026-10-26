@@ -1,0 +1,18 @@
+[uniform_flow]
+gradient_direction_relative_error = 1e-7
+head_max_abs_error = 2e-7
+end_flow_relative_error = 4e-6
+
+[doc]
+reason = """
+Derived from the solver closure. XT3D carries a linear head exactly, so the
+window holds no discretization error: the errors do not fall with the cell
+size (head 3.5e-9 m on 10 m cells, 2.7e-7 m on 2.5 m cells), they follow the
+conditioning of the solve. What is left is the linear solve, closed at 1e-9 m,
+and end effects 22 decay lengths away. The
+bounds are about ten times the largest error of the four runs of the two K
+tensor cases, both signs. Measured here at +30 and -30 deg: gradient direction
+2.2e-10 and 4.3e-9, head 3.9e-9 and 1.3e-8 m, end flow 4.2e-8 and 1.5e-7. A
+sign error on ANGLE1 gives a direction error of 2, the two-point flux without
+XT3D a direction error of 1 and a head error of 0.33 m.
+"""

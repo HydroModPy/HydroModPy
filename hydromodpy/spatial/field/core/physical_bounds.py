@@ -70,10 +70,16 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
     "vka": PhysicalBound("-", 1e-3, 1e2, "vertical anisotropy Kv/Kh"),
     "k22": PhysicalBound("m/s", 1e-14, 1e2, "hydraulic conductivity along the second axis"),
     # The three angles of the K tensor, in degrees, as MODFLOW 6 NPF reads them.
-    # A dip past the vertical is the same tensor turned by angle1, so angle2 stays
+    # angle1 turns the first axis from east towards north, so it is not a compass
+    # azimuth (N30E is angle1 = 60). angle2 raises that axis above the horizontal.
+    # A rise past the vertical is the same tensor turned by angle1, so angle2 stays
     # within a quarter turn.
-    "angle1": PhysicalBound("-", -360.0, 360.0, "azimuth of the K tensor in degrees"),
-    "angle2": PhysicalBound("-", -90.0, 90.0, "dip of the K tensor in degrees"),
+    "angle1": PhysicalBound(
+        "-", -360.0, 360.0, "turn of the first K axis from east towards north in degrees"
+    ),
+    "angle2": PhysicalBound(
+        "-", -90.0, 90.0, "rise of the first K axis above the horizontal in degrees"
+    ),
     "angle3": PhysicalBound("-", -360.0, 360.0, "rotation of the K tensor in degrees"),
     "transmissivity": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),
     "t": PhysicalBound("m**2/s", 1e-10, 1e3, "transmissivity"),

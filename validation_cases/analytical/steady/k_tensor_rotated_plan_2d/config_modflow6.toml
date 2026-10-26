@@ -1,0 +1,5 @@
+# ANGLE1 = +30 deg: the K11 axis turned from +x toward +y.
+
+[flow.param.angle1.field]
+kind = "homogeneous"
+value = 30.0

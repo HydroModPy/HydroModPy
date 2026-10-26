@@ -216,15 +216,17 @@ The `NPF` package of MODFLOW 6 reads the tensor by its principal
 values, $K$ along the first axis, `K22` along the second and $K_z$ along the third, and
 by three angles {cite:p}`langevin2017`. Four parameters complete $K$ and `Kv` for it. `K22`
 is the conductivity along the second axis, and MODFLOW 6 takes $K$ when it is left out.
-`angle1`, `angle2` and `angle3` are the azimuth, the dip and the rotation of the tensor in
-degrees, zero when they are left out. Each is a `[flow.param.<id>]` like $K$, homogeneous or
-per zone. `K22` takes a vertical profile like $K$, an angle does not. The parameters reach
-`NPF` only when the flow sets them, so a run without them writes the same files as before. A
-dip or a rotation turns XT3D on, because MODFLOW 6 reads these two angles only under XT3D, and
-so does a `K22` whose axes leave the connections of the mesh
+`angle1` turns the first axis from east towards north, counter-clockwise, so it is not a
+compass azimuth and N30E reads `angle1 = 60`. `angle2` raises the first axis above the
+horizontal, and `angle3` turns the tensor about it. All three are in degrees, zero when they
+are left out. Each is a `[flow.param.<id>]` like $K$, homogeneous or per zone. `K22` takes a
+vertical profile like $K$, an angle does not. The parameters reach `NPF` only when the flow
+sets them, so a run without them writes the same files as before. A non-zero `angle2` or
+`angle3` turns XT3D on, because MODFLOW 6 reads these two angles only under XT3D, and so does
+a `K22` whose axes leave the connections of the mesh
 ({doc}`solvers/xt3d-on-irregular-disv-meshes`). The file is refused with MODFLOW-NWT or
-Boussinesq, which would drop them, and with a dip outside $[-90, 90]$ degrees. The run store
-keeps $K_z$ and, when set, `K22` and the three angles with the other static properties
+Boussinesq, which would drop them, and with an `angle2` outside $[-90, 90]$ degrees. The run
+store keeps $K_z$ and, when set, `K22` and the three angles with the other static properties
 ({doc}`../contribute/architecture/storage-layout`).
 
 ```toml

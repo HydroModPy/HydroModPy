@@ -25,7 +25,9 @@ groups:
   descent: The descent and the distance between networks
   scores: Scores
 
-collisions: []
+collisions:
+  - [anisotropy, bisection-offset]
+  - [runoff-lag, face-length]
 
 symbols:
   # ------------------------------------------------------------ space
@@ -561,6 +563,48 @@ symbols:
     symbol: \tilde z_c
     meaning: DEM value interpolated at the centre of cell :math:`c`
     unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: gap
+    symbol: e
+    meaning: distance from a point of a face line to the nearest point of another line
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: gap-cells
+    symbol: n_e
+    meaning: number of cells wanted across a gap
+    unit: "-"
+    set_by: ":toml:`gap_cells|mesh.gap_cells`"
+    group: mesh
+    pages: [mesh]
+  - id: gap-size
+    symbol: \ell_e
+    meaning: cell size asked on the chord of a gap
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: face-length
+    symbol: L
+    meaning: length of a face between two cells
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: crossing-distance
+    symbol: s
+    meaning: distance from one end of a face to where the line of the two centres crosses it
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: bisection-offset
+    symbol: \beta
+    meaning: "bisection offset of a face, :math:`\\lvert s - L/2 \\rvert / L`"
+    unit: "-"
     set_by: derived
     group: mesh
     pages: [mesh]

@@ -1,0 +1,30 @@
+case_id = "k_tensor_rotated_plan_2d"
+category = "analytical"
+regime = "steady"
+dimension = "2d"
+default_solver = "modflow6"
+base_config = "config_common.toml"
+
+[config_files]
+modflow6 = "config_modflow6.toml"
+modflow6_mirrored = "config_modflow6_mirrored.toml"
+
+[workspace]
+results_folder_name = "results_simulations"
+
+[output]
+observable_name = "head"
+
+[reference]
+length_x_m = 1000.0
+length_y_m = 50.0
+thickness_m = 10.0
+west_head_m = 110.0
+east_head_m = 100.0
+k11_m_per_s = 1e-4
+k22_m_per_s = 1e-5
+angle1_deg = 30.0
+window_half_length_m = 100.0
+
+[reference.angle1_deg_by_solver]
+modflow6_mirrored = -30.0
