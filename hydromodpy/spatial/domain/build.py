@@ -79,8 +79,8 @@ def build_domain(
 
     *substratum_source* is the raster a raster depth model reads, on its own
     grid. *layer_base_sources* holds, by name, the layer bases a layering by
-    surfaces reads, on their own grids. *active_cells* narrows the cells that raster must cover, for a caller
-    that masks the top rather than clipping it.
+    surfaces reads, on their own grids. *active_cells* narrows the cells that
+    raster must cover, for a caller that masks the top rather than clipping it.
     """
     return Domain(
         config=domain_config_for_build(config, zone_ids=zone_ids),
@@ -122,25 +122,18 @@ def read_layer_base_sources(layers: object, data: object | None) -> dict[str, Su
     *layers* is the ``[domain.layers]`` table and *data* the ``[data]`` section,
     whose ``layer_base`` member holds one raster per name. Each raster is read
     on its own grid, and the domain reprojects it onto the top. A layering that
-    reads no base reads nothing.
+    reads no base reads nothing. A name ``[data.layer_base]`` does not declare
+    is refused by the config on load, and by the domain otherwise.
     """
     names = tuple(getattr(layers, "base_surface_names", ()) or ())
-    if not names:
-        return {}
     layer_base = getattr(data, "layer_base", None)
     declared = {} if layer_base is None else {source.name: source for source in layer_base.sources}
-    missing = sorted(set(names) - set(declared))
-    if missing:
-        raise ConfigError(
-            f"[domain.layers] reads the base surfaces {missing}, and [data.layer_base] "
-            f"declares {sorted(declared) or 'none'}. Add one [[data.layer_base.sources]] "
-            "entry per name."
-        )
     return {
         name: Surface.from_raster(
             declared[name].path, name=f"{name}_source", default_crs=declared[name].default_crs
         )
         for name in names
+        if name in declared
     }
 
 

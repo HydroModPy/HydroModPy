@@ -15,16 +15,14 @@ import pytest
 from hydromodpy.solver.modflow_grid.discretization_spatial import (
     _build_extruded_solver_mesh_from_runtime_planar,
 )
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    TopSamplingConfig,
-    VerticalGridConfig,
-)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     CellChain,
     MeshIdentity,
     build_planar_cell_mesh,
 )
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import TopSamplingConfig
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from tests._helpers.cell_meshes import TEST_CRS_WKT

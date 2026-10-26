@@ -108,19 +108,20 @@ z_{\mathrm{bot},j} = z_\mathrm{top} - H\,p_j ,
 $$ (eq-layer-bottom)
 
 The shares $p_j$ are the same for every cell. Three rules build them, chosen by
-{toml}`modflow6.sgrid.vertical.genmtd_lay`:
+{toml}`domain.layers.genmtd_lay`:
 
 | `genmtd_lay` | $p_j$ |
 |---|---|
 | `constant` | $j / n_\mathrm{lay}$ |
-| `decay`, with $\rho$ read from {toml}`modflow6.sgrid.vertical.lay_decay` | $(1 - \rho^{j}) / (1 - \rho^{n_\mathrm{lay}})$ |
-| `list` | the running sum of {toml}`modflow6.sgrid.vertical.lay_proportions` |
+| `decay`, with $\rho$ read from {toml}`domain.layers.lay_decay` | $(1 - \rho^{j}) / (1 - \rho^{n_\mathrm{lay}})$ |
+| `list` | the running sum of {toml}`domain.layers.lay_proportions` |
 
 The `decay` rule needs $\rho > 1$, and the file is refused otherwise: the layers
 then thicken with depth. With $\rho = 2$ and four layers they hold 1, 2, 4 and 8
 fifteenths of the column, from the top down. A `list` must sum to 1. With one
-layer, $p_1 = 1$ and the column is one cell. MODFLOW-NWT reads the same keys
-under `modflownwt.sgrid.vertical`.
+layer, $p_1 = 1$ and the column is one cell. MODFLOW 6 and MODFLOW-NWT both read the table
+`[domain.layers]`, so a project has one layering whatever solver runs it. A fourth value,
+`surfaces`, gives the base of each layer instead of a share ({ref}`mesh-layer-surfaces`).
 
 ```{eval-rst}
 .. plot:: theory/figures/gwf_layers.py
@@ -131,14 +132,16 @@ under `modflownwt.sgrid.vertical`.
 ```
 
 **What the layers can represent.** Every layer reuses the planar cells and their
-connections, and only the top and the bottom of the column vary from cell to cell.
-Geology therefore varies through the properties of each layer and cell
-({ref}`gwf-properties`), not through surfaces of its own. A stratigraphy whose
-interfaces cross the proportions, a layer that disappears, or a connection that
-changes from one layer to the next is not represented. MODFLOW 6 builds every
-grid, structured or not, as a vertex grid (`DISV`), never as `DISU`. The
+connections. With shares, only the top and the bottom of the column vary from cell to cell,
+and geology varies through the properties of each layer and cell ({ref}`gwf-properties`).
+With surfaces, the base of each layer varies too, and a layer thinner than its minimum
+thickness is pinched out: its cell becomes a vertical pass-through cell, `idomain = -1`, or
+keeps the minimum thickness ({ref}`mesh-layer-surfaces`). A pass-through cell holds no head,
+and MODFLOW 6 connects the cells above and below it. A change of the plan from one layer to
+the next, or a connection that is not the one of the plan, is not represented. MODFLOW 6
+builds every grid, structured or not, as a vertex grid (`DISV`), never as `DISU`. The
 Boussinesq solver has no layers: it works on one triangle per column. In the
-code: `layer_proportions`.
+code: `layer_proportions`, `layer_stack`.
 
 (gwf-properties)=
 ## The properties
@@ -183,7 +186,10 @@ factor has no floor and tends to zero with depth. For `mode = "tabulated"`, the
 factor is a linear or stepwise interpolation of the table you give, equal to the
 first and last factor outside the table. With one layer, $d_j$ is half the
 thickness: the profile then gives one factor per cell and no variation with
-depth.
+depth. A profile on fewer than five layers is warned about when the file is read. Take a
+column of thickness $H = 2.5\,d_c$ and $K$ at the middle of each equal layer. One layer gives
+a transmissivity off by $-22\,\%$ to $+75\,\%$ as the water table goes from the top to
+mid-column, three layers by $-2.8\,\%$ at the top, and five layers by $-1.0\,\%$.
 
 ```{eval-rst}
 .. plot:: theory/figures/gwf_depth_factor.py
@@ -202,6 +208,41 @@ cell, and a file that gives `Kv` and a `vka` other than 1 is refused.
 The code refuses a $K$ that is zero, negative or not finite on an active cell. A
 heterogeneous $K$ whose zones do not cover the whole domain produces exactly that.
 In the code: `FieldParam.vertical_factor`.
+
+(gwf-tensor)=
+### The conductivity tensor
+
+The `NPF` package of MODFLOW 6 reads the tensor by its principal
+values, $K$ along the first axis, `K22` along the second and $K_z$ along the third, and
+by three angles {cite:p}`langevin2017`. Four parameters complete $K$ and `Kv` for it. `K22`
+is the conductivity along the second axis, and MODFLOW 6 takes $K$ when it is left out.
+`angle1`, `angle2` and `angle3` are the azimuth, the dip and the rotation of the tensor in
+degrees, zero when they are left out. Each is a `[flow.param.<id>]` like $K$, homogeneous or
+per zone. `K22` takes a vertical profile like $K$, an angle does not. The parameters reach
+`NPF` only when the flow sets them, so a run without them writes the same files as before. A
+dip or a rotation turns XT3D on, because MODFLOW 6 reads these two angles only under XT3D, and
+so does a `K22` whose axes leave the connections of the mesh
+({doc}`solvers/xt3d-on-irregular-disv-meshes`). The file is refused with MODFLOW-NWT or
+Boussinesq, which would drop them, and with a dip outside $[-90, 90]$ degrees. The run store
+keeps $K_z$ and, when set, `K22` and the three angles with the other static properties
+({doc}`../contribute/architecture/storage-layout`).
+
+```toml
+[flow]
+param_list = ["K", "Sy", "K22", "angle1", "angle2"]
+
+[flow.param.K22.field]
+kind = "homogeneous"
+value = "1e-6 m/s"
+
+[flow.param.angle1.field]
+kind = "homogeneous"
+value = 30.0
+
+[flow.param.angle2.field]
+kind = "homogeneous"
+value = 20.0
+```
 
 (gwf-equation)=
 ## What the solvers solve
@@ -404,8 +445,9 @@ carries no flow. The two keys that activate them are {toml}`flow.active_bc` and
   boundary is activated.
 - **A bottom above the top is refused.** So is a bottom that equals it, and a
   raster that leaves one cell without a value.
-- **Layers cannot pinch out.** They share one rule of proportions, and the
-  thickness cannot fall below $H_\mathrm{min}$ with a raster kind.
+- **Only layers by surfaces pinch out.** Shares give every cell the same proportions, so no
+  layer reaches zero thickness, and the thickness cannot fall below $H_\mathrm{min}$ with a
+  raster kind. The thickness of a layer by surfaces is an input and is not calibrable.
 - **Boussinesq has one layer and no $S_s$.** It reads $K$ and $S_y$ only.
 - **Newton and rewetting exclude each other** in MODFLOW 6.
 - **A steady first period is refused with the soil reservoir.** The reservoir
@@ -438,7 +480,7 @@ recharge and thickness. Below 1, the drains act along the streams only.
 HydroModPy has no seepage face below the top of a cell. The drains of the top
 layer and the surface closures of the Boussinesq solver take the water at the cell
 top, and a stream imposed as a head fixes the head of the whole cell. With
-{toml}`modflow6.sgrid.vertical.nlay` above 1 and a ratio
+{toml}`domain.layers.nlay` above 1 and a ratio
 {toml}`modflow6.process_specific.vka`, MODFLOW 6 and MODFLOW-NWT carry one head per
 layer, so the vertical resistance enters the solution. The code computes none of
 these ratios and refuses no model for its aspect ratio. A depth factor
@@ -457,10 +499,11 @@ domain.depth_model.offset
 domain.depth_model.min_thickness
 domain.depth_model.scale
 data.substratum.sources.path
-modflow6.sgrid.vertical.nlay
-modflow6.sgrid.vertical.genmtd_lay
-modflow6.sgrid.vertical.lay_decay
-modflow6.sgrid.vertical.lay_proportions
+domain.layers.nlay
+domain.layers.genmtd_lay
+domain.layers.lay_decay
+domain.layers.lay_proportions
+domain.layers.pinch_out
 flow.param.K.field.value
 flow.param.Sy.field.value
 flow.param.Ss.field.value
@@ -503,8 +546,8 @@ hydromodpy.solver.modflow_nwt.nwt
 |---|---|
 | The top, the bottom and the raster depth models | `hydromodpy/spatial/domain/domain.py` (`Domain._build_surfaces`, `Domain._substratum_from_raster`), `hydromodpy/spatial/domain/depth_model_config.py` |
 | Reading the substratum raster | `hydromodpy/spatial/domain/build.py` (`read_substratum_source`) |
-| Layers, the check bottom below top | `hydromodpy/spatial/mesh/cartesian_grid/sgrid_generation.py` (`layer_proportions`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
-| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`), `hydromodpy/solver/field_property_mapping.py`, `resolve_required_flow_properties` |
+| Layers, the check bottom below top | `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
+| The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/solver/field_property_mapping.py`, `resolve_required_flow_properties` |
 | The depth factor | `hydromodpy/spatial/field/core/field_param.py` (`FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
 | The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`, `newton_options`) |
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |

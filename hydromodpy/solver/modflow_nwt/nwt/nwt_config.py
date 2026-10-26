@@ -11,7 +11,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import LengthMeters
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
 class NwtSolverConfig(HydroModelBase):

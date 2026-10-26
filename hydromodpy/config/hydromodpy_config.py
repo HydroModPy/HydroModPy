@@ -106,6 +106,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshConfig
 
@@ -286,6 +287,60 @@ def _refuse_unknown_transport_solvers(names: list[str]) -> None:
         f"Unknown transport solver '{unknown[0]}' in [[simulation.process]]: it is "
         f"neither built in nor a registered plugin. Write one of: {known}."
     )
+
+
+_LAYERS_PATH = "domain.layers"
+
+_OLDER_LAYERING = (
+    "The [modflow6.sgrid.vertical] or [modflownwt.sgrid.vertical] of an older file, "
+    "as a table or as a phase override, is read as [domain.layers]."
+)
+
+
+def _boussinesq_layering_refusals(layers: VerticalGridConfig, calibration: Any) -> list[str]:
+    """Say why Boussinesq refuses the layering of the file and of each calibration phase."""
+    from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
+
+    written = [("[domain.layers]", layers)]
+    for phase in getattr(calibration, "phases", None) or ():
+        phase_layers = _layering_of_the_phase(layers, getattr(phase, "overrides", None) or {})
+        if phase_layers is not None:
+            where = f"the domain.layers override of calibration phase {phase.name!r}"
+            written.append((where, phase_layers))
+    refusals: list[str] = []
+    for where, read in written:
+        refusal = layering_refusal(read, written_in=where)
+        if refusal is not None:
+            # Layers by surfaces came after the solver tables moved: no older file holds them.
+            older = "" if read.genmtd_lay == "surfaces" else f" {_OLDER_LAYERING}"
+            refusals.append(refusal + older)
+    return refusals
+
+
+def _layering_of_the_phase(
+    layers: VerticalGridConfig, overrides: Mapping[str, Any]
+) -> VerticalGridConfig | None:
+    """Return the layering a calibration phase runs, with its ``domain.layers`` overrides.
+
+    None when the phase writes no such override, or one that does not validate:
+    the preflight names an override it cannot write.
+    """
+    written = {
+        str(key): value
+        for key, value in overrides.items()
+        if key == _LAYERS_PATH or str(key).startswith(f"{_LAYERS_PATH}.")
+    }
+    if not written:
+        return None
+    table = written.pop(_LAYERS_PATH, layers.model_dump(exclude_unset=True))
+    if not isinstance(table, Mapping):
+        return None
+    payload = dict(table)
+    payload.update({key.removeprefix(f"{_LAYERS_PATH}."): value for key, value in written.items()})
+    try:
+        return VerticalGridConfig.model_validate(payload)
+    except ValueError:
+        return None
 
 
 def _with_calibration_defaults(raw: dict[str, Any], *, source_path: Path | None) -> dict[str, Any]:
@@ -822,10 +877,13 @@ class HydroModPyConfig(HydroModelBase):
             + (f" ({', '.join(readers)})." if readers else ".")
         )
 
-    def _check_the_layering(self, solver_cfg: SolverConfig | None) -> None:
+    def _check_the_layering(self, solver_cfg: SolverConfig | None, *, sealed: bool) -> None:
         """Refuse a layering its data or its solver cannot serve; warn on a coarse K profile.
 
-        A layering by surfaces reads its rasters by name from ``[data.layer_base]``,
+        Boussinesq solves one layer and reads no ``[domain.layers]``, so more
+        layers or a layering by surfaces are refused for it, in the file and in
+        the overrides of a calibration phase. A sealed run only warns. A
+        layering by surfaces reads its rasters by name from ``[data.layer_base]``,
         and the two lists must match. MODFLOW-NWT has no vertical pass-through
         cell, so it reads such a layering only when a thin layer keeps its minimum
         thickness. A vertical profile of K on one layer is summed up by K at the
@@ -836,6 +894,15 @@ class HydroModPyConfig(HydroModelBase):
         layers = getattr(domain, "layers", None)
         if layers is None:
             return
+        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
+        engine_value = getattr(engine, "value", engine)
+        if engine_value == "boussinesq":
+            for refusal in _boussinesq_layering_refusals(
+                layers, getattr(self, "calibration", None)
+            ):
+                if not sealed:
+                    raise ValueError(refusal)
+                logger.warning("%s This sealed run was solved on one layer.", refusal)
         layer_base = getattr(getattr(self, "data", None), "layer_base", None)
         declared = set() if layer_base is None else {source.name for source in layer_base.sources}
         read = set(layers.base_surface_names)
@@ -851,8 +918,7 @@ class HydroModPyConfig(HydroModelBase):
                 "[domain.layers] reads them as its surface. Give a layer that surface, or "
                 "remove the entries."
             )
-        engine = getattr(solver_cfg, "backend_name", None) if solver_cfg is not None else None
-        if getattr(engine, "value", engine) == "modflow_nwt" and layers.has_pass_through_cells:
+        if engine_value == "modflow_nwt" and layers.has_pass_through_cells:
             raise ValueError(
                 "[domain.layers] pinch_out = 'pass_through' makes a thin layer a vertical "
                 "pass-through cell (idomain -1), which MODFLOW-NWT does not have. Write "
@@ -863,7 +929,14 @@ class HydroModPyConfig(HydroModelBase):
             profile = getattr(param, "field_vertical_profile", None)
             if str(param_id).lower() != "k" or profile is None or profile.mode == "none":
                 continue
-            if layers.layer_count < 5:
+            if engine_value == "boussinesq":
+                logger.warning(
+                    "flow.param.%s has a vertical profile, and boussinesq reads K at the "
+                    "top of the aquifer only, one value per column: the profile below the "
+                    "top is not read.",
+                    param_id,
+                )
+            elif layers.layer_count < 5:
                 logger.warning(
                     "flow.param.%s has a vertical profile and [domain.layers] builds %d "
                     "layer(s). One layer sums the profile up by K at mid-column, off by "
@@ -1010,6 +1083,9 @@ class HydroModPyConfig(HydroModelBase):
           declares, ``[data.layer_base]`` declares only bases a layer reads, and
           MODFLOW-NWT reads it only with ``pinch_out = "keep_min_thickness"``.
           A vertical K profile on fewer than five layers is warned about.
+        * ``solver.backend = "boussinesq"`` ⇒ ``[domain.layers]``, and the
+          ``domain.layers`` overrides of a calibration phase, build one layer and
+          not by surfaces, since Boussinesq solves one layer and reads no layering.
         * ``workflow.mode = "overview"`` ⇒ an ``[overview]`` section is declared:
           without it the workflow delineates and loads, then writes no report.
         * ``[metrics] window`` shares at least one day with ``[simulation.time]``,
@@ -1023,9 +1099,8 @@ class HydroModPyConfig(HydroModelBase):
             )
 
         context = info.context if isinstance(info.context, Mapping) else {}
-        self._check_the_metrics_window_meets_the_run(
-            sealed=context.get("validation_context") == "snapshot"
-        )
+        sealed = context.get("validation_context") == "snapshot"
+        self._check_the_metrics_window_meets_the_run(sealed=sealed)
 
         if getattr(getattr(self, "workflow", None), "mode", None) == "overview" and (
             getattr(self, "overview", None) is None
@@ -1335,7 +1410,7 @@ class HydroModPyConfig(HydroModelBase):
                 "soil section, or remove [data.soil_capacity]."
             )
 
-        self._check_the_layering(solver_cfg)
+        self._check_the_layering(solver_cfg, sealed=sealed)
         self._check_the_conductivity_tensor(solver_cfg)
 
         # Last, so a fault of the solver itself is named before a mesh it would not read.
@@ -1449,7 +1524,8 @@ class HydroModPyConfig(HydroModelBase):
         """Load and validate configuration from a Python mapping.
 
         ``sealed`` reads the frozen config of a run already on disk: a check that
-        refuses what a run cannot be scored on only warns there.
+        refuses what a run cannot be scored on, or a layering Boussinesq would
+        ignore, only warns there.
         """
         base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
         return cls._from_payload(payload, base=base, context="snapshot" if sealed else "api")

@@ -7,10 +7,8 @@ from pydantic import ValidationError
 
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    SolverSGridConfig,
-    VerticalGridConfig,
-)
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
 def test_a_solver_sgrid_vertical_key_is_refused_naming_domain_layers() -> None:

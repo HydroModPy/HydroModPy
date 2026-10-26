@@ -3,15 +3,14 @@
 The flow parameters ``K22``, ``angle1``, ``angle2`` and ``angle3`` are mapped on
 the solver mesh like K. Only those the flow sets reach NPF, so a run without them
 writes the same package as before. A non-zero ``angle2`` or ``angle3`` turns XT3D
-on, because MODFLOW 6 reads them only there, unless ``mf6_enable_xt3d`` is
-written. MODFLOW 6 reads ANGLE2 only with ANGLE3, so a tilt writes all three
-angles. K33 and the tensor arrays are left beside the model with K, Sy and Ss.
+on with a RuntimeWarning, because MODFLOW 6 reads them only there, unless
+``mf6_enable_xt3d`` is written. MODFLOW 6 reads ANGLE2 only with ANGLE3, so a
+tilt writes all three angles. K33 and the tensor arrays are left beside the
+model with K, Sy and Ss.
 """
 
 from __future__ import annotations
 
-import contextlib
-import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,7 +25,6 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
     k_tensor_is_tilted,
     resolve_xt3d_decision,
 )
-from hydromodpy.solver.modflow6.builders.solver_options import logger as advisor_logger
 from hydromodpy.solver.modflow6.support.property_mapping import (
     k_tensor_npf_kwargs,
     resolve_flow_property_arrays,
@@ -66,21 +64,10 @@ def _mapped(**values: float) -> dict[str, np.ndarray]:
 def _model(*, xt3d: bool | None = None, **arrays: np.ndarray) -> SimpleNamespace:
     runtime = SimpleNamespace(mf6_enable_xt3d=xt3d)
     model = SimpleNamespace(modflow_config=SimpleNamespace(runtime=runtime))
+    model.hk = np.full((2, N_CELLS), 1e-4)
     for name in ("k22", "angle1", "angle2", "angle3"):
         setattr(model, name, arrays.get(name))
     return model
-
-
-@contextlib.contextmanager
-def _warnings():
-    records: list[logging.LogRecord] = []
-    handler = logging.Handler(level=logging.WARNING)
-    handler.emit = records.append  # type: ignore[method-assign]
-    advisor_logger.addHandler(handler)
-    try:
-        yield records
-    finally:
-        advisor_logger.removeHandler(handler)
 
 
 def test_k22_and_the_angles_are_mapped_on_every_cell_of_every_layer() -> None:
@@ -119,13 +106,14 @@ def test_a_tilted_tensor_turns_xt3d_on_even_on_a_regular_grid(name: str) -> None
     angles[1, 2] = 10.0
     model = _model(**{name: angles})
     assert k_tensor_is_tilted(model)
-    decision = resolve_xt3d_decision(model, _mesh())
+    with pytest.warns(RuntimeWarning, match="tilted"):
+        decision = resolve_xt3d_decision(model, _mesh())
     assert decision.enabled
     assert decision.source == "auto_on"
 
 
-def test_an_azimuth_alone_leaves_xt3d_off_on_a_regular_grid() -> None:
-    model = _model(k22=np.full((2, N_CELLS), 2e-5), angle1=np.full((2, N_CELLS), 30.0))
+def test_an_azimuth_without_k22_leaves_xt3d_off_on_a_regular_grid() -> None:
+    model = _model(angle1=np.full((2, N_CELLS), 30.0))
     assert not k_tensor_is_tilted(model)
     assert resolve_xt3d_decision(model, _mesh()).enabled is False
 
@@ -137,11 +125,10 @@ def test_zero_dip_angles_do_not_tilt_the_tensor() -> None:
 
 def test_a_written_xt3d_off_is_kept_with_a_warning_on_a_tilted_tensor() -> None:
     model = _model(xt3d=False, angle2=np.full((2, N_CELLS), 20.0))
-    with _warnings() as records:
+    with pytest.warns(RuntimeWarning, match="tilted"):
         decision = resolve_xt3d_decision(model, _mesh())
     assert decision.enabled is False
     assert decision.source == "explicit_off"
-    assert any("tilted" in record.getMessage() for record in records)
 
 
 def test_k33_and_the_tensor_are_stored_with_the_other_properties(tmp_path: Path) -> None:

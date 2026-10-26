@@ -54,12 +54,25 @@ The planner
 
 - It sets the intent of each family from ``[mesh.families]``: the rivers are ``cell`` lines,
   the geology contacts, the lake shores and the catchment boundary are ``face`` lines.
-- It clips the lines to the domain and drops a hole of the domain, of a lake or of the
-  catchment whose area is below the square of the local cell size, for every engine.
+- It clips the lines to the domain.
+- It cleans the lines (``planning/cleanup.py``), for every engine but a triangulation read from
+  a file. At a tolerance of a tenth of the DEM pixel (``CLEANUP_PIXEL_SHARE``) it drops the
+  holes of the domain, of a lake or of the catchment whose area is below the square of the
+  local cell size, merges the vertices closer than the tolerance, cuts back the end of a
+  river or a contact that runs along another line, and snaps the end of a line that misses
+  another by less than the tolerance. A barrier is only snapped, never cut back, and a vertex
+  that two geometries share is not moved. Each kind of change is one line of the log and one
+  note of ``MeshQA``, and a request that needs no change is returned as it was.
 - For an engine that grades its cells it builds the size field
   (``spatial/mesh/sizing/size_field.py``) from the rivers, the lake shores and the refinement
-  zones, resamples each line at the local cell size and merges the segments shorter than
-  0.8 of it. The rule of the size field is on :doc:`/theory/mesh`.
+  zones, plus the terms of ``sizing/gap.py``: one ``SizeTerm`` per level of the gap between
+  the face lines, switched off by ``[mesh] gap_cells = 0``. It resamples each line at the
+  local cell size and merges the segments shorter than 0.8 of it. A barrier wing next to a
+  lake shore is left out when it is shorter than half the local cell size where it leaves the
+  shore. The rule of the size field is on :doc:`/theory/mesh`.
+- For a request with a triangulation read from a file (``planning/input_mesh.py``), it refuses
+  a T-junction, a vertex that lies inside the edge of a triangle that does not hold it, with
+  the coordinates in the message, and warns about vertices closer than 1e-9 of the extent.
 - It reads the ``.msh`` file of ``[mesh.triangle] path``, when given, into the request instead
   of planning a triangulation.
 

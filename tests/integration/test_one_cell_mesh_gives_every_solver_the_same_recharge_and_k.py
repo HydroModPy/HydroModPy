@@ -425,9 +425,9 @@ def test_no_solver_module_reaches_a_retired_reader() -> None:
 @pytest.mark.parametrize(
     "probe",
     [
-        "from hydromodpy.spatial.mesh.cartesian_grid.sgrid_field_discretization import f",
+        "from hydromodpy.spatial.mesh.structured_grid.sgrid_field_discretization import f",
         "import hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization",
-        "from hydromodpy.spatial.mesh.cartesian_grid import sgrid_fieldparam_discretization",
+        "from hydromodpy.spatial.mesh.structured_grid import sgrid_fieldparam_discretization",
         "from flopy.utils.gridintersect import GridIntersect",
         "from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency",
         "x = GridIntersect(grid)",

@@ -474,6 +474,138 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- The cell shape in the mesh QA, and a build warning (2026-10-26). `MeshQA` gains
+  `bisection_offset` (quantiles over the interior faces longer than `min_face_length_m`, and
+  `n_cells_gt_0_25`, the cells with a face above `BISECTION_OFFSET_WARNING`), `min_angle_deg` and
+  `max_angle_deg` (quantiles over the cells of their smallest and largest corner, and
+  `n_triangles_lt_20`, the triangles with a corner under `MIN_ANGLE_WARNING_DEG`) and
+  `n_concave_cells` (a corner beyond 180 degrees plus `STRAIGHT_CORNER_DEG`). The mesh step logs
+  one warning per threshold a mesh crosses: triangles with a corner under 20 degrees, cells with a
+  face crossed more than 0.25 of its length from its middle, concave cells. A mesh is never refused
+  for them. A mesh cache entry stored before keeps its schema (`hydromodpy.mesh_cache.v1`) and
+  gets these entries measured on its stored mesh and centres when read, so the frozen gmsh mesh of
+  a project is kept. A fourth per-cell field, `mesh_max_angle`, the largest interior angle of the
+  cell, joins the computed quality fields, and the `mesh_cells` layer of `hmp export` carries it
+  as `max_angle_deg`. On the stored Flume meshes the largest angle is 148 degrees at the 95th
+  percentile on the v2 Voronoi and 90 on the regular grid.
+- `[modflow6.runtime] mf6_reordering_method` (2026-10-26) exposes the IMS `REORDERING_METHOD`
+  (`"none"`, `"rcm"` for reverse Cuthill-McKee, `"md"` for minimum degree). It reaches the flow IMS
+  and the transport IMS through `optional_ims_kwargs`. The default `"none"` writes nothing, so the
+  IMS file of a current project is unchanged. Measured on Voronoi DISV meshes of 14 400 to
+  144 000 cells (shuffled or row-sorted numbering) and on the steady Flume v2 solve (73 400 cells),
+  `rcm` and `md` added 3 to 73 per cent inner iterations and did not cut the wall time.
+- Input checks on the mesh and on located points. The solver grid build now counts the groups of
+  active cells that no face or vertical connection joins, and warns with their number and sizes
+  when there is more than one; it never refuses the grid. A triangulation imported through
+  `[mesh.triangle] path` is refused when it holds a T-junction, a vertex lying inside an edge of a
+  triangle that does not hold it, and the message gives its coordinates; vertices closer than
+  1e-9 of the mesh extent are reported with a warning. Locating a point on the mesh (gauges,
+  piezometers, calibration outputs) no longer takes the nearest cell without bound: a point
+  outside the mesh takes the nearest cell only within one cell size of it (the square root of
+  its area), and farther out it gets no cell and a warning that names it. This holds on MODFLOW 6,
+  MODFLOW-NWT and Boussinesq alike.
+- Area-weighted forcings (2026-10-26): `interpolation_method = "area"` in
+  `[flow.sinks_sources.recharge]` and `[flow.sinks_sources.etp]` puts a gridded recharge or ETP on
+  the cells by weighting each pixel with the area it shares with the cell polygon, so a cell rate
+  times its area is the integral of the grid over the cell and the volume over the domain equals
+  the integral of the grid (to 1e-9 relative in the tests, where `nearest` misses it by 1e-4 to
+  1e-2). The weights are an exact clip of each cell by each pixel its box reaches, computed once per
+  source grid and reused for every period and band; a cell no finite pixel reaches takes the nearest
+  pixel. MODFLOW 6, MODFLOW-NWT and Boussinesq pass their planar mesh to the one forcing path
+  (`discretize_fields_on_cells(mesh=...)`). A station source refuses `"area"`, and so does the
+  centre-grid interpolation of `spatial_interpolation`. The default stays `"nearest"`, so a run of
+  a current project is unchanged.
+- The mesh planner cleans the geometry first (2026-10-26). A new step,
+  `spatial/mesh/planning/cleanup.py`, runs at the start of `plan_mesh_request` for every engine
+  except a triangulation read from a file. At a tolerance of a tenth of the DEM pixel
+  (`CLEANUP_PIXEL_SHARE`), it merges the vertices of a line or ring closer than the tolerance to
+  the previous one (the ends of open lines stay), snaps the end of a river, barrier or contact that
+  misses another line or ring by less than the tolerance onto it (on its nearest vertex when one
+  is that close), and first cuts that end back when it ran along the other line for more than two
+  tolerances. Only the domain and the families `[mesh.families]` asks for are cleaned. The drop of
+  the holes smaller than one local cell squared moves into the same step. Each kind of change is
+  counted in one journal line and one note of the mesh QA. What touches exactly or lies farther
+  than the tolerance is left alone, so a clean input gives the same request as before.
+- The cell size of the `triangle` and `voronoi` engines follows the gap between face lines
+  (2026-10-26). A new module, `spatial/mesh/sizing/gap.py`, samples every face line (lake
+  shores, barriers, geology contacts, catchment boundary) and the domain outline every half
+  DEM pixel, on the lines simplified at a quarter pixel. At each sample the gap is the
+  distance to the nearest point of another line, or of the same line when the way along it
+  is more than twice as long (the two shores of a narrow lake arm, a corner sharper than 53
+  degrees). Two lines that touch count the way through the place they touch, so a
+  right-angle junction is not a gap; a line that lies on another, such as a catchment
+  boundary equal to the domain outline, counts once; a gap outside the domain is skipped.
+  The chord of the gap is sized the gap divided by the new DEV key `[mesh] gap_cells`
+  (default 2, 0 switches it off), never finer than the DEM pixel, and the size grows away
+  from it at `max_slope` like the other terms. The sizes are rounded down to levels a fourth
+  root of 2 apart, one size term per level. Rivers stay out. A generated Voronoi mesh with
+  lakes picks the shores it follows on the field without gaps, then sizes the gaps of those
+  shores, so an arm the smoothing leaves out takes no cells. The request carries one note
+  with the number of gaps and the finest size. The `triangle` engine moves to 1.1.0 and the
+  `voronoi` engine to 2.3.0.
+- Layers by surfaces (2026-10-26). `[domain.layers]` takes `genmtd_lay = "surfaces"` beside
+  `constant`, `decay` and `list`: each `[[domain.layers.layer]]` table names a layer and gives
+  its base with one key, `thickness` (below the base of the layer above, or below the terrain
+  for the first layer), `depth` (below the terrain), `elevation`, or `surface`, the name of an
+  elevation raster declared under the new `[[data.layer_base.sources]]` (`name`, `path`,
+  `default_crs`). The last layer gives no base and ends on the base of `[domain.depth_model]`.
+  Each layer has a `min_thickness` (0.1 m by default), and `pinch_out` says what a thinner cell
+  becomes: `pass_through` (the default) turns it into a vertical pass-through cell,
+  `idomain = -1`, whose thickness goes to the active cell below it, or above it at the base of
+  the column; `keep_min_thickness` moves its base down, the layers below and the base of the
+  aquifer with it. A base is kept between the base of the aquifer and the base of the layer
+  above. The domain places every base raster on the grid of its top and refuses one that
+  leaves a cell without value; the discretization samples it at the cell centres or resamples
+  it to a regular grid, so both meshes read it. MODFLOW-NWT has no pass-through cell: the
+  configuration load refuses `pinch_out = "pass_through"` with it, and its build refuses a grid
+  that holds one. The load also refuses a base surface `[data.layer_base]` does not declare, and
+  a declared base no layer reads. A run stores `vertical_layout = "surfaces"` on `mesh/`.
+  Drains, constant heads and the evapotranspiration surface already read the top active cell,
+  and the computational top T' stays on the columns whose top active cell is in the top layer,
+  so a pinched column keeps its interfaces. RCHA and the EVTA of the soil reservoir now write a
+  layer array (`IRCH`, `IEVT`) with the top active layer when the stack holds a pass-through cell,
+  because MODFLOW 6 drops the flux of a pass-through top cell instead of moving it down. A stack without one
+  writes the same files as before.
+- A vertical profile of K on fewer than five layers is warned about at load: one layer sums the
+  profile up by K at mid-column, off by -22 % to +75 % of the transmissivity at H/d = 2.5 as
+  the water table moves, and five equal layers bring it near -1 %.
+- Vertical contracts before v2. A run now stores the vertical geometry of every cell: the
+  interfaces `mesh/z_interfaces`, shape (layer interface, face), where they used to be the column
+  of cell 0, the `idomain` of the solved model `mesh/idomain` (layer, face) in int8 with 1 active,
+  0 inactive and -1 vertical pass-through, and a `vertical_layout` attribute on `mesh/` that says
+  how the layers were built (`column_fractions` for shares of the thickness, `surfaces` for
+  the base surfaces of `[domain.layers]`). `zarr_schema_version` moves to `"3"`; a
+  store of schema 2 is refused on open like any other version. MODFLOW 6, MODFLOW-NWT (from IBOUND)
+  and Boussinesq write them. `idomain` is a static field served by `Run.field` and the exports,
+  and `run.mesh.z_interfaces` is always one column per cell. Layers are counted from 0
+  everywhere: NetCDF and VTU name a layered field `<var>_layer0`, `<var>_layer1`, and the
+  constant-head refusal of both MODFLOW backends names layer, row and column from 0. The solver
+  mesh holds an integer `idomain` in place of its boolean mask, a cell is active when it is above
+  0, and one function gives the top active layer of each column: drains, constant-head supports,
+  the computational top, the evapotranspiration surface, the closed-depression mask, the lake
+  footprint, the saturated thickness of the calibration, the layered maps and the cell of a point
+  all read the top active cell of the column, and a lake footprint stays closed to them. A point,
+  a well or an observation without a layer goes to the top active cell of its column; the
+  `layer` of a coordinate well is now optional. Constant heads are written only on active cells.
+  The layer interfaces are checked once built: an active cell with its top at or below its bottom
+  is refused. Results of current projects do not change.
+- K tensor in MODFLOW 6 (2026-10-26). Four new flow parameters complete the
+  conductivity tensor beside `K` and `Kv`: `K22`, the conductivity along the
+  second axis (MODFLOW 6 takes K when it is left out), and `angle1`, `angle2`,
+  `angle3`, the azimuth, the dip and the rotation of the tensor in degrees (zero
+  when left out). Each is a `[flow.param.<id>]` like K, homogeneous or per zone,
+  and `K22` takes a vertical profile like K. They reach the NPF package only when
+  the flow sets them, so a run without them writes the same files as before. A
+  non-zero `angle2` or `angle3` turns XT3D on, because MODFLOW 6 reads these two
+  angles only under XT3D; a written `mf6_enable_xt3d` is still obeyed, with a
+  warning. A dip or a rotation writes the three angles, the missing ones as zero,
+  since MODFLOW 6 refuses ANGLE2 without ANGLE3. The load refuses `K22` or an
+  angle with MODFLOW-NWT or Boussinesq, which would drop them, an angle with a
+  vertical profile, and a dip outside [-90, 90] degrees. `K22` is checked
+  positive on every active cell like K. The run store now keeps K33 as
+  `derived/hydraulic_conductivity_k33` for every MODFLOW 6 run, and
+  `derived/hydraulic_conductivity_k22` and `derived/conductivity_tensor_angle1..3`
+  when the flow sets them; all are fields of `Run.field`.
 - Three more mesh quality fields per cell (2026-10-22), computed on read like the four before.
   `mesh_bisection_offset` measures where the line joining two cell centres crosses their face,
   from the face middle, over the face length: 0 for a bisected face, 0.5 through a face end, and
@@ -881,6 +1013,28 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The layering is `[domain.layers]` (2026-10-26): the split of the aquifer between the top and the
+  base of `[domain.depth_model]` (`genmtd_lay`, `nlay`, `lay_decay`, `lay_proportions`, `nodata`)
+  is one table that MODFLOW 6 and MODFLOW-NWT both read, so a project has one layering whatever
+  solver runs it. `[modflow6.sgrid.vertical]` and `[modflownwt.sgrid.vertical]` are refused with the
+  table to write instead; `sgrid` keeps only `top_sampling`. `build_spatial_discretization` takes
+  the layering as `vertical_config`, and the comparison report reads `domain.layers.nlay`.
+  The migration (`config_migration._move_the_layering`, run on load and by
+  `hmp doctor --fix-config`) moves the old tables. When both exist it keeps the one of the flow
+  solver (first solver of the first flow process, else `solver.backend`, else MODFLOW 6) and says
+  for the other whether it held other values; an existing `[domain.layers]` wins over both, and the
+  emptied `sgrid` and solver tables go. A run of a current project is unchanged.
+- A barrier wing next to a lake shore stretch is left out when it is shorter than half the
+  local cell size where it leaves the shore, and no longer half the finest size of the whole
+  field (2026-10-26).
+- The Lloyd relaxation of the generated `voronoi` engine stops on the root mean square of
+  the free generator moves, as a share of their local size, and no longer on the largest
+  move (2026-10-26). `[mesh.voronoi] lloyd_tolerance` keeps its default of 0.01 and the
+  cap of 25 iterations stays. The mesh QA adds `lloyd_move_rms` to the `lloyd_*` extras and
+  keeps the largest move in `lloyd_move_max`. On the Flume and on the test square the
+  relaxation still reaches the cap, with a root mean square of 0.0100 and 0.0116, so these
+  meshes do not change. A mesh whose moves settle earlier stops earlier. The `voronoi`
+  engine moves to 2.4.0.
 - Flow barriers on the barrier family faces (2026-10-19): on `triangle` and `voronoi` the HFB rows
   of a lake cutoff wall and of each `[flow.sinks_sources.flow_barriers]` line go on the faces of the
   `barriers` family that lie on the line (`spatial/mesh/ops/flow_barrier.py:barrier_edges`, a face

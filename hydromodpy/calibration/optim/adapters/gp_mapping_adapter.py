@@ -30,6 +30,7 @@ from hydromodpy.calibration.optim.optimizer import (
 )
 from hydromodpy.calibration.optim.parameters import ParameterSpace
 from hydromodpy.calibration.optim.sampling import search_space_samples
+from hydromodpy.core.logging import get_logger
 
 try:
     from scipy.optimize import minimize as _scipy_minimize
@@ -47,6 +48,9 @@ except ImportError:  # pragma: no cover - tested via sklearn availability guard
     RBF = None
     _scipy_minimize = None
     _scipy_norm = None
+
+
+logger = get_logger(__name__)
 
 
 def _expected_improvement(
@@ -309,11 +313,9 @@ class GPMappingOptimizer:
                 gp.fit(x_train, y_train)
         except Exception:
             if not self._warned_fit_failure:  # pragma: no cover - defensive
-                warnings.warn(
-                    "GP surrogate fit failed; falling back to random proposals.",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+                message = "GP surrogate fit failed; falling back to random proposals."
+                logger.warning(message)
+                warnings.warn(message, RuntimeWarning, stacklevel=2)
                 self._warned_fit_failure = True
             return None
         return gp

@@ -270,7 +270,7 @@ def _resample_nearest(
     target_x_1d: np.ndarray,
     target_y_1d: np.ndarray,
 ) -> np.ndarray:
-    from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
+    from hydromodpy.spatial.mesh.forcing.spatial_interpolation import (
         interpolate_stack_to_grid,
     )
 

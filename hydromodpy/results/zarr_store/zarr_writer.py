@@ -31,6 +31,7 @@ from hydromodpy.core.field_precision import (
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.nodata import SENTINEL_ABS_THRESHOLD
+from hydromodpy.core.vertical_column import IDOMAIN_VALUES
 from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
 from hydromodpy.results.zarr_store.chunks import (
@@ -232,7 +233,7 @@ _Z_INTERFACE_ATTRS: dict[str, object] = {
 }
 
 _IDOMAIN_FLAGS: dict[str, object] = {
-    "flag_values": [-1, 0, 1],
+    "flag_values": list(IDOMAIN_VALUES),
     "flag_meanings": "pass_through inactive active",
 }
 
@@ -388,7 +389,7 @@ def _write_vertical_arrays(
     """Write the per-face arrays that depend on the solved model, when given."""
     if idomain is not None:
         domain = np.atleast_2d(np.asarray(idomain))
-        if not np.isin(domain, (-1, 0, 1)).all():
+        if not np.isin(domain, IDOMAIN_VALUES).all():
             raise ValueError("idomain holds only -1, 0 and 1.")
         idomain_arr = _write_array(
             store_obj,

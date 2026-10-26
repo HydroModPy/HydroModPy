@@ -151,7 +151,7 @@ Fields of ``SolverGridContext``:
    * - ``solver_mesh``
      - ``SolverMesh``
      - Prismatic mesh: ``cell_mesh`` (the ``PlanarCellMesh``), ``top``,
-       ``botm``, ``inactive_mask``
+       ``botm``, ``idomain`` (``inactive_mask`` is derived from it)
    * - ``top_surface``
      - ``Surface``
      - Validated topographic support
@@ -167,8 +167,19 @@ Derived properties: ``top_elevation`` (flat ``(n_cells,)``),
 
 Required invariants:
 
-- ``solver_mesh.botm`` has shape ``(nlay, n_cells)``; ``top`` and
-  ``inactive_mask`` are flat ``(n_cells,)`` arrays.
+- ``solver_mesh.botm`` and ``solver_mesh.idomain`` have shape ``(nlay, n_cells)``; ``top`` is
+  a flat ``(n_cells,)`` array. ``idomain`` is an integer array: 1 is an active cell, 0 an
+  inactive one and -1 a vertical pass-through cell, and every test of activity reads it as
+  above 0. ``inactive_mask`` is the derived property ``idomain <= 0``.
+- ``SolverMesh.top_active_layer()`` gives the top active layer of each column (-1 for a
+  column with none) and is the one function the drains, the supports of the constant heads,
+  the surface of the evapotranspiration, the computational top, the filling of the
+  closed depressions, the lake footprint, the saturated thickness of the calibration and the
+  location of a point read. ``closed_surface(covered_cells)`` marks the columns that no
+  surface process reaches, and ``check_interfaces()`` refuses an active cell whose top is at
+  or below its bottom (a pass-through cell may have no thickness). The function itself,
+  ``top_active_layer`` in ``hydromodpy/core/vertical_column.py``, lives in ``core`` because
+  the solvers, the calibration, the results and the display all read it.
 - The grid is mesh-native: ``structured_shape`` is set only when the
   planar mesh is a Cartesian grid, and is ``None`` for DISV meshes.
 - The domain provides ``surface_topo`` and ``substratum`` of type
@@ -188,7 +199,8 @@ The spatial builder consumes:
 
 - the ``domain`` with ``surface_topo`` and ``substratum``
 - the active DEM shape
-- ``vertical_config``
+- ``vertical_config``, the ``[domain.layers]`` table that both MODFLOW backends read
+  (``domain.config.layers``)
 
 Why this contract
 ^^^^^^^^^^^^^^^^^

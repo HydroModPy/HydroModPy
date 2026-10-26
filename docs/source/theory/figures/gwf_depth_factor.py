@@ -3,8 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from hydromodpy.spatial.domain.layering import layer_proportions
 from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_proportions
 
 H = 100.0
 profile = {"mode": "exponential", "characteristic_depth": 20.0}

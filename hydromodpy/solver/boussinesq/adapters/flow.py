@@ -22,6 +22,7 @@ from hydromodpy.core.contracts.observables import (
     require_unique_request_ids,
 )
 from hydromodpy.core.exceptions import (
+    ConfigError,
     ObservableNotAvailableError,
     SolverDivergedError,
     SolverError,
@@ -50,6 +51,7 @@ from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
 from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     write_vi_obstacle_diagnostic_files,
 )
+from hydromodpy.solver.boussinesq.solver_contract import layering_refusal
 
 
 class BoussinesqFlowAdapter:
@@ -173,8 +175,16 @@ class BoussinesqFlowAdapter:
         return served
 
     def execute(self, ctx: RunContext) -> RunExecutionResult:
-        """Instantiate and execute one Boussinesq flow run."""
+        """Instantiate and execute one Boussinesq flow run.
+
+        The layering is checked again here: an assignment after the file was
+        read, or a rerun of a sealed run, does not pass the load check.
+        """
         state = ctx.state
+        layers = getattr(getattr(state.cfg, "domain", None), "layers", None)
+        refusal = None if layers is None else layering_refusal(layers)
+        if refusal is not None:
+            raise ConfigError(refusal)
         mesh_bundle = None
         try:
             solver_mesh = resolve_runtime_solver_mesh(state.setup)

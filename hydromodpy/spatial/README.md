@@ -22,9 +22,9 @@ rules, how a catchment becomes a mesh, and where to add what. `field/`,
 | `delineation/` | the backends that delineate a catchment and route flow on a DEM; `registry.py` resolves one by name, `whitebox_workflows_backend/` is the one shipped |
 | `terrain/` | the `TerrainEngine` port, what a flow-routing engine owes its callers, and the two engines that serve it (`whitebox_engine.py`, `numpy_engine.py`); `registry.py` resolves one by id, plugins included |
 | `geographic/` | the pre-simulation pipeline: `core/` builds the ground (DEM and its corrections), flow products, catchment from a point or a polygon, zones, river network, hydrographic network, SFR reach network, lake enforcement; `pipeline.py` assembles the artifacts; `GeographicConfig` is `[geographic]`; `structure_binders.py` writes geology and catchment zones into the domain; `synthetic/` makes analytic geographies for validation; map in `geographic/README.md` |
-| `domain/` | the aquifer geometry: `Domain` (surface, depth model, zones), `build.py` (its one constructor), the four depth models, `spatial_support.py` (the supports a parameter can be zoned by), and the `domain-build` capability (`capability.py`, `worker.py`) |
+| `domain/` | the aquifer geometry: `Domain` (surface, depth model, zones), `build.py` (its one constructor), the four depth models, the layering of the column (`layers_config.py` for `[domain.layers]`, `layering.py` for the layer bottoms and `idomain`), `spatial_support.py` (the supports a parameter can be zoned by), and the `domain-build` capability (`capability.py`, `worker.py`) |
 | `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile), their TOML sections, geology, the field meshes |
-| `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `cartesian_grid/` holds the vertical layering; `gmsh_grid/` reads Gmsh meshes and frozen catchment mesh bundles; `adapters/` converts to and from `meshio` and FloPy; `ops/` holds geometric operations; `refinement/` and `config/` hold the `[mesh]` refinement and config models |
+| `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `structured_grid/` holds the structured grid of the regular engine; `gmsh_grid/` reads Gmsh meshes and frozen catchment mesh bundles; `adapters/` converts to and from `meshio` and FloPy; `ops/` holds geometric operations; `refinement/` and `config/` hold the `[mesh]` refinement and config models |
 | `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus, and the carve of a mesh column |
 | `site_selection/` | the primitives of a site selection: candidates, criteria, evidence, decisions, outputs, and the `terrain-delineate` capability (`hydrology/capability.py`, `hydrology/worker.py`); map in `site_selection/README.md` |
 
@@ -66,9 +66,9 @@ hydromodpy/spatial/
   raster_support.py  surface.py  surface_sampling.py  catchment_zones_field.py  protocols.py
   administrative/  delineation/  terrain/
   geographic/       core/  synthetic/  pipeline.py  structure_binders.py  catchment_delineation.py ...
-  domain/           domain.py  build.py  depth_model_config.py  spatial_support.py  capability.py  worker.py
+  domain/           domain.py  build.py  depth_model_config.py  layers_config.py  layering.py  spatial_support.py  capability.py  worker.py
   field/            core/  geology/  meshes/  aggregation.py
-  mesh/             model/  engines/  planning/  adapters/  io/  ops/  cartesian_grid/  gmsh_grid/
+  mesh/             model/  engines/  planning/  adapters/  io/  ops/  structured_grid/  gmsh_grid/
                     refinement/  config/  cache.py
   lake_bed/
   site_selection/   candidates/  config/  decisions/  evaluation/  evidence/  hydrology/  outputs/  pipelines/

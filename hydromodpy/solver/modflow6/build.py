@@ -937,7 +937,7 @@ def run_pre_processing(  # noqa: PLR0915
         label="flow vertical anisotropy",
     )
     # K22 and the angles exist only when the flow sets them. They are read
-    # before the first XT3D decision, which a tilted tensor turns on.
+    # before the first XT3D decision, which a tilted or off-axis tensor turns on.
     for name in K_TENSOR_NPF_NAMES:
         values = flow_params.get(name)
         setattr(model, name, None if values is None else solver_mesh.flatten_from_grid(values))
@@ -1169,8 +1169,8 @@ def run_pre_processing(  # noqa: PLR0915
         # Vertical conductivity: a per-cell Kv field or the uniform kh/vka ratio.
         # Vertical anisotropy is grid-aligned, so it needs no XT3D.
         k33=model.k33,
-        # K22 and the angles only when the flow sets them. A tilted tensor
-        # (angle2 or angle3) turns XT3D on unless mf6_enable_xt3d is written.
+        # K22 and the angles only when the flow sets them. A tilted tensor, or a
+        # K22 off the grid axes, turns XT3D on unless mf6_enable_xt3d is written.
         **k_tensor_npf_kwargs(model),
         rewet_record=rewet_record,
         xt3doptions=xt3doptions,

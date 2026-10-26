@@ -502,7 +502,9 @@ Limits
   saturated thickness. The top and bottom are the values sampled at the centroid of
   the triangle. The solver reads one isotropic conductivity and one specific yield
   per cell, and no specific storage or anisotropy. Where this stops being true is on
-  :doc:`groundwater-flow`.
+  :doc:`groundwater-flow`. The solver reads no ``[domain.layers]``, so a file or a
+  calibration phase that asks it for more than one layer, or for layers by surfaces, is
+  refused when it is read.
 - **Skewed cells.** The two-point flux is accurate where the line between the two
   centroids is perpendicular to the edge. The solver has no correction for skewed
   cells.

@@ -52,8 +52,9 @@ Generated mode
 4. **Lloyd relaxation** (``lloyd.py``). Each free seed moves to the centroid of its cell for
    the density ``h^-4``, with one quadrature point per fan triangle. A move that would enter
    a Berge ball or a Gabriel disk of a river link is projected out of it, or refused. The
-   relaxation stops when the largest move falls under ``[mesh.voronoi] lloyd_tolerance`` or
-   after 25 iterations.
+   relaxation stops when the root mean square of the moves, as a share of the local size,
+   falls under ``[mesh.voronoi] lloyd_tolerance`` or after 25 iterations. The largest move is
+   kept in the extras.
 5. **Tessellation** (``tessellation.py``). GEOS Voronoi, clipped to the domain. A piece of a
    cell that the clip cut away from its seed gets a boundary seed, up to three rounds.
 6. **Gates** (``gates.py``), then the families (``line_families.py``).
@@ -123,7 +124,8 @@ Quality report
 
 The common ``MeshQA`` fields are described in :doc:`mesh-pivot`. The engine adds to
 ``extras``: the ``lloyd_*`` numbers (iterations, cap, whether the tolerance was reached, the
-median, 99th percentile and largest move), the seed counts by role (``n_seeds_*``), the
+root mean square ``lloyd_move_rms``, the median, the 99th percentile and the largest move
+``lloyd_move_max``), the seed counts by role (``n_seeds_*``), the
 boundary seeds the tessellation added, the origin of the local frame and the gate counts. It
 adds to each face family ``mirror_pairs``, ``conformal_length_share``, ``merged_circles``,
 ``yielded_segments`` and the other counts of the constraint stage, and to ``rivers`` the
@@ -136,9 +138,17 @@ Limits
 - **Size ratio.** A graded Voronoi mesh whose cell has the size of its seed cannot keep the
   size ratio between two neighbours under ``(1 + s / 2) / (1 - s / 2)`` for a size field of
   slope ``s``, nor the offset between a seed and the centroid of its cell under ``s / 4``
-  along the gradient. The QA reports both.
+  along the gradient. The QA reports both, and a unit test holds the median offset under
+  ``s / 4``.
 - **Lloyd.** The relaxation reaches its cap before its tolerance on a graded field. The
   quality is flat from about ten iterations; ``lloyd_converged`` says which end stopped it.
+  On a catchment of 23 148 cells the root mean square stays at 0.0100 after 25 iterations. The
+  median offset of a seed from the centroid of its cell, ``center_offset``, is 0.095 of the
+  cell side, and it sits at the floor of ``s / 4`` that the first limit gives. Three attempts to
+  lower it were measured and not kept. Three quadrature points per fan triangle raised it to
+  0.115. A refinement of the seeds by levels between two passes added 9 to 14 per cent of cells
+  and broke the validation row 176 of the generated variant. A last pass that adds a seed where
+  the dual triangle has a corner under 20 degrees left the offset as it was.
 - **Acute sectors.** Where two face lines meet at an angle too small for the cell size, or a
   face line meets the boundary under 30 degrees, the circles merge and the segments next to
   the vertex are not conformal.
@@ -146,7 +156,9 @@ Limits
   with long inlets sampled at 80 m cells) cannot hold a pair of circles in each arm. The
   planner gives the engine each lake shore smoothed at 0.6 of its largest shore cell: arms,
   necks and spits narrower than twice that go, the rivers stop half a river cell off the
-  lakes, and a wall wing shorter than half the finest cell is left out. The notes give the
+  lakes, and a wall wing shorter than half the local cell size where it leaves the shore is
+  left out. The smoothing takes one radius per lake, so an arm that the gap term of the size
+  field refines is still left out of the followed shore. The notes give the
   area each lake left out and took in. The lake owns the regions its smoothed shore encloses,
   and the cells outside them it covers for more than half. A shore the faces still leave open
   is said in the notes, and the lake cells are then those the lake polygon overlaps, each with
@@ -155,10 +167,11 @@ Limits
   single point splits the cell that spans the touching point. The piece beyond it gets a
   boundary seed, but the bisector of the two seeds always leaves a sliver at the touching
   point, so three rounds of boundary seeds do not close the area and gate G4 stops the mesh.
-  Holes smaller than one local cell squared are dropped by the planner, which removes most
-  of these cases; a larger hole that touches a ring must be separated in the domain first.
-- **Holes.** The planner drops a hole of the domain, a lake or the catchment that is smaller
-  than one local cell squared, for every engine, and says how many in the log.
+  Holes smaller than one local cell squared are dropped by the cleaning of the planner, which
+  removes most of these cases; a larger hole that touches a ring must be separated in the domain first.
+- **Holes.** The cleaning step of the planner drops a hole of the domain, a lake or the
+  catchment that is smaller than one local cell squared, for every engine, and says how many in
+  the log (:doc:`mesh-engines`).
 - **Fewer cells than the dual of a triangulation.** At equal size parameters the generated mode
   makes about half the cells the dual of a triangulation made: 826 became 344 cells on one
   catchment and 303 became 144 on another. The cause is not isolated. A comparison at equal cost

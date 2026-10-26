@@ -183,9 +183,13 @@ otherwise recompute:
    * - ``identity``
      - ``MeshIdentity``: engine id, engine version, request hash and seed.
    * - ``qa``
-     - ``MeshQA``: area, size, centre offset and non-orthogonality quantiles, degenerate
-       faces, family coverage, and the engine declarations (``graded``, ``exact_faces``,
-       ``deterministic``, ``needs_cache``).
+     - ``MeshQA``: area, size, centre offset and non-orthogonality quantiles, the shape of
+       the cells (quantiles of the bisection offset, of the smallest and of the largest corner,
+       and the number of concave cells), degenerate faces, family coverage, and the engine
+       declarations (``graded``, ``exact_faces``, ``deterministic``, ``needs_cache``).
+       ``quality_warnings`` turns the shape entries into build warnings and never a refusal.
+       A cache entry stored before the shape entries is read as it was, and they are measured on
+       the stored mesh and centres.
    * - ``structured_shape``
      - ``(nrow, ncol)`` of a regular grid, otherwise ``None``.
 
@@ -242,10 +246,17 @@ every engine for each question a consumer asks:
    * - Cells of a side, of the river, of a label
      - ``side_cells``, ``stream_cells``, ``label_cells`` in ``spatial/mesh/ops/family_cells.py``.
    * - Cell that holds a point
-     - ``locate_cells`` in ``spatial/mesh/ops/cell_location.py``.
+     - ``locate_cells`` in ``spatial/mesh/ops/cell_location.py``. ``locate_cells_near`` takes
+       the nearest cell only within one cell size (the square root of its area) of a point
+       outside the mesh and gives no cell beyond, so a gauge or a piezometer that is far from
+       the mesh is named in a warning and not moved to an edge cell. The solvers reach it
+       through ``locate_cell_on_solver_mesh`` in ``solver/base/cell_lookup.py``, which takes the
+       top active layer of the column as the layer.
    * - Forcing grids and stations on the cells
      - ``discretize_fields_on_cells`` and ``discretize_points_on_cells`` in
-       ``spatial/mesh/forcing/``.
+       ``spatial/mesh/forcing/``. The method ``area`` (``_area.py``) clips each cell by the
+       pixels its box reaches, once per source grid, and needs the planar mesh, which every
+       flow adapter passes to the one forcing path.
    * - Zone fractions of a cell
      - ``zone_fractions`` in ``spatial/field/zone_fractions.py``: the zone the engine gave the
        cell when its faces lie on the contacts, else the exact polygon areas of a vector
@@ -276,19 +287,23 @@ Module layout
    |-- request.py           MeshRequest, LineFamilySpec, RasterGridSpec, SizeField
    |-- cache.py             the meshes an engine cannot rebuild bit for bit
    |-- engines/             regular/, triangle/, voronoi/
-   |-- planning/            plan_mesh_request: the project to a request
-   |-- sizing/              the size field of the graded engines
+   |-- planning/            plan_mesh_request: the project to a request; cleanup.py cleans the
+   |                        lines before any size is computed, input_mesh.py checks a
+   |                        triangulation read from a file
+   |-- sizing/              the size field of the graded engines: size_field.py builds it,
+   |                        gap.py gives the terms of the gap between face lines
    |-- refinement/          the models of [[mesh.refinement_zone]] and [mesh.lake_refinement]
    |-- config/              the [mesh] models
-   |-- forcing/             grids and stations sampled on the cell centres
+   |-- forcing/             grids and stations sampled on the cell centres, and the
+   |                        interpolation of values onto them (spatial_interpolation.py)
    |-- ops/                 the shared cell helpers (families, location, chains, voronoi)
+   |-- (the vertical layers are not here: spatial/domain/layers_config.py and layering.py)
    |-- adapters/            meshio_adapter.py, field_mesh_adapter.py, flopy_adapter.py,
    |                        cell_mesh.py
    |-- io/                  vtu_io.py
    |-- plotting.py          plot_cell_values
-   |-- cartesian_grid/      the vertical layers of the grid (sgrid_generation.py), the keys of
-   |                        the layers and of the top sampling (sgrid_config.py) and the
-   |                        interpolation of values onto cell centres (spatial_interpolation.py)
+   |-- structured_grid/     the structured grid of the regular engine (sgrid_generation.py) and
+   |                        the keys of the top sampling (sgrid_config.py)
    `-- gmsh_grid/           the reader of a .msh and GmshPlanarMesh2D, the reader of a
                             Boussinesq validation bundle, exchange_api.py
 
@@ -297,7 +312,14 @@ What the solvers read
 
 The mesh a solver reads is not the pivot itself but the ``SolverMesh`` of
 ``hydromodpy/solver/modflow_grid/solver_mesh.py``, built from the cell mesh and the
-vertical layers.
+vertical layers. The layers come from ``[domain.layers]``, which both MODFLOW backends read:
+``spatial/domain/layering.py`` turns shares or surfaces into the bottoms and the integer
+``idomain`` of the stack (``layer_stack``), and ``discretization_spatial.py`` samples the base
+rasters on the cell centres or resamples them to a regular grid. ``SolverMesh`` holds the
+``idomain`` (1, 0 or -1) and checks the interfaces once built. The run stores both, see
+:doc:`../storage-layout`. After the mesh, ``solver/modflow_grid/active_connectivity.py``
+counts the groups of active cells that no face or vertical connection joins and warns when
+there is more than one.
 
 .. list-table::
    :header-rows: 1

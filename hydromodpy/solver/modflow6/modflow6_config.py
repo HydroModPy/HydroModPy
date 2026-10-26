@@ -11,7 +11,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
 class Modflow6RuntimeConfig(HydroModelBase):
@@ -217,13 +217,18 @@ class Modflow6RuntimeConfig(HydroModelBase):
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(
-            "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled "
-            "when the K tensor is tilted (a non-zero flow parameter angle2 or "
-            "angle3, which MF6 reads only under XT3D), on triangle cells, and on "
-            "other cells when the mesh is significantly non-orthogonal; the "
-            "orthogonal Voronoi cells keep it off. It adds cost but improves "
-            "accuracy on non-orthogonal grids and with an anisotropic K whose axes "
-            "do not follow the grid."
+            "Enable MF6 NPF XT3D terms. When left to None, XT3D turns on where a "
+            "consistent result needs it, with a RuntimeWarning: a tilted K tensor (a "
+            "non-zero flow parameter angle2 or angle3, which MF6 reads only under XT3D), "
+            "and a K22 different from K on a cell whose angle1 is not a multiple of 90 "
+            "degrees, or anywhere on an unstructured mesh. Without XT3D the two-point flux "
+            "drops the cross terms of such a tensor, and the head error does not shrink "
+            "with refinement. XT3D also turns on, with an INFO log, on triangle cells and "
+            "on a significantly non-orthogonal mesh. A structured grid with K along its "
+            "axes, or an orthogonal mesh with K22 equal to K, keeps it off. XT3D "
+            "multiplies the MF6 run time by about 9 to 11. true turns it on without a "
+            "warning; false turns it off, with a "
+            "RuntimeWarning when a consistent result needs it."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
@@ -255,8 +260,8 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
             "flow parameter instead, which is mutually exclusive with a non-unit vka and is a "
             "direct conductivity, never a mode-switched value. Vertical anisotropy is "
             "grid-aligned and needs no XT3D. The rest of the tensor is set by the flow "
-            "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a non-zero angle2 or "
-            "angle3 turns XT3D on."
+            "parameters 'K22', 'angle1', 'angle2' and 'angle3'; a tilt, or a K22 off the "
+            "grid axes, turns XT3D on."
         ),
     )
     evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(

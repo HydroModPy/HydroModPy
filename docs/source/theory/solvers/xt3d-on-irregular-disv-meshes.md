@@ -64,18 +64,22 @@ The code decides once per run, in this order:
 
 | Case | XT3D | Why |
 |---|---|---|
-| {toml}`modflow6.runtime.mf6_enable_xt3d` is `true` or `false` | as written | your value wins; the code logs a warning when the checks below disagree |
-| Structured grid | off | the connections are orthogonal and the conductivity isotropic |
+| {toml}`modflow6.runtime.mf6_enable_xt3d` is `true` or `false` | as written | your value wins; `false` raises a `RuntimeWarning` against the two tensor rows below, other disagreements log a warning |
+| `angle2` or `angle3` of the tensor not zero on a cell | on, with a `RuntimeWarning` | MODFLOW 6 reads these two angles only under XT3D |
+| `K22` different from $K$ on a cell whose `angle1` is not a multiple of 90 degrees, or on any cell of an unstructured mesh | on, with a `RuntimeWarning` | the axes of the tensor leave the connections and the two-point flux drops the cross terms |
+| Structured grid | off | the connections are orthogonal and follow the axes of the conductivity |
 | Triangle cells | on | the two-point flux between the vertex means of two triangles is not consistent, whatever the angle |
 | More than 5 % of the connections above 30 degrees, or a 95th percentile of $\varphi_{nm}$ above 30 degrees | on | the dropped term reaches 0.58 of the tangential gradient on a share of the faces |
 | Otherwise | off | the dropped term stays small, XT3D would add cost only |
 
 The two limits are the constants `_NONORTH_FRAC_GT30_TRIGGER` and
-`_NONORTH_P95_TRIGGER_DEG`. The horizontal conductivity is isotropic in every case: the
-`NPF` package receives only a horizontal $K$ and a vertical $K_z$, so there is no
-tensor term to switch XT3D on. The Voronoi cells of the `voronoi` engine are orthogonal
-by construction ({ref}`mesh-voronoi`), so XT3D stays off there; a mesh of triangles,
-from the `triangle` engine, is the case where it turns on.
+`_NONORTH_P95_TRIGGER_DEG`. The tensor rows come first ({ref}`gwf-tensor`), because without
+XT3D their error is a share of the drawdown that refinement does not reduce. They turn XT3D
+on whatever the mesh, and the `RuntimeWarning` says why and that the run takes about 9 to 11
+times longer. Writing `mf6_enable_xt3d = true` keeps XT3D on without the warning. The Voronoi
+cells of the `voronoi` engine are orthogonal by construction ({ref}`mesh-voronoi`), so XT3D
+stays off there when `K22` equals $K$. A mesh of triangles, from the `triangle` engine, turns
+it on.
 
 When XT3D is on, a `SIMPLE` IMS preset is promoted to `COMPLEX`, because `SIMPLE`
 assumes a symmetric matrix ({ref}`solvers-newton-ims`).
@@ -97,8 +101,8 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 ## Assumptions
 
-- The conductivity is isotropic in the horizontal plane: `NPF` receives only a horizontal
-  $K$ and a vertical $K_z$.
+- The conductivity is isotropic in the horizontal plane unless the flow sets `K22` or the
+  angles, which `NPF` then receives with $K$ and $K_z$.
 - The angle of a connection is measured in the plan; the layers are an extrusion, so the
   vertical connections are orthogonal.
 
@@ -106,8 +110,8 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 
 - **MODFLOW 6 only.** MODFLOW-NWT runs on structured grids only. The Boussinesq solver
   has no correction for skewed cells.
-- **No horizontal anisotropy input.** The rule has no tensor branch: a horizontal anisotropy
-  would need a new input first.
+- **Any K22 on an unstructured mesh is a trigger.** The rule does not check whether the
+  connections of such a mesh happen to follow the axes of the tensor.
 - **Cost.** XT3D widens the stencil and makes the matrix non-symmetric. On a mesh near
   the trigger, a sweep of many runs pays for it on every run.
 
@@ -117,6 +121,9 @@ triangles (right), where the rule above turns XT3D on. Drag the handle to compar
 modflow6.runtime.mf6_enable_xt3d
 mesh.engine
 modflow6.runtime.mf6_ims_complexity
+flow.param.K22.field.value
+flow.param.angle1.field.value
+flow.param.angle2.field.value
 ```
 
 ## Checked by
@@ -130,7 +137,7 @@ hydromodpy.spatial.mesh.ops.mesh_orthogonality
 
 | What | Where |
 |---|---|
-| The rule, its constants | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `_recommend_xt3d`) |
+| The rule, its constants | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `_recommend_xt3d`, `k_tensor_is_tilted`, `k_tensor_is_off_axis`) |
 | The angle of each connection | `hydromodpy/spatial/mesh/ops/mesh_orthogonality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`) |
 | The IMS promotion | `solver_options.py` (`resolve_ims_complexity`) |
 | The regression with and without XT3D | `tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py` |

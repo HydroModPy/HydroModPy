@@ -47,8 +47,8 @@ def active_component_sizes(solver_mesh: SolverMesh) -> np.ndarray:
         tails.append((layer + 1) * n_cells + both)
 
     n_nodes = nlay * n_cells
-    head = np.concatenate(heads) if heads else np.empty(0, dtype=np.int64)
-    tail = np.concatenate(tails) if tails else np.empty(0, dtype=np.int64)
+    head = np.concatenate(heads)
+    tail = np.concatenate(tails)
     graph = coo_matrix((np.ones(head.size, dtype=np.int8), (head, tail)), shape=(n_nodes, n_nodes))
     _, labels = connected_components(graph, directed=False)
     sizes = np.bincount(labels[active.reshape(-1)])

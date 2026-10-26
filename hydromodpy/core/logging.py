@@ -145,8 +145,10 @@ def _is_third_party_deprecation(category, filename):
     ``warnings.filterwarnings``: flopy's ``plot`` submodules install
     ``warnings.simplefilter("always", PendingDeprecationWarning)`` at import
     time, which always lands in front of a filter registered earlier and
-    defeats it. ``showwarning`` is the one place every warning HydroModPy
-    emits still passes through.
+    defeats it. ``showwarning`` is where the warnings that pass the filters
+    arrive. ``flopy.plot.plotutil`` also ignores every RuntimeWarning at
+    import, so HydroModPy logs its own RuntimeWarnings next to
+    ``warnings.warn``.
     """
     return issubclass(category, _DEPRECATION_CATEGORIES) and not os.path.abspath(
         filename

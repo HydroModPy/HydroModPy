@@ -20,13 +20,11 @@ from shapely.geometry import box
 from hydromodpy.solver.modflow_grid import SolverMesh, build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    SolverSGridConfig,
-    VerticalGridConfig,
-)
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.structured_grid.sgrid_generation import StructuredGridBuilder
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.solver_meshes import solver_mesh_from_sgrid
 

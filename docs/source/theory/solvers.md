@@ -136,8 +136,11 @@ HydroModPy writes no UZF, GHB or RIV package. Three notes on the table.
   {toml}`flow.sinks_sources.recharge.values`, or the recharge the soil reservoir computes
   ({doc}`soil-reservoir`). The cells of a lake that the model makes inactive receive none,
   because LAK handles the rain on the lake. The package also carries a `CONCENTRATION`
-  auxiliary variable, which transport uses ({ref}`solvers-transport-coupling`). In the
-  code: `mask_recharge_on_lake_cells`.
+  auxiliary variable, which transport uses ({ref}`solvers-transport-coupling`). When the
+  layers hold a pass-through cell ({ref}`mesh-layer-surfaces`), RCHA also writes the layer
+  array `IRCH`, set to the top active layer of each column, because MODFLOW 6 drops the flux
+  of a pass-through top cell instead of moving it down. Without such a cell the files are the
+  same as before. In the code: `mask_recharge_on_lake_cells`, `areal_layer_index`.
 - **Output.** OC saves the head at the last step of every stress period and the budget at
   every step, and prints the budget of every step. The catalog keeps one record per stress
   period: the head at its end, each flux as the mean of its steps weighted by their length
@@ -149,7 +152,16 @@ MODFLOW 6 reads the cells of every mesh engine as a DISV grid: one code path cov
 A `regular` model is a DISV grid whose cells are the DEM pixels. The cells of the `voronoi`
 engine are orthogonal to their connections, and the triangles of the `triangle` engine are not,
 which turns XT3D on. The engine is {toml}`mesh.engine` and the number of layers is
-{toml}`modflow6.sgrid.vertical.nlay`. The mesh is the subject of {doc}`mesh`.
+{toml}`domain.layers.nlay`, read from the table `[domain.layers]` that MODFLOW-NWT reads too.
+The mesh is the subject of {doc}`mesh`.
+
+**The active cell of a column.** `idomain` is 1 for an active cell, 0 for an inactive one and
+-1 for a vertical pass-through cell, and every test of activity reads it as above 0. The
+packages that act on the surface of a column act on its top active cell, and not on the first
+layer: the drains, the supports of the constant heads, the surface of the evapotranspiration,
+the computational top below, the filling of the closed depressions, the lake footprint and the
+saturated thickness the calibration reads. The footprint of a lake stays closed to them.
+A constant head is written on active cells only.
 
 (solvers-computational-top)=
 **The computational top.** Under Newton, MODFLOW 6 builds the horizontal conductance from
@@ -161,7 +173,10 @@ Where the thickness $H$ changes from one cell to the next, the transmissivity is
 low by about $\Delta H / (2H)$. The grid MODFLOW 6 reads therefore has a computational top
 $z'_\mathrm{top} = z_\mathrm{top} + \max H_1 - H_1$, with $H_1$ the thickness of the top
 layer under the ground: every cell of the top layer gets the same thickness. A thickness
-that is the same everywhere gives $z_\mathrm{top}$ back, so no file changes then. This is a
+that is the same everywhere gives $z_\mathrm{top}$ back, so no file changes then. The top moves
+only on the columns whose top active cell is in the top layer: a column with a pinched
+first layer keeps its interfaces, since its active cell joins cells of the second layer, which
+cannot be raised. This is a
 numerical device of HydroModPy, not a USGS practice. Every package elevation (drains, EVT,
 streambeds, lake banks, barriers, the ocean), the initial heads and the run store keep the
 ground. Water above the ground stays in the aquifer up to $z'_\mathrm{top}$, with its
@@ -175,13 +190,28 @@ store. In the code: `disv_grid_kwargs`.
 
 ### Flow between cells, and XT3D
 
-NPF receives $K$, $K_z = K/\beta$ and the convertible flag. With the two-point conductance
+NPF receives $K$, $K_z = K/\beta$ and the convertible flag, and `K22` and the three angles when
+the flow sets them ({ref}`gwf-tensor`). With the two-point conductance
 {eq}`eq-conductance`, the flux between two cells is exact only when the line between the
 centres is perpendicular to the shared face and the conductivity is isotropic. XT3D adds
 the missing terms {cite:p}`provost2017`. HydroModPy decides about it once per run; the
 rule and its trigger are on {doc}`solvers/xt3d-on-irregular-disv-meshes`. XT3D makes the
 matrix non-symmetric, so the IMS preset is promoted when needed
-({ref}`solvers-newton-ims`). In the code: `resolve_xt3d_decision`.
+({ref}`solvers-newton-ims`). Two tensors need XT3D for a consistent result, so HydroModPy
+turns it on and raises a `RuntimeWarning` on its cost. The first is a dip or a rotation
+(`angle2` or `angle3` not zero), because MODFLOW 6 reads these two angles only under XT3D. A dip
+or a rotation writes the three angles, the missing ones as zero, since MODFLOW 6 refuses
+`ANGLE2` without `ANGLE3`. The second is a `K22` different from $K$ on a cell whose `angle1` is
+not a multiple of 90 degrees, or on any cell of an unstructured mesh. The axes of the tensor
+then leave the connections and the two-point flux drops the cross terms
+{cite:p}`provost2017`, so the head error does not shrink with refinement. For a steady well
+with $K_{22} = K/10$ and `angle1` at 30 degrees on a structured grid, the head RMSE stayed at
+2.2 m for a 7 m drawdown with cells of 40 m then 20 m, and fell to 0.04 then 0.01 m under
+XT3D. XT3D costs time. On a steady benchmark of 120 by 120 cells and 10 layers, a run took 115
+to 136 s with it, against 12 s without. A written {toml}`modflow6.runtime.mf6_enable_xt3d` is
+still obeyed, `true` without a warning and `false` with a `RuntimeWarning` when one of these
+two tensors is set. In the code: `resolve_xt3d_decision`, `k_tensor_is_tilted`,
+`k_tensor_is_off_axis`.
 
 ### Evaporation, drains, lakes and streams
 
@@ -189,9 +219,9 @@ The laws, conductances and worked cells of these exits are on {doc}`exits`.
 
 - **Evaporation.** Under MODFLOW 6, EVTA receives a routed negative recharge
   ({toml}`flow.sinks_sources.recharge.negative_to_evt`) or, in soil mode, the ETP the soil
-  could not meet. The loaded ETP is ignored outside soil mode, with a warning
-  ({doc}`exits/drains-and-et`).
-- **Drains.** One drain in the first layer of every active cell that is not an ocean or
+  could not meet, with the layer array `IEVT` when the layers hold a pass-through cell. The
+  loaded ETP is ignored outside soil mode, with a warning ({doc}`exits/drains-and-et`).
+- **Drains.** One drain in the top active layer of every column that is not an ocean or
   stream constant-head cell. It sits at the ground surface or half a band depth below it.
   {toml}`solver.sink_fill` sets it to zero in closed depressions
   ({doc}`exits/drains-and-et`). In the code: `build_drain_stress_period_data`.
@@ -225,7 +255,14 @@ IMS, which adjusts the update factor of the outer iteration.
 The code passes the closure criteria, the iteration limits and the optional
 {toml}`modflow6.runtime.mf6_linear_acceleration`,
 {toml}`modflow6.runtime.mf6_under_relaxation` and {toml}`modflow6.runtime.mf6_inner_rclose`
-to the IMS package. The complexity, {toml}`modflow6.runtime.mf6_ims_complexity`, defaults
+to the IMS package, with the optional {toml}`modflow6.runtime.mf6_reordering_method`. The
+IMS can renumber the cells before it factorises, with reverse Cuthill-McKee (`rcm`) or minimum
+degree (`md`) {cite:p}`hughes2017framework`. The default, `none`, keeps the numbering of the
+mesh and writes nothing. The cases measured on 2026-10-26 gave no gain: on Voronoi meshes of
+14 400 to 144 000 cells, in a shuffled or a row-sorted numbering, and on the steady Flume
+solve of 73 400 cells, `rcm` and `md` added 3 to 73 per cent of inner iterations and did not
+cut the wall time. The option reaches the IMS of the flow and the one of the transport. The
+complexity, {toml}`modflow6.runtime.mf6_ims_complexity`, defaults
 to `COMPLEX`. A configured `SIMPLE` complexity
 is promoted to `COMPLEX` when XT3D is on, and to at least `MODERATE` under Newton, because
 `SIMPLE` assumes a symmetric, well-conditioned matrix. Two combinations are refused:
@@ -317,7 +354,9 @@ This page ranks neither solver.
 |---|---|---|
 | Newton | always | on by default, can be switched off |
 | Dry cells | no rewetting (`laywet = 0`) | rewetting off, refused with Newton |
-| Non-orthogonal flux | not available | `XT3D`, automatic on irregular meshes |
+| Layering | `[domain.layers]`, shares or surfaces with `keep_min_thickness` | `[domain.layers]`, shares or surfaces, with `pass_through` cells |
+| Non-orthogonal flux | not available | `XT3D`, automatic on irregular meshes and off-axis tensors |
+| Conductivity tensor | refused | `K22` and the angles |
 | Output | head and budget at every step, stored per period | head at the last step, budget at every step, stored per period |
 | Loaded ETP | drives `EVT` | ignored outside soil mode |
 | Streams, lakes, barriers | refused | `SFR`, `LAK`, `HFB` |
@@ -420,8 +459,9 @@ an MT3DMS process is planned after it. The file name is
   table is not modelled: the code writes no UZF package, and the soil reservoir of
   {doc}`soil-reservoir` is a separate daily model that hands a recharge to the solver.
 - Every layer is convertible: it can be confined or unconfined from one step to the next.
-- The horizontal conductivity is isotropic. The vertical one is the horizontal one divided
-  by one ratio for the whole model, or a per-cell $K_z$ field.
+- The horizontal conductivity is isotropic, unless the flow sets `K22` or the angles under
+  MODFLOW 6. The vertical one is the horizontal one divided by one ratio for the whole model,
+  or a per-cell $K_z$ field.
 
 ## Limits
 
@@ -440,6 +480,12 @@ messages, are these.
   the message for the first case, and
   `does not support flow barriers / dam cutoff walls (HFB); they require the 'modflow6' backend.`
   is the whole message for barriers.
+- **Layers and tensor.** MODFLOW-NWT has no pass-through cell: `pinch_out = "pass_through"` is
+  refused when the file is read, and the build refuses a grid that holds one. `K22` and the
+  angles need MODFLOW 6, and the file is refused with MODFLOW-NWT or Boussinesq. A dip outside
+  $[-90, 90]$ degrees and an angle with a vertical profile are refused. Boussinesq solves one
+  layer and reads no {toml}`domain.layers`, so it refuses more than one layer and the
+  `surfaces` mode.
 - **Soil reservoir.** `[flow.sinks_sources.recharge.soil] is wired to MODFLOW 6 only`
   stops a file that asks for it with another solver.
 - **ETP.** MODFLOW 6 draws no ETP outside soil mode, and only logs a warning.
@@ -472,6 +518,7 @@ modflow6.runtime.mf6_inner_dvclose
 modflow6.runtime.mf6_inner_rclose
 modflow6.runtime.mf6_preconditioner_levels
 modflow6.runtime.mf6_preconditioner_drop_tolerance
+modflow6.runtime.mf6_reordering_method
 modflow6.runtime.mf6_linear_acceleration
 modflow6.runtime.mf6_under_relaxation
 modflow6.runtime.mf6_enable_rewet
@@ -505,7 +552,7 @@ hydromodpy.solver.boussinesq
 |---|---|
 | Steps, steady flags, the first period | `hydromodpy/solver/modflow_grid/discretization_temporal.py` (`build_temporal_discretization_from_time_grid`, `resolve_first_period_steady`) |
 | MODFLOW 6: every package, in order | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`) |
-| XT3D decision, IMS complexity | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `resolve_ims_complexity`) |
+| XT3D decision, IMS complexity | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `k_tensor_is_tilted`, `k_tensor_is_off_axis`, `resolve_ims_complexity`) |
 | Newton options, guards, IMS options, ATS | `hydromodpy/solver/modflow6/build.py` (`newton_options`, `guard_newton_rewet`, `guard_newton_linear_acceleration`, `optional_ims_kwargs`, `build_ats_perioddata`) |
 | Rewet options, starting heads | `hydromodpy/solver/modflow6/builders/initial_conditions.py` (`resolve_rewet_npf_options`, `build_start_heads`) |
 | Recharge, EVT, drains, constant heads, wells | `hydromodpy/solver/modflow6/builders/` (`recharge.py`: `recharge_to_spd`, `build_soil_evta_payload`, `mask_recharge_on_lake_cells`; `boundary_conditions.py`: `build_drain_stress_period_data`, `assemble_constant_head_stress_period_data`; `wells.py`), `hydromodpy/solver/modflow_common/` (`recharge_evt_routing.py`, `drain_conductance.py`) |

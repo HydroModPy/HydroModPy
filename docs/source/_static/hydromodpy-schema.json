@@ -4243,6 +4243,61 @@
         }
       }
     },
+    "CustomLayerBaseSource": {
+      "additionalProperties": false,
+      "description": "User-provided raster of the base of one layer (GeoTIFF/ASC), elevations in metres.\n\nA layer of ``[domain.layers]`` reads it by its ``name`` through its ``surface``\nkey. The values are elevations in the datum of the DEM.",
+      "properties": {
+        "source": {
+          "const": "custom",
+          "default": "custom",
+          "description": "Discriminator tag selecting the 'custom' layer base provider.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "name": {
+          "description": "Name a layer of [[domain.layers.layer]] gives as its surface to end on this base.",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "Path to a raster of the base elevation of a layer in m (GeoTIFF, ASC).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "default_crs": {
+          "default": "EPSG:2154",
+          "description": "CRS assumed for a raster that carries none of its own. Defaults to RGF93/Lambert-93 (EPSG:2154); set it to the site CRS for a non-French dataset.",
+          "examples": [
+            "EPSG:2154"
+          ],
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CustomLayerBaseSource",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        }
+      }
+    },
     "CustomSoilCapacitySource": {
       "additionalProperties": false,
       "description": "User-provided soil water capacity raster (GeoTIFF/ASC), values in mm.",
@@ -4602,7 +4657,7 @@
       "description": "Top-level ``[data]`` configuration for manager families.\n\nThe `types` list declares user-requested data families. The effective\nactive set can also include planner-inferred families deduced from other\nsections (domain, flow) depending on `inference_mode`.\n\nFor each active type, the matching nested section can be validated dynamically:\n- `geology` already uses its dedicated Pydantic model (`GeologyConfig`),\n- `oceanic` uses `OceanicConfig`,\n- the other data families are kept as validated mappings for now.\n\nUse this model for validation only. Runtime activation order is represented\nby ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.",
       "properties": {
         "types": {
-          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
+          "description": "Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'crossings', 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'lake_abacus', 'lake_bathymetry', 'lake_geometry', 'lake_inflow', 'lake_levels', 'lake_outflow', 'lake_withdrawal', 'layer_base', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_capacity', 'soil_moisture', 'substratum', 'temperature', 'water_quality', 'wind'.",
           "items": {
             "type": "string"
           },
@@ -4960,6 +5015,19 @@
           ],
           "default": null,
           "description": "Substratum configuration (aquifer-bottom raster, elevation or thickness).",
+          "x-hmp-profile": "user"
+        },
+        "layer_base": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LayerBaseConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layer base configuration (one elevation raster per named layer base, read by [domain.layers] with genmtd_lay = 'surfaces').",
           "x-hmp-profile": "user"
         },
         "soil_capacity": {
@@ -5496,7 +5564,7 @@
     },
     "DomainConfig": {
       "additionalProperties": false,
-      "description": "Domain configuration.\n\nControls which zone providers are loaded in `Domain`.",
+      "description": "Domain configuration: the zones, the depth of the aquifer and its layering.\n\nControls which zone providers are loaded in `Domain`. ``layers`` is the\nvertical split of the aquifer, read by every solver.",
       "properties": {
         "zone_ids": {
           "description": "Zone identifiers Domain.set_zone is allowed to register. It is an allowlist, not a request: nothing here causes a zone to be built. 'catchment' and 'geology' are appended by HydroModPy because the binders write under those fixed names, and every support id is appended too, so what belongs here is a project's own zonations. Order is never read. Spatial-support declarations live under domain.supports.",
@@ -5584,6 +5652,11 @@
               "$ref": "#/$defs/RasterThicknessDepthModel"
             }
           ]
+        },
+        "layers": {
+          "$ref": "#/$defs/VerticalGridConfig",
+          "description": "How the aquifer between the top and the base set by depth_model is split into layers. Every solver reads this one table.",
+          "x-hmp-profile": "user"
         }
       },
       "title": "DomainConfig",
@@ -7729,11 +7802,12 @@
         },
         "interpolation_method": {
           "default": "nearest",
-          "description": "Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.",
+          "description": "How gridded or station data reach the cells of the solver mesh: 'nearest' (source value at the cell centre), 'linear', 'idw' (inverse distance), or 'area' (gridded data only: each pixel weighted by the area it shares with the cell, so the volume over the domain equals the integral of the grid).",
           "enum": [
             "nearest",
             "linear",
-            "idw"
+            "idw",
+            "area"
           ],
           "examples": [
             "nearest"
@@ -11372,11 +11446,12 @@
         },
         "interpolation_method": {
           "default": "nearest",
-          "description": "Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.",
+          "description": "How gridded or station data reach the cells of the solver mesh: 'nearest' (source value at the cell centre), 'linear', 'idw' (inverse distance), or 'area' (gridded data only: each pixel weighted by the area it shares with the cell, so the volume over the domain equals the integral of the grid).",
           "enum": [
             "nearest",
             "linear",
-            "idw"
+            "idw",
+            "area"
           ],
           "examples": [
             "nearest"
@@ -12082,13 +12157,17 @@
           "x-hmp-profile": "user"
         },
         "layer": {
-          "default": 0,
-          "description": "Model layer the point lies in, counted from 0 at the top.",
-          "examples": [
-            0
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ],
+          "default": null,
+          "description": "Model layer the point lies in, counted from 0 at the top. Left out, the well takes the top active cell of its column.",
           "title": "Layer",
-          "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -12195,13 +12274,17 @@
           "x-hmp-profile": "user"
         },
         "layer": {
-          "default": 0,
-          "description": "Model layer the point lies in, counted from 0 at the top.",
-          "examples": [
-            0
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
           ],
+          "default": null,
+          "description": "Model layer the point lies in, counted from 0 at the top. Left out, the well takes the top active cell of its column.",
           "title": "Layer",
-          "type": "integer",
           "unit": "-",
           "x-hmp-profile": "user"
         },
@@ -15458,6 +15541,42 @@
         }
       }
     },
+    "LayerBaseConfig": {
+      "additionalProperties": false,
+      "description": "Top-level layer base variable configuration: one named raster per base.\n\nExample TOML::\n\n    [[data.layer_base.sources]]\n    source = \"custom\"\n    name = \"weathered_base\"\n    path = \"data/layer_base/weathered_base.tif\"",
+      "properties": {
+        "sources": {
+          "description": "One raster per layer base, each under its own name.",
+          "items": {
+            "$ref": "#/$defs/CustomLayerBaseSource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "LayerBaseConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
+        },
+        "^sources__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomLayerBaseSource"
+          }
+        },
+        "^sources__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CustomLayerBaseSource"
+          }
+        }
+      }
+    },
     "LinearTopography": {
       "additionalProperties": false,
       "description": "Linear analytical topography rising from right to left.",
@@ -16042,6 +16161,18 @@
           "type": "number",
           "unit": "m/m",
           "x-hmp-profile": "dev"
+        },
+        "gap_cells": {
+          "default": 2.0,
+          "description": "Cells across the gap between two face lines (lake shores, barriers, geology contacts, catchment boundary) or between one and the domain outline: the cell size there is the gap divided by this number, never finer than the DEM pixel. 0 switches it off.",
+          "examples": [
+            2.0
+          ],
+          "minimum": 0.0,
+          "title": "Gap Cells",
+          "type": "number",
+          "unit": "cells",
+          "x-hmp-profile": "dev"
         }
       },
       "title": "MeshConfig",
@@ -16364,7 +16495,7 @@
         },
         "lloyd_tolerance": {
           "default": 0.01,
-          "description": "Stop of the Lloyd relaxation of the generated generators: the largest displacement of a free generator in one iteration, as a share of its local cell size. The relaxation also stops after 25 iterations, and the mesh QA reports whether the tolerance was reached.",
+          "description": "Stop of the Lloyd relaxation of the generated generators: the root mean square of the displacements of the free generators in one iteration, as a share of their local cell size. The relaxation also stops after 25 iterations, and the mesh QA reports whether the tolerance was reached and the largest displacement.",
           "examples": [
             0.01
           ],
@@ -16509,7 +16640,7 @@
         },
         "sgrid": {
           "$ref": "#/$defs/SolverSGridConfig",
-          "description": "Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh].",
+          "description": "How the top of the solver grid is sampled from the DEM; the planar grid is [mesh] and the layering is [domain.layers].",
           "x-hmp-profile": "user"
         }
       },
@@ -16528,7 +16659,7 @@
       "properties": {
         "vka": {
           "default": 1.0,
-          "description": "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a direct conductivity, never a mode-switched value. Vertical anisotropy is grid-aligned and needs no XT3D; a horizontal K22 field or an angle (not exposed here) would auto-activate XT3D.",
+          "description": "Uniform vertical anisotropy ratio kh/kv (dimensionless, > 0); k33 = k / vka. Default 1.0 is vertically isotropic. For spatial control declare a per-cell 'Kv' flow parameter instead, which is mutually exclusive with a non-unit vka and is a direct conductivity, never a mode-switched value. Vertical anisotropy is grid-aligned and needs no XT3D. The rest of the tensor is set by the flow parameters 'K22', 'angle1', 'angle2' and 'angle3'; a non-zero angle2 or angle3 turns XT3D on.",
           "examples": [
             1.0
           ],
@@ -17138,6 +17269,21 @@
           "title": "Mf6 Preconditioner Drop Tolerance",
           "x-hmp-profile": "expert"
         },
+        "mf6_reordering_method": {
+          "default": "none",
+          "description": "IMS REORDERING_METHOD: order of the matrix rows before the incomplete factorization. 'rcm' is reverse Cuthill-McKee, which narrows the band; 'md' is minimum degree, which limits the fill. 'none' keeps the cell numbering of the mesh and writes nothing to the IMS file. The ordering changes the preconditioner, so the iteration count and the time, not the converged heads beyond the closure criteria. Measured on Voronoi DISV meshes of 14 400 to 144 000 cells, with a shuffled or a row-sorted numbering, and on a steady Flume solve of 73 400 cells, 'rcm' and 'md' never cut the inner iterations (3 to 73 per cent more), and the time did not drop beyond the noise of a loaded machine.",
+          "enum": [
+            "none",
+            "rcm",
+            "md"
+          ],
+          "examples": [
+            "none"
+          ],
+          "title": "Mf6 Reordering Method",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        },
         "mf6_under_relaxation": {
           "anyOf": [
             {
@@ -17223,7 +17369,7 @@
             }
           ],
           "default": null,
-          "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled on triangle cells, and on other cells when the mesh is significantly non-orthogonal; the orthogonal Voronoi cells keep it off. It adds cost but improves accuracy on non-orthogonal grids.",
+          "description": "Enable MF6 NPF XT3D terms. When left to None, XT3D is auto-enabled when the K tensor is tilted (a non-zero flow parameter angle2 or angle3, which MF6 reads only under XT3D), on triangle cells, and on other cells when the mesh is significantly non-orthogonal; the orthogonal Voronoi cells keep it off. It adds cost but improves accuracy on non-orthogonal grids and with an anisotropic K whose axes do not follow the grid.",
           "title": "Mf6 Enable Xt3D",
           "x-hmp-profile": "expert"
         },
@@ -17296,7 +17442,7 @@
         },
         "sgrid": {
           "$ref": "#/$defs/SolverSGridConfig",
-          "description": "Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh].",
+          "description": "How the top of the solver grid is sampled from the DEM; the planar grid is [mesh] and the layering is [domain.layers].",
           "x-hmp-profile": "user"
         }
       },
@@ -22799,13 +22945,8 @@
     },
     "SolverSGridConfig": {
       "additionalProperties": false,
-      "description": "Solver-facing grid configuration: vertical layering and top sampling.\n\nThe planar grid is the mesh of ``[mesh]``, not a key of this table.",
+      "description": "Solver-facing grid configuration: how the top of the grid is sampled.\n\nThe planar grid is the mesh of ``[mesh]`` and the layering is ``[domain.layers]``,\nneither a key of this table.",
       "properties": {
-        "vertical": {
-          "$ref": "#/$defs/VerticalGridConfig",
-          "description": "Vertical layering of the solver grid.",
-          "x-hmp-profile": "user"
-        },
         "top_sampling": {
           "$ref": "#/$defs/TopSamplingConfig",
           "description": "How the top of the solver grid is sampled from the DEM.",
@@ -22933,6 +23074,145 @@
           "items": {
             "$ref": "#/$defs/CustomSubstratumSource"
           }
+        }
+      }
+    },
+    "SurfaceLayerConfig": {
+      "additionalProperties": false,
+      "description": "One layer of a layering by surfaces: its name, its base and its minimum thickness.\n\nEvery layer but the last gives its base with one key. The last layer ends on the\nbase of the aquifer that ``[domain.depth_model]`` sets, so it gives none.",
+      "properties": {
+        "name": {
+          "description": "Name of the layer, for example 'weathered' or 'fissured'.",
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+                  "type": "string"
+                }
+              ],
+              "gt": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base this far below the base of the layer above, or below the terrain for the first layer (canonical metres).",
+          "examples": [
+            30.0
+          ],
+          "title": "Thickness",
+          "x-hmp-profile": "user"
+        },
+        "depth": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+                  "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+                  "type": "string"
+                }
+              ],
+              "gt": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base this far below the terrain (canonical metres).",
+          "examples": [
+            15.0
+          ],
+          "title": "Depth",
+          "x-hmp-profile": "user"
+        },
+        "elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base at this elevation, in the datum of the DEM (canonical metres).",
+          "examples": [
+            50.0
+          ],
+          "title": "Elevation",
+          "x-hmp-profile": "user"
+        },
+        "surface": {
+          "anyOf": [
+            {
+              "description": "Snake-case identifier starting with a lowercase letter.",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base read from the raster of this name under [[data.layer_base.sources]], whose values are the elevation of the base.",
+          "examples": [
+            "weathered_base"
+          ],
+          "title": "Surface",
+          "x-hmp-profile": "user"
+        },
+        "min_thickness": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "description": "A quantity as text: a number then a unit, for example '150 m' or '0.36 m/h'.",
+              "pattern": "^\\s*[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\s*(?:\\S.*)?$",
+              "type": "string"
+            }
+          ],
+          "default": 0.1,
+          "description": "Thinnest the layer may be (canonical metres). Where it is thinner, [domain.layers] pinch_out says what happens.",
+          "examples": [
+            0.1
+          ],
+          "title": "Min Thickness",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SurfaceLayerConfig",
+      "type": "object",
+      "patternProperties": {
+        "^.+__delete$": {
+          "const": true,
+          "description": "Remove the inherited key. Only the literal true is accepted."
         }
       }
     },
@@ -23905,15 +24185,16 @@
     },
     "VerticalGridConfig": {
       "additionalProperties": false,
-      "description": "Single source of truth for vertical-grid validation.\n\nThis model is used by surface-driven SGrid generation:\n- layering strategy (`genmtd_lay`),\n- layer count or proportions,\n- nodata masking metadata.\n\nAll geometric quantities are interpreted in SI metres.",
+      "description": "How the aquifer between the top and the base of ``[domain.depth_model]`` is split into layers.\n\nIt is the ``[domain.layers]`` table, read by every solver, so a project has one\nlayering whatever solver runs it. It holds the layering strategy\n(``genmtd_lay``), the layer count, proportions or layer tables, the pinch-out\nrule and the nodata sentinel.\n\nAll geometric quantities are interpreted in SI metres.",
       "properties": {
         "genmtd_lay": {
           "default": "constant",
-          "description": "How the aquifer thickness is split into layers: equal layers, layers that thicken with depth, or the fractions you list.",
+          "description": "How the aquifer thickness is split into layers: equal layers, layers that thicken with depth, the fractions you list, or one base per layer.",
           "enum": [
             "constant",
             "decay",
-            "list"
+            "list",
+            "surfaces"
           ],
           "examples": [
             "constant"
@@ -23923,7 +24204,8 @@
           "value_docs": {
             "constant": "Splits local thickness into nlay equal-fraction layers at every cell.",
             "decay": "Grows layer thickness geometrically with depth when lay_decay is above one.",
-            "list": "Uses the explicit per-layer thickness fractions given in lay_proportions."
+            "list": "Uses the explicit per-layer thickness fractions given in lay_proportions.",
+            "surfaces": "Gives each layer its own base in the [[domain.layers.layer]] tables."
           },
           "x-hmp-profile": "user"
         },
@@ -23937,7 +24219,7 @@
             }
           ],
           "default": 1,
-          "description": "Number of layers for 'constant' and 'decay'. With 'list', the number of fractions sets it.",
+          "description": "Number of layers for 'constant' and 'decay'. With 'list', the number of fractions sets it, with 'surfaces' the number of layer tables.",
           "examples": [
             1
           ],
@@ -23988,6 +24270,41 @@
           "unit": "-",
           "x-hmp-profile": "user"
         },
+        "layer": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SurfaceLayerConfig"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The layers from the top, each with its base, for 'surfaces'. The last layer ends on the base of [domain.depth_model] and gives no base.",
+          "title": "Layer",
+          "x-hmp-profile": "user"
+        },
+        "pinch_out": {
+          "default": "pass_through",
+          "description": "What a layer thinner than its min_thickness becomes, for 'surfaces'. Read only with that value of genmtd_lay.",
+          "enum": [
+            "pass_through",
+            "keep_min_thickness"
+          ],
+          "examples": [
+            "pass_through"
+          ],
+          "title": "Pinch Out",
+          "type": "string",
+          "value_docs": {
+            "keep_min_thickness": "The base of the layer moves down to keep min_thickness, and the layers below and the base of the aquifer with it. MODFLOW-NWT reads only this value.",
+            "pass_through": "The cell becomes a vertical pass-through (idomain -1, MODFLOW 6 only) and the active cell below it, or above it at the base, takes its thickness."
+          },
+          "x-hmp-profile": "user"
+        },
         "nodata": {
           "default": -9999.0,
           "description": "No-data sentinel value.",
@@ -24016,6 +24333,18 @@
           "type": "array",
           "items": {
             "type": "number"
+          }
+        },
+        "^layer__append$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SurfaceLayerConfig"
+          }
+        },
+        "^layer__merge$": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SurfaceLayerConfig"
           }
         }
       }
@@ -25007,7 +25336,7 @@
     },
     "domain": {
       "$ref": "#/$defs/DomainConfig",
-      "description": "Domain configuration defining domain depth plus the spatial-support mode used for heterogeneous parameter mapping (`none`, `geology`, or `zones`).",
+      "description": "Domain configuration: the depth of the aquifer ([domain.depth_model]), its layering ([domain.layers], read by every solver) and the spatial-support mode used for heterogeneous parameter mapping (`none`, `geology`, or `zones`).",
       "x-hmp-profile": "user"
     },
     "data": {
@@ -25037,12 +25366,12 @@
     },
     "modflownwt": {
       "$ref": "#/$defs/ModflowConfig",
-      "description": "MODFLOW-NWT settings: the vertical layering and top sampling of the grid ([modflownwt.sgrid.vertical], [modflownwt.sgrid.top_sampling]), the package options ([modflownwt.process_specific]) and the solver settings ([modflownwt.runtime.<package>], expert keys).",
+      "description": "MODFLOW-NWT settings: the top sampling of the grid ([modflownwt.sgrid.top_sampling]), the package options ([modflownwt.process_specific]) and the solver settings ([modflownwt.runtime.<package>], expert keys).",
       "x-hmp-profile": "user"
     },
     "modflow6": {
       "$ref": "#/$defs/Modflow6Config",
-      "description": "MODFLOW 6 settings: the vertical layering and top sampling of the grid ([modflow6.sgrid.vertical], [modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) and the solver settings ([modflow6.runtime], expert keys).",
+      "description": "MODFLOW 6 settings: the top sampling of the grid ([modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) and the solver settings ([modflow6.runtime], expert keys).",
       "x-hmp-profile": "user"
     },
     "display": {

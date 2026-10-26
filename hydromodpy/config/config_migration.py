@@ -25,7 +25,9 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   table of the flow solver is kept (the first solver of the first flow
   process, else ``solver.backend``, else MODFLOW 6) and the other is dropped
   with a line saying whether it held other values. An existing
-  ``[domain.layers]`` wins over both.
+  ``[domain.layers]`` wins over both. The dotted override
+  ``"<solver>.sgrid.vertical.<key>"`` of a calibration phase ->
+  ``"domain.layers.<key>"``, under the same rule.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
@@ -121,6 +123,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     changes.extend(_report_retired_results_tables(doc))
     changes.extend(_move_the_bottom_path(doc))
     changes.extend(_move_the_layering(doc))
+    changes.extend(_move_the_phase_layering(doc))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
     changes.extend(_drop_the_validity_ratio(doc))
@@ -1453,6 +1456,43 @@ def _move_the_layering(doc: Any) -> list[str]:
             doc["domain"] = tomlkit.table(is_super_table=True) if is_file else {}
             domain = doc["domain"]
         domain["layers"] = layers
+    return changes
+
+
+def _move_the_phase_layering(doc: Any) -> list[str]:
+    """Move the dotted ``<solver>.sgrid.vertical`` overrides of a calibration phase to ``domain.layers``.
+
+    A phase writes the layering by dotted path. When it writes the paths of
+    both solvers, those of the flow solver are kept, as
+    :func:`_move_the_layering` keeps its table, and the others are dropped.
+    """
+    changes: list[str] = []
+    for where, phase in _tables_at(doc, "calibration.phases[*]"):
+        overrides = phase.get("overrides")
+        if not isinstance(overrides, Mapping):
+            continue
+        found: dict[str, list[str]] = {}
+        for name in _SOLVER_SECTIONS:
+            table = f"{name}.sgrid.vertical"
+            keys = [str(key) for key in overrides if key == table or key.startswith(f"{table}.")]
+            if keys:
+                found[name] = keys
+        if not found:
+            continue
+        kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
+        for name, keys in found.items():
+            for key in keys:
+                label = f'{where}.overrides."{key}"'
+                if name != kept:
+                    del overrides[key]
+                    changes.append(f"{label} dropped ({kept} is the flow solver)")
+                    continue
+                moved = "domain.layers" + key.removeprefix(f"{name}.sgrid.vertical")
+                if moved in overrides:
+                    changes.append(f'{label} left: "{moved}" is given too, keep one')
+                    continue
+                _move_key(overrides, key, moved, _plain(overrides[key]))
+                changes.append(f'{label} -> "{moved}"')
     return changes
 
 

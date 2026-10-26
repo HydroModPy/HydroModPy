@@ -18,9 +18,8 @@ from hydromodpy.core.vertical_column import (
     VERTICAL_LAYOUT_SURFACES,
     check_layer_interfaces,
 )
-from hydromodpy.spatial.mesh.cartesian_grid.layer_surfaces import base_interfaces, pinch_out
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_stack
+from hydromodpy.spatial.domain.layering import base_interfaces, layer_stack, pinch_out
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 
 NODATA = -9999.0
 
