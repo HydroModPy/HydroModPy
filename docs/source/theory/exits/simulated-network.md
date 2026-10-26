@@ -193,8 +193,9 @@ None of them is the criterion of a calibration.
 
 **Overlap of cells.** $M$ is the set of catchment cells a network crosses, within
 an optional buffer, and $A$ the active cells of a field (by default the
-accumulated flux above zero, with the time rule above). The scores are the usual
-set scores of $A$ against $M$, published as `network_coverage_ratio` (the share
+accumulated flux above zero, with the time rule above). The catchment is the basin of
+$D$ in whole cells, and a run that stores no basin reads its active domain. The scores are
+the usual set scores of $A$ against $M$, published as `network_coverage_ratio` (the share
 of $M$ in $A$), `active_precision_ratio` (the share of $A$ in $M$),
 `cell_f1_ratio` (their harmonic mean) and `cell_jaccard_ratio` (the intersection
 over the union), by `cell_field_network_overlap_metrics`.

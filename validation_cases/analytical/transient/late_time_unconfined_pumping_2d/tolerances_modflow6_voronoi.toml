@@ -1,11 +1,11 @@
 [space_time]
-rmse = 0.019
-max_abs_error = 0.046
-azimuthal_spread = 0.0044
+rmse = 0.0189
+max_abs_error = 0.0454
+azimuthal_spread = 0.00435
 
 [final_time]
-rmse = 0.013
-max_abs_error = 0.016
+rmse = 0.0126
+max_abs_error = 0.0154
 
 [doc]
 reason = """
@@ -17,4 +17,9 @@ the well is centred on it. Read at the monitor radius instead, 1 to 18 m from
 that node, the error was twice as large. Until 2026-10-10 the spread was taken
 on the drawdown, not on the error, and read 0.040 m: the cells read sit at
 different radii.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: space_time.azimuthal_spread 0.0044 to 0.00435 (measure 0.00217);
+final_time.rmse 0.013 to 0.0126 (measure 0.00625); final_time.max_abs_error
+0.016 to 0.0154 (measure 0.00766); space_time.rmse 0.019 to 0.0189 (measure
+0.00941); space_time.max_abs_error 0.046 to 0.0454 (measure 0.0227).
 """

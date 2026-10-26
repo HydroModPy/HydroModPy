@@ -135,7 +135,9 @@ the basin.
 The basin is the set of cells whose chain passes through the catchment outlet.
 The outlet follows the rule of the stream criterion: the most drained cell near
 the outlet the catchment was closed on, else inside the catchment polygon, else
-the largest basin of the domain.
+the largest basin of the domain. A synthetic domain, such as the box of a validation
+case, has no catchment polygon and no outlet. Its basin is the largest basin of the
+domain, which closes no catchment, and the budget of its run holds the domain row only.
 
 On a quad mesh $D$ steps along diagonals, and a chain can cross a reach between
 two cells that only touch at a corner. When both cells beside a diagonal step are

@@ -339,6 +339,35 @@ class StreamNetwork:
 
 
 @dataclass(frozen=True)
+class JensonSnap:
+    """Snap an outlet onto the nearest cell of an extracted stream network.
+
+    The method of Jenson and Domingue (1988), as Lindsay, Rothwell and Davies
+    (2008) use it. The outlet moves to the stream cell closest to it, whatever
+    that cell accumulates, so it cannot jump onto a larger stream that happens
+    to lie inside the window. The window is the same square the window snap
+    searches, so ``snap_distance_m`` keeps one meaning for both. Ties on the
+    distance go to the lowest ``(row, col)``.
+
+    The network is a product of the DEM and not an observation: it is the
+    ``stream_network`` of an untransformed accumulation, and it has to come
+    from the pointer that is delineated.
+    """
+
+    streams: StreamNetwork
+
+
+SnapMethod = Literal["window"] | JensonSnap
+"""Where an outlet lands inside its snap window.
+
+``window`` takes the cell with the largest accumulation, which is what every
+HydroModPy catchment has been delineated with. A :class:`JensonSnap` takes the
+nearest cell of the stream network it carries. The value carries its own
+network, so ``delineate`` keeps one signature for both.
+"""
+
+
+@dataclass(frozen=True)
 class Outlet:
     """One point to delineate from, in the CRS of the conditioned DEM."""
 
@@ -545,19 +574,24 @@ class TerrainEngine(Protocol):
         *,
         out_dir: Path,
         snap_distance_m: float,
+        snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
         """Delineate every outlet against one accumulation, in input order.
 
-        Each outlet is first snapped to the highest accumulation in its snap
-        window, because a declared coordinate rarely lands on the talweg. The
-        window is the one :func:`snap_window_cells` describes, and
-        ``snap_distance_m`` is its **width**, not a maximum displacement.
+        Each outlet is first snapped inside its snap window, because a declared
+        coordinate rarely lands on the talweg. The window is the one
+        :func:`snap_window_cells` describes, and ``snap_distance_m`` is its
+        **width**, not a maximum displacement. ``snap`` says where the outlet
+        lands in it: ``"window"`` takes the highest accumulation, a
+        :class:`JensonSnap` takes the nearest cell of its stream network and
+        refuses an outlet whose window holds none.
 
-        Requires a rank-preserving transform, which is all a snap compares, and
-        a raster whose stored values still resolve the counts underneath them:
-        see :data:`RANK_PRESERVING_TRANSFORMS` and
-        :data:`LN_FLOAT32_COLLISION_COUNT`. ``layout`` says where the two
+        The window snap requires a rank-preserving transform, which is all it
+        compares, and a raster whose stored values still resolve the counts
+        underneath them: see :data:`RANK_PRESERVING_TRANSFORMS` and
+        :data:`LN_FLOAT32_COLLISION_COUNT`. A Jenson snap compares no
+        accumulation, so it asks neither. ``layout`` says where the two
         artefacts of each outlet land.
         """
         ...
@@ -707,6 +741,49 @@ def require_batch(
         )
 
 
+def require_snap_method(
+    snap: SnapMethod,
+    accumulation: FlowAccumulation,
+    *,
+    member: str,
+) -> None:
+    """Refuse a snap method an engine cannot serve on this accumulation.
+
+    A Jenson snap lands on the cells of its network and the catchment is then
+    traced down the pointer of the accumulation, so a network drawn from another
+    pointer would land the outlet on cells that pointer does not drain. The
+    refusal happens before anything is written.
+    """
+    if isinstance(snap, JensonSnap):
+        if snap.streams.directions != accumulation.directions:
+            raise TerrainProductError(
+                f"{member} snaps onto a stream network drawn from another pointer than "
+                "the one it delineates down. Draw the network from the accumulation "
+                "that is passed, with stream_network."
+            )
+        return
+    if snap != "window":
+        raise TerrainRequestError(
+            f"Unknown snap method {snap!r}. Expected 'window' or a JensonSnap."
+        )
+
+
+def stream_window_refusal(outlet: Outlet, snap_distance_m: float, snap: JensonSnap) -> str:
+    """Return the message of an outlet that has no stream cell in its snap window.
+
+    Said once here so every engine refuses in the same words. The outlet is
+    never left where it was: delineating from a hillside cell would give a
+    catchment of a few cells that no later step can tell from a real one.
+    """
+    streams = snap.streams
+    return (
+        f"Snapping outlet {outlet.outlet_id!r} found no cell of the stream network in a "
+        f"snap window of {snap_distance_m} m around ({outlet.x}, {outlet.y}). The network "
+        f"is the cells that drain more than {streams.threshold:g} "
+        f"{streams.threshold_units}."
+    )
+
+
 def snap_window_cells(snap_distance_m: float, *, dx: float, dy: float) -> tuple[int, int]:
     """Return the half-width, in cells, of the window a snap searches.
 
@@ -773,10 +850,12 @@ __all__ = [
     "ConditioningMethod",
     "DrainageDirections",
     "FlowAccumulation",
+    "JensonSnap",
     "Outlet",
     "LN_FLOAT32_COLLISION_COUNT",
     "RANK_PRESERVING_TRANSFORMS",
     "PointerConvention",
+    "SnapMethod",
     "StreamNetwork",
     "TerrainEngine",
     "engine_members",
@@ -784,6 +863,8 @@ __all__ = [
     "require_batch",
     "require_rank_preserving",
     "require_resolvable_counts",
+    "require_snap_method",
     "require_untransformed",
     "snap_window_cells",
+    "stream_window_refusal",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -27,6 +28,8 @@ from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.spatial.mesh import PlanarCellMesh
+    from hydromodpy.spatial.mesh.planning.refinement import RefinementZone
+    from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
     from hydromodpy.spatial.mesh.request import MeshRequest
 
 logger = get_logger(__name__)
@@ -51,7 +54,8 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     with a warning and used as it is.
     """
     mesh_cfg = ctx.cfg.mesh or MeshConfig()
-    request = plan_mesh_request(mesh_cfg, planning_inputs(ctx, mesh_cfg))
+    inputs = planning_inputs(ctx, mesh_cfg)
+    request = plan_mesh_request(mesh_cfg, inputs)
     engine_cls = mesh_registry.get(mesh_cfg.engine)
     key = directory = cell_mesh = None
     if engine_cls.capabilities.needs_cache:
@@ -76,16 +80,42 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         "engine": cell_mesh.identity.engine_id,
         "engine_version": cell_mesh.identity.engine_version,
         "request_hash": request.canonical_hash(),
+        "source_runs": list(request.source_runs),
+        "zone_runs": _zone_runs(mesh_cfg.refinement_zone, inputs.refinement_zones),
         "cache_key": key,
         "library_versions": library_versions(),
         "qa": _qa_with_notes(cell_mesh, request),
     }
 
 
+def _zone_runs(
+    cfgs: Sequence[RefinementZoneConfig], zones: Sequence[RefinementZone]
+) -> dict[str, str]:
+    """The ``sim_id`` of the run each zone read, by the reference its table writes.
+
+    The frozen configuration writes these ``sim_id`` in place of the run names,
+    so a replay reads the run the mesh came from, not a later ``.vN`` of it.
+    The planner leaves out a zone drawn by a threshold when the engine does not
+    grade its cells, and then no run was read. Otherwise it keeps one zone per
+    table, in order.
+    """
+    if len(zones) != len(cfgs):
+        return {}
+    return {
+        cfg.run: zone.source_run
+        for cfg, zone in zip(cfgs, zones, strict=True)
+        if cfg.run is not None and zone.source_run is not None
+    }
+
+
 def _qa_with_notes(cell_mesh: PlanarCellMesh, request: MeshRequest) -> dict[str, object]:
-    """The QA of the mesh, with the planner's notes after the engine's."""
+    """The QA of the mesh, with the planner's notes after the engine's.
+
+    The voronoi engine already copies the planner's notes into its QA, so a
+    note the QA holds is not added twice.
+    """
     qa = cell_mesh.qa.as_dict()
-    qa["notes"] = [*qa["notes"], *request.notes]
+    qa["notes"] = [*qa["notes"], *(note for note in request.notes if note not in qa["notes"])]
     return qa
 
 

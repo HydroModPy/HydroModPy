@@ -34,6 +34,14 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
             output,
         )
 
+    def jenson_snap_pour_points_vector(self, pour_points, streams, snap_dist: float):
+        return self._run(
+            self._env.jenson_snap_pour_points,
+            pour_points,
+            streams,
+            snap_dist=float(snap_dist),
+        )
+
     def watershed_raster(self, d8_pntr, pour_pts, *, esri_pntr: bool = False):
         return self._run(
             self._env.watershed,

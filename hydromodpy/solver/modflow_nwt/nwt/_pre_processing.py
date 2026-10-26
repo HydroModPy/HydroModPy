@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import flopy
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_common.options import ModflowPreprocessOptions
 
@@ -23,6 +24,28 @@ if TYPE_CHECKING:
     from .nwt_solver import ModflowNwt
 
 logger = get_logger(__name__)
+
+
+def _upw_vertical_conductivity(
+    solver: ModflowNwt, flow_inputs: FlowModflowInputs, si_to_solver: float
+) -> tuple[int | np.ndarray, float | np.ndarray]:
+    """Return the ``(layvka, vka)`` the UPW package reads.
+
+    A flow that sets ``Kv`` gives UPW the vertical conductivity itself: ``LAYVKA = 0``
+    in every layer and ``VKA = Kv``. Otherwise the ``[solver.modflow_nwt]`` settings
+    stand: ``LAYVKA`` and ``VKA``, a ratio of K to Kv with their defaults. The ratio
+    and a ``Kv`` both set the vertical conductivity, so a ratio other than 1 beside a
+    ``Kv`` is refused, as MODFLOW 6 does.
+    """
+    if flow_inputs.kv is None:
+        return solver._params.runtime.upw.layvka, solver._params.process_specific.vka
+    ratio = float(solver._params.process_specific.vka)
+    if ratio != 1.0:
+        raise ConfigError(
+            f"A flow Kv and a vertical anisotropy ratio vka={ratio} both set the vertical "
+            "conductivity of MODFLOW-NWT. Remove one of them."
+        )
+    return np.zeros(solver.nlay, dtype=int), flow_inputs.kv * si_to_solver
 
 
 def assemble_flopy_packages(
@@ -67,6 +90,7 @@ def assemble_flopy_packages(
     solver.ss = flow_inputs.ss
     solver.ss_value = flow_inputs.ss_value
 
+    layvka, vka = _upw_vertical_conductivity(solver, flow_inputs, si_to_solver)
     solver.upw_hdry = solver._params.runtime.upw.hdry
     solver.upw = flopy.modflow.ModflowUpw(
         solver.mf,
@@ -75,10 +99,10 @@ def assemble_flopy_packages(
         hk=solver.hk,
         sy=solver.sy,
         ss=solver.ss,
-        vka=solver._params.process_specific.vka,
+        vka=vka,
         iphdry=solver._params.runtime.upw.iphdry,
         hdry=solver.upw_hdry,
-        layvka=solver._params.runtime.upw.layvka,
+        layvka=layvka,
         extension="upw",
         unitnumber=None,
         noparcheck=False,

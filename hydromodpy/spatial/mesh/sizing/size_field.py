@@ -6,7 +6,9 @@ background and of every term, clipped between the DEM pixel and the outside
 size. Distances come from an exact Euclidean distance transform between
 pixel centres, so each term is Lipschitz with its own slope, and so is the
 minimum: the size of two neighbouring cells never differs by more than
-``max_slope`` times their distance.
+``max_slope`` times their distance. A region is a geometry, burnt with every
+pixel it touches, or a :class:`PixelRegion`, the pixels of the grid a
+criterion selected.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ logger = get_logger(__name__)
 __all__ = [
     "MAX_SIZE_FIELD_PIXELS",
     "OutsideCoarsening",
+    "PixelRegion",
     "SizeTerm",
     "build_size_field",
     "sample_size_field",
@@ -39,16 +42,41 @@ MAX_SIZE_FIELD_PIXELS = 4_000_000
 """Above this pixel count the field is reduced by an integer factor, minimum per block."""
 
 
+@dataclass(frozen=True, eq=False)
+class PixelRegion:
+    """The pixels of *grid* a criterion selected, as a boolean array, row 0 north."""
+
+    mask: np.ndarray
+    grid: RasterGridSpec
+
+    def __post_init__(self) -> None:
+        """Freeze the mask and refuse a shape other than the grid's."""
+        mask = np.array(self.mask, dtype=bool, copy=True)
+        if mask.shape != (self.grid.nrow, self.grid.ncol):
+            raise MeshRequestError(
+                f"a pixel region has shape {mask.shape}, the grid is "
+                f"{(self.grid.nrow, self.grid.ncol)}"
+            )
+        mask.setflags(write=False)
+        object.__setattr__(self, "mask", mask)
+
+    @property
+    def is_empty(self) -> bool:
+        """Whether no pixel is selected."""
+        return not bool(self.mask.any())
+
+
 @dataclass(frozen=True)
 class SizeTerm:
     """A size on a region, growing back to the background outside it.
 
-    ``region`` is burnt with every pixel it touches. Outside, the size grows
-    by ``(h0 - size_m) / ramp_m`` per metre, never faster than ``max_slope``.
+    A geometry ``region`` is burnt with every pixel it touches, a
+    :class:`PixelRegion` is taken as it is. Outside, the size grows by
+    ``(h0 - size_m) / ramp_m`` per metre, never faster than ``max_slope``.
     """
 
     name: str
-    region: BaseGeometry
+    region: BaseGeometry | PixelRegion
     size_m: float
     ramp_m: float
 
@@ -147,8 +175,14 @@ def sample_size_field(field: SizeField, xy: np.ndarray) -> np.ndarray:
     return map_coordinates(field.values, [rows, cols], order=1, mode="nearest")
 
 
-def _distance_to(region: BaseGeometry, grid: RasterGridSpec) -> np.ndarray | None:
+def _distance_to(region: BaseGeometry | PixelRegion, grid: RasterGridSpec) -> np.ndarray | None:
     """Distance in metres from each pixel centre to the pixels *region* touches, or None."""
+    if isinstance(region, PixelRegion):
+        if region.grid != grid:
+            raise MeshRequestError("a pixel region lies on another grid than the size field")
+        if region.is_empty:
+            return None
+        return distance_transform_edt(~region.mask, sampling=(grid.dy, grid.dx))
     mask = rasterize(
         [(region, 1)],
         out_shape=(grid.nrow, grid.ncol),

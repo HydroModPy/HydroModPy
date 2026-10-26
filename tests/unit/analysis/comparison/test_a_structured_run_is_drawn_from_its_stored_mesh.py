@@ -19,7 +19,7 @@ from hydromodpy.analysis.comparison import visuals_payloads
 from hydromodpy.analysis.comparison.runtime import mesh as runtime_mesh
 from hydromodpy.analysis.comparison.runtime.mesh import (
     cells_from_run_mesh,
-    resolve_bundle_cells,
+    resolve_run_cells,
     resolve_summary_cells,
 )
 from hydromodpy.analysis.comparison.runtime.series import VariableSeries
@@ -157,15 +157,8 @@ def test_a_mesh_without_a_shape_is_drawn_as_polygons(
 
 def test_the_stored_mesh_is_read_before_any_reconstruction(tmp_path: Path) -> None:
     _write_grid(tmp_path / "fields.zarr", structured=True)
-    run_folder = tmp_path / "run"
-    run_folder.mkdir()
 
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=NROW * NCOL,
-        store=_Store(tmp_path / "fields.zarr"),
-        sim_id="sim",
-    )
+    cells = resolve_run_cells(_Store(tmp_path / "fields.zarr"), "sim", expected_size=NROW * NCOL)
 
     assert cells is not None
     assert cells.structured_shape == (NROW, NCOL)

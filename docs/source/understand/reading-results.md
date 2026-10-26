@@ -316,7 +316,11 @@ storage is not plotted: it is the difference between the two curves. Together th
 
 - *m³/s, not mm.* The figure can also be plotted as a water depth, which is easier to compare
   with rainfall: see the options of `flux_timeseries` in the
-  {doc}`catalog of figures <../reference/figures>`.
+  {doc}`catalog of figures <../reference/figures>`. As a depth, the figure divides each line by
+  the area of its own zone: the whole cells of the catchment for the `catchment` line, and the
+  active domain for the line of the domain. The axis names the zone. Here the recharge of the
+  catchment line, 0.71 m³/s over 64.8 km², and the recharge of the domain line, 1.31 m³/s over
+  120.4 km², both give 0.94 mm per day, as expected since the recharge is uniform.
 - *The catchment and not the domain.* The model extends beyond the catchment
   (a margin of 10% more area); the figure says
   "frame: the delineated catchment".

@@ -16,7 +16,7 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.analysis.comparison.runtime.mesh import (
     CellCentroidTable,
-    resolve_bundle_cells,
+    resolve_run_cells,
 )
 from hydromodpy.analysis.comparison.runtime.physics import (
     _convert_accumulation_rate_to_m3_s,
@@ -103,50 +103,6 @@ def _area_for_series_value(
     return area
 
 
-def _cell_id_for_series_value(
-    *,
-    series: VariableSeries,
-    cells: CellCentroidTable | None,
-    value_index: int,
-    details: Mapping[str, Any],
-) -> int | None:
-    selected_cell_raw = details.get("selected_cell_index")
-    if selected_cell_raw not in ("", None):
-        try:
-            return int(selected_cell_raw)
-        except Exception:
-            return None
-    if series.cell_ids is not None and value_index < int(series.cell_ids.size):
-        return int(series.cell_ids[int(value_index)])
-    if cells is not None and value_index < int(cells.cell_ids.size):
-        return int(cells.cell_ids[int(value_index)])
-    return None
-
-
-def _vertical_bounds_for_series_value(
-    *,
-    series: VariableSeries,
-    cells: CellCentroidTable | None,
-    value_index: int,
-    details: Mapping[str, Any],
-) -> tuple[float | str, float | str]:
-    if cells is None:
-        return "", ""
-    cell_id = _cell_id_for_series_value(
-        series=series,
-        cells=cells,
-        value_index=value_index,
-        details=details,
-    )
-    if cell_id is None:
-        return "", ""
-    bounds = cells.vertical_bounds_for_cell_id(cell_id)
-    if bounds is None:
-        return "", ""
-    top, bottom = bounds
-    return top, bottom
-
-
 def normalize_observable_value(
     *,
     observable: ComparisonObservable,
@@ -176,7 +132,7 @@ def normalize_observable_value(
             if cells is None:
                 raise ValueError(
                     f"Observable '{observable.name}' cannot derive "
-                    "canonical outlet_flux without mesh bundle areas."
+                    "canonical outlet_flux without the cell areas of the run mesh."
                 )
             area_m2 = cells.area_for_cell_id(int(selected_cell_raw))
             if area_m2 is None:
@@ -531,26 +487,23 @@ def extract_observable_rows(
         if observable.simulations is not None and simulation.id not in set(observable.simulations):
             continue
         series = load_variable_series(
-            run_folder=run_folder,
             variable=observable.variable,
             store=store,
             sim_id=sim_id,
         )
         series = mask_depth_series_from_head_nodata(
-            run_folder=run_folder,
             series=series,
             store=store,
             sim_id=sim_id,
         )
         if cells is None:
             first_slice_size = int(series.slices[0].values.size) if series.slices else None
-            cells = resolve_bundle_cells(
-                run_folder,
+            cells = resolve_run_cells(
+                store,
+                sim_id,
                 expected_size=(
                     None if first_slice_size is None or first_slice_size <= 1 else first_slice_size
                 ),
-                store=store,
-                sim_id=sim_id,
             )
         selected_slices = _select_time_slices(series, observable)
 
@@ -609,12 +562,6 @@ def extract_observable_rows(
                     details=details,
                     cells=cells,
                 )
-                surface_top_m, surface_bottom_m = _vertical_bounds_for_series_value(
-                    series=series,
-                    cells=cells,
-                    value_index=value_index,
-                    details=details,
-                )
                 is_nodata = is_nodata_value(normalized["value"])
                 rows.append(
                     {
@@ -662,8 +609,6 @@ def extract_observable_rows(
                         "derived_from_variable": normalized["derived_from_variable"],
                         "conversion_applied": normalized["conversion_applied"],
                         "cell_area_m2": normalized["cell_area_m2"],
-                        "surface_top_m": surface_top_m,
-                        "surface_bottom_m": surface_bottom_m,
                         "source_path": str(series.source_path),
                         "run_folder": str(run_folder),
                         "selection": str(details.get("selection", "")),
@@ -706,8 +651,6 @@ OBSERVABLE_CSV_FIELDNAMES = (
     "derived_from_variable",
     "conversion_applied",
     "cell_area_m2",
-    "surface_top_m",
-    "surface_bottom_m",
     "source_path",
     "run_folder",
     "selection",

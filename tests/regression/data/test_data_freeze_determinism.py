@@ -41,8 +41,16 @@ from hydromodpy.data.registry.freeze import (
     verify_inputs_strict,
     write_lockfile,
 )
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
 pytestmark = pytest.mark.regression
+
+_SCHEMA_VERSIONS = {
+    "zarr_schema_version": ZARR_SCHEMA_VERSION,
+    "parquet_schema_version": PARQUET_SCHEMA_VERSION,
+}
+"""The storage schema versions a lockfile records: the data layer is handed them."""
 
 
 # Wall-clock fields that legitimately differ between two writes. Everything
@@ -115,8 +123,8 @@ def test_two_writes_are_byte_identical_after_timestamp_normalisation(
     catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
     a = workspace / "a.lock"
     b = workspace / "b.lock"
-    write_lockfile(catalog, a, schema_sha256="cafef00d")
-    write_lockfile(catalog, b, schema_sha256="cafef00d")
+    write_lockfile(catalog, a, schema_sha256="cafef00d", **_SCHEMA_VERSIONS)
+    write_lockfile(catalog, b, schema_sha256="cafef00d", **_SCHEMA_VERSIONS)
     catalog.close()
 
     text_a = a.read_text()
@@ -134,7 +142,7 @@ def test_one_write_stamps_every_entry_with_the_same_instant(tmp_path: Path) -> N
     """A snapshot reads the clock once: no entry can straddle a second."""
     catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     catalog.close()
 
     doc = tomlkit.parse(dest.read_text())
@@ -147,9 +155,9 @@ def test_input_ordering_is_stable_across_writes(tmp_path: Path) -> None:
     """Inputs come out in the same deterministic order on every write."""
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     keys_one = list(read_lockfile_inputs(dest))
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     keys_two = list(read_lockfile_inputs(dest))
     catalog.close()
 
@@ -160,7 +168,7 @@ def test_artefact_sha256_independent_of_run(tmp_path: Path) -> None:
     """SHA-256 digests depend only on file bytes, not on write timing."""
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     inputs = read_lockfile_inputs(dest)
     catalog.close()
 
@@ -178,7 +186,7 @@ def test_snapshot_round_trips_to_source_state(tmp_path: Path) -> None:
     """Parsed ``[[artefact]]`` rows equal the source catalog entries."""
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     catalog.close()
 
     entries = read_lockfile(dest)
@@ -208,7 +216,7 @@ def test_snapshot_round_trips_to_source_state(tmp_path: Path) -> None:
 def test_schema_sha256_round_trips(tmp_path: Path) -> None:
     catalog, workspace, _f, _s = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest, schema_sha256="0123abcd")
+    write_lockfile(catalog, dest, schema_sha256="0123abcd", **_SCHEMA_VERSIONS)
     catalog.close()
     assert read_lockfile_schema_sha256(dest) == "0123abcd"
 
@@ -230,7 +238,7 @@ def test_verify_frozen_flags_entry_absent_from_lockfile(tmp_path: Path) -> None:
     """A catalog entry registered after the freeze is reported as missing."""
     catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
 
     extra = workspace / "data" / "hydrometry" / "hydrometry_hubeau_C.csv"
     extra.write_text("datetime,value\n2020-01-03,3.0\n")
@@ -255,7 +263,7 @@ def test_verify_frozen_flags_deleted_artefact(tmp_path: Path) -> None:
     """A locked artefact that vanished from disk is a ``missing`` mismatch."""
     catalog, workspace, first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     expected_sha = sha256_of(first)
     first.unlink()
 
@@ -272,7 +280,7 @@ def test_verify_frozen_flags_deleted_artefact(tmp_path: Path) -> None:
 def test_verify_inputs_strict_flags_deleted_artefact(tmp_path: Path) -> None:
     catalog, workspace, first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     expected_sha = sha256_of(first)
     first.unlink()
 
@@ -289,7 +297,7 @@ def test_verify_inputs_strict_falls_back_when_inputs_absent(tmp_path: Path) -> N
     """Without an ``[inputs]`` table, strict verify delegates to ``verify_frozen``."""
     catalog, workspace, _first, _second = _seed_two_inputs(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
 
     # Strip the [inputs] section: legacy / artefact-only lockfile shape.
     doc = tomlkit.parse(dest.read_text())
@@ -310,7 +318,7 @@ def test_gzip_archive_round_trip_preserves_sha256(tmp_path: Path) -> None:
     """A ``.tar.gz`` export restores the lockfile and verifies each digest."""
     catalog, workspace, first, second = _seed_two_inputs(tmp_path)
     archive = tmp_path / "export.tar.gz"
-    archive_lockfile(catalog, archive, lockfile_dest=tmp_path / LOCKFILE_NAME)
+    archive_lockfile(catalog, archive, lockfile_dest=tmp_path / LOCKFILE_NAME, **_SCHEMA_VERSIONS)
     catalog.close()
     assert archive.is_file()
 
@@ -332,7 +340,7 @@ def test_zstandard_archive_round_trip_preserves_sha256(tmp_path: Path) -> None:
 
     catalog, _workspace, first, second = _seed_two_inputs(tmp_path)
     archive = tmp_path / "export.tar.zst"
-    archive_lockfile(catalog, archive, lockfile_dest=tmp_path / LOCKFILE_NAME)
+    archive_lockfile(catalog, archive, lockfile_dest=tmp_path / LOCKFILE_NAME, **_SCHEMA_VERSIONS)
     catalog.close()
     assert archive.is_file()
 

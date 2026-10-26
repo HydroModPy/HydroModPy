@@ -9,14 +9,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_budget_diagnostic_figure,
     _write_flux_dashboard,
     _write_native_flux_panel,
     _write_point_dashboard,
     _write_runtime_bar_figure,
+    _write_storage_comparison_dashboard,
+    _write_total_input_output_dashboard,
     write_timeseries_figure,
 )
+from hydromodpy.analysis.comparison.visuals_render_series.aggregation import _budget_zone_suffix
 
 
 def test_write_timeseries_figure_creates_png(tmp_path: Path) -> None:
@@ -271,3 +276,58 @@ def test_write_budget_diagnostic_figure_returns_false_for_unknown_simulation(
         rows=[],
     )
     assert ok is False
+
+
+def _budget_rows(zone: str | None) -> list[dict]:
+    rows = []
+    for component in ("recharge_total_m3_s", "storage_change_total_m3_s"):
+        for i in range(3):
+            row = {
+                "simulation_id": "ref",
+                "simulation_label": "Ref",
+                "component": component,
+                "value": 1.0 + i,
+                "time_index": i,
+                "elapsed_seconds": 86400.0 * i,
+            }
+            if zone is not None:
+                row["budget_zone"] = zone
+            rows.append(row)
+    return rows
+
+
+@pytest.mark.parametrize(
+    ("zone", "suffix"),
+    [("domain", " (model domain)"), ("catchment", " (delineated catchment)"), (None, "")],
+)
+def test_the_budget_zone_suffix_names_the_zone_the_rows_sum(zone, suffix) -> None:
+    assert _budget_zone_suffix(_budget_rows(zone)) == suffix
+
+
+def test_the_suffix_stays_silent_when_the_rows_mix_two_zones() -> None:
+    assert _budget_zone_suffix(_budget_rows("domain") + _budget_rows("catchment")) == ""
+
+
+@pytest.mark.parametrize(
+    ("write", "title"),
+    [
+        (_write_storage_comparison_dashboard, "Storage comparison"),
+        (_write_total_input_output_dashboard, "Total inputs and outputs"),
+    ],
+)
+def test_the_budget_dashboards_name_their_zone_in_the_title(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write, title: str
+) -> None:
+    from matplotlib.figure import Figure
+
+    titles: list[str] = []
+    suptitle = Figure.suptitle
+
+    def spy(self, text, *args, **kwargs):
+        titles.append(text)
+        return suptitle(self, text, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "suptitle", spy)
+
+    assert write(path=tmp_path / "budget.png", budget_rows=_budget_rows("catchment"))
+    assert titles == [f"{title} (delineated catchment)"]

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import csv
-import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,10 +15,7 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonSimulation,
     ComparisonSpec,
 )
-from hydromodpy.analysis.comparison.runtime.mesh import (
-    RUN_MESH_BUNDLE_RELPATH,
-    resolve_bundle_cells,
-)
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_run_cells
 from hydromodpy.analysis.comparison.runtime.observables import select_time_slices
 from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
 from hydromodpy.analysis.comparison.runtime.series import (
@@ -201,93 +196,6 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
     if topography is not None:
         topography = np.asarray(topography, dtype=float).reshape(-1)
     return vertices, faces, topography
-
-
-def _bundle_dir_for_case(run_folder: Path) -> Path | None:
-    """Return the mesh exchange bundle the run copied into its own directory, if any."""
-    bundle_dir = run_folder / RUN_MESH_BUNDLE_RELPATH
-    return bundle_dir if bundle_dir.is_dir() else None
-
-
-def _cell_node_id_values(row: Mapping[str, Any]) -> list[str]:
-    """Return one cell's node-id strings, variable arity, empty slots dropped.
-
-    Honors the ``ncvert`` count when present (Voronoi/PEBI bundles) and otherwise
-    scans every ``n<k>`` column so legacy fixed ``n0..n3`` files still load.
-    """
-    ncvert_raw = str(row.get("ncvert", "") or "").strip()
-    if ncvert_raw:
-        count = int(float(ncvert_raw))
-        keys = [f"n{position}" for position in range(count)]
-    else:
-        keys = []
-        position = 0
-        while f"n{position}" in row:
-            keys.append(f"n{position}")
-            position += 1
-    values: list[str] = []
-    for key in keys:
-        raw = str(row.get(key, "") or "").strip()
-        if raw:
-            values.append(raw)
-    return values
-
-
-def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | None, ...]:
-    if bundle_dir is None:
-        return None, None, None
-    nodes_path = bundle_dir / "nodes.csv"
-    cells_path = bundle_dir / "cells.csv"
-    if not nodes_path.exists() or not cells_path.exists():
-        return None, None, None
-
-    node_ids: list[int] = []
-    vertices: list[tuple[float, float, float]] = []
-    with nodes_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            try:
-                node_ids.append(int(row["node_id"]))
-                z_raw = row.get("z_top")
-                z_value = float(z_raw) if z_raw not in (None, "") else math.nan
-                vertices.append((float(row["x"]), float(row["y"]), z_value))
-            except Exception:
-                continue
-    if not vertices:
-        return None, None, None
-
-    node_index = {node_id: index for index, node_id in enumerate(node_ids)}
-    faces: list[list[int]] = []
-    topography: list[float] = []
-    with cells_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            face: list[int] = []
-            for raw in _cell_node_id_values(row):
-                try:
-                    face.append(node_index[int(raw)])
-                except Exception:
-                    continue
-            if len(face) < 3:
-                continue
-            faces.append(face)
-            top_raw = row.get("z_top_mean") or row.get("z_top_centroid")
-            try:
-                topography.append(float(top_raw))
-            except Exception:
-                topography.append(math.nan)
-    if not faces:
-        return None, None, None
-
-    max_face_size = max(len(face) for face in faces)
-    face_array = np.full((len(faces), max_face_size), -1, dtype=int)
-    for index, face in enumerate(faces):
-        face_array[index, : len(face)] = np.asarray(face, dtype=int)
-    return (
-        np.asarray(vertices, dtype=float),
-        face_array,
-        np.asarray(topography, dtype=float),
-    )
 
 
 def _recharge_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None, str]:
@@ -536,17 +444,14 @@ def _build_case_configuration_payload(
     vertices = faces = topography = None
     recharge_values = None
     recharge_unit = ""
-    run_folder = Path(str(selected.get("run_folder", "")))
     cells = None
     source = open_run_source(selected)
     if source is not None:
         with source:
             vertices, faces, topography = _mesh_payload_from_store(source, source.sim_id)
             recharge_values, recharge_unit = _recharge_payload_from_store(source, source.sim_id)
-            cells = resolve_bundle_cells(run_folder, store=source, sim_id=source.sim_id)
+            cells = resolve_run_cells(source, source.sim_id)
 
-    if vertices is None or faces is None:
-        vertices, faces, topography = _mesh_payload_from_bundle(_bundle_dir_for_case(run_folder))
     centroid_x = centroid_y = None
     if vertices is not None and faces is not None:
         centers = cell_centers(vertices, faces)
@@ -631,22 +536,16 @@ def _build_map_payload(
     reducer_key = str(observable.reducer or "identity").strip().lower()
     if reducer_key not in {"", "identity"}:
         return None
-    run_folder = summary.get("run_folder")
-    if not run_folder:
-        return None
-    run_folder_path = Path(str(run_folder))
     source = open_run_source(summary)
     if source is None:
         return None
     with source:
         series = load_variable_series(
-            run_folder=run_folder_path,
             variable=observable.variable,
             store=source,
             sim_id=source.sim_id,
         )
         series = mask_depth_series_from_head_nodata(
-            run_folder=run_folder_path,
             series=series,
             store=source,
             sim_id=source.sim_id,
@@ -657,12 +556,7 @@ def _build_map_payload(
         values, time_label = selected
         if values.size == 0:
             return None
-        cells = resolve_bundle_cells(
-            run_folder_path,
-            expected_size=values.size,
-            store=source,
-            sim_id=source.sim_id,
-        )
+        cells = resolve_run_cells(source, source.sim_id, expected_size=values.size)
 
     unit = next(
         (

@@ -12,9 +12,10 @@ through the `PlanarCellMesh` model.
   converts it to and from the `HydroMesh`.
 - `exchange_api.py` is the small public I/O surface: load and save a planar
   mesh, and move a `HydroMesh` through a VTU file.
-- `catchment_mesh_bundle_reader.py` loads a frozen bundle (CSV files plus a
-  `metadata.json`). A bundle is the input of the Boussinesq validation
-  cases and of the mesh bundle viewer.
+- `catchment_mesh_bundle_reader.py` loads a bundle (CSV files plus a
+  `metadata.json`). No mesh engine writes a bundle any more. The reader stays
+  for the committed bundles of the Boussinesq validation cases, which
+  Boussinesq reads through `output_exchange_bundle_dir`.
 - `bundle_cell_mesh.py` reads the triangles of a bundle as a `PlanarCellMesh`,
   with the river and outer-side face families the solvers read.
 - `_deps.py` imports the optional `gmsh` and `meshio` dependencies on demand.

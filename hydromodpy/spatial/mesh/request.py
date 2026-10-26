@@ -304,6 +304,9 @@ class MeshRequest:
     of the engine (``algorithm``, ``seeds``, ``shape``, ...) as a read-only
     mapping of JSON values. ``notes`` are the planner's statements about what it
     left out or kept whole; they travel to the QA of the mesh and are not hashed.
+    ``source_runs`` holds the ``sim_id`` of each earlier run whose result shaped
+    the size field, sorted: the mesh depends on those runs, so they are hashed,
+    and another run gives another request even where the sizes agree.
     """
 
     domain: Polygon
@@ -316,6 +319,7 @@ class MeshRequest:
     options: Mapping[str, object] = _EMPTY_OPTIONS
     input_triangulation: InputTriangulation | None = None
     notes: tuple[str, ...] = ()
+    source_runs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Validate every member and freeze the options."""
@@ -359,6 +363,11 @@ class MeshRequest:
             self.input_triangulation, InputTriangulation
         ):
             raise MeshRequestError("MeshRequest.input_triangulation must be an InputTriangulation")
+        if isinstance(self.source_runs, str) or not all(
+            isinstance(run, str) and run.strip() for run in self.source_runs
+        ):
+            raise MeshRequestError("MeshRequest.source_runs must be a sequence of sim ids")
+        object.__setattr__(self, "source_runs", tuple(sorted(set(self.source_runs))))
 
     def family(self, name: str) -> LineFamilySpec | None:
         """The line family named *name*, or ``None``."""
@@ -370,6 +379,9 @@ class MeshRequest:
         The domain enters in its normalized form (ring start and orientation do
         not change the area to mesh); lines keep their orientation and order,
         since both decide which cell sits left of a line and how a chain runs.
+        The source runs enter only when there are some, so the hash of a
+        request that reads no run does not depend on them, and the meshes
+        cached for such requests stay valid.
         """
         digest = hashlib.sha256()
         _feed(digest, b"hydromodpy.mesh.request/1")
@@ -391,6 +403,11 @@ class MeshRequest:
             _feed(digest, b"")
         else:
             _feed(digest, self.input_triangulation.hash_bytes())
+        if self.source_runs:
+            _feed(digest, b"source_runs")
+            _feed(digest, struct.pack("<q", len(self.source_runs)))
+            for run in self.source_runs:
+                _feed(digest, run.encode("utf-8"))
         return digest.hexdigest()
 
 

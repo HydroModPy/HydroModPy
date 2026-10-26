@@ -245,11 +245,18 @@ def lock_archive(output: Any, *, workspace: Any = None) -> Path:
     """Create a portable archive of the lockfile + cache artefacts."""
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import archive_lockfile
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     db_path = _lock_cache_database(_lock_workspace_root(workspace))
     dest = Path(output).expanduser().resolve()
     with DataCatalogDuckDB(db_path) as catalog:
-        archive_lockfile(catalog, dest)
+        archive_lockfile(
+            catalog,
+            dest,
+            zarr_schema_version=str(ZARR_SCHEMA_VERSION),
+            parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
+        )
     return dest
 
 

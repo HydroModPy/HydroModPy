@@ -149,9 +149,11 @@ Limits
   the ring first. The planner drops any hole, lake or catchment smaller than one local
   cell squared, for every engine (:doc:`mesh-engines`), which removes most of these cases.
 - At equal size parameters, the generated mode makes about half the cells of the dual of a
-  triangulation: 826 become 344 cells on one catchment and 303 become 144 on another. The
-  cause is not identified. A comparison at equal cost uses the cell count of the QA, which
-  ``[mesh] cell_size`` does not give (:ref:`mesh-budget`).
+  triangulation: 826 become 344 cells on one catchment and 303 become 144 on another. The dual
+  keeps one generator per vertex of the Gmsh triangulation. Gmsh reads the size as an edge length,
+  so it makes about 2.6 A/ℓ² triangles and 1.3 A/ℓ² vertices, and every vertex of the outline is
+  a generator too. The generated mode gives A/ℓ² cells by construction, which is the definition
+  of ``cell_size`` (:ref:`mesh-budget`). A comparison at equal cost uses the cell count of the QA.
 - One request gives one mesh only for one platform, one GEOS version and one scipy version. A
   resume on another build can rebuild a different mesh, and the QA notes name the versions.
 

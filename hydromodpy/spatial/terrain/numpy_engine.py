@@ -67,13 +67,17 @@ from hydromodpy.spatial.terrain.port import (
     ConditioningMethod,
     DrainageDirections,
     FlowAccumulation,
+    JensonSnap,
     Outlet,
+    SnapMethod,
     StreamNetwork,
     require_batch,
     require_rank_preserving,
     require_resolvable_counts,
+    require_snap_method,
     require_untransformed,
     snap_window_cells,
+    stream_window_refusal,
 )
 
 _POINTER_NODATA = MASK_NODATA
@@ -248,11 +252,16 @@ class NumpyTerrainEngine:
         *,
         out_dir: Path,
         snap_distance_m: float,
+        snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_rank_preserving(accumulation, member="delineate")
+        require_snap_method(snap, accumulation, member="delineate")
+        # Only the window snap ranks the accumulation; a Jenson snap never reads it.
+        ranks_counts = snap == "window"
+        if ranks_counts:
+            require_rank_preserving(accumulation, member="delineate")
         require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
-        if accumulation.transform != "none":
+        if ranks_counts and accumulation.transform != "none":
             # Only when the values are transformed, and only where the snap reads:
             # the search window of each outlet is all the snap compares.
             require_resolvable_counts(
@@ -265,14 +274,17 @@ class NumpyTerrainEngine:
                 member="delineate",
             )
 
-        acc = _Grid(accumulation.path)
+        snap_grid = _Grid(snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path)
         pointer = _pointer_grid(accumulation.directions)
         donors = _donors(pointer)
 
         delineated: list[Catchment] = []
         for outlet in outlets:
-            row, col = _snap(acc, outlet, snap_distance_m)
-            snapped_x, snapped_y = acc.centre(row, col)
+            if isinstance(snap, JensonSnap):
+                row, col = _snap_to_stream(snap_grid, outlet, snap_distance_m, snap)
+            else:
+                row, col = _snap(snap_grid, outlet, snap_distance_m)
+            snapped_x, snapped_y = snap_grid.centre(row, col)
             inside = _upstream_mask(donors, pointer, row, col)
 
             site_dir = layout.site_dir(Path(out_dir), outlet)
@@ -526,6 +538,33 @@ def _snap(acc: _Grid, outlet: Outlet, snap_distance_m: float) -> tuple[int, int]
             f"window of {snap_distance_m} m around ({outlet.x}, {outlet.y})."
         )
     return best[2], best[3]
+
+
+def _snap_to_stream(
+    streams: _Grid, outlet: Outlet, snap_distance_m: float, snap: JensonSnap
+) -> tuple[int, int]:
+    """Move an outlet to the nearest stream cell of its snap window.
+
+    The window is the one :func:`_snap` searches, and the distance is the one
+    between cell centres, which is what ``jenson_snap_pour_points`` is measured
+    to do. Ties go to the lowest ``(row, col)``, as Whitebox does, so the two
+    engines land on the same cell.
+    """
+    row0, col0 = streams.cell_of(outlet.x, outlet.y)
+    reach_rows, reach_cols = snap_window_cells(snap_distance_m, dx=streams.dx, dy=streams.dy)
+
+    best: tuple[float, int, int] | None = None
+    for row in range(max(row0 - reach_rows, 0), min(row0 + reach_rows + 1, streams.rows)):
+        for col in range(max(col0 - reach_cols, 0), min(col0 + reach_cols + 1, streams.cols)):
+            if not (streams.valid[row, col] and streams.values[row, col] > 0.0):
+                continue
+            x, y = streams.centre(row, col)
+            candidate = (hypot(x - outlet.x, y - outlet.y), row, col)
+            if best is None or candidate < best:
+                best = candidate
+    if best is None:
+        raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
+    return best[1], best[2]
 
 
 def _write_point(path: Path, x: float, y: float, crs: object) -> None:

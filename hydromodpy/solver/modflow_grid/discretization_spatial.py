@@ -9,7 +9,6 @@ import numpy as np
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.solver.modflow_grid.grid_context import (
     SolverGridContext,
     grid_reference_from_solver_mesh,
@@ -639,8 +638,8 @@ def build_spatial_discretization(
     whose cells are the DEM pixels already holds the pixel values.
 
     The interfaces are checked once built: an active cell with a top at or
-    below its bottom raises. A warning reports active cells that fall in more
-    than one connected group.
+    below its bottom raises. The solver warns about active cells in more than one
+    connected group once its grid is final (``active_connectivity``).
     """
     top_sampling: TopSamplingConfig | None = None
     if sgrid_config is not None:
@@ -674,7 +673,6 @@ def build_spatial_discretization(
             base_surfaces=base_surfaces,
         )
     solver_mesh.check_interfaces()
-    warn_on_disconnected_active_cells(solver_mesh)
 
     return SolverGridContext(
         grid=grid_reference_from_solver_mesh(

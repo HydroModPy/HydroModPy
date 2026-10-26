@@ -277,7 +277,13 @@ def observable_request_for_output(
             times = "all"
         return ObservableRequest(id=name, name=str(output.variable), support="cells", times=times)
     if support == "cell":
-        cell = (int(output.layer), int(output.row), int(output.col))
+        row, col = int(output.row), int(output.col)
+        layer = (
+            int(output.layer)
+            if output.layer is not None
+            else top_active_layer_of_cell(ctx, row, col, name=name)
+        )
+        cell = (layer, row, col)
         if snap_m is not None:
             cell = snap_gauge_cell(
                 ctx,
@@ -294,6 +300,32 @@ def observable_request_for_output(
             times=times,
         )
     raise ValueError(f"Unknown calibration output support {support!r} on output {name!r}")
+
+
+def top_active_layer_of_cell(ctx: Any, row: int, col: int, *, name: str) -> int:
+    """Return the layer a cell output without one reads: the top active one of its column.
+
+    The backend answers, as it does for :func:`find_cell_at_point`: only it
+    knows which layers of its grid are active. A backend that cannot say is
+    refused by name rather than read at layer 0, which may be a pinched cell.
+    """
+    resolved = resolve_flow_adapter(ctx)
+    ask = getattr(resolved[0], "top_active_layer", None) if resolved is not None else None
+    if ask is None:
+        raise NotImplementedError(
+            f"Output {name!r} gives no layer, and no flow solver adapter says which layer "
+            "is the top active one of its column. Write the layer."
+        )
+    try:
+        layer = ask(resolved[1], row, col)
+    except ValueError as exc:
+        raise ValueError(f"Output {name!r}: {exc}") from exc
+    if layer is None:
+        raise NotImplementedError(
+            f"Output {name!r} gives no layer, and the run holds no grid yet to find the top "
+            "active layer of its column on."
+        )
+    return int(layer)
 
 
 def _snap_radius_m(output: Any) -> float | None:
@@ -1477,4 +1509,5 @@ __all__ = [
     "resolve_station_cells",
     "snap_gauge_cell",
     "station_xy",
+    "top_active_layer_of_cell",
 ]

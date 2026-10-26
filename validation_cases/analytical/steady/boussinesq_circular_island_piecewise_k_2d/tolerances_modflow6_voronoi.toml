@@ -28,4 +28,8 @@ bins). The freeboard is read on the land surface the run was given, at the
 196 m ring. This case cannot see the DEM-top bias come back, since that bias
 lowered its error; the Cartesian islands and
 tests/integration/test_the_computational_top_changes_only_the_mf6_grid.py do.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing:
+radial_profile.azimuthal_spread 1.1e-4 (measure 4e-6, the head closure is 1e-4
+m, and the measure read 5.2e-5 on 2026-10-14 on the same mesh).
 """

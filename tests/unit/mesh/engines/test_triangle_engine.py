@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from hydromodpy.spatial.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
     triangulate_request,
 )
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import triangulate
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import MESH_SIZE_PER_CELL_SIZE, triangulate
 from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
 from hydromodpy.spatial.mesh.gmsh_grid.gmsh_reader import read_gmsh_2d_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
@@ -27,6 +28,7 @@ from hydromodpy.spatial.mesh.request import (
     LineFamilySpec,
     MeshRequest,
     RasterGridSpec,
+    SizeField,
 )
 
 WKT = 'PROJCS["RGF93 / Lambert-93"]'
@@ -40,6 +42,7 @@ needs_gmsh = pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not i
 
 RIVER = LineString([(X0 + 100, Y0 + 150), (X0 + 450, Y0 + 420), (X0 + 900, Y0 + 880)])
 CONTACT = LineString([(X0 + 400, Y0), (X0 + 600, Y0 + 1000)])
+BENT_CONTACT = LineString([(X0 + 400, Y0), (X0 + 530, Y0 + 500), (X0 + 600, Y0 + 1000)])
 
 
 def _grid(xmin: float, ymin: float, xmax: float, ymax: float, n: int = 10) -> RasterGridSpec:
@@ -73,6 +76,25 @@ def _square(*, lines=None, domain: Polygon | None = None, **options) -> MeshRequ
         ),
         options=options,
     )
+
+
+def _sized_square(size: float) -> MeshRequest:
+    """The square as the planner hands it: a uniform size field, lines cut every *size*."""
+    request = _square(
+        lines=(
+            LineFamilySpec("rivers", "cell", (shapely.segmentize(RIVER, size),)),
+            LineFamilySpec(
+                "geology",
+                "face",
+                (shapely.segmentize(BENT_CONTACT, size),),
+                ("west_unit",),
+                ("east_unit",),
+            ),
+        )
+    )
+    grid = _grid(X0, Y0, X0 + 1000, Y0 + 1000, n=40)
+    field = SizeField(np.full((grid.nrow, grid.ncol), size), grid)
+    return dataclasses.replace(request, nominal_size_m=size, size_field=field)
 
 
 def _read_request(path: Path) -> MeshRequest:
@@ -226,6 +248,28 @@ def test_the_gmsh_driver_returns_the_edges_of_each_line_in_line_order() -> None:
     stop = result.vertices[edges[:, 1]]
     along = shapely.line_locate_point(RIVER, shapely.points(0.5 * (start + stop)))
     assert np.all(np.diff(along) > 0.0)
+
+
+@needs_gmsh
+def test_a_sized_request_embeds_its_lines_at_the_edge_length_of_its_triangles() -> None:
+    """A triangle of area h^2 has edges of about 1.6 h, along the lines as elsewhere."""
+    size = 50.0
+    result = triangulate(_sized_square(size))
+    edge = MESH_SIZE_PER_CELL_SIZE["delaunay"] * size
+    crossing = RIVER.project(RIVER.intersection(BENT_CONTACT))
+
+    expected = round(crossing / edge) + round((RIVER.length - crossing) / edge)
+    assert len(result.line_edges[("rivers", 0)]) == expected
+
+
+@needs_gmsh
+def test_the_faces_of_a_sized_request_follow_the_lines_its_triangles_embed() -> None:
+    cell_mesh = TriangleMeshEngine().build(_sized_square(50.0))
+    quality = cell_mesh.qa.families["geology"]
+
+    assert quality["hausdorff_m"] <= 1e-6
+    assert quality["covered_length_rel"] == pytest.approx(1.0, abs=1e-9)
+    assert cell_mesh.qa.size_fidelity
 
 
 def test_the_centres_are_the_vertex_means_of_the_planar_mesh_reader() -> None:

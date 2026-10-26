@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.config import ComparisonSpec
+from hydromodpy.analysis.comparison.config import BudgetZone, ComparisonSpec
 from hydromodpy.analysis.comparison.output_pipeline import write_comparison_output_bundle
 from hydromodpy.analysis.comparison.runs import (
     CaseCheck,
@@ -83,8 +83,12 @@ def run_comparison(
     comparison_id: str,
     variables: Sequence[str] | None = None,
     allow_different_mesh: bool = False,
+    budget_zone: BudgetZone = "domain",
 ) -> ComparisonOutcome:
     """Compare *runs*, the first one as the reference, into *comparison_root*.
+
+    The budget exports sum the zone *budget_zone* names, the model domain by
+    default, and label it.
 
     Raises :class:`~hydromodpy.analysis.comparison.runs.ComparisonCaseError`
     before writing anything when the runs are not one case.
@@ -99,6 +103,7 @@ def run_comparison(
         comparison_root=root,
         reference_simulation=runs[0].name,
         fine_raster=comparison_fine_raster(runs[0]),
+        budget_zone=budget_zone,
         simulation=[comparison_simulation(run) for run in runs],
         observable=comparison_observables(runs, variables),
     )

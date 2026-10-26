@@ -51,6 +51,7 @@ from hydromodpy.solver.modflow_grid import (
     resolve_domain_surfaces,
     resolve_first_period_steady,
 )
+from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
 from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
@@ -307,6 +308,7 @@ class ModflowNwt:
                 "MODFLOW-NWT does not have. Write [domain.layers] pinch_out = "
                 "'keep_min_thickness', or run MODFLOW 6."
             )
+        warn_on_disconnected_active_cells(self.solver_mesh)
         self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
         self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.closed_surface())
         self.nlay = self.solver_mesh.nlay

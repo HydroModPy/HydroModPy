@@ -4,8 +4,8 @@ The Boussinesq backend accepts either:
 
 - one runtime planar cell mesh, its properties mapped from ``Flow``/``Domain``
   like the MODFLOW adapters do, or
-- one gmsh-derived ``CatchmentMeshBundle`` that carries its own properties per
-  cell (the validation runtimes).
+- one ``CatchmentMeshBundle`` read from a bundle folder, which carries its own
+  properties per cell (the validation runtimes).
 
 A bundle is never completed from ``Flow`` parameters: a flow ``K`` or ``Sy`` next
 to a bundle is refused, so one property never has two silent sources. Keeping
@@ -33,7 +33,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 
 
 def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
-    """Return the canonical gmsh catchment bundle attached to launcher setup."""
+    """Return the catchment mesh bundle attached to the run setup."""
     preloaded = getattr(setup_state, "mesh_bundle", None)
     if preloaded is not None:
         return preloaded
@@ -48,8 +48,8 @@ def resolve_mesh_bundle(setup_state: object) -> CatchmentMeshBundle:
 
     raise ValueError(
         "flow/boussinesq requires either a runtime planar mesh with Flow/Domain "
-        "property mapping support, or one CatchmentMeshBundle from the gmsh mesh "
-        "workflow. Provide state.setup.cell_mesh or state.setup.mesh_bundle, "
+        "property mapping support, or one CatchmentMeshBundle read from a bundle "
+        "folder. Provide state.setup.cell_mesh or state.setup.mesh_bundle, "
         "or set output_exchange_bundle_dir in state.setup.mesh_summary."
     )
 

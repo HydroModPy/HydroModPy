@@ -32,6 +32,7 @@ from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.terrain.artifacts import (
     boundary_area_m2,
+    is_stream_cell,
     mask_cell_count,
     raster_crs,
     raster_max_near,
@@ -52,12 +53,16 @@ from hydromodpy.spatial.terrain.port import (
     ConditioningMethod,
     DrainageDirections,
     FlowAccumulation,
+    JensonSnap,
     Outlet,
+    SnapMethod,
     StreamNetwork,
     require_batch,
     require_rank_preserving,
     require_resolvable_counts,
+    require_snap_method,
     require_untransformed,
+    stream_window_refusal,
 )
 
 logger = get_logger(__name__)
@@ -234,11 +239,16 @@ class WhiteboxTerrainEngine:
         *,
         out_dir: Path,
         snap_distance_m: float,
+        snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_rank_preserving(accumulation, member="delineate")
+        require_snap_method(snap, accumulation, member="delineate")
+        # Only the window snap ranks the accumulation; a Jenson snap never reads it.
+        ranks_counts = snap == "window"
+        if ranks_counts:
+            require_rank_preserving(accumulation, member="delineate")
         require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
-        if accumulation.transform != "none":
+        if ranks_counts and accumulation.transform != "none":
             # Only when the values are transformed, and only where the snap reads:
             # the search window of each outlet is all the snap compares.
             require_resolvable_counts(
@@ -252,8 +262,12 @@ class WhiteboxTerrainEngine:
             )
 
         crs = accumulation.directions.conditioned_dem.crs
-        # Read the two shared products once: that is what makes this a batch.
-        acc_raster = self._backend.raster.read_raster(str(accumulation.path))
+        # Read the shared products once: that is what makes this a batch. The
+        # raster the snap ranks is the accumulation for the window snap and the
+        # stream network for a Jenson one.
+        snap_raster = self._backend.raster.read_raster(
+            str(snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path)
+        )
         pointer = self._backend.raster.read_raster(str(accumulation.directions.path))
 
         delineated: list[Catchment] = []
@@ -267,11 +281,15 @@ class WhiteboxTerrainEngine:
 
             _write_point(outlet_shp, outlet.x, outlet.y, crs)
             ensure_crs(outlet_shp, crs or None)
-            snapped = self._backend.delineation.snap_pour_points_vector(
-                self._backend.raster.read_vector(str(outlet_shp)),
-                acc_raster,
-                int(snap_distance_m),
-            )
+            outlet_vector = self._backend.raster.read_vector(str(outlet_shp))
+            if isinstance(snap, JensonSnap):
+                snapped = self._backend.delineation.jenson_snap_pour_points_vector(
+                    outlet_vector, snap_raster, snap_distance_m
+                )
+            else:
+                snapped = self._backend.delineation.snap_pour_points_vector(
+                    outlet_vector, snap_raster, int(snap_distance_m)
+                )
             if self._backend.raster.vector_record_count(snapped) == 0:
                 raise TerrainProductError(
                     f"Snapping outlet {outlet.outlet_id!r} produced no feature within "
@@ -280,6 +298,12 @@ class WhiteboxTerrainEngine:
             self._backend.raster.write_vector(snapped, str(snapped_shp))
             ensure_crs(snapped_shp, crs or None)
             snapped_x, snapped_y = _read_point(snapped_shp)
+            # The tool leaves an outlet where it was when its window holds no
+            # stream cell, so a point that is not on the network is a refusal.
+            if isinstance(snap, JensonSnap) and not is_stream_cell(
+                snap.streams.path, snapped_x, snapped_y
+            ):
+                raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
 
             watershed = self._backend.delineation.watershed_raster(
                 pointer,

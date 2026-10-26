@@ -23,6 +23,7 @@ from hydromodpy.solver.modflow6.builders import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import MESH_SIZE_PER_CELL_SIZE
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable, PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.flow_barrier import (
     barrier_edges,
@@ -36,9 +37,15 @@ from tests._helpers.reservoir_dam import DOMAIN, X0, Y0
 
 WKT = CRS.from_epsg(2154).to_wkt()
 FENCE = LineString([(X0 + 250.0, Y0 + 120.0), (X0 + 560.0, Y0 + 420.0), (X0 + 880.0, Y0 + 500.0)])
+TRIANGLE_CELL_SIZE = 40.0 / MESH_SIZE_PER_CELL_SIZE["delaunay"]
+"""The cell size whose triangles have 40 m edges, so an 80 m gap holds at least two faces."""
 MESHES = {
     "regular": {"engine": "regular", "cell_size": 40.0},
-    "triangle": {"engine": "triangle", "cell_size": 40.0, "families": {"rivers": "none"}},
+    "triangle": {
+        "engine": "triangle",
+        "cell_size": TRIANGLE_CELL_SIZE,
+        "families": {"rivers": "none"},
+    },
     "voronoi": {"engine": "voronoi", "cell_size": 40.0, "families": {"rivers": "none"}},
 }
 

@@ -11,4 +11,8 @@ the two-point flux of a uniform gradient is exact. What is left is the solver
 closure (outer dvclose 1e-9 m) and the 2e-4 spread of the transmissivity across
 the strip. The contact at x = 50 m is a mirror-pair face between two zones of
 the same K, so it changes nothing. Measured 2026-10-14.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing: heads.rmse 5.2e-8 (measure
+2.59e-8, patch test: solver closure and the spread of T); heads.max_abs_error
+1.3e-7 (measure 6.48e-8, patch test: solver closure and the spread of T).
 """

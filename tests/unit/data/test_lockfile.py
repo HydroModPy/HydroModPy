@@ -8,6 +8,7 @@ address of ``hydromodpy.lock``: the project root it was written to.
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
 import threading
@@ -35,6 +36,14 @@ from hydromodpy.data.registry.freeze import (
     verify_inputs_strict,
     write_lockfile,
 )
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+
+_SCHEMA_VERSIONS = {
+    "zarr_schema_version": ZARR_SCHEMA_VERSION,
+    "parquet_schema_version": PARQUET_SCHEMA_VERSION,
+}
+"""The storage schema versions a lockfile records: the data layer is handed them."""
 
 
 def _seed_workspace(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path]:
@@ -57,7 +66,7 @@ def _seed_workspace(tmp: Path) -> tuple[DataCatalogDuckDB, Path, Path]:
 def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
 
     doc = tomlkit.parse(dest.read_text())
     for section in ("hydromodpy", "binaries", "schema", "inputs"):
@@ -68,8 +77,8 @@ def test_write_lockfile_contains_required_sections(tmp_path: Path) -> None:
     assert "hydromodpy_version" in meta
     assert "python_version" in meta
     assert "catalog_schema_version" in meta
-    assert meta["zarr_schema_version"] == "2"
-    assert meta["parquet_schema_version"] == "v2"
+    assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION == "3"
+    assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION == "v2"
 
     inputs = read_lockfile_inputs(dest)
     assert inputs, "inputs section must list registered artefacts"
@@ -89,7 +98,7 @@ def test_write_lockfile_atomic(tmp_path: Path) -> None:
     # The atomic helper writes to a sibling tmp file then renames in place.
     # Trace inode swaps via the source/destination dev+ino pair.
     before_stat = dest.stat()
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     after_stat = dest.stat()
 
     # Replace must have substituted the inode (Unix rename semantics).
@@ -115,7 +124,7 @@ def test_lockfile_includes_binary_sha256(tmp_path: Path) -> None:
     fake_solver.chmod(0o755)
 
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest, solvers={"modflow6": fake_solver})
+    write_lockfile(catalog, dest, solvers={"modflow6": fake_solver}, **_SCHEMA_VERSIONS)
 
     binaries = read_lockfile_binaries(dest)
     assert binaries.get("modflow6_sha256") == sha256_of(fake_solver)
@@ -125,7 +134,7 @@ def test_lockfile_includes_binary_sha256(tmp_path: Path) -> None:
 def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
     catalog, workspace, src = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     inputs = read_lockfile_inputs(dest)
     assert len(inputs) == 1
     key, payload = next(iter(inputs.items()))
@@ -137,7 +146,7 @@ def test_lockfile_includes_inputs_sha256(tmp_path: Path) -> None:
 def test_verify_lockfile_passes_when_unchanged(tmp_path: Path) -> None:
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     assert verify_frozen(catalog, dest) == []
     assert verify_inputs_strict(catalog, dest) == []
 
@@ -145,7 +154,7 @@ def test_verify_lockfile_passes_when_unchanged(tmp_path: Path) -> None:
 def test_verify_lockfile_warns_on_changed_input(tmp_path: Path) -> None:
     catalog, workspace, src = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     # Mutate the file. verify_frozen still tolerates a mismatch (returns a
     # list to be reported as warnings by ``hmp lock verify``).
     src.write_text("datetime,value\n2020-01-01,9.0\n")
@@ -158,7 +167,7 @@ def test_verify_lockfile_warns_on_changed_input(tmp_path: Path) -> None:
 def test_verify_strict_fails_on_changed_input(tmp_path: Path) -> None:
     catalog, workspace, src = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     src.write_text("datetime,value\n2020-01-01,5.0\n")
     mismatches = verify_inputs_strict(catalog, dest)
     assert len(mismatches) == 1
@@ -225,7 +234,7 @@ def test_lockfile_uses_temporary_file_then_replaces(tmp_path: Path) -> None:
     """Confirm the tmp + replace path: no partial file is ever created."""
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     # No ``.lockfile.tmp.*`` sibling is left around after the write.
     tmps = [p for p in dest.parent.iterdir() if p.name.startswith(f".{dest.name}.tmp.")]
     assert tmps == []
@@ -253,7 +262,7 @@ def test_lockfile_round_trip_artefact_block(tmp_path: Path) -> None:
     """The ``[[artefact]]`` records round-trip through write/read_lockfile()."""
     catalog, workspace, _ = _seed_workspace(tmp_path)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     entries = read_lockfile(dest)
     assert len(entries) == 1
     assert entries[0].variable == "hydrometry"
@@ -261,7 +270,7 @@ def test_lockfile_round_trip_artefact_block(tmp_path: Path) -> None:
     # ``fetched_at`` should be ISO8601 with UTC offset.
     assert "T" in entries[0].fetched_at
     # Sanity: a second write does not duplicate inputs.
-    write_lockfile(catalog, dest)
+    write_lockfile(catalog, dest, **_SCHEMA_VERSIONS)
     assert len(read_lockfile_inputs(dest)) == 1
 
 
@@ -287,7 +296,7 @@ def test_sha256_of_matches_standard(tmp_path: Path) -> None:
 def test_archive_and_restore(tmp_path: Path) -> None:
     cat, _ = _seed_catalog(tmp_path)
     archive = tmp_path / "export.tar"
-    archive_lockfile(cat, archive, lockfile_dest=tmp_path / LOCKFILE_NAME)
+    archive_lockfile(cat, archive, lockfile_dest=tmp_path / LOCKFILE_NAME, **_SCHEMA_VERSIONS)
     assert archive.is_file()
     restore_dir = tmp_path / "restored"
     restore_archive(archive, restore_dir)
@@ -309,7 +318,7 @@ def test_lockfile_resolves_workspace_data_variable_relative_paths(tmp_path: Path
         file_path=src.name,
     )
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(cat, dest)
+    write_lockfile(cat, dest, **_SCHEMA_VERSIONS)
 
     entries = read_lockfile(dest)
     assert len(entries) == 1
@@ -331,7 +340,7 @@ def test_verify_frozen_keeps_distinct_gridded_artifacts(tmp_path: Path) -> None:
     cat.register(variable="precipitation", source="sim2", file_path=first.name)
     cat.register(variable="precipitation", source="sim2", file_path=second.name)
     dest = workspace / LOCKFILE_NAME
-    write_lockfile(cat, dest)
+    write_lockfile(cat, dest, **_SCHEMA_VERSIONS)
 
     entries = read_lockfile(dest)
     assert {entry.file_path for entry in entries} == {
@@ -434,6 +443,55 @@ def test_frozen_precheck_accepts_the_lockfile_lock_update_wrote(
     lock_update(project=str(project_root))
 
     assert _verify_frozen_inputs_strict(config_path, raw_toml) == project_root
+
+
+def test_the_lockfile_lock_update_wrote_records_the_schema_versions_of_the_stores(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hydromodpy.cli._workers.dev import lock_update
+    from hydromodpy.data.provenance.lockfile import project_lockfile_path
+
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    _, project_root, _ = _seed_workspace_project(tmp_path)
+    lock_update(project=str(project_root))
+
+    meta = read_lockfile_meta(project_lockfile_path(project_root))
+    assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION
+    assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION
+
+
+@pytest.mark.parametrize("worker", ["lock_archive", "archive_data_cache"])
+def test_the_archive_of_the_cli_records_the_schema_versions_of_the_stores(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, worker: str
+) -> None:
+    import importlib
+    import tarfile
+
+    module = (
+        "hydromodpy.cli._workers.dev"
+        if worker == "lock_archive"
+        else "hydromodpy.cli._workers.data"
+    )
+    archive_cli = getattr(importlib.import_module(module), worker)
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
+    workspace, _, _ = _seed_workspace_project(tmp_path)
+    archive = tmp_path / "export.tar"
+    archive_cli(archive, workspace=str(workspace))
+
+    with tarfile.open(archive) as tar:
+        tar.extract(LOCKFILE_NAME, tmp_path / "unpacked", filter="data")
+    meta = read_lockfile_meta(tmp_path / "unpacked" / LOCKFILE_NAME)
+    assert meta["zarr_schema_version"] == ZARR_SCHEMA_VERSION
+    assert meta["parquet_schema_version"] == PARQUET_SCHEMA_VERSION
+
+
+@pytest.mark.parametrize("writer", [write_lockfile, archive_lockfile])
+def test_the_data_layer_holds_no_copy_of_the_schema_versions(writer) -> None:
+    """The versions live in ``hydromodpy.results``, so the caller gives them: no default."""
+    parameters = inspect.signature(writer).parameters
+    for name in ("zarr_schema_version", "parquet_schema_version"):
+        assert parameters[name].default is inspect.Parameter.empty
 
 
 def test_locked_artifacts_names_the_expected_path_when_missing(

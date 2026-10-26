@@ -100,6 +100,8 @@ class FlowModflowInputs:
     evt_spd: dict[int, object] | None
     evt_surface_offset: float = 2.0
     evt_extinction_depth: float = 1.0
+    kv: np.ndarray | None = None
+    """Vertical conductivity per cell [m/s], None when the flow sets no ``Kv``."""
 
 
 class FlowToModflowAdapter:
@@ -293,6 +295,16 @@ class FlowToModflowAdapter:
             flow=self.flow,
         )
 
+        kv = properties.get("kv")
+        if kv is not None:
+            kv = np.asarray(kv, dtype=float)
+            require_positive_conductivity(
+                kv,
+                active_mask=np.asarray(ibound, dtype=float) != 0.0,
+                flow=self.flow,
+                property_label="Kv",
+            )
+
         drn_spd = self._build_drainage_spd(
             drain_array=drain_array,
             hk=hk,
@@ -319,6 +331,7 @@ class FlowToModflowAdapter:
             evt_spd=evt_spd,
             evt_surface_offset=evt_surface_offset,
             evt_extinction_depth=evt_extinction_depth,
+            kv=kv,
         )
 
 

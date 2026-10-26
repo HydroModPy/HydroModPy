@@ -1,7 +1,7 @@
 """Fake sealed runs and observable specs for the comparison reader tests.
 
-A fake run is a directory with the mesh bundle a sealed run copies into its own
-``mesh/`` folder, and a :class:`_FakeSource` standing for its ``fields.zarr``:
+A fake run is a directory and a :class:`_FakeSource` standing for its
+``fields.zarr``, whose root holds the ``mesh/`` group the cells are read from:
 the readers take any object with the ``RunSource`` verbs.
 """
 
@@ -22,7 +22,6 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonSimulation,
     ComparisonSpec,
 )
-from hydromodpy.analysis.comparison.runtime.mesh import RUN_MESH_BUNDLE_RELPATH
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 
 # Structured-shape resolution needs the solver registry provider, which the
@@ -31,7 +30,34 @@ from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 hydromodpy.bootstrap()
 
 OUTLET_CELL_AREA_M2 = 10.0
+CELL_CENTERS_X = (0.0, 10.0, 20.0)
+CELL_AREAS_M2 = (5.0, OUTLET_CELL_AREA_M2, 7.0)
 SIM_ID = "sim-test"
+
+
+class _FakeMeshGroup(dict):
+    """The ``mesh/`` group of a run: its arrays by name and an ``attrs`` mapping."""
+
+    def __init__(self, vertices: np.ndarray, faces: np.ndarray) -> None:
+        super().__init__(vertices=vertices, face_node_connectivity=faces)
+        self.attrs: dict[str, Any] = {}
+
+
+def _strip_mesh() -> _FakeMeshGroup:
+    """Three rectangles on one line, 1 m high, centred and sized like the cells above."""
+    vertices: list[list[float]] = []
+    faces: list[list[int]] = []
+    for center_x, area in zip(CELL_CENTERS_X, CELL_AREAS_M2, strict=True):
+        half_width = area / 2.0
+        first = len(vertices)
+        vertices += [
+            [center_x - half_width, -0.5, 0.0],
+            [center_x + half_width, -0.5, 0.0],
+            [center_x + half_width, 0.5, 0.0],
+            [center_x - half_width, 0.5, 0.0],
+        ]
+        faces.append([first, first + 1, first + 2, first + 3])
+    return _FakeMeshGroup(np.asarray(vertices, dtype=float), np.asarray(faces, dtype=np.int32))
 
 
 class _FakeSource:
@@ -135,12 +161,6 @@ def _write_simulation_comparison_config(path: Path, run_folder: Path) -> None:
     )
 
 
-def _write_bundle(run_folder: Path, lines: list[str]) -> None:
-    bundle_dir = run_folder / RUN_MESH_BUNDLE_RELPATH
-    bundle_dir.mkdir(parents=True, exist_ok=True)
-    (bundle_dir / "cells.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
 def _write_fake_run_folder(
     run_folder: Path,
     *,
@@ -148,18 +168,10 @@ def _write_fake_run_folder(
     accumulation_offset: float = 0.0,
 ) -> _FakeSource:
     run_folder.mkdir(parents=True, exist_ok=True)
-    _write_bundle(
-        run_folder,
-        [
-            "cell_id,centroid_x,centroid_y,area_m2",
-            "0,0.0,0.0,5.0",
-            f"1,10.0,0.0,{OUTLET_CELL_AREA_M2}",
-            "2,20.0,0.0,7.0",
-        ],
-    )
     return _FakeSource(
         run_folder,
         {
+            "mesh": _strip_mesh(),
             "watertable_elevation": np.asarray(
                 [
                     np.asarray([10.0, 20.0, 30.0]) + head_offset,
@@ -204,15 +216,6 @@ def _write_boussinesq_run_folder(
     residual_history_m3_s: np.ndarray | None = None,
 ) -> _FakeSource:
     run_folder.mkdir(parents=True, exist_ok=True)
-    _write_bundle(
-        run_folder,
-        [
-            "cell_id,centroid_x,centroid_y,area_m2,storage_coefficient,z_top_mean,z_bottom_mean",
-            "0,0.0,0.0,5.0,0.08,11.0,9.8",
-            f"1,10.0,0.0,{OUTLET_CELL_AREA_M2},0.08,12.2,11.55",
-            "2,20.0,0.0,7.0,0.08,13.0,11.8",
-        ],
-    )
     state = {
         "recharge_rate_history_m_s": np.asarray(
             [[1.0e-8, 2.0e-8, 1.5e-8], [2.0e-8, 1.0e-8, 2.5e-8]],
@@ -248,7 +251,7 @@ def _write_boussinesq_run_folder(
     }
     if residual_history_m3_s is not None:
         state["residual_history_m3_s"] = np.asarray(residual_history_m3_s, dtype=float)
-    return _FakeSource(run_folder, {"boussinesq_state": state})
+    return _FakeSource(run_folder, {"mesh": _strip_mesh(), "boussinesq_state": state})
 
 
 def _expected_outlet_flux(value_m_per_day: float) -> float:

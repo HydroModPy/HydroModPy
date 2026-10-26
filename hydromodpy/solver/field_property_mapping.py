@@ -193,7 +193,9 @@ def map_flow_properties(
     ...). A property with no flow parameter is mapped from
     ``optional_fill_values`` when it is not required, and left out when no fill
     value is given. ``runtime_overrides`` are arrays already shaped as the output
-    (``resolve_flow_property_runtime_overrides``); they win over the flow.
+    (``resolve_flow_property_runtime_overrides``); they win over the flow. An
+    override of a property outside ``properties`` is refused, since the solver
+    would drop it.
     """
     depths = np.asarray(layer_depths, dtype=float)
     n_cells = int(cell_mesh.n_cells)
@@ -203,6 +205,17 @@ def map_flow_properties(
     if not isinstance(parameters, dict):
         raise TypeError("flow.parameters must be a dictionary")
     overrides = dict(runtime_overrides or {})
+    unread = [
+        canonical
+        for canonical, _, name, _ in FLOW_PROPERTY_SPECS
+        if name in overrides and canonical not in properties
+    ]
+    if unread:
+        raise ValueError(
+            f"A runtime override sets {', '.join(unread)}, which this solver does not "
+            f"read: it reads {', '.join(properties)}. Remove the override, or run a "
+            "solver that reads it (MODFLOW 6 for K22 and the angles)."
+        )
     fill_values = {str(name): float(value) for name, value in (optional_fill_values or {}).items()}
     field_mesh = to_field_mesh(cell_mesh.mesh)
     fractions_by_support: dict[int, ZoneFractions] = {}

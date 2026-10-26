@@ -172,7 +172,10 @@ class RunGeographicMixin:
         basin is only the largest one of a synthetic domain (no catchment) fall
         back, with an INFO line, to a 2D mask on the DEM raster, ``True`` where
         the DEM has a valid positive elevation; its shape is ``run.grid.shape``.
-        Cached on first access.
+        Cached on first access. The mask says which cells drain to the outlet;
+        the share of each face inside the delineated polygon, which weighs a
+        catchment total of a spatial quantity, is
+        ``hydromodpy.results.derive.views.catchment_weights(run)``.
         """
         stored = read_basin(self)
         synthetic = stored is not None and stored[1].get("basin_rule") == "largest_basin"

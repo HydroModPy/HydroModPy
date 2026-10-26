@@ -226,11 +226,12 @@ class TestDerivedViewTimeIndex:
         from hydromodpy.results.derive import views
 
         stack = np.arange(12, dtype=float).reshape(3, 4)
-        monkeypatch.setattr(views, "_catchment_mask", lambda sim: None)
+        monkeypatch.setattr(views, "catchment_weights", lambda sim: np.ones(4))
         monkeypatch.setattr(views, "_stack_field", lambda sim, variable: stack)
         run = _RunWithoutAxis(
             {"period_start": "2000-01-01", "period_end": "2000-04-01", "time_unit": "month"}
         )
+        run.mesh = SimpleNamespace(cell_areas=lambda: np.ones(4))
         series = views.catchment_mean(run, "watertable_depth")
         assert list(series.index) == [
             pd.Timestamp("2000-02-01"),

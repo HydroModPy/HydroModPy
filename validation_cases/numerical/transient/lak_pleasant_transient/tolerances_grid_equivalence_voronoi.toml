@@ -39,4 +39,9 @@ runoff whatever the mesh: measured 1.3e-10, and the band is the 5 % of the
 triangle leg (row 40), which only a broken water balance can reach. budget: the
 triangle leg's 1 %, measured 1.9e-6 %. mesh: the lake is tiled by exactly 100
 mirrored cells, so a seed that strays across the lake line adds cells and fails.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing:
+exchange.steady_exchange_rel_diff 0.05 (measure 1.31e-10, solver closure and
+water-balance identity); budget.budget_percent_discrepancy 1 (measure 1.91e-6,
+solver closure and water-balance identity).
 """

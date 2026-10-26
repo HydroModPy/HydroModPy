@@ -419,6 +419,13 @@ symbols:
     set_by: derived
     group: mesh
     pages: [mesh]
+  - id: edge-lengths
+    symbol: \ell_T, \ell_V
+    meaning: side of an equilateral triangle, and distance between neighbouring Voronoi generators
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
   - id: size-global
     symbol: \ell_g
     meaning: background cell size

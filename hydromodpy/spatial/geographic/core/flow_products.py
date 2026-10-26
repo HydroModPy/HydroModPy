@@ -40,6 +40,7 @@ from hydromodpy.spatial.terrain import (
     ConditioningMethod,
     DrainageDirections,
     FlowAccumulation,
+    JensonSnap,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
 from hydromodpy.spatial.terrain.artifacts import raster_crs, raster_max_near, raster_nodata
@@ -89,6 +90,37 @@ def rankable_accumulation(
     return engine.flow_accumulation(  # type: ignore[attr-defined]
         accumulation.directions, units="cells", transform="none", out=out
     )
+
+
+def jenson_snap_from_threshold(
+    engine: object,
+    accumulation: FlowAccumulation,
+    *,
+    threshold_cells: float,
+    out_dir: Path,
+) -> JensonSnap:
+    """Draw the stream network a Jenson snap lands on, down the pointer of ``accumulation``.
+
+    The network is the cells that drain more than ``threshold_cells`` upstream
+    cells, thresholded on a raw count: a stream threshold compared with the
+    ``ln`` accumulation of the regional stack would select nothing. That count
+    is accumulated again from the pointer, which costs one more accumulation
+    than the window snap, and is why the snap method is a choice and not a
+    default.
+    """
+    if accumulation.transform != "none" or accumulation.units != "cells":
+        accumulation = engine.flow_accumulation(  # type: ignore[attr-defined]
+            accumulation.directions,
+            units="cells",
+            transform="none",
+            out=out_dir / "dem_acc_cells_for_snap.tif",
+        )
+    streams = engine.stream_network(  # type: ignore[attr-defined]
+        accumulation,
+        threshold=float(threshold_cells),
+        out=out_dir / "dem_streams_for_snap.tif",
+    )
+    return JensonSnap(streams=streams)
 
 
 @dataclass(frozen=True)

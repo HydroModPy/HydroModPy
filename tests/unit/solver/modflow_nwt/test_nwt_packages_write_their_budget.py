@@ -62,6 +62,7 @@ def _flow_inputs() -> SimpleNamespace:
         strt=np.full(shape, 10.0),
         hk=np.full(shape, 1e-5),
         hk_value=1e-5,
+        kv=None,
         sy=np.full(shape, 0.05),
         sy_value=0.05,
         ss=np.full(shape, 1e-5),

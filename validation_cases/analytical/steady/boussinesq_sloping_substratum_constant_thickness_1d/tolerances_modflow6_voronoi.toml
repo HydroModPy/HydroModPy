@@ -23,4 +23,7 @@ x = 375 m. The gap below explains why the margin is not 2x. Each cell is read at
 its node and the profile is the area-weighted mean per 10 m column, for the
 model and the reference alike. The row spread is zero by construction: the
 loader tiles one profile.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing: head_profile.row_spread 1e-9
+(measure 1.78e-15, float rounding of the area-weighted mean).
 """

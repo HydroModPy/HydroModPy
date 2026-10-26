@@ -5,6 +5,8 @@ with the basin of D at the catchment outlet (``descent_basin``). A run sealed
 before that has no D: its view rebuilds D from the stored top with
 :func:`hydromodpy.core.descent.descent_from_stored_mesh` and says so once. A run
 sealed with D but before the basin has D and no basin (``basin`` is ``None``).
+The share of each cell's area inside the delineated catchment polygon lands
+beside the basin as ``catchment_fraction`` (:func:`read_catchment_fraction`).
 Display reaches D through ``run.descent`` and never imports ``spatial`` or
 ``solver``.
 """
@@ -152,6 +154,18 @@ def read_basin(run: Run) -> StoredBasin | None:
         sz.close()
 
 
+def read_catchment_fraction(run: Run) -> np.ndarray | None:
+    """Read ``mesh/catchment_fraction`` alone, ``None`` when the run holds none."""
+    sz = run._catalog.open_zarr(run._sim_id)
+    try:
+        mesh = sz.root.get("mesh")
+        if mesh is None or "catchment_fraction" not in mesh:
+            return None
+        return _read_only(mesh["catchment_fraction"][:], "float64")
+    finally:
+        sz.close()
+
+
 def _stored_basin(mesh) -> StoredBasin:
     """Return the read-only basin of the ``mesh/`` group and its attributes."""
     array = mesh["descent_basin"]
@@ -244,4 +258,11 @@ def rebuilt_view(
     )
 
 
-__all__ = ("RunDescent", "load_descent", "read_basin", "read_dam_foot", "rebuilt_view")
+__all__ = (
+    "RunDescent",
+    "load_descent",
+    "read_basin",
+    "read_catchment_fraction",
+    "read_dam_foot",
+    "rebuilt_view",
+)

@@ -14,7 +14,7 @@ those data files.
 | Python API and command line (`reference/python/`, `reference/cli/`) | `hydromodpy.__all__`, the signatures, the docstrings and the `argparse` parser | `tools/docs/api_registry.py`, then `_ext/hmp_api.py` |
 | Catalogs of solvers, figures and data sources | the registries of the code | `tools/docs/catalogs.py`, then `_ext/hmp_catalogs.py` |
 | Validation page and "Checked by" boxes | `tests/` and `validation_cases/` | `tools/docs/tests_index.py`, then `_ext/hmp_validation.py` |
-| TOML changes since the last release | the field snapshot of the release under `tools/docs/snapshots/` and the current registry | `tools/docs/toml_changelog.py` |
+| TOML changes since the last release | the field snapshot of the release under `tools/docs/snapshots/`, the current registry and the tables the loader moves (`MOVED_TABLES` of `hydromodpy/config/config_migration.py`) | `tools/docs/toml_changelog.py` |
 | Layer matrix | `tests/unit/architecture/layer_matrix.yaml` | `tools/doc_contracts.py` |
 | JSON Schema of the configuration | `HydroModPyConfig` | `tools/docs/schema_export.py` |
 
@@ -25,6 +25,12 @@ build. Git ignores them, and it ignores the generated pages under
 written pages. The layer matrix fragment is committed: a build rewrites it, and
 CI fails if the committed copy is stale
 (`HMP_SKIP_CONTRACT_TABLES_GEN=1` skips that step).
+
+A table that the loader moves, such as `modflow6.sgrid.vertical` to `domain.layers`, appears
+under Renamed on the changes page, with the note that it still loads. The loader and the page read
+the same list, `MOVED_TABLES`, so they cannot disagree. A new move is declared there once, as a
+`TableMove(old, new)`. The keys of the moved table keep their names, so the page compares them
+from one release to the next, and a change of default, profile or unit shows under Changed.
 
 ## The local extensions
 

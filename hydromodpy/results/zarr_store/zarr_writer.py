@@ -541,6 +541,7 @@ def write_descent(
     dam_foot: np.ndarray | None = None,
     basin: np.ndarray | None = None,
     basin_attrs: Mapping[str, object] | None = None,
+    catchment_fraction: np.ndarray | None = None,
 ) -> None:
     """Write the descent D next to the mesh it routes on, under ``mesh/``.
 
@@ -552,7 +553,11 @@ def write_descent(
     lake); it is a list of cells, not a per-face field. ``basin`` is a ninth
     array, ``descent_basin`` (bool per face): the basin of D at the catchment
     outlet. ``basin_attrs`` is stamped on it and must name ``descent_outlet``,
-    a cell of the basin. Additive: a store without these arrays is still valid.
+    a cell of the basin. ``catchment_fraction`` is a tenth array,
+    ``catchment_fraction`` (float64 per face, in [0, 1]): the share of each
+    cell's area inside the delineated catchment polygon, the weight of a
+    catchment total of a spatial quantity. It comes with a basin only.
+    Additive: a store without these arrays is still valid.
     """
     arrays = {
         "descent_receiver": (np.asarray(receiver, dtype="int64"), "Receiver cell of the descent"),
@@ -570,6 +575,9 @@ def write_descent(
     if len(sizes) != 1 or any(values.ndim != 1 for values, _ in arrays.values()):
         raise ValueError(f"the descent arrays must be 1-D and share one size, got {sorted(sizes)}.")
     basin_values = _checked_basin(basin, basin_attrs, n_cells=next(iter(sizes)))
+    fraction_values = _checked_fraction(
+        catchment_fraction, has_basin=basin_values is not None, n_cells=next(iter(sizes))
+    )
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
         for name, (values, long_name) in arrays.items():
@@ -607,6 +615,18 @@ def write_descent(
                     **dict(basin_attrs or {}),
                 },
             )
+        if fraction_values is not None:
+            _write_array(
+                store_obj,
+                mesh,
+                "catchment_fraction",
+                fraction_values,
+                dimension_names=(field_registry.AXIS_FACE,),
+                attrs={
+                    "long_name": "Share of the cell area inside the delineated catchment polygon",
+                    "units": "1",
+                },
+            )
 
 
 def _checked_basin(
@@ -625,6 +645,24 @@ def _checked_basin(
     outlet = int(basin_attrs["descent_outlet"])
     if not 0 <= outlet < n_cells or not values[outlet]:
         raise ValueError(f"the outlet cell {outlet} is not a cell of the basin.")
+    return values
+
+
+def _checked_fraction(
+    fraction: np.ndarray | None, *, has_basin: bool, n_cells: int
+) -> np.ndarray | None:
+    """Return the catchment fraction as float64, or refuse one that does not fit the basin."""
+    if fraction is None:
+        return None
+    if not has_basin:
+        raise ValueError("a catchment fraction is stored with the basin it weighs.")
+    values = np.asarray(fraction, dtype="float64")
+    if values.ndim != 1 or values.size != n_cells:
+        raise ValueError(
+            f"the catchment fraction must hold one value per cell ({n_cells}), got {values.shape}."
+        )
+    if not np.all((values >= 0.0) & (values <= 1.0)):
+        raise ValueError("the catchment fraction must lie in [0, 1] on every cell.")
     return values
 
 

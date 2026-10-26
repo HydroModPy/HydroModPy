@@ -20,6 +20,12 @@ rule, :func:`line_crossing_cell_mask`: the thin line WhiteboxTools
 ``VectorLinesToRaster`` draws, restated on the face graph of any mesh so a
 Voronoi mesh gets the same rule as a grid.
 
+An areal layer that weights a total rather than selecting cells takes
+:func:`cell_area_fraction`, the share of each cell's area inside the layer.
+It is the area-weighted overlay GSFLOW uses to map its HRUs onto the cells: a
+cell field integrated with these weights is the integral of that field over
+the polygon, where a centroid mask counts a boundary cell whole or not at all.
+
 Both CRS are mandatory arguments. Neither mesh container in the repository
 carries one (``HydroMesh`` and the persisted UGRID mesh both store bare
 coordinates), so a caller that cannot name them is overlaying two frames it has
@@ -50,6 +56,7 @@ CellMaskRule = Literal["touch", "centroid"]
 __all__ = [
     "CellMaskRule",
     "LineCrossingMask",
+    "cell_area_fraction",
     "cell_polygons",
     "line_crossing_cell_mask",
     "vector_cell_mask",
@@ -206,6 +213,47 @@ def vector_cell_mask(
     if hits.size:
         mask[np.flatnonzero(usable)[np.unique(hits[1])]] = True
     return mask
+
+
+def cell_area_fraction(
+    polygons: np.ndarray,
+    geometries: Sequence[BaseGeometry],
+    *,
+    mesh_crs: CrsLike,
+    geometry_crs: CrsLike,
+) -> np.ndarray:
+    """Share of each cell's area inside an areal layer, in [0, 1].
+
+    ``polygons`` comes from :func:`cell_polygons`. A cell the layer contains
+    gets 1, a cell it misses gets 0, and a cell its outline crosses gets the
+    area of the intersection over the area of the cell. Only the crossed
+    cells pay for an intersection. A degenerate cell (``None``) gets 0.
+    """
+    import shapely
+
+    fraction = np.zeros(polygons.shape[0], dtype=float)
+    parts = _to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)
+    if not parts:
+        return fraction
+    region = shapely.union_all(parts)
+    if region.is_empty:
+        return fraction
+    usable = np.flatnonzero(np.array([polygon is not None for polygon in polygons], dtype=bool))
+    if not usable.size:
+        return fraction
+    cells = np.asarray(polygons[usable], dtype=object)
+    shapely.prepare(region)
+    inside = shapely.contains(region, cells)
+    crossed = ~inside & shapely.intersects(region, cells)
+    fraction[usable[inside]] = 1.0
+    if np.any(crossed):
+        cut = cells[crossed]
+        area = shapely.area(cut)
+        shared = shapely.area(shapely.intersection(cut, region))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            share = np.where(area > 0.0, shared / area, 0.0)
+        fraction[usable[crossed]] = np.clip(share, 0.0, 1.0)
+    return fraction
 
 
 @dataclass(frozen=True)

@@ -2,14 +2,14 @@
 x_error_m = 6.8
 
 [profile]
-rmse = 0.0081
+rmse = 0.00806
 max_abs_error = 0.0105
 
 [uniformity]
 row_spread = 1e-9
 
 [contact]
-max_positive_clearance_m = 4.8e-3
+max_positive_clearance_m = 0.00473
 
 [doc]
 reason = """
@@ -25,4 +25,11 @@ the seepage face, and by 2.4e-3 m in the last column, where the three held
 nodes take the whole outflow: the node 3.4 m from the face stands 6.1e-3 m
 above the surface, the nodes 7 m away 1.5e-3 to 2e-3 m. Bound twice the
 largest. The row spread is zero by construction.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: profile.rmse 0.0081 to 0.00806 (measure 0.00403);
+contact.max_positive_clearance_m 0.0048 to 0.00473 (measure 0.00236). Already
+at twice the measure: profile.max_abs_error 0.0105 (measure 0.00525);
+interception.x_error_m 6.8 (measure 3.4). Kept at a numerical floor, where
+twice the measure guarantees nothing: uniformity.row_spread 1e-9 (measure
+8.88e-16, float rounding of the area-weighted mean).
 """

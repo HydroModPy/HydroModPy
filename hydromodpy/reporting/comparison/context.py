@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.comparison.run_comparison import read_comparison_manifest
-from hydromodpy.analysis.comparison.runtime import load_variable_series, open_run_source
-from hydromodpy.analysis.comparison.visuals_render_series import write_timeseries_figure
+from hydromodpy.reporting.comparison.domain_heads import write_domain_head_figures
 from hydromodpy.reporting.comparison.figures import (
     FigureCategory,
     categorize_figures,
@@ -57,7 +55,11 @@ def load_comparison_web_context(
     numerical_closure_rows = _load_csv(root / "numerical_closure_summary.csv")
     budget_rows = _load_csv(root / "budget_timeseries_wide.csv")
     case_check = payload.get("case_check")
-    _ensure_domain_head_profile_figures(root=root, manifest=payload)
+    write_domain_head_figures(
+        root=root,
+        rows=_load_csv(root / "observables.csv"),
+        manifest=payload,
+    )
     figure_items = _figure_items(root=root, manifest=payload)
     simulations = payload.get("simulations", [])
     if not isinstance(simulations, list):
@@ -139,235 +141,6 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
                 if include_in_comparison_report(payload):
                     items.append(payload)
     return items
-
-
-def _ensure_domain_head_profile_figures(*, root: Path, manifest: Mapping[str, Any]) -> None:
-    figure_root = root / "comparison_figures"
-    rows = _load_csv(root / "observables.csv")
-    if not rows:
-        _remove_domain_head_profile_figures(figure_root)
-        return
-    profile_indices = _domain_head_profile_indices(rows, manifest=manifest)
-    if not profile_indices:
-        _remove_domain_head_profile_figures(figure_root)
-        return
-    profiles = _domain_head_profile_series(
-        root=root,
-        manifest=manifest,
-        profile_indices=profile_indices,
-    )
-    if not profiles:
-        _remove_domain_head_profile_figures(figure_root)
-        return
-    _remove_domain_head_profile_figures(figure_root)
-    figure_root.mkdir(parents=True, exist_ok=True)
-    for profile_id, label, grouped_rows in profiles:
-        if not grouped_rows:
-            continue
-        path = figure_root / f"head_domain_{profile_id}_series__timeseries.png"
-        try:
-            write_timeseries_figure(
-                path=path,
-                observable_name=f"head_domain_{profile_id}_series",
-                unit="m",
-                grouped_rows=grouped_rows,
-                point_label=label,
-            )
-        except Exception:
-            continue
-
-
-def _remove_domain_head_profile_figures(figure_root: Path) -> None:
-    if not figure_root.is_dir():
-        return
-    for path in figure_root.glob("head_domain_*_series__timeseries.png"):
-        try:
-            path.unlink()
-        except OSError:
-            pass
-
-
-def _domain_head_profile_indices(
-    rows: list[dict[str, str]],
-    *,
-    manifest: Mapping[str, Any],
-) -> list[tuple[str, str, int, float | None, float | None]]:
-    head_map_rows = [
-        row
-        for row in rows
-        if str(row.get("support", "")) == "map"
-        and str(row.get("observable", "")).startswith("head_map")
-        and _float_or_none(row.get("value")) is not None
-        and str(row.get("is_nodata", "")).strip().lower() not in {"true", "1", "yes"}
-    ]
-    if not head_map_rows:
-        return []
-    reference = str(manifest.get("reference_simulation", "")).strip()
-    reference_rows = [
-        row
-        for row in head_map_rows
-        if not reference or str(row.get("simulation_id", "")) == reference
-    ]
-    if not reference_rows:
-        reference_rows = head_map_rows
-    first_key = _first_profile_time_key(reference_rows)
-    candidates = [
-        row
-        for row in reference_rows
-        if _profile_time_key(row) == first_key
-        and str(row.get("value_index", "")).strip()
-        and _float_or_none(row.get("surface_top_m")) is not None
-    ]
-    if len(candidates) < 3:
-        candidates = [
-            row
-            for row in reference_rows
-            if _profile_time_key(row) == first_key and str(row.get("value_index", "")).strip()
-        ]
-    if len(candidates) < 3:
-        return []
-    ordered = sorted(
-        candidates,
-        key=lambda row: (
-            _float_or_none(row.get("surface_top_m")) is None,
-            _float_or_none(row.get("surface_top_m")) or 0.0,
-            int(float(row.get("value_index", 0))),
-        ),
-    )
-    picks = [
-        ("low", "lower domain", ordered[max(0, round((len(ordered) - 1) * 0.2))]),
-        ("mid", "middle domain", ordered[max(0, round((len(ordered) - 1) * 0.5))]),
-        ("high", "upper domain", ordered[max(0, round((len(ordered) - 1) * 0.8))]),
-    ]
-    profiles: list[tuple[str, str, int, float | None, float | None]] = []
-    used_indices: set[str] = set()
-    for profile_id, label, picked in picks:
-        value_index = str(picked.get("value_index", "")).strip()
-        if not value_index or value_index in used_indices:
-            continue
-        used_indices.add(value_index)
-        try:
-            index = int(float(value_index))
-        except Exception:
-            continue
-        profiles.append(
-            (
-                profile_id,
-                label,
-                index,
-                _float_or_none(picked.get("surface_top_m")),
-                _float_or_none(picked.get("surface_bottom_m")),
-            )
-        )
-    return profiles[:3]
-
-
-def _domain_head_profile_series(
-    *,
-    root: Path,
-    manifest: Mapping[str, Any],
-    profile_indices: list[tuple[str, str, int, float | None, float | None]],
-) -> list[tuple[str, str, list[dict[str, Any]]]]:
-    simulations = manifest.get("simulations", [])
-    if not isinstance(simulations, list):
-        return []
-    profiles: dict[str, tuple[str, list[dict[str, Any]]]] = {
-        profile_id: (label, []) for profile_id, label, _, _, _ in profile_indices
-    }
-    for simulation in simulations:
-        if not isinstance(simulation, Mapping):
-            continue
-        if str(simulation.get("status", "")).strip().lower() not in {"completed", "reused"}:
-            continue
-        source = open_run_source(simulation)
-        if source is None:
-            continue
-        simulation_id = str(simulation.get("id", "") or "")
-        simulation_label = str(simulation.get("label", simulation_id) or simulation_id)
-        solver = str(simulation.get("solver", "") or "")
-        try:
-            series = load_variable_series(
-                run_folder=source.run_dir,
-                variable="watertable_elevation",
-                store=source,
-                sim_id=source.sim_id,
-            )
-            for profile_id, _, value_index, top, bottom in profile_indices:
-                label, grouped_rows = profiles[profile_id]
-                for time_order, time_slice in enumerate(series.slices):
-                    values = time_slice.values.ravel()
-                    if value_index >= int(values.size):
-                        continue
-                    value = _float_or_none(values[value_index])
-                    if value is None:
-                        continue
-                    grouped_rows.append(
-                        {
-                            "simulation_id": simulation_id,
-                            "simulation_label": simulation_label,
-                            "solver": solver,
-                            "observable": f"head_domain_{profile_id}_series",
-                            "support": "point",
-                            "time_index": time_slice.time_index,
-                            "elapsed_seconds": (
-                                ""
-                                if time_slice.elapsed_seconds is None
-                                else float(time_slice.elapsed_seconds)
-                            ),
-                            "selection_time_order": time_order,
-                            "value_index": 0,
-                            "value": value,
-                            "unit": "m",
-                            "surface_top_m": "" if top is None else top,
-                            "surface_bottom_m": "" if bottom is None else bottom,
-                        }
-                    )
-        except FileNotFoundError:
-            # A run without a stored head has no profile to draw.
-            continue
-        finally:
-            source.close()
-    return [
-        (profile_id, label, grouped_rows)
-        for profile_id, (label, grouped_rows) in profiles.items()
-        if _profile_has_two_methods(grouped_rows)
-    ]
-
-
-def _first_profile_time_key(rows: list[dict[str, str]]) -> tuple[float, str]:
-    return min((_profile_time_key(row) for row in rows), default=(math.inf, ""))
-
-
-def _profile_time_key(row: Mapping[str, Any]) -> tuple[float, str]:
-    elapsed = _float_or_none(row.get("elapsed_seconds"))
-    if elapsed is not None:
-        return elapsed, str(row.get("observable", ""))
-    time_index = _float_or_none(row.get("time_index"))
-    if time_index is not None:
-        return time_index, str(row.get("observable", ""))
-    return math.inf, str(row.get("observable", ""))
-
-
-def _profile_has_two_methods(rows: list[Mapping[str, Any]]) -> bool:
-    by_simulation: dict[str, int] = {}
-    for row in rows:
-        if _float_or_none(row.get("value")) is None:
-            continue
-        simulation_id = str(row.get("simulation_id", "")).strip()
-        if not simulation_id:
-            continue
-        by_simulation[simulation_id] = by_simulation.get(simulation_id, 0) + 1
-    return sum(1 for count in by_simulation.values() if count >= 2) >= 2
-
-
-def _float_or_none(value: Any) -> float | None:
-    try:
-        number = float(value)
-    except Exception:
-        return None
-    if not math.isfinite(number):
-        return None
-    return number
 
 
 def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:

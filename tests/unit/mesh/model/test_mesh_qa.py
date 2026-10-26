@@ -441,3 +441,16 @@ def test_the_angle_range_and_the_edge_maximum_are_nan_where_nothing_is_measured(
     np.testing.assert_allclose([smallest[0], largest[0]], 90.0)
     assert np.isnan([smallest[1], largest[1]]).all()
     assert np.isnan(cell_edge_max(geometry, np.full(geometry.edge_cells.shape[0], np.nan))).all()
+
+
+def test_an_orthogonal_mesh_is_not_warned_for_its_bisection_offset() -> None:
+    # Every centre moved by the same vector keeps each connection normal to its
+    # face, while the vertical faces are crossed 0.3 of their length off middle.
+    mesh, centers = _grid()
+    centers[:, 1] += 0.3 * DY
+    qa = _qa(mesh, centers)
+
+    assert qa.nonorthogonality_deg["p95"] == pytest.approx(0.0, abs=1e-9)
+    assert qa.bisection_offset["max"] == pytest.approx(0.3)
+    assert qa.bisection_offset["n_cells_gt_0_25"] > 0
+    assert quality_warnings(qa) == ()

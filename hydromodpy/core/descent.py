@@ -186,6 +186,12 @@ class DescentBasin:
     closing point, inside the watershed polygon, or the largest basin of the
     domain when the run has neither. ``seeded_at_outlet`` says D was flooded
     from this outlet, the domain being the catchment itself.
+
+    ``catchment_fraction`` is the share of each cell's area inside the
+    delineated catchment polygon, one value per cell in [0, 1], None when the
+    run has no polygon. It weights a catchment total of a spatial quantity
+    (recharge, seepage) and never changes ``mask``: what drains to the outlet
+    stays whole cells.
     """
 
     mask: np.ndarray
@@ -193,6 +199,7 @@ class DescentBasin:
     rule: BasinRule
     area_m2: float
     seeded_at_outlet: bool
+    catchment_fraction: np.ndarray | None = None
 
     @property
     def is_catchment(self) -> bool:

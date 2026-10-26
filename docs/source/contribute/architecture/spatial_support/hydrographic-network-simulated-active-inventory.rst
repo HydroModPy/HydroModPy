@@ -44,7 +44,8 @@ Lazy views of the run
 changing the catalog:
 
 ``run.drainage_density()``
-   The fraction of active catchment cells with a positive ``accumulation_flux``.
+   The fraction of active cells of the catchment with a positive ``accumulation_flux``. The
+   catchment is the basin of D, in whole cells.
 
 ``run.persistence(variable="accumulation_flux")``
    The fraction of timesteps above a threshold, per cell.
@@ -66,6 +67,18 @@ changing the catalog:
 ``run.cell_field_network_distance_metrics(network_role="reference")``
    The planar distances between the centroids of the active cells and that network, in
    both directions.
+
+The support of a view follows its name. ``run.drainage_density()``,
+``run.cell_field_active_metrics()`` and the overlap and distance metrics read the active cells of
+the basin of D (``mesh/descent_basin``), in whole cells, and ``catchment_cell_count`` counts them.
+A run that stores no basin of D, or only the largest basin of a synthetic domain, reads the active
+domain instead and logs it. On example 04 the basin holds 11 514 of the 21 406 cells, and the mean
+drainage density is 6.2 % on the basin against 5.3 % on the domain. ``run.cell_field_active_mask()``
+and the maps keep the active domain, the cells whose model top is finite, so the simulated network
+maps do not change. ``saturated_fraction`` and ``recharge_forcing`` read the active domain too.
+``catchment_mean`` averages a variable over the delineated catchment, weighted by the area of each
+face inside the polygon, and ``catchment_total`` sums a term per cell with the share of each face
+inside it (``catchment_weights``, :doc:`/theory/mesh`).
 
 The figures ``simulated_active_network`` and ``simulated_active_network_reference_overlay``
 draw the mask and its overlay with the reference. Both are cell maps, not a vectorised

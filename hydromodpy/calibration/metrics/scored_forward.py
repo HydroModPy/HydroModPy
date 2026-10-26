@@ -244,7 +244,10 @@ def requests_for_outputs(
             )
         cell: tuple[int, int, int] | None = None
         if support == "cell":
-            cell = (int(getattr(output, "layer", 0) or 0), int(output.row), int(output.col))
+            # This route reads no idomain, so a cell without a layer is asked at
+            # the top layer of the forward model, the only one it can name.
+            layer = getattr(output, "layer", None)
+            cell = (0 if layer is None else int(layer), int(output.row), int(output.col))
         key = getattr(output, "boundary_id", None) or getattr(output, "lake_id", None)
         requests.append(
             ObservableRequest(

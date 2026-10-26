@@ -47,4 +47,37 @@ def locate_cell_on_solver_mesh(ctx: RunContext, x: float, y: float) -> tuple[int
     return (max(int(mesh.top_active_layer()[cell_id]), 0), 0, cell_id)
 
 
-__all__ = ["locate_cell_on_cell_mesh", "locate_cell_on_solver_mesh"]
+def top_active_layer_on_solver_mesh(ctx: RunContext, row: int, col: int) -> int | None:
+    """Return the top active layer of the column at ``(row, col)`` on ``ctx``'s solver mesh.
+
+    A regular grid names the column by its row and column, any other mesh by
+    row 0 and the cell id in ``col``. A column with no active cell answers 0,
+    like :func:`locate_cell_on_solver_mesh`. ``None`` without a solver mesh.
+
+    Raises
+    ------
+    ValueError
+        When ``(row, col)`` names no column of the mesh.
+    """
+    mesh = getattr(ctx.model, "solver_mesh", None)
+    if mesh is None:
+        return None
+    layers = mesh.top_active_layer()
+    if mesh.is_structured:
+        nrow, ncol = mesh.structured_shape
+        if not (0 <= row < nrow and 0 <= col < ncol):
+            raise ValueError(f"row {row}, col {col} is outside the {nrow} x {ncol} grid.")
+        return max(int(layers.reshape(nrow, ncol)[row, col]), 0)
+    if row != 0 or not 0 <= col < layers.size:
+        raise ValueError(
+            f"row {row}, col {col} names no cell: an unstructured mesh addresses a cell "
+            f"as row 0 and col its id, below {layers.size}."
+        )
+    return max(int(layers[col]), 0)
+
+
+__all__ = [
+    "locate_cell_on_cell_mesh",
+    "locate_cell_on_solver_mesh",
+    "top_active_layer_on_solver_mesh",
+]

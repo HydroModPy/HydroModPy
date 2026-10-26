@@ -364,7 +364,9 @@ This page ranks neither solver.
 
 The vertical conductivity is a ratio on both, $K_z = K / \beta$. The key is
 {toml}`modflownwt.process_specific.vka` for MODFLOW-NWT, with `layvka` set so that `vka`
-is read as a ratio, and {toml}`modflow6.process_specific.vka` for MODFLOW 6.
+is read as a ratio, and {toml}`modflow6.process_specific.vka` for MODFLOW 6. A `Kv` of the flow
+replaces the ratio on both. MODFLOW-NWT then writes `layvka = 0` and `vka = Kv`, so `UPW` reads
+a conductivity, and a `vka` other than 1 beside a `Kv` is refused.
 
 **Sources and sinks.** Recharge, wells, drains and constant heads are the same quantities
 in both. Two points differ.

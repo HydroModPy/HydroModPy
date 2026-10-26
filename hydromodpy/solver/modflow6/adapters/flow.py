@@ -132,6 +132,12 @@ class Modflow6FlowAdapter:
 
         return locate_cell_on_solver_mesh(ctx, x, y)
 
+    def top_active_layer(self, ctx: RunContext, row: int, col: int) -> int | None:
+        """Return the top active layer of the column at ``(row, col)``, from the run's idomain."""
+        from hydromodpy.solver.base.cell_lookup import top_active_layer_on_solver_mesh
+
+        return top_active_layer_on_solver_mesh(ctx, row, col)
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.output_dir

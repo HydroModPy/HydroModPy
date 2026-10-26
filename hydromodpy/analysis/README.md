@@ -32,7 +32,7 @@ parts, how a command reaches it, the import rules and where to add what.
 
 ## How a command reaches it
 
-`hmp report compare <ref>... [--by site] [--variables] [--out] [--allow-different-mesh]`
+`hmp report compare <ref>... [--by site] [--variables] [--out] [--allow-different-mesh] [--budget-zone]`
 calls `reporting.comparison.compare.compare_runs`. It resolves the references
 and groups the runs with `comparison/runs.py`, runs `run_comparison` once per
 group, then renders the page. A run directory is read alone: a comparison

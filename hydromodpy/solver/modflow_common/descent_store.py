@@ -4,7 +4,9 @@ The build writes ``<model>.descent.npz`` in the solver folder. The extractors
 do not see the model, so they find it there and write it under
 ``fields.zarr/mesh/`` right after the mesh. Figures and the accumulation of cell fluxes read it from
 there. The basin of D at the catchment outlet travels in the same sidecar and
-lands beside D as ``mesh/descent_basin``, with its outlet. A run without the
+lands beside D as ``mesh/descent_basin``, with its outlet, and the share of
+each cell's area inside the delineated polygon as ``mesh/catchment_fraction``
+when the run has one. A run without the
 sidecar gets no D in its store: its readers rebuild one from the stored top and
 say so. A sidecar written before the basin was stored gives a D without a basin,
 and its readers name the old support they fall back to.
@@ -69,6 +71,7 @@ def write_descent_sidecar_to_store(
             dam_foot=record.dam_foot,
             basin=record.basin,
             basin_attrs=_basin_attrs(record),
+            catchment_fraction=record.catchment_fraction,
             attrs={
                 "adjacency": str(record.adjacency),
                 "epsilon": float(record.epsilon),

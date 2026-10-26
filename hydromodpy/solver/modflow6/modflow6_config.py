@@ -226,9 +226,9 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "with refinement. XT3D also turns on, with an INFO log, on triangle cells and "
             "on a significantly non-orthogonal mesh. A structured grid with K along its "
             "axes, or an orthogonal mesh with K22 equal to K, keeps it off. XT3D "
-            "multiplies the MF6 run time by about 9 to 11. true turns it on without a "
-            "warning; false turns it off, with a "
-            "RuntimeWarning when a consistent result needs it."
+            "costs from about 1.5 times the MF6 run time on one layer to about 10 times "
+            "on ten layers. true turns it on without a warning; false turns it off, "
+            "with a RuntimeWarning when a consistent result needs it."
         ),
     )
     mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(

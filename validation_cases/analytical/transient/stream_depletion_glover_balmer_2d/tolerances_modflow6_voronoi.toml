@@ -1,14 +1,14 @@
 [depletion]
-max_abs_error = 0.025
-final_abs_error = 0.001
+max_abs_error = 0.0248
+final_abs_error = 0.000991
 
 [space_time]
-rmse = 0.0024
+rmse = 0.00239
 max_abs_error = 0.016
 
 [final_time]
-rmse = 0.001
-max_abs_error = 0.002
+rmse = 0.000992
+max_abs_error = 0.00194
 
 [linearization]
 well_drawdown_fraction = 0.05
@@ -23,4 +23,9 @@ as on the grid; drawdown
 space-time RMSE 1.2e-3 m, max 8.0e-3 m at day 1 next to the well, final RMSE
 5.0e-4 m, final max 9.7e-4 m. The well-cell drawdown is 3.6 % of the saturated
 thickness.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: final_time.rmse 0.001 to 9.92e-4 (measure 4.96e-4);
+final_time.max_abs_error 0.002 to 0.00194 (measure 9.69e-4); space_time.rmse
+0.0024 to 0.00239 (measure 0.00119); depletion.final_abs_error 0.001 to 9.91e-4
+(measure 4.95e-4); depletion.max_abs_error 0.025 to 0.0248 (measure 0.0124).
 """

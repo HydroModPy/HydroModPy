@@ -617,6 +617,12 @@ def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
     children = sorted(
         {Path(argv[0] if isinstance(argv, list) else argv).name for argv in recorded["spawned"]}
     )
-    assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
+    assert not sorted(set(children) - set(CHILD_PROCESSES_THE_JOB_SPAWNS)), (
         f"it spawns {children}, and only {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)} is accounted for"
     )
+    # Both children write the provenance, which only a served request reaches.
+    # Offline the fetch fails first and the job spawns nothing, legitimately.
+    if recorded["status"] == "successful":
+        assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
+            f"a served job spawns {children}, not {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)}"
+        )

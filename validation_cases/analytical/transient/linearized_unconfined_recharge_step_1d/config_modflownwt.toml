@@ -89,5 +89,14 @@ runoff_ratio = 0.0
 [modflownwt.sgrid.vertical]
 nlay = 1
 
+# The NWT closures are absolute, in m and m3/s. The defaults (1e-4 m, 500
+# m3/day = 5.8e-3 m3/s) are fifty times this model's whole recharge
+# (1.2e-4 m3/s), so NWT stopped with a residual worth 1.5 per cent of the flow
+# in the first days of the step. A twin trial is rejected above 1 per cent.
+# These closures bring every step of the listing to 0.00 per cent.
+[modflownwt.runtime.nwt]
+headtol = 1e-9
+fluxtol = 1e-10
+
 [display]
 enabled = false

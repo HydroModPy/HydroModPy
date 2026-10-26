@@ -1,6 +1,6 @@
 [seepage_limit]
-position_error = 3.4
-head_profile_max_abs_error = 0.025
+position_error = 3.34
+head_profile_max_abs_error = 0.0247
 mask_row_disagreement_max = 2
 
 [invariance]
@@ -24,4 +24,11 @@ for the doubled K (1.67 m): bound twice that. Head profile: max error 8.6e-3 m,
 seepage state of its column in the doubled-K scenario: bound twice that. The K/R
 invariance holds to 1.0e-7 m and moves no cell: bound 2e-7 m. Doubling K alone
 moves 57 cells and leaves the drain outflow at R * area to 3.7e-9, bound 8e-9.
+B9 of the unified mesh, measured again on 2026-10-26. Tightened to twice the
+measure: seepage_limit.head_profile_max_abs_error 0.025 to 0.0247 (measure
+0.0123); seepage_limit.position_error 3.4 to 3.34 (measure 1.67). Kept at a
+numerical floor, where twice the measure guarantees nothing:
+control.drain_outflow_ratio_error 8e-9 (measure 3.35e-9, solver closure of the
+scaled system); invariance.head_max_abs_error 2e-7 (measure 9.93e-8, solver
+closure of the scaled system).
 """

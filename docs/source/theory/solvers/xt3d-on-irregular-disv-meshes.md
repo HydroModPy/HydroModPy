@@ -67,8 +67,8 @@ The code decides once per run and takes the first row of this table that fits.
 The two tensor rows come first ({ref}`gwf-tensor`), because their error does not shrink with
 refinement. Take a steady well with $K_{22} = K/10$ and `angle1` at 30 degrees on a structured
 grid. The head error is 2.2 m for a 7 m drawdown, with cells of 40 m and of 20 m. With XT3D it
-is 0.04 m, then 0.013 m. XT3D multiplies the MODFLOW 6 run time by about 9 to 11, and the
-`RuntimeWarning` says so. The code also writes the warning to the log. Setting
+is 0.04 m, then 0.013 m. XT3D costs from about 1.5 times the MODFLOW 6 run time on one layer
+to about 10 times on ten layers, and the `RuntimeWarning` says so. The code also writes the warning to the log. Setting
 `mf6_enable_xt3d = true` keeps XT3D on without the warning. The triangle and non-orthogonality
 rows only log at INFO level, with no warning.
 
@@ -101,6 +101,13 @@ so XT3D stays off there when `K22` equals $K$.
 - Any `K22` on an unstructured mesh turns XT3D on, even if the connections happen to follow the
   axes of the tensor.
 - Every run of a sweep near the trigger pays for the wider stencil.
+- On triangle cells under Newton, XT3D can cycle without converging. MODFLOW 6 scales the XT3D
+  face area by the saturation of the upstream cell, but the cross term of XT3D is not zero at
+  equal heads, so the discrete system can have no root. The steady state of the Nançon on
+  triangles stops with E401 this way, in MODFLOW 6.6.3 and 6.8.1, and ghost nodes (GNC) do not
+  converge either. The build warns about it. The `voronoi` engine needs no XT3D and converges on
+  the same inputs. With `mf6_enable_xt3d = false` the run converges too, with heads about 0.1 m
+  RMSE away from XT3D.
 
 ## Parameters of this page
 

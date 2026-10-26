@@ -102,7 +102,6 @@ def test_load_variable_series_derives_boussinesq_surface_excess_flux(
     store = _write_boussinesq_run_folder(run_folder)
 
     series = load_variable_series(
-        run_folder=run_folder,
         variable="surface_excess_flux",
         store=store,
         sim_id=SIM_ID,
@@ -122,7 +121,6 @@ def test_load_variable_series_derives_boussinesq_dry_deficit_flux(
     store = _write_boussinesq_run_folder(run_folder)
 
     series = load_variable_series(
-        run_folder=run_folder,
         variable="dry_deficit_flux",
         store=store,
         sim_id=SIM_ID,

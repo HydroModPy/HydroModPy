@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_run_cells
 from hydromodpy.analysis.comparison.runtime.physics import (
     _variable_candidates,
     is_nodata_value,
@@ -378,7 +378,6 @@ def _load_store_surface_excess_total_series(
     sim_id: str,
     *,
     variable_name: str,
-    run_folder: Path,
 ) -> VariableSeries | None:
     """Try loading surface-excess totals from the store.
 
@@ -411,12 +410,7 @@ def _load_store_surface_excess_total_series(
         if values.ndim != 2:
             return None
 
-        cells = resolve_bundle_cells(
-            run_folder,
-            expected_size=int(values.shape[1]),
-            store=store,
-            sim_id=sim_id,
-        )
+        cells = resolve_run_cells(store, sim_id, expected_size=int(values.shape[1]))
         if cells is None or cells.area_m2 is None:
             return None
         area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
@@ -477,7 +471,6 @@ def _load_store_dry_deficit_total_series(
     sim_id: str,
     *,
     variable_name: str,
-    run_folder: Path,
 ) -> VariableSeries | None:
     """Try loading dry-deficit totals from the store boussinesq_state group."""
     sz = None
@@ -505,12 +498,7 @@ def _load_store_dry_deficit_total_series(
         if values.ndim != 2:
             return None
 
-        cells = resolve_bundle_cells(
-            run_folder,
-            expected_size=int(values.shape[1]),
-            store=store,
-            sim_id=sim_id,
-        )
+        cells = resolve_run_cells(store, sim_id, expected_size=int(values.shape[1]))
         if cells is None or cells.area_m2 is None:
             return None
         area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
@@ -563,7 +551,6 @@ def _load_store_dry_deficit_total_series(
 
 def load_variable_series(
     *,
-    run_folder: Path,
     variable: str,
     store: RunSource | None = None,
     sim_id: str | None = None,
@@ -593,14 +580,12 @@ def load_variable_series(
                 store,
                 sim_id,
                 variable_name=variable_name,
-                run_folder=run_folder,
             )
         elif variable_name == "dry_deficit_total_m3_s":
             series = _load_store_dry_deficit_total_series(
                 store,
                 sim_id,
                 variable_name=variable_name,
-                run_folder=run_folder,
             )
         else:
             series = _load_store_boussinesq_state_series(
@@ -625,7 +610,6 @@ def load_variable_series(
 
 def mask_depth_series_from_head_nodata(
     *,
-    run_folder: Path,
     series: VariableSeries,
     store: RunSource | None = None,
     sim_id: str | None = None,
@@ -636,7 +620,6 @@ def mask_depth_series_from_head_nodata(
 
     try:
         head_series = load_variable_series(
-            run_folder=run_folder,
             variable="watertable_elevation",
             store=store,
             sim_id=sim_id,

@@ -959,7 +959,7 @@ def version_history() -> dict[str, Any]:
     if "history" not in S:
         from packaging.version import Version
 
-        from tools.docs import toml_changelog
+        from tools.docs import legacy_keys, toml_changelog
 
         snaps = sorted(
             SNAPSHOTS.glob("fields-*.json"),
@@ -967,7 +967,7 @@ def version_history() -> dict[str, Any]:
         )
         docs = [json.loads(p.read_text()) for p in snaps]
         current = toml_changelog.snapshot({"meta": {"label": CURRENT}, "nodes": S["nodes"]})
-        S["history"] = toml_changelog.history([*docs, current])
+        S["history"] = toml_changelog.history([*docs, current], legacy_keys.moved_tables())
     return S["history"]
 
 
@@ -1014,6 +1014,7 @@ class ChangelogDirective(SphinxDirective):
         from tools.docs import legacy_keys
 
         reads = legacy_keys.accepted_old_names(S["nodes"])
+        moves = legacy_keys.moved_tables()
         STILL = {
             legacy_keys.WARNS: "still loads; ConfigKeyRenamedWarning names the new key",
             legacy_keys.MIGRATES: "still loads; the loader rewrites or drops it on load",
@@ -1047,10 +1048,26 @@ class ChangelogDirective(SphinxDirective):
                 )
             return "a file that writes them still loads, as each line says"
 
-        loader = {"reads": {}}
+        loader = {"reads": {}, "moves": {}}
+
+        def still_note(old: str) -> str:
+            """The line after an old name the loader still reads, from the loader (legacy_keys)."""
+            kind = loader["reads"].get(old)
+            if kind not in STILL:
+                return ""
+            text = STILL[kind]
+            if old in loader["moves"]:
+                before = esc(f'"{old}.<key>"')
+                after = esc(f'"{loader["moves"][old]}.<key>"')
+                text = (
+                    "still loads; the loader moves it on load, and a calibration phase that "
+                    f"overrides <code>{before}</code> is moved to <code>{after}</code> too"
+                )
+            return f' <span class="hmp-muted">({text})</span>'
 
         def render_pair(c: dict) -> str:
             loader["reads"] = reads if c["to"] == CURRENT else {}
+            loader["moves"] = moves if c["to"] == CURRENT else {}
             parts = []
             moved = [it for it in c["changed"] if "default" in it["changes"]]
             if moved:
@@ -1101,8 +1118,7 @@ class ChangelogDirective(SphinxDirective):
 
         def render(it) -> str:
             if isinstance(it, dict) and "from" in it:
-                kind = loader["reads"].get(it["from"])
-                still = f' <span class="hmp-muted">({STILL[kind]})</span>' if kind in STILL else ""
+                still = still_note(it["from"])
                 return f"<li><code>{esc(it['from'])}</code> is now {link(it['to'])}{still}</li>"
             if isinstance(it, dict):
                 detail = "; ".join(
@@ -1111,9 +1127,7 @@ class ChangelogDirective(SphinxDirective):
                     for k, v in it["changes"].items()
                 )
                 return f"<li>{link(it['path'])} {detail}</li>"
-            kind = loader["reads"].get(it)
-            still = f' <span class="hmp-muted">({STILL[kind]})</span>' if kind in STILL else ""
-            return f"<li>{link(it)}{still}</li>"
+            return f"<li>{link(it)}{still_note(it)}</li>"
 
         default = (versions[-2], versions[-1])
         sections = []

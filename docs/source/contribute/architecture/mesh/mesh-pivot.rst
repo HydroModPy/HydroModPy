@@ -217,7 +217,9 @@ serves every engine for each question:
      - ``spatial/mesh/ops/flow_barrier.py``, ``family_interior.py`` and ``line_on_chain.py``.
    * - The catchment of the run
      - The basin of the descent D, computed once per build and stored with the mesh
-       (``mesh/descent_basin``), see :doc:`../storage-layout`.
+       (``mesh/descent_basin``), and the share of each cell inside the delineated polygon
+       (``mesh/catchment_fraction``, ``cell_area_fraction`` in
+       ``spatial/mesh/ops/vector_cell_mask.py``), see :doc:`../storage-layout`.
 
 Every engine gives a river as cell chains. A triangle mesh also keeps the faces of the river
 line as face rows.
@@ -234,9 +236,10 @@ Module layout
    |-- request.py           MeshRequest, LineFamilySpec, RasterGridSpec, SizeField
    |-- cache.py             meshes an engine cannot rebuild bit for bit
    |-- engines/             regular/, triangle/, voronoi/
-   |-- planning/            plan_mesh_request, cleanup.py, input_mesh.py
+   |-- planning/            plan_mesh_request, catchment_outline.py, cleanup.py, input_mesh.py
    |-- sizing/              size_field.py, gap.py
-   |-- refinement/          models of [[mesh.refinement_zone]] and [mesh.lake_refinement]
+   |-- refinement/          models of [[mesh.refinement_zone]] and [mesh.lake_refinement],
+   |                        height_above_stream.py and run_fields.py (the fields a zone reads)
    |-- config/              the [mesh] models
    |-- forcing/             grids and stations on the cell centres, spatial_interpolation.py
    |-- ops/                 shared cell helpers
@@ -259,7 +262,9 @@ the layer bottoms and the integer ``idomain`` (1, 0 or -1). ``discretization_spa
 to ``solver_mesh.py``, samples the base rasters on the cell centres or resamples them to a
 regular grid. ``SolverMesh`` checks the interfaces once it is built, and the run stores them with
 the ``idomain``, see :doc:`../storage-layout`. ``active_connectivity.py`` warns when some groups
-of active cells have no connection to the rest.
+of active cells have no connection to the rest. The MODFLOW 6 build and the MODFLOW-NWT solver
+call it on the final grid, after the lake mask, and it counts a pass-through cell and a lake as
+connections.
 
 .. list-table::
    :header-rows: 1

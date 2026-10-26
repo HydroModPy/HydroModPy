@@ -11,6 +11,7 @@ reads their directories.
    hmp report compare nancon-mf6 nancon-bouss
    hmp report compare calage_nm calage_tpe --by site
    hmp report compare runs/a runs/b --allow-different-mesh --out ../mesh_study
+   hmp report compare nancon-mf6 nancon-bouss --budget-zone catchment
 
 Positioning
 -----------
@@ -56,6 +57,31 @@ or can derive them. When every manifest gives the same outlet
 discharge are also read there as series. The maps are compared on a shared raster
 at the cell size of the reference mesh.
 
+The three series ``head_domain_low``, ``head_domain_mid`` and ``head_domain_high`` draw the head
+of one cell for each third of the active cells, sorted by surface elevation: the median cell of
+the lower, middle and upper third. The cells and their elevation come from the reference run,
+or from the first run that has a head map. The elevation is ``mesh/topography`` of its
+``fields.zarr``, else the top of ``mesh/z_interfaces``. A run whose head map has another cell
+count is left out. When the run stores no elevation, no figure is drawn and
+``head_domain_figures_skipped.json`` says why
+(``reporting/comparison/domain_heads.py``).
+
+Budget zone
+-----------
+
+A run stores a budget row for the model domain, and one for the delineated catchment when its
+solver writes it (the basin of D, whole cells). The budget exports add up one zone, because the
+catchment row counts water that the domain row already counts. ``--budget-zone domain`` is the
+default, and ``--budget-zone catchment`` adds up the catchment rows. ``budget_timeseries_long.csv``
+and ``budget_timeseries_wide.csv`` carry a ``budget_zone`` column, and the numerical closure reads
+the same rows. A run with no row in the zone gives nothing, and a warning says so. A Boussinesq
+state is summed over its whole mesh, which is the model domain and has no catchment zone. It
+enters the domain export only, and a catchment export leaves it out with a warning.
+
+On example 04 the mean recharge of the export was 2.02 m3/s with the two zones added, 54 % above
+the domain value. It is 1.31 m3/s for the domain and 0.71 m3/s for the catchment. The three budget
+figures of the comparison name their zone in the title.
+
 Outputs
 -------
 
@@ -70,9 +96,10 @@ under ``--out``; under ``--by site`` each site has its own sub-folder:
    comparison_differences.csv    the paired values behind them
    comparison_metrics.json
    numerical_closure_*.csv       water-budget closure of each run, from its budget table
-   budget_timeseries_*.csv       budget terms of each run
+   budget_timeseries_*.csv       budget terms of each run, one zone, with a budget_zone column
    timeseries_*.csv              native series of the runs, aligned on time
    comparison_figures/           maps, series, dashboards
+   head_domain_figures_skipped.json  why the head series by elevation are missing, if they are
    comparison_report.md
    web/index.html                the page, rendered by reporting/comparison
 

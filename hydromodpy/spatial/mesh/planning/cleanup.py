@@ -17,7 +17,7 @@ kind, and the counts become notes of the request.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 import shapely
@@ -34,6 +34,7 @@ __all__ = [
     "CLEANUP_PIXEL_SHARE",
     "STUB_TOLERANCES",
     "GeometryCleanup",
+    "OutlineSmoothing",
     "clean_lines",
     "drop_small_holes",
 ]
@@ -51,20 +52,59 @@ that runs along it spends more, and that stretch is a sliver no cell resolves.
 """
 
 
+@dataclass(frozen=True)
+class OutlineSmoothing:
+    """What the smoothing of one outline changed (``catchment_outline.py``).
+
+    ``area_shift`` is the share of the area that moved and ``shift_m`` the
+    largest distance [m] between a vertex of one outline and the other.
+    ``cut_m`` and ``simplify_m`` are the corner cut and the simplification
+    tolerance [m].
+    """
+
+    name: str
+    vertices_before: int
+    vertices_after: int
+    area_shift: float
+    shift_m: float
+    cut_m: float
+    simplify_m: float
+
+
 @dataclass
 class GeometryCleanup:
-    """What the cleanup changed, counted by kind."""
+    """What the cleanup changed, counted by kind.
+
+    ``smoothed`` holds the outlines whose staircase was smoothed and
+    ``unsmoothed`` the names of those that stayed as they were because the
+    smoothed polygon was not valid.
+    """
 
     tolerance: float
     merged_vertices: int = 0
     cut_ends: int = 0
     snapped_ends: int = 0
     dropped_holes: int = 0
+    smoothed: list[OutlineSmoothing] = field(default_factory=list)
+    unsmoothed: list[str] = field(default_factory=list)
 
     def notes(self) -> tuple[str, ...]:
         """One note per kind of change made, for the QA of the mesh."""
         tol = f"{self.tolerance:g} m"
         notes = []
+        for outline in self.smoothed:
+            notes.append(
+                f"geometry cleanup: the {outline.name} outline was smoothed, each corner of "
+                f"its pixel steps cut at {outline.cut_m:g} m and the line simplified at "
+                f"{outline.simplify_m:g} m: {outline.vertices_before} vertices became "
+                f"{outline.vertices_after}, its area moved by {100.0 * outline.area_shift:.2f} % "
+                f"and no point of it by more than {outline.shift_m:.1f} m"
+            )
+        for name in self.unsmoothed:
+            notes.append(
+                f"geometry cleanup: the {name} outline stayed a staircase, since its "
+                "smoothed polygon was not valid"
+            )
         if self.merged_vertices:
             notes.append(
                 f"geometry cleanup: {self.merged_vertices} line vertices closer than {tol} "
@@ -89,6 +129,18 @@ class GeometryCleanup:
 
     def log(self) -> None:
         """Write each count in the journal."""
+        for outline in self.smoothed:
+            _logger.info(
+                "Smoothed the %s outline: %d vertices became %d, area moved by %.2f %%.",
+                outline.name,
+                outline.vertices_before,
+                outline.vertices_after,
+                100.0 * outline.area_shift,
+            )
+        for name in self.unsmoothed:
+            _logger.warning(
+                "The %s outline stayed a staircase: smoothing it left it invalid.", name
+            )
         for count, message in (
             (self.merged_vertices, "Merged %d line vertices closer than %g m."),
             (self.cut_ends, "Cut back %d line ends that ran within %g m along another line."),

@@ -1,8 +1,9 @@
 """Geology polygons or raster a mesh follows, and one geology field definition.
 
-``[mesh_catchment.geology]`` is read with these models, and so is the mapping
-``GeologyField.from_dict`` takes. The paths are typed ``Path``, so a path is
-resolved from the project root like every other path of its config.
+The ``[geology]`` section of a standalone geology TOML file (``GeologyField.from_toml``) is
+read with these models, and so is the mapping ``GeologyField.from_dict`` takes. The data
+loader builds the same mapping from ``[data.geology]``. The paths are typed ``Path``, so a
+path is resolved from the project root like every other path of its config.
 """
 
 from __future__ import annotations

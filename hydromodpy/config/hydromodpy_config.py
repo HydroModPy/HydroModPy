@@ -829,8 +829,10 @@ class HydroModPyConfig(HydroModelBase):
             return
         if mesh.triangle is not None and mesh.triangle.path is not None:
             needed_by = "The 'stream' boundary on a [mesh.triangle] path mesh"
-        else:
+        elif mesh.families.rivers == "cell":
             needed_by = f"[mesh] engine = {mesh.engine!r} with families.rivers = 'cell'"
+        else:
+            needed_by = "[[mesh.refinement_zone]] where = 'height_above_stream'"
         refusal = river_network.missing_threshold_refusal(needed_by=needed_by)
         if refusal is not None:
             raise ValueError(refusal)

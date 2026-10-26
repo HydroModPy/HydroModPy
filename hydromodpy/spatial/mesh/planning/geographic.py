@@ -33,11 +33,12 @@ def prepare_geographic_config_for_mesh(
     if network.enabled:
         return geographic_cfg
     reads_a_file = mesh_cfg.triangle is not None and mesh_cfg.triangle.path is not None
-    needed_by = (
-        "The 'stream' boundary on the mesh read from [mesh.triangle] path"
-        if reads_a_file
-        else f'mesh.engine = "{mesh_cfg.engine}" with [mesh.families] rivers = "cell"'
-    )
+    if reads_a_file:
+        needed_by = "The 'stream' boundary on the mesh read from [mesh.triangle] path"
+    elif mesh_cfg.families.rivers == "cell":
+        needed_by = f'mesh.engine = "{mesh_cfg.engine}" with [mesh.families] rivers = "cell"'
+    else:
+        needed_by = "[[mesh.refinement_zone]] where = 'height_above_stream'"
     refusal = network.missing_threshold_refusal(needed_by=needed_by)
     if refusal is not None:
         raise ConfigValidationError(refusal)

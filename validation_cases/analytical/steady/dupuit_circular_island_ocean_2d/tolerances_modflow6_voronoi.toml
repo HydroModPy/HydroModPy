@@ -23,4 +23,8 @@ raster whose shoreline lies 1 m inside the coast ring
 bins). The freeboard is read on the land surface the run was given, at the
 196 m ring. Until 2026-10-12 the top was the DEM and the RMSE 0.102 m. Twice the
 error would let that bias back unnoticed, hence the 10 % margin.
+B9 of the unified mesh, measured again on 2026-10-26. Kept at a numerical
+floor, where twice the measure guarantees nothing:
+radial_profile.azimuthal_spread 2e-4 (measure 4.67e-6, the head closure is 1e-4
+m, and the measure read 9.9e-5 on 2026-10-14 on the same mesh).
 """

@@ -9,7 +9,7 @@ import zarr
 
 from hydromodpy.analysis.comparison.runtime.mesh import (
     cells_from_run_mesh,
-    resolve_bundle_cells,
+    resolve_run_cells,
 )
 
 
@@ -55,33 +55,18 @@ def test_cells_come_from_the_stored_mesh(tmp_path: Path) -> None:
     assert cells.nearest_cell_id(x=24.0, y=2.0) == 1
 
 
-def test_resolver_reads_the_store_when_the_run_has_no_bundle(tmp_path: Path) -> None:
+def test_the_resolver_reads_the_store(tmp_path: Path) -> None:
     _write_grid(tmp_path / "fields.zarr")
-    run_folder = tmp_path / "run"
-    run_folder.mkdir()
 
-    assert resolve_bundle_cells(run_folder) is None
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=2,
-        store=_Store(tmp_path / "fields.zarr"),
-        sim_id="sim",
-    )
+    assert resolve_run_cells(None, None) is None
+    cells = resolve_run_cells(_Store(tmp_path / "fields.zarr"), "sim", expected_size=2)
     assert cells is not None
     assert cells.nearest_cell_id(x=1.0, y=9.0) == 0
 
 
 def test_a_size_mismatch_is_not_taken(tmp_path: Path) -> None:
     _write_grid(tmp_path / "fields.zarr")
-    run_folder = tmp_path / "run"
-    run_folder.mkdir()
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=5,
-        store=_Store(tmp_path / "fields.zarr"),
-        sim_id="sim",
-    )
-    assert cells is None
+    assert resolve_run_cells(_Store(tmp_path / "fields.zarr"), "sim", expected_size=5) is None
 
 
 def test_a_run_without_fields_gives_none() -> None:

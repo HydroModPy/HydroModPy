@@ -212,6 +212,10 @@ class TestHelpers:
         seen = {}
 
         class _Adapter:
+            def top_active_layer(self, ctx, row, col):
+                del ctx, row, col
+                return 0
+
             def extract_observables(self, ctx, store, requests, *, time_index=None):
                 del ctx, store, time_index
                 seen["n_calls"] = seen.get("n_calls", 0) + 1

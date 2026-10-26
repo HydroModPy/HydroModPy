@@ -38,11 +38,26 @@ each lake column:
 
 - one vertical connection to the first active cell under the occupied layers:
   the leakage towards the aquifer, through the vertical conductivity;
-- one horizontal connection per occupied layer across every edge shared with an
-  active neighbour that is not a lake cell: the bank seepage, through the
-  horizontal conductivity. Its width is the length of the shared edge, its length
-  the distance from the neighbour centre to the edge, and its elevations those of
-  the neighbour layer clipped to the vertical extent of the lake.
+- one horizontal connection across every edge shared with a neighbour column that
+  is not a lake column, for each active cell of that column that faces the lake
+  water, whatever its layer: the bank seepage, through the horizontal
+  conductivity. Its width is the length of the shared edge, its length the
+  distance from the neighbour centre to the edge, and its elevations those of the
+  neighbour cell clipped to the water of the lake column, between its bed and its
+  top. A band thinner than 1 mm is dropped.
+
+The number of occupied layers counts the pass-through cells of a pinched stack
+({ref}`mesh-layer-surfaces`). A pass-through cell has no thickness, so a lake whose
+occupied layer is pinched out holds no water inside the stack in that column. It
+leaks through its bed into the first active cell below, and the build logs these
+columns. A column with no active cell under the lake is refused. The message names
+the lake and three ways out: fewer occupied layers, a smaller `min_thickness` of
+the layers under the lake, or `pinch_out = "keep_min_thickness"`.
+
+So a neighbour whose layer is pinched, or a sloping stack, gets bank connections on
+every cell that faces the water. On a lake of 20 columns with layers that follow the
+terrain, the bank rows go from 14 to 27 and the exchange with the aquifer rises by
+1.6 %. On a flat stack the rule gives one row per occupied layer and per shared edge.
 
 A cutoff wall lies on the lake shore: the part of its trace facing the lake moves
 onto the shore within
@@ -67,6 +82,13 @@ exchanges with the lake while it is under water, and recharges as land when the
 shore falls below its bed. The drain rows of those cells are removed: a drain
 there would send the leakage of the lake straight back to the streams, through the
 aquifer, the drain and the mover, and the exchange would recirculate.
+
+When the bed is carved on a stack with pass-through cells, the cap above the bed
+keeps its pass-through cells, and the lake mask closes them. Below the bed a
+pass-through cell stays flat, so the first active cell has its top on the carved
+bed. A column with no cell left under its top layer that is not a pass-through
+cell is refused. In the active-shore mode the vertical connection goes to the top
+active cell of the column.
 
 (lakes-forcing)=
 ## What falls on the lake

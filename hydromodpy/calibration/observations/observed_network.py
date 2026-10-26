@@ -521,18 +521,16 @@ def _polygon_catchment_mask(
     planar_mesh: Any,
     face_node_connectivity: np.ndarray,
 ) -> np.ndarray | None:
-    """Project the catchment polygon the geographic pipeline delineated onto the cells."""
-    import geopandas as gpd
+    """Project the catchment polygon the geographic pipeline delineated onto the cells.
 
-    setup = run_ctx.state.setup
-    # ``setup.geographic`` is the delineation object, the same handle
-    # spatial.geographic.structure_binders reads the catchment from.
-    shp = getattr(getattr(setup, "geographic", None), "watershed_shp", None)
-    if shp is None or not Path(str(shp)).exists():
-        return None
+    None for a synthetic domain: its box is the domain, not a catchment.
+    """
+    from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 
-    frame = gpd.read_file(str(shp))
-    if frame.empty:
+    # ``setup.geographic`` is the delineation object, the same handle the build
+    # reads the catchment polygon from.
+    frame = catchment_outline(getattr(run_ctx.state.setup, "geographic", None))
+    if frame is None:
         return None
     mesh_crs = _declared_crs(run_ctx)
     if not mesh_crs:

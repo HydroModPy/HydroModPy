@@ -29,6 +29,7 @@ from hydromodpy.core.units.time import SECONDS_PER_DAY
 from .aggregation import (
     _budget_component_points,
     _budget_time_field,
+    _budget_zone_suffix,
 )
 
 matplotlib.use("Agg")
@@ -173,7 +174,9 @@ def _write_storage_comparison_dashboard(
 
     if not use_elapsed_seconds:
         _apply_time_ticks(ax, tick_positions=tick_positions, tick_labels=None)
-    figure.suptitle("Storage comparison", fontsize=_TITLE_FONT_SIZE, y=0.98)
+    figure.suptitle(
+        f"Storage comparison{_budget_zone_suffix(storage_rows)}", fontsize=_TITLE_FONT_SIZE, y=0.98
+    )
     figure.subplots_adjust(left=0.11, right=0.98, top=0.82, bottom=0.28)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -286,7 +289,11 @@ def _write_total_input_output_dashboard(
         )
     if not use_elapsed_seconds:
         _apply_time_ticks(ax, tick_positions=tick_positions, tick_labels=None)
-    figure.suptitle("Total inputs and outputs", fontsize=_TITLE_FONT_SIZE, y=0.98)
+    figure.suptitle(
+        f"Total inputs and outputs{_budget_zone_suffix(budget_rows)}",
+        fontsize=_TITLE_FONT_SIZE,
+        y=0.98,
+    )
     figure.subplots_adjust(left=0.11, right=0.98, top=0.82, bottom=0.28)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -458,7 +465,8 @@ def _write_budget_diagnostic_figure(
     tick_labels = [time_labels[index] for index in sorted(time_labels)] if time_labels else None
     _apply_time_ticks(balance_ax, tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle(
-        f"Budget diagnostics: {_display_simulation_label(simulation_id=simulation_id, simulation_label=simulation_label)}",
+        f"Budget diagnostics: {_display_simulation_label(simulation_id=simulation_id, simulation_label=simulation_label)}"
+        f"{_budget_zone_suffix(simulation_budget_rows)}",
         fontsize=_TITLE_FONT_SIZE,
         y=0.98,
     )
