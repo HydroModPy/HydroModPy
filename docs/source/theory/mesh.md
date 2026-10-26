@@ -87,7 +87,15 @@ thousandths. A corner between two edges longer than two pixels belongs to the sh
 The end of a river, the end of a barrier and a vertex of a lake shore that touch the outline stay
 on it, so the outlet keeps its place. A box, the `regular` engine, a triangulation read from a
 file and a catchment that the mesh does not follow keep their outline. If the smoothed polygon
-is not valid, the outline stays a staircase and the notes say so.
+is not valid, the outline stays a staircase and the notes say so. The declared outlet counts
+as a contact of the outline, like a river end, so it stays on the outline when it lies within a
+tenth of a pixel of it.
+
+The smoothed outline travels with the cell mesh (`PlanarCellMesh.smoothed_catchment`). Where a
+step needs the catchment, it reads the cells against this outline: the polygon fallback of the
+discharge support, the catchment area fraction, the outlet search of the build and the polygon
+mask of the network criterion. Without a smoothed outline these steps read the delineated
+polygon.
 
 On example 04 (DEM of 75 m, catchment of 64.6 km²), the outline goes from 423 to 160 vertices.
 The area moves by -0.08 % and no point moves by more than 0.81 pixel. With the catchment as the

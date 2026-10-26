@@ -21,7 +21,7 @@ from hydromodpy.spatial.mesh.cache import (
 )
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.model.mesh_qa import quality_warnings
-from hydromodpy.spatial.mesh.planning import plan_mesh_request
+from hydromodpy.spatial.mesh.planning import plan_mesh_request, smoothed_catchment
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
@@ -75,6 +75,12 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
             save_cell_mesh(cell_mesh, directory)
     for warning in quality_warnings(cell_mesh.qa):
         logger.warning("Mesh quality: %s", warning)
+    # The cache holds the mesh as the engine built it. The outline the planner
+    # smoothed is a function of the request, so a mesh loaded from the cache gets
+    # it as well, and the solver reads its cells against it.
+    smoothed = smoothed_catchment(mesh_cfg, inputs)
+    if smoothed is not None:
+        cell_mesh = cell_mesh.with_smoothed_catchment(smoothed)
     ctx.setup.cell_mesh = cell_mesh
     ctx.setup.mesh_summary = {
         "engine": cell_mesh.identity.engine_id,

@@ -5,12 +5,16 @@ that follows it, as the ``watershed_boundary`` face family or as the domain
 outline, would follow every step. The planner cuts each corner of a step at half
 a pixel and simplifies the line at half a pixel, so the new outline stays within
 a pixel of the staircase and keeps the area. A river end, a barrier end or a
-lake shore that touched the outline still touches it.
+lake shore that touched the outline still touches it, and so does the outlet of
+the catchment, with or without a river family to carry it. The planner hands
+the outline it smoothed to the mesh step, which gives it to the solver
+(``smoothed_catchment``).
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -22,9 +26,10 @@ from shapely.geometry import LineString, Point, Polygon, box, shape
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.planning import catchment_outline
-from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_polygon
+from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_catchment, smooth_polygon
+from hydromodpy.spatial.mesh.planning.cleanup import GeometryCleanup
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
+from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request, smoothed_catchment
 from hydromodpy.spatial.mesh.request import RasterGridSpec
 
 _WKT = 'PROJCS["RGF93 / Lambert-93"]'
@@ -276,6 +281,64 @@ def test_the_outlet_stays_on_the_outline(domain_is_catchment: bool) -> None:
     assert _on_outline(request, end) < 1.0e-6
 
 
+def _smoothed_catchment(inputs: PlanningInputs, config: MeshConfig) -> PlanningInputs:
+    """The inputs after the smoothing alone, before the families and the cleanup."""
+    cleanup = GeometryCleanup(tolerance=0.1 * _PIXEL)
+    return smooth_catchment(inputs, config.families, cleanup, _PIXEL)
+
+
+@pytest.mark.parametrize("domain_is_catchment", [False, True])
+def test_the_outlet_stays_on_the_outline_without_a_river_family(domain_is_catchment: bool) -> None:
+    """With ``rivers = "none"`` no river end carries the outlet: the outlet itself does."""
+    stair = _staircase()
+    outlet = _pulled_off_corner(stair, 7)
+    config = _config(rivers="none", **_FACE)
+    inputs = _inputs(stair, domain=stair if domain_is_catchment else _DOMAIN)
+
+    alone = _smoothed_catchment(inputs, config)
+    pinned = _smoothed_catchment(replace(inputs, outlet=Point(outlet)), config)
+
+    assert alone.watershed.exterior.distance(Point(outlet)) > 0.25 * _PIXEL
+    assert pinned.watershed.exterior.distance(Point(outlet)) < 1.0e-6
+    assert pinned.watershed.is_valid
+    assert _distance(stair.exterior, pinned.watershed.exterior) <= _PIXEL
+    if domain_is_catchment:
+        assert pinned.domain.exterior.distance(Point(outlet)) < 1.0e-6
+
+
+def test_the_request_follows_the_outline_through_the_outlet_without_a_river_family() -> None:
+    stair = _staircase()
+    outlet = _pulled_off_corner(stair, 7)
+    inputs = replace(_inputs(stair, domain=stair), outlet=Point(outlet))
+
+    request = plan_mesh_request(_config(rivers="none", **_FACE), inputs)
+
+    assert request.family("rivers") is None
+    assert request.domain.exterior.distance(Point(outlet)) < 1.0e-6
+    assert _on_outline(request, outlet) < 1.0e-6
+
+
+def test_an_outlet_off_the_outline_changes_nothing() -> None:
+    stair = _staircase()
+    inside = tuple(_inward(_pulled_off_corner(stair, 7), 5.0 * _PIXEL))
+    config = _config(rivers="none", **_FACE)
+    inputs = _inputs(stair)
+
+    kept = _smoothed_catchment(replace(inputs, outlet=Point(inside)), config)
+
+    assert kept.watershed.equals(_smoothed_catchment(inputs, config).watershed)
+
+
+def test_a_point_given_to_the_smoothing_stays_on_the_outline() -> None:
+    stair = _staircase()
+    outlet = _pulled_off_corner(stair, 3)
+
+    smooth = smooth_polygon(stair, _PIXEL, [Point(outlet)])
+
+    assert smooth is not None
+    assert smooth.exterior.distance(Point(outlet)) < 1.0e-6
+
+
 def test_a_river_ending_in_the_middle_of_a_step_stays_on_the_outline() -> None:
     stair = _staircase()
     coords = np.asarray(stair.exterior.coords)
@@ -367,3 +430,54 @@ def test_a_smoothing_that_leaves_the_polygon_invalid_keeps_the_staircase(
     assert any(
         "the catchment and domain outline stayed a staircase" in note for note in request.notes
     )
+
+
+def test_the_planner_gives_the_outline_it_smoothed() -> None:
+    stair = _staircase()
+    inputs = _inputs(stair)
+
+    outline = smoothed_catchment(_config(**_FACE), inputs)
+
+    assert outline is not None
+    assert outline.is_valid
+    assert len(outline.exterior.coords) < 0.5 * len(stair.exterior.coords)
+    assert _distance(stair.exterior, outline.exterior) <= _PIXEL
+    assert outline.equals(_smoothed_catchment(inputs, _config(**_FACE)).watershed)
+
+
+def test_the_outline_given_is_the_domain_the_request_follows() -> None:
+    stair = _staircase()
+    inputs = _inputs(stair, domain=stair)
+
+    request = plan_mesh_request(_config(**_FACE), inputs)
+    outline = smoothed_catchment(_config(**_FACE), inputs)
+
+    assert request.domain.equals_exact(outline, 1.0e-6)
+
+
+def test_no_outline_is_given_where_the_planner_leaves_the_polygon_as_it_is() -> None:
+    stair = _staircase()
+    inputs = _inputs(stair)
+
+    assert smoothed_catchment(_config("regular", **_FACE), inputs) is None
+    assert smoothed_catchment(_config("voronoi"), inputs) is None
+    assert (
+        smoothed_catchment(_config(**_FACE), _inputs(box(X0 + 100, Y0 + 100, X0 + 500, Y0 + 400)))
+        is None
+    )
+    assert (
+        smoothed_catchment(_config(**_FACE), replace(inputs, input_triangulation=object())) is None
+    )
+    assert smoothed_catchment(_config(**_FACE), replace(inputs, watershed=None)) is None
+
+
+def test_the_outline_of_a_buffer_domain_is_the_catchment_not_the_buffer() -> None:
+    stair = _staircase(radius=200.0)
+    inputs = _inputs(stair, domain=stair.buffer(60.0, join_style="mitre"))
+
+    followed = smoothed_catchment(_config(**_FACE), inputs)
+    not_followed = smoothed_catchment(_config(), inputs)
+
+    assert followed is not None
+    assert _distance(followed.exterior, stair.exterior) <= _PIXEL
+    assert not_followed is None

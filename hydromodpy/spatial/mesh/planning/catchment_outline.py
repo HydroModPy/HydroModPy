@@ -14,9 +14,10 @@ the new outline lies farther than a pixel from the staircase.
 
 A corner between two edges longer than two pixels belongs to the shape, not to
 a staircase, and stays: a rectangle is left as it is. So does every vertex
-that another line touches, a river end such as the outlet, a barrier end or a
-lake shore: the outline keeps touching them. The polygons of the flow model
-are not changed, only the outline the mesh follows.
+that another line touches, a river end, a barrier end or a lake shore, and the
+outlet of the catchment when it lies on the outline: the outline keeps touching
+them. The polygons of the flow model are not changed, only the outline the mesh
+follows.
 """
 
 from __future__ import annotations
@@ -83,14 +84,14 @@ def smooth_catchment(
     ``face`` or when the domain is the catchment; a domain that is a buffer
     of it is smoothed on its own, a rectangle is left alone. The domain keeps
     the very outline of the catchment when it is the catchment. A river end,
-    a barrier end or a lake shore that touches the outline still touches it.
-    *cleanup* receives what changed.
+    a barrier end, a lake shore or the outlet that touches the outline still
+    touches it. *cleanup* receives what changed.
     """
     watershed = inputs.watershed
     if watershed is None:
         return inputs
     domain = inputs.domain
-    lines = _followed_lines(inputs, families)
+    lines = _followed_geometries(inputs, families)
     changes: dict[str, object] = {}
     if _same_outline(domain, watershed):
         smooth = _smoothed(watershed, pixel, lines, "catchment and domain", cleanup)
@@ -108,7 +109,7 @@ def smooth_catchment(
 
 
 def smooth_polygon(
-    polygon: Polygon, pixel: float, touching: Sequence[LineString] = ()
+    polygon: Polygon, pixel: float, touching: Sequence[BaseGeometry] = ()
 ) -> Polygon | None:
     """*polygon* with the staircase of its rings smoothed, or None when that leaves it invalid.
 
@@ -118,7 +119,7 @@ def smooth_polygon(
     """
     if polygon.geom_type != "Polygon" or polygon.is_empty:
         return polygon
-    others = shapely.multilinestrings(list(touching)) if touching else None
+    others = shapely.GeometryCollection(list(touching)) if touching else None
     if others is not None:
         shapely.prepare(others)
     rings = []
@@ -139,7 +140,7 @@ def smooth_polygon(
 def _smoothed(
     polygon: Polygon,
     pixel: float,
-    touching: Sequence[LineString],
+    touching: Sequence[BaseGeometry],
     name: str,
     cleanup: GeometryCleanup,
 ) -> Polygon:
@@ -169,8 +170,14 @@ def _same_outline(domain: Polygon, watershed: Polygon) -> bool:
     return bool(shapely.equals_exact(domain, watershed, tolerance=_SAME_OUTLINE_TOL))
 
 
-def _followed_lines(inputs: PlanningInputs, families: MeshFamiliesConfig) -> list[LineString]:
-    """The lines and rings the mesh follows, those that may touch the catchment outline."""
+def _followed_geometries(
+    inputs: PlanningInputs, families: MeshFamiliesConfig
+) -> list[BaseGeometry]:
+    """What may touch the catchment outline: the lines the mesh follows and the outlet.
+
+    The outlet is kept whatever the families are, so a catchment without river
+    family keeps it on the outline as well.
+    """
     geometries: list[BaseGeometry] = []
     if families.rivers == "cell" and inputs.river_trace is not None:
         geometries.extend(inputs.river_trace.lines)
@@ -180,7 +187,10 @@ def _followed_lines(inputs: PlanningInputs, families: MeshFamiliesConfig) -> lis
         geometries.extend(inputs.geology.lines)
     if families.lakes == "face":
         geometries.extend(lake.boundary for lake in inputs.lakes)
-    return [line for geometry in geometries for line in _lines_of(geometry)]
+    touching: list[BaseGeometry] = [line for geometry in geometries for line in _lines_of(geometry)]
+    if inputs.outlet is not None:
+        touching.append(inputs.outlet)
+    return touching
 
 
 def _lines_of(geometry: BaseGeometry) -> list[LineString]:

@@ -71,6 +71,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
         ),
         synthetic=synthetic,
         barriers=barrier_lines(setup) if mesh_cfg.families.barriers == "face" else (),
+        outlet=_declared_outlet(cfg.geographic),
         notes=notes,
     )
 
@@ -240,10 +241,8 @@ def lake_structures(
     if lake_cfg is None:
         return ()
     structures = hydraulic_feature_geometries(setup, lake_cfg)
-    x_outlet = getattr(geographic_cfg, "x_outlet", None)
-    y_outlet = getattr(geographic_cfg, "y_outlet", None)
-    if x_outlet is not None and y_outlet is not None:
-        outlet = Point(float(x_outlet), float(y_outlet))
+    outlet = _declared_outlet(geographic_cfg)
+    if outlet is not None:
         # The outlet disk is redundant only when a cutoff-wall zone actually reaches
         # it: the wall zone (radius = its buffer) must overlap the disk (dam_buffer).
         has_cutoff_wall = any(
@@ -256,6 +255,15 @@ def lake_structures(
         ):
             structures.append(("dam_outlet", outlet, lake_cfg.dam_cell_size, lake_cfg.dam_buffer))
     return tuple(structures)
+
+
+def _declared_outlet(geographic_cfg: object) -> Point | None:
+    """The outlet the configuration declares, in the project CRS, None without one."""
+    x_outlet = getattr(geographic_cfg, "x_outlet", None)
+    y_outlet = getattr(geographic_cfg, "y_outlet", None)
+    if x_outlet is None or y_outlet is None:
+        return None
+    return Point(float(x_outlet), float(y_outlet))
 
 
 def hydraulic_feature_geometries(setup: object, lake_cfg: object) -> list[LakeStructure]:

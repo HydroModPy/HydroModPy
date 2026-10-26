@@ -60,7 +60,7 @@ from hydromodpy.spatial.mesh.sizing.size_field import (
     sample_size_field,
 )
 
-__all__ = ["plan_mesh_request"]
+__all__ = ["plan_mesh_request", "smoothed_catchment"]
 
 _logger = get_logger(__name__)
 
@@ -114,8 +114,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
     triangulation = inputs.input_triangulation
     pixel = _pixel_size(inputs.dem_grid)
     cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
-    if graded and triangulation is None:
-        inputs = smooth_catchment(inputs, mesh_cfg.families, cleanup, pixel)
+    inputs = _smoothed_inputs(mesh_cfg, inputs, cleanup, pixel)
     domain = inputs.domain if triangulation is None else domain_polygon_of(triangulation)
     sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
     if triangulation is None:
@@ -145,6 +144,33 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
         ),
         source_runs=_source_runs(inputs) if sized else (),
     )
+
+
+def smoothed_catchment(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> Polygon | None:
+    """The catchment outline :func:`plan_mesh_request` smooths for *inputs*, None when it does not.
+
+    The mesh follows this outline, so a consumer that reads its cells against
+    the catchment reads them against this one, and a cell and the polygon agree.
+    None when the planner leaves the delineated polygon as it is: an engine that
+    does not grade its cells, a triangulation read, an outline the mesh does not
+    follow, an outline with no step to smooth. Holes the cleanup drops later,
+    smaller than a local cell, are still in it.
+    """
+    pixel = _pixel_size(inputs.dem_grid)
+    cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
+    smooth = _smoothed_inputs(mesh_cfg, inputs, cleanup, pixel)
+    return None if smooth.watershed is inputs.watershed else smooth.watershed
+
+
+def _smoothed_inputs(
+    mesh_cfg: MeshConfig, inputs: PlanningInputs, cleanup: GeometryCleanup, pixel: float
+) -> PlanningInputs:
+    """*inputs* with the catchment outline smoothed, for a graded engine that meshes the project."""
+    if inputs.input_triangulation is not None:
+        return inputs
+    if not registry.get(mesh_cfg.engine).capabilities.graded:
+        return inputs
+    return smooth_catchment(inputs, mesh_cfg.families, cleanup, pixel)
 
 
 def _sizing(

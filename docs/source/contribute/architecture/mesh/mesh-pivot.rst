@@ -144,6 +144,10 @@ otherwise recompute:
        ``quality_warnings`` turns the shape entries into build warnings and never refuses a mesh.
    * - ``structured_shape``
      - ``(nrow, ncol)`` of a regular grid, otherwise ``None``.
+   * - ``smoothed_catchment``
+     - The catchment outline the planner smoothed and the mesh followed, otherwise ``None``.
+       The planner gives it by ``smoothed_catchment(mesh_cfg, inputs)``, and
+       ``PlanningInputs.outlet`` keeps the declared outlet on it.
 
 ``cell_mesh.geometry`` is a ``DerivedGeometry`` (``spatial/mesh/model/derived_geometry.py``),
 derived once on first use. It holds the ``-1`` padded connectivity (the format of the Zarr

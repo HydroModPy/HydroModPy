@@ -10,10 +10,12 @@ A discharge series compared to a gauge has to be the water that gauge sees, so
 the sum is restricted here rather than left to the backend. The support is the
 basin of the descent D the build stored on the model. A model without one falls
 back on the old support ``polygon_covers``: the cells whose centre the
-delineated catchment polygon covers.
+catchment polygon covers.
 
-The delineated polygon is read by
-:func:`hydromodpy.spatial.geographic.delineated_catchment.catchment_outline`.
+The polygon is read by
+:func:`hydromodpy.spatial.geographic.delineated_catchment.catchment_outline`,
+against the mesh of the model: the outline the planner smoothed when the mesh
+follows it, so a cell and the polygon agree, else the delineated polygon.
 A synthetic geographic delineates no catchment: its box is the domain, so it
 gives neither a polygon nor an outlet, and a synthetic run carries the domain
 alone.
@@ -33,35 +35,37 @@ from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
 logger = get_logger(__name__)
 
 
-def polygon_cell_mask(geographic: object | None, cell_centroids: np.ndarray) -> np.ndarray | None:
-    """Cells whose centre the delineated catchment polygon covers, None without a polygon.
+def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
+    """Cells whose centre the catchment polygon covers, None without a polygon.
 
     The old support ``polygon_covers``. The build compares the basin of D with
-    it, and a model without a basin of D sums its discharge over it.
+    it, and a model without a basin of D sums its discharge over it. The polygon
+    is the outline the mesh followed (``catchment_outline``).
     """
     import shapely
 
-    frame = catchment_outline(geographic)
+    frame = catchment_outline(geographic, solver_mesh.cell_mesh)
     if frame is None:
         return None
     polygon = frame.geometry.union_all()
     shapely.prepare(polygon)
-    centroids = np.asarray(cell_centroids, dtype=float).reshape(-1, 2)
+    centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float).reshape(-1, 2)
     return np.asarray(shapely.covers(polygon, shapely.points(centroids)), dtype=bool)
 
 
 def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.ndarray | None:
-    """Share of each cell's area inside the delineated catchment polygon, None without one.
+    """Share of each cell's area inside the catchment polygon, None without one.
 
     The weight of a catchment total of a spatial quantity (GSFLOW practice):
     1 inside the polygon, 0 outside, the intersected share on its outline. The
-    polygon is taken in the frame of its file, which is the frame the solver
-    mesh was built in, as :func:`polygon_cell_mask` assumes. A polygon that
-    declares no CRS gives no fraction rather than a guessed frame.
+    polygon is the outline the mesh followed (``catchment_outline``). The
+    delineated one is taken in the frame of its file, which is the frame the
+    solver mesh was built in, as :func:`polygon_cell_mask` assumes. A polygon
+    that declares no CRS gives no fraction rather than a guessed frame.
     """
     from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction, cell_polygons
 
-    frame = catchment_outline(geographic)
+    frame = catchment_outline(geographic, solver_mesh.cell_mesh)
     if frame is None:
         return None
     if frame.crs is None:
@@ -151,7 +155,7 @@ def _polygon_support(model: Any) -> np.ndarray:
             "a discharge observable needs the solver mesh to place the catchment on the "
             "cells, and this model carries none."
         )
-    mask = polygon_cell_mask(geographic, solver_mesh.cell_centroids())
+    mask = polygon_cell_mask(geographic, solver_mesh)
     if mask is None:
         raise ValueError(f"the delineated catchment {shp!r} holds no geometry.")
     if not mask.any():

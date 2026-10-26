@@ -3,15 +3,23 @@
 Boussinesq reads ``K`` as the per-cell hydraulic conductivity and ``Sy`` as the
 per-cell storage coefficient, both at depth zero: the backend has one layer.
 They come from the mapping every solver shares
-(``solver.field_property_mapping.map_flow_properties``).
+(``solver.field_property_mapping.map_flow_properties``). A runtime override
+(``Project.run(properties=...)``) of K or Sy wins over the flow parameter, as it
+does on MODFLOW. An override of a property Boussinesq does not read (Kv, Ss, K22,
+the angles of the K tensor) is refused by name rather than dropped.
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
 
 import numpy as np
 
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.field_property_mapping import map_flow_properties
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    resolve_flow_property_runtime_overrides,
+)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 _OUTPUT_NAMES = {"K": "hydraulic_conductivity_m_s", "Sy": "storage_coefficient"}
@@ -35,8 +43,14 @@ def resolve_flow_property_arrays(
     domain: object,
     cell_mesh: PlanarCellMesh,
     required_properties: frozenset[str] | set[str] | None = None,
+    runtime_property_overrides: Mapping[str, object] | None = None,
 ) -> dict[str, np.ndarray]:
-    """Map the required Boussinesq properties onto ``cell_mesh``, one value per cell."""
+    """Map the required Boussinesq properties onto ``cell_mesh``, one value per cell.
+
+    ``runtime_property_overrides`` is the ``flow_runtime_overrides`` of the run:
+    its K and Sy win over the flow, and a property the backend does not read
+    is refused (``map_flow_properties``).
+    """
     required = (
         frozenset(str(name).strip() for name in required_properties)
         if required_properties is not None
@@ -50,6 +64,12 @@ def resolve_flow_property_arrays(
         layer_depths=np.zeros((1, cell_mesh.n_cells), dtype=float),
         properties=properties,
         required=required,
+        runtime_overrides=resolve_flow_property_runtime_overrides(
+            runtime_property_overrides,
+            nlay=1,
+            n_cells=int(cell_mesh.n_cells),
+            required_properties=required,
+        ),
     )
     return {_OUTPUT_NAMES[name]: mapped[_MAPPED_NAMES[name]] for name in properties}
 

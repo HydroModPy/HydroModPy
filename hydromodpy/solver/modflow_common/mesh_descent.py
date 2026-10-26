@@ -529,7 +529,7 @@ def _outlet_search(
     geographic: object | None, solver_mesh: Any, descent: Descent
 ) -> tuple[tuple[float, float] | None, np.ndarray | None]:
     """Return ``(near, within)``: the closing point and the routable polygon cells."""
-    within = polygon_cell_mask(geographic, solver_mesh.cell_centroids())
+    within = polygon_cell_mask(geographic, solver_mesh)
     if within is not None:
         within = within & descent.routable
         if not np.any(within):

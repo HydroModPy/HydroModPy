@@ -21,7 +21,7 @@ and simulation steps:
 - `pipeline.py`: compatibility orchestration that hydrates the `Geographic` runtime payload.
 - `geographic_paths.py`: canonical output-path contract.
 - `geographic_io.py`: CRS and shapefile I/O helpers.
-- `delineated_catchment.py`: the one reader of the delineated catchment polygon (none for a synthetic domain).
+- `delineated_catchment.py`: the one reader of the delineated catchment polygon (none for a synthetic domain). `catchment_outline(geographic, cell_mesh=None)` returns the smoothed outline the mesh followed when there is one.
 - `core/`: decomposed geographic pipeline modules (single-responsibility steps).
 - `cases/`: runnable examples and review scripts.
 - `synthetic/`: synthetic geographic support builder and config.
