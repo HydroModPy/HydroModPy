@@ -263,3 +263,37 @@ def test_the_step_reads_its_sections_from_the_config_names() -> None:
     assert step.config_sections == ("domain.supports", "mesh")
     assert "mesh_section_data" not in step.reads
     assert "external_mesh_input" not in step.reads
+
+
+class _ConcaveEngine:
+    """An engine whose regular grid reports three concave cells."""
+
+    engine_id = "concave_probe"
+    engine_version = "1.0.0"
+    capabilities = RegularMeshEngine.capabilities
+
+    def build(self, request):
+        built = RegularMeshEngine().build(request)
+        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
+        qa = dataclasses.replace(built.qa, n_concave_cells=3)
+        return dataclasses.replace(built, identity=identity, qa=qa)
+
+
+def test_a_mesh_past_a_quality_threshold_is_warned_and_used(tmp_path, caplog) -> None:
+    registry.register(_ConcaveEngine)
+    try:
+        ctx = _context(tmp_path, MeshConfig(engine=_ConcaveEngine.engine_id))
+        with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
+            step_mesh(ctx)
+    finally:
+        registry.unregister(_ConcaveEngine.engine_id)
+
+    assert ctx.setup.cell_mesh.qa.n_concave_cells == 3
+    assert "Mesh quality: 3 of 100 cells are concave" in caplog.text
+
+
+def test_a_mesh_within_the_thresholds_is_not_warned(tmp_path, caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
+        step_mesh(_context(tmp_path, None))
+
+    assert "Mesh quality" not in caplog.text

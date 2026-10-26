@@ -101,8 +101,11 @@ class FlowEtpConfig(HydroModelBase):
     interpolation_method: Annotated[InterpolationMethod, Profile.DEV] = Field(
         default="nearest",
         description=(
-            "Spatial interpolation method for gridded/point data onto the "
-            "MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
+            "How gridded or station data reach the cells of the solver mesh: "
+            "'nearest' (source value at the cell centre), 'linear', 'idw' "
+            "(inverse distance), or 'area' (gridded data only: each pixel "
+            "weighted by the area it shares with the cell, so the volume over "
+            "the domain equals the integral of the grid)."
         ),
     )
 

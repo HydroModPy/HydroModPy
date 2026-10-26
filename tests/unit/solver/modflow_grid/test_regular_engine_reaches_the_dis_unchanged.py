@@ -169,7 +169,8 @@ def test_the_dis_and_the_disv_of_a_regular_grid_do_not_move(case_name: str, tmp_
 
     ctx = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(vertical=vertical),
+        vertical_config=vertical,
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=_engine_mesh(case, domain),
     )
     now = ctx.solver_mesh

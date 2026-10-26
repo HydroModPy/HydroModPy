@@ -312,7 +312,8 @@ def _discretize_heterogeneous_source(
     Shared by the aquifer recharge and the soil residual ETP: both hand a
     ``LoadResult``-like ``source`` and get back ``{kper: (ncpl,) m/s}``, or
     ``None`` when ``source`` carries neither fields nor points. The centres are
-    those of the solver mesh, whatever its engine.
+    those of the solver mesh, whatever its engine, and its planar mesh gives
+    the cell polygons the ``"area"`` method weighs pixels by.
     """
     sim_window = model.time_grid.window if model.time_grid is not None else None
     centers = model.solver_mesh.cell_centroids()
@@ -325,6 +326,7 @@ def _discretize_heterogeneous_source(
             nper=int(model.nper),
             simulation_window=sim_window,
             method=interpolation_method,
+            mesh=model.solver_mesh.planar_mesh,
         )
     if getattr(source, "has_points", False):
         return discretize_points_on_cells(

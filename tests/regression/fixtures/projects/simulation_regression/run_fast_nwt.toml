@@ -33,7 +33,7 @@ itmuni = 1
 [mesh.regular]
 shape = [60, 60]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

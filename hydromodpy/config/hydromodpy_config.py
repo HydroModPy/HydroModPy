@@ -36,6 +36,7 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 from hydromodpy.calibration.config import CalibrationConfig, apply_project_defaults
 from hydromodpy.calibration.protocols import expand_calibration_protocol
 from hydromodpy.config.config_migration import (
+    _raw_flow_process_solver,
     migrate_config_doc_on_load,
     migrate_sealed_config_doc,
 )
@@ -411,31 +412,6 @@ REAL_CATCHMENT_DEFINITIONS: frozenset[str] = frozenset(
 """Values of ``geographic.catchment.catch_def`` that model a real catchment, named by a site."""
 
 
-def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
-    """Return the id and first solver of the first flow process, before validation."""
-    if isinstance(simulation, Mapping):
-        processes = simulation.get("process")
-    else:
-        processes = getattr(simulation, "process", None)
-    if not isinstance(processes, list | tuple):
-        return None
-    for process in processes:
-        if isinstance(process, Mapping):
-            kind = str(process.get("type", "")).strip().lower()
-            solvers = process.get("solvers")
-            process_id = process.get("id")
-        else:
-            kind = str(getattr(process, "type", "")).strip().lower()
-            solvers = getattr(process, "solvers", None)
-            process_id = getattr(process, "id", None)
-        if kind != "flow" or not isinstance(solvers, list | tuple):
-            continue
-        names = [str(name).strip() for name in solvers if name and str(name).strip()]
-        if names:
-            return str(process_id or "flow"), names[0]
-    return None
-
-
 def require_site_for_real_catchment(config: Any) -> None:
     """Refuse a real catchment that no site names.
 
@@ -529,7 +505,8 @@ class HydroModPyConfig(HydroModelBase):
     domain: Annotated[DomainConfig, Profile.USER] = Field(
         default_factory=DomainConfig,
         description=(
-            "Domain configuration defining domain depth plus the spatial-support "
+            "Domain configuration: the depth of the aquifer ([domain.depth_model]), its "
+            "layering ([domain.layers], read by every solver) and the spatial-support "
             "mode used for heterogeneous parameter mapping "
             "(`none`, `geology`, or `zones`)."
         ),
@@ -579,8 +556,8 @@ class HydroModPyConfig(HydroModelBase):
     modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
         default_factory=ModflowConfig,
         description=(
-            "MODFLOW-NWT settings: the vertical layering and top sampling of the grid "
-            "([modflownwt.sgrid.vertical], [modflownwt.sgrid.top_sampling]), the package options "
+            "MODFLOW-NWT settings: the top sampling of the grid "
+            "([modflownwt.sgrid.top_sampling]), the package options "
             "([modflownwt.process_specific]) and the solver settings "
             "([modflownwt.runtime.<package>], expert keys)."
         ),
@@ -588,8 +565,8 @@ class HydroModPyConfig(HydroModelBase):
     modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
         default_factory=Modflow6Config,
         description=(
-            "MODFLOW 6 settings: the vertical layering and top sampling of the grid "
-            "([modflow6.sgrid.vertical], [modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) "
+            "MODFLOW 6 settings: the top sampling of the grid "
+            "([modflow6.sgrid.top_sampling]), the package options ([modflow6.process_specific]) "
             "and the solver settings ([modflow6.runtime], expert keys)."
         ),
     )

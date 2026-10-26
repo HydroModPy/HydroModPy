@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from importlib.util import find_spec
 
 import numpy as np
@@ -12,6 +13,7 @@ from shapely.geometry import LineString, box
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.spatial.mesh import cache, registry
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.model.mesh_qa import SHAPE_KEYS
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
 
 WKT = CRS.from_epsg(2154).to_wkt()
@@ -156,3 +158,29 @@ def test_an_entry_lives_under_the_project_cache_directory(tmp_path) -> None:
     key = cache.cache_key(_request(), RegularMeshEngine)
 
     assert cache.cache_dir(tmp_path, key) == tmp_path / ".hmp" / "mesh_cache" / key
+
+
+@pytest.mark.parametrize(
+    "engine_id",
+    [
+        "regular",
+        pytest.param("triangle", marks=needs_gmsh),
+        pytest.param("voronoi", marks=needs_gmsh),
+    ],
+)
+def test_an_entry_stored_before_the_shape_entries_is_read_with_them_measured(
+    tmp_path, engine_id
+) -> None:
+    request = _request() if engine_id == "regular" else _request(size=60.0)
+    built = registry.create(engine_id).build(request)
+    cache.save_cell_mesh(built, tmp_path / "entry")
+    path = tmp_path / "entry" / cache.DESCRIPTION_FILENAME
+    description = json.loads(path.read_text())
+    for name in SHAPE_KEYS:
+        del description["qa"][name]
+    path.write_text(json.dumps(description))
+
+    back = cache.load_cell_mesh(tmp_path / "entry")
+
+    assert description["schema"] == cache.SCHEMA_VERSION
+    _assert_same_mesh(back, built)

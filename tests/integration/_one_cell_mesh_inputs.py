@@ -298,7 +298,7 @@ def _period_scale(array: np.ndarray) -> np.ndarray:
     return np.stack([array * (1.0 + 0.3 * period) for period in range(NPER)])
 
 
-def raster_case(pair: MeshPair) -> RechargeCase:
+def raster_case(pair: MeshPair, method: str = "nearest") -> RechargeCase:
     """A diagonal recharge gradient that is not symmetric, on pixels that miss the cells.
 
     The regular pair gets an analytic gradient on 23 x 31 pixels over the mesh
@@ -321,7 +321,7 @@ def raster_case(pair: MeshPair) -> RechargeCase:
     xx, yy = np.meshgrid(px, py, indexing="xy")
     return RechargeCase(
         label="raster",
-        method="nearest",
+        method=method,
         load_result=LoadResult(fields=[_field_record(series, px, py)]),
         xy=np.column_stack([xx.ravel(), yy.ravel()]),
         series_mm_day=series.reshape(NPER, -1),
@@ -634,3 +634,33 @@ def reference_recharge(pair: MeshPair, case: RechargeCase) -> dict[int, np.ndarr
         * MM_DAY_TO_M_S
         for kper in range(NPER)
     }
+
+
+def reference_area_recharge(
+    pair: MeshPair, case: RechargeCase
+) -> tuple[dict[int, np.ndarray], np.ndarray]:
+    """Recharge of every period in m/s as the mean of the pixels over each cell, by exact overlay.
+
+    Returns the recharge and the mask of the cells a pixel reaches; the others
+    take the nearest pixel in the code and are not referenced here.
+    """
+    px = np.unique(case.xy[:, 0])
+    py = np.unique(case.xy[:, 1])
+    half_x, half_y = 0.5 * (px[1] - px[0]), 0.5 * (py[1] - py[0])
+    origin = (pair.bounds[0], pair.bounds[1])
+    cells = cell_polygons(pair.cell_mesh, origin=origin)
+    x = case.xy[:, 0] - origin[0]
+    y = case.xy[:, 1] - origin[1]
+    pixels = shapely.box(x - half_x, y - half_y, x + half_x, y + half_y)
+    shared = np.array([shapely.area(shapely.intersection(cell, pixels)) for cell in cells])
+    covered = shared.sum(axis=1)
+    reached = covered > 0.0
+    return (
+        {
+            kper: (shared @ case.series_mm_day[kper])
+            / np.where(reached, covered, 1.0)
+            * MM_DAY_TO_M_S
+            for kper in range(NPER)
+        },
+        reached,
+    )

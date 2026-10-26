@@ -5,7 +5,8 @@ Three layers describe the mesh a run was solved on:
 ``mesh_cells``
     One polygon per cell, with its area, the families it belongs to, its zone,
     its topography and its quality (centre offset, neighbour ratio,
-    non-orthogonality, bisection offset, smallest angle, concavity).
+    non-orthogonality, bisection offset, smallest and largest angle,
+    concavity).
 ``mesh_seeds``
     One point per cell, at the centre the solver used, with the rule that
     placed it and the families of the cell.
@@ -47,6 +48,7 @@ _QUALITY_COLUMNS = {
     "nonorthogonality_deg": "mesh_nonorthogonality",
     "bisection_offset": "mesh_bisection_offset",
     "min_angle_deg": "mesh_min_angle",
+    "max_angle_deg": "mesh_max_angle",
     "concavity_deg": "mesh_concavity",
 }
 

@@ -2,7 +2,8 @@
 
 One vectorised answer for every consumer: wells, observation points and gauges.
 A regular grid is read by floor arithmetic on its bounds, any other mesh by
-point-in-polygon on the cell polygons.
+point-in-polygon on the cell polygons. :func:`locate_cells_near` also takes a
+point just outside the mesh, within one cell size of the nearest cell.
 """
 
 from __future__ import annotations
@@ -12,10 +13,13 @@ import shapely
 from scipy.spatial import cKDTree
 from shapely.strtree import STRtree
 
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 
-__all__ = ["locate_cells"]
+__all__ = ["locate_cells", "locate_cells_near"]
+
+logger = get_logger(__name__)
 
 _OUTSIDE = -1
 
@@ -41,6 +45,43 @@ def locate_cells(cell_mesh: PlanarCellMesh, xy: np.ndarray, *, allow_nearest: bo
         if lost.any():
             _, nearest = cKDTree(cell_mesh.centers).query(points[lost])
             cells[lost] = nearest
+    return cells
+
+
+def locate_cells_near(cell_mesh: PlanarCellMesh, xy: np.ndarray) -> np.ndarray:
+    """Return the cell of each point, or of the nearest centre within one cell size.
+
+    A point inside the mesh gets the cell that holds it, as :func:`locate_cells`
+    gives it. A point outside takes the cell whose centre is the nearest, but only
+    when its distance to that cell is at most the cell size, the square root of
+    the cell area. Farther out it gets ``-1`` and a warning names the point: a
+    gauge or a piezometer that far from the mesh is a coordinate error, and the
+    nearest cell would score it on a place it does not observe.
+    """
+    points = np.atleast_2d(np.asarray(xy, dtype=float))
+    cells = locate_cells(cell_mesh, points, allow_nearest=False)
+    lost = np.flatnonzero(cells == _OUTSIDE)
+    if lost.size == 0:
+        return cells
+    _, nearest = cKDTree(cell_mesh.centers).query(points[lost])
+    nearest = np.asarray(nearest, dtype=np.int64)
+    rows = cell_mesh.geometry.padded_connectivity[nearest]
+    polygons = cell_polygons(cell_mesh.mesh.vertices, rows)
+    distance = shapely.distance(polygons, shapely.points(points[lost]))
+    size = np.sqrt(np.asarray(cell_mesh.geometry.areas, dtype=float)[nearest])
+    near = distance <= size
+    cells[lost[near]] = nearest[near]
+    for index in np.flatnonzero(~near).tolist():
+        x, y = points[lost[index]]
+        logger.warning(
+            "Point (%.2f, %.2f) lies %.1f m outside the mesh, farther than the size "
+            "%.1f m of the nearest cell %d; it is not located on any cell.",
+            x,
+            y,
+            float(distance[index]),
+            float(size[index]),
+            int(nearest[index]),
+        )
     return cells
 
 

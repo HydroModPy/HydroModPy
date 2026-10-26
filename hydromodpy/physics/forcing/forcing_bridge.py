@@ -172,8 +172,9 @@ def resolve_forcing(
         ``"homogeneous"`` - force spatial averaging (even for fields).
         ``"heterogeneous"`` - force per-cell discretization.
     interpolation_method :
-        ``"nearest"``, ``"linear"``, or ``"idw"`` - used when discretizing
-        points or re-gridding fields onto the solver mesh.
+        ``"nearest"``, ``"linear"``, ``"idw"`` or ``"area"`` - used when
+        discretizing points or re-gridding fields onto the solver mesh.
+        ``"area"`` serves gridded fields only.
     label :
         Human-readable name for error messages (e.g. ``"recharge"``).
 

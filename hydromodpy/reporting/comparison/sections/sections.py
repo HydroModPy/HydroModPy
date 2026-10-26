@@ -215,7 +215,7 @@ def _render_numerical_methods(ctx: ComparisonWebContext) -> str:
     bouss_flow = _flow_payload_for_solver(simulation_payloads, "boussinesq") or flow
     mf6 = _mapping(payload.get("modflow6"))
     mf6_runtime = _mapping(mf6.get("runtime"))
-    mf6_sgrid = _mapping(_mapping(mf6.get("sgrid")).get("vertical"))
+    layers = _mapping(_mapping(payload.get("domain")).get("layers"))
     bouss_method = _boussinesq_method_text(bouss_flow)
     hydraulic_rows = [
         ("Flow regime", _format_value(flow.get("flow_regime"), default="transient")),
@@ -236,7 +236,7 @@ def _render_numerical_methods(ctx: ComparisonWebContext) -> str:
         (
             "MODFLOW 6",
             "reference, finite volumes (control volumes) on a DISV mesh; "
-            f"{_format_value(mf6_sgrid.get('nlay'), default='1')} layer(s); "
+            f"{_format_value(layers.get('nlay'), default='1')} layer(s); "
             f"IMS {_format_value(mf6_runtime.get('mf6_ims_complexity'), default='COMPLEX')}; "
             f"dvclose={_format_value(mf6_runtime.get('mf6_inner_dvclose'), default='1e-4')}",
         ),

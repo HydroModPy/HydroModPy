@@ -12,13 +12,14 @@ from hydromodpy.spatial.domain.depth_model_config import (
     DepthModelConfig,
 )
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
+from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 
 
 class DomainConfig(HydroModelBase):
-    """
-    Domain configuration.
+    """Domain configuration: the zones, the depth of the aquifer and its layering.
 
-    Controls which zone providers are loaded in `Domain`.
+    Controls which zone providers are loaded in `Domain`. ``layers`` is the
+    vertical split of the aquifer, read by every solver.
     """
 
     zone_ids: Annotated[list[IdentifierStr], Profile.USER] = Field(
@@ -45,6 +46,13 @@ class DomainConfig(HydroModelBase):
         description=(
             "Vertical domain model configuration. Use 'constant_thickness', "
             "'flat_substratum', or 'raster' with a [data.substratum] raster."
+        ),
+    )
+    layers: Annotated[VerticalGridConfig, Profile.USER] = Field(
+        default_factory=VerticalGridConfig,
+        description=(
+            "How the aquifer between the top and the base set by depth_model is split "
+            "into layers. Every solver reads this one table."
         ),
     )
 

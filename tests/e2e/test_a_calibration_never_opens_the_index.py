@@ -89,7 +89,7 @@ runoff_ratio = 0.0
 [mesh.regular]
 shape = [1, 6]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 
 [display]

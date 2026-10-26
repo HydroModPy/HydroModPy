@@ -96,13 +96,16 @@ class BoussinesqFlowAdapter:
 
         The selector is ``(0, 0, cell_id)``, the flat form the head extractor of
         this one-layer solver reads. A point outside the mesh takes the nearest
-        cell. ``None`` when the run has no cell mesh: a bundle mesh of the
-        validation cases carries none.
+        cell within one cell size of it. ``None`` for a point farther out, and
+        when the run has no cell mesh: a bundle mesh of the validation cases
+        carries none.
         """
+        from hydromodpy.solver.base.cell_lookup import locate_cell_on_cell_mesh
+
         mesh = getattr(ctx.model, "mesh", None)
         if getattr(mesh, "cell_mesh", None) is None:
             return None
-        return (0, 0, mesh.locate_cell_index_for_point(x, y, allow_nearest=True))
+        return locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""

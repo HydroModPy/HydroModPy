@@ -44,6 +44,7 @@ class TransportLike(Protocol):
 class DomainLike(Protocol):
     """Catchment domain object passed through solver constructors."""
 
+    config: Any
     surface_topo: Any
     substratum: Any
     zones: Any

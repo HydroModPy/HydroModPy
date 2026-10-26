@@ -9,6 +9,7 @@ import numpy as np
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike
+from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 from hydromodpy.solver.modflow_grid.grid_context import (
     SolverGridContext,
     grid_reference_from_solver_mesh,
@@ -595,6 +596,7 @@ def _build_structured_solver_mesh(
 def build_spatial_discretization(
     *,
     domain: DomainLike,
+    vertical_config: VerticalGridConfig | None,
     sgrid_config: SolverSGridConfig | None,
     cell_mesh: PlanarCellMesh,
     channel_mask: np.ndarray | None = None,
@@ -603,19 +605,20 @@ def build_spatial_discretization(
 
     The planar part is ``cell_mesh``: a regular grid (``structured_shape`` set) or
     any unstructured one. The vertical part comes from ``domain.surface_topo``,
-    ``domain.substratum`` and ``sgrid_config.vertical``. A regular mesh whose shape
-    differs from the surfaces gets them resampled to it, and its bounds and steps
-    must equal those of the surfaces to 1e-9 relative.
+    ``domain.substratum`` and ``vertical_config``, the ``[domain.layers]`` table that
+    every solver reads. A regular mesh whose shape differs from the surfaces gets
+    them resampled to it, and its bounds and steps must equal those of the surfaces
+    to 1e-9 relative.
 
     ``channel_mask`` (aligned to ``domain.surface_topo``) flags DEM channel pixels
     for zonal top sampling when ``sgrid_config.top_sampling.mode == 'zonal'``. It
     serves an unstructured mesh and a regular grid coarser than the DEM; a grid
     whose cells are the DEM pixels already holds the pixel values.
+
+    A warning reports active cells that fall in more than one connected group.
     """
-    vertical_config: VerticalGridConfig | None = None
     top_sampling: TopSamplingConfig | None = None
     if sgrid_config is not None:
-        vertical_config = sgrid_config.vertical
         top_sampling = sgrid_config.top_sampling
 
     nodata = float(vertical_config.nodata if vertical_config is not None else -9999.0)
@@ -642,6 +645,7 @@ def build_spatial_discretization(
             top_sampling=top_sampling,
             channel_mask=channel_mask,
         )
+    warn_on_disconnected_active_cells(solver_mesh)
 
     return SolverGridContext(
         grid=grid_reference_from_solver_mesh(

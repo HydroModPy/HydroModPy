@@ -37,8 +37,8 @@ def test_simulation_regression_mf6_precomputed_mesh_config_reads_the_triangulati
     assert payload["mesh"]["triangle"]["path"] == "mesh/mesh_catchment.msh"
     assert payload["mesh"]["voronoi"]["seeds"] == "triangulation"
     assert "mesh_input" not in payload
-    assert "planar" not in payload["modflow6"]["sgrid"]
-    assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
+    assert "sgrid" not in payload.get("modflow6", {})
+    assert payload["domain"]["layers"]["nlay"] == 2
     assert "postprocess" not in payload
     monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)

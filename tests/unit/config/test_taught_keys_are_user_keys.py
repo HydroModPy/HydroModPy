@@ -79,9 +79,10 @@ def test_a_taught_key_is_a_user_key(model, name) -> None:
 
 
 def test_the_user_template_now_shows_the_structured_layers() -> None:
-    text = generate_toml(modules=["modflow6"], profile="user")
+    text = generate_toml(modules=["domain"], profile="user")
+    assert "[domain.layers]" in text
     assert "lay_proportions" in text
-    assert "mf6_newton" not in text
+    assert "mf6_newton" not in generate_toml(modules=["modflow6"], profile="user")
 
 
 def test_a_switch_condition_is_declared_with_a_boolean() -> None:

@@ -125,7 +125,7 @@ def _column_depth(domain, *, cell_mesh) -> np.ndarray:
     )
 
     mesh = build_spatial_discretization(
-        domain=domain, sgrid_config=None, cell_mesh=cell_mesh
+        domain=domain, vertical_config=domain.config.layers, sgrid_config=None, cell_mesh=cell_mesh
     ).solver_mesh
     active = ~mesh.inactive_mask[0]
     return (mesh.top - mesh.botm[-1])[active]

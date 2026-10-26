@@ -19,6 +19,7 @@ from hydromodpy.spatial.mesh.cache import (
     save_cell_mesh,
 )
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.model.mesh_qa import quality_warnings
 from hydromodpy.spatial.mesh.planning import plan_mesh_request
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
@@ -45,7 +46,9 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     An engine that cannot rebuild its mesh bit for bit (``needs_cache``) builds
     it once per request: the project cache answers every later run. With
     ``resume`` a missing cache entry is reported, since meshing again then gives
-    a mesh the earlier results were not computed on.
+    a mesh the earlier results were not computed on. A mesh whose cells cross a
+    quality threshold of :mod:`hydromodpy.spatial.mesh.model.mesh_qa` is logged
+    with a warning and used as it is.
     """
     mesh_cfg = ctx.cfg.mesh or MeshConfig()
     request = plan_mesh_request(mesh_cfg, planning_inputs(ctx, mesh_cfg))
@@ -66,6 +69,8 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
         cell_mesh = mesh_registry.create(mesh_cfg.engine).build(request)
         if directory is not None:
             save_cell_mesh(cell_mesh, directory)
+    for warning in quality_warnings(cell_mesh.qa):
+        logger.warning("Mesh quality: %s", warning)
     ctx.setup.cell_mesh = cell_mesh
     ctx.setup.mesh_summary = {
         "engine": cell_mesh.identity.engine_id,

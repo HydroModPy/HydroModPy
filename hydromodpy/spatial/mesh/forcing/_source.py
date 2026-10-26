@@ -2,20 +2,30 @@
 
 The source is whatever the data managers return: an xarray dataset, a NetCDF or
 GeoTIFF file, station series. The target is always a flat list of cell centres,
-whatever the mesh engine.
+whatever the mesh engine. The ``"area"`` method also reads the cell polygons of
+the planar mesh, so each pixel weighs by the area it shares with a cell.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
     interpolate_points_to_grid,
     interpolate_stack_to_grid,
     interpolate_to_grid,
 )
+from hydromodpy.spatial.mesh.forcing._area import area_mean, area_weights
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+
+logger = get_logger(__name__)
 
 
 def unit_to_m_per_s_factor(unit: str) -> float:
@@ -91,8 +101,16 @@ def interpolate_on_cells(
     source_y: np.ndarray,
     centers: np.ndarray,
     method: InterpolationMethod,
+    *,
+    mesh: HydroMesh | None = None,
 ) -> np.ndarray:
-    """Interpolate one source slice onto the cell centres, one value per cell."""
+    """Interpolate one source slice onto the cells, one value per cell.
+
+    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only.
+    """
+    if method == "area":
+        stack = np.asarray(source_values, dtype=float)[None, ...]
+        return _area_on_cells(stack, source_x, source_y, centers, mesh)[0]
     target_x, target_y = _as_column(centers)
     values = interpolate_to_grid(
         np.asarray(source_values, dtype=float),
@@ -113,8 +131,17 @@ def interpolate_stack_on_cells(
     source_y: np.ndarray,
     centers: np.ndarray,
     method: InterpolationMethod,
+    *,
+    mesh: HydroMesh | None = None,
 ) -> np.ndarray:
-    """Interpolate a stack of source slices onto the cell centres, ``(n_slices, n_cells)``."""
+    """Interpolate a stack of source slices onto the cells, ``(n_slices, n_cells)``.
+
+    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only.
+    """
+    if method == "area":
+        return _area_on_cells(
+            np.asarray(source_stack, dtype=float), source_x, source_y, centers, mesh
+        )
     target_x, target_y = _as_column(centers)
     values = interpolate_stack_to_grid(
         source_stack,
@@ -137,6 +164,7 @@ def interpolate_points_on_cells(
     method: InterpolationMethod,
 ) -> np.ndarray:
     """Interpolate scattered station values onto the cell centres, one value per cell."""
+    refuse_area_for_stations(method)
     target_x, target_y = _as_column(centers)
     values = interpolate_points_to_grid(
         point_x=point_x,
@@ -149,3 +177,47 @@ def interpolate_points_on_cells(
         method=method,
     )
     return values.reshape(-1)
+
+
+def refuse_area_for_stations(method: InterpolationMethod) -> None:
+    """Refuse ``"area"`` for station values, which have no pixel to weigh."""
+    if method == "area":
+        raise ValueError(
+            "interpolation_method 'area' weighs the pixels of a gridded source by their area "
+            "in each cell; a station source has no pixel. Use 'nearest', 'linear' or 'idw'."
+        )
+
+
+def _area_on_cells(
+    stack: np.ndarray,
+    source_x: np.ndarray,
+    source_y: np.ndarray,
+    centers: np.ndarray,
+    mesh: HydroMesh | None,
+) -> np.ndarray:
+    """Area-weighted mean of each slice over each cell, ``(n_slices, n_cells)``.
+
+    A cell that shares no area with a finite pixel takes the nearest pixel, as
+    ``"linear"`` does outside the hull of its source.
+    """
+    if mesh is None:
+        raise ValueError(
+            "interpolation_method 'area' needs the cell polygons; the caller must pass "
+            "the planar mesh of the cells."
+        )
+    if mesh.n_cells != centers.shape[0]:
+        raise ValueError(
+            f"the planar mesh holds {mesh.n_cells} cells for {centers.shape[0]} centres."
+        )
+    values = area_mean(area_weights(mesh, source_x, source_y), stack)
+    missing = ~np.isfinite(values)
+    if missing.any():
+        cells = np.flatnonzero(missing.any(axis=0))
+        logger.info(
+            "%d cell(s) share no area with a finite pixel of the source; "
+            "they take the nearest pixel.",
+            cells.size,
+        )
+        nearest = interpolate_stack_on_cells(stack, source_x, source_y, centers[cells], "nearest")
+        values[:, cells] = np.where(missing[:, cells], nearest, values[:, cells])
+    return values

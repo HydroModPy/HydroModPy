@@ -25,7 +25,7 @@ def test_modflow_config_defaults_match_runtime_defaults():
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
     assert isinstance(params.sgrid, SolverSGridConfig)
-    assert params.sgrid.vertical.nlay == 1
+    assert params.sgrid.top_sampling.mode == "centroid"
 
 
 def test_modflow6_runtime_defaults_keep_xt3d_in_auto_mode():
@@ -79,7 +79,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "[mesh.regular]",
                 "shape = [5, 6]",
                 "",
-                "[modflownwt.sgrid.vertical]",
+                "[domain.layers]",
                 'genmtd_lay = "decay"',
                 "nlay = 3",
                 "lay_decay = 1.8",
@@ -97,9 +97,9 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
     assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
     assert cfg.mesh.regular.shape == (5, 6)
-    assert cfg.modflownwt.sgrid.vertical.genmtd_lay == "decay"
-    assert cfg.modflownwt.sgrid.vertical.nlay == 3
-    assert cfg.modflownwt.sgrid.vertical.lay_decay == 1.8
+    assert cfg.domain.layers.genmtd_lay == "decay"
+    assert cfg.domain.layers.nlay == 3
+    assert cfg.domain.layers.lay_decay == 1.8
 
 
 def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):

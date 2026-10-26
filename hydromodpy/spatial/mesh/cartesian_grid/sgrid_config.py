@@ -1,7 +1,8 @@
-"""Pydantic configuration of the solver grid: vertical layering and top sampling.
+"""Pydantic configuration of the vertical layering and of the solver top sampling.
 
-The planar grid is the mesh of ``[mesh]``. This module only holds the ``sgrid`` table of a
-MODFLOW backend.
+The layering is ``[domain.layers]``, one table that every solver reads. The planar grid
+is the mesh of ``[mesh]``. The ``sgrid`` table of a MODFLOW backend only says how the top
+of its grid is sampled from the DEM.
 """
 
 from __future__ import annotations
@@ -43,13 +44,11 @@ def _require_positive_int(value, *, name: str) -> int:
 
 
 class VerticalGridConfig(HydroModelBase):
-    """
-    Single source of truth for vertical-grid validation.
+    """How the aquifer between the top and the base of ``[domain.depth_model]`` is split into layers.
 
-    This model is used by surface-driven SGrid generation:
-    - layering strategy (`genmtd_lay`),
-    - layer count or proportions,
-    - nodata masking metadata.
+    It is the ``[domain.layers]`` table, read by every solver, so a project has one
+    layering whatever solver runs it. It holds the layering strategy
+    (``genmtd_lay``), the layer count or proportions and the nodata sentinel.
 
     All geometric quantities are interpreted in SI metres.
     """
@@ -160,8 +159,7 @@ class VerticalGridConfig(HydroModelBase):
 
     @classmethod
     def from_mapping(cls, config_data: Mapping[str, Any]):
-        payload = dict(config_data.get("sgrid", config_data))
-        return cls.model_validate(payload)
+        return cls.model_validate(dict(config_data))
 
 
 class TopSamplingConfig(HydroModelBase):
@@ -290,19 +288,20 @@ _RETIRED_SGRID_KEYS = {
         '[mesh] engine: write engine = "voronoi" for the dual cells or '
         'engine = "triangle" for the triangulation cells'
     ),
+    "vertical": (
+        "[domain.layers]: the layering describes the aquifer, so one table serves every "
+        "solver. Move the table there, or run hmp doctor --fix-config"
+    ),
 }
 
 
 class SolverSGridConfig(HydroModelBase):
-    """Solver-facing grid configuration: vertical layering and top sampling.
+    """Solver-facing grid configuration: how the top of the grid is sampled.
 
-    The planar grid is the mesh of ``[mesh]``, not a key of this table.
+    The planar grid is the mesh of ``[mesh]`` and the layering is ``[domain.layers]``,
+    neither a key of this table.
     """
 
-    vertical: Annotated[VerticalGridConfig, Profile.USER] = Field(
-        default_factory=VerticalGridConfig,
-        description="Vertical layering of the solver grid.",
-    )
     top_sampling: Annotated[TopSamplingConfig, Profile.USER] = Field(
         default_factory=TopSamplingConfig,
         description="How the top of the solver grid is sampled from the DEM.",
@@ -311,7 +310,7 @@ class SolverSGridConfig(HydroModelBase):
     @model_validator(mode="before")
     @classmethod
     def _name_the_mesh_section_of_a_retired_key(cls, data: Any) -> Any:
-        """Refuse ``planar`` and ``grid_dual`` and name the ``[mesh]`` key that replaces them."""
+        """Refuse ``planar``, ``grid_dual`` and ``vertical`` and name the table that replaces them."""
         if isinstance(data, Mapping):
             for key, replacement in _RETIRED_SGRID_KEYS.items():
                 if key in data:

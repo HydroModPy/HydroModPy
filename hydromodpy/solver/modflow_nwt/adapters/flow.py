@@ -14,6 +14,7 @@ import pandas as pd
 
 from hydromodpy.core.contracts.observables import ObservableRequest, ObservableResult
 from hydromodpy.core.exceptions import ObservableNotAvailableError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.base.observable_support import (
@@ -32,6 +33,8 @@ from hydromodpy.solver.modflow_common.observable_extraction import (
     resolve_run_output,
 )
 from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
+
+logger = get_logger(__name__)
 
 
 class ModflowNwtFlowAdapter:
@@ -76,7 +79,9 @@ class ModflowNwtFlowAdapter:
         MODFLOW-NWT keeps its grid on the flopy model it built, so this is the
         one backend that reads ``mf.modelgrid``. Reading it here rather than in
         the layer that asks is the whole point: a caller that serves every solver
-        must not know which one owns what.
+        must not know which one owns what. A point farther than one cell size,
+        the square root of the cell area, from the cell of the nearest centre
+        gets ``None`` and a warning that names it, like on the other backends.
         """
         import numpy as np
 
@@ -94,7 +99,26 @@ class ModflowNwtFlowAdapter:
         if xc.shape != yc.shape or xc.ndim != 2:
             return None
         flat = int(np.argmin((xc - x) ** 2 + (yc - y) ** 2))
-        return (0, flat // xc.shape[1], flat % xc.shape[1])
+        row, col = flat // xc.shape[1], flat % xc.shape[1]
+        width = float(np.asarray(grid.delr, dtype=float).reshape(-1)[col])
+        height = float(np.asarray(grid.delc, dtype=float).reshape(-1)[row])
+        gap_x = max(abs(x - float(xc[row, col])) - 0.5 * width, 0.0)
+        gap_y = max(abs(y - float(yc[row, col])) - 0.5 * height, 0.0)
+        distance = float(np.hypot(gap_x, gap_y))
+        size = float(np.sqrt(width * height))
+        if distance > size:
+            logger.warning(
+                "Point (%.2f, %.2f) lies %.1f m outside the grid, farther than the size "
+                "%.1f m of the nearest cell (%d, %d); it is not located on any cell.",
+                x,
+                y,
+                distance,
+                size,
+                row,
+                col,
+            )
+            return None
+        return (0, row, col)
 
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""

@@ -30,7 +30,7 @@ keep_solver_files = true
 
 [modflownwt.runtime.dis]
 itmuni = 1
-[modflownwt.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 10
 lay_decay = 1.2

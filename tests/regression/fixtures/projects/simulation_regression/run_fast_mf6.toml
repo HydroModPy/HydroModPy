@@ -27,7 +27,7 @@ rate_decay = 1.585489599e-08
 [mesh.regular]
 shape = [60, 60]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

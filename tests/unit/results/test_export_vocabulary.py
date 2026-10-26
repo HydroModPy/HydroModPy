@@ -45,6 +45,7 @@ from hydromodpy.simulation.extraction.derivation.catchment_aggregation import VA
         ("mesh_nonorthogonality", ExportKind.field),
         ("mesh_bisection_offset", ExportKind.field),
         ("mesh_min_angle", ExportKind.field),
+        ("mesh_max_angle", ExportKind.field),
         ("mesh_concavity", ExportKind.field),
         ("watershed_dem", ExportKind.raster),
         ("watershed_fill", ExportKind.raster),

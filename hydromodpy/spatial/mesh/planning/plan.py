@@ -1,7 +1,8 @@
 """Turn ``[mesh]`` and the project inputs into one mesh request.
 
 The planner fixes the intent of each line family, builds the size field of a
-graded engine and resamples its lines at the local size. A non-graded engine
+graded engine and resamples its lines at the local size, on the geometry
+cleaned first (``cleanup.py``). A non-graded engine
 (``regular``) gets the raw lines and no size field. A triangulation read from
 a file is meshed as it is: no size field, raw lines, its own outline as the
 domain. A generated Voronoi mesh gets the lake shores it can follow at its
@@ -10,7 +11,7 @@ cell size (``lake_shores.py``) and the rivers off the lakes.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -23,6 +24,12 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
+from hydromodpy.spatial.mesh.planning.cleanup import (
+    CLEANUP_PIXEL_SHARE,
+    GeometryCleanup,
+    clean_lines,
+    drop_small_holes,
+)
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_shores import followed_lake_shores
@@ -87,27 +94,27 @@ class _Sizing:
 def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshRequest:
     """Return the request the engine of *mesh_cfg* meshes the project inputs with.
 
-    A hole of the domain, of a lake or of the catchment that is smaller than one
-    local cell squared is dropped first, for every engine: no cell fits in it, and
-    its ring only seeds cells a few metres apart. A triangulation read is meshed
-    as it is.
+    The geometry is cleaned first, for every engine (``cleanup.py``). The
+    holes of the domain, the lakes and the catchment smaller than one local
+    cell squared go: no cell fits in such a hole, and its ring only seeds
+    cells a few metres apart. Then close vertices merge and loose line ends
+    are cut back and snapped, at a tenth of the DEM pixel. The sizes are read
+    again on the cleaned geometry. A triangulation read is meshed as it is.
     """
     graded = registry.get(mesh_cfg.engine).capabilities.graded
     triangulation = inputs.input_triangulation
     pixel = _pixel_size(inputs.dem_grid)
+    cleanup = GeometryCleanup(tolerance=CLEANUP_PIXEL_SHARE * pixel)
     domain = inputs.domain if triangulation is None else domain_polygon_of(triangulation)
     sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
-    hole_notes: tuple[str, ...] = ()
     if triangulation is None:
-        inputs, dropped = _without_small_holes(inputs, sizing.size_at)
-        if dropped:
-            _logger.info("Dropped %d holes smaller than one local cell squared.", dropped)
-            hole_notes = (
-                f"{dropped} holes of the domain, the lakes and the catchment were smaller than "
-                "one local cell squared and were dropped",
-            )
+        cleaned = drop_small_holes(inputs, sizing.size_at, cleanup)
+        cleaned = clean_lines(cleaned, mesh_cfg.families, cleanup)
+        if cleaned is not inputs:
+            inputs = cleaned
             domain = inputs.domain
             sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
+    cleanup.log()
     return MeshRequest(
         domain=domain,
         crs_wkt=inputs.crs_wkt,
@@ -118,7 +125,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
         seed=mesh_cfg.seed,
         options=_engine_options(mesh_cfg, inputs.dem_grid),
         input_triangulation=triangulation,
-        notes=(*inputs.notes, *sizing.notes, *hole_notes),
+        notes=(*inputs.notes, *sizing.notes, *cleanup.notes()),
     )
 
 
@@ -215,39 +222,6 @@ def _followed_shores(
         else:
             out.append(family)
     return tuple(out), shores.notes()
-
-
-def _without_small_holes(
-    inputs: PlanningInputs, size_at: Callable[[np.ndarray], np.ndarray]
-) -> tuple[PlanningInputs, int]:
-    """The inputs without the holes whose area is under the squared local size, and their count.
-
-    The local size is read at the representative point of the hole. The domain,
-    the lakes and the catchment are cleaned; the lake keeps its polygon in the
-    flow model, only the ring that the mesh would follow goes.
-    """
-    dropped = 0
-
-    def cleaned(polygon: Polygon | None) -> Polygon | None:
-        nonlocal dropped
-        if polygon is None or polygon.geom_type != "Polygon" or not polygon.interiors:
-            return polygon
-        kept = []
-        for ring in polygon.interiors:
-            hole = Polygon(ring)
-            size = float(size_at(np.asarray(hole.representative_point().coords))[0])
-            if hole.area < size * size:
-                dropped += 1
-            else:
-                kept.append(ring)
-        return polygon if len(kept) == len(polygon.interiors) else Polygon(polygon.exterior, kept)
-
-    domain = cleaned(inputs.domain)
-    lakes = tuple(cleaned(lake) for lake in inputs.lakes)
-    watershed = cleaned(inputs.watershed)
-    if not dropped:
-        return inputs, 0
-    return replace(inputs, domain=domain, lakes=lakes, watershed=watershed), dropped
 
 
 def _ignored_settings(mesh_cfg: MeshConfig, *, graded: bool) -> list[str]:

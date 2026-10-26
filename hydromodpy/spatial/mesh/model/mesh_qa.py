@@ -20,14 +20,21 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 
 __all__ = [
+    "BISECTION_OFFSET_WARNING",
     "DECLARATION_KEYS",
+    "MIN_ANGLE_WARNING_DEG",
+    "SHAPE_KEYS",
     "STRAIGHT_CORNER_DEG",
     "MeshQA",
+    "cell_angle_range",
     "cell_corner_angles",
+    "cell_edge_max",
+    "cell_shape_qa",
     "compute_mesh_qa",
     "edge_bisection_offset",
     "edge_nonorthogonality",
     "edge_size_ratio",
+    "quality_warnings",
 ]
 
 DECLARATION_KEYS = frozenset({"graded", "exact_faces", "deterministic", "needs_cache"})
@@ -54,6 +61,15 @@ The 1 mm merge of the Voronoi vertices bends a straight run of faces by about
 0.02 deg next to a 5 m face; stored meshes measured put straight corners within
 1e-6 deg of 180."""
 
+MIN_ANGLE_WARNING_DEG = 20.0
+"""A triangle with a corner under this angle [deg] is counted in the build warning."""
+
+BISECTION_OFFSET_WARNING = 0.25
+"""A cell with a face whose bisection offset exceeds this share is counted in the build warning."""
+
+SHAPE_KEYS = ("bisection_offset", "min_angle_deg", "max_angle_deg", "n_concave_cells")
+"""The QA entries :func:`cell_shape_qa` measures, added after the first cache schema."""
+
 
 @dataclass(frozen=True)
 class MeshQA:
@@ -61,6 +77,13 @@ class MeshQA:
 
     Lengths in metres, areas in square metres, angles in degrees. Quantile
     dictionaries are keyed ``p5``, ``p50`` ... ``min``, ``max``.
+    ``bisection_offset`` holds the quantiles over the measured faces and
+    ``n_cells_gt_0_25``, the cells with a face above
+    :data:`BISECTION_OFFSET_WARNING`. ``min_angle_deg`` and ``max_angle_deg``
+    hold the quantiles over the cells of their smallest and largest corner;
+    ``min_angle_deg["n_triangles_lt_20"]`` counts the triangles with a corner
+    under :data:`MIN_ANGLE_WARNING_DEG`. ``n_concave_cells`` counts the cells
+    with a corner beyond 180 degrees plus :data:`STRAIGHT_CORNER_DEG`.
     ``size_fidelity`` is the cell side over the size asked for at its centre
     (``p5``, ``p50``, ``p95``); it is empty when no target size was given.
     """
@@ -74,6 +97,10 @@ class MeshQA:
     neighbour_ratio: dict[str, float]
     center_offset: dict[str, float]
     nonorthogonality_deg: dict[str, float]
+    bisection_offset: dict[str, float]
+    min_angle_deg: dict[str, float]
+    max_angle_deg: dict[str, float]
+    n_concave_cells: int
     min_face_length_m: float
     n_degenerate_faces: int
     n_duplicate_vertices_in_cells: int
@@ -227,6 +254,102 @@ def cell_corner_angles(padded: np.ndarray, vertices: np.ndarray) -> np.ndarray:
     return np.where(held & ~flat & (orientation != 0.0)[:, None], angles, np.nan)
 
 
+def cell_angle_range(padded: np.ndarray, vertices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return the smallest and the largest interior angle [deg] of each cell.
+
+    Both are ``NaN`` for a cell without a measured corner (see
+    :func:`cell_corner_angles`).
+    """
+    angles = cell_corner_angles(padded, vertices)
+    measured = ~np.isnan(angles)
+    smallest = np.where(measured, angles, np.inf).min(axis=1)
+    largest = np.where(measured, angles, -np.inf).max(axis=1)
+    none = ~measured.any(axis=1)
+    smallest[none] = np.nan
+    largest[none] = np.nan
+    return smallest, largest
+
+
+def cell_edge_max(geometry: DerivedGeometry, per_edge: np.ndarray) -> np.ndarray:
+    """Return the largest value of ``per_edge`` over the interior edges of each cell.
+
+    ``NaN`` for a cell with no valid edge.
+    """
+    valid = ~np.isnan(per_edge) & (geometry.edge_cells[:, 1] >= 0)
+    cells = geometry.edge_cells[valid]
+    values = per_edge[valid]
+    largest = np.full(geometry.n_cells, -np.inf)
+    np.maximum.at(largest, cells[:, 0], values)
+    np.maximum.at(largest, cells[:, 1], values)
+    largest[np.isinf(largest)] = np.nan
+    return largest
+
+
+def cell_shape_qa(
+    centers: np.ndarray,
+    vertices: np.ndarray,
+    geometry: DerivedGeometry,
+    min_face_length_m: float,
+) -> dict[str, Any]:
+    """Measure the :data:`SHAPE_KEYS` entries of the QA.
+
+    The bisection offset is measured on the interior faces longer than
+    ``min_face_length_m``, the angles on every cell. The mesh cache calls it
+    to complete an entry stored before these entries existed.
+    """
+    interior = geometry.edge_cells[:, 1] >= 0
+    offsets = edge_bisection_offset(
+        centers, vertices, geometry, interior & (geometry.edge_length > min_face_length_m)
+    )
+    bisection = _stats(offsets[~np.isnan(offsets)], ("p50", "p95", "p99", "max"))
+    bisection["n_cells_gt_0_25"] = float(
+        np.count_nonzero(cell_edge_max(geometry, offsets) > BISECTION_OFFSET_WARNING)
+    )
+    padded = geometry.padded_connectivity
+    smallest, largest = cell_angle_range(padded, vertices)
+    measured = ~np.isnan(smallest)
+    min_angle = _stats(smallest[measured], ("min", "p1", "p5", "p50"))
+    triangles = (padded >= 0).sum(axis=1) == 3
+    min_angle["n_triangles_lt_20"] = float(
+        np.count_nonzero(triangles & measured & (smallest < MIN_ANGLE_WARNING_DEG))
+    )
+    return {
+        "bisection_offset": bisection,
+        "min_angle_deg": min_angle,
+        "max_angle_deg": _stats(largest[measured], ("p50", "p95", "p99", "max")),
+        "n_concave_cells": int(
+            np.count_nonzero(measured & (largest - 180.0 > STRAIGHT_CORNER_DEG))
+        ),
+    }
+
+
+def quality_warnings(qa: MeshQA) -> tuple[str, ...]:
+    """Return one sentence per quality threshold the mesh crosses.
+
+    The sentences go to the build log. A mesh is never refused for them.
+    """
+    warnings = []
+    sharp = int(qa.min_angle_deg["n_triangles_lt_20"])
+    if sharp:
+        warnings.append(
+            f"{sharp} of {qa.n_cells} cells are triangles with a corner under "
+            f"{MIN_ANGLE_WARNING_DEG:g} degrees (smallest {qa.min_angle_deg['min']:.1f})."
+        )
+    skewed = int(qa.bisection_offset["n_cells_gt_0_25"])
+    if skewed:
+        warnings.append(
+            f"{skewed} of {qa.n_cells} cells have a face crossed by the line of the two "
+            f"centres more than {BISECTION_OFFSET_WARNING:g} of its length from its middle "
+            f"(largest {qa.bisection_offset['max']:.2f})."
+        )
+    if qa.n_concave_cells:
+        warnings.append(
+            f"{qa.n_concave_cells} of {qa.n_cells} cells are concave "
+            f"(largest corner {qa.max_angle_deg['max']:.1f} degrees)."
+        )
+    return tuple(warnings)
+
+
 def _is_member(sorted_keys: np.ndarray, probe: np.ndarray) -> np.ndarray:
     """Return, element-wise, whether ``probe`` is in the sorted array ``sorted_keys``."""
     if sorted_keys.size == 0:
@@ -361,7 +484,7 @@ def compute_mesh_qa(
     gets its covered length share and Hausdorff distance, a cell family the
     largest distance of its cells to them. Non-orthogonality counts the interior
     faces longer than ``min_face_length_m`` (default: ``1e-3`` of the median face
-    length). A face family with lines also gets ``mixed_cells``, the cells its
+    length), and so does the bisection offset (:func:`cell_shape_qa`). A face family with lines also gets ``mixed_cells``, the cells its
     lines cross. ``target_size`` is the size [m] asked for at each cell centre; it
     gives ``size_fidelity``.
     """
@@ -427,6 +550,7 @@ def compute_mesh_qa(
         neighbour_ratio=neighbour,
         center_offset=_stats(offset, ("p50", "p95", "max")),
         nonorthogonality_deg=nonorthogonality,
+        **cell_shape_qa(centers, vertices, geometry, threshold),
         min_face_length_m=threshold,
         n_degenerate_faces=int(np.count_nonzero(geometry.edge_length < DEGENERATE_FACE_M)),
         n_duplicate_vertices_in_cells=_n_duplicate_corners(geometry.padded_connectivity),

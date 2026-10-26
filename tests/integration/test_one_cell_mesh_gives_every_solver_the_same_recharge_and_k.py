@@ -225,6 +225,33 @@ def test_the_triangle_recharge_equals_the_hand_reference(
 
 
 # ---------------------------------------------------------------------------
+# Area weighting: the same on every solver, equal to the exact overlay
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("pair_name", ["regular", "triangle"])
+def test_the_area_weighted_recharge_is_the_same_for_both_solvers_and_equals_the_overlay(
+    request: pytest.FixtureRequest, pair_name: str, tmp_path: Path
+) -> None:
+    pair = request.getfixturevalue(pair_name)
+    case = inputs.raster_case(pair, method="area")
+    flow = inputs.make_flow(case, profile=False)
+    mf6 = inputs.prepare_mf6(pair, flow, tmp_path / "mf6")
+    if pair_name == "regular":
+        other = inputs.prepare_nwt(pair, flow, tmp_path / "nwt")
+    else:
+        other = inputs.prepare_boussinesq(pair, flow)
+    _equal_periods(mf6.recharge, other.recharge)
+
+    expected, reached = inputs.reference_area_recharge(pair, case)
+    assert reached.mean() > 0.9, "the raster must reach most cells"
+    for kper in range(inputs.NPER):
+        np.testing.assert_allclose(
+            mf6.recharge[kper][reached], expected[kper][reached], rtol=_RECHARGE_REL, atol=0.0
+        )
+
+
+# ---------------------------------------------------------------------------
 # One path: spies on the shared discretizers
 # ---------------------------------------------------------------------------
 

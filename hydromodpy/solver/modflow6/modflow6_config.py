@@ -152,6 +152,21 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "(1e-4 for COMPLEX)."
         ),
     )
+    mf6_reordering_method: Annotated[Literal["none", "rcm", "md"], Profile.EXPERT] = Field(
+        default="none",
+        description=(
+            "IMS REORDERING_METHOD: order of the matrix rows before the incomplete "
+            "factorization. 'rcm' is reverse Cuthill-McKee, which narrows the band; "
+            "'md' is minimum degree, which limits the fill. 'none' keeps the cell "
+            "numbering of the mesh and writes nothing to the IMS file. The ordering "
+            "changes the preconditioner, so the iteration count and the time, not the "
+            "converged heads beyond the closure criteria. Measured on Voronoi DISV "
+            "meshes of 14 400 to 144 000 cells, with a shuffled or a row-sorted "
+            "numbering, and on a steady Flume solve of 73 400 cells, 'rcm' and 'md' "
+            "never cut the inner iterations (3 to 73 per cent more), and the time "
+            "did not drop beyond the noise of a loaded machine."
+        ),
+    )
     mf6_under_relaxation: Annotated[
         Literal["NONE", "SIMPLE", "COOLEY", "DBD"] | None, Profile.EXPERT
     ] = Field(
@@ -281,7 +296,10 @@ class Modflow6Config(HydroModelBase):
     )
     sgrid: Annotated[SolverSGridConfig, Profile.USER] = Field(
         default_factory=SolverSGridConfig,
-        description="Vertical layering and top sampling of the solver grid; the planar grid is set by [mesh].",
+        description=(
+            "How the top of the solver grid is sampled from the DEM; the planar grid is "
+            "[mesh] and the layering is [domain.layers]."
+        ),
     )
 
 

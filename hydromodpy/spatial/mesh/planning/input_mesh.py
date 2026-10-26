@@ -4,6 +4,11 @@ Vertices and triangles come from ``read_gmsh_2d_mesh``, so their order is
 the one every planar mesh read from a file had so far. The line elements of
 the named physical groups (``$PhysicalNames``) become the edge labels; a
 line element of an unnamed group carries no label.
+
+The triangles are checked before use. A T-junction, a vertex lying inside an
+edge of a triangle that does not hold it, leaves boundary edges inside the
+domain, so no flow crosses there: it is refused with its coordinates. Two
+vertices closer than a tolerance are reported, since they cut the same crack.
 """
 
 from __future__ import annotations
@@ -11,19 +16,30 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import shapely
+from scipy.spatial import cKDTree
 from shapely.geometry import Polygon
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.gmsh_grid.gmsh_reader import read_gmsh_2d_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh
 from hydromodpy.spatial.mesh.request import InputTriangulation
 
-__all__ = ["domain_polygon_of", "read_input_triangulation"]
+__all__ = ["check_triangulation", "domain_polygon_of", "read_input_triangulation"]
+
+logger = get_logger(__name__)
 
 _LINE_ELEMENT = 1
 """Gmsh element type of a two-node line."""
+
+_VERTEX_TOLERANCE = 1e-9
+"""Distance below which two vertices, or a vertex and an edge, touch, relative to the extent."""
+
+_POINTS_SHOWN = 5
+"""Number of coordinates a message lists."""
 
 
 def read_input_triangulation(path: str | Path) -> InputTriangulation:
@@ -50,12 +66,66 @@ def read_input_triangulation(path: str | Path) -> InputTriangulation:
         raise MeshRequestError(
             f"{source}: {len(tags)} nodes in $Nodes, the mesh reader kept {mesh.n_nodes}"
         )
+    check_triangulation(mesh.points_xy, mesh.connectivity, source=str(source))
     return InputTriangulation(
         vertices=mesh.points_xy,
         triangles=mesh.connectivity,
         edge_labels={
             name: np.asarray(pairs, dtype=np.int64).reshape(-1, 2) for name, pairs in edges.items()
         },
+    )
+
+
+def check_triangulation(vertices: np.ndarray, triangles: np.ndarray, *, source: str) -> None:
+    """Refuse a T-junction and warn on duplicate vertices of a triangulation.
+
+    The tolerance is :data:`_VERTEX_TOLERANCE` times the diagonal of the vertex
+    bounds. ``source`` names the mesh in the messages.
+    """
+    points = np.asarray(vertices, dtype=float)
+    cells = np.asarray(triangles, dtype=np.int64)
+    extent = float(np.hypot(*(points.max(axis=0) - points.min(axis=0))))
+    tolerance = _VERTEX_TOLERANCE * max(extent, 1.0)
+
+    pairs = cKDTree(points).query_pairs(tolerance, output_type="ndarray")
+    if len(pairs):
+        logger.warning(
+            "%s: %d pairs of vertices lie within %.3g m of each other, first at %s. "
+            "Two cells that meet there share no face, so no flow crosses between them.",
+            source,
+            len(pairs),
+            tolerance,
+            _coordinates(points[pairs[:, 0]]),
+        )
+
+    edges = np.sort(cells[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
+    unique, counts = np.unique(edges, axis=0, return_counts=True)
+    boundary = unique[counts == 1]
+    nodes = np.unique(boundary)
+    segments = shapely.linestrings(points[boundary])
+    node_index, edge_index = shapely.STRtree(segments).query(
+        shapely.points(points[nodes]), predicate="dwithin", distance=tolerance
+    )
+    vertex = nodes[node_index]
+    ends = boundary[edge_index]
+    at_end = (np.linalg.norm(points[ends[:, 0]] - points[vertex], axis=1) <= tolerance) | (
+        np.linalg.norm(points[ends[:, 1]] - points[vertex], axis=1) <= tolerance
+    )
+    hanging = np.unique(vertex[~at_end])
+    if hanging.size:
+        raise MeshRequestError(
+            f"{source}: {hanging.size} vertices lie inside an edge of a triangle that does "
+            f"not hold them (T-junctions), at {_coordinates(points[hanging])}. The edge is "
+            "then a boundary inside the domain, closed to flow. Split the edge at the vertex "
+            "in the mesh generator."
+        )
+
+
+def _coordinates(points: np.ndarray) -> str:
+    """The first coordinates of ``points``, written for a message."""
+    shown = ", ".join(f"({x:.3f}, {y:.3f})" for x, y in points[:_POINTS_SHOWN].tolist())
+    return (
+        shown if len(points) <= _POINTS_SHOWN else f"{shown} and {len(points) - _POINTS_SHOWN} more"
     )
 
 

@@ -2,7 +2,9 @@
 
 Provides nearest-neighbor, linear, and inverse-distance-weighting (IDW)
 interpolation from scattered or gridded source data onto 2-D target
-cell-center arrays.
+cell-center arrays. The ``"area"`` method needs cell polygons, which a
+target of centres does not carry: it lives in
+:mod:`hydromodpy.spatial.mesh.forcing` and is refused here.
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ def interpolate_to_grid(
     np.ndarray
         Interpolated values, shape ``(nrow, ncol)``.
     """
+    _refuse_area(method)
     source_values = np.asarray(source_values, dtype=float)
 
     # Fast path: grids are identical.
@@ -86,6 +89,7 @@ def interpolate_points_to_grid(
 
     Thin wrapper around :func:`interpolate_to_grid` for 1-D point arrays.
     """
+    _refuse_area(method)
     point_x = np.asarray(point_x, dtype=float).ravel()
     point_y = np.asarray(point_y, dtype=float).ravel()
     point_values = np.asarray(point_values, dtype=float).ravel()
@@ -121,6 +125,7 @@ def interpolate_stack_to_grid(
     neighbor lookup is computed once and reused, which dominates the cost on
     long transient chronicles.
     """
+    _refuse_area(method)
     source_stack = np.asarray(source_stack, dtype=float)
     n_slices = source_stack.shape[0]
     out = np.empty((n_slices, nrow, ncol), dtype=float)
@@ -197,6 +202,15 @@ def _shared_nearest_plan(
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
+
+
+def _refuse_area(method: InterpolationMethod) -> None:
+    """Refuse ``"area"``, which needs cell polygons a centre grid does not carry."""
+    if method == "area":
+        raise ValueError(
+            "interpolation_method 'area' needs the cell polygons; use the forcing path "
+            "on cells (hydromodpy.spatial.mesh.forcing), which reads them from the mesh."
+        )
 
 
 def _grids_are_aligned(
