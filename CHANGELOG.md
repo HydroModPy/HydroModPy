@@ -34,6 +34,12 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A run calibrated by a `[calibration] protocol` replays from its own frozen `config.toml`
+  (2026-10-19). The load writes `[site] gauge` into each stage and `[metrics] window` into a
+  transient stage without one after it expands the protocol, so the frozen stages read as a
+  contradiction of the protocol and `hmp catalog rerun` or `hmp run --resume` refused the run.
+  Both sides of the comparison now take these project defaults. Another station or another
+  window is still refused.
 - HydroModPy's own `RuntimeWarning`s reach the log again (2026-10-26). `flopy.plot.plotutil`
   ignores every `RuntimeWarning` when flopy is imported, so an unsettled cyclic spin-up, a
   steady initialisation closed on its budget only, the fixed EVT extinction depth of a routed

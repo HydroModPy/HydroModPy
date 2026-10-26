@@ -16,12 +16,14 @@ from pydantic import TypeAdapter, ValidationError
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     CalibPhaseDecl,
+    apply_project_defaults,
     fold_a_legacy_regime,
 )
 from hydromodpy.calibration.protocols.base import CalibrationProtocol
 from hydromodpy.calibration.protocols.matching_hydrographic_network import (
     MatchingHydrographicNetwork,
 )
+from hydromodpy.core.exceptions import ConfigError
 
 _PROTOCOLS: dict[str, CalibrationProtocol] = {
     protocol.name: protocol for protocol in (MatchingHydrographicNetwork(),)
@@ -110,7 +112,7 @@ def expand_calibration_protocol(document: Mapping[str, Any]) -> dict[str, Any]:
         key
         for key in already_written
         if not _declares_what_the_protocol_writes(
-            key, folded_calibration[key], expanded["calibration"].get(key)
+            key, folded_calibration, expanded["calibration"], document
         )
     ]
     if contradicted:
@@ -135,7 +137,12 @@ def _section_adapter(section: str) -> TypeAdapter:
     }[section]
 
 
-def _declares_what_the_protocol_writes(section: str, declared: Any, produced: Any) -> bool:
+def _declares_what_the_protocol_writes(
+    section: str,
+    declared: Mapping[str, Any],
+    produced: Mapping[str, Any],
+    document: Mapping[str, Any],
+) -> bool:
     """Say whether *declared* is the assembly the protocol would have written.
 
     A file this package dumped carries both the ``protocol`` table and the
@@ -143,18 +150,54 @@ def _declares_what_the_protocol_writes(section: str, declared: Any, produced: An
     what it ran. Reloading it must not be refused as a contradiction. The two
     sides are compared through the section model rather than raw: the dumped one
     carries every default filled in, the fresh expansion only what the protocol
-    spelled out, and nobody wrote the difference.
+    spelled out, and nobody wrote the difference. Both sides also take the
+    project defaults the load writes after the expansion
+    (:func:`_as_the_load_reads_it`): the dumped stages carry them too.
 
-    *declared* is read here as given: every recognized legacy spelling is
-    already folded by :func:`_read_legacy_declaration`, which runs once, on
-    the whole ``[calibration]`` table, before this is called per section.
+    *declared* and *produced* are whole ``[calibration]`` tables. *declared*
+    is read here as given: every recognized legacy spelling is already folded
+    by :func:`_read_legacy_declaration`, which runs once, on the whole table,
+    before this is called per section.
     """
     adapter = _section_adapter(section)
     try:
-        here = adapter.dump_python(adapter.validate_python(declared), mode="json")
-    except ValidationError:
+        here = adapter.dump_python(
+            adapter.validate_python(_as_the_load_reads_it(section, declared, document)),
+            mode="json",
+        )
+    except (ValidationError, ConfigError):
         return False
-    return here == adapter.dump_python(adapter.validate_python(produced or []), mode="json")
+    fresh = _as_the_load_reads_it(section, produced, document) or []
+    return here == adapter.dump_python(adapter.validate_python(fresh), mode="json")
+
+
+def _as_the_load_reads_it(
+    section: str, calibration: Mapping[str, Any], document: Mapping[str, Any]
+) -> Any:
+    """Return one section of *calibration* with the project defaults the load writes.
+
+    The load expands the protocol first, then writes ``[site] gauge`` into
+    each stage's ``observed_station_id`` and ``[metrics] window`` into a
+    transient stage that writes no window
+    (:func:`~hydromodpy.calibration.config.apply_project_defaults`). A
+    dumped stage carries what that step wrote and the fresh expansion does
+    not, so both sides take it here. A station other than the gauge is
+    refused by it, and a value the step would not write still differs.
+    """
+    value = calibration.get(section)
+    if section != "phases":
+        return value
+    site, metrics = document.get("site"), document.get("metrics")
+    stages = {
+        "phases": value,
+        "scoring_window": calibration.get("scoring_window"),
+        "warmup_periods": calibration.get("warmup_periods"),
+    }
+    return apply_project_defaults(
+        stages,
+        site_gauge=site.get("gauge") if isinstance(site, Mapping) else None,
+        metrics_window=metrics.get("window") if isinstance(metrics, Mapping) else None,
+    )["phases"]
 
 
 def _read_legacy_declaration(
