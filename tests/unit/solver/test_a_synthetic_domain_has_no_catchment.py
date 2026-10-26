@@ -65,7 +65,7 @@ def test_the_box_is_on_disk_but_is_no_catchment_polygon(tmp_path) -> None:
     assert Path(geographic.watershed_shp).exists()
     assert geographic.x_outlet is None and geographic.y_outlet is None
     assert catchment_outline(geographic) is None
-    assert polygon_cell_mask(geographic, _mesh(geographic).cell_centroids()) is None
+    assert polygon_cell_mask(geographic, _mesh(geographic)) is None
 
 
 def test_the_basin_of_a_synthetic_domain_closes_no_catchment(tmp_path) -> None:

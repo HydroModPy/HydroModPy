@@ -179,15 +179,17 @@ def _compute_buffer_distance(
 ) -> float:
     """Compute the buffer distance in metres for one normalized ``buff_area``.
 
-    A percentage is solved on ``catchment`` and a bare number read with the v1
-    rule, both snapped to the DEM grid. An explicit distance is used as given.
+    A percentage is solved on ``catchment``, a bare number read with the v1 rule
+    and an explicit distance taken as written. All three are snapped to the DEM
+    grid, so the domain edges fall on pixel edges and the grid cells keep the
+    DEM pixels as they are.
     """
     rule = buffer_rule_of(buff_area)
     if rule == "distance":
         dist = _parse_length_meters(str(buff_area), label="geographic.catchment.buff_area")
         if dist <= 0.0:
             raise ValueError("buff_area distance must be > 0")
-        return dist
+        return _snap_to_resolution(dist, dem_resolution)
 
     if rule == "area_percent":
         pct = float(str(buff_area).strip()[:-1].strip())

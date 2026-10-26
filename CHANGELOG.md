@@ -34,6 +34,11 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A buffer written as a distance (`[geographic.catchment] buff_area = "1 km"`) is snapped to the
+  DEM grid like a percentage (2026-10-26). An off-grid distance put the domain edges, and the
+  cells of a regular grid, 25 to 50 m off the pixels of a 75 m DEM, so the ground of a cell moved
+  by about 2 m at control points. On a 75 m DEM, 500 m becomes 525 m and 1 km becomes 975 m.
+  Example 05 (`"10 m"`) now gets a buffer of one pixel.
 - The mesh build no longer warns about the bisection offset on an orthogonal mesh (2026-10-26).
   On a mesh whose 95th percentile of non-orthogonality is under 1 degree, the two-point flux stays
   consistent wherever the line of the two centres crosses the face. The warning fired on 44 to 70
@@ -1180,6 +1185,13 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
+  `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon
+  fallback of the discharge support, the outlet search of the build and the polygon mask of the
+  network criterion read that outline instead of the staircase. On the Nançon the cells cut by the
+  outline go from 281 to 0. The declared outlet stays on the smoothed outline when it lies on it,
+  also with `[mesh.families] rivers = "none"`. Boussinesq applies a `Project.run(properties=...)`
+  override of K and Sy and refuses Kv, Ss, K22 and the angles by name.
 - `mesh.cell_size` means the same for the three engines (2026-10-26): the side of the square that
   has the mean area of a cell. The `triangle` engine gave it to Gmsh as an edge length and made 2.6
   times the cells of `A / cell_size^2` on a uniform field and 3.09 times on the Flume. The adapter

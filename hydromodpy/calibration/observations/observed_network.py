@@ -528,8 +528,9 @@ def _polygon_catchment_mask(
     from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 
     # ``setup.geographic`` is the delineation object, the same handle the build
-    # reads the catchment polygon from.
-    frame = catchment_outline(getattr(run_ctx.state.setup, "geographic", None))
+    # reads the catchment polygon from, against the same mesh.
+    setup = run_ctx.state.setup
+    frame = catchment_outline(getattr(setup, "geographic", None), getattr(setup, "cell_mesh", None))
     if frame is None:
         return None
     mesh_crs = _declared_crs(run_ctx)

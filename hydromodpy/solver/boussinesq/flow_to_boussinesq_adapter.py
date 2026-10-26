@@ -8,13 +8,16 @@ The Boussinesq backend accepts either:
   properties per cell (the validation runtimes).
 
 A bundle is never completed from ``Flow`` parameters: a flow ``K`` or ``Sy`` next
-to a bundle is refused, so one property never has two silent sources. Keeping
-these helpers out of the adapter file makes the adapter symmetrical with
+to a bundle is refused, and so is a ``Project.run(properties=...)`` override, so
+one property never has two silent sources. On a cell mesh the override wins over
+the flow, for K and Sy, and the properties Boussinesq does not read are refused.
+Keeping these helpers out of the adapter file makes the adapter symmetrical with
 ``solver/modflow6/adapters/flow.py`` and ``solver/modflow_nwt``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -25,6 +28,10 @@ from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
+)
+from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
+from hydromodpy.solver.modflow_common.runtime_arrays import (
+    resolve_flow_property_runtime_overrides,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
@@ -109,6 +116,7 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
         domain=domain,
         cell_mesh=cell_mesh,
         required_properties=required_properties,
+        runtime_property_overrides=getattr(setup_state, "flow_runtime_overrides", None),
     )
     conductivity = np.asarray(
         property_arrays["hydraulic_conductivity_m_s"],
@@ -165,6 +173,27 @@ def _refuse_flow_properties_on_bundle(
         )
 
 
+def _refuse_property_overrides_on_bundle(overrides: object, *, bundle: CatchmentMeshBundle) -> None:
+    """Refuse a ``Project.run(properties=...)`` override on a run whose cells come from a bundle.
+
+    The bundle carries its properties per cell, and an override would be
+    dropped in silence.
+    """
+    resolved = resolve_flow_property_runtime_overrides(
+        overrides if isinstance(overrides, Mapping) else None,
+        nlay=1,
+        n_cells=len(bundle.cells),
+    )
+    named = [canonical for canonical, _, name, _ in FLOW_PROPERTY_SPECS if name in resolved]
+    if named:
+        raise ValueError(
+            f"A runtime override sets {', '.join(named)} on the mesh bundle "
+            f"{bundle.bundle_dir}, which carries its properties per cell and reads no "
+            "override. Write the values in the bundle, or run on a cell mesh "
+            "(state.setup.cell_mesh)."
+        )
+
+
 def resolve_bundle_solver_mesh(
     setup_state: object,
     *,
@@ -173,6 +202,9 @@ def resolve_bundle_solver_mesh(
     """Build one solver mesh from a bundle and the properties it carries."""
     flow = getattr(setup_state, "flow", None)
     regime = normalize_flow_regime(getattr(flow, "flow_regime", "transient"))
+    _refuse_property_overrides_on_bundle(
+        getattr(setup_state, "flow_runtime_overrides", None), bundle=bundle
+    )
     hydraulic_view = bundle.metadata_view.hydraulic_properties
     default_k = hydraulic_view.conductivity.default_value
     default_storage = hydraulic_view.storage_coefficient.default_value

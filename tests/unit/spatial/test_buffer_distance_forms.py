@@ -44,3 +44,13 @@ def test_a_bare_number_still_scales_with_the_square_root_of_the_area() -> None:
 
 def test_a_distance_and_a_percentage_do_not_collide() -> None:
     assert _distance("10 m") != _distance("10%")
+
+
+@pytest.mark.parametrize(("declared", "expected_m"), [("500 m", 525.0), ("1 km", 975.0)])
+def test_a_declared_distance_is_snapped_to_the_dem_grid(declared: str, expected_m: float) -> None:
+    # An off-grid distance put the domain edges, and the cell centres of a regular
+    # grid, 25 to 50 m off the pixels of a 75 m DEM.
+    distance = _compute_buffer_distance(
+        catchment=CATCHMENT, buff_area=_normalize_buff_area(declared), dem_resolution=75.0
+    )
+    assert distance == expected_m

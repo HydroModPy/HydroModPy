@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
@@ -31,8 +31,11 @@ class PlanningInputs:
     ``watershed`` is the catchment the outside coarsening ramps away from.
     ``synthetic`` marks an analytical support, which has no catchment.
     ``barriers`` are the flow barrier lines: the cutoff wall of each lake laid on
-    its shore, then the general flow barriers. ``notes`` are what the mesh step
-    left out while gathering the inputs; they reach the QA.
+    its shore, then the general flow barriers. ``outlet`` is the outlet the
+    configuration declares, None without one: the smoothing of the catchment
+    outline keeps it on the outline when it lies on it, as it keeps the end of
+    a river. ``notes`` are what the mesh step left out while gathering the
+    inputs; they reach the QA.
     """
 
     dem_grid: RasterGridSpec
@@ -47,6 +50,7 @@ class PlanningInputs:
     input_triangulation: InputTriangulation | None
     synthetic: bool
     barriers: tuple[LineString, ...] = ()
+    outlet: Point | None = None
     notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:

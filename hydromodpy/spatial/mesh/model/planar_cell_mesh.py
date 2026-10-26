@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal, get_args
 
 import numpy as np
@@ -21,7 +21,7 @@ from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import MeshQA, compute_mesh_qa
 
 if TYPE_CHECKING:
-    from shapely.geometry import LineString
+    from shapely.geometry import LineString, Polygon
 
 __all__ = [
     "CellChain",
@@ -157,7 +157,10 @@ class PlanarCellMesh:
     ``centers`` is the only cell centre rule for every consumer: the Voronoi
     generator, the regular cell centre or the triangle vertex mean, as
     ``center_kind`` says. Boundary sides are face families named
-    ``boundary:<label>`` with ``cell_b = -1``.
+    ``boundary:<label>`` with ``cell_b = -1``. ``smoothed_catchment`` is the
+    outline of the catchment the planner smoothed before meshing, in the CRS of
+    the mesh, None when the mesh follows the delineated polygon as it is: a
+    cell is read against that outline, which its faces follow.
     """
 
     mesh: HydroMesh
@@ -171,6 +174,7 @@ class PlanarCellMesh:
     cell_zone: np.ndarray | None = None
     zone_names: tuple[str, ...] = ()
     structured_shape: tuple[int, int] | None = None
+    smoothed_catchment: Polygon | None = None
 
     def __post_init__(self) -> None:
         """Check the invariants every consumer relies on."""
@@ -228,6 +232,13 @@ class PlanarCellMesh:
     def n_cells(self) -> int:
         """Number of cells."""
         return self.mesh.n_cells
+
+    def with_smoothed_catchment(self, outline: Polygon | None) -> PlanarCellMesh:
+        """This mesh with the catchment outline the planner smoothed for it, geometry kept."""
+        mesh = replace(self, smoothed_catchment=outline)
+        if "geometry" in self.__dict__:
+            mesh.__dict__["geometry"] = self.__dict__["geometry"]
+        return mesh
 
     @functools.cached_property
     def geometry(self) -> DerivedGeometry:
