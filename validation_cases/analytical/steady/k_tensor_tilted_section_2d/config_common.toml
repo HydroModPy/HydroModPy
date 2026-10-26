@@ -1,0 +1,87 @@
+# A confined section 400 m long, 2 m wide (one row) and 10 m thick in five
+# layers of 2 m, with a head of 110 m held on the west end and 100 m on the
+# east end of every layer, no flow on the top, the bottom and the sides, no
+# recharge. The heads stand far above the top, so the transmissivity is uniform
+# and the problem is linear. K11 = K22 = 1e-4 m/s and K33 = 1e-5 m/s; each
+# variant gives ANGLE2. The run writes ANGLE1 and ANGLE3 as zero.
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "Tilted K tensor, vertical section"
+description = "Steady confined flow along a layered section with a tilted K tensor."
+
+[[simulation.process]]
+id = "flow_validation"
+type = "flow"
+solvers = ["modflow6"]
+
+[geographic]
+source_mode = "synthetic"
+
+[geographic.synthetic]
+case_id = "validation_k_tensor_tilted_section"
+
+[geographic.synthetic.grid]
+length_x = "400.0 m"
+length_y = "2.0 m"
+nx = 200
+ny = 1
+
+[geographic.synthetic.topography]
+kind = "flat"
+base_elevation = 0.0
+
+[domain]
+
+[domain.depth_model]
+kind = "constant_thickness"
+thickness = "10.0 m"
+
+[flow]
+flow_regime = "steady"
+active_sinks_sources = []
+active_bc = ["west_side", "east_side"]
+param_list = ["K", "Kv", "angle2"]
+
+[flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+value = "1e-4 m/s"
+
+[flow.param.Kv.field]
+kind = "homogeneous"
+value = "1e-5 m/s"
+
+[flow.ic]
+type = "custom"
+value = "105.0 m"
+
+[flow.bc.west_side]
+kind = "dirichlet"
+value = "110.0 m"
+
+[flow.bc.east_side]
+kind = "dirichlet"
+value = "100.0 m"
+
+# The problem is linear, so the solve needs no damping; see the plan-view case.
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_under_relaxation = "NONE"
+mf6_backtracking_number = 0
+mf6_linear_acceleration = "BICGSTAB"
+mf6_preconditioner_levels = 60
+mf6_preconditioner_drop_tolerance = 0.0
+mf6_reordering_method = "rcm"
+mf6_outer_dvclose = 1e-9
+mf6_inner_dvclose = 1e-10
+mf6_inner_rclose = 1e-10
+mf_verbose = false
+
+[modflow6.sgrid.vertical]
+nlay = 5
+
+[display]
+enabled = false

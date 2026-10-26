@@ -39,7 +39,7 @@ An engine reads no file and no config. The workflow step is the only place that 
 | `port.py` | `MeshEngine` protocol and `MeshEngineCapabilities` |
 | `registry.py` | Engine id to class, plus the `hydromodpy.mesh.engine` entry-point group |
 | `request.py` | `MeshRequest`, `LineFamilySpec`, `RasterGridSpec`, `SizeField` |
-| `planning/` | `plan_mesh_request`: from the project to a request |
+| `planning/` | `plan_mesh_request`: from the project to a request, after the geometry cleanup (`cleanup.py`) |
 | `sizing/` | Size field of the graded engines, and its terms on the gaps between face lines (`gap.py`) |
 | `refinement/` | Models of the lake refinement and the refinement zones |
 | `config/` | The `[mesh]` Pydantic models (`mesh.py`) |
@@ -48,14 +48,14 @@ An engine reads no file and no config. The workflow step is the only place that 
 | `engines/voronoi/` | Voronoi cells from generated seeds, mirror pairs, Lloyd, gates |
 | `cache.py` | Mesh cache under `<project>/.hmp/mesh_cache/` |
 | `ops/` | Shared cell helpers: families, `locate_cells`, flow barriers, chains, zonal stats |
-| `forcing/` | Rasters, NetCDF and stations sampled on the cell centres |
+| `forcing/` | Rasters, NetCDF and stations sampled on the cell centres, nearest or by shared area (`_area.py`), and the interpolation of values onto them (`spatial_interpolation.py`) |
 | `adapters/` | `HydroMesh` to and from meshio, FloPy DISV, field meshes; `cell_mesh.py` for a regular grid |
 | `io/` | VTU read and write |
 | `plotting.py` | `plot_cell_values` for quick QA plots |
-| `cartesian_grid/` | Vertical layering and the `sgrid` table of the MODFLOW backends |
+| `structured_grid/` | Structured grid of the regular engine, the `sgrid` table (top sampling) of the MODFLOW backends |
 | `gmsh_grid/` | Readers of `.msh` files and frozen mesh bundles, `GmshPlanarMesh2D` |
 
-Each of `cartesian_grid/` and `gmsh_grid/` has its own README.
+Each of `structured_grid/` and `gmsh_grid/` has its own README.
 
 ## Layering rules
 

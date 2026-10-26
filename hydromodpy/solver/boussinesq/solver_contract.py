@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import IncompatibleCapabilitiesError
 from hydromodpy.physics.flow.boundary_condition_registry import (
@@ -21,6 +22,9 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     ResolvedBoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
@@ -214,12 +218,35 @@ def assert_supported_runtime_subset(flow: object) -> None:
         )
 
 
+def layering_refusal(
+    layers: VerticalGridConfig, *, written_in: str = "[domain.layers]"
+) -> str | None:
+    """Return why Boussinesq refuses ``layers``, or None when they build one layer.
+
+    Boussinesq solves one layer over the whole aquifer column and never reads
+    ``[domain.layers]``. More layers, or one base per layer, would be ignored.
+    ``written_in`` names where the layering is written.
+    """
+    if layers.genmtd_lay == "surfaces":
+        asked = "gives each layer its own base (genmtd_lay = 'surfaces')"
+    elif layers.layer_count > 1:
+        asked = f"builds {layers.layer_count} layers (genmtd_lay = {layers.genmtd_lay!r})"
+    else:
+        return None
+    return (
+        "solver.backend = 'boussinesq' solves one layer over the whole aquifer, and "
+        f"{written_in} {asked}, which boussinesq would ignore. Remove {written_in}, "
+        "or run the flow with 'modflow6' or 'modflow_nwt'."
+    )
+
+
 __all__ = [
     "AUTO_RUNTIME_BACKEND",
     "DENSE_ENGINE_MAX_CELLS",
     "BoussinesqSolverContract",
     "assert_supported_runtime_subset",
     "build_runtime_options",
+    "layering_refusal",
     "resolve_flow_regime",
     "resolve_runtime_backend_name",
     "resolve_solver_contract",

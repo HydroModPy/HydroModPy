@@ -25,7 +25,9 @@ groups:
   descent: The descent and the distance between networks
   scores: Scores
 
-collisions: []
+collisions:
+  - [anisotropy, bisection-offset]
+  - [runoff-lag, face-length]
 
 symbols:
   # ------------------------------------------------------------ space
@@ -124,7 +126,7 @@ symbols:
     symbol: H_1
     meaning: thickness of the top layer under the ground
     unit: m
-    set_by: ":toml:`nlay|modflow6.sgrid.vertical.nlay`"
+    set_by: ":toml:`nlay|domain.layers.nlay`"
     group: space
     pages: [notation, solvers]
   - id: satthick
@@ -210,21 +212,21 @@ symbols:
     symbol: n_\mathrm{lay}
     meaning: number of layers
     unit: "-"
-    set_by: ":toml:`nlay|modflow6.sgrid.vertical.nlay`"
+    set_by: ":toml:`nlay|domain.layers.nlay`"
     group: domain
     pages: [groundwater-flow]
   - id: layer-share
     symbol: p_j
     meaning: cumulative share of the thickness reached at the bottom of layer :math:`j`
     unit: "-"
-    set_by: ":toml:`genmtd_lay|modflow6.sgrid.vertical.genmtd_lay`"
+    set_by: ":toml:`genmtd_lay|domain.layers.genmtd_lay`"
     group: domain
     pages: [groundwater-flow]
   - id: decay
     symbol: \rho
     meaning: ratio of the thicknesses of two successive layers in the ``decay`` rule
     unit: "-"
-    set_by: ":toml:`lay_decay|modflow6.sgrid.vertical.lay_decay`"
+    set_by: ":toml:`lay_decay|domain.layers.lay_decay`"
     group: domain
     pages: [groundwater-flow]
 
@@ -561,6 +563,48 @@ symbols:
     symbol: \tilde z_c
     meaning: DEM value interpolated at the centre of cell :math:`c`
     unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: gap
+    symbol: e
+    meaning: distance from a point of a face line to the nearest point of another line
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: gap-cells
+    symbol: n_e
+    meaning: number of cells wanted across a gap
+    unit: "-"
+    set_by: ":toml:`gap_cells|mesh.gap_cells`"
+    group: mesh
+    pages: [mesh]
+  - id: gap-size
+    symbol: \ell_e
+    meaning: cell size asked on the chord of a gap
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: face-length
+    symbol: L
+    meaning: length of a face between two cells
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: crossing-distance
+    symbol: s
+    meaning: distance from one end of a face to where the line of the two centres crosses it
+    unit: m
+    set_by: derived
+    group: mesh
+    pages: [mesh]
+  - id: bisection-offset
+    symbol: \beta
+    meaning: "bisection offset of a face, :math:`\\lvert s - L/2 \\rvert / L`"
+    unit: "-"
     set_by: derived
     group: mesh
     pages: [mesh]

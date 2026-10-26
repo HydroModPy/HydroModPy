@@ -33,6 +33,18 @@ from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discreti
 
 logger = get_logger(__name__)
 
+
+def _warn_fixed_extinction_depth(evt_depth: float) -> None:
+    """Warn that the routed deficit uses one EVT extinction depth."""
+    message = (
+        "Routed climatic deficit uses a fixed EVT extinction depth of "
+        f"{evt_depth} m; a sustained deficit can saturate the water table near "
+        "this depth rather than over the full saturated thickness."
+    )
+    logger.warning(message)
+    warnings.warn(message, RuntimeWarning, stacklevel=3)
+
+
 # Trial sandbox override: a phase that samples a recharge parameter writes its
 # recharge into its own folder instead of the calibration-wide shared one
 # (calibration.runners.trial._trial_owns_its_recharge).
@@ -910,13 +922,7 @@ def build_evt_array_stress_period_data(
     if not any_positive:
         return None
 
-    warnings.warn(
-        "Routed climatic deficit uses a fixed EVT extinction depth of "
-        f"{evt_depth} m; a sustained deficit can saturate the water table near "
-        "this depth rather than over the full saturated thickness.",
-        RuntimeWarning,
-        stacklevel=2,
-    )
+    _warn_fixed_extinction_depth(evt_depth)
     return rate_by_period, top_flat[:ncpl].copy(), evt_depth
 
 
@@ -968,13 +974,7 @@ def build_evt_stress_period_data(
         evt_spd[kper] = period_cells
 
     if any(len(v) > 0 for v in evt_spd.values()):
-        warnings.warn(
-            "Routed climatic deficit uses a fixed EVT extinction depth of "
-            f"{evt_depth} m; a sustained deficit can saturate the water table near "
-            "this depth rather than over the full saturated thickness.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        _warn_fixed_extinction_depth(evt_depth)
         return evt_spd
     return None
 

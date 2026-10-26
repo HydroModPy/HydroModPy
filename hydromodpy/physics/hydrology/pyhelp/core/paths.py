@@ -193,15 +193,15 @@ def _download_help3o_binary():
             return binary_path
 
     except Exception as e:
-        warnings.warn(
+        message = (
             f"Failed to download HELP3O binary: {e}\n"
             f"You can:\n"
             f"  1. Check your internet connection\n"
             f"  2. Download manually from: https://github.com/{HELP3O_BINARIES_REPO}/releases/latest\n"
-            f"  3. Place {binary_filename} in {cache_dir}/",
-            RuntimeWarning,
-            stacklevel=2,
+            f"  3. Place {binary_filename} in {cache_dir}/"
         )
+        logger.warning(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
         return None
 
 

@@ -10,6 +10,7 @@ import flopy
 import numpy as np
 
 from hydromodpy.core import progress
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
@@ -24,6 +25,8 @@ from hydromodpy.solver.steady_initial_conditions import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
 )
+
+logger = get_logger(__name__)
 
 _STEADY_INIT_DVCLOSE_MIN = 1e-3
 _STEADY_INIT_MAXIMUM_MIN = 1000
@@ -193,13 +196,13 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     if not success:
         if not _steady_initialization_balance_is_acceptable(list_path):
             raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
-        warnings.warn(
+        message = (
             "MODFLOW 6 steady-state initial-condition solve did not satisfy "
             "solver convergence, but the final water budget is closed; using "
-            "the final balanced heads as transient initial conditions.",
-            RuntimeWarning,
-            stacklevel=2,
+            "the final balanced heads as transient initial conditions."
         )
+        logger.warning(message)
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
     head = _read_final_head(head_path, nlay=int(model.nlay), ncpl=int(model.ncpl))
     artifact_path = Path(str(model.full_path)) / "_steady_state_initial_conditions.npz"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)

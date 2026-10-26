@@ -11,11 +11,9 @@ from hydromodpy.solver.modflow_grid import (
 from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    SolverSGridConfig,
-    VerticalGridConfig,
-)
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 

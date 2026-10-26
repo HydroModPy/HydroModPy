@@ -112,8 +112,8 @@ def k_tensor_npf_kwargs(model) -> dict[str, np.ndarray]:
 
     A property the flow leaves out is not written, so MODFLOW 6 applies its own
     default: K22 equal to K, and every angle zero. MODFLOW 6 refuses ANGLE2
-    without ANGLE3 and the reverse, and reads them after ANGLE1, so a dip or a
-    rotation writes the three angles, a missing one as zero.
+    without ANGLE3 and the reverse, and reads them after ANGLE1, so an angle2 or an
+    angle3 writes the three angles, a missing one as zero.
     """
     kwargs = {
         name: values

@@ -21,9 +21,9 @@ from scipy.spatial import Delaunay
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.physics.flow.sinks_sources import FlowEtpConfig, FlowRechargeConfig
-from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import interpolate_to_grid
 from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
 from hydromodpy.spatial.mesh.forcing._area import area_weights
+from hydromodpy.spatial.mesh.forcing.spatial_interpolation import interpolate_to_grid
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

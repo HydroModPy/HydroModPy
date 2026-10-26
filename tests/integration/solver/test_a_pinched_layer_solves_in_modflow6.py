@@ -28,8 +28,8 @@ from hydromodpy.solver.modflow6.support.computational_top import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_stack
+from hydromodpy.spatial.domain.layering import layer_stack
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from tests._helpers.run_stores import open_run_store
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

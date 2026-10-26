@@ -11,7 +11,7 @@ from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
 def test_modflow_config_defaults_match_runtime_defaults():

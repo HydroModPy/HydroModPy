@@ -66,14 +66,14 @@ def run_processing(model, options: ModflowRunOptions | None = None) -> bool:
         if settled:
             logger.info("Cyclic spin-up settled after %d cycle(s).", cycles)
         else:
-            warnings.warn(
+            message = (
                 f"the cyclic spin-up ran its {cycles} allowed cycle(s) without the head "
                 "field settling, and the run starts from the last one anyway. Raise "
                 "flow.ic.max_cycles, or loosen flow.ic.tol_head, and say in the write-up "
-                "that the antecedent state did not converge.",
-                RuntimeWarning,
-                stacklevel=2,
+                "that the antecedent state did not converge."
             )
+            logger.warning(message)
+            warnings.warn(message, RuntimeWarning, stacklevel=2)
 
     if options.write_model:
         dirty_packages = tuple(getattr(model, "_runtime_dirty_packages", ()) or ())

@@ -11,8 +11,8 @@ from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     DepthModelConfig,
 )
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.domain.spatial_support_config import DomainSupportConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import VerticalGridConfig
 
 
 class DomainConfig(HydroModelBase):

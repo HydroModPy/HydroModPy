@@ -1,0 +1,6 @@
+# ANGLE1 = -30 deg: the K11 axis turned from +x toward -y. The exact slope
+# across the strip changes sign.
+
+[flow.param.angle1.field]
+kind = "homogeneous"
+value = -30.0

@@ -15,12 +15,12 @@ import numpy as np
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import factor_to_m_per_s
-from hydromodpy.spatial.mesh.cartesian_grid.spatial_interpolation import (
+from hydromodpy.spatial.mesh.forcing._area import area_mean, area_weights
+from hydromodpy.spatial.mesh.forcing.spatial_interpolation import (
     interpolate_points_to_grid,
     interpolate_stack_to_grid,
     interpolate_to_grid,
 )
-from hydromodpy.spatial.mesh.forcing._area import area_mean, area_weights
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
@@ -164,7 +164,6 @@ def interpolate_points_on_cells(
     method: InterpolationMethod,
 ) -> np.ndarray:
     """Interpolate scattered station values onto the cell centres, one value per cell."""
-    refuse_area_for_stations(method)
     target_x, target_y = _as_column(centers)
     values = interpolate_points_to_grid(
         point_x=point_x,

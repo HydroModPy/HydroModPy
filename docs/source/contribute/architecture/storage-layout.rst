@@ -482,7 +482,7 @@ Per-run Zarr store
 ------------------
 
 Zarr **format 3** store, carrying HydroModPy's own
-``zarr_schema_version = "2"`` in its root attributes. The store is staged
+``zarr_schema_version = "3"`` in its root attributes. The store is staged
 and promoted to its final path with a rename at registration, then
 appended to in place for the whole solve, under a cross-process file
 lock. It is not staged again at the end, because live readers follow that
@@ -501,7 +501,10 @@ writer first needs them. ``budget/`` holds the per-cell budget terms and a
 default run keeps all of them, storage terms included
 (see the per-cell budget below). ``derived/`` holds only the static parameter
 fields (hydraulic conductivity, specific yield, ...); no time-varying
-derived field is ever written there.
+derived field is ever written there. A MODFLOW 6 run writes
+``derived/hydraulic_conductivity_k33`` every time, and ``derived/hydraulic_conductivity_k22``
+and ``derived/conductivity_tensor_angle1`` to ``angle3`` when the flow sets them. All of them
+are fields of ``run.field``.
 
 Compression defaults to Blosc-zstd with bitshuffle, each variable carries
 CF ``standard_name`` and ``_FillValue`` attributes where the CF table has
@@ -569,7 +572,8 @@ new one read the same through every reader.
 add only what the solved model owns (topography, layer thickness, streambed levels, ``grid_type``)
 through ``write_topography``; none of them rewrites vertices or connectivity, and a grid whose
 cell count differs from the stored one raises ``IncompatibleMeshError``. Besides ``vertices``,
-``face_node_connectivity``, ``z_interfaces`` and ``topology``, ``mesh/`` holds:
+``face_node_connectivity``, ``z_interfaces`` and ``topology``, ``mesh/`` holds the arrays below.
+The vertical geometry follows the table.
 
 .. list-table::
    :header-rows: 1
@@ -607,11 +611,36 @@ cell count differs from the stored one raises ``IncompatibleMeshError``. Besides
      - ``edge``
      - Bit field of the face families an edge lies on; its own ``flag_masks``, ``flag_meanings``
        and ``family_names`` attributes name the bits, which need not match those of ``face_family``
+   * - ``z_interfaces``
+     - float64
+     - ``layer_interface``, ``face``
+     - The elevation of every interface of every cell, from the top of the first layer to the
+       bottom of the last one
+   * - ``idomain``
+     - int8
+     - ``layer``, ``face``
+     - The activity of the solved model: 1 active, 0 inactive, -1 vertical pass-through; the
+       attribute ``flag_values`` lists them. It is a static field of ``run.field`` and of
+       the exports
+
+**Vertical geometry.** ``zarr_schema_version`` is 3 since a run stores the vertical geometry of
+every cell. ``mesh/z_interfaces`` has one column per cell, where it held the column of cell 0
+before, and ``mesh/idomain`` holds the ``idomain`` of the solved model, so a column whose first
+layer is pinched out reads back as it was solved. The attribute
+``vertical_layout`` of ``mesh/`` says how the layers were built, ``column_fractions`` for shares
+of the thickness and ``surfaces`` for the base surfaces of ``[domain.layers]``. MODFLOW 6,
+MODFLOW-NWT (from ``IBOUND``) and Boussinesq write them, and ``run.mesh.z_interfaces`` is always
+one column per cell. Layers are counted from 0 everywhere: a layered field is
+``<var>_layer0``, ``<var>_layer1`` in NetCDF and VTU, and a message names layer, row and column
+from 0. A store of schema 2 is refused when it is opened, like any other version, and is read
+with the HydroModPy that wrote it (the rule of the versions of the stored documents, above).
+The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
+takes ``top_active_layer`` of ``hydromodpy/core/vertical_column.py``.
 
 The attributes of ``mesh/`` add the ``engine``, its ``engine_version``, its ``engine_seed`` when it
 draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices are expressed in,
-the mesh ``qa`` (JSON, no ``NaN``), the ``library_versions`` the mesh depends on and, on a regular
-grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fill value as
+the mesh ``qa`` (JSON, no ``NaN``), the ``library_versions`` the mesh depends on, the
+``vertical_layout`` and, on a regular grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fill value as
 xugrid, so ``xugrid.Ugrid2d`` takes them as stored. A family has one bit, so a mesh holds at most 31
 families. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
 table (``family``, ``chain_id``, ``position`` from upstream, ``cell_id``, and ``offset_m``, null

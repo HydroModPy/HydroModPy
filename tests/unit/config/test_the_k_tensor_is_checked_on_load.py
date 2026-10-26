@@ -1,7 +1,7 @@
 """The K tensor past K and Kv is checked when the project file is read.
 
 K22 and the three angles reach MODFLOW 6 only, so MODFLOW-NWT and Boussinesq
-refuse them. An angle takes no vertical profile, and a dip stays within a
+refuse them. An angle takes no vertical profile, and angle2 stays within a
 quarter turn.
 """
 
@@ -102,6 +102,6 @@ def test_k22_takes_a_vertical_profile_like_k(tmp_path: Path) -> None:
     assert cfg.flow.param["K22"].field_vertical_profile is not None
 
 
-def test_a_dip_past_the_vertical_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match="dip of the K tensor"):
+def test_an_angle2_past_the_vertical_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ConfigValidationError, match="rise of the first K axis above the horizontal"):
         _load(tmp_path, {"angle2": "120.0"})

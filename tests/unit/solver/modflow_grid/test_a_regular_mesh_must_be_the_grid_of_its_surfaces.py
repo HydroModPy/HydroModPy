@@ -17,11 +17,9 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    SolverSGridConfig,
-    VerticalGridConfig,
-)
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
 
 _N = 6

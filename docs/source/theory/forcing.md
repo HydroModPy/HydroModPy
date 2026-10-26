@@ -66,9 +66,13 @@ Under `auto`, station records with coordinates become a grid only when no series
 can be built from them. A grid is not resampled when it is loaded: it is placed
 on the cells of the solver mesh once the mesh exists, by the method of
 {toml}`interpolation_method|flow.sinks_sources.recharge.interpolation_method`
-(`nearest`, `linear` or `idw`). The ETP has the same two keys.
+(`nearest`, `linear`, `idw` or `area`). The ETP has the same two keys. With `area`, each pixel
+is weighted by the area it shares with the cell polygon, so the rate of a cell times its area is
+the integral of the grid over the cell and the volume over the domain is the integral of the
+grid. A cell that no finite pixel reaches takes the nearest pixel. A station source refuses
+`area`, and the default stays `nearest`.
 
-In the code: `resolve_forcing`.
+In the code: `resolve_forcing`, and the area weights in `hydromodpy/spatial/mesh/forcing/_area.py`.
 
 (forcing-units)=
 ## 3. Units

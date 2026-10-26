@@ -134,6 +134,58 @@ def test_a_tomlkit_document_moves_the_table_with_its_comments() -> None:
     assert "sgrid" not in text
 
 
+def _phase(overrides: str) -> str:
+    return f'[[calibration.phases]]\nname = "deep"\n\n[calibration.phases.overrides]\n{overrides}\n'
+
+
+def test_a_dotted_phase_override_moves_to_domain_layers() -> None:
+    doc = tomllib.loads(_phase('"modflownwt.sgrid.vertical.nlay" = 3'))
+
+    changes = migrate_config_doc(doc)
+
+    assert changes == [
+        'calibration.phases[0].overrides."modflownwt.sgrid.vertical.nlay" -> "domain.layers.nlay"'
+    ]
+    assert doc["calibration"]["phases"][0]["overrides"] == {"domain.layers.nlay": 3}
+
+
+def test_a_phase_writing_both_solvers_keeps_the_flow_solver_paths() -> None:
+    doc = tomllib.loads(
+        _flow_process("modflow_nwt")
+        + _phase('"modflow6.sgrid.vertical.nlay" = 10\n"modflownwt.sgrid.vertical.nlay" = 3')
+    )
+
+    changes = migrate_config_doc(doc)
+
+    assert doc["calibration"]["phases"][0]["overrides"] == {"domain.layers.nlay": 3}
+    assert (
+        'calibration.phases[0].overrides."modflow6.sgrid.vertical.nlay" dropped '
+        "(modflownwt is the flow solver)"
+    ) in changes
+
+
+def test_a_phase_override_already_on_domain_layers_is_left() -> None:
+    doc = tomllib.loads(_phase('"domain.layers.nlay" = 2\n"modflow6.sgrid.vertical.nlay" = 3'))
+
+    changes = migrate_config_doc(doc)
+
+    assert changes == [
+        'calibration.phases[0].overrides."modflow6.sgrid.vertical.nlay" left: '
+        '"domain.layers.nlay" is given too, keep one'
+    ]
+
+
+def test_a_dotted_phase_override_moves_in_a_file_with_its_comment(tmp_path: Path) -> None:
+    path = tmp_path / "project.toml"
+    path.write_text(_phase('"modflow6.sgrid.vertical.nlay" = 3 # deeper'), encoding="utf-8")
+
+    fix_config_file(path)
+
+    text = path.read_text(encoding="utf-8")
+    assert '"domain.layers.nlay" = 3 # deeper' in text
+    assert "sgrid" not in text
+
+
 def test_a_config_without_solver_layering_is_untouched() -> None:
     doc = tomllib.loads(
         '[domain.layers]\nnlay = 2\n\n[modflow6.sgrid.top_sampling]\nmode = "zonal"\n'

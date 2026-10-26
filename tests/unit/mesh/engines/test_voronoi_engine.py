@@ -12,6 +12,7 @@ from shapely.geometry import LineString, box
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh import registry
+from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE
 from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
@@ -25,6 +26,7 @@ from hydromodpy.spatial.mesh.request import (
     RasterGridSpec,
     SizeField,
 )
+from hydromodpy.spatial.mesh.sizing.size_field import SizeTerm, build_size_field
 
 WKT = 'PROJCS["RGF93 / Lambert-93"]'
 X0, Y0 = 350_000.0, 6_780_000.0
@@ -67,6 +69,29 @@ def _square(size: float = 40.0, **options) -> MeshRequest:
         lines=resample_families(families, domain=domain, size_field=field).families,
         size_field=field,
         options=options,
+    )
+
+
+def _graded_square(max_slope: float) -> MeshRequest:
+    """A 1 km square whose size grows from 20 m on the river to 80 m at the slope asked."""
+    domain = box(X0, Y0, X0 + 1000, Y0 + 1000)
+    grid = _grid(*domain.bounds, n=50)
+    field = build_size_field(
+        grid,
+        h0=80.0,
+        h_floor=20.0,
+        terms=[SizeTerm("rivers", RIVER, 20.0, 0.0)],
+        outside=None,
+        max_slope=max_slope,
+    )
+    families = (LineFamilySpec("rivers", "cell", (RIVER,)),)
+    return MeshRequest(
+        domain=domain,
+        crs_wkt=WKT,
+        grid=grid,
+        nominal_size_m=80.0,
+        lines=resample_families(families, domain=domain, size_field=field).families,
+        size_field=field,
     )
 
 
@@ -339,6 +364,14 @@ def test_the_qa_reports_the_relaxation_the_seeds_and_the_libraries() -> None:
     assert extras["origin_x"] == X0 and extras["origin_y"] == Y0
     assert cell_mesh.qa.size_fidelity["p50"] == pytest.approx(1.0, abs=0.1)
     assert any("reproducible with" in note and "geos" in note for note in cell_mesh.qa.notes)
+
+
+def test_the_median_seed_offset_of_a_graded_mesh_stays_under_a_quarter_of_the_slope() -> None:
+    slope = MeshConfig().max_slope
+    cell_mesh = VoronoiMeshEngine().build(_graded_square(slope))
+
+    # The floor of the offset between a seed and the centroid of its cell is s / 4.
+    assert cell_mesh.qa.center_offset["p50"] <= slope / 4.0
 
 
 def test_the_lloyd_tolerance_of_the_request_stops_the_relaxation() -> None:

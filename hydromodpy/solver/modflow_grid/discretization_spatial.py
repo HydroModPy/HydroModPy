@@ -15,18 +15,18 @@ from hydromodpy.solver.modflow_grid.grid_context import (
     grid_reference_from_solver_mesh,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import (
-    SolverSGridConfig,
-    TopSamplingConfig,
-    VerticalGridConfig,
-)
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import (
-    StructuredGridBuilder,
+from hydromodpy.spatial.domain.layering import (
     assert_bottom_below_top,
     coerce_vertical_config,
     layer_stack,
 )
+from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
+from hydromodpy.spatial.mesh.structured_grid.sgrid_config import (
+    SolverSGridConfig,
+    TopSamplingConfig,
+)
+from hydromodpy.spatial.mesh.structured_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
@@ -71,19 +71,12 @@ def resolve_layer_bases(
 ) -> dict[str, Surface]:
     """Return the base surfaces the layering reads, by name, from ``domain.layer_bases``.
 
-    Only a layering by surfaces reads any. A name the domain does not hold raises.
+    Only a layering by surfaces reads any. A name the domain does not hold is
+    refused when the layers are built, with the names it holds.
     """
     names = () if vertical_config is None else vertical_config.base_surface_names
-    if not names:
-        return {}
     held = getattr(domain, "layer_bases", None) or {}
-    missing = sorted(set(names) - set(held))
-    if missing:
-        raise ValueError(
-            f"[domain.layers] reads the base surfaces {missing}, and the domain holds "
-            f"{sorted(held) or 'none'}. Declare them under [[data.layer_base.sources]]."
-        )
-    return {name: held[name] for name in names}
+    return {name: held[name] for name in names if name in held}
 
 
 # A valid cell thicker than this multiple of the median, and thicker than the floor

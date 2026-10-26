@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hydromodpy.spatial.mesh.cartesian_grid.sgrid_generation import layer_proportions
+from hydromodpy.spatial.domain.layering import layer_proportions
 
 H = 100.0
 rules = [

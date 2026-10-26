@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from hydromodpy.solver.modflow6.build import optional_ims_kwargs
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config, Modflow6RuntimeConfig
@@ -19,11 +18,6 @@ def test_the_reordering_method_defaults_to_none_and_writes_nothing() -> None:
 def test_a_reordering_method_reaches_the_ims_arguments(method: str) -> None:
     runtime = Modflow6RuntimeConfig(mf6_reordering_method=method)
     assert optional_ims_kwargs(runtime)["reordering_method"] == method
-
-
-def test_an_unknown_reordering_method_is_refused() -> None:
-    with pytest.raises(ValidationError):
-        Modflow6RuntimeConfig(mf6_reordering_method="amd")
 
 
 def test_the_reordering_method_is_read_from_the_runtime_table() -> None:

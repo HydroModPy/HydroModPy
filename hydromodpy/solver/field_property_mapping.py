@@ -32,8 +32,8 @@ FLOW_PROPERTY_SPECS: tuple[tuple[str, tuple[str, ...], str, str], ...] = (
     ("Sy", ("Sy", "SY", "sy", "S", "s"), "sy", "Specific yield"),
     ("Ss", ("Ss", "SS", "ss"), "ss", "Specific storage"),
     ("K22", ("K22", "k22"), "k22", "Hydraulic conductivity along the second tensor axis"),
-    ("angle1", ("angle1",), "angle1", "Azimuth of the K tensor (degrees)"),
-    ("angle2", ("angle2",), "angle2", "Dip of the K tensor (degrees)"),
+    ("angle1", ("angle1",), "angle1", "Turn of the first K axis from east towards north (degrees)"),
+    ("angle2", ("angle2",), "angle2", "Rise of the first K axis above the horizontal (degrees)"),
     ("angle3", ("angle3",), "angle3", "Rotation of the K tensor about its first axis (degrees)"),
 )
 """Canonical name, flow parameter aliases, output name and label of each property."""
