@@ -40,7 +40,7 @@ diffu_coeff = 1e-10
 react_order = 1
 rate_decay = 1.585489599e-08
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 genmtd_lay = "decay"
 nlay = 2
 lay_decay = 1.2

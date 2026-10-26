@@ -58,7 +58,8 @@ class RechargeResolutionMixin:
         interpolation_method: str,
     ) -> tuple[np.ndarray, ...]:
         """Discretize heterogeneous recharge onto the current Gmsh cell set."""
-        centers = np.column_stack(self.planar_mesh_for_forcing().cell_centroids())
+        planar_mesh = self.planar_mesh_for_forcing()
+        centers = np.column_stack(planar_mesh.cell_centroids())
         simulation_window = (
             getattr(self.time_grid, "window", None) if self.time_grid is not None else None
         )
@@ -69,6 +70,7 @@ class RechargeResolutionMixin:
                 nper=int(nper),
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
+                mesh=planar_mesh,
             )
         elif getattr(heterogeneous_source, "has_points", False):
             raw_arrays = discretize_points_on_cells(

@@ -386,9 +386,8 @@ def test_a_triangle_mesh_takes_its_modflow6_top_from_the_regularised_clip(
     )
     grid = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
-        ),
+        vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=cell_mesh_of(mesh),
     )
 

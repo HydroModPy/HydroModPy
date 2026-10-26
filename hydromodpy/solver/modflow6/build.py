@@ -654,6 +654,9 @@ def guard_newton_linear_acceleration(runtime) -> None:
 def optional_ims_kwargs(runtime, *, csv_outer_output: str | None = None) -> dict[str, object]:
     """Return the optional IMS knobs that are set; None values keep flopy presets.
 
+    The reordering method is written only when it is not ``"none"``, so the
+    default IMS file stays the same.
+
     ``csv_outer_output`` names a CSV file for the per-outer-iteration record
     (CSV_OUTER_OUTPUT). It lives in the solver folder, which the flow cleanup
     removes unless ``keep_solver_files`` is set.
@@ -674,6 +677,8 @@ def optional_ims_kwargs(runtime, *, csv_outer_output: str | None = None) -> dict
         kwargs["preconditioner_levels"] = int(runtime.mf6_preconditioner_levels)
     if runtime.mf6_preconditioner_drop_tolerance is not None:
         kwargs["preconditioner_drop_tolerance"] = float(runtime.mf6_preconditioner_drop_tolerance)
+    if runtime.mf6_reordering_method != "none":
+        kwargs["reordering_method"] = runtime.mf6_reordering_method
     if runtime.mf6_under_relaxation is not None:
         kwargs["under_relaxation"] = runtime.mf6_under_relaxation
     return kwargs
@@ -868,6 +873,7 @@ def run_pre_processing(  # noqa: PLR0915
 
     model.grid_ctx = build_spatial_discretization(
         domain=model.domain,
+        vertical_config=model.domain.config.layers,
         sgrid_config=getattr(model.modflow_config, "sgrid", None),
         cell_mesh=model.runtime_cell_mesh,
         channel_mask=_resolve_channel_mask_for_zonal(model),

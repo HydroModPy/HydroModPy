@@ -3,8 +3,9 @@
 Converts :class:`LoadResult` field records (xarray, NetCDF, GeoTIFF) and
 located point records into one value per cell, in m/s, for every stress
 period. This is the only path a solver takes to put a spatial forcing on its
-cells, whatever the mesh engine: it reads the cell centres and nothing else, so
-a regular grid, a triangulation and a Voronoi dual are served alike.
+cells, whatever the mesh engine: it reads the cell centres, and the cell
+polygons of the planar mesh for the ``"area"`` method, so a regular grid, a
+triangulation and a Voronoi dual are served alike.
 
 Every public function is **variable-agnostic** and works with any LoadResult
 (recharge, precipitation, ETP, temperature, etc.).
@@ -12,6 +13,7 @@ Every public function is **variable-agnostic** and works with any LoadResult
 Implementation details are split across:
 - ``periods`` - stress-period bounds,
 - ``_source`` - units, dataset variables, interpolation on cell centres,
+- ``_area`` - area-weighted mean of a grid over the cell polygons,
 - ``_xarray`` - xarray + NetCDF + GeoTIFF discretization,
 - ``_points`` - located point time-series,
 - ``_spatial_mean`` - homogeneous fallback series.
@@ -29,12 +31,14 @@ from hydromodpy.spatial.mesh.forcing._points import (
     discretize_located_points,
     extract_located_points,
 )
+from hydromodpy.spatial.mesh.forcing._source import refuse_area_for_stations
 from hydromodpy.spatial.mesh.forcing._spatial_mean import spatial_mean_one_field
 from hydromodpy.spatial.mesh.forcing._xarray import discretize_one_field_record
 from hydromodpy.spatial.mesh.forcing.periods import stress_period_bounds
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
 __all__ = [
     "discretize_fields_on_cells",
@@ -58,8 +62,9 @@ def discretize_fields_on_cells(
     nper: int,
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
+    mesh: HydroMesh | None = None,
 ) -> dict[int, np.ndarray]:
-    """Discretize gridded FieldRecords onto the cell centres of a mesh.
+    """Discretize gridded FieldRecords onto the cells of a mesh.
 
     Each record is averaged in time over every stress period, under the
     coverage rule of :mod:`hydromodpy.core.time.coverage`. When several
@@ -77,7 +82,13 @@ def discretize_fields_on_cells(
     simulation_window:
         Optional time window for temporal alignment of field data.
     method:
-        Spatial interpolation method: ``"nearest"``, ``"linear"``, or ``"idw"``.
+        Spatial interpolation method: ``"nearest"``, ``"linear"`` or ``"idw"``
+        read the source at the cell centre; ``"area"`` weighs each pixel by the
+        area it shares with the cell, so a rate times the cell area is the
+        integral of the grid over the cell.
+    mesh:
+        Planar mesh whose cells the centres belong to. ``"area"`` reads its
+        cell polygons and refuses to run without it.
 
     Returns
     -------
@@ -105,6 +116,7 @@ def discretize_fields_on_cells(
             period_bounds=period_bounds,
             coverage_policy=coverage_policy,
             method=method,
+            mesh=mesh,
         )
         for kper, arr in field_arrays.items():
             if kper in sums:
@@ -136,6 +148,7 @@ def discretize_points_on_cells(
 
     Requires each PointRecord to carry a ``location`` with (x, y) coordinates.
     Station values are interpolated onto cell centres per stress period.
+    ``"area"`` is refused: a station has no pixel to weigh.
 
     Parameters
     ----------
@@ -151,6 +164,7 @@ def discretize_points_on_cells(
     dict[int, np.ndarray]
         Mapping ``{kper: array(n_cells)}`` with values in **m/s**.
     """
+    refuse_area_for_stations(method)
     xy = _cell_centers(centers)
 
     located_points = extract_located_points(load_result)

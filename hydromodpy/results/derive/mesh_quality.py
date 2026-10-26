@@ -1,12 +1,13 @@
 """Quality of the stored mesh, one value per cell, rebuilt on read and never stored.
 
-Seven static fields describe how good the cells of a run are: ``mesh_cell_area``,
+Eight static fields describe how good the cells of a run are: ``mesh_cell_area``,
 ``mesh_neighbour_ratio``, ``mesh_center_offset``, ``mesh_nonorthogonality``,
-``mesh_bisection_offset``, ``mesh_min_angle`` and ``mesh_concavity``. They use the
+``mesh_bisection_offset``, ``mesh_min_angle``, ``mesh_max_angle`` and
+``mesh_concavity``. They use the
 formulas of :mod:`hydromodpy.spatial.mesh.model.mesh_qa`, by cell, on the geometry
 derived from the stored vertices and connectivity.
 
-The area, the neighbour ratio, the smallest angle and the concavity need geometry
+The area, the neighbour ratio, the two angles and the concavity need geometry
 only, so every run serves them. The offset, the non-orthogonality and the bisection
 offset need the cell centres of the mesh, which a run stores since the cell-mesh
 layout (``mesh/face_x``, ``mesh/face_y``). A run sealed before has the vertex mean
@@ -29,7 +30,8 @@ from hydromodpy.spatial.mesh.model.derived_geometry import (
 from hydromodpy.spatial.mesh.model.mesh_qa import (
     RELATIVE_FACE_TOLERANCE,
     STRAIGHT_CORNER_DEG,
-    cell_corner_angles,
+    cell_angle_range,
+    cell_edge_max,
     edge_bisection_offset,
     edge_nonorthogonality,
     edge_size_ratio,
@@ -92,6 +94,12 @@ MESH_QUALITY_DESCRIPTORS: dict[str, FieldDescriptor] = {
             "area: minimum",
         ),
         _descriptor(
+            "mesh_max_angle",
+            "Largest interior angle at a corner of the cell",
+            "degree",
+            "area: maximum",
+        ),
+        _descriptor(
             "mesh_concavity",
             "Largest excess over 180 degrees of an interior angle of the cell, 0 for a convex cell",
             "degree",
@@ -144,23 +152,8 @@ def _cell_area(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
     return geometry.areas.copy()
 
 
-def _cell_max(geometry: DerivedGeometry, per_edge: np.ndarray) -> np.ndarray:
-    """Return the largest value of ``per_edge`` over the interior edges of each cell.
-
-    ``NaN`` for a cell with no valid edge.
-    """
-    valid = ~np.isnan(per_edge) & (geometry.edge_cells[:, 1] >= 0)
-    cells = geometry.edge_cells[valid]
-    values = per_edge[valid]
-    largest = np.full(geometry.n_cells, -np.inf)
-    np.maximum.at(largest, cells[:, 0], values)
-    np.maximum.at(largest, cells[:, 1], values)
-    largest[np.isinf(largest)] = np.nan
-    return largest
-
-
 def _neighbour_ratio(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
-    return _cell_max(geometry, edge_size_ratio(geometry))
+    return cell_edge_max(geometry, edge_size_ratio(geometry))
 
 
 def _centres(mesh: Any) -> np.ndarray:
@@ -201,32 +194,30 @@ def _vertices(mesh: Any) -> np.ndarray:
 
 def _nonorthogonality(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
     keep = _measured_faces(mesh, geometry)
-    return _cell_max(
+    return cell_edge_max(
         geometry, edge_nonorthogonality(_centres(mesh), _vertices(mesh), geometry, keep)
     )
 
 
 def _bisection_offset(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
     keep = _measured_faces(mesh, geometry)
-    return _cell_max(
+    return cell_edge_max(
         geometry, edge_bisection_offset(_centres(mesh), _vertices(mesh), geometry, keep)
     )
 
 
 def _min_angle(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
-    angles = cell_corner_angles(geometry.padded_connectivity, _vertices(mesh))
-    smallest = np.where(np.isnan(angles), np.inf, angles).min(axis=1)
-    smallest[np.isinf(smallest)] = np.nan
-    return smallest
+    return cell_angle_range(geometry.padded_connectivity, _vertices(mesh))[0]
+
+
+def _max_angle(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
+    return cell_angle_range(geometry.padded_connectivity, _vertices(mesh))[1]
 
 
 def _concavity(mesh: Any, geometry: DerivedGeometry) -> np.ndarray:
     """Return the largest reflex excess of each cell; a corner within the tolerance is straight."""
-    angles = cell_corner_angles(geometry.padded_connectivity, _vertices(mesh))
-    largest = np.where(np.isnan(angles), -np.inf, angles).max(axis=1)
-    excess = np.where(largest - 180.0 > STRAIGHT_CORNER_DEG, largest - 180.0, 0.0)
-    excess[np.isinf(largest)] = np.nan
-    return excess
+    excess = _max_angle(mesh, geometry) - 180.0
+    return np.where(np.isnan(excess) | (excess > STRAIGHT_CORNER_DEG), excess, 0.0)
 
 
 _COMPUTE: dict[str, Callable[[Any, DerivedGeometry], np.ndarray]] = {
@@ -236,5 +227,6 @@ _COMPUTE: dict[str, Callable[[Any, DerivedGeometry], np.ndarray]] = {
     "mesh_nonorthogonality": _nonorthogonality,
     "mesh_bisection_offset": _bisection_offset,
     "mesh_min_angle": _min_angle,
+    "mesh_max_angle": _max_angle,
     "mesh_concavity": _concavity,
 }

@@ -23,6 +23,8 @@ from hydromodpy.spatial.mesh.forcing._source import (
 if TYPE_CHECKING:
     import xarray as xr
 
+    from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
+
 logger = get_logger(__name__)
 
 
@@ -44,11 +46,13 @@ def discretize_one_field_record(
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]] | None,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
+    mesh: HydroMesh | None = None,
 ) -> dict[int, np.ndarray]:
-    """Discretize a single FieldRecord onto the cell centres.
+    """Discretize a single FieldRecord onto the cells.
 
     Handles xarray Datasets, file paths (NetCDF, GeoTIFF), and static fields.
-    All returned arrays are in m/s.
+    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only. All
+    returned arrays are in m/s.
     """
     data = field_rec.data
     unit = getattr(field_rec, "unit", "mm/day")
@@ -63,6 +67,7 @@ def discretize_one_field_record(
             coverage_policy=coverage_policy,
             unit_factor=unit_factor,
             method=method,
+            mesh=mesh,
         )
 
     # xarray Dataset
@@ -78,6 +83,7 @@ def discretize_one_field_record(
                 coverage_policy=coverage_policy,
                 unit_factor=unit_factor,
                 method=method,
+                mesh=mesh,
             )
     except ImportError:
         pass
@@ -98,6 +104,7 @@ def discretize_from_xarray(
     unit_factor: float,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
+    mesh: HydroMesh | None = None,
 ) -> dict[int, np.ndarray]:
     """Reproject an xarray Dataset onto the cell centres, one value per cell."""
     # Identify the data variable to use.
@@ -122,6 +129,7 @@ def discretize_from_xarray(
                 da.coords[y_dim].values,
                 centers,
                 method,
+                mesh=mesh,
             )
             * unit_factor
         )
@@ -172,6 +180,7 @@ def discretize_from_xarray(
         da.coords[y_dim].values,
         centers,
         method,
+        mesh=mesh,
     )
     return {kper: interpolated[kper] * unit_factor for kper in range(len(slices))}
 
@@ -185,6 +194,7 @@ def discretize_from_file(
     unit_factor: float,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
+    mesh: HydroMesh | None = None,
 ) -> dict[int, np.ndarray]:
     """Load and discretize from a NetCDF or GeoTIFF file."""
     suffix = path.suffix.lower()
@@ -201,6 +211,7 @@ def discretize_from_file(
                 coverage_policy=coverage_policy,
                 unit_factor=unit_factor,
                 method=method,
+                mesh=mesh,
             )
         finally:
             ds.close()
@@ -214,6 +225,7 @@ def discretize_from_file(
             coverage_policy=coverage_policy,
             unit_factor=unit_factor,
             method=method,
+            mesh=mesh,
         )
 
     logger.warning(
@@ -231,6 +243,7 @@ def discretize_geotiff(
     unit_factor: float,
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
+    mesh: HydroMesh | None = None,
 ) -> dict[int, np.ndarray]:
     """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centres.
 
@@ -255,18 +268,24 @@ def discretize_geotiff(
                 src.read(1),
                 label="recharge GeoTIFF forcing values",
             )
-            on_cells = interpolate_on_cells(band, src_x, src_y, centers, method) * unit_factor
+            on_cells = (
+                interpolate_on_cells(band, src_x, src_y, centers, method, mesh=mesh) * unit_factor
+            )
             return {kper: on_cells.copy() for kper in range(nper)}
 
-        # Multi-band: one band per time step.
-        band_arrays: list[np.ndarray] = []
-        for b in range(1, n_bands + 1):
-            band = _ensure_finite_field_values(
-                src.read(b),
-                label=f"recharge GeoTIFF forcing band {b}",
-            )
-            on_cells = interpolate_on_cells(band, src_x, src_y, centers, method) * unit_factor
-            band_arrays.append(on_cells)
+        # Multi-band: one band per time step, interpolated as one stack.
+        bands = np.stack(
+            [
+                _ensure_finite_field_values(
+                    src.read(b),
+                    label=f"recharge GeoTIFF forcing band {b}",
+                )
+                for b in range(1, n_bands + 1)
+            ]
+        )
+    band_arrays = list(
+        interpolate_stack_on_cells(bands, src_x, src_y, centers, method, mesh=mesh) * unit_factor
+    )
 
     # Map bands to stress periods.
     if period_bounds is not None:

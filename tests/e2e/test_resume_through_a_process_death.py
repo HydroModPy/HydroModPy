@@ -127,7 +127,7 @@ value = "1e-5 m/s"
 type = "custom"
 value = "5.0 m"
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 
 [display]

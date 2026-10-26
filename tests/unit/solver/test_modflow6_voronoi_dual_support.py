@@ -175,9 +175,8 @@ def _grid_context(engine: str):
     domain.substratum = _surface(0.0, "substratum")
     ctx = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
-        ),
+        vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=cell_mesh,
     )
     return ctx, triangles, mesh, bundle

@@ -264,7 +264,7 @@ _SOLVER_BLOCKS = {
 [mesh.regular]
 shape = [1, {n_cells}]
 
-[modflownwt.sgrid.vertical]
+[domain.layers]
 nlay = 1
 """,
     "modflow6": _MODFLOW6_RUNTIME
@@ -273,13 +273,13 @@ nlay = 1
 [mesh.regular]
 shape = [1, {n_cells}]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 """,
     "modflow6_irregular_tri": _MESH_RUNTIME
     + """\
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 
 [mesh]
@@ -290,7 +290,7 @@ path = "{bundle_dir}/mesh_2d.msh"
 """,
     "modflow6_voronoi": _MESH_RUNTIME
     + """\
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 
 [mesh]

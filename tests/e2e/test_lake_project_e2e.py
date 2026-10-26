@@ -212,7 +212,7 @@ first_clim = "mean"
 [mesh.regular]
 shape = [30, 30]
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 2
 
 [display]

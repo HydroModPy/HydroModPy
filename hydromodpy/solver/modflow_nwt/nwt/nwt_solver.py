@@ -292,6 +292,7 @@ class ModflowNwt:
             raise ValueError("MODFLOW NWT requires a structured grid")
         self.grid_ctx = build_spatial_discretization(
             domain=self.domain,
+            vertical_config=self.domain.config.layers,
             sgrid_config=self.sgrid_config,
             cell_mesh=self.cell_mesh,
         )

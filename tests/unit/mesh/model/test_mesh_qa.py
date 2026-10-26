@@ -13,11 +13,14 @@ from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import (
+    cell_angle_range,
     cell_corner_angles,
+    cell_edge_max,
     compute_mesh_qa,
     edge_bisection_offset,
     edge_nonorthogonality,
     edge_size_ratio,
+    quality_warnings,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 
@@ -60,6 +63,13 @@ def test_a_regular_grid_is_orthogonal_uniform_and_centred() -> None:
     assert qa.min_face_length_m == pytest.approx(1e-3 * DX)
     assert qa.n_degenerate_faces == 0
     assert qa.n_duplicate_vertices_in_cells == 0
+    assert qa.bisection_offset["max"] == pytest.approx(0.0, abs=1e-9)
+    assert qa.bisection_offset["n_cells_gt_0_25"] == 0.0
+    assert qa.min_angle_deg["min"] == pytest.approx(90.0)
+    assert qa.min_angle_deg["n_triangles_lt_20"] == 0.0
+    assert qa.max_angle_deg["max"] == pytest.approx(90.0)
+    assert qa.n_concave_cells == 0
+    assert quality_warnings(qa) == ()
 
 
 def test_an_offset_centre_shows_in_offset_and_orthogonality() -> None:
@@ -214,6 +224,9 @@ def test_the_per_edge_helpers_give_the_numbers_the_qa_summarises() -> None:
     assert qa.nonorthogonality_deg["max"] == np.nanmax(angle)
     assert qa.nonorthogonality_deg["p95"] == float(np.nanpercentile(angle, 95))
     assert qa.nonorthogonality_deg["max"] > 0.0
+    offset = edge_bisection_offset(centers, np.asarray(mesh.vertices), geometry, keep)
+    assert qa.bisection_offset["max"] == np.nanmax(offset)
+    assert qa.bisection_offset["p50"] == float(np.nanpercentile(offset, 50))
 
 
 def _column_faces(mesh: HydroMesh, geometry) -> FaceFamilyTable:
@@ -364,3 +377,67 @@ def test_a_corner_next_to_a_repeated_vertex_has_no_angle() -> None:
 
     assert np.isnan(angles[0, [1, 2]]).all()
     np.testing.assert_allclose(angles[0, [0, 3, 4]], 90.0, atol=1e-12)
+
+
+def test_a_centre_pulled_towards_a_corner_counts_the_cells_of_its_skewed_face() -> None:
+    mesh, centers = _grid()
+    centers[0] += [7.5, 10.0]
+    qa = _qa(mesh, centers)
+
+    # From (20, -2.5) to (37.5, -12.5) relative to the origin, the line meets x = 25
+    # at y = -2.5 - 10 * 5 / 17.5, 2/7 of the face from its middle. The face below
+    # is crossed 0.107 from its middle, under the threshold.
+    assert qa.bisection_offset["max"] == pytest.approx(2.0 / 7.0)
+    assert qa.bisection_offset["n_cells_gt_0_25"] == 2.0
+    (warning,) = quality_warnings(qa)
+    assert warning.startswith("2 of 20 cells have a face crossed")
+
+
+def _l_and_sliver() -> tuple[HydroMesh, np.ndarray]:
+    """An L-shaped cell and, apart, a triangle with a 14 degree corner."""
+    sliver = np.array([[3.0, 0.0], [5.0, 0.0], [3.0, 0.5]])
+    vertices = np.vstack([L_SHAPE, sliver]) * 10.0 + [X0, Y0]
+    cells = (np.arange(6), np.array([6, 7, 8]))
+    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, cells),))
+    centers = np.array([[X0 + 5.0, Y0 + 5.0], [X0 + 36.0, Y0 + 1.5]])
+    return mesh, centers
+
+
+def test_a_sliver_triangle_and_a_concave_cell_are_counted_and_warned() -> None:
+    qa = _qa(*_l_and_sliver())
+
+    sharp = np.degrees(np.arctan2(0.5, 2.0))
+    assert qa.min_angle_deg["min"] == pytest.approx(sharp)
+    assert qa.min_angle_deg["n_triangles_lt_20"] == 1.0
+    assert qa.max_angle_deg["max"] == pytest.approx(270.0)
+    assert qa.n_concave_cells == 1
+    warnings = quality_warnings(qa)
+    assert len(warnings) == 2
+    assert warnings[0].startswith("1 of 2 cells are triangles with a corner under 20 degrees")
+    assert warnings[1] == "1 of 2 cells are concave (largest corner 270.0 degrees)."
+
+
+def test_a_sharp_dart_is_concave_but_not_a_sharp_triangle() -> None:
+    """A corner under 20 degrees counts only on a triangle."""
+    dart = np.array([[0.0, 0.0], [4.0, 0.5], [0.0, 1.0], [1.0, 0.5]]) * 10.0 + [X0, Y0]
+    mesh = HydroMesh(vertices=dart, cell_blocks=(CellBlock(CellType.POLYGON, (np.arange(4),)),))
+    smallest, largest = cell_angle_range(np.arange(4)[None, :], dart)
+    qa = _qa(mesh, np.array([[X0 + 15.0, Y0 + 5.0]]))
+
+    assert smallest[0] == pytest.approx(2.0 * np.degrees(np.arctan2(0.5, 4.0)))
+    assert qa.min_angle_deg["min"] == pytest.approx(smallest[0])
+    assert qa.min_angle_deg["n_triangles_lt_20"] == 0.0
+    assert qa.n_concave_cells == 1
+    assert qa.max_angle_deg["max"] == pytest.approx(largest[0])
+    assert largest[0] > 180.0
+
+
+def test_the_angle_range_and_the_edge_maximum_are_nan_where_nothing_is_measured() -> None:
+    square = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+    smallest, largest = cell_angle_range(np.array([[0, 1, 2, 3], [0, 0, 0, -1]]), square)
+    mesh, _ = _grid()
+    geometry = derive_geometry(mesh)
+
+    np.testing.assert_allclose([smallest[0], largest[0]], 90.0)
+    assert np.isnan([smallest[1], largest[1]]).all()
+    assert np.isnan(cell_edge_max(geometry, np.full(geometry.edge_cells.shape[0], np.nan))).all()

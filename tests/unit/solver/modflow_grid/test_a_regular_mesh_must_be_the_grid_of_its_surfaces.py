@@ -55,7 +55,8 @@ def _domain() -> Domain:
 def _extrude(cell_mesh: PlanarCellMesh):
     return build_spatial_discretization(
         domain=_domain(),
-        sgrid_config=SolverSGridConfig(vertical=VerticalGridConfig(nlay=1, nodata=-9999.0)),
+        vertical_config=VerticalGridConfig(nlay=1, nodata=-9999.0),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=cell_mesh,
     )
 

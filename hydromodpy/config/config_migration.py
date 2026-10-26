@@ -20,6 +20,12 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
   the lockfile is written on every run.
+- ``[modflow6.sgrid.vertical]`` and ``[modflownwt.sgrid.vertical]`` ->
+  ``[domain.layers]``, which every solver reads. When both are written, the
+  table of the flow solver is kept (the first solver of the first flow
+  process, else ``solver.backend``, else MODFLOW 6) and the other is dropped
+  with a line saying whether it held other values. An existing
+  ``[domain.layers]`` wins over both.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
@@ -114,6 +120,7 @@ def migrate_config_doc(doc: Any) -> list[str]:
     changes: list[str] = _drop_dead_result_options(doc)
     changes.extend(_report_retired_results_tables(doc))
     changes.extend(_move_the_bottom_path(doc))
+    changes.extend(_move_the_layering(doc))
     changes.extend(_flatten_boundary_conditions(doc))
     changes.extend(_drop_the_solver_time_grids(doc))
     changes.extend(_drop_the_validity_ratio(doc))
@@ -1342,6 +1349,122 @@ def _move_the_bottom_path(doc: Any) -> list[str]:
         "(read only with [domain.depth_model] kind = 'raster_substratum' "
         "or 'raster_thickness')"
     ]
+
+
+def _raw_flow_process_solver(simulation: Any) -> tuple[str, str] | None:
+    """Return the id and first solver of the first flow process, before validation."""
+    if isinstance(simulation, Mapping):
+        processes = simulation.get("process")
+    else:
+        processes = getattr(simulation, "process", None)
+    if not isinstance(processes, list | tuple):
+        return None
+    for process in processes:
+        if isinstance(process, Mapping):
+            kind = str(process.get("type", "")).strip().lower()
+            solvers = process.get("solvers")
+            process_id = process.get("id")
+        else:
+            kind = str(getattr(process, "type", "")).strip().lower()
+            solvers = getattr(process, "solvers", None)
+            process_id = getattr(process, "id", None)
+        if kind != "flow" or not isinstance(solvers, list | tuple):
+            continue
+        names = [str(name).strip() for name in solvers if name and str(name).strip()]
+        if names:
+            return str(process_id or "flow"), names[0]
+    return None
+
+
+#: The section that holds the ``sgrid`` table of each flow solver name.
+_SOLVER_SECTION_OF = {
+    "modflow6": "modflow6",
+    "modflow6_prt": "modflow6",
+    "modflow_nwt": "modflownwt",
+}
+
+
+def _flow_solver_section(doc: Any) -> str:
+    """Return the solver section whose layering a run of *doc* used.
+
+    The first solver of the first flow process, else ``solver.backend``,
+    else MODFLOW 6.
+    """
+    flow = _raw_flow_process_solver(doc.get("simulation"))
+    if flow is not None:
+        name: Any = flow[1]
+    else:
+        solver = doc.get("solver")
+        name = solver.get("backend") if isinstance(solver, Mapping) else None
+        if isinstance(name, Mapping):
+            name = name.get("name") if name.get("backend") == "custom" else name.get("backend")
+    return _SOLVER_SECTION_OF.get(str(name or "").strip().lower(), "modflow6")
+
+
+def _layering_difference(dropped: Mapping[str, Any], kept: Mapping[str, Any]) -> str:
+    """Return the keys where *dropped* departs from *kept*, or an empty string."""
+    dropped, kept = _plain(dropped), _plain(kept)
+
+    def shown(table: Mapping[str, Any], key: str) -> str:
+        return repr(table[key]) if key in table else "unset"
+
+    differences = [
+        f"{key} = {shown(dropped, key)} against {shown(kept, key)}"
+        for key in sorted(set(dropped) | set(kept))
+        if dropped.get(key) != kept.get(key)
+    ]
+    return ", ".join(differences)
+
+
+def _move_the_layering(doc: Any) -> list[str]:
+    """Move ``[modflow6.sgrid.vertical]`` and ``[modflownwt.sgrid.vertical]`` to ``[domain.layers]``.
+
+    The layering describes the aquifer, so one table serves every solver. When
+    both solver tables exist, the one of the flow solver is kept, since it built
+    the runs of the file. The other is dropped with a line that says whether it
+    held other values. An existing ``[domain.layers]`` wins over both.
+    """
+    found: dict[str, Any] = {}
+    for name in _SOLVER_SECTIONS:
+        sgrid = _descend(doc, [name, "sgrid"])
+        if sgrid is not None and isinstance(sgrid.get("vertical"), Mapping):
+            found[name] = sgrid["vertical"]
+    if not found:
+        return []
+    domain = doc.get("domain")
+    layers = domain.get("layers") if isinstance(domain, Mapping) else None
+    kept = None
+    if not isinstance(layers, Mapping):
+        kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
+        layers = found[kept]
+    changes: list[str] = []
+    for name, table in found.items():
+        _drop_the_solver_layering(doc, name)
+        if name == kept:
+            changes.append(f"{name}.sgrid.vertical -> [domain.layers]")
+            continue
+        owner = "[domain.layers] already set" if kept is None else f"{kept} is the flow solver"
+        difference = _layering_difference(table, layers)
+        held = f"it held other values: {difference}" if difference else "same values"
+        changes.append(f"{name}.sgrid.vertical dropped ({owner}; {held})")
+    if kept is not None:
+        if not isinstance(domain, Mapping):
+            is_file = isinstance(doc, tomlkit.TOMLDocument)
+            doc["domain"] = tomlkit.table(is_super_table=True) if is_file else {}
+            domain = doc["domain"]
+        domain["layers"] = layers
+    return changes
+
+
+def _drop_the_solver_layering(doc: Any, name: str) -> None:
+    """Delete ``<name>.sgrid.vertical``, then the tables it leaves empty."""
+    section = doc[name]
+    sgrid = section["sgrid"]
+    del sgrid["vertical"]
+    if not sgrid:
+        del section["sgrid"]
+    if not section:
+        del doc[name]
 
 
 def _promote_export(doc: Any, simulation: Any) -> list[str]:

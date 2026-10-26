@@ -125,6 +125,7 @@ def test_the_cells_of_a_grid_have_right_angles_and_no_concavity(tmp_path):
     store = _store(tmp_path / "fields.zarr", _grid())
 
     np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_min_angle"), 90.0)
+    np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_max_angle"), 90.0)
     np.testing.assert_array_equal(mesh_quality_values(store.root, "mesh_concavity"), 0.0)
     store.close()
 
@@ -147,6 +148,7 @@ def test_an_l_shaped_cell_has_a_reflex_corner_of_270_degrees(tmp_path):
 
     np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_concavity"), [90.0, 0.0])
     np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_min_angle"), [90.0, 90.0])
+    np.testing.assert_allclose(mesh_quality_values(store.root, "mesh_max_angle"), [270.0, 90.0])
     store.close()
 
 
@@ -185,6 +187,7 @@ def test_a_run_stored_before_the_cell_mesh_layout_serves_the_geometry_fields_onl
     assert available_virtual_fields(store.root) == [
         "mesh_cell_area",
         "mesh_concavity",
+        "mesh_max_angle",
         "mesh_min_angle",
         "mesh_neighbour_ratio",
     ]
@@ -234,6 +237,7 @@ def test_the_per_cell_extremes_of_a_voronoi_dual_are_the_qa_extremes(tmp_path):
     angle = mesh_quality_values(store.root, "mesh_nonorthogonality")
     bisection = mesh_quality_values(store.root, "mesh_bisection_offset")
     smallest = mesh_quality_values(store.root, "mesh_min_angle")
+    largest = mesh_quality_values(store.root, "mesh_max_angle")
     concavity = mesh_quality_values(store.root, "mesh_concavity")
 
     assert area.shape == ratio.shape == offset.shape == angle.shape == (cell_mesh.n_cells,)
@@ -241,9 +245,14 @@ def test_the_per_cell_extremes_of_a_voronoi_dual_are_the_qa_extremes(tmp_path):
     assert np.nanmin(bisection) >= 0.0
     assert ((smallest > 0.0) & (smallest < 180.0)).all()
     assert (concavity >= 0.0).all()
+    assert (largest >= smallest).all()
     np.testing.assert_allclose(area, cell_mesh.geometry.areas, rtol=1e-12)
     assert np.nanmax(ratio) == pytest.approx(qa.neighbour_ratio["max"], rel=1e-12)
     assert np.nanmax(offset) == pytest.approx(qa.center_offset["max"], rel=1e-12)
     assert np.nanmax(angle) == pytest.approx(qa.nonorthogonality_deg["max"], rel=1e-9)
     assert area.min() == pytest.approx(qa.area_quantiles_m2["min"], rel=1e-12)
+    assert np.nanmax(bisection) == pytest.approx(qa.bisection_offset["max"], rel=1e-12)
+    assert smallest.min() == pytest.approx(qa.min_angle_deg["min"], rel=1e-12)
+    assert largest.max() == pytest.approx(qa.max_angle_deg["max"], rel=1e-12)
+    assert np.count_nonzero(concavity > 0.0) == qa.n_concave_cells
     store.close()

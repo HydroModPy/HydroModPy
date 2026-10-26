@@ -77,16 +77,28 @@ class TestOnASolverMesh:
         assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.9, 0.2) == (0, 0, 0)
         assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.1, 0.8) == (0, 0, 1)
 
-    def test_a_point_outside_every_cell_takes_the_nearest_centre(self) -> None:
+    def test_a_point_just_outside_takes_the_nearest_centre(self) -> None:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 
         mesh = regular_solver_mesh(2, 3)
 
-        cell = Modflow6FlowAdapter().locate_cell(
-            _ctx(SimpleNamespace(solver_mesh=mesh)), 40.0, -3.0
-        )
+        # 0.5 m east and 0.3 m south of the south-east corner, within one cell size.
+        cell = Modflow6FlowAdapter().locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 3.5, -0.3)
 
         assert cell == (0, 0, 1 * 3 + 2)
+
+    def test_a_point_farther_than_a_cell_size_is_not_located(self, caplog) -> None:
+        from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
+
+        mesh = regular_solver_mesh(2, 3)
+
+        with caplog.at_level("WARNING"):
+            cell = Modflow6FlowAdapter().locate_cell(
+                _ctx(SimpleNamespace(solver_mesh=mesh)), 40.0, -3.0
+            )
+
+        assert cell is None
+        assert "(40.00, -3.00)" in caplog.text
 
     def test_the_located_selector_is_a_fixed_point_of_the_readers_of_a_cell(self) -> None:
         from hydromodpy.solver.modflow6.adapters.flow import (
@@ -110,17 +122,34 @@ class TestOnASolverMesh:
         assert Modflow6FlowAdapter().locate_cell(_ctx(None), 0.0, 0.0) is None
 
 
+def _nwt_grid() -> SimpleNamespace:
+    """A 2 x 3 flopy-like grid of 10 m cells, centres on a 10 m lattice from the origin."""
+    return SimpleNamespace(
+        xcellcenters=np.array([[0.0, 10.0, 20.0], [0.0, 10.0, 20.0]]),
+        ycellcenters=np.array([[0.0, 0.0, 0.0], [10.0, 10.0, 10.0]]),
+        delr=np.full(3, 10.0),
+        delc=np.full(2, 10.0),
+    )
+
+
 class TestOnTheNwtGrid:
     def test_it_reads_its_own_flopy_grid(self) -> None:
         from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
 
-        grid = SimpleNamespace(
-            xcellcenters=np.array([[0.0, 10.0, 20.0], [0.0, 10.0, 20.0]]),
-            ycellcenters=np.array([[0.0, 0.0, 0.0], [10.0, 10.0, 10.0]]),
-        )
-        model = SimpleNamespace(mf=SimpleNamespace(modelgrid=grid))
+        model = SimpleNamespace(mf=SimpleNamespace(modelgrid=_nwt_grid()))
 
         assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 21.0, 11.0) == (0, 1, 2)
+
+    def test_a_point_farther_than_a_cell_size_is_not_located(self, caplog) -> None:
+        from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter
+
+        model = SimpleNamespace(mf=SimpleNamespace(modelgrid=_nwt_grid()))
+
+        # Cells of 10 m: 14 m east of the last centre is 9 m out, 16 m is 11 m out.
+        assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 34.0, 10.0) == (0, 1, 2)
+        with caplog.at_level("WARNING"):
+            assert ModflowNwtFlowAdapter().locate_cell(_ctx(model), 36.0, 10.0) is None
+        assert "(36.00, 10.00)" in caplog.text
 
     def test_a_model_without_a_grid_yields_nothing(self) -> None:
         from hydromodpy.solver.modflow_nwt.adapters.flow import ModflowNwtFlowAdapter

@@ -12,6 +12,11 @@ keys a new entry.
 An entry is a directory holding ``mesh.npz`` (arrays) and ``mesh.json`` (the
 rest). It is written in a temporary directory and renamed, so a reader sees a
 complete entry or none, also when two runs of a project build the same mesh.
+
+An entry stored before the shape entries of the QA (bisection offset, corner
+angles, concave cells) is read as it is: those entries are measured on the
+stored mesh and centres, so the frozen mesh of a project survives without a new
+schema.
 """
 
 from __future__ import annotations
@@ -26,8 +31,9 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError
+from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import MeshQA
+from hydromodpy.spatial.mesh.model.mesh_qa import SHAPE_KEYS, MeshQA, cell_shape_qa
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     CellChain,
     FaceFamilyTable,
@@ -236,21 +242,32 @@ def _decode(arrays: dict[str, np.ndarray], description: dict[str, object]) -> Pl
         if names is None
         else FaceFamilyTable(names=tuple(names), **{c: arrays[f"faces/{c}"] for c in _FACE_COLUMNS})
     )
-    qa = dict(description["qa"])
-    qa["notes"] = tuple(qa["notes"])
     return PlanarCellMesh(
         mesh=mesh,
         centers=arrays["centers"],
         center_kind=description["center_kind"],
         crs_wkt=description["crs_wkt"],
         identity=MeshIdentity(**description["identity"]),
-        qa=MeshQA(**qa),
+        qa=_decode_qa(description["qa"], mesh, arrays["centers"]),
         cell_chains=tuple(chains),
         face_families=table,
         cell_zone=arrays.get("cell_zone"),
         zone_names=tuple(description["zone_names"]),
         structured_shape=_shape_or_none(description["structured_shape"]),
     )
+
+
+def _decode_qa(stored: dict[str, object], mesh: HydroMesh, centers: np.ndarray) -> MeshQA:
+    """Rebuild the QA, measuring the shape entries an older entry lacks."""
+    qa = dict(stored)
+    qa["notes"] = tuple(qa["notes"])
+    if any(name not in qa for name in SHAPE_KEYS):
+        vertices = np.asarray(mesh.vertices, dtype=float)[:, :2]
+        shape = cell_shape_qa(
+            centers, vertices, derive_geometry(mesh), float(qa["min_face_length_m"])
+        )
+        qa = {**shape, **qa}
+    return MeshQA(**qa)
 
 
 def _block_connectivity(rows: np.ndarray, cell_type: str) -> object:

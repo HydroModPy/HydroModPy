@@ -94,7 +94,7 @@ value = "0.0 m"
 [flow.sinks_sources.recharge]
 first_clim = "mean"
 
-[modflow6.sgrid.vertical]
+[domain.layers]
 nlay = 1
 """
 

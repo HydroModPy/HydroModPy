@@ -117,13 +117,12 @@ def test_build_spatial_discretization_resamples_to_solver_shape():
 
     ctx = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(
-                genmtd_lay="constant",
-                nlay=2,
-                nodata=-9999.0,
-            ),
+        vertical_config=VerticalGridConfig(
+            genmtd_lay="constant",
+            nlay=2,
+            nodata=-9999.0,
         ),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=regular_cell_mesh_of_surface(domain.surface_topo, nrow=3, ncol=4),
     )
 
@@ -169,13 +168,12 @@ def test_runtime_planar_mesh_samples_domain_surfaces_at_the_cell_centres():
 
     ctx = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(
-                genmtd_lay="constant",
-                nlay=1,
-                nodata=-9999.0,
-            ),
+        vertical_config=VerticalGridConfig(
+            genmtd_lay="constant",
+            nlay=1,
+            nodata=-9999.0,
         ),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=cell_mesh,
     )
 
@@ -203,9 +201,8 @@ def test_a_triangle_mesh_keeps_its_cells():
 
     ctx = build_spatial_discretization(
         domain=domain,
-        sgrid_config=SolverSGridConfig(
-            vertical=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
-        ),
+        vertical_config=VerticalGridConfig(genmtd_lay="constant", nlay=1, nodata=-9999.0),
+        sgrid_config=SolverSGridConfig(),
         cell_mesh=cell_mesh,
     )
 
