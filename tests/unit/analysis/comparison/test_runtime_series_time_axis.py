@@ -27,9 +27,7 @@ class _FakeStore:
         return self.zarr_path
 
 
-def test_load_variable_series_uses_root_time_when_bouss_state_axis_is_degenerate(
-    tmp_path: Path,
-) -> None:
+def test_load_variable_series_uses_root_time_when_bouss_state_axis_is_degenerate() -> None:
     store = _FakeStore(
         {
             "head": np.asarray([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=float),
@@ -42,7 +40,6 @@ def test_load_variable_series_uses_root_time_when_bouss_state_axis_is_degenerate
     )
 
     series = load_variable_series(
-        run_folder=tmp_path,
         variable="head",
         store=store,
         sim_id="sim",
@@ -52,9 +49,7 @@ def test_load_variable_series_uses_root_time_when_bouss_state_axis_is_degenerate
     assert [item.is_initial_state for item in series.slices] == [True, False, False]
 
 
-def test_load_variable_series_does_not_mark_root_time_as_initial_without_bouss_state(
-    tmp_path: Path,
-) -> None:
+def test_load_variable_series_does_not_mark_root_time_as_initial_without_bouss_state() -> None:
     store = _FakeStore(
         {
             "head": np.asarray([[3.0, 4.0], [5.0, 6.0]], dtype=float),
@@ -63,7 +58,6 @@ def test_load_variable_series_does_not_mark_root_time_as_initial_without_bouss_s
     )
 
     series = load_variable_series(
-        run_folder=tmp_path,
         variable="head",
         store=store,
         sim_id="sim",
@@ -73,9 +67,7 @@ def test_load_variable_series_does_not_mark_root_time_as_initial_without_bouss_s
     assert [item.is_initial_state for item in series.slices] == [False, False]
 
 
-def test_single_snapshot_boussinesq_store_field_is_steady_result(
-    tmp_path: Path,
-) -> None:
+def test_single_snapshot_boussinesq_store_field_is_steady_result() -> None:
     root = {
         "derived": {
             "watertable_elevation": np.asarray([[7.5, 8.0]], dtype=float),
@@ -89,7 +81,6 @@ def test_single_snapshot_boussinesq_store_field_is_steady_result(
 
     for loader in (load_variable_series, load_runtime_variable_series):
         series = loader(
-            run_folder=tmp_path,
             variable="watertable_elevation",
             store=_FakeStore(root),
             sim_id="sim",
@@ -99,9 +90,7 @@ def test_single_snapshot_boussinesq_store_field_is_steady_result(
         assert [item.is_initial_state for item in series.slices] == [False]
 
 
-def test_single_snapshot_boussinesq_state_history_is_steady_result(
-    tmp_path: Path,
-) -> None:
+def test_single_snapshot_boussinesq_state_history_is_steady_result() -> None:
     root = {
         "boussinesq_state": {
             "head_history_m": np.asarray([[7.5, 8.0]], dtype=float),
@@ -111,7 +100,6 @@ def test_single_snapshot_boussinesq_state_history_is_steady_result(
 
     for loader in (load_variable_series, load_runtime_variable_series):
         series = loader(
-            run_folder=tmp_path,
             variable="head_history_m",
             store=_FakeStore(root),
             sim_id="sim",
@@ -121,9 +109,7 @@ def test_single_snapshot_boussinesq_state_history_is_steady_result(
         assert [item.is_initial_state for item in series.slices] == [False]
 
 
-def test_load_boussinesq_state_series_marks_root_time_initial_when_periods_match(
-    tmp_path: Path,
-) -> None:
+def test_load_boussinesq_state_series_marks_root_time_initial_when_periods_match() -> None:
     store = _FakeStore(
         {
             "time": np.asarray([0.0, 10.0, 30.0], dtype=float),
@@ -138,7 +124,6 @@ def test_load_boussinesq_state_series_marks_root_time_initial_when_periods_match
     )
 
     series = load_variable_series(
-        run_folder=tmp_path,
         variable="head_m",
         store=store,
         sim_id="sim",

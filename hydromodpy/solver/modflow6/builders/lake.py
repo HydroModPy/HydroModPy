@@ -17,8 +17,9 @@ Each lake cell gets:
 
 * one VERTICAL connection to the first active cell below the lake column (the
   leakage / infiltration path towards the aquifer, using K33), and
-* one HORIZONTAL connection across every shared edge to an active, non-lake
-  neighbour (bank seepage, using K11). ``connwidth`` is the shared-edge length,
+* one HORIZONTAL connection across every shared edge to each active cell of a
+  non-lake neighbour column that faces the lake water, whatever its layer
+  (bank seepage, using K11). ``connwidth`` is the shared-edge length,
   ``connlen`` the perpendicular half-distance from the neighbour centroid to the
   edge, and ``belev`` / ``telev`` the neighbour cell bottom / top clipped to the
   lake vertical extent.
@@ -57,6 +58,8 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _drop_interior_rings,
     _fill_lake_enclosed_cells,
     _first_active_layer_below,
+    _flat_pass_through,
+    _lake_bed_layers,
     _point_to_segment_distance,
     _resolve_shared_lake_cells,
 )
@@ -110,6 +113,11 @@ _MIN_BEDLEAK = 0.0
 # centimetre: below that the shift is re-proportioning round-off, not a geometry the
 # user needs to know about.
 _BED_CLAMP_REPORT_TOL = 0.01
+
+# Thinnest band of lake water a bank connection must face. Elevations hold to the
+# millimetre, so a thinner overlap of the lake band and a neighbour cell is
+# round-off between two columns, not a bank.
+_MIN_BANK_THICKNESS_M = 1.0e-3
 
 
 # Share of the shore length the lakes faces must cover for the regions they enclose to
@@ -186,8 +194,14 @@ def apply_lake_idomain_mask(
     resolved in order: ``occupied_layers_by_cell[lake_id][cell]`` (a carved bed
     that cuts a varying number of layers, deep centre vs shallow rim), else
     ``occupied_layers_by_lake[lake_id]``, else the scalar ``occupied_layers``. The
-    layers below stay active so the LAK VERTICAL connection has a first active
-    cell to leak into; the count must leave at least one active layer per column.
+    count is in grid layers, pass-through cells (``idomain = -1``) included: such a
+    cell has no thickness, so a lake whose occupied layer is pinched out has no
+    depth inside the stack in that column and leaks through its bed only.
+
+    Every column must keep an active cell under the lake for the LAK VERTICAL
+    connection. A column whose layers below are all pass-through or inactive is
+    refused: the pinch-out has handed their thickness to the lake cap, so the lake
+    would rest on the base of the model there.
 
     The frozen ``SolverMesh`` is left untouched; we ``dataclasses.replace`` a
     fresh ``idomain``. Applying this *before* the DISV / idomain / dem_mask
@@ -203,6 +217,8 @@ def apply_lake_idomain_mask(
             if occupied_layers_by_lake is None
             else occupied_layers_by_lake.get(lake_id, occupied_layers)
         )
+        bottomless: list[int] = []
+        flat_caps = 0
         for cid in cell_ids:
             cell = int(cid)
             if cell < 0 or cell >= n_cells:
@@ -221,7 +237,29 @@ def apply_lake_idomain_mask(
                     f"least one active layer below the lake (nlay={nlay}); the VERTICAL "
                     "connection needs an aquifer cell to leak into."
                 )
+            if not (idomain[layers:, cell] > 0).any():
+                bottomless.append(cell)
+            if (idomain[:layers, cell] == -1).all():
+                flat_caps += 1
             idomain[:layers, cell] = 0
+        if bottomless:
+            raise ValueError(
+                f"flow.sinks_sources.lakes.{lake_id} leaves {len(bottomless)} column(s) with "
+                f"no active cell under the lake (first cell {bottomless[0]}): every layer "
+                "below the occupied ones is a pass-through cell of the pinch-out "
+                "(idomain -1) or inactive, so the lake would rest on the base of the model "
+                "there with no bed exchange. Lower occupied_layers, lower the min_thickness "
+                "of the [[domain.layers.layer]] under the lake, or set [domain.layers] "
+                'pinch_out = "keep_min_thickness".'
+            )
+        if flat_caps:
+            logger.info(
+                "[LAK] lake '%s': %d column(s) occupy pass-through cells only; the lake has "
+                "no depth inside the stack there and leaks through its bed into the first "
+                "active cell below.",
+                lake_id,
+                flat_caps,
+            )
     return dataclasses.replace(solver_mesh, idomain=idomain)
 
 
@@ -240,6 +278,12 @@ def carve_lake_bed(
     lake column is then re-graded so the bottom of its deepest occupied layer sits
     at the carved bed; the first active cell below therefore exchanges with the
     lake at the real bed elevation, and the flow lines follow the real basin.
+
+    On a stack with pass-through cells (``idomain = -1``) the cap above the bed
+    takes its pass-through cells, which the lake mask then closes. Below the bed a
+    pass-through cell keeps no thickness: only the cells that stay in the model are
+    re-graded, so the first active cell under the lake has its top on the bed. A
+    column with no such cell under its top layer is refused.
 
     Lakes without ``bed_reconstruction`` are left untouched. The frozen
     ``SolverMesh`` is replaced with a fresh ``botm`` (``top`` and the inactive
@@ -269,6 +313,7 @@ def carve_lake_bed(
 
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1).copy()
     botm = np.asarray(solver_mesh.botm, dtype=float).copy()
+    idomain = np.asarray(solver_mesh.idomain)
     areas = solver_mesh.cell_areas()
     nlay = int(solver_mesh.nlay)
     occupied = occupied_layers_by_lake or {}
@@ -328,17 +373,19 @@ def carve_lake_bed(
         clamp_shift = 0.0
         if dynamic_area:
             # Active-littoral (marnage): the cell stays active, its TOP becomes the
-            # bathymetric bed, and MF6 gates RCH/ET vs lake exchange per cell.
+            # bathymetric bed, and MF6 gates RCH/ET vs lake exchange per cell. A
+            # pass-through cell stays flat; the active cells share the column.
             for cid in cell_ids:
+                layers = _lake_bed_layers(idomain[:, cid], 0)
                 new_top, new_botm = regrade_column_active_top(
                     orig_top=top[cid],
-                    botm_col=botm[:, cid],
+                    botm_col=botm[layers, cid],
                     bed=bed_by_cell[cid],
                     min_thickness=min_thickness,
                     stage_max=full_pool,
                 )
                 top[cid] = new_top
-                botm[:, cid] = new_botm
+                botm[:, cid] = _flat_pass_through(new_top, layers, new_botm, nlay)
                 clamp_shift = max(clamp_shift, abs(new_top - bed_by_cell[cid]))
                 bed_by_cell[cid] = float(new_top)
             marnage_cells[lake_id] = cell_ids
@@ -346,20 +393,33 @@ def carve_lake_bed(
             # Fixed-area reservoir: the inactive cap of each column follows the real
             # basin depth. The per-cell occupied-layer count is the number of grid
             # layers above the carved bed (deep centre cells cut more layers than
-            # shallow rim cells), clamped to keep one active aquifer cell below.
+            # shallow rim cells), clamped to keep one cell below that is not a
+            # pass-through. The cap takes its pass-through cells with it; below the
+            # bed they stay flat, so the first active cell has its top on the bed.
             per_cell_occ: dict[int, int] = {}
             for cid in cell_ids:
+                kept_below = np.flatnonzero(idomain[1:, cid] != -1)
+                if kept_below.size == 0:
+                    raise ValueError(
+                        f"flow.sinks_sources.lakes.{lake_id} bed_reconstruction: column {cid} "
+                        "has no layer under its top one that is not a pass-through cell "
+                        "(idomain -1), so the carved bed cannot keep an active cell under "
+                        "the lake. Lower the min_thickness of the [[domain.layers.layer]] "
+                        'under the lake, or set [domain.layers] pinch_out = "keep_min_thickness".'
+                    )
                 occ_c = int(np.count_nonzero(botm[:, cid] > bed_by_cell[cid]))
-                occ_c = max(1, min(occ_c, nlay - 1))
+                occ_c = max(1, min(occ_c, int(kept_below[-1]) + 1))
                 per_cell_occ[cid] = occ_c
-                botm[:, cid] = regrade_column_to_bed(
+                layers = _lake_bed_layers(idomain[:, cid], occ_c)
+                new_botm = regrade_column_to_bed(
                     top=top[cid],
-                    botm_col=botm[:, cid],
+                    botm_col=botm[layers, cid],
                     bed=bed_by_cell[cid],
                     occupied_layers=occ_c,
                     min_thickness=min_thickness,
                     stage_max=full_pool,
                 )
+                botm[:, cid] = _flat_pass_through(top[cid], layers, new_botm, nlay)
                 # regrade_column_to_bed pins the bottom of the deepest occupied layer
                 # on the (clamped) bed, so that bottom IS the carved elevation.
                 carved = float(botm[occ_c - 1, cid])
@@ -436,9 +496,16 @@ def build_lake_connectiondata(
     (matching ``apply_lake_idomain_mask``). For each lake column we emit:
 
     * one VERTICAL connection to the first active cell below the occupied layers
-      (the leakage path towards the aquifer), and
-    * one HORIZONTAL connection per occupied layer across every shared edge with
-      an active, non-lake neighbour at that layer (bank seepage).
+      (the leakage path towards the aquifer), pass-through cells skipped, and
+    * one HORIZONTAL connection across every shared edge to each active cell of
+      a non-lake neighbour column that faces the lake water (bank seepage).
+
+    The lake water of a column spans its occupied cap ``[bed, top]``. A bank
+    connection is clipped to the part of that band the neighbour cell holds,
+    whatever the layer index of that cell: on a sloping or pinched stack the
+    neighbour layers do not line up with the lake ones, and a pass-through
+    neighbour has handed its thickness to the active cell below it. A column
+    whose cap is pinched out has no band, so it exchanges through its bed only.
 
     ``solver_mesh`` must already carry the lake idomain mask so that
     ``idomain > 0`` identifies active non-lake neighbours. ``sealed_faces``
@@ -458,6 +525,7 @@ def build_lake_connectiondata(
     nlay = int(solver_mesh.nlay)
     vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
     centroids = solver_mesh.cell_centroids()
+    top_active = top_active_layer(idomain)
 
     def _occ(cid: int) -> int:
         """Per-cell occupied-layer count (carved-bed depth), else the lake scalar."""
@@ -479,18 +547,18 @@ def build_lake_connectiondata(
 
     sealed = [0]
 
-    def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, occ_c: int, iconn: int):
+    def _horizontal_rows(cid: int, lake_top: float, lake_bottom: float, iconn: int):
         """HORIZONTAL bank connections of one lake column, sealed at the dam.
 
         Fixed area: the bank spans the occupied cap ``[lake_bottom, lake_top]``.
         Marnage (decision D8): the lake column stays active below its carved bed,
         so the bank spans ``[carved bed, neighbour top]`` and never sits below the
-        bed. Every neighbour layer that crosses that band gets one row.
+        bed. Every active neighbour cell that crosses that band by more than
+        ``_MIN_BANK_THICKNESS_M`` gets one row.
         """
         out: list[list[Any]] = []
         faces = _cell_faces(solver_mesh.cell_mesh, cid)
-        layers = range(nlay) if dynamic_area else range(occ_c)
-        for lay in layers:
+        for lay in range(nlay):
             for neighbour, node_a, node_b, width in faces:
                 if width <= 0.0:
                     continue  # degenerate (zero-length) edge: skip
@@ -498,6 +566,15 @@ def build_lake_connectiondata(
                     continue  # never connect a lake to another lake cell
                 if int(idomain[lay, neighbour]) <= 0:
                     continue  # neighbour inactive at this layer
+                cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
+                if dynamic_area:
+                    belev = max(float(botm[lay, neighbour]), lake_top)
+                    telev = min(cell_top, float(top[neighbour]))
+                else:
+                    belev = max(float(botm[lay, neighbour]), lake_bottom)
+                    telev = min(cell_top, lake_top)
+                if telev - belev <= _MIN_BANK_THICKNESS_M:
+                    continue  # neighbour cell sits outside the lake vertical extent
                 if _neighbour_behind_wall(cid, neighbour):
                     sealed[0] += 1
                     continue  # seal: no bank seepage across the dam
@@ -506,15 +583,6 @@ def build_lake_connectiondata(
                 )
                 if connlen <= 0.0:
                     continue
-                cell_top = float(top[neighbour]) if lay == 0 else float(botm[lay - 1, neighbour])
-                if dynamic_area:
-                    belev = max(float(botm[lay, neighbour]), lake_top)
-                    telev = min(cell_top, float(top[neighbour]))
-                else:
-                    belev = max(float(botm[lay, neighbour]), lake_bottom)
-                    telev = min(cell_top, lake_top)
-                if telev <= belev:
-                    continue  # neighbour cell sits outside the lake vertical extent
                 out.append(
                     [
                         int(lake_index),
@@ -540,13 +608,14 @@ def build_lake_connectiondata(
         lake_bottom = float(botm[occ_c - 1, cid])
         if dynamic_area:
             # Active-littoral (marnage): the lakebed cell stays ACTIVE with the
-            # bathymetric bed as its top; one VERTICAL connection on the cell itself
-            # (bed seepage; MF6 wets it when stage > bed and toggles RCH/ET per cell).
+            # bathymetric bed as its top; one VERTICAL connection on the top active
+            # cell of the column (bed seepage; MF6 wets it when stage > bed and
+            # toggles RCH/ET per cell). A pinched top layer is skipped.
             rows.append(
                 [
                     int(lake_index),
                     iconn,
-                    (0, int(cid)),
+                    (int(top_active[cid]), int(cid)),
                     _VERTICAL,
                     float(bedleak),
                     0.0,
@@ -579,7 +648,7 @@ def build_lake_connectiondata(
         # HORIZONTAL (bank) seepage: for a fixed-area lake always; for a marnage
         # lake only when bank_seepage is on (add the bank path to the bed one).
         if (not dynamic_area) or bank_seepage:
-            hrows = _horizontal_rows(cid, lake_top, lake_bottom, occ_c, iconn)
+            hrows = _horizontal_rows(cid, lake_top, lake_bottom, iconn)
             rows.extend(hrows)
             iconn += len(hrows)
 

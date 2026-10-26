@@ -37,7 +37,10 @@ from hydromodpy.calibration.metrics.solver_extract import (
     observable_request_for_output,
 )
 from hydromodpy.core.contracts.observables import ObservableResult
-from hydromodpy.solver.base.cell_lookup import locate_cell_on_solver_mesh
+from hydromodpy.solver.base.cell_lookup import (
+    locate_cell_on_solver_mesh,
+    top_active_layer_on_solver_mesh,
+)
 from hydromodpy.solver.modflow_common import observable_extraction as _extraction
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -85,6 +88,9 @@ class _Adapter:
 
     def locate_cell(self, run_ctx, x, y):
         return locate_cell_on_solver_mesh(run_ctx, x, y)
+
+    def top_active_layer(self, run_ctx, row, col):
+        return top_active_layer_on_solver_mesh(run_ctx, row, col)
 
 
 @pytest.fixture

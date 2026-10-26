@@ -1,8 +1,18 @@
 """Read self-contained catchment mesh exchange bundles.
 
-This module is intentionally lightweight so it can be copied next to one
-exported bundle and used outside the full HydroModPy codebase. It depends only
-on the Python standard library.
+A bundle is a folder of CSV files (``nodes``, ``cells``, ``edges``) and a
+``metadata.json``. No mesh engine writes one any more: a run stores its cells
+in ``fields.zarr`` and the solvers get them as a ``PlanarCellMesh``. The reader
+stays for the bundles that are written by hand and committed:
+
+- the Boussinesq validation cases, which write them with
+  ``validation_cases/shared`` and keep 16 of them in ``mesh_bundles/``;
+- ``Boussinesq`` itself, which reads one from ``output_exchange_bundle_dir`` of
+  the mesh summary (``flow_to_boussinesq_adapter.resolve_mesh_bundle``);
+- ``bundle_cell_mesh``, which turns a bundle into a ``PlanarCellMesh`` for the
+  mesh tests.
+
+It depends only on the Python standard library.
 """
 
 from __future__ import annotations

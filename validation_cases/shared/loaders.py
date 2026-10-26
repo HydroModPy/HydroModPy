@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
@@ -986,6 +987,10 @@ def load_time_series_fields(
             errors.append(exc)
         if budgets is not None and not budgets.empty:
             chd = budgets[budgets["component"].str.lower() == _CONSTANT_HEAD_COMPONENT]
+            # The catchment zone is a second support of the same records, the
+            # basin of D inside the domain, and not a second boundary. A flux
+            # across a boundary of the model is read on the domain row.
+            chd = chd[chd["zone_id"].astype(str) != CATCHMENT_BUDGET_ZONE]
             if chd.empty:
                 raise RuntimeError(
                     f"'{observable_name}' asks for the flux across a constant-head "

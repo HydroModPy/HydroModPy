@@ -4,15 +4,23 @@ Usage: python -m tools.docs.toml_changelog OLD.json NEW.json OUT.json
 
 An added or removed table is listed once, not field by field. A removed path
 that a field of the new tree declares in ``renamed_from`` is listed as renamed,
-not as removed. Pseudo-nodes (named instances such as ``flow.param.K``) are not
-fields of the file and never count as a change. Nor do the keys of another file
-(the catchment report file), which the project file does not hold.
+not as removed.
+
+A table the loader moves whole (``moves``, old path to new path, read from
+``config_migration.MOVED_TABLES``) is listed as renamed too. Its keys that kept
+their name are neither added nor removed: they are compared across the move, so
+a changed default still shows. A key that is new in the moved table is added.
+
+Pseudo-nodes (named instances such as ``flow.param.K``) are not fields of the
+file and never count as a change. Nor do the keys of another file (the
+catchment report file), which the project file does not hold.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -58,27 +66,57 @@ def _renamed_to(path: str, renames: dict[str, str]) -> str | None:
     return None
 
 
-def diff(old_doc: dict, new_doc: dict) -> dict:
-    """Keys added, removed, renamed and changed between two registry payloads."""
+def _carried(
+    old: dict[str, dict], new: dict[str, dict], moves: Mapping[str, str]
+) -> dict[str, str]:
+    """New path -> old path, for each key of a moved table that kept its name.
+
+    A key counts when it is new at its path and the old table held it. When two
+    old tables moved to the same one, the first by path is the one compared.
+    """
+    carried: dict[str, str] = {}
+    for src, dst in sorted(moves.items()):
+        for path in new:
+            if path.startswith(f"{dst}.") and path not in old:
+                before = src + path[len(dst) :]
+                if before in old:
+                    carried.setdefault(path, before)
+    return carried
+
+
+def _leaf_changes(a: dict, b: dict) -> dict[str, list]:
+    """The watched attributes of a leaf that differ between its two versions."""
+    if a.get("kind") != "leaf" or b.get("kind") != "leaf":
+        return {}
+    return {k: [a.get(k), b.get(k)] for k in WATCH if _norm(a.get(k)) != _norm(b.get(k))}
+
+
+def diff(old_doc: dict, new_doc: dict, moves: Mapping[str, str] | None = None) -> dict:
+    """Keys added, removed, renamed and changed between two registry payloads.
+
+    ``moves`` maps the old path of a table the loader moves whole to its new path.
+    """
     old = {p: n for p, n in old_doc["nodes"].items() if not (n.get("pseudo") or n.get("file"))}
     new = {p: n for p, n in new_doc["nodes"].items() if not (n.get("pseudo") or n.get("file"))}
     added = {p for p in new if p and p not in old}
     removed = {p for p in old if p and p not in new}
     renames = _renames(new)
+    moved = {src: dst for src, dst in (moves or {}).items() if src in removed and dst in new}
+    renames.update(moved)
+    carried = _carried(old, new, moved)
+    added -= {*carried, *moved.values()}
     renamed = []
-    for p in sorted(p for p in removed if parent(p) not in removed):
+    for p in sorted(p for p in removed if parent(p) not in removed or p in moved):
         target = _renamed_to(p, renames)
         if target is not None:
             renamed.append({"from": p, "to": target})
     renamed_from = {r["from"] for r in renamed}
     changed = []
-    for p in sorted(set(old) & set(new)):
-        a, b = old[p], new[p]
-        if a.get("kind") != "leaf" or b.get("kind") != "leaf":
-            continue
-        changes = {k: [a.get(k), b.get(k)] for k in WATCH if _norm(a.get(k)) != _norm(b.get(k))}
+    pairs = [(p, p) for p in set(old) & set(new)] + list(carried.items())
+    for path, before in sorted(pairs):
+        changes = _leaf_changes(old[before], new[path])
         if changes:
-            changed.append({"path": p, "changes": changes})
+            changed.append({"path": path, "changes": changes})
     return {
         "from": old_doc["meta"].get("label"),
         "to": new_doc["meta"].get("label"),
@@ -89,18 +127,24 @@ def diff(old_doc: dict, new_doc: dict) -> dict:
     }
 
 
-def history(docs: list[dict]) -> dict[str, Any]:
+def history(docs: list[dict], moves: Mapping[str, str] | None = None) -> dict[str, Any]:
     """Every pair (older, newer) of a list of registry payloads, oldest first."""
     labels = [d["meta"].get("label") for d in docs]
     pairs = []
     for i, older in enumerate(docs):
         for newer in docs[i + 1 :]:
-            pairs.append(diff(older, newer))
+            pairs.append(diff(older, newer, moves))
     return {"versions": labels, "pairs": pairs}
 
 
 def main() -> None:
-    out = diff(json.loads(Path(sys.argv[1]).read_text()), json.loads(Path(sys.argv[2]).read_text()))
+    from tools.docs import legacy_keys
+
+    out = diff(
+        json.loads(Path(sys.argv[1]).read_text()),
+        json.loads(Path(sys.argv[2]).read_text()),
+        legacy_keys.moved_tables(),
+    )
     Path(sys.argv[3]).write_text(json.dumps(out, indent=1, ensure_ascii=False))
     print(
         f"added {len(out['added'])}, removed {len(out['removed'])}, "

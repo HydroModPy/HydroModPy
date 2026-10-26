@@ -27,7 +27,8 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   with a line saying whether it held other values. An existing
   ``[domain.layers]`` wins over both. The dotted override
   ``"<solver>.sgrid.vertical.<key>"`` of a calibration phase ->
-  ``"domain.layers.<key>"``, under the same rule.
+  ``"domain.layers.<key>"``, under the same rule. The paths come from
+  :data:`MOVED_TABLES`, which the changes page of the docs reads too.
 - ``geographic.bottom_path`` -> one ``[[data.substratum.sources]]`` entry,
   ``[domain.depth_model]`` left as it is (the old key was never read)
 - ``[simulation.results.derived]`` and ``[simulation.results.budget]`` dropped,
@@ -86,6 +87,34 @@ _SOLVER_SECTIONS = ("modflow6", "modflownwt")
 RETIRED_RESULTS_TABLES: tuple[str, ...] = (
     "simulation.results.derived",
     "simulation.results.budget",
+)
+
+
+@dataclass(frozen=True)
+class TableMove:
+    """A table the loader moves, whole, to another path.
+
+    Every key of the table keeps its name under the new path. A calibration phase
+    that sets one by its dotted path, ``"<old>.<key>"`` in ``overrides``, is moved
+    to ``"<new>.<key>"`` too. The migration below and the docs read the same
+    declaration, so the changes page lists the move the loader makes.
+    """
+
+    old: str
+    new: str
+
+    @property
+    def section(self) -> str:
+        """The top-level section of the old path, the solver that wrote the table."""
+        return self.old.split(".", 1)[0]
+
+
+_LAYERING = "domain.layers"
+
+#: The tables the loader moves to another path: the layering each solver wrote
+#: under ``sgrid``, which every solver reads from ``[domain.layers]`` now.
+MOVED_TABLES: tuple[TableMove, ...] = tuple(
+    TableMove(f"{section}.sgrid.vertical", _LAYERING) for section in _SOLVER_SECTIONS
 )
 
 
@@ -1428,34 +1457,36 @@ def _move_the_layering(doc: Any) -> list[str]:
     held other values. An existing ``[domain.layers]`` wins over both.
     """
     found: dict[str, Any] = {}
-    for name in _SOLVER_SECTIONS:
-        sgrid = _descend(doc, [name, "sgrid"])
-        if sgrid is not None and isinstance(sgrid.get("vertical"), Mapping):
-            found[name] = sgrid["vertical"]
+    for move in MOVED_TABLES:
+        table = _descend(doc, move.old.split("."))
+        if table is not None:
+            found[move.section] = table
     if not found:
         return []
-    domain = doc.get("domain")
-    layers = domain.get("layers") if isinstance(domain, Mapping) else None
+    parent_key, layers_key = _LAYERING.split(".")
+    domain = doc.get(parent_key)
+    layers = domain.get(layers_key) if isinstance(domain, Mapping) else None
     kept = None
     if not isinstance(layers, Mapping):
         kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
         layers = found[kept]
     changes: list[str] = []
+    old_of = {move.section: move.old for move in MOVED_TABLES}
     for name, table in found.items():
-        _drop_the_solver_layering(doc, name)
+        _drop_table(doc, old_of[name])
         if name == kept:
-            changes.append(f"{name}.sgrid.vertical -> [domain.layers]")
+            changes.append(f"{old_of[name]} -> [{_LAYERING}]")
             continue
-        owner = "[domain.layers] already set" if kept is None else f"{kept} is the flow solver"
+        owner = f"[{_LAYERING}] already set" if kept is None else f"{kept} is the flow solver"
         difference = _layering_difference(table, layers)
         held = f"it held other values: {difference}" if difference else "same values"
-        changes.append(f"{name}.sgrid.vertical dropped ({owner}; {held})")
+        changes.append(f"{old_of[name]} dropped ({owner}; {held})")
     if kept is not None:
         if not isinstance(domain, Mapping):
             is_file = isinstance(doc, tomlkit.TOMLDocument)
-            doc["domain"] = tomlkit.table(is_super_table=True) if is_file else {}
-            domain = doc["domain"]
-        domain["layers"] = layers
+            doc[parent_key] = tomlkit.table(is_super_table=True) if is_file else {}
+            domain = doc[parent_key]
+        domain[layers_key] = layers
     return changes
 
 
@@ -1472,13 +1503,15 @@ def _move_the_phase_layering(doc: Any) -> list[str]:
         if not isinstance(overrides, Mapping):
             continue
         found: dict[str, list[str]] = {}
-        for name in _SOLVER_SECTIONS:
-            table = f"{name}.sgrid.vertical"
-            keys = [str(key) for key in overrides if key == table or key.startswith(f"{table}.")]
+        for move in MOVED_TABLES:
+            keys = [
+                str(key) for key in overrides if key == move.old or key.startswith(f"{move.old}.")
+            ]
             if keys:
-                found[name] = keys
+                found[move.section] = keys
         if not found:
             continue
+        old_of = {move.section: move for move in MOVED_TABLES}
         kept = _flow_solver_section(doc) if len(found) > 1 else next(iter(found))
         for name, keys in found.items():
             for key in keys:
@@ -1487,7 +1520,7 @@ def _move_the_phase_layering(doc: Any) -> list[str]:
                     del overrides[key]
                     changes.append(f"{label} dropped ({kept} is the flow solver)")
                     continue
-                moved = "domain.layers" + key.removeprefix(f"{name}.sgrid.vertical")
+                moved = old_of[name].new + key.removeprefix(old_of[name].old)
                 if moved in overrides:
                     changes.append(f'{label} left: "{moved}" is given too, keep one')
                     continue
@@ -1496,15 +1529,15 @@ def _move_the_phase_layering(doc: Any) -> list[str]:
     return changes
 
 
-def _drop_the_solver_layering(doc: Any, name: str) -> None:
-    """Delete ``<name>.sgrid.vertical``, then the tables it leaves empty."""
-    section = doc[name]
-    sgrid = section["sgrid"]
-    del sgrid["vertical"]
-    if not sgrid:
-        del section["sgrid"]
-    if not section:
-        del doc[name]
+def _drop_table(doc: Any, path: str) -> None:
+    """Delete the table at *path*, then each parent table it leaves empty."""
+    parts = path.split(".")
+    while parts:
+        parent = _descend(doc, parts[:-1])
+        del parent[parts[-1]]
+        parts.pop()
+        if parent:
+            return
 
 
 def _promote_export(doc: Any, simulation: Any) -> list[str]:
@@ -1526,9 +1559,11 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
 
 
 __all__ = [
+    "MOVED_TABLES",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
     "KeyRename",
+    "TableMove",
     "drop_retired_results_tables",
     "fix_config_file",
     "migrate_config_doc",

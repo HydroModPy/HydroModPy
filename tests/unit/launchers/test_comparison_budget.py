@@ -9,7 +9,6 @@ import pytest
 
 from hydromodpy.analysis.comparison.exports import (
     _load_table_budget_rows,
-    write_boussinesq_obstacle_diagnostics_export,
     write_budget_exports,
 )
 
@@ -18,6 +17,12 @@ from ._comparison_builders import (
     _serve_sources,
     _write_boussinesq_run_folder,
 )
+
+BOUSSINESQ_CONFIG = """
+[flow.param.Sy]
+value = 0.08
+"""
+"""The run config holds the one Sy the storage term reads."""
 
 
 def test_write_budget_exports_derives_boussinesq_budget_timeseries(
@@ -29,7 +34,7 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
-    config_path.write_text("[workspace]\n", encoding="utf-8")
+    config_path.write_text(BOUSSINESQ_CONFIG, encoding="utf-8")
     _serve_sources(monkeypatch, [store])
     artifacts, rows = write_budget_exports(
         comparison_root=comparison_root,
@@ -104,7 +109,7 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
 
     comparison_root = tmp_path / "comparison"
     config_path = tmp_path / "run_bouss_budget.toml"
-    config_path.write_text("[workspace]\n", encoding="utf-8")
+    config_path.write_text(BOUSSINESQ_CONFIG, encoding="utf-8")
     _serve_sources(monkeypatch, [store])
     _, rows = write_budget_exports(
         comparison_root=comparison_root,
@@ -128,39 +133,6 @@ def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
         if row["component"] == "closure_residual_m3_s" and int(row["period_index"]) == 0
     )
     assert float(residual_row["value"]) == pytest.approx(0.18)
-
-
-def test_write_boussinesq_obstacle_diagnostics_exports_bounds_and_dry_deficit(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    run_folder = tmp_path / "run_bouss_obstacles"
-    _serve_sources(monkeypatch, [_write_boussinesq_run_folder(run_folder)])
-
-    artifacts, rows = write_boussinesq_obstacle_diagnostics_export(
-        comparison_root=tmp_path / "comparison",
-        simulation_summaries=[
-            {
-                "id": "bouss_demo",
-                "label": "Bouss demo",
-                "solver": "boussinesq",
-                "mesh_mode": "triangle",
-                "status": "completed",
-                "run_folder": str(run_folder),
-                "run_dir": str(run_folder),
-            }
-        ],
-    )
-
-    assert artifacts
-    assert rows
-    last = next(row for row in rows if int(row["time_index"]) == 1)
-    assert float(last["min_head_above_bottom_m"]) == pytest.approx(-0.3)
-    assert float(last["max_head_below_bottom_m"]) == pytest.approx(0.3)
-    assert int(last["head_below_bottom_cell_count"]) == 1
-    assert float(last["negative_storage_volume_m3"]) == pytest.approx(0.24)
-    assert int(last["dry_deficit_active_cell_count"]) == 1
-    assert float(last["dry_deficit_total_m3_s"]) == pytest.approx(0.005 * OUTLET_CELL_AREA_M2)
 
 
 def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(

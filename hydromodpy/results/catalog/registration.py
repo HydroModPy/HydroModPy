@@ -81,6 +81,12 @@ def run_identity_hash(
     under the project root enters the hash relative to it, so two copies of
     one project hash alike.
 
+    A run the configuration reads (``[flow] restart_from``, the ``run`` of a
+    ``[[mesh.refinement_zone]]``) enters by its ``sim_id``
+    (:func:`~hydromodpy.results.source_runs.resolve_source_runs`): the
+    configuration of a run and the one it froze, which names the ``sim_id``,
+    hash alike, and a later version of the source run is another computation.
+
     The run name is not part of the hash: it is the directory, which a rename
     moves. Overrides that do not serialise to JSON get a random salt: such a
     run never matches another one, which errs on the side of computing.
@@ -88,11 +94,13 @@ def run_identity_hash(
     if not config:
         return None
     from hydromodpy.core.version import __version__
+    from hydromodpy.results.source_runs import resolve_source_runs
 
     payload = json.loads(json.dumps(config, default=str))
     workspace = payload.pop(_WORKSPACE_SECTION, None)
     project_root = workspace.get("project_root") if isinstance(workspace, dict) else None
     if project_root:
+        resolve_source_runs(payload, Path(str(project_root)))
         payload = _relative_to_project(payload, Path(str(project_root)))
     simulation = payload.get("simulation")
     if isinstance(simulation, dict):

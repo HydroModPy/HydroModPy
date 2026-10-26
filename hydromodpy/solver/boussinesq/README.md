@@ -5,7 +5,8 @@ HydroModPy on triangular meshes.
 
 The package has a deliberately narrow goal:
 
-- start from a gmsh-derived `CatchmentMeshBundle`,
+- start from a `CatchmentMeshBundle`, built from the cell mesh or read from a
+  bundle folder,
 - build a compact solver-owned mesh view,
 - assemble the nonlinear residual in terms of hydraulic head,
 - delegate the nonlinear solve to one runtime backend,

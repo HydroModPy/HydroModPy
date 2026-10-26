@@ -124,3 +124,29 @@ def test_two_constant_head_zones_refuse_a_per_boundary_question() -> None:
         load_time_series_fields(
             store=store, sim_id="sim", observable_name="outlet_discharge_east_side_m3_s"
         )
+
+
+def test_a_catchment_row_beside_the_domain_row_is_no_second_boundary() -> None:
+    """The catchment zone holds the cells of the basin of D, inside the domain.
+
+    A run with a basin writes it beside the domain row of every component. The
+    flux across the one fixed-head side is the domain row. The catchment row is
+    a second support of the same records, not a second side.
+    """
+    store = _BudgetOnlyStore(
+        _budget_rows(
+            [
+                (0, "0", "constant_head", 3.0),
+                (0, "catchment", "constant_head", 0.0),
+                (1, "0", "constant_head", 2.0),
+                (1, "catchment", "constant_head", 0.0),
+            ]
+        )
+    )
+
+    indices, values = load_time_series_fields(
+        store=store, sim_id="sim", observable_name="outlet_discharge_east_side_m3_s"
+    )
+
+    assert indices.tolist() == [0, 1]
+    assert values.tolist() == [3.0, 2.0]

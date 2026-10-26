@@ -8,6 +8,7 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
 
 logger = get_logger(__name__)
 
@@ -172,11 +173,18 @@ def build_concentration_runtime_overrides(
     return overrides
 
 
-_FLOW_PROPERTY_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-    ("K", "hk", "hk_value", ("K", "k", "hk")),
-    ("Sy", "sy", "sy_value", ("Sy", "SY", "sy", "S", "s")),
-    ("Ss", "ss", "ss_value", ("Ss", "SS", "ss")),
+_FLOW_PROPERTY_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = tuple(
+    (
+        canonical,
+        name,
+        f"{name}_value",
+        aliases if name in aliases else (*aliases, name),
+    )
+    for canonical, aliases, name, _label in FLOW_PROPERTY_SPECS
 )
+"""Every property of the shared mapping, K22 and the angles included, so an
+override reaches the same arrays as the flow parameter it replaces. The output
+name (``hk``, ``kv``, ...) is accepted as one more alias."""
 
 
 def _coerce_flow_property_override(
@@ -210,6 +218,14 @@ def _extract_flow_property_mapping(
         return {}
     nested = parameters.get("properties")
     if isinstance(nested, Mapping):
+        known = {alias for *_, aliases in _FLOW_PROPERTY_SPECS for alias in aliases}
+        unknown = sorted(str(key) for key in nested if key not in known)
+        if unknown:
+            raise ValueError(
+                f"Runtime property override(s) {', '.join(unknown)} name no flow property. "
+                "An override sets one of "
+                f"{', '.join(spec[0] for spec in _FLOW_PROPERTY_SPECS)}."
+            )
         return nested
     return parameters
 
@@ -228,6 +244,10 @@ def resolve_flow_property_runtime_overrides(
 
     - one direct mapping such as ``{"K": [..], "Sy": 0.2}``, or
     - one envelope ``{"properties": {"K": [..], "Sy": 0.2}, ...}``.
+
+    The properties are those of the shared mapping: K, Kv, Sy, Ss, K22 and the
+    three angles of the K tensor. A name in the envelope that is none of them
+    is refused rather than dropped.
 
     For each property, callers may provide:
 

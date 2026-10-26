@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_run_cells
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
@@ -376,7 +376,6 @@ def _load_boussinesq_budget_rows(
     store: RunSource | None = None,
     sim_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    run_folder = Path(str(summary.get("run_folder", "")))
     config_path_raw = summary.get("config_path")
     config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     payload: Mapping[str, Any] | None = None
@@ -456,21 +455,11 @@ def _load_boussinesq_budget_rows(
         0,
     )
     if n_cells > 0:
-        cells = resolve_bundle_cells(
-            run_folder,
-            expected_size=n_cells,
-            store=store,
-            sim_id=sim_id,
-        )
+        cells = resolve_run_cells(store, sim_id, expected_size=n_cells)
         if cells is not None:
             if cells.area_m2 is not None:
                 area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
-            if cells.storage_coefficient is not None:
-                storage_coefficient = np.asarray(
-                    cells.storage_coefficient,
-                    dtype=float,
-                ).reshape(-1)
-            elif (sy_value := _homogeneous_sy_from_config(config_path)) is not None:
+            if (sy_value := _homogeneous_sy_from_config(config_path)) is not None:
                 storage_coefficient = np.full(n_cells, sy_value, dtype=float)
 
     period_lengths = (
@@ -776,147 +765,6 @@ def _load_table_budget_rows(
                     "source": f"budgets.parquet(sim_id={sim_id})",
                 }
             )
-    return rows
-
-
-BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS = [
-    "simulation_id",
-    "simulation_label",
-    "solver",
-    "mesh_mode",
-    "time_index",
-    "elapsed_seconds",
-    "time_role",
-    "time_label",
-    "min_head_above_bottom_m",
-    "max_head_below_bottom_m",
-    "head_below_bottom_cell_count",
-    "negative_storage_volume_m3",
-    "max_head_above_surface_m",
-    "head_above_surface_cell_count",
-    "dry_deficit_active_cell_count",
-    "dry_deficit_total_m3_s",
-    "surface_excess_active_cell_count",
-    "surface_excess_total_m3_s",
-    "source",
-]
-
-
-def _load_boussinesq_obstacle_diagnostic_rows(
-    summary: Mapping[str, Any],
-    store: RunSource | None = None,
-    sim_id: str | None = None,
-) -> list[dict[str, Any]]:
-    """Load lower/upper obstacle diagnostics from Boussinesq state histories."""
-    run_folder = Path(str(summary.get("run_folder", "")))
-
-    payload: Mapping[str, Any] | None = None
-    source_label = ""
-    if store is not None and sim_id is not None:
-        payload = _load_boussinesq_state_from_store(store, sim_id)
-        if payload is not None:
-            source_label = f"fields.zarr(sim_id={sim_id})"
-
-    if payload is None:
-        return []
-
-    head_history = _history_matrix(payload, "head_history_m")
-    if head_history is None or head_history.ndim != 2:
-        return []
-
-    n_snapshots, n_cells = int(head_history.shape[0]), int(head_history.shape[1])
-    cells = resolve_bundle_cells(
-        run_folder,
-        expected_size=n_cells,
-        store=store,
-        sim_id=sim_id,
-    )
-    if cells is None:
-        return []
-    if (
-        cells.z_top is None
-        or cells.z_bottom is None
-        or cells.z_top.size != n_cells
-        or cells.z_bottom.size != n_cells
-    ):
-        return []
-
-    area_m2 = (
-        np.asarray(cells.area_m2, dtype=float).reshape(-1)
-        if cells.area_m2 is not None and cells.area_m2.size == n_cells
-        else np.full(n_cells, np.nan, dtype=float)
-    )
-    storage_coefficient = (
-        np.asarray(cells.storage_coefficient, dtype=float).reshape(-1)
-        if cells.storage_coefficient is not None and cells.storage_coefficient.size == n_cells
-        else np.full(n_cells, np.nan, dtype=float)
-    )
-    z_top = (
-        np.asarray(cells.z_top, dtype=float).reshape(-1)
-        if cells.z_top is not None and cells.z_top.size == n_cells
-        else np.full(n_cells, np.nan, dtype=float)
-    )
-    z_bottom = (
-        np.asarray(cells.z_bottom, dtype=float).reshape(-1)
-        if cells.z_bottom is not None and cells.z_bottom.size == n_cells
-        else np.full(n_cells, np.nan, dtype=float)
-    )
-
-    dry_deficit_history = _history_matrix(payload, "dry_deficit_history_m_s")
-    surface_history = _history_matrix(payload, "saturation_excess_history_m_s")
-    if dry_deficit_history is None or dry_deficit_history.shape != head_history.shape:
-        dry_deficit_history = np.zeros_like(head_history, dtype=float)
-    if surface_history is None or surface_history.shape != head_history.shape:
-        surface_history = np.zeros_like(head_history, dtype=float)
-
-    period_lengths = (
-        np.asarray(payload["period_lengths_seconds"], dtype=float).ravel()
-        if "period_lengths_seconds" in payload
-        else np.asarray([], dtype=float)
-    )
-    elapsed_seconds = _elapsed_seconds_axis(period_lengths, n_snapshots=n_snapshots)
-    time_labels = [
-        (f"{elapsed / 86400.0:.1f} d" if math.isfinite(float(elapsed)) else str(index))
-        for index, elapsed in enumerate(elapsed_seconds.tolist())
-    ]
-
-    rows: list[dict[str, Any]] = []
-    for time_index in range(n_snapshots):
-        head = np.asarray(head_history[time_index], dtype=float)
-        bottom_gap = head - z_bottom
-        top_gap = head - z_top
-        bottom_violation = np.maximum(-bottom_gap, 0.0)
-        top_violation = np.maximum(top_gap, 0.0)
-        dry = np.maximum(np.asarray(dry_deficit_history[time_index], dtype=float), 0.0)
-        surface = np.maximum(np.asarray(surface_history[time_index], dtype=float), 0.0)
-        negative_storage_volume = area_m2 * storage_coefficient * bottom_violation
-        rows.append(
-            {
-                "simulation_id": summary.get("id", ""),
-                "simulation_label": summary.get("label", summary.get("id", "")),
-                "solver": summary.get("solver", ""),
-                "mesh_mode": summary.get("mesh_mode", ""),
-                "time_index": time_index,
-                "elapsed_seconds": float(elapsed_seconds[time_index]),
-                "time_role": (
-                    "initial_state"
-                    if period_lengths.size == n_snapshots - 1 and time_index == 0
-                    else "state_snapshot"
-                ),
-                "time_label": time_labels[time_index],
-                "min_head_above_bottom_m": float(np.nanmin(bottom_gap)),
-                "max_head_below_bottom_m": float(np.nanmax(bottom_violation)),
-                "head_below_bottom_cell_count": int(np.nansum(bottom_violation > 0.0)),
-                "negative_storage_volume_m3": float(np.nansum(negative_storage_volume)),
-                "max_head_above_surface_m": float(np.nanmax(top_violation)),
-                "head_above_surface_cell_count": int(np.nansum(top_violation > 0.0)),
-                "dry_deficit_active_cell_count": int(np.nansum(dry > 1.0e-12)),
-                "dry_deficit_total_m3_s": float(np.nansum(dry * area_m2)),
-                "surface_excess_active_cell_count": int(np.nansum(surface > 1.0e-12)),
-                "surface_excess_total_m3_s": float(np.nansum(surface * area_m2)),
-                "source": source_label,
-            }
-        )
     return rows
 
 

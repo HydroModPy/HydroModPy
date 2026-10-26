@@ -110,6 +110,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PROVENANCE_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 from hydromodpy.results.storage.run_facts import (
     FACTS_SCHEMA,
     RunFacts,
@@ -117,6 +118,7 @@ from hydromodpy.results.storage.run_facts import (
     read_facts,
     write_facts,
 )
+from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 from hydromodpy.workflow.internals.data_description import (
     SCHEMA_VERSION as LOADED_DATA_SCHEMA,
 )
@@ -259,7 +261,12 @@ def pristine(tmp_path_factory: pytest.TempPathFactory) -> Tree:
     acquire_lease(project)
     catalog = DataCatalogDuckDB(project / "data" / "cache.duckdb")
     lockfile = project / LOCKFILE_NAME
-    write_lockfile(catalog, lockfile)
+    write_lockfile(
+        catalog,
+        lockfile,
+        zarr_schema_version=ZARR_SCHEMA_VERSION,
+        parquet_schema_version=PARQUET_SCHEMA_VERSION,
+    )
     catalog.close()
     rebuild_index(project)
     return Tree(

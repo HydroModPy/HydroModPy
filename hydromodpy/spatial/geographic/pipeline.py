@@ -227,6 +227,10 @@ def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
     catchment_payload = config_payload.get("catchment")
     if isinstance(catchment_payload, dict) and catchment_payload.get("dem_resolution") is None:
         catchment_payload.pop("dem_resolution", None)
+    # Same rule for the snap method: the window snap is what every tree cached
+    # before the key existed was built with.
+    if isinstance(catchment_payload, dict) and catchment_payload.get("snap_method") == "window":
+        catchment_payload.pop("snap_method", None)
     # Same rule for the notch: off, it changes nothing, so it leaves a cached
     # tree valid. Its vector is signed below when it is on.
     # The bed regularisation reads the weirs and dams of the crossings file, so

@@ -91,15 +91,6 @@ def _solver_version_text(binary: Path) -> str | None:
     return out.strip() or None
 
 
-# Schema versions tracked in the lockfile. The data layer cannot import from
-# ``hydromodpy.results`` / ``hydromodpy.config`` (architecture matrix). The
-# CLI (which spans every layer) injects fresh values via ``write_lockfile``
-# parameters; these constants act as the safety fallback so the lockfile
-# always carries a meaningful value.
-ZARR_SCHEMA_VERSION_DEFAULT = "2"
-PARQUET_SCHEMA_VERSION_DEFAULT = "v2"
-
-
 def _entry_to_locked(
     row: dict[str, Any], *, catalog: DataCatalogDuckDB, fetched_at: str
 ) -> LockedArtifact | None:
@@ -215,10 +206,13 @@ def write_lockfile(
     schema_sha256: str | None = None,
     project_root: Path | str | None = None,
     solvers: dict[str, Path] | None = None,
-    zarr_schema_version: str | None = None,
-    parquet_schema_version: str | None = None,
+    zarr_schema_version: str,
+    parquet_schema_version: str,
 ) -> Path:
     """Freeze the current run environment + catalog inputs into ``dest``.
+
+    The two storage schema versions belong to ``hydromodpy.results``, which this layer
+    cannot import, so the caller passes them in.
 
     The file is written atomically (tmp + ``fsync`` + ``os.replace``). The
     four mandatory sections are always emitted:
@@ -235,8 +229,6 @@ def write_lockfile(
     """
     dest = Path(dest)
 
-    zarr_ver = zarr_schema_version or ZARR_SCHEMA_VERSION_DEFAULT
-    parquet_ver = parquet_schema_version or PARQUET_SCHEMA_VERSION_DEFAULT
     # One snapshot, one instant: every timestamp in the file comes from here,
     # so a write that straddles a second boundary stays internally coherent.
     stamped_at = _now_iso()
@@ -254,8 +246,8 @@ def write_lockfile(
         hmp_table.add("project_git_commit", project_commit)
     hmp_table.add("python_version", _python_version())
     hmp_table.add("catalog_schema_version", _cache_target_version())
-    hmp_table.add("zarr_schema_version", zarr_ver)
-    hmp_table.add("parquet_schema_version", parquet_ver)
+    hmp_table.add("zarr_schema_version", zarr_schema_version)
+    hmp_table.add("parquet_schema_version", parquet_schema_version)
     hmp_table.add("generated_at", stamped_at)
     doc.add("hydromodpy", hmp_table)
 
@@ -275,8 +267,8 @@ def write_lockfile(
 
     schema_table = tomlkit.table()
     schema_table.add("catalog", _cache_target_version())
-    schema_table.add("zarr", zarr_ver)
-    schema_table.add("parquet", parquet_ver)
+    schema_table.add("zarr", zarr_schema_version)
+    schema_table.add("parquet", parquet_schema_version)
     if schema_sha256 is not None:
         schema_table.add("config_sha256", schema_sha256)
     doc.add("schema", schema_table)
@@ -471,13 +463,20 @@ def archive_lockfile(
     catalog: DataCatalogDuckDB,
     dest: Path | str,
     *,
+    zarr_schema_version: str,
+    parquet_schema_version: str,
     lockfile_dest: Path | str | None = None,
 ) -> Path:
     """Produce an archive containing the lockfile and every artefact."""
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     lockfile_dest = Path(lockfile_dest) if lockfile_dest else (dest.parent / LOCKFILE_NAME)
-    write_lockfile(catalog, lockfile_dest)
+    write_lockfile(
+        catalog,
+        lockfile_dest,
+        zarr_schema_version=zarr_schema_version,
+        parquet_schema_version=parquet_schema_version,
+    )
 
     stream, raw, mode = _open_writer(dest)
     try:

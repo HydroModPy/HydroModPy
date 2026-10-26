@@ -42,8 +42,10 @@ from hydromodpy.spatial.terrain.port import (
     ConditioningMethod,
     DrainageDirections,
     FlowAccumulation,
+    JensonSnap,
     Outlet,
     PointerConvention,
+    SnapMethod,
     StreamNetwork,
     TerrainEngine,
     engine_members,
@@ -51,8 +53,10 @@ from hydromodpy.spatial.terrain.port import (
     require_batch,
     require_rank_preserving,
     require_resolvable_counts,
+    require_snap_method,
     require_untransformed,
     snap_window_cells,
+    stream_window_refusal,
 )
 
 __all__ = [
@@ -76,9 +80,11 @@ __all__ = [
     "ConditioningMethod",
     "DrainageDirections",
     "FlowAccumulation",
+    "JensonSnap",
     "NumpyTerrainEngine",
     "Outlet",
     "PointerConvention",
+    "SnapMethod",
     "StreamNetwork",
     "TerrainEngine",
     "WhiteboxTerrainEngine",
@@ -87,8 +93,10 @@ __all__ = [
     "require_batch",
     "require_rank_preserving",
     "require_resolvable_counts",
+    "require_snap_method",
     "require_untransformed",
     "snap_window_cells",
+    "stream_window_refusal",
 ]
 
 _LAZY_IMPORTS = {

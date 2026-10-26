@@ -190,10 +190,29 @@ class OutletCatchDef(_CatchDefBase):
     snap_dist: Annotated[LengthMeters, Profile.USER] = Field(
         gt=0.0,
         description=(
-            "Maximum snapping distance (metres) to move the outlet to the nearest stream cell. "
+            "Width (metres) of the square window the outlet is moved inside, centred on the "
+            "declared coordinate. Not a maximum displacement: the window reaches "
+            "floor(snap_dist / (2 * cell size)) cells on each side, so a value equal to the "
+            "cell size moves nothing, and 150 m on a 25 m grid reaches 3 cells, 75 m. "
+            "snap_method says where the outlet lands in the window. "
             "Accepts inline units (e.g. 50, '50 m', '0.05 km')."
         ),
         examples=["150 m"],
+    )
+    snap_method: Annotated[Literal["window", "jenson"], Profile.USER] = Field(
+        default="window",
+        description=(
+            "Where the outlet lands inside the window of snap_dist. 'window' (default) takes "
+            "the cell with the largest flow accumulation, so it can land on a larger stream "
+            "that lies in the window beside the one the outlet was declared on. 'jenson' "
+            "takes the nearest cell of the stream network drawn from the DEM (Jenson and "
+            "Domingue 1988, as used by Lindsay, Rothwell and Davies 2008), so it stays on the "
+            "nearest stream, and it refuses an outlet with no stream cell in its window. "
+            "The network is the cells that drain more than the threshold of "
+            "[geographic.river_network] (threshold_area_km2 in km^2, or threshold_cells), "
+            "which 'jenson' needs even when that section is not enabled. It is computed from "
+            "the DEM: no observed network is read."
+        ),
     )
     buff_area: Annotated[str | float, Profile.USER] = Field(
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
@@ -795,6 +814,11 @@ class GeographicConfig(HydroModelBase):
         return getattr(self.catchment, "snap_dist", None) if self.catchment is not None else None
 
     @property
+    def snap_method(self) -> str:
+        """Outlet snap method for 'from_outlet_coord' variant, 'window' otherwise."""
+        return getattr(self.catchment, "snap_method", "window")
+
+    @property
     def buff_area(self) -> str | float | None:
         """Watershed buffer for outlet/polygon variants, or None otherwise."""
         return getattr(self.catchment, "buff_area", None) if self.catchment is not None else None
@@ -814,6 +838,7 @@ class GeographicConfig(HydroModelBase):
         y: float,
         dem: str | Path,
         snap_dist: float | str = 150.0,
+        snap_method: Literal["window", "jenson"] = "window",
         buff_area: float | str = "10%",
         crs_project: str | None = None,
         **overrides,
@@ -827,6 +852,7 @@ class GeographicConfig(HydroModelBase):
                 "x_outlet": float(x),
                 "y_outlet": float(y),
                 "snap_dist": snap_dist,
+                "snap_method": snap_method,
                 "buff_area": buff_area,
             },
             crs_project=crs_project,
@@ -926,6 +952,18 @@ class GeographicConfig(HydroModelBase):
                 f"'capped_breach', and dem_correc_type is {self.dem_correc_type!r}, which "
                 "has none: remove the section or select 'capped_breach'."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _check_jenson_snap_has_a_network(self) -> GeographicConfig:
+        """Refuse a Jenson snap with no threshold to draw its stream network from."""
+        if self.snap_method != "jenson":
+            return self
+        refusal = self.river_network.missing_threshold_refusal(
+            needed_by="geographic.catchment.snap_method = 'jenson'"
+        )
+        if refusal is not None:
+            raise ValueError(refusal)
         return self
 
     @model_validator(mode="after")

@@ -9,6 +9,7 @@ from __future__ import annotations
 from hydromodpy.spatial.mesh.sizing.size_field import (
     MAX_SIZE_FIELD_PIXELS,
     OutsideCoarsening,
+    PixelRegion,
     SizeTerm,
     build_size_field,
     sample_size_field,
@@ -17,6 +18,7 @@ from hydromodpy.spatial.mesh.sizing.size_field import (
 __all__ = [
     "MAX_SIZE_FIELD_PIXELS",
     "OutsideCoarsening",
+    "PixelRegion",
     "SizeTerm",
     "build_size_field",
     "sample_size_field",

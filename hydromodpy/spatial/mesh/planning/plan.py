@@ -17,6 +17,8 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 import shapely
+from rasterio.features import rasterize
+from rasterio.transform import Affine
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring
@@ -50,6 +52,7 @@ from hydromodpy.spatial.mesh.request import (
 from hydromodpy.spatial.mesh.sizing.gap import gap_terms
 from hydromodpy.spatial.mesh.sizing.size_field import (
     OutsideCoarsening,
+    PixelRegion,
     SizeTerm,
     build_size_field,
     sample_size_field,
@@ -117,6 +120,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
             domain = inputs.domain
             sizing = _sizing(mesh_cfg, inputs, domain, graded=graded, pixel=pixel)
     cleanup.log()
+    sized = sizing.size_field is not None
     return MeshRequest(
         domain=domain,
         crs_wkt=inputs.crs_wkt,
@@ -127,7 +131,13 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
         seed=mesh_cfg.seed,
         options=_engine_options(mesh_cfg, inputs.dem_grid),
         input_triangulation=triangulation,
-        notes=(*inputs.notes, *sizing.notes, *cleanup.notes()),
+        notes=(
+            *inputs.notes,
+            *sizing.notes,
+            *(_zone_notes(inputs) if sized else ()),
+            *cleanup.notes(),
+        ),
+        source_runs=_source_runs(inputs) if sized else (),
     )
 
 
@@ -244,6 +254,8 @@ def _ignored_settings(mesh_cfg: MeshConfig, *, graded: bool) -> list[str]:
     ignored = [
         name for name in ("river_cell_size", "river_band") if getattr(mesh_cfg, name) is not None
     ]
+    if mesh_cfg.refinement_zone:
+        ignored.append("refinement_zone")
     if not ignored:
         return []
     return [f"{mesh_cfg.engine} ignores {' and '.join(ignored)}: it does not grade its cells"]
@@ -390,7 +402,10 @@ def _size_terms(
     h0: float,
     pixel: float,
 ) -> list[SizeTerm]:
-    """The refinement terms: rivers, barrier corners, lake shore, interior and structures, zones."""
+    """The refinement terms: rivers, barrier corners, lake shore, interior and structures, zones.
+
+    A zone drawn by a threshold that selected no pixel adds no term.
+    """
     terms: list[SizeTerm] = _barrier_corner_terms(families, h0=h0, pixel=pixel)
     rivers = next((family for family in families if family.name == "rivers"), None)
     if rivers is not None:
@@ -436,6 +451,8 @@ def _size_terms(
                 )
             )
     for index, zone in enumerate(inputs.refinement_zones):
+        if zone.region.is_empty:
+            continue
         terms.append(
             SizeTerm(
                 name=f"zone:{index}",
@@ -445,6 +462,49 @@ def _size_terms(
             )
         )
     return terms
+
+
+def _source_runs(inputs: PlanningInputs) -> tuple[str, ...]:
+    """The sim ids of the earlier runs whose fields drew a refinement zone."""
+    return tuple(sorted({zone.source_run for zone in inputs.refinement_zones if zone.source_run}))
+
+
+def _zone_notes(inputs: PlanningInputs) -> tuple[str, ...]:
+    """One note per zone drawn by a threshold: the share of the catchment it covers.
+
+    The share is that of the pixels of the catchment, or of the domain when
+    no catchment is known. A zone that selects no pixel refines nothing.
+    """
+    zones = [
+        (index, zone)
+        for index, zone in enumerate(inputs.refinement_zones)
+        if isinstance(zone.region, PixelRegion)
+    ]
+    if not zones:
+        return ()
+    grid = inputs.dem_grid
+    area = inputs.watershed if inputs.watershed is not None else inputs.domain
+    name = "catchment" if inputs.watershed is not None else "domain"
+    inside = rasterize(
+        [(area, 1)],
+        out_shape=(grid.nrow, grid.ncol),
+        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        fill=0,
+        dtype="uint8",
+    ).astype(bool)
+    total = max(int(inside.sum()), 1)
+    notes = []
+    for index, zone in zones:
+        share = float((zone.region.mask & inside).sum()) / total
+        note = (
+            f"refinement zone {index} ({zone.label}) selects no pixel and refines nothing"
+            if zone.region.is_empty
+            else f"refinement zone {index} ({zone.label}) covers {100.0 * share:.1f} % of "
+            f"the {name}, at {zone.cell_size_m:g} m"
+        )
+        _logger.info("%s.", note[0].upper() + note[1:])
+        notes.append(note)
+    return tuple(notes)
 
 
 def _gap_terms(

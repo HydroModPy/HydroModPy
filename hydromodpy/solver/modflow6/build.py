@@ -116,6 +116,7 @@ from hydromodpy.solver.modflow_grid import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
+from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
@@ -1058,6 +1059,10 @@ def run_pre_processing(  # noqa: PLR0915
         model.solver_mesh = solver_mesh
         model.inactive_mask = solver_mesh.closed_surface(model._lake_cell_ids)
         model.dem_mask = model.inactive_mask
+
+    # The grid is final once the lake footprint is inactive, so the groups of active
+    # cells are counted here: a lake can cut a stack that was whole before it.
+    warn_on_disconnected_active_cells(solver_mesh, lake_cell_ids_by_lake.values())
 
     # Measured here and not on the raw grid: the lake mask moves the surface the
     # drains sit on.

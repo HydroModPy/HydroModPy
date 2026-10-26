@@ -107,6 +107,36 @@ def _first_active_layer_below(
     return None
 
 
+def _lake_bed_layers(idomain_col: np.ndarray, occupied_layers: int) -> np.ndarray:
+    """Return the layers a carved bed re-grades in one lake column.
+
+    The cap layers are all kept, pass-through cells included, because the lake
+    takes them. Below the cap a pass-through cell (``idomain = -1``) is left out:
+    it stays flat and the active cell next to it keeps the thickness.
+    """
+    column = np.asarray(idomain_col)
+    layers = np.arange(column.size)
+    return layers[(layers < occupied_layers) | (column != -1)]
+
+
+def _flat_pass_through(
+    top: float, layers: np.ndarray, bottoms: np.ndarray, nlay: int
+) -> np.ndarray:
+    """Return the bottoms of a column whose left-out layers sit flat on the cell above.
+
+    ``bottoms`` holds the new bottom of each layer of ``layers``. A layer not in
+    ``layers`` gets the bottom of the cell above it, so it has no thickness, as the
+    pinch-out leaves a pass-through cell.
+    """
+    out = np.empty(nlay, dtype=float)
+    upper = float(top)
+    kept = dict(zip((int(k) for k in layers), (float(b) for b in bottoms), strict=True))
+    for lay in range(nlay):
+        upper = kept.get(lay, upper)
+        out[lay] = upper
+    return out
+
+
 def _drop_interior_rings(geometry: object) -> object:
     """Return the geometry with its interior rings (islands) removed.
 

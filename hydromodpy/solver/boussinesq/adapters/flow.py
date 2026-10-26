@@ -109,6 +109,10 @@ class BoussinesqFlowAdapter:
             return None
         return locate_cell_on_cell_mesh(mesh.cell_mesh, x, y)
 
+    def top_active_layer(self, ctx: RunContext, row: int, col: int) -> int | None:
+        """Return 0: this solver has one layer, so every column starts at layer 0."""
+        return 0
+
     def cleanup(self, ctx: RunContext) -> None:
         """Remove the scratch directory written by this run, if any."""
         solver_output_dir = ctx.output_dir

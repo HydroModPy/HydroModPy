@@ -7,12 +7,20 @@ it under the size field of the request. Coordinates are shifted to an origin
 rounded to the kilometre while gmsh runs, so its tolerances act on small
 numbers.
 
+A cell size of the request is the side of the square of the same mean area.
+gmsh reads a size as an edge length, so the driver multiplies every size it
+hands to gmsh by :data:`MESH_SIZE_PER_CELL_SIZE`: a triangle then has the area
+of the square of the cell size. For the same reason it resamples the family
+lines of a sized request at that edge length, since the planner cuts them at
+one vertex per cell size.
+
 ``gmsh`` is imported inside :func:`triangulate`: resolving the engine does not
 need the ``mesh`` extra, building with it does.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,16 +33,28 @@ from shapely.geometry.polygon import orient
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError, MeshGenerationError, MeshRequestError
+from hydromodpy.spatial.mesh.planning.resample import kink_pieces, resample_families
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
 
 if TYPE_CHECKING:
     from types import ModuleType
 
-    from hydromodpy.spatial.mesh.request import MeshRequest, SizeField
+    from hydromodpy.spatial.mesh.request import MeshRequest
 
-__all__ = ["ALGORITHMS", "CdtResult", "triangulate"]
+__all__ = ["ALGORITHMS", "MESH_SIZE_PER_CELL_SIZE", "CdtResult", "triangulate"]
 
 ALGORITHMS: dict[str, int] = {"meshadapt": 1, "delaunay": 5, "frontal": 6}
 """gmsh ``Mesh.Algorithm`` number of each ``[mesh.triangle] algorithm`` value."""
+
+MESH_SIZE_PER_CELL_SIZE: dict[str, float] = {"meshadapt": 1.58, "delaunay": 1.62, "frontal": 1.52}
+"""gmsh mesh size per cell size of each algorithm [-].
+
+An equilateral triangle of side ``s`` has the area ``(sqrt(3) / 4) s^2``, so the
+area ``l^2`` needs ``s = sqrt(4 / sqrt(3)) l = 1.52 l``. Frontal-Delaunay meets
+its mesh size. Delaunay and MeshAdapt lay edges about 5 and 3 per cent shorter
+than asked, so their factors are measured: on a uniform 10 km square at 100 m
+and 200 m, the triangle count is ``A / l^2`` within 3 per cent for each algorithm.
+"""
 
 _ORIGIN_STEP_M = 1000.0
 """The shift origin is the domain centre rounded to this step [m]."""
@@ -54,14 +74,16 @@ _GMSH_TRIANGLE = 2
 
 @dataclass(frozen=True, eq=False)
 class CdtResult:
-    """A triangulation and the mesh edges of each family line.
+    """A triangulation, the family lines it embeds and the mesh edges of each line.
 
+    ``lines`` are the families of the request with the lines gmsh embedded.
     ``line_edges[(family, index)]`` holds the vertex pairs of the edges along
     line ``index`` of ``family``, in the order and orientation of the line.
     """
 
     vertices: np.ndarray
     triangles: np.ndarray
+    lines: tuple[LineFamilySpec, ...]
     line_edges: dict[tuple[str, int], np.ndarray]
 
 
@@ -83,6 +105,42 @@ def _require_gmsh() -> ModuleType:
             "(pip install 'hydromodpy[mesh]')"
         ) from exc
     return gmsh
+
+
+def _algorithm(request: MeshRequest) -> str:
+    """The ``[mesh.triangle] algorithm`` the request names, checked."""
+    algorithm = str(request.options.get("algorithm", "delaunay"))
+    if algorithm not in ALGORITHMS:
+        raise MeshRequestError(
+            f"unknown triangle algorithm {algorithm!r}; expected one of {sorted(ALGORITHMS)}"
+        )
+    return algorithm
+
+
+def _lines_at_edge_length(request: MeshRequest, scale: float) -> tuple[LineFamilySpec, ...]:
+    """The family lines resampled on the size field times *scale*, the gmsh edge length.
+
+    The barrier corners stay vertices. A request without a size field keeps its
+    lines: gmsh splits each segment at its own mesh size.
+    """
+    if request.size_field is None or not request.lines:
+        return request.lines
+    field = request.size_field
+    scaled = SizeField(scale * np.asarray(field.values, dtype=float), field.grid)
+    corners = [
+        piece.coords[0]
+        for family in request.lines
+        if family.name == BARRIER_FAMILY
+        for line in family.lines
+        for piece in kink_pieces(line)[1:]
+    ]
+    resampled = resample_families(
+        request.lines,
+        domain=request.domain,
+        size_field=scaled,
+        fixed_points=np.asarray(corners, dtype=float).reshape(-1, 2) if corners else None,
+    )
+    return resampled.families
 
 
 def _origin(domain: Polygon) -> np.ndarray:
@@ -139,15 +197,15 @@ def _node(request: MeshRequest, origin: np.ndarray) -> _Plsg:
 
 
 def _write_size_field(
-    gmsh: ModuleType, size_field: SizeField, origin: np.ndarray, scratch: Path
+    gmsh: ModuleType, size_field: SizeField, scale: float, origin: np.ndarray, scratch: Path
 ) -> None:
-    """Hand the size field to gmsh as a ``Structured`` background field on pixel centres.
+    """Hand the size field times *scale* to gmsh as a ``Structured`` background field.
 
-    A field above :data:`_MAX_FIELD_NODES` nodes is coarsened by an integer
-    factor, keeping the minimum of each block.
+    The nodes are the pixel centres. A field above :data:`_MAX_FIELD_NODES`
+    nodes is coarsened by an integer factor, keeping the minimum of each block.
     """
     grid = size_field.grid
-    values = np.asarray(size_field.values, dtype=float)
+    values = scale * np.asarray(size_field.values, dtype=float)
     factor = max(1, int(np.ceil(np.sqrt(values.size / _MAX_FIELD_NODES))))
     if factor > 1:
         nrow = -(-values.shape[0] // factor)
@@ -175,11 +233,7 @@ def _write_size_field(
 def _mesh_with_gmsh(
     gmsh: ModuleType, request: MeshRequest, plsg: _Plsg, origin: np.ndarray, scratch: Path
 ) -> CdtResult:
-    algorithm = str(request.options.get("algorithm", "delaunay"))
-    if algorithm not in ALGORITHMS:
-        raise MeshRequestError(
-            f"unknown triangle algorithm {algorithm!r}; expected one of {sorted(ALGORITHMS)}"
-        )
+    algorithm = _algorithm(request)
     gmsh.option.setNumber("General.Terminal", 0)
     # One thread: gmsh meshes differ from run to run when multi-threaded.
     gmsh.option.setNumber("General.NumThreads", 1)
@@ -218,11 +272,12 @@ def _mesh_with_gmsh(
     embedded = sorted({abs(tag) for tags in line_curves.values() for tag in tags} - on_boundary)
     if embedded:
         gmsh.model.mesh.embed(1, embedded, 2, surface)
+    scale = MESH_SIZE_PER_CELL_SIZE[algorithm]
     if request.size_field is not None:
-        _write_size_field(gmsh, request.size_field, origin, scratch)
+        _write_size_field(gmsh, request.size_field, scale, origin, scratch)
     else:
-        gmsh.option.setNumber("Mesh.MeshSizeMin", request.nominal_size_m)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", request.nominal_size_m)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", scale * request.nominal_size_m)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", scale * request.nominal_size_m)
     gmsh.model.mesh.generate(2)
 
     node_tags, coords, _ = gmsh.model.mesh.getNodes()
@@ -253,7 +308,12 @@ def _mesh_with_gmsh(
         line_edges[key] = np.concatenate(parts)
     if any(np.any(edges < 0) for edges in line_edges.values()):
         raise MeshGenerationError("a family line edge has a vertex outside the triangulation")
-    return CdtResult(vertices=xy[used] + origin, triangles=triangles, line_edges=line_edges)
+    return CdtResult(
+        vertices=xy[used] + origin,
+        triangles=triangles,
+        lines=request.lines,
+        line_edges=line_edges,
+    )
 
 
 def _ordered_along(pairs: np.ndarray, xy: np.ndarray, direction: np.ndarray) -> np.ndarray:
@@ -267,6 +327,8 @@ def _ordered_along(pairs: np.ndarray, xy: np.ndarray, direction: np.ndarray) -> 
 def triangulate(request: MeshRequest) -> CdtResult:
     """Triangulate the request domain with every family line embedded as mesh edges."""
     gmsh = _require_gmsh()
+    scale = MESH_SIZE_PER_CELL_SIZE[_algorithm(request)]
+    request = dataclasses.replace(request, lines=_lines_at_edge_length(request, scale))
     origin = _origin(request.domain)
     plsg = _node(request, origin)
     gmsh.initialize(interruptible=False)

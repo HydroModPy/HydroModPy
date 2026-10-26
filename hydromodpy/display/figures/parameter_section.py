@@ -4,7 +4,9 @@
 solver answered. This draws what it was asked: the conductivity and storage
 fields, layer by layer, along the same line. A depth-decaying aquifer and a
 uniform one give sections that look alike until the parameters are the
-colour, which is the whole point of the paper figure this reproduces.
+colour, which is the whole point of the paper figure this reproduces. The
+conductivity along the three axes of the K tensor and its three angles are
+drawn the same way, the conductivities on one shared scale.
 """
 
 from __future__ import annotations
@@ -13,9 +15,15 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 
-from hydromodpy.display.figure import BaseFigure, FigureSpec, run_label, run_suffix
+from hydromodpy.display.figure import (
+    BaseFigure,
+    FigureNotApplicable,
+    FigureSpec,
+    run_label,
+    run_suffix,
+)
 from hydromodpy.display.figure_options import (
-    Cmap,
+    CmapOrOwn,
     Opt,
     SectionLine,
     SectionOrientation,
@@ -23,6 +31,20 @@ from hydromodpy.display.figure_options import (
     SectionThrough,
 )
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._parameter_scale import (
+    CONDUCTIVITY_FIELDS,
+    CYCLIC_FIELDS,
+    PARAMETER_CHOICES,
+    PARAMETER_FIELDS,
+    cmap_for,
+    colour_norm,
+    mark_turn,
+    parameter_label,
+    parameter_name,
+    refuse_other_variable,
+    require_property,
+    wrapped,
+)
 from hydromodpy.display.maps.transect import build_transect, layer_interfaces
 
 if TYPE_CHECKING:
@@ -32,11 +54,11 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-PARAMETER_FIELDS = ("hydraulic_conductivity", "specific_yield", "specific_storage")
-"""Aquifer properties this section can colour, in the order panels are drawn."""
-
-LOG_SCALE_DECADES = 1.0
-"""Span, in decades, above which a parameter is coloured on a log scale."""
+_LOG_OPTION = (
+    "Force a log colour scale on or off. Left out, each panel takes a log "
+    "scale when its positive values span more than one decade. The conductivities "
+    "of one figure share their scale, and the tensor angles are always linear."
+)
 
 
 @register
@@ -48,7 +70,9 @@ class ParameterSection(BaseFigure):
         title="Parameter section",
         kind="section",
         required_fields=("hydraulic_conductivity", "layer_thickness", "topography"),
-        optional_fields=("specific_yield", "specific_storage"),
+        optional_fields=tuple(
+            name for name in PARAMETER_FIELDS if name != "hydraulic_conductivity"
+        ),
         default_figsize=(11.0, 4.5),
     )
 
@@ -57,21 +81,19 @@ class ParameterSection(BaseFigure):
         sim: Run,
         ax: Axes,
         *,
-        variable: str = "hydraulic_conductivity",
+        variable: Annotated[
+            str,
+            Opt(f"Property to draw: {PARAMETER_CHOICES}."),
+        ] = "hydraulic_conductivity",
         line: SectionLine = None,
         orientation: SectionOrientation = "we",
         through: SectionThrough = None,
         n_samples: SectionSamples = None,
-        log: Annotated[
-            bool | None,
-            Opt(
-                "Force a log colour scale on or off. Left out, each panel takes a log "
-                "scale when its positive values span more than one decade."
-            ),
-        ] = None,
-        cmap: Cmap = "viridis",
+        log: Annotated[bool | None, Opt(_LOG_OPTION)] = None,
+        cmap: CmapOrOwn = None,
         **_,
     ) -> Axes:
+        require_property(sim, variable, figure="parameter_section")
         transect = _section_transect(
             sim,
             line=line,
@@ -82,7 +104,8 @@ class ParameterSection(BaseFigure):
         interfaces = layer_interfaces(sim)
         if interfaces is None:
             raise ValueError("parameter_section: the run persisted no layer thickness")
-        self._panel(ax, sim, transect, interfaces, variable, log=log, cmap=cmap)
+        sampled = self._sample(sim, transect, interfaces, variable)
+        self._panel(ax, variable, transect, interfaces, sampled, sampled, log=log, cmap=cmap)
         ax.set_ylabel("Elevation (m)")
         # The panel already names the property, and says when it is uniform.
         label = run_label(sim)
@@ -97,22 +120,16 @@ class ParameterSection(BaseFigure):
         variables: Annotated[
             tuple[str, ...] | list[str] | None,
             Opt(
-                'Properties to draw, one panel each: "hydraulic_conductivity", '
-                '"specific_yield", "specific_storage". Left out, every one the run stored.'
+                f"Properties to draw, one panel each: {PARAMETER_CHOICES}. Left out, "
+                "every one the run set, K33 only where it differs from K."
             ),
         ] = None,
         line: SectionLine = None,
         orientation: SectionOrientation = "we",
         through: SectionThrough = None,
         n_samples: SectionSamples = None,
-        log: Annotated[
-            bool | None,
-            Opt(
-                "Force a log colour scale on or off. Left out, each panel takes a log "
-                "scale when its positive values span more than one decade."
-            ),
-        ] = None,
-        cmap: Cmap = "viridis",
+        log: Annotated[bool | None, Opt(_LOG_OPTION)] = None,
+        cmap: CmapOrOwn = None,
         figsize: tuple[float, float] | None = None,
         dpi: int = 150,
         save_path=None,
@@ -131,6 +148,8 @@ class ParameterSection(BaseFigure):
         interfaces = layer_interfaces(sim)
         if interfaces is None:
             raise ValueError("parameter_section: the run persisted no layer thickness")
+        sampled = {name: self._sample(sim, transect, interfaces, name) for name in names}
+        shared = _shared_conductivity(sampled)
 
         width, height = figsize or self.spec.default_figsize
         fig, axes = plt.subplots(
@@ -143,61 +162,68 @@ class ParameterSection(BaseFigure):
             squeeze=False,
         )
         for ax, variable in zip(axes[0], names, strict=True):
-            self._panel(ax, sim, transect, interfaces, variable, log=log, cmap=cmap)
+            limits = shared if variable in CONDUCTIVITY_FIELDS else sampled[variable]
+            self._panel(
+                ax, variable, transect, interfaces, sampled[variable], limits, log=log, cmap=cmap
+            )
         axes[0][0].set_ylabel("Elevation (m)")
         fig.suptitle(f"{self.spec.title}{run_suffix(sim)}")
         if save_path is not None:
             fig.savefig(save_path, bbox_inches="tight")
         return fig
 
-    def _panel(
+    def _sample(
         self,
-        ax: Axes,
         sim: Run,
         transect,
         interfaces: np.ndarray,
         variable: str,
-        *,
-        log: bool | None,
-        cmap: str,
-    ) -> None:
-        from matplotlib.colors import LogNorm
-
+    ) -> np.ndarray:
+        """Return ``variable`` along the transect, one row per layer."""
         values = np.atleast_2d(np.asarray(sim.field(variable), dtype="float64"))
         if values.shape[0] != interfaces.shape[0] - 1:
             raise ValueError(
                 f"parameter_section: {variable!r} has {values.shape[0]} layer(s) "
                 f"but the mesh has {interfaces.shape[0] - 1}"
             )
-        sampled = np.vstack([transect.sample(row) for row in values])
+        return wrapped(variable, np.vstack([transect.sample(row) for row in values]))
+
+    def _panel(
+        self,
+        ax: Axes,
+        variable: str,
+        transect,
+        interfaces: np.ndarray,
+        sampled: np.ndarray,
+        limits: np.ndarray,
+        *,
+        log: bool | None,
+        cmap: str | None,
+    ) -> None:
+        """Draw ``sampled`` on ``ax``, its colour scale set over ``limits``."""
         sampled_interfaces = np.vstack([transect.sample(row) for row in interfaces])
         x_edges, y_edges = _quad_edges(transect.distance, sampled_interfaces)
 
-        norm = None
-        if _use_log_scale(sampled) if log is None else bool(log):
-            positive = sampled[np.isfinite(sampled) & (sampled > 0.0)]
-            if positive.size:
-                norm = LogNorm(vmin=float(positive.min()), vmax=float(positive.max()))
         mesh = ax.pcolormesh(
             x_edges,
             y_edges,
             np.ma.masked_invalid(sampled),
-            cmap=cmap,
-            norm=norm,
+            cmap=cmap_for(variable, cmap),
+            norm=colour_norm(variable, limits, log=log),
             shading="flat",
         )
         descriptor = self.field_descriptor_for(variable)
+        name = parameter_name(variable)
         uniform = _uniform_value(sampled)
         if uniform is None:
-            ax.figure.colorbar(mesh, ax=ax, label=self.axis_label_for(variable))
-            ax.set_title(descriptor.long_name, fontsize=10)
+            colorbar = ax.figure.colorbar(mesh, ax=ax, label=parameter_label(variable))
+            if variable in CYCLIC_FIELDS:
+                mark_turn(colorbar)
+            ax.set_title(name, fontsize=10)
         else:
             # A colorbar around a single value pads a range matplotlib invented,
             # and a reader takes that padding for variation the run does not have.
-            ax.set_title(
-                f"{descriptor.long_name}\nuniform, {uniform:.3g} {descriptor.units}",
-                fontsize=10,
-            )
+            ax.set_title(f"{name}\nuniform, {uniform:.3g} {descriptor.units}", fontsize=10)
         inside = transect.inside
         ax.set_xlim(
             float(transect.distance[inside].min()),
@@ -220,22 +246,52 @@ def _resolve_variables(sim: Run, variables: tuple[str, ...] | list[str] | None) 
     A property left out of ``param_list`` is still handed to the solver, as
     zero. Drawing it produces a flat panel on a colour scale invented around
     nothing, which reads as a result rather than as an absence, so a property
-    that is zero everywhere is dropped unless it was asked for by name.
+    that is zero everywhere is dropped unless it was asked for by name. A
+    property asked for by name that the run does not hold is refused by name,
+    where a figure left to choose draws only what the run has.
     """
-    asked = variables is not None
+    asked = bool(variables)
     names = [str(name) for name in variables] if variables else list(PARAMETER_FIELDS)
+    for name in names:
+        refuse_other_variable(name, figure="parameter_section")
     present = [name for name in names if sim.has_field(name)]
-    if not asked:
-        present = [name for name in present if _is_set(sim, name)]
-    if not present:
-        raise ValueError(f"parameter_section: none of {', '.join(names)} is set in this run")
-    return present
+    missing = [name for name in names if name not in present]
+    if asked and present and missing:
+        named = ", ".join(repr(name) for name in missing)
+        raise FigureNotApplicable(f"parameter_section: {named} is not in this run")
+    drawn = present if asked else [name for name in present if _is_drawn_by_default(sim, name)]
+    if not drawn:
+        raise FigureNotApplicable(
+            f"parameter_section: none of {', '.join(names)} is set in this run"
+        )
+    return drawn
 
 
 def _is_set(sim: Run, variable: str) -> bool:
     """Return whether the run gave ``variable`` anything but zeros."""
     values = np.asarray(sim.field(variable), dtype="float64")
     return bool(np.any(np.isfinite(values) & (values != 0.0)))
+
+
+def _is_drawn_by_default(sim: Run, variable: str) -> bool:
+    """Return whether a figure left to choose gives ``variable`` a panel.
+
+    MODFLOW 6 stores K33 for every run, equal to K when the aquifer is not
+    anisotropic, and a panel that repeats the one beside it says nothing.
+    """
+    if not _is_set(sim, variable):
+        return False
+    if variable == "hydraulic_conductivity_k33" and sim.has_field("hydraulic_conductivity"):
+        k = np.asarray(sim.field("hydraulic_conductivity"), dtype="float64")
+        k33 = np.asarray(sim.field(variable), dtype="float64")
+        return k.shape != k33.shape or not np.allclose(k, k33, rtol=1e-9, atol=0.0, equal_nan=True)
+    return True
+
+
+def _shared_conductivity(sampled: dict[str, np.ndarray]) -> np.ndarray:
+    """Return every conductivity drawn, which sets the one scale they share."""
+    rows = [values.ravel() for name, values in sampled.items() if name in CONDUCTIVITY_FIELDS]
+    return np.concatenate(rows) if rows else np.empty(0)
 
 
 def _section_transect(
@@ -264,14 +320,6 @@ def _uniform_value(values: np.ndarray) -> float | None:
     if finite.size == 0 or float(finite.min()) != float(finite.max()):
         return None
     return float(finite[0])
-
-
-def _use_log_scale(values: np.ndarray) -> bool:
-    """A parameter spanning more than a decade reads as flat on a linear scale."""
-    positive = values[np.isfinite(values) & (values > 0.0)]
-    if positive.size == 0:
-        return False
-    return float(np.log10(positive.max() / positive.min())) > LOG_SCALE_DECADES
 
 
 def _quad_edges(distance: np.ndarray, interfaces: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

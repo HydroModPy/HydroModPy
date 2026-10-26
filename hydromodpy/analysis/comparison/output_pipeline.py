@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.comparison.exports import (
-    write_boussinesq_obstacle_diagnostics_export,
     write_budget_exports,
     write_execution_summary_csv,
     write_hydrographic_network_metrics_export,
@@ -153,11 +152,6 @@ def write_comparison_output_bundle(
         simulation_summaries=summaries,
     )
     data_artifacts.extend(closure_artifacts)
-    obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
-        comparison_root=comparison_root,
-        simulation_summaries=summaries,
-    )
-    data_artifacts.extend(obstacle_artifacts)
     vi_diagnostic_artifacts, _vi_diagnostic_rows = write_vi_obstacle_runtime_diagnostics_export(
         comparison_root=comparison_root,
         simulation_summaries=summaries,

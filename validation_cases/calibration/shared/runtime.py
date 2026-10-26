@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE
 from hydromodpy.core.state.paths import (
     PROJECT_MARKER_FILENAME,
     data_cache_path_for,
@@ -628,9 +629,18 @@ def _quantity_magnitude(value: Any) -> float | None:
 
 
 def _extract_outlet_discharge_from_run(run: Any) -> np.ndarray | None:
-    """Sum boundary flux per timestep from ``run.budget()``."""
+    """Sum boundary flux per timestep from the domain rows of ``run.budget()``.
+
+    A run that carries a basin of D also writes a ``catchment`` row for each
+    component, over the cells of that basin. Those cells lie inside the domain,
+    so adding the row counts their water twice, while the trial reads the
+    budget file of the whole model.
+    """
     bud = run.budget()
     if bud is None or bud.empty:
+        return None
+    bud = bud[bud["zone_id"].astype(str) != CATCHMENT_BUDGET_ZONE]
+    if bud.empty:
         return None
     available = {str(c).strip().lower() for c in bud["component"].unique() if c is not None}
     carrying = {
@@ -730,30 +740,27 @@ def _structured_flat_index_from_grid(grid: Any, *, x: float, y: float) -> int | 
 def _run_flat_index(run: Any, *, x: float, y: float) -> int | None:
     """Return the cell of ``(x, y)`` in a Run.
 
-    The catalog Run carries a raster ``grid`` for unstructured meshes too (the
-    catchment raster), so that grid indexes the cells only when the mesh is a
-    structured quadrilateral grid with exactly its cell count. Any other mesh
-    resolves the point on its polygons, like the trial route does.
+    The point is located on the polygons of the stored mesh, a regular grid
+    included, with the resolver the trial route applies to the solver mesh. A
+    point on the edge between two cells then lands in the same cell on both
+    routes, where a rounding rule on one route and the polygons on the other
+    each picked a different neighbour. The raster ``grid`` serves only a Run
+    that stored no mesh.
     """
     try:
         mesh_payload = run.mesh
     except Exception:
         mesh_payload = None
+    if mesh_payload is not None:
+        connectivity = mesh_payload.face_node_connectivity
+        if np.asarray(mesh_payload.vertices).size >= 2:
+            located = locate_cell_in_polygons(mesh_payload.vertices, connectivity, x=x, y=y)
+            if located is not None:
+                return located
     try:
         grid = run.grid
     except Exception:
         grid = None
-    if mesh_payload is not None:
-        connectivity = np.asarray(mesh_payload.face_node_connectivity, dtype=int)
-        if connectivity.size and np.asarray(mesh_payload.vertices).size >= 2:
-            structured_shape = getattr(grid, "shape", None)
-            if (
-                connectivity.shape[1] == 4
-                and structured_shape is not None
-                and connectivity.shape[0] == int(structured_shape[0]) * int(structured_shape[1])
-            ):
-                return _structured_flat_index_from_grid(grid, x=x, y=y)
-            return locate_cell_in_polygons(mesh_payload.vertices, connectivity, x=x, y=y)
     return _structured_flat_index_from_grid(grid, x=x, y=y)
 
 
@@ -1187,43 +1194,43 @@ def _resolve_cell_index_from_model(
 ) -> tuple[int, int, int, int] | None:
     """Return ``(layer, row, col, flat_index)`` for a registered solver model.
 
-    Reads the structured layout (``nrow`` / ``ncol``) and the cell centroids
-    from the solver model registered in ``execution.models_by_run_id``. Works
-    for MODFLOW 6 (``solver_mesh.cell_centroids()``) and for any model that
-    keeps the ``cell_mesh`` it was built from. The ``flat_index`` is the cell
-    rank in ``cell_centroids`` and is the right axis-2 offset for DISV heads.
+    The point is located on the polygons of the solver mesh, like the truth
+    route locates it on the stored mesh (see ``_run_flat_index``). A model with
+    no polygon geometry takes the nearest cell centre. ``flat_index`` is the
+    cell rank in the mesh, the axis-2 offset of DISV heads, and ``(row, col)``
+    splits it for the DIS heads of a structured model.
     """
     if model is None:
         return None
-    centroids = _model_cell_centroids(model)
-    if centroids is None:
-        return None
-    arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
-    if arr.size == 0:
-        return None
-    nrow = int(getattr(model, "nrow", 0) or 0)
-    ncol = int(getattr(model, "ncol", 0) or 0)
-    if nrow > 0 and ncol > 0 and arr.shape[0] == nrow * ncol:
-        x_unique = np.unique(arr[:, 0])
-        y_unique = np.unique(arr[:, 1])
-        if x_unique.size == ncol and y_unique.size == nrow:
-            cell_dx = float(x_unique[1] - x_unique[0]) if ncol > 1 else 1.0
-            cell_dy = float(y_unique[1] - y_unique[0]) if nrow > 1 else 1.0
-            x_min = float(x_unique[0] - cell_dx / 2.0)
-            y_min = float(y_unique[0] - cell_dy / 2.0)
-            col = int(round((float(x) - x_min) / cell_dx - 0.5))
-            row = int(round((float(y) - y_min) / cell_dy - 0.5))
-            col = max(0, min(ncol - 1, col))
-            row = max(0, min(nrow - 1, row))
-            flat = row * ncol + col
-            return (0, row, col, flat)
+    nrow, ncol = _model_structured_shape(model)
     flat_index = _model_polygon_cell(model, x=x, y=y)
     if flat_index is None:
-        distances = np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))
-        flat_index = int(np.argmin(distances))
+        centroids = _model_cell_centroids(model)
+        if centroids is None:
+            return None
+        arr = np.asarray(centroids, dtype=float).reshape(-1, 2)
+        if arr.size == 0:
+            return None
+        flat_index = int(np.argmin(np.hypot(arr[:, 0] - float(x), arr[:, 1] - float(y))))
     if nrow > 0 and ncol > 0 and flat_index < nrow * ncol:
         return (0, flat_index // ncol, flat_index % ncol, flat_index)
     return (0, 0, flat_index, flat_index)
+
+
+def _model_structured_shape(model: Any) -> tuple[int, int]:
+    """Return ``(nrow, ncol)`` of a structured solver model, ``(0, 0)`` otherwise.
+
+    A MODFLOW-NWT model carries the two counts. A MODFLOW 6 model keeps them on
+    its solver mesh only.
+    """
+    nrow = int(getattr(model, "nrow", 0) or 0)
+    ncol = int(getattr(model, "ncol", 0) or 0)
+    if nrow > 0 and ncol > 0:
+        return nrow, ncol
+    shape = getattr(getattr(model, "solver_mesh", None), "structured_shape", None)
+    if shape is None:
+        return 0, 0
+    return int(shape[0]), int(shape[1])
 
 
 def _model_polygon_cell(model: Any, *, x: float, y: float) -> int | None:

@@ -58,6 +58,7 @@ from hydromodpy.spatial.terrain import (
     CatchmentLayout,
     ConditioningExtent,
     DrainageDirections,
+    JensonSnap,
     Outlet,
     TerrainEngine,
     missing_engine_members,
@@ -691,6 +692,37 @@ def test_a_snap_window_narrower_than_two_cells_moves_nothing(engine, valley, tmp
     assert snap_window_cells(RES, dx=RES, dy=RES) == (0, 0)
     assert catchment.snap_distance_m == pytest.approx(0.0)
     assert (catchment.snapped_x, catchment.snapped_y) == pytest.approx((declared.x, declared.y))
+
+
+def test_a_jenson_snap_lands_on_a_stream_cell_or_the_engine_refuses_it_by_name(
+    engine, valley, tmp_path
+) -> None:
+    """The snap method is part of the port, so an engine serves it or says it cannot.
+
+    The two engines of this tree serve it and are held to the cell in
+    ``tests/unit/geographic/test_the_jenson_snap_stays_on_the_nearest_stream.py``.
+    An engine from outside owes the port the same landing: on a cell of the
+    network it was handed, two cells from the declared point here.
+    """
+    out = tmp_path / "out"
+    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    streams = engine.stream_network(accumulation, threshold=60.0, out=out / "streams.tif")
+
+    try:
+        (catchment,) = engine.delineate(
+            accumulation,
+            [_off_talweg()],
+            out_dir=out / "catchments",
+            snap_distance_m=4 * RES,
+            snap=JensonSnap(streams=streams),
+        )
+    except TerrainCapabilityError:
+        return
+
+    with rasterio.open(str(streams.path)) as src:
+        row, col = src.index(catchment.snapped_x, catchment.snapped_y)
+    assert _read(streams.path)[row, col] == 1
+    assert catchment.snap_distance_m == pytest.approx(2 * RES)
 
 
 def test_delineation_repeats_cell_for_cell(engine, valley, tmp_path) -> None:

@@ -57,6 +57,10 @@ HAUSDORFF_RTOL = tol(
     "hausdorff_distance_as_a_share_of_the_extent"
 )
 BUDGET_S = tol("mesh_engine_conformance__wall_clock_time_of_one_build_on_a_closed_case")
+CELL_COUNT_RTOL = tol(
+    "mesh_engine_conformance__cell_count_at_a_uniform_cell_size_against_the_area_over_the_"
+    "size_squared_relative"
+)
 
 GMSH_ENGINE_IDS = ("triangle",)
 """The built-in engines that need the optional ``mesh`` extra (gmsh)."""
@@ -165,6 +169,18 @@ def ramp_case() -> MeshRequest:
         grid=grid,
         nominal_size_m=50.0,
         size_field=SizeField(size, grid),
+    )
+
+
+def uniform_case(*, sized: bool) -> MeshRequest:
+    """A 4 km square at 100 m, given as a uniform size field or as the nominal size alone."""
+    grid = _grid(0.0, 4000.0, 0.0, 4000.0, 25.0)
+    return MeshRequest(
+        domain=box(0.0, 0.0, 4000.0, 4000.0),
+        crs_wkt=CRS_WKT,
+        grid=grid,
+        nominal_size_m=100.0,
+        size_field=SizeField(np.full((grid.nrow, grid.ncol), 100.0), grid) if sized else None,
     )
 
 
@@ -442,6 +458,17 @@ def test_a_graded_engine_follows_the_size_ramp(engine) -> None:
     areas = cell_mesh.geometry.areas
 
     assert areas[x > 400.0].mean() > 2.0 * areas[x < 100.0].mean()
+
+
+@pytest.mark.parametrize("sized", [False, True], ids=["nominal_size", "size_field"])
+def test_a_uniform_cell_size_gives_the_area_over_its_square_in_cells(engine, sized) -> None:
+    """A cell size is the side of the square of the same mean area, whatever the engine."""
+    request = uniform_case(sized=sized)
+    cell_mesh = _built(engine, request)
+    area = _area_to_cover(request, type(engine).capabilities.structured)
+
+    expected = area / request.nominal_size_m**2
+    assert cell_mesh.n_cells == pytest.approx(expected, rel=CELL_COUNT_RTOL)
 
 
 def test_a_deterministic_engine_builds_the_same_mesh_twice(engine) -> None:

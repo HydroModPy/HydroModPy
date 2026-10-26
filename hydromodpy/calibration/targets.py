@@ -27,7 +27,7 @@ its own reasons and is not offered here either.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from numbers import Real
 from typing import Any
 
@@ -285,31 +285,45 @@ def _named(found: list[_Found]) -> list[CalibrationTarget]:
     ]
     if len(set(names)) != len(names):  # pragma: no cover - paths are unique
         names = [".".join(item.path.split(".")[1:]) for item in found]
-    return [
-        CalibrationTarget(
-            path=item.path,
-            instance=item.instances[0] if item.instances else None,
-            instances=item.instances,
-            name=name,
-            calibrable=item.calibrable,
-            current=item.current,
-            units=_units_of(item),
-            physical_bounds=_physical_bounds_for(
-                item.path,
-                item.instances[0] if item.instances else None,
-                item.path.rsplit(".", 1)[-1],
-                leaf_first=not _is_the_value_of_its_instance(item.calibrable),
-                units=_units_of(item),
-            ),
-            registry_id=_registry_id_for(
-                item.path,
-                item.instances[0] if item.instances else None,
-                item.path.rsplit(".", 1)[-1],
-                leaf_first=not _is_the_value_of_its_instance(item.calibrable),
-            ),
-        )
-        for item, name in zip(found, names, strict=True)
-    ]
+    return [_target(item, name) for item, name in zip(found, names, strict=True)]
+
+
+def _target(item: _Found, name: str) -> CalibrationTarget:
+    """Return the target of one leaf the walk kept, under its settled name."""
+    instance = item.instances[0] if item.instances else None
+    leaf = item.path.rsplit(".", 1)[-1]
+    leaf_first = not _is_the_value_of_its_instance(item.calibrable)
+    bounds = _physical_bounds_for(
+        item.path, instance, leaf, leaf_first=leaf_first, units=_units_of(item)
+    )
+    return CalibrationTarget(
+        path=item.path,
+        instance=instance,
+        instances=item.instances,
+        name=name,
+        calibrable=_searched_as_written_when_signed(item.calibrable, bounds),
+        current=item.current,
+        units=_units_of(item),
+        physical_bounds=bounds,
+        registry_id=_registry_id_for(item.path, instance, leaf, leaf_first=leaf_first),
+    )
+
+
+def _searched_as_written_when_signed(
+    calibrable: Calibrable | None, bounds: tuple[float, float] | None
+) -> Calibrable | None:
+    """Search a value that can be negative as written, not in log space.
+
+    A field parameter declares a log search because a conductivity spans
+    decades, and every flow parameter shares that field. An angle of the K
+    tensor shares it too, but it is signed: its range reaches below zero, and
+    a log search refuses any bound that does.
+    """
+    if calibrable is None or bounds is None or bounds[0] >= 0.0:
+        return calibrable
+    if calibrable.search_space != "log" and calibrable.sampling != "log_uniform":
+        return calibrable
+    return replace(calibrable, search_space="identity", sampling="uniform")
 
 
 def _is_a_physical_number(value: Any) -> bool:

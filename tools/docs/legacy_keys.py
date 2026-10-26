@@ -7,8 +7,11 @@ read there and not written by hand:
 - ``warns``: the model lists the old spelling in ``model_legacy_keys``. The key
   is renamed on load and ``ConfigKeyRenamedWarning`` names the new one.
 - ``migrates``: the old ``[export]`` tables, which ``config_migration`` rewrites
-  into ``[[export]]`` blocks in memory on load, and the retired
-  ``[simulation.results]`` tables, which the loader drops on load.
+  into ``[[export]]`` blocks in memory on load, the retired
+  ``[simulation.results]`` tables, which the loader drops on load, and the
+  tables it moves whole to another path (``config_migration.MOVED_TABLES``,
+  the solver layering that now is ``[domain.layers]``). The dotted override of
+  a calibration phase that sets a key of a moved table moves with it.
 
 A rename in neither group is refused (``extra="forbid"``).
 """
@@ -42,12 +45,23 @@ def _models_named(name: str) -> list[type]:
     return found
 
 
+def moved_tables() -> dict[str, str]:
+    """Old table path -> new table path, for each table the loader moves whole.
+
+    Read from the migration module, which makes the move with the same list.
+    """
+    from hydromodpy.config import config_migration
+
+    return {move.old: move.new for move in config_migration.MOVED_TABLES}
+
+
 def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
     """Old path -> ``warns`` or ``migrates`` for each old key the loader still reads.
 
     ``nodes`` is the ``nodes`` mapping of the field registry. An old path that is
-    absent from the result is refused by the loader. The retired tables come out
-    as ``migrates`` whether or not the registry still holds them.
+    absent from the result is refused by the loader. The retired tables and the
+    moved tables come out as ``migrates`` whether or not the registry still holds
+    them.
     """
     from hydromodpy.config import config_migration
 
@@ -63,4 +77,6 @@ def accepted_old_names(nodes: dict[str, dict[str, Any]]) -> dict[str, str]:
                     accepted[old] = MIGRATES
     for table in config_migration.RETIRED_RESULTS_TABLES:
         accepted[table] = MIGRATES
+    for old in moved_tables():
+        accepted[old] = MIGRATES
     return accepted

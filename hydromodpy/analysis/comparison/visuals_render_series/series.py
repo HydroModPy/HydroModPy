@@ -27,7 +27,6 @@ from hydromodpy.analysis.comparison.visuals_style import (
 from hydromodpy.core.units.time import SECONDS_PER_DAY
 
 from .aggregation import (
-    _plot_surface_reference_lines,
     _row_time_value,
     _rows_have_elapsed_seconds,
     _time_axis_label,
@@ -98,7 +97,6 @@ def write_timeseries_figure(
     if not ax.lines:
         plt.close(figure)
         return False
-    _plot_surface_reference_lines(ax, grouped_rows)
     ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     ax.set_ylabel(unit or "value", fontsize=_LABEL_FONT_SIZE)
     title = _pretty_label(observable_name)
@@ -174,9 +172,6 @@ def _write_point_dashboard(
     tick_positions: list[float] = []
     for index, observable_name in enumerate(plotted_observables):
         ax = axes_flat[index]
-        observable_rows = [
-            row for row in point_rows if str(row.get("observable", "")) == observable_name
-        ]
         for (simulation_id, simulation_label), points in sorted(
             grouped.get(observable_name, {}).items()
         ):
@@ -196,7 +191,6 @@ def _write_point_dashboard(
                 ),
                 **style,
             )
-        _plot_surface_reference_lines(ax, observable_rows)
         ax.set_title(
             _pretty_label(observable_name),
             fontsize=_PANEL_TITLE_FONT_SIZE,

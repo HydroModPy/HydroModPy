@@ -36,6 +36,7 @@ from hydromodpy.spatial.geographic.core.dem_aggregation import (
     aggregate_dem,
     aggregated_dem_filename,
 )
+from hydromodpy.spatial.geographic.core.river_network import resolve_stream_threshold_cells
 from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.spatial.terrain import FlowAccumulation
@@ -120,6 +121,20 @@ def _aggregated_if_asked(
     return str(out_path), float(target)
 
 
+def _snap_threshold_cells(config: GeographicConfig, accumulation: FlowAccumulation) -> float | None:
+    """Return the stream threshold of a Jenson snap, in cells, or None for the window snap.
+
+    The threshold is the one of ``[geographic.river_network]``, so the snap lands
+    on the network that section draws. The cell size is the one of the routing
+    grid, which is the aggregated DEM when ``dem_resolution`` asks for one.
+    """
+    if config.snap_method != "jenson":
+        return None
+    with rasterio.open(str(accumulation.path)) as src:
+        cell_size_m = float(abs(src.transform.a))
+    return resolve_stream_threshold_cells(river_network=config.river_network, dem_res_m=cell_size_m)
+
+
 def build_standard_catchment(
     *,
     config: GeographicConfig,
@@ -146,6 +161,8 @@ def build_standard_catchment(
             crs_project=crs_project,
             backend=tool,
             engine_id=config.terrain_engine,
+            snap_method=config.snap_method,
+            stream_threshold_cells=_snap_threshold_cells(config, accumulation),
         )
 
     if config.catch_def == "from_polyg_shp":

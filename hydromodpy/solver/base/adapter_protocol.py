@@ -108,10 +108,21 @@ class CellLocator(Protocol):
         """Return the selector of the cell that holds ``(x, y)``, or ``None``.
 
         The selector is the same triple the observable extractors take. A MODFLOW 6
-        run answers ``(0, 0, cell_id)`` on every mesh, the flat selector of a DISV
-        head array; a point outside every cell takes the nearest centre. ``None``
+        run answers ``(layer, 0, cell_id)`` on every mesh, the flat selector of a DISV
+        head array at the top active layer of the column; a point outside every
+        cell takes the nearest centre. ``None``
         means the run holds no grid to look on yet, which a caller reports rather
         than replacing with a guess.
+        """
+        ...
+
+    def top_active_layer(self, ctx: RunContext, row: int, col: int) -> int | None:
+        """Return the top active layer of the column at ``(row, col)``, or ``None``.
+
+        It is the layer a cell given without one is read at. A regular grid names
+        the column by its row and column, any other mesh by row 0 and the cell id
+        in ``col``. A column with no active cell answers 0. ``None`` means the run
+        holds no grid to look on yet. A cell outside the grid raises ValueError.
         """
         ...
 

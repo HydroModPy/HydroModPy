@@ -3,6 +3,12 @@
 User keys are sizes in metres, a path, or an intention per line family. Every
 algorithm setting is a DEV key with a fixed default. Without ``[mesh]`` the
 ``regular`` engine meshes the model with the DEM pixels.
+
+A cell size is the side of the square of the same mean area as the cells, for
+every engine and every size of the size field (``cell_size``,
+``river_cell_size``, the refinement zones, the lake sizes, the gap sizes). A
+domain of area ``A`` meshed at a uniform size ``l`` gets about ``A / l^2``
+cells, whether its cells are squares, triangles or Voronoi polygons.
 """
 
 from __future__ import annotations
@@ -198,8 +204,11 @@ class MeshConfig(HydroModelBase):
         default=None,
         gt=0.0,
         description=(
-            "Cell size in metres of the regular grid, or background cell size of the "
-            "triangle and voronoi engines. Unset, the DEM pixel size."
+            "Cell size in metres, the side of the square of the same mean area as the "
+            "cells, whatever the engine: a domain of area A gets about A / cell_size^2 "
+            "cells, and a regular, a triangle and a voronoi cell of this size have about "
+            "the same area. It is the side of the regular grid cells and the background "
+            "size of the triangle and voronoi engines. Unset, the DEM pixel size."
         ),
         json_schema_extra={"unit": "m"},
     )
@@ -209,7 +218,8 @@ class MeshConfig(HydroModelBase):
         default=None,
         gt=0.0,
         description=(
-            "Cell size in metres along the rivers. Unset, the DEM pixel size; never "
+            "Cell size in metres along the rivers, the side of the square of the same "
+            "mean area as the cells, as cell_size. Unset, the DEM pixel size; never "
             "finer than the DEM pixel."
         ),
         json_schema_extra={"unit": "m"},
@@ -228,15 +238,20 @@ class MeshConfig(HydroModelBase):
     refinement_zone: Annotated[list[RefinementZoneConfig], Profile.USER] = Field(
         default_factory=list,
         description=(
-            "Zones of local refinement, one [[mesh.refinement_zone]] table per vector "
-            "layer, each with its own cell size."
+            "Zones of local refinement, one [[mesh.refinement_zone]] table each, with its "
+            "own cell size, which has the meaning of cell_size: a vector layer, or the "
+            "pixels where a field passes a threshold (the height above the stream traced "
+            "from the DEM, or the water-table depth or the seepage of an earlier run). The "
+            "triangle and voronoi engines grade their cells on them; the regular engine "
+            "does not grade its cells and ignores them, which the mesh QA notes."
         ),
     )
     lake_refinement: Annotated[LakeRefinementConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Local refinement on the lake shoreline band and the hydraulic structures "
-            "(cutoff wall, sill, dam outlet). The table switches it on."
+            "(cutoff wall, sill, dam outlet), with sizes that have the meaning of "
+            "cell_size. The table switches it on."
         ),
     )
     families: Annotated[MeshFamiliesConfig, Profile.USER] = Field(
@@ -270,7 +285,10 @@ class MeshConfig(HydroModelBase):
     outside_factor: Annotated[float, Profile.DEV] = Field(
         default=2.0,
         ge=1.0,
-        description="Cell size outside the catchment, as a multiple of cell_size.",
+        description=(
+            "Cell size outside the catchment, as a multiple of cell_size; the cells there "
+            "have about outside_factor^2 times the area of a cell_size cell."
+        ),
         json_schema_extra={"unit": "-"},
     )
     transition_distance: Annotated[float, Profile.DEV] = Field(
@@ -292,8 +310,8 @@ class MeshConfig(HydroModelBase):
         description=(
             "Cells across the gap between two face lines (lake shores, barriers, "
             "geology contacts, catchment boundary) or between one and the domain "
-            "outline: the cell size there is the gap divided by this number, never "
-            "finer than the DEM pixel. 0 switches it off."
+            "outline: the cell size there, with the meaning of cell_size, is the gap "
+            "divided by this number, never finer than the DEM pixel. 0 switches it off."
         ),
         json_schema_extra={"unit": "cells"},
     )
@@ -393,11 +411,16 @@ class MeshConfig(HydroModelBase):
         """Whether the mesh step needs the river network traced from the DEM.
 
         Never on a synthetic support and never for the ``regular`` engine. A
-        generated mesh needs it when the river family is meshed; a mesh read
+        generated mesh needs it when the river family is meshed, or when a
+        refinement zone measures the height above the stream; a mesh read
         from ``[mesh.triangle] path`` needs it when a stream boundary is active.
         """
         if synthetic or self.engine == "regular":
             return False
         if self.triangle is not None and self.triangle.path is not None:
             return "stream" in active_bc
-        return self.families.rivers == "cell"
+        return self.families.rivers == "cell" or self.refines_above_stream()
+
+    def refines_above_stream(self) -> bool:
+        """Whether a refinement zone measures the height above the stream traced from the DEM."""
+        return any(zone.where == "height_above_stream" for zone in self.refinement_zone)

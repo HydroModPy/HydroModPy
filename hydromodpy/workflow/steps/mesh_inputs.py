@@ -6,6 +6,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
@@ -15,6 +16,7 @@ from hydromodpy.spatial.geographic.core.derived_features import resolve_river_me
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.planning import (
+    CriterionInputs,
     LakeStructure,
     PlanningInputs,
     geology_lines,
@@ -25,6 +27,7 @@ from hydromodpy.spatial.mesh.planning import (
 from hydromodpy.spatial.mesh.planning.geology import GeologyLines
 from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
 from hydromodpy.spatial.mesh.request import RasterGridSpec
+from hydromodpy.workflow.steps.mesh_run_fields import read_run_fields
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -42,12 +45,14 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     graded = registry.get(mesh_cfg.engine).capabilities.graded
     reads_catchment = graded or mesh_cfg.families.watershed_boundary == "face"
     triangle = mesh_cfg.triangle
+    sized = graded and (triangle is None or triangle.path is None)
     geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt, grid)
+    river_trace = _river_trace(setup, mesh_cfg, active_bc=active_bc, synthetic=synthetic)
     return PlanningInputs(
         dem_grid=grid,
         crs_wkt=crs_wkt,
         domain=_domain_polygon(setup, cfg.geographic, grid, crs_wkt, synthetic),
-        river_trace=_river_trace(setup, mesh_cfg, active_bc=active_bc, synthetic=synthetic),
+        river_trace=river_trace,
         watershed=_watershed(setup, crs_wkt) if reads_catchment and not synthetic else None,
         lakes=_lake_polygons(setup),
         lake_structures=lake_structures(setup, cfg.geographic, mesh_cfg.lake_refinement),
@@ -57,6 +62,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
             config_dir=Path(ctx.config_path).parent,
             data_dir=_data_dir(setup),
             crs_wkt=crs_wkt,
+            criteria=_criterion_inputs(setup, mesh_cfg, grid, river_trace) if sized else None,
         ),
         input_triangulation=(
             None
@@ -66,6 +72,52 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
         synthetic=synthetic,
         barriers=barrier_lines(setup) if mesh_cfg.families.barriers == "face" else (),
         notes=notes,
+    )
+
+
+def _criterion_inputs(
+    setup: object, mesh_cfg: MeshConfig, grid: RasterGridSpec, river_trace: object | None
+) -> CriterionInputs | None:
+    """What the zones drawn by a threshold read, None when no zone is drawn so.
+
+    The DEM is the model top on the mesh grid. The streams are the river
+    network traced from the DEM, never a mapped one. The fields of earlier
+    runs are read under the project root.
+    """
+    zones = mesh_cfg.refinement_zone
+    if not any(zone.where is not None for zone in zones):
+        return None
+    elevation = np.asarray(setup.domain.surface_topo.as_array(), dtype=float)
+    if elevation.shape != (grid.nrow, grid.ncol):
+        raise MeshError(
+            f"the model top holds {elevation.shape} values, the mesh grid is "
+            f"{(grid.nrow, grid.ncol)}"
+        )
+    nodata = getattr(setup.domain.surface_topo.support, "nodata", None)
+    if nodata is not None:
+        elevation = np.where(elevation == float(nodata), np.nan, elevation)
+    lines = None
+    if mesh_cfg.refines_above_stream():
+        trace = river_trace or resolve_river_mesh_trace(
+            geographic_features=setup.geographic_features
+        )
+        if trace is not None and trace.source_kind != "geographic_generated":
+            raise MeshError(
+                "[[mesh.refinement_zone]] where = 'height_above_stream' measures the ground "
+                "against the river network traced from the DEM, and the river trace of this "
+                f"run comes from {trace.source_kind!r}: a mapped network never enters the mesh."
+            )
+        lines = None if trace is None else tuple(trace.lines)
+    run_fields = {}
+    if any(zone.run is not None for zone in zones):
+        workspace = getattr(setup, "workspace", None)
+        if workspace is None:
+            raise MeshError(
+                "A refinement zone reads an earlier run of the project, and no workspace is set up."
+            )
+        run_fields = read_run_fields(Path(workspace.project_root), zones)
+    return CriterionInputs(
+        grid=grid, elevation=elevation, stream_lines=lines, run_fields=run_fields
     )
 
 

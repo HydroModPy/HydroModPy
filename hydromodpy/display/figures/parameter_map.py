@@ -3,7 +3,9 @@
 The companion of ``parameter_section``: that one cuts the aquifer, this one
 looks down on it. A zonation written as two polygons in the configuration
 becomes two patches here, which is the only place a reader can check that the
-zones landed where the geology says they should before reading any head.
+zones landed where the geology says they should before reading any head. The
+conductivity along the other axes of the K tensor and its three angles are
+drawn the same way.
 """
 
 from __future__ import annotations
@@ -13,10 +15,21 @@ from typing import TYPE_CHECKING, Annotated
 import numpy as np
 
 from hydromodpy.display.figure import BaseFigure, FigureSpec, run_suffix
-from hydromodpy.display.figure_options import Cmap, Opt, Overlays
+from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays
 from hydromodpy.display.figure_registry import register
+from hydromodpy.display.figures._parameter_scale import (
+    CYCLIC_FIELDS,
+    PARAMETER_CHOICES,
+    PARAMETER_FIELDS,
+    cmap_for,
+    colour_norm,
+    mark_turn,
+    parameter_label,
+    parameter_name,
+    require_property,
+    wrapped,
+)
 from hydromodpy.display.figures._scalar_face_map import top_active_values
-from hydromodpy.display.figures.parameter_section import LOG_SCALE_DECADES, PARAMETER_FIELDS
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import render_face_field
@@ -36,7 +49,9 @@ class ParameterMap(BaseFigure):
         title="Parameter map",
         kind="spatial",
         required_fields=("hydraulic_conductivity",),
-        optional_fields=("specific_yield", "specific_storage"),
+        optional_fields=tuple(
+            name for name in PARAMETER_FIELDS if name != "hydraulic_conductivity"
+        ),
         default_figsize=(7.0, 5.5),
     )
 
@@ -47,10 +62,7 @@ class ParameterMap(BaseFigure):
         *,
         variable: Annotated[
             str,
-            Opt(
-                'Property to draw: "hydraulic_conductivity", "specific_yield" or '
-                '"specific_storage".'
-            ),
+            Opt(f"Property to draw: {PARAMETER_CHOICES}."),
         ] = "hydraulic_conductivity",
         layer: Annotated[
             int | None,
@@ -63,22 +75,15 @@ class ParameterMap(BaseFigure):
             bool | None,
             Opt(
                 "Force a log colour scale on or off. Left out, a log scale when the "
-                "positive values span more than one decade."
+                "positive values span more than one decade. The tensor angles are "
+                "always linear."
             ),
         ] = None,
-        cmap: Cmap = "viridis",
+        cmap: CmapOrOwn = None,
         overlays: Overlays = None,
         **_,
     ) -> Axes:
-        from matplotlib.colors import LogNorm
-
-        if variable not in PARAMETER_FIELDS:
-            raise ValueError(
-                f"parameter_map: {variable!r} is not an aquifer property; "
-                f"pick one of {', '.join(PARAMETER_FIELDS)}"
-            )
-        if not sim.has_field(variable):
-            raise ValueError(f"parameter_map: {variable!r} is not in this run")
+        require_property(sim, variable, figure="parameter_map")
 
         values = np.atleast_2d(np.asarray(sim.field(variable), dtype="float64"))
         if layer is None:
@@ -91,17 +96,19 @@ class ParameterMap(BaseFigure):
                 "layer(s) this run has"
             )
 
+        plane = wrapped(variable, plane)
         collection = render_face_field(
             ax,
             sim,
             plane,
-            cmap=cmap,
-            cbar_label=self.axis_label_for(variable),
+            cmap=cmap_for(variable, cmap),
+            cbar_label=parameter_label(variable),
         )
-        positive = plane[np.isfinite(plane) & (plane > 0.0)]
-        spread = positive.size and np.log10(positive.max() / positive.min()) > LOG_SCALE_DECADES
-        if bool(spread) if log is None else bool(log):
-            collection.set_norm(LogNorm(vmin=float(positive.min()), vmax=float(positive.max())))
+        norm = colour_norm(variable, plane, log=log)
+        if norm is not None:
+            collection.set_norm(norm)
+        if variable in CYCLIC_FIELDS:
+            mark_turn(collection.colorbar)
 
         apply_overlays(
             ax,
@@ -111,7 +118,7 @@ class ParameterMap(BaseFigure):
         )
         style_relative_km_axes(ax)
         where = "top active cell" if layer is None else f"layer {int(layer)}"
-        ax.set_title(f"{self.field_descriptor_for(variable).long_name}{run_suffix(sim)}\n{where}")
+        ax.set_title(f"{parameter_name(variable)}{run_suffix(sim)}\n{where}")
         return ax
 
 

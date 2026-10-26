@@ -733,7 +733,8 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
     """Observable extracted at one structured cell.
 
     Use this variant for explicit ``(row, col)`` selectors on a structured
-    grid, optionally with a non-zero ``layer``.
+    grid. Without a ``layer`` the output reads the top active cell of the
+    column, like any point given without a layer.
     """
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {
@@ -762,9 +763,11 @@ class CalibOutputCell(ScoresAnObservedRecord, HydroModelBase):
         examples=[12],
         json_schema_extra={"unit": "-"},
     )
-    layer: Annotated[NonNegativeInt, Profile.USER] = Field(
-        default=0,
-        description="Layer of the cell, counted from 0 at the top.",
+    layer: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description="Layer of the cell, counted from 0 at the top. Unset, the output "
+        "reads the top active cell of the column, which is not layer 0 where that "
+        "layer is pinched out or inactive.",
         json_schema_extra={"unit": "-"},
     )
     time: Annotated[OutputTime, Profile.USER] = Field(

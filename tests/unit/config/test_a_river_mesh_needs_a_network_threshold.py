@@ -2,7 +2,8 @@
 
 The mesh switches [geographic.river_network] on by itself, so the threshold
 check of that section never ran, and the run stopped at build_geographic
-with "threshold_area_km2 must be > 0".
+with "threshold_area_km2 must be > 0". The refusal names what switched the
+network on: the river family, or a refinement zone on height_above_stream.
 """
 
 from __future__ import annotations
@@ -58,3 +59,51 @@ def test_a_mesh_that_ignores_the_rivers_needs_no_threshold() -> None:
 def test_the_regular_engine_needs_no_threshold() -> None:
     cfg = HydroModPyConfig.model_validate(_payload(mesh={"engine": "regular"}))
     assert cfg.mesh.engine == "regular"
+
+
+def _above_stream_zone() -> dict[str, Any]:
+    return {"where": "height_above_stream", "below": 2.0, "cell_size": 25.0}
+
+
+def test_a_height_zone_without_a_threshold_names_the_zone_and_not_the_river_family() -> None:
+    payload = _payload(
+        mesh={
+            "engine": "voronoi",
+            "families": {"rivers": "none"},
+            "refinement_zone": [_above_stream_zone()],
+        }
+    )
+    with pytest.raises(ValueError) as excinfo:
+        HydroModPyConfig.model_validate(payload)
+    message = str(excinfo.value)
+    assert "[[mesh.refinement_zone]] where = 'height_above_stream'" in message
+    assert "families.rivers" not in message
+    assert "Set threshold_area_km2 under [geographic.river_network]" in message
+
+
+def test_a_height_zone_with_a_threshold_loads() -> None:
+    payload = _payload(
+        mesh={
+            "engine": "voronoi",
+            "families": {"rivers": "none"},
+            "refinement_zone": [_above_stream_zone()],
+        }
+    )
+    payload["geographic"]["river_network"] = {"threshold_area_km2": 0.5}
+    cfg = HydroModPyConfig.model_validate(payload)
+    assert cfg.mesh.refines_above_stream()
+
+
+def test_the_river_family_is_named_first_when_both_ask_for_the_network() -> None:
+    payload = _payload(mesh={"engine": "voronoi", "refinement_zone": [_above_stream_zone()]})
+    with pytest.raises(ValueError, match="families.rivers = 'cell'"):
+        HydroModPyConfig.model_validate(payload)
+
+
+def test_a_zone_that_reads_a_run_needs_no_network() -> None:
+    zone = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_size": 25.0}
+    payload = _payload(
+        mesh={"engine": "voronoi", "families": {"rivers": "none"}, "refinement_zone": [zone]}
+    )
+    cfg = HydroModPyConfig.model_validate(payload)
+    assert not cfg.mesh.refines_above_stream()

@@ -231,6 +231,8 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     from hydromodpy.cli.helpers import resolve_workspace as _resolve_ws
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
     from hydromodpy.data.registry.freeze import archive_lockfile
+    from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     workspace_root = _resolve_ws(str(workspace) if workspace else None)
     db_path = data_cache_path_for(workspace_root / "data")
@@ -238,7 +240,12 @@ def archive_data_cache(output: Any, *, workspace: Any = None) -> Path:
     if not db_path.is_file():
         raise FileNotFoundError(f"no data cache at {db_path}: nothing to archive")
     with DataCatalogDuckDB(db_path, read_only=True) as catalog:
-        archive_lockfile(catalog, dest)
+        archive_lockfile(
+            catalog,
+            dest,
+            zarr_schema_version=str(ZARR_SCHEMA_VERSION),
+            parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
+        )
     return dest
 
 

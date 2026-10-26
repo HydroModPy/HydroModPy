@@ -37,7 +37,8 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 )
 from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
-from hydromodpy.spatial.mesh.request import MeshRequest
+from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
+from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
@@ -54,11 +55,14 @@ _SIDE_STATEMENT = (
 class TriangulatedRequest:
     """A triangulation of a request with its families, before any cell mesh.
 
-    The ``voronoi`` engine starts from the same object: its generators are the
+    ``lines`` are the families with the lines the triangulation follows: those
+    gmsh embedded, or those of the request for a triangulation read. The
+    ``voronoi`` engine starts from the same object: its generators are the
     vertices and its river chains follow the ``rivers`` edges.
     """
 
     request: MeshRequest
+    lines: tuple[LineFamilySpec, ...]
     mesh: HydroMesh
     geometry: DerivedGeometry
     lookup: EdgeLookup
@@ -68,7 +72,7 @@ class TriangulatedRequest:
 
     def lines_for_qa(self) -> dict[str, tuple[LineString, ...]]:
         """The source lines of each requested family, for the QA."""
-        return {family.name: family.lines for family in self.request.lines}
+        return {family.name: family.lines for family in self.lines}
 
 
 def _read_families(
@@ -97,9 +101,10 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
     if triangulation is not None:
         vertices = np.asarray(triangulation.vertices, dtype=np.float64)
         triangles = np.asarray(triangulation.triangles, dtype=np.int64)
+        lines = request.lines
     else:
         cdt = triangulate(request)
-        vertices, triangles = cdt.vertices, cdt.triangles
+        vertices, triangles, lines = cdt.vertices, cdt.triangles, cdt.lines
     mesh = HydroMesh(
         vertices=vertices,
         cell_blocks=(CellBlock(cell_type=CellType.TRIANGLE, connectivity=triangles),),
@@ -113,6 +118,7 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
         families, notes = _read_families(request, mesh, geometry, lookup)
     return TriangulatedRequest(
         request=request,
+        lines=lines,
         mesh=mesh,
         geometry=geometry,
         lookup=lookup,
@@ -126,11 +132,18 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
     )
 
 
+def _target_size(request: MeshRequest, centers: np.ndarray) -> np.ndarray:
+    """The cell size [m] the request asks for at each centre, for the QA."""
+    if request.size_field is None:
+        return np.full(len(centers), request.nominal_size_m)
+    return sample_size_field(request.size_field, centers)
+
+
 class TriangleMeshEngine:
     """Triangles of a gmsh constrained Delaunay triangulation (or of a read ``.msh``)."""
 
     engine_id: ClassVar[str] = "triangle"
-    engine_version: ClassVar[str] = "1.1.0"
+    engine_version: ClassVar[str] = "1.2.0"
     capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
         cell_types=(CellType.TRIANGLE,),
         structured=False,
@@ -157,9 +170,10 @@ class TriangleMeshEngine:
             for chain in chains_of(family, triangulated.lookup)
         )
         request = triangulated.request
+        centers = mesh.vertices[np.asarray(mesh.flat_connectivity)].mean(axis=1)
         cell_mesh = build_planar_cell_mesh(
             mesh,
-            mesh.vertices[np.asarray(mesh.flat_connectivity)].mean(axis=1),
+            centers,
             geometry=triangulated.geometry,
             center_kind="vertex_mean",
             crs_wkt=request.crs_wkt,
@@ -178,6 +192,7 @@ class TriangleMeshEngine:
             zone_names=families.zone_names,
             domain_area_m2=request.domain.area,
             lines=triangulated.lines_for_qa(),
+            target_size=None if triangulated.read else _target_size(request, centers),
             notes=triangulated.notes,
         )
         return annotate_side_cells(cell_mesh, _SIDE_STATEMENT)

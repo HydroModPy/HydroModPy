@@ -1,4 +1,4 @@
-"""Boussinesq and MF6 VI obstacle diagnostics CSV exports."""
+"""VI obstacle diagnostics CSV exports of the Boussinesq and MODFLOW 6 runs."""
 
 from __future__ import annotations
 
@@ -19,41 +19,7 @@ from hydromodpy.core.solver_diagnostics import (
 from hydromodpy.results.storage.contract import RUN_EXPORTS_DIRNAME
 from hydromodpy.results.storage.run_store import SOLVER_DIAGNOSTICS_DIRNAME
 
-from .base import _completed_simulation_summaries, _slug_token, _write_csv
-from .budget import (
-    BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS,
-    _load_boussinesq_obstacle_diagnostic_rows,
-)
-
-
-def write_boussinesq_obstacle_diagnostics_export(
-    *,
-    comparison_root: Path,
-    simulation_summaries: Iterable[Mapping[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write per-snapshot Boussinesq obstacle diagnostics when available."""
-    from hydromodpy.analysis.comparison.runtime.run_source import open_run_source
-
-    rows: list[dict[str, Any]] = []
-    for summary in _completed_simulation_summaries(simulation_summaries):
-        source = open_run_source(summary)
-        if source is None:
-            continue
-        with source:
-            rows.extend(
-                _load_boussinesq_obstacle_diagnostic_rows(
-                    summary, store=source, sim_id=source.sim_id
-                )
-            )
-
-    artifacts: list[dict[str, Any]] = []
-    if not rows:
-        return artifacts, rows
-
-    path = comparison_root / "boussinesq_obstacle_diagnostics.csv"
-    _write_csv(path, rows, BOUSSINESQ_OBSTACLE_DIAGNOSTICS_FIELDS)
-    artifacts.append({"kind": "boussinesq_obstacle_diagnostics_csv", "path": str(path)})
-    return artifacts, rows
+from .base import _completed_simulation_summaries, _slug_token
 
 
 def _diagnostic_paths(summary: Mapping[str, Any], names: Mapping[str, str]) -> dict[str, Path]:

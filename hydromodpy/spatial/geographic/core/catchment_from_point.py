@@ -12,7 +12,8 @@ Used when ``catch_def='from_outlet_coord'`` in the geographic workflow.
 Processing steps
 ----------------
 1. Build a point layer from ``x_outlet`` / ``y_outlet``.
-2. Snap the point to the nearest strong-flow cell on accumulation raster.
+2. Snap the point inside its window: to the strongest flow cell of the window
+   (``window``) or to the nearest cell of the extracted stream network (``jenson``).
 3. Run watershed delineation from D8 direction raster.
 4. Polygonize the resulting watershed raster for downstream GIS/domain usage.
 
@@ -31,18 +32,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.core.flow_products import rankable_accumulation
+from hydromodpy.spatial.geographic.core.flow_products import (
+    jenson_snap_from_threshold,
+    rankable_accumulation,
+)
 from hydromodpy.spatial.terrain import (
     OUTLET_LAYER_NAME,
     SNAPPED_OUTLET_LAYER_NAME,
     CatchmentLayout,
     FlowAccumulation,
     Outlet,
+    SnapMethod,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
 
@@ -98,6 +104,8 @@ def extract_catchment_from_point(
     crs_project: str | None = None,
     backend: object | None = None,
     engine_id: str | None = None,
+    snap_method: Literal["window", "jenson"] = "window",
+    stream_threshold_cells: float | None = None,
 ) -> CatchmentFromPointProducts:
     """Delineate a catchment polygon from one outlet point.
 
@@ -106,9 +114,9 @@ def extract_catchment_from_point(
     x_outlet, y_outlet:
         Outlet coordinates in model projected CRS.
     snap_dist:
-        Width of the square snap window, in map units. Not a maximum
-        displacement: a value equal to one cell size snaps nowhere, and 100 m on
-        a 25 m grid can move an outlet 70.7 m diagonally.
+        Width of the square snap window, in map units, for both snap methods.
+        Not a maximum displacement: a value equal to one cell size snaps nowhere,
+        and 100 m on a 25 m grid can move an outlet 70.7 m diagonally.
     accumulation:
         The regional accumulation to snap against, with the pointer it was
         derived from. Both are the engine's own products.
@@ -123,19 +131,45 @@ def extract_catchment_from_point(
     engine_id:
         Name of the terrain engine to delineate with. ``None`` resolves the
         default this build ships.
+    snap_method:
+        ``window`` moves the outlet to the largest accumulation of its window.
+        ``jenson`` moves it to the nearest cell of the stream network drawn from
+        the pointer of ``accumulation``, and refuses an outlet with none in its
+        window.
+    stream_threshold_cells:
+        Upstream cell count above which a cell is a stream cell. Required by
+        ``jenson`` and refused by ``window``, which has no network to draw.
     """
+    if snap_method not in ("window", "jenson"):
+        raise ValueError(f"Unknown snap_method {snap_method!r}. Expected 'window' or 'jenson'.")
+    if (snap_method == "jenson") != (stream_threshold_cells is not None):
+        raise ValueError(
+            "stream_threshold_cells goes with snap_method='jenson', and only with it: "
+            f"got snap_method={snap_method!r} and stream_threshold_cells={stream_threshold_cells!r}."
+        )
     engine = terrain_registry.create(engine_id, backend=backend)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # A basin beyond the float32 ln range is ranked on raw counts instead.
-    accumulation = rankable_accumulation(
-        engine,
-        accumulation,
-        [(float(x_outlet), float(y_outlet))],
-        snap_distance_m=float(snap_dist),
-        out=out_dir / "dem_acc_cells_for_snap.tif",
-    )
+    snap: SnapMethod
+    if snap_method == "jenson":
+        with progress.status("Extracting the stream network to snap onto"):
+            snap = jenson_snap_from_threshold(
+                engine,
+                accumulation,
+                threshold_cells=float(stream_threshold_cells),
+                out_dir=out_dir,
+            )
+    else:
+        snap = "window"
+        # A basin beyond the float32 ln range is ranked on raw counts instead.
+        accumulation = rankable_accumulation(
+            engine,
+            accumulation,
+            [(float(x_outlet), float(y_outlet))],
+            snap_distance_m=float(snap_dist),
+            out=out_dir / "dem_acc_cells_for_snap.tif",
+        )
 
     with progress.status("Delineating watershed"):
         try:
@@ -144,6 +178,7 @@ def extract_catchment_from_point(
                 [Outlet(outlet_id=OUTLET_ID, x=float(x_outlet), y=float(y_outlet))],
                 out_dir=out_dir,
                 snap_distance_m=float(snap_dist),
+                snap=snap,
                 layout=CATCHMENT_LAYOUT,
             )
         except TerrainProductError as exc:
@@ -152,10 +187,16 @@ def extract_catchment_from_point(
             # own class and not as the base one: a caller that decides on
             # EmptyCatchmentError would stop seeing it if the type were widened
             # here.
+            lower_threshold = (
+                " or lower the threshold of geographic.river_network, which draws the "
+                "stream network the outlet snaps onto"
+                if snap_method == "jenson"
+                else ""
+            )
             raise type(exc)(
                 f"{exc} Check geographic.catchment.x_outlet / y_outlet, increase "
-                "geographic.catchment.snap_dist, or verify that the corrected DEM and "
-                "flow-accumulation rasters cover the outlet."
+                f"geographic.catchment.snap_dist,{lower_threshold} or verify that the "
+                "corrected DEM and flow-accumulation rasters cover the outlet."
             ) from exc
 
     outlet_shp = out_dir / OUTLET_LAYER_NAME

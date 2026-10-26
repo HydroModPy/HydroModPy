@@ -38,6 +38,7 @@ layout is `storage/contract.py`; the full contract is
 | `validity_rules.py`, `known_issues.toml` | the label of a run as a function of reading: `label_for()` under versioned `ValidityRules`, and the register of known issues that declasses the runs of the versions they touched |
 | `identity.py` | the `identity` block every exported file carries, posed and read back per format: Zarr attributes, Parquet metadata, `gpkg_metadata`, PNG text chunk, `.meta.json` sidecar |
 | `lineage.py` | the `lineage` block of the seal: parent run, session, phase, trial, kind and overrides, by ids |
+| `source_runs.py` | the run a configuration reads (`[flow] restart_from`, the `run` of a `[[mesh.refinement_zone]]`) named by its `sim_id`: `source_run_id()` resolves a reference, `resolve_source_runs()` rewrites a configuration dict with it, and `run_identity_hash` hashes through it |
 | `rel_dir.py` | the one validator of every `rel_dir` field of the sealed formats, on `core.state.paths.parse_rel_dir` |
 | `ledger.py` | `figures/index.json` and `exports/index.json`: one entry per derived file, with its producer, options, version, digest and identity |
 | `readme.py` | the generated `README.md` of a run, a session or a summary, with the digest of the manifest in its footer |

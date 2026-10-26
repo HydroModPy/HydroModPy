@@ -11,6 +11,7 @@ context.
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -235,7 +236,11 @@ def _relativise(payload: Any, project_root: Path) -> Any:
 
 
 def frozen_config_document(
-    ctx: WorkflowContext, project_root: Path, *, restart_sim_id: str | None = None
+    ctx: WorkflowContext,
+    project_root: Path,
+    *,
+    restart_sim_id: str | None = None,
+    zone_runs: Mapping[str, str] | None = None,
 ) -> str:
     """Return the resolved configuration of the run as portable TOML text.
 
@@ -247,13 +252,21 @@ def frozen_config_document(
     this machine are left out, and every path under the project root is
     written relative to it, so the document replays from another checkout of
     the same project. A hotstart whose source has a ``sim_id`` is written as
-    the table ``{sim_id, path}``.
+    the table ``{sim_id, path}``. A refinement zone that read an earlier run
+    writes the ``sim_id`` of that run (*zone_runs*, by the reference the zone
+    gave) in place of its name, so a replay reads the run the mesh came from
+    and not a later ``.vN`` of it.
     """
     assert ctx.run_dir is not None
     snapshot = collect_effective_config_snapshot(ctx)
     flow = snapshot.get("flow")
     if restart_sim_id is not None and isinstance(flow, dict) and flow.get("restart_from"):
         flow["restart_from"] = {"sim_id": restart_sim_id, "path": str(flow["restart_from"])}
+    mesh = snapshot.get("mesh")
+    if zone_runs and isinstance(mesh, dict):
+        for zone in mesh.get("refinement_zone") or ():
+            if isinstance(zone, dict) and zone.get("run") in zone_runs:
+                zone["run"] = zone_runs[zone["run"]]
     cfg_effective = type(ctx.cfg).model_validate(snapshot)
     return portable_config_document(cfg_effective, ctx.run_dir, project_root)
 
@@ -301,7 +314,13 @@ def _freeze_run_config(
     """Write the resolved configuration into the run directory, in one rename."""
     project_root = Path(store.workspace_path or store.run_dir.parent.parent)
     target = store.run_dir / RUN_CONFIG_FILENAME
-    document = frozen_config_document(ctx, project_root, restart_sim_id=restart_sim_id)
+    summary = getattr(ctx.setup, "mesh_summary", None) or {}
+    document = frozen_config_document(
+        ctx,
+        project_root,
+        restart_sim_id=restart_sim_id,
+        zone_runs=summary.get("zone_runs"),
+    )
     with staged_path(target) as staged:
         staged.write_text(document, encoding="utf-8")
     store.facts.config_file = RUN_CONFIG_FILENAME

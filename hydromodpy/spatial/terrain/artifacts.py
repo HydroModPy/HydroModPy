@@ -76,6 +76,20 @@ def raster_max_near(
     return best
 
 
+def is_stream_cell(path: str | Path, x: float, y: float) -> bool:
+    """Tell whether the cell holding ``(x, y)`` is a stream cell of a stream raster.
+
+    A stream cell carries a positive value, whichever background the raster
+    uses, nodata or zero. A point off the raster is not on a stream.
+    """
+    with rasterio.open(str(path)) as src:
+        row, col = src.index(x, y)
+        if not (0 <= row < src.height and 0 <= col < src.width):
+            return False
+        value = src.read(1, window=rasterio.windows.Window(col, row, 1, 1), masked=True)
+    return bool(value.count() == 1 and float(value[0, 0]) > 0.0)
+
+
 def raster_crs(path: str | Path) -> str:
     """Return the CRS a raster carries, as a string, or an empty string."""
     with rasterio.open(str(path)) as src:
@@ -98,6 +112,7 @@ __all__ = [
     "MASK_INSIDE",
     "MASK_NODATA",
     "boundary_area_m2",
+    "is_stream_cell",
     "mask_cell_count",
     "raster_crs",
     "raster_max_near",

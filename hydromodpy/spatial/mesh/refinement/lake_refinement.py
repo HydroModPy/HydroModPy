@@ -29,7 +29,10 @@ class LakeRefinementConfig(HydroModelBase):
     cell_size: Annotated[float, Profile.USER] = Field(
         default=40.0,
         gt=0.0,
-        description="Target cell size, in metres, in the lake shoreline band.",
+        description=(
+            "Target cell size, in metres, in the lake shoreline band: the side of the "
+            "square of the same mean area as the cells, as mesh.cell_size."
+        ),
         json_schema_extra={"unit": "m"},
     )
     shoreline_band: Annotated[float | None, Profile.USER] = Field(
@@ -54,15 +57,18 @@ class LakeRefinementConfig(HydroModelBase):
         gt=0.0,
         description=(
             "Optional target cell size, in metres, inside the whole lake footprint "
-            "(marnage / bathymetry resolution). When omitted, the interior "
-            "keeps the background size."
+            "(marnage / bathymetry resolution), with the meaning of mesh.cell_size. When "
+            "omitted, the interior keeps the background size."
         ),
         json_schema_extra={"unit": "m"},
     )
     dam_cell_size: Annotated[float, Profile.USER] = Field(
         default=30.0,
         gt=0.0,
-        description="Target cell size, in metres, in the hydraulic-structure zones (cutoff wall, sill).",
+        description=(
+            "Target cell size, in metres, in the hydraulic-structure zones (cutoff wall, "
+            "sill), with the meaning of mesh.cell_size."
+        ),
         json_schema_extra={"unit": "m"},
     )
     dam_buffer: Annotated[float, Profile.USER] = Field(
