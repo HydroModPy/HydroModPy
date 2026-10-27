@@ -62,6 +62,10 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     _lake_bed_layers,
     _point_to_segment_distance,
     _resolve_shared_lake_cells,
+    cutoff_wall_faces,
+    downstream_of_wall,
+    interior_cells,
+    polygon_overlap,
 )
 from hydromodpy.solver.modflow6.builders._lake_outlets import (
     _downstream_spillway_ref,
@@ -89,8 +93,6 @@ from hydromodpy.solver.modflow6.builders.period_forcing import (
     resolve_forcing_mode,
 )
 from hydromodpy.solver.modflow6.support.time_series import Ts6Series
-from hydromodpy.spatial.mesh.ops.family_interior import interior_cells, polygon_overlap
-from hydromodpy.spatial.mesh.ops.flow_barrier import cutoff_wall_faces, downstream_of_wall
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

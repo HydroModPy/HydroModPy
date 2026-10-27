@@ -25,9 +25,9 @@ from hydromodpy.solver.boussinesq._mesh_builders import (
     build_runtime_bundle_from_cell_mesh,
     family_edge_indices,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
+    cell_mesh_from_bundle,
 )
 from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS, label_cells, side_cells

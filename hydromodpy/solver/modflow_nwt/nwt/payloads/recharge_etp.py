@@ -18,7 +18,10 @@ from hydromodpy.physics.forcing.validation import (
 )
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import is_scalar_number
-from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.spatial.forcing.cells import (
+    discretize_fields_on_cells,
+    discretize_points_on_cells,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (

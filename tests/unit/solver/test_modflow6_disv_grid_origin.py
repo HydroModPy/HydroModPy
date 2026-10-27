@@ -19,7 +19,8 @@ from hydromodpy.physics.transport.transport import Transport
 from hydromodpy.solver.modflow6.prt import Modflow6Prt
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 
 

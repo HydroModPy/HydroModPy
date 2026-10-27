@@ -29,7 +29,8 @@ def _build_gwt(tmp_path: Path, params: dict, *, complexity: str = "COMPLEX") -> 
     )
     conn = np.array([[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6]], dtype=int)
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-    from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+    from hydromodpy.spatial.mesh.model.cell_types import CellType
+    from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
     mesh = solver_mesh_from(
         HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, conn),)),

@@ -18,10 +18,9 @@ from flopy.utils import GridIntersect
 from shapely import affinity
 from shapely.geometry import LineString
 
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
+from hydromodpy.solver.modflow6.builders._sfr_network import crossing_pieces
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.line_on_chain import crossing_pieces
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

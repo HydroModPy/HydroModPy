@@ -10,7 +10,6 @@ from shapely.geometry import Polygon, box
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, SizeSampler, local_frame
 from hydromodpy.spatial.mesh.request import SizeField
-from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, grid_spec, mesh_request
 
 X0, Y0 = L93_ORIGIN
@@ -59,7 +58,7 @@ def test_the_sampler_reads_the_size_field_at_local_points() -> None:
     frame = local_frame(DOMAIN)
     sampler = SizeSampler(field, frame)
     world = np.array([[X0 + 300.0, Y0 + 500.0], [X0 + 1700.0, Y0 + 100.0]])
-    assert np.array_equal(sampler(frame.to_local(world)), sample_size_field(field, world))
+    assert np.array_equal(sampler(frame.to_local(world)), field.sample(world))
     assert sampler.h_min == 20.0
     assert sampler.h_max == 20.0 + ncol - 1
 

@@ -1,7 +1,7 @@
 """The layering is ``[domain.layers]``, never a key of a solver ``sgrid`` table.
 
 The refusal of ``sgrid.vertical`` itself is a row of the retired keys in
-``tests/unit/mesh/structured_grid/test_sgrid_config.py``.
+``tests/unit/solver/modflow_grid/test_sgrid_config.py``.
 """
 
 from __future__ import annotations

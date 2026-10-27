@@ -18,9 +18,9 @@ import pytest
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
-from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
+    cell_mesh_from_bundle,
     load_catchment_mesh_bundle,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh

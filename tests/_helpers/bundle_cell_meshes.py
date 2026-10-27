@@ -11,12 +11,12 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
+    cell_mesh_from_bundle,
     load_catchment_mesh_bundle,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
 from hydromodpy.spatial.mesh.request import InputTriangulation
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import MESH_BUNDLES, grid_over, mesh_request

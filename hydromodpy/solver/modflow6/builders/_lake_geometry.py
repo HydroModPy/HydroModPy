@@ -5,6 +5,15 @@ active layer below a lake column), lake-footprint resolution (interior-ring drop
 enclosed-cell fill, shared-cell arbitration) and the cells behind a cutoff wall.
 Private to the ``builders`` package; the public ``lake`` facade imports the ones
 its builder functions call.
+
+It also holds the cells a lake polygon owns and the faces of a cutoff wall laid
+on the shore, which the HFB builder (``flow_barrier.py``) reads too. A mesh whose
+faces follow a closed family line (a lake shore on triangles) splits into
+regions once the faces of that family are cut: a polygon then owns the regions
+it covers, cell for cell, with no sliver of a cell outside it. A mesh whose
+faces only approach the line (a regular grid, the Voronoi dual of a
+triangulation) has no such regions; the cells a polygon overlaps by a positive
+area are the cells it reaches there.
 """
 
 from __future__ import annotations
@@ -13,12 +22,20 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
+import shapely
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
-from hydromodpy.spatial.mesh.ops.flow_barrier import downstream_of_wall
+from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_edges
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 
 if TYPE_CHECKING:
+    from shapely.geometry import LineString
+    from shapely.geometry.base import BaseGeometry
+
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
@@ -294,3 +311,207 @@ def _resolve_shared_lake_cells(
         "mesh.lake_refinement further if the sill needs to be sharper.",
         len(shared),
     )
+
+
+# -- Cells of a lake polygon -------------------------------------------------
+
+_INTERIOR_SHARE = 0.5
+"""A region belongs to the polygon that covers more than this share of its area."""
+
+_MIN_OVERLAP_SHARE = 1e-6
+"""An overlap below this share of the cell area is a sliver, not a reach."""
+
+
+def polygon_overlap(
+    cell_mesh: PlanarCellMesh, polygon: BaseGeometry
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the sorted ids of the cells ``polygon`` overlaps, and the overlap areas.
+
+    A cell that only touches the polygon along an edge or at a point has no
+    positive overlap and is left out. A sliver smaller than
+    ``_MIN_OVERLAP_SHARE`` of the cell area is left out too: it is a rounding
+    artefact of the outline, not a reach.
+    """
+    polygons = cell_polygons(cell_mesh.mesh.vertices, cell_mesh.geometry.padded_connectivity)
+    candidates = np.sort(STRtree(polygons).query(polygon, predicate="intersects"))
+    areas = shapely.area(shapely.intersection(polygons[candidates], polygon))
+    cell_areas = np.asarray(cell_mesh.geometry.areas, dtype=float)[candidates]
+    keep = areas > _MIN_OVERLAP_SHARE * cell_areas
+    return candidates[keep].astype(np.int64), np.asarray(areas[keep], dtype=float)
+
+
+def family_regions(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
+    """Return the region label of every cell once the faces of ``family`` are cut."""
+    geometry = cell_mesh.geometry
+    n_cells = cell_mesh.n_cells
+    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
+    edge_keys = geometry.edge_nodes[:, 0] * n_nodes + geometry.edge_nodes[:, 1]
+    cut = np.zeros(edge_keys.size, dtype=bool)
+    rows = cell_mesh.face_rows(family)
+    if rows.any():
+        table = cell_mesh.face_families
+        node_a, node_b = table.node_a[rows], table.node_b[rows]
+        family_keys = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
+        cut = np.isin(edge_keys, family_keys)
+    joined = (geometry.edge_cells[:, 1] >= 0) & ~cut
+    first, second = geometry.edge_cells[joined, 0], geometry.edge_cells[joined, 1]
+    graph = coo_matrix(
+        (np.ones(first.size, dtype=np.int8), (first, second)), shape=(n_cells, n_cells)
+    )
+    _, labels = connected_components(graph, directed=False)
+    return labels.astype(np.int64)
+
+
+def interior_cells(cell_mesh: PlanarCellMesh, family: str, polygon: BaseGeometry) -> np.ndarray:
+    """Return the sorted cells of the ``family`` regions ``polygon`` covers for most of their area.
+
+    Each region bounded by the faces of ``family`` is owned by the polygon that
+    covers more than half of it, so a cell is inside or outside as a whole. A
+    cell of a region the polygon does not own is still its own when the polygon
+    covers more than half of that cell: a mesh that follows the shore smoothed
+    at its cell size leaves the arms narrower than a cell out of the regions,
+    and those cells come back one by one. An empty result means no region of
+    the family lies inside the polygon: the mesh faces were not built on its
+    outline.
+    """
+    labels = family_regions(cell_mesh, family)
+    n_regions = int(labels.max(initial=-1)) + 1
+    cells, overlap = polygon_overlap(cell_mesh, polygon)
+    covered = np.bincount(labels[cells], weights=overlap, minlength=n_regions)
+    region_area = np.bincount(labels, weights=cell_mesh.geometry.areas, minlength=n_regions)
+    inside = covered > _INTERIOR_SHARE * region_area
+    if not inside.any():
+        return np.empty(0, dtype=np.int64)
+    owned = inside[labels]
+    areas = np.asarray(cell_mesh.geometry.areas, dtype=float)
+    owned[cells[overlap > _INTERIOR_SHARE * areas[cells]]] = True
+    return np.flatnonzero(owned).astype(np.int64)
+
+
+# -- Faces of a cutoff wall laid on the shore --------------------------------
+
+
+def downstream_of_wall(line: LineString, points: np.ndarray) -> np.ndarray:
+    """Whether each point lies across a wall that has the lake on its left.
+
+    The side is read at the nearest point of the wall, against the local
+    direction of the wall there, so a curved wall is followed. A point whose
+    nearest point of the wall is one of its ends lies round the wall, not
+    across it, and a point on the wall is on neither side: neither is downstream.
+    """
+    points = np.asarray(points, dtype=float).reshape(-1, 2)
+    along = shapely.line_locate_point(line, shapely.points(points))
+    step = 1.0e-6 * max(line.length, 1.0)
+    before = shapely.get_coordinates(
+        shapely.line_interpolate_point(line, np.maximum(along - step, 0.0))
+    )
+    after = shapely.get_coordinates(
+        shapely.line_interpolate_point(line, np.minimum(along + step, line.length))
+    )
+    foot = shapely.get_coordinates(shapely.line_interpolate_point(line, along))
+    tangent = after - before
+    offset = points - foot
+    across = tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0] < 0.0
+    tip = 1.0e-9 * max(line.length, 1.0)
+    return across & (along > tip) & (along < line.length - tip)
+
+
+def lake_shore_faces(
+    cell_mesh: PlanarCellMesh, line: LineString, lake_cells: np.ndarray
+) -> np.ndarray:
+    """Interior edges between a lake cell and a cell downstream of the wall.
+
+    *line* is a wall with the lake on its left. Every face of the lake cell set
+    whose outer cell lies downstream of the wall belongs to the wall: barring
+    them all leaves no cell between the reservoir and the wall.
+    """
+    geometry = cell_mesh.geometry
+    lake = np.zeros(geometry.n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    pairs = geometry.edge_cells
+    interior = pairs[:, 1] >= 0
+    first_in = lake[pairs[:, 0]]
+    second_in = np.where(interior, lake[np.maximum(pairs[:, 1], 0)], False)
+    shore = np.flatnonzero(interior & (first_in != second_in))
+    outer = np.where(first_in[shore], pairs[shore, 1], pairs[shore, 0])
+    return shore[downstream_of_wall(line, cell_mesh.centers[outer])]
+
+
+def cutoff_wall_faces(
+    cell_mesh: PlanarCellMesh,
+    line: LineString,
+    lake_cells: np.ndarray,
+    trace: LineString | None = None,
+) -> list[BarrierFace]:
+    """The faces of a lake cutoff wall: its shore faces and the faces of its line.
+
+    *line* is the wall laid on the shore, lake on its left. Along the shore the
+    wall is every face between a lake cell and a cell downstream of it, so it
+    hugs the lake cell set; on a regular grid that is the staircase around the
+    overlap cells. The faces of the line (:func:`barrier_edges`) are barred
+    too: on an engine that follows the barrier family, the faces on the wall,
+    wings included; on a staircase, the faces the line crosses, which carry
+    the wings and close the fence where the cells round a corner of the shore.
+    A face between two lake cells is never barred. ``s`` is the position along
+    *trace* (the declared trace, whose vertices carry the depths), *line* when
+    none is given.
+    """
+    geometry = cell_mesh.geometry
+    lake = np.zeros(geometry.n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    rows = np.union1d(lake_shore_faces(cell_mesh, line, lake_cells), barrier_edges(cell_mesh, line))
+    pairs = geometry.edge_cells[rows]
+    rows = rows[~(lake[pairs[:, 0]] & lake[pairs[:, 1]])]
+    if not rows.size:
+        return []
+    station_line = line if trace is None else trace
+    total = float(station_line.length) or 1.0
+    along = shapely.line_locate_point(station_line, shapely.points(geometry.edge_midpoint[rows]))
+    stations = along / total
+    cells = geometry.edge_cells[rows]
+    return [
+        BarrierFace(
+            cell_a=int(cells[k, 0]),
+            cell_b=int(cells[k, 1]),
+            s=float(stations[k]),
+            length=float(geometry.edge_length[rows[k]]),
+        )
+        for k in np.argsort(stations, kind="stable")
+    ]
+
+
+def wall_leaks(
+    cell_mesh: PlanarCellMesh,
+    line: LineString,
+    lake_cells: np.ndarray,
+    barred: list[BarrierFace],
+    *,
+    reach: float,
+) -> np.ndarray:
+    """Lake-side cells the downstream side reaches without crossing a barred face.
+
+    The walk starts from every non-lake cell downstream of *line* (lake on its
+    left) within *reach* [m] of it, and moves through the faces left open
+    between cells within that reach. A cell whose nearest point of the wall is
+    an end of the wall is outside the walk, so the walk never goes round a
+    wing. A closed wall returns no cell.
+    """
+    geometry = cell_mesh.geometry
+    n_cells = geometry.n_cells
+    centres = shapely.points(cell_mesh.centers)
+    along = shapely.line_locate_point(line, centres)
+    tip = 1.0e-9 * max(line.length, 1.0)
+    walk = (shapely.distance(centres, line) <= reach) & (along > tip) & (along < line.length - tip)
+    lake = np.zeros(n_cells, dtype=bool)
+    lake[np.asarray(lake_cells, dtype=np.int64)] = True
+    downstream = downstream_of_wall(line, cell_mesh.centers) & ~lake
+    pairs = geometry.edge_cells[geometry.edge_cells[:, 1] >= 0]
+    keys = pairs[:, 0] * n_cells + pairs[:, 1]
+    closed = np.array([face.cell_a * n_cells + face.cell_b for face in barred], dtype=np.int64)
+    open_pairs = pairs[~np.isin(keys, closed) & walk[pairs[:, 0]] & walk[pairs[:, 1]]]
+    graph = coo_matrix(
+        (np.ones(len(open_pairs)), (open_pairs[:, 0], open_pairs[:, 1])), shape=(n_cells, n_cells)
+    )
+    component = connected_components(graph, directed=False)[1]
+    reached = np.isin(component, component[walk & downstream])
+    return np.flatnonzero(reached & walk & ~downstream)

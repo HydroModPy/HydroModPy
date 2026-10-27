@@ -19,7 +19,7 @@ from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (

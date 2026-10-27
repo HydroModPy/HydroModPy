@@ -12,16 +12,16 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
 from hydromodpy.spatial.mesh.engines.voronoi.frame import local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_CAP
 from hydromodpy.spatial.mesh.engines.voronoi.triangulation_seeds import _FACES_NOTE
-from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh
-from hydromodpy.spatial.mesh.planning.resample import resample_families
+from hydromodpy.spatial.mesh.io.msh import read_msh
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
+from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.size_field import SizeTerm, build_size_field
 from hydromodpy.spatial.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
-from hydromodpy.spatial.mesh.sizing.size_field import SizeTerm, build_size_field
+from hydromodpy.spatial.mesh.resample import resample_families
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
     bundle_msh,
@@ -79,7 +79,7 @@ def _graded_square(max_slope: float) -> MeshRequest:
 
 def _read(bundle: str, **options: object) -> MeshRequest:
     """The triangles of a committed bundle as a triangulation to read."""
-    domain = domain_polygon_from_mesh(load_planar_mesh(bundle_msh(bundle)).to_hydro_mesh())
+    domain = domain_polygon_from_mesh(read_msh(bundle_msh(bundle)))
     return mesh_request(
         grid_over(domain),
         domain=domain,

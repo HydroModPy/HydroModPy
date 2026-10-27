@@ -29,7 +29,7 @@ import shapely
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
+from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [

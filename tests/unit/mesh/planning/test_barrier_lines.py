@@ -16,7 +16,7 @@ from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import RING_FAMILY, split_barriers
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
@@ -151,3 +151,17 @@ def test_a_ring_that_lost_a_stretch_end_cannot_be_welded() -> None:
     # The weld fails loudly whether it raises ValueError or MeshRequestError.
     with pytest.raises((ValueError, MeshRequestError), match="nearest vertex of the resampled"):
         split.welded((*_families(ring=_RING)[:1], pieces))
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["short first", "short last"])
+def test_a_wing_shorter_than_the_local_cell_is_left_out_at_either_end(reverse: bool) -> None:
+    """A 20 m wing and a 60 m wing off the shore, against a 50 m local cell."""
+    wall = LineString([(120.0, 20.0), (100.0, 20.0), (100.0, 80.0), (160.0, 80.0)])
+    if reverse:
+        wall = wall.reverse()
+
+    split = split_barriers(_families(wall), _TOL, shortest=lambda xy: np.full(len(xy), 50.0))
+
+    (barrier,) = (family for family in split.families if family.name == BARRIER_FAMILY)
+    assert len(barrier.lines) == 1
+    assert barrier.lines[0].length == pytest.approx(60.0)

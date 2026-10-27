@@ -20,7 +20,6 @@ from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.request import MeshRequest, SizeField
-from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
 __all__ = ["ORIGIN_STEP_M", "LocalFrame", "SizeSampler", "local_frame"]
 
@@ -109,7 +108,7 @@ class SizeSampler:
 
     def __call__(self, xy: np.ndarray) -> np.ndarray:
         """Size [m] at local points ``(n, 2)``."""
-        return sample_size_field(self.field, self.frame.to_world(np.reshape(xy, (-1, 2))))
+        return self.field.sample(self.frame.to_world(np.reshape(xy, (-1, 2))))
 
     def pixel_centres(self) -> tuple[np.ndarray, float]:
         """Local centres ``(nrow * ncol, 2)`` of the field pixels, row 0 north, and one pixel area."""

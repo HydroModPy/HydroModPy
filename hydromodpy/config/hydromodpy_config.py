@@ -108,7 +108,7 @@ from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KIND
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 logger = get_logger(__name__)
 

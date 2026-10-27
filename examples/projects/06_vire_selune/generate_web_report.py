@@ -16,7 +16,7 @@ from matplotlib.collections import LineCollection, PolyCollection
 from rasterio.plot import show as rio_show
 
 ROOT = Path(__file__).resolve().parent
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 

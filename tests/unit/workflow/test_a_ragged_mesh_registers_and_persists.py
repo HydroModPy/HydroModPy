@@ -13,7 +13,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.results.zarr_store import SimulationZarr
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.workflow.steps.prepare_solver import prepare as prepare_module
 from hydromodpy.workflow.steps.prepare_solver import validate as validate_module
 from tests._helpers.cell_meshes import cell_mesh_of

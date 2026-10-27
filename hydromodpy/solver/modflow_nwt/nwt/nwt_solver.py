@@ -52,8 +52,8 @@ from hydromodpy.solver.modflow_grid import (
     resolve_first_period_steady,
 )
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 from ._post_processing import run_post_processing
 from ._pre_processing import assemble_flopy_packages

@@ -19,10 +19,10 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.solver.modflow6.builders._lake_geometry import interior_cells, polygon_overlap
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.generated import CLOSED_SHORE_SHARE
-from hydromodpy.spatial.mesh.ops.family_interior import interior_cells, polygon_overlap
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning import plan
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_shores import (

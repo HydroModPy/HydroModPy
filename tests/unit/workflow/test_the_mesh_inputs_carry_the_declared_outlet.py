@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs

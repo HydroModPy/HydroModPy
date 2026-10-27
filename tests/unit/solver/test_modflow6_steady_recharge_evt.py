@@ -19,7 +19,8 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 )
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from
 

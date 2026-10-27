@@ -1,7 +1,7 @@
 """Turn ``[mesh]`` and the project inputs into one mesh request.
 
 The planner fixes the intent of each line family, builds the size field of a
-graded engine, which also follows the gaps between face lines (``gap.py``),
+graded engine, which also follows the gaps between face lines (``gap_size.py``),
 and resamples its lines at the local size, on the geometry cleaned first
 (``cleanup.py``). A graded engine also gets the staircase of the catchment
 outline smoothed, before anything reads it (``catchment_outline.py``). A
@@ -26,7 +26,7 @@ from shapely.ops import substring
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
 from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_catchment
 from hydromodpy.spatial.mesh.planning.cleanup import (
@@ -35,14 +35,15 @@ from hydromodpy.spatial.mesh.planning.cleanup import (
     clean_lines,
     drop_small_holes,
 )
+from hydromodpy.spatial.mesh.planning.gap_size import gap_terms
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_shores import followed_lake_shores
-from hydromodpy.spatial.mesh.planning.resample import (
-    KINK_MIN_SHARE,
-    kink_pieces,
-    node_tolerance,
-    resample_families,
+from hydromodpy.spatial.mesh.planning.size_field import (
+    OutsideCoarsening,
+    PixelRegion,
+    SizeTerm,
+    build_size_field,
 )
 from hydromodpy.spatial.mesh.request import (
     BARRIER_FAMILY,
@@ -51,13 +52,11 @@ from hydromodpy.spatial.mesh.request import (
     RasterGridSpec,
     SizeField,
 )
-from hydromodpy.spatial.mesh.sizing.gap import gap_terms
-from hydromodpy.spatial.mesh.sizing.size_field import (
-    OutsideCoarsening,
-    PixelRegion,
-    SizeTerm,
-    build_size_field,
-    sample_size_field,
+from hydromodpy.spatial.mesh.resample import (
+    KINK_MIN_SHARE,
+    kink_pieces,
+    node_tolerance,
+    resample_families,
 )
 
 __all__ = ["plan_mesh_request", "smoothed_catchment"]
@@ -95,7 +94,7 @@ class _Sizing:
         """The local cell size [m] at points ``(k, 2)``: the size field, else the nominal size."""
         if self.size_field is None:
             return np.full(len(xy), self.nominal)
-        return sample_size_field(self.size_field, xy)
+        return self.size_field.sample(xy)
 
 
 def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshRequest:
@@ -224,7 +223,7 @@ def _sizing(
     split = split_barriers(
         families,
         node_tolerance(domain),
-        shortest=lambda xy: KINK_MIN_SHARE * sample_size_field(size_field, xy),
+        shortest=lambda xy: KINK_MIN_SHARE * size_field.sample(xy),
     )
     resampled = resample_families(
         split.families, domain=domain, size_field=size_field, fixed_points=split.fixed_points
@@ -255,7 +254,7 @@ def _followed_shores(
     river_lines = inputs.river_trace.lines if inputs.river_trace is not None else ()
     shores = followed_lake_shores(
         inputs.lakes,
-        lambda xy: sample_size_field(size_field, xy),
+        size_field.sample,
         barriers=inputs.barriers,
         rivers=tuple(river_lines),
         finest=float(size_field.values.min()),
@@ -547,7 +546,7 @@ def _gap_terms(
     h0: float,
     pixel: float,
 ) -> list[SizeTerm]:
-    """The terms of the gaps between the face lines and the domain outline (``gap.py``).
+    """The terms of the gaps between the face lines and the domain outline (``gap_size.py``).
 
     Lines closer than the cleanup tolerance touch: no cell fits between them.
     """

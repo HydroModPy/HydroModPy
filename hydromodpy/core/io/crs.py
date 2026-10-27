@@ -7,11 +7,17 @@ here rather than beside one producer because every layer that writes a
 raster or a shapefile needs it, including engines that must not import a
 sibling package to find it. The PROJ database bootstrap that used to live inline in
 ``hydromodpy/__init__.py`` is planned to migrate here in a later phase.
+
+``to_mesh_crs`` brings a vector layer into the frame of a mesh before an
+overlay. It sits here so that any layer that overlays vector data on cells
+reads it without importing the mesh package.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
@@ -25,7 +31,13 @@ from shapely.geometry import Point
 from hydromodpy.core.io.vector_io import load_shapefile
 from hydromodpy.core.logging import get_logger
 
+if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
+
 logger = get_logger(__name__)
+
+CrsLike = str | int | CRS
+"""A CRS as a caller names it: an EPSG code, a WKT or PROJ string, or a ``pyproj.CRS``."""
 
 
 def reproject_coord(x_wgs: float, y_wgs: float) -> tuple[str, float, float]:
@@ -175,8 +187,39 @@ def ensure_crs(path: str | Path, crs: str | None) -> None:
             prj_path.write_text(wkt, encoding="utf-8")
 
 
+def to_mesh_crs(
+    geometries: Sequence[BaseGeometry],
+    *,
+    mesh_crs: CrsLike,
+    geometry_crs: CrsLike,
+) -> list[BaseGeometry]:
+    """Return the non-empty geometries expressed in the mesh CRS."""
+    from shapely.ops import transform
+
+    target = require_crs(mesh_crs, "mesh_crs")
+    source = require_crs(geometry_crs, "geometry_crs")
+    parts = [geometry for geometry in geometries if geometry is not None and not geometry.is_empty]
+    if not parts or source.equals(target):
+        return parts
+    project = Transformer.from_crs(source, target, always_xy=True).transform
+    return [transform(project, geometry) for geometry in parts]
+
+
+def require_crs(crs_like: CrsLike | None, name: str) -> CRS:
+    """Coerce one CRS argument, refusing the missing case."""
+    if crs_like is None or (isinstance(crs_like, str) and not crs_like.strip()):
+        raise ValueError(
+            f"vector_cell_mask needs an explicit {name}: a mesh stores bare coordinates, "
+            "so without both frames the overlay silently compares two different ones."
+        )
+    return CRS.from_user_input(crs_like)
+
+
 __all__ = [
+    "CrsLike",
     "ensure_crs",
+    "require_crs",
+    "to_mesh_crs",
     "reproject_coord",
     "reproject_shp",
     "get_centroid_coordinates",

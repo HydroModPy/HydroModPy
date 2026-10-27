@@ -26,9 +26,9 @@ from hydromodpy.spatial.mesh.engines.voronoi.triangulation_seeds import dual_cel
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity, PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
-from hydromodpy.spatial.mesh.planning.resample import resample_families
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest, SizeField
+from hydromodpy.spatial.mesh.resample import resample_families
 
 __all__ = ["VoronoiMeshEngine"]
 

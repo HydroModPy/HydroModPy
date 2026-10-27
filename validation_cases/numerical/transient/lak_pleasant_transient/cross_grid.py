@@ -26,7 +26,7 @@ from hydromodpy.solver.modflow6.builders.lake import (
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import CASE_DIR, PleasantTransientGeometry, load_geometry

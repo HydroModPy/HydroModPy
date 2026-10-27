@@ -382,10 +382,10 @@ def _watershed_mean_series(load_result: object):
     """Reduce a gridded forcing family to one tz-naive watershed-mean series."""
     import pandas as pd
 
-    from hydromodpy.spatial.field.aggregation import extract_homogeneous_series_from_fields
+    from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
     try:
-        series = extract_homogeneous_series_from_fields(load_result)
+        series = spatial_mean_from_fields(load_result)
     except Exception:
         logger.debug("Watershed-mean reduction failed", exc_info=True)
         return None

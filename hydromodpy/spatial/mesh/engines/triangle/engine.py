@@ -38,7 +38,6 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
-from hydromodpy.spatial.mesh.sizing.size_field import sample_size_field
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
@@ -136,7 +135,7 @@ def _target_size(request: MeshRequest, centers: np.ndarray) -> np.ndarray:
     """The cell size [m] the request asks for at each centre, for the QA."""
     if request.size_field is None:
         return np.full(len(centers), request.nominal_size_m)
-    return sample_size_field(request.size_field, centers)
+    return request.size_field.sample(centers)
 
 
 class TriangleMeshEngine:

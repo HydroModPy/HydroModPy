@@ -7,13 +7,13 @@ import pytest
 import shapely
 from shapely.geometry import Polygon
 
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import (
     derive_geometry,
     derive_geometry_from_rows,
 )
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
 from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh
 
 X0, Y0 = L93_ORIGIN

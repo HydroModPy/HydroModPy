@@ -23,6 +23,7 @@ from shapely.geometry import LineString, box
 
 from hydromodpy.core.state.paths import preprocessing_dir
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
@@ -36,8 +37,8 @@ from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
 from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
 from hydromodpy.spatial.geographic.domain_rasters import DomainRasterProducts
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers import ground_bench as bench
 from tests._helpers.cell_meshes import cell_mesh_of
 from tests._helpers.terrain_doubles import fake_flow_products

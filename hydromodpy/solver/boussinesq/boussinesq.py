@@ -91,7 +91,7 @@ from hydromodpy.solver.steady_initial_conditions import (
     steady_state_initial_condition_strategy,
     steady_state_initialization_surface_interaction_model,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
 )
 

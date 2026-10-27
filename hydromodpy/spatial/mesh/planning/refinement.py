@@ -3,7 +3,13 @@
 A table with ``path`` reads a vector layer. A table with ``where`` draws its
 region on the pixels of the DEM grid where a field passes a threshold: the
 height above the stream (``height_above_stream.py``), or a field of an
-earlier run (``run_fields.py``).
+earlier run.
+
+The planner reads no store: the mesh step reads the field of the earlier run
+and hands its extremes over time, per cell of that run's mesh, as a
+:class:`RunFieldEnvelope`. The minimum over time says whether a field ever
+went below a threshold, the maximum whether it ever went above one, so the
+seepage front of a wet winter counts even when the run ends in a dry summer.
 """
 
 from __future__ import annotations
@@ -14,21 +20,29 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from rasterio.features import rasterize
+from rasterio.transform import Affine
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.refinement.height_above_stream import (
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+from hydromodpy.spatial.mesh.planning.height_above_stream import (
     height_above_stream,
     stream_pixels,
 )
-from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
-from hydromodpy.spatial.mesh.refinement.run_fields import RunFieldEnvelope, cells_on_grid
+from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
+from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.spatial.mesh.request import RasterGridSpec
-from hydromodpy.spatial.mesh.sizing.size_field import PixelRegion
 
-__all__ = ["CriterionInputs", "RefinementZone", "load_refinement_zones"]
+__all__ = [
+    "CriterionInputs",
+    "RefinementZone",
+    "RunFieldEnvelope",
+    "cells_on_grid",
+    "load_refinement_zones",
+]
 
 _logger = get_logger(__name__)
 
@@ -47,6 +61,45 @@ class RefinementZone:
     ramp_m: float
     label: str = ""
     source_run: str | None = None
+
+
+@dataclass(frozen=True, eq=False)
+class RunFieldEnvelope:
+    """The extremes over time of one field of an earlier run, per cell of its mesh.
+
+    ``minimum`` and ``maximum`` are NaN where the field was never defined
+    (a dry cell has no water table). ``unit`` is the unit of both.
+    """
+
+    sim_id: str
+    run: str
+    field: str
+    unit: str
+    vertices: np.ndarray
+    connectivity: np.ndarray | Sequence[np.ndarray]
+    minimum: np.ndarray
+    maximum: np.ndarray
+
+    def __post_init__(self) -> None:
+        """Refuse extremes that do not hold one value per cell."""
+        minimum = np.asarray(self.minimum, dtype=float).reshape(-1)
+        maximum = np.asarray(self.maximum, dtype=float).reshape(-1)
+        if minimum.shape != maximum.shape or minimum.size != len(self.connectivity):
+            raise MeshRequestError(
+                f"the {self.field} of run {self.run!r} holds {minimum.size} minima and "
+                f"{maximum.size} maxima for {len(self.connectivity)} cells"
+            )
+        object.__setattr__(self, "minimum", minimum)
+        object.__setattr__(self, "maximum", maximum)
+
+    def passing(self, *, below: float | None, above: float | None) -> np.ndarray:
+        """The cells whose field went below *below*, or above *above*, at some time step."""
+        if (below is None) == (above is None):
+            raise MeshRequestError("a threshold is either below or above, and one of them")
+        with np.errstate(invalid="ignore"):
+            if below is not None:
+                return np.isfinite(self.minimum) & (self.minimum < below)
+            return np.isfinite(self.maximum) & (self.maximum > above)
 
 
 @dataclass(frozen=True, eq=False)
@@ -123,6 +176,43 @@ def load_refinement_zones(
             )
         )
     return tuple(zones)
+
+
+def cells_on_grid(
+    vertices: np.ndarray,
+    connectivity: np.ndarray | Sequence[np.ndarray],
+    selected: np.ndarray,
+    grid: RasterGridSpec,
+) -> np.ndarray:
+    """The pixels of *grid* inside the *selected* cells, row 0 north.
+
+    A pixel is inside a cell when its centre is. The pixel under the centroid
+    of each selected cell is taken too, so a cell smaller than a pixel still
+    marks one.
+    """
+    polygons = cell_polygons(vertices, connectivity)
+    chosen = [
+        polygon
+        for polygon, keep in zip(polygons, np.asarray(selected, dtype=bool), strict=True)
+        if keep and polygon is not None
+    ]
+    mask = np.zeros((grid.nrow, grid.ncol), dtype=bool)
+    if not chosen:
+        return mask
+    mask |= rasterize(
+        [(polygon, 1) for polygon in chosen],
+        out_shape=(grid.nrow, grid.ncol),
+        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        fill=0,
+        all_touched=False,
+        dtype="uint8",
+    ).astype(bool)
+    centres = shapely.get_coordinates(shapely.centroid(np.asarray(chosen, dtype=object)))
+    cols = np.floor((centres[:, 0] - grid.xmin) / grid.dx).astype(np.int64)
+    rows = np.floor((grid.ymax - centres[:, 1]) / grid.dy).astype(np.int64)
+    inside = (rows >= 0) & (rows < grid.nrow) & (cols >= 0) & (cols < grid.ncol)
+    mask[rows[inside], cols[inside]] = True
+    return mask
 
 
 def _height_above_stream(criteria: CriterionInputs) -> np.ndarray:

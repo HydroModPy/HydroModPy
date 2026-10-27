@@ -45,12 +45,13 @@ from hydromodpy.solver.modflow6.builders import (
 from hydromodpy.solver.modflow6.support.property_mapping import resolve_flow_property_arrays
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
-from hydromodpy.spatial.mesh import MeshRequest, RasterGridSpec, registry
+from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.planning.input_mesh import (
     domain_polygon_of,
     read_input_triangulation,
 )
+from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from hydromodpy.spatial.raster_support import RasterSupport
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

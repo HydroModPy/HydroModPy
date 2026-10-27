@@ -17,12 +17,12 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.solver.modflow6.builders._sfr_network import chain_pieces
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.line_on_chain import chain_pieces
 from hydromodpy.spatial.mesh.request import LineFamilySpec
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, mesh_request
 

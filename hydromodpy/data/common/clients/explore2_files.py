@@ -9,7 +9,7 @@ is read into memory, and refuses a non-standard calendar.
 The native SAFRAN grid is a Cartesian grid in EPSG:27572, but reprojecting its
 cell centres into the model CRS turns them into a warped, not axis-aligned,
 set of points: the discretisation reads a plain regular ``(y, x)`` grid
-(``spatial/mesh/forcing/_source.py``, ``find_xy_dims``), so this
+(``spatial/forcing/sources.py``, ``find_xy_dims``), so this
 module resamples the reprojected centres by nearest neighbour onto a new
 regular grid of the same spacing (8 km) in the model CRS.
 """
@@ -270,7 +270,7 @@ def _resample_nearest(
     target_x_1d: np.ndarray,
     target_y_1d: np.ndarray,
 ) -> np.ndarray:
-    from hydromodpy.spatial.mesh.forcing.spatial_interpolation import (
+    from hydromodpy.spatial.forcing.interpolation import (
         interpolate_stack_to_grid,
     )
 

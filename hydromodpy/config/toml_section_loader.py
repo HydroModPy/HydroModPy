@@ -16,7 +16,7 @@ from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.simulation.spinup_config import SpinupConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 ValidationContext = Literal["toml", "api"]
 ModelT = TypeVar("ModelT", bound=BaseModel)

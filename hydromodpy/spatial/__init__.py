@@ -33,9 +33,9 @@ _LAZY_IMPORTS = {
     "FieldParam": "hydromodpy.spatial.field:FieldParam",
     "CatchmentDelineation": "hydromodpy.spatial.geographic:CatchmentDelineation",
     "GeographicConfig": "hydromodpy.spatial.geographic:GeographicConfig",
-    "CellBlock": "hydromodpy.spatial.mesh:CellBlock",
-    "CellType": "hydromodpy.spatial.mesh:CellType",
-    "HydroMesh": "hydromodpy.spatial.mesh:HydroMesh",
+    "CellBlock": "hydromodpy.spatial.mesh.model.hydro_mesh:CellBlock",
+    "CellType": "hydromodpy.spatial.mesh.model.cell_types:CellType",
+    "HydroMesh": "hydromodpy.spatial.mesh.model.hydro_mesh:HydroMesh",
 }
 
 

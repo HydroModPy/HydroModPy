@@ -58,17 +58,23 @@ The planner
   from a file. The rules are on :ref:`mesh-cleanup`.
 - For the graded engines, it smooths the staircase of the catchment outline where the mesh
   follows it (``planning/catchment_outline.py``). The rules are on :ref:`mesh-cleanup` too.
-- For an engine that grades its cells, it builds the size field (``sizing/size_field.py``) and
-  the term for the gap between face lines (``sizing/gap.py``), which ``[mesh] gap_cells = 0``
+- For an engine that grades its cells, it builds the size field (``planning/size_field.py``) and
+  the term for the gap between face lines (``planning/gap_size.py``), which ``[mesh] gap_cells = 0``
   switches off. The rule is on :doc:`/theory/mesh`.
 - It turns each ``[[mesh.refinement_zone]]`` drawn by a field into a term of the size field
   (``planning/refinement.py``). The zone is a set of DEM pixels, a ``PixelRegion`` of the size
-  field. The height above the stream comes from ``refinement/height_above_stream.py``. A field of
+  field. The height above the stream comes from ``planning/height_above_stream.py``. A field of
   an earlier run is read by the workflow step (``workflow/steps/mesh_run_fields.py``), because
   ``spatial`` cannot import ``results``, and it reaches the planner as pixels. The ``regular``
   engine does not grade its cells, so the planner drops these zones and the QA says so.
+- With ``[mesh.lake_refinement]``, it turns each hydraulic structure of a lake into a term of the
+  size field. The size rules are in ``planning/lake_structures.py``: each cutoff wall, the sill
+  between two lakes apart, finer than their gap so that no cell holds both lakes, and the disk
+  around the declared outlet unless a wall zone reaches it. The workflow step reads the walls,
+  the lake footprints and the outlet from the run (``workflow/steps/mesh_inputs.py``) and hands
+  them to these rules as plain geometries.
 - For a triangulation read from a file (``planning/input_mesh.py``), it reads the ``.msh`` file
-  of ``[mesh.triangle] path`` instead of planning one. It refuses a T-junction, a vertex inside
+  of ``[mesh.triangle] path`` once, through ``io/msh.py``, instead of planning one. It refuses a T-junction, a vertex inside
   the edge of a triangle that does not hold it, and gives its coordinates. It warns about
   duplicate vertices.
 

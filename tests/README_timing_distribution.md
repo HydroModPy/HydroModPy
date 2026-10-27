@@ -9,18 +9,18 @@ Example:
 
 ```powershell
 $timingRoot = Join-Path $env:HMP_TEST_SCRATCH_ROOT "timing_reports"
-python -m pytest tests/unit/spatial/mesh/gmsh_grid -q --junitxml "$timingRoot/gmsh_grid_junit.xml" -p no:cacheprovider
+python -m pytest tests/unit/mesh/io -q --junitxml "$timingRoot/mesh_io_junit.xml" -p no:cacheprovider
 ```
 
 ## 2) Build the timing distribution report
 
 ```powershell
 python tests/_helpers/pytest_timing_distribution.py `
-  --junitxml "$timingRoot/gmsh_grid_junit.xml" `
+  --junitxml "$timingRoot/mesh_io_junit.xml" `
   --status-filter passed `
   --top-n 20 `
-  --out-json "$timingRoot/gmsh_grid_timing_distribution_passed.json" `
-  --out-csv "$timingRoot/gmsh_grid_test_durations_passed.csv"
+  --out-json "$timingRoot/mesh_io_timing_distribution_passed.json" `
+  --out-csv "$timingRoot/mesh_io_test_durations_passed.csv"
 ```
 
 ## 3) What the tool returns

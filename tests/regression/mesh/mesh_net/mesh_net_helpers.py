@@ -118,11 +118,11 @@ BUNDLE_CRS_WKT = 'PROJCS["RGF93 v1 / Lambert-93"]'
 
 def _read_request(bundle: str, **options: Any):
     """Return the request that makes an engine read the committed ``.msh`` of *bundle*."""
-    from hydromodpy.spatial.mesh import MeshRequest, RasterGridSpec
     from hydromodpy.spatial.mesh.planning.input_mesh import (
         domain_polygon_of,
         read_input_triangulation,
     )
+    from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 
     triangulation = read_input_triangulation(BUNDLES_ROOT / bundle / "mesh_2d.msh")
     domain = domain_polygon_of(triangulation)

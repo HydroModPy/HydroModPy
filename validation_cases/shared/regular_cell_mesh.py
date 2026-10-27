@@ -5,7 +5,9 @@ from __future__ import annotations
 from pyproj import CRS
 from shapely.geometry import box
 
-from hydromodpy.spatial.mesh import MeshRequest, PlanarCellMesh, RasterGridSpec, registry
+from hydromodpy.spatial.mesh import registry
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from hydromodpy.spatial.surface import Surface
 
 

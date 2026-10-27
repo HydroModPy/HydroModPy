@@ -1,5 +1,5 @@
-"""Mesh I/O utilities (VTU, MSH, etc.) via meshio."""
+"""Exchange formats of the mesh, one module per format.
 
-from hydromodpy.spatial.mesh.io.vtu_io import read_vtu, write_vtu
-
-__all__ = ("read_vtu", "write_vtu")
+``vtu.py``, ``meshio_bridge.py``, ``msh.py`` and ``bundle.py``. The package
+depends on the mesh model only. The package map is ``../README.md``.
+"""

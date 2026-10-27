@@ -25,7 +25,7 @@ from rasterio.transform import Affine
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box, shape
 
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning import catchment_outline
 from hydromodpy.spatial.mesh.planning.catchment_outline import (
     OUTLINE_CUT_SHARE,

@@ -663,7 +663,8 @@ draws random numbers, the ``mesh_request_hash``, the ``crs`` (WKT) the vertices 
 the mesh ``qa`` (JSON, no ``NaN``), the ``library_versions`` the mesh depends on, the
 ``vertical_layout`` and, on a regular grid, ``structured_shape``. The edge arrays are the UGRID ones, with the same fill value as
 xugrid, so ``xugrid.Ugrid2d`` takes them as stored. A family has one bit, so a mesh holds at most 31
-families. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
+families. ``cell_family_bits`` and ``edge_family_bits`` of ``results/zarr_store/mesh_layout.py``
+compute the two bit fields. The order along a river, which a bit field cannot keep, is in the ``mesh_cell_families``
 table (``family``, ``chain_id``, ``position`` from upstream, ``cell_id``, and ``offset_m``, null
 when the engine publishes no offset for the chain); the faces of the face-intent families (lakes, geology, the
 ``boundary:*`` sides) are in ``mesh_face_families`` (``face_row``, ``family``, ``edge_id``, the two

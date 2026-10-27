@@ -19,8 +19,8 @@ from hypothesis import strategies as st
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig, MeshFamiliesConfig
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshFamiliesConfig
 from hydromodpy.spatial.mesh.planning import plan
 from hydromodpy.spatial.mesh.planning.cleanup import (
     CLEANUP_PIXEL_SHARE,

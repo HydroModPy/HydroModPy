@@ -445,7 +445,7 @@ def test_polygon_overlap_drops_a_sliver_below_the_relative_area_floor() -> None:
     # BV-2: a 1e-8 m2 sliver on a 1 m2 cell must not enter the lake footprint.
     from shapely.geometry import box
 
-    from hydromodpy.spatial.mesh.ops.family_interior import polygon_overlap
+    from hydromodpy.solver.modflow6.builders._lake_geometry import polygon_overlap
 
     mesh = _grid_4x4(nlay=1)
     cen = mesh.cell_centroids()

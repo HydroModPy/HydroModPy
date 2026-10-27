@@ -33,8 +33,8 @@ from shapely.geometry.polygon import orient
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError, MeshGenerationError, MeshRequestError
-from hydromodpy.spatial.mesh.planning.resample import kink_pieces, resample_families
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
+from hydromodpy.spatial.mesh.resample import kink_pieces, resample_families
 
 if TYPE_CHECKING:
     from types import ModuleType

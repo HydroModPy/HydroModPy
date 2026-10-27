@@ -28,7 +28,8 @@ from hydromodpy.solver.modflow_common import mesh_descent
 from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent, run_basin
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 

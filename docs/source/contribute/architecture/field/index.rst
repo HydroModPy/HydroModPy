@@ -20,8 +20,10 @@ Code map
 - ``hydromodpy/spatial/field/core/field_param.py`` and
   ``field_param_config.py``: heterogeneous parameter contract
   consumed downstream by solvers.
-- ``hydromodpy/spatial/field/meshes/``: concrete structured and
-  triangular mesh implementations.
+- ``hydromodpy/spatial/field/meshes/``: concrete structured,
+  triangular, polygon and Gmsh planar (``gmsh_planar_mesh.py``) mesh
+  implementations, their conversion to and from the ``HydroMesh``
+  (``field_mesh_adapter.py``) and ``plot_cell_values`` (``plotting.py``).
 - ``hydromodpy/spatial/field/geology/``: geology-backed
   specialisations built on the same field contract.
 

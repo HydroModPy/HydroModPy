@@ -16,7 +16,7 @@ class SetupContext:
     Most field types are ``Any`` because ``core`` cannot import from
     sibling layers (``physics``, ``spatial``). Concrete classes live in
     ``physics.flow``, ``physics.transport``, ``spatial.domain``,
-    ``spatial.geographic`` and ``spatial.mesh.gmsh_grid``.
+    ``spatial.geographic`` and ``spatial.mesh.io``.
     """
 
     workspace: Workspace | None = None

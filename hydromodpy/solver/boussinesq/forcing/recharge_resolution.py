@@ -8,7 +8,10 @@ import numpy as np
 
 from hydromodpy.physics.forcing.steady_periods import apply_first_clim
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
-from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.spatial.forcing.cells import (
+    discretize_fields_on_cells,
+    discretize_points_on_cells,
+)
 
 
 class RechargeResolutionMixin:

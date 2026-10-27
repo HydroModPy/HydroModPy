@@ -107,3 +107,18 @@ def test_a_zone_that_reads_a_run_needs_no_network() -> None:
     )
     cfg = HydroModPyConfig.model_validate(payload)
     assert not cfg.mesh.refines_above_stream()
+
+
+def test_a_stream_boundary_on_a_mesh_read_from_a_file_names_the_file() -> None:
+    mesh = {"engine": "triangle", "triangle": {"path": "mesh/catchment.msh"}}
+    with pytest.raises(ValueError) as excinfo:
+        HydroModPyConfig.model_validate(_payload(mesh=mesh, flow={"active_bc": ["stream"]}))
+    message = str(excinfo.value)
+    assert "The 'stream' boundary on a [mesh.triangle] path mesh" in message
+    assert "Set threshold_area_km2 under [geographic.river_network]" in message
+
+
+def test_a_mesh_read_from_a_file_without_a_stream_boundary_needs_no_threshold() -> None:
+    mesh = {"engine": "triangle", "triangle": {"path": "mesh/catchment.msh"}}
+    cfg = HydroModPyConfig.model_validate(_payload(mesh=mesh))
+    assert cfg.mesh.triangle.path is not None

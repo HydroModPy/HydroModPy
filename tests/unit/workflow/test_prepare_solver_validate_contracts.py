@@ -11,7 +11,8 @@ import hydromodpy.workflow.steps.prepare_solver.validate as validate_module
 from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.state.paths import RUNS_DIRNAME
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME, TABLES_DIRNAME
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.cell_meshes import cell_mesh_of
 
 

@@ -18,8 +18,7 @@ from shapely import affinity
 from shapely.geometry import Polygon
 
 from hydromodpy.solver.modflow6.builders.lake import resolve_lake_cells
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from tests._helpers.bundle_cell_meshes import bundle_dual, bundle_triangles
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays

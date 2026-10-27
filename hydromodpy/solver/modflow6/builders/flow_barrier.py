@@ -20,23 +20,45 @@ from shapely.geometry import LineString, Point
 from hydromodpy.core.exceptions import SolverInputError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
-from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
-from hydromodpy.spatial.mesh.ops.flow_barrier import (
-    BarrierFace,
-    barrier_faces_from_line,
+from hydromodpy.solver.modflow6.builders._lake_geometry import (
     cutoff_wall_faces,
     downstream_of_wall,
     lake_shore_faces,
-    mesh_footprint,
-    trace_end_gaps,
     wall_leaks,
 )
+from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
+from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_faces_from_line
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
+
+
+def mesh_footprint(cell_mesh: PlanarCellMesh) -> shapely.Geometry:
+    """Return the union of the cell polygons (the planar model domain)."""
+    rows = np.asarray(cell_mesh.connectivity_rows)
+    verts = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
+    polygons = [shapely.Polygon(verts[row[row >= 0]]) for row in rows]
+    return shapely.union_all(polygons)
+
+
+def trace_end_gaps(footprint: shapely.Geometry, line: LineString) -> tuple[float, float]:
+    """Return the open length [m] left at the start and at the end of a trace.
+
+    The open length is the distance from the trace end to the domain outline,
+    when that end lies inside the domain. Flow can go around the barrier
+    through this gap. An end on or outside the outline leaves no gap.
+    """
+    coords = shapely.get_coordinates(line)
+    outline = footprint.boundary
+    gaps = []
+    for xy in (coords[0], coords[-1]):
+        point = shapely.Point(float(xy[0]), float(xy[1]))
+        inside = footprint.contains(point)
+        gaps.append(float(outline.distance(point)) if inside else 0.0)
+    return gaps[0], gaps[1]
 
 
 def _vertex_stations(line: LineString) -> np.ndarray:

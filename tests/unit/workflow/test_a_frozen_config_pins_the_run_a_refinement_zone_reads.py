@@ -24,13 +24,13 @@ from hydromodpy.results.catalog.registration import input_file_digests, run_iden
 from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning.refinement import (
     CriterionInputs,
     RefinementZone,
     load_refinement_zones,
 )
-from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
+from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import _zone_runs, step_mesh
 from hydromodpy.workflow.steps.mesh_run_fields import read_run_fields

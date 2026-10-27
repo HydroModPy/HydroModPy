@@ -20,8 +20,8 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.field.zone_fractions import ZoneFractions, zone_fractions
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)

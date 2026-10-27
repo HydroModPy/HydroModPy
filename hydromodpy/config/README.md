@@ -48,7 +48,7 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 | `[[export]]` | `ExportRequest` (a list) | `core/config_kit/export_spec.py` |
 | `[observation]` | `ObservationConfig` | `simulation/planning/observation_config.py` |
 | `[overview]` | `OverviewConfig` | `display/overview/config.py` |
-| `[mesh]` | `MeshConfig` | `spatial/mesh/config/mesh.py` |
+| `[mesh]` | `MeshConfig` | `spatial/mesh/mesh_config.py` |
 | `[calibration]` | `CalibrationConfig` | `calibration/config.py` |
 | `[spinup]` | `SpinupConfig` | `simulation/spinup_config.py` |
 | `[site]` | `SiteConfig` | `core/site/config.py` |

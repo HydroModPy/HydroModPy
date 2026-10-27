@@ -34,6 +34,18 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A `.msh` file written by HydroModPy is a gmsh file, of format 2.2 ASCII (2026-10-27). It was an
+  ANSYS Fluent file under the `.msh` name, because meshio takes ANSYS first for that suffix, so
+  neither gmsh, `[mesh.triangle] path` nor the reader of the 2.2 format read it; meshio read it
+  back only because it tries ANSYS first too. `write_gmsh_2d_mesh`, `write_msh` and
+  `save_planar_mesh` write a path ending in `.msh` as gmsh 2.2 ASCII when no `file_format` is
+  given, and an explicit `file_format` still wins.
+- A Voronoi mesh goes through meshio and VTU (2026-10-27). `to_meshio` handed meshio one polygon
+  block of mixed arity, which meshio refuses, so `write_vtu` failed on every Voronoi mesh. A ragged
+  block now goes to meshio as its runs of cells of one arity, in its cell order, and `from_meshio`
+  and `read_vtu` give back one ragged block with its cell fields. A planar mesh written as VTU reads
+  back with x and y only, where it kept the zero z that meshio adds. A mesh with a z that is not
+  zero, or with 3D cells, keeps its z.
 - The NetCDF export writes the cell centres the model used, `mesh/face_x` and `mesh/face_y` of the
   run store, in place of the mean of the vertices of each cell (2026-10-27). On a Voronoi mesh of
   cells about 20 m wide the mean was up to 14.7 m off the generator. A store written before the
@@ -1207,9 +1219,109 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The size rules of the lake structures move from the mesh step to
+  `hydromodpy.spatial.mesh.planning.lake_structures` (2026-10-27). `lake_structures` takes the
+  cutoff wall lines and the lake footprints by lake id, the declared outlet and the
+  `[mesh.lake_refinement]` table, and `sill_zone` gives the zone between two lakes. The mesh step
+  still reads the lake table of the run and hands these geometries over, and
+  `hydraulic_feature_geometries` and `lake_structures` leave
+  `hydromodpy.workflow.steps.mesh_inputs`. The structures, their order, sizes and buffers do not
+  change, and no result, TOML key, schema or mesh changes.
+- `hmp export` writes its VTU files through `write_vtu` of `hydromodpy.spatial.mesh.io.vtu`, the one
+  VTU writer of HydroModPy, and its own converter to meshio goes (2026-10-27). The file of a regular
+  or a triangle run is the same byte for byte. In the file of a Voronoi run the cells follow the
+  order of the run store, so cell `i` of the file is cell `i` of the run, where they were grouped by
+  node count, and a cell of three or of four nodes is a VTK polygon, where it was a triangle or a
+  quad; the points, the nodes of each cell, its values and the run metadata do not change.
+  `write_vtu` takes the run metadata as `field_data`, and `read_vtu_field_data` reads it back, a
+  text as text and a number as a number. An empty text is left out of the `FieldData`, since meshio
+  could not read a file holding one.
+  `to_meshio` hands meshio 32-bit node indices when the nodes fit, as the run store keeps them. The
+  family bit fields of the store are computed in `hydromodpy.results.zarr_store.mesh_layout`, where
+  a script reads `cell_family_bits`, `cell_family_names`, `edge_family_bits`, `edge_family_names`,
+  `face_row_edges` and `MAX_FAMILIES`; the store keys and the bits do not change.
+- The exchange formats of the mesh gather in `spatial/mesh/io/`, one module per format, and depend
+  on the mesh model only (2026-10-27). A script reads `write_vtu` and `read_vtu` from
+  `hydromodpy.spatial.mesh.io.vtu`, `to_meshio` and `from_meshio` from
+  `hydromodpy.spatial.mesh.io.meshio_bridge`, the `.msh` reader and writer (`read_gmsh_2d_mesh`,
+  `write_gmsh_2d_mesh`, `GmshMeshData`, `projection_path`) from `hydromodpy.spatial.mesh.io.msh`,
+  and the bundle reader, `cell_mesh_from_bundle`, `BUNDLE_COLUMNS` and `BUNDLE_SCHEMA_VERSION` from
+  `hydromodpy.spatial.mesh.io.bundle`. `read_msh` and `write_msh` read a `.msh` file into a
+  `HydroMesh` and write a planar one back, with its `.prj` file when a CRS is given, and
+  `GmshMeshData.line_groups` holds the lines of the named physical groups, the name of a line
+  coming from the `$PhysicalNames` entry of dimension 1 of its tag, so two tags of one name gather
+  their lines.
+  `voronoi_planar_mesh` moves to `hydromodpy.spatial.mesh.engines.voronoi.tessellation` and
+  `domain_polygon_from_mesh` to `hydromodpy.spatial.mesh.planning.input_mesh`. The file of
+  `[mesh.triangle] path` is read once, through `io/msh.py`, and gives the same vertices, triangles
+  and edge labels on the 42 `.msh` files of the repository that it reads. Its format line is read
+  first, so a binary file is refused with a `MeshRequestError` like a file of format 4. A file the
+  reader refuses stops the run with a `MeshRequestError` that names the file and gives the reason
+  of the reader, where some came out as a bare `ValueError`, and the message for a file without a
+  `$Nodes` or `$Elements` section is the reader's. A `$Nodes` section that holds more lines than it
+  announces is read as gmsh and meshio read it, with the announced count, where it was refused. No
+  result, TOML key, schema or mesh changes.
+- The field meshes leave the mesh package for `spatial/field/meshes/` (2026-10-27), so the mesh
+  no longer imports `spatial/field`. A script reads `GmshPlanarMesh2D`, `load_planar_mesh` and
+  `save_planar_mesh` from `hydromodpy.spatial.field.meshes.gmsh_planar_mesh`, `from_field_mesh`,
+  `from_gmsh_planar` and `to_field_mesh` from `hydromodpy.spatial.field.meshes.field_mesh_adapter`,
+  and `plot_cell_values` from `hydromodpy.spatial.field.meshes.plotting`. In place of
+  `load_planar_as_hydro_mesh` it calls `read_msh` of `hydromodpy.spatial.mesh.io.msh`, and in place
+  of `save_hydro_mesh_vtu` and `load_hydro_mesh_vtu` it calls `write_vtu` and `read_vtu` of
+  `hydromodpy.spatial.mesh.io.vtu`, since these three go (see Removed). No result, TOML key, schema
+  or mesh changes.
+- The free ends of a mapped stream network leave the mesh package for `spatial/geographic/`
+  (2026-10-27). A script reads `network_head_candidates` from
+  `hydromodpy.spatial.geographic.core.network_heads`, and `line_parts`, the split of a map into its
+  lines that the crossing rule of `spatial/mesh/ops/vector_cell_mask.py` also reads, is public
+  there. The window helpers `maximize_figure_window` and `maximize_figure_windows` leave
+  `spatial/mesh/plot_window_utils.py` for `hydromodpy.spatial.geographic.cases.plotting_utils`,
+  which the geographic, domain and field cases read. No result, TOML key, schema or mesh changes.
+- The projection of a vector layer into the frame of a mesh moves down to `core` (2026-10-27).
+  `to_mesh_crs` and `require_crs`, private helpers of `spatial/mesh/ops/vector_cell_mask.py` until
+  now, are public in `hydromodpy.core.io.crs`, with the `CrsLike` type of their arguments. The
+  mesh overlays and the free ends of a mapped network read them there, and a missing frame is
+  refused with the same message. No result, TOML key, schema or mesh changes.
+- What only a MODFLOW solver reads leaves the mesh package for `solver/` (2026-10-27). A script
+  reads `SolverSGridConfig` and `TopSamplingConfig` from
+  `hydromodpy.solver.modflow_grid.sgrid_config`, `StructuredGridBuilder` and `StructuredGridSpec`
+  from `hydromodpy.solver.modflow_grid.discretization_spatial`, and `to_flopy_disv_args` from
+  `hydromodpy.solver.modflow_grid.solver_mesh`. `spatial/mesh/structured_grid/` and
+  `adapters/flopy_adapter.py` go. The cells a lake owns (`polygon_overlap`, `interior_cells`,
+  `family_regions`) and the faces of a cutoff wall (`downstream_of_wall`, `lake_shore_faces`,
+  `cutoff_wall_faces`, `wall_leaks`) move to `solver/modflow6/builders/_lake_geometry.py`, the
+  share of a reach among the cells (`LinePiece`, `chain_pieces`, `crossing_pieces`) to
+  `_sfr_network.py`, and the open ends of a barrier trace (`mesh_footprint`, `trace_end_gaps`) to
+  `builders/flow_barrier.py`, so `ops/family_interior.py` and `ops/line_on_chain.py` go. No
+  result, TOML key, schema, mesh or MODFLOW input file changes.
+- The forcing on the cells leaves the mesh package for `spatial/forcing/` (2026-10-27). A script
+  reads `discretize_fields_on_cells`, `discretize_points_on_cells`, `spatial_mean_from_fields` and
+  `stress_period_bounds` (which leaves `periods.py`) from `hydromodpy.spatial.forcing.cells`. The
+  private modules take plain names, `sources.py`, `rasters.py`, `stations.py`, `area_weights.py`
+  and `spatial_mean.py`, and `spatial_interpolation` is now `hydromodpy.spatial.forcing.interpolation`.
+  `spatial/field/aggregation.py` goes, so `extract_homogeneous_series_from_fields` is now
+  `spatial_mean_from_fields`. The mesh never imports the forcing. No result, TOML key, schema or
+  store name changes.
+- Behaviour change: a gridded forcing in an unknown format stops the run (2026-10-27). A record
+  whose data is neither an xarray Dataset nor a file path, or a file whose suffix is not `.nc`,
+  `.nc4`, `.netcdf`, `.tif` or `.tiff`, gave a zero forcing on every cell with a warning. It now
+  raises `DataContractViolation`, which names the type or the suffix received and the formats read.
+- The mesh package is flat and re-exports nothing (2026-10-27). `[mesh]` is read by
+  `spatial/mesh/mesh_config.py`, and `[mesh.lake_refinement]` and `[[mesh.refinement_zone]]` by
+  `spatial/mesh/refinement_config.py`. The size field, its gap terms (`gap_size.py`), the height
+  above the stream and the field of an earlier run join `spatial/mesh/planning/`, `resample.py`
+  moves up to `spatial/mesh/`, and `RegularGrid` with `cell_mesh_from_regular_grid` lives in
+  `spatial/mesh/model/regular_grid.py`. `sample_size_field(field, xy)` is now `SizeField.sample(xy)`.
+  No `__init__.py` of `spatial/mesh` re-exports a name any more, so a script imports each name from
+  the module that defines it, for example `from hydromodpy.spatial.mesh.request import MeshRequest`,
+  and the same holds for `planning`, `adapters`, `forcing`, `gmsh_grid`, `io` and
+  `structured_grid`. `hydromodpy.HydroMesh` and the lazy names of `hydromodpy.spatial` keep
+  working. `project/phases.py` switches `[geographic.river_network]` on from
+  `MeshConfig.requires_river_trace`, the config having refused a missing threshold when it loaded,
+  so `planning/geographic.py` goes. No mesh, TOML key, schema or store name changes.
 - The main CI measures the branch coverage of `spatial/mesh` and fails under a floor that only goes
   up, 98.2 % after the mesh tests were filed by module, then 98.4 % once the dead import fallbacks
-  left (2026-10-27). The coverage report no longer drops a whole function whose signature holds
+  left, then 98.5 % once the mesh package was flattened, then 99.1 % once the forcing, the solver grid and the field meshes left it (2026-10-27). The coverage report no longer drops a whole function whose signature holds
   `...`, as in `tuple[str, ...]`. Only a stub body is excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
 - Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
   `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon
@@ -1520,6 +1632,9 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `save_hydro_mesh_vtu` and `load_hydro_mesh_vtu` of `spatial/mesh/gmsh_grid/exchange_api.py`,
+  which only called `write_vtu` and `read_vtu`, and `load_planar_as_hydro_mesh`, which `read_msh`
+  replaces (2026-10-27). The checks for a missing meshio, a required dependency, go too.
 - The mesh code no longer guards against a missing scipy, xarray or rasterio (2026-10-27). They are
   required dependencies, so these branches never ran, and had they run they would have given a
   uniform or zero recharge with a mere warning. `_idw_brute_force`, the inverse distance weighting

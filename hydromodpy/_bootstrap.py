@@ -62,19 +62,17 @@ def _register_physics_contracts() -> None:
     so the physics package never imports the spatial package.
     """
     from hydromodpy.physics import contracts
-    from hydromodpy.spatial.field.aggregation import (
-        extract_homogeneous_series_from_fields,
-    )
     from hydromodpy.spatial.field.core.field_param import FieldParam
     from hydromodpy.spatial.field.core.field_param_config import (
         resolve_field_param_config_payload,
         validate_resolved_field_param_data,
     )
+    from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
     contracts.register_field_param_factory(FieldParam.from_dict)
     contracts.register_field_param_payload_resolver(resolve_field_param_config_payload)
     contracts.register_field_param_payload_validator(validate_resolved_field_param_data)
-    contracts.register_field_aggregator(extract_homogeneous_series_from_fields)
+    contracts.register_field_aggregator(spatial_mean_from_fields)
 
 
 def _register_spatial_contracts() -> None:

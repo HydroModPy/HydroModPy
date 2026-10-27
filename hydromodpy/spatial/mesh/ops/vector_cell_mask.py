@@ -45,11 +45,12 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from hydromodpy.spatial.geographic.core.network_heads import line_parts
+
 if TYPE_CHECKING:
-    from pyproj import CRS
     from shapely.geometry.base import BaseGeometry
 
-    CrsLike = str | int | CRS
+    from hydromodpy.core.io.crs import CrsLike
 
 CellMaskRule = Literal["touch", "centroid"]
 
@@ -177,6 +178,8 @@ def vector_cell_mask(
     """
     from shapely.strtree import STRtree
 
+    from hydromodpy.core.io.crs import to_mesh_crs
+
     if rule not in ("touch", "centroid"):
         raise ValueError(f"rule must be 'touch' or 'centroid', got {rule!r}.")
     if rule == "centroid" and float(distance_m) > 0.0:
@@ -188,7 +191,7 @@ def vector_cell_mask(
 
     mask = np.zeros(polygons.shape[0], dtype=bool)
 
-    parts = _to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)
+    parts = to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)
     if not parts:
         return mask
 
@@ -231,8 +234,10 @@ def cell_area_fraction(
     """
     import shapely
 
+    from hydromodpy.core.io.crs import to_mesh_crs
+
     fraction = np.zeros(polygons.shape[0], dtype=float)
-    parts = _to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)
+    parts = to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs)
     if not parts:
         return fraction
     region = shapely.union_all(parts)
@@ -321,13 +326,15 @@ def line_crossing_cell_mask(
     import shapely
     from shapely.strtree import STRtree
 
+    from hydromodpy.core.io.crs import to_mesh_crs
+
     n_cells = int(polygons.shape[0])
     mask = np.zeros(n_cells, dtype=bool)
     points = np.asarray(centres, dtype=float)[:, :2]
     if points.shape[0] != n_cells:
         raise ValueError(f"centres holds {points.shape[0]} point(s) for {n_cells} cell polygon(s).")
 
-    parts = _line_parts(_to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs))
+    parts = line_parts(to_mesh_crs(geometries, mesh_crs=mesh_crs, geometry_crs=geometry_crs))
     usable = np.array([polygon is not None for polygon in polygons], dtype=bool)
     usable &= np.isfinite(points).all(axis=1)
     if not parts or not usable.any():
@@ -390,23 +397,6 @@ def line_crossing_cell_mask(
     if active is not None:
         mask &= np.asarray(active, dtype=bool).reshape(-1)
     return LineCrossingMask(mask=mask, n_fallback_parts=n_fallback, n_outside_parts=n_outside)
-
-
-def _line_parts(geometries: Sequence[BaseGeometry]) -> list[BaseGeometry]:
-    """Split multi-part and collection geometries into their non-empty lines."""
-    import shapely
-
-    parts: list[BaseGeometry] = []
-    for geometry in geometries:
-        for part in shapely.get_parts(geometry):
-            if part.geom_type in ("MultiLineString", "GeometryCollection"):
-                parts.extend(_line_parts([part]))
-                continue
-            if part.geom_type not in ("LineString", "LinearRing"):
-                raise ValueError(f"the crossing rule rasterizes lines; got a {part.geom_type}.")
-            if not part.is_empty and part.length > 0.0:
-                parts.append(part)
-    return parts
 
 
 def _face_graph_segments(
@@ -477,34 +467,3 @@ def _padded_rows(connectivity: np.ndarray | Sequence[np.ndarray], *, n_nodes: in
     for index, row in enumerate(rows):
         table[index, : row.size] = row
     return table
-
-
-def _to_mesh_crs(
-    geometries: Sequence[BaseGeometry],
-    *,
-    mesh_crs: CrsLike,
-    geometry_crs: CrsLike,
-) -> list[BaseGeometry]:
-    """Return the non-empty geometries expressed in the mesh CRS."""
-    from pyproj import Transformer
-    from shapely.ops import transform
-
-    target = _require_crs(mesh_crs, "mesh_crs")
-    source = _require_crs(geometry_crs, "geometry_crs")
-    parts = [geometry for geometry in geometries if geometry is not None and not geometry.is_empty]
-    if not parts or source.equals(target):
-        return parts
-    project = Transformer.from_crs(source, target, always_xy=True).transform
-    return [transform(project, geometry) for geometry in parts]
-
-
-def _require_crs(crs_like: CrsLike | None, name: str) -> CRS:
-    """Coerce one CRS argument, refusing the missing case."""
-    from pyproj import CRS
-
-    if crs_like is None or (isinstance(crs_like, str) and not crs_like.strip()):
-        raise ValueError(
-            f"vector_cell_mask needs an explicit {name}: a mesh stores bare coordinates, "
-            "so without both frames the overlay silently compares two different ones."
-        )
-    return CRS.from_user_input(crs_like)

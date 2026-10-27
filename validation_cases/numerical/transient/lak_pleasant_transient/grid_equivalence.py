@@ -40,7 +40,8 @@ from hydromodpy.solver.modflow6.builders.lake import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from validation_cases.shared.solver_mesh import solver_mesh_of
 
 from .geometry import CASE_DIR, PleasantTransientGeometry, load_geometry

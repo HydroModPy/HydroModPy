@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
-from hydromodpy.spatial.mesh.gmsh_grid.gmsh_reader import (
+from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.io.msh import (
     GmshCellBlock,
     GmshMeshData,
 )

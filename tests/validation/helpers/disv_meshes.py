@@ -39,9 +39,10 @@ from shapely.geometry import Point, Polygon, box
 
 from hydromodpy.solver.modflow6.build import resolve_xt3d_options, xt3d_mode
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
-from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
 from tests._helpers.solver_meshes import solver_mesh_from
 
 KINDS = ("triangle", "voronoi")

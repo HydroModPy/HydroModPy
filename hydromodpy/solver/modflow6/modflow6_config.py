@@ -11,7 +11,7 @@ from pydantic import Field
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 
 class Modflow6RuntimeConfig(HydroModelBase):

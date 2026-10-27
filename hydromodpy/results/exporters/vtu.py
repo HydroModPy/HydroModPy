@@ -1,12 +1,11 @@
 """Export simulation fields from Zarr to VTU (ParaView / PyVista).
 
-A VTU file carries no CRS of its own. The run metadata goes into the
-``FieldData`` of the grid, which VTK, and so ParaView and PyVista, keep
-through a load and a save. A number is an ``Int32`` array of one value. A
-text is its UTF-8 bytes in a ``UInt8`` array, read back with
-``bytes(array).decode()``. A VTK ``String`` array would show as text in
-ParaView, but meshio refuses a whole file holding one, and meshio is how
-HydroModPy and many scripts read a VTU.
+The cells come from the ``mesh/`` group of the run store, in its order, and
+the file is written by ``write_vtu`` of ``hydromodpy/spatial/mesh/io/vtu.py``,
+the one VTU writer of HydroModPy. A VTU file carries no CRS of its own. The run
+metadata (:data:`RUN_FIELD_DATA`) goes into the ``FieldData`` of the grid, as
+that module writes it: a number is an ``Int32`` array of one value, a text its
+UTF-8 bytes in a ``UInt8`` array, read back with ``read_vtu_field_data``.
 """
 
 from __future__ import annotations
@@ -14,13 +13,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from xml.etree import ElementTree
 
+import meshio
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.exporters._fields import one_layer, read_field_step
 from hydromodpy.results.zarr_store import SimulationZarr
+from hydromodpy.spatial.mesh.io.meshio_bridge import to_meshio
+from hydromodpy.spatial.mesh.io.vtu import write_vtu
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 logger = get_logger(__name__)
 
@@ -41,7 +44,8 @@ def export_vtu(
 ) -> Path:
     """Export one timestep of a field variable to a VTU file.
 
-    Requires ``meshio`` (optional dependency).
+    A destination named other than ``.vtu`` is written by meshio in the format
+    of its suffix, without the run metadata.
 
     Parameters
     ----------
@@ -73,20 +77,15 @@ def export_vtu(
 
     Raises
     ------
-    ImportError
-        Raised when ``meshio`` is not installed.
     KeyError
         Raised when ``variable`` is not stored in the Zarr hierarchy.
+    ValueError
+        Raised when ``values`` do not hold one value per cell.
 
     Examples
     --------
     >>> export_vtu(run_zarr, run.sim_id, "head", -1, "head.vtu")  # doctest: +SKIP
     """
-    try:
-        import meshio
-    except ImportError as exc:
-        raise ImportError("VTU export requires meshio: pip install meshio") from exc
-
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -100,19 +99,16 @@ def export_vtu(
     finally:
         sz.close()
 
-    # Pad vertices to 3D if needed
-    if vertices.shape[1] == 2:
-        vertices = np.column_stack([vertices, np.zeros(vertices.shape[0])])
-
-    cells, cell_indices = _build_meshio_cells(connectivity)
-    cell_data = {
-        name: _split_cell_data(layer_values, cell_indices)
-        for name, layer_values in _layer_arrays(np.asarray(data), variable, layer).items()
-    }
-    mesh_out = meshio.Mesh(points=vertices, cells=cells, cell_data=cell_data)
-    meshio.write(str(output_path), mesh_out)
+    hydro_mesh = HydroMesh(
+        vertices=vertices, cell_blocks=(_cell_block(np.asarray(connectivity)),)
+    ).with_cell_data(**_layer_arrays(np.asarray(data), variable, layer))
     if output_path.suffix.lower() == ".vtu":
-        _write_field_data(output_path, field_data)
+        run_metadata = {
+            name: field_data[name] for name in RUN_FIELD_DATA if field_data.get(name) is not None
+        }
+        write_vtu(output_path, hydro_mesh, field_data=run_metadata)
+    else:
+        meshio.write(str(output_path), to_meshio(hydro_mesh))
     logger.info("Exported VTU: %s", output_path)
     return output_path
 
@@ -130,42 +126,20 @@ def _stored_field_data(root: Any, sim_id: str) -> dict[str, str | int]:
     return {name: value for name, value in found.items() if value not in (None, "")}
 
 
-def _write_field_data(path: Path, values: Mapping[str, str | int]) -> None:
-    """Add ``values`` to the ``FieldData`` of the VTU meshio wrote at ``path``.
+def _cell_block(connectivity: np.ndarray) -> CellBlock:
+    """Return the cells of a ``face_node_connectivity`` padded by -1, in the order of the store.
 
-    meshio writes no ``FieldData``, so the block is added to its XML, ahead of
-    the piece as VTK writes it. Only the names of :data:`RUN_FIELD_DATA` are
-    written. A destination named other than ``.vtu`` is another format meshio
-    picked from the suffix, and gets no block.
+    Cells of three nodes, or of four, make a triangle or a quadrilateral block.
+    Any other mesh, a Voronoi one among them, makes one ragged polygon block.
     """
-    block = ElementTree.Element("FieldData")
-    for name in RUN_FIELD_DATA:
-        value = values.get(name)
-        if value is None:
-            continue
-        if isinstance(value, int) and not isinstance(value, bool):
-            vtk_type, items = "Int32", [int(value)]
-        else:
-            vtk_type, items = "UInt8", list(str(value).encode("utf-8"))
-        array = ElementTree.SubElement(
-            block,
-            "DataArray",
-            {
-                "type": vtk_type,
-                "Name": name,
-                "NumberOfTuples": str(len(items)),
-                "format": "ascii",
-            },
-        )
-        array.text = " ".join(str(item) for item in items)
-    if not len(block):
-        return
-    tree = ElementTree.parse(path)
-    grid = tree.getroot().find("UnstructuredGrid")
-    if grid is None:
-        raise ValueError(f"{path} holds no UnstructuredGrid: it is not a VTU file meshio wrote")
-    grid.insert(0, block)
-    tree.write(path, encoding="utf-8", xml_declaration=True)
+    counts = (connectivity >= 0).sum(axis=1)
+    if counts.size and int(counts.min()) == int(counts.max()) and int(counts[0]) in (3, 4):
+        cell_type = CellType.TRIANGLE if int(counts[0]) == 3 else CellType.QUADRILATERAL
+        return CellBlock(cell_type, connectivity[:, : int(counts[0])])
+    return CellBlock(
+        CellType.POLYGON,
+        tuple(row[:count] for row, count in zip(connectivity, counts.tolist(), strict=True)),
+    )
 
 
 def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[str, np.ndarray]:
@@ -176,35 +150,3 @@ def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[st
     if n_layers == 1:
         return {variable: data[0]}
     return {f"{variable}_layer{index}": data[index] for index in range(n_layers)}
-
-
-def _build_meshio_cells(connectivity: np.ndarray) -> tuple[list, list[np.ndarray]]:
-    """Convert UGRID face_node_connectivity to meshio cell blocks.
-
-    Groups faces by valence (number of valid vertices) so mixed and Voronoi/PEBI
-    meshes keep every node: 3 -> ``triangle``, 4 -> ``quad``, >=5 -> ``polygon``.
-    UGRID pads unused slots with a negative fill value at the tail of each row.
-    Returns the cell blocks and, per block, the original face indices so field
-    data can be gathered in the same cell order.
-    """
-    import meshio
-
-    valence = (connectivity >= 0).sum(axis=1)
-    type_for = {3: "triangle", 4: "quad"}
-
-    cells: list = []
-    cell_indices: list[np.ndarray] = []
-    for n in np.unique(valence):
-        n = int(n)
-        if n < 3:
-            continue
-        face_idx = np.nonzero(valence == n)[0]
-        block = connectivity[face_idx, :n]
-        cells.append(meshio.CellBlock(type_for.get(n, "polygon"), block))
-        cell_indices.append(face_idx)
-    return cells, cell_indices
-
-
-def _split_cell_data(data: np.ndarray, cell_indices: list[np.ndarray]) -> list[np.ndarray]:
-    """Gather flat per-cell data into per-block arrays matching the cell blocks."""
-    return [data[idx] for idx in cell_indices]

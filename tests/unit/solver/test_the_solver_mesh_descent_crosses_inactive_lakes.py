@@ -13,7 +13,8 @@ import numpy as np
 
 from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 from tests._helpers.ugrid_meshes import quad_mesh
 

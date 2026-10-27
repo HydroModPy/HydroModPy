@@ -4,7 +4,7 @@ The hash moves with every member and with the earlier runs the size field
 read. A request that reads no run keeps the hash the code gave it before the
 runs were hashed, so the meshes cached for every existing project stay valid.
 Every member a user or a planner can get wrong is refused with a message that
-names it.
+names it. A size field is sampled bilinearly between its pixel centres.
 """
 
 from __future__ import annotations
@@ -453,3 +453,14 @@ def test_a_request_that_cannot_be_meshed_is_refused(case: str) -> None:
 
     with pytest.raises(MeshRequestError, match=message):
         build()
+
+
+def test_bilinear_sampling_is_exact_on_a_plane() -> None:
+    grid = grid_spec(8, 12, 10.0, xmin=1000.0, ymin=5000.0)
+    rows, cols = np.mgrid[0:8, 0:12]
+    x = grid.xmin + (cols + 0.5) * grid.dx
+    y = grid.ymax - (rows + 0.5) * grid.dy
+    field = SizeField(values=10.0 + 0.01 * (x - 1000.0) + 0.02 * (y - 5000.0), grid=grid)
+    points = np.array([[1012.0, 5013.0], [1077.3, 5041.9], [1105.0, 5065.0]])
+    expected = 10.0 + 0.01 * (points[:, 0] - 1000.0) + 0.02 * (points[:, 1] - 5000.0)
+    np.testing.assert_allclose(field.sample(points), expected, rtol=1e-12)

@@ -52,8 +52,8 @@ from hydromodpy.spatial.mesh.engines.voronoi.mirror import (
     seed_angle,
     tip_seeds,
 )
-from hydromodpy.spatial.mesh.planning.resample import positions_at_local_size
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
+from hydromodpy.spatial.mesh.resample import positions_at_local_size
 
 __all__ = [
     "FACE_PRIORITY",

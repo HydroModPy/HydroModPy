@@ -22,9 +22,9 @@ from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
+from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
     triangulate_request,
@@ -35,11 +35,12 @@ from hydromodpy.spatial.mesh.engines.triangle.families import (
     edge_lookup,
     families_from_labels,
 )
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, downstream_of_wall, wall_leaks
+from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import (
     BARRIER_FAMILY,

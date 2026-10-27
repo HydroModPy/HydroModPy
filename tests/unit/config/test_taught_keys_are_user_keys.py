@@ -35,7 +35,7 @@ from hydromodpy.simulation.planning.config import SimulationConfig
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.field.core._field_param_sections import FieldHeterogeneousSection
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 TAUGHT = [
     (FlowWellConfig, ("units", "forcing")),
