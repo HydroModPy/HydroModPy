@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import shapely
-from shapely.geometry import box
+from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import DiskSet
@@ -18,13 +19,29 @@ from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
     relax,
     weighted_centroids,
 )
-from tests.unit.mesh.engines.voronoi.core_pipeline import X0, Y0, ring_seeds, size_field
+from hydromodpy.spatial.mesh.planning.resample import positions_at_local_size
+from hydromodpy.spatial.mesh.request import SizeField
+from tests._helpers.mesh_cases import L93_ORIGIN, grid_over
 
+X0, Y0 = L93_ORIGIN
 DOMAIN = box(X0, Y0, X0 + 300.0, Y0 + 200.0)
 
 
 def _sampler(size: float | np.ndarray) -> SizeSampler:
-    return SizeSampler(size_field(DOMAIN, 5.0, size), local_frame(DOMAIN))
+    """The sampler of a field on a 5 m grid: a constant, or one size per column."""
+    grid = grid_over(DOMAIN, 5.0)
+    values = np.broadcast_to(np.asarray(size, dtype=float), (grid.nrow, grid.ncol)).copy()
+    return SizeSampler(SizeField(values, grid), local_frame(DOMAIN))
+
+
+def ring_seeds(domain: Polygon, h: SizeSampler) -> np.ndarray:
+    """Fixed seeds on the ring of the local domain: its corners, then points at the local size."""
+    points = []
+    corners = np.asarray(domain.exterior.coords)[:-1]
+    for a, b in zip(corners, np.roll(corners, -1, axis=0), strict=True):
+        inner, _, _ = positions_at_local_size(LineString([a, b]), h.h_min / 4.0, h, ring=False)
+        points += [a, *inner]
+    return np.asarray(points, dtype=float)
 
 
 def _no_disks() -> LloydInvariants:
@@ -63,6 +80,11 @@ def test_the_invariants_scale_the_berge_gabriel_and_protection_radii() -> None:
     assert np.allclose(invariants.hard_center, [[0.0, 0.0], [4.0, 10.0]])
     assert np.allclose(invariants.hard_radius, [BERGE_BALL_SCALE * 5.0, GABRIEL_SCALE * 8.0])
     assert np.allclose(invariants.protect_radius, [PROTECTION_SHARE * 20.0])
+
+
+def test_the_invariants_need_one_radius_per_centre() -> None:
+    with pytest.raises(ValueError, match="hard disks need one radius per centre"):
+        LloydInvariants(np.zeros((2, 2)), [1.0], np.empty((0, 2)), [])
 
 
 def _seeds(h: SizeSampler) -> tuple[np.ndarray, int, object]:

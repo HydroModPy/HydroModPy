@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     CellChain,
@@ -17,6 +16,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
+from tests._helpers.mesh_cases import regular_mesh
 
 NROW, NCOL = 3, 4
 DECLARATIONS = {"graded": False, "exact_faces": False, "deterministic": True, "needs_cache": False}
@@ -38,7 +38,7 @@ def _table(**overrides) -> FaceFamilyTable:
 
 
 def _cell_mesh() -> PlanarCellMesh:
-    mesh = RegularGrid(shape=(NROW, NCOL), dx=10.0, dy=10.0, origin=(0.0, 30.0)).to_hydro_mesh()
+    mesh = regular_mesh(NROW, NCOL, dx=10.0).mesh
     xx, yy = np.meshgrid(5.0 + 10.0 * np.arange(NCOL), 25.0 - 10.0 * np.arange(NROW))
     return build_planar_cell_mesh(
         mesh,
@@ -119,15 +119,36 @@ def test_a_mesh_of_two_blocks_raises() -> None:
         replace(_cell_mesh(), mesh=mesh, centers=np.zeros((2, 2)), structured_shape=None)
 
 
-def test_face_family_columns_are_checked() -> None:
-    with pytest.raises(ValueError, match="one length"):
-        _table(cell_a=[0, 1])
-    with pytest.raises(ValueError, match="index outside names"):
-        _table(family=[0, 0, 2])
-    with pytest.raises(ValueError, match="cell_b"):
-        _table(cell_b=[-2, -1, 2])
-    with pytest.raises(ValueError, match="repeat"):
-        _table(names=("geology", "geology"))
+@pytest.mark.parametrize(
+    ("changes", "match"),
+    [
+        ({"cell_a": [0, 1]}, "one length"),
+        ({"family": [0, 0, 2]}, "index outside names"),
+        ({"cell_b": [-2, -1, 2]}, "cell_b"),
+        ({"names": ("geology", "geology")}, "repeat"),
+        ({"node_a": [0, -1, 7]}, "face node ids must be non-negative"),
+        ({"zone_left": [-1, -2, 0]}, "zone indices must be -1 or more"),
+    ],
+)
+def test_face_family_columns_are_checked(changes: dict, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        _table(**changes)
+
+
+def test_an_empty_face_family_table_keeps_its_names() -> None:
+    empty = {name: [] for name in ("family", "cell_a", "cell_b", "node_a", "node_b")}
+    table = _table(**empty, zone_left=[], zone_right=[])
+
+    assert table.n_rows == 0
+    assert table.names == ("boundary:north", "geology")
+    assert not replace(_cell_mesh(), face_families=table).face_rows("geology").any()
+
+
+def test_a_mesh_with_3d_vertices_raises() -> None:
+    vertices = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
+    mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2]]),))
+    with pytest.raises(ValueError, match="2-column vertices"):
+        replace(_cell_mesh(), mesh=mesh, centers=np.zeros((1, 2)), structured_shape=None)
 
 
 def test_identity_and_chain_refuse_empty_names() -> None:

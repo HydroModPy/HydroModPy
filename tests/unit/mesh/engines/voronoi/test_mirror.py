@@ -58,10 +58,11 @@ def test_circles_apart_give_no_pair() -> None:
     assert not ok[0]
 
 
-def test_seed_angle_of_a_straight_line_pair() -> None:
-    along = np.array([10.0])
+def test_seed_angle_is_the_angle_of_the_pair_seen_from_its_vertex() -> None:
+    start, stop = np.array([[0.0, 0.0]]), np.array([[20.0, 0.0]])
     radius = np.array([RADIUS_SHARE * 20.0])
-    assert seed_angle(along, radius)[0] == pytest.approx(math.acos(10.0 / 11.0))
+    plus, _, along, _ = pair_seeds(start, stop, radius, radius)
+    assert seed_angle(along, radius)[0] == pytest.approx(math.atan2(plus[0, 1], plus[0, 0]))
 
 
 def test_tip_sits_on_the_end_circle_on_the_outgoing_tangent() -> None:

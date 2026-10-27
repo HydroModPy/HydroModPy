@@ -13,8 +13,7 @@ from importlib.util import find_spec
 
 import numpy as np
 import pytest
-from pyproj import CRS
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
@@ -25,36 +24,19 @@ from hydromodpy.spatial.mesh.ops.family_cells import (
     side_cells,
     stream_cells,
 )
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
+from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
 
-WKT = CRS.from_epsg(2154).to_wkt()
 NROW, NCOL = 7, 5
 RECTANGLE = BUNDLE_CASES[2]
 """A bundle whose domain is a rectangle, so that it has the four sides."""
 
 
 def _request(*, nrow: int, ncol: int, size: float, lines=()) -> MeshRequest:
-    xmin, ymin = 1000.25, 2000.5
-    xmax, ymax = xmin + ncol * size, ymin + nrow * size
-    return MeshRequest(
-        domain=box(xmin, ymin, xmax, ymax),
-        crs_wkt=WKT,
-        grid=RasterGridSpec(
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
-            dx=size,
-            dy=size,
-            nrow=nrow,
-            ncol=ncol,
-            crs_wkt=WKT,
-        ),
-        nominal_size_m=size,
-        lines=lines,
-    )
+    grid = grid_spec(nrow, ncol, size, xmin=1000.25, ymin=2000.5, crs_wkt=LAMBERT93_WKT)
+    return mesh_request(grid, lines=lines)
 
 
 def _grid_side_by_arithmetic(side: str) -> list[int]:
@@ -183,20 +165,8 @@ def _dual_of_triangles(request: MeshRequest) -> PlanarCellMesh:
 @pytest.mark.parametrize("build", [_triangles, _dual_of_triangles])
 def test_the_stream_of_a_cut_mesh_is_the_cells_on_both_sides_of_its_faces(build) -> None:
     river = LineString([(100.0, 150.0), (450.0, 420.0), (900.0, 880.0)])
-    request = MeshRequest(
-        domain=box(0.0, 0.0, 1000.0, 1000.0),
-        crs_wkt=WKT,
-        grid=RasterGridSpec(
-            xmin=0.0,
-            xmax=1000.0,
-            ymin=0.0,
-            ymax=1000.0,
-            dx=100.0,
-            dy=100.0,
-            nrow=10,
-            ncol=10,
-            crs_wkt=WKT,
-        ),
+    request = mesh_request(
+        grid_spec(10, 10, 100.0, crs_wkt=LAMBERT93_WKT),
         nominal_size_m=50.0,
         lines=(LineFamilySpec("rivers", "cell", (river,)),),
     )

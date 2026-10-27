@@ -10,9 +10,9 @@ from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
-from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import (
+    RELATIVE_FACE_TOLERANCE,
     cell_angle_range,
     cell_corner_angles,
     cell_edge_max,
@@ -23,14 +23,16 @@ from hydromodpy.spatial.mesh.model.mesh_qa import (
     quality_warnings,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
+from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh
 
-X0, Y0 = 351_250.0, 6_789_500.0
+X0, Y0 = L93_ORIGIN
+"""North-west corner of the grid."""
 DECLARATIONS = {"graded": False, "exact_faces": False, "deterministic": True, "needs_cache": False}
 NROW, NCOL, DX, DY = 4, 5, 25.0, 25.0
 
 
 def _grid() -> tuple[HydroMesh, np.ndarray]:
-    mesh = RegularGrid(shape=(NROW, NCOL), dx=DX, dy=DY, origin=(X0, Y0)).to_hydro_mesh()
+    mesh = regular_mesh(NROW, NCOL, dx=DX, dy=DY, xmin=X0, ymin=Y0 - NROW * DY).mesh
     x = X0 + (np.arange(NCOL) + 0.5) * DX
     y = Y0 - (np.arange(NROW) + 0.5) * DY
     xx, yy = np.meshgrid(x, y)
@@ -60,7 +62,7 @@ def test_a_regular_grid_is_orthogonal_uniform_and_centred() -> None:
     assert qa.center_offset["max"] == pytest.approx(0.0, abs=1e-9)
     assert qa.area_quantiles_m2["min"] == pytest.approx(DX * DY, rel=1e-12)
     assert qa.size_quantiles_m["p50"] == pytest.approx(DX, rel=1e-12)
-    assert qa.min_face_length_m == pytest.approx(1e-3 * DX)
+    assert qa.min_face_length_m == pytest.approx(RELATIVE_FACE_TOLERANCE * DX)
     assert qa.n_degenerate_faces == 0
     assert qa.n_duplicate_vertices_in_cells == 0
     assert qa.bisection_offset["max"] == pytest.approx(0.0, abs=1e-9)
@@ -134,6 +136,19 @@ def test_cell_chain_breaks_and_face_steps() -> None:
     assert family["breaks"] == 1.0
     assert family["face_step_share"] == pytest.approx(1.0 / 3.0)
     assert family["max_line_offset_m"] == pytest.approx(np.hypot(*(centers[19] - centers[7])))
+
+
+def test_a_river_held_by_one_cell_has_no_break() -> None:
+    vertices = np.array([[0.0, 0.0], [DX, 0.0], [DX, DY], [0.0, DY]])
+    mesh = HydroMesh(
+        vertices=vertices, cell_blocks=(CellBlock(CellType.QUADRILATERAL, [[0, 1, 2, 3]]),)
+    )
+    chain = CellChain(family="rivers", chain_id=0, cell_ids=np.array([0, 0]))
+
+    qa = _qa(mesh, np.array([[0.5 * DX, 0.5 * DY]]), cell_chains=(chain,))
+
+    assert qa.families["rivers"]["cells"] == 1.0
+    assert qa.families["rivers"]["breaks"] == 0.0
 
 
 def test_a_face_family_on_its_line_covers_it_exactly() -> None:
@@ -270,6 +285,8 @@ def _mixed_cells(line: LineString) -> float:
         (LineString([(X0 + 2 * DX + 3.0, Y0), (X0 + 2 * DX + 3.0, Y0 - NROW * DY)]), 4.0),
         # The diagonal of two cells.
         (LineString([(X0, Y0), (X0 + 2 * DX, Y0 - 2 * DY)]), 2.0),
+        # A contact mapped outside the grid crosses no cell.
+        (LineString([(X0 - 3 * DX, Y0), (X0 - 3 * DX, Y0 - NROW * DY)]), 0.0),
     ],
 )
 def test_mixed_cells_are_the_cells_a_face_line_crosses(line: LineString, expected: float) -> None:

@@ -1207,6 +1207,10 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The main CI measures the branch coverage of `spatial/mesh` and fails under a floor that only goes
+  up, 98.2 % after the mesh tests were filed by module (2026-10-27). The coverage report no longer
+  drops a whole function whose signature holds `...`, as in `tuple[str, ...]`. Only a stub body is
+  excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
 - Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
   `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon
   fallback of the discharge support, the outlet search of the build and the polygon mask of the

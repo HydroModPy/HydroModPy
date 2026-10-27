@@ -46,7 +46,7 @@ def test_a_record_unit_converts_to_m_per_s(unit, value, expected_m_s):
         nper=1,
     )
 
-    np.testing.assert_allclose(result[0], expected_m_s, rtol=1e-8)
+    np.testing.assert_allclose(result[0], expected_m_s, rtol=1e-10)
 
 
 def test_an_unknown_unit_is_refused():

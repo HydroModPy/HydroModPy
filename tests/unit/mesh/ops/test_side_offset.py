@@ -12,11 +12,12 @@ from importlib.util import find_spec
 
 import numpy as np
 import pytest
-from pyproj import CRS
-from shapely.geometry import box
 
+from hydromodpy.spatial.mesh.engines.regular import engine as regular_engine
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.engines.triangle import engine as triangle_engine
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.spatial.mesh.engines.voronoi import engine as voronoi_engine
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.ops.family_cells import side_cells
 from hydromodpy.spatial.mesh.ops.side_offset import (
@@ -24,34 +25,16 @@ from hydromodpy.spatial.mesh.ops.side_offset import (
     annotate_side_cells,
     side_center_offset_m,
 )
-from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
+from tests._helpers.mesh_cases import grid_spec, mesh_request
 
-WKT = CRS.from_epsg(2154).to_wkt()
 RECTANGLE = BUNDLE_CASES[2]
 STATEMENT = "side heads sit here"
 
 
 def _grid(*, nrow: int, ncol: int, size: float):
-    xmin, ymin = 1000.25, 2000.5
-    xmax, ymax = xmin + ncol * size, ymin + nrow * size
-    request = MeshRequest(
-        domain=box(xmin, ymin, xmax, ymax),
-        crs_wkt=WKT,
-        grid=RasterGridSpec(
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
-            dx=size,
-            dy=size,
-            nrow=nrow,
-            ncol=ncol,
-            crs_wkt=WKT,
-        ),
-        nominal_size_m=size,
-    )
-    return RegularMeshEngine().build(request)
+    grid = grid_spec(nrow, ncol, size, xmin=1000.25, ymin=2000.5)
+    return RegularMeshEngine().build(mesh_request(grid))
 
 
 def _offsets_by_hand(cell_mesh) -> np.ndarray:
@@ -108,7 +91,7 @@ def test_the_regular_engine_states_the_half_cell_in_its_qa() -> None:
 
     assert grid.qa.extras[SIDE_OFFSET_KEY] == pytest.approx(5.0)
     assert grid.qa.extras["dx_m"] == 10.0
-    assert "half a cell inside the domain" in grid.qa.notes[-1]
+    assert grid.qa.notes[-1] == regular_engine._SIDE_STATEMENT
 
 
 def test_the_annotation_adds_the_statement_and_the_median() -> None:
@@ -149,33 +132,14 @@ def _without_faces(cell_mesh):
 
 @pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
 @pytest.mark.parametrize(
-    ("engine", "wording"),
-    [
-        (TriangleMeshEngine, "vertex mean"),
-        (VoronoiMeshEngine, "generator lies on the side"),
-    ],
+    ("engine", "module"),
+    [(TriangleMeshEngine, triangle_engine), (VoronoiMeshEngine, voronoi_engine)],
+    ids=["triangle", "voronoi"],
 )
-def test_the_cut_engines_state_where_their_side_heads_sit(engine, wording) -> None:
-    request = MeshRequest(
-        domain=box(0.0, 0.0, 1000.0, 1000.0),
-        crs_wkt=WKT,
-        grid=RasterGridSpec(
-            xmin=0.0,
-            xmax=1000.0,
-            ymin=0.0,
-            ymax=1000.0,
-            dx=100.0,
-            dy=100.0,
-            nrow=10,
-            ncol=10,
-            crs_wkt=WKT,
-        ),
-        nominal_size_m=100.0,
-    )
+def test_the_cut_engines_state_where_their_side_heads_sit(engine, module) -> None:
+    cell_mesh = engine().build(mesh_request(grid_spec(10, 10, 100.0)))
 
-    cell_mesh = engine().build(request)
-
-    assert wording in cell_mesh.qa.notes[-1]
+    assert cell_mesh.qa.notes[-1] == module._SIDE_STATEMENT
     assert SIDE_OFFSET_KEY in cell_mesh.qa.extras
     if engine is VoronoiMeshEngine:
         assert cell_mesh.qa.extras[SIDE_OFFSET_KEY] < 1.0e-6

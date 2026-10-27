@@ -22,7 +22,6 @@ beside the build, and the second is the one a third party performs.
 
 from __future__ import annotations
 
-import ast
 import os
 import re
 import subprocess
@@ -38,8 +37,9 @@ PROBE_ENGINE_ID = "conformance_probe_grid"
 """The name the installed distribution answers to.
 
 It is written here and in the entry point below, and nowhere else. The suite
-that runs it never sees it, which is the assertion of
-:func:`test_the_conformance_suite_does_not_name_the_engine_it_runs`.
+that runs it never sees it: the control
+:func:`test_the_suite_collects_nothing_for_an_engine_that_is_not_installed` finds
+no node of that name without the probe.
 """
 
 BROKEN_ENGINE_ID = "conformance_probe_off_center"
@@ -264,40 +264,3 @@ def test_an_engine_the_registry_accepts_and_a_solver_cannot_use_is_caught(
 
     assert result.returncode != 0
     assert "test_the_center_of_a_cell_lies_in_the_cell" in result.stdout
-
-
-def test_the_conformance_suite_does_not_name_the_engine_it_runs() -> None:
-    """The point of the file, asserted rather than assumed."""
-    suite = (REPO_ROOT / CONFORMANCE_SUITE).read_text(encoding="utf-8")
-
-    assert PROBE_ENGINE_ID not in suite
-    assert BROKEN_ENGINE_ID not in suite
-    assert "ENGINE_FACTORIES" not in suite, "a hard-coded engine dict is what the registry replaces"
-
-
-def test_the_conformance_suite_imports_no_engine_class() -> None:
-    """A tripwire on the way a dict of engines would come back, not a proof that it cannot.
-
-    The suite obtains every engine from the registry, and the readable way to
-    undo that is to import a concrete class and build it. This reads the import
-    statements rather than the file text, so an alias, a line break or a space
-    before the parenthesis does not walk past it. It stays a tripwire: a helper
-    module elsewhere, or ``registry.get(...)()`` spelled by hand, reaches a class
-    without an import here. What proves the file is the installed engine two
-    tests up.
-
-    ``MeshEngine`` itself is excluded: it is the Protocol, and the suite asserts
-    membership of it.
-    """
-    tree = ast.parse((REPO_ROOT / CONFORMANCE_SUITE).read_text(encoding="utf-8"))
-    imported = {
-        alias.name.rpartition(".")[2]
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Import | ast.ImportFrom)
-        for alias in node.names
-    }
-    engines = sorted(
-        name for name in imported if name.endswith("MeshEngine") and name != "MeshEngine"
-    )
-
-    assert engines == [], f"the suite imports {engines} instead of asking the registry"
