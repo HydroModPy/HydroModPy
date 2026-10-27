@@ -18,7 +18,8 @@ through the `PlanarCellMesh` model.
   Boussinesq reads through `output_exchange_bundle_dir`.
 - `bundle_cell_mesh.py` reads the triangles of a bundle as a `PlanarCellMesh`,
   with the river and outer-side face families the solvers read.
-- `_deps.py` imports the optional `gmsh` and `meshio` dependencies on demand.
+- `_deps.py` imports `meshio` on demand. `gmsh` is imported by the triangle
+  engine (`engines/triangle/gmsh_cdt.py`, `require_gmsh`).
 
 ## Reading order
 

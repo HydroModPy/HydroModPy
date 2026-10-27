@@ -29,7 +29,15 @@ from hydromodpy.spatial.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
     triangulate_request,
 )
-from hydromodpy.spatial.mesh.engines.triangle.families import edge_lookup
+from hydromodpy.spatial.mesh.engines.triangle.families import (
+    box_side_edges,
+    chains_of,
+    edge_lookup,
+    families_from_labels,
+)
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, downstream_of_wall, wall_leaks
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
@@ -477,6 +485,73 @@ def test_the_fan_around_a_corner_of_the_domain_stops_at_the_boundary() -> None:
     start = int(lookup.cell_left_of(np.array([4]), np.array([0]))[0])
 
     assert lookup.fan(start, 0, 3) == []
+
+
+def test_a_chain_steps_through_the_fan_and_names_each_cell_once() -> None:
+    """A river along the south, east and north sides of the square, starting at vertex 0.
+
+    The triangle left of each side is also met in the fan around the next corner,
+    so the raw walk names it twice in a row.
+    """
+    lookup = edge_lookup(_FAN_VERTICES, _FAN_TRIANGLES)
+    geometry = derive_geometry(
+        HydroMesh(_FAN_VERTICES, (CellBlock(CellType.TRIANGLE, _FAN_TRIANGLES),))
+    )
+    trace = np.array([[0, 1], [1, 2], [2, 3]])
+    (rivers,), _, _ = families_from_labels({"river::trace": trace}, lookup, geometry)
+
+    (chain,) = chains_of(rivers, lookup)
+
+    assert chain.cell_ids.tolist() == [0, 1, 2]
+
+
+# --------------------------------------------------------------------------- #
+# The sides of the vertex box
+# --------------------------------------------------------------------------- #
+
+
+def _lattice(nx: int, ny: int, step: float) -> tuple[np.ndarray, np.ndarray]:
+    """An nx by ny vertex lattice from the Lambert-93 origin, two triangles per square.
+
+    Vertices are numbered row by row from the south-west corner.
+    """
+    vertices = np.array(
+        [(X0 + step * i, Y0 + step * j) for j in range(ny) for i in range(nx)], dtype=float
+    )
+    triangles = []
+    for j in range(ny - 1):
+        for i in range(nx - 1):
+            south_west, south_east = j * nx + i, j * nx + i + 1
+            triangles += [
+                (south_west, south_east, south_east + nx),
+                (south_west, south_east + nx, south_west + nx),
+            ]
+    return vertices, np.asarray(triangles, dtype=np.int64)
+
+
+def test_each_boundary_edge_joins_the_family_of_the_box_side_it_lies_on() -> None:
+    """A 400 m by 200 m lattice: no side shares the length, the span or a bound of another."""
+    nx, ny = 5, 3
+    vertices, triangles = _lattice(nx, ny, 100.0)
+    geometry = derive_geometry(HydroMesh(vertices, (CellBlock(CellType.TRIANGLE, triangles),)))
+    sides = {
+        "boundary:west": [(j * nx, (j + 1) * nx) for j in range(ny - 1)],
+        "boundary:east": [(j * nx + nx - 1, (j + 2) * nx - 1) for j in range(ny - 1)],
+        "boundary:south": [(i, i + 1) for i in range(nx - 1)],
+        "boundary:north": [((ny - 1) * nx + i, (ny - 1) * nx + i + 1) for i in range(nx - 1)],
+    }
+
+    families = box_side_edges(vertices, geometry, edge_lookup(vertices, triangles))
+
+    assert [family.name for family in families] == list(sides)
+    for family in families:
+        edges = {frozenset(e) for e in zip(family.node_a.tolist(), family.node_b.tolist())}
+        assert edges == {frozenset(e) for e in sides[family.name]}, family.name
+        assert np.all(family.cell_b == -1), family.name
+        start = vertices[family.node_a]
+        tangent = vertices[family.node_b] - start
+        offset = vertices[triangles[family.cell_a]].mean(axis=1) - start
+        assert np.all(tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0] > 0.0)
 
 
 @settings(max_examples=50, deadline=None, derandomize=True)

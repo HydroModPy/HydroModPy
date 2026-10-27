@@ -27,14 +27,10 @@ def spatial_mean_one_field(field_rec: Any) -> pd.Series | None:
     if isinstance(data, (str, Path)):
         return spatial_mean_from_file(Path(data))
 
-    try:
-        import xarray as xr
+    import xarray as xr
 
-        if isinstance(data, xr.Dataset):
-            return spatial_mean_from_xarray(data)
-    except ImportError:
-        pass
-
+    if isinstance(data, xr.Dataset):
+        return spatial_mean_from_xarray(data)
     return None
 
 
@@ -82,17 +78,14 @@ def spatial_mean_from_file(path: Path) -> pd.Series | None:
             ds.close()
 
     if suffix in (".tif", ".tiff"):
-        try:
-            import rasterio
+        import rasterio
 
-            with rasterio.open(path) as src:
-                band = _ensure_finite_source_values(
-                    src.read(1),
-                    label="recharge GeoTIFF forcing values",
-                )
-                mean_val = float(np.mean(band))
-                return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
-        except ImportError:
-            pass
+        with rasterio.open(path) as src:
+            band = _ensure_finite_source_values(
+                src.read(1),
+                label="recharge GeoTIFF forcing values",
+            )
+            mean_val = float(np.mean(band))
+            return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
 
     return None

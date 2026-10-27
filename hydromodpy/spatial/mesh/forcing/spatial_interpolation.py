@@ -12,9 +12,6 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
-from hydromodpy.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 
 def interpolate_to_grid(
@@ -186,10 +183,7 @@ def _shared_nearest_plan(
     if not valid.any() or not np.array_equal(finite, np.broadcast_to(valid, finite.shape)):
         return None
 
-    try:
-        from scipy.spatial import cKDTree
-    except ImportError:
-        return None
+    from scipy.spatial import cKDTree
 
     pts = np.column_stack([src_x_flat[valid], src_y_flat[valid]])
     target_pts = np.column_stack(
@@ -261,21 +255,17 @@ def _griddata_interpolation(
     method: str,
 ) -> np.ndarray:
     """Interpolate using scipy.interpolate.griddata."""
-    try:
-        from scipy.interpolate import griddata
+    from scipy.interpolate import griddata
 
-        result = griddata(points, values, (target_x, target_y), method=method)
-        result = np.asarray(result, dtype=float).reshape(nrow, ncol)
-        # Fill NaN with nearest for linear/cubic methods.
-        if method != "nearest" and np.any(np.isnan(result)):
-            nearest = griddata(points, values, (target_x, target_y), method="nearest")
-            nearest = np.asarray(nearest, dtype=float).reshape(nrow, ncol)
-            result = np.where(np.isnan(result), nearest, result)
-        result = np.nan_to_num(result, nan=0.0)
-        return result
-    except ImportError:
-        logger.warning("scipy not available; using uniform mean for interpolation.")
-        return np.full((nrow, ncol), float(np.nanmean(values)), dtype=float)
+    result = griddata(points, values, (target_x, target_y), method=method)
+    result = np.asarray(result, dtype=float).reshape(nrow, ncol)
+    # Fill NaN with nearest for linear/cubic methods.
+    if method != "nearest" and np.any(np.isnan(result)):
+        nearest = griddata(points, values, (target_x, target_y), method="nearest")
+        nearest = np.asarray(nearest, dtype=float).reshape(nrow, ncol)
+        result = np.where(np.isnan(result), nearest, result)
+    result = np.nan_to_num(result, nan=0.0)
+    return result
 
 
 def _idw_interpolation(
@@ -290,71 +280,44 @@ def _idw_interpolation(
     """Inverse distance weighting interpolation.
 
     Uses scipy.spatial.cKDTree for efficient neighbor lookup.
-    Falls back to brute-force computation when scipy is unavailable.
     """
     target_pts = np.column_stack([target_x.ravel(), target_y.ravel()])
 
-    try:
-        from scipy.spatial import cKDTree
+    from scipy.spatial import cKDTree
 
-        tree = cKDTree(points)
-        # Query all source points; use at most k=min(len(points), 16).
-        k = min(len(points), 16)
-        distances, indices = tree.query(target_pts, k=k)
-        if k == 1:
-            distances = distances.reshape(-1, 1)
-            indices = indices.reshape(-1, 1)
+    tree = cKDTree(points)
+    # Query all source points; use at most k=min(len(points), 16).
+    k = min(len(points), 16)
+    distances, indices = tree.query(target_pts, k=k)
+    if k == 1:
+        distances = distances.reshape(-1, 1)
+        indices = indices.reshape(-1, 1)
 
-        # Handle coincident points (distance = 0) without evaluating the
-        # singular branch on zero distances, which would emit a spurious
-        # RuntimeWarning even though exact matches are treated separately below.
-        weights = np.zeros_like(distances, dtype=float)
-        positive_distances = distances > 0
-        np.divide(
-            1.0,
-            np.power(distances, power),
-            out=weights,
-            where=positive_distances,
-        )
-        exact_match = distances == 0.0
-        has_exact = np.any(exact_match, axis=1)
+    # Handle coincident points (distance = 0) without evaluating the
+    # singular branch on zero distances, which would emit a spurious
+    # RuntimeWarning even though exact matches are treated separately below.
+    weights = np.zeros_like(distances, dtype=float)
+    positive_distances = distances > 0
+    np.divide(
+        1.0,
+        np.power(distances, power),
+        out=weights,
+        where=positive_distances,
+    )
+    exact_match = distances == 0.0
+    has_exact = np.any(exact_match, axis=1)
 
-        result = np.zeros(len(target_pts), dtype=float)
-        # Regular IDW for points without exact matches.
-        regular = ~has_exact
-        if regular.any():
-            w = weights[regular]
-            v = values[indices[regular]]
-            result[regular] = np.sum(w * v, axis=1) / np.sum(w, axis=1)
-        # Exact matches: use the value of the nearest coincident point.
-        if has_exact.any():
-            first_exact = np.argmax(exact_match[has_exact], axis=1)
-            exact_indices = indices[has_exact][np.arange(first_exact.size), first_exact]
-            result[has_exact] = values[exact_indices]
-
-        return result.reshape(nrow, ncol)
-
-    except ImportError:
-        logger.warning("scipy not available; using brute-force IDW.")
-        return _idw_brute_force(points, values, target_pts, nrow, ncol, power)
-
-
-def _idw_brute_force(
-    points: np.ndarray,
-    values: np.ndarray,
-    target_pts: np.ndarray,
-    nrow: int,
-    ncol: int,
-    power: float,
-) -> np.ndarray:
-    """Brute-force IDW when scipy is unavailable."""
     result = np.zeros(len(target_pts), dtype=float)
-    for i, tp in enumerate(target_pts):
-        dists = np.sqrt(np.sum((points - tp) ** 2, axis=1))
-        exact = dists == 0.0
-        if np.any(exact):
-            result[i] = values[exact][0]
-        else:
-            w = 1.0 / np.power(dists, power)
-            result[i] = np.sum(w * values) / np.sum(w)
+    # Regular IDW for points without exact matches.
+    regular = ~has_exact
+    if regular.any():
+        w = weights[regular]
+        v = values[indices[regular]]
+        result[regular] = np.sum(w * v, axis=1) / np.sum(w, axis=1)
+    # Exact matches: use the value of the nearest coincident point.
+    if has_exact.any():
+        first_exact = np.argmax(exact_match[has_exact], axis=1)
+        exact_indices = indices[has_exact][np.arange(first_exact.size), first_exact]
+        result[has_exact] = values[exact_indices]
+
     return result.reshape(nrow, ncol)

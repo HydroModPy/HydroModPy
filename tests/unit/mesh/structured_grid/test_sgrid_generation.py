@@ -93,27 +93,23 @@ TOP = np.array([[120.0, 121.0], [122.0, 123.0]])
 BOTTOM = np.array([[20.0, 21.0], [22.0, 23.0]])
 
 
-def test_the_grid_follows_the_modflow_convention_with_row_zero_at_the_north():
-    sgrid = _build(
-        _surface_from_array(TOP, xmin=100.0, ymin=500.0, dx=10.0, dy=5.0),
-        _surface_from_array(BOTTOM, xmin=100.0, ymin=500.0, dx=10.0, dy=5.0),
-    )
-
-    np.testing.assert_allclose(sgrid.xvertices[0], [100.0, 110.0, 120.0])
-    np.testing.assert_allclose(sgrid.yvertices[:, 0], [510.0, 505.0, 500.0])
-    np.testing.assert_allclose(sgrid.delr, [10.0, 10.0])
-    np.testing.assert_allclose(sgrid.delc, [5.0, 5.0])
-    assert (sgrid.xoff, sgrid.yoff) == (100.0, 500.0)
-
-
-def test_the_cell_sizes_come_from_the_extent_when_the_support_has_none():
+def test_a_support_without_steps_is_accepted():
     top = _with_support(_surface_from_array(TOP, dx=4.0, dy=3.0), dx=None, dy=None)
     bottom = _surface_from_array(BOTTOM, dx=4.0, dy=3.0)
 
     sgrid = _build(top, bottom)
 
-    np.testing.assert_allclose(sgrid.delr, [4.0, 4.0])
-    np.testing.assert_allclose(sgrid.delc, [3.0, 3.0])
+    assert sgrid.nlay == 2
+    np.testing.assert_allclose(sgrid.top, TOP)
+
+
+def test_a_support_without_steps_is_checked_on_the_steps_of_its_extent():
+    flipped = {"dx": None, "dy": None, "xmin": 8.0, "xmax": 0.0}
+    top = _with_support(_surface_from_array(TOP, ymin=100.0, dx=4.0, dy=3.0), **flipped)
+    bottom = _with_support(_surface_from_array(BOTTOM, ymin=100.0, dx=4.0, dy=3.0), **flipped)
+
+    with pytest.raises(ValueError, match=r"Invalid support cell sizes: dx=-4.0, dy=3.0"):
+        _build(top, bottom)
 
 
 def test_a_nodata_cell_is_outside_the_domain_in_every_layer():
@@ -171,9 +167,13 @@ def test_a_bottom_on_another_grid_is_refused():
         _build(_surface_from_array(TOP), fine_bottom)
 
 
-def test_a_support_with_a_negative_cell_size_is_refused():
+@pytest.mark.parametrize(
+    ("step", "message"),
+    [("dx", r"dx=-1.0, dy=1.0"), ("dy", r"dx=1.0, dy=-1.0")],
+)
+def test_a_support_with_a_negative_cell_size_is_refused(step: str, message: str):
     # A north-up raster transform carries a negative y step; the support must not.
-    top = _with_support(_surface_from_array(TOP), dy=-1.0)
+    top = _with_support(_surface_from_array(TOP), **{step: -1.0})
 
-    with pytest.raises(ValueError, match=r"Invalid support cell sizes: dx=1.0, dy=-1.0"):
+    with pytest.raises(ValueError, match=rf"Invalid support cell sizes: {message}"):
         _build(top, _surface_from_array(BOTTOM))

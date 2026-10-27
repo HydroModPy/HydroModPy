@@ -103,17 +103,23 @@ def _legacy_solver_mesh(case: _Case, domain: Domain, vertical: VerticalGridConfi
     spec = StructuredGridBuilder().build_from_surfaces(
         top_surface=top_surface, bottom_surface=bottom_surface, vertical_config=vertical
     )
+    support = top_surface.support
+    nrow, ncol = int(support.nrows), int(support.ncols)
+    xmin, xmax = float(support.xmin), float(support.xmax)
+    ymin, ymax = float(support.ymin), float(support.ymax)
+    dx = float(support.dx) if support.dx is not None else (xmax - xmin) / ncol
+    dy = float(support.dy) if support.dy is not None else (ymax - ymin) / nrow
     sgrid = StructuredGrid(
-        delc=spec.delc,
-        delr=spec.delr,
+        delc=np.full(nrow, dy, dtype=float),
+        delr=np.full(ncol, dx, dtype=float),
         top=spec.top,
         botm=spec.botm,
-        xoff=spec.xoff,
-        yoff=spec.yoff,
+        xoff=xmin,
+        yoff=ymin,
         nlay=spec.nlay,
-        nrow=spec.nrow,
-        ncol=spec.ncol,
-        crs=spec.crs,
+        nrow=nrow,
+        ncol=ncol,
+        crs=support.crs,
     )
     inactive = ~np.isfinite(top) | ~np.isfinite(bottom) | (top <= _NODATA) | (bottom <= _NODATA)
     return solver_mesh_from_sgrid(

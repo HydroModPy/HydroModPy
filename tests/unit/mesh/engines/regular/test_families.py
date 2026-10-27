@@ -11,6 +11,7 @@ from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.engines.regular.families import _END_SNAP_REL
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
@@ -51,6 +52,13 @@ def _contact() -> LineFamilySpec:
 def _row_of(grid: RasterGridSpec, y: float) -> int:
     """The row of the cells whose band holds *y*; row 0 is north."""
     return int((grid.ymax - y) // grid.dy)
+
+
+def _left_of(line: LineString, points: np.ndarray) -> np.ndarray:
+    """Cross product of each point with the chord of a straight *line*: positive on its left."""
+    start, end = np.asarray(line.coords[0]), np.asarray(line.coords[-1])
+    chord, offset = end - start, np.asarray(points) - start
+    return chord[0] * offset[:, 1] - chord[1] * offset[:, 0]
 
 
 # --------------------------------------------------------------------------- #
@@ -165,6 +173,113 @@ def test_a_contact_on_cell_faces_is_followed_exactly() -> None:
     assert cell_mesh.face_rows("geology").sum() == KM_GRID.nrow
     assert quality["hausdorff_m"] == pytest.approx(0.0, abs=1e-9)
     assert quality["covered_length_rel"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("northward", [True, False], ids=["drawn_northward", "drawn_southward"])
+def test_the_cell_on_the_left_of_the_contact_comes_first_and_the_zones_follow_the_drawing(
+    northward: bool,
+) -> None:
+    line = LineString([(500.0, 0.0), (500.0, 1000.0)])
+    left, right = ("west_unit", "east_unit") if northward else ("east_unit", "west_unit")
+    contact = LineFamilySpec(
+        "geology",
+        "face",
+        (line if northward else line.reverse(),),
+        zone_left=(left,),
+        zone_right=(right,),
+    )
+    cell_mesh = _build(KM_GRID, contact)
+    table = cell_mesh.face_families
+    rows = cell_mesh.face_rows("geology")
+    names = np.array(cell_mesh.zone_names)
+
+    assert np.all((cell_mesh.centers[table.cell_a[rows], 0] < 500.0) == northward)
+    assert np.all((cell_mesh.centers[table.cell_b[rows], 0] > 500.0) == northward)
+    assert set(names[table.zone_left[rows]]) == {left}
+    assert set(names[table.zone_right[rows]]) == {right}
+
+
+@pytest.mark.parametrize(
+    ("grid", "line"),
+    [
+        (
+            grid_spec(20, 40, 0.02, crs_wkt=LAMBERT93_WKT),
+            LineString([(0.30, 0.0), (0.50, 0.40)]),
+        ),
+        (
+            grid_spec(20, 20, 500.0, xmin=L93_ORIGIN[0], ymin=L93_ORIGIN[1], crs_wkt=LAMBERT93_WKT),
+            LineString(
+                [
+                    (L93_ORIGIN[0] + 5000.0, L93_ORIGIN[1]),
+                    (L93_ORIGIN[0] + 5000.0, L93_ORIGIN[1] + 1e4),
+                ]
+            ),
+        ),
+    ],
+    ids=["laboratory_sandbox_at_2_cm", "regional_contact_of_10_km_in_lambert_93"],
+)
+def test_a_contact_far_shorter_or_far_longer_than_a_metre_keeps_the_cell_on_its_left_first(
+    grid: RasterGridSpec, line: LineString
+) -> None:
+    """The side of a face is read along the line at a step that follows the line length."""
+    contact = LineFamilySpec("geology", "face", (line,), ("west_unit",), ("east_unit",))
+    cell_mesh = _build(grid, contact)
+    table = cell_mesh.face_families
+    rows = cell_mesh.face_rows("geology")
+
+    assert rows.sum() >= grid.nrow
+    assert np.all(_left_of(line, cell_mesh.centers[table.cell_a[rows]]) > 0.0)
+    assert np.all(_left_of(line, cell_mesh.centers[table.cell_b[rows]]) < 0.0)
+
+
+SNAP_DOMAINS = {
+    "north_south_strip": (grid_spec(200, 2, 50.0, crs_wkt=LAMBERT93_WKT), "east_west"),
+    "east_west_strip_centred_on_its_origin": (
+        grid_spec(2, 200, 50.0, xmin=-5000.0, ymin=-50.0, crs_wkt=LAMBERT93_WKT),
+        "north_south",
+    ),
+    "laboratory_sandbox": (grid_spec(20, 40, 0.02, crs_wkt=LAMBERT93_WKT), "north_south"),
+}
+"""Domains whose snap tolerance comes from the north-south span, the east-west span or the 1 m floor."""
+
+
+def _contact_short_of_the_boundary(name: str, share_of_the_tolerance: float) -> PlanarCellMesh:
+    """A straight contact across the domain whose two ends stop short of the boundary.
+
+    The gap is a share of the snap tolerance, ``_END_SNAP_REL`` of the larger span
+    and never less than ``_END_SNAP_REL`` of a metre: the rounding of a line clipped
+    to the domain.
+    """
+    grid, direction = SNAP_DOMAINS[name]
+    width, height = grid.xmax - grid.xmin, grid.ymax - grid.ymin
+    gap = share_of_the_tolerance * _END_SNAP_REL * max(width, height, 1.0)
+    xmid, ymid = grid.xmin + width / 2.0, grid.ymin + height / 2.0
+    if direction == "east_west":
+        line = LineString([(grid.xmin + gap, ymid), (grid.xmax - gap, ymid)])
+    else:
+        line = LineString([(xmid, grid.ymin + gap), (xmid, grid.ymax - gap)])
+    return _build(grid, LineFamilySpec("geology", "face", (line,), ("west_unit",), ("east_unit",)))
+
+
+@pytest.mark.parametrize("name", sorted(SNAP_DOMAINS))
+def test_a_contact_that_stops_within_the_snap_tolerance_of_the_boundary_splits_the_domain(
+    name: str,
+) -> None:
+    grid, direction = SNAP_DOMAINS[name]
+    cell_mesh = _contact_short_of_the_boundary(name, 0.9)
+
+    crossed = grid.ncol if direction == "east_west" else grid.nrow
+    assert cell_mesh.face_rows("geology").sum() == crossed
+    assert set(np.array(cell_mesh.zone_names)[cell_mesh.cell_zone]) == {"west_unit", "east_unit"}
+
+
+@pytest.mark.parametrize("name", sorted(SNAP_DOMAINS))
+def test_a_contact_that_stops_beyond_the_snap_tolerance_of_the_boundary_splits_nothing(
+    name: str,
+) -> None:
+    cell_mesh = _contact_short_of_the_boundary(name, 1.5)
+
+    assert not cell_mesh.face_rows("geology").any()
 
 
 def test_the_cells_take_the_zone_of_their_side_of_the_contact() -> None:

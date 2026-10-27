@@ -106,8 +106,11 @@ def test_a_hole_inside_one_cell_gets_seeds_on_its_ring() -> None:
     assert shapely.get_num_interior_rings(voronoi_cells(seeds, domain, envelope)[0]) == 1
     tess = tessellate(seeds, 2, domain, envelope)
     added = tess.seeds[2 : tess.n_fixed]
-    assert tess.boundary_seeds_added >= 1
-    assert shapely.distance(shapely.points(added), frame.to_local(hole).exterior).max() < 1e-9
+    # The ring point farthest from the seed at (10, 10) is the far corner of the hole. The cell
+    # of that new seed wraps the hole in turn, and the corner farthest from it splits the hole.
+    far, near = hole.bounds[2:], hole.bounds[:2]
+    assert tess.boundary_seeds_added == 2
+    assert np.allclose(frame.to_world(added), [far, near])
     assert (shapely.get_num_interior_rings(tess.cells) == 0).all()
     assert abs(shapely.area(tess.cells).sum() - domain.area) <= 1e-9 * domain.area
 
