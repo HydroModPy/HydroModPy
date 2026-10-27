@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
     from hydromodpy.spatial.mesh.request import MeshRequest
 
-__all__ = ["ALGORITHMS", "MESH_SIZE_PER_CELL_SIZE", "CdtResult", "triangulate"]
+__all__ = ["ALGORITHMS", "MESH_SIZE_PER_CELL_SIZE", "CdtResult", "require_gmsh", "triangulate"]
 
 ALGORITHMS: dict[str, int] = {"meshadapt": 1, "delaunay": 5, "frontal": 6}
 """gmsh ``Mesh.Algorithm`` number of each ``[mesh.triangle] algorithm`` value."""
@@ -96,7 +96,8 @@ class _Plsg:
     lines: dict[tuple[str, int], list[int]]
 
 
-def _require_gmsh() -> ModuleType:
+def require_gmsh() -> ModuleType:
+    """Import and return ``gmsh``, naming the extra that installs it when it is missing."""
     try:
         import gmsh
     except ModuleNotFoundError as exc:
@@ -326,7 +327,7 @@ def _ordered_along(pairs: np.ndarray, xy: np.ndarray, direction: np.ndarray) -> 
 
 def triangulate(request: MeshRequest) -> CdtResult:
     """Triangulate the request domain with every family line embedded as mesh edges."""
-    gmsh = _require_gmsh()
+    gmsh = require_gmsh()
     scale = MESH_SIZE_PER_CELL_SIZE[_algorithm(request)]
     request = dataclasses.replace(request, lines=_lines_at_edge_length(request, scale))
     origin = _origin(request.domain)

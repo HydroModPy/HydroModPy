@@ -15,8 +15,8 @@ models (`layers_config.py`) and the code that turns it into layer bottoms and `i
   replaces each.
 - `sgrid_generation.py` builds a `StructuredGridSpec` from two absolute-elevation
   surfaces. `StructuredGridBuilder` checks that the surfaces describe the same domain,
-  asks `domain/layering.py` for the layer bottoms and `idomain`, and assembles the
-  vertices.
+  asks `domain/layering.py` for the layer bottoms and `idomain`, and returns them with
+  the top. The spec holds the vertical part only.
 
 The horizontal grid is not built here. It comes from the mesh engine
 (`engines/regular/`), and `Surface.resample_to_shape(...)` resamples the surfaces to

@@ -10,8 +10,9 @@ absolute-elevation surfaces:
 
 Design responsibilities
 -----------------------
-- Horizontal discretization (XY) is handled outside this builder, typically in
-  `Surface` (`resample_to_shape(...)`).
+- Horizontal discretization (XY) is handled outside this builder: the planar
+  grid comes from the mesh engine, and `Surface.resample_to_shape(...)`
+  resamples the surfaces to its shape.
 - This builder handles only:
   - geometric consistency checks for vertical construction,
   - vertical layering, through :func:`hydromodpy.spatial.domain.layering.layer_stack`,
@@ -23,17 +24,12 @@ Important convention
 `top_surface` and `bottom_surface` are absolute altitudes in the same datum.
 No additive combination is done between the two surfaces.
 HydroModPy assumes metric geometry throughout this workflow.
-
-FloPy is intentionally not imported here. Translation to a
-``flopy.discretization.StructuredGrid`` is performed at the solver boundary by
-``hydromodpy.solver.modflow_common.sgrid_to_flopy.translate``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
@@ -48,27 +44,17 @@ from hydromodpy.spatial.surface import Surface
 
 @dataclass(frozen=True)
 class StructuredGridSpec:
-    """HydroModPy-native structured-grid descriptor (no FloPy dependency).
+    """The vertical part of a structured grid: top, layer bottoms and ``idomain``.
 
-    ``xvertices`` and ``yvertices`` follow the MODFLOW convention: row 0 is
-    the top of the grid (largest y), row ``nrow`` is the bottom (``yoff``).
-    ``idomain`` has the shape of ``botm``: 1 active, 0 outside the domain, -1 a
+    ``top`` has the shape of the surfaces, ``botm`` and ``idomain`` one more
+    axis for the layers. ``idomain`` is 1 active, 0 outside the domain, -1 a
     pinched cell of a layering by surfaces.
     """
 
-    delc: np.ndarray
-    delr: np.ndarray
     top: np.ndarray
     botm: np.ndarray
-    xoff: float
-    yoff: float
     nlay: int
-    nrow: int
-    ncol: int
-    xvertices: np.ndarray
-    yvertices: np.ndarray
     idomain: np.ndarray
-    crs: Any = None
 
 
 class StructuredGridBuilder:
@@ -142,55 +128,17 @@ class StructuredGridBuilder:
             top=top, bottom=bot, invalid=invalid, vertical_config=cfg, bases=bases, nodata=nodata
         )
 
-        nrow = int(support.nrows)
-        ncol = int(support.ncols)
-        xmin = float(support.xmin)
-        ymin = float(support.ymin)
-        xmax = float(support.xmax)
-        ymax = float(support.ymax)
-
-        dx = float(support.dx) if support.dx is not None else (xmax - xmin) / ncol
-        dy = float(support.dy) if support.dy is not None else (ymax - ymin) / nrow
+        # The planar grid is the mesh's, the steps of the support are only checked.
+        width = float(support.xmax) - float(support.xmin)
+        height = float(support.ymax) - float(support.ymin)
+        dx = float(support.dx) if support.dx is not None else width / int(support.ncols)
+        dy = float(support.dy) if support.dy is not None else height / int(support.nrows)
         if dx <= 0 or dy <= 0:
             raise ValueError(f"Invalid support cell sizes: dx={dx}, dy={dy}.")
 
-        delr = np.full(ncol, dx, dtype=float)
-        delc = np.full(nrow, dy, dtype=float)
-        xvertices, yvertices = _structured_vertices(delr=delr, delc=delc, xoff=xmin, yoff=ymin)
-
         return StructuredGridSpec(
-            delc=delc,
-            delr=delr,
             top=top,
             botm=stack.botm,
-            xoff=xmin,
-            yoff=ymin,
             nlay=int(stack.botm.shape[0]),
-            nrow=nrow,
-            ncol=ncol,
-            xvertices=xvertices,
-            yvertices=yvertices,
             idomain=stack.idomain,
-            crs=support.crs,
         )
-
-
-def _structured_vertices(
-    *,
-    delr: np.ndarray,
-    delc: np.ndarray,
-    xoff: float,
-    yoff: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Build (xvertices, yvertices) following the MODFLOW convention.
-
-    Row 0 of ``yvertices`` carries the top of the grid (largest y); row
-    ``nrow`` carries ``yoff``. Shapes are (nrow + 1, ncol + 1).
-    """
-    delr_arr = np.asarray(delr, dtype=float).reshape(-1)
-    delc_arr = np.asarray(delc, dtype=float).reshape(-1)
-    x_edges = float(xoff) + np.concatenate(([0.0], np.cumsum(delr_arr)))
-    total_dy = float(np.sum(delc_arr))
-    y_edges = (float(yoff) + total_dy) - np.concatenate(([0.0], np.cumsum(delc_arr)))
-    xvertices, yvertices = np.meshgrid(x_edges, y_edges, indexing="xy")
-    return np.asarray(xvertices, dtype=float), np.asarray(yvertices, dtype=float)

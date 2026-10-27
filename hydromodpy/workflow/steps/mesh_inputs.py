@@ -102,12 +102,6 @@ def _criterion_inputs(
         trace = river_trace or resolve_river_mesh_trace(
             geographic_features=setup.geographic_features
         )
-        if trace is not None and trace.source_kind != "geographic_generated":
-            raise MeshError(
-                "[[mesh.refinement_zone]] where = 'height_above_stream' measures the ground "
-                "against the river network traced from the DEM, and the river trace of this "
-                f"run comes from {trace.source_kind!r}: a mapped network never enters the mesh."
-            )
         lines = None if trace is None else tuple(trace.lines)
     run_fields = {}
     if any(zone.run is not None for zone in zones):

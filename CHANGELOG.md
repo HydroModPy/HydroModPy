@@ -1208,9 +1208,9 @@ Each release section includes the following standard categories:
 
 ### Changed
 - The main CI measures the branch coverage of `spatial/mesh` and fails under a floor that only goes
-  up, 98.2 % after the mesh tests were filed by module (2026-10-27). The coverage report no longer
-  drops a whole function whose signature holds `...`, as in `tuple[str, ...]`. Only a stub body is
-  excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
+  up, 98.2 % after the mesh tests were filed by module, then 98.4 % once the dead import fallbacks
+  left (2026-10-27). The coverage report no longer drops a whole function whose signature holds
+  `...`, as in `tuple[str, ...]`. Only a stub body is excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
 - Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
   `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon
   fallback of the discharge support, the outlet search of the build and the polygon mask of the
@@ -1520,6 +1520,16 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The mesh code no longer guards against a missing scipy, xarray or rasterio (2026-10-27). They are
+  required dependencies, so these branches never ran, and had they run they would have given a
+  uniform or zero recharge with a mere warning. `_idw_brute_force`, the inverse distance weighting
+  without scipy, goes with them. `StructuredGridSpec` keeps `top`, `botm`, `nlay` and `idomain`.
+  Its nine planar fields (`delc`, `delr`, `xoff`, `yoff`, `nrow`, `ncol`, `xvertices`, `yvertices`,
+  `crs`) go, since the planar grid comes from the mesh engine and the only caller read the vertical
+  part. A support with a step at or below zero is still refused. `require_gmsh` has one home,
+  `spatial/mesh/engines/triangle/gmsh_cdt.py`, and raises `MeshError` naming the `mesh` extra.
+  The refusal of a mapped river trace for `where = "height_above_stream"` goes too, since only the
+  traced network reaches the mesh step. No mesh changes.
 - The bundle reader of a run and what lived on it (2026-10-26). `resolve_bundle_cells` is
   `resolve_run_cells(store, sim_id, *, expected_size=None)` and reads the mesh stored in
   `fields.zarr` only. Nothing writes `<run>/mesh/mesh_catchment_bundle/cells.csv` since the exporter

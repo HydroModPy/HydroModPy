@@ -70,23 +70,19 @@ def discretize_one_field_record(
             mesh=mesh,
         )
 
-    # xarray Dataset
-    try:
-        import xarray as xr
+    import xarray as xr
 
-        if isinstance(data, xr.Dataset):
-            return discretize_from_xarray(
-                data,
-                centers=centers,
-                nper=nper,
-                period_bounds=period_bounds,
-                coverage_policy=coverage_policy,
-                unit_factor=unit_factor,
-                method=method,
-                mesh=mesh,
-            )
-    except ImportError:
-        pass
+    if isinstance(data, xr.Dataset):
+        return discretize_from_xarray(
+            data,
+            centers=centers,
+            nper=nper,
+            period_bounds=period_bounds,
+            coverage_policy=coverage_policy,
+            unit_factor=unit_factor,
+            method=method,
+            mesh=mesh,
+        )
 
     logger.warning(
         "Unsupported FieldRecord data type %s for field discretization; returning zeros.",
@@ -249,11 +245,7 @@ def discretize_geotiff(
 
     Multi-band GeoTIFFs are treated as temporal: one band per time step.
     """
-    try:
-        import rasterio
-    except ImportError:
-        logger.warning("rasterio not available; returning zeros for GeoTIFF field.")
-        return {kper: np.zeros(centers.shape[0], dtype=float) for kper in range(nper)}
+    import rasterio
 
     with rasterio.open(path) as src:
         transform = src.transform

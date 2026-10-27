@@ -598,7 +598,7 @@ def _build_structured_solver_mesh(
             channel_mask=channel_mask,
         )
 
-    # The builder keeps the vertical part only: its own planar vertices are ignored.
+    # The builder gives the vertical part only, the planar grid is the mesh's.
     spec = StructuredGridBuilder().build_from_surfaces(
         top_surface=top_surface,
         bottom_surface=bottom_surface,
