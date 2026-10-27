@@ -12,16 +12,15 @@ from hydromodpy.spatial.mesh.model.derived_geometry import (
     derive_geometry,
     derive_geometry_from_rows,
 )
-from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
+from tests._helpers.mesh_cases import L93_ORIGIN, regular_mesh
 
-X0, Y0 = 351_250.0, 6_789_500.0
-"""A Lambert-93 corner (EPSG:2154)."""
+X0, Y0 = L93_ORIGIN
 
 
 def _quads() -> HydroMesh:
-    return RegularGrid(shape=(4, 5), dx=20.0, dy=10.0, origin=(0.0, 40.0)).to_hydro_mesh()
+    return regular_mesh(4, 5, dx=20.0, dy=10.0).mesh
 
 
 def _triangles() -> HydroMesh:
@@ -121,8 +120,7 @@ def test_lambert93_coordinates_keep_areas_and_centroids_exact(kind: str) -> None
 
 
 def test_regular_grid_in_lambert93_has_exact_cell_areas() -> None:
-    grid = RegularGrid(shape=(30, 40), dx=25.0, dy=25.0, origin=(X0, Y0))
-    geometry = derive_geometry(grid.to_hydro_mesh())
+    geometry = derive_geometry(regular_mesh(30, 40, dx=25.0, xmin=X0, ymin=Y0).mesh)
 
     np.testing.assert_allclose(geometry.areas, 625.0, rtol=1e-12, atol=0.0)
 
@@ -195,6 +193,39 @@ def test_a_repeated_corner_is_no_face() -> None:
     assert np.all(geometry.edge_length > 0.0)
     assert geometry.adjacency_sets() == [{1}, {0}]
     np.testing.assert_allclose(geometry.areas, [1.0, 1.0])
+
+
+def test_a_cell_whose_outline_runs_back_along_one_edge_raises() -> None:
+    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+    mesh = HydroMesh(
+        vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 1]),)),)
+    )
+
+    with pytest.raises(ValueError, match="cell 0 uses one edge twice"):
+        derive_geometry(mesh)
+
+
+def test_an_empty_polygon_block_adds_no_cell() -> None:
+    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+    mesh = HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(CellType.POLYGON, ()), CellBlock(CellType.TRIANGLE, [[0, 1, 2]])),
+    )
+
+    geometry = derive_geometry(mesh)
+
+    assert geometry.n_cells == 1
+    np.testing.assert_allclose(geometry.areas, [0.5])
+
+
+def test_a_volume_cell_on_planar_vertices_raises() -> None:
+    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9]])
+    mesh = HydroMesh(
+        vertices=vertices, cell_blocks=(CellBlock(CellType.WEDGE, [[0, 1, 2, 3, 4, 5]]),)
+    )
+
+    with pytest.raises(ValueError, match="not a planar cell type: \\['wedge'\\]"):
+        derive_geometry(mesh)
 
 
 def test_a_mesh_with_3d_vertices_raises() -> None:

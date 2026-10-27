@@ -268,6 +268,63 @@ jobs:
           flags: unit
           fail_ci_if_error: false
 
+  mesh-coverage:
+    name: Coverage / mesh gate py3.13
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test, docs and mesh extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,docs,mesh]"
+
+      - name: Install external validity_frame package
+        run: pip install -e validity_frame
+
+      - name: Install the solver binary the mesh regression needs
+        run: python -m hydromodpy install-binaries --subset mf6 --quiet
+
+      # Branch coverage of spatial/mesh over the unit tier, the engine contract
+      # and the mesh regression. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
+      - name: Run the tests that reach the mesh
+        env:
+          HMP_REQUIRE_GMSH: "1"
+        run: |
+          python -m pytest tests/unit/ \
+            tests/contract/test_mesh_engine_contract.py \
+            tests/contract/test_mesh_conformance_reaches_an_installed_engine.py \
+            tests/regression/mesh/ \
+            --ignore=tests/unit/architecture \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic/test_catchment_from_point.py \
+            --ignore=tests/unit/geographic/test_reference_river_network_nancon_case.py \
+            -m "not slow" \
+            -n 2 --dist loadgroup \
+            --max-worker-restart=0 \
+            --timeout=300 \
+            --cov=hydromodpy/spatial/mesh \
+            --cov-branch \
+            --cov-report= \
+            --cov-fail-under=0 \
+            -q
+
+      # The floor only goes up. Raise it to the value a clean-up lot reaches.
+      - name: Gate the mesh coverage
+        run: |
+          coverage combine || true
+          coverage report --include='hydromodpy/spatial/mesh/*' \
+            --precision=2 --fail-under=98.2
+
   integration:
     name: Tests / integration py3.13
     runs-on: ubuntu-latest

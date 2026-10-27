@@ -25,7 +25,7 @@ from hydromodpy.spatial.mesh.ops.family_bits import (
     edge_family_names,
     face_row_edges,
 )
-from tests._helpers.regular_cell_meshes import regular_cell_mesh
+from tests._helpers.mesh_cases import regular_mesh
 
 
 def _edge_between(cell_mesh: PlanarCellMesh, cell_a: int, cell_b: int) -> tuple[int, int, int]:
@@ -37,7 +37,7 @@ def _edge_between(cell_mesh: PlanarCellMesh, cell_a: int, cell_b: int) -> tuple[
 
 
 def _mesh_with_families() -> tuple[PlanarCellMesh, dict[str, int]]:
-    base = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=3)
+    base = regular_mesh(2, 3, dx=10.0)
     lake_rank, lake_a, lake_b = _edge_between(base, 1, 4)
     west_rank, west_a, west_b = _edge_between(base, 3, -1)
     table = FaceFamilyTable(
@@ -104,7 +104,7 @@ def test_a_face_row_off_the_mesh_edges_is_a_topology_error():
 
 
 def test_a_mesh_without_family_has_empty_bit_fields():
-    base = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=3)
+    base = regular_mesh(2, 3, dx=10.0)
 
     assert cell_family_names(base) == ()
     assert not cell_family_bits(base).any()
@@ -114,11 +114,11 @@ def test_a_mesh_without_family_has_empty_bit_fields():
 
 
 def test_more_families_than_an_int32_holds_is_refused():
-    base = regular_cell_mesh(xmin=0.0, ymin=0.0, dx=10.0, dy=10.0, nrow=2, ncol=3)
+    base = regular_mesh(2, 3, dx=10.0)
     chains = tuple(
         CellChain(family=f"line_{k}", chain_id=k, cell_ids=np.array([0]))
         for k in range(MAX_FAMILIES + 1)
     )
 
-    with pytest.raises(MeshError, match="at most 31 families"):
+    with pytest.raises(MeshError, match=f"at most {MAX_FAMILIES} families"):
         cell_family_bits(dataclasses.replace(base, cell_chains=chains))

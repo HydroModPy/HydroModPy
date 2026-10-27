@@ -123,3 +123,62 @@ def test_gmsh_planar_mesh_validates_cell_value_count():
 
     with pytest.raises(ValueError, match="one value per cell"):
         mesh.to_cell_values(np.array([1.0], dtype=float))
+
+
+SQUARE = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+
+
+def test_a_planar_mesh_goes_to_meshio_and_comes_back():
+    mesh = GmshPlanarMesh2D(
+        points_xy=SQUARE, connectivity=[[0, 1, 2], [0, 2, 3]], cell_type="triangles"
+    )
+
+    back = GmshPlanarMesh2D.from_meshio(mesh.to_meshio())
+
+    assert back.cell_type == "triangle"
+    np.testing.assert_array_equal(back.points_xy, mesh.points_xy)
+    np.testing.assert_array_equal(back.connectivity, mesh.connectivity)
+
+
+def test_a_quadrilateral_hydro_mesh_becomes_a_planar_mesh():
+    hydro = GmshPlanarMesh2D(points_xy=SQUARE, connectivity=[[0, 1, 2, 3]], cell_type="quad")
+
+    back = GmshPlanarMesh2D.from_hydro_mesh(hydro.to_hydro_mesh())
+
+    assert back.cell_type == "quadrilateral"
+    np.testing.assert_array_equal(back.connectivity, [[0, 1, 2, 3]])
+
+
+@pytest.mark.parametrize(
+    ("points", "connectivity", "reason"),
+    [
+        (np.zeros((4, 3)), [[0, 1, 2]], "points_xy must have shape"),
+        (SQUARE, [[0, 1, 2, 3]], r"triangle connectivity must have shape \(n_cells, 3\)"),
+        (SQUARE, [[0, 1, 4]], "outside points_xy"),
+    ],
+    ids=["xyz points", "quad rows", "node past the points"],
+)
+def test_a_planar_mesh_checks_its_points_and_its_cells(points, connectivity, reason):
+    with pytest.raises(ValueError, match=reason):
+        GmshPlanarMesh2D(points_xy=points, connectivity=connectivity, cell_type="triangle")
+
+
+def test_only_a_planar_hydro_mesh_of_one_fixed_cell_type_becomes_a_planar_mesh():
+    from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+
+    wedge = HydroMesh(
+        vertices=np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
+        ),
+        cell_blocks=(CellBlock(CellType.WEDGE, [[0, 1, 2, 3, 4, 5]]),),
+    )
+    polygons = HydroMesh(
+        vertices=SQUARE, cell_blocks=(CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 3]),)),)
+    )
+
+    with pytest.raises(TypeError, match="Expected a HydroMesh"):
+        GmshPlanarMesh2D.from_hydro_mesh(SQUARE)
+    with pytest.raises(ValueError, match="requires a 2D HydroMesh"):
+        GmshPlanarMesh2D.from_hydro_mesh(wedge)
+    with pytest.raises(NotImplementedError, match="cannot wrap a ragged"):
+        GmshPlanarMesh2D.from_hydro_mesh(polygons)

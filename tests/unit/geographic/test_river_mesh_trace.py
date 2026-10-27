@@ -1,14 +1,19 @@
+"""The river trace a mesh follows, from geometries, from a vector file or from the network."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import LineString, MultiLineString, box
+from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point, box
 
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     RiverMeshTrace,
     build_river_mesh_trace_from_vector,
+)
+from hydromodpy.spatial.geographic.core.river_network import (
+    _build_river_mesh_trace_from_network_gdf,
 )
 
 
@@ -115,3 +120,70 @@ def test_build_river_mesh_trace_from_vector_missing_crs_without_target_raises(
             vector_path=river_path,
             source_kind="file",
         )
+
+
+@pytest.mark.parametrize(
+    ("members", "reason"),
+    [
+        ({"source_kind": "drawn"}, "source_kind must be one of"),
+        ({"crs_wkt": "  "}, "crs_wkt cannot be empty"),
+        ({"lines": (LineString(),)}, "lines cannot be empty"),
+        ({"lines": (Point(0.0, 0.0),)}, "only LineString or MultiLineString"),
+    ],
+)
+def test_a_trace_refuses_what_a_mesh_cannot_follow(members: dict, reason: str):
+    trace = {
+        "source_kind": "file",
+        "crs_wkt": "EPSG:2154",
+        "lines": (LineString([(0, 0), (1, 0)]),),
+    }
+    trace.update(members)
+
+    with pytest.raises((ValueError, TypeError), match=reason):
+        RiverMeshTrace(**trace)
+
+
+def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
+    network = gpd.GeoDataFrame(
+        geometry=[
+            LineString([(0.0, 0.0), (100.0, 0.0)]),
+            GeometryCollection([Point(5.0, 5.0), LineString([(100.0, 0.0), (100.0, 50.0)])]),
+            Point(1.0, 1.0),
+            None,
+        ],
+        crs="EPSG:2154",
+    )
+
+    trace = _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=None)
+
+    assert trace.source_kind == "geographic_generated"
+    assert trace.segment_count == 2
+    assert trace.total_length_m == pytest.approx(150.0)
+    assert "2154" in trace.crs_wkt or "Lambert-93" in trace.crs_wkt
+
+
+def test_a_network_without_crs_takes_the_one_it_is_given():
+    network = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])], crs=None)
+
+    trace = _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="EPSG:2154")
+
+    assert "Lambert-93" in trace.crs_wkt
+
+
+@pytest.mark.parametrize(
+    ("geometry", "network_crs", "crs"),
+    [
+        (None, "EPSG:2154", "EPSG:2154"),
+        (LineString([(0.0, 0.0), (10.0, 0.0)]), "  ", None),
+        (Point(0.0, 0.0), None, "EPSG:2154"),
+    ],
+    ids=["empty network", "no crs anywhere", "no line"],
+)
+def test_a_network_that_gives_no_line_gives_no_trace(geometry, network_crs, crs):
+    geometries = [] if geometry is None else [geometry]
+    network = gpd.GeoDataFrame(geometry=geometries, crs=crs)
+
+    assert (
+        _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
+        is None
+    )

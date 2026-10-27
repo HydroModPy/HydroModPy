@@ -6,50 +6,62 @@ a list this file keeps. An engine installed beside this build is therefore run
 by this suite without a line of ``tests/`` naming it. ``register()`` certifies a
 class on the members it declares; the invariants a solver relies on (cells cover
 their centres, the areas add up, a chain is continuous) are only visible on a
-mesh, and this file is where they are checked.
+mesh, and this file is where they are checked. It is the one home of the
+properties the three built-in engines share.
 
-The cases are closed: on a 1 km square, a circular island and a rectangle the
-answer is known (the area, the line a face family must follow, the direction of
-a size ramp), so the assertions are exact rather than banded. Invariants are
-conditioned on what the engine declares in its capabilities: a structured engine
-covers the DEM rectangle, a graded engine follows a size ramp, an engine with
-exact faces follows its face lines to ``HAUSDORFF_RTOL`` of the extent, a
-deterministic engine builds the same mesh twice.
+The cases are field situations every engine can take: a square catchment whose
+river crosses a geological contact, the same catchment with every line drawn the
+other way, a square with a hole, a circular island, a size ramp, a uniform size
+and a given triangulation. On each the answer is known (the area, the side a
+cell lies on, the line a face family must follow, the direction of a size ramp),
+so the assertions are exact rather than banded. Each invariant is a short
+function named after what it checks. Invariants are conditioned on what the
+engine declares in its capabilities: a structured engine covers the DEM
+rectangle, a graded engine follows a size ramp, an engine with exact faces
+follows its face lines to ``HAUSDORFF_RTOL`` of the extent and orients its rows,
+a deterministic engine builds the same mesh twice. Each mesh is built once per
+engine and per case, and every test of that pair reads the same mesh.
 
 A built-in engine this environment cannot run is skipped, unless
 ``HMP_REQUIRE_GMSH`` is set (CI with the ``mesh`` extra, a developer machine):
-a green run that skipped two of the three engines proves nothing there.
+a green run that skipped two of the three engines proves nothing there. A
+missing engine gives skipped tests, never fewer collected tests.
 """
 
 from __future__ import annotations
 
+import functools
 import os
 import random
 import time
+from collections.abc import Callable
 from importlib.util import find_spec
 
 import numpy as np
 import pytest
 import shapely
-from pyproj import CRS
-from shapely.geometry import LineString, Point, box
+from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh import MeshEngine, PlanarCellMesh, registry
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.mesh_qa import DECLARATION_KEYS
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
-from hydromodpy.spatial.mesh.port import missing_engine_members
+from hydromodpy.spatial.mesh.port import MeshEngineCapabilities, missing_engine_members
 from hydromodpy.spatial.mesh.request import (
     InputTriangulation,
     LineFamilySpec,
     MeshRequest,
-    RasterGridSpec,
     SizeField,
 )
+from tests._helpers.mesh_cases import (
+    LAMBERT93_WKT,
+    grid_over,
+    mesh_request,
+    square_domain,
+    uniform_size_field,
+)
 from tests._helpers.tolerances import tol
-
-CRS_WKT = CRS.from_epsg(2154).to_wkt()
 
 AREA_RTOL = tol("mesh_engine_conformance__sum_of_the_cell_areas_against_the_area_to_cover_relative")
 HAUSDORFF_RTOL = tol(
@@ -67,6 +79,9 @@ GMSH_ENGINE_IDS = ("triangle",)
 
 SIDES = ("west", "east", "south", "north")
 
+pytestmark = pytest.mark.xdist_group("mesh_engine_contract")
+"""One worker runs the file, so each mesh is built once per engine and per case."""
+
 
 # --------------------------------------------------------------------------- #
 # Engines under test
@@ -80,7 +95,7 @@ def _cannot_run(reason: str) -> None:
     pytest.skip(reason)
 
 
-def _engine(engine_id: str):
+def _engine(engine_id: str) -> MeshEngine:
     """Build what the registry serves under *engine_id*, or skip it if it cannot run here.
 
     A built-in this environment cannot load or run is a skip. A plugin that fails
@@ -99,94 +114,106 @@ def _engine(engine_id: str):
 
 
 @pytest.fixture(params=registry.list_engine_ids())
-def engine(request) -> MeshEngine:
-    """One mesh engine, once per implementation this installation serves."""
-    return _engine(request.param)
+def engine_id(request) -> str:
+    """The id of one mesh engine, once per implementation this installation serves."""
+    return request.param
+
+
+@pytest.fixture
+def engine(engine_id: str) -> MeshEngine:
+    """The engine served under ``engine_id``, skipped when it cannot run here."""
+    return _engine(engine_id)
 
 
 # --------------------------------------------------------------------------- #
-# Closed cases
+# Field situations
 # --------------------------------------------------------------------------- #
-
-
-def _grid(xmin: float, xmax: float, ymin: float, ymax: float, pitch: float) -> RasterGridSpec:
-    return RasterGridSpec(
-        xmin=xmin,
-        xmax=xmax,
-        ymin=ymin,
-        ymax=ymax,
-        dx=pitch,
-        dy=pitch,
-        nrow=round((ymax - ymin) / pitch),
-        ncol=round((xmax - xmin) / pitch),
-        crs_wkt=CRS_WKT,
-    )
-
 
 RIVER = LineString([(100.0, 150.0), (450.0, 420.0), (700.0, 520.0), (900.0, 880.0)])
 CONTACT = LineString([(400.0, 0.0), (600.0, 1000.0)])
+"""A straight contact: the side of a point is the sign of its cross product with the chord."""
 WEST_UNIT, EAST_UNIT = "west_unit", "east_unit"
+HOLE = box(300.0, 300.0, 500.0, 500.0)
+SQUARE_SIDE_M = 1000.0
 
 
-def square_case() -> MeshRequest:
-    """A 1 km square with a river (``cell``) that crosses a geological contact (``face``)."""
-    return MeshRequest(
-        domain=box(0.0, 0.0, 1000.0, 1000.0),
-        crs_wkt=CRS_WKT,
-        grid=_grid(0.0, 1000.0, 0.0, 1000.0, 25.0),
+def _square(river: LineString, contact: LineString, west_on_left: bool) -> MeshRequest:
+    """The 1 km square catchment at 50 m with a river (``cell``) and a contact (``face``)."""
+    left, right = (WEST_UNIT, EAST_UNIT) if west_on_left else (EAST_UNIT, WEST_UNIT)
+    return mesh_request(
+        grid_over(square_domain(SQUARE_SIDE_M), 25.0, crs_wkt=LAMBERT93_WKT),
         nominal_size_m=50.0,
         lines=(
-            LineFamilySpec("rivers", "cell", (shapely.segmentize(RIVER, 50.0),)),
+            LineFamilySpec("rivers", "cell", (shapely.segmentize(river, 50.0),)),
             LineFamilySpec(
                 "geology",
                 "face",
-                (shapely.segmentize(CONTACT, 50.0),),
-                zone_left=(WEST_UNIT,),
-                zone_right=(EAST_UNIT,),
+                (shapely.segmentize(contact, 50.0),),
+                zone_left=(left,),
+                zone_right=(right,),
             ),
         ),
     )
 
 
+def square_case() -> MeshRequest:
+    """A 1 km square whose river runs north-east across a contact drawn northward."""
+    return _square(RIVER, CONTACT, west_on_left=True)
+
+
+def lines_drawn_the_other_way_case() -> MeshRequest:
+    """The same square with the river and the contact drawn from their other end."""
+    return _square(RIVER.reverse(), CONTACT.reverse(), west_on_left=False)
+
+
+def square_with_a_hole_case() -> MeshRequest:
+    """A 1 km square with a 200 m hole, and a river that passes beside the hole."""
+    river = LineString([(700.0, 0.0), (700.0, SQUARE_SIDE_M)])
+    return mesh_request(
+        grid_over(square_domain(SQUARE_SIDE_M), 25.0, crs_wkt=LAMBERT93_WKT),
+        domain=square_domain(SQUARE_SIDE_M).difference(HOLE),
+        nominal_size_m=50.0,
+        lines=(LineFamilySpec("rivers", "cell", (shapely.segmentize(river, 50.0),)),),
+    )
+
+
 def island_case() -> MeshRequest:
     """A circular island of 200 m radius, no line."""
-    return MeshRequest(
+    return mesh_request(
+        grid_over((-200.0, -200.0, 200.0, 200.0), 10.0, crs_wkt=LAMBERT93_WKT),
         domain=Point(0.0, 0.0).buffer(200.0, quad_segs=16),
-        crs_wkt=CRS_WKT,
-        grid=_grid(-200.0, 200.0, -200.0, 200.0, 10.0),
         nominal_size_m=20.0,
     )
 
 
 def ramp_case() -> MeshRequest:
     """A 500 m by 200 m rectangle whose size field grows from 10 m (west) to 50 m (east)."""
-    grid = _grid(0.0, 500.0, 0.0, 200.0, 10.0)
+    grid = grid_over((0.0, 0.0, 500.0, 200.0), 10.0, crs_wkt=LAMBERT93_WKT)
     x = grid.xmin + (np.arange(grid.ncol) + 0.5) * grid.dx
     size = np.tile(10.0 + 40.0 * x / 500.0, (grid.nrow, 1))
-    return MeshRequest(
-        domain=box(0.0, 0.0, 500.0, 200.0),
-        crs_wkt=CRS_WKT,
-        grid=grid,
-        nominal_size_m=50.0,
-        size_field=SizeField(size, grid),
-    )
+    return mesh_request(grid, nominal_size_m=50.0, size_field=SizeField(size, grid))
 
 
-def uniform_case(*, sized: bool) -> MeshRequest:
+def _uniform(*, sized: bool) -> MeshRequest:
     """A 4 km square at 100 m, given as a uniform size field or as the nominal size alone."""
-    grid = _grid(0.0, 4000.0, 0.0, 4000.0, 25.0)
-    return MeshRequest(
-        domain=box(0.0, 0.0, 4000.0, 4000.0),
-        crs_wkt=CRS_WKT,
-        grid=grid,
-        nominal_size_m=100.0,
-        size_field=SizeField(np.full((grid.nrow, grid.ncol), 100.0), grid) if sized else None,
-    )
+    grid = grid_over(square_domain(4000.0), 25.0, crs_wkt=LAMBERT93_WKT)
+    field = uniform_size_field(grid, 100.0) if sized else None
+    return mesh_request(grid, nominal_size_m=100.0, size_field=field)
+
+
+def uniform_size_field_case() -> MeshRequest:
+    """A 4 km square at a uniform 100 m size field."""
+    return _uniform(sized=True)
+
+
+def nominal_size_only_case() -> MeshRequest:
+    """A 4 km square at a nominal size of 100 m and no size field."""
+    return _uniform(sized=False)
 
 
 def given_triangulation_case() -> MeshRequest:
     """A 1 km square already triangulated on a 6 x 6 vertex lattice."""
-    axis = np.linspace(0.0, 1000.0, 6)
+    axis = np.linspace(0.0, SQUARE_SIDE_M, 6)
     vertices = np.array([(x, y) for y in axis for x in axis])
     triangles = []
     for j in range(5):
@@ -194,29 +221,36 @@ def given_triangulation_case() -> MeshRequest:
             n00, n10 = j * 6 + i, j * 6 + i + 1
             n01, n11 = (j + 1) * 6 + i, (j + 1) * 6 + i + 1
             triangles += [(n00, n10, n11), (n00, n11, n01)]
-    return MeshRequest(
-        domain=box(0.0, 0.0, 1000.0, 1000.0),
-        crs_wkt=CRS_WKT,
-        grid=_grid(0.0, 1000.0, 0.0, 1000.0, 25.0),
+    return mesh_request(
+        grid_over(square_domain(SQUARE_SIDE_M), 25.0, crs_wkt=LAMBERT93_WKT),
         nominal_size_m=200.0,
         input_triangulation=InputTriangulation(vertices, np.array(triangles), {}),
     )
 
 
-CASES = {
+CASES: dict[str, Callable[[], MeshRequest]] = {
     "square": square_case,
+    "lines_drawn_the_other_way": lines_drawn_the_other_way_case,
+    "square_with_a_hole": square_with_a_hole_case,
     "island": island_case,
     "ramp": ramp_case,
+    "uniform_size_field": uniform_size_field_case,
+    "nominal_size_only": nominal_size_only_case,
     "given_triangulation": given_triangulation_case,
 }
+"""Every field situation, by name. An engine may refuse only the given triangulation."""
+
+EVERY_CASE = tuple(CASES)
+MESHED_BY_THE_ENGINE = tuple(case for case in CASES if case != "given_triangulation")
+"""The cases whose cells the engine draws itself; a given triangulation keeps its own edges."""
+WITH_A_RIVER = ("square", "lines_drawn_the_other_way", "square_with_a_hole")
+WITH_A_CONTACT = ("square", "lines_drawn_the_other_way")
+ON_THE_1_KM_SQUARE = ("square", "lines_drawn_the_other_way", "square_with_a_hole")
+WITH_A_CURVED_OR_HOLED_OUTLINE = ("island", "square_with_a_hole")
+AT_A_UNIFORM_SIZE = ("uniform_size_field", "nominal_size_only")
 
 
-@pytest.fixture(params=sorted(CASES))
-def case(request) -> tuple[str, MeshRequest]:
-    return request.param, CASES[request.param]()
-
-
-def _built(engine, request: MeshRequest) -> PlanarCellMesh:
+def _built(engine: MeshEngine, request: MeshRequest) -> PlanarCellMesh:
     """Build, within the time budget."""
     start = time.perf_counter()
     cell_mesh = engine.build(request)
@@ -225,14 +259,24 @@ def _built(engine, request: MeshRequest) -> PlanarCellMesh:
     return cell_mesh
 
 
-def _built_or_refused(engine, name: str, request: MeshRequest) -> PlanarCellMesh | None:
-    """Build, or ``None`` when the engine refuses a given triangulation by ``MeshRequestError``."""
-    if name != "given_triangulation":
+@functools.cache
+def _mesh(engine_id: str, case: str) -> PlanarCellMesh | None:
+    """The mesh of *case* by *engine_id*, built once; ``None`` when it refuses a given triangulation."""
+    request = CASES[case]()
+    engine = registry.create(engine_id)
+    if request.input_triangulation is None:
         return _built(engine, request)
     try:
         return _built(engine, request)
     except MeshRequestError:
         return None
+
+
+def _mesh_or_skip(engine_id: str, case: str) -> PlanarCellMesh:
+    cell_mesh = _mesh(engine_id, case)
+    if cell_mesh is None:
+        pytest.skip("this engine refuses a given triangulation by MeshRequestError")
+    return cell_mesh
 
 
 def _area_to_cover(request: MeshRequest, structured: bool) -> float:
@@ -242,53 +286,33 @@ def _area_to_cover(request: MeshRequest, structured: bool) -> float:
     return request.domain.area
 
 
-# --------------------------------------------------------------------------- #
-# The port
-# --------------------------------------------------------------------------- #
-
-
-def test_the_builtin_engines_are_all_declared() -> None:
-    """The floor: dropping a built-in from the registry cannot pass silently."""
-    assert {"regular", "triangle", "voronoi"} <= set(registry.list_engine_ids())
-
-
-def test_an_engine_satisfies_the_port(engine) -> None:
-    cls = type(engine)
-
-    assert isinstance(engine, MeshEngine)
-    assert missing_engine_members(cls) == ()
-    assert registry.get(cls.engine_id) is cls
-    assert cls.engine_version.strip()
-    assert cls.capabilities.cell_types
+def _left_of(line: LineString, points: np.ndarray) -> np.ndarray:
+    """Cross product of each point with the chord of a straight *line*: positive on its left."""
+    start, end = np.asarray(line.coords[0]), np.asarray(line.coords[-1])
+    chord, offset = end - start, np.asarray(points) - start
+    return chord[0] * offset[:, 1] - chord[1] * offset[:, 0]
 
 
 # --------------------------------------------------------------------------- #
-# Invariants on every closed case
+# Invariants
 # --------------------------------------------------------------------------- #
 
 
-def test_a_mesh_states_who_built_it_and_from_which_request(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
-    cls = type(engine)
-
-    assert cell_mesh.identity.engine_id == cls.engine_id
-    assert cell_mesh.identity.engine_version == cls.engine_version
+def assert_the_mesh_names_its_engine_and_its_request(
+    cell_mesh: PlanarCellMesh, engine_cls: type, request: MeshRequest
+) -> None:
+    assert cell_mesh.identity.engine_id == engine_cls.engine_id
+    assert cell_mesh.identity.engine_version == engine_cls.engine_version
     assert cell_mesh.identity.request_hash == request.canonical_hash()
     assert cell_mesh.crs_wkt == request.crs_wkt
-    if cls.capabilities.deterministic:
+    if engine_cls.capabilities.deterministic:
         assert cell_mesh.identity.seed in (None, request.seed)
 
 
-def test_a_mesh_carries_the_whole_quality_report(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
+def assert_the_quality_report_is_whole(
+    cell_mesh: PlanarCellMesh, capabilities: MeshEngineCapabilities
+) -> None:
     qa = cell_mesh.qa.as_dict()
-
     for field in (
         "n_cells",
         "area_sum_m2",
@@ -313,49 +337,25 @@ def test_a_mesh_carries_the_whole_quality_report(engine, case) -> None:
         assert field in qa, f"MeshQA lacks {field}"
     assert qa["n_cells"] == cell_mesh.n_cells
     assert set(qa["declarations"]) == DECLARATION_KEYS
-    assert qa["declarations"] == type(engine).capabilities.declarations()
+    assert qa["declarations"] == capabilities.declarations()
 
 
-def test_a_mesh_follows_the_capabilities_the_engine_declares(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
-    capabilities = type(engine).capabilities
-
-    assert cell_mesh.mesh.cell_types[0] in capabilities.cell_types
-    assert (cell_mesh.structured_shape is not None) == capabilities.structured
-
-
-def test_the_cell_areas_add_up_to_the_area_to_cover(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
-    wanted = _area_to_cover(request, type(engine).capabilities.structured)
-
+def assert_the_area_is_the_area_to_cover(
+    cell_mesh: PlanarCellMesh, request: MeshRequest, structured: bool
+) -> None:
+    wanted = _area_to_cover(request, structured)
     assert abs(cell_mesh.qa.area_sum_m2 - wanted) <= AREA_RTOL * wanted
     assert abs(float(cell_mesh.geometry.areas.sum()) - wanted) <= AREA_RTOL * wanted
 
 
-def test_no_cell_repeats_a_vertex_and_no_face_is_null(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
-
+def assert_no_cell_repeats_a_vertex_and_no_face_is_null(cell_mesh: PlanarCellMesh) -> None:
     assert cell_mesh.qa.n_duplicate_vertices_in_cells == 0
     assert cell_mesh.qa.n_degenerate_faces == 0
     assert np.all(cell_mesh.geometry.areas > 0.0)
 
 
-def test_the_center_of_a_cell_lies_in_the_cell(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
+def assert_each_centre_lies_in_its_cell(cell_mesh: PlanarCellMesh) -> None:
     polygons = cell_polygons(cell_mesh.mesh.vertices, cell_mesh.connectivity_rows)
-
     assert all(polygon is not None for polygon in polygons)
     covered = shapely.covers(polygons, shapely.points(cell_mesh.centers))
     assert covered.all(), (
@@ -363,43 +363,42 @@ def test_the_center_of_a_cell_lies_in_the_cell(engine, case) -> None:
     )
 
 
-def test_a_boundary_face_has_no_second_cell(engine, case) -> None:
-    name, request = case
-    cell_mesh = _built_or_refused(engine, name, request)
-    if cell_mesh is None:
-        return
+def assert_a_boundary_face_has_no_second_cell(cell_mesh: PlanarCellMesh) -> None:
     table = cell_mesh.face_families
-    if table is None:
-        pytest.skip(f"{name}: no face family on this case, nothing to check")
-
     for index, family in enumerate(table.names):
         if family.startswith("boundary:"):
             assert np.all(table.cell_b[table.family == index] == -1), family
 
 
-def test_the_four_sides_of_a_square_are_boundary_families(engine) -> None:
-    request = square_case()
-    cell_mesh = _built(engine, request)
-
+def assert_each_side_is_a_boundary_family_of_its_length(
+    cell_mesh: PlanarCellMesh, side_m: float
+) -> None:
     for side in SIDES:
         assert cell_mesh.face_rows(f"boundary:{side}").any(), f"no face on the {side} side"
+        assert cell_mesh.qa.families[f"boundary:{side}"]["length_m"] == pytest.approx(side_m)
 
 
-# --------------------------------------------------------------------------- #
-# Line families
-# --------------------------------------------------------------------------- #
+def assert_each_row_runs_with_its_first_cell_on_the_left(cell_mesh: PlanarCellMesh) -> None:
+    """``node_a -> node_b`` keeps ``cell_a`` on its left and ``cell_b`` on its right."""
+    table = cell_mesh.face_families
+    vertices = cell_mesh.mesh.vertices
+    start = vertices[table.node_a]
+    face = vertices[table.node_b] - start
+    centroids = cell_mesh.geometry.area_centroids
+
+    def side(cells: np.ndarray) -> np.ndarray:
+        offset = centroids[np.maximum(cells, 0)] - start
+        return face[:, 0] * offset[:, 1] - face[:, 1] * offset[:, 0]
+
+    inside = table.cell_b >= 0
+    assert np.all(side(table.cell_a) > 0.0)
+    assert np.all(side(table.cell_b)[inside] < 0.0)
 
 
-def _share_a_vertex(cell_mesh: PlanarCellMesh, first: int, second: int) -> bool:
+def assert_each_river_is_one_continuous_chain(cell_mesh: PlanarCellMesh, structured: bool) -> None:
+    """Two neighbours of a chain share a face, or a corner on a structured grid."""
     padded = cell_mesh.geometry.padded_connectivity
-    return bool(set(padded[first][padded[first] >= 0]) & set(padded[second][padded[second] >= 0]))
-
-
-def test_a_river_is_a_continuous_chain_of_cells(engine) -> None:
-    cell_mesh = _built(engine, square_case())
-    structured = type(engine).capabilities.structured
     chains = cell_mesh.chains("rivers")
-
     assert chains, "the river produced no chain"
     for chain in chains:
         assert chain.cell_ids.size >= 2
@@ -407,42 +406,249 @@ def test_a_river_is_a_continuous_chain_of_cells(engine) -> None:
             if first == second:
                 continue
             joined = int(second) in cell_mesh.geometry.neighbours(int(first))
-            assert joined or (structured and _share_a_vertex(cell_mesh, int(first), int(second)))
+            corner = set(padded[first][padded[first] >= 0]) & set(
+                padded[second][padded[second] >= 0]
+            )
+            assert joined or (structured and bool(corner))
 
 
-def test_the_cells_of_a_river_stay_near_the_river(engine) -> None:
-    cell_mesh = _built(engine, square_case())
+def assert_a_river_chain_runs_the_way_its_river_is_drawn(
+    cell_mesh: PlanarCellMesh, river: LineString
+) -> None:
+    (chain,) = cell_mesh.chains("rivers")
+    along = shapely.line_locate_point(river, shapely.points(cell_mesh.centers[chain.cell_ids]))
+    assert np.all(np.diff(along) >= 0.0)
+    assert along[-1] > along[0]
+
+
+def assert_the_cells_of_a_river_stay_near_it(cell_mesh: PlanarCellMesh) -> None:
     quality = cell_mesh.qa.families["rivers"]
     largest_cell_m = float(np.sqrt(cell_mesh.qa.area_quantiles_m2["max"]))
-
     assert quality["breaks"] == 0.0
     assert quality["max_line_offset_m"] <= 2.0 * largest_cell_m
 
 
-def test_a_face_family_is_published_with_its_distance_to_the_line(engine) -> None:
-    request = square_case()
-    cell_mesh = _built(engine, request)
-    extent_m = 1000.0
-    quality = cell_mesh.qa.families["geology"]
+def assert_the_first_cell_of_a_river_row_is_in_the_chain(cell_mesh: PlanarCellMesh) -> None:
+    rows = cell_mesh.face_rows("rivers")
+    in_chains = {int(cell) for chain in cell_mesh.chains("rivers") for cell in chain.cell_ids}
+    assert set(cell_mesh.face_families.cell_a[rows].tolist()) <= in_chains
 
+
+def assert_a_face_family_is_published_with_its_distance_to_the_line(
+    cell_mesh: PlanarCellMesh, extent_m: float, exact_faces: bool
+) -> None:
+    quality = cell_mesh.qa.families["geology"]
     assert cell_mesh.face_rows("geology").any()
     assert "hausdorff_m" in quality
     assert quality["covered_length_rel"] >= 0.0
-    if type(engine).capabilities.exact_faces:
+    if exact_faces:
         assert quality["hausdorff_m"] <= HAUSDORFF_RTOL * extent_m
         assert quality["covered_length_rel"] == pytest.approx(1.0, abs=HAUSDORFF_RTOL)
 
 
-def test_a_face_family_names_the_zones_on_each_side(engine) -> None:
-    cell_mesh = _built(engine, square_case())
+def assert_the_cell_on_the_left_of_a_contact_comes_first(
+    cell_mesh: PlanarCellMesh, contact: LineString
+) -> None:
+    """A staircase cell may sit on the line; the first cell is never right of the second."""
     table = cell_mesh.face_families
-    rows = cell_mesh.face_rows("geology")
+    rows = cell_mesh.face_rows("geology") & (table.cell_b >= 0)
+    centroids = cell_mesh.geometry.area_centroids
+    left = _left_of(contact, centroids[table.cell_a[rows]])
+    right = _left_of(contact, centroids[table.cell_b[rows]])
+    assert rows.any()
+    assert np.all(left >= 0.0)
+    assert np.all(right <= 0.0)
+    assert np.all(left > right)
 
-    assert {WEST_UNIT, EAST_UNIT} <= set(cell_mesh.zone_names)
+
+def assert_a_face_family_names_the_zones_of_its_sides(
+    cell_mesh: PlanarCellMesh, spec: LineFamilySpec
+) -> None:
+    table = cell_mesh.face_families
+    rows = cell_mesh.face_rows(spec.name)
     left = {cell_mesh.zone_names[z] for z in table.zone_left[rows] if z >= 0}
     right = {cell_mesh.zone_names[z] for z in table.zone_right[rows] if z >= 0}
-    assert left <= {WEST_UNIT}
-    assert right <= {EAST_UNIT}
+    assert {*spec.zone_left, *spec.zone_right} <= set(cell_mesh.zone_names)
+    assert left == set(spec.zone_left)
+    assert right == set(spec.zone_right)
+
+
+def assert_the_cells_stay_inside_the_domain(cell_mesh: PlanarCellMesh, domain: Polygon) -> None:
+    xmin, ymin, xmax, ymax = domain.bounds
+    margin_m = 1.0e-6 * max(xmax - xmin, ymax - ymin)
+    union = shapely.union_all(cell_polygons(cell_mesh.mesh.vertices, cell_mesh.connectivity_rows))
+    outside = union.difference(domain.buffer(margin_m))
+    assert outside.area <= AREA_RTOL * domain.area
+
+
+def assert_no_centre_lies_in_a_hole(cell_mesh: PlanarCellMesh, domain: Polygon) -> None:
+    for ring in domain.interiors:
+        assert not shapely.contains_xy(Polygon(ring), *cell_mesh.centers.T).any()
+
+
+# --------------------------------------------------------------------------- #
+# The port
+# --------------------------------------------------------------------------- #
+
+
+def test_the_builtin_engines_are_all_declared() -> None:
+    """The floor: dropping a built-in from the registry cannot pass silently."""
+    assert {"regular", "triangle", "voronoi"} <= set(registry.list_engine_ids())
+
+
+def test_an_engine_satisfies_the_port(engine_id: str, engine: MeshEngine) -> None:
+    cls = type(engine)
+
+    assert isinstance(engine, MeshEngine)
+    assert missing_engine_members(cls) == ()
+    assert cls.engine_id == engine_id
+    assert registry.get(engine_id) is cls
+    assert cls.engine_version.strip()
+    assert cls.capabilities.cell_types
+
+
+# --------------------------------------------------------------------------- #
+# Invariants on every field situation
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_a_mesh_states_who_built_it_and_from_which_request(engine_id, engine, case) -> None:
+    cell_mesh = _mesh_or_skip(engine_id, case)
+
+    assert_the_mesh_names_its_engine_and_its_request(cell_mesh, type(engine), CASES[case]())
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_a_mesh_carries_the_whole_quality_report(engine_id, engine, case) -> None:
+    cell_mesh = _mesh_or_skip(engine_id, case)
+
+    assert_the_quality_report_is_whole(cell_mesh, type(engine).capabilities)
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_a_mesh_follows_the_capabilities_the_engine_declares(engine_id, engine, case) -> None:
+    cell_mesh = _mesh_or_skip(engine_id, case)
+    capabilities = type(engine).capabilities
+
+    assert cell_mesh.mesh.cell_types[0] in capabilities.cell_types
+    assert (cell_mesh.structured_shape is not None) == capabilities.structured
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_the_cell_areas_add_up_to_the_area_to_cover(engine_id, engine, case) -> None:
+    cell_mesh = _mesh_or_skip(engine_id, case)
+
+    assert_the_area_is_the_area_to_cover(
+        cell_mesh, CASES[case](), type(engine).capabilities.structured
+    )
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_no_cell_repeats_a_vertex_and_no_face_is_null(engine_id, engine, case) -> None:
+    assert_no_cell_repeats_a_vertex_and_no_face_is_null(_mesh_or_skip(engine_id, case))
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_the_center_of_a_cell_lies_in_the_cell(engine_id, engine, case) -> None:
+    assert_each_centre_lies_in_its_cell(_mesh_or_skip(engine_id, case))
+
+
+@pytest.mark.parametrize("case", EVERY_CASE)
+def test_a_boundary_face_has_no_second_cell(engine_id, engine, case) -> None:
+    cell_mesh = _mesh_or_skip(engine_id, case)
+    if cell_mesh.face_families is None:
+        pytest.skip(f"{case}: no face family on this case, nothing to check")
+
+    assert_a_boundary_face_has_no_second_cell(cell_mesh)
+
+
+@pytest.mark.parametrize("case", MESHED_BY_THE_ENGINE)
+def test_an_engine_with_exact_faces_runs_each_row_with_its_first_cell_on_the_left(
+    engine_id, engine, case
+) -> None:
+    if not type(engine).capabilities.exact_faces:
+        pytest.skip("a staircase face is not oriented along its line")
+    cell_mesh = _mesh_or_skip(engine_id, case)
+    if cell_mesh.face_families is None:
+        pytest.skip(f"{case}: no face family on this case, nothing to check")
+
+    assert_each_row_runs_with_its_first_cell_on_the_left(cell_mesh)
+
+
+@pytest.mark.parametrize("case", ON_THE_1_KM_SQUARE)
+def test_the_four_sides_of_a_square_are_boundary_families_of_its_side(
+    engine_id, engine, case
+) -> None:
+    assert_each_side_is_a_boundary_family_of_its_length(
+        _mesh_or_skip(engine_id, case), SQUARE_SIDE_M
+    )
+
+
+@pytest.mark.parametrize("case", WITH_A_CURVED_OR_HOLED_OUTLINE)
+def test_the_cells_of_an_unstructured_engine_stay_inside_the_domain(
+    engine_id, engine, case
+) -> None:
+    """A structured engine covers the DEM rectangle; any other tiles the domain and its holes."""
+    if type(engine).capabilities.structured:
+        pytest.skip("a structured engine covers the DEM rectangle, not the domain")
+    cell_mesh = _mesh_or_skip(engine_id, case)
+    domain = CASES[case]().domain
+
+    assert_the_cells_stay_inside_the_domain(cell_mesh, domain)
+    assert_no_centre_lies_in_a_hole(cell_mesh, domain)
+
+
+# --------------------------------------------------------------------------- #
+# Rivers and contacts
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("case", WITH_A_RIVER)
+def test_a_river_is_a_continuous_chain_of_cells(engine_id, engine, case) -> None:
+    assert_each_river_is_one_continuous_chain(
+        _mesh_or_skip(engine_id, case), type(engine).capabilities.structured
+    )
+
+
+@pytest.mark.parametrize("case", WITH_A_RIVER)
+def test_a_river_chain_runs_the_way_its_river_is_drawn(engine_id, engine, case) -> None:
+    river = CASES[case]().family("rivers").lines[0]
+
+    assert_a_river_chain_runs_the_way_its_river_is_drawn(_mesh_or_skip(engine_id, case), river)
+
+
+@pytest.mark.parametrize("case", WITH_A_RIVER)
+def test_the_cells_of_a_river_stay_near_the_river(engine_id, engine, case) -> None:
+    assert_the_cells_of_a_river_stay_near_it(_mesh_or_skip(engine_id, case))
+
+
+@pytest.mark.parametrize("case", WITH_A_RIVER)
+def test_the_first_cell_of_a_river_face_is_in_the_river_chain(engine_id, engine, case) -> None:
+    assert_the_first_cell_of_a_river_row_is_in_the_chain(_mesh_or_skip(engine_id, case))
+
+
+@pytest.mark.parametrize("case", WITH_A_CONTACT)
+def test_a_face_family_is_published_with_its_distance_to_the_line(engine_id, engine, case) -> None:
+    assert_a_face_family_is_published_with_its_distance_to_the_line(
+        _mesh_or_skip(engine_id, case), SQUARE_SIDE_M, type(engine).capabilities.exact_faces
+    )
+
+
+@pytest.mark.parametrize("case", WITH_A_CONTACT)
+def test_the_cell_on_the_left_of_a_contact_is_the_first_cell_of_its_face(
+    engine_id, engine, case
+) -> None:
+    contact = CASES[case]().family("geology").lines[0]
+
+    assert_the_cell_on_the_left_of_a_contact_comes_first(_mesh_or_skip(engine_id, case), contact)
+
+
+@pytest.mark.parametrize("case", WITH_A_CONTACT)
+def test_a_face_family_names_the_zones_on_each_side(engine_id, engine, case) -> None:
+    spec = CASES[case]().family("geology")
+
+    assert_a_face_family_names_the_zones_of_its_sides(_mesh_or_skip(engine_id, case), spec)
 
 
 # --------------------------------------------------------------------------- #
@@ -450,35 +656,36 @@ def test_a_face_family_names_the_zones_on_each_side(engine) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_a_graded_engine_follows_the_size_ramp(engine) -> None:
+def test_a_graded_engine_follows_the_size_ramp(engine_id, engine) -> None:
     if not type(engine).capabilities.graded:
         pytest.skip("this engine does not grade its cells")
-    cell_mesh = _built(engine, ramp_case())
+    cell_mesh = _mesh_or_skip(engine_id, "ramp")
     x = cell_mesh.centers[:, 0]
     areas = cell_mesh.geometry.areas
 
     assert areas[x > 400.0].mean() > 2.0 * areas[x < 100.0].mean()
 
 
-@pytest.mark.parametrize("sized", [False, True], ids=["nominal_size", "size_field"])
-def test_a_uniform_cell_size_gives_the_area_over_its_square_in_cells(engine, sized) -> None:
+@pytest.mark.parametrize("case", AT_A_UNIFORM_SIZE)
+def test_a_uniform_cell_size_gives_the_area_over_its_square_in_cells(
+    engine_id, engine, case
+) -> None:
     """A cell size is the side of the square of the same mean area, whatever the engine."""
-    request = uniform_case(sized=sized)
-    cell_mesh = _built(engine, request)
+    request = CASES[case]()
+    cell_mesh = _mesh_or_skip(engine_id, case)
     area = _area_to_cover(request, type(engine).capabilities.structured)
 
     expected = area / request.nominal_size_m**2
     assert cell_mesh.n_cells == pytest.approx(expected, rel=CELL_COUNT_RTOL)
 
 
-def test_a_deterministic_engine_builds_the_same_mesh_twice(engine) -> None:
+def test_a_deterministic_engine_builds_the_same_mesh_twice(engine_id, engine) -> None:
     if not type(engine).capabilities.deterministic:
         pytest.skip("this engine does not declare itself deterministic")
-    request = square_case()
-    first = _built(engine, request)
+    first = _mesh_or_skip(engine_id, "square")
     np.random.seed(12345)
     random.seed(12345)
-    second = _built(engine, request)
+    second = _built(engine, square_case())
 
     np.testing.assert_array_equal(first.mesh.vertices, second.mesh.vertices)
     np.testing.assert_array_equal(first.connectivity_rows, second.connectivity_rows)
@@ -486,17 +693,15 @@ def test_a_deterministic_engine_builds_the_same_mesh_twice(engine) -> None:
     assert [chain.cell_ids.tolist() for chain in first.cell_chains] == [
         chain.cell_ids.tolist() for chain in second.cell_chains
     ]
+    assert first.qa.as_dict() == second.qa.as_dict()
 
 
-def test_an_engine_that_uses_a_given_triangulation_keeps_its_cells(engine) -> None:
+def test_an_engine_that_uses_a_given_triangulation_keeps_its_cells(engine_id, engine) -> None:
     request = given_triangulation_case()
-    cell_mesh = _built_or_refused(engine, "given_triangulation", request)
-    if cell_mesh is None:
-        pytest.skip("this engine refuses a given triangulation by MeshRequestError")
+    cell_mesh = _mesh_or_skip(engine_id, "given_triangulation")
     triangulation = request.input_triangulation
-    cls = type(engine)
 
-    if cls.capabilities.cell_types == (CellType.TRIANGLE,):
+    if type(engine).capabilities.cell_types == (CellType.TRIANGLE,):
         assert cell_mesh.n_cells == len(triangulation.triangles)
     assert abs(cell_mesh.qa.area_sum_m2 - request.domain.area) <= AREA_RTOL * request.domain.area
 
@@ -506,24 +711,7 @@ def test_an_engine_refuses_a_request_it_cannot_honour_by_a_typed_error(engine) -
     if not type(engine).capabilities.structured:
         pytest.skip("only a structured engine is bound to the DEM pitch")
     request = square_case()
-    finer = MeshRequest(
-        domain=request.domain,
-        crs_wkt=request.crs_wkt,
-        grid=request.grid,
-        nominal_size_m=request.grid.dx / 2.0,
-    )
+    finer = mesh_request(request.grid, nominal_size_m=request.grid.dx / 2.0)
 
     with pytest.raises(MeshRequestError):
         engine.build(finer)
-
-
-def test_the_geometry_of_a_mesh_matches_the_polygon_of_the_island(engine) -> None:
-    """The cells of an unstructured engine stay inside the island and cover all of it."""
-    if type(engine).capabilities.structured:
-        pytest.skip("a structured engine covers the DEM rectangle, not the domain")
-    request = island_case()
-    cell_mesh = _built(engine, request)
-    union = shapely.union_all(cell_polygons(cell_mesh.mesh.vertices, cell_mesh.connectivity_rows))
-    outside = union.difference(request.domain.buffer(1.0e-6 * 400.0))
-
-    assert outside.area <= AREA_RTOL * request.domain.area

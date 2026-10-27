@@ -3,23 +3,28 @@
 On a regular grid the oracle is the floor arithmetic of the well builder. On an unstructured
 mesh it is the cell of smallest id that covers the point. The probes include points on edges
 and on vertices.
+
+A point outside the mesh takes the nearest cell only within one cell size of it
+(``locate_cells_near``). Beyond that distance the point is a coordinate error, and the
+nearest cell would score a gauge or a piezometer on a place it does not observe. The point
+gets no cell and a warning names it.
 """
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import shapely
-from pyproj import CRS
-from shapely.geometry import box
 
+from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
-from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.ops.cell_location import locate_cells, locate_cells_near
 from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, bundle_dual, bundle_triangles
+from tests._helpers.mesh_cases import grid_spec, mesh_request
 
-WKT = CRS.from_epsg(2154).to_wkt()
 NROW, NCOL, SIZE = 7, 5, 12.3
 XMIN, YMIN = 1000.25, 2000.5
 N_RANDOM = 200
@@ -27,24 +32,9 @@ N_EDGE_PROBES = 40
 
 
 def _grid(xmin: float, ymin: float, size: float) -> PlanarCellMesh:
-    xmax, ymax = xmin + NCOL * size, ymin + NROW * size
-    request = MeshRequest(
-        domain=box(xmin, ymin, xmax, ymax),
-        crs_wkt=WKT,
-        grid=RasterGridSpec(
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
-            dx=size,
-            dy=size,
-            nrow=NROW,
-            ncol=NCOL,
-            crs_wkt=WKT,
-        ),
-        nominal_size_m=size,
+    return RegularMeshEngine().build(
+        mesh_request(grid_spec(NROW, NCOL, size, xmin=xmin, ymin=ymin))
     )
-    return RegularMeshEngine().build(request)
 
 
 @pytest.fixture(scope="module")
@@ -171,3 +161,49 @@ def test_one_point_and_a_wrong_shape(grid) -> None:
     assert locate_cells(grid, np.array([XMIN + 1.0, YMIN + 1.0]), allow_nearest=False).shape == (1,)
     with pytest.raises(ValueError, match="shape"):
         locate_cells(grid, np.zeros((3, 3)), allow_nearest=False)
+
+
+SMALL_SIZE = 10.0
+
+
+def _small_grid() -> PlanarCellMesh:
+    """Three columns and two rows of 10 m cells on [0, 30] x [0, 20]."""
+    return RegularMeshEngine().build(mesh_request(grid_spec(2, 3, SMALL_SIZE)))
+
+
+def test_a_point_inside_the_mesh_gets_the_cell_that_holds_it() -> None:
+    grid = _small_grid()
+    points = np.array([[5.0, 15.0], [25.0, 5.0], [15.0, 10.0]])
+    np.testing.assert_array_equal(
+        locate_cells_near(grid, points), locate_cells(grid, points, allow_nearest=False)
+    )
+
+
+def test_a_point_within_a_cell_size_takes_the_nearest_cell() -> None:
+    # 9 m east of the east side, beside the south-east cell (row 1, column 2).
+    assert locate_cells_near(_small_grid(), np.array([[39.0, 5.0]])).tolist() == [1 * 3 + 2]
+
+
+def test_a_point_farther_than_a_cell_size_is_lost_and_named(caplog) -> None:
+    with caplog.at_level("WARNING"):
+        cells = locate_cells_near(_small_grid(), np.array([[41.0, 5.0], [39.0, 5.0]]))
+    assert cells.tolist() == [-1, 1 * 3 + 2]
+    assert "(41.00, 5.00)" in caplog.text
+    assert "(39.00, 5.00)" not in caplog.text
+
+
+def test_the_bound_is_the_size_of_the_nearest_cell_on_triangles() -> None:
+    cell_mesh = bundle_triangles(BUNDLE_CASES[2])
+    xmin, ymin, xmax, ymax = cell_mesh.mesh.bounds()
+    probe = np.array([[xmax + 1.0e4, 0.5 * (ymin + ymax)]])
+    assert locate_cells_near(cell_mesh, probe).tolist() == [-1]
+    centre = cell_mesh.centers[[0]]
+    assert locate_cells_near(cell_mesh, centre).tolist() == [0]
+
+
+def test_the_boussinesq_adapter_locates_no_cell_far_from_its_mesh() -> None:
+    cell_mesh = _small_grid()
+    ctx = SimpleNamespace(model=SimpleNamespace(mesh=SimpleNamespace(cell_mesh=cell_mesh)))
+    adapter = BoussinesqFlowAdapter()
+    assert adapter.locate_cell(ctx, 39.0, 5.0) == (0, 0, 1 * 3 + 2)
+    assert adapter.locate_cell(ctx, 41.0, 5.0) is None

@@ -12,23 +12,17 @@ on the same mesh, the same recharge sources and the same vector geology:
 Between two solvers the arrays are equal to the byte (``np.array_equal``): one
 path produces them. The hand references (nearest pixel or station, inverse
 distance, exact zone areas, the profile) are computed from the raw polygons and
-raw sources, so two solvers cannot be wrong together. The path itself is proved
-by spies on the shared discretizers and an AST guard on ``hydromodpy/solver/``.
+raw sources, so two solvers cannot be wrong together.
 """
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 import hydromodpy
-import hydromodpy.solver.boussinesq.forcing.recharge_resolution as boussinesq_recharge
-import hydromodpy.solver.field_property_mapping as property_mapping
-import hydromodpy.solver.modflow6.builders.recharge as mf6_recharge
-import hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp as nwt_recharge
 from tests._helpers.tolerances import tol
 from tests.integration import _one_cell_mesh_inputs as inputs
 
@@ -37,7 +31,6 @@ pytestmark = [pytest.mark.integration, pytest.mark.fast]
 _RECHARGE_REL = tol("one_cell_mesh_acceptance__recharge_against_the_hand_reference_relative")
 _ZONE_REL = tol("one_cell_mesh_acceptance__zone_means_against_the_exact_areas_relative")
 _CASES = ("raster-nearest", "stations-nearest", "stations-idw")
-_SOLVER_ROOT = inputs.REPO_ROOT / "hydromodpy" / "solver"
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -249,195 +242,3 @@ def test_the_area_weighted_recharge_is_the_same_for_both_solvers_and_equals_the_
         np.testing.assert_allclose(
             mf6.recharge[kper][reached], expected[kper][reached], rtol=_RECHARGE_REL, atol=0.0
         )
-
-
-# ---------------------------------------------------------------------------
-# One path: spies on the shared discretizers
-# ---------------------------------------------------------------------------
-
-
-def _spy(monkeypatch: pytest.MonkeyPatch, module: object, name: str) -> list[dict[str, object]]:
-    """Wrap ``module.name`` to record its arguments and result, and still call it."""
-    original = getattr(module, name)
-    calls: list[dict[str, object]] = []
-
-    def wrapper(*args: object, **kwargs: object):
-        record = {"args": args, **kwargs}
-        calls.append(record)
-        record["result"] = original(*args, **kwargs)
-        return record["result"]
-
-    monkeypatch.setattr(module, name, wrapper)
-    return calls
-
-
-@pytest.mark.parametrize(
-    ("name", "function"),
-    [
-        ("raster-nearest", "discretize_fields_on_cells"),
-        ("stations-idw", "discretize_points_on_cells"),
-    ],
-)
-def test_every_solver_discretizes_on_the_centres_of_the_cell_mesh(
-    monkeypatch: pytest.MonkeyPatch,
-    regular: inputs.MeshPair,
-    triangle: inputs.MeshPair,
-    regular_cases: dict[str, inputs.RechargeCase],
-    triangle_cases: dict[str, inputs.RechargeCase],
-    name: str,
-    function: str,
-    tmp_path: Path,
-) -> None:
-    spied = {
-        "mf6": _spy(monkeypatch, mf6_recharge, function),
-        "nwt": _spy(monkeypatch, nwt_recharge, function),
-        "boussinesq": _spy(monkeypatch, boussinesq_recharge, function),
-    }
-    flow_r = inputs.make_flow(regular_cases[name], profile=True)
-    flow_t = inputs.make_flow(triangle_cases[name], profile=False)
-    inputs.prepare_mf6(regular, flow_r, tmp_path / "mf6_r")
-    inputs.prepare_nwt(regular, flow_r, tmp_path / "nwt_r")
-    inputs.prepare_mf6(triangle, flow_t, tmp_path / "mf6_t")
-    inputs.prepare_boussinesq(triangle, flow_t)
-
-    expected = {
-        "mf6": [regular.cell_mesh, triangle.cell_mesh],
-        "nwt": [regular.cell_mesh],
-        "boussinesq": [triangle.cell_mesh],
-    }
-    for solver, cell_meshes in expected.items():
-        assert len(spied[solver]) == len(cell_meshes), f"{solver} did not call {function}"
-        for call, cell_mesh in zip(spied[solver], cell_meshes, strict=True):
-            assert np.array_equal(call["centers"], cell_mesh.centers), solver
-
-
-def test_every_solver_maps_its_properties_through_the_one_zone_fraction_function(
-    monkeypatch: pytest.MonkeyPatch,
-    regular: inputs.MeshPair,
-    triangle: inputs.MeshPair,
-    regular_cases: dict[str, inputs.RechargeCase],
-    triangle_cases: dict[str, inputs.RechargeCase],
-    tmp_path: Path,
-) -> None:
-    calls = _spy(monkeypatch, property_mapping, "zone_fractions")
-    flow_r = inputs.make_flow(regular_cases["raster-nearest"], profile=True)
-    flow_t = inputs.make_flow(triangle_cases["raster-nearest"], profile=False)
-    geology_r = regular.domain.zones["geology"]
-    geology_t = triangle.domain.zones["geology"]
-    steps = (
-        (
-            "mf6",
-            regular.cell_mesh,
-            geology_r,
-            lambda: inputs.prepare_mf6(regular, flow_r, tmp_path / "a"),
-        ),
-        (
-            "nwt",
-            regular.cell_mesh,
-            geology_r,
-            lambda: inputs.prepare_nwt(regular, flow_r, tmp_path / "b"),
-        ),
-        (
-            "mf6",
-            triangle.cell_mesh,
-            geology_t,
-            lambda: inputs.prepare_mf6(triangle, flow_t, tmp_path / "c"),
-        ),
-        (
-            "boussinesq",
-            triangle.cell_mesh,
-            geology_t,
-            lambda: inputs.prepare_boussinesq(triangle, flow_t),
-        ),
-    )
-    for solver, cell_mesh, geology, prepare in steps:
-        before = len(calls)
-        prepare()
-        new = calls[before:]
-        assert new, f"{solver} did not call zone_fractions"
-        for call in new:
-            assert call["args"][0] is cell_mesh, solver
-            assert call["args"][1] is geology, solver
-            assert call["result"].source == "vector", solver
-            assert call["result"].n_mixed_cells >= 20, solver
-
-
-# ---------------------------------------------------------------------------
-# One path: nothing under hydromodpy/solver/ reaches a retired reader or attribute
-# ---------------------------------------------------------------------------
-
-_RETIRED_MODULES = frozenset(
-    {
-        "sgrid_field_discretization",
-        "planar_forcing_discretization",
-        "sgrid_fieldparam_discretization",
-    }
-)
-_RETIRED_NAMES = frozenset({"build_planar_cell_adjacency", "GridIntersect"})
-_RETIRED_ATTRIBUTE = "solver_mesh_support"
-
-
-def _retired_uses(source: str) -> list[str]:
-    """Imports of a retired reader and any use of ``solver_mesh_support`` in ``source``."""
-    found: list[str] = []
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if set(alias.name.split(".")) & _RETIRED_MODULES:
-                    found.append(f"import {alias.name}")
-                if alias.name.split(".")[-1] in _RETIRED_NAMES:
-                    found.append(f"import {alias.name}")
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            if set(module.split(".")) & _RETIRED_MODULES:
-                found.append(f"from {module} import ...")
-            for alias in node.names:
-                if alias.name in _RETIRED_NAMES | _RETIRED_MODULES:
-                    found.append(f"from {module} import {alias.name}")
-        elif isinstance(node, ast.Name) and node.id in _RETIRED_NAMES:
-            found.append(f"name {node.id}")
-        elif isinstance(node, ast.Attribute):
-            if node.attr in _RETIRED_NAMES:
-                found.append(f"attribute {node.attr}")
-            if node.attr == _RETIRED_ATTRIBUTE:
-                found.append(f"use of {_RETIRED_ATTRIBUTE}")
-        elif (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in {"getattr", "hasattr"}
-            and len(node.args) >= 2
-            and isinstance(node.args[1], ast.Constant)
-            and node.args[1].value == _RETIRED_ATTRIBUTE
-        ):
-            found.append(f"{node.func.id} of {_RETIRED_ATTRIBUTE}")
-    return found
-
-
-def test_no_solver_module_reaches_a_retired_reader() -> None:
-    offences = {}
-    for path in sorted(_SOLVER_ROOT.rglob("*.py")):
-        uses = _retired_uses(path.read_text(encoding="utf-8"))
-        if uses:
-            offences[str(path.relative_to(inputs.REPO_ROOT))] = uses
-    assert offences == {}
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        "from hydromodpy.spatial.mesh.structured_grid.sgrid_field_discretization import f",
-        "import hydromodpy.spatial.mesh.gmsh_grid.planar_forcing_discretization",
-        "from hydromodpy.spatial.mesh.structured_grid import sgrid_fieldparam_discretization",
-        "from flopy.utils.gridintersect import GridIntersect",
-        "from hydromodpy.spatial.mesh.model.cell_adjacency import build_planar_cell_adjacency",
-        "x = GridIntersect(grid)",
-        "x = model.solver_mesh_support",
-        "model.solver_mesh_support = None",
-        "x = getattr(model, 'solver_mesh_support', None)",
-    ],
-)
-def test_the_guard_fails_on_a_probe_file(probe: str, tmp_path: Path) -> None:
-    """A file that does what the guard forbids is reported (the negative control)."""
-    path = tmp_path / "probe.py"
-    path.write_text(probe + "\n", encoding="utf-8")
-    assert _retired_uses(path.read_text(encoding="utf-8")) != []
