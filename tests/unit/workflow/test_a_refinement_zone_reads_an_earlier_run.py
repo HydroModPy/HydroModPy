@@ -18,8 +18,8 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.spatial.mesh.planning.refinement import CriterionInputs, load_refinement_zones
 from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
-from hydromodpy.spatial.mesh.request import RasterGridSpec
 from hydromodpy.workflow.steps.mesh_run_fields import read_run_field, read_run_fields
+from tests._helpers.mesh_cases import grid_spec
 from tests._helpers.run_stores import open_run_store
 
 N_STEPS = 3
@@ -127,16 +127,14 @@ def test_the_zone_of_a_stored_run_holds_the_pixels_of_its_shallow_cells(project:
         RefinementZoneConfig(where="watertable_depth", below=0.5, run="coarse", cell_size=25.0),
         RefinementZoneConfig(where="seepage", above=0.5, run="coarse", cell_size=25.0),
     ]
-    grid = RasterGridSpec(
-        xmin=0.0, xmax=200.0, ymin=0.0, ymax=200.0, dx=25.0, dy=25.0, nrow=8, ncol=8, crs_wkt="x"
-    )
+    grid = grid_spec(8, 8, 25.0)
 
     fields = read_run_fields(project, zones)
     shallow, seeping = load_refinement_zones(
         zones,
         config_dir=None,
         data_dir=None,
-        crs_wkt="x",
+        crs_wkt=grid.crs_wkt,
         criteria=CriterionInputs(
             grid=grid, elevation=np.zeros((8, 8)), stream_lines=None, run_fields=fields
         ),

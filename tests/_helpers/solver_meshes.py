@@ -11,14 +11,13 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_regular_grid
-from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     build_planar_cell_mesh,
 )
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.mesh_cases import regular_mesh
 from tests._helpers.regular_cell_meshes import from_flopy_structured
 
 
@@ -128,10 +127,7 @@ def solver_mesh_from_structured_arrays(
         raise ValueError(f"top must have {n_cells} values, got {top_flat.size}")
 
     # Row 0 at the north like MODFLOW and flopy; ``yoff`` is the southern edge.
-    grid = RegularGrid(
-        shape=(nrow, ncol), dx=float(dx), dy=float(dy), origin=(xoff, yoff + nrow * dy)
-    )
-    cell_mesh = cell_mesh_from_regular_grid(grid, crs_wkt=_LOCAL_CRS_WKT)
+    cell_mesh = regular_mesh(nrow, ncol, dx=dx, dy=dy, xmin=xoff, ymin=yoff, crs_wkt=_LOCAL_CRS_WKT)
 
     if inactive_mask is None:
         mask = np.zeros((nlay, n_cells), dtype=bool)

@@ -18,7 +18,7 @@ from hydromodpy.core.descent import DescentBasin
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
 from hydromodpy.solver.modflow_common import mesh_descent
 from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 
 TOP = np.array([[5.0, 4.0, 3.0], [4.0, 1.0, 2.0], [6.0, 5.0, 4.0]])
 N_CELLS = TOP.size

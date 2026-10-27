@@ -237,6 +237,12 @@ _IDOMAIN_FLAGS: dict[str, object] = {
     "flag_meanings": "pass_through inactive active",
 }
 
+_STANDARD_NAMES: dict[str, str] = {"x": "projection_x_coordinate", "y": "projection_y_coordinate"}
+"""CF standard name of each horizontal axis: what tells a UGRID reader which array is x."""
+
+_MESH_COORDINATES = ("node_x", "node_y", "face_x", "face_y")
+"""The coordinate arrays of ``mesh/`` that name the grid mapping."""
+
 
 # -- Mesh ---------------------------------------------------------------------
 
@@ -264,16 +270,24 @@ def write_mesh(
     and ``layer_thickness`` the ``(n_layers, n_faces)`` thickness it implies.
 
     ``layout`` adds the cell centres, the family bit fields, the zone codes, the
-    edge tables and the engine attributes. Without it the group holds exactly
-    what it held before the layout existed.
+    edge tables and the engine attributes. Without it the group holds the
+    topology alone.
+
+    ``vertices`` keeps the nodes as one ``(n_nodes, 3)`` array for the readers
+    of HydroModPy. ``node_x`` and ``node_y`` repeat its first two columns,
+    because UGRID wants one array per axis, and ``node_coordinates`` names
+    them. The third column, z = 0 for a planar mesh, gets no array of its
+    own: a UGRID reader would take it for a node elevation. With the CRS
+    copied into the group, xugrid opens ``mesh/`` as it is stored.
     """
     with store_obj._guard_write():
         mesh = store_obj._root.require_group("mesh")
+        nodes = np.asarray(vertices, dtype="float64")
         _write_array(
             store_obj,
             mesh,
             "vertices",
-            np.asarray(vertices, dtype="float64"),
+            nodes,
             dimension_names=(field_registry.AXIS_NODE, field_registry.AXIS_NODE_COORDINATE),
             attrs={
                 "long_name": "Mesh node coordinates (x, y, z)",
@@ -281,6 +295,7 @@ def write_mesh(
                 "cf_role": "mesh_node_coordinates",
             },
         )
+        _write_node_axes(store_obj, mesh, nodes)
         _write_array(
             store_obj,
             mesh,
@@ -291,6 +306,7 @@ def write_mesh(
                 "cf_role": "face_node_connectivity",
                 "long_name": "Mapping from every face to its corner nodes",
                 "start_index": int(start_index),
+                "_FillValue": -1,
             },
         )
         interfaces = _interfaces(z_interfaces, int(np.asarray(face_node_connectivity).shape[0]))
@@ -342,7 +358,7 @@ def write_mesh(
             "cf_role": "mesh_topology",
             "long_name": "UGRID 2D topology of the simulation mesh",
             "topology_dimension": 2,
-            "node_coordinates": "vertices",
+            "node_coordinates": "node_x node_y",
             "face_node_connectivity": "face_node_connectivity",
         }
         if layout is not None:
@@ -375,6 +391,52 @@ def write_mesh(
             dimension_names=(),
             attrs=topology_attrs,
         )
+        _write_mesh_crs(store_obj)
+
+
+def _write_node_axes(store_obj: SimulationZarr, mesh: zarr.Group, nodes: np.ndarray) -> None:
+    """Write the first two columns of ``vertices`` as ``node_x`` and ``node_y``."""
+    node = (field_registry.AXIS_NODE,)
+    for column, axis in enumerate("xy"):
+        _write_array(
+            store_obj,
+            mesh,
+            f"node_{axis}",
+            np.ascontiguousarray(nodes[:, column]),
+            dimension_names=node,
+            attrs={
+                "standard_name": _STANDARD_NAMES[axis],
+                "long_name": f"{axis} coordinate of the mesh node",
+                "units": "m",
+            },
+        )
+
+
+def _write_mesh_crs(store_obj: SimulationZarr) -> None:
+    """Copy the root ``crs`` into ``mesh/`` and name it from the topology and the coordinates.
+
+    A UGRID reader opens ``mesh/`` alone and never sees the root, so the group
+    holds its own grid-mapping variable. It is written once both the mesh and
+    the CRS exist, whichever comes first, and never on a run with no CRS.
+    """
+    root = store_obj._root
+    mesh = root.get("mesh")
+    crs = root.get("crs")
+    if not isinstance(mesh, zarr.Group) or not isinstance(crs, zarr.Array):
+        return
+    if "topology" not in mesh:
+        return
+    _write_array(
+        store_obj,
+        mesh,
+        "crs",
+        np.zeros((), dtype="int32"),
+        dimension_names=(),
+        attrs=dict(crs.attrs),
+    )
+    for name in ("topology", *_MESH_COORDINATES):
+        if name in mesh:
+            update_attrs(mesh[name], {"grid_mapping": "crs"})
 
 
 def _write_vertical_arrays(
@@ -461,6 +523,7 @@ def _write_layout(
             values,
             dimension_names=face,
             attrs={
+                "standard_name": _STANDARD_NAMES[name[-1]],
                 "long_name": f"{name[-1]} coordinate of the cell centre",
                 "units": "m",
                 "center_kind": layout.center_kind,
@@ -813,6 +876,7 @@ def write_crs(
             dimension_names=(),
             attrs=attrs,
         )
+        _write_mesh_crs(store_obj)
 
 
 # -- Fields ------------------------------------------------------------------

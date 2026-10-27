@@ -22,8 +22,8 @@ from hydromodpy.results.derive.accumulation import (
     release_accumulation_flux_rows,
 )
 from hydromodpy.results.zarr_store import SimulationZarr
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 
 NROW = NCOL = 4
 N_CELLS = NROW * NCOL

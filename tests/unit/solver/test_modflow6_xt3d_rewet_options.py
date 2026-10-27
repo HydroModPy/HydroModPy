@@ -12,12 +12,11 @@ from hydromodpy.solver.modflow6.builders import (
     xt3d_requested_value,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import (
-    _build_model,
-    _build_unstructured_model,
+from tests._helpers.mf6_toy_models import (
+    toy_model,
+    two_triangle_model,
 )
+from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 
 def _structured_solver_mesh() -> SolverMesh:
@@ -53,7 +52,7 @@ def test_modflow6_rewet_flag_matrix(
     expected_record: list | None,
     expected_wetdry: np.ndarray | None,
 ) -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow_regime = "transient"
     if enable_rewet:
         model.modflow_config = model.modflow_config.model_copy(
@@ -78,7 +77,7 @@ def test_modflow6_rewet_flag_matrix(
 
 
 def test_modflow6_disables_xt3d_by_default() -> None:
-    model = _build_model()
+    model = toy_model()
 
     assert xt3d_requested_value(model) is None
     assert xt3d_is_enabled(model) is False
@@ -86,7 +85,7 @@ def test_modflow6_disables_xt3d_by_default() -> None:
 
 
 def test_modflow6_enables_xt3d_when_requested() -> None:
-    model = _build_model()
+    model = toy_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
             "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": True})
@@ -133,7 +132,7 @@ def test_modflow6_xt3d_unstructured_flag_matrix(
     expected_enabled: bool,
     expected_npf: list | None,
 ) -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     if enable_xt3d is not None:
         model.modflow_config = model.modflow_config.model_copy(
             update={
@@ -153,7 +152,7 @@ def test_modflow6_xt3d_unstructured_flag_matrix(
 
 
 def test_modflow6_forces_complex_ims_when_xt3d_is_active() -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
             "runtime": model.modflow_config.runtime.model_copy(

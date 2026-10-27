@@ -25,8 +25,9 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS, stream_cells
-from tests._helpers.bundle_cell_meshes import BUNDLE_CASES, BUNDLES
+from tests._helpers.bundle_cell_meshes import BUNDLE_CASES
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.mesh_cases import MESH_BUNDLES
 
 pytestmark = pytest.mark.fast
 
@@ -54,7 +55,7 @@ def _constant_surface(cell_mesh: PlanarCellMesh, value: float) -> SimpleNamespac
 @cache
 def _bundle(case: str) -> CatchmentMeshBundle:
     """The bundle with a river along its middle: the committed bundles flag none."""
-    bundle = load_catchment_mesh_bundle(BUNDLES / case)
+    bundle = load_catchment_mesh_bundle(MESH_BUNDLES / case)
     node_x = {node.node_id: node.x for node in bundle.nodes}
     midpoint = {
         edge.edge_id: 0.5 * (node_x[edge.node_a] + node_x[edge.node_b]) for edge in bundle.edges

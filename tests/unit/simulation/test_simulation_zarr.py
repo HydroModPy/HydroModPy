@@ -227,7 +227,8 @@ class TestG05CFMetadata:
         topo = sz.root["mesh/topology"]
         assert topo.attrs["cf_role"] == "mesh_topology"
         assert topo.attrs["topology_dimension"] == 2
-        assert topo.attrs["node_coordinates"] == "vertices"
+        assert topo.attrs["node_coordinates"] == "node_x node_y"
+        assert np.array_equal(sz.root["mesh/node_x"][:], sz.root["mesh/vertices"][:, 0])
 
     def test_write_time_and_crs(self, sz):
         sz.write_time(np.array([0, 3600, 7200]))

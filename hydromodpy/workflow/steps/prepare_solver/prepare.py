@@ -132,7 +132,7 @@ def step_persist_mesh(ctx: WorkflowContext, sim_id: str, *, store: SimulationSto
         np.asarray(domain.z_interfaces, dtype=float).reshape(-1, 1), (1, cell_mesh.n_cells)
     )
     summary = ctx.setup.mesh_summary or {}
-    # Three columns with z = 0: ``node_coordinates`` is declared as "x y z".
+    # Three columns with z = 0: ``vertices`` is declared as "x y z".
     xy = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
     vertices = np.column_stack([xy, np.zeros(len(xy))])
 

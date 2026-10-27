@@ -18,10 +18,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.base.adapter_protocol import CellLocator, SolverAdapter
-
-from ._test_modflow6_boundary_conditions_builders import (
-    _build_unstructured_runtime,
+from tests._helpers.mf6_toy_models import (
     regular_solver_mesh,
+    two_triangle_solver_mesh,
 )
 
 
@@ -71,7 +70,7 @@ class TestOnASolverMesh:
         from hydromodpy.solver.modflow6.adapters.flow import Modflow6FlowAdapter
 
         # Triangle 0 holds the points under the diagonal y = x, triangle 1 those above it.
-        mesh = _build_unstructured_runtime()
+        mesh = two_triangle_solver_mesh()
 
         adapter = Modflow6FlowAdapter()
         assert adapter.locate_cell(_ctx(SimpleNamespace(solver_mesh=mesh)), 0.9, 0.2) == (0, 0, 0)

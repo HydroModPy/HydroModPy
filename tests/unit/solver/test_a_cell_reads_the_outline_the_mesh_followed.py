@@ -34,12 +34,12 @@ from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_polygon
+from tests._helpers.mesh_cases import LAMBERT93_WKT
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 PIXEL = 10.0
 NPIX = 20
 CELL = 2.0
-CRS_WKT = CRS.from_epsg(2154).to_wkt()
 
 
 def _staircase() -> Polygon:
@@ -79,7 +79,7 @@ def _mesh(*, followed: bool):
         xoff=0.37,
         yoff=0.21,
     )
-    cell_mesh = replace(mesh.cell_mesh, crs_wkt=CRS_WKT)
+    cell_mesh = replace(mesh.cell_mesh, crs_wkt=LAMBERT93_WKT)
     if followed:
         cell_mesh = cell_mesh.with_smoothed_catchment(SMOOTH)
     return replace(mesh, cell_mesh=cell_mesh)
@@ -87,8 +87,8 @@ def _mesh(*, followed: bool):
 
 def _geographic(tmp_path):
     shp = tmp_path / "watershed.gpkg"
-    gpd.GeoDataFrame(geometry=[STAIR], crs=CRS_WKT).to_file(shp)
-    return SimpleNamespace(watershed_shp=str(shp), crs_project=CRS_WKT)
+    gpd.GeoDataFrame(geometry=[STAIR], crs=LAMBERT93_WKT).to_file(shp)
+    return SimpleNamespace(watershed_shp=str(shp), crs_project=LAMBERT93_WKT)
 
 
 def _inside(polygon, mesh) -> np.ndarray:
@@ -115,7 +115,7 @@ def test_the_outline_answered_is_the_smooth_one_when_the_mesh_followed_it(tmp_pa
     frame = catchment_outline(geographic, _mesh(followed=True).cell_mesh)
 
     assert frame.geometry.iloc[0].equals(SMOOTH)
-    assert CRS.from_user_input(frame.crs).equals(CRS.from_user_input(CRS_WKT))
+    assert CRS.from_user_input(frame.crs).equals(CRS.from_user_input(LAMBERT93_WKT))
 
 
 def test_the_outline_answered_is_the_delineated_one_otherwise(tmp_path) -> None:

@@ -20,9 +20,8 @@ from hydromodpy.solver.modflow6.builders.recharge import (
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 _MAPPING = {
     0: np.array([2.0e-6, -1.0e-6]),
@@ -57,7 +56,7 @@ def test_routed_evt_unit_conversion_factor() -> None:
 
 
 def test_steady_period_recharge_uses_first_clim_mean() -> None:
-    model = _build_model()
+    model = toy_model()
     model.nper = 3
     model.ncpl = 2
     model.steady = np.array([True, False, False])
@@ -96,7 +95,7 @@ def test_evt_cell_targets_uppermost_active_layer_multilayer_disv() -> None:
     # cell2 fully inactive.
     inactive = np.array([[False, True, True], [False, False, True]])
     mesh = _two_layer_mesh(inactive)
-    model = _build_model()
+    model = toy_model()
     model.nper = 1
     model.ncpl = 3
     model.modflow_config = model.modflow_config  # default config carries evt depth

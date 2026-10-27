@@ -10,6 +10,7 @@ import numpy as np
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.request import InputTriangulation, MeshRequest
+from tests._helpers.mesh_cases import mesh_request
 
 RIVER_GROUP = "river::trace"
 
@@ -24,10 +25,10 @@ def dual_of_the_triangles(triangles: PlanarCellMesh, request: MeshRequest) -> Pl
         np.asarray(triangles.mesh.flat_connectivity),
         {RIVER_GROUP: river_edges},
     )
-    read = MeshRequest(
+    read = mesh_request(
+        request.grid,
         domain=request.domain,
         crs_wkt=request.crs_wkt,
-        grid=request.grid,
         nominal_size_m=request.nominal_size_m,
         input_triangulation=triangulation,
     )

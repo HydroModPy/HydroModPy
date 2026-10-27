@@ -423,3 +423,8 @@ def test_the_mesh_family_tables_are_plain_parquet_files_of_the_run(tmp_path):
     mesh_dir = run_dir / FIELDS_STORE_NAME / "mesh"
     assert zarr.open_group(str(mesh_dir), mode="r").attrs["engine"] == "regular"
     assert zarr.open_array(str(mesh_dir / "face_x"), mode="r").shape == (4,)
+    # UGRID wants one array per node axis; vertices stays beside them.
+    for name in ("node_x", "node_y"):
+        assert zarr.open_array(str(mesh_dir / name), mode="r").shape == (9,)
+    topology = zarr.open_array(str(mesh_dir / "topology"), mode="r")
+    assert topology.attrs["node_coordinates"] == "node_x node_y"

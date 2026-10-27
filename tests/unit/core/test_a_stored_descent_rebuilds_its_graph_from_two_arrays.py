@@ -12,8 +12,8 @@ import pytest
 
 from hydromodpy.core.descent import descent_from_stored_mesh, descent_graph
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 
 PIT_TOP = np.array(
     [

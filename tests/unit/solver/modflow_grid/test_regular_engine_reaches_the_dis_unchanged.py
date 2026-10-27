@@ -15,17 +15,17 @@ import flopy
 import numpy as np
 import pytest
 from flopy.discretization import StructuredGrid
-from shapely.geometry import box
 
 from hydromodpy.solver.modflow_grid import SolverMesh, build_spatial_discretization
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.request import RasterGridSpec
 from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial.mesh.structured_grid.sgrid_generation import StructuredGridBuilder
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.mesh_cases import mesh_request
 from tests._helpers.solver_meshes import solver_mesh_from_sgrid
 
 _NODATA = -9999.0
@@ -84,13 +84,7 @@ def _engine_mesh(case: _Case, domain: Domain):
     support = domain.surface_topo.support
     grid = RasterGridSpec.from_raster_support(support, crs_wkt=TEST_CRS_WKT)
     options = {} if case.shape is None else {"shape": list(case.shape)}
-    request = MeshRequest(
-        domain=box(support.xmin, support.ymin, support.xmax, support.ymax),
-        crs_wkt=TEST_CRS_WKT,
-        grid=grid,
-        nominal_size_m=case.dx,
-        options=options,
-    )
+    request = mesh_request(grid, nominal_size_m=case.dx, options=options)
     return registry.create("regular").build(request)
 
 

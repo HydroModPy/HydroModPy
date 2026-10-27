@@ -26,9 +26,8 @@ from hydromodpy.solver.modflow6.builders import (
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 
 def _single_layer_mesh() -> SolverMesh:
@@ -58,7 +57,7 @@ def _reference_array_payload(
 
 def test_vectorized_evt_matches_list_path_with_masks_and_collapsing() -> None:
     """Steady first period, lake/ocean/stream masks, a quiet period and a repeat."""
-    model = _build_model()
+    model = toy_model()
     model.nper = 5
     model.steady = np.array([True, False, False, False, False])
     solver_mesh = _single_layer_mesh()
@@ -130,7 +129,7 @@ def test_vectorized_evt_matches_list_path_with_masks_and_collapsing() -> None:
 
 
 def test_vectorized_evt_respects_extinction_depth_floor() -> None:
-    model = _build_model()
+    model = toy_model()
     model.nper = 1
     model.steady = np.array([False])
     model.modflow_config = _coerce_modflow6_config(
@@ -172,7 +171,7 @@ def test_vectorized_evt_respects_extinction_depth_floor() -> None:
 
 
 def test_vectorized_evt_returns_none_without_deficit() -> None:
-    model = _build_model()
+    model = toy_model()
     model.nper = 2
     model.steady = np.array([False, False])
     solver_mesh = _single_layer_mesh()
@@ -222,7 +221,7 @@ def test_vectorized_evt_not_eligible_when_a_kept_cell_sits_on_a_lower_layer() ->
     # cell0 active in layer 0; cell1 inactive in layer 0 but active in layer 1.
     inactive = np.array([[False, True, True], [False, False, True]])
     mesh = _two_layer_mesh(inactive)
-    model = _build_model()
+    model = toy_model()
     model.nper = 1
     model.ncpl = 3
     model._evt_rate_payload = {0: 1.0e-6}

@@ -7,10 +7,16 @@ QGIS reads a mesh through MDAL, which supports a face dataset and nothing
 else, so a field is written one variable per layer and the vertical
 dimension never reaches the file. The CRS is stated twice for the same
 reason: once the CF way, once the way MDAL reads it.
+
+The face centres are the ones the model used (``mesh/face_x`` and
+``mesh/face_y`` of the store). A store written before them gives the mean of
+the vertices of each face, which is off the generator of a Voronoi cell.
 """
 
 from __future__ import annotations
 
+import json
+import numbers
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -105,6 +111,11 @@ def export_netcdf(
         connectivity = mesh["face_node_connectivity"][:]
         z_interfaces = mesh["z_interfaces"][:]
         start_index = int(mesh.attrs.get("start_index", 0))
+        centres = (
+            (mesh["face_x"][:], mesh["face_y"][:])
+            if "face_x" in mesh and "face_y" in mesh
+            else None
+        )
     finally:
         sz.close()
     n_nodes = vertices.shape[0]
@@ -119,7 +130,7 @@ def export_netcdf(
     for key, value in {**root_attrs, **dict(global_attrs or {})}.items():
         if value is None:
             continue
-        ds.attrs[key] = int(value) if isinstance(value, bool) else value
+        ds.attrs[key] = _netcdf_attr(value)
     ds.attrs.setdefault("Conventions", "CF-1.11, ACDD-1.3, UGRID-1.0")
     ds.attrs["simulation_id"] = sim_id
     # The mesh says how large it is; a root written before the seal says 0.
@@ -139,8 +150,8 @@ def export_netcdf(
         },
     )
 
-    ds["node_x"] = xr.DataArray(vertices[:, 0], dims=("n_node",))
-    ds["node_y"] = xr.DataArray(vertices[:, 1], dims=("n_node",))
+    ds["node_x"] = xr.DataArray(vertices[:, 0], dims=("n_node",), attrs=_axis_attrs("x", crs_attrs))
+    ds["node_y"] = xr.DataArray(vertices[:, 1], dims=("n_node",), attrs=_axis_attrs("y", crs_attrs))
     if vertices.shape[1] == 3:
         ds["node_z"] = xr.DataArray(vertices[:, 2], dims=("n_node",))
 
@@ -168,12 +179,13 @@ def export_netcdf(
         if mdal_crs:
             ds["projected_coordinate_system"] = xr.DataArray(np.int32(0), attrs=mdal_crs)
 
-    # Compute face centroids for spatial reference
-    valid_mask = connectivity >= 0
-    cx = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 0], np.nan)
-    cy = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 1], np.nan)
-    ds["face_x"] = xr.DataArray(np.nanmean(cx, axis=1), dims=("n_face",))
-    ds["face_y"] = xr.DataArray(np.nanmean(cy, axis=1), dims=("n_face",))
+    if centres is None:
+        valid_mask = connectivity >= 0
+        cx = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 0], np.nan)
+        cy = np.where(valid_mask, vertices[np.clip(connectivity, 0, n_nodes - 1), 1], np.nan)
+        centres = (np.nanmean(cx, axis=1), np.nanmean(cy, axis=1))
+    ds["face_x"] = xr.DataArray(centres[0], dims=("n_face",), attrs=_axis_attrs("x", crs_attrs))
+    ds["face_y"] = xr.DataArray(centres[1], dims=("n_face",), attrs=_axis_attrs("y", crs_attrs))
 
     zarr_time: np.ndarray | None = None
     zarr_time_attrs: dict[str, object] = {}
@@ -253,6 +265,46 @@ def export_netcdf(
         raise
     logger.info("Exported NetCDF: %s", output_path)
     return output_path
+
+
+def _netcdf_attr(value: object) -> object:
+    """Return a global attribute in a form NetCDF stores.
+
+    NetCDF takes text, numbers and flat lists of either. A mapping, such as
+    the identity block of the run, or a list of anything else becomes JSON
+    text, and a boolean becomes 0 or 1.
+    """
+    if isinstance(value, bool | np.bool_):
+        return int(value)
+    if isinstance(value, Mapping):
+        return json.dumps(value, sort_keys=True, default=_json_scalar)
+    if isinstance(value, list | tuple):
+        texts = all(isinstance(item, str) for item in value)
+        reals = all(
+            isinstance(item, numbers.Real) and not isinstance(item, bool | np.bool_)
+            for item in value
+        )
+        if not (texts or reals):
+            return json.dumps(list(value), sort_keys=True, default=_json_scalar)
+    return value
+
+
+def _json_scalar(value: object) -> object:
+    """Return a numpy scalar as the Python number JSON writes; refuse anything else."""
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(f"{type(value).__name__} is not JSON serializable")
+
+
+def _axis_attrs(axis: str, crs_attrs: Mapping[str, object]) -> dict[str, object]:
+    """Return the attributes of an x or y coordinate, naming the CRS when there is one."""
+    attrs: dict[str, object] = {
+        "standard_name": f"projection_{axis}_coordinate",
+        "units": "m",
+    }
+    if crs_attrs:
+        attrs["grid_mapping"] = "crs"
+    return attrs
 
 
 def _field_attrs(name: str) -> dict[str, object]:

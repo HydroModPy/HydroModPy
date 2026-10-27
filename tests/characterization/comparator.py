@@ -30,7 +30,8 @@ run written before it cannot hold them, so their absence from A is held with its
 reason and listed in the report, but only when A predates the layout (its ``mesh``
 group names no ``engine``). When A was written by the layout, a member only B holds
 is a drift. Absent from B they are a drift, and a member both runs hold is compared
-like any other.
+like any other. ``UGRID_MEMBERS``, the node axes and the CRS copy of ``mesh/``,
+follow the same rule, held when A has no ``mesh/node_x``.
 
 Usage::
 
@@ -148,6 +149,20 @@ predates the layout. Absent from B, or any member not on this closed list, is a
 drift as before. A member both runs hold is compared like any other."""
 
 ADDITIVE_DETAIL = "added by the cell-mesh layout, absent from the older run"
+
+UGRID_MEMBERS: frozenset[str] = frozenset(
+    {
+        "fields.zarr/mesh/node_x",
+        "fields.zarr/mesh/node_y",
+        "fields.zarr/mesh/crs",
+    }
+)
+"""Members the UGRID node axes added to ``mesh/``, held the same way as the layout ones.
+
+They came after the layout, so they are held when the older run has no
+``mesh/node_x``, whether or not it has the layout."""
+
+UGRID_DETAIL = "added with the UGRID node axes, absent from the older run"
 
 # Metric rows that record how long the machine took, not what the model
 # computed. Selected by metric NAME: the `runtime` variable bucket they sit in
@@ -393,14 +408,30 @@ def _predates_cell_mesh(run_dir: Path) -> bool:
     return "mesh" not in group or "engine" not in group["mesh"].attrs
 
 
-def _only_in_b(target: str, *, older_predates_layout: bool) -> Verdict:
+def _predates_ugrid_axes(run_dir: Path) -> bool:
+    """Return True when the run stored its mesh before ``mesh/node_x`` existed."""
+    import zarr
+
+    store = run_dir / "fields.zarr"
+    if not store.exists():
+        return True
+    group = zarr.open_group(str(store), mode="r")
+    return "mesh" not in group or "node_x" not in group["mesh"]
+
+
+def _only_in_b(
+    target: str, *, older_predates_layout: bool, older_predates_ugrid: bool = False
+) -> Verdict:
     """Return the verdict for a member only the newer run holds.
 
     Held when the member is on :data:`ADDITIVE_MEMBERS` and the older run
-    predates the layout, a drift otherwise.
+    predates the layout, or on :data:`UGRID_MEMBERS` and the older run predates
+    the node axes, a drift otherwise.
     """
     if older_predates_layout and target in ADDITIVE_MEMBERS:
         return Verdict(target, "structure", "presence", ADDITIVE_DETAIL, None, None, True)
+    if older_predates_ugrid and target in UGRID_MEMBERS:
+        return Verdict(target, "structure", "presence", UGRID_DETAIL, None, None, True)
     return Verdict(target, "structure", "presence", "only in B", None, None, False)
 
 
@@ -424,9 +455,14 @@ def compare_field_stores(a_dir: Path, b_dir: Path, comparison: RunComparison) ->
             )
         )
     older_predates_layout = _predates_cell_mesh(a_dir)
+    older_predates_ugrid = _predates_ugrid_axes(a_dir)
     for missing in sorted(set(arrays_b) - set(arrays_a)):
         comparison.verdicts.append(
-            _only_in_b(f"fields.zarr/{missing}", older_predates_layout=older_predates_layout)
+            _only_in_b(
+                f"fields.zarr/{missing}",
+                older_predates_layout=older_predates_layout,
+                older_predates_ugrid=older_predates_ugrid,
+            )
         )
 
     for name in sorted(set(arrays_a) & set(arrays_b)):
@@ -843,13 +879,13 @@ def render_markdown(comparisons: list[RunComparison], *, total_seconds: float) -
         else:
             lines.append("Every compared target is inside its band.")
             lines.append("")
-        additive = [v for v in comparison.verdicts if v.detail == ADDITIVE_DETAIL]
+        additive = [v for v in comparison.verdicts if v.detail in (ADDITIVE_DETAIL, UGRID_DETAIL)]
         if additive:
             lines.append("### Additive members")
             lines.append("")
             lines.append(
-                "Held by the newer run only, on the closed list `ADDITIVE_MEMBERS` of the "
-                "comparator; they are not compared."
+                "Held by the newer run only, on the closed lists `ADDITIVE_MEMBERS` and "
+                "`UGRID_MEMBERS` of the comparator; they are not compared."
             )
             lines.append("")
             lines.extend(f"- `{verdict.target}`" for verdict in additive)

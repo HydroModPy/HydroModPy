@@ -9,16 +9,13 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from shapely.geometry import LineString, Polygon, box
+from shapely.geometry import Polygon
 
 from hydromodpy.solver.modflow6.builders.lake import resolve_lake_cells
-from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.resample import resample_families
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec, SizeField
+from tests._helpers.mesh_cases import L93_ORIGIN, square_domain, voronoi_lake_mesh
 
-WKT = 'PROJCS["RGF93 / Lambert-93"]'
-X0, Y0 = 350_000.0, 6_780_000.0
+X0, Y0 = L93_ORIGIN
 CELL_M = 40.0
 _AREA_RTOL = 1e-6
 
@@ -34,30 +31,8 @@ WITH_ARM = _lake(
 
 
 def _mesh(lake: Polygon) -> PlanarCellMesh:
-    domain = box(X0, Y0, X0 + 1000.0, Y0 + 1000.0)
-    grid = RasterGridSpec(
-        xmin=X0,
-        xmax=X0 + 1000.0,
-        ymin=Y0,
-        ymax=Y0 + 1000.0,
-        dx=20.0,
-        dy=20.0,
-        nrow=50,
-        ncol=50,
-        crs_wkt=WKT,
-    )
-    field = SizeField(np.full((grid.nrow, grid.ncol), CELL_M), grid)
-    shore = (LineFamilySpec("lakes", "face", (LineString(lake.exterior.coords),), closed=True),)
-    return registry.create("voronoi").build(
-        MeshRequest(
-            domain=domain,
-            crs_wkt=WKT,
-            grid=grid,
-            nominal_size_m=CELL_M,
-            lines=resample_families(shore, domain=domain, size_field=field).families,
-            size_field=field,
-        )
-    )
+    domain = square_domain(1000.0, x0=X0, y0=Y0)
+    return voronoi_lake_mesh(lake, domain=domain, pixel=20.0, cell_size=CELL_M)
 
 
 def test_a_shore_followed_whole_gives_whole_cells() -> None:

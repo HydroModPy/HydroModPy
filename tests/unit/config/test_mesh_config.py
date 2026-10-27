@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import types
 import typing
-from typing import ClassVar
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -18,9 +17,8 @@ from hydromodpy.spatial.mesh.config import (
     MeshTriangleConfig,
     MeshVoronoiConfig,
 )
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
+from tests._helpers.fake_engines import fake_engine
 
 _MODELS = (MeshConfig, MeshFamiliesConfig, MeshRegularConfig, MeshTriangleConfig, MeshVoronoiConfig)
 
@@ -123,25 +121,12 @@ def test_an_unknown_engine_is_refused_naming_what_is_served() -> None:
 
 
 def test_an_installed_engine_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
-    class _PluginEngine:
-        engine_id: ClassVar[str] = "test-plugin"
-        engine_version: ClassVar[str] = "0.1.0"
-        capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
-            cell_types=(CellType.POLYGON,),
-            structured=False,
-            graded=True,
-            exact_faces=True,
-            cell_families="exact",
-            deterministic=True,
-            needs_cache=False,
-        )
-
-        def build(self, request: object) -> object:
-            raise NotImplementedError
-
+    plugin = fake_engine(
+        "test-plugin", engine_version="0.1.0", exact_faces=True, cell_families="exact"
+    )
     monkeypatch.setattr(registry, "_REGISTRY", dict(registry._REGISTRY))
     monkeypatch.setattr(registry, "_PLUGINS_LOADED", True)
-    registry.register(_PluginEngine)
+    registry.register(plugin)
 
     assert MeshConfig(engine="test-plugin").engine == "test-plugin"
 

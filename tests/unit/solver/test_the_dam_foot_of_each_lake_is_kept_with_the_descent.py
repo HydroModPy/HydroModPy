@@ -20,7 +20,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
     resolve_dam_foot_cells,
     write_descent_sidecar,
 )
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 from tests.unit.core.test_a_lake_is_traversed_by_the_descent import (
     _valley,
 )

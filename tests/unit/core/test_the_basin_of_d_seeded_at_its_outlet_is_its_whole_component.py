@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.descent import build_descent, descent_basin
-from tests.unit.core._descent_meshes import grid_centres, grid_descent, triangle_mesh
+from tests._helpers.descent_cases import grid_centres, grid_descent, triangle_mesh
 
 N = 12
 

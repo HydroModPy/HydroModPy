@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -72,3 +74,106 @@ def test_build_from_surfaces_rejects_domain_mismatch():
             bottom_surface=bottom_surface,
             vertical_config={"genmtd_lay": "constant", "nlay": 2},
         )
+
+
+def _with_support(surface: Surface, **changes: object) -> Surface:
+    """The same surface on a support with *changes*."""
+    support = replace(surface.support, **changes)
+    return Surface(name=surface.name, values=surface.as_array(), support=support)
+
+
+def _build(top: Surface, bottom: Surface, **kwargs):
+    config = kwargs.pop("vertical_config", {"genmtd_lay": "constant", "nlay": 2})
+    return StructuredGridBuilder().build_from_surfaces(
+        top_surface=top, bottom_surface=bottom, vertical_config=config, **kwargs
+    )
+
+
+TOP = np.array([[120.0, 121.0], [122.0, 123.0]])
+BOTTOM = np.array([[20.0, 21.0], [22.0, 23.0]])
+
+
+def test_the_grid_follows_the_modflow_convention_with_row_zero_at_the_north():
+    sgrid = _build(
+        _surface_from_array(TOP, xmin=100.0, ymin=500.0, dx=10.0, dy=5.0),
+        _surface_from_array(BOTTOM, xmin=100.0, ymin=500.0, dx=10.0, dy=5.0),
+    )
+
+    np.testing.assert_allclose(sgrid.xvertices[0], [100.0, 110.0, 120.0])
+    np.testing.assert_allclose(sgrid.yvertices[:, 0], [510.0, 505.0, 500.0])
+    np.testing.assert_allclose(sgrid.delr, [10.0, 10.0])
+    np.testing.assert_allclose(sgrid.delc, [5.0, 5.0])
+    assert (sgrid.xoff, sgrid.yoff) == (100.0, 500.0)
+
+
+def test_the_cell_sizes_come_from_the_extent_when_the_support_has_none():
+    top = _with_support(_surface_from_array(TOP, dx=4.0, dy=3.0), dx=None, dy=None)
+    bottom = _surface_from_array(BOTTOM, dx=4.0, dy=3.0)
+
+    sgrid = _build(top, bottom)
+
+    np.testing.assert_allclose(sgrid.delr, [4.0, 4.0])
+    np.testing.assert_allclose(sgrid.delc, [3.0, 3.0])
+
+
+def test_a_nodata_cell_is_outside_the_domain_in_every_layer():
+    top = TOP.copy()
+    top[0, 1] = -9999.0
+
+    sgrid = _build(_surface_from_array(top), _surface_from_array(BOTTOM))
+
+    assert np.all(sgrid.idomain[:, 0, 1] == 0)
+    assert np.all(sgrid.idomain[:, [0, 1, 1], [0, 0, 1]] == 1)
+    assert np.all(sgrid.botm[:, 0, 1] == -9999.0)
+
+
+def test_the_layers_end_on_the_base_surfaces_they_name():
+    base = np.array([[70.0, 71.0], [72.0, 73.0]])
+    layering = VerticalGridConfig(
+        genmtd_lay="surfaces",
+        layer=[{"name": "weathered", "surface": "weathered_base"}, {"name": "fissured"}],
+    )
+
+    sgrid = _build(
+        _surface_from_array(TOP),
+        _surface_from_array(BOTTOM),
+        vertical_config=layering,
+        base_surfaces={"weathered_base": _surface_from_array(base, name="weathered_base")},
+    )
+
+    assert sgrid.nlay == 2
+    np.testing.assert_allclose(sgrid.botm[0], base)
+    np.testing.assert_allclose(sgrid.botm[1], BOTTOM)
+
+
+def test_a_layer_base_on_another_grid_is_refused():
+    layering = VerticalGridConfig(
+        genmtd_lay="surfaces",
+        layer=[{"name": "weathered", "surface": "weathered_base"}, {"name": "fissured"}],
+    )
+    coarse = _surface_from_array(np.full((1, 1), 70.0), dx=2.0, dy=2.0)
+
+    with pytest.raises(
+        ValueError, match=r"layer base 'weathered_base' has shape \(1, 1\), the top \(2, 2\)"
+    ):
+        _build(
+            _surface_from_array(TOP),
+            _surface_from_array(BOTTOM),
+            vertical_config=layering,
+            base_surfaces={"weathered_base": coarse},
+        )
+
+
+def test_a_bottom_on_another_grid_is_refused():
+    fine_bottom = _surface_from_array(np.full((4, 4), 20.0), dx=0.5, dy=0.5)
+
+    with pytest.raises(ValueError, match=r"must have the same discretization.*resample_to_shape"):
+        _build(_surface_from_array(TOP), fine_bottom)
+
+
+def test_a_support_with_a_negative_cell_size_is_refused():
+    # A north-up raster transform carries a negative y step; the support must not.
+    top = _with_support(_surface_from_array(TOP), dy=-1.0)
+
+    with pytest.raises(ValueError, match=r"Invalid support cell sizes: dx=1.0, dy=-1.0"):
+        _build(top, _surface_from_array(BOTTOM))

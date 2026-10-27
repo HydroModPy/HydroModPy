@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 
 N = 8
 PIT = (2, 5)

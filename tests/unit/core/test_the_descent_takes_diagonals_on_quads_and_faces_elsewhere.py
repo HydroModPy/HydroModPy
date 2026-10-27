@@ -12,7 +12,7 @@ import numpy as np
 
 from hydromodpy.core.descent import build_descent
 from hydromodpy.core.field_routing import cell_adjacency_from_face_connectivity
-from tests.unit.core._descent_meshes import grid_descent, triangle_mesh
+from tests._helpers.descent_cases import grid_descent, triangle_mesh
 
 N = 5
 CENTRE = 2 * N + 2

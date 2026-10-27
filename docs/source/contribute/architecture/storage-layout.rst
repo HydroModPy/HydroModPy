@@ -594,6 +594,16 @@ The vertical geometry follows the table.
      - dtype
      - Axes
      - Content
+   * - ``node_x``, ``node_y``
+     - float64
+     - ``node``
+     - The first two columns of ``vertices``, one array per axis, which is what UGRID asks for;
+       ``node_coordinates`` of ``topology`` names them
+   * - ``crs``
+     - int32
+     - none
+     - A copy of the root ``crs``, written when the run has one, so that ``mesh/`` read alone
+       still has its CRS
    * - ``face_x``, ``face_y``
      - float64
      - ``face``
@@ -660,7 +670,21 @@ when the engine publishes no offset for the chain); the faces of the face-intent
 nodes, the cell on each side and the zone names). A run whose mesh has no such family writes no
 table: an absent table is an empty one when the ``engine`` attribute is present. All of this is
 additive, so ``zarr_schema_version`` does not change. A run sealed before it has none of these
-arrays, no ``engine`` and no ``crs`` on ``mesh/``; its readers say so and do not rebuild them.
+arrays, no ``engine`` and no ``crs`` attribute on ``mesh/``; its readers say so and do not
+rebuild them.
+
+**Read by UGRID tools.** ``mesh/`` opens in xugrid as it is stored, with
+``xugrid.UgridDataset(xarray.open_zarr(store, group="mesh"))``. A tool that reads NetCDF and not
+Zarr, such as QGIS or ParaView, reads the NetCDF export, which carries the same topology.
+``node_x``, ``node_y``, ``face_x`` and ``face_y`` carry ``standard_name``
+``projection_x_coordinate`` or ``projection_y_coordinate``, and ``face_node_connectivity``
+declares ``_FillValue = -1`` for the padding of the short rows. On a run with a CRS, ``topology``
+and these coordinates name the ``crs`` of the group in ``grid_mapping``. ``node_coordinates`` of
+``topology`` names ``node_x node_y``, where it named ``vertices`` before, and ``vertices`` stays
+for the readers of HydroModPy. Its third column, z = 0 for a planar mesh, gets no array of its
+own. The new arrays are additive, so ``zarr_schema_version`` stays at 3. A run sealed before them
+reads in HydroModPy as before, but a UGRID reader needs ``node_x`` and ``node_y`` split out of
+``vertices`` and a ``_FillValue`` on the connectivity to open it.
 
 **Routing descent.** A MODFLOW 6 or MODFLOW-NWT run stores the descent D it was built with under
 ``mesh/``, one value per face and none rounded: ``descent_receiver``, ``descent_surface``, the

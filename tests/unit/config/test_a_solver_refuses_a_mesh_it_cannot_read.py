@@ -6,15 +6,13 @@ reaches the geographic step. The refusal names the solver and the engine.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.solver.base import registry as solver_registry
-from hydromodpy.spatial.mesh import registry as mesh_registry
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
+from tests._helpers.fake_engines import fake_engine, registered
 
 
 def _payload(solver: str, mesh: dict[str, Any] | None) -> dict[str, Any]:
@@ -76,30 +74,11 @@ def test_no_mesh_section_is_the_regular_engine() -> None:
     assert cfg.mesh is None
 
 
-class _PolygonEngine:
-    engine_id: ClassVar[str] = "fake_polygon"
-    engine_version: ClassVar[str] = "1.0.0"
-    capabilities: ClassVar[MeshEngineCapabilities] = MeshEngineCapabilities(
-        cell_types=(CellType.POLYGON,),
-        structured=False,
-        graded=True,
-        exact_faces=False,
-        cell_families="derived_from_faces",
-        deterministic=True,
-        needs_cache=False,
-    )
-
-    def build(self, request: object) -> object:
-        raise NotImplementedError
-
-
 @pytest.fixture
 def polygon_engine():
-    mesh_registry.register(_PolygonEngine)
-    try:
-        yield _PolygonEngine
-    finally:
-        mesh_registry.unregister(_PolygonEngine.engine_id)
+    """A third-party engine of polygon cells, registered for the test."""
+    with registered(fake_engine("fake_polygon")) as engine:
+        yield engine
 
 
 def test_modflow6_reads_a_third_party_engine_of_polygon_cells(polygon_engine: type) -> None:

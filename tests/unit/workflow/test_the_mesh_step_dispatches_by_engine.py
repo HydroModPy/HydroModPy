@@ -9,87 +9,27 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from pyproj import CRS
-from shapely.geometry import box
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.spatial.mesh import cache as cache_module
-from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.cache import cache_dir, library_versions
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity
-from hydromodpy.spatial.mesh.planning import PlanningInputs
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
-from hydromodpy.spatial.mesh.request import RasterGridSpec
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh
+from tests._helpers.fake_engines import FakeMeshEngine, registered
+from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, planning_inputs
 
-WKT = CRS.from_epsg(2154).to_wkt()
-X0, Y0, SIDE, N = 350_000.0, 6_780_000.0, 1000.0, 10
-
-
-class _CachedEngine:
-    """An engine the cache has to protect: it builds the regular grid, and counts."""
-
-    engine_id = "dispatch_probe"
-    engine_version = "1.0.0"
-    capabilities = MeshEngineCapabilities(
-        cell_types=(CellType.QUADRILATERAL,),
-        structured=True,
-        graded=False,
-        exact_faces=False,
-        cell_families="rasterized",
-        deterministic=False,
-        needs_cache=True,
-    )
-    builds = 0
-
-    def build(self, request):
-        type(self).builds += 1
-        built = RegularMeshEngine().build(request)
-        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
-        return dataclasses.replace(built, identity=identity)
-
-
-@pytest.fixture
-def cached_engine():
-    _CachedEngine.builds = 0
-    registry.register(_CachedEngine)
-    yield _CachedEngine
-    registry.unregister(_CachedEngine.engine_id)
+X0, Y0 = L93_ORIGIN
+SIDE, N = 1000.0, 10
 
 
 @pytest.fixture(autouse=True)
-def planned_inputs(monkeypatch):
-    grid = RasterGridSpec(
-        xmin=X0,
-        xmax=X0 + SIDE,
-        ymin=Y0,
-        ymax=Y0 + SIDE,
-        dx=SIDE / N,
-        dy=SIDE / N,
-        nrow=N,
-        ncol=N,
-        crs_wkt=WKT,
-    )
-    inputs = PlanningInputs(
-        dem_grid=grid,
-        crs_wkt=WKT,
-        domain=box(X0, Y0, X0 + SIDE, Y0 + SIDE),
-        river_trace=None,
-        watershed=None,
-        lakes=(),
-        lake_structures=(),
-        geology=None,
-        refinement_zones=(),
-        input_triangulation=None,
-        synthetic=True,
-    )
-    monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
+def planned_inputs(use_planning_inputs):
+    grid = grid_spec(N, N, SIDE / N, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT)
+    use_planning_inputs(planning_inputs(grid))
 
 
 def _context(tmp_path, mesh: MeshConfig | None, *, workspace: bool = True) -> WorkflowContext:
@@ -124,11 +64,12 @@ def test_the_summary_names_the_library_builds_the_mesh_depends_on(tmp_path) -> N
     assert all(isinstance(value, str) and value for value in versions.values())
 
 
-def test_the_planner_notes_reach_the_qa_of_the_summary(tmp_path, monkeypatch) -> None:
-    inputs = dataclasses.replace(
-        mesh_module.planning_inputs(None, None), notes=("the geology map is a raster",)
+def test_the_planner_notes_reach_the_qa_of_the_summary(tmp_path, use_planning_inputs) -> None:
+    use_planning_inputs(
+        dataclasses.replace(
+            mesh_module.planning_inputs(None, None), notes=("the geology map is a raster",)
+        )
     )
-    monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
     ctx = _context(tmp_path, MeshConfig(river_cell_size=20.0, cell_size=200.0))
 
     step_mesh(ctx)
@@ -265,28 +206,22 @@ def test_the_step_reads_its_sections_from_the_config_names() -> None:
     assert "external_mesh_input" not in step.reads
 
 
-class _ConcaveEngine:
-    """An engine whose regular grid reports three concave cells."""
+class _ConcaveEngine(FakeMeshEngine):
+    """A fake engine whose regular grid reports three concave cells."""
 
     engine_id = "concave_probe"
-    engine_version = "1.0.0"
     capabilities = RegularMeshEngine.capabilities
 
     def build(self, request):
-        built = RegularMeshEngine().build(request)
-        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
-        qa = dataclasses.replace(built.qa, n_concave_cells=3)
-        return dataclasses.replace(built, identity=identity, qa=qa)
+        built = super().build(request)
+        return dataclasses.replace(built, qa=dataclasses.replace(built.qa, n_concave_cells=3))
 
 
 def test_a_mesh_past_a_quality_threshold_is_warned_and_used(tmp_path, caplog) -> None:
-    registry.register(_ConcaveEngine)
-    try:
+    with registered(_ConcaveEngine):
         ctx = _context(tmp_path, MeshConfig(engine=_ConcaveEngine.engine_id))
         with caplog.at_level(logging.WARNING, logger=mesh_module.logger.name):
             step_mesh(ctx)
-    finally:
-        registry.unregister(_ConcaveEngine.engine_id)
 
     assert ctx.setup.cell_mesh.qa.n_concave_cells == 3
     assert "Mesh quality: 3 of 100 cells are concave" in caplog.text

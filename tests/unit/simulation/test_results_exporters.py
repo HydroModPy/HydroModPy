@@ -252,6 +252,17 @@ class TestVTUExport:
         mesh = meshio.read(str(out))
         assert {"head_layer0", "head_layer1"} <= set(mesh.cell_data)
 
+    def test_the_file_names_the_run_and_the_version_that_made_it(self, catalog_with_data):
+        meshio = pytest.importorskip("meshio")
+        import hydromodpy
+
+        catalog, sid, exports = catalog_with_data
+        out = exports / "named.vtu"
+        _export(catalog, sid, variables="head", file=out, time=0, layer=0)
+        field_data = meshio.read(str(out)).field_data
+        assert bytes(field_data["sim_id"]).decode() == sid
+        assert bytes(field_data["hydromodpy_version"]).decode() == hydromodpy.__version__
+
 
 class TestGeoTIFFExport:
     def test_basic(self, catalog_with_data):
