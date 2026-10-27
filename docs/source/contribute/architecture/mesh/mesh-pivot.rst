@@ -106,7 +106,9 @@ recommended disk format. It describes itself, opens in ParaView, PyVista and QGI
 round-trips through ``HydroMesh``. Use ``write_vtu`` and ``read_vtu`` from ``spatial/mesh/io``,
 or ``load_planar_as_hydro_mesh``, ``save_hydro_mesh_vtu`` and ``load_hydro_mesh_vtu`` from
 ``spatial/mesh/gmsh_grid/exchange_api.py``. ``to_meshio`` and ``from_meshio`` in
-``spatial/mesh/adapters`` need meshio, which is imported on demand.
+``spatial/mesh/adapters`` need meshio, which is imported on demand. A ``.msh`` file carries no
+CRS, so ``write_gmsh_2d_mesh`` given a ``crs`` writes its WKT to ``<name>.prj`` next to the mesh,
+and ``read_gmsh_2d_mesh`` reads it back into ``crs_wkt``.
 ``to_flopy_disv_args(hydro_mesh, top=..., botm=...)`` returns the arguments of a MODFLOW 6 DISV
 package (``nvert``, ``vertices``, ``ncpl``, ``cell2d``, ``top``, ``botm``). The core needs only
 numpy, the plot needs matplotlib, and the adapters import meshio and flopy when called. A run
@@ -157,7 +159,9 @@ raises ``ValueError``. ``cell_mesh.connectivity_rows`` returns the cells as one 
 block itself for triangles and quadrilaterals, and the padded rows for polygons.
 
 ``cell_mesh_from_bundle`` in ``spatial/mesh/gmsh_grid/bundle_cell_mesh.py`` reads a Boussinesq
-validation bundle, a folder of CSV files. ``to_field_mesh(cell_mesh.mesh)`` in
+validation bundle, a folder of CSV files. The format is versioned. ``metadata.json`` declares
+``mesh_catchment_bundle_v1``, the value of ``BUNDLE_SCHEMA_VERSION``, and ``BUNDLE_COLUMNS`` gives
+the columns of each file, both in ``spatial/mesh/gmsh_grid/catchment_mesh_bundle_reader.py``. ``to_field_mesh(cell_mesh.mesh)`` in
 ``adapters/field_mesh_adapter.py`` gives a field mesh to a consumer that samples a field on the
 cells.
 

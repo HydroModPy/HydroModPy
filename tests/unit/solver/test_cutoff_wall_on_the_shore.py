@@ -13,7 +13,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import shapely
-from pyproj import CRS
 from shapely.geometry import LineString, Point
 
 from hydromodpy.core.exceptions import SolverInputError
@@ -31,12 +30,11 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.ops.flow_barrier import downstream_of_wall, lake_shore_faces
-from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, RasterGridSpec
+from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
+from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
 from tests._helpers.reservoir_dam import DOMAIN, reservoir, trace
 
-WKT = CRS.from_epsg(2154).to_wkt()
 ENGINES = {
     "regular": {"engine": "regular", "cell_size": 40.0},
     "triangle": {
@@ -52,38 +50,18 @@ ENGINES = {
 }
 
 
-def _grid() -> RasterGridSpec:
-    xmin, ymin, xmax, ymax = DOMAIN.bounds
-    return RasterGridSpec(
-        xmin=xmin,
-        xmax=xmax,
-        ymin=ymin,
-        ymax=ymax,
-        dx=10.0,
-        dy=10.0,
-        nrow=round((ymax - ymin) / 10.0),
-        ncol=round((xmax - xmin) / 10.0),
-        crs_wkt=WKT,
-    )
-
-
 def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespace:
     """Mesh, lake cells, LAK rows and HFB rows of the reservoir with its wall."""
     declared = trace(offset)
     wall = snap_wall_to_shore(reservoir(), declared, 50.0)
     line = wall.line if snapped else declared
     shore = wall.shore if snapped else LineString()
-    inputs = PlanningInputs(
-        dem_grid=_grid(),
-        crs_wkt=WKT,
+    inputs = planning_inputs(
+        grid_over(DOMAIN, 10.0, crs_wkt=LAMBERT93_WKT),
         domain=DOMAIN,
-        river_trace=None,
         watershed=DOMAIN,
         lakes=(wall.polygon,),
         lake_structures=(("voile:r", line, 15.0, 60.0),),
-        geology=None,
-        refinement_zones=(),
-        input_triangulation=None,
         synthetic=False,
         barriers=(line,),
     )

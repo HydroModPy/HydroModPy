@@ -8,30 +8,22 @@ the mesh after the build and after a cache hit alike.
 
 from __future__ import annotations
 
-import dataclasses
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from pyproj import CRS
 from rasterio.features import shapes
 from rasterio.transform import Affine
 from shapely.geometry import Polygon, box, shape
 
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
-from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity
 from hydromodpy.spatial.mesh.planning import PlanningInputs, smoothed_catchment
-from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
-from hydromodpy.spatial.mesh.request import RasterGridSpec
-from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import step_mesh
+from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, planning_inputs
 
-WKT = CRS.from_epsg(2154).to_wkt()
-X0, Y0, PIXEL, N = 350_000.0, 6_780_000.0, 50.0, 20
+X0, Y0 = L93_ORIGIN
+PIXEL, N = 50.0, 20
 _FACE = {"watershed_boundary": "face"}
 
 
@@ -51,66 +43,10 @@ def _staircase() -> Polygon:
     return max(parts, key=lambda part: part.area)
 
 
-class _GradedEngine:
-    """A graded engine the cache protects: it builds the regular grid, and counts."""
-
-    engine_id = "outline_probe"
-    engine_version = "1.0.0"
-    capabilities = MeshEngineCapabilities(
-        cell_types=(CellType.QUADRILATERAL,),
-        structured=True,
-        graded=True,
-        exact_faces=False,
-        cell_families="rasterized",
-        deterministic=False,
-        needs_cache=True,
-    )
-    builds = 0
-
-    def build(self, request):
-        type(self).builds += 1
-        built = RegularMeshEngine().build(request)
-        identity = MeshIdentity(self.engine_id, self.engine_version, request.canonical_hash(), None)
-        return dataclasses.replace(built, identity=identity)
-
-
 @pytest.fixture
-def graded_engine():
-    _GradedEngine.builds = 0
-    registry.register(_GradedEngine)
-    yield _GradedEngine
-    registry.unregister(_GradedEngine.engine_id)
-
-
-@pytest.fixture
-def inputs(monkeypatch) -> PlanningInputs:
-    side = N * PIXEL
-    grid = RasterGridSpec(
-        xmin=X0,
-        xmax=X0 + side,
-        ymin=Y0,
-        ymax=Y0 + side,
-        dx=PIXEL,
-        dy=PIXEL,
-        nrow=N,
-        ncol=N,
-        crs_wkt=WKT,
-    )
-    planned = PlanningInputs(
-        dem_grid=grid,
-        crs_wkt=WKT,
-        domain=box(X0, Y0, X0 + side, Y0 + side),
-        river_trace=None,
-        watershed=_staircase(),
-        lakes=(),
-        lake_structures=(),
-        geology=None,
-        refinement_zones=(),
-        input_triangulation=None,
-        synthetic=False,
-    )
-    monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: planned)
-    return planned
+def inputs(use_planning_inputs) -> PlanningInputs:
+    grid = grid_spec(N, N, PIXEL, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT)
+    return use_planning_inputs(planning_inputs(grid, watershed=_staircase(), synthetic=False))
 
 
 def _context(tmp_path, mesh: MeshConfig) -> WorkflowContext:

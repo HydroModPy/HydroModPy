@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.descent import build_descent
-from tests.unit.core._descent_meshes import (
+from tests._helpers.descent_cases import (
     chain_ends_without_cycle,
     grid_descent,
     triangle_mesh,

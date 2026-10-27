@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 
 N = 9
 

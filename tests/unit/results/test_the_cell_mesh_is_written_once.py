@@ -213,12 +213,14 @@ def test_the_zones_of_a_triangle_mesh_are_stored_by_name(tmp_path):
     store.close()
 
 
-def test_without_a_layout_the_group_holds_what_it_always_held(tmp_path):
+def test_without_a_layout_the_group_holds_the_topology_alone(tmp_path):
     cell_mesh = _river_grid()
     store = _store(tmp_path / "fields.zarr", cell_mesh, with_layout=False)
 
     assert _members(store.root["mesh"]) == {
         "vertices",
+        "node_x",
+        "node_y",
         "face_node_connectivity",
         "z_interfaces",
         "topology",

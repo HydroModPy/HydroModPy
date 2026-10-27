@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.core.field_routing import accumulate_on_downhill_graph
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 
 N = 7
 HEAD = 3 * N + 3

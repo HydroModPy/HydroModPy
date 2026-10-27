@@ -7,10 +7,15 @@ content) and one small internal payload (`GmshMeshData`).
 Its job is deliberately narrow: accept triangles or quads, normalize their
 connectivity, reject unsupported mixed cases, and keep file handling separate
 from the higher-level mesh classes.
+
+A ``.msh`` file carries no CRS. A mesh written with one gets a projection
+file next to it, ``<name>.prj`` holding the WKT, and the reader takes it
+back into ``GmshMeshData.crs_wkt``.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -175,6 +180,7 @@ class GmshMeshData:
     points_xy: np.ndarray
     cell_blocks: tuple[GmshCellBlock, ...]
     source_path: Path | None = None
+    crs_wkt: str | None = None
 
     def __post_init__(self) -> None:
         points_xy = np.asarray(self.points_xy, dtype=float)
@@ -263,9 +269,25 @@ def read_gmsh_2d_mesh(path: str | Path, *, cell_type: str | None = None) -> Gmsh
     """Read one planar 2D triangle or quadrilateral mesh from disk.
 
     The function prefers ``meshio`` when available, then falls back to a small
-    in-house parser for simple ASCII Gmsh 2.2 files.
+    in-house parser for simple ASCII Gmsh 2.2 files. The projection file next
+    to the mesh, when there is one, gives ``crs_wkt``.
     """
     path_obj = Path(path).resolve()
+    mesh_data = _read_mesh_data(path_obj, cell_type=cell_type)
+    projection = projection_path(path_obj)
+    if not projection.is_file():
+        return mesh_data
+    wkt = projection.read_text(encoding="utf-8").strip()
+    return dataclasses.replace(mesh_data, crs_wkt=wkt or None)
+
+
+def projection_path(path: str | Path) -> Path:
+    """Return the projection file of a mesh file: same name, suffix ``.prj``."""
+    return Path(path).with_suffix(".prj")
+
+
+def _read_mesh_data(path_obj: Path, *, cell_type: str | None) -> GmshMeshData:
+    """Read the nodes and cells of one mesh file, through meshio or the ASCII fallback."""
     try:
         meshio = _require_meshio()
     except ImportError:
@@ -308,10 +330,24 @@ def write_gmsh_2d_mesh(
     mesh_data: GmshMeshData,
     *,
     file_format: str | None = None,
+    crs: Any = None,
 ) -> Path:
-    """Write one planar mesh payload to disk through meshio."""
+    """Write one planar mesh payload to disk through meshio.
+
+    ``crs`` (any form ``pyproj.CRS.from_user_input`` takes, ``mesh_data.crs_wkt``
+    when left out) is written as WKT to the projection file next to the mesh,
+    since the mesh formats meshio writes carry none. No CRS writes no file.
+    """
     meshio = _require_meshio()
     path_obj = Path(path).resolve()
+    crs = mesh_data.crs_wkt if crs is None else crs
+    wkt = None
+    if crs is not None:
+        from pyproj import CRS
+
+        wkt = CRS.from_user_input(crs).to_wkt()
     mesh = mesh_data_to_meshio(mesh_data)
     meshio.write(path_obj, mesh, file_format=file_format)
+    if wkt is not None:
+        projection_path(path_obj).write_text(wkt + "\n", encoding="utf-8")
     return path_obj

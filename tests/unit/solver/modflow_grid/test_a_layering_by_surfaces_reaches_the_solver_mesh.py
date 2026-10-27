@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from shapely.geometry import box
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
@@ -20,8 +19,9 @@ from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh, registry
-from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.request import RasterGridSpec
 from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
+from tests._helpers.mesh_cases import mesh_request
 
 NODATA = -9999.0
 STEP = 100.0
@@ -72,13 +72,7 @@ def _domain(base: np.ndarray | None = None) -> Domain:
 
 def _regular_cell_mesh(domain: Domain):
     support = domain.surface_topo.support
-    request = MeshRequest(
-        domain=box(support.xmin, support.ymin, support.xmax, support.ymax),
-        crs_wkt=TEST_CRS_WKT,
-        grid=RasterGridSpec.from_raster_support(support, crs_wkt=TEST_CRS_WKT),
-        nominal_size_m=STEP,
-        options={},
-    )
+    request = mesh_request(RasterGridSpec.from_raster_support(support, crs_wkt=TEST_CRS_WKT))
     return registry.create("regular").build(request)
 
 

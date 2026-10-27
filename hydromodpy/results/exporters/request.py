@@ -700,7 +700,14 @@ class _Writer:
             from hydromodpy.results.exporters.vtu import export_vtu
 
             return export_vtu(
-                self.zarr_path, self.sim_id, name, step, dest, layer=request.layer, values=values
+                self.zarr_path,
+                self.sim_id,
+                name,
+                step,
+                dest,
+                layer=request.layer,
+                values=values,
+                metadata={"hydromodpy_version": self.target.identity.hydromodpy_version},
             )
         raise ExportError(f"a field at one date is not written as {fmt.value}.")
 

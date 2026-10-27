@@ -16,10 +16,9 @@ from hydromodpy.solver.modflow6.builders import (
     recharge_to_spd,
     resolve_deferred_heterogeneous_recharge,
 )
-
-from ._test_modflow6_boundary_conditions_builders import (
-    _build_model,
-    _build_unstructured_model,
+from tests._helpers.mf6_toy_models import (
+    toy_model,
+    two_triangle_model,
 )
 
 
@@ -49,7 +48,7 @@ def _make_recharge_point_record(
 
 
 def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         sinks_sources={
             "recharge": FlowRechargeConfig(
@@ -71,7 +70,7 @@ def test_modflow6_binds_recharge_from_flow_sinks_sources() -> None:
 
 
 def test_modflow6_rejects_nonfinite_direct_recharge() -> None:
-    model = _build_model()
+    model = toy_model()
     model.recharge = np.asarray([1.0e-8, np.nan], dtype=float)
 
     with pytest.raises(ValueError, match="model.recharge"):
@@ -79,7 +78,7 @@ def test_modflow6_rejects_nonfinite_direct_recharge() -> None:
 
 
 def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
-    model = _build_model()
+    model = toy_model()
     model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
 
     with pytest.raises(ValueError, match="sequence length"):
@@ -87,7 +86,7 @@ def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
 
 
 def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
-    model = _build_model()
+    model = toy_model()
     model.nper = 1
     model.first_clim = "mean"
     model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
@@ -98,7 +97,7 @@ def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
 
 
 def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
-    model = _build_model()
+    model = toy_model()
     model.recharge = {0: np.full(6, 1.0e-8, dtype=float)}
 
     with pytest.raises(ValueError, match="missing stress period 1"):
@@ -106,7 +105,7 @@ def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
 
 
 def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     point = _make_recharge_point_record(
         station_id="R1",
         x=0.75,
@@ -139,7 +138,7 @@ def test_modflow6_resolves_point_recharge_on_unstructured_runtime_mesh() -> None
 
 
 def test_modflow6_defaults_to_zero_recharge_when_inactive() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         sinks_sources={},
         active_sinks_sources=[],

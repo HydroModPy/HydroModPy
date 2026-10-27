@@ -36,6 +36,12 @@ column per cell, shape (layer interface, face), so its single chunk is
 ``c/0/0``, and ``zarr_schema_version`` is ``"3"``. The column given to the
 writer is the same under every cell.
 
+Both digests were re-captured again when ``mesh/`` became readable by UGRID
+tools as stored: it gains ``node_x`` and ``node_y``, the topology names them in
+``node_coordinates`` and ``face_node_connectivity`` declares ``_FillValue = -1``.
+The golden store has no CRS, so it holds no ``mesh/crs``. ``layout=None`` still
+writes no layout array.
+
 Everything entering the digest is byte-identical on Linux and on Windows:
 
 * member names are ``as_posix()`` relatives, so no path separator and no
@@ -74,8 +80,8 @@ _VOLATILE_KEYS = frozenset({"history", "created_at", "date_modified"})
 
 # The root attributes carry no ``project`` nor ``processing_level``: the
 # identity of the run poses them at the seal, not the ACDD composer.
-EXPECTED_DIGEST = "2d501fd1f4a2bc60cf84f8428b7197565e4227f48c1b5bcf9bbb10fdb47a07f3"
-EXPECTED_LAYOUT_DIGEST = "1fbbca98c7844350076328d8c404db837a408d75944a56c6ebc33c8530fe7fa7"
+EXPECTED_DIGEST = "0507a6484988f14c3ab039288bcc705dc39aed7ab5163d5b8788f8d6f6f7a331"
+EXPECTED_LAYOUT_DIGEST = "9902066e758af116657d90272983cfcd6ac82ec8a7e5985321b3d8b02593fc6d"
 
 STORE_MEMBERS: tuple[str, ...] = (
     "forcing/zarr.json",
@@ -83,6 +89,10 @@ STORE_MEMBERS: tuple[str, ...] = (
     "head/zarr.json",
     "mesh/face_node_connectivity/c/0/0",
     "mesh/face_node_connectivity/zarr.json",
+    "mesh/node_x/c/0",
+    "mesh/node_x/zarr.json",
+    "mesh/node_y/c/0",
+    "mesh/node_y/zarr.json",
     "mesh/topography/c/0",
     "mesh/topography/zarr.json",
     "mesh/topology/zarr.json",
@@ -121,6 +131,10 @@ LAYOUT_STORE_MEMBERS: tuple[str, ...] = (
     "mesh/face_y/zarr.json",
     "mesh/face_zone/c/0",
     "mesh/face_zone/zarr.json",
+    "mesh/node_x/c/0",
+    "mesh/node_x/zarr.json",
+    "mesh/node_y/c/0",
+    "mesh/node_y/zarr.json",
     "mesh/topography/c/0",
     "mesh/topography/zarr.json",
     "mesh/topology/zarr.json",

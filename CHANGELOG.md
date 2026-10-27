@@ -34,6 +34,11 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- The NetCDF export writes the cell centres the model used, `mesh/face_x` and `mesh/face_y` of the
+  run store, in place of the mean of the vertices of each cell (2026-10-27). On a Voronoi mesh of
+  cells about 20 m wide the mean was up to 14.7 m off the generator. A store written before the
+  centres still exports the mean. `export_netcdf()` called on its own writes a mapping attribute,
+  such as `hydromodpy_identity`, as JSON text, where it failed before. `hmp export` already did.
 - A buffer written as a distance (`[geographic.catchment] buff_area = "1 km"`) is snapped to the
   DEM grid like a percentage (2026-10-26). An off-grid distance put the domain edges, and the
   cells of a regular grid, 25 to 50 m off the pixels of a 75 m DEM, so the ground of a cell moved
@@ -583,6 +588,23 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- The mesh of a run opens in xugrid as it is stored (2026-10-27). `mesh/` of `fields.zarr` holds
+  `node_x` and `node_y` beside `vertices`, and the topology names them in `node_coordinates`.
+  `face_node_connectivity` declares `_FillValue = -1`, the coordinates carry the CF
+  `standard_name`, and on a run with a CRS the group holds a copy of the root `crs`, which the
+  topology and the coordinates name in `grid_mapping`. The arrays are additive, so
+  `zarr_schema_version` stays at 3, and a run sealed before them reads in HydroModPy as it did.
+  The NetCDF export names its coordinates the same way.
+- A VTU export carries the run id, the CRS (WKT and EPSG code), the licence and the HydroModPy
+  version in the `FieldData` of the grid, which ParaView and PyVista keep (2026-10-27). A text is
+  stored as UTF-8 bytes, read back with `bytes(array).decode()`, because meshio refuses a file
+  holding a VTK string array.
+- `write_gmsh_2d_mesh` takes a `crs` and writes its WKT to `<name>.prj` next to the mesh, since a
+  `.msh` file carries none, and `read_gmsh_2d_mesh` reads it back into `GmshMeshData.crs_wkt`
+  (2026-10-27). `save_planar_mesh` and `GmshPlanarMesh2D.to_file` pass it on. The mesh bundle
+  format states its version, `BUNDLE_SCHEMA_VERSION` (`mesh_catchment_bundle_v1`), and the columns
+  of each CSV file with their unit, `BUNDLE_COLUMNS`, in `catchment_mesh_bundle_reader.py`. A test
+  checks every committed bundle against them.
 - Mesh refinement where the water table is shallow (2026-10-26). A `[[mesh.refinement_zone]]` table
   takes a criterion `where` in place of a vector layer `path`, with a threshold `below` or `above`
   and, for a field of an earlier run, `run`. `where = "height_above_stream"` refines the DEM pixels

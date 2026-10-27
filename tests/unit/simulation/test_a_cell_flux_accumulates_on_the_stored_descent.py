@@ -19,8 +19,8 @@ from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.results.derive import accumulation
 from hydromodpy.results.derive.accumulation import accumulation_flux_rows
 from hydromodpy.results.zarr_store import SimulationZarr
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 
 TOP = np.array(
     [

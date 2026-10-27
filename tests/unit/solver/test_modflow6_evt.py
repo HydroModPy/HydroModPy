@@ -9,9 +9,8 @@ from hydromodpy.solver.modflow6.builders import (
     extract_evt_payload_2d,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 
 @pytest.mark.parametrize(
@@ -65,7 +64,7 @@ def test_modflow6_extracts_evt_payload_from_negative_2d_recharge(
 
 
 def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow_regime = "transient"
     model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)

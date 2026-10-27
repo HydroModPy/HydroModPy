@@ -15,8 +15,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from pyproj import CRS
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString
 
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
@@ -24,10 +23,10 @@ from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReach
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.line_on_chain import chain_pieces
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.request import LineFamilySpec
+from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, mesh_request
 
-WKT = CRS.from_epsg(2154).to_wkt()
-X0, Y0 = 350_000.0, 6_780_000.0
+X0, Y0 = L93_ORIGIN
 _LENGTH_RTOL = 1e-9
 _ENGINES = (
     "regular",
@@ -61,20 +60,8 @@ REACHES = (
 def _cell_mesh(engine: str) -> PlanarCellMesh:
     river = LineString([*WEST.coords, *STUB.coords[1:], *MAIN.coords[1:]])
     return registry.create(engine).build(
-        MeshRequest(
-            domain=box(X0, Y0, X0 + 1000.0, Y0 + 1000.0),
-            crs_wkt=WKT,
-            grid=RasterGridSpec(
-                xmin=X0,
-                xmax=X0 + 1000.0,
-                ymin=Y0,
-                ymax=Y0 + 1000.0,
-                dx=25.0,
-                dy=25.0,
-                nrow=40,
-                ncol=40,
-                crs_wkt=WKT,
-            ),
+        mesh_request(
+            grid_spec(40, 40, 25.0, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT),
             nominal_size_m=50.0,
             lines=(LineFamilySpec("rivers", "cell", (river, EAST)),),
         )
@@ -99,7 +86,7 @@ def _model() -> SimpleNamespace:
     )
     payload = {
         "width": {"kind": "constant", "value": 2.0},
-        "reach_trace": SfrReachTrace(reaches=rows, crs_wkt=WKT),
+        "reach_trace": SfrReachTrace(reaches=rows, crs_wkt=LAMBERT93_WKT),
     }
     return SimpleNamespace(
         flow=SimpleNamespace(active_bc=["sfr"], sinks_sources={"sfr": {"net": payload}})

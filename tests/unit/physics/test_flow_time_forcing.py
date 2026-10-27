@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from types import SimpleNamespace
 
 import pandas as pd
@@ -70,6 +71,25 @@ def test_last_forcing_uses_latest_value_at_period_start() -> None:
     )
 
     assert values == [4.0, 8.0, 8.0]
+
+
+def test_a_state_record_read_with_last_is_not_a_coverage_question() -> None:
+    six_months = ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2020-01-01"),
+        end=pd.Timestamp("2020-06-30"),
+        step_value=1,
+        step_unit="month",
+        coverage_policy="error",
+    )
+    series = pd.Series([4.0], index=pd.to_datetime(["2019-06-01"]))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        values = aggregate_forcing_series(
+            series, simulation_window=six_months, label="well", aggregate="last"
+        )
+
+    assert values == [4.0] * 6
 
 
 def test_csv_forcing_rejects_resolved_length_that_differs_from_nper(tmp_path) -> None:

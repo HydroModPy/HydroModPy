@@ -23,11 +23,15 @@ def save_planar_mesh(
     path: str | Path,
     *,
     file_format: str | None = None,
+    crs: object = None,
 ) -> Path:
-    """Write one planar mesh through the stable package I/O surface."""
+    """Write one planar mesh through the stable package I/O surface.
+
+    A ``crs`` is written as WKT to ``<name>.prj`` next to the mesh.
+    """
     if not isinstance(mesh, GmshPlanarMesh2D):
         raise TypeError("mesh must be a GmshPlanarMesh2D instance")
-    return mesh.to_file(path, file_format=file_format)
+    return mesh.to_file(path, file_format=file_format, crs=crs)
 
 
 # ---------------------------------------------------------------------------

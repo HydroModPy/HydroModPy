@@ -29,8 +29,8 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     recharge_to_spd,
 )
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from tests._helpers.mf6_toy_models import toy_model
 
-from ._test_modflow6_boundary_conditions_builders import _build_model
 from .modflow_nwt._test_forcing_adapter_builders import _build_solver_mesh
 
 # Net rates of four periods, one of them a deficit.
@@ -77,7 +77,7 @@ def test_every_period_of_a_steady_run_takes_the_rule():
 
 
 def _mf6_model(*, nper: int, steady: list[bool], first_clim: object):
-    model = _build_model()
+    model = toy_model()
     model.nper = nper
     model.ncpl = 2
     model.steady = np.asarray(steady, dtype=bool)

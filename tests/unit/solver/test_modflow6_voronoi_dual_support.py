@@ -41,12 +41,11 @@ from hydromodpy.spatial.mesh.ops.voronoi import (
     domain_polygon_from_mesh,
     voronoi_planar_mesh,
 )
-from hydromodpy.spatial.mesh.request import MeshRequest, RasterGridSpec
 from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
+from tests._helpers.mesh_cases import grid_over, mesh_request
+from tests._helpers.mf6_toy_models import toy_model
 
 SIZE_M = 500.0
 N_SIDE = 6
@@ -144,23 +143,7 @@ def _triangles_and_dual(
     """Return the bundle triangles as a cell mesh, and their Voronoi dual with the river faces."""
     triangles = cell_mesh_from_bundle(bundle, crs_wkt=TEST_CRS_WKT)
     domain = domain_polygon_from_mesh(mesh)
-    xmin, ymin, xmax, ymax = domain.bounds
-    request = MeshRequest(
-        domain=domain,
-        crs_wkt=TEST_CRS_WKT,
-        grid=RasterGridSpec(
-            xmin=xmin,
-            xmax=xmax,
-            ymin=ymin,
-            ymax=ymax,
-            dx=xmax - xmin,
-            dy=ymax - ymin,
-            nrow=1,
-            ncol=1,
-            crs_wkt=TEST_CRS_WKT,
-        ),
-        nominal_size_m=SIZE_M / (N_SIDE - 1),
-    )
+    request = mesh_request(grid_over(domain), domain=domain, nominal_size_m=SIZE_M / (N_SIDE - 1))
     return triangles, dual_of_the_triangles(triangles, request)
 
 
@@ -181,7 +164,7 @@ def _grid_context(engine: str):
 
 
 def _model_on(ctx) -> object:
-    model = _build_model()
+    model = toy_model()
     model.grid_ctx = ctx
     model.solver_mesh = ctx.solver_mesh
     model.nlay = 1
@@ -390,7 +373,7 @@ def test_a_side_on_the_dual_takes_exactly_the_cells_centred_on_it() -> None:
 
 
 def test_a_corner_cell_belongs_to_both_sides_as_on_the_structured_grid() -> None:
-    structured = _build_model()  # 2 rows x 3 columns, cell 0 at the north-west corner
+    structured = toy_model()  # 2 rows x 3 columns, cell 0 at the north-west corner
     assert 0 in side_boundary_cell_ids(structured, "west_side")
     assert 0 in side_boundary_cell_ids(structured, "north_side")
 

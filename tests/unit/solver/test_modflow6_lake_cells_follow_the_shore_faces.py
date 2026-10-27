@@ -15,19 +15,18 @@ from importlib.util import find_spec
 import numpy as np
 import pytest
 import shapely
-from pyproj import CRS
-from shapely.geometry import LineString, Polygon, box
+from shapely.geometry import LineString, Polygon
 
 from hydromodpy.solver.modflow6.builders.lake import _drop_interior_rings, resolve_lake_cells
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
+from hydromodpy.spatial.mesh.request import LineFamilySpec
+from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, mesh_request
 
 pytestmark = pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
 
-WKT = CRS.from_epsg(2154).to_wkt()
-X0, Y0 = 350_000.0, 6_780_000.0
+X0, Y0 = L93_ORIGIN
 _AREA_RTOL = 1e-9
 
 
@@ -55,20 +54,8 @@ def _triangles(*, with_shores: bool) -> PlanarCellMesh:
         rings = (*_rings(LAKE), *_rings(ATOLL))
         lines = (LineFamilySpec("lakes", "face", rings, closed=True),)
     return registry.create("triangle").build(
-        MeshRequest(
-            domain=box(X0, Y0, X0 + 1000.0, Y0 + 1000.0),
-            crs_wkt=WKT,
-            grid=RasterGridSpec(
-                xmin=X0,
-                xmax=X0 + 1000.0,
-                ymin=Y0,
-                ymax=Y0 + 1000.0,
-                dx=25.0,
-                dy=25.0,
-                nrow=40,
-                ncol=40,
-                crs_wkt=WKT,
-            ),
+        mesh_request(
+            grid_spec(40, 40, 25.0, xmin=X0, ymin=Y0, crs_wkt=LAMBERT93_WKT),
             nominal_size_m=60.0,
             lines=lines,
         )

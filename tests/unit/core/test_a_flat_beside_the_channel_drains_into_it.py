@@ -14,7 +14,7 @@ import pytest
 
 from hydromodpy.core.descent import Descent, build_descent
 from hydromodpy.core.field_routing import domain_edge_cells
-from tests.unit.core._descent_meshes import grid_centres, grid_descent, triangle_mesh
+from tests._helpers.descent_cases import grid_centres, grid_descent, triangle_mesh
 
 N_ROWS, N_COLS, AXIS = 15, 9, 4
 FLOOR, RIM = 1.0, 10.0

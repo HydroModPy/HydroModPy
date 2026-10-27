@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 from hydromodpy.core.depression_filling import DEFAULT_EPSILON_M
-from tests.unit.core._descent_meshes import grid_descent
+from tests._helpers.descent_cases import grid_descent
 
 SPILL = 0.0
 HAIR = SPILL + DEFAULT_EPSILON_M + 2.0e-10

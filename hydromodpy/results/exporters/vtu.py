@@ -1,8 +1,20 @@
-"""Export simulation fields from Zarr to VTU (ParaView / PyVista)."""
+"""Export simulation fields from Zarr to VTU (ParaView / PyVista).
+
+A VTU file carries no CRS of its own. The run metadata goes into the
+``FieldData`` of the grid, which VTK, and so ParaView and PyVista, keep
+through a load and a save. A number is an ``Int32`` array of one value. A
+text is its UTF-8 bytes in a ``UInt8`` array, read back with
+``bytes(array).decode()``. A VTK ``String`` array would show as text in
+ParaView, but meshio refuses a whole file holding one, and meshio is how
+HydroModPy and many scripts read a VTU.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
 
 import numpy as np
 
@@ -11,6 +23,9 @@ from hydromodpy.results.exporters._fields import one_layer, read_field_step
 from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
+
+RUN_FIELD_DATA = ("sim_id", "crs_wkt", "epsg_code", "license", "hydromodpy_version")
+"""The run metadata a VTU carries in its ``FieldData``, each one when the run knows it."""
 
 
 def export_vtu(
@@ -22,6 +37,7 @@ def export_vtu(
     *,
     layer: int | None = None,
     values: np.ndarray | None = None,
+    metadata: Mapping[str, str | int] | None = None,
 ) -> Path:
     """Export one timestep of a field variable to a VTU file.
 
@@ -45,6 +61,10 @@ def export_vtu(
         from 0 at the top; a field of one layer keeps its bare name.
     values : numpy.ndarray, optional
         The per-cell values to write, when the caller computed them.
+    metadata : mapping of str to str or int, optional
+        Run metadata laid over the one the store holds, by ``FieldData``
+        name (:data:`RUN_FIELD_DATA`): the version of a run exported
+        before its seal writes it on the store.
 
     Returns
     -------
@@ -76,6 +96,7 @@ def export_vtu(
         vertices = mesh["vertices"][:]
         connectivity = mesh["face_node_connectivity"][:]
         data = values if values is not None else read_field_step(sz, sim_id, variable, timestep)
+        field_data = {**_stored_field_data(sz.root, sim_id), **dict(metadata or {})}
     finally:
         sz.close()
 
@@ -90,8 +111,61 @@ def export_vtu(
     }
     mesh_out = meshio.Mesh(points=vertices, cells=cells, cell_data=cell_data)
     meshio.write(str(output_path), mesh_out)
+    if output_path.suffix.lower() == ".vtu":
+        _write_field_data(output_path, field_data)
     logger.info("Exported VTU: %s", output_path)
     return output_path
+
+
+def _stored_field_data(root: Any, sim_id: str) -> dict[str, str | int]:
+    """Return the run metadata the store holds: its CRS, and its licence and version once sealed."""
+    crs = dict(root["crs"].attrs) if "crs" in root else {}
+    found = {
+        "sim_id": sim_id,
+        "crs_wkt": crs.get("crs_wkt"),
+        "epsg_code": crs.get("epsg_code"),
+        "license": root.attrs.get("license"),
+        "hydromodpy_version": root.attrs.get("hydromodpy_version"),
+    }
+    return {name: value for name, value in found.items() if value not in (None, "")}
+
+
+def _write_field_data(path: Path, values: Mapping[str, str | int]) -> None:
+    """Add ``values`` to the ``FieldData`` of the VTU meshio wrote at ``path``.
+
+    meshio writes no ``FieldData``, so the block is added to its XML, ahead of
+    the piece as VTK writes it. Only the names of :data:`RUN_FIELD_DATA` are
+    written. A destination named other than ``.vtu`` is another format meshio
+    picked from the suffix, and gets no block.
+    """
+    block = ElementTree.Element("FieldData")
+    for name in RUN_FIELD_DATA:
+        value = values.get(name)
+        if value is None:
+            continue
+        if isinstance(value, int) and not isinstance(value, bool):
+            vtk_type, items = "Int32", [int(value)]
+        else:
+            vtk_type, items = "UInt8", list(str(value).encode("utf-8"))
+        array = ElementTree.SubElement(
+            block,
+            "DataArray",
+            {
+                "type": vtk_type,
+                "Name": name,
+                "NumberOfTuples": str(len(items)),
+                "format": "ascii",
+            },
+        )
+        array.text = " ".join(str(item) for item in items)
+    if not len(block):
+        return
+    tree = ElementTree.parse(path)
+    grid = tree.getroot().find("UnstructuredGrid")
+    if grid is None:
+        raise ValueError(f"{path} holds no UnstructuredGrid: it is not a VTU file meshio wrote")
+    grid.insert(0, block)
+    tree.write(path, encoding="utf-8", xml_declaration=True)
 
 
 def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[str, np.ndarray]:

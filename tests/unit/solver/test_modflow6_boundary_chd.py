@@ -17,16 +17,15 @@ from hydromodpy.solver.modflow6.builders import (
     refuse_constant_heads_below_bottom,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-
-from ._test_modflow6_boundary_conditions_builders import (
-    _build_model,
-    _build_unstructured_model,
+from tests._helpers.mf6_toy_models import (
     regular_solver_mesh,
+    toy_model,
+    two_triangle_model,
 )
 
 
 def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=10.0),
@@ -46,7 +45,7 @@ def test_modflow6_builds_chd_from_scalar_and_transient_side_boundaries() -> None
 
 
 def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "north_side": SimpleNamespace(value=[7.0, 8.0]),
@@ -64,7 +63,7 @@ def test_modflow6_applies_first_boundary_value_to_start_heads() -> None:
 
 
 def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "east_side": FlowBoundaryConditionConfig(
@@ -86,7 +85,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
 
 
 def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=10.0),
@@ -104,7 +103,7 @@ def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> Non
 
 
 def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=[7.0, 8.0]),
@@ -120,7 +119,7 @@ def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh
 
 
 def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model(river_internal_edge=True)
+    model = two_triangle_model(river_internal_edge=True)
     model.flow = SimpleNamespace(
         boundary_conditions={
             "stream": SimpleNamespace(value=7.0),
@@ -136,7 +135,7 @@ def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> N
 
 
 def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model(river_internal_edge=True)
+    model = two_triangle_model(river_internal_edge=True)
     model.flow = SimpleNamespace(
         initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=2.0)),
         boundary_conditions={
@@ -151,7 +150,7 @@ def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> N
 
 
 def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model(boundary_labels_by_edge_id={1: "east_custom"})
+    model = two_triangle_model(boundary_labels_by_edge_id={1: "east_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=10.0),
@@ -174,7 +173,7 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
 
 
 def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> None:
-    model = _build_unstructured_model(boundary_labels_by_edge_id={0: "ditch_custom"})
+    model = two_triangle_model(boundary_labels_by_edge_id={0: "ditch_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
             "stream": FlowBoundaryConditionConfig(
@@ -197,7 +196,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 
 
 def _side_model_with_heads(west: float, east: float):
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=west),
@@ -278,7 +277,7 @@ def test_a_stream_head_overwritten_by_a_side_head_is_not_checked() -> None:
 def test_modflow6_reads_a_boundary_group_by_its_family_name_or_its_bare_name() -> None:
     labels = {1: "east_custom"}
     for support_label in ("east_custom", "boundary:east_custom"):
-        model = _build_unstructured_model(boundary_labels_by_edge_id=labels)
+        model = two_triangle_model(boundary_labels_by_edge_id=labels)
         model.flow = SimpleNamespace(
             boundary_conditions={
                 "east_side": SimpleNamespace(value=6.0, units="m", support_label=support_label)
@@ -290,7 +289,7 @@ def test_modflow6_reads_a_boundary_group_by_its_family_name_or_its_bare_name() -
 
 
 def test_modflow6_refuses_a_support_label_that_matches_no_cell() -> None:
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "east_side": SimpleNamespace(value=6.0, units="m", support_label="nowhere")
@@ -303,7 +302,7 @@ def test_modflow6_refuses_a_support_label_that_matches_no_cell() -> None:
 
 
 def test_modflow6_applies_a_support_label_on_a_regular_grid() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
             "west_side": SimpleNamespace(value=3.0, units="m", support_label="boundary:south")
@@ -316,7 +315,7 @@ def test_modflow6_applies_a_support_label_on_a_regular_grid() -> None:
 
 
 def test_modflow6_builds_a_stream_chd_on_the_river_chain_of_a_regular_grid() -> None:
-    model = _build_model()
+    model = toy_model()
     model.solver_mesh = regular_solver_mesh(2, 3, river=LineString([(0.5, 1.5), (1.5, 0.5)]))
     model.flow = SimpleNamespace(
         boundary_conditions={"stream": SimpleNamespace(value=7.0)},
@@ -334,7 +333,7 @@ def test_modflow6_builds_a_stream_chd_on_the_river_chain_of_a_regular_grid() -> 
 
 
 def test_modflow6_refuses_a_stream_chd_on_a_mesh_without_river_cells() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         boundary_conditions={"stream": SimpleNamespace(value=7.0)},
         active_bc=["stream"],
@@ -345,7 +344,7 @@ def test_modflow6_refuses_a_stream_chd_on_a_mesh_without_river_cells() -> None:
 
 
 def test_modflow6_cannot_pick_boundary_cells_without_a_solver_mesh() -> None:
-    model = _build_model()
+    model = toy_model()
     model.solver_mesh = None
     model.flow = SimpleNamespace(
         boundary_conditions={"west_side": SimpleNamespace(value=1.0)},

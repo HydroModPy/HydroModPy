@@ -12,6 +12,13 @@ stays for the bundles that are written by hand and committed:
 - ``bundle_cell_mesh``, which turns a bundle into a ``PlanarCellMesh`` for the
   mesh tests.
 
+The format is versioned. ``metadata.json`` declares its version in
+``bundle_schema_version``, which is :data:`BUNDLE_SCHEMA_VERSION` for every
+bundle this reader reads, and names its CRS in ``crs`` and its files in
+``files``. :data:`BUNDLE_COLUMNS` lists the columns of each CSV file with
+their meaning and unit, and a column it marks optional may be absent or left
+empty.
+
 It depends only on the Python standard library.
 """
 
@@ -21,7 +28,62 @@ import csv
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
+
+BUNDLE_SCHEMA_VERSION: Final[str] = "mesh_catchment_bundle_v1"
+"""Version of the bundle format, as ``metadata.json`` declares it."""
+
+OPTIONAL: Final[str] = "optional"
+"""Word that opens the description of a column a bundle may leave out."""
+
+BUNDLE_COLUMNS: Final[dict[str, dict[str, str]]] = {
+    "nodes.csv": {
+        "node_id": "Index of the node, from 0, in the order of the file",
+        "x": "x coordinate of the node, m, in the CRS of metadata.json",
+        "y": "y coordinate of the node, m, in the CRS of metadata.json",
+        "z_top": f"{OPTIONAL}: top elevation at the node, m",
+        "z_bottom": f"{OPTIONAL}: bottom elevation at the node, m",
+    },
+    "cells.csv": {
+        "cell_id": "Index of the cell, from 0, in the order of the file",
+        "geom_type": "Shape of the cell, such as triangle or polygon",
+        "ncvert": f"{OPTIONAL}: number of nodes of the cell; without it, every filled n<k> counts",
+        "n<k>": "Node ids of the cell in order around it, from n0; the columns past ncvert are empty",
+        "centroid_x": "x coordinate of the cell centre, m",
+        "centroid_y": "y coordinate of the cell centre, m",
+        "area_m2": "Area of the cell, m2",
+        "z_top_centroid": f"{OPTIONAL}: top elevation at the cell centre, m",
+        "z_top_mean": f"{OPTIONAL}: mean top elevation over the cell, m",
+        "z_bottom_centroid": f"{OPTIONAL}: bottom elevation at the cell centre, m",
+        "z_bottom_mean": f"{OPTIONAL}: mean bottom elevation over the cell, m",
+        "geology_code": f"{OPTIONAL}: integer code of the geology of the cell",
+        "geology_key": f"{OPTIONAL}: name of the geology of the cell",
+        "hydraulic_conductivity_m_s": f"{OPTIONAL}: hydraulic conductivity of the cell, m/s",
+        "storage_coefficient": f"{OPTIONAL}: storage coefficient of the cell, dimensionless",
+    },
+    "edges.csv": {
+        "edge_id": "Index of the edge, from 0, in the order of the file",
+        "node_a": "Node id at one end of the edge",
+        "node_b": "Node id at the other end of the edge",
+        "cell_a": "Cell id on one side of the edge",
+        "cell_b": f"{OPTIONAL}: cell id on the other side, empty on the boundary",
+        "length_m": "Length of the edge, m",
+        "edge_kind": "internal or boundary",
+        "is_river": f"{OPTIONAL}: true when the edge lies on a river",
+        "geology_a_key": f"{OPTIONAL}: name of the geology on the side of cell_a",
+        "geology_b_key": f"{OPTIONAL}: name of the geology on the side of cell_b",
+    },
+    "cell_geology_fractions.csv": {
+        "cell_id": "Cell id",
+        "geology_key": "Name of one geology the cell holds",
+        "fraction": "Share of the cell area that geology covers, from 0 to 1",
+    },
+}
+"""Columns of each CSV file of a bundle, with their meaning and unit.
+
+``n<k>`` stands for ``n0``, ``n1`` and so on, as many as the largest cell
+needs. ``cell_geology_fractions.csv`` is optional as a whole.
+"""
 
 
 def _parse_optional_float(raw_value: str) -> float | None:
@@ -549,6 +611,8 @@ def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
 
 
 __all__ = [
+    "BUNDLE_COLUMNS",
+    "BUNDLE_SCHEMA_VERSION",
     "CatchmentMeshBundle",
     "CatchmentMeshBundleCell",
     "CatchmentMeshBundleEdge",

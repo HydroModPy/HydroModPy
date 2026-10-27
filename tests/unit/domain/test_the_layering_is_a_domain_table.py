@@ -1,4 +1,8 @@
-"""The layering is ``[domain.layers]``, never a key of a solver ``sgrid`` table."""
+"""The layering is ``[domain.layers]``, never a key of a solver ``sgrid`` table.
+
+The refusal of ``sgrid.vertical`` itself is a row of the retired keys in
+``tests/unit/mesh/structured_grid/test_sgrid_config.py``.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +12,9 @@ from pydantic import ValidationError
 from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
-def test_a_solver_sgrid_vertical_key_is_refused_naming_domain_layers() -> None:
-    with pytest.raises(ValidationError, match=r"sgrid\.vertical is replaced by \[domain\.layers\]"):
-        SolverSGridConfig.model_validate({"vertical": {"nlay": 2}})
-
-
-def test_a_modflow6_sgrid_vertical_table_is_refused_too() -> None:
+def test_a_modflow6_sgrid_vertical_table_is_refused_naming_the_doctor_fix() -> None:
     with pytest.raises(ValidationError, match=r"hmp doctor --fix-config"):
         Modflow6Config.model_validate({"sgrid": {"vertical": {"nlay": 2}}})
 

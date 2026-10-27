@@ -18,6 +18,8 @@ import zarr
 from tests.characterization.comparator import (
     ADDITIVE_DETAIL,
     ADDITIVE_MEMBERS,
+    UGRID_DETAIL,
+    UGRID_MEMBERS,
     compare_run_dirs,
     render_markdown,
 )
@@ -192,3 +194,27 @@ def test_a_member_only_the_newer_run_holds_is_a_drift_when_the_older_run_has_the
         "tables.parquet/mesh_cell_families.parquet": "only in B",
         "manifest.json:artifacts (count)": "1 vs 2",
     }
+
+
+def test_the_ugrid_node_axes_are_held_when_the_older_run_lacks_them(tmp_path):
+    older = _run(tmp_path / "older", engine="regular", mesh_arrays=("face_x",))
+    newer = _run(
+        tmp_path / "newer", engine="regular", mesh_arrays=("face_x", "node_x", "node_y", "crs")
+    )
+
+    comparison = compare_run_dirs(older, newer)
+
+    assert comparison.ok, [v.target for v in comparison.drifted]
+    for target in sorted(UGRID_MEMBERS):
+        (verdict,) = _verdicts(comparison, target)
+        assert (verdict.within, verdict.detail) == (True, UGRID_DETAIL)
+
+
+def test_a_new_crs_is_a_drift_when_the_older_run_has_the_node_axes(tmp_path):
+    older = _run(tmp_path / "older", engine="regular", mesh_arrays=("node_x", "node_y"))
+    newer = _run(tmp_path / "newer", engine="regular", mesh_arrays=("node_x", "node_y", "crs"))
+
+    comparison = compare_run_dirs(older, newer)
+
+    (verdict,) = _verdicts(comparison, "fields.zarr/mesh/crs")
+    assert (verdict.within, verdict.detail) == (False, "only in B")

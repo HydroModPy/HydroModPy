@@ -12,9 +12,8 @@ from hydromodpy.solver.modflow6 import Modflow6, Modflow6Transport
 from hydromodpy.solver.modflow6.builders import build_evt_stress_period_data
 from hydromodpy.solver.modflow6.modflow6_config import _coerce_modflow6_config
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 _DELETED_DELEGATORS = (
     "_get_budget_records_or_none",
@@ -30,7 +29,7 @@ _DELETED_DELEGATORS = (
 
 
 def test_mf6_evt_extinction_depth_from_process_specific() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow_regime = "transient"
     model._evt_rate_payload = {0: 0.0, 1: 1.0e-6}
     model.modflow_config = _coerce_modflow6_config(

@@ -25,9 +25,8 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
+from tests._helpers.mf6_toy_models import toy_model, two_triangle_model
 from tests._helpers.solver_meshes import solver_mesh_from
-
-from ._test_modflow6_boundary_conditions_builders import _build_model, _build_unstructured_model
 
 # A unit square split on its diagonal is orthogonal; a 3:1 rectangle split the
 # same way skews the shared-edge connection by ~53 deg.
@@ -101,7 +100,7 @@ def _quad_solver_mesh(shear: float):
 
 
 def _model_on(solver_mesh: SolverMesh):
-    model = _build_unstructured_model()
+    model = two_triangle_model()
     model.solver_mesh = solver_mesh
     return model
 
@@ -210,7 +209,7 @@ def _with_tensor(model, *, k22_ratio: float, angle1: float | None = None):
 
 
 def test_off_axis_k22_on_a_structured_grid_turns_xt3d_on_with_a_runtime_warning() -> None:
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     assert model.solver_mesh.is_structured
     with pytest.warns(RuntimeWarning, match="about 10 times on ten layers") as caught:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
@@ -223,7 +222,7 @@ def test_off_axis_k22_on_a_structured_grid_turns_xt3d_on_with_a_runtime_warning(
 
 @pytest.mark.parametrize("angle1", [0.0, 90.0, -180.0, None])
 def test_k22_along_the_axes_of_a_structured_grid_leaves_xt3d_off(angle1: float | None) -> None:
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=angle1)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=angle1)
     with _no_runtime_warning():
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
@@ -231,7 +230,7 @@ def test_k22_along_the_axes_of_a_structured_grid_leaves_xt3d_off(angle1: float |
 
 
 def test_k22_equal_to_k_with_an_azimuth_leaves_xt3d_off() -> None:
-    model = _with_tensor(_build_model(), k22_ratio=1.0, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=1.0, angle1=30.0)
     with _no_runtime_warning():
         decision = resolve_xt3d_decision(model, model.solver_mesh)
     assert decision.enabled is False
@@ -249,7 +248,7 @@ def test_k22_on_a_near_orthogonal_unstructured_mesh_turns_xt3d_on(angle1: float 
 
 
 def test_the_runtime_warning_fires_once_per_model() -> None:
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     with pytest.warns(RuntimeWarning):
         first = resolve_xt3d_decision(model, model.solver_mesh)
     with _no_runtime_warning():
@@ -257,7 +256,7 @@ def test_the_runtime_warning_fires_once_per_model() -> None:
 
 
 def test_explicit_true_with_an_off_axis_k22_does_not_warn() -> None:
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     model.modflow_config = _with_override(model, True)
     with _no_runtime_warning(), _capture_advisor_logs(logging.WARNING) as records:
         decision = resolve_xt3d_decision(model, model.solver_mesh)
@@ -267,7 +266,7 @@ def test_explicit_true_with_an_off_axis_k22_does_not_warn() -> None:
 
 
 def test_explicit_false_with_an_off_axis_k22_raises_a_runtime_warning() -> None:
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     model.modflow_config = _with_override(model, False)
     with pytest.warns(RuntimeWarning, match="inconsistent"):
         decision = resolve_xt3d_decision(model, model.solver_mesh)
@@ -277,7 +276,7 @@ def test_explicit_false_with_an_off_axis_k22_raises_a_runtime_warning() -> None:
 
 def test_a_model_without_the_tensor_never_raises_the_runtime_warning() -> None:
     for model in (
-        _build_model(),
+        toy_model(),
         _model_on(_solver_mesh(_ORTHO)),
         _model_on(_quad_solver_mesh(1.0)),
     ):
@@ -287,7 +286,7 @@ def test_a_model_without_the_tensor_never_raises_the_runtime_warning() -> None:
 
 def test_the_warning_reaches_the_log_under_a_global_runtime_warning_ignore() -> None:
     """Importing flopy.plot ignores every RuntimeWarning, so the log line stands alone."""
-    model = _with_tensor(_build_model(), k22_ratio=0.1, angle1=30.0)
+    model = _with_tensor(toy_model(), k22_ratio=0.1, angle1=30.0)
     with warnings.catch_warnings(), _capture_advisor_logs(logging.WARNING) as records:
         warnings.simplefilter("ignore", RuntimeWarning)
         resolve_xt3d_decision(model, model.solver_mesh)

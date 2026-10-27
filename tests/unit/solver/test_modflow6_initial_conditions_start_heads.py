@@ -13,13 +13,12 @@ from hydromodpy.physics.flow.initial_conditions import (
 )
 from hydromodpy.solver.modflow6.builders import build_start_heads
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         initial_conditions=FlowInitialConditions(h=FlowICTop(id="h")),
         boundary_conditions={},
@@ -42,7 +41,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 
 
 def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
         boundary_conditions={},
@@ -64,7 +63,7 @@ def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> No
 
 
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         initial_conditions=FlowInitialConditions(h=FlowICBottom(id="h")),
         boundary_conditions={},

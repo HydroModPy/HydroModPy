@@ -24,9 +24,8 @@ from hydromodpy.solver.modflow_grid.active_connectivity import (
     warn_on_disconnected_active_cells,
 )
 from hydromodpy.solver.modflow_nwt.nwt.nwt_solver import ModflowNwt
+from tests._helpers.mf6_toy_models import regular_solver_mesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
-
-from ._test_modflow6_boundary_conditions_builders import regular_solver_mesh
 
 
 def _two_layers(mask_top: np.ndarray, mask_bottom: np.ndarray):

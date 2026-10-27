@@ -1,3 +1,11 @@
+"""Small MODFLOW 6 models for the unit tests of the boundary-condition builders.
+
+``toy_model`` is a ``Modflow6`` on a 2 x 3 regular grid of unit cells, two
+transient monthly periods. ``two_triangle_model`` swaps its grid for the two
+triangles of ``two_triangle_solver_mesh``. ``regular_solver_mesh`` is the solver
+mesh the ``regular`` engine builds on unit cells. Not public API.
+"""
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -5,8 +13,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
-from pyproj import CRS
-from shapely.geometry import LineString, box
+from shapely.geometry import LineString
 
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.solver.modflow6 import Modflow6
@@ -14,13 +21,14 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
-from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec
-from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
-
-_GRID_CRS_WKT = CRS.from_epsg(2154).to_wkt()
+from hydromodpy.spatial.mesh.request import LineFamilySpec
+from tests._helpers.cell_meshes import cell_mesh_of
+from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request
 
 
 class _DummyGeographic:
+    """The few geographic members the model reads, for a DEM of unit cells."""
+
     def __init__(self, dem: np.ndarray):
         self.dem_res = 1.0
         self.xmin = 0.0
@@ -40,21 +48,8 @@ def regular_solver_mesh(
     ``solver_mesh_from_structured_arrays`` does not. ``river`` is a line the engine
     rasterizes into a chain of river cells.
     """
-    request = MeshRequest(
-        domain=box(0.0, 0.0, float(ncol), float(nrow)),
-        crs_wkt=_GRID_CRS_WKT,
-        grid=RasterGridSpec(
-            xmin=0.0,
-            xmax=float(ncol),
-            ymin=0.0,
-            ymax=float(nrow),
-            dx=1.0,
-            dy=1.0,
-            nrow=nrow,
-            ncol=ncol,
-            crs_wkt=_GRID_CRS_WKT,
-        ),
-        nominal_size_m=1.0,
+    request = mesh_request(
+        grid_spec(nrow, ncol, crs_wkt=LAMBERT93_WKT),
         lines=() if river is None else (LineFamilySpec("rivers", "cell", (river,)),),
     )
     cell_mesh = RegularMeshEngine().build(request)
@@ -67,7 +62,8 @@ def regular_solver_mesh(
     )
 
 
-def _build_model() -> Modflow6:
+def toy_model() -> Modflow6:
+    """Return a ``Modflow6`` on the 2 x 3 regular grid, one layer, two transient monthly periods."""
     dem = np.array([[10.0, 10.0, 10.0], [10.0, 10.0, 10.0]], dtype=float)
     geo = _DummyGeographic(dem)
     model = Modflow6(geographic=geo, model_folder=".")
@@ -89,7 +85,7 @@ def _build_model() -> Modflow6:
     return model
 
 
-def _build_unstructured_runtime(
+def two_triangle_solver_mesh(
     *,
     river_internal_edge: bool = False,
     boundary_labels_by_edge_id: dict[int, str] | None = None,
@@ -140,13 +136,14 @@ def _build_unstructured_runtime(
     )
 
 
-def _build_unstructured_model(
+def two_triangle_model(
     *,
     river_internal_edge: bool = False,
     boundary_labels_by_edge_id: dict[int, str] | None = None,
 ) -> Modflow6:
-    model = _build_model()
-    model.solver_mesh = _build_unstructured_runtime(
+    """Return ``toy_model`` on the two triangles of ``two_triangle_solver_mesh``."""
+    model = toy_model()
+    model.solver_mesh = two_triangle_solver_mesh(
         river_internal_edge=river_internal_edge,
         boundary_labels_by_edge_id=boundary_labels_by_edge_id,
     )

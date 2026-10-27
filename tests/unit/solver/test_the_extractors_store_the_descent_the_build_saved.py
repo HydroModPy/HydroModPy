@@ -20,8 +20,8 @@ from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
 from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 
 TOP = np.array([[5.0, 4.0, 3.0], [4.0, 1.0, 2.0], [6.0, 5.0, 4.0]])
 N_CELLS = TOP.size

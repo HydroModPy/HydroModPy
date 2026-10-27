@@ -8,6 +8,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.gmsh_reader import (
     GmshMeshData,
     meshio_to_mesh_data,
     normalize_cell_type,
+    projection_path,
     read_gmsh_2d_mesh,
     write_gmsh_2d_mesh,
 )
@@ -78,3 +79,48 @@ def test_meshio_roundtrip_and_mixed_selection(tmp_path):
     assert reread.cell_type == "triangle"
     assert reread.n_cells == 2
     assert np.allclose(reread.points_xy, points[:, :2])
+
+
+def _one_triangle() -> GmshMeshData:
+    return GmshMeshData(
+        points_xy=np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]),
+        cell_blocks=(GmshCellBlock(cell_type="triangle", connectivity=np.array([[0, 1, 2]])),),
+    )
+
+
+def test_a_mesh_written_with_a_crs_gets_a_projection_file_read_back(tmp_path):
+    from pyproj import CRS
+
+    path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle(), crs="EPSG:2154")
+
+    assert projection_path(path) == tmp_path / "catchment.prj"
+    assert CRS.from_wkt(projection_path(path).read_text(encoding="utf-8")) == CRS.from_epsg(2154)
+    reread = read_gmsh_2d_mesh(path)
+    assert CRS.from_wkt(reread.crs_wkt) == CRS.from_epsg(2154)
+    assert reread.n_cells == 1
+
+    again = write_gmsh_2d_mesh(tmp_path / "copy.msh", reread)
+    assert read_gmsh_2d_mesh(again).crs_wkt == reread.crs_wkt
+
+
+def test_a_mesh_written_without_a_crs_gets_no_projection_file(tmp_path):
+    path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle())
+
+    assert not projection_path(path).exists()
+    assert read_gmsh_2d_mesh(path).crs_wkt is None
+
+
+def test_an_empty_projection_file_reads_as_no_crs(tmp_path):
+    path = write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle())
+    projection_path(path).write_text("\n", encoding="utf-8")
+
+    assert read_gmsh_2d_mesh(path).crs_wkt is None
+
+
+def test_a_crs_pyproj_cannot_read_is_refused_before_the_mesh_is_written(tmp_path):
+    from pyproj.exceptions import CRSError
+
+    with pytest.raises(CRSError):
+        write_gmsh_2d_mesh(tmp_path / "catchment.msh", _one_triangle(), crs="not a crs")
+
+    assert not (tmp_path / "catchment.msh").exists()

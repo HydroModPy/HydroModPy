@@ -22,8 +22,8 @@ from hydromodpy.core.topographic_distance import (
     resolve_diagonal_neighbors,
     shared_node_adjacency,
 )
+from tests._helpers.descent_cases import grid_centres, triangle_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_centres, triangle_mesh
 
 N = 12
 

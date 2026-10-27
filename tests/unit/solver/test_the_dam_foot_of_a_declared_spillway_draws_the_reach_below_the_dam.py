@@ -18,8 +18,8 @@ from hydromodpy.solver.modflow_common.mesh_descent import resolve_dam_foot_cells
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 from tests.unit.core._heads_dam import (
     AXIS,
     CELL,

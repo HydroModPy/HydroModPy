@@ -20,9 +20,8 @@ from hydromodpy.solver.modflow6.builders import build_start_heads
 from hydromodpy.solver.modflow6.builders.initial_conditions import verify_restart_mesh
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from tests._helpers.mf6_toy_models import toy_model
 from tests._helpers.regular_cell_meshes import regular_cell_mesh
-
-from ._test_modflow6_boundary_conditions_builders import _build_model
 
 # Lambert-93 magnitudes: flopy keeps 1e-3 m in x (3.5e5) and 1e-2 m in y (6.8e6).
 _XMIN, _YMIN = 350_000.0, 6_800_000.0
@@ -129,7 +128,7 @@ def test_a_store_without_a_mesh_keeps_the_cell_count_rule_and_warns(
 
 
 def _model(restart_from: str) -> SimpleNamespace:
-    model = _build_model()
+    model = toy_model()
     model.flow = SimpleNamespace(
         initial_conditions=None,
         boundary_conditions={},

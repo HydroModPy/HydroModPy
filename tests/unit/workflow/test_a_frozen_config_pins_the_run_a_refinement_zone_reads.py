@@ -25,14 +25,12 @@ from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.spatial.mesh.config.mesh import MeshConfig
-from hydromodpy.spatial.mesh.planning import PlanningInputs
 from hydromodpy.spatial.mesh.planning.refinement import (
     CriterionInputs,
     RefinementZone,
     load_refinement_zones,
 )
 from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
-from hydromodpy.spatial.mesh.request import RasterGridSpec
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import _zone_runs, step_mesh
 from hydromodpy.workflow.steps.mesh_run_fields import read_run_fields
@@ -40,12 +38,11 @@ from hydromodpy.workflow.steps.prepare_solver.dispatch import (
     _freeze_run_config,
     frozen_config_document,
 )
+from tests._helpers.mesh_cases import grid_spec, planning_inputs
 from tests._helpers.run_stores import open_run_store
 
 CELL = 100.0
-GRID = RasterGridSpec(
-    xmin=0.0, xmax=200.0, ymin=0.0, ymax=200.0, dx=25.0, dy=25.0, nrow=8, ncol=8, crs_wkt="x"
-)
+GRID = grid_spec(8, 8, 25.0)
 ZONE = {"where": "watertable_depth", "below": 0.5, "run": "coarse", "cell_size": 25.0}
 
 
@@ -97,7 +94,7 @@ def _read_by_the_mesh_step(project: Path, cfg: HydroModPyConfig) -> dict[str, st
         zones,
         config_dir=None,
         data_dir=None,
-        crs_wkt="x",
+        crs_wkt=GRID.crs_wkt,
         criteria=CriterionInputs(
             grid=GRID,
             elevation=np.zeros((8, 8)),
@@ -256,23 +253,7 @@ def test_the_mesh_step_keeps_nothing_when_the_planner_dropped_a_zone() -> None:
 
 
 def test_the_summary_of_the_mesh_step_carries_the_zone_runs(tmp_path: Path, monkeypatch) -> None:
-    grid = RasterGridSpec(
-        xmin=0.0, xmax=1000.0, ymin=0.0, ymax=1000.0, dx=100.0, dy=100.0, nrow=10, ncol=10,
-        crs_wkt="x",
-    )  # fmt: skip
-    inputs = PlanningInputs(
-        dem_grid=grid,
-        crs_wkt="x",
-        domain=box(0.0, 0.0, 1000.0, 1000.0),
-        river_trace=None,
-        watershed=None,
-        lakes=(),
-        lake_structures=(),
-        geology=None,
-        refinement_zones=(_planned("3" * 32),),
-        input_triangulation=None,
-        synthetic=True,
-    )
+    inputs = planning_inputs(grid_spec(10, 10, 100.0), refinement_zones=(_planned("3" * 32),))
     monkeypatch.setattr(mesh_module, "planning_inputs", lambda ctx, mesh_cfg: inputs)
     mesh = MeshConfig(engine="regular", refinement_zone=[ZONE])
     ctx = SimpleNamespace(

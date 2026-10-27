@@ -21,8 +21,8 @@ from hydromodpy.results.run.contracts import Mesh
 from hydromodpy.results.run.descent import RunDescent, load_descent, read_basin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
-from tests.unit.core._descent_meshes import grid_descent
 
 NROW = NCOL = 4
 N_CELLS = NROW * NCOL

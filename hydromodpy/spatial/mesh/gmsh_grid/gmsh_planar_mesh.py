@@ -200,8 +200,10 @@ class GmshPlanarMesh2D(BaseFieldMesh):
     def to_meshio(self):
         return mesh_data_to_meshio(self.to_mesh_data())
 
-    def to_file(self, path: str | Path, *, file_format: str | None = None) -> Path:
-        return write_gmsh_2d_mesh(path, self.to_mesh_data(), file_format=file_format)
+    def to_file(
+        self, path: str | Path, *, file_format: str | None = None, crs: object = None
+    ) -> Path:
+        return write_gmsh_2d_mesh(path, self.to_mesh_data(), file_format=file_format, crs=crs)
 
     def as_dict(self):
         payload = super().as_dict()
