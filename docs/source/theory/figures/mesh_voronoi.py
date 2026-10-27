@@ -8,10 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import Delaunay
 
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.ops.mesh_orthogonality import connection_nonorthogonality_deg
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh, voronoi_planar_mesh
+from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
 
 
 def triangles(vertices, cells):

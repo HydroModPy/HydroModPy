@@ -1,0 +1,93 @@
+"""Adapters between ``HydroMesh`` and the field/mesh layer.
+
+These functions bridge the existing ``BaseFieldMesh`` hierarchy
+(``StructuredFieldMesh``, triangular field meshes, ``GmshPlanarMesh2D``) and the
+unified ``HydroMesh`` pivot.
+
+This module is deliberately pragmatic: it recognizes the small set of mesh
+objects that HydroModPy itself emits today and converts them into a single
+container with minimal additional policy.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+
+if TYPE_CHECKING:
+    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
+
+
+def from_field_mesh(field_mesh) -> HydroMesh:
+    """Convert any ``BaseFieldMesh`` subclass into a ``HydroMesh``.
+
+    Works for:
+    - ``StructuredFieldMesh`` (quadrilateral, 2D grid layout)
+    - ``TriangularStructuredFieldMesh`` / ``TriangularUnstructuredFieldMesh``
+    - ``GmshPlanarMesh2D``
+
+    Notes
+    -----
+    The function currently uses lightweight attribute detection rather than a
+    formal protocol.  This is convenient, but it is also one of the places
+    where a future refactor could make the mesh layer stricter.
+    """
+    # GmshPlanarMesh2D has explicit points_xy and connectivity
+    if hasattr(field_mesh, "points_xy") and hasattr(field_mesh, "connectivity"):
+        return from_gmsh_planar(field_mesh)
+
+    # Structured or triangular mesh: reconstruct from cells
+    x = np.asarray(field_mesh.x_plot, dtype=float)
+    y = np.asarray(field_mesh.y_plot, dtype=float)
+    vertices = np.column_stack((x.reshape(-1), y.reshape(-1)))
+
+    cells = tuple(field_mesh.cells)
+    if not cells:
+        raise ValueError("field_mesh has no cells")
+
+    first_kind = cells[0].kind
+    ct = CellType.from_string(first_kind)
+    connectivity = np.array([cell.node_indices for cell in cells], dtype=int)
+
+    structured_shape = None
+    if x.ndim == 2:
+        ny, nx = x.shape
+        structured_shape = (ny - 1, nx - 1)
+
+    return HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(cell_type=ct, connectivity=connectivity),),
+        structured_shape=structured_shape,
+    )
+
+
+def from_gmsh_planar(planar_mesh) -> HydroMesh:
+    """Convert a planar Gmsh-like mesh object into a ``HydroMesh``."""
+    points_xy = np.asarray(planar_mesh.points_xy, dtype=float)
+    connectivity = np.asarray(planar_mesh.connectivity, dtype=int)
+    ct = CellType.from_string(planar_mesh.cell_type)
+
+    return HydroMesh(
+        vertices=points_xy,
+        cell_blocks=(CellBlock(cell_type=ct, connectivity=connectivity),),
+    )
+
+
+def to_field_mesh(mesh: HydroMesh) -> BaseFieldMesh:
+    """Return the field mesh that samples fields on the cells of a planar ``HydroMesh``.
+
+    Triangles and quadrilaterals keep their own cell kind, so a field is sampled
+    on them as it is on a Gmsh planar mesh; ragged polygons (a Voronoi dual) are
+    sampled by area through ``PolygonFieldMesh``.
+    """
+    if CellType.POLYGON in mesh.cell_types:
+        from hydromodpy.spatial.field.meshes.polygon_field_mesh import PolygonFieldMesh
+
+        return PolygonFieldMesh(mesh)
+    from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
+
+    return GmshPlanarMesh2D.from_hydro_mesh(mesh)

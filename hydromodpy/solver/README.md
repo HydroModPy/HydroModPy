@@ -17,7 +17,7 @@ rules, how a run reaches a backend, and where to add what.
 | `base/` | what every backend shares: the `SolverAdapter` Protocol (`adapter_protocol.py`), the registry of adapters and extractors with its entry-point groups (`registry.py`), `SolverConfig` (`solver_config.py`, the `[solver]` table), the observable contracts (`observables.py`, `observable_support.py`), cell lookup by coordinates, the child-process switch (`api_isolation.py`), scratch cleanup |
 | `contracts.py` | the public import path of `SolverAdapter`, `RunResult`, `SolverConfig` and `registry` |
 | `field_property_mapping.py`, `initial_conditions.py`, `steady_initial_conditions.py` | helpers all backends use: field-based property mapping, head initial conditions, same-solver steady-state initial conditions |
-| `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes, `SolverGridContext`, spatial and temporal discretization builders |
+| `modflow_grid/` | the grid description the MODFLOW family reads: `SolverMesh` for structured and unstructured meshes and its DISV arguments, `SolverGridContext`, spatial and temporal discretization builders, the `sgrid` table of the top sampling (`sgrid_config.py`) |
 | `modflow_common/` | what MODFLOW 6 and MODFLOW-NWT do the same way: binary resolution and download, boundary-package descriptors, budget names, calibration readers, property mapping, discharge routing, descent of the mesh, the flow-adapter lifecycle (`flow_adapter_helpers.py`) |
 | `modflow6/` | MODFLOW 6 through FloPy: `build.py` (package wiring), `builders/` (one module per package: CHD and DRN, recharge and EVT, wells, LAK, SFR, MVR, HFB, solver options), `run.py`, `api/` (libmf6, in process or in a subprocess), `adapters/` (flow, GWT transport, PRT), `extractors/`, `postprocess/`, `support/`, `modflow6_config.py` |
 | `modflow_nwt/` | MODFLOW-NWT through FloPy: `nwt/` (solver, pre and post processing, payload builders, `nwt_config.py`), `adapters/` (flow, MODPATH, MT3DMS), `modpath/`, `mt3dms/`, `extractors/` |
@@ -59,7 +59,7 @@ the package root.
 hydromodpy/solver/
   __init__.py  contracts.py  field_property_mapping.py  initial_conditions.py  steady_initial_conditions.py
   base/          adapter_protocol.py  registry.py  solver_config.py  observables.py  observable_support.py ...
-  modflow_grid/  solver_mesh.py  grid_context.py  discretization_spatial.py  discretization_temporal.py
+  modflow_grid/  solver_mesh.py  grid_context.py  discretization_spatial.py  discretization_temporal.py  sgrid_config.py
   modflow_common/  flow_adapter_helpers.py  binaries.py  boundary_packages.py  property_mapping.py ...
   modflow6/      build.py  run.py  builders/  api/  adapters/  extractors/  postprocess/  support/
   modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/

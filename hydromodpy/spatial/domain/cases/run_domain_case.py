@@ -40,13 +40,13 @@ from hydromodpy.spatial.domain.build import (
     read_layer_base_sources,
     read_substratum_source,
 )
+from hydromodpy.spatial.geographic.cases.plotting_utils import maximize_figure_windows
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import DomainGeographicContext
 from hydromodpy.spatial.geographic.structure_binders import (
     build_catchment_zone_field_from_geographic,
 )
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
-from hydromodpy.spatial.mesh.plot_window_utils import maximize_figure_windows
 
 
 def _is_non_interactive_backend(backend_name: str) -> bool:

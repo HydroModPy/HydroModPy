@@ -17,8 +17,9 @@ from rasterio.transform import Affine
 from shapely.geometry import Polygon, box, shape
 
 from hydromodpy.core.state.run_state import WorkflowContext
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
-from hydromodpy.spatial.mesh.planning import PlanningInputs, smoothed_catchment
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
+from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
+from hydromodpy.spatial.mesh.planning.plan import smoothed_catchment
 from hydromodpy.workflow.steps.mesh import step_mesh
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, planning_inputs
 

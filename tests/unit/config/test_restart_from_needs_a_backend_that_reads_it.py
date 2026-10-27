@@ -22,7 +22,7 @@ from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.solver.base.registry import capabilities
 from hydromodpy.solver.base.solver_config import SolverConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
 RESTART_CAPABILITY = "flow:restart"
 

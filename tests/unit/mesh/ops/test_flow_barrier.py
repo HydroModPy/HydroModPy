@@ -21,14 +21,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.spatial.mesh.ops.flow_barrier import (
-    barrier_edges,
-    barrier_faces_from_line,
-    cutoff_wall_faces,
-    downstream_of_wall,
-    lake_shore_faces,
-    wall_leaks,
-)
+from hydromodpy.spatial.mesh.ops.flow_barrier import barrier_edges, barrier_faces_from_line
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
 from tests._helpers.mesh_cases import regular_mesh
@@ -150,33 +143,6 @@ def test_the_barrier_reads_the_centres_of_the_cell_mesh() -> None:
     assert barrier_faces_from_line(shifted, line) == []
 
 
-# A 6 x 6 grid with the lake on the 2 x 6 strip of its two western columns. The wall
-# runs north along x = 2, lake on its left, across the whole grid.
-_LAKE = [j * 6 + i for j in range(6) for i in range(2)]
-_WALL = LineString([(2.0, 0.0), (2.0, 6.0)])
-
-
-def test_a_point_round_the_end_of_the_wall_is_not_downstream() -> None:
-    points = np.array([[2.5, 3.0], [1.5, 3.0], [2.5, 7.0], [2.0, 3.0]])
-    assert downstream_of_wall(_WALL, points).tolist() == [True, False, False, False]
-
-
-def test_the_shore_faces_are_the_lake_faces_across_the_wall() -> None:
-    cell_mesh = _quad_grid(6, 6)
-    rows = lake_shore_faces(cell_mesh, _WALL, np.array(_LAKE))
-    pairs = {tuple(pair) for pair in cell_mesh.geometry.edge_cells[rows].tolist()}
-    assert pairs == {(j * 6 + 1, j * 6 + 2) for j in range(6)}
-
-
-def test_a_wall_missing_a_face_leaks_and_a_whole_wall_does_not() -> None:
-    cell_mesh = _quad_grid(6, 6)
-    lake = np.array(_LAKE)
-    faces = cutoff_wall_faces(cell_mesh, _WALL, lake)
-    assert len(faces) == 6
-    assert wall_leaks(cell_mesh, _WALL, lake, faces, reach=3.0).size == 0
-    assert wall_leaks(cell_mesh, _WALL, lake, faces[1:], reach=3.0).size > 0
-
-
 def test_a_barrier_bars_the_face_of_a_ragged_mesh() -> None:
     # A left pentagon and a right quad share the edge (1, 0)-(1, 1); a line along it
     # crosses their centre segment and bars that face.
@@ -194,12 +160,6 @@ def test_a_barrier_bars_the_face_of_a_ragged_mesh() -> None:
 
 def test_a_mesh_of_one_cell_has_no_face_to_bar() -> None:
     assert barrier_faces_from_line(_quad_grid(1, 1), LineString([(0.5, -1.0), (0.5, 2.0)])) == []
-
-
-def test_a_wall_away_from_the_lake_and_the_mesh_bars_nothing() -> None:
-    far = LineString([(20.0, 0.0), (20.0, 6.0)])
-
-    assert cutoff_wall_faces(_quad_grid(6, 6), far, np.array(_LAKE)) == []
 
 
 # A mesh whose faces follow its lines: 4 columns and 3 rows of 10 m cells, row 0 north.

@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import to_field_mesh
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
+from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
     CatchmentMeshBundleCell,
     CatchmentMeshBundleEdge,

@@ -14,14 +14,14 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.sgrid_config import (
+    SolverSGridConfig,
+    TopSamplingConfig,
+)
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import (
-    SolverSGridConfig,
-    TopSamplingConfig,
-)
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface
 
 _PIXEL = 25.0

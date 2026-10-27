@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.simulation.extraction.post_run import _resolve_run_grid_metadata
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 
 def _triangular_planar_mesh() -> HydroMesh:

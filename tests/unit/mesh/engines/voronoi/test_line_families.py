@@ -19,11 +19,12 @@ from shapely.geometry import LineString, Polygon, box
 
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall
+from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, downstream_of_wall, wall_leaks
-from hydromodpy.spatial.mesh.planning.resample import resample_families
+from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
+from hydromodpy.spatial.mesh.resample import resample_families
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request, uniform_size_field
 
 X0, Y0 = L93_ORIGIN

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,6 +15,10 @@ from hydromodpy.solver.modflow_grid.grid_context import (
     SolverGridContext,
     grid_reference_from_solver_mesh,
 )
+from hydromodpy.solver.modflow_grid.sgrid_config import (
+    SolverSGridConfig,
+    TopSamplingConfig,
+)
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.domain.layering import (
     assert_bottom_below_top,
@@ -21,11 +27,6 @@ from hydromodpy.spatial.domain.layering import (
 )
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import (
-    SolverSGridConfig,
-    TopSamplingConfig,
-)
-from hydromodpy.spatial.mesh.structured_grid.sgrid_generation import StructuredGridBuilder
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
@@ -533,6 +534,116 @@ def _assert_grid_matches_cell_mesh(support: RasterSupport, cell_mesh: PlanarCell
         )
 
 
+@dataclass(frozen=True)
+class StructuredGridSpec:
+    """The vertical part of a structured grid: top, layer bottoms and ``idomain``.
+
+    ``top`` has the shape of the surfaces, ``botm`` and ``idomain`` one more
+    axis for the layers. ``idomain`` is 1 active, 0 outside the domain, -1 a
+    pinched cell of a layering by surfaces.
+    """
+
+    top: np.ndarray
+    botm: np.ndarray
+    nlay: int
+    idomain: np.ndarray
+
+
+class StructuredGridBuilder:
+    """Build the vertical part of a regular grid from two absolute-elevation surfaces.
+
+    ``top_surface`` and ``bottom_surface`` are absolute altitudes in the same
+    datum, and the builder never adds one to the other. The geometry is metric.
+    The planar grid is not built here. It is the mesh of the regular engine, and
+    ``Surface.resample_to_shape(...)`` resamples the surfaces to its shape
+    beforehand. The builder checks that the surfaces describe the same domain,
+    asks :func:`hydromodpy.spatial.domain.layering.layer_stack`, which the
+    unstructured extrusion calls too, for the layer bottoms and the ``idomain``,
+    and returns them with the top in a :class:`StructuredGridSpec`.
+    """
+
+    def __init__(self):
+        # No hidden state: deterministic transformations only.
+        pass
+
+    def build_from_surfaces(
+        self,
+        top_surface: Surface,
+        bottom_surface: Surface,
+        vertical_config: VerticalGridConfig | Mapping[str, object] | None = None,
+        base_surfaces: Mapping[str, Surface] | None = None,
+    ) -> StructuredGridSpec:
+        """
+        Build one structured grid from two absolute-elevation surfaces.
+
+        The method intentionally separates three steps:
+        1. Validate horizontal/geometric compatibility of inputs.
+        2. Build `botm` and `idomain` with :func:`layer_stack`.
+        3. Return a `StructuredGridSpec`.
+
+        ``base_surfaces`` holds the layer bases a layering by surfaces reads, on
+        the grid of ``top_surface``.
+        """
+        cfg = coerce_vertical_config(vertical_config)
+
+        # 1) Horizontal compatibility checks.
+        #    "Same geographic domain" means same CRS + same spatial extent.
+        top_surface.assert_same_geographic_domain(bottom_surface)
+
+        support = top_surface.support
+        if support is None:
+            raise ValueError("Top surface must carry a RasterSupport.")
+        support.assert_complete_domain()
+
+        top = np.asarray(top_surface.as_array(), dtype=float)
+        bot = np.asarray(bottom_surface.as_array(), dtype=float)
+        if top.shape != bot.shape:
+            raise ValueError(
+                "top_surface and bottom_surface must have the same discretization "
+                f"before vertical grid construction: top{top.shape} != bottom{bot.shape}. "
+                "Use Surface.resample_to_shape(...) beforehand."
+            )
+
+        nodata = float(cfg.nodata)
+
+        # Mask invalid cells consistently in both surfaces.
+        invalid = ~np.isfinite(top) | ~np.isfinite(bot) | (top <= nodata) | (bot <= nodata)
+        top = np.array(top, dtype=float, copy=True)
+        bot = np.array(bot, dtype=float, copy=True)
+        top[invalid] = nodata
+        bot[invalid] = nodata
+
+        assert_bottom_below_top(top=top, bot=bot, nodata=nodata)
+
+        # 2) Layer bottoms and idomain from config.
+        bases = {}
+        for name, surface in (base_surfaces or {}).items():
+            values = np.asarray(surface.as_array(), dtype=float)
+            if values.shape != top.shape:
+                raise ValueError(
+                    f"The layer base {name!r} has shape {values.shape}, the top {top.shape}."
+                )
+            bases[name] = values
+        stack = layer_stack(
+            top=top, bottom=bot, invalid=invalid, vertical_config=cfg, bases=bases, nodata=nodata
+        )
+
+        # The planar grid is the mesh's, the steps of the support are only checked.
+        width = float(support.xmax) - float(support.xmin)
+        height = float(support.ymax) - float(support.ymin)
+        dx = float(support.dx) if support.dx is not None else width / int(support.ncols)
+        dy = float(support.dy) if support.dy is not None else height / int(support.nrows)
+        if dx <= 0 or dy <= 0:
+            raise ValueError(f"Invalid support cell sizes: dx={dx}, dy={dy}.")
+
+        return StructuredGridSpec(
+            top=top,
+            botm=stack.botm,
+            nlay=int(stack.botm.shape[0]),
+            idomain=stack.idomain,
+        )
+
+
 def _build_structured_solver_mesh(
     *,
     cell_mesh: PlanarCellMesh,
@@ -687,6 +798,8 @@ def build_spatial_discretization(
 
 
 __all__ = [
+    "StructuredGridBuilder",
+    "StructuredGridSpec",
     "build_spatial_discretization",
     "resolve_domain_surfaces",
     "resolve_layer_bases",

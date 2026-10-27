@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 from hydromodpy.core.toml_io.loader import merge_toml_payloads
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s

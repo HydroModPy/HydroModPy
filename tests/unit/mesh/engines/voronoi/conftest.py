@@ -14,8 +14,8 @@ from shapely.geometry import LineString, Polygon
 
 from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_shore
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import MeshRequest

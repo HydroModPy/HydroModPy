@@ -19,13 +19,11 @@ from pyproj import CRS
 from shapely.geometry import LineString, Polygon, box
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.adapters.cell_mesh import cell_mesh_from_regular_grid
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
-from hydromodpy.spatial.mesh.model.grid_wrappers import RegularGrid
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+from hydromodpy.spatial.mesh.model.regular_grid import RegularGrid, cell_mesh_from_regular_grid
 from hydromodpy.spatial.mesh.planning.input_mesh import read_input_triangulation
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.resample import resample_families
 from hydromodpy.spatial.mesh.request import (
     InputTriangulation,
     LineFamilySpec,
@@ -33,6 +31,7 @@ from hydromodpy.spatial.mesh.request import (
     RasterGridSpec,
     SizeField,
 )
+from hydromodpy.spatial.mesh.resample import resample_families
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 
 __all__ = [

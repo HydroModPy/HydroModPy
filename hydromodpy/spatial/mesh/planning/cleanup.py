@@ -26,9 +26,9 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.config.mesh import MeshFamiliesConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshFamiliesConfig
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
-from hydromodpy.spatial.mesh.planning.resample import node_tolerance
+from hydromodpy.spatial.mesh.resample import node_tolerance
 
 __all__ = [
     "CLEANUP_PIXEL_SHARE",

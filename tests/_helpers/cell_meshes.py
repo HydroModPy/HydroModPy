@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_gmsh_planar
+from hydromodpy.spatial.field.meshes.field_mesh_adapter import from_gmsh_planar
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,

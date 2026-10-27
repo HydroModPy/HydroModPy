@@ -232,7 +232,7 @@ def network_comparison_from_run(
     if reason is not None:
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
-    from hydromodpy.spatial.mesh.ops.network_heads import network_head_candidates
+    from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
     from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
         cell_polygons,
         line_crossing_cell_mask,

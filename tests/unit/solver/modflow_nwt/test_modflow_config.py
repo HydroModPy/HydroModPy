@@ -7,11 +7,11 @@ import pytest
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.solver.modflow6 import Modflow6Config
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
 
 
 def test_modflow_config_defaults_match_runtime_defaults():

@@ -19,8 +19,8 @@ from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
     relax,
     weighted_centroids,
 )
-from hydromodpy.spatial.mesh.planning.resample import positions_at_local_size
 from hydromodpy.spatial.mesh.request import SizeField
+from hydromodpy.spatial.mesh.resample import positions_at_local_size
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over
 
 X0, Y0 = L93_ORIGIN

@@ -6,6 +6,11 @@ as is, the others are clipped. A clipped cell split in pieces keeps the piece
 that holds its seed. The vertices of the cells are then identified by a 1 mm
 integer key, close keys merged, and repeated corners dropped: the topology
 comes from shared vertex ids, never from rounded coordinates.
+
+``voronoi_planar_mesh`` gives the Voronoi (PEBI) dual of a set of seeds
+clipped to a domain as a ragged-polygon ``HydroMesh``, built in the local
+frame of the domain: Qhull and GEOS lose digits on Lambert-93 coordinates, and
+two seeds a few metres apart can give two identical cells.
 """
 
 from __future__ import annotations
@@ -18,10 +23,13 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 from shapely.errors import GEOSException
+from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame
+from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, local_frame
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 __all__ = [
     "BOUNDARY_SEED_ROUNDS",
@@ -34,6 +42,7 @@ __all__ = [
     "tessellate",
     "voronoi_cells",
     "voronoi_envelope",
+    "voronoi_planar_mesh",
 ]
 
 VERTEX_MERGE_M = 1.0e-3
@@ -171,6 +180,28 @@ def cell_topology(cells: np.ndarray, frame: LocalFrame) -> CellTopology:
     return CellTopology(
         vertices=vertices,
         rings=tuple(np.split(compact.astype(np.int64), np.cumsum(counts)[:-1])),
+    )
+
+
+def voronoi_planar_mesh(seeds: np.ndarray, domain_polygon: Polygon | MultiPolygon) -> HydroMesh:
+    """Build a ragged-polygon planar ``HydroMesh`` (Voronoi/PEBI dual).
+
+    Cell centers are stored as ``cell_data["disv_cell_center"]`` (the seeds), so
+    the DISV export writes exact perpendicular-bisector cell centers. Cell
+    corners closer than 1 mm are one vertex. A seed whose cell has no part inside
+    the domain, or two coincident seeds, raise ``MeshGenerationError``.
+    """
+    seeds = np.asarray(seeds, dtype=float)
+    if seeds.ndim != 2 or seeds.shape[1] != 2:
+        raise ValueError(f"seeds must have shape (n, 2), got {seeds.shape}")
+    frame = local_frame(domain_polygon)
+    domain = frame.to_local(domain_polygon)
+    cells = voronoi_cells(frame.to_local(seeds), domain, voronoi_envelope(domain, 0.0))
+    topology = cell_topology(cells, frame)
+    return HydroMesh(
+        vertices=frame.to_world(topology.vertices),
+        cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=topology.rings),),
+        cell_data={"disv_cell_center": seeds},
     )
 
 

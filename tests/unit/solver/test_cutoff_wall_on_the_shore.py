@@ -25,11 +25,11 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_flow_barrier_hfb_rows,
     resolve_lake_cells_for_active_lakes,
 )
+from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, lake_shore_faces
 from hydromodpy.solver.modflow6.builders.lake import cutoff_wall_pairs
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
-from hydromodpy.spatial.mesh.ops.flow_barrier import downstream_of_wall, lake_shore_faces
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs

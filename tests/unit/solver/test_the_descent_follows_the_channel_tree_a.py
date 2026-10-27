@@ -22,7 +22,8 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
     read_channel_tree,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 

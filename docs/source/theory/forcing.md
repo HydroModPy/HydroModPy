@@ -70,9 +70,11 @@ on the cells of the solver mesh once the mesh exists, by the method of
 is weighted by the area it shares with the cell polygon, so the rate of a cell times its area is
 the integral of the grid over the cell and the volume over the domain is the integral of the
 grid. A cell that no finite pixel reaches takes the nearest pixel. A station source refuses
-`area`, and the default stays `nearest`.
+`area`, and the default stays `nearest`. A grid is an xarray dataset, a NetCDF file or a GeoTIFF
+file. Any other record, or a file with another suffix, stops the run with an error that names
+what it received and the formats it reads.
 
-In the code: `resolve_forcing`, and the area weights in `hydromodpy/spatial/mesh/forcing/_area.py`.
+In the code: `resolve_forcing`, and the area weights in `hydromodpy/spatial/forcing/area_weights.py`.
 
 (forcing-units)=
 ## 3. Units
@@ -330,6 +332,7 @@ appears here on the next build.
 
 ```{hmp-tested-by}
 hydromodpy.physics.forcing
+hydromodpy.spatial.forcing
 hydromodpy.physics.forcing.steady_periods
 hydromodpy.physics.flow.time_forcing
 hydromodpy.physics.flow.structure_binders
@@ -347,7 +350,7 @@ hydromodpy.solver.modflow6.builders.recharge
 | Station mean, spatial mode | `hydromodpy/physics/forcing/forcing_bridge.py` |
 | The coverage rule, for every record | `hydromodpy/core/time/coverage.py` |
 | Series to periods | `hydromodpy/physics/forcing/time_alignment.py`, `hydromodpy/physics/flow/time_forcing.py` |
-| Grids and stations to cells and periods | `hydromodpy/spatial/mesh/forcing/` |
+| Grids and stations to cells and periods | `hydromodpy/spatial/forcing/` |
 | Units, the binders, runoff and lake forcing | `hydromodpy/physics/flow/structure_binders.py`, `hydromodpy/workflow/steps/data.py` |
 | Steady periods and the split of a negative recharge | `hydromodpy/physics/forcing/steady_periods.py` |
 | The recharge and ETP packages | `hydromodpy/solver/modflow6/builders/recharge.py`, `hydromodpy/solver/modflow_nwt/nwt/payloads/recharge_etp.py`, `hydromodpy/solver/boussinesq/forcing/` |

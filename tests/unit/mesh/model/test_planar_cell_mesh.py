@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
+from shapely.geometry import box
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -78,6 +79,17 @@ def test_geometry_is_derived_once() -> None:
 
     assert cell_mesh.geometry is cell_mesh.geometry
     assert cell_mesh.geometry.areas.sum() == pytest.approx(NROW * NCOL * 100.0)
+
+
+def test_the_smoothed_outline_keeps_the_geometry_already_derived() -> None:
+    cell_mesh = _cell_mesh()
+    geometry = cell_mesh.geometry
+    outline = box(0.0, 0.0, 40.0, 30.0)
+
+    carried = cell_mesh.with_smoothed_catchment(outline)
+
+    assert carried.smoothed_catchment is outline
+    assert carried.geometry is geometry
 
 
 @pytest.mark.parametrize("crs_wkt", ["", "   "])

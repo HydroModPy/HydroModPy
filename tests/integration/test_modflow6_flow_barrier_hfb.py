@@ -13,8 +13,7 @@ import pytest
 from shapely.geometry import LineString
 
 from hydromodpy.solver.modflow6.builders.flow_barrier import build_flow_barrier_hfb
-from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.adapters.flopy_adapter import to_flopy_disv_args
+from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from

@@ -40,7 +40,8 @@ from hydromodpy.solver.modflow6.builders import (
     resolve_lake_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,

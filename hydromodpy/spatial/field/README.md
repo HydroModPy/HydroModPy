@@ -13,6 +13,13 @@ hydromodpy/spatial/field/
 |   |-- field_spatial.py
 |   |-- field_spatial_weighted_discretization.py
 |   `-- field_mesh.py
+|-- meshes/
+|   |-- structured_field_mesh.py
+|   |-- triangular_field_mesh.py
+|   |-- polygon_field_mesh.py
+|   |-- gmsh_planar_mesh.py
+|   |-- field_mesh_adapter.py
+|   `-- plotting.py
 |-- cases/
 |   `-- square/
 |       |-- field_param_config.toml
@@ -38,6 +45,12 @@ hydromodpy/spatial/field/
   discretization implementation.
 - `core/field_mesh.py`: abstract mesh contracts (`BaseFieldMesh`, `FieldMesh`)
   and generic containers (`MeshCell`, `MeshWithValues`).
+- `meshes/`: the concrete field meshes. `gmsh_planar_mesh.py` holds
+  `GmshPlanarMesh2D`, a planar mesh read from a Gmsh `.msh` file, with
+  `load_planar_mesh` and `save_planar_mesh`. `field_mesh_adapter.py` converts a
+  field mesh to and from the `HydroMesh` of `spatial/mesh`, and `plotting.py`
+  draws one value per cell of a `HydroMesh` (`plot_cell_values`). The field
+  package reads the mesh, and the mesh never imports the field package.
 - `cases/square/`: concrete square geometry, concrete mesh factory, runnable
   demonstration, and example TOML files.
 - geology case integration now lives under

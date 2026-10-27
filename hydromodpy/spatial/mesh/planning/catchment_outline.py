@@ -30,7 +30,7 @@ import shapely
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.config.mesh import MeshFamiliesConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshFamiliesConfig
 from hydromodpy.spatial.mesh.planning.cleanup import (
     CLEANUP_PIXEL_SHARE,
     GeometryCleanup,

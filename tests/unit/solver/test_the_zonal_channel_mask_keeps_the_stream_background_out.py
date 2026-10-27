@@ -14,7 +14,7 @@ import rasterio
 from rasterio.transform import from_origin
 
 from hydromodpy.solver.modflow6 import build
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import TopSamplingConfig
+from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
 
 
 def test_only_the_stream_pixels_are_channel(tmp_path) -> None:

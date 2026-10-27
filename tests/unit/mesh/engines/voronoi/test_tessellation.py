@@ -1,13 +1,18 @@
-"""Clipped Voronoi cells, boundary seeds for orphans and holes, vertices shared by id."""
+"""Clipped Voronoi cells, boundary seeds for orphans and holes, vertices shared by id.
+
+``voronoi_planar_mesh`` makes the Voronoi (PEBI) mesh of a set of seeds clipped to a
+domain, made of ragged polygon cells centred on their seeds.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 import shapely
-from shapely.geometry import LineString, Polygon, box
+from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.core.exceptions import MeshGenerationError
+from hydromodpy.solver.modflow_grid.solver_mesh import to_flopy_disv_args
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
@@ -16,10 +21,14 @@ from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
     tessellate,
     voronoi_cells,
     voronoi_envelope,
+    voronoi_planar_mesh,
 )
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.resample import resample_families
 from hydromodpy.spatial.mesh.request import LineFamilySpec
+from hydromodpy.spatial.mesh.resample import resample_families
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, mesh_request, uniform_size_field
 
 X0, Y0 = L93_ORIGIN
@@ -182,3 +191,127 @@ def test_cocircular_mirror_pairs_on_a_line_leave_no_short_face() -> None:
     assert qa.extras["gate_def2_vertices"] == segments + 1
     assert cell_mesh.geometry.edge_length.min() >= VERTEX_MERGE_M
     assert qa.n_duplicate_vertices_in_cells == 0
+
+
+# -- the Voronoi mesh of a set of seeds ----------------------------------------
+
+_DOMAIN = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 1000.0), (0.0, 1000.0)])
+
+
+def _jittered_seeds(n_side: int = 12) -> np.ndarray:
+    rng = np.random.default_rng(0)
+    grid = np.linspace(50.0, 950.0, n_side)
+    xx, yy = np.meshgrid(grid, grid)
+    return np.c_[xx.ravel(), yy.ravel()] + rng.uniform(-25.0, 25.0, (n_side * n_side, 2))
+
+
+def _cell_polygons(mesh: HydroMesh) -> list[Polygon]:
+    vertices = np.asarray(mesh.vertices, dtype=float)
+    return [Polygon(vertices[np.asarray(cell)]) for cell in mesh.flat_connectivity]
+
+
+def test_voronoi_cells_tile_the_domain_without_gaps_or_overlap() -> None:
+    mesh = voronoi_planar_mesh(_jittered_seeds(), _DOMAIN)
+    cells = _cell_polygons(mesh)
+    union = shapely.union_all(cells)
+    assert len(cells) == len(_jittered_seeds())
+    assert union.area == pytest.approx(_DOMAIN.area, rel=1e-9)  # full coverage
+    assert sum(c.area for c in cells) == pytest.approx(union.area, rel=1e-9)  # no overlap
+    assert all(abs(c.area - c.convex_hull.area) < 1e-6 for c in cells)
+
+
+def test_a_domain_far_from_the_origin_keeps_one_cell_per_seed() -> None:
+    # Qhull on Lambert-93 coordinates gave two identical cells for seeds a few metres apart.
+    origin = np.array([350_000.0, 6_800_000.0])
+    axis = np.arange(2.5, 100.0, 5.0)
+    xx, yy = np.meshgrid(axis, axis)
+    seeds = np.c_[xx.ravel(), yy.ravel()] + origin
+    domain = Polygon(
+        [origin, origin + (100.0, 0.0), origin + (100.0, 100.0), origin + (0.0, 100.0)]
+    )
+    mesh = voronoi_planar_mesh(seeds, domain)
+    geometry = derive_geometry(mesh)
+
+    assert mesh.n_cells == len(seeds)
+    assert geometry.areas.sum() == pytest.approx(domain.area, rel=1e-9)
+    assert geometry.areas == pytest.approx(25.0, rel=1e-9)
+    assert np.array_equal(mesh.cell_data["disv_cell_center"], seeds)
+
+
+def test_two_coincident_seeds_are_refused() -> None:
+    from hydromodpy.core.exceptions import MeshGenerationError
+
+    seeds = np.array([[10.0, 10.0], [10.0, 10.0], [60.0, 60.0]])
+    with pytest.raises(MeshGenerationError):
+        voronoi_planar_mesh(seeds, Polygon([(0, 0), (100, 0), (100, 100), (0, 100)]))
+
+
+def test_voronoi_planar_mesh_center_is_the_seed() -> None:
+    seeds = _jittered_seeds()
+    mesh = voronoi_planar_mesh(seeds, _DOMAIN)
+    assert mesh.cell_types == (CellType.POLYGON,)
+    centers = mesh.cell_data["disv_cell_center"]
+    assert centers.shape == (mesh.n_cells, 2)
+    kw = to_flopy_disv_args(mesh, top=10.0, botm=np.zeros((1, mesh.n_cells)))
+    assert kw["ncpl"] == mesh.n_cells
+    # cell2d row = [ic, xc, yc, ncvert, *nodes]; xc/yc must equal the generator seed,
+    # not the polygon vertex-mean centroid (exact perpendicular-bisector orthogonality).
+    for row, seed in zip(kw["cell2d"], centers, strict=True):
+        assert row[1] == pytest.approx(float(seed[0]))
+        assert row[2] == pytest.approx(float(seed[1]))
+        assert row[3] == len(row) - 4 >= 3  # ncvert matches the listed node count
+
+
+def test_voronoi_dual_of_a_triangular_mesh() -> None:
+    seeds = _jittered_seeds(6)
+    tri = HydroMesh(
+        vertices=np.c_[seeds, np.zeros(len(seeds))],  # 3-column, z ignored
+        cell_blocks=(CellBlock(cell_type=CellType.TRIANGLE, connectivity=np.array([[0, 1, 2]])),),
+    )
+    dual = voronoi_planar_mesh(np.asarray(tri.vertices)[:, :2], _DOMAIN)
+    assert dual.cell_types == (CellType.POLYGON,)
+    assert dual.n_cells == len(seeds)  # one Voronoi cell per seed
+
+
+def test_concave_domain_keeps_every_cell_center_inside_its_cell() -> None:
+    # L-shaped (concave) domain: a clip that splits a cell keeps the piece that holds its seed.
+    domain = Polygon(
+        [
+            (0.0, 0.0),
+            (1000.0, 0.0),
+            (1000.0, 1000.0),
+            (500.0, 1000.0),
+            (500.0, 500.0),
+            (0.0, 500.0),
+        ]
+    )
+    grid = np.linspace(60.0, 940.0, 16)
+    xx, yy = np.meshgrid(grid, grid)
+    candidates = np.c_[xx.ravel(), yy.ravel()]
+    seeds = candidates[[domain.contains(Point(p)) for p in candidates]]
+    mesh = voronoi_planar_mesh(seeds, domain)
+    cells = _cell_polygons(mesh)
+    centers = mesh.cell_data["disv_cell_center"]
+    assert len(cells) == len(centers) == len(seeds)
+    for cell, center in zip(cells, centers, strict=True):
+        assert cell.covers(Point(center))  # DISV center never falls outside its cell
+    total = sum(c.area for c in cells)
+    assert total <= domain.area * (1.0 + 1e-9)
+    assert total >= domain.area * 0.98  # dropped concave slivers stay negligible
+
+
+def test_seeds_given_in_three_dimensions_are_refused() -> None:
+    seeds = np.c_[_jittered_seeds(), np.zeros(len(_jittered_seeds()))]
+
+    with pytest.raises(ValueError, match=r"seeds must have shape \(n, 2\)"):
+        voronoi_planar_mesh(seeds, _DOMAIN)
+
+
+def test_a_seed_whose_cell_only_touches_the_domain_is_refused() -> None:
+    """The cell of the last seed meets the square along its east side only, a line of no area."""
+    seeds = np.array([[25.0, 50.0], [75.0, 50.0], [125.0, 50.0]])
+
+    with pytest.raises(
+        MeshGenerationError, match=r"gate G0: no part of the cell of seed\(s\) \[2\]"
+    ):
+        voronoi_planar_mesh(seeds, box(0.0, 0.0, 100.0, 100.0))

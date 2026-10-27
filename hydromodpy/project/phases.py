@@ -23,6 +23,7 @@ from hydromodpy.core.logging import get_logger
 if TYPE_CHECKING:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project.facade import Project
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 logger = get_logger(__name__)
 
@@ -47,8 +48,6 @@ def configure(
     from hydromodpy.spatial.domain.spatial_support import (
         build_default_spatial_support_provider_registry,
     )
-    from hydromodpy.spatial.mesh.config import MeshConfig
-    from hydromodpy.spatial.mesh.planning import prepare_geographic_config_for_mesh
     from hydromodpy.workflow.steps.data import log_data_plan
     from hydromodpy.workflow.steps.setup import (
         collect_requested_support_ids,
@@ -70,11 +69,7 @@ def configure(
 
     project._time_grid = require_flow_simulation_time_grid(project._cfg)
 
-    project._cfg.geographic = prepare_geographic_config_for_mesh(
-        project._cfg.geographic,
-        project._cfg.mesh or MeshConfig(),
-        active_bc=project._cfg.flow.active_bc,
-    )
+    project._cfg.geographic = river_network_for_the_mesh(project._cfg)
 
     project._spatial_support_registry = build_default_spatial_support_provider_registry()
     project._requested_support_ids = collect_requested_support_ids(project._cfg.flow)
@@ -241,7 +236,7 @@ def build_mesh(project: Project, **overrides: object) -> None:
 
     ``overrides`` patch ``cfg.mesh`` before the mesh step runs.
     """
-    from hydromodpy.spatial.mesh.config import MeshConfig
+    from hydromodpy.spatial.mesh.mesh_config import MeshConfig
     from hydromodpy.workflow.steps.mesh import step_mesh
 
     if project._phase == "uninitialized":
@@ -293,6 +288,27 @@ def detect_solver(project: Project) -> str:
     raise ConfigMissingError(
         "No flow solver declared. Add a [[simulation.process]] entry with "
         "type='flow' or set [solver.backend]."
+    )
+
+
+def river_network_for_the_mesh(cfg: HydroModPyConfig) -> GeographicConfig:
+    """Return ``cfg.geographic`` with ``[geographic.river_network]`` on when the mesh needs it.
+
+    The rule is :meth:`MeshConfig.requires_river_trace`. The config refused a
+    mesh that needs the network without its threshold when it loaded, so the
+    network can be switched on as it is.
+    """
+    geographic = cfg.geographic
+    network = geographic.river_network
+    if network.enabled or cfg.mesh is None:
+        return geographic
+    active_bc = {str(bc).strip().lower() for bc in cfg.flow.active_bc}
+    if not cfg.mesh.requires_river_trace(
+        active_bc=active_bc, synthetic=geographic.uses_synthetic_geographic()
+    ):
+        return geographic
+    return geographic.model_copy(
+        update={"river_network": network.model_copy(update={"enabled": True})}, deep=True
     )
 
 

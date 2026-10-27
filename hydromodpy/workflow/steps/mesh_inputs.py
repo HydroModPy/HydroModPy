@@ -2,37 +2,29 @@
 
 from __future__ import annotations
 
-from itertools import combinations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from shapely.geometry import LineString, Point, Polygon, box
-from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.spatial.geographic.core.derived_features import resolve_river_mesh_trace
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
-from hydromodpy.spatial.mesh.planning import (
-    CriterionInputs,
-    LakeStructure,
-    PlanningInputs,
-    geology_lines,
-    load_refinement_zones,
-    read_input_triangulation,
-    support_contacts,
-)
-from hydromodpy.spatial.mesh.planning.geology import GeologyLines
-from hydromodpy.spatial.mesh.refinement.lake_refinement import LakeRefinementConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
+from hydromodpy.spatial.mesh.planning.geology import GeologyLines, geology_lines, support_contacts
+from hydromodpy.spatial.mesh.planning.input_mesh import read_input_triangulation
+from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
+from hydromodpy.spatial.mesh.planning.lake_structures import lake_structures
+from hydromodpy.spatial.mesh.planning.refinement import CriterionInputs, load_refinement_zones
 from hydromodpy.spatial.mesh.request import RasterGridSpec
 from hydromodpy.workflow.steps.mesh_run_fields import read_run_fields
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
 
-__all__ = ["barrier_lines", "hydraulic_feature_geometries", "mesh_crs_wkt", "planning_inputs"]
+__all__ = ["barrier_lines", "mesh_crs_wkt", "planning_inputs"]
 
 
 def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInputs:
@@ -48,14 +40,18 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     sized = graded and (triangle is None or triangle.path is None)
     geology, notes = _geology_contacts(ctx, mesh_cfg, crs_wkt, grid)
     river_trace = _river_trace(setup, mesh_cfg, active_bc=active_bc, synthetic=synthetic)
+    footprints = _lake_polygons(setup)
+    outlet = _declared_outlet(cfg.geographic)
     return PlanningInputs(
         dem_grid=grid,
         crs_wkt=crs_wkt,
         domain=_domain_polygon(setup, cfg.geographic, grid, crs_wkt, synthetic),
         river_trace=river_trace,
         watershed=_watershed(setup, crs_wkt) if reads_catchment and not synthetic else None,
-        lakes=_lake_polygons(setup),
-        lake_structures=lake_structures(setup, cfg.geographic, mesh_cfg.lake_refinement),
+        lakes=tuple(footprints.values()),
+        lake_structures=lake_structures(
+            _cutoff_walls(setup), footprints, outlet, mesh_cfg.lake_refinement
+        ),
         geology=geology,
         refinement_zones=load_refinement_zones(
             mesh_cfg.refinement_zone,
@@ -71,7 +67,7 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
         ),
         synthetic=synthetic,
         barriers=barrier_lines(setup) if mesh_cfg.families.barriers == "face" else (),
-        outlet=_declared_outlet(cfg.geographic),
+        outlet=outlet,
         notes=notes,
     )
 
@@ -203,13 +199,22 @@ def _lake_payloads(setup: object) -> dict:
     return lakes if isinstance(lakes, dict) else {}
 
 
-def _lake_polygons(setup: object) -> tuple[Polygon, ...]:
-    """The footprints of the lakes bound on the flow payload."""
-    return tuple(
-        payload["polygon"]
-        for payload in _lake_payloads(setup).values()
+def _lake_polygons(setup: object) -> dict[str, Polygon]:
+    """The footprints of the lakes bound on the flow payload, by lake id."""
+    return {
+        lake_id: payload["polygon"]
+        for lake_id, payload in _lake_payloads(setup).items()
         if isinstance(payload, dict) and payload.get("polygon") is not None
-    )
+    }
+
+
+def _cutoff_walls(setup: object) -> dict[str, LineString]:
+    """The cutoff wall lines laid on the lake shores, by lake id."""
+    return {
+        lake_id: payload["cutoff_wall_line"]
+        for lake_id, payload in _lake_payloads(setup).items()
+        if isinstance(payload, dict) and payload.get("cutoff_wall_line") is not None
+    }
 
 
 def barrier_lines(setup: object) -> tuple[LineString, ...]:
@@ -228,29 +233,6 @@ def barrier_lines(setup: object) -> tuple[LineString, ...]:
     return tuple(line for line in lines if line is not None and not line.is_empty)
 
 
-def lake_structures(
-    setup: object, geographic_cfg: object, lake_cfg: LakeRefinementConfig | None
-) -> tuple[LakeStructure, ...]:
-    """The hydraulic structures of the lakes to refine, none without ``[mesh.lake_refinement]``."""
-    if lake_cfg is None:
-        return ()
-    structures = hydraulic_feature_geometries(setup, lake_cfg)
-    outlet = _declared_outlet(geographic_cfg)
-    if outlet is not None:
-        # The outlet disk is redundant only when a cutoff-wall zone actually reaches
-        # it: the wall zone (radius = its buffer) must overlap the disk (dam_buffer).
-        has_cutoff_wall = any(
-            label.startswith("voile:")
-            and float(geometry.distance(outlet)) <= float(width) + float(lake_cfg.dam_buffer)
-            for label, geometry, _size, width in structures
-        )
-        if lake_cfg.dam_outlet_disk is True or (
-            lake_cfg.dam_outlet_disk is None and not has_cutoff_wall
-        ):
-            structures.append(("dam_outlet", outlet, lake_cfg.dam_cell_size, lake_cfg.dam_buffer))
-    return tuple(structures)
-
-
 def _declared_outlet(geographic_cfg: object) -> Point | None:
     """The outlet the configuration declares, in the project CRS, None without one."""
     x_outlet = getattr(geographic_cfg, "x_outlet", None)
@@ -258,66 +240,6 @@ def _declared_outlet(geographic_cfg: object) -> Point | None:
     if x_outlet is None or y_outlet is None:
         return None
     return Point(float(x_outlet), float(y_outlet))
-
-
-def hydraulic_feature_geometries(setup: object, lake_cfg: object) -> list[LakeStructure]:
-    """Collect ``(label, geometry, target size, zone buffer)`` refinement targets.
-
-    So each structure resolves cleanly on the mesh: the dam cutoff wall (voile)
-    line at ``dam_cell_size``, dilated by ``hfb_buffer`` into a zone wide enough
-    to cover the lake outlet, and the sill between every pair of coupled lakes
-    (the shortest segment between the two footprints). The SILL size is forced
-    BELOW the lake-to-lake gap (0.4 * gap), else a single cell straddles both
-    lakes and MF6 LAK rejects the model (one lake per cell).
-    """
-    lakes = _lake_payloads(setup)
-    dam_cell_size = float(lake_cfg.dam_cell_size)
-    dam_buffer = float(lake_cfg.dam_buffer)
-    hfb_buffer = lake_cfg.hfb_buffer
-    hfb_width = float(hfb_buffer) if hfb_buffer is not None else 2.0 * dam_buffer
-    features: list[LakeStructure] = []
-    for lake_id, payload in lakes.items():
-        if not isinstance(payload, dict):
-            continue
-        line = payload.get("cutoff_wall_line")
-        if line is not None and not line.is_empty:
-            features.append((f"voile:{lake_id}", line, dam_cell_size, hfb_width))
-    # Sill between every pair of lakes: refine the WHOLE proximity zone, not just the
-    # nearest point, so no cell along the sill straddles both footprints.
-    polygons = {
-        lake_id: payload["polygon"]
-        for lake_id, payload in lakes.items()
-        if isinstance(payload, dict) and payload.get("polygon") is not None
-    }
-    for (first_id, first), (second_id, second) in combinations(polygons.items(), 2):
-        gap = float(first.distance(second))
-        if gap <= 0.0:
-            continue  # overlapping or touching footprints cannot be separated by refinement
-        sill_size = max(5.0, min(dam_cell_size, 0.4 * gap))
-        margin = max(1.5 * gap, dam_cell_size)
-        sill_zone = _sill_zone(first, second, margin, sill_size=sill_size)
-        if not sill_zone.is_empty:
-            features.append((f"sill:{first_id}-{second_id}", sill_zone, sill_size, margin))
-    return features
-
-
-def _sill_zone(
-    first: BaseGeometry, second: BaseGeometry, margin: float, *, sill_size: float
-) -> BaseGeometry:
-    """The overlap of the two lakes dilated by *margin*, from simplified outlines.
-
-    A DEM-traced reservoir holds some 17 000 vertices, and its raw buffer cost
-    16 to 20 s per build. The outlines are simplified first at a tenth of the
-    sill size, far below the cells placed there, so the zone moves by less than
-    that tolerance.
-    """
-    tolerance = 0.1 * float(sill_size)
-    dilated = [
-        geometry.simplify(tolerance, preserve_topology=True).buffer(margin)
-        for geometry in (first, second)
-    ]
-    zone = dilated[0].intersection(dilated[1])
-    return zone.simplify(tolerance, preserve_topology=True)
 
 
 def _geology_contacts(

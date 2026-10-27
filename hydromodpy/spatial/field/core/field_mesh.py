@@ -181,9 +181,10 @@ class BaseFieldMesh(ABC):
 
         Subclasses with direct array access (e.g. ``GmshPlanarMesh2D``)
         override this for efficiency.  The base implementation falls back
-        to ``hydromodpy.spatial.mesh.adapters.from_field_mesh()``.
+        to ``hydromodpy.spatial.field.meshes.field_mesh_adapter.from_field_mesh()``.
         """
-        from hydromodpy.spatial.mesh.adapters.field_mesh_adapter import from_field_mesh
+        # Lazy: the field meshes import this module, through field/meshes/__init__.py.
+        from hydromodpy.spatial.field.meshes.field_mesh_adapter import from_field_mesh
 
         return from_field_mesh(self)
 

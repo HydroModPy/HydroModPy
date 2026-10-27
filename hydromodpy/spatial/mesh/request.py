@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, get_args
 
 import numpy as np
 import shapely
+from scipy.ndimage import map_coordinates
 from shapely.geometry import LineString, Polygon
 
 from hydromodpy.core.exceptions import MeshRequestError
@@ -184,6 +185,14 @@ class SizeField:
             raise MeshRequestError("size field values must be finite and > 0 m")
         values.setflags(write=False)
         object.__setattr__(self, "values", values)
+
+    def sample(self, xy: np.ndarray) -> np.ndarray:
+        """Bilinear ``h`` at points ``(n, 2)`` from the pixel centres, held constant past the edge."""
+        points = np.asarray(xy, dtype=float).reshape(-1, 2)
+        grid = self.grid
+        cols = (points[:, 0] - grid.xmin) / grid.dx - 0.5
+        rows = (grid.ymax - points[:, 1]) / grid.dy - 0.5
+        return map_coordinates(self.values, [rows, cols], order=1, mode="nearest")
 
 
 @dataclass(frozen=True)

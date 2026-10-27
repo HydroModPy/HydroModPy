@@ -80,7 +80,7 @@ class _TriangularBaseFieldMesh(BaseFieldMesh):
         vmin=None,
         vmax=None,
     ):
-        from hydromodpy.spatial.mesh.plotting import plot_cell_values as _unified_plot
+        from hydromodpy.spatial.field.meshes.plotting import plot_cell_values as _unified_plot
 
         values1d = np.asarray(self.to_cell_values(cell_values), dtype=float)
         return _unified_plot(

@@ -9,7 +9,7 @@ import numpy as np
 
 from hydromodpy.physics.flow import Flow
 from hydromodpy.solver.boussinesq import Boussinesq
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (

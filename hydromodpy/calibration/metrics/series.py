@@ -13,7 +13,7 @@ import pandas as pd
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
-from hydromodpy.spatial.field.aggregation import extract_homogeneous_series_from_fields
+from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
 logger = get_logger(__name__)
 
@@ -156,7 +156,7 @@ def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
     is then what its run reports.
     """
     try:
-        series = extract_homogeneous_series_from_fields(runoff)
+        series = spatial_mean_from_fields(runoff)
     except Exception:
         logger.debug("Watershed-mean reduction of the runoff fields failed", exc_info=True)
         return None

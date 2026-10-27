@@ -120,12 +120,12 @@ def test_non_allowlisted_family_keeps_field_only(tmp_path):
 
 def test_watershed_mean_failure_is_non_fatal(tmp_path, monkeypatch):
     # A reduction failure must not break the persist step.
-    import hydromodpy.spatial.field.aggregation as agg
+    import hydromodpy.spatial.forcing.cells as cells
 
     def _boom(_obj):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(agg, "extract_homogeneous_series_from_fields", _boom)
+    monkeypatch.setattr(cells, "spatial_mean_from_fields", _boom)
     times = pd.date_range("2020-01-01", periods=2, freq="D")
     frames = np.ones((2, 2, 2), dtype="float64")
     loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))

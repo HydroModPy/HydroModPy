@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import box
 
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import edge_bisection_offset, edge_nonorthogonality
-from hydromodpy.spatial.mesh.ops.voronoi import voronoi_planar_mesh
 
 
 def measures(mesh):

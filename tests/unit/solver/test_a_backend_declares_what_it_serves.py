@@ -23,7 +23,7 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 def _config(tmp_path, backend: str, **flow: object):
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.spatial.mesh.config import MeshConfig
+    from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 
     # Boussinesq reads triangles only: the validator refuses the default grid.
     mesh = MeshConfig(engine="triangle") if backend == "boussinesq" else None

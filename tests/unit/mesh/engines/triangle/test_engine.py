@@ -11,10 +11,10 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
-from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import load_planar_mesh
+from hydromodpy.spatial.mesh.io.msh import read_msh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.voronoi import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
 from hydromodpy.spatial.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
@@ -72,7 +72,7 @@ def _generated_and_read() -> tuple[object, object]:
 @pytest.mark.parametrize("case", BUNDLES)
 def test_the_centres_are_the_vertex_means_of_the_planar_mesh_reader(case: str) -> None:
     cell_mesh = TriangleMeshEngine().build(_read_request(case))
-    x, y = load_planar_mesh(bundle_msh(case)).cell_centroids()
+    x, y = read_msh(bundle_msh(case)).cell_centroids()
 
     assert np.array_equal(cell_mesh.centers[:, 0], x)
     assert np.array_equal(cell_mesh.centers[:, 1], y)

@@ -18,8 +18,9 @@ from shapely.geometry import LineString
 from hydromodpy.core.time import ResolvedSimulationTimeWindow
 from hydromodpy.solver.modflow6 import Modflow6
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.spatial.mesh.request import LineFamilySpec
 from tests._helpers.cell_meshes import cell_mesh_of

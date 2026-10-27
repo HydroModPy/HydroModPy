@@ -23,7 +23,8 @@ and simulation steps:
 - `geographic_io.py`: CRS and shapefile I/O helpers.
 - `delineated_catchment.py`: the one reader of the delineated catchment polygon (none for a synthetic domain). `catchment_outline(geographic, cell_mesh=None)` returns the smoothed outline the mesh followed when there is one.
 - `core/`: decomposed geographic pipeline modules (single-responsibility steps).
-- `cases/`: runnable examples and review scripts.
+- `cases/`: runnable examples and review scripts. `plotting_utils.py` holds the window helpers that the
+  geographic, domain and field cases share.
 - `synthetic/`: synthetic geographic support builder and config.
 
 ## Core Modules (`geographic/core`)
@@ -39,6 +40,8 @@ and simulation steps:
 - `direct_dem_domain.py`: direct-domain mode from DEM (`catch_def="dem"`).
 - `river_network.py`: optional stream extraction and network diagnostics.
 - `hydrographic_network.py`: canonical hydrographic-network concept and naming contract.
+- `network_heads.py`: the free ends of a mapped stream network, where its heads may lie, and
+  `line_parts`, which splits a map into its lines.
 - `pipeline_steps.py`: shared setup helpers reused by orchestration.
 - `derived_features.py`: `GeographicDerivedFeatures` bundle and its narrow `DomainGeographicContext` view.
 

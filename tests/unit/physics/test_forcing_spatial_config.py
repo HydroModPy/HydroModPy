@@ -1,7 +1,7 @@
 """The spatial source of a recharge or ETP forcing: its mode, its interpolation and its record.
 
 ``spatial_mode`` and ``interpolation_method`` are read by the forcing path on
-cells (``hydromodpy.spatial.mesh.forcing``), ``heterogeneous_source`` holds the
+cells (``hydromodpy.spatial.forcing``), ``heterogeneous_source`` holds the
 records it reads.
 """
 

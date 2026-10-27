@@ -34,8 +34,8 @@ from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.gates import BALL_SHRINK
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.resample import resample_families
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest, SizeField
+from hydromodpy.spatial.mesh.resample import resample_families
 from tests._helpers import reservoir_dam
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,

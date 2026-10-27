@@ -29,7 +29,10 @@ from hydromodpy.physics.forcing.validation import (
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import collapse_identical_periods
 from hydromodpy.solver.modflow_common.recharge_evt_routing import route_negative_recharge_to_evt
-from hydromodpy.spatial.mesh.forcing import discretize_fields_on_cells, discretize_points_on_cells
+from hydromodpy.spatial.forcing.cells import (
+    discretize_fields_on_cells,
+    discretize_points_on_cells,
+)
 
 logger = get_logger(__name__)
 

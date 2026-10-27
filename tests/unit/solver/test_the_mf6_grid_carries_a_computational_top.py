@@ -25,7 +25,8 @@ from hydromodpy.solver.modflow6.support.computational_top import (
     write_ground_sidecar,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.solver_meshes import solver_mesh_from
 from tests._helpers.ugrid_meshes import quad_mesh
 

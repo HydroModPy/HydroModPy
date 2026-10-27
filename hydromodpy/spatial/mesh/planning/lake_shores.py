@@ -16,7 +16,8 @@ shore the outline is the lake's own, so the barrier still runs on the ring. A
 later lake closer to an earlier one than twice the radius at their nearest
 points gives up the strip next to it. The lake polygons of the flow model are
 not changed: only the rings the mesh follows. A cell of an arm left out still
-joins its lake when the lake covers most of it (``ops/family_interior.py``).
+joins its lake when the lake covers most of it
+(``solver/modflow6/builders/_lake_geometry.py``).
 """
 
 from __future__ import annotations

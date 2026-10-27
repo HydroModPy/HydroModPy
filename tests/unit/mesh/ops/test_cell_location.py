@@ -105,6 +105,14 @@ def test_a_point_outside_a_grid_takes_the_nearest_centre_when_allowed(grid) -> N
         assert cell == int(np.argmin(np.einsum("ij,ij->i", deltas, deltas)))
 
 
+def test_a_point_inside_a_cell_keeps_it_when_the_nearest_is_allowed(grid) -> None:
+    held = [0, 17, grid.n_cells - 1]
+
+    cells = locate_cells(grid, grid.centers[held], allow_nearest=True)
+
+    assert cells.tolist() == held
+
+
 def _covering_polygons(cell_mesh: PlanarCellMesh) -> np.ndarray:
     """The cell polygons, built from the vertex rows of the cells."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)

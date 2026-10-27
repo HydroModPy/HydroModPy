@@ -24,11 +24,14 @@ from hydromodpy.solver.modflow6.builders import (
 )
 from hydromodpy.solver.modflow6.builders.boundary_conditions import side_boundary_cell_ids
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
+from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.mesh import CellBlock, CellType, HydroMesh
-from hydromodpy.spatial.mesh.gmsh_grid.bundle_cell_mesh import cell_mesh_from_bundle
+from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
+from hydromodpy.spatial.mesh.io.bundle import cell_mesh_from_bundle
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     FaceFamilyTable,
     MeshIdentity,
@@ -37,11 +40,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
 )
 from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
 from hydromodpy.spatial.mesh.ops.family_cells import side_cells, stream_cells
-from hydromodpy.spatial.mesh.ops.voronoi import (
-    domain_polygon_from_mesh,
-    voronoi_planar_mesh,
-)
-from hydromodpy.spatial.mesh.structured_grid.sgrid_config import SolverSGridConfig
+from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import grid_over, mesh_request

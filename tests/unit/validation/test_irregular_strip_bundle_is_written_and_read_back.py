@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.mesh.gmsh_grid import load_catchment_mesh_bundle
+from hydromodpy.spatial.mesh.io.bundle import (
+    load_catchment_mesh_bundle,
+)
 from validation_cases.shared.gmsh_irregular_strip import write_irregular_strip_bundle
 
 

@@ -19,17 +19,17 @@ from hydromodpy.spatial.mesh.cache import (
     load_cell_mesh,
     save_cell_mesh,
 )
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.mesh_qa import quality_warnings
-from hydromodpy.spatial.mesh.planning import plan_mesh_request, smoothed_catchment
+from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request, smoothed_catchment
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
-    from hydromodpy.spatial.mesh import PlanarCellMesh
+    from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
     from hydromodpy.spatial.mesh.planning.refinement import RefinementZone
-    from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
+    from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
     from hydromodpy.spatial.mesh.request import MeshRequest
 
 logger = get_logger(__name__)

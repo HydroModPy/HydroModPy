@@ -33,7 +33,7 @@ from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
-from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
+from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
     load_catchment_mesh_bundle,
 )

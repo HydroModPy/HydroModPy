@@ -14,8 +14,8 @@ from hydromodpy.core.exceptions import MeshError
 from hydromodpy.core.state.run_state import WorkflowContext
 from hydromodpy.spatial.mesh import cache as cache_module
 from hydromodpy.spatial.mesh.cache import cache_dir, library_versions
-from hydromodpy.spatial.mesh.config.mesh import MeshConfig
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps import mesh as mesh_module
 from hydromodpy.workflow.steps.mesh import BuildMeshStep, step_mesh

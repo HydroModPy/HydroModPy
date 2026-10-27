@@ -5,8 +5,8 @@ so a record that ended early was extended in silence. The rule now lives in
 ``hydromodpy.core.time.coverage``, and
 :func:`~hydromodpy.physics.forcing.time_alignment.align_forcing_series_to_simulation_window`
 goes through it. The grid and the station readers of
-``hydromodpy.spatial.mesh.forcing`` go through it too; their tests are in
-``tests/unit/mesh/forcing``.
+``hydromodpy.spatial.forcing`` go through it too; their tests are in
+``tests/unit/spatial/forcing``.
 """
 
 from __future__ import annotations

@@ -19,7 +19,7 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.mesh.gmsh_grid import GmshPlanarMesh2D
+from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from tests._helpers.cell_meshes import cell_mesh_of
 

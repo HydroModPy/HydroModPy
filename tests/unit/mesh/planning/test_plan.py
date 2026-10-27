@@ -20,20 +20,16 @@ import shapely
 from shapely.geometry import LineString, Point, Polygon, box
 
 from hydromodpy.spatial.mesh.cache import cache_key
-from hydromodpy.spatial.mesh.config.mesh import (
-    MeshConfig,
-    MeshTriangleConfig,
-    MeshVoronoiConfig,
-)
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
+from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning import plan
 from hydromodpy.spatial.mesh.planning.geology import contact_lines
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.planning.refinement import RefinementZone, load_refinement_zones
-from hydromodpy.spatial.mesh.refinement.refinement_zones import RefinementZoneConfig
+from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
+from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, InputTriangulation
-from hydromodpy.spatial.mesh.sizing.size_field import PixelRegion, sample_size_field
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.fake_engines import fake_capabilities, fake_engine, registered
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, grid_spec, planning_inputs
@@ -164,6 +160,43 @@ def test_a_family_set_to_none_is_left_out(tmp_path: Path) -> None:
     }
 
 
+def test_a_family_whose_lines_all_lie_off_the_domain_is_left_out() -> None:
+    far = 5000.0
+    inputs = planning_inputs(
+        grid_spec(10, 10, 100.0),
+        river_trace=SimpleNamespace(lines=(LineString([(far, 0.0), (far + 900.0, 500.0)]),)),
+        geology=contact_lines(
+            (
+                ("a", box(far, 0.0, far + 500.0, 1000.0)),
+                ("b", box(far + 500.0, 0.0, far + 1000.0, 1000.0)),
+            )
+        ),
+        lakes=(Point(far + 300.0, 300.0).buffer(60.0),),
+        barriers=(LineString([(far, 100.0), (far + 200.0, 100.0)]),),
+        watershed=box(far, 0.0, far + 1000.0, 1000.0),
+        synthetic=False,
+    )
+    cfg = MeshConfig(engine="regular", families={"watershed_boundary": "face"})
+
+    assert plan_mesh_request(cfg, inputs).lines == ()
+
+
+def test_a_voronoi_mesh_follows_no_shore_when_its_lakes_lie_off_the_domain() -> None:
+    # The arm, narrower than two cells, would give a note on a lake the mesh follows.
+    lake = box(1200.0, 200.0, 1600.0, 600.0).union(box(1600.0, 390.0, 1900.0, 410.0))
+    inputs = planning_inputs(
+        grid_spec(10, 10, 100.0),
+        lakes=(lake,),
+        watershed=box(100.0, 100.0, 900.0, 900.0),
+        synthetic=False,
+    )
+
+    request = plan_mesh_request(MeshConfig(engine="voronoi", cell_size=100.0), inputs)
+
+    assert request.lines == ()
+    assert not any("the faces follow lake" in note for note in request.notes)
+
+
 @pytest.mark.skipif(find_spec("gmsh") is None, reason="gmsh is not installed")
 def test_a_family_switched_off_leaves_no_barrier_face() -> None:
     barrier = LineString([(dam.X0 + 210.0, dam.Y0 + 110.0), (dam.X0 + 830.0, dam.Y0 + 590.0)])
@@ -268,7 +301,7 @@ def test_the_size_holds_two_cells_across_a_narrow_lake_arm_unless_gap_cells_is_z
 
     def arm(cfg: MeshConfig):
         request = plan_mesh_request(cfg, _inputs(tmp_path, lakes=(_ARM_LAKE,)))
-        return float(sample_size_field(request.size_field, np.array([[480.0, 300.0]]))[0]), request
+        return float(request.size_field.sample(np.array([[480.0, 300.0]]))[0]), request
 
     size_on, on = arm(MeshConfig(engine="triangle", cell_size=80.0))
     size_off, off = arm(MeshConfig(engine="triangle", cell_size=80.0, gap_cells=0.0))
@@ -295,7 +328,7 @@ def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Pat
 
     request = plan_mesh_request(_TRIANGLE, inputs)
 
-    sizes = sample_size_field(request.size_field, np.array([[650.0, 325.0], [650.0, 420.0]]))
+    sizes = request.size_field.sample(np.array([[650.0, 325.0], [650.0, 420.0]]))
     assert sizes[0] == pytest.approx(12.0)
     assert sizes[1] > 12.0
 
@@ -340,7 +373,7 @@ def test_the_size_field_refines_a_zone_of_pixels_and_grows_away_from_it() -> Non
 
     field = request.size_field
     assert field is not None
-    sizes = sample_size_field(field, np.array([[505.0, 505.0], [515.0, 505.0], [805.0, 505.0]]))
+    sizes = field.sample(np.array([[505.0, 505.0], [515.0, 505.0], [805.0, 505.0]]))
     assert sizes[0] == pytest.approx(20.0) and sizes[1] == pytest.approx(20.0)
     assert sizes[2] == pytest.approx(80.0)
     assert request.source_runs == ()
