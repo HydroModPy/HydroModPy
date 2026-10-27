@@ -15,18 +15,23 @@ FIXED = {
 }
 
 
+KNOWN_NAMES = [
+    ("triangle", CellType.TRIANGLE),
+    ("quadrilateral", CellType.QUADRILATERAL),
+    ("wedge", CellType.WEDGE),
+    ("hexahedron", CellType.HEXAHEDRON),
+    ("tri", CellType.TRIANGLE),
+    ("quad", CellType.QUADRILATERAL),
+    ("triangular_prism", CellType.WEDGE),
+    ("hex", CellType.HEXAHEDRON),
+    ("voronoi", CellType.POLYGON),
+]
+
+
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        ("triangle", CellType.TRIANGLE),
-        ("quadrilateral", CellType.QUADRILATERAL),
-        ("wedge", CellType.WEDGE),
-        ("hexahedron", CellType.HEXAHEDRON),
-        ("tri", CellType.TRIANGLE),
-        ("quad", CellType.QUADRILATERAL),
-        ("triangular_prism", CellType.WEDGE),
-        ("hex", CellType.HEXAHEDRON),
-        ("voronoi", CellType.POLYGON),
+        *KNOWN_NAMES,
         ("TRIANGLE", CellType.TRIANGLE),
         ("  Quad  ", CellType.QUADRILATERAL),
     ],
@@ -35,9 +40,13 @@ def test_a_name_or_an_alias_gives_its_cell_type(name: str, expected: CellType) -
     assert CellType.from_string(name) is expected
 
 
-def test_an_unknown_name_raises() -> None:
-    with pytest.raises(ValueError, match="Unknown cell type 'tetrahedron'"):
+def test_an_unknown_name_raises_and_lists_the_names_it_knows() -> None:
+    with pytest.raises(ValueError, match="Unknown cell type 'tetrahedron'") as error:
         CellType.from_string("tetrahedron")
+
+    listed = str(error.value).split("Allowed: ", 1)[1].split(", ")
+    assert {name for name, _ in KNOWN_NAMES} <= set(listed)
+    assert all(isinstance(CellType.from_string(name), CellType) for name in listed)
 
 
 @pytest.mark.parametrize("cell_type", list(FIXED), ids=lambda cell_type: cell_type.value)

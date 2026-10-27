@@ -62,7 +62,8 @@ def test_the_size_field_is_ignored_and_the_quality_report_says_so() -> None:
     graded = RegularMeshEngine().build(mesh_request(DEM, size_field=uniform_size_field(DEM, 80.0)))
 
     np.testing.assert_array_equal(plain.mesh.vertices, graded.mesh.vertices)
-    assert len(set(graded.qa.notes) - set(plain.qa.notes)) == 1
+    (note,) = set(graded.qa.notes) - set(plain.qa.notes)
+    assert isinstance(note, str) and note
 
 
 def test_the_regular_grid_draws_nothing_at_random_and_records_no_seed() -> None:

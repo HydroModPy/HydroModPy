@@ -34,7 +34,9 @@ pytestmark = pytest.mark.fast
     [
         ("mm/day", 10.0, 10.0 * MM_DAY_TO_M_S),
         ("mm/jour", 10.0, 10.0 * MM_DAY_TO_M_S),
+        ("cm/jour", 1.0, 10.0 * MM_DAY_TO_M_S),
         ("m/day", 0.01, 0.01 / 86400.0),
+        ("m/jour", 0.01, 0.01 / 86400.0),
         ("m/s", 1.5e-7, 1.5e-7),
         ("mm/s", 0.001, 0.001 * 1e-3),
     ],
