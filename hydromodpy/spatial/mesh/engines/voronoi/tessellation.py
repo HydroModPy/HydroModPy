@@ -29,13 +29,13 @@ from shapely.geometry.base import BaseGeometry
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, local_frame
 from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import VERTEX_MERGE_M, vertex_keys
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 __all__ = [
     "BOUNDARY_SEED_ROUNDS",
     "MAX_LISTED",
     "ORPHAN_AREA_SHARE",
-    "VERTEX_MERGE_M",
     "CellTopology",
     "Tessellation",
     "cell_topology",
@@ -44,9 +44,6 @@ __all__ = [
     "voronoi_envelope",
     "voronoi_planar_mesh",
 ]
-
-VERTEX_MERGE_M = 1.0e-3
-"""Two cell vertices closer than this [m] are one vertex."""
 
 ORPHAN_AREA_SHARE = 1.0e-12
 """A clipped piece away from its seed counts as an orphan above this share of the domain area."""
@@ -63,7 +60,6 @@ MAX_LISTED = 20
 _SEED_GAP_SHARE = 1.0e-9
 """An added boundary seed closer than this share of the domain extent to a seed is dropped."""
 
-_KEY_BITS = 32
 _POLYGON = 3
 
 
@@ -304,11 +300,7 @@ def _merged_vertices(coords: np.ndarray) -> np.ndarray:
     Ids are numbered in order of first occurrence, the smallest id of a merged
     group being its representative.
     """
-    grid = np.rint(coords / VERTEX_MERGE_M)
-    if np.abs(grid).max(initial=0.0) >= 2.0 ** (_KEY_BITS - 1):
-        raise MeshGenerationError("the local frame spans more than 2^31 mm along an axis")
-    cells = grid.astype(np.int64)
-    key = cells[:, 0] * np.int64(1 << _KEY_BITS) + cells[:, 1]
+    key = vertex_keys(coords)
     _, first, inverse = np.unique(key, return_index=True, return_inverse=True)
     rank = np.empty(len(first), dtype=np.int64)
     rank[np.argsort(first, kind="stable")] = np.arange(len(first))

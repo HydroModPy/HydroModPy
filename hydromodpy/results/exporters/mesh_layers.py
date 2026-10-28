@@ -34,6 +34,7 @@ from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.derive.mesh_quality import mesh_quality_values
 from hydromodpy.results.exporters._tables import FACE_FAMILIES_TABLE, read_table, table_rows
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -197,24 +198,11 @@ def _read_layers(
     return result
 
 
-def _packed_rings(connectivity: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Return the rows with their nodes first, and the node count of each row."""
-    missing = connectivity < 0
-    order = np.argsort(missing, axis=1, kind="stable")
-    return np.take_along_axis(connectivity, order, axis=1), (~missing).sum(axis=1)
-
-
 def _cell_polygons(vertices: np.ndarray, connectivity: np.ndarray) -> np.ndarray:
-    """Return one polygon per cell, built a node count at a time. Every cell is kept."""
+    """Return one polygon per cell, an invalid one kept as stored."""
     import shapely
 
-    packed, sizes = _packed_rings(connectivity)
-    polygons = np.empty(len(connectivity), dtype=object)
-    for size in np.unique(sizes):
-        if size < 3:
-            continue
-        rows = np.flatnonzero(sizes == size)
-        polygons[rows] = shapely.polygons(vertices[packed[rows, :size], :2])
+    polygons = cell_polygons(vertices, connectivity, keep_invalid=True)
     held = np.array([geom is not None for geom in polygons])
     invalid = int((~held).sum()) + int((~shapely.is_valid(polygons[held])).sum())
     if invalid:

@@ -280,25 +280,12 @@ def _g2(
     faces: MirrorFaces, vertices: np.ndarray, geometry: DerivedGeometry, frame: LocalFrame
 ) -> tuple[tuple[str, int, list[str]], np.ndarray]:
     """The face of each pair exists and lies on its segment; return its edge rows."""
-    n = geometry.n_cells
     rows = np.full(len(faces.plus), -1, dtype=np.int64)
     if not len(rows):
         return ("G2", 0, []), rows
-    lo = np.minimum(faces.plus, faces.minus)
-    hi = np.maximum(faces.plus, faces.minus)
-    probe = lo * np.int64(n) + hi
-    edge_key = geometry.edge_cells[:, 0] * np.int64(n) + geometry.edge_cells[:, 1]
-    interior = geometry.edge_cells[:, 1] >= 0
-    order = np.flatnonzero(interior)[np.argsort(edge_key[interior], kind="stable")]
-    sorted_key = edge_key[order]
-    if len(order):
-        position = np.minimum(np.searchsorted(sorted_key, probe), len(order) - 1)
-        exists = (sorted_key[position] == probe) & (lo != hi)
-        edge = order[position]
-    else:
-        exists = np.zeros(len(rows), dtype=bool)
-        edge = np.zeros(len(rows), dtype=np.int64)
-    nodes = vertices[geometry.edge_nodes[edge]]
+    edge = geometry.edge_between(faces.plus, faces.minus)
+    exists = edge >= 0
+    nodes = vertices[geometry.edge_nodes[np.maximum(edge, 0)]]
     gap = np.minimum(
         np.maximum(_dist(nodes[:, 0], faces.start), _dist(nodes[:, 1], faces.end)),
         np.maximum(_dist(nodes[:, 0], faces.end), _dist(nodes[:, 1], faces.start)),
@@ -327,7 +314,6 @@ def _g3(
     """Two distinct consecutive cells of each chain are neighbours; return the links checked."""
     if not chains:
         return ("G3", 0, []), 0
-    n = geometry.n_cells
     starts = np.concatenate([chain.cell_ids[:-1] for chain in chains])
     stops = np.concatenate([chain.cell_ids[1:] for chain in chains])
     chain_of = np.concatenate(
@@ -335,12 +321,7 @@ def _g3(
     )
     link = starts != stops
     starts, stops, chain_of = starts[link], stops[link], chain_of[link]
-    indptr, indices = geometry.adjacency_indptr, geometry.adjacency_indices
-    adjacent = np.repeat(np.arange(n, dtype=np.int64), np.diff(indptr)) * np.int64(n) + indices
-    adjacent.sort()
-    probe = starts * np.int64(n) + stops
-    position = np.minimum(np.searchsorted(adjacent, probe), max(len(adjacent) - 1, 0))
-    linked = (adjacent[position] == probe) if len(adjacent) else np.zeros(len(probe), dtype=bool)
+    linked = geometry.edge_between(starts, stops) >= 0
     bad = np.flatnonzero(~linked)
     listed = [
         f"chain {chains[chain_of[i]].family!r} {chains[chain_of[i]].chain_id}: cells "
@@ -348,7 +329,7 @@ def _g3(
         f"{_at(frame, seeds[stops[i]])} are not neighbours"
         for i in bad[:MAX_LISTED].tolist()
     ]
-    return ("G3", int(bad.size), listed), int(len(probe))
+    return ("G3", int(bad.size), listed), int(len(starts))
 
 
 def _g5(

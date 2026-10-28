@@ -20,7 +20,11 @@ from scipy.sparse.csgraph import connected_components
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    BOX_SIDES,
+    DerivedGeometry,
+    box_side_of_edges,
+)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 
@@ -89,7 +93,11 @@ class TriangleFamilies:
 
 @dataclass(frozen=True, eq=False)
 class EdgeLookup:
-    """Directed edges of counter-clockwise triangles, keyed ``a * n_nodes + b``."""
+    """Directed edges of counter-clockwise triangles, keyed ``a * n_nodes + b``.
+
+    The edge table of ``DerivedGeometry`` is undirected, so it cannot say which
+    triangle lies on the left of ``a -> b``; this one can.
+    """
 
     n_nodes: int
     keys: np.ndarray
@@ -468,31 +476,20 @@ def box_side_edges(
 ) -> tuple[FamilyEdges, ...]:
     """Families ``boundary:<side>`` of the boundary edges on each side of the vertex box.
 
-    A boundary edge belongs to the first side whose box line its midpoint lies
-    on, within ``1e-8`` of the larger span (``1e-9`` m at least).
+    The side of an edge is the one :func:`box_side_of_edges` gives it.
     """
     outer = np.flatnonzero(geometry.edge_cells[:, 1] < 0)
     pairs = geometry.edge_nodes[outer]
-    xmin, ymin = vertices.min(axis=0)
-    xmax, ymax = vertices.max(axis=0)
-    tolerance = max(1.0e-9, 1.0e-8 * max(xmax - xmin, ymax - ymin, 1.0))
-    middle = 0.5 * (vertices[pairs[:, 0]] + vertices[pairs[:, 1]])
-    free = np.ones(len(outer), dtype=bool)
+    side = box_side_of_edges(vertices, pairs[:, 0], pairs[:, 1])
     families = []
-    for side, coordinate, value in (
-        ("west", middle[:, 0], xmin),
-        ("east", middle[:, 0], xmax),
-        ("south", middle[:, 1], ymin),
-        ("north", middle[:, 1], ymax),
-    ):
-        on_side = free & (np.abs(coordinate - value) <= tolerance)
-        free &= ~on_side
+    for index, name in enumerate(BOX_SIDES):
+        on_side = side == index
         if not np.any(on_side):
             continue
         unknown = np.full(int(on_side.sum()), -1, dtype=np.int32)
         families.append(
             _oriented_rows(
-                f"boundary:{side}",
+                f"boundary:{name}",
                 lookup,
                 pairs[on_side],
                 np.full(unknown.size, -1),
@@ -508,15 +505,21 @@ def face_table(families: tuple[FamilyEdges, ...]) -> FaceFamilyTable | None:
     present = [family for family in families if family.cell_a.size]
     if not present:
         return None
-    return FaceFamilyTable(
-        names=tuple(family.name for family in present),
-        family=np.repeat(np.arange(len(present)), [f.cell_a.size for f in present]),
-        cell_a=np.concatenate([f.cell_a for f in present]),
-        cell_b=np.concatenate([f.cell_b for f in present]),
-        node_a=np.concatenate([f.node_a for f in present]),
-        node_b=np.concatenate([f.node_b for f in present]),
-        zone_left=np.concatenate([f.zone_left for f in present]),
-        zone_right=np.concatenate([f.zone_right for f in present]),
+    return FaceFamilyTable.stack(
+        [
+            (
+                family.name,
+                {
+                    "cell_a": family.cell_a,
+                    "cell_b": family.cell_b,
+                    "node_a": family.node_a,
+                    "node_b": family.node_b,
+                    "zone_left": family.zone_left,
+                    "zone_right": family.zone_right,
+                },
+            )
+            for family in present
+        ]
     )
 
 

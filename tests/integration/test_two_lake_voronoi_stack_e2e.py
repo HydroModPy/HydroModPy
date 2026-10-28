@@ -59,7 +59,7 @@ def _voronoi_cells():
         xmin=0.0, xmax=_SIDE, ymin=0.0, ymax=_SIDE, dx=_SIDE, dy=_SIDE, nrow=1, ncol=1,
         crs_wkt=_WKT,
     )  # fmt: skip
-    request = MeshRequest(domain=domain, crs_wkt=_WKT, grid=grid, nominal_size_m=30.0, options={})
+    request = MeshRequest(domain=domain, grid=grid, nominal_size_m=30.0, options={})
     return VoronoiMeshEngine().build(request)
 
 

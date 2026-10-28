@@ -29,6 +29,8 @@ from shapely.geometry import LineString, Polygon
 from hydromodpy.core.exceptions import MeshRequestError
 
 if TYPE_CHECKING:
+    from rasterio.transform import Affine
+
     from hydromodpy.spatial.raster_support import RasterSupport
 
 __all__ = [
@@ -125,6 +127,13 @@ class RasterGridSpec:
                     f"grid {axis}: {count} cells of {step} m span {count * step} m, "
                     f"the bounds span {extent} m"
                 )
+
+    @property
+    def transform(self) -> Affine:
+        """The affine transform of the grid, row 0 north, as rasterio reads it."""
+        from rasterio.transform import Affine
+
+        return Affine(self.dx, 0.0, self.xmin, 0.0, -self.dy, self.ymax)
 
     @classmethod
     def from_raster_support(cls, support: RasterSupport, *, crs_wkt: str) -> RasterGridSpec:
@@ -319,7 +328,6 @@ class MeshRequest:
     """
 
     domain: Polygon
-    crs_wkt: str
     grid: RasterGridSpec
     nominal_size_m: float
     lines: tuple[LineFamilySpec, ...] = ()
@@ -336,12 +344,8 @@ class MeshRequest:
             raise MeshRequestError("the mesh domain must be a non-empty shapely Polygon")
         if not self.domain.is_valid or self.domain.area <= 0.0:
             raise MeshRequestError("the mesh domain must be a valid polygon with an area > 0")
-        if not isinstance(self.crs_wkt, str) or not self.crs_wkt.strip():
-            raise MeshRequestError("a mesh request needs a non-empty crs_wkt")
         if not isinstance(self.grid, RasterGridSpec):
             raise MeshRequestError("MeshRequest.grid must be a RasterGridSpec")
-        if self.grid.crs_wkt != self.crs_wkt:
-            raise MeshRequestError("the grid and the request name different CRS")
         if not all(isinstance(family, LineFamilySpec) for family in self.lines):
             raise MeshRequestError("MeshRequest.lines must hold LineFamilySpec items")
         lines = tuple(sorted(self.lines, key=lambda family: family.name))
@@ -377,6 +381,11 @@ class MeshRequest:
         ):
             raise MeshRequestError("MeshRequest.source_runs must be a sequence of sim ids")
         object.__setattr__(self, "source_runs", tuple(sorted(set(self.source_runs))))
+
+    @property
+    def crs_wkt(self) -> str:
+        """The CRS of the request, the one of its DEM grid."""
+        return self.grid.crs_wkt
 
     def family(self, name: str) -> LineFamilySpec | None:
         """The line family named *name*, or ``None``."""

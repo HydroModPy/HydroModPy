@@ -135,7 +135,6 @@ def mesh_request(grid: RasterGridSpec | None = None, **overrides: object) -> Mes
     grid = grid_spec(10, 10, 100.0) if grid is None else grid
     members: dict[str, object] = {
         "domain": box(grid.xmin, grid.ymin, grid.xmax, grid.ymax),
-        "crs_wkt": grid.crs_wkt,
         "grid": grid,
         "nominal_size_m": grid.dx,
     }
@@ -154,7 +153,6 @@ def planning_inputs(grid: RasterGridSpec | None = None, **overrides: object) -> 
     grid = grid_spec(10, 10, 100.0) if grid is None else grid
     members: dict[str, object] = {
         "dem_grid": grid,
-        "crs_wkt": grid.crs_wkt,
         "domain": box(grid.xmin, grid.ymin, grid.xmax, grid.ymax),
         "river_trace": None,
         "watershed": None,

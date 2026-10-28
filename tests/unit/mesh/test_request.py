@@ -51,7 +51,6 @@ def _request(**overrides: object) -> MeshRequest:
     """A request of every member; a variant of the grid keeps the domain and the CRS."""
     members: dict[str, object] = dict(
         domain=_GRID_BOX,
-        crs_wkt=_WKT,
         lines=(
             _RIVER,
             LineFamilySpec(
@@ -86,6 +85,20 @@ def _request_without_runs(**overrides: object) -> MeshRequest:
     }
     members.update(overrides)
     return mesh_request(_GRID, **members)
+
+
+def test_the_request_is_in_the_crs_of_its_grid() -> None:
+    other_wkt = 'PROJCS["WGS 84 / UTM zone 30N"]'
+
+    assert _request().crs_wkt == _WKT
+    assert mesh_request(grid_spec(4, 4, 10.0, crs_wkt=other_wkt)).crs_wkt == other_wkt
+
+
+def test_the_grid_transform_puts_row_0_north() -> None:
+    grid = _GRID
+
+    assert grid.transform * (0, 0) == (grid.xmin, grid.ymax)
+    assert grid.transform * (grid.ncol, grid.nrow) == pytest.approx((grid.xmax, grid.ymin))
 
 
 def test_the_request_error_is_a_mesh_error() -> None:
@@ -135,7 +148,6 @@ def _variants() -> dict[str, MeshRequest]:
     return {
         "domain": _request(domain=box(1000.0, 2000.0, 1090.0, 2050.0)),
         "crs_wkt": _request(
-            crs_wkt=other_wkt,
             grid=_grid(crs_wkt=other_wkt),
             size_field=uniform_size_field(_grid(crs_wkt=other_wkt), 20.0),
         ),
@@ -275,7 +287,7 @@ def test_a_grid_from_a_raster_support_takes_its_exact_bounds() -> None:
 
 def test_a_minimal_request_takes_the_defaults() -> None:
     request = MeshRequest(
-        domain=box(1000.0, 2000.0, 1100.0, 2050.0), crs_wkt=_WKT, grid=_GRID, nominal_size_m=10.0
+        domain=box(1000.0, 2000.0, 1100.0, 2050.0), grid=_GRID, nominal_size_m=10.0
     )
 
     assert request.lines == ()
@@ -364,11 +376,6 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "self-crossing domain": (
         lambda: _request(domain=Polygon([(0, 0), (1, 1), (1, 0), (0, 1)])),
         r"valid polygon with an area > 0",
-    ),
-    "blank CRS": (lambda: _request(crs_wkt=""), r"needs a non-empty crs_wkt"),
-    "CRS other than the grid's": (
-        lambda: _request(crs_wkt='PROJCS["other"]'),
-        r"the grid and the request name different CRS",
     ),
     "grid of another type": (
         lambda: dataclasses.replace(_request(), grid=SimpleNamespace(crs_wkt=_WKT)),

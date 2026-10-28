@@ -33,6 +33,7 @@ from shapely.geometry.polygon import orient
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError, MeshGenerationError, MeshRequestError
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings, vertex_keys
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
 from hydromodpy.spatial.mesh.resample import kink_pieces, resample_families
 
@@ -58,9 +59,6 @@ and 200 m, the triangle count is ``A / l^2`` within 3 per cent for each algorith
 
 _ORIGIN_STEP_M = 1000.0
 """The shift origin is the domain centre rounded to this step [m]."""
-
-_MERGE_STEP_M = 1.0e-3
-"""Two line vertices closer than this step [m] (on an integer grid) are one vertex."""
 
 _ON_LINE_M = 1.0e-6
 """A noded vertex within this distance [m] of a line splits it."""
@@ -153,7 +151,7 @@ def _origin(domain: Polygon) -> np.ndarray:
 def _node(request: MeshRequest, origin: np.ndarray) -> _Plsg:
     """Split every ring and line at every crossing, then merge vertices on a mm grid."""
     domain = orient(shapely.transform(request.domain, lambda xy: xy - origin), 1.0)
-    rings = [domain.exterior, *domain.interiors]
+    rings = polygon_rings(domain)
     lines: dict[tuple[str, int], LineString] = {}
     cover = domain.buffer(_ON_LINE_M)
     for family in request.lines:
@@ -164,12 +162,12 @@ def _node(request: MeshRequest, origin: np.ndarray) -> _Plsg:
                     f"line {index} of family {family.name!r} leaves the mesh domain"
                 )
             lines[(family.name, index)] = shifted
-    sources = [LineString(ring.coords) for ring in rings] + list(lines.values())
+    sources = [*rings, *lines.values()]
     noded = shapely.node(shapely.multilinestrings(sources))
     points = shapely.points(np.unique(shapely.get_coordinates(noded), axis=0))
     tree = STRtree(points)
 
-    keys: dict[tuple[int, int], int] = {}
+    keys: dict[int, int] = {}
     vertices: list[tuple[float, float]] = []
 
     def vertex_ids(source: LineString, *, closed: bool) -> list[int]:
@@ -177,8 +175,7 @@ def _node(request: MeshRequest, origin: np.ndarray) -> _Plsg:
         along = shapely.line_locate_point(source, points[hits])
         coords = shapely.get_coordinates(points[hits])[np.argsort(along, kind="stable")]
         ids: list[int] = []
-        for x, y in coords:
-            key = (round(x / _MERGE_STEP_M), round(y / _MERGE_STEP_M))
+        for (x, y), key in zip(coords, vertex_keys(coords).tolist(), strict=True):
             if key not in keys:
                 keys[key] = len(vertices)
                 vertices.append((float(x), float(y)))
@@ -189,7 +186,7 @@ def _node(request: MeshRequest, origin: np.ndarray) -> _Plsg:
             ids.append(ids[0])
         return ids
 
-    ring_ids = [vertex_ids(LineString(ring.coords), closed=True) for ring in rings]
+    ring_ids = [vertex_ids(ring, closed=True) for ring in rings]
     line_ids = {key: vertex_ids(line, closed=line.is_closed) for key, line in lines.items()}
     for key, ids in line_ids.items():
         if len(ids) < 2:

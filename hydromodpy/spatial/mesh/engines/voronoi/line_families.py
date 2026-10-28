@@ -17,19 +17,18 @@ from shapely.strtree import STRtree
 
 from hydromodpy.spatial.mesh.engines.triangle.families import components_without
 from hydromodpy.spatial.mesh.engines.voronoi.constraints import ConstraintPlan, FaceLineState
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
-from hydromodpy.spatial.mesh.model.mesh_qa import RELATIVE_FACE_TOLERANCE
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    BOX_SIDES,
+    DerivedGeometry,
+    box_side_of_edges,
+)
+from hydromodpy.spatial.mesh.model.mesh_qa import RELATIVE_FACE_TOLERANCE, mixed_cells
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 
 __all__ = ["GEOLOGY_FAMILY", "cell_chains", "cell_zones", "face_family_table"]
 
 GEOLOGY_FAMILY = "geology"
 """The face family whose two sides carry the zones of the cells."""
-
-MIXED_TRAVERSAL = 1.0e-6
-"""A line crosses a cell when its length inside exceeds this share of the cell side."""
-
-_SIDES = ("west", "east", "south", "north")
 
 
 def cell_chains(plan: ConstraintPlan) -> tuple[CellChain, ...]:
@@ -52,8 +51,7 @@ def face_family_table(
     segment shared by a second family gives that family a row too, oriented
     along its own line.
     """
-    names: list[str] = []
-    columns: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
+    families: list[tuple[str, dict[str, np.ndarray]]] = []
     segments, cells, nodes, edges = _mirror_faces(plan, geometry, vertices)
     faces = plan.faces
     for index, name in enumerate(plan.family_names):
@@ -61,37 +59,27 @@ def face_family_table(
         shared, flip = _shared_rows(faces, index, segments, edges, own)
         if not own.size and not shared.size:
             continue
-        names.append(name)
         rows = np.concatenate([own, shared])
         flip = np.concatenate([np.zeros(own.size, dtype=bool), flip])[:, None]
         zones = np.column_stack([faces.zone_left[segments[rows]], faces.zone_right[segments[rows]]])
         zones[own.size :] = -1
-        columns.append(
+        pair = np.where(flip, cells[rows][:, ::-1], cells[rows])
+        ends = np.where(flip, nodes[rows][:, ::-1], nodes[rows])
+        families.append(
             (
-                np.where(flip, cells[rows][:, ::-1], cells[rows]),
-                np.where(flip, nodes[rows][:, ::-1], nodes[rows]),
-                zones,
+                name,
+                {
+                    "cell_a": pair[:, 0],
+                    "cell_b": pair[:, 1],
+                    "node_a": ends[:, 0],
+                    "node_b": ends[:, 1],
+                    "zone_left": zones[:, 0],
+                    "zone_right": zones[:, 1],
+                },
             )
         )
-    for side, side_cells, side_nodes in _side_faces(geometry, vertices):
-        names.append(f"boundary:{side}")
-        columns.append((side_cells, side_nodes, np.full((len(side_cells), 2), -1)))
-    if not names:
-        return None
-    count = [len(part[0]) for part in columns]
-    cells = np.vstack([part[0] for part in columns])
-    nodes = np.vstack([part[1] for part in columns])
-    zones = np.vstack([part[2] for part in columns])
-    return FaceFamilyTable(
-        names=tuple(names),
-        family=np.repeat(np.arange(len(names)), count),
-        cell_a=cells[:, 0],
-        cell_b=cells[:, 1],
-        node_a=nodes[:, 0],
-        node_b=nodes[:, 1],
-        zone_left=zones[:, 0],
-        zone_right=zones[:, 1],
-    )
+    families.extend(_side_faces(geometry, vertices))
+    return FaceFamilyTable.stack(families) if families else None
 
 
 def cell_zones(
@@ -192,7 +180,7 @@ def _mirror_faces(
     faces = plan.faces
     segments = np.flatnonzero(faces.segment_conformal & (faces.segment_seeds >= 0).all(axis=1))
     cells = faces.segment_seeds[segments]
-    edge = _edge_of_cells(geometry, cells[:, 0], cells[:, 1])
+    edge = geometry.edge_between(cells[:, 0], cells[:, 1])
     found = edge >= 0
     segments, cells, edge = segments[found], cells[found], edge[found]
     nodes = geometry.edge_nodes[edge]
@@ -203,42 +191,20 @@ def _mirror_faces(
     return segments, cells, np.where(forward[:, None], nodes, nodes[:, ::-1]), edge
 
 
-def _edge_of_cells(geometry: DerivedGeometry, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Edge row between cells ``a[i]`` and ``b[i]``, ``-1`` when they share no edge."""
-    n = np.int64(geometry.n_cells)
-    interior = np.flatnonzero(geometry.edge_cells[:, 1] >= 0)
-    if not interior.size:
-        return np.full(len(a), -1, dtype=np.int64)
-    key = geometry.edge_cells[interior, 0] * n + geometry.edge_cells[interior, 1]
-    order = np.argsort(key, kind="stable")
-    sorted_key = key[order]
-    probe = np.minimum(a, b) * n + np.maximum(a, b)
-    position = np.minimum(np.searchsorted(sorted_key, probe), key.size - 1)
-    found = (sorted_key[position] == probe) & (a != b)
-    return np.where(found, interior[order][position], -1)
-
-
 def _side_faces(
     geometry: DerivedGeometry, vertices: np.ndarray
-) -> list[tuple[str, np.ndarray, np.ndarray]]:
-    """Boundary edges on each side of the vertex box: ``(side, cells, nodes)``.
+) -> list[tuple[str, dict[str, np.ndarray]]]:
+    """The families ``boundary:<side>`` of the boundary edges on each side of the vertex box.
 
-    A boundary edge belongs to the first side whose box line its midpoint lies
-    on, within ``1e-8`` of the larger span (``1e-9`` m at least). Its nodes run
-    with its cell on their left; ``cell_b`` is ``-1``.
+    The side of an edge is the one :func:`box_side_of_edges` gives it. Its nodes
+    run with its cell on their left; ``cell_b`` is ``-1``.
     """
     outer = np.flatnonzero(geometry.edge_cells[:, 1] < 0)
     pairs = geometry.edge_nodes[outer]
-    xmin, ymin = vertices.min(axis=0)
-    xmax, ymax = vertices.max(axis=0)
-    tolerance = max(1.0e-9, 1.0e-8 * max(xmax - xmin, ymax - ymin, 1.0))
-    middle = 0.5 * (vertices[pairs[:, 0]] + vertices[pairs[:, 1]])
-    lines = (middle[:, 0], middle[:, 0], middle[:, 1], middle[:, 1])
-    free = np.ones(outer.size, dtype=bool)
+    side = box_side_of_edges(vertices, pairs[:, 0], pairs[:, 1])
     sides = []
-    for side, coordinate, value in zip(_SIDES, lines, (xmin, xmax, ymin, ymax), strict=True):
-        on_side = free & (np.abs(coordinate - value) <= tolerance)
-        free &= ~on_side
+    for index, name in enumerate(BOX_SIDES):
+        on_side = side == index
         if not on_side.any():
             continue
         cell = geometry.edge_cells[outer[on_side], 0]
@@ -247,7 +213,17 @@ def _side_faces(
         reach = geometry.area_centroids[cell] - vertices[nodes[:, 0]]
         left = tangent[:, 0] * reach[:, 1] - tangent[:, 1] * reach[:, 0] > 0.0
         nodes = np.where(left[:, None], nodes, nodes[:, ::-1])
-        sides.append((side, np.column_stack([cell, np.full(cell.size, -1)]), nodes))
+        sides.append(
+            (
+                f"boundary:{name}",
+                {
+                    "cell_a": cell,
+                    "cell_b": np.full(cell.size, -1),
+                    "node_a": nodes[:, 0],
+                    "node_b": nodes[:, 1],
+                },
+            )
+        )
     return sides
 
 
@@ -287,23 +263,5 @@ def _mixed_cells(
     segments = _loose_segments(plan)
     if not segments.size:
         return np.empty(0, dtype=np.int64)
-    padded = geometry.padded_connectivity.astype(np.int64)
-    valid = padded >= 0
-    corner = np.where(valid, padded, 0)
-    x, y = vertices[corner, 0], vertices[corner, 1]
-    boxes = shapely.box(
-        np.where(valid, x, np.inf).min(axis=1),
-        np.where(valid, y, np.inf).min(axis=1),
-        np.where(valid, x, -np.inf).max(axis=1),
-        np.where(valid, y, -np.inf).max(axis=1),
-    )
-    near = np.unique(STRtree(boxes).query(segments, predicate="intersects")[1])
-    if not near.size:
-        return near
-    count = valid[near].sum(axis=1)
-    pick = np.minimum(np.arange(padded.shape[1])[None, :], (count - 1)[:, None])
-    rings = vertices[np.take_along_axis(padded[near], pick, axis=1)]
     tolerance = RELATIVE_FACE_TOLERANCE * float(np.median(geometry.edge_length))
-    polygons = shapely.buffer(shapely.polygons(shapely.linearrings(rings)), -tolerance)
-    inside = shapely.length(shapely.intersection(polygons, shapely.multilinestrings(segments)))
-    return near[inside > MIXED_TRAVERSAL * np.sqrt(geometry.areas[near])]
+    return mixed_cells(shapely.multilinestrings(segments), geometry, vertices, tolerance)

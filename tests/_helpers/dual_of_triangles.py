@@ -28,7 +28,6 @@ def dual_of_the_triangles(triangles: PlanarCellMesh, request: MeshRequest) -> Pl
     read = mesh_request(
         request.grid,
         domain=request.domain,
-        crs_wkt=request.crs_wkt,
         nominal_size_m=request.nominal_size_m,
         input_triangulation=triangulation,
     )

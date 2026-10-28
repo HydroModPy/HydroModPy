@@ -153,8 +153,7 @@ def _family_edges_on_line(cell_mesh: PlanarCellMesh, line: LineString) -> np.nda
     if not rows.any():
         return np.empty(0, dtype=np.int64)
     geometry = cell_mesh.geometry
-    pairs = np.sort(np.column_stack([table.cell_a[rows], table.cell_b[rows]]), axis=1)
-    edges = _edges_of_pairs(geometry, pairs)
+    edges = geometry.edge_between(table.cell_a[rows], table.cell_b[rows])
     edges = np.unique(edges[edges >= 0])
     gap = shapely.distance(shapely.points(geometry.edge_midpoint[edges]), line)
     return edges[gap <= ON_LINE_SHARE * geometry.edge_length[edges]]
@@ -184,17 +183,6 @@ def _uncovered(
     if line.length - reached > slack:
         gaps.append((reached, float(line.length)))
     return gaps
-
-
-def _edges_of_pairs(geometry: DerivedGeometry, pairs: np.ndarray) -> np.ndarray:
-    """Edge row of each sorted cell pair ``(a, b)``, ``-1`` when the cells share no edge."""
-    n_cells = np.int64(geometry.n_cells)
-    keys = geometry.edge_cells[:, 0] * n_cells + geometry.edge_cells[:, 1]
-    order = np.argsort(keys, kind="stable")
-    probe = pairs[:, 0] * n_cells + pairs[:, 1]
-    position = np.minimum(np.searchsorted(keys, probe, sorter=order), keys.size - 1)
-    found = keys[order[position]] == probe
-    return np.where(found, order[position], -1)
 
 
 def crossed_edges(geometry: DerivedGeometry, centers: np.ndarray, line: LineString) -> np.ndarray:

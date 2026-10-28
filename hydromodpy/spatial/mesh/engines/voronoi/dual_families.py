@@ -30,7 +30,11 @@ from hydromodpy.spatial.mesh.engines.triangle.families import (
     FamilyEdges,
     components_without,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    BOX_SIDES,
+    DerivedGeometry,
+    box_side_of_edges,
+)
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 
 __all__ = [
@@ -220,29 +224,22 @@ def side_faces(
 ) -> tuple[FamilyEdges, ...]:
     """The families ``boundary:<side>``: boundary faces on a side of the vertex box.
 
-    A boundary face belongs to the first side whose box line its midpoint lies
-    on, within ``1e-8`` of the larger span (``1e-9`` m at least). A side that
-    has cells centred on it keeps the faces of those cells only: a Dirichlet
-    head belongs on the boundary, not half a cell inside.
+    The side of a face is the one :func:`box_side_of_edges` gives it. A side
+    that has cells centred on it keeps the faces of those cells only: a
+    Dirichlet head belongs on the boundary, not half a cell inside.
     """
     outer = np.flatnonzero(geometry.edge_cells[:, 1] < 0)
     pairs = geometry.edge_nodes[outer]
+    side_of_face = box_side_of_edges(vertices, pairs[:, 0], pairs[:, 1])
     low = vertices.min(axis=0)
     high = vertices.max(axis=0)
-    tolerance = max(1.0e-9, 1.0e-8 * max(*(high - low), 1.0))
-    middle = 0.5 * (vertices[pairs[:, 0]] + vertices[pairs[:, 1]])
     size = np.sqrt(geometry.areas)
     centre_tolerance = np.maximum(CENTRE_TOLERANCE_ABS_M, CENTRE_TOLERANCE_REL * size)
-    free = np.ones(outer.size, dtype=bool)
     sides = {}
-    for side, axis, value in (
-        ("west", 0, low[0]),
-        ("east", 0, high[0]),
-        ("south", 1, low[1]),
-        ("north", 1, high[1]),
+    for index, (side, axis, value) in enumerate(
+        zip(BOX_SIDES, (0, 0, 1, 1), (low[0], high[0], low[1], high[1]), strict=True)
     ):
-        on_side = free & (np.abs(middle[:, axis] - value) <= tolerance)
-        free &= ~on_side
+        on_side = side_of_face == index
         centred = np.abs(centers[:, axis] - value) <= centre_tolerance
         if centred.any():
             on_side &= centred[geometry.edge_cells[outer, 0]]

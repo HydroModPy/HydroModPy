@@ -21,6 +21,7 @@ import shapely
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.size_field import SizeTerm
 
 __all__ = ["GAP_DETOUR", "GAP_LEVEL_RATIO", "gap_terms"]
@@ -58,8 +59,7 @@ def gap_terms(
     than *touch* [m] touch there, and the way between two of their points
     goes through the place they touch.
     """
-    rings = [LineString(domain.exterior.coords)]
-    rings.extend(LineString(ring.coords) for ring in domain.interiors)
+    rings = polygon_rings(domain)
     simple = shapely.simplify(np.asarray([*lines, *rings], dtype=object), _SIMPLIFY_SHARE * pixel)
     kept = _distinct([line for line in simple if line.length > 0.0], touch)
     if not kept:

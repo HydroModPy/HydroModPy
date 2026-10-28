@@ -21,19 +21,21 @@ from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
 from hydromodpy.spatial.mesh.engines.regular.grid import GridLayout
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    BOX_SIDES,
+    DerivedGeometry,
+    cell_polygons,
+)
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
 from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons, line_crossing_cell_mask
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec
 
 __all__ = ["FaceFamilies", "cell_chains", "face_family_columns"]
 
 _WINDOW_MARGIN_CELLS = 2
 """Cells kept around a line when its crossing mask is computed on a sub-grid."""
-
-_SIDES = ("west", "east", "south", "north")
 
 _END_SNAP_REL = 1.0e-7
 """A line end this share of the domain span from the boundary is noded into it."""
@@ -129,7 +131,10 @@ def cell_chains(
 def boundary_columns(
     geometry: DerivedGeometry, layout: GridLayout
 ) -> dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Per side, ``(cell, node_a, node_b)`` of the boundary faces on that side."""
+    """Per side, ``(cell, node_a, node_b)`` of the boundary faces on that side.
+
+    The side is read from the grid columns and rows of the two nodes, exactly.
+    """
     nx = layout.ncol + 1
     nodes = geometry.edge_nodes
     column = nodes % nx
@@ -142,7 +147,7 @@ def boundary_columns(
         "north": (row == 0).all(axis=1),
     }
     out = {}
-    for side in _SIDES:
+    for side in BOX_SIDES:
         keep = on_boundary & masks[side]
         out[side] = (
             geometry.edge_cells[keep, 0],
@@ -224,41 +229,18 @@ def face_family_columns(
             if name not in zone_names:
                 zone_names.append(name)
 
-    sides = boundary_columns(geometry, layout)
-    names = [*(f"boundary:{side}" for side in _SIDES), *(spec.name for spec in specs)]
-    parts: dict[str, list[np.ndarray]] = {
-        key: [] for key in ("family", "cell_a", "cell_b", "node_a", "node_b", "zl", "zr")
-    }
-
-    def add(family: int, cell_a, cell_b, node_a, node_b, zone_l, zone_r) -> None:
-        count = len(cell_a)
-        parts["family"].append(np.full(count, family, dtype=np.int16))
-        for key, value in (
-            ("cell_a", cell_a),
-            ("cell_b", cell_b),
-            ("node_a", node_a),
-            ("node_b", node_b),
-            ("zl", zone_l),
-            ("zr", zone_r),
-        ):
-            parts[key].append(np.asarray(value))
-
-    for index, side in enumerate(_SIDES):
-        cell, node_a, node_b = sides[side]
-        add(
-            index,
-            cell,
-            np.full(cell.size, -1, dtype=np.int64),
-            node_a,
-            node_b,
-            np.full(cell.size, -1),
-            np.full(cell.size, -1),
+    families: list[tuple[str, dict[str, np.ndarray]]] = [
+        (
+            f"boundary:{side}",
+            {"cell_a": cell, "cell_b": np.full(cell.size, -1), "node_a": a, "node_b": b},
         )
+        for side, (cell, a, b) in boundary_columns(geometry, layout).items()
+    ]
+    no_row = {key: np.empty(0, dtype=np.int64) for key in ("cell_a", "cell_b", "node_a", "node_b")}
 
     interior = geometry.edge_cells[:, 1] >= 0
     cell_zone: np.ndarray | None = None
-    for offset, spec in enumerate(specs):
-        family = len(_SIDES) + offset
+    for spec in specs:
         pair = geometry.edge_cells
         if spec.name == BARRIER_FAMILY:
             labels = np.full(len(centers), -1, dtype=np.int64)
@@ -276,6 +258,7 @@ def face_family_columns(
                 interior & (label_a >= 0) & (label_b >= 0) & (label_a != label_b)
             )
         if stairs.size == 0 or not spec.lines:
+            families.append((spec.name, no_row))
             continue
         first = pair[stairs, 0]
         second = pair[stairs, 1]
@@ -292,32 +275,23 @@ def face_family_columns(
         cell_b = np.where(first_is_left, second, first)
         zone_l = _zone_ids(spec.zone_left, line_of, zone_names)
         zone_r = _zone_ids(spec.zone_right, line_of, zone_names)
-        add(
-            family,
-            cell_a,
-            cell_b,
-            geometry.edge_nodes[stairs, 0],
-            geometry.edge_nodes[stairs, 1],
-            zone_l,
-            zone_r,
+        families.append(
+            (
+                spec.name,
+                {
+                    "cell_a": cell_a,
+                    "cell_b": cell_b,
+                    "node_a": geometry.edge_nodes[stairs, 0],
+                    "node_b": geometry.edge_nodes[stairs, 1],
+                    "zone_left": zone_l,
+                    "zone_right": zone_r,
+                },
+            )
         )
         if cell_zone is None and zone_names and spec.zone_left:
             cell_zone = _label_zones(labels, labels[cell_a], labels[cell_b], zone_l, zone_r)
 
-    def stack(key: str, dtype: type) -> np.ndarray:
-        return np.concatenate(parts[key]).astype(dtype, copy=False)
-
-    table = FaceFamilyTable(
-        names=tuple(names),
-        family=stack("family", np.int16),
-        cell_a=stack("cell_a", np.int64),
-        cell_b=stack("cell_b", np.int64),
-        node_a=stack("node_a", np.int64),
-        node_b=stack("node_b", np.int64),
-        zone_left=stack("zl", np.int32),
-        zone_right=stack("zr", np.int32),
-    )
-    return FaceFamilies(table, cell_zone, tuple(zone_names))
+    return FaceFamilies(FaceFamilyTable.stack(families), cell_zone, tuple(zone_names))
 
 
 def _zone_ids(zones: tuple[str, ...], line_of: np.ndarray, zone_names: list[str]) -> np.ndarray:

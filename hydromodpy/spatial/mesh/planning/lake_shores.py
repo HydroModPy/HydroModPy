@@ -31,6 +31,8 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points
 
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+
 __all__ = ["LAKE_SHORE_SHARE", "SIGNIFICANT_SHARE", "FollowedShores", "followed_lake_shores"]
 
 LAKE_SHORE_SHARE = 0.6
@@ -135,8 +137,7 @@ def followed_lake_shores(
 def _shore_size(lake: Polygon, size_at: Callable[[np.ndarray], np.ndarray], step: float) -> float:
     """The largest cell size [m] along the rings of *lake*: its longest shore segment."""
     samples = []
-    for ring in [lake.exterior, *lake.interiors]:
-        line = LineString(ring.coords)
+    for line in polygon_rings(lake):
         count = max(4, int(np.ceil(line.length / step)))
         along = np.linspace(0.0, line.length, count, endpoint=False)
         samples.append(shapely.get_coordinates(shapely.line_interpolate_point(line, along)))

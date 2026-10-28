@@ -52,6 +52,7 @@ from hydromodpy.spatial.mesh.engines.voronoi.mirror import (
     seed_angle,
     tip_seeds,
 )
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings, vertex_keys
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, MeshRequest
 from hydromodpy.spatial.mesh.resample import positions_at_local_size
 
@@ -102,9 +103,6 @@ BOUNDARY_ANGLE_RAD = math.radians(30.0)
 
 BOUNDARY_TOL_REL = 1.0e-6
 """Distance to the domain boundary, as a share of its extent, under which a point lies on it."""
-
-_KEY_STEP_M = 1.0e-3
-"""Grid of the vertex keys: two line vertices within the same millimetre are one node."""
 
 _MERGED = 1
 _YIELDED = 2
@@ -348,12 +346,6 @@ def _family_order(spec: LineFamilySpec) -> tuple[int, int, str]:
     return (1, len(FACE_PRIORITY), spec.name)
 
 
-def _node_keys(xy: np.ndarray) -> np.ndarray:
-    """int64 key of each point on a 1 mm grid: equal keys are one node."""
-    grid = np.round(np.asarray(xy, dtype=float).reshape(-1, 2) / _KEY_STEP_M).astype(np.int64)
-    return grid[:, 0] * np.int64(1 << 32) + (grid[:, 1] + np.int64(1 << 31))
-
-
 @dataclass
 class _Line:
     """One canonical line of the request, in the local frame."""
@@ -441,7 +433,7 @@ def _canonical_lines(
 
 def _segment_keys(coords: np.ndarray) -> list[tuple[int, int]]:
     """The node keys of each segment, smaller first: one key pair per undirected segment."""
-    keys = _node_keys(coords).tolist()
+    keys = vertex_keys(coords).tolist()
     return [(min(a, b), max(a, b)) for a, b in zip(keys[:-1], keys[1:], strict=True)]
 
 
@@ -637,7 +629,7 @@ def _place_chain_seeds(state: _State, cell_lines: list[_Line]) -> None:
     if not cell_lines:
         return
     coords = np.vstack([line.coords for line in cell_lines])
-    keys = _node_keys(coords)
+    keys = vertex_keys(coords)
     _, first, inverse = np.unique(keys, return_index=True, return_inverse=True)
     rank = np.empty(first.size, dtype=np.int64)
     rank[np.argsort(first, kind="stable")] = np.arange(first.size)
@@ -746,17 +738,17 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
     editable = []
     river_keys: dict[int, int] = {}
     for chain in state.chains:
-        for key in _node_keys(chain.line.coords).tolist():
+        for key in vertex_keys(chain.line.coords).tolist():
             river_keys[key] = river_keys.get(key, 0) + 1
     occurrences: dict[int, int] = {}
     for line in face_lines:
         points = line.coords[:-1] if line.closed else line.coords
-        for key in _node_keys(points).tolist():
+        for key in vertex_keys(points).tolist():
             occurrences[key] = occurrences.get(key, 0) + 1
     boundary = state.domain.boundary
     for line in face_lines:
         points = line.coords[:-1] if line.closed else line.coords
-        keys = _node_keys(points).tolist()
+        keys = vertex_keys(points).tolist()
         on_boundary = shapely.distance(shapely.points(points), boundary) <= state.tol
         fixed = [
             occurrences[key] > 1 or key in river_keys or bool(on_boundary[i])
@@ -768,11 +760,11 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
     found: list[_Crossing] = []
     face_by_key: dict[int, int] = {}
     for index, face in enumerate(editable):
-        for key in _node_keys(np.asarray(face.points)).tolist():
+        for key in vertex_keys(np.asarray(face.points)).tolist():
             face_by_key.setdefault(key, index)
     for chain_index, chain in enumerate(state.chains):
         coords = chain.line.coords
-        keys = _node_keys(coords).tolist()
+        keys = vertex_keys(coords).tolist()
         for pos in range(1, len(coords) - 1):
             key = keys[pos]
             if occurrences.get(key) != 1 or river_keys.get(key) != 1:
@@ -797,8 +789,8 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
 
 def _seed_of(state: _State, chain: _Chain, xy: np.ndarray) -> int:
     """The seed of a vertex of a chain line, ``-1`` when the vertex lost its seed."""
-    key = int(_node_keys(xy)[0])
-    keys = _node_keys(state.seeds.xy[chain.ids])
+    key = int(vertex_keys(xy)[0])
+    keys = vertex_keys(state.seeds.xy[chain.ids])
     match = np.flatnonzero((keys == key) & chain.own)
     return int(chain.ids[match[0]]) if match.size else -1
 
@@ -809,7 +801,7 @@ def _open_crossing(
     """Replace the crossing vertex of *face* by two ends across the river, or ``None``."""
     points = face.points
     n = len(points)
-    found = [i for i, p in enumerate(points) if int(_node_keys(p)[0]) == key]
+    found = [i for i, p in enumerate(points) if int(vertex_keys(p)[0]) == key]
     if not found:
         return None
     index = found[0]
@@ -863,7 +855,7 @@ def _open_crossing(
         new_points.append(p)
         new_fixed.append(f)
     face.points, face.fixed = new_points, new_fixed
-    keys = _node_keys(np.vstack([low, high]))
+    keys = vertex_keys(np.vstack([low, high]))
     return side_before > 0.0, (int(keys[0]), int(keys[1]))
 
 
@@ -886,7 +878,7 @@ def _build_face_graph(state: _State, face_lines: list[_Line]) -> None:
         state.slot = np.empty((0, 2), dtype=np.int64)
         return
     coords = np.vstack([line.coords for line in face_lines])
-    keys = _node_keys(coords)
+    keys = vertex_keys(coords)
     _, first, inverse = np.unique(keys, return_index=True, return_inverse=True)
     order = np.argsort(first, kind="stable")
     rank = np.empty(first.size, dtype=np.int64)
@@ -931,14 +923,14 @@ def _alias_shared(state: _State) -> None:
     if not state.shared or not len(state.seg_nodes):
         return
     by_gid = {line.gid: line for line in state.lines}
-    node_of = {int(key): i for i, key in enumerate(_node_keys(state.vertices).tolist())}
+    node_of = {int(key): i for i, key in enumerate(vertex_keys(state.vertices).tolist())}
     segment_of = {(int(a), int(b)): k for k, (a, b) in enumerate(state.seg_nodes.tolist())}
     segments, families, reversed_ = [], [], []
     for stretch in state.shared:
         owner = by_gid[stretch.owner]
         coords = owner.coords[:-1] if owner.closed else owner.coords
         path = _owner_path(coords, stretch.coords, owner.closed)
-        nodes = [node_of[int(key)] for key in _node_keys(coords[path]).tolist()]
+        nodes = [node_of[int(key)] for key in vertex_keys(coords[path]).tolist()]
         for a, b in zip(nodes[:-1], nodes[1:], strict=True):
             forward = segment_of.get((a, b), -1)
             segment = forward if forward >= 0 else segment_of.get((b, a), -1)
@@ -1214,7 +1206,7 @@ def _apply_crossings(state: _State, crossings: list[_Crossing]) -> None:
     """Put the pair of each crossing segment into its river chain, upstream side first."""
     if not crossings:
         return
-    node_of = {int(k): i for i, k in enumerate(_node_keys(state.vertices).tolist())}
+    node_of = {int(k): i for i, k in enumerate(vertex_keys(state.vertices).tolist())}
     for crossing in crossings:
         a, b = node_of.get(crossing.keys[0]), node_of.get(crossing.keys[1])
         if a is None or b is None:
@@ -1631,11 +1623,9 @@ def _vertex_yields(state: _State, mine: np.ndarray, intruder: int, protected: se
 
 def _place_boundary_seeds(state: _State, *, step: float, pixel: float) -> None:
     """Seeds along every domain ring, between corners, river ends and line ends."""
-    rings = [state.domain.exterior, *state.domain.interiors]
     river_ends = _river_ends(state)
-    for ring_index, ring in enumerate(rings):
-        line = LineString(ring.coords)
-        coords = np.asarray(ring.coords)
+    for ring_index, line in enumerate(polygon_rings(state.domain)):
+        coords = np.asarray(line.coords)
         total = line.length
         start = int(np.lexsort((coords[:-1, 1], coords[:-1, 0]))[0])
         start_s = float(

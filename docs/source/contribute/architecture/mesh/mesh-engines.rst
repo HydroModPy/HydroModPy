@@ -34,9 +34,9 @@ The request
 -----------
 
 ``MeshRequest`` is plain frozen data (``spatial/mesh/request.py``). It holds the domain polygon,
-the CRS, the DEM grid (``RasterGridSpec``), the nominal cell size, the line families, the size
-field, the seed, the options of the engine, an optional input triangulation and the notes of the
-planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
+the DEM grid (``RasterGridSpec``), whose CRS is the CRS of the request, the nominal cell size,
+the line families, the size field, the seed, the options of the engine, an optional input
+triangulation and the notes of the planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
 ``canonical_hash()`` names it, so two requests with the same hash ask for the same mesh. The list
 of ``source_runs`` enters the hash when it is not empty, so a request with no such run keeps its
 hash.

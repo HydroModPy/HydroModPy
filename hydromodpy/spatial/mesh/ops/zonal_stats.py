@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+
 _PERCENTILE = {"p10": 10.0, "p25": 25.0}
 _STATS = ("mean", "median", "min", "max", "p10", "p25")
 
@@ -57,17 +59,9 @@ def rasterize_cell_ids(
     triangles, quads and Voronoi n-gons are all read from ``flat_connectivity``.
     """
     from rasterio.features import rasterize
-    from shapely.geometry import Polygon
 
-    verts = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
-    conn = planar_mesh.flat_connectivity
-    n_cells = len(conn)
-    shapes = []
-    for cid in range(n_cells):
-        nodes = np.asarray(conn[cid], dtype=int).reshape(-1)
-        if nodes.size < 3:
-            continue
-        shapes.append((Polygon(verts[nodes]), cid))
+    polygons = cell_polygons(planar_mesh.vertices, planar_mesh.flat_connectivity, keep_invalid=True)
+    shapes = [(polygon, cid) for cid, polygon in enumerate(polygons) if polygon is not None]
     if not shapes:
         return np.full(out_shape, -1, dtype=np.int32)
     return rasterize(

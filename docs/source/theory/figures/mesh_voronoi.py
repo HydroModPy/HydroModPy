@@ -11,7 +11,7 @@ from scipy.spatial import Delaunay
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.ops.mesh_orthogonality import connection_nonorthogonality_deg
+from hydromodpy.spatial.mesh.model.mesh_qa import connection_nonorthogonality_deg
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
 
 

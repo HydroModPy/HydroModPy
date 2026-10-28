@@ -30,6 +30,7 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
@@ -179,7 +180,8 @@ def _vector_fractions(cell_mesh: PlanarCellMesh, zones: ZonePolygons) -> np.ndar
     if zones.geometries.size == 0:
         return areas
     origin = np.floor(cell_mesh.centers.min(axis=0) / _ORIGIN_STEP_M) * _ORIGIN_STEP_M
-    cells = _cell_polygons(cell_mesh, origin)
+    vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2] - origin
+    cells = cell_polygons(vertices, cell_mesh.geometry.padded_connectivity, keep_invalid=True)
     parts = shapely.transform(zones.geometries, lambda xy: xy - origin)
     cell_hit, part_hit = STRtree(parts).query(cells)
     shapely.prepare(parts)
@@ -195,15 +197,6 @@ def _vector_fractions(cell_mesh: PlanarCellMesh, zones: ZonePolygons) -> np.ndar
     reached = covered > 0.0
     areas[reached] /= covered[reached, None]
     return areas
-
-
-def _cell_polygons(cell_mesh: PlanarCellMesh, origin: np.ndarray) -> np.ndarray:
-    """One shapely polygon per cell, shifted by ``-origin``, from the padded connectivity."""
-    padded = np.asarray(cell_mesh.geometry.padded_connectivity, dtype=np.int64)
-    valid = padded >= 0
-    owner = np.broadcast_to(np.arange(padded.shape[0])[:, None], padded.shape)[valid]
-    coords = np.asarray(cell_mesh.mesh.vertices, dtype=float)[padded[valid], :2] - origin
-    return shapely.polygons(shapely.linearrings(coords, indices=owner))
 
 
 def _sampled_fractions(

@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_areas, padded_rows
+
 if TYPE_CHECKING:
     from dask.array import Array as DaskArray
 
@@ -69,16 +71,10 @@ def polygon_areas(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
     The shoelace sum is taken relative to the first corner, which keeps the
     precision of coordinates expressed in a projected CRS (6e6 m northings).
     """
-    xy = np.asarray(vertices, dtype=float)[:, :2]
     rows = np.asarray(faces)
-    valid = rows >= 0
-    count = valid.sum(axis=1)
-    safe = np.where(valid, rows, rows[:, :1])
-    x = xy[safe, 0] - xy[safe[:, :1], 0]
-    y = xy[safe, 1] - xy[safe[:, :1], 1]
-    # Padded slots repeat the first corner: they close the ring and add no area.
-    twice = (x * np.roll(y, -1, axis=1) - y * np.roll(x, -1, axis=1)).sum(axis=1)
-    return np.where(count >= 3, 0.5 * np.abs(twice), np.nan)
+    if rows.dtype.kind == "f":
+        rows = padded_rows(rows, n_nodes=len(vertices))
+    return np.where((rows >= 0).sum(axis=1) >= 3, cell_areas(vertices, rows), np.nan)
 
 
 @dataclass(frozen=True, slots=True)

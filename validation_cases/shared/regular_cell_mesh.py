@@ -24,7 +24,6 @@ def regular_cell_mesh_of(
     options = {} if shape is None else {"shape": [int(shape[0]), int(shape[1])]}
     request = MeshRequest(
         domain=box(grid.xmin, grid.ymin, grid.xmax, grid.ymax),
-        crs_wkt=crs_wkt,
         grid=grid,
         nominal_size_m=grid.dx,
         options=options,

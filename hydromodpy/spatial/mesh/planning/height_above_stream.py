@@ -19,7 +19,6 @@ from collections.abc import Sequence
 
 import numpy as np
 from rasterio.features import rasterize
-from rasterio.transform import Affine
 from scipy.ndimage import binary_dilation
 from shapely.geometry import LineString
 
@@ -41,7 +40,7 @@ def stream_pixels(lines: Sequence[LineString], grid: RasterGridSpec) -> np.ndarr
     return rasterize(
         shapes,
         out_shape=(grid.nrow, grid.ncol),
-        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        transform=grid.transform,
         fill=0,
         all_touched=False,
         dtype="uint8",

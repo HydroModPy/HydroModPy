@@ -21,6 +21,7 @@ from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import MeshQA, compute_mesh_qa
 
 if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
     from shapely.geometry import LineString, Polygon
 
 __all__ = [
@@ -35,6 +36,9 @@ __all__ = [
 CenterKind = Literal["generator", "cell_center", "vertex_mean"]
 
 _CELL_TYPES = frozenset({CellType.QUADRILATERAL, CellType.TRIANGLE, CellType.POLYGON})
+
+_ROW_COLUMNS = ("cell_a", "cell_b", "node_a", "node_b", "zone_left", "zone_right")
+"""The columns of a face family table a family gives, one entry per row."""
 
 
 @dataclass(frozen=True)
@@ -149,6 +153,30 @@ class FaceFamilyTable:
         """Number of family faces."""
         return int(self.family.size)
 
+    @classmethod
+    def stack(cls, families: Sequence[tuple[str, Mapping[str, ArrayLike]]]) -> FaceFamilyTable:
+        """Return the table of the rows of each family, family after family.
+
+        Each family is its name and its columns ``cell_a``, ``cell_b``,
+        ``node_a`` and ``node_b``, one entry per row. ``zone_left`` and
+        ``zone_right`` are ``-1`` where a family leaves them out. A family
+        without a row keeps its name and its index.
+        """
+        sizes = [np.asarray(columns["cell_a"]).size for _, columns in families]
+
+        def column(key: str) -> np.ndarray:
+            parts = [
+                np.asarray(columns[key]).ravel() if key in columns else np.full(size, -1)
+                for (_, columns), size in zip(families, sizes, strict=True)
+            ]
+            return np.concatenate(parts) if parts else np.empty(0, dtype=np.int64)
+
+        return cls(
+            names=tuple(name for name, _ in families),
+            family=np.repeat(np.arange(len(families)), sizes),
+            **{key: column(key) for key in _ROW_COLUMNS},
+        )
+
 
 @dataclass(frozen=True, eq=False)
 class PlanarCellMesh:
@@ -235,7 +263,15 @@ class PlanarCellMesh:
 
     def with_smoothed_catchment(self, outline: Polygon | None) -> PlanarCellMesh:
         """This mesh with the catchment outline the planner smoothed for it, geometry kept."""
-        mesh = replace(self, smoothed_catchment=outline)
+        return self._replaced(smoothed_catchment=outline)
+
+    def with_qa(self, qa: MeshQA) -> PlanarCellMesh:
+        """This mesh with another quality report, geometry kept."""
+        return self._replaced(qa=qa)
+
+    def _replaced(self, **changes: object) -> PlanarCellMesh:
+        """A copy with ``changes``, carrying the derived geometry when it is computed."""
+        mesh = replace(self, **changes)
         if "geometry" in self.__dict__:
             mesh.__dict__["geometry"] = self.__dict__["geometry"]
         return mesh

@@ -19,7 +19,6 @@ from dataclasses import dataclass
 
 import numpy as np
 from rasterio.features import rasterize
-from rasterio.transform import Affine
 from scipy.ndimage import distance_transform_edt
 from shapely.geometry.base import BaseGeometry
 
@@ -176,7 +175,7 @@ def _distance_to(region: BaseGeometry | PixelRegion, grid: RasterGridSpec) -> np
     mask = rasterize(
         [(region, 1)],
         out_shape=(grid.nrow, grid.ncol),
-        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        transform=grid.transform,
         fill=0,
         all_touched=True,
         dtype="uint8",

@@ -18,7 +18,10 @@ import pytest
 from hydromodpy.core.descent import BASIN_VERSION, DescentBasin
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.solver.modflow6.support.computational_top import GROUND_SIDECAR_SUFFIX
-from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
+from hydromodpy.solver.modflow_common.descent_store import (
+    descent_sidecar_path,
+    write_descent_sidecar_to_store,
+)
 from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
@@ -36,6 +39,14 @@ def store(tmp_path: Path):
     )
     yield handle
     handle.close()
+
+
+def test_the_first_sidecar_in_name_order_is_the_one_the_backends_read(tmp_path) -> None:
+    assert descent_sidecar_path(tmp_path) is None
+    for stem in ("b_model", "a_model"):
+        (tmp_path / f"{stem}.descent.npz").touch()
+
+    assert descent_sidecar_path(tmp_path) == tmp_path / "a_model.descent.npz"
 
 
 def test_the_sidecar_the_build_left_lands_under_mesh(store, tmp_path) -> None:

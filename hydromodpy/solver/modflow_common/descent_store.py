@@ -28,6 +28,12 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
 logger = get_logger(__name__)
 
 
+def descent_sidecar_path(solver_output_dir: Path) -> Path | None:
+    """Return the descent sidecar the build left in the solver folder, None without one."""
+    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
+    return files[0] if files else None
+
+
 def write_descent_sidecar_to_store(
     sz: Any,
     solver_output_dir: Path,
@@ -42,8 +48,8 @@ def write_descent_sidecar_to_store(
     builds no descent); a sidecar that is unreadable or does not match the
     mesh is a warning that names what reads the descent.
     """
-    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
-    if not files:
+    sidecar = descent_sidecar_path(solver_output_dir)
+    if sidecar is None:
         logger.info(
             "Run %s: no descent sidecar in %s, so no descent is stored. Readers rebuild one "
             "from the stored top, without channel pins, constant-head seeds or lakes.",
@@ -52,9 +58,9 @@ def write_descent_sidecar_to_store(
         )
         return False
     try:
-        record = read_descent_sidecar(files[0])
+        record = read_descent_sidecar(sidecar)
         if record is None:
-            logger.info("Run %s: %s holds no descent; nothing stored.", sim_id, files[0].name)
+            logger.info("Run %s: %s holds no descent; nothing stored.", sim_id, sidecar.name)
             return False
         if int(record.receiver.size) != int(n_cells):
             raise ValueError(
@@ -85,7 +91,7 @@ def write_descent_sidecar_to_store(
             "Could not store the descent of run %s from %s; the flow direction map and the "
             "accumulation fluxes of this run rebuild one without channel pins.",
             sim_id,
-            files[0].name,
+            sidecar.name,
             exc_info=True,
         )
         return False
@@ -105,4 +111,4 @@ def _basin_attrs(record: DescentRecord) -> dict[str, object] | None:
     }
 
 
-__all__ = ("write_descent_sidecar_to_store",)
+__all__ = ("descent_sidecar_path", "write_descent_sidecar_to_store")

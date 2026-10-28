@@ -432,23 +432,18 @@ def cell_area_from_mesh(root: Any, n_cells: int) -> np.ndarray | None:
     """Per-cell area in m2, computed from the mesh geometry the run persisted.
 
     A run stores its vertices and its face-node connectivity, never an area
-    array. The polygons are the same ones every other reader rebuilds, so the
-    areas agree cell for cell with what the solver was given. None when the
-    store has no geometry or no cell of positive area.
+    array. The area is the shoelace of the derived mesh geometry, so it agrees
+    cell for cell with what the solver was given. None when the store has no
+    geometry or no cell of positive area.
     """
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+    from hydromodpy.spatial.mesh.model.derived_geometry import cell_areas, padded_rows
 
     mesh = root.get("mesh")
     if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
         return None
-    polygons = cell_polygons(
-        np.asarray(mesh["vertices"][:], dtype="float64"),
-        np.asarray(mesh["face_node_connectivity"][:]),
-    )
-    areas = np.array(
-        [0.0 if polygon is None else float(polygon.area) for polygon in polygons],
-        dtype="float64",
-    )
+    vertices = np.asarray(mesh["vertices"][:], dtype="float64")
+    rows = padded_rows(np.asarray(mesh["face_node_connectivity"][:]), n_nodes=vertices.shape[0])
+    areas = cell_areas(vertices, rows)
     if areas.size < n_cells or not np.any(areas > 0.0):
         return None
     return areas[:n_cells]

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.results.run.contracts import polygon_areas
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
@@ -35,14 +37,10 @@ def face_centroids(sim: Run) -> np.ndarray:
 def face_areas(sim: Run) -> np.ndarray:
     """Return the ``(n_faces,)`` planar area of every mesh face, in m2.
 
-    Uses the shoelace formula, which is exact for the convex cells both
-    structured grids and Voronoi/triangular meshes produce.
+    The area :func:`~hydromodpy.results.run.contracts.polygon_areas` gives, ``NaN`` for
+    a face of fewer than 3 corners.
     """
-    areas = np.empty(len(face_polygons(sim)), dtype="float64")
-    for index, polygon in enumerate(face_polygons(sim)):
-        x, y = polygon[:, 0], polygon[:, 1]
-        areas[index] = 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
-    return areas
+    return polygon_areas(sim.mesh.vertices, sim.mesh.face_node_connectivity)
 
 
 def domain_area_m2(sim: Run) -> float:

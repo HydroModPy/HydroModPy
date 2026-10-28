@@ -29,8 +29,8 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_edges
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
@@ -83,9 +83,7 @@ def _cell_faces(cell_mesh: PlanarCellMesh, cell: int) -> list[tuple[int, int, in
     keep = nodes != following
     node_a = np.minimum(nodes, following)[keep]
     node_b = np.maximum(nodes, following)[keep]
-    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
-    edge_keys = geometry.edge_nodes[:, 0] * n_nodes + geometry.edge_nodes[:, 1]
-    edges = np.searchsorted(edge_keys, node_a * n_nodes + node_b)
+    edges = geometry.edge_ids(node_a, node_b)
     pairs = geometry.edge_cells[edges]
     neighbours = np.where(pairs[:, 0] == cell, pairs[:, 1], pairs[:, 0])
     return [
@@ -344,15 +342,12 @@ def family_regions(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
     """Return the region label of every cell once the faces of ``family`` are cut."""
     geometry = cell_mesh.geometry
     n_cells = cell_mesh.n_cells
-    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
-    edge_keys = geometry.edge_nodes[:, 0] * n_nodes + geometry.edge_nodes[:, 1]
-    cut = np.zeros(edge_keys.size, dtype=bool)
+    cut = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
     rows = cell_mesh.face_rows(family)
     if rows.any():
         table = cell_mesh.face_families
-        node_a, node_b = table.node_a[rows], table.node_b[rows]
-        family_keys = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
-        cut = np.isin(edge_keys, family_keys)
+        edges = geometry.edge_ids(table.node_a[rows], table.node_b[rows])
+        cut[edges[edges >= 0]] = True
     joined = (geometry.edge_cells[:, 1] >= 0) & ~cut
     first, second = geometry.edge_cells[joined, 0], geometry.edge_cells[joined, 1]
     graph = coo_matrix(

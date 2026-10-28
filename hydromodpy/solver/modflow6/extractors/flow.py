@@ -41,10 +41,12 @@ from hydromodpy.solver.modflow_common.budget_components import (
     is_scalar_budget_component,
 )
 from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
-from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
+from hydromodpy.solver.modflow_common.descent_store import (
+    descent_sidecar_path,
+    write_descent_sidecar_to_store,
+)
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 from hydromodpy.solver.modflow_common.mesh_descent import (
-    DESCENT_SIDECAR_SUFFIX,
     DescentRecord,
     read_descent_sidecar,
 )
@@ -203,11 +205,11 @@ def _basin_the_build_left(
     solver_output_dir: Path, *, n_cells: int
 ) -> tuple[DescentRecord | None, str]:
     """The descent record holding the build's basin, else None and why there is none."""
-    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
-    if not files:
+    sidecar = descent_sidecar_path(solver_output_dir)
+    if sidecar is None:
         return None, "no descent sidecar"
     try:
-        record = read_descent_sidecar(files[0])
+        record = read_descent_sidecar(sidecar)
     except ValueError as exc:
         return None, f"an unreadable descent sidecar: {exc}"
     if record is None or record.basin is None:
@@ -1024,10 +1026,8 @@ class Modflow6OutputAdapter:
             reason,
         )
         try:
-            from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-                cell_polygons,
-                vector_cell_mask,
-            )
+            from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+            from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
 
             watershed = store.read_geographic_feature(sim_id, "watershed")
             if watershed is None or watershed.empty:

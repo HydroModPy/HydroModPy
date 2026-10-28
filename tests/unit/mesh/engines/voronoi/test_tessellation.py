@@ -16,7 +16,6 @@ from hydromodpy.solver.modflow_grid.solver_mesh import to_flopy_disv_args
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
-    VERTEX_MERGE_M,
     cell_topology,
     tessellate,
     voronoi_cells,
@@ -24,7 +23,7 @@ from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
     voronoi_planar_mesh,
 )
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.derived_geometry import VERTEX_MERGE_M, derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.request import LineFamilySpec

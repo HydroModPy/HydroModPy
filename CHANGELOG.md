@@ -1219,6 +1219,29 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- Each plane geometric fact of the mesh has one home, so a fix is made in one place (2026-10-28).
+  `hydromodpy.spatial.mesh.model.derived_geometry` holds the padded cell rows (`padded_rows`), the
+  shoelace area (`cell_areas`), the polygon of a cell (`cell_polygons`, which moves there from
+  `ops.vector_cell_mask`), the edge joining two vertices or shared by two cells
+  (`DerivedGeometry.edge_ids`, `DerivedGeometry.edge_between`), the side of the vertex box a
+  boundary edge lies on (`BOX_SIDES`, `box_side_of_edges`), the rings of a polygon
+  (`polygon_rings`) and the millimetre key of a vertex (`vertex_keys`, and `VERTEX_MERGE_M`, which
+  moves there from the Voronoi tessellation). `connection_nonorthogonality_deg` and
+  `nonorthogonality_summary` move from `ops/mesh_orthogonality.py` to `model/mesh_qa.py` and
+  compute the angle of the QA, vectorised. On the 1 645 meshes the tests build, the angles move by
+  1.5e-6 degree at most and the XT3D choice does not change. The angles follow the edge table, and
+  a mesh with an edge shared by three cells raises `ValueError` where the edge was skipped.
+  `mesh_qa.mixed_cells` gives the cells a line crosses, for the QA and the Voronoi engine.
+  `FaceFamilyTable.stack` assembles a face family table, `PlanarCellMesh.with_qa` copies a mesh with
+  another QA, `RasterGridSpec.transform` gives the affine transform of the DEM grid and
+  `descent_sidecar_path` finds the descent the build left. `MeshRequest` and `PlanningInputs` read
+  their CRS from their grid: `crs_wkt` is a property and no longer an argument, and the request
+  hash does not change. The cell areas of the map figures (`face_areas`), of the Boussinesq mesh
+  and of the transient network truth are taken relative to the first corner of each cell, as the
+  run store takes them. They were summed in absolute coordinates, which lost up to 5e-3 m2 on a
+  cell of 0.13 m2 in Lambert-93. The edge lookups of the flow barriers no longer take a boundary
+  edge of the next cell for the face between the last cell and another; no build measured reached
+  it. No mesh, family, QA key, store key, request hash or `engine_version` changes.
 - The size rules of the lake structures move from the mesh step to
   `hydromodpy.spatial.mesh.planning.lake_structures` (2026-10-27). `lake_structures` takes the
   cutoff wall lines and the lake footprints by lake id, the declared outlet and the
@@ -1321,7 +1344,7 @@ Each release section includes the following standard categories:
   so `planning/geographic.py` goes. No mesh, TOML key, schema or store name changes.
 - The main CI measures the branch coverage of `spatial/mesh` and fails under a floor that only goes
   up, 98.2 % after the mesh tests were filed by module, then 98.4 % once the dead import fallbacks
-  left, then 98.5 % once the mesh package was flattened, then 99.1 % once the forcing, the solver grid and the field meshes left it (2026-10-27). The coverage report no longer drops a whole function whose signature holds
+  left, then 98.5 % once the mesh package was flattened, then 99.1 % once the forcing, the solver grid and the field meshes left it (2026-10-27), then 99.15 % once each geometric fact had one home (2026-10-28). The coverage report no longer drops a whole function whose signature holds
   `...`, as in `tuple[str, ...]`. Only a stub body is excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
 - Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
   `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon

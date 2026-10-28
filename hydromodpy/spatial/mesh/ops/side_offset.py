@@ -54,7 +54,6 @@ def annotate_side_cells(cell_mesh: PlanarCellMesh, statement: str) -> PlanarCell
     extras = dict(cell_mesh.qa.extras)
     if offsets.size:
         extras[SIDE_OFFSET_KEY] = float(np.median(offsets))
-    qa = dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, statement), extras=extras)
-    annotated = dataclasses.replace(cell_mesh, qa=qa)
-    object.__setattr__(annotated, "geometry", cell_mesh.geometry)
-    return annotated
+    return cell_mesh.with_qa(
+        dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, statement), extras=extras)
+    )

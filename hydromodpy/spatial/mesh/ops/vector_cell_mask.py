@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 
 from hydromodpy.spatial.geographic.core.network_heads import line_parts
+from hydromodpy.spatial.mesh.model.derived_geometry import padded_rows
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -58,7 +59,6 @@ __all__ = [
     "CellMaskRule",
     "LineCrossingMask",
     "cell_area_fraction",
-    "cell_polygons",
     "line_crossing_cell_mask",
     "vector_cell_mask",
 ]
@@ -72,83 +72,6 @@ those and nothing a map can resolve.
 """
 
 
-def cell_polygons(
-    vertices: np.ndarray,
-    connectivity: np.ndarray | Sequence[np.ndarray],
-) -> np.ndarray:
-    """Return one Shapely polygon per mesh cell, ``None`` where the cell is degenerate.
-
-    Ragged-safe: a dense ``(n_cells, k)`` array padded with negative indices and
-    a per-cell sequence of node arrays are both accepted.
-    """
-    import shapely
-    from shapely.geometry import Polygon
-
-    points = np.asarray(vertices, dtype=float)[:, :2]
-    n_nodes = points.shape[0]
-
-    dense = _dense_rows(connectivity, n_nodes=n_nodes)
-    if dense is not None:
-        return _polygons_from_dense_rows(points, dense)
-
-    polygons: list[Polygon | None] = []
-    for row in connectivity:
-        nodes = _clean_row(row, n_nodes=n_nodes)
-        if nodes.size < 3:
-            polygons.append(None)
-            continue
-        polygon = shapely.polygons(points[nodes])
-        polygons.append(polygon if polygon.is_valid and not polygon.is_empty else None)
-    return np.asarray(polygons, dtype=object)
-
-
-def _clean_row(row: object, *, n_nodes: int) -> np.ndarray:
-    """Return the valid node indices of one cell, padding and NaNs dropped."""
-    nodes = np.asarray(row).reshape(-1)
-    if nodes.dtype.kind == "f":
-        nodes = nodes[np.isfinite(nodes)]
-    nodes = nodes.astype(int)
-    return nodes[(nodes >= 0) & (nodes < n_nodes)]
-
-
-def _dense_rows(
-    connectivity: np.ndarray | Sequence[np.ndarray], *, n_nodes: int
-) -> np.ndarray | None:
-    """Return a rectangular, fully valid index table, or ``None`` when ragged.
-
-    The fast path needs every cell to hold the same number of usable nodes; a
-    Voronoi dual does not, and falls back to the per-cell loop.
-    """
-    # A genuinely ragged sequence raises in numpy 2, so only an array that is
-    # already rectangular is even looked at.
-    if not isinstance(connectivity, np.ndarray):
-        return None
-    table = connectivity
-    if table.ndim != 2 or table.shape[1] < 3 or table.dtype.kind not in "iu":
-        return None
-    if not np.all((table >= 0) & (table < n_nodes)):
-        return None
-    return table
-
-
-def _polygons_from_dense_rows(points: np.ndarray, rows: np.ndarray) -> np.ndarray:
-    """Build every polygon of a rectangular table in one vectorised call.
-
-    Shapely 2 builds an array of polygons from an ``(n_cells, k, 2)`` coordinate
-    block in C. Doing it cell by cell costs six Python-level shapely calls per
-    cell: measured on the Nancon at 25 m, 243 552 cells took 14.6 s that way and
-    0.5 s this way, and that time was paid by every figure of every gallery.
-    """
-    import shapely
-
-    coords = points[rows]
-    polygons = shapely.polygons(coords)
-    usable = shapely.is_valid(polygons) & ~shapely.is_empty(polygons)
-    result = np.asarray(polygons, dtype=object)
-    result[~usable] = None
-    return result
-
-
 def vector_cell_mask(
     polygons: np.ndarray,
     geometries: Sequence[BaseGeometry],
@@ -160,7 +83,8 @@ def vector_cell_mask(
 ) -> np.ndarray:
     """Boolean per-cell mask of the cells one vector layer reaches.
 
-    ``polygons`` comes from :func:`cell_polygons`; it is an argument rather than
+    ``polygons`` comes from
+    :func:`~hydromodpy.spatial.mesh.model.derived_geometry.cell_polygons`; it is an argument rather than
     an internal step because a caller that also needs cell centroids or areas
     already holds it, and rebuilding it costs about a second on a large mesh.
 
@@ -227,7 +151,8 @@ def cell_area_fraction(
 ) -> np.ndarray:
     """Share of each cell's area inside an areal layer, in [0, 1].
 
-    ``polygons`` comes from :func:`cell_polygons`. A cell the layer contains
+    ``polygons`` comes from
+    :func:`~hydromodpy.spatial.mesh.model.derived_geometry.cell_polygons`. A cell the layer contains
     gets 1, a cell it misses gets 0, and a cell its outline crosses gets the
     area of the intersection over the area of the cell. Only the crossed
     cells pay for an intersection. A degenerate cell (``None``) gets 0.
@@ -414,7 +339,7 @@ def _face_graph_segments(
     """
     import shapely
 
-    rows = _padded_rows(connectivity, n_nodes=vertices.shape[0])
+    rows = padded_rows(connectivity, n_nodes=vertices.shape[0])
     n_cells = min(rows.shape[0], usable.size)
     rows = rows[:n_cells]
     present = rows >= 0
@@ -451,19 +376,3 @@ def _face_graph_segments(
     if not starts:
         return np.empty(0, dtype=object)
     return shapely.linestrings(np.stack([np.concatenate(starts), np.concatenate(ends)], axis=1))
-
-
-def _padded_rows(connectivity: np.ndarray | Sequence[np.ndarray], *, n_nodes: int) -> np.ndarray:
-    """Return the connectivity as one integer table, missing slots set to -1."""
-    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
-        table = connectivity
-        if table.dtype.kind == "f":
-            table = np.where(np.isfinite(table), table, -1)
-        table = table.astype(np.int64)
-        return np.where((table >= 0) & (table < n_nodes), table, -1)
-    rows = [_clean_row(row, n_nodes=n_nodes) for row in connectivity]
-    width = max((row.size for row in rows), default=0)
-    table = np.full((len(rows), width), -1, dtype=np.int64)
-    for index, row in enumerate(rows):
-        table[index, : row.size] = row
-    return table

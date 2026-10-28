@@ -625,7 +625,7 @@ hydromodpy.spatial.mesh.engines
 hydromodpy.spatial.mesh.resample
 hydromodpy.spatial.mesh.planning
 hydromodpy.spatial.mesh.ops.zonal_stats
-hydromodpy.spatial.mesh.ops.mesh_orthogonality
+hydromodpy.spatial.mesh.model.mesh_qa
 hydromodpy.spatial.mesh.ops.vector_cell_mask
 hydromodpy.spatial.mesh.refinement_config
 hydromodpy.workflow.steps.mesh_run_fields
@@ -656,7 +656,7 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`, `_bottom_under_lowered_top`, `_cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
 | The Voronoi tessellation | `hydromodpy/spatial/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
-| The angle of a connection | `hydromodpy/spatial/mesh/ops/mesh_orthogonality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
+| The angle of a connection | `hydromodpy/spatial/mesh/model/mesh_qa.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |
 | The XT3D decision | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`) |
 | The mesh step and its cache | `hydromodpy/workflow/steps/mesh.py` (`step_mesh`), `hydromodpy/spatial/mesh/cache.py` |
 | The DISV export | `hydromodpy/solver/modflow_grid/solver_mesh.py` (`to_flopy_disv_args`, `SolverMesh.to_disv_kwargs`), `hydromodpy/solver/modflow6/build.py` |

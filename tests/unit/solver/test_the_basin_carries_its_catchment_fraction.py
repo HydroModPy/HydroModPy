@@ -24,7 +24,7 @@ from hydromodpy.solver.modflow_common.mesh_descent import (
     run_basin,
     write_descent_sidecar,
 )
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh
 

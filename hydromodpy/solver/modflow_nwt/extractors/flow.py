@@ -23,10 +23,12 @@ from hydromodpy.solver.modflow_common.budget_components import (
 )
 from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
-from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
+from hydromodpy.solver.modflow_common.descent_store import (
+    descent_sidecar_path,
+    write_descent_sidecar_to_store,
+)
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
 from hydromodpy.solver.modflow_common.mesh_descent import (
-    DESCENT_SIDECAR_SUFFIX,
     read_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.period_steps import (
@@ -118,11 +120,11 @@ def catchment_basin_the_build_left(solver_output_dir: Path, *, n_cells: int) -> 
     same water. A basin that is only the largest one of a domain with neither
     outlet nor polygon is no catchment.
     """
-    files = sorted(Path(solver_output_dir).glob(f"*{DESCENT_SIDECAR_SUFFIX}"))
-    if not files:
+    sidecar = descent_sidecar_path(solver_output_dir)
+    if sidecar is None:
         return None
     try:
-        record = read_descent_sidecar(files[0])
+        record = read_descent_sidecar(sidecar)
     except ValueError as exc:
         logger.warning("No catchment budget row: unreadable descent sidecar (%s).", exc)
         return None

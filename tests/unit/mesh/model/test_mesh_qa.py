@@ -6,10 +6,14 @@ import json
 
 import numpy as np
 import pytest
+import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    derive_geometry,
+    derive_geometry_from_rows,
+)
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.mesh_qa import (
     RELATIVE_FACE_TOLERANCE,
@@ -17,9 +21,12 @@ from hydromodpy.spatial.mesh.model.mesh_qa import (
     cell_corner_angles,
     cell_edge_max,
     compute_mesh_qa,
+    connection_nonorthogonality_deg,
     edge_bisection_offset,
     edge_nonorthogonality,
     edge_size_ratio,
+    mixed_cells,
+    nonorthogonality_summary,
     quality_warnings,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
@@ -307,6 +314,54 @@ def test_a_face_family_without_lines_has_no_mixed_cell_count() -> None:
     assert "mixed_cells" not in qa.families["geology"]
 
 
+def _grid_mixed_cells(source) -> np.ndarray:
+    mesh, _ = _grid()
+    geometry = derive_geometry(mesh)
+    tolerance = RELATIVE_FACE_TOLERANCE * float(np.median(geometry.edge_length))
+    return mixed_cells(source, geometry, np.asarray(mesh.vertices, dtype=float), tolerance)
+
+
+def test_the_mixed_cells_are_the_ids_of_the_cells_a_line_crosses() -> None:
+    inside_column_2 = LineString([(X0 + 2 * DX + 3.0, Y0), (X0 + 2 * DX + 3.0, Y0 - NROW * DY)])
+
+    assert _grid_mixed_cells(inside_column_2).tolist() == [2, 7, 12, 17]
+
+
+def test_a_line_on_a_cell_edge_within_the_tolerance_crosses_no_cell() -> None:
+    on_edge = LineString([(X0 + 2 * DX + 5e-4, Y0), (X0 + 2 * DX + 5e-4, Y0 - NROW * DY)])
+
+    assert _grid_mixed_cells(on_edge).size == 0
+
+
+def test_a_line_away_from_the_mesh_crosses_no_cell() -> None:
+    away = LineString([(X0 - 3 * DX, Y0), (X0 - 3 * DX, Y0 - NROW * DY)])
+
+    assert _grid_mixed_cells(away).size == 0
+
+
+def test_the_mixed_cells_of_several_lines_are_the_cells_any_of_them_crosses() -> None:
+    first = [(X0 + 3.0, Y0 - 1.0), (X0 + 3.0, Y0 - DY + 1.0)]
+    second = [(X0 + 4 * DX + 1.0, Y0 - 3 * DY - 3.0), (X0 + 5 * DX - 1.0, Y0 - 3 * DY - 3.0)]
+
+    assert _grid_mixed_cells(shapely.multilinestrings([first, second])).tolist() == [0, 19]
+
+
+def test_the_mixed_cells_of_a_ragged_mesh_are_found() -> None:
+    mesh = _ragged([[0.3, 0.5], [1.5, 0.5]])
+    geometry = derive_geometry(mesh)
+    across_the_quad = LineString([(1.5, -0.5), (1.5, 1.5)])
+
+    assert mixed_cells(across_the_quad, geometry, PENTAGON_AND_QUAD, 1e-3).tolist() == [1]
+
+
+def test_an_invalid_cell_is_never_crossed() -> None:
+    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
+    bow_tie = derive_geometry_from_rows(vertices, np.array([[0, 1, 2, 3]]))
+    across = LineString([(0.25, -1.0), (0.25, 2.0)])
+
+    assert mixed_cells(across, bow_tie, vertices, 1e-3).size == 0
+
+
 def test_size_fidelity_is_the_cell_side_over_the_size_asked() -> None:
     mesh, centers = _grid()
     on_target = _qa(mesh, centers, target_size=np.full(NROW * NCOL, DX))
@@ -471,3 +526,101 @@ def test_an_orthogonal_mesh_is_not_warned_for_its_bisection_offset() -> None:
     assert qa.bisection_offset["max"] == pytest.approx(0.3)
     assert qa.bisection_offset["n_cells_gt_0_25"] > 0
     assert quality_warnings(qa) == ()
+
+
+PENTAGON_AND_QUAD = np.array(
+    [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-0.3, 0.5], [0.0, 0.0], [2.0, 0.0], [2.0, 1.0]]
+)
+"""A left pentagon and a right quad that share the vertical edge (1, 0)-(1, 1)."""
+
+
+def _ragged(centres: list[list[float]]) -> HydroMesh:
+    cells = (np.array([0, 1, 2, 3, 4]), np.array([0, 5, 6, 1]))
+    return HydroMesh(
+        vertices=PENTAGON_AND_QUAD,
+        cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=cells),),
+        cell_data={"disv_cell_center": np.array(centres, dtype=float)},
+    )
+
+
+def test_a_ragged_mesh_is_measured_from_its_seed_centres() -> None:
+    # The seeds (0.3, 0.5) and (1.5, 0.5) lie on a horizontal line across the
+    # vertical shared face: the connection is perpendicular to it.
+    angles = connection_nonorthogonality_deg(_ragged([[0.3, 0.5], [1.5, 0.5]]))
+
+    assert angles.shape == (1,)
+    assert angles[0] < 1e-6
+
+
+def test_a_link_tilted_by_45_degrees_is_45_degrees_off() -> None:
+    angles = connection_nonorthogonality_deg(_ragged([[0.5, 0.0], [1.5, 1.0]]))
+
+    np.testing.assert_allclose(angles, [45.0])
+
+
+def test_a_grid_is_orthogonal_on_every_interior_face() -> None:
+    summary = nonorthogonality_summary(regular_mesh(3, 4, dx=25.0).mesh)
+
+    assert summary["n"] == 3 * 3 + 2 * 4
+    assert summary["max"] == 0.0
+    assert summary["frac_gt_30"] == 0.0
+
+
+def test_a_face_of_zero_length_and_cells_on_one_centre_are_not_measured() -> None:
+    # Nodes 1 and 2 sit on one point: the face between the two triangles has no length.
+    vertices = np.array([[0.0, 0.0], [1.0, 1.0], [1.0, 1.0], [2.0, 0.0]])
+    collapsed = HydroMesh(
+        vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2], [2, 1, 3]]),)
+    )
+    same_centre = _ragged([[1.0, 0.5], [1.0, 0.5]])
+
+    assert connection_nonorthogonality_deg(collapsed).size == 0
+    assert connection_nonorthogonality_deg(same_centre).size == 0
+
+
+def test_a_mesh_without_a_cell_has_a_summary_of_zeros() -> None:
+    empty = HydroMesh(
+        vertices=PENTAGON_AND_QUAD,
+        cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=()),),
+    )
+
+    assert connection_nonorthogonality_deg(empty).size == 0
+    assert set(nonorthogonality_summary(empty).values()) == {0.0}
+
+
+def test_the_connection_angle_is_the_angle_the_qa_summarises() -> None:
+    mesh, centers = _grid()
+    centers[0, 0] += 0.4 * DX
+    moved = HydroMesh(
+        vertices=mesh.vertices,
+        cell_blocks=mesh.cell_blocks,
+        cell_data={"disv_cell_center": centers},
+    )
+    qa = _qa(mesh, centers)
+    summary = nonorthogonality_summary(moved)
+
+    assert summary["max"] == qa.nonorthogonality_deg["max"]
+    assert summary["p95"] == qa.nonorthogonality_deg["p95"]
+
+
+def test_the_connection_angle_reads_planar_vertices_given_with_a_third_column() -> None:
+    flat = regular_mesh(2, 3, dx=10.0).mesh
+    raised = HydroMesh(
+        vertices=np.column_stack([flat.vertices, np.zeros(flat.n_nodes)]),
+        cell_blocks=flat.cell_blocks,
+    )
+
+    np.testing.assert_array_equal(
+        connection_nonorthogonality_deg(raised), connection_nonorthogonality_deg(flat)
+    )
+
+
+def test_an_edge_shared_by_three_cells_is_a_topology_error() -> None:
+    vertices = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0], [0.5, -1.0], [2.0, 0.5]])
+    fan = HydroMesh(
+        vertices=vertices,
+        cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2], [1, 0, 3], [0, 1, 4]]),),
+    )
+
+    with pytest.raises(ValueError, match="shared by 3 cells"):
+        connection_nonorthogonality_deg(fan)

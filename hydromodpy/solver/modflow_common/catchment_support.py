@@ -63,7 +63,8 @@ def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.nda
     solver mesh was built in, as :func:`polygon_cell_mask` assumes. A polygon
     that declares no CRS gives no fraction rather than a guessed frame.
     """
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction, cell_polygons
+    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction
 
     frame = catchment_outline(geographic, solver_mesh.cell_mesh)
     if frame is None:

@@ -18,11 +18,8 @@ from shapely.geometry import LineString
 from hydromodpy.calibration.metrics.downslope_network import seepage_distance_cost
 from hydromodpy.core.stream_geometry import build_network_geometry
 from hydromodpy.core.stream_network import SimulatedNetwork, downstream_closure
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-    cell_polygons,
-    line_crossing_cell_mask,
-    vector_cell_mask,
-)
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import line_crossing_cell_mask, vector_cell_mask
 from tests._helpers.ugrid_meshes import quad_mesh
 
 CRS = "EPSG:2154"

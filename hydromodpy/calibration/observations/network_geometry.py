@@ -24,6 +24,7 @@ from hydromodpy.core.stream_heads import (
     trace_from_heads,
 )
 from hydromodpy.core.stream_recharge import criterion_mean_recharge
+from hydromodpy.spatial.mesh.model.derived_geometry import padded_rows
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
@@ -69,15 +70,9 @@ def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
     negative padding, which is the convention the persisted mesh already uses.
     """
     connectivity = planar_mesh.flat_connectivity
-    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
-        return connectivity.astype(int, copy=False)
-    rows = [np.asarray(row, dtype=int).reshape(-1) for row in connectivity]
-    if not rows:
+    if len(connectivity) == 0:
         raise ValueError("the planar mesh holds no cell.")
-    dense = np.full((len(rows), max(row.size for row in rows)), -1, dtype=int)
-    for index, row in enumerate(rows):
-        dense[index, : row.size] = row
-    return dense
+    return padded_rows(connectivity, n_nodes=len(planar_mesh.vertices))
 
 
 def aquifer_extent(

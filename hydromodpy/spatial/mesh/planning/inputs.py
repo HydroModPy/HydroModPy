@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from shapely.geometry import LineString, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.planning.geology import GeologyLines
 from hydromodpy.spatial.mesh.planning.refinement import RefinementZone
 from hydromodpy.spatial.mesh.request import InputTriangulation, RasterGridSpec
@@ -39,7 +38,6 @@ class PlanningInputs:
     """
 
     dem_grid: RasterGridSpec
-    crs_wkt: str
     domain: Polygon
     river_trace: RiverMeshTrace | None
     watershed: Polygon | None
@@ -54,11 +52,14 @@ class PlanningInputs:
     notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Refuse a CRS that differs from the grid one."""
-        if self.crs_wkt != self.dem_grid.crs_wkt:
-            raise MeshRequestError("the planning inputs and the DEM grid name different CRS")
+        """Freeze the sequences as tuples."""
         object.__setattr__(self, "lakes", tuple(self.lakes))
         object.__setattr__(self, "lake_structures", tuple(self.lake_structures))
         object.__setattr__(self, "refinement_zones", tuple(self.refinement_zones))
         object.__setattr__(self, "barriers", tuple(self.barriers))
         object.__setattr__(self, "notes", tuple(self.notes))
+
+    @property
+    def crs_wkt(self) -> str:
+        """The CRS of the inputs, the one of the DEM grid."""
+        return self.dem_grid.crs_wkt

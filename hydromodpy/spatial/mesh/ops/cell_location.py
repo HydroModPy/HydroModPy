@@ -14,8 +14,8 @@ from scipy.spatial import cKDTree
 from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 
 __all__ = ["locate_cells", "locate_cells_near"]
 

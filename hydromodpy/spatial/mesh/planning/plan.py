@@ -19,7 +19,6 @@ from dataclasses import dataclass, replace
 import numpy as np
 import shapely
 from rasterio.features import rasterize
-from rasterio.transform import Affine
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring
@@ -27,6 +26,7 @@ from shapely.ops import substring
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
 from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_catchment
 from hydromodpy.spatial.mesh.planning.cleanup import (
@@ -127,7 +127,6 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
     sized = sizing.size_field is not None
     return MeshRequest(
         domain=domain,
-        crs_wkt=inputs.crs_wkt,
         grid=inputs.dem_grid,
         nominal_size_m=sizing.nominal,
         lines=sizing.families,
@@ -383,11 +382,8 @@ def _follows_shores_by_pairs(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> bo
 
 def _rings(polygons: Iterable[BaseGeometry]) -> list[LineString]:
     """Every ring of *polygons* in normalized form, sorted, so their order never counts."""
-    rings = []
-    for polygon in shapely.get_parts(list(polygons)):
-        normal = shapely.normalize(polygon)
-        rings.append(LineString(normal.exterior.coords))
-        rings.extend(LineString(ring.coords) for ring in normal.interiors)
+    parts = shapely.get_parts(list(polygons))
+    rings = polygon_rings(*(shapely.normalize(polygon) for polygon in parts))
     return sorted(rings, key=lambda ring: tuple(map(tuple, ring.coords)))
 
 
@@ -519,7 +515,7 @@ def _zone_notes(inputs: PlanningInputs) -> tuple[str, ...]:
     inside = rasterize(
         [(area, 1)],
         out_shape=(grid.nrow, grid.ncol),
-        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        transform=grid.transform,
         fill=0,
         dtype="uint8",
     ).astype(bool)

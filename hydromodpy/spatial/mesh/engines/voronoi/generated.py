@@ -172,10 +172,7 @@ def _with_open_shore_note(cell_mesh: PlanarCellMesh) -> PlanarCellMesh:
         "yield, the lake regions stay open and each lake takes the cells it overlaps. "
         "Refine the lake shore ([mesh.lake_refinement] cell_size) to close it"
     )
-    qa = dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note))
-    merged = dataclasses.replace(cell_mesh, qa=qa)
-    object.__setattr__(merged, "geometry", cell_mesh.geometry)
-    return merged
+    return cell_mesh.with_qa(dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note)))
 
 
 def _inside_their_cells(seeds: np.ndarray, cells: np.ndarray) -> np.ndarray:
@@ -204,6 +201,4 @@ def with_family_stats(
     families = {name: dict(numbers) for name, numbers in cell_mesh.qa.families.items()}
     for name, numbers in stats.items():
         families.setdefault(name, {}).update(numbers)
-    merged = dataclasses.replace(cell_mesh, qa=dataclasses.replace(cell_mesh.qa, families=families))
-    object.__setattr__(merged, "geometry", cell_mesh.geometry)
-    return merged
+    return cell_mesh.with_qa(dataclasses.replace(cell_mesh.qa, families=families))

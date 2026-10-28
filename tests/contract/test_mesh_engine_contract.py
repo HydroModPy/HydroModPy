@@ -45,9 +45,9 @@ from shapely.geometry import LineString, Point, Polygon, box
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.model.mesh_qa import DECLARATION_KEYS
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
 from hydromodpy.spatial.mesh.port import MeshEngine, MeshEngineCapabilities, missing_engine_members
 from hydromodpy.spatial.mesh.request import (
     InputTriangulation,

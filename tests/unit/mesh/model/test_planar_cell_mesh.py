@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import replace
 
 import numpy as np
@@ -92,6 +93,18 @@ def test_the_smoothed_outline_keeps_the_geometry_already_derived() -> None:
     assert carried.geometry is geometry
 
 
+def test_another_qa_keeps_the_mesh_and_its_geometry() -> None:
+    cell_mesh = _cell_mesh()
+    geometry = cell_mesh.geometry
+    qa = dataclasses.replace(cell_mesh.qa, notes=("a note",))
+
+    carried = cell_mesh.with_qa(qa)
+
+    assert carried.qa is qa and cell_mesh.qa.notes == ()
+    assert carried.geometry is geometry
+    assert carried.mesh is cell_mesh.mesh
+
+
 @pytest.mark.parametrize("crs_wkt", ["", "   "])
 def test_a_missing_crs_raises(crs_wkt: str) -> None:
     with pytest.raises(ValueError, match="CRS"):
@@ -154,6 +167,75 @@ def test_an_empty_face_family_table_keeps_its_names() -> None:
     assert table.n_rows == 0
     assert table.names == ("boundary:north", "geology")
     assert not replace(_cell_mesh(), face_families=table).face_rows("geology").any()
+
+
+def _stacked() -> FaceFamilyTable:
+    return FaceFamilyTable.stack(
+        [
+            (
+                "boundary:north",
+                {"cell_a": [0, 1], "cell_b": [-1, -1], "node_a": [0, 1], "node_b": [1, 2]},
+            ),
+            (
+                "geology",
+                {
+                    "cell_a": np.array([1]),
+                    "cell_b": np.array([2]),
+                    "node_a": np.array([7]),
+                    "node_b": np.array([2]),
+                    "zone_left": np.array([0], dtype=np.int32),
+                    "zone_right": np.array([1], dtype=np.int32),
+                },
+            ),
+        ]
+    )
+
+
+def test_stacking_families_gives_the_table_of_their_rows_in_order() -> None:
+    stacked, written = _stacked(), _table()
+
+    assert stacked.names == written.names
+    for column in ("family", "cell_a", "cell_b", "node_a", "node_b", "zone_left", "zone_right"):
+        assert getattr(stacked, column).dtype == getattr(written, column).dtype
+        assert np.array_equal(getattr(stacked, column), getattr(written, column))
+
+
+def test_a_stacked_family_without_zones_has_unknown_zones() -> None:
+    stacked = _stacked()
+    north = stacked.family == stacked.names.index("boundary:north")
+
+    assert np.all(stacked.zone_left[north] == -1)
+    assert np.all(stacked.zone_right[north] == -1)
+
+
+def test_a_stacked_family_without_rows_keeps_its_name_and_index() -> None:
+    no_row = {column: np.empty(0, dtype=np.int64) for column in ("cell_a", "cell_b", "node_a")}
+    stacked = FaceFamilyTable.stack(
+        [
+            ("lakes", {**no_row, "node_b": np.empty(0, dtype=np.int64)}),
+            ("geology", {"cell_a": [3], "cell_b": [4], "node_a": [5], "node_b": [6]}),
+        ]
+    )
+
+    assert stacked.names == ("lakes", "geology")
+    assert stacked.family.tolist() == [1]
+
+
+def test_stacking_no_family_gives_an_empty_table() -> None:
+    stacked = FaceFamilyTable.stack([])
+
+    assert stacked.names == ()
+    assert stacked.n_rows == 0
+
+
+def test_stacked_families_are_checked_like_a_written_table() -> None:
+    with pytest.raises(ValueError, match="repeat"):
+        FaceFamilyTable.stack(
+            [
+                ("geology", {"cell_a": [0], "cell_b": [-1], "node_a": [0], "node_b": [1]}),
+                ("geology", {"cell_a": [1], "cell_b": [-1], "node_a": [1], "node_b": [2]}),
+            ]
+        )
 
 
 def test_a_mesh_with_3d_vertices_raises() -> None:
