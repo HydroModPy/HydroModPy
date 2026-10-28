@@ -19,10 +19,11 @@ from types import SimpleNamespace
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import rasterio
 from pydantic import ValidationError
-from shapely.geometry import box
+from shapely.geometry import Point, box
 
 from hydromodpy.core.exceptions import (
     EmptyCatchmentError,
@@ -32,18 +33,17 @@ from hydromodpy.core.exceptions import (
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     CATCHMENT_LAYOUT,
     extract_catchment_from_point,
-)
-from hydromodpy.spatial.geographic.core.catchment_from_polygon import (
     extract_catchment_from_polygon,
+    write_shapefile_without_duplicate_columns,
 )
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.spatial.geographic.geographic_cache import _geographic_cache_fingerprint
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
-from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
 from hydromodpy.spatial.terrain import ConditioningExtent, JensonSnap, Outlet, registry
 from hydromodpy.spatial.terrain.port import LN_FLOAT32_COLLISION_COUNT
-from tests._helpers.geographic_cases import outlet_config, write_features
+from tests._helpers.geographic_cases import LAMBERT, outlet_config, write_features
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.terrain_doubles import fake_accumulation
 from tests._helpers.whitebox_double import FakeVector, FakeWhiteboxBackend
@@ -478,3 +478,16 @@ def test_a_basin_above_the_ln_float32_bound_is_delineated_not_refused(tmp_path) 
     with rasterio.open(out.watershed_tif) as src:
         mask, nodata = src.read(1), src.nodata
     assert int(np.count_nonzero((mask != nodata) & (mask > 0))) > LN_FLOAT32_COLLISION_COUNT
+
+
+def test_a_shapefile_is_written_back_with_each_column_once(tmp_path, monkeypatch) -> None:
+    frame = gpd.GeoDataFrame({"code": ["a", "b"]}, geometry=[Point(0, 0), Point(1, 1)], crs=LAMBERT)
+    doubled = pd.concat([frame[["code"]], frame], axis=1)
+    monkeypatch.setattr(gpd, "read_file", lambda path: gpd.GeoDataFrame(doubled))
+
+    write_shapefile_without_duplicate_columns("ignored.shp", tmp_path / "out.shp")
+
+    monkeypatch.undo()
+    written = gpd.read_file(tmp_path / "out.shp")
+    assert list(written.columns) == ["code", "geometry"]
+    assert written["code"].tolist() == ["a", "b"]

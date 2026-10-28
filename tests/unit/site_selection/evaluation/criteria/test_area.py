@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import AreaCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import AreaCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.area import evaluate_area_criterion
 
 pytestmark = pytest.mark.fast

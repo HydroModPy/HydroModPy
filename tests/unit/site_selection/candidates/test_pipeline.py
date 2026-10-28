@@ -11,7 +11,7 @@ from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_station_candidate_outlets,
     site_selection_search_geometry,
 )
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from tests._helpers.site_selection_cases import (
     make_point_record,
     selection_section,

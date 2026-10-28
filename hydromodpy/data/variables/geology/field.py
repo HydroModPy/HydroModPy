@@ -25,7 +25,7 @@ def build_geology_field(field_record: Any, *, geology_cfg: Any, raster_support: 
         load_geology_encoded_grid,
         load_geology_encoded_grid_on_raster_support,
     )
-    from hydromodpy.spatial.field.geology.geology_field import GeologyField
+    from hydromodpy.spatial.field.geology_field import GeologyField
 
     data_path = str(field_record.data)
     source_kind = infer_source_kind(data_path)

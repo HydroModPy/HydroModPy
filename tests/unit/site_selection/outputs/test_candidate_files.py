@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.site_selection.candidates.generation import (
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
+from hydromodpy.spatial.site_selection.outputs.candidate_files import (
     write_generated_network_geojson,
 )
-from hydromodpy.spatial.site_selection.config import HydrologyConfig
 from tests._helpers.site_selection_cases import site_flow_products, write_accumulation_raster
 
 pytestmark = pytest.mark.fast

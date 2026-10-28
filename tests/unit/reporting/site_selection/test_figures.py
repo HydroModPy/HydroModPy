@@ -12,11 +12,11 @@ from hydromodpy.reporting.site_selection.figures import (
     _prefer_dem_extent_from_manifest,
 )
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
 from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
-from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.outputs.geojson import write_observation_points_geojson
+from hydromodpy.spatial.site_selection.outputs.manifest import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.outputs.writer import write_selection_result
 from tests._helpers.site_selection_cases import (
     make_catchment,

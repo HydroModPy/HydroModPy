@@ -22,6 +22,7 @@ import rasterio
 
 from hydromodpy.core import progress
 from hydromodpy.core.io.filesystem import create_folder
+from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
     derive_catchment_domain,
@@ -29,15 +30,14 @@ from hydromodpy.spatial.geographic.core.catchment_domain import (
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     CatchmentFromPointProducts,
     extract_catchment_from_point,
+    extract_catchment_from_polygon,
 )
-from hydromodpy.spatial.geographic.core.catchment_from_polygon import extract_catchment_from_polygon
 from hydromodpy.spatial.geographic.core.dem_aggregation import (
     RESOLUTION_TOLERANCE,
     aggregate_dem,
     aggregated_dem_filename,
 )
 from hydromodpy.spatial.geographic.core.river_network import resolve_stream_threshold_cells
-from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths, build_geographic_paths
 from hydromodpy.spatial.terrain import FlowAccumulation
 

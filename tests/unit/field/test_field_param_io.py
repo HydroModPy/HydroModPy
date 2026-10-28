@@ -1,7 +1,7 @@
 """A field parameter read from a TOML file and its CSV value table.
 
-:func:`~hydromodpy.spatial.field.core.field_param_io.field_param_from_toml`
-reads a file, and :func:`~hydromodpy.spatial.field.core.field_param_config.resolve_field_param_config_payload`
+:func:`~hydromodpy.spatial.field.field_param_io.field_param_from_toml`
+reads a file, and :func:`~hydromodpy.spatial.field.field_param_config.resolve_field_param_config_payload`
 reads the same payload in a project. Both read the CSV value table with the
 loader of the project path, so a table it refuses is tried on that path.
 """
@@ -13,9 +13,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.field_param_config import resolve_field_param_config_payload
-from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_param_config import resolve_field_param_config_payload
+from hydromodpy.spatial.field.field_param_io import field_param_from_toml
 from tests._helpers.field_cases import write_text
 
 SQUARE_CASE = Path("hydromodpy/spatial/field/cases/square/field_param_config.toml")

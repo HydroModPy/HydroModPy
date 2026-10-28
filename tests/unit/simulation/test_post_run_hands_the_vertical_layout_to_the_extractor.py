@@ -18,7 +18,7 @@ from hydromodpy.simulation.extraction.post_run import extract_run_outputs
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
-from hydromodpy.spatial.domain import DomainConfig
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 
 
 class _RecordingExtractor:

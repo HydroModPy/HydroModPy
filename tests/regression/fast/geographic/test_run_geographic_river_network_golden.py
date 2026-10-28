@@ -9,7 +9,9 @@ import numpy as np
 import pytest
 import rasterio
 
-from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
+from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
+    run_geographic_case_from_toml,
+)
 from tests._helpers.geographic_cases import (
     CASE_RIVER_NETWORK,
     NAIZIN,

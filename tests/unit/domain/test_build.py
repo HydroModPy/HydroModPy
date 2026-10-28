@@ -16,6 +16,8 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.spatial.domain.build import (
+    BINDER_ZONE_IDS,
+    arm_runtime_zone_ids,
     build_domain,
     domain_config_for_build,
     read_layer_base_sources,
@@ -24,7 +26,6 @@ from hydromodpy.spatial.domain.build import (
 from hydromodpy.spatial.domain.depth_model_config import RasterSubstratumDepthModel
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
-from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS, arm_runtime_zone_ids
 from hydromodpy.spatial.surface import Surface
 from tests._helpers.domain_cases import tilted_top
 from tests._helpers.geotiffs import write_geotiff

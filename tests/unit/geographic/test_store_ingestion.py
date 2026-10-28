@@ -12,13 +12,13 @@ import pytest
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, box
 
-from hydromodpy.spatial.geographic import store_ingestion
+from hydromodpy.spatial.geographic import preprocessing_cleanup, store_ingestion
+from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME as NETWORK,
 )
-from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
+from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.spatial.geographic.store_ingestion import (
-    cleanup_stable_folder,
     persist_geographic_to_store,
     read_raster_data_and_meta,
 )
@@ -51,6 +51,7 @@ class _Store:
 def _backend(monkeypatch, backend: object = None) -> SimpleNamespace:
     backend = backend if backend is not None else SimpleNamespace()
     monkeypatch.setattr(store_ingestion, "resolve_delineation_backend", lambda: backend)
+    monkeypatch.setattr(preprocessing_cleanup, "resolve_delineation_backend", lambda: backend)
     return backend
 
 

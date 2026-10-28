@@ -11,11 +11,12 @@ import pandas as pd
 from shapely.geometry import Point
 
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
-from hydromodpy.spatial.site_selection.domain.export_values import clean_properties, single_crs
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_display_xy,
 )
+from hydromodpy.spatial.site_selection.domain.export_values import clean_properties, single_crs
+from hydromodpy.spatial.site_selection.domain.watershed import read_watershed
 from hydromodpy.spatial.site_selection.outputs.features import (
     basin_properties,
     observation_location,
@@ -23,7 +24,6 @@ from hydromodpy.spatial.site_selection.outputs.features import (
     outlet_properties,
     repair_geometry_for_export,
 )
-from hydromodpy.spatial.site_selection.outputs.watershed import read_watershed
 
 GPKG_NAME = "site_selection.gpkg"
 

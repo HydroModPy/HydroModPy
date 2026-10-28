@@ -9,7 +9,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.spatial.site_selection.runner import (
+from hydromodpy.workflow.site_selection.build_from_toml import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,
     build_observed_site_selection_from_toml,

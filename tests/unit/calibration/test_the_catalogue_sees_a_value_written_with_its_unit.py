@@ -7,7 +7,7 @@ reads both the same way; the catalogue does not.
 ``_is_a_physical_number`` in ``hydromodpy/calibration/targets.py`` requires
 ``isinstance(value, Real)``, so a string value is filtered out of the walk
 before it ever gets a name. Nothing coerces it earlier:
-``_validate_value`` in ``hydromodpy/spatial/field/core/_field_param_sections.py``
+``_validate_value`` in ``hydromodpy/spatial/field/field_param_sections.py``
 keeps a string value as a string, unlike ``_coerce_boundary_value_and_units``
 in ``hydromodpy/physics/flow/boundary_conditions.py`` (used for
 ``[flow.bc.<id>]``), which already splits a string into a float plus its unit
@@ -22,7 +22,7 @@ Investigation for this test (readers of a homogeneous field's ``.value``
 across ``hydromodpy/``, and whether each survives ``.value`` becoming a plain
 float with the unit moved to the sibling ``unit``):
 
-- ``hydromodpy/spatial/field/core/field_param_config.py:94-100``
+- ``hydromodpy/spatial/field/field_param_config.py:94-100``
   (``FieldParamConfig._enforce_physical_bounds``). Today it only runs
   ``validate_physical_value`` when ``self.field.value`` is already
   ``(int, float)`` and skips the check for a string, by its own admission
@@ -30,7 +30,7 @@ float with the unit moved to the sibling ``unit``):
   resolution"). Coercion survives this reader: it simply starts validating
   what used to be silently skipped.
 
-- ``hydromodpy/spatial/field/core/field_param.py`` (``FieldParam.__init__`` ->
+- ``hydromodpy/spatial/field/field_param.py`` (``FieldParam.__init__`` ->
   ``_convert_scalar_payload_to_si``, ~L204-230) via
   ``hydromodpy/core/units/scalar.py:parse_scalar_and_unit``. This is the
   terminal reader that turns a field into SI values for the solver. It
@@ -38,20 +38,20 @@ float with the unit moved to the sibling ``unit``):
   (``parse_scalar_and_unit`` documents both forms), so it survives unchanged
   either way; the fix would only make its input always the bare-number branch.
 
-- ``hydromodpy/spatial/field/core/_field_param_resolved.py:80-91``
+- ``hydromodpy/spatial/field/field_param_config.py:80-91``
   (``ResolvedFieldParam._validate_value``). An exact duplicate of the
   section validator above, reached through a *second*, independent
   production entry point:
-  ``hydromodpy/spatial/field/core/field_param_io.py`` builds its merged
+  ``hydromodpy/spatial/field/field_param_io.py`` builds its merged
   payload straight from a raw TOML section mapping and calls
   ``validate_resolved_field_param_data`` directly, without ever going
-  through ``FieldHomogeneousSection`` / ``_field_param_sections.py``. That
+  through ``FieldHomogeneousSection`` / ``field_param_sections.py``. That
   path is used by the mesh/geology demo cases
   (``hydromodpy/spatial/field/cases/review_cases.py``,
   ``hydromodpy/spatial/mesh/*/examples/*``, ``.../cases/*``), not by the
   project ``[flow.param.*]`` pipeline the calibration catalogue walks, so it
   does not affect the catalogue either way. But fixing only
-  ``_field_param_sections.py`` would leave this duplicate validator
+  ``field_param_sections.py`` would leave this duplicate validator
   accepting an un-coerced string, i.e. the asymmetry would move one level
   down instead of closing. Coercing survives this reader (it never sees a
   string it didn't already accept), but a full fix costs a second file, kept
@@ -75,7 +75,7 @@ float with the unit moved to the sibling ``unit``):
 No reader was found that requires ``.value`` to stay a string (no
 ``.split()``, no ``isinstance(..., str)`` branch whose *absence* would raise,
 no string-specific formatting). The only cost of coercing is the duplicate
-validator in ``_field_param_resolved.py``, and coercing also fixes an
+validator in ``field_param_config.py``, and coercing also fixes an
 existing crash in scale-mode calibration through the legacy path form.
 
 Decision applied: both validators now coerce ``value = "<number> <unit>"``

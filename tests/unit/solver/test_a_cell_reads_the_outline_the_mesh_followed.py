@@ -31,7 +31,7 @@ from hydromodpy.solver.modflow_common.catchment_basin import (
     polygon_cell_mask,
 )
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
-from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
+from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_polygon
 from tests._helpers.mesh_cases import LAMBERT93_WKT

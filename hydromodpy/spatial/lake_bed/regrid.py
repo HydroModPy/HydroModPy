@@ -11,15 +11,19 @@ cell.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 import shapely
 
+from hydromodpy.spatial.lake_bed.abacus import reconcile_bed_to_abacus
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
-__all__ = ["cell_bed_from_surface"]
+__all__ = [
+    "cell_bed_from_surface",
+    "reconstruct_lake_bed",
+]
 
 
 def cell_bed_from_surface(
@@ -125,3 +129,36 @@ def _zonal_mean(
     if n < max(1, int(min_pixels)):
         return None
     return float(np.mean(block[keep]))
+
+
+def reconstruct_lake_bed(
+    *,
+    planar_mesh: object,
+    surface: Surface,
+    cell_ids: Sequence[int],
+    area_by_cell: Mapping[int, float],
+    abacus_stage: Sequence[float],
+    abacus_sarea: Sequence[float],
+    reconcile: bool = True,
+    min_pixels: int = 1,
+) -> tuple[dict[int, float], dict[str, float]]:
+    """Regrid the bathymetry onto the lake cells and reconcile it to the abacus.
+
+    Returns ``({cell_id: bed_elevation}, diagnostics)``. When ``reconcile`` is
+    False the raw regridded bed is returned (still gap-filled), which is useful
+    to inspect the bathymetry before the abacus remap.
+    """
+    raw_bed = cell_bed_from_surface(
+        planar_mesh=planar_mesh,
+        surface=surface,
+        cell_ids=cell_ids,
+        min_pixels=min_pixels,
+    )
+    if not reconcile:
+        return raw_bed, {"n_cells": float(len(raw_bed)), "area_scale": 1.0}
+    return reconcile_bed_to_abacus(
+        bed_by_cell=raw_bed,
+        area_by_cell=area_by_cell,
+        abacus_stage=abacus_stage,
+        abacus_sarea=abacus_sarea,
+    )

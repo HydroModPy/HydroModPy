@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 from hydromodpy.calibration.runners.cli_runner import _release_session_scratch
-from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 
 
@@ -146,7 +146,9 @@ def test_a_session_cleanup_failure_never_propagates(monkeypatch, preprocessing_t
     def boom(*_args, **_kwargs):
         raise OSError("device busy")
 
-    monkeypatch.setattr("hydromodpy.spatial.geographic.store_ingestion.cleanup_stable_folder", boom)
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.preprocessing_cleanup.cleanup_stable_folder", boom
+    )
     _release_session_scratch(_trial_ctx(geographic))
 
 

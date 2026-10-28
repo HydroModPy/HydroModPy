@@ -13,8 +13,8 @@ import shapely
 from rasterio.transform import from_origin
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.domain.spatial_support import GeneratedBandsSupportField
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
+from hydromodpy.spatial.domain.support_fields import GeneratedBandsSupportField
+from hydromodpy.spatial.field.geology_field import GeologyField
 from hydromodpy.spatial.field.zone_fractions import ZonePolygons, zone_fractions
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh

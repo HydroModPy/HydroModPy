@@ -6,7 +6,7 @@ import pytest
 
 from hydromodpy.reporting.site_selection.blocks import build_site_selection_result_blocks
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
-from hydromodpy.spatial.site_selection.runner import run_site_selection
+from hydromodpy.workflow.site_selection.selection_run import run_site_selection
 from tests._helpers.site_selection_cases import selection_section, write_selection_toml
 
 pytestmark = pytest.mark.fast

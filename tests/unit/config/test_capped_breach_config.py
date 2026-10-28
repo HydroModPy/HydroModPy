@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
-from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig, GeographicConfig
+from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig, capped_breach_of
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import CappedBreach
 
 

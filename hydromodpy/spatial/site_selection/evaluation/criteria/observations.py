@@ -5,21 +5,17 @@ from __future__ import annotations
 from functools import partial
 from typing import Any
 
-from hydromodpy.spatial.site_selection.config import ObservationsCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import ObservationsCriteriaConfig
 from hydromodpy.spatial.site_selection.domain.attribute_values import (
     first_bool,
     first_number,
     first_text,
 )
+from hydromodpy.spatial.site_selection.domain.refs import observation_evidence_ref
+from hydromodpy.spatial.site_selection.domain.station_influence import station_influence_diagnostics
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,
-    _distance_threshold_label,
-)
-from hydromodpy.spatial.site_selection.evidence.refs import (
-    observation_evidence_ref,
-)
-from hydromodpy.spatial.site_selection.evidence.station_influence import (
-    station_influence_diagnostics,
+    distance_threshold_label,
 )
 
 
@@ -363,7 +359,7 @@ def evaluate_piezometer_criterion(
             score = min(1.0, count)
         return component(
             status="scored" if score is not None else "missing",
-            threshold=_distance_threshold_label(max_distance_km),
+            threshold=distance_threshold_label(max_distance_km),
             weight=1.0 if score is not None else None,
             score_component=score,
             reason=(
@@ -397,7 +393,7 @@ def evaluate_piezometer_criterion(
         status = "failed" if mode == "hard_reject" else "warning"
     return component(
         status=status,
-        threshold=_distance_threshold_label(max_distance_km),
+        threshold=distance_threshold_label(max_distance_km),
         blocking=failed and mode == "hard_reject",
         reason="; ".join(failures) if failures else "piezometer checks passed",
     )

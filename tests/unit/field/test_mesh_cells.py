@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.core.mesh_cells import (
+from hydromodpy.spatial.field.mesh_cells import (
     MeshWithValues,
     cell_mesh_from_edges,
     cell_values,

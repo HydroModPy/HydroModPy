@@ -7,9 +7,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 from hydromodpy.spatial.geographic.core.flow_products import (
     build_regional_flow_products,
-    capped_breach_of,
     conditioning_method,
     corrected_dem_name,
     flow_products_from_paths,
@@ -48,7 +48,7 @@ def test_a_correction_and_limits_that_do_not_go_together_are_refused(method, lim
 
 
 def test_a_capped_breach_without_its_section_takes_the_documented_defaults() -> None:
-    from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
+    from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig
 
     defaults = CappedBreachConfig()
 

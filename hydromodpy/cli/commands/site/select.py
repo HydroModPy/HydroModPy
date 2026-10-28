@@ -59,7 +59,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> None:
     from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
     from hydromodpy.reporting.site_selection.plan import render_site_selection_plan_html_report
-    from hydromodpy.spatial.site_selection.runner import plan_site_selection, run_site_selection
+    from hydromodpy.workflow.site_selection.selection_plan import plan_site_selection
+    from hydromodpy.workflow.site_selection.selection_run import run_site_selection
 
     config_path = Path(args.config).expanduser()
     if not config_path.is_file():

@@ -16,7 +16,9 @@ Code map
   typed support-definition models.
 - ``hydromodpy/spatial/domain/spatial_support.py``:
   runtime support builders.
-- ``hydromodpy/spatial/field/core/field_param.py``:
+- ``hydromodpy/spatial/domain/support_fields.py``:
+  the band, ring and raster zone fields and their sampling on a mesh.
+- ``hydromodpy/spatial/field/field_param.py``:
   consumer side through ``field_spatial_id``.
 - ``hydromodpy/spatial/field/zone_fractions.py``: the fraction of every zone
   in every cell, for every mesh.
@@ -28,7 +30,7 @@ Recommended reading path
 
 1. ``hydromodpy/spatial/domain/spatial_support_config.py``
 2. ``hydromodpy/spatial/domain/spatial_support.py``
-3. ``hydromodpy/spatial/field/core/field_param.py``
+3. ``hydromodpy/spatial/field/field_param.py``
 4. ``hydromodpy/spatial/field/zone_fractions.py`` and
    ``hydromodpy/solver/field_property_mapping.py``
 

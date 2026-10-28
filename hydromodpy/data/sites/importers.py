@@ -222,8 +222,8 @@ def _snap(
     """Move each outlet onto the nearest line of a river network, or skip it."""
     from dataclasses import replace
 
-    from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-    from hydromodpy.spatial.site_selection.candidates.reference_network import (
+    from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+    from hydromodpy.spatial.site_selection.hydrology.reference_network import (
         load_reference_network_for_outlets,
         snap_outlet_to_reference_network,
     )

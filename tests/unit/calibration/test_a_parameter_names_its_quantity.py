@@ -284,20 +284,20 @@ class TestTheUnitTheNameBringsWithIt:
     """
 
     def test_the_same_unit_spelled_the_other_way(self) -> None:
-        from hydromodpy.spatial.field.core.physical_bounds import validate_physical_value
+        from hydromodpy.core.units.physical_bounds import validate_physical_value
 
         assert validate_physical_value(param_id="Ss", value=1e-7, unit="m-1") == 1e-7
         assert validate_physical_value(param_id="Ss", value=1e-7, unit="1/m") == 1e-7
 
     def test_a_unit_that_needs_a_factor(self) -> None:
-        from hydromodpy.spatial.field.core.physical_bounds import validate_physical_value
+        from hydromodpy.core.units.physical_bounds import validate_physical_value
 
         # 8640 m/day is 0.1 m/s, inside the registry range; 1e-9 cm-1 is 1e-7 m-1.
         assert validate_physical_value(param_id="K", value=8640.0, unit="m/day") == 8640.0
         assert validate_physical_value(param_id="Ss", value=1e-9, unit="cm-1") == 1e-9
 
     def test_a_unit_of_another_quantity_is_still_refused(self) -> None:
-        from hydromodpy.spatial.field.core.physical_bounds import (
+        from hydromodpy.core.units.physical_bounds import (
             PhysicalBoundsError,
             validate_physical_value,
         )
@@ -306,7 +306,7 @@ class TestTheUnitTheNameBringsWithIt:
             validate_physical_value(param_id="K", value=1e-6, unit="m-1")
 
     def test_an_out_of_range_value_is_named_in_both_units(self) -> None:
-        from hydromodpy.spatial.field.core.physical_bounds import (
+        from hydromodpy.core.units.physical_bounds import (
             PhysicalBoundsError,
             validate_physical_value,
         )

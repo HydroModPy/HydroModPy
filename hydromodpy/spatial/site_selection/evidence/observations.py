@@ -10,13 +10,11 @@ from hydromodpy.spatial.site_selection.domain.attribute_values import (
     first_number,
     first_text,
 )
-from hydromodpy.spatial.site_selection.domain.observations import (
+from hydromodpy.spatial.site_selection.domain.observation_evidence import (
     ObservationEvidence,
     ObservationSpatialMatch,
 )
-from hydromodpy.spatial.site_selection.evidence.station_influence import (
-    station_influence_diagnostics,
-)
+from hydromodpy.spatial.site_selection.domain.station_influence import station_influence_diagnostics
 
 
 def build_observation_evidence(

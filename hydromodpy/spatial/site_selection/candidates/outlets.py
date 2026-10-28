@@ -5,43 +5,13 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
 from typing import Any
 
 from pyproj import Transformer
 
 from hydromodpy.core.io.crs import haversine_km, same_crs
-from hydromodpy.spatial.site_selection.evidence.station_influence import STATION_INFLUENCE_FIELDS
-
-
-@dataclass(frozen=True)
-class CandidateOutlet:
-    """One candidate outlet considered by the site-selection workflow."""
-
-    candidate_id: str
-    x: float
-    y: float
-    crs: str
-    source: str
-    source_feature_id: str = ""
-    source_label: str = ""
-    priority: float = 0.0
-    attributes: dict[str, Any] = field(default_factory=dict)
-
-    def to_record(self) -> dict[str, Any]:
-        """Return a CSV/parquet-friendly mapping."""
-
-        return {
-            "candidate_id": self.candidate_id,
-            "x": self.x,
-            "y": self.y,
-            "crs": self.crs,
-            "source": self.source,
-            "source_feature_id": self.source_feature_id,
-            "source_label": self.source_label,
-            "priority": self.priority,
-            "attributes": dict(self.attributes),
-        }
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.domain.station_influence import STATION_INFLUENCE_FIELDS
 
 
 def candidate_outlets_from_point_records(
@@ -205,7 +175,6 @@ def _float_or_none(value: object) -> float | None:
 
 
 __all__ = [
-    "CandidateOutlet",
     "candidate_outlets_from_point_records",
     "thin_candidate_outlets",
 ]

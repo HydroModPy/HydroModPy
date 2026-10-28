@@ -18,10 +18,12 @@ from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import ScalarFormatter
 
-from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
 from hydromodpy.spatial.geographic.cases.plotting_utils import (
     ensure_interactive_backend_for_show,
     show_figures_blocking,
+)
+from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
+    run_geographic_case_from_toml,
 )
 
 

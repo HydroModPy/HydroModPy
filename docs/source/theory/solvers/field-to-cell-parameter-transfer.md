@@ -116,8 +116,8 @@ domain.supports.<name>.default_cell_samples_per_axis
 ## Checked by
 
 ```{hmp-tested-by}
-hydromodpy.spatial.field.core.field_param
-hydromodpy.spatial.field.core.cell_sampling
+hydromodpy.spatial.field.field_param
+hydromodpy.spatial.field.cell_sampling
 hydromodpy.spatial.domain.spatial_support
 hydromodpy.solver.field_property_mapping
 ```
@@ -126,10 +126,10 @@ hydromodpy.solver.field_property_mapping
 
 | What | Where |
 |---|---|
-| The weighted average and the depth factor | `hydromodpy/spatial/field/core/field_param.py` (`FieldParam.to_mesh_field`, `FieldParam.vertical_factor`) |
+| The weighted average and the depth factor | `hydromodpy/spatial/field/field_param.py` (`FieldParam.to_mesh_field`, `FieldParam.vertical_factor`) |
 | The shares of each zone in a cell | `hydromodpy/spatial/field/zone_fractions.py` (`zone_fractions`) |
-| The sampled shares | `hydromodpy/spatial/domain/spatial_support.py` (`on_mesh`), `hydromodpy/spatial/field/geology/geology_field.py` (`GeologyField.on_mesh`) |
-| The sample points of a cell | `hydromodpy/spatial/field/core/cell_sampling.py` (`sample_points_in_cell`) |
+| The sampled shares | `hydromodpy/spatial/domain/support_fields.py` (`on_mesh`), `hydromodpy/spatial/field/geology_field.py` (`GeologyField.on_mesh`) |
+| The sample points of a cell | `hydromodpy/spatial/field/cell_sampling.py` (`sample_points_in_cell`) |
 | The mapping, for the three solvers | `hydromodpy/solver/field_property_mapping.py` (`map_flow_properties`): per layer for MODFLOW, once for Boussinesq |
 
 ## See also

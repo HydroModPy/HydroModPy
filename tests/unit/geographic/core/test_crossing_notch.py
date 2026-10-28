@@ -12,8 +12,8 @@ import pytest
 from rasterio.transform import from_origin
 from shapely.geometry import LineString, MultiLineString, box
 
-from hydromodpy.spatial.geographic.core import ground_corrections
-from hydromodpy.spatial.geographic.core.ground_corrections import NotchReport, notch_dem
+from hydromodpy.spatial.geographic.core import crossing_notch
+from hydromodpy.spatial.geographic.core.crossing_notch import NotchReport, notch_dem
 from tests._helpers import ground_bench as bench
 
 ROW = 10
@@ -324,7 +324,7 @@ def test_a_skip_on_a_dam_names_the_structure_and_its_meaning() -> None:
 
 
 def test_spans_that_do_not_settle_are_skipped_not_cut_against_a_wall(monkeypatch) -> None:
-    monkeypatch.setattr(ground_corrections, "_MAX_PLAN_PASSES", 1)
+    monkeypatch.setattr(crossing_notch, "_MAX_PLAN_PASSES", 1)
     valley, crossings = _road(8, ("railway", bench.road_along(11)), rows=(8, 11))
 
     out, report = bench.notch(valley, crossings)
@@ -339,7 +339,7 @@ def test_spans_that_do_not_settle_are_skipped_not_cut_against_a_wall(monkeypatch
 def test_the_kinds_are_the_ones_of_the_data_variable() -> None:
     from hydromodpy.data.variables.crossings.config import KINDS
 
-    assert tuple(KINDS) == ground_corrections._KINDS
+    assert tuple(KINDS) == crossing_notch._KINDS
 
 
 @pytest.mark.parametrize(

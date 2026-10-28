@@ -9,7 +9,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import Polygon, box
 
-from hydromodpy.spatial.site_selection.config import AreaCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import AreaCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.area import evaluate_area_criterion
 from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
 from hydromodpy.spatial.site_selection.outputs.schemas import (

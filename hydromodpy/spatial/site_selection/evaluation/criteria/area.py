@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.spatial.site_selection.config import AreaCriteriaConfig, AreaRangeConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import (
+    AreaCriteriaConfig,
+    AreaRangeConfig,
+)
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import CriteriaComponent
 
 

@@ -9,25 +9,28 @@ from typing import Any
 from pyproj import Transformer
 
 from hydromodpy.core.io.crs import same_crs
-from hydromodpy.spatial.site_selection.config import CriteriaConfig, SpatialSelectionConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import CriteriaConfig
+from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
 from hydromodpy.spatial.site_selection.domain.attribute_values import first_number, first_text
-from hydromodpy.spatial.site_selection.evaluation.criteria import (
-    CriteriaComponent,
-    evaluate_area_criterion,
-    evaluate_flow_station_criterion,
-    evaluate_geology_criterion,
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
+    DelineatedCatchment,
+    outlet_display_xy,
+    outlet_snap_distance_m,
+)
+from hydromodpy.spatial.site_selection.evaluation.criteria.area import evaluate_area_criterion
+from hydromodpy.spatial.site_selection.evaluation.criteria.common import CriteriaComponent
+from hydromodpy.spatial.site_selection.evaluation.criteria.geology import evaluate_geology_criterion
+from hydromodpy.spatial.site_selection.evaluation.criteria.influence import (
     evaluate_influence_criterion,
+)
+from hydromodpy.spatial.site_selection.evaluation.criteria.observations import (
+    evaluate_flow_station_criterion,
     evaluate_piezometer_criterion,
     evaluate_station_influence_criterion,
 )
 from hydromodpy.spatial.site_selection.evaluation.spatial_filters import (
     basin_overlap_fraction,
     is_overlap_allowed,
-)
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
-    DelineatedCatchment,
-    outlet_display_xy,
-    outlet_snap_distance_m,
 )
 
 
@@ -84,17 +87,44 @@ def select_delineated_catchments(
     """Apply area and overlap decisions to already delineated catchments."""
 
     geometries = basin_geometries or {}
-    selected: list[DelineatedCatchment] = []
-    rejected: list[DelineatedCatchment] = []
-    decisions: list[SelectionDecision] = []
-    components: list[CriteriaComponent] = []
-    quota_counts: dict[str, int] = {}
+    ledger = SelectionResult(selected=[], rejected=[], decisions=[], criteria_components=[])
+    scored = _screen_on_criteria(
+        catchments,
+        criteria=criteria,
+        selection_principle=selection_principle,
+        ledger=ledger,
+    )
+    _select_in_rank_order(
+        scored,
+        geometries=geometries,
+        spatial_selection=spatial_selection,
+        selection_principle=selection_principle,
+        ledger=ledger,
+    )
+
+    ledger.decisions.sort(key=lambda decision: decision.site_id)
+    return SelectionResult(
+        selected=sorted(ledger.selected, key=lambda catchment: catchment.site_id),
+        rejected=sorted(ledger.rejected, key=lambda catchment: catchment.site_id),
+        decisions=ledger.decisions,
+        criteria_components=ledger.criteria_components,
+    )
+
+
+def _screen_on_criteria(
+    catchments: list[DelineatedCatchment],
+    *,
+    criteria: CriteriaConfig,
+    selection_principle: str,
+    ledger: SelectionResult,
+) -> list[tuple[DelineatedCatchment, list[CriteriaComponent], float]]:
+    """Reject failed or blocked catchments and score the others."""
 
     scored: list[tuple[DelineatedCatchment, list[CriteriaComponent], float]] = []
     for catchment in catchments:
         if catchment.status != "delineated":
-            rejected.append(catchment)
-            decisions.append(
+            ledger.rejected.append(catchment)
+            ledger.decisions.append(
                 SelectionDecision(
                     site_id=catchment.site_id,
                     selection_principle=selection_principle,
@@ -107,60 +137,19 @@ def select_delineated_catchments(
             )
             continue
 
-        area_component = evaluate_area_criterion(
-            site_id=catchment.site_id,
-            area_km2=catchment.area_km2,
-            config=criteria.area,
+        catchment_components = _criteria_components(
+            catchment,
+            criteria=criteria,
             selection_principle=selection_principle,
-            evaluation_order=0,
         )
-        attributes = _catchment_attributes(catchment)
-        catchment_components = [
-            area_component,
-            evaluate_flow_station_criterion(
-                site_id=catchment.site_id,
-                attributes=attributes,
-                config=criteria.observations,
-                selection_principle=selection_principle,
-                evaluation_order=1,
-            ),
-            evaluate_piezometer_criterion(
-                site_id=catchment.site_id,
-                attributes=attributes,
-                config=criteria.observations,
-                selection_principle=selection_principle,
-                evaluation_order=2,
-            ),
-            evaluate_station_influence_criterion(
-                site_id=catchment.site_id,
-                attributes=attributes,
-                config=criteria.observations,
-                selection_principle=selection_principle,
-                evaluation_order=3,
-            ),
-            evaluate_influence_criterion(
-                site_id=catchment.site_id,
-                attributes=attributes,
-                config=criteria.influence,
-                selection_principle=selection_principle,
-                evaluation_order=4,
-            ),
-            evaluate_geology_criterion(
-                site_id=catchment.site_id,
-                attributes=attributes,
-                config=criteria.geology,
-                selection_principle=selection_principle,
-                evaluation_order=5,
-            ),
-        ]
-        components.extend(catchment_components)
+        ledger.criteria_components.extend(catchment_components)
         blocking_component = next(
             (component for component in catchment_components if component.blocking),
             None,
         )
         if blocking_component is not None:
-            rejected.append(catchment)
-            decisions.append(
+            ledger.rejected.append(catchment)
+            ledger.decisions.append(
                 _decision_from_components(
                     catchment=catchment,
                     selection_principle=selection_principle,
@@ -178,64 +167,100 @@ def select_delineated_catchments(
             if component.score_component is not None:
                 score += float(component.score_component)
         scored.append((catchment, catchment_components, score))
+    return scored
 
+
+def _criteria_components(
+    catchment: DelineatedCatchment,
+    *,
+    criteria: CriteriaConfig,
+    selection_principle: str,
+) -> list[CriteriaComponent]:
+    """Evaluate the six per-site criteria in their fixed order."""
+
+    area_component = evaluate_area_criterion(
+        site_id=catchment.site_id,
+        area_km2=catchment.area_km2,
+        config=criteria.area,
+        selection_principle=selection_principle,
+        evaluation_order=0,
+    )
+    attributes = _catchment_attributes(catchment)
+    return [
+        area_component,
+        evaluate_flow_station_criterion(
+            site_id=catchment.site_id,
+            attributes=attributes,
+            config=criteria.observations,
+            selection_principle=selection_principle,
+            evaluation_order=1,
+        ),
+        evaluate_piezometer_criterion(
+            site_id=catchment.site_id,
+            attributes=attributes,
+            config=criteria.observations,
+            selection_principle=selection_principle,
+            evaluation_order=2,
+        ),
+        evaluate_station_influence_criterion(
+            site_id=catchment.site_id,
+            attributes=attributes,
+            config=criteria.observations,
+            selection_principle=selection_principle,
+            evaluation_order=3,
+        ),
+        evaluate_influence_criterion(
+            site_id=catchment.site_id,
+            attributes=attributes,
+            config=criteria.influence,
+            selection_principle=selection_principle,
+            evaluation_order=4,
+        ),
+        evaluate_geology_criterion(
+            site_id=catchment.site_id,
+            attributes=attributes,
+            config=criteria.geology,
+            selection_principle=selection_principle,
+            evaluation_order=5,
+        ),
+    ]
+
+
+def _select_in_rank_order(
+    scored: list[tuple[DelineatedCatchment, list[CriteriaComponent], float]],
+    *,
+    geometries: dict[str, object],
+    spatial_selection: SpatialSelectionConfig,
+    selection_principle: str,
+    ledger: SelectionResult,
+) -> None:
+    """Walk the scored catchments best first and apply the spatial rules."""
+
+    quota_counts: dict[str, int] = {}
     for catchment, catchment_components, score in sorted(
         scored,
         key=lambda item: (-item[2], _warning_count(item[1]), item[0].site_id),
     ):
-        spatial_components: list[CriteriaComponent] = []
-        target_count_component = _target_count_component(
-            catchment=catchment,
-            selected_count=len(selected),
-            spatial_selection=spatial_selection,
-            selection_principle=selection_principle,
-            evaluation_order=len(catchment_components),
-        )
-        if target_count_component is not None:
-            spatial_components.append(target_count_component)
-
-        overlap_component = _overlap_component(
-            catchment=catchment,
-            selected=selected,
+        spatial_components = _spatial_components(
+            catchment,
+            criteria_count=len(catchment_components),
+            selected=ledger.selected,
             geometries=geometries,
-            spatial_selection=spatial_selection,
-            selection_principle=selection_principle,
-            evaluation_order=len(catchment_components) + len(spatial_components),
-        )
-        if overlap_component is not None:
-            spatial_components.append(overlap_component)
-
-        outlet_spacing_component = _outlet_spacing_component(
-            catchment=catchment,
-            selected=selected,
-            spatial_selection=spatial_selection,
-            selection_principle=selection_principle,
-            evaluation_order=len(catchment_components) + len(spatial_components),
-        )
-        if outlet_spacing_component is not None:
-            spatial_components.append(outlet_spacing_component)
-
-        spatial_quota_component = _spatial_quota_component(
-            catchment=catchment,
             quota_counts=quota_counts,
             spatial_selection=spatial_selection,
             selection_principle=selection_principle,
-            evaluation_order=len(catchment_components) + len(spatial_components),
         )
-        if spatial_quota_component is not None:
-            spatial_components.append(spatial_quota_component)
-
         if spatial_components:
             catchment_components = [*catchment_components, *spatial_components]
-            components.extend(spatial_components)
+            ledger.criteria_components.extend(spatial_components)
 
         blocking_spatial_component = next(
             (component for component in spatial_components if component.blocking),
             None,
         )
         if blocking_spatial_component is not None:
-            rejected.append(catchment)
-            decisions.append(
+            ledger.rejected.append(catchment)
+            ledger.decisions.append(
                 _decision_from_components(
                     catchment=catchment,
                     selection_principle=selection_principle,
@@ -248,13 +273,13 @@ def select_delineated_catchments(
             )
             continue
 
-        selected.append(catchment)
+        ledger.selected.append(catchment)
         _register_spatial_quota(
             catchment=catchment,
             quota_counts=quota_counts,
             spatial_selection=spatial_selection,
         )
-        decisions.append(
+        ledger.decisions.append(
             _decision_from_components(
                 catchment=catchment,
                 selection_principle=selection_principle,
@@ -266,13 +291,61 @@ def select_delineated_catchments(
             )
         )
 
-    decisions.sort(key=lambda decision: decision.site_id)
-    return SelectionResult(
-        selected=sorted(selected, key=lambda catchment: catchment.site_id),
-        rejected=sorted(rejected, key=lambda catchment: catchment.site_id),
-        decisions=decisions,
-        criteria_components=components,
+
+def _spatial_components(
+    catchment: DelineatedCatchment,
+    *,
+    criteria_count: int,
+    selected: list[DelineatedCatchment],
+    geometries: dict[str, object],
+    quota_counts: dict[str, int],
+    spatial_selection: SpatialSelectionConfig,
+    selection_principle: str,
+) -> list[CriteriaComponent]:
+    """Evaluate the spatial rules against the sites already selected."""
+
+    spatial_components: list[CriteriaComponent] = []
+    target_count_component = _target_count_component(
+        catchment=catchment,
+        selected_count=len(selected),
+        spatial_selection=spatial_selection,
+        selection_principle=selection_principle,
+        evaluation_order=criteria_count,
     )
+    if target_count_component is not None:
+        spatial_components.append(target_count_component)
+
+    overlap_component = _overlap_component(
+        catchment=catchment,
+        selected=selected,
+        geometries=geometries,
+        spatial_selection=spatial_selection,
+        selection_principle=selection_principle,
+        evaluation_order=criteria_count + len(spatial_components),
+    )
+    if overlap_component is not None:
+        spatial_components.append(overlap_component)
+
+    outlet_spacing_component = _outlet_spacing_component(
+        catchment=catchment,
+        selected=selected,
+        spatial_selection=spatial_selection,
+        selection_principle=selection_principle,
+        evaluation_order=criteria_count + len(spatial_components),
+    )
+    if outlet_spacing_component is not None:
+        spatial_components.append(outlet_spacing_component)
+
+    spatial_quota_component = _spatial_quota_component(
+        catchment=catchment,
+        quota_counts=quota_counts,
+        spatial_selection=spatial_selection,
+        selection_principle=selection_principle,
+        evaluation_order=criteria_count + len(spatial_components),
+    )
+    if spatial_quota_component is not None:
+        spatial_components.append(spatial_quota_component)
+    return spatial_components
 
 
 def _target_count_component(

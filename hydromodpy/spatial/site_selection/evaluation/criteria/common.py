@@ -50,11 +50,11 @@ class CriteriaComponent:
         }
 
 
-def _distance_threshold_label(max_distance_km: float | None) -> str:
+def distance_threshold_label(max_distance_km: float | None) -> str:
     return "" if max_distance_km is None else f"max_distance_km={max_distance_km:g}"
 
 
 __all__ = [
     "CriteriaComponent",
-    "_distance_threshold_label",
+    "distance_threshold_label",
 ]

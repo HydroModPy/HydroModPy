@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.geographic import store_ingestion
+from hydromodpy.spatial.geographic import preprocessing_cleanup
 from hydromodpy.workflow.steps.export import step_cleanup_preprocessing
 
 
@@ -20,7 +20,7 @@ def cleanup_calls(monkeypatch):
     """Record the ``keep`` each call asks for, without touching the disk."""
     kept: list[bool] = []
     monkeypatch.setattr(
-        store_ingestion,
+        preprocessing_cleanup,
         "cleanup_stable_folder",
         lambda geo, *, keep=False: kept.append(keep) or 0,
     )

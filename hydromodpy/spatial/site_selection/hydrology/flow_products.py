@@ -11,7 +11,7 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
     build_regional_flow_products,
 )
-from hydromodpy.spatial.site_selection.config import HydrologyConfig
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 
 FlowProductsBuilder = Callable[..., FlowProducts]
 

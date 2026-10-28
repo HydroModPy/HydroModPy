@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
-    _WhiteboxComponent,
-    given_options,
-)
+from hydromodpy.spatial.delineation.whitebox_workflows_backend.component import WhiteboxComponent
+from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import given_options
 
 
-class WhiteboxDelineationBackend(_WhiteboxComponent):
+class WhiteboxDelineationBackend(WhiteboxComponent):
     """Watershed delineation: pour points, watersheds, stream networks."""
 
     def snap_pour_points_vector(self, pour_points, flow_accumulation, snap_dist: int):

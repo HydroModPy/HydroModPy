@@ -8,13 +8,13 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import Point, box
 
-from hydromodpy.spatial.site_selection.config import OutputConfig
-from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
-from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
-from hydromodpy.spatial.site_selection.evidence.exports import (
+from hydromodpy.spatial.site_selection.config.site_selection_config import OutputConfig
+from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.spatial.site_selection.outputs.evidence_files import (
     write_site_selection_evidence_outputs,
 )
-from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
 from hydromodpy.spatial.site_selection.outputs.evidence_layers import write_evidence_layer
 from tests._helpers.site_selection_cases import L93, X93, Y93
 

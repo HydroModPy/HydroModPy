@@ -36,7 +36,7 @@ from pydantic import BaseModel
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.spatial.field.core.physical_bounds import PHYSICAL_BOUNDS
+from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
 
 WALKED_SECTIONS: tuple[str, ...] = ("flow", "domain.depth_model")
 """Configuration sections the catalogue walks.

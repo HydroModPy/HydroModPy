@@ -44,7 +44,7 @@ No `reporting_layout.yaml` orders the parts inside the package.
 
 Who imports reporting: `workflow` (the calibration step) and `cli`
 (`hmp report compare`; `hmp site select` hands the site-selection renderers to
-`spatial/site_selection/runner.py`, which never imports reporting).
+`hydromodpy/workflow/site_selection/selection_run.py`, which never imports reporting).
 
 ## Tree
 

@@ -400,10 +400,7 @@ def _refuse_bounds_the_registry_rules_out(name: str, decl: Any, target: Calibrat
         return
     if getattr(decl, "mode", "replace") == "scale":
         return
-    from hydromodpy.spatial.field.core.physical_bounds import (
-        PhysicalBoundsError,
-        validate_physical_value,
-    )
+    from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 
     for edge, value in (("lower", bounds[0]), ("upper", bounds[1])):
         try:

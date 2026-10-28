@@ -20,7 +20,7 @@ import pytest
 
 from hydromodpy.calibration.optim.parameters import set_by_path
 from hydromodpy.physics.flow.flow_param_config import FlowParam
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.field_param import FieldParam
 
 
 def _base_flow_param() -> FlowParam:

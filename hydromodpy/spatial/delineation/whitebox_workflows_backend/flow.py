@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
-    _WhiteboxComponent,
-    given_options,
-)
+from hydromodpy.spatial.delineation.whitebox_workflows_backend.component import WhiteboxComponent
+from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import given_options
 
 
-class WhiteboxFlowBackend(_WhiteboxComponent):
+class WhiteboxFlowBackend(WhiteboxComponent):
     """DEM flow analysis: pit-filling, pointer, accumulation, mass flux, downslope.
 
     Depression removal runs single-threaded: it is the only stage of the chain

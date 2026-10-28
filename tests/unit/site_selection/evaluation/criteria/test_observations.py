@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import ObservationsCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import ObservationsCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.observations import (
     evaluate_flow_station_criterion,
     evaluate_piezometer_criterion,

@@ -8,12 +8,13 @@ from hydromodpy.core.exceptions import ConfigMissingError, DataContractViolation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.spatial.site_selection.runner import (
-    load_delineated_catchments_csv,
+from hydromodpy.workflow.site_selection.catchments_csv import load_delineated_catchments_csv
+from hydromodpy.workflow.site_selection.data_loading import (
+    load_dem_path,
     load_hydrometry_config_for_site_selection,
+    load_hydrometry_records,
     load_site_selection_config,
 )
-from hydromodpy.spatial.site_selection.runner_data import load_dem_path, load_hydrometry_records
 from tests._helpers.site_selection_cases import dem_loader_spy, make_point_record
 
 pytestmark = pytest.mark.fast

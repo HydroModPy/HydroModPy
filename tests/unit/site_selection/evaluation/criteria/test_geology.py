@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import GeologyCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import GeologyCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.geology import (
     evaluate_geology_criterion,
 )

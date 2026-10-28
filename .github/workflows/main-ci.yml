@@ -221,7 +221,7 @@ jobs:
             hydromodpy/results/catalog/ \
             hydromodpy/results/exporters/ \
             hydromodpy/results/run/ \
-            hydromodpy/spatial/field/core/physical_bounds.py
+            hydromodpy/core/units/physical_bounds.py
 
       # The whitebox-heavy tiers ran here for a while, on the assumption that
       # pinning the Whitebox fd-level stdio redirect off in tests/conftest.py made
@@ -313,6 +313,7 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-report= \
             --cov-fail-under=0 \
@@ -331,6 +332,7 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-append \
             --cov-report= \
@@ -339,21 +341,24 @@ jobs:
 
       # One floor per sub-package, so that no small package drops unseen inside
       # an average. The floors only go up: raise each to the value a clean-up
-      # lot reaches. The last line gates the modules at the top of spatial/.
+      # lot reaches. A floor goes down only when files enter or leave a package
+      # with no covered line lost, and the commit says so. The last two lines gate
+      # the modules at the top of spatial/ and the site selection runner.
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
           coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.25
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
-          coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.2
+          coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.3
           coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=85.4
-          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=96.4
+          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=94.7
           coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.5
           coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.0
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=99.2
           coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=95.4
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.4
-          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/workflow/site_selection/*' --precision=2 --fail-under=96.0
 
   integration:
     name: Tests / integration py3.13

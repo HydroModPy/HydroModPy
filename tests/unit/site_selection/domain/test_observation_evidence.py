@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.domain.observations import (
+from hydromodpy.spatial.site_selection.domain.observation_evidence import (
     ObservationEvidence,
     ObservationSpatialMatch,
 )

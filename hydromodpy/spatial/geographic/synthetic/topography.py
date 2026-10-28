@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.geographic.synthetic.config import (
+from hydromodpy.spatial.geographic.synthetic_config import (
     FlatTopography,
     LinearTopography,
     RadialIslandTopography,

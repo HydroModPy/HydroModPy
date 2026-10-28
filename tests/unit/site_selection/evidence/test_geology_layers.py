@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.site_selection.config import (
+from hydromodpy.spatial.site_selection.config.criteria_config import (
     CriteriaConfig,
     GeologyCriteriaConfig,
     GeologyLayerConfig,
-    SpatialSelectionConfig,
 )
+from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
 from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
-from hydromodpy.spatial.site_selection.evidence.context import (
+from hydromodpy.spatial.site_selection.evidence.geology_layers import (
     annotate_catchments_with_geology_layers,
 )
 from tests._helpers.site_selection_cases import (

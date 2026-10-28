@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.io.crs import same_crs
-from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.config import InfluenceCriteriaConfig
-from hydromodpy.spatial.site_selection.evidence.refs import influence_evidence_ref
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.spatial.site_selection.config.criteria_config import InfluenceCriteriaConfig
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_display_xy,
 )
-from hydromodpy.spatial.site_selection.outputs.watershed import watershed_geometry
+from hydromodpy.spatial.site_selection.domain.refs import influence_evidence_ref
+from hydromodpy.spatial.site_selection.domain.watershed import watershed_geometry
+from hydromodpy.spatial.site_selection.evidence.geology_layers import (
+    copy_catchment_with_attributes,
+    field_text,
+    frame_in_target_crs,
+    load_vector_layer,
+)
 
 INFLUENCE_FLAG_TO_COUNT = {
     "major_dam_upstream": "upstream_dam_count",
@@ -76,7 +80,7 @@ def annotate_catchments_with_influence_layers(
     if not config.layers:
         return materialized, []
 
-    layers = [_load_influence_layer(layer) for layer in config.layers]
+    layers = [load_vector_layer(layer) for layer in config.layers]
     annotated: list[DelineatedCatchment] = []
     all_evidence: list[InfluenceEvidence] = []
     for catchment in materialized:
@@ -91,32 +95,9 @@ def annotate_catchments_with_influence_layers(
             )
             site_evidence.extend(evidence)
         _apply_influence_flags(attributes, site_evidence)
-        annotated.append(
-            replace(
-                catchment,
-                outlet=CandidateOutlet(
-                    candidate_id=catchment.outlet.candidate_id,
-                    x=catchment.outlet.x,
-                    y=catchment.outlet.y,
-                    crs=catchment.outlet.crs,
-                    source=catchment.outlet.source,
-                    source_feature_id=catchment.outlet.source_feature_id,
-                    source_label=catchment.outlet.source_label,
-                    priority=catchment.outlet.priority,
-                    attributes=attributes,
-                ),
-            )
-        )
+        annotated.append(copy_catchment_with_attributes(catchment, attributes))
         all_evidence.extend(site_evidence)
     return annotated, all_evidence
-
-
-def _load_influence_layer(layer_cfg: object) -> tuple[object, object]:
-    import geopandas as gpd
-
-    path = Path(layer_cfg.path).expanduser().resolve()
-    frame = gpd.read_file(path)
-    return layer_cfg, frame
 
 
 def _match_layer_to_catchment(
@@ -131,11 +112,7 @@ def _match_layer_to_catchment(
     if layer_frame.empty:
         return []
     target_crs = catchment.outlet.crs
-    frame = layer_frame
-    if frame.crs is None:
-        frame = frame.set_crs(target_crs, allow_override=True)
-    elif not same_crs(str(frame.crs), target_crs):
-        frame = frame.to_crs(target_crs)
+    frame = frame_in_target_crs(layer_frame, target_crs=target_crs)
 
     basin = watershed_geometry(catchment.watershed_shp, crs=target_crs)
     outlet = Point(*outlet_display_xy(catchment))
@@ -157,9 +134,9 @@ def _match_layer_to_catchment(
         if geometry is None or geometry.is_empty:
             continue
         major = _is_major_feature(row, layer_cfg=layer_cfg)
-        severity = _field_text(row, getattr(layer_cfg, "severity_field", None))
-        feature_id = _field_text(row, getattr(layer_cfg, "id_field", None)) or str(index)
-        feature_label = _field_text(row, getattr(layer_cfg, "label_field", None)) or feature_id
+        severity = field_text(row, getattr(layer_cfg, "severity_field", None))
+        feature_id = field_text(row, getattr(layer_cfg, "id_field", None)) or str(index)
+        feature_label = field_text(row, getattr(layer_cfg, "label_field", None)) or feature_id
         distance_km = float(geometry.distance(outlet) / 1000.0)
         evidence.append(
             InfluenceEvidence(
@@ -231,16 +208,6 @@ def _is_major_feature(row: Mapping[str, Any], *, layer_cfg: object) -> bool:
     if not severity_field or not major_values:
         return True
     return str(row.get(severity_field, "")).strip().lower() in set(major_values)
-
-
-def _field_text(row: Mapping[str, Any], field_name: str | None) -> str:
-    if not field_name:
-        return ""
-    value = row.get(field_name)
-    if value is None:
-        return ""
-    text = str(value).strip()
-    return "" if text.lower() == "nan" else text
 
 
 __all__ = [

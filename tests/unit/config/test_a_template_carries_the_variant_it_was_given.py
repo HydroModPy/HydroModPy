@@ -43,8 +43,8 @@ from hydromodpy.physics.flow.sinks_sources.wells import (
 from hydromodpy.solver.base.solver_config import ModflowNwtBackend, SolverConfig
 from hydromodpy.spatial.domain.depth_model_config import FlatSubstratumDepthModel
 from hydromodpy.spatial.domain.domain_config import DomainConfig
-from hydromodpy.spatial.field.core._field_param_sections import FieldHeterogeneousSection
-from hydromodpy.spatial.geographic.synthetic.config import (
+from hydromodpy.spatial.field.field_param_sections import FieldHeterogeneousSection
+from hydromodpy.spatial.geographic.synthetic_config import (
     LinearTopography,
     SyntheticGeographicConfig,
 )

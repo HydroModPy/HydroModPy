@@ -29,7 +29,7 @@ from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N_CELLS = 4

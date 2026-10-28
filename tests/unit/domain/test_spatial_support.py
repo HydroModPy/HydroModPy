@@ -15,9 +15,6 @@ from hydromodpy.spatial import CatchmentZonesField
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.spatial_support import (
-    AliasedSpatialSupportField,
-    GeneratedRingsSupportField,
-    RasterZonesSupportField,
     SupportBuildContext,
     build_default_spatial_support_provider_registry,
 )
@@ -26,6 +23,11 @@ from hydromodpy.spatial.domain.spatial_support_config import (
     GeneratedBandsSupportConfig,
     GeneratedRingsSupportConfig,
     GeologySupportConfig,
+)
+from hydromodpy.spatial.domain.support_fields import (
+    AliasedSpatialSupportField,
+    GeneratedRingsSupportField,
+    RasterZonesSupportField,
 )
 from hydromodpy.spatial.surface import Surface
 from tests._helpers.domain_cases import raster_support, surface

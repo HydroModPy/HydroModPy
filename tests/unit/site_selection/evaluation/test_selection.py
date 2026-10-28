@@ -5,9 +5,10 @@ from __future__ import annotations
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.site_selection.config import CriteriaConfig, SpatialSelectionConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import CriteriaConfig
+from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
-from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 from tests._helpers.site_selection_cases import make_catchment, write_point_geojson
 
 pytestmark = pytest.mark.fast

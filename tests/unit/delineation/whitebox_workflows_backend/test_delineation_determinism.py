@@ -18,7 +18,7 @@ import pytest
 from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
     WhiteboxWorkflowsBackend,
 )
-from hydromodpy.spatial.delineation.whitebox_workflows_backend import raster as raster_module
+from hydromodpy.spatial.delineation.whitebox_workflows_backend import component as component_module
 from hydromodpy.spatial.terrain import LN_FLOAT32_COLLISION_COUNT
 from tests._helpers.geotiffs import write_geotiff
 
@@ -85,13 +85,13 @@ def test_depression_removal_runs_on_one_worker(monkeypatch, rough_dem, correctio
     backend = WhiteboxWorkflowsBackend()
     dem = backend.raster.read_raster(str(rough_dem))
     seen: list[int] = []
-    original = raster_module.run_depression_tool
+    original = component_module.run_depression_tool
 
     def spy(env, tool, raster, **kwargs):
         seen.append(kwargs["max_procs"])
         return original(env, tool, raster, **kwargs)
 
-    monkeypatch.setattr(raster_module, "run_depression_tool", spy)
+    monkeypatch.setattr(component_module, "run_depression_tool", spy)
     getattr(backend.flow, correction)(dem)
 
     assert seen == [1]

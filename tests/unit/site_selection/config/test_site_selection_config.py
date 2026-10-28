@@ -7,19 +7,24 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.data.variables.lake_abacus.config import LakeAbacusConfig
-from hydromodpy.spatial.site_selection.config import (
+from hydromodpy.spatial.site_selection.config.criteria_config import (
     AreaCriteriaConfig,
     AreaRangeConfig,
-    CandidateMode,
-    DemAreaLightConfig,
+)
+from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig
+from hydromodpy.spatial.site_selection.config.outlets_config import (
     OutletsConfig,
+    SpatialSelectionConfig,
+)
+from hydromodpy.spatial.site_selection.config.site_selection_config import (
     OutputConfig,
     SiteSelectionConfig,
     SiteSelectionInputConfig,
-    SpatialSelectionConfig,
-    StrategyConfig,
+)
+from hydromodpy.spatial.site_selection.config.strategy_config import StrategyConfig, TerritoryConfig
+from hydromodpy.spatial.site_selection.config.value_types import (
+    CandidateMode,
     StrategyProfile,
-    TerritoryConfig,
     WorkflowInputMode,
 )
 from tests._helpers.site_selection_cases import selection_section

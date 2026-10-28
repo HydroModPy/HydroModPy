@@ -24,11 +24,12 @@ from hydromodpy.core.exceptions import EmptyCatchmentError
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import Surface
-from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.geographic import pipeline as runtime_pipeline
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
-from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
+from hydromodpy.spatial.geographic.core.ground_bed import (
     GROUND_BED_FILENAME,
     GROUND_BED_REPORT_FILENAME,
     bed_dem_path,

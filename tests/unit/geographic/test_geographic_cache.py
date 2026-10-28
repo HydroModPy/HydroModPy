@@ -11,13 +11,13 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.geographic.artifacts import (
+from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_FILENAME
+from hydromodpy.spatial.geographic.geographic_cache import (
     DESCRIPTION_FILENAME,
+    _geographic_cache_fingerprint,
     geographic_artifact_paths,
 )
-from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_FILENAME
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
 from hydromodpy.spatial.terrain import CappedBreach, CappedBreachReport
 from tests._helpers.geographic_cases import (
     BENCH_RIVER,

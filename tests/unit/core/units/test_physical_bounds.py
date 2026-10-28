@@ -1,4 +1,4 @@
-"""The physical range of a parameter, :mod:`hydromodpy.spatial.field.core.physical_bounds`.
+"""The physical range of a parameter, :mod:`hydromodpy.core.units.physical_bounds`.
 
 A specific storage of 1e-10 1/m says "no confined storage", and must load.
 
@@ -24,12 +24,12 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.calibration.optim.parameters import ParameterSpace
-from hydromodpy.spatial.field.core.field_param_config import validate_field_param_toml_data
-from hydromodpy.spatial.field.core.physical_bounds import (
+from hydromodpy.core.units.physical_bounds import (
     PHYSICAL_BOUNDS,
     PhysicalBoundsError,
     validate_physical_value,
 )
+from hydromodpy.spatial.field.field_param_config import validate_field_param_toml_data
 
 NEGLIGIBLE_STORAGE = 1e-10
 """The value every unconfined benchmark writes, and the one that broke."""
@@ -77,7 +77,7 @@ def test_the_ceiling_did_not_move() -> None:
 def test_the_floor_stays_a_number_a_log_search_can_walk() -> None:
     """These bounds double as the span of a log-space search.
 
-    `_field_param_sections` declares `search_space="log"` on a field value and
+    `field_param_sections` declares `search_space="log"` on a field value and
     `targets.py` hands the registry range to the search as its physical bounds.
     A floor of zero would say "no confined storage" plainer than 1e-12 does, and
     would put -inf in the sampler.

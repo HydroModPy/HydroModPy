@@ -20,7 +20,7 @@ from hydromodpy.spatial.site_selection.domain.export_values import (
     single_crs,
     single_or_mixed,
 )
-from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
 from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
 from hydromodpy.spatial.site_selection.outputs.geojson import write_geojson
 from hydromodpy.spatial.site_selection.outputs.geospatial import write_vector_layer
@@ -58,7 +58,7 @@ def write_evidence_layer(
                 "type": "Feature",
                 "id": _feature_id(item),
                 "geometry": item.geometry.__geo_interface__,
-                "properties": _properties_without_geometry(item),
+                "properties": properties_without_geometry(item),
             }
             for item in located
         ],
@@ -68,7 +68,7 @@ def write_evidence_layer(
 
 def _evidence_frame(located: list[EvidenceItem]) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
-        [_properties_without_geometry(item) for item in located],
+        [properties_without_geometry(item) for item in located],
         geometry=[item.geometry for item in located],
         crs=single_crs(item.crs for item in located),
     )
@@ -80,7 +80,7 @@ def _feature_id(item: EvidenceItem) -> str:
     return f"{item.site_id}:{item.influence_type}:{item.feature_id or item.feature_index}"
 
 
-def _properties_without_geometry(item: EvidenceItem) -> dict[str, Any]:
+def properties_without_geometry(item: EvidenceItem) -> dict[str, Any]:
     record = item.to_record()
     return {key: clean_value(value) for key, value in record.items() if key != "evidence_json"} | {
         "evidence_json": json.dumps(item.evidence_json, ensure_ascii=True, sort_keys=True)

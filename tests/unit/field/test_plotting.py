@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.core.mesh_cells import cell_mesh_from_edges
+from hydromodpy.spatial.field.mesh_cells import cell_mesh_from_edges
 from hydromodpy.spatial.field.plotting import plot_cell_values
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

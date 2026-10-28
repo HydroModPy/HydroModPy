@@ -207,3 +207,30 @@ def build_river_mesh_trace_from_vector(
         crs_wkt=crs_wkt,
         geometries=lines,
     )
+
+
+def build_river_mesh_trace_from_network_gdf(
+    *,
+    network_gdf: gpd.GeoDataFrame,
+    network_crs: str | None,
+) -> RiverMeshTrace | None:
+    if network_gdf.empty:
+        return None
+
+    crs = network_gdf.crs
+    network_crs_token = None if network_crs is None else str(network_crs).strip()
+    if crs is None and network_crs_token:
+        network_gdf = network_gdf.set_crs(network_crs_token, allow_override=True)
+        crs = network_gdf.crs
+    if crs is None:
+        return None
+
+    line_geometries = linear_parts(network_gdf.geometry.tolist())
+    if not line_geometries:
+        return None
+
+    return RiverMeshTrace.from_geometries(
+        source_kind="geographic_generated",
+        crs_wkt=crs.to_wkt(),
+        geometries=line_geometries,
+    )

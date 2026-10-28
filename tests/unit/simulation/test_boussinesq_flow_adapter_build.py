@@ -16,9 +16,7 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.base.registry import get_solver_adapter
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
+from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.cell_meshes import cell_mesh_of

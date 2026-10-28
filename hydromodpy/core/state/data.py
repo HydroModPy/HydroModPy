@@ -12,7 +12,7 @@ class LoadedDataContext:
 
     Field types are ``Any`` because ``core`` cannot import from sibling
     layers (``data``, ``spatial``). Concrete types live in ``data.contracts``,
-    ``data.variables.hydrography``, and ``spatial.field.geology``.
+    ``data.variables.hydrography``, and ``spatial.field.geology_field``.
     """
 
     dem: Any = None

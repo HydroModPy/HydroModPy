@@ -18,17 +18,18 @@ from hydromodpy.spatial.site_selection.candidates.generation import (
     generate_network_candidate_outlets,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import (
-    CandidateOutlet,
     candidate_outlets_from_point_records,
     thin_candidate_outlets,
 )
-from hydromodpy.spatial.site_selection.candidates.reference_network import (
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
+from hydromodpy.spatial.site_selection.hydrology.reference_network import (
     ReferenceNetworkBundle,
     load_reference_network_for_outlets,
     score_outlets_against_reference_network,
 )
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig, TerritoryConfig
-from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
 RawAccumulationBuilder = Callable[..., str | Path]
 

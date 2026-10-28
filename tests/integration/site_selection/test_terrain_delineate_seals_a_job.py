@@ -563,7 +563,7 @@ A capability that shells out to ``curl`` lands in this assertion by name rather
 than passing unseen, which is the whole reason the list is pinned.
 """
 
-SCRIPTS_THE_INTERPRETER_CHILD_RUNS = ("_depression_child.py",)
+SCRIPTS_THE_INTERPRETER_CHILD_RUNS = ("depression_child.py",)
 """The scripts the interpreter child runs. It imports ``json``, ``sys`` and
 ``whitebox_workflows``, nothing else. A ``python -m pip`` lands here by name."""
 

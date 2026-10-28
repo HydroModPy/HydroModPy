@@ -152,11 +152,8 @@ def test_walker_skips_whitespace_string() -> None:
 
 def test_walker_on_real_hydromodpy_config_annotations() -> None:
     """Geographic config has InputFile markers registered."""
-    from hydromodpy.spatial.geographic.geographic_config import (
-        GeographicConfig,
-        OutletCatchDef,
-        PolygonCatchDef,
-    )
+    from hydromodpy.spatial.geographic.catchment_config import OutletCatchDef, PolygonCatchDef
+    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     def _collect_roles(model_cls) -> dict[str, str]:
         roles: dict[str, str] = {}

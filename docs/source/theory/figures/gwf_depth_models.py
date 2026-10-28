@@ -5,8 +5,8 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain import DomainConfig
 from hydromodpy.spatial.domain.build import build_domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 
 # One row of 25 m cells across a valley. The raster kinds read a raster on the
 # same grid, so the reprojection is the identity.

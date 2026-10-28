@@ -1,8 +1,8 @@
-"""The support interface and its zone fractions, :mod:`hydromodpy.spatial.field.core.field_spatial`.
+"""The support interface and its zone fractions, :mod:`hydromodpy.spatial.field.field_spatial`.
 
 A support that does not build itself from a mapping says so by its class name,
 and a discretization refuses a mesh or zone list it cannot carry
-(:mod:`hydromodpy.spatial.field.core.field_spatial_weighted_discretization`).
+(:mod:`hydromodpy.spatial.field.field_spatial`).
 """
 
 from __future__ import annotations
@@ -12,11 +12,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretization
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
+from hydromodpy.spatial.field.field_spatial import (
+    Field,
+    FieldDiscretization,
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 from tests._helpers.field_cases import write_text
 
 MESH = FieldMeshSquare.from_unit_square(target_n_cells=9, mesh_kind="structured")

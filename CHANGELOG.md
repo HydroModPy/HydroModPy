@@ -1280,6 +1280,67 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The helpers one module of `spatial` or `workflow.site_selection` imports from a sibling module are
+  public (2026-10-28), such as `domain.active_cells.active_cell_mask`,
+  `domain.domain_document.ResolvedDomainRequest` and `build_domain_document`, the cache readers and
+  writers of `geographic.geographic_cache`, the evidence readers of `site_selection.evidence.geology_layers`
+  and the path helpers of `workflow.site_selection.config_paths`. Their bodies do not change.
+- The two regenerators of the spatial cases moved to `tools/spatial/`:
+  `update_geographic_goldens.py` and `build_reduced_geology_inputs.py`, the old
+  `domain/cases/build_reduced_inputs.py` (2026-10-28). The synthetic case is
+  `run_geographic_synthetic_case.py`, and the two case TOMLs no script read are removed, since their
+  neighbour holds the same tables. The `cases/` packages no longer re-export.
+- The site selection runner moved from `spatial.site_selection` to `workflow.site_selection`, since
+  it collects data before the spatial selection runs (2026-10-28). `runner` is `selection_run`, with
+  the plan in `selection_plan`, the TOML builders in `build_from_toml`, the CSV selection in
+  `catchments_csv`, the loaders in `data_loading` and the DEM request in `dem_request`.
+- `spatial.administrative` no longer re-exports `france`, whose functions are imported from
+  `spatial.administrative.france` (2026-10-28).
+- The site selection modules each hold one thing (2026-10-28). `config.models` is cut into
+  `site_selection_config`, `value_types`, `strategy_config`, `dem_config`, `outlets_config` and
+  `criteria_config`, and the `$id` of the JSON schema of `SiteSelectionConfig` and of its
+  `DemConfig` follows the new module. `CandidateOutlet`, `DelineatedCatchment`, `station_influence`,
+  `refs` and `watershed` sit in `site_selection.domain`, `reference_network` in `hydrology`, the
+  writers of evidence, decisions and generated candidates in `outputs` (`evidence_files`,
+  `decision_files`, `candidate_files`), and the piezometer layers in `evidence.piezometer_layers`.
+  `evidence.context` is `evidence.geology_layers`, `domain.observations` is
+  `domain.observation_evidence`, `decisions.evidence` is `decisions.evidence_records`, and
+  `hydrology.pipeline`, `outputs.artifacts` and `outputs.pipeline` join `hydrology.delineation`,
+  `outputs.manifest` and `outputs.writer`. The packages `site_selection`, `config`, `decisions` and
+  `evaluation.criteria` no longer re-export. Five helpers of candidate generation and evidence lose
+  their leading underscore.
+- `abacus_sim` and `reconcile` of `spatial.lake_bed` are one module, `lake_bed.abacus`, and
+  `reconstruct_lake_bed` moved to `lake_bed.regrid` (2026-10-28). The package no longer re-exports
+  them.
+- The geographic modules are cut one per job (2026-10-28). Each table of `geographic_config` has its
+  own file (`catchment_config`, `river_network_config`, `enforce_lakes_config`, `crossings_config`,
+  `capped_breach_config`, `bed_regularization_config`), `synthetic.config` is
+  `geographic.synthetic_config` and `synthetic.synthetic_geographic` is `synthetic.catchment`. The
+  cache leaves `pipeline` for `geographic_cache`, which takes `artifacts`, and the cleanup leaves
+  `store_ingestion` for `preprocessing_cleanup`. In `geographic.core`, the notch leaves
+  `ground_corrections` for `crossing_notch`, `bed_regularization_raster` is `ground_bed` with its
+  fit in `channel_bed_fit`, `lake_enforcement` is `ground_inputs`, the vector side of
+  `river_network` is `river_network_vector`, the metric measures of `hydrographic_network` are
+  `metric_crs`, and `catchment_from_polygon` and `catchment_metrics` join `catchment_from_point` and
+  `catchment_domain`. `geographic_io` is gone: the backend lookup is in `delineation.registry` and
+  the shapefile writer in `catchment_from_point`. `regional_flow_copy` joins `regional_flow_job`.
+  `build_river_mesh_trace_from_network_gdf` loses its leading underscore.
+- `spatial.delineation` keeps `get_whitebox_backend`, `clear_whitebox_backend_cache` and its lazy
+  backend names, and no longer re-exports `available_backends`, `get_backend` and
+  `register_backend`, imported from `delineation.registry` (2026-10-28). The Whitebox depression
+  child is `depression_child.py`, and the part the sub-backends share is
+  `whitebox_workflows_backend.component`.
+- `spatial.domain` no longer re-exports its classes, which are imported from their module
+  (2026-10-28). `zone_arming` joins `domain.build`, the four support fields of `spatial_support`
+  move to `domain.support_fields`, and the active-cell mask and the document of the domain worker
+  move to `domain.active_cells` and `domain.domain_document`.
+- The field package is flat (2026-10-28). `spatial.field.core` and `spatial.field.geology` are gone
+  and their modules sit in `spatial.field`, where `field_param_config` takes the two private
+  resolution modules, `field_spatial` the weighted discretization and `geology_field` the geology
+  mesh. `physical_bounds` moved to `core.units`, `geology_config` to `spatial.field`, and the field
+  and the mesh of the unit square left `cases/` as `spatial.field.two_zone_field` and
+  `spatial.field.unit_square_mesh`. Names are unchanged and the lazy names of `spatial.field` still
+  work. `load_values_mapping_csv` and `resolve_relative_to` lose their leading underscore.
 - The `area` interpolation of a forcing called from Python without the polygons of the cells is
   refused with one message, which asks for the planar mesh of the cells (2026-10-28). Two texts
   said the same thing before. No TOML reaches this refusal.

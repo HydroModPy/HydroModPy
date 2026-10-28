@@ -41,7 +41,7 @@ RACE_SIGNATURE = "Error unwrapping 'output'"
 MAX_ATTEMPTS = 3
 """Children run for one call before its failure is raised."""
 
-_CHILD = Path(__file__).with_name("_depression_child.py")
+_CHILD = Path(__file__).with_name("depression_child.py")
 
 
 def run_depression_tool(

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib
 
-from hydromodpy.spatial.geographic.synthetic.config import (
+from hydromodpy.spatial.geographic.synthetic_config import (
     FlatTopography,
     LinearTopography,
     RadialIslandTopography,
@@ -20,11 +20,11 @@ from hydromodpy.spatial.geographic.synthetic.config import (
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "SyntheticGeographic": (
-        "hydromodpy.spatial.geographic.synthetic.synthetic_geographic",
+        "hydromodpy.spatial.geographic.synthetic.catchment",
         "SyntheticGeographic",
     ),
     "build_synthetic_geographic": (
-        "hydromodpy.spatial.geographic.synthetic.synthetic_geographic",
+        "hydromodpy.spatial.geographic.synthetic.catchment",
         "build_synthetic_geographic",
     ),
 }
