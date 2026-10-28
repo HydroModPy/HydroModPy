@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.spatial.delineation.registry import (
     backend_has_callables,
@@ -34,6 +35,9 @@ from hydromodpy.spatial.geographic.core.river_network_vector import (
     remove_vector_sidecars,
 )
 from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
+
+if TYPE_CHECKING:
+    import geopandas as gpd
 
 
 @dataclass(frozen=True)
@@ -105,10 +109,103 @@ def build_river_network_products(
     network_crs: str | None = None,
     backend: object | None = None,
 ) -> RiverNetworkProducts:
-    """Build stream rasters, stream vectors and one summary JSON payload."""
+    """Build stream rasters, stream vectors and one summary JSON payload.
+
+    Four steps: the stream rasters, their order and link diagnostics, the
+    vector network with its mesh trace, and the summary JSON.
+    """
     if not bool(river_network.enabled):
         return RiverNetworkProducts(enabled=False)
 
+    tool = _raster_backend(backend)
+
+    geo_dir = Path(geographic_dir)
+    correc_dir = Path(correcflow_dir)
+    geo_dir.mkdir(parents=True, exist_ok=True)
+    correc_dir.mkdir(parents=True, exist_ok=True)
+
+    streams_tif = Path(streams_tif_path)
+    streams_pruned_tif = Path(streams_pruned_tif_path)
+    stream_order_tif = Path(stream_order_strahler_tif_path)
+    stream_link_tif = Path(stream_link_id_tif_path)
+    network_shp = Path(network_shp_path)
+    summary_json = Path(summary_json_path)
+    network_crs_value = None if network_crs is None else str(network_crs).strip()
+    if network_crs_value == "":
+        network_crs_value = None
+
+    threshold_cells = resolve_stream_threshold_cells(
+        river_network=river_network,
+        dem_res_m=float(dem_res_m),
+    )
+
+    streams = _stream_rasters(
+        tool,
+        river_network=river_network,
+        dem_correc_path=dem_correc_path,
+        d8_pointer_path=d8_pointer_path,
+        watershed_shp=watershed_shp,
+        correc_dir=correc_dir,
+        threshold_cells=threshold_cells,
+        streams_tif=streams_tif,
+        streams_pruned_tif=streams_pruned_tif,
+    )
+    stream_order_full_tif = correc_dir / "dem_stream_order_strahler_full.tif"
+    stream_link_full_tif = correc_dir / "dem_stream_link_id_full.tif"
+    output_stream_order_tif, output_stream_link_tif = _stream_diagnostics(
+        tool,
+        river_network=river_network,
+        d8_pointer_path=d8_pointer_path,
+        watershed_shp=watershed_shp,
+        active_streams_full_tif=streams.active_full_tif,
+        stream_order_full_tif=stream_order_full_tif,
+        stream_link_full_tif=stream_link_full_tif,
+        stream_order_tif=stream_order_tif,
+        stream_link_tif=stream_link_tif,
+    )
+    network_gdf, output_network_shp, river_mesh_trace = _vector_network(
+        tool,
+        river_network=river_network,
+        d8_pointer_path=d8_pointer_path,
+        watershed_shp=watershed_shp,
+        active_streams_full_tif=streams.active_full_tif,
+        network_shp=network_shp,
+        network_crs=network_crs_value,
+    )
+    _write_summary(
+        summary_json,
+        river_network=river_network,
+        threshold_cells=threshold_cells,
+        active_streams_tif=streams.active_tif,
+        watershed_shp=watershed_shp,
+        stream_order_strahler_tif=output_stream_order_tif,
+        network_gdf=network_gdf,
+    )
+
+    return RiverNetworkProducts(
+        enabled=True,
+        threshold_cells=float(threshold_cells),
+        flow_acc_cells_tif=str(streams.flow_acc_cells_tif),
+        streams_tif=str(streams_tif),
+        active_streams_tif=str(streams.active_tif),
+        streams_pruned_tif=streams.pruned_tif,
+        stream_order_strahler_tif=output_stream_order_tif,
+        stream_link_id_tif=output_stream_link_tif,
+        hydrographic_network_generated_shp=output_network_shp,
+        network_crs=network_crs_value,
+        river_mesh_trace=river_mesh_trace,
+        hydrographic_network_generated_summary_json=str(summary_json),
+        stream_order_strahler_full_tif=(
+            str(stream_order_full_tif) if bool(river_network.compute_strahler_order) else None
+        ),
+        stream_link_id_full_tif=(
+            str(stream_link_full_tif) if bool(river_network.compute_stream_links) else None
+        ),
+    )
+
+
+def _raster_backend(backend: object | None) -> Any:
+    """Resolve the delineation backend, refusing one without the raster APIs."""
     tool = resolve_delineation_backend(backend)
     if not (
         backend_has_callables(
@@ -133,32 +230,35 @@ def build_river_network_products(
         )
     ):
         raise TypeError("River network extraction requires a delineation backend with raster APIs.")
+    return tool
 
-    geo_dir = Path(geographic_dir)
-    correc_dir = Path(correcflow_dir)
-    geo_dir.mkdir(parents=True, exist_ok=True)
-    correc_dir.mkdir(parents=True, exist_ok=True)
 
+@dataclass(frozen=True)
+class _StreamRasters:
+    """The stream rasters of the first step, and the active pair the next steps read."""
+
+    flow_acc_cells_tif: Path
+    active_tif: Path
+    active_full_tif: Path
+    pruned_tif: str | None
+
+
+def _stream_rasters(
+    tool: Any,
+    *,
+    river_network: RiverNetworkConfig,
+    dem_correc_path: str | Path,
+    d8_pointer_path: str | Path,
+    watershed_shp: str | Path,
+    correc_dir: Path,
+    threshold_cells: float,
+    streams_tif: Path,
+    streams_pruned_tif: Path,
+) -> _StreamRasters:
+    """Accumulate the flow, extract the streams, prune them when asked, clip each."""
     flow_acc_cells_tif = correc_dir / "dem_acc_cells.tif"
-    streams_tif = Path(streams_tif_path)
-    streams_pruned_tif = Path(streams_pruned_tif_path)
-    stream_order_tif = Path(stream_order_strahler_tif_path)
-    stream_link_tif = Path(stream_link_id_tif_path)
-    network_shp = Path(network_shp_path)
-    summary_json = Path(summary_json_path)
-    network_crs_value = None if network_crs is None else str(network_crs).strip()
-    if network_crs_value == "":
-        network_crs_value = None
-
-    threshold_cells = resolve_stream_threshold_cells(
-        river_network=river_network,
-        dem_res_m=float(dem_res_m),
-    )
-
     streams_full_tif = correc_dir / "dem_streams_full.tif"
     streams_pruned_full_tif = correc_dir / "dem_streams_pruned_full.tif"
-    stream_order_full_tif = correc_dir / "dem_stream_order_strahler_full.tif"
-    stream_link_full_tif = correc_dir / "dem_stream_link_id_full.tif"
 
     tool.flow.d8_flow_accumulation(
         str(dem_correc_path),
@@ -197,7 +297,27 @@ def build_river_network_products(
         active_streams_tif = streams_pruned_tif
         active_streams_full_tif = streams_pruned_full_tif
         output_pruned_tif = str(streams_pruned_tif)
+    return _StreamRasters(
+        flow_acc_cells_tif=flow_acc_cells_tif,
+        active_tif=active_streams_tif,
+        active_full_tif=active_streams_full_tif,
+        pruned_tif=output_pruned_tif,
+    )
 
+
+def _stream_diagnostics(
+    tool: Any,
+    *,
+    river_network: RiverNetworkConfig,
+    d8_pointer_path: str | Path,
+    watershed_shp: str | Path,
+    active_streams_full_tif: Path,
+    stream_order_full_tif: Path,
+    stream_link_full_tif: Path,
+    stream_order_tif: Path,
+    stream_link_tif: Path,
+) -> tuple[str | None, str | None]:
+    """Write the Strahler order and the link ids when asked, return the clipped paths."""
     output_stream_order_tif: str | None = None
     if bool(river_network.compute_strahler_order):
         tool.delineation.strahler_stream_order(
@@ -229,7 +349,23 @@ def build_river_network_products(
             maintain_dimensions=False,
         )
         output_stream_link_tif = str(stream_link_tif)
+    return output_stream_order_tif, output_stream_link_tif
 
+
+def _vector_network(
+    tool: Any,
+    *,
+    river_network: RiverNetworkConfig,
+    d8_pointer_path: str | Path,
+    watershed_shp: str | Path,
+    active_streams_full_tif: Path,
+    network_shp: Path,
+    network_crs: str | None,
+) -> tuple[gpd.GeoDataFrame, str | None, RiverMeshTrace | None]:
+    """Vectorise the active streams, clip them, write the shapefile and build the mesh trace.
+
+    An empty network writes no shapefile and removes a stale one.
+    """
     streams_raster_obj = tool.raster.read_raster(str(active_streams_full_tif))
     d8_pointer_obj = tool.raster.read_raster(str(d8_pointer_path))
     raw_vector_obj = tool.delineation.raster_streams_to_vector_raster(
@@ -241,7 +377,7 @@ def build_river_network_products(
     clipped_vector_obj = tool.raster.clip_vector(raw_vector_obj, watershed_vector_obj)
     network_gdf = build_network_gdf_from_whitebox_vector(
         vector_obj=clipped_vector_obj,
-        network_crs=network_crs_value,
+        network_crs=network_crs,
     )
     output_network_shp: str | None = None
     if network_gdf.empty:
@@ -251,39 +387,31 @@ def build_river_network_products(
         output_network_shp = str(network_shp)
     river_mesh_trace = build_river_mesh_trace_from_network_gdf(
         network_gdf=network_gdf,
-        network_crs=network_crs_value,
+        network_crs=network_crs,
     )
+    return network_gdf, output_network_shp, river_mesh_trace
 
+
+def _write_summary(
+    summary_json: Path,
+    *,
+    river_network: RiverNetworkConfig,
+    threshold_cells: float,
+    active_streams_tif: Path,
+    watershed_shp: str | Path,
+    stream_order_strahler_tif: str | None,
+    network_gdf: gpd.GeoDataFrame,
+) -> None:
+    """Write the summary JSON of the network."""
     summary = compute_river_network_summary(
         river_network=river_network,
         threshold_cells=float(threshold_cells),
         active_streams_tif=str(active_streams_tif),
         watershed_shp=watershed_shp,
-        stream_order_strahler_tif=output_stream_order_tif,
+        stream_order_strahler_tif=stream_order_strahler_tif,
         network_gdf=network_gdf,
     )
     summary_json.parent.mkdir(parents=True, exist_ok=True)
     with summary_json.open("w", encoding="utf-8") as stream:
         json.dump(summary, stream, indent=2, ensure_ascii=True)
         stream.write("\n")
-
-    return RiverNetworkProducts(
-        enabled=True,
-        threshold_cells=float(threshold_cells),
-        flow_acc_cells_tif=str(flow_acc_cells_tif),
-        streams_tif=str(streams_tif),
-        active_streams_tif=str(active_streams_tif),
-        streams_pruned_tif=output_pruned_tif,
-        stream_order_strahler_tif=output_stream_order_tif,
-        stream_link_id_tif=output_stream_link_tif,
-        hydrographic_network_generated_shp=output_network_shp,
-        network_crs=network_crs_value,
-        river_mesh_trace=river_mesh_trace,
-        hydrographic_network_generated_summary_json=str(summary_json),
-        stream_order_strahler_full_tif=(
-            str(stream_order_full_tif) if bool(river_network.compute_strahler_order) else None
-        ),
-        stream_link_id_full_tif=(
-            str(stream_link_full_tif) if bool(river_network.compute_stream_links) else None
-        ),
-    )

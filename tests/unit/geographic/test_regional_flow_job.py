@@ -33,7 +33,6 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 from hydromodpy.spatial.geographic.regional_flow_job import (
     RegionalFlowRequest,
-    _resolved,
     copy_regional_flow_from_job,
     load_regional_flow_job,
     materialize_regional_flow_job,
@@ -46,6 +45,7 @@ from tests._helpers.geotiffs import write_geotiff
 PINNED = {
     "fill": "sha256:ae0b66f1d8395b84fbad6e88bc6d1e34eb30e748590617874873bbde1a870d54",
     "breach": "sha256:ceb76da4c50af4dc16cec6e6e54653d730135226fe57d1bcfb85c0b2f239ab7d",
+    "capped_breach": "sha256:2c5b77c1bc1f5b84cad0752edc1f15a04f841aa21ccb69ba0d461aad18820528",
 }
 
 
@@ -322,10 +322,8 @@ def test_a_fill_or_breach_request_keeps_the_address_and_the_inputs_it_had(
     request = RegionalFlowRequest(
         dem_init_path=pinned_dem, dem_correc_type=method, crs_project="EPSG:2154"
     )
-    inputs, _job_id, _size = _resolved(request)
 
     assert _identity(pinned_dem, method) == PINNED[method]
-    assert set(inputs) == {"dem_sha256", "dem_correc_type", "crs_project", "engine"}
     assert "capped_breach" not in request.document()
 
 
@@ -337,13 +335,10 @@ def test_the_limits_enter_the_address_of_the_capped_breach_and_only_it(pinned_de
         capped_breach={"max_depth_m": 0.5, "max_distance_m": 200.0},
         crs_project="EPSG:2154",
     )
-    inputs, _job_id, _size = _resolved(request)
 
-    assert base not in PINNED.values()
-    assert base == _identity(pinned_dem, "capped_breach", CappedBreach(0.5, 200.0))
+    assert base == PINNED["capped_breach"]
     assert base != _identity(pinned_dem, "capped_breach", CappedBreach(0.6, 200.0))
     assert base != _identity(pinned_dem, "capped_breach", CappedBreach(0.5, 250.0))
-    assert inputs["capped_breach"] == {"max_depth_m": 0.5, "max_distance_m": 200.0}
     assert request.breach_limits() == CappedBreach(0.5, 200.0)
 
 

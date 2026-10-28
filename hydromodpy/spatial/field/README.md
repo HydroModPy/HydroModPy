@@ -19,6 +19,7 @@ hydromodpy/spatial/field/
 |-- mesh_cells.py
 |-- two_zone_field.py
 |-- unit_square_mesh.py
+|-- vertical_profile.py
 |-- cases/
 |   |-- review_cases.py
 |   `-- square/
@@ -36,6 +37,8 @@ hydromodpy/spatial/field/
 ## Structure (What Goes Where)
 
 - `field_param.py`: parameter values, config loading, and mapping rules.
+- `vertical_profile.py`: the depth factor of a parameter, its check and its
+  application to surface values.
 - `field_param_config.py`: Pydantic validation and resolution of field-parameter
   TOML payloads.
 - `field_spatial.py`: abstract field geometry contract, abstract discretization

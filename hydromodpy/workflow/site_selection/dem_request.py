@@ -16,6 +16,7 @@ from hydromodpy.core.exceptions import (
 )
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.data import DataManagersConfig
+from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
@@ -170,6 +171,7 @@ def _maybe_load_reference_network(
         outlets=[catchment.outlet for catchment in catchments],
         target_crs=target_crs,
         output_dir=config.output_root / "reference_network",
+        fetcher=fetch_bdtopage_reference_network,
         fetch_margin_m=config.outlets.reference_network_fetch_margin_m,
         page_size=config.outlets.reference_network_page_size,
         force_refresh=config.outlets.reference_network_force_refresh,

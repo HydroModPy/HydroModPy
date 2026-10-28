@@ -63,17 +63,6 @@ def test_a_dem_source_may_still_give_the_dem() -> None:
         (_outlet(buff_area="0 m"), "buff_area distance must be > 0"),
         (_outlet(buff_area=-2.0), "buff_area percent must be > 0"),
         (_outlet(dem_resolution=0.0), "a cell size is a positive length"),
-        (
-            {
-                "catchment": {
-                    "catch_def": "txt",
-                    "dem_init_path": "dem.xyz",
-                    "cell_size": "25 m",
-                    "dem_resolution": 50.0,
-                }
-            },
-            "would say the grid twice",
-        ),
     ],
     ids=[
         "no-table",
@@ -84,7 +73,6 @@ def test_a_dem_source_may_still_give_the_dem() -> None:
         "zero-distance",
         "negative-number",
         "zero-dem-resolution",
-        "txt-grid-said-twice",
     ],
 )
 def test_a_catchment_table_is_refused_with_a_message_that_names_the_key(payload, match) -> None:

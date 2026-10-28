@@ -33,13 +33,13 @@ def test_the_reference_case_passes_a_declared_buffer_as_it_was_written() -> None
     from types import SimpleNamespace
 
     from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
-        _build_case_specs,
+        build_case_specs,
     )
 
     for declared in ("20%", "150.0 m", 20.0):
         cfg = SimpleNamespace(geographic=SimpleNamespace(snap_dist=50, buff_area=declared))
-        specs = _build_case_specs(cfg)
+        specs = build_case_specs(cfg)
         assert specs["nancon"]["catchment"]["buff_area"] == declared
 
     unset = SimpleNamespace(geographic=SimpleNamespace(snap_dist=50, buff_area=None))
-    assert _build_case_specs(unset)["canut"]["catchment"]["buff_area"] == "20%"
+    assert build_case_specs(unset)["canut"]["catchment"]["buff_area"] == "20%"

@@ -240,8 +240,8 @@ def _resolve(job: JobDirectory) -> _Resolved:
     refuse_a_file_that_is_not_the_one_asked_for(
         inputs.dem.sha256, digest=dem_digest, href=inputs.dem.href, member="dem"
     )
-    dem_extent = _dem_extent(inputs, path=dem_path)
-    _refuse_an_engine_this_installation_does_not_serve(inputs)
+    dem_extent = dem_extent_of(inputs, path=dem_path)
+    refuse_an_engine_this_installation_does_not_serve(inputs)
 
     effective_inputs = _effective_inputs(inputs, dem_digest=dem_digest)
     return _Resolved(
@@ -276,7 +276,7 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
         if catchment.status != DELINEATED
     )
 
-    inputset = _build_inputset(
+    inputset = terrain_inputset(
         dem_digest=resolved.dem_digest,
         dem_bytes=resolved.dem_bytes,
         dem_extent=resolved.dem_extent,
@@ -323,7 +323,7 @@ def _resolve_dem(job: JobDirectory, inputs: TerrainDelineateRequest) -> Path:
     return dem_path
 
 
-def _dem_extent(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent:
+def dem_extent_of(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent:
     """Measure the declared DEM, refusing one no raster reader opens as one band.
 
     The check is here, on the input, and not around the chain: a failure the
@@ -505,7 +505,7 @@ def _rename_rasters(job: JobDirectory, *, dem_correction_type: str) -> None:
         (outputs / written).replace(job.resolve_output(declared))
 
 
-def _build_inputset(
+def terrain_inputset(
     *,
     dem_digest: str,
     dem_bytes: int,
@@ -548,7 +548,7 @@ def _build_inputset(
     )
 
 
-def _refuse_an_engine_this_installation_does_not_serve(
+def refuse_an_engine_this_installation_does_not_serve(
     inputs: TerrainDelineateRequest,
 ) -> None:
     """Refuse an engine name nothing here can resolve, at the boundary.
@@ -595,4 +595,10 @@ def _backend_identity(engine_id: str) -> dict[str, Any]:
     }
 
 
-__all__ = ["ExitCodeMapper", "run"]
+__all__ = [
+    "ExitCodeMapper",
+    "dem_extent_of",
+    "refuse_an_engine_this_installation_does_not_serve",
+    "run",
+    "terrain_inputset",
+]

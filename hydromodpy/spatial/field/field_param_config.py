@@ -10,7 +10,7 @@ import csv
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import (
     Field,
@@ -329,7 +329,7 @@ class FieldParamConfig(HydroModelBase):
         """Validate a homogeneous value against ``PHYSICAL_BOUNDS``, in its declared unit.
 
         The section has already split a ``"<number> <unit>"`` string, so the
-        value is a number and ``unit`` holds its unit, or None for the
+        value is a float and ``unit`` holds its unit, or None for the
         canonical unit of the parameter.
         """
         from hydromodpy.core.units.physical_bounds import validate_physical_value
@@ -340,10 +340,9 @@ class FieldParamConfig(HydroModelBase):
             or self.field.value is None
         ):
             return self
-        if isinstance(self.field.value, (int, float)) and not isinstance(self.field.value, bool):
-            validate_physical_value(
-                param_id=self.field.id, value=float(self.field.value), unit=self.field.unit
-            )
+        validate_physical_value(
+            param_id=self.field.id, value=cast(float, self.field.value), unit=self.field.unit
+        )
         return self
 
 

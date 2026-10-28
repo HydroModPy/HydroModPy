@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -127,6 +127,12 @@ class _CatchDefBase(HydroModelBase):
             raise ValueError(f"dem_resolution = {value:g} m: a cell size is a positive length.")
         return value
 
+    @field_validator("buff_area", mode="before", check_fields=False)
+    @classmethod
+    def _normalize_buff_area_field(cls, value):
+        """Normalize ``buff_area`` of the two variants that declare it."""
+        return _normalize_buff_area(value)
+
 
 class DemCatchDef(_CatchDefBase):
     """Model domain defined directly from a DEM raster."""
@@ -168,16 +174,6 @@ class TxtCatchDef(_CatchDefBase):
         ),
         examples=["25 m"],
     )
-
-    @model_validator(mode="after")
-    def _cell_size_is_the_grid(self) -> TxtCatchDef:
-        """Refuse dem_resolution here: cell_size already says the grid."""
-        if self.dem_resolution is not None:
-            raise ValueError(
-                "catch_def='txt' rasterises the points at cell_size; dem_resolution would "
-                "say the grid twice. Drop it, or set cell_size to that value."
-            )
-        return self
 
 
 class OutletCatchDef(_CatchDefBase):
@@ -228,11 +224,6 @@ class OutletCatchDef(_CatchDefBase):
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
     )
 
-    @field_validator("buff_area", mode="before")
-    @classmethod
-    def _normalize_buff_area_field(cls, value):
-        return _normalize_buff_area(value)
-
 
 class PolygonCatchDef(_CatchDefBase):
     """Watershed delineated from a polygon shapefile."""
@@ -253,11 +244,6 @@ class PolygonCatchDef(_CatchDefBase):
     buff_area: Annotated[str | float, Profile.USER] = Field(
         description=_BUFF_AREA_DESCRIPTION, examples=["10%"]
     )
-
-    @field_validator("buff_area", mode="before")
-    @classmethod
-    def _normalize_buff_area_field(cls, value):
-        return _normalize_buff_area(value)
 
 
 CatchDef: TypeAlias = Annotated[

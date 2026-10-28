@@ -10,6 +10,7 @@ from typing import Any
 import geopandas as gpd
 from shapely.geometry import box
 
+from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.spatial.site_selection.candidates.generation import (
     CandidateGenerationEvidence,
     candidate_generation_evidence_with_candidate_attributes,
@@ -24,9 +25,9 @@ from hydromodpy.spatial.site_selection.candidates.outlets import (
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 from hydromodpy.spatial.site_selection.hydrology.reference_network import (
     ReferenceNetworkBundle,
+    ReferenceNetworkFetcher,
     load_reference_network_for_outlets,
     score_outlets_against_reference_network,
 )
@@ -71,12 +72,16 @@ def build_station_candidate_outlets(
 def build_generated_network_candidates(
     *,
     config: SiteSelectionConfig,
-    flow_products: SiteSelectionFlowProducts,
+    flow_products: FlowProducts,
     target_crs: str | None,
     root: Path,
     search_geometry: object | None,
+    reference_network_fetcher: ReferenceNetworkFetcher,
 ) -> GeneratedCandidateResult:
-    """Build DEM-network candidates and optionally score them against a reference network."""
+    """Build DEM-network candidates and optionally score them against a reference network.
+
+    *reference_network_fetcher* downloads BD Topage when the configuration asks for it.
+    """
 
     candidates, evidence = generate_network_candidate_outlets(
         flow_products=flow_products,
@@ -89,6 +94,7 @@ def build_generated_network_candidates(
         candidates=candidates,
         target_crs=target_crs or first_candidate_crs(candidates),
         root=root,
+        fetcher=reference_network_fetcher,
     )
     if reference_network is not None and reference_bundle is not None:
         candidates = score_outlets_against_reference_network(
@@ -113,7 +119,7 @@ def build_generated_network_candidates(
 def build_dem_area_light_candidates(
     *,
     config: SiteSelectionConfig,
-    flow_products: SiteSelectionFlowProducts,
+    flow_products: FlowProducts,
     target_crs: str | None,
     root: Path,
     search_geometry: object | None,
@@ -164,6 +170,7 @@ def load_reference_network_for_station_candidates(
     candidates: list[CandidateOutlet],
     target_crs: str | None,
     root: Path,
+    fetcher: ReferenceNetworkFetcher,
 ) -> tuple[object | None, ReferenceNetworkBundle | None]:
     """Load the reference network used to snap station-led outlets, when enabled."""
 
@@ -175,6 +182,7 @@ def load_reference_network_for_station_candidates(
         target_crs=target_crs,
         root=root,
         error_context="bdtopage_then_dem",
+        fetcher=fetcher,
     )
 
 
@@ -184,6 +192,7 @@ def load_reference_network_for_generated_candidates(
     candidates: list[CandidateOutlet],
     target_crs: str | None,
     root: Path,
+    fetcher: ReferenceNetworkFetcher,
 ) -> tuple[object | None, ReferenceNetworkBundle | None]:
     """Load a reference network for generated candidates when snapping or scoring needs it."""
 
@@ -200,6 +209,7 @@ def load_reference_network_for_generated_candidates(
         target_crs=target_crs,
         root=root,
         error_context="Reference-network scoring",
+        fetcher=fetcher,
     )
 
 
@@ -268,6 +278,7 @@ def _load_reference_network_for_candidates(
     target_crs: str | None,
     root: Path,
     error_context: str,
+    fetcher: ReferenceNetworkFetcher,
 ) -> tuple[object | None, ReferenceNetworkBundle | None]:
     if not target_crs:
         raise ValueError(f"{error_context} requires a projected outlet CRS.")
@@ -277,6 +288,7 @@ def _load_reference_network_for_candidates(
         outlets=candidates,
         target_crs=target_crs,
         output_dir=root / "reference_network",
+        fetcher=fetcher,
         fetch_margin_m=config.outlets.reference_network_fetch_margin_m,
         page_size=config.outlets.reference_network_page_size,
         force_refresh=config.outlets.reference_network_force_refresh,

@@ -70,13 +70,13 @@ def _digest(raster) -> bytes:
 
 def test_single_threaded_pins_and_restores_the_worker_count_even_after_a_failure() -> None:
     backend = WhiteboxWorkflowsBackend()
-    before = backend.raster._env.max_procs
+    before = backend.raster.env.max_procs
     with backend.raster.single_threaded():
-        assert backend.raster._env.max_procs == 1
-    assert backend.raster._env.max_procs == before
+        assert backend.raster.env.max_procs == 1
+    assert backend.raster.env.max_procs == before
     with pytest.raises(RuntimeError), backend.raster.single_threaded():
         raise RuntimeError("boom")
-    assert backend.raster._env.max_procs == before
+    assert backend.raster.env.max_procs == before
 
 
 @pytest.mark.parametrize("correction", ["breach_depressions_raster", "fill_depressions_raster"])

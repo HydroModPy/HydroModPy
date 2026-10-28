@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon
 
+from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
+from hydromodpy.data.variables.hydrography.apis import bdtopage
 from hydromodpy.spatial.administrative.france import bbox_for_departments, bbox_for_regions
 from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_dem_area_light_candidates,
@@ -15,10 +17,10 @@ from hydromodpy.spatial.site_selection.config.site_selection_config import SiteS
 from tests._helpers.site_selection_cases import (
     make_point_record,
     selection_section,
-    site_flow_products,
     write_accumulation_raster,
     write_polygon_geojson,
 )
+from tests._helpers.terrain_doubles import fake_flow_products
 
 pytestmark = pytest.mark.fast
 gpd = pytest.importorskip("geopandas")
@@ -88,11 +90,16 @@ def test_no_search_geometry_without_a_french_or_clipped_territory(tmp_path, terr
 NETWORK = np.array([[1.0, 50.0, 200.0]])
 
 
-def _generated(tmp_path, **outlets):
-    flow = site_flow_products(write_accumulation_raster(tmp_path / "acc.tif", NETWORK))
+def _generated(tmp_path, fetcher=fetch_bdtopage_reference_network, search_geometry=None, **outlets):
+    flow = fake_flow_products(acc=write_accumulation_raster(tmp_path / "acc.tif", NETWORK))
     cfg = _config(tmp_path, "custom", outlets={"max_generated_candidates": 1, **outlets})
     return build_generated_network_candidates(
-        config=cfg, flow_products=flow, target_crs=None, root=tmp_path, search_geometry=None
+        config=cfg,
+        flow_products=flow,
+        target_crs=None,
+        root=tmp_path,
+        search_geometry=search_geometry,
+        reference_network_fetcher=fetcher,
     )
 
 
@@ -111,36 +118,25 @@ def test_generated_candidates_are_scored_against_a_custom_network(tmp_path):
 
 
 def test_generated_candidates_snap_on_bd_topage_fetched_once(tmp_path, monkeypatch):
-    from hydromodpy.data.variables.hydrography.apis import bdtopage
-
     fetched = []
     river = gpd.GeoDataFrame(geometry=[LineString([(0.0, 5.0), (30.0, 5.0)])], crs="EPSG:2154")
 
     def fetch(cfg, bbox_wgs84):
-        fetched.append(bbox_wgs84)
+        fetched.append((cfg.source, cfg.page_size))
         return river.to_crs("EPSG:4326")
 
     monkeypatch.setattr(bdtopage, "fetch", fetch)
     for _ in range(2):
         result = _generated(tmp_path, snap_strategy="bdtopage_then_dem")
 
-    assert len(fetched) == 1
+    assert fetched == [("bdtopage", 2000)]
     assert result.reference_bundle.feature_count == 1
     assert result.candidates[0].attributes["reference_network_distance_m"] < 1e-6
 
 
 def test_a_reference_network_without_an_outlet_crs_is_refused(tmp_path):
-    flow = site_flow_products(write_accumulation_raster(tmp_path / "acc.tif", NETWORK))
-    cfg = _config(tmp_path, "custom", outlets={"snap_strategy": "bdtopage_then_dem"})
-
     with pytest.raises(ValueError, match="requires a projected outlet CRS"):
-        build_generated_network_candidates(
-            config=cfg,
-            flow_products=flow,
-            target_crs=None,
-            root=tmp_path,
-            search_geometry=Polygon(),
-        )
+        _generated(tmp_path, search_geometry=Polygon(), snap_strategy="bdtopage_then_dem")
 
 
 def test_the_dem_area_scan_needs_its_window(tmp_path):

@@ -19,18 +19,7 @@ from hydromodpy.spatial.field.field_param_config import (
     validate_field_param_toml_data,
     validate_resolved_field_param_data,
 )
-
-
-def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
-    """Resolve a nested TOML section from a dotted path."""
-    current: Any = payload
-    for token in str(dotted_path).split("."):
-        if not isinstance(current, Mapping) or token not in current:
-            raise KeyError(f"Missing TOML section '{dotted_path}'")
-        current = current[token]
-    if not isinstance(current, Mapping):
-        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
-    return current
+from hydromodpy.spatial.field.field_spatial import get_nested_section
 
 
 def _optional_nested_section(
@@ -38,7 +27,7 @@ def _optional_nested_section(
 ) -> Mapping[str, Any] | None:
     """Return section mapping if present, else None."""
     try:
-        return _get_nested_section(payload, dotted_path)
+        return get_nested_section(payload, dotted_path)
     except (KeyError, ValueError):
         return None
 
@@ -90,7 +79,7 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
         payload = tomllib.load(stream)
     payload = validate_field_param_toml_data(payload)
     section_key = str(section).strip()
-    section_cfg = _get_nested_section(payload, section_key)
+    section_cfg = get_nested_section(payload, section_key)
 
     merged: dict[str, Any] = {}
 

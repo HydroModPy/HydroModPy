@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -22,13 +23,15 @@ from tests._helpers.site_selection_cases import (
 from tests._helpers.terrain_doubles import fake_flow_products
 
 pytestmark = pytest.mark.fast
+from_stations = partial(build_site_selection_from_point_records, reference_network_fetcher=None)
+from_network = partial(build_site_selection_from_generated_network, reference_network_fetcher=None)
 
 
 def test_station_records_chain_candidates_delineation_selection_and_exports(tmp_path):
     flow_calls: dict = {}
     delineation_calls: list = []
 
-    result = build_site_selection_from_point_records(
+    result = from_stations(
         config=make_config(tmp_path),
         point_records=[make_record("J123456701"), make_wgs84_hubeau_record("J123456702")],
         flow_products_builder=flow_spy(flow_calls),
@@ -76,7 +79,7 @@ def test_the_intermediate_rasters_are_removed_unless_kept(tmp_path, keep):
         created.append(Path(products.watershed_tif))
         return products
 
-    build_site_selection_from_point_records(
+    from_stations(
         config=cfg.model_copy(update={"output": output}),
         point_records=[make_record("J123456701")],
         flow_products_builder=flow_builder,
@@ -91,8 +94,8 @@ def test_the_intermediate_rasters_are_removed_unless_kept(tmp_path, keep):
 @pytest.mark.parametrize(
     "build",
     [
-        build_site_selection_from_point_records,
-        build_site_selection_from_generated_network,
+        from_stations,
+        from_network,
         build_site_selection_from_dem_area_light,
     ],
 )
@@ -103,7 +106,7 @@ def test_a_build_without_a_dem_is_refused(tmp_path, build):
         with pytest.raises(ValueError, match="requires dem_area_light config"):
             build(config=cfg)
         cfg = cfg.model_copy(update={"dem_area_light": DemAreaLightConfig()})
-    kwargs = {"point_records": []} if build is build_site_selection_from_point_records else {}
+    kwargs = {"point_records": []} if build is from_stations else {}
 
     with pytest.raises(ValueError, match="requires dem_init_path or dem.path"):
         build(config=cfg, **kwargs)
@@ -115,7 +118,7 @@ def test_the_configured_engine_reaches_the_flow_and_delineation_builders(tmp_pat
     flow_calls: dict = {}
     delineation_calls: list = []
 
-    build_site_selection_from_point_records(
+    from_stations(
         config=SiteSelectionConfig.model_validate(
             make_config(tmp_path).model_dump() | {"terrain_engine": engine}
         ),
@@ -148,7 +151,7 @@ def test_a_station_snapped_to_the_reference_network_records_it_in_the_manifest(t
     )
     calls: list = []
 
-    result = build_site_selection_from_point_records(
+    result = from_stations(
         config=cfg.model_copy(update={"outlets": outlets}),
         point_records=[make_record("J123456701")],
         flow_products_builder=flow_spy(),

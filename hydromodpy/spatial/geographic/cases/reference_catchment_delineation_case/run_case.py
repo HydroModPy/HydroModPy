@@ -60,7 +60,7 @@ def _load_river_network_summary(geographic) -> tuple[str | None, dict[str, Any] 
         return str(summary_path), json.load(stream)
 
 
-def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
+def build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     """Build default run specifications for all supported geographic demo cases."""
     default_snap = int(cfg.geographic.snap_dist) if cfg.geographic.snap_dist is not None else 50
     # Passed on as declared: "20%" is an area increase, "150.0 m" a distance
@@ -212,7 +212,7 @@ def run_geographic_cases_from_toml(
 ) -> dict[str, dict[str, Any]]:
     """Run one or multiple geographic cases and return per-case summaries."""
     cfg = HydroModPyConfig.from_toml(config_toml)
-    case_specs = _build_case_specs(cfg)
+    case_specs = build_case_specs(cfg)
     selected_case_ids = case_ids or list(KNOWN_CASE_IDS)
 
     if "canut" in selected_case_ids:

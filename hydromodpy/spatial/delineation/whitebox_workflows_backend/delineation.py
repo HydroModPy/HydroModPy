@@ -10,8 +10,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
     """Watershed delineation: pour points, watersheds, stream networks."""
 
     def snap_pour_points_vector(self, pour_points, flow_accumulation, snap_dist: int):
-        return self._run(
-            self._env.snap_pour_points,
+        return self.run(
+            self.env.snap_pour_points,
             pour_points,
             flow_accumulation,
             snap_dist=snap_dist,
@@ -24,26 +24,26 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         output: str,
         snap_dist: int,
     ) -> None:
-        self._write_vector(
+        self.write_vector(
             self.snap_pour_points_vector(
-                self._read_vector(pour_points),
-                self._read_raster(flow_accumulation),
+                self.read_vector(pour_points),
+                self.read_raster(flow_accumulation),
                 snap_dist,
             ),
             output,
         )
 
     def jenson_snap_pour_points_vector(self, pour_points, streams, snap_dist: float):
-        return self._run(
-            self._env.jenson_snap_pour_points,
+        return self.run(
+            self.env.jenson_snap_pour_points,
             pour_points,
             streams,
             snap_dist=float(snap_dist),
         )
 
     def watershed_raster(self, d8_pntr, pour_pts, *, esri_pntr: bool = False):
-        return self._run(
-            self._env.watershed,
+        return self.run(
+            self.env.watershed,
             d8_pntr,
             pour_pts,
             esri_pntr=esri_pntr,
@@ -57,30 +57,30 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         *,
         esri_pntr: bool = False,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.watershed_raster(
-                self._read_raster(d8_pntr),
-                self._read_vector(pour_pts),
+                self.read_raster(d8_pntr),
+                self.read_vector(pour_pts),
                 esri_pntr=esri_pntr,
             ),
             output,
         )
 
     def raster_to_vector_polygons_raster(self, raster):
-        return self._run(self._env.raster_to_vector_polygons, raster)
+        return self.run(self.env.raster_to_vector_polygons, raster)
 
     def raster_to_vector_polygons(self, input_raster: str, output_shp: str) -> None:
-        self._write_vector(
-            self.raster_to_vector_polygons_raster(self._read_raster(input_raster)),
+        self.write_vector(
+            self.raster_to_vector_polygons_raster(self.read_raster(input_raster)),
             output_shp,
         )
 
     def raster_to_vector_points_raster(self, raster):
-        return self._run(self._env.raster_to_vector_points, raster)
+        return self.run(self.env.raster_to_vector_points, raster)
 
     def raster_to_vector_points(self, input_raster: str, output_shp: str) -> None:
-        self._write_vector(
-            self.raster_to_vector_points_raster(self._read_raster(input_raster)),
+        self.write_vector(
+            self.raster_to_vector_points_raster(self.read_raster(input_raster)),
             output_shp,
         )
 
@@ -91,8 +91,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         threshold: float | int | None = None,
         zero_background: bool | None = None,
     ):
-        return self._run(
-            self._env.extract_streams,
+        return self.run(
+            self.env.extract_streams,
             flow_accumulation,
             **given_options(
                 threshold=None if threshold is None else float(threshold),
@@ -108,9 +108,9 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         threshold: float | int | None = None,
         zero_background: bool | None = None,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.extract_streams_raster(
-                self._read_raster(flow_accumulation),
+                self.read_raster(flow_accumulation),
                 threshold=threshold,
                 zero_background=zero_background,
             ),
@@ -125,8 +125,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pointer: bool | None = None,
         all_vertices: bool | None = None,
     ):
-        return self._run(
-            self._env.raster_streams_to_vector,
+        return self.run(
+            self.env.raster_streams_to_vector,
             streams_raster,
             d8_pointer,
             **given_options(esri_pointer=esri_pointer, all_vertices=all_vertices),
@@ -141,10 +141,10 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pointer: bool | None = None,
         all_vertices: bool | None = None,
     ) -> None:
-        self._write_vector(
+        self.write_vector(
             self.raster_streams_to_vector_raster(
-                self._read_raster(streams_raster),
-                self._read_raster(d8_pointer),
+                self.read_raster(streams_raster),
+                self.read_raster(d8_pointer),
                 esri_pointer=esri_pointer,
                 all_vertices=all_vertices,
             ),
@@ -159,8 +159,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ):
-        return self._run(
-            self._env.strahler_stream_order,
+        return self.run(
+            self.env.strahler_stream_order,
             d8_pointer,
             streams_raster,
             **given_options(esri_pntr=esri_pntr, zero_background=zero_background),
@@ -175,10 +175,10 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.strahler_stream_order_raster(
-                self._read_raster(d8_pointer),
-                self._read_raster(streams_raster),
+                self.read_raster(d8_pointer),
+                self.read_raster(streams_raster),
                 esri_pntr=esri_pntr,
                 zero_background=zero_background,
             ),
@@ -193,8 +193,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ):
-        return self._run(
-            self._env.stream_link_identifier,
+        return self.run(
+            self.env.stream_link_identifier,
             d8_pointer,
             streams_raster,
             **given_options(esri_pntr=esri_pntr, zero_background=zero_background),
@@ -209,10 +209,10 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.stream_link_identifier_raster(
-                self._read_raster(d8_pointer),
-                self._read_raster(streams_raster),
+                self.read_raster(d8_pointer),
+                self.read_raster(streams_raster),
                 esri_pntr=esri_pntr,
                 zero_background=zero_background,
             ),
@@ -227,8 +227,8 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         min_length: float | int | None = None,
         esri_pntr: bool | None = None,
     ):
-        return self._run(
-            self._env.remove_short_streams,
+        return self.run(
+            self.env.remove_short_streams,
             d8_pointer,
             streams_raster,
             **given_options(
@@ -246,10 +246,10 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         min_length: float | int | None = None,
         esri_pntr: bool | None = None,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.remove_short_streams_raster(
-                self._read_raster(d8_pointer),
-                self._read_raster(streams_raster),
+                self.read_raster(d8_pointer),
+                self.read_raster(streams_raster),
                 min_length=min_length,
                 esri_pntr=esri_pntr,
             ),
@@ -257,17 +257,17 @@ class WhiteboxDelineationBackend(WhiteboxComponent):
         )
 
     def polygons_to_lines_vector(self, vector):
-        return self._run(self._env.polygons_to_lines, vector)
+        return self.run(self.env.polygons_to_lines, vector)
 
     def polygons_to_lines(self, input_shp: str, output_shp: str) -> None:
-        self._write_vector(self.polygons_to_lines_vector(self._read_vector(input_shp)), output_shp)
+        self.write_vector(self.polygons_to_lines_vector(self.read_vector(input_shp)), output_shp)
 
     def add_point_coordinates_to_table_vector(self, vector):
-        return self._run(self._env.add_point_coordinates_to_table, vector)
+        return self.run(self.env.add_point_coordinates_to_table, vector)
 
     def add_point_coordinates_to_table(self, input_shp: str) -> None:
-        self._write_vector(
-            self.add_point_coordinates_to_table_vector(self._read_vector(input_shp)),
+        self.write_vector(
+            self.add_point_coordinates_to_table_vector(self.read_vector(input_shp)),
             input_shp,
         )
 

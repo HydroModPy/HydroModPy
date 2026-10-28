@@ -22,25 +22,27 @@ class WhiteboxComponent:
         self._raster = raster
 
     @property
-    def _env(self):
-        return self._raster._env
+    def env(self):
+        """The ``WbEnvironment`` shared with the raster backend."""
+        return self._raster.env
 
-    def _run(self, operation, *args, **kwargs):
-        return self._raster._run_env_operation(operation, *args, **kwargs)
+    def run(self, operation, *args, **kwargs):
+        """Run one Whitebox operation through the raster backend."""
+        return self._raster.run_env_operation(operation, *args, **kwargs)
 
-    def _read_raster(self, path: str):
-        return self._raster._read_raster(path)
+    def read_raster(self, path: str):
+        return self._raster.read_raster(path)
 
-    def _write_raster(self, raster, path: str) -> None:
-        self._raster._write_raster(raster, path)
+    def write_raster(self, raster, path: str) -> None:
+        self._raster.write_raster(raster, path)
 
-    def _read_vector(self, path: str):
-        return self._raster._read_vector(path)
+    def read_vector(self, path: str):
+        return self._raster.read_vector(path)
 
-    def _write_vector(self, vector, path: str) -> None:
-        self._raster._write_vector(vector, path)
+    def write_vector(self, vector, path: str) -> None:
+        self._raster.write_vector(vector, path)
 
-    def _run_depression_tool(self, tool: str, dem, **options):
+    def run_depression_tool(self, tool: str, dem, **options):
         """Run a depression tool on one worker, in a child interpreter.
 
         One worker makes the output reproducible. The child keeps this
@@ -49,13 +51,13 @@ class WhiteboxComponent:
         with (
             self._raster.single_threaded(),
             progress.status(f"Whitebox: {tool.replace('_', ' ')}"),
-            self._raster._silence_stdio(),
+            self._raster.silence_stdio(),
         ):
             return run_depression_tool(
-                self._env,
+                self.env,
                 tool,
                 dem,
                 options=options,
-                max_procs=self._env.max_procs,
-                verbose=self._raster._verbose,
+                max_procs=self.env.max_procs,
+                verbose=self._raster.verbose,
             )

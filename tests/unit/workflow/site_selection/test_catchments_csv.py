@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.data.variables.hydrography.apis import bdtopage
 from hydromodpy.spatial.site_selection.candidates.pipeline import site_selection_search_geometry
 from hydromodpy.workflow.site_selection.catchments_csv import select_delineated_catchments_from_csv
 from hydromodpy.workflow.site_selection.data_loading import load_site_selection_config
@@ -94,16 +95,17 @@ def test_outlets_are_delineated_on_the_dem_the_file_names(tmp_path, dem, data, m
     assert len(spies["dem"]) == (0 if "path" in dem else 1) + map_dem_loads
 
 
-def test_outlets_snap_to_a_custom_reference_network_before_the_dem(tmp_path):
+@pytest.mark.parametrize("source", ["custom", "bdtopage"])
+def test_outlets_snap_to_a_reference_network_before_the_dem(tmp_path, monkeypatch, source):
     gpd = pytest.importorskip("geopandas")
     from shapely.geometry import LineString
 
-    gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (100.0, 0.0)])], crs="EPSG:2154").to_file(
-        tmp_path / "river.gpkg"
-    )
+    river = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (100.0, 0.0)])], crs="EPSG:2154")
+    river.to_file(tmp_path / "river.gpkg")
+    monkeypatch.setattr(bdtopage, "fetch", lambda cfg, bbox: river.to_crs("EPSG:4326"))
     outlets = {
         "snap_strategy": "bdtopage_then_dem",
-        "reference_network_source": "custom",
+        "reference_network_source": source,
         "reference_network_path": "river.gpkg",
         "reference_network_max_distance_m": 50.0,
     }
@@ -117,10 +119,10 @@ def test_outlets_snap_to_a_custom_reference_network_before_the_dem(tmp_path):
     )
 
     call = spies["delineation"][0]
-    assert (call["x_outlet"], call["y_outlet"]) == (25.0, 0.0)
+    assert (call["x_outlet"], call["y_outlet"]) == pytest.approx((25.0, 0.0), abs=1e-6)
     assert [site.site_id for site in result.selected] == ["site_001"]
     assert manifest["outlets"]["snap_strategy"] == "bdtopage_then_dem"
-    assert manifest["flow_products"]["reference_network"]["source"] == "custom"
+    assert manifest["flow_products"]["reference_network"]["source"] == source
 
 
 def test_delineating_outlets_without_a_dem_says_where_to_look(tmp_path):

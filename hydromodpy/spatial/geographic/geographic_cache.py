@@ -210,8 +210,8 @@ _FLOW_CLIP_ATTRIBUTES = (
 
 
 @dataclass(frozen=True)
-class _CachedGeographicProducts:
-    """Artifact views reconstructed from one validated geographic cache hit."""
+class GeographicProducts:
+    """Artifact views of one geographic tree, built by the pipeline or read from a cache hit."""
 
     flow_products: FlowProducts
     domain_products: CatchmentDomainProducts
@@ -244,7 +244,7 @@ def _path_signature(path: str | Path | None) -> dict[str, object] | None:
     }
 
 
-def _geographic_cache_fingerprint(config: GeographicConfig) -> str:
+def geographic_cache_fingerprint(config: GeographicConfig) -> str:
     """Build a deterministic fingerprint for geographic preprocessing inputs."""
     config_payload = config.model_dump(mode="json")
     # This flag controls cache use; it should not invalidate the underlying
@@ -416,7 +416,7 @@ def _river_products_from_cache(
     )
 
 
-def _required_geographic_cache_artifacts(
+def required_geographic_cache_artifacts(
     *,
     config: GeographicConfig,
     paths: GeographicPaths,
@@ -488,7 +488,7 @@ def load_cached_geographic_products(
     paths: GeographicPaths,
     crs_project: str | None,
     reuse_existing_outputs: bool | None = None,
-) -> _CachedGeographicProducts | None:
+) -> GeographicProducts | None:
     """Return cached products when enabled, fingerprinted, and complete.
 
     ``reuse_existing_outputs`` overrides the config flag when it is not None.
@@ -512,11 +512,11 @@ def load_cached_geographic_products(
         return None
     if manifest.get("schema") != _GEOGRAPHIC_CACHE_SCHEMA_VERSION:
         return None
-    if manifest.get("fingerprint") != _geographic_cache_fingerprint(config):
+    if manifest.get("fingerprint") != geographic_cache_fingerprint(config):
         return None
 
     raster_products = _raster_products_from_paths(paths)
-    required = _required_geographic_cache_artifacts(config=config, paths=paths)
+    required = required_geographic_cache_artifacts(config=config, paths=paths)
     if not _all_artifacts_exist(required):
         return None
     # The model top is read from the ground. A tree written before the ground had
@@ -590,7 +590,7 @@ def load_cached_geographic_products(
         buffer_declared=manifest.get("buffer_declared"),
         buffer_area_increase=_optional_float(manifest.get("buffer_area_increase")),
     )
-    return _CachedGeographicProducts(
+    return GeographicProducts(
         flow_products=flow_products,
         domain_products=domain_products,
         raster_products=raster_products,
@@ -626,7 +626,7 @@ def write_geographic_cache_manifest(
     """
     manifest = {
         "schema": _GEOGRAPHIC_CACHE_SCHEMA_VERSION,
-        "fingerprint": _geographic_cache_fingerprint(config),
+        "fingerprint": geographic_cache_fingerprint(config),
         "catchment_area_km2": float(catchment_area_km2),
         "buffer_distance_m": float(domain_products.buffer_distance_m),
         "buffer_rule": domain_products.buffer_rule,

@@ -19,7 +19,7 @@ from hydromodpy.schema.job import JobDirectory, read_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.spatial.site_selection.hydrology import worker
 from hydromodpy.spatial.site_selection.hydrology.capability import TerrainDelineateRequest
-from hydromodpy.spatial.site_selection.hydrology.worker import _build_inputset, _dem_extent
+from hydromodpy.spatial.site_selection.hydrology.worker import dem_extent_of, terrain_inputset
 from tests._helpers.geotiffs import write_geotiff
 
 rasterio = pytest.importorskip("rasterio")
@@ -51,24 +51,24 @@ def _request(dem: Path) -> TerrainDelineateRequest:
 def test_the_dem_extent_is_its_ordered_bounds_in_the_project_crs(tmp_path, origin, cell):
     dem = write_geotiff(tmp_path / "dem.tif", ONES, origin=origin, cell=cell)
 
-    assert _dem_extent(_request(dem), path=dem) == SpatialExtent(bbox=EXPECTED, crs="EPSG:2154")
+    assert dem_extent_of(_request(dem), path=dem) == SpatialExtent(bbox=EXPECTED, crs="EPSG:2154")
 
 
 def test_a_dem_whose_grid_covers_no_area_is_refused_as_bad_input(tmp_path):
     path = write_geotiff(tmp_path / "dem.tif", ONES, origin=(WEST, NORTH), cell=0.0)
 
     with pytest.raises(DataContractViolation, match="gives no valid extent"):
-        _dem_extent(_request(path), path=path)
+        dem_extent_of(_request(path), path=path)
 
 
 def test_the_input_set_carries_the_dem_box_and_its_crs(tmp_path):
     dem = write_geotiff(tmp_path / "dem.tif", ONES, origin=(WEST, NORTH), cell=CELL)
     inputs = _request(dem)
 
-    inputset = _build_inputset(
+    inputset = terrain_inputset(
         dem_digest="a" * 64,
         dem_bytes=4,
-        dem_extent=_dem_extent(inputs, path=dem),
+        dem_extent=dem_extent_of(inputs, path=dem),
         inputs=inputs,
         effective_inputs=inputs.model_dump(mode="json"),
     )
@@ -87,7 +87,7 @@ def test_an_interrupted_job_is_dismissed_and_not_sealed(tmp_path, monkeypatch):
     def interrupt(*args, **kwargs):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(worker, "_produce", interrupt)
+    monkeypatch.setattr(worker, "build_site_selection_flow_products", interrupt)
 
     with pytest.raises(KeyboardInterrupt):
         worker.run(job, exit_code_for=exit_code_for)

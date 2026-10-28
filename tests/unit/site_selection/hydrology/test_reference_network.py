@@ -68,8 +68,8 @@ def test_the_score_falls_with_the_distance_and_is_null_without_a_line():
 def test_bd_topage_is_fetched_around_the_outlets_then_read_from_the_run(tmp_path):
     asked = []
 
-    def fetcher(cfg, bbox_wgs84):
-        asked.append((cfg.page_size, bbox_wgs84))
+    def fetcher(bbox_wgs84, page_size):
+        asked.append((page_size, bbox_wgs84))
         return RIVER.to_crs("EPSG:4326")
 
     for _ in range(2):
@@ -98,11 +98,12 @@ def test_bd_topage_is_fetched_around_the_outlets_then_read_from_the_run(tmp_path
         ("custom", {}, "reference_network_path is required"),
         ("osm", {}, "Unsupported reference network source"),
         ("bdtopage", {"outlets": []}, "without outlets"),
-        ("bdtopage", {"fetcher": lambda cfg, bbox: RIVER.iloc[:0]}, "returned no feature"),
+        ("bdtopage", {"fetcher": lambda bbox, page_size: RIVER.iloc[:0]}, "returned no feature"),
     ],
 )
 def test_a_reference_network_that_cannot_be_loaded_is_refused(tmp_path, source, kwargs, match):
     arguments = {"outlets": [_outlet()], "target_crs": "EPSG:2154", "output_dir": tmp_path}
+    arguments["fetcher"] = None
 
     with pytest.raises(ValueError, match=match):
         load_reference_network_for_outlets(source=source, **(arguments | kwargs))

@@ -242,25 +242,9 @@ class WhiteboxTerrainEngine:
         snap: SnapMethod = "window",
         layout: CatchmentLayout = DEFAULT_CATCHMENT_LAYOUT,
     ) -> tuple[Catchment, ...]:
-        require_snap_method(snap, accumulation, member="delineate")
-        # Only the window snap ranks the accumulation; a Jenson snap never reads it.
-        ranks_counts = snap == "window"
-        if ranks_counts:
-            require_rank_preserving(accumulation, member="delineate")
-        require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
-        if ranks_counts and accumulation.transform != "none":
-            # Only when the values are transformed, and only where the snap reads:
-            # the search window of each outlet is all the snap compares.
-            require_resolvable_counts(
-                accumulation,
-                max_stored_value=raster_max_near(
-                    accumulation.path,
-                    [(outlet.x, outlet.y) for outlet in outlets],
-                    snap_distance_m,
-                ),
-                member="delineate",
-            )
-
+        _refuse_an_unusable_batch(
+            accumulation, outlets, snap=snap, snap_distance_m=snap_distance_m, layout=layout
+        )
         crs = accumulation.directions.conditioned_dem.crs
         # Read the shared products once: that is what makes this a batch. The
         # raster the snap ranks is the accumulation for the window snap and the
@@ -269,69 +253,125 @@ class WhiteboxTerrainEngine:
             str(snap.streams.path if isinstance(snap, JensonSnap) else accumulation.path)
         )
         pointer = self._backend.raster.read_raster(str(accumulation.directions.path))
-
-        delineated: list[Catchment] = []
-        for outlet in outlets:
-            site_dir = layout.site_dir(Path(out_dir), outlet)
-            site_dir.mkdir(parents=True, exist_ok=True)
-            outlet_shp = site_dir / OUTLET_LAYER_NAME
-            snapped_shp = site_dir / SNAPPED_OUTLET_LAYER_NAME
-            mask_path = site_dir / layout.mask_name
-            boundary_path = site_dir / layout.boundary_name
-
-            _write_point(outlet_shp, outlet.x, outlet.y, crs)
-            ensure_crs(outlet_shp, crs or None)
-            outlet_vector = self._backend.raster.read_vector(str(outlet_shp))
-            if isinstance(snap, JensonSnap):
-                snapped = self._backend.delineation.jenson_snap_pour_points_vector(
-                    outlet_vector, snap_raster, snap_distance_m
-                )
-            else:
-                snapped = self._backend.delineation.snap_pour_points_vector(
-                    outlet_vector, snap_raster, int(snap_distance_m)
-                )
-            if self._backend.raster.vector_record_count(snapped) == 0:
-                raise TerrainProductError(
-                    f"Snapping outlet {outlet.outlet_id!r} produced no feature within "
-                    f"{snap_distance_m} m. The outlet may sit outside the accumulation raster."
-                )
-            self._backend.raster.write_vector(snapped, str(snapped_shp))
-            ensure_crs(snapped_shp, crs or None)
-            snapped_x, snapped_y = _read_point(snapped_shp)
-            # The tool leaves an outlet where it was when its window holds no
-            # stream cell, so a point that is not on the network is a refusal.
-            if isinstance(snap, JensonSnap) and not is_stream_cell(
-                snap.streams.path, snapped_x, snapped_y
-            ):
-                raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
-
-            watershed = self._backend.delineation.watershed_raster(
-                pointer,
-                snapped,
-                esri_pntr=False,
+        return tuple(
+            self._delineate_outlet(
+                outlet,
+                site_dir=layout.site_dir(Path(out_dir), outlet),
+                layout=layout,
+                crs=crs,
+                snap=snap,
+                snap_raster=snap_raster,
+                snap_distance_m=snap_distance_m,
+                pointer=pointer,
             )
-            self._write_raster(watershed, mask_path, crs)
-            boundary = self._backend.delineation.raster_to_vector_polygons_raster(watershed)
-            if self._backend.raster.vector_record_count(boundary) == 0:
-                raise EmptyCatchmentError(
-                    f"Outlet {outlet.outlet_id!r} delineated an empty catchment."
-                )
-            self._backend.raster.write_vector(boundary, str(boundary_path))
-            ensure_crs(boundary_path, crs or None)
+            for outlet in outlets
+        )
 
-            delineated.append(
-                Catchment(
-                    outlet=outlet,
-                    mask_path=mask_path,
-                    boundary_path=boundary_path,
-                    cell_count=mask_cell_count(mask_path),
-                    area_m2=boundary_area_m2(boundary_path),
-                    snapped_x=snapped_x,
-                    snapped_y=snapped_y,
-                    snap_distance_m=hypot(snapped_x - outlet.x, snapped_y - outlet.y),
-                )
+    def _delineate_outlet(
+        self,
+        outlet: Outlet,
+        *,
+        site_dir: Path,
+        layout: CatchmentLayout,
+        crs: str,
+        snap: SnapMethod,
+        snap_raster: Any,
+        snap_distance_m: float,
+        pointer: Any,
+    ) -> Catchment:
+        """Snap one outlet, then write its catchment mask and boundary."""
+        site_dir.mkdir(parents=True, exist_ok=True)
+        mask_path = site_dir / layout.mask_name
+        boundary_path = site_dir / layout.boundary_name
+        snapped, snapped_x, snapped_y = self._snap_outlet(
+            outlet,
+            site_dir=site_dir,
+            crs=crs,
+            snap=snap,
+            snap_raster=snap_raster,
+            snap_distance_m=snap_distance_m,
+        )
+        self._write_watershed(
+            outlet,
+            snapped,
+            pointer=pointer,
+            mask_path=mask_path,
+            boundary_path=boundary_path,
+            crs=crs,
+        )
+        return Catchment(
+            outlet=outlet,
+            mask_path=mask_path,
+            boundary_path=boundary_path,
+            cell_count=mask_cell_count(mask_path),
+            area_m2=boundary_area_m2(boundary_path),
+            snapped_x=snapped_x,
+            snapped_y=snapped_y,
+            snap_distance_m=hypot(snapped_x - outlet.x, snapped_y - outlet.y),
+        )
+
+    def _snap_outlet(
+        self,
+        outlet: Outlet,
+        *,
+        site_dir: Path,
+        crs: str,
+        snap: SnapMethod,
+        snap_raster: Any,
+        snap_distance_m: float,
+    ) -> tuple[Any, float, float]:
+        """Write the outlet, snap it and return the snapped vector and point."""
+        outlet_shp = site_dir / OUTLET_LAYER_NAME
+        snapped_shp = site_dir / SNAPPED_OUTLET_LAYER_NAME
+        _write_point(outlet_shp, outlet.x, outlet.y, crs)
+        ensure_crs(outlet_shp, crs or None)
+        outlet_vector = self._backend.raster.read_vector(str(outlet_shp))
+        if isinstance(snap, JensonSnap):
+            snapped = self._backend.delineation.jenson_snap_pour_points_vector(
+                outlet_vector, snap_raster, snap_distance_m
             )
-        return tuple(delineated)
+        else:
+            snapped = self._backend.delineation.snap_pour_points_vector(
+                outlet_vector, snap_raster, int(snap_distance_m)
+            )
+        if self._backend.raster.vector_record_count(snapped) == 0:
+            raise TerrainProductError(
+                f"Snapping outlet {outlet.outlet_id!r} produced no feature within "
+                f"{snap_distance_m} m. The outlet may sit outside the accumulation raster."
+            )
+        self._backend.raster.write_vector(snapped, str(snapped_shp))
+        ensure_crs(snapped_shp, crs or None)
+        snapped_x, snapped_y = read_point(snapped_shp)
+        # The tool leaves an outlet where it was when its window holds no
+        # stream cell, so a point that is not on the network is a refusal.
+        if isinstance(snap, JensonSnap) and not is_stream_cell(
+            snap.streams.path, snapped_x, snapped_y
+        ):
+            raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
+        return snapped, snapped_x, snapped_y
+
+    def _write_watershed(
+        self,
+        outlet: Outlet,
+        snapped: Any,
+        *,
+        pointer: Any,
+        mask_path: Path,
+        boundary_path: Path,
+        crs: str,
+    ) -> None:
+        """Write the catchment mask of a snapped outlet and its boundary polygon."""
+        watershed = self._backend.delineation.watershed_raster(
+            pointer,
+            snapped,
+            esri_pntr=False,
+        )
+        self._write_raster(watershed, mask_path, crs)
+        boundary = self._backend.delineation.raster_to_vector_polygons_raster(watershed)
+        if self._backend.raster.vector_record_count(boundary) == 0:
+            raise EmptyCatchmentError(f"Outlet {outlet.outlet_id!r} delineated an empty catchment.")
+        self._backend.raster.write_vector(boundary, str(boundary_path))
+        ensure_crs(boundary_path, crs or None)
 
     def _write_raster(self, raster: Any, out: str | Path, crs: str) -> None:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
@@ -339,6 +379,35 @@ class WhiteboxTerrainEngine:
         # An empty string is what a DEM with no declared CRS reads back as, and
         # stamping that on an output declares a CRS nobody chose.
         ensure_crs(out, crs or None)
+
+
+def _refuse_an_unusable_batch(
+    accumulation: FlowAccumulation,
+    outlets: Sequence[Outlet],
+    *,
+    snap: SnapMethod,
+    snap_distance_m: float,
+    layout: CatchmentLayout,
+) -> None:
+    """Refuse a batch the snap cannot rank or the layout cannot hold."""
+    require_snap_method(snap, accumulation, member="delineate")
+    # Only the window snap ranks the accumulation; a Jenson snap never reads it.
+    ranks_counts = snap == "window"
+    if ranks_counts:
+        require_rank_preserving(accumulation, member="delineate")
+    require_batch(outlets, snap_distance_m=snap_distance_m, layout=layout)
+    if ranks_counts and accumulation.transform != "none":
+        # Only when the values are transformed, and only where the snap reads:
+        # the search window of each outlet is all the snap compares.
+        require_resolvable_counts(
+            accumulation,
+            max_stored_value=raster_max_near(
+                accumulation.path,
+                [(outlet.x, outlet.y) for outlet in outlets],
+                snap_distance_m,
+            ),
+            member="delineate",
+        )
 
 
 def _cell_size_m(dem: Path) -> float:
@@ -387,7 +456,8 @@ def _write_point(path: Path, x: float, y: float, crs: str) -> None:
     frame.to_file(str(path))
 
 
-def _read_point(path: Path) -> tuple[float, float]:
+def read_point(path: Path) -> tuple[float, float]:
+    """Return the coordinates of the first point of a vector layer."""
     frame = gpd.read_file(str(path))
     if frame.empty:
         raise TerrainProductError(f"Point layer holds no feature: {path}")
@@ -395,4 +465,4 @@ def _read_point(path: Path) -> tuple[float, float]:
     return float(point.x), float(point.y)
 
 
-__all__ = ["WhiteboxTerrainEngine"]
+__all__ = ["WhiteboxTerrainEngine", "read_point"]

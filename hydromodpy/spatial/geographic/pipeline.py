@@ -5,7 +5,7 @@ Builds the runtime payload consumed by ``CatchmentDelineation``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +57,7 @@ from hydromodpy.spatial.geographic.domain_rasters import (
     build_domain_rasters,
 )
 from hydromodpy.spatial.geographic.geographic_cache import (
+    GeographicProducts,
     clip_regularised_ground,
     load_cached_geographic_products,
     resolve_top_surface_paths,
@@ -145,21 +146,33 @@ class GeographicRuntimeContext:
         return attrs
 
 
+@dataclass(frozen=True)
+class _Delineation:
+    """What one pass of the delineation builds on one routing DEM.
+
+    ``catchment_products`` is None for a ``dem`` domain.
+    """
+
+    flow_products: FlowProducts
+    catchment_products: object | None
+    catchment_area_km2: float
+    domain_products: CatchmentDomainProducts
+    river_network_products: RiverNetworkProducts
+
+
 def _delineate(
     *,
     config: GeographicConfig,
     setup: Any,
     tool: object,
     routing_dem_path: str,
-) -> tuple[FlowProducts, object | None, float, CatchmentDomainProducts, RiverNetworkProducts]:
+) -> _Delineation:
     """Condition, delineate, buffer and extract the network on one routing DEM.
 
     The first pass routes the ground, the second pass of the crossing notch
     routes the notched ground. The config refuses the notch with a shared
     regional job or a ``dem`` domain, so the second pass always routes and
-    delineates here. Returns the flow products, the catchment products (None
-    for a ``dem`` domain), the catchment area in km2, the domain polygons and
-    the river-network products.
+    delineates here.
     """
     if config.reg_fold is None:
         flow_products = build_regional_flow_products(
@@ -235,12 +248,105 @@ def _delineate(
             network_crs=setup.crs_project,
             backend=tool,
         )
-    return (
-        flow_products,
-        catchment_products,
-        catchment_area_km2,
-        domain_products,
-        river_network_products,
+    return _Delineation(
+        flow_products=flow_products,
+        catchment_products=catchment_products,
+        catchment_area_km2=catchment_area_km2,
+        domain_products=domain_products,
+        river_network_products=river_network_products,
+    )
+
+
+def _notch_crossings(
+    *,
+    config: GeographicConfig,
+    setup: Any,
+    tool: object,
+    first: _Delineation,
+) -> _Delineation:
+    """Notch the ground where the embankments cross the channel tree, then delineate again.
+
+    The channel tree of the first delineation says where the embankments cross
+    it. The ground is notched there and the catchment is delineated again on
+    it. The snapped outlet stays the one of the first pass.
+    """
+    channel = first_pass_channel(
+        config,
+        setup,
+        flow=first.flow_products,
+        river_products=first.river_network_products,
+        catchment_area_km2=first.catchment_area_km2,
+    )
+    ground = ground_dem_from_config(config, setup, channel=channel)
+    delineation = first
+    if notch_lowered_pixels(setup) > 0:
+        with progress.status("Re-delineating on the notched ground"):
+            second = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
+        delineation = replace(second, catchment_products=first.catchment_products)
+    close_notch_report(setup, catchment_area_km2_after=delineation.catchment_area_km2)
+    return delineation
+
+
+def _build_geographic_products(
+    *,
+    config: GeographicConfig,
+    setup: Any,
+    tool: object,
+) -> GeographicProducts:
+    """Delineate, clip and describe a fresh geographic tree."""
+    # The ground is the DEM plus the declared correction (the crossing notch, after
+    # the first delineation). The routing chain starts from it, and so does the
+    # model top (clipped below), so neither surface sees a structure the other
+    # does not.
+    ground = ground_dem_from_config(config, setup)
+    delineation = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
+    if notch_enabled(config):
+        delineation = _notch_crossings(config=config, setup=setup, tool=tool, first=delineation)
+
+    with progress.status("Clipping domain rasters"):
+        # The model TOP is clipped from the ground: the DEM with the crossings
+        # notched, as the routing above saw it.
+        raster_products = build_domain_rasters(
+            dem_init_path=ground_dem_path_from_config(config, setup),
+            correc_path=delineation.flow_products.correc,
+            direc_path=delineation.flow_products.direc,
+            watershed_shp=setup.paths.watershed_shp,
+            watershed_buff_shp=delineation.domain_products.watershed_buff_shp,
+            paths=setup.paths,
+            crs_project=setup.crs_project,
+            backend=tool,
+        )
+    # The channel bed of the ground, regularised on the channel tree A once A
+    # and the catchment are final. Nothing above reads it.
+    if bed_regularization_enabled(config):
+        with progress.status("Regularising the channel bed of the ground"):
+            clip_regularised_ground(
+                config=config,
+                setup=setup,
+                flow_products=delineation.flow_products,
+                river_network_products=delineation.river_network_products,
+                domain_products=delineation.domain_products,
+                tool=tool,
+            )
+    catchment_products = delineation.catchment_products
+    write_geographic_cache_manifest(
+        config=config,
+        paths=setup.paths,
+        domain_products=delineation.domain_products,
+        catchment_area_km2=delineation.catchment_area_km2,
+        catchment_products=catchment_products,
+        flow_products=delineation.flow_products,
+    )
+    # Only the outlet branch snaps; a dem or a polygon domain has no snap to report.
+    return GeographicProducts(
+        flow_products=delineation.flow_products,
+        domain_products=delineation.domain_products,
+        raster_products=raster_products,
+        river_network_products=delineation.river_network_products,
+        catchment_area_km2=delineation.catchment_area_km2,
+        x_outlet_snapped=getattr(catchment_products, "x_outlet_snapped", None),
+        y_outlet_snapped=getattr(catchment_products, "y_outlet_snapped", None),
+        outlet_snap_distance_m=getattr(catchment_products, "snap_distance_m", None),
     )
 
 
@@ -269,94 +375,14 @@ def build_geographic_runtime_context(
     )
 
     tool = resolve_delineation_backend(backend)
-    # Only the outlet branch snaps; a cached run, a dem or a polygon domain has
-    # no snap to report.
-    catchment_products: object | None = None
-    cached_products = load_cached_geographic_products(
+    products = load_cached_geographic_products(
         config=config,
         paths=setup.paths,
         crs_project=setup.crs_project,
         reuse_existing_outputs=reuse_existing_outputs,
     )
-
-    if cached_products is not None:
-        flow_products = cached_products.flow_products
-        domain_products = cached_products.domain_products
-        raster_products = cached_products.raster_products
-        river_network_products = cached_products.river_network_products
-        catchment_area_km2 = cached_products.catchment_area_km2
-    else:
-        # The ground is the DEM plus the declared correction (the crossing notch, after
-        # the first delineation). The routing chain starts from it, and so does the
-        # model top (clipped below), so neither surface sees a structure the other
-        # does not.
-        ground = ground_dem_from_config(config, setup)
-        (
-            flow_products,
-            catchment_products,
-            catchment_area_km2,
-            domain_products,
-            river_network_products,
-        ) = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
-
-        # Crossing notch: the channel tree of the first delineation says where the
-        # embankments cross it. The ground is notched there and the catchment is
-        # delineated again on it. The snapped outlet stays the one of the first pass.
-        if notch_enabled(config):
-            channel = first_pass_channel(
-                config,
-                setup,
-                flow=flow_products,
-                river_products=river_network_products,
-                catchment_area_km2=catchment_area_km2,
-            )
-            ground = ground_dem_from_config(config, setup, channel=channel)
-            if notch_lowered_pixels(setup) > 0:
-                with progress.status("Re-delineating on the notched ground"):
-                    (
-                        flow_products,
-                        _,
-                        catchment_area_km2,
-                        domain_products,
-                        river_network_products,
-                    ) = _delineate(
-                        config=config, setup=setup, tool=tool, routing_dem_path=str(ground)
-                    )
-            close_notch_report(setup, catchment_area_km2_after=catchment_area_km2)
-
-        with progress.status("Clipping domain rasters"):
-            # The model TOP is clipped from the ground: the DEM with the crossings
-            # notched, as the routing above saw it.
-            raster_products = build_domain_rasters(
-                dem_init_path=ground_dem_path_from_config(config, setup),
-                correc_path=flow_products.correc,
-                direc_path=flow_products.direc,
-                watershed_shp=setup.paths.watershed_shp,
-                watershed_buff_shp=domain_products.watershed_buff_shp,
-                paths=setup.paths,
-                crs_project=setup.crs_project,
-                backend=tool,
-            )
-        # The channel bed of the ground, regularised on the channel tree A once A
-        # and the catchment are final. Nothing above reads it.
-        if bed_regularization_enabled(config):
-            with progress.status("Regularising the channel bed of the ground"):
-                clip_regularised_ground(
-                    config=config,
-                    setup=setup,
-                    flow_products=flow_products,
-                    river_network_products=river_network_products,
-                    domain_products=domain_products,
-                    tool=tool,
-                )
-        write_geographic_cache_manifest(
-            config=config,
-            paths=setup.paths,
-            domain_products=domain_products,
-            catchment_area_km2=catchment_area_km2,
-            catchment_products=catchment_products,
-            flow_products=flow_products,
-        )
+    if products is None:
+        products = _build_geographic_products(config=config, setup=setup, tool=tool)
 
     # Alpha describes the current map, so it is measured on a cache hit too. The map
     # is not a model input and stays out of the cache fingerprint.
@@ -364,46 +390,34 @@ def build_geographic_runtime_context(
         report_network_dem_agreement(
             setup,
             network_map_path=network_map_path,
-            d8_pointer_path=flow_products.direc,
+            d8_pointer_path=products.flow_products.direc,
         )
 
     dem_metadata = read_dem_metadata(
-        watershed_box_buff_dem_path=raster_products.watershed_box_buff_dem,
-        watershed_buff_dem_path=raster_products.watershed_buff_dem,
-        watershed_dem_path=raster_products.watershed_dem,
+        watershed_box_buff_dem_path=products.raster_products.watershed_box_buff_dem,
+        watershed_buff_dem_path=products.raster_products.watershed_buff_dem,
+        watershed_dem_path=products.raster_products.watershed_dem,
         crs_project=setup.crs_project,
         locator_factory=locator_factory,
     )
 
     return GeographicRuntimeContext(
         paths=setup.paths,
-        flow_products=flow_products,
-        raster_products=raster_products,
+        flow_products=products.flow_products,
+        raster_products=products.raster_products,
         dem_metadata=dem_metadata,
-        river_network_products=river_network_products,
-        catchment_area_km2=catchment_area_km2,
+        river_network_products=products.river_network_products,
+        catchment_area_km2=products.catchment_area_km2,
         top_dem_path=top_dem_path_from_config(config, setup),
         crs_project=setup.crs_project,
         epsg=setup.epsg,
         dem_res=setup.dem_res,
         x_outlet=(float(config.x_outlet) if config.x_outlet is not None else None),
         y_outlet=(float(config.y_outlet) if config.y_outlet is not None else None),
-        x_outlet_snapped=(
-            cached_products.x_outlet_snapped
-            if cached_products is not None
-            else getattr(catchment_products, "x_outlet_snapped", None)
-        ),
-        y_outlet_snapped=(
-            cached_products.y_outlet_snapped
-            if cached_products is not None
-            else getattr(catchment_products, "y_outlet_snapped", None)
-        ),
-        outlet_snap_distance_m=(
-            cached_products.outlet_snap_distance_m
-            if cached_products is not None
-            else getattr(catchment_products, "snap_distance_m", None)
-        ),
-        buffer_distance_m=float(domain_products.buffer_distance_m),
-        buffer_area_increase=domain_products.buffer_area_increase,
+        x_outlet_snapped=products.x_outlet_snapped,
+        y_outlet_snapped=products.y_outlet_snapped,
+        outlet_snap_distance_m=products.outlet_snap_distance_m,
+        buffer_distance_m=float(products.domain_products.buffer_distance_m),
+        buffer_area_increase=products.domain_products.buffer_area_increase,
         top_surface_paths=resolve_top_surface_paths(config, setup.paths),
     )

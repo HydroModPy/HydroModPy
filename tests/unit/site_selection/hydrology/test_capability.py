@@ -149,14 +149,14 @@ def test_a_request_that_names_no_engine_carries_the_default():
 
 def test_the_capability_refuses_an_engine_this_installation_does_not_serve():
     from hydromodpy.spatial.site_selection.hydrology.worker import (
-        _refuse_an_engine_this_installation_does_not_serve,
+        refuse_an_engine_this_installation_does_not_serve,
     )
     from hydromodpy.spatial.terrain import registry
 
     inputs = TerrainDelineateRequest.model_validate(VALID_INPUTS | {"engine": "pysheds"})
 
     with pytest.raises(ConfigValidationError) as raised:
-        _refuse_an_engine_this_installation_does_not_serve(inputs)
+        refuse_an_engine_this_installation_does_not_serve(inputs)
 
     assert "inputs.engine" in str(raised.value)
     assert registry.ENTRY_POINT_GROUP in str(raised.value)
