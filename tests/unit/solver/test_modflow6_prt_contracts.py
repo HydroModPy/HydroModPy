@@ -101,7 +101,7 @@ def test_modflow6_prt_domain_nonriver_release_spreads_cells() -> None:
         solver_mesh=SimpleNamespace(
             top=np.ones(7, dtype=float),
             inactive_mask=np.array([[False, False, False, False, False, False, False]]),
-            cell_centroids=lambda: np.array(
+            cell_centers=lambda: np.array(
                 [
                     [0.0, 0.0],
                     [1.0, 0.0],

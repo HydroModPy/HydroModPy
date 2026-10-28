@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from shapely.geometry import box
 
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh, to_flopy_disv_args
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from tests._helpers.mesh_cases import regular_mesh
+from tests._helpers.mesh_cases import regular_mesh, voronoi_lake_mesh
 from tests._helpers.solver_meshes import solver_mesh_from, solver_mesh_from_structured_arrays
 
 
@@ -51,9 +52,9 @@ def test_cell_areas_shoelace_is_winding_invariant() -> None:
     assert sm.characteristic_length == pytest.approx(1.0)
 
 
-def test_cell_centroids_are_vertex_means() -> None:
+def test_cell_centers_are_vertex_means() -> None:
     sm = _unstructured_two_quads()
-    centroids = sm.cell_centroids()
+    centroids = sm.cell_centers()
     assert centroids[0] == pytest.approx([0.5, 0.5])
     assert centroids[1] == pytest.approx([1.5, 0.5])
 
@@ -93,7 +94,7 @@ def test_structured_arrays_put_row_0_at_the_north_like_modflow() -> None:
         xoff=100.0,
         yoff=200.0,
     )
-    centroids = sm.cell_centroids().reshape(3, 2, 2)
+    centroids = sm.cell_centers().reshape(3, 2, 2)
     assert centroids[:, 0, 1] == pytest.approx([212.5, 207.5, 202.5])
     assert centroids[0, :, 0] == pytest.approx([105.0, 115.0])
     assert sm.yoffset == pytest.approx(200.0)
@@ -191,14 +192,14 @@ def test_post_init_rejects_mask_shape_mismatch() -> None:
 
 def test_centres_and_areas_are_those_of_the_cell_mesh() -> None:
     sm = _unstructured_two_quads()
-    assert np.array_equal(sm.cell_centroids(), sm.cell_mesh.centers)
+    assert np.array_equal(sm.cell_centers(), sm.cell_mesh.centers)
     assert np.array_equal(sm.cell_areas(), sm.cell_mesh.geometry.areas)
     assert sm.planar_mesh is sm.cell_mesh.mesh
 
 
 def test_centres_and_areas_are_copies() -> None:
     sm = _unstructured_two_quads()
-    sm.cell_centroids()[:] = -1.0
+    sm.cell_centers()[:] = -1.0
     sm.cell_areas()[:] = -1.0
     assert np.all(sm.cell_mesh.centers >= 0.0)
     assert np.all(sm.cell_mesh.geometry.areas > 0.0)
@@ -281,13 +282,50 @@ def test_the_seeds_of_a_voronoi_mesh_are_its_disv_centres() -> None:
         cell_blocks=(
             CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 3, 4]), np.array([0, 5, 6, 1]))),
         ),
-        cell_data={"disv_cell_center": seeds},
+    )
+    solver = solver_mesh_from(
+        mesh, np.full(2, 10.0), np.zeros((1, 2)), np.zeros((1, 2), bool), centers=seeds
     )
 
-    result = to_flopy_disv_args(mesh, top=10.0, botm=np.zeros((1, 2)))
+    result = to_flopy_disv_args(mesh, top=10.0, botm=np.zeros((1, 2)), centers=seeds)
 
     assert [row[1:3] for row in result["cell2d"]] == seeds.tolist()
     assert [row[3] for row in result["cell2d"]] == [5, 4]
+    assert solver.to_disv_kwargs()["cell2d"] == result["cell2d"]
+    np.testing.assert_array_equal(solver.generator_centers, seeds)
+
+
+def test_a_voronoi_engine_mesh_writes_its_generators_as_the_disv_centres() -> None:
+    lake = box(40.0, 40.0, 70.0, 65.0)
+    cell_mesh = voronoi_lake_mesh(
+        lake, domain=box(0.0, 0.0, 120.0, 100.0), pixel=5.0, cell_size=9.0
+    )
+    n = cell_mesh.n_cells
+    solver = SolverMesh(
+        cell_mesh=cell_mesh,
+        top=np.zeros(n),
+        botm=np.full((1, n), -1.0),
+        idomain=np.ones((1, n), dtype=int),
+    )
+
+    cell2d = solver.to_disv_kwargs()["cell2d"]
+
+    assert cell_mesh.center_kind == "generator"
+    np.testing.assert_array_equal([row[1:3] for row in cell2d], cell_mesh.centers)
+    assert not np.allclose(cell_mesh.centers, np.column_stack(cell_mesh.mesh.cell_centroids()))
+
+
+def test_a_mesh_not_centred_on_generators_writes_the_vertex_means() -> None:
+    verts = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=float)
+    planar = HydroMesh(
+        vertices=verts, cell_blocks=(CellBlock(CellType.TRIANGLE, [[0, 1, 2], [1, 3, 2]]),)
+    )
+    solver = solver_mesh_from(planar, np.full(2, 10.0), np.zeros((1, 2)), np.zeros((1, 2), bool))
+    by_hand = to_flopy_disv_args(planar, top=10.0, botm=np.zeros((1, 2)))
+
+    assert solver.generator_centers is None
+    assert solver.to_disv_kwargs()["cell2d"] == by_hand["cell2d"]
+    assert by_hand["cell2d"][1][1:3] == pytest.approx([2.0 / 3.0, 2.0 / 3.0])
 
 
 def test_a_3d_mesh_has_no_disv() -> None:

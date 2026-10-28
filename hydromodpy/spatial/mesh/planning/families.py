@@ -16,7 +16,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import substring
 
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_shores import followed_lake_shores
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
@@ -34,7 +34,7 @@ shore pairs.
 """
 
 
-def _followed_shores(
+def with_shore_rings(
     families: tuple[LineFamilySpec, ...],
     inputs: PlanningInputs,
     domain: Polygon,
@@ -74,15 +74,15 @@ def _followed_shores(
     return tuple(out), shores.notes()
 
 
-def _families(
+def requested_families(
     mesh_cfg: MeshConfig, inputs: PlanningInputs, domain: Polygon, *, pixel: float
 ) -> tuple[LineFamilySpec, ...]:
     """The line families ``[mesh.families]`` asks for, clipped to *domain*."""
     wanted = mesh_cfg.families
     families: list[LineFamilySpec] = []
     if wanted.rivers == "cell" and inputs.river_trace is not None:
-        if _follows_shores_by_pairs(mesh_cfg, inputs):
-            margin = _river_margin(mesh_cfg, pixel)
+        if follows_shores_by_pairs(mesh_cfg, inputs):
+            margin = river_margin(mesh_cfg, pixel)
             lines = _rivers_off_lakes(inputs.river_trace.lines, inputs.lakes, domain, margin)
         else:
             lines, _ = _clipped(inputs.river_trace.lines, domain)
@@ -119,7 +119,7 @@ def _families(
     return tuple(families)
 
 
-def _river_margin(mesh_cfg: MeshConfig, pixel: float) -> float:
+def river_margin(mesh_cfg: MeshConfig, pixel: float) -> float:
     """How far [m] a river of a generated Voronoi mesh stays off the lake outlines.
 
     Half a river cell: a river that ends on a ring would cut it there into
@@ -153,7 +153,7 @@ def _rivers_off_lakes(
     return tuple(kept)
 
 
-def _follows_shores_by_pairs(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> bool:
+def follows_shores_by_pairs(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> bool:
     """Whether the engine lays mirror pairs on lake shores: a generated Voronoi mesh with lakes."""
     return (
         mesh_cfg.engine == "voronoi"

@@ -10,8 +10,10 @@ reads, and defines the one mesh object every consumer shares.
 - Three built-in engines: `regular`, `triangle`, `voronoi`.
 - The planner that turns `[mesh]` and the project inputs into a `MeshRequest`.
 - The cache of meshes an engine cannot rebuild bit for bit.
-- The cell operations consumers share (families, location, flow barriers).
-- `HydroMesh`, the exchange format for plotting, VTU and meshio.
+- The cells and faces consumers ask for (sides, families, location, flow barriers).
+- `HydroMesh`, the exchange format for plotting, VTU and meshio. Each cell block holds one
+  `(n_cells, k)` connectivity table, and a polygon block pads the rows of its smaller cells
+  with `-1`.
 - The exchange formats: VTU, the meshio bridge, the `.msh` files of gmsh and the mesh
   bundles.
 
@@ -44,13 +46,13 @@ An engine reads no file and no config. The workflow step is the only place that 
 | `registry.py` | Engine id to class, plus the `hydromodpy.mesh.engine` entry-point group |
 | `request.py` | `MeshRequest`, `LineFamilySpec`, `RasterGridSpec`, `SizeField` |
 | `resample.py` | The lines resampled at the local cell size, read by the planner and the engines |
-| `planning/` | `plan_mesh_request`: from the project to a request, after the catchment smoothing (`catchment_outline.py`) and the geometry cleanup (`cleanup.py`), with the line families in `families.py` and the size terms in `size_terms.py`; `smoothed_catchment` gives the outline the mesh followed, kept on `PlanarCellMesh.smoothed_catchment`. The size field of the graded engines (`size_field.py`) and its terms on the gaps between face lines (`gap_size.py`), the refinement zones and the fields a zone reads (`refinement.py`, `height_above_stream.py`), the size rules of the lake walls, sills and outlet disk (`lake_structures.py`) |
+| `planning/` | `plan_mesh_request`: from the project to a request, after the catchment smoothing (`catchment_outline.py`) and the geometry cleanup (`geometry_cleanup.py`), with the line families in `families.py` and the size terms in `size_terms.py`; `smoothed_catchment` gives the outline the mesh followed, kept on `PlanarCellMesh.smoothed_catchment`. The size field of the graded engines (`size_field.py`) and its terms on the gaps between face lines (`gap_size.py`), the refinement zones and the fields a zone reads (`refinement_zones.py`, `height_above_stream.py`), the size rules of the lake walls, sills and outlet disk (`lake_structures.py`) |
 | `engines/face_families.py` | The face family rows the engines share: oriented edges, the family table, the zones cut by the lines |
 | `engines/regular/` | Square cells of the DEM grid, bit for bit the FloPy grid |
-| `engines/triangle/` | Constrained Delaunay triangles from gmsh (`gmsh_cdt.py`), or a `.msh` file and its physical groups (`msh_groups.py`) |
-| `engines/voronoi/` | Voronoi cells from generated seeds (`generated.py`, the constraint seeds in `constraints/`), Lloyd, gates, or the dual of a read triangulation (`from_triangulation.py`) |
+| `engines/triangle/` | Constrained Delaunay triangles from gmsh (`gmsh_triangulation.py`), or a `.msh` file and its physical groups (`msh_groups.py`) |
+| `engines/voronoi/` | Voronoi cells from generated seeds (`from_seeds.py`, the constraint seeds in `constraints/`), Lloyd, gates, or the dual of a read triangulation (`from_triangulation.py`) |
 | `cache.py` | Mesh cache under `<project>/.hmp/mesh_cache/` |
-| `ops/` | Shared cell helpers: families, `locate_cells`, flow barriers, chains, zonal stats |
+| `cells/` | Which cells or faces: the sides, river and labels (`boundary.py`), the regions a family cuts (`regions.py`), `locate_cells` (`locate.py`), the faces of a flow barrier (`barrier_faces.py`), the cells in polygons or crossed by lines (`in_polygons.py`, `crossed_by_lines.py`), zonal stats |
 | `io/` | The exchange formats, one module per format: `vtu.py`, `meshio_bridge.py`, `msh.py`, `bundle.py` |
 
 No `__init__.py` re-exports a name: each name is imported from the module that defines it.
@@ -81,9 +83,8 @@ What only a solver reads lives with the solver. The `sgrid` table of the MODFLOW
 `solver_mesh.py`) are in `hydromodpy/solver/modflow_grid/`. The cells a lake owns, the faces of
 its cutoff wall (`_lake_geometry.py`) and the share of a reach among the cells
 (`_sfr_network.py`) are in `hydromodpy/solver/modflow6/builders/`. In the same way, the
-field meshes, `GmshPlanarMesh2D` among them, their conversion to and from a `HydroMesh`
-(`field_mesh_adapter.py`) and `plot_cell_values` (`plotting.py`) live in the `meshes/` folder
-of the field package.
+field package samples its supports on the cells of a `PlanarCellMesh` and draws one value
+per cell with `plot_cell_values` (`hydromodpy/spatial/field/plotting.py`).
 
 ## Layering rules
 

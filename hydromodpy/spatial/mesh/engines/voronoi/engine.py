@@ -1,6 +1,6 @@
 """The ``voronoi`` engine: polygons around generators, orthogonal to their neighbours.
 
-``seeds = "generated"`` places the generators itself (``generated.py``): river
+``seeds = "generated"`` places the generators itself (``from_seeds.py``): river
 seeds, Berge mirror pairs on the face lines, boundary seeds, then free seeds
 relaxed by a weighted Lloyd iteration, and tessellates them with GEOS. Every face
 lies on the perpendicular bisector of its two generators. ``seeds =
@@ -22,11 +22,11 @@ from typing import ClassVar
 import numpy as np
 
 from hydromodpy.spatial.mesh.cache import library_versions
+from hydromodpy.spatial.mesh.cells.boundary import annotate_side_cells
+from hydromodpy.spatial.mesh.engines.voronoi.from_seeds import generate_cell_mesh
 from hydromodpy.spatial.mesh.engines.voronoi.from_triangulation import dual_cell_mesh
-from hydromodpy.spatial.mesh.engines.voronoi.generated import generate_cell_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity, PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest, SizeField
 from hydromodpy.spatial.mesh.resample import resample_families

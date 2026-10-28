@@ -91,7 +91,7 @@ def _fake_run_ctx(bench, *, lake_cells=()):
         n_cells=N_CELLS,
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
         # The points the top was sampled at, which the criterion routes on.
-        cell_centroids=lambda: centroids,
+        cell_centers=lambda: centroids,
     )
     model = SimpleNamespace(
         solver_mesh=solver_mesh,

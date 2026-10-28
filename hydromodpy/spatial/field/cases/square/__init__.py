@@ -4,16 +4,8 @@ from hydromodpy.spatial.field.cases.square.field_mesh_square import (
     FieldMeshSquare,
 )
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.spatial.field.meshes import (
-    StructuredFieldMesh,
-    TriangularStructuredFieldMesh,
-    TriangularUnstructuredFieldMesh,
-)
 
 __all__ = (
     "FieldSquare",
     "FieldMeshSquare",
-    "StructuredFieldMesh",
-    "TriangularStructuredFieldMesh",
-    "TriangularUnstructuredFieldMesh",
 )

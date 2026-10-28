@@ -5,7 +5,7 @@ import numpy as np
 from hydromodpy.solver.boussinesq.jacobian.common import (
     drainage_diagonal_derivative,
 )
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 
 def test_drainage_derivative_is_active_at_top_contact() -> None:

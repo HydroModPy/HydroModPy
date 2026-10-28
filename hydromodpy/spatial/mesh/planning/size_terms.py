@@ -13,8 +13,8 @@ from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.cleanup import CLEANUP_PIXEL_SHARE
 from hydromodpy.spatial.mesh.planning.gap_size import gap_terms
+from hydromodpy.spatial.mesh.planning.geometry_cleanup import CLEANUP_PIXEL_SHARE
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.size_field import OutsideCoarsening, SizeTerm
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec
@@ -23,7 +23,7 @@ from hydromodpy.spatial.mesh.resample import kink_pieces
 _logger = get_logger(__name__)
 
 
-def _size_terms(
+def refinement_terms(
     mesh_cfg: MeshConfig,
     inputs: PlanningInputs,
     families: tuple[LineFamilySpec, ...],
@@ -69,13 +69,13 @@ def _size_terms(
                         ramp_m=lake_cfg.buffer,
                     )
                 )
-        for label, geometry, size, buffer in inputs.lake_structures:
+        for structure in inputs.lake_structures:
             terms.append(
                 SizeTerm(
-                    name=f"structure:{label}",
-                    region=_dilated(geometry, buffer),
-                    size_m=float(size),
-                    ramp_m=float(buffer),
+                    name=f"structure:{structure.label}",
+                    region=_dilated(structure.geometry, structure.buffer_m),
+                    size_m=float(structure.size_m),
+                    ramp_m=float(structure.buffer_m),
                 )
             )
     for index, zone in enumerate(inputs.refinement_zones):
@@ -92,7 +92,7 @@ def _size_terms(
     return terms
 
 
-def _gap_terms(
+def line_gap_terms(
     mesh_cfg: MeshConfig,
     families: tuple[LineFamilySpec, ...],
     domain: Polygon,
@@ -117,7 +117,7 @@ def _gap_terms(
     )
 
 
-def _gap_notes(terms: list[SizeTerm], mesh_cfg: MeshConfig) -> tuple[str, ...]:
+def gap_notes(terms: list[SizeTerm], mesh_cfg: MeshConfig) -> tuple[str, ...]:
     """One note when the size follows a gap: how many chords, down to which size."""
     if not terms:
         return ()
@@ -161,7 +161,7 @@ def _dilated(geometry: BaseGeometry, width: float) -> BaseGeometry:
     return geometry.buffer(width)
 
 
-def _outside(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> OutsideCoarsening | None:
+def outside_coarsening(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> OutsideCoarsening | None:
     """The outside coarsening, when a catchment is known and the factor coarsens."""
     if inputs.synthetic or inputs.watershed is None or mesh_cfg.outside_factor <= 1.0:
         return None

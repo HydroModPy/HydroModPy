@@ -9,11 +9,11 @@ import pytest
 import shapely
 from shapely.geometry import LineString
 
+from hydromodpy.spatial.mesh.cells.barrier_faces import crossed_edges
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.regular.families import _END_SNAP_REL
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, RasterGridSpec
 from tests._helpers import reservoir_dam as dam

@@ -1,6 +1,6 @@
 """The working state of the constraint stage: seeds, river chains, crossings, face graph.
 
-Every step reads and changes one ``_State``. The operations that remove a seed,
+Every step reads and changes one ``ConstraintState``. The operations that remove a seed,
 demote a segment or undo a crossing live here with the state, because the river,
 mirror pair, conflict and boundary steps all call them.
 """
@@ -14,17 +14,35 @@ import numpy as np
 import shapely
 from shapely.geometry import Polygon
 
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import _Line, _Shared
-from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import CanonicalLine, SharedStretch
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler
 
-__all__ = ["BALL_SHRINK", "SeedRole"]
+__all__ = [
+    "CIRCLE_SHRINK",
+    "LOST_BY_CONFLICT",
+    "LOST_BY_MERGE",
+    "ConstraintState",
+    "RiverChain",
+    "RiverCrossing",
+    "SeedRole",
+    "chords_inside_domain",
+    "conformal_vertices",
+    "cross_product_z",
+    "drop_segment_pair",
+    "remap_chain",
+    "remove_seed",
+    "unit_vector",
+]
 
-BALL_SHRINK = 1.0e-9
-"""Definition 2 tests the open ball ``R_v (1 - BALL_SHRINK)``: the sphere seeds lie on its edge."""
+CIRCLE_SHRINK = 1.0e-9
+"""Definition 2 tests the open disk (Berge's ball) ``R_v (1 - CIRCLE_SHRINK)``: the sphere seeds
+lie on its edge."""
 
-_MERGED = 1
+LOST_BY_MERGE = 1
+"""A segment lost its pair in a Berge fusion of its circles."""
 
-_YIELDED = 2
+LOST_BY_CONFLICT = 2
+"""A segment lost its pair to another seed in a conflict (QA ``yielded_segments``)."""
 
 
 class SeedRole(IntEnum):
@@ -32,7 +50,7 @@ class SeedRole(IntEnum):
 
     CHAIN = 0
     MIRROR = 1
-    TIP = 2
+    FREE_END = 2
     BOUNDARY = 3
 
 
@@ -48,7 +66,7 @@ class _Seeds:
         self.size = np.empty(0)
         self.sort = np.empty((0, 4))
         self.alive = np.empty(0, dtype=bool)
-        self.rep = np.empty(0, dtype=np.int64)
+        self.successor = np.empty(0, dtype=np.int64)
 
     def add(
         self,
@@ -73,30 +91,32 @@ class _Seeds:
         self.size = np.concatenate([self.size, np.asarray(size, dtype=float).reshape(n)])
         self.sort = np.vstack([self.sort, np.asarray(sort, dtype=float).reshape(n, 4)])
         self.alive = np.concatenate([self.alive, np.ones(n, dtype=bool)])
-        self.rep = np.concatenate([self.rep, np.arange(first, first + n, dtype=np.int64)])
+        self.successor = np.concatenate(
+            [self.successor, np.arange(first, first + n, dtype=np.int64)]
+        )
         return np.arange(first, first + n, dtype=np.int64)
 
     def resolved(self, ids: np.ndarray) -> np.ndarray:
         """Follow the replacements of dropped chain seeds to the seed that took their cell."""
         out = np.asarray(ids, dtype=np.int64)
         while True:
-            nxt = self.rep[out]
+            nxt = self.successor[out]
             if np.array_equal(nxt, out):
                 return out
             out = nxt
 
 
 @dataclass
-class _Chain:
+class RiverChain:
     """The seeds of one cell line; ``own`` marks the seeds that are vertices of the line."""
 
-    line: _Line
+    line: CanonicalLine
     ids: np.ndarray
     own: np.ndarray
 
 
 @dataclass
-class _Crossing:
+class RiverCrossing:
     """A river through a face line: the river, its vertex, the new face segment ends."""
 
     chain: int
@@ -111,7 +131,7 @@ class _Crossing:
 
 
 @dataclass
-class _State:
+class ConstraintState:
     """The working state of the constraint stage."""
 
     domain: Polygon
@@ -119,15 +139,15 @@ class _State:
     h: SizeSampler
     family_names: tuple[str, ...]
     cover: Polygon = field(init=False)
-    lines: list[_Line] = field(default_factory=list)
+    lines: list[CanonicalLine] = field(default_factory=list)
     seeds: _Seeds = field(default_factory=_Seeds)
-    chains: list[_Chain] = field(default_factory=list)
+    chains: list[RiverChain] = field(default_factory=list)
     shared_cells: int = 0
     vertices: np.ndarray = field(default_factory=lambda: np.empty((0, 2)))
     radius: np.ndarray = field(default_factory=lambda: np.empty(0))
     shrunk: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
     vertex_ok: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
-    tip: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    free_end_seed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     seg_nodes: np.ndarray = field(default_factory=lambda: np.empty((0, 2), dtype=np.int64))
     seg_line: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
     seg_index: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
@@ -135,13 +155,13 @@ class _State:
     seg_length: np.ndarray = field(default_factory=lambda: np.empty(0))
     conformal: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
     reason: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int8))
-    slot: np.ndarray = field(default_factory=lambda: np.empty((0, 2), dtype=np.int64))
-    crossings: list[_Crossing] = field(default_factory=list)
+    segment_seeds: np.ndarray = field(default_factory=lambda: np.empty((0, 2), dtype=np.int64))
+    crossings: list[RiverCrossing] = field(default_factory=list)
     end_vertices: list[int] = field(default_factory=list)
-    shared: list[_Shared] = field(default_factory=list)
-    alias_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
-    alias_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
-    alias_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
+    shared: list[SharedStretch] = field(default_factory=list)
+    shared_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    shared_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    shared_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
     ring_areas: dict[int, Polygon] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -157,18 +177,18 @@ class _State:
         """Number of face segments at each face vertex."""
         return np.bincount(self.seg_nodes.ravel(), minlength=len(self.vertices))
 
-    def crossing_of(self, segment: int) -> _Crossing | None:
+    def crossing_of(self, segment: int) -> RiverCrossing | None:
         """The active crossing a face segment carries, if any."""
         return next((c for c in self.crossings if c.active and c.segment == segment), None)
 
 
-def _chords_inside(state: _State, start: np.ndarray, stop: np.ndarray) -> np.ndarray:
+def chords_inside_domain(state: ConstraintState, start: np.ndarray, stop: np.ndarray) -> np.ndarray:
     """Whether each chord ``start[i] -> stop[i]`` lies in the domain."""
     chords = shapely.linestrings(np.stack([start, stop], axis=1))
     return shapely.covers(state.cover, chords)
 
 
-def _rechain(state: _State, chain: _Chain) -> None:
+def remap_chain(state: ConstraintState, chain: RiverChain) -> None:
     """Map the chain on the seeds that hold its cells, without removed seeds or repeats.
 
     A seed removed without a successor (the pair of a crossing undone after
@@ -183,17 +203,17 @@ def _rechain(state: _State, chain: _Chain) -> None:
     chain.ids, chain.own = resolved[keep], own[keep]
 
 
-def _unit(vector: np.ndarray) -> np.ndarray:
+def unit_vector(vector: np.ndarray) -> np.ndarray:
     """The vector over its length."""
     return vector / np.hypot(*vector)
 
 
-def _cross(a: np.ndarray, b: np.ndarray) -> float:
+def cross_product_z(a: np.ndarray, b: np.ndarray) -> float:
     """z of the cross product of two plane vectors."""
     return float(a[0] * b[1] - a[1] * b[0])
 
 
-def _undo_crossing(state: _State, crossing: _Crossing) -> None:
+def _undo_crossing(state: ConstraintState, crossing: RiverCrossing) -> None:
     """Give the river its own seeds back; the crossing segment then yields to them."""
     chain = state.chains[crossing.chain]
     chain.ids, chain.own = crossing.before_ids, crossing.before_own
@@ -201,7 +221,7 @@ def _undo_crossing(state: _State, crossing: _Crossing) -> None:
     crossing.active = False
 
 
-def _demote(state: _State, segment: int, reason: int) -> bool:
+def drop_segment_pair(state: ConstraintState, segment: int, reason: int) -> bool:
     """A segment loses its pair (a shared sector seed stays for its other segment)."""
     crossing = state.crossing_of(segment)
     if crossing is not None:
@@ -211,35 +231,35 @@ def _demote(state: _State, segment: int, reason: int) -> bool:
         state.conformal[segment] = False
         state.reason[segment] = reason
     for side in (0, 1):
-        seed = int(state.slot[segment, side])
+        seed = int(state.segment_seeds[segment, side])
         if seed < 0:
             continue
-        state.slot[segment, side] = -1
+        state.segment_seeds[segment, side] = -1
         changed = True
-        if not (state.slot == seed).any():
+        if not (state.segment_seeds == seed).any():
             state.seeds.alive[seed] = False
     return changed
 
 
-def _remove(state: _State, seed: int, winner: int, reason: int) -> bool:
+def remove_seed(state: ConstraintState, seed: int, winner: int, reason: int) -> bool:
     """Remove one constraint seed after a conflict; a chain seed hands its cell to *winner*."""
     seeds = state.seeds
     role = SeedRole(int(seeds.role[seed]))
     if role is SeedRole.MIRROR:
-        owners = np.flatnonzero((state.slot == seed).any(axis=1))
-        return any([_demote(state, int(s), reason) for s in owners.tolist()])
+        owners = np.flatnonzero((state.segment_seeds == seed).any(axis=1))
+        return any([drop_segment_pair(state, int(s), reason) for s in owners.tolist()])
     seeds.alive[seed] = False
     vertex = int(seeds.vertex[seed])
     if role in (SeedRole.CHAIN, SeedRole.BOUNDARY) and winner >= 0:
-        seeds.rep[seed] = winner
+        seeds.successor[seed] = winner
     if vertex >= 0:
         state.vertex_ok[vertex] = False
-        if role is SeedRole.TIP:
-            state.tip[vertex] = -1
+        if role is SeedRole.FREE_END:
+            state.free_end_seed[vertex] = -1
     return True
 
 
-def _conformal_vertices(state: _State) -> np.ndarray:
+def conformal_vertices(state: ConstraintState) -> np.ndarray:
     """Face vertices whose segments all keep their pair and whose sphere is complete."""
     if not len(state.seg_nodes):
         return np.empty(0, dtype=np.int64)

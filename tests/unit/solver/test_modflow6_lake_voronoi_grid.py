@@ -178,7 +178,7 @@ def test_lake_cells_resolve_on_irregular_triangular_mesh() -> None:
     assert not mesh.is_structured
     lake_cells = _resolve_lake_on(mesh)
     assert lake_cells, "the lake polygon must intersect the irregular mesh"
-    centroids = mesh.cell_centroids()
+    centroids = mesh.cell_centers()
     # Every resolved cell clusters around the lake footprint (40..60), not
     # scattered across the domain. A triangle straddling the polygon edge may
     # have its centroid a few metres outside, so allow a small halo.

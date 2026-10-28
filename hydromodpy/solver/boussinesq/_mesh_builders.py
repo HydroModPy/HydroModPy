@@ -1,7 +1,8 @@
 """Constructor helpers for ``BoussinesqMesh``.
 
 Splits the cell-mesh and bundle translation paths out of the dataclass so
-``mesh.py`` can stay focused on the runtime API.
+``mesh.py`` can stay focused on the runtime API. Both paths give the same
+dense arrays; the edge metrics are computed once, by ``_edge_arrays``.
 """
 
 from __future__ import annotations
@@ -11,20 +12,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
-from hydromodpy.spatial.mesh.io.bundle import (
-    CatchmentMeshBundle,
-    CatchmentMeshBundleCell,
-    CatchmentMeshBundleEdge,
-    CatchmentMeshBundleNode,
-)
+from hydromodpy.spatial.mesh.io.bundle import CatchmentMeshBundle
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
-
-from ._mesh_geometry import (
-    normalize_geom_type,
-    optional_finite_float,
-    optional_finite_nanmean,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
@@ -57,23 +46,24 @@ def family_edge_indices(
     return np.unique(position)
 
 
-def build_runtime_bundle_from_cell_mesh(
+def mesh_arrays_from_cell_mesh(
     cell_mesh: PlanarCellMesh,
     *,
     domain: object,
     hydraulic_conductivity_m_s,
     storage_coefficient,
     source_path: Path | None = None,
-) -> CatchmentMeshBundle:
-    """Translate a runtime planar cell mesh into one CatchmentMeshBundle.
+) -> dict:
+    """Return the dense arrays of ``BoussinesqMesh`` for a runtime planar cell mesh.
 
-    The edges are the edges of the cell mesh, in the order of its edge table; the
-    river edges are the faces of its ``rivers`` family.
+    The cells, edges, areas and lengths are those of ``cell_mesh.geometry``, the
+    edges in the order of its edge table; the river edges are the faces of the
+    ``rivers`` family. The top and the bottom are sampled at ``cell_mesh.centers``;
+    a cell whose centre falls on no data takes the mean of its finite corners.
+    The cell centroid of the metric terms is the mean of the cell vertices.
     """
     if domain is None:
         raise ValueError("Boussinesq runtime mesh construction requires a domain")
-    mesh = to_field_mesh(cell_mesh.mesh)
-
     surface_topo = getattr(domain, "surface_topo", None)
     substratum = getattr(domain, "substratum", None)
     if surface_topo is None:
@@ -81,105 +71,116 @@ def build_runtime_bundle_from_cell_mesh(
     if substratum is None:
         raise ValueError("domain.substratum is required for runtime mesh construction")
 
-    conductivity_values = np.asarray(
-        mesh.to_cell_values(hydraulic_conductivity_m_s),
-        dtype=float,
-    )
-    storage_values = np.asarray(
-        mesh.to_cell_values(storage_coefficient),
-        dtype=float,
-    )
-
-    node_x = np.asarray(mesh.points_xy[:, 0], dtype=float)
-    node_y = np.asarray(mesh.points_xy[:, 1], dtype=float)
-    surface_topo_sampler = PreparedSurfaceSampler.from_surface(surface_topo)
-    substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)
-    node_z_top = surface_topo_sampler.sample(node_x, node_y).reshape(-1)
-    node_z_bottom = substratum_sampler.sample(node_x, node_y).reshape(-1)
-    centroid_x, centroid_y = cell_mesh.centers.T
-    centroid_z_top = surface_topo_sampler.sample(centroid_x, centroid_y).reshape(-1)
-    centroid_z_bottom = substratum_sampler.sample(centroid_x, centroid_y).reshape(-1)
-
-    nodes = tuple(
-        CatchmentMeshBundleNode(
-            node_id=int(node_id),
-            x=float(node_x[node_id]),
-            y=float(node_y[node_id]),
-            z_top=optional_finite_float(float(node_z_top[node_id])),
-            z_bottom=optional_finite_float(float(node_z_bottom[node_id])),
+    mesh = cell_mesh.mesh
+    n_cells = int(mesh.n_cells)
+    conductivity = _one_value_per_cell(hydraulic_conductivity_m_s, n_cells)
+    storage = _one_value_per_cell(storage_coefficient, n_cells)
+    cell_type = mesh.cell_types[0].value
+    if cell_type != "triangle":
+        raise ValueError(
+            "Boussinesq V1 currently supports only triangular cells; "
+            f"cell_id=0 has geom_type='{cell_type}'."
         )
-        for node_id in range(int(mesh.n_nodes))
-    )
 
+    triangles = np.asarray(mesh.flat_connectivity, dtype=int)
+    node_x = np.asarray(mesh.vertices[:, 0], dtype=float)
+    node_y = np.asarray(mesh.vertices[:, 1], dtype=float)
+    top = _sampled_at_centers(
+        PreparedSurfaceSampler.from_surface(surface_topo), cell_mesh, triangles
+    )
+    bottom = _sampled_at_centers(
+        PreparedSurfaceSampler.from_surface(substratum), cell_mesh, triangles
+    )
+    _check_vertical_geometry(top, bottom)
+
+    corners = mesh.vertices[triangles]
+    centroid_x = corners[:, :, 0].mean(axis=1)
+    centroid_y = corners[:, :, 1].mean(axis=1)
     geometry = cell_mesh.geometry
-    cells: list[CatchmentMeshBundleCell] = []
-    for cell in mesh.iter_cells():
-        cell_index = int(cell.index)
-        node_indices = tuple(int(node_id) for node_id in cell.node_indices)
-        cell_node_z_top = node_z_top[np.asarray(node_indices, dtype=int)]
-        cell_node_z_bottom = node_z_bottom[np.asarray(node_indices, dtype=int)]
-        z_top_centroid = optional_finite_float(float(centroid_z_top[cell_index]))
-        if z_top_centroid is None:
-            z_top_centroid = optional_finite_nanmean(cell_node_z_top)
-        z_bottom_centroid = optional_finite_float(float(centroid_z_bottom[cell_index]))
-        if z_bottom_centroid is None:
-            z_bottom_centroid = optional_finite_nanmean(cell_node_z_bottom)
-        cells.append(
-            CatchmentMeshBundleCell(
-                cell_id=cell_index,
-                geom_type=str(cell.kind),
-                node_indices=node_indices,
-                centroid_x=float(cell.centroid[0]),
-                centroid_y=float(cell.centroid[1]),
-                area_m2=float(geometry.areas[cell_index]),
-                z_top_centroid=z_top_centroid,
-                z_top_mean=optional_finite_nanmean(cell_node_z_top),
-                z_bottom_centroid=z_bottom_centroid,
-                z_bottom_mean=optional_finite_nanmean(cell_node_z_bottom),
-                geology_code=None,
-                geology_key="",
-                hydraulic_conductivity_m_s=float(conductivity_values[cell_index]),
-                storage_coefficient=float(storage_values[cell_index]),
-            )
-        )
-
+    edge_cells = np.asarray(geometry.edge_cells, dtype=int)
     is_river = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
     is_river[family_edge_indices(cell_mesh, "rivers", geometry.edge_nodes)] = True
-    edges = tuple(
-        CatchmentMeshBundleEdge(
-            edge_id=edge_id,
-            node_a=int(node_a),
-            node_b=int(node_b),
-            cell_a=int(cell_a),
-            cell_b=None if cell_b < 0 else int(cell_b),
-            length_m=float(length),
-            edge_kind="boundary" if cell_b < 0 else "internal",
-            is_river=bool(river),
-            geology_a_key="",
-            geology_b_key="",
-        )
-        for edge_id, ((node_a, node_b), (cell_a, cell_b), length, river) in enumerate(
-            zip(
-                geometry.edge_nodes.tolist(),
-                geometry.edge_cells.tolist(),
-                geometry.edge_length.tolist(),
-                is_river.tolist(),
-                strict=True,
-            )
-        )
+    edge_node_a = np.asarray(geometry.edge_nodes[:, 0], dtype=int)
+    edge_node_b = np.asarray(geometry.edge_nodes[:, 1], dtype=int)
+    edge_arrays = _edge_arrays(
+        node_a=edge_node_a,
+        node_b=edge_node_b,
+        cell_a=edge_cells[:, 0],
+        cell_b=np.where(edge_cells[:, 1] < 0, -1, edge_cells[:, 1]),
+        node_x=node_x,
+        node_y=node_y,
+        cell_centroid_x=centroid_x,
+        cell_centroid_y=centroid_y,
     )
+    ids = np.arange(n_cells, dtype=int)
+    node_ids = np.arange(mesh.n_nodes, dtype=int)
+    return {
+        "bundle_dir": Path(source_path).resolve().parent if source_path is not None else Path.cwd(),
+        "cell_ids": ids,
+        "node_ids": node_ids,
+        "node_x_m": node_x,
+        "node_y_m": node_y,
+        "cell_node_ids": tuple(tuple(int(node) for node in row) for row in triangles.tolist()),
+        "cell_centroid_x_m": centroid_x,
+        "cell_centroid_y_m": centroid_y,
+        "cell_area_m2": np.asarray(geometry.areas, dtype=float),
+        "z_top_m": top,
+        "z_bottom_m": bottom,
+        "hydraulic_conductivity_m_s": conductivity,
+        "storage_coefficient": storage,
+        "edge_ids": np.arange(edge_cells.shape[0], dtype=int),
+        "edge_node_a": edge_node_a,
+        "edge_node_b": edge_node_b,
+        **edge_arrays,
+        "edge_length_m": np.asarray(geometry.edge_length, dtype=float),
+        "edge_kind": tuple("boundary" if b < 0 else "internal" for b in edge_cells[:, 1].tolist()),
+        "edge_is_river": is_river,
+        "cell_index_by_id": {int(i): int(i) for i in ids.tolist()},
+        "node_index_by_id": {int(i): int(i) for i in node_ids.tolist()},
+    }
 
-    bundle_dir = Path(source_path).resolve().parent if source_path is not None else Path.cwd()
-    return CatchmentMeshBundle(
-        bundle_dir=bundle_dir,
-        metadata={
-            "source_mesh_path": None if source_path is None else str(Path(source_path).resolve())
-        },
-        nodes=nodes,
-        cells=tuple(cells),
-        edges=edges,
-        geology_fractions=(),
-        mesh_summary=None,
+
+def _one_value_per_cell(values, n_cells: int) -> np.ndarray:
+    flat = np.asarray(values, dtype=float).reshape(-1)
+    if flat.size != n_cells:
+        raise ValueError("Boussinesq cell values must contain exactly one value per cell")
+    return flat
+
+
+def _sampled_at_centers(
+    sampler: PreparedSurfaceSampler, cell_mesh: PlanarCellMesh, triangles: np.ndarray
+) -> np.ndarray:
+    """One surface value per cell: at its centre, else the mean of its finite corners."""
+    centers = cell_mesh.centers
+    values = np.asarray(sampler.sample(centers[:, 0], centers[:, 1]), dtype=float).reshape(-1)
+    missing = np.flatnonzero(~np.isfinite(values))
+    if missing.size == 0:
+        return values
+    vertices = cell_mesh.mesh.vertices
+    corners = triangles[missing]
+    at_corners = sampler.sample(vertices[corners, 0], vertices[corners, 1]).reshape(corners.shape)
+    for row, cell in enumerate(missing.tolist()):
+        finite = at_corners[row][np.isfinite(at_corners[row])]
+        values[cell] = float(np.nanmean(finite)) if finite.size else np.nan
+    return values
+
+
+def _check_vertical_geometry(top: np.ndarray, bottom: np.ndarray) -> None:
+    """Refuse the first cell without a top or a bottom, or whose top lies below its bottom."""
+    missing = ~(np.isfinite(top) & np.isfinite(bottom))
+    inverted = ~missing & (top < bottom)
+    bad = np.flatnonzero(missing | inverted)
+    if bad.size == 0:
+        return
+    cell_id = int(bad[0])
+    if missing[cell_id]:
+        raise ValueError(
+            "Boussinesq V1 requires z_top_centroid and z_bottom_centroid "
+            f"for every cell; missing values on cell_id={cell_id}."
+        )
+    raise ValueError(
+        f"Invalid vertical geometry on cell_id={cell_id}: "
+        "z_top_centroid must be >= z_bottom_centroid."
     )
 
 
@@ -207,8 +208,7 @@ def assemble_mesh_arrays_from_bundle(bundle: CatchmentMeshBundle) -> dict:
 
     for bundle_cell in bundle.cells:
         cell_id = int(bundle_cell.cell_id)
-        geom_type = normalize_geom_type(bundle_cell.geom_type)
-        if geom_type != "triangle":
+        if str(bundle_cell.geom_type).strip().lower() not in {"triangle", "tri", "tri3"}:
             raise ValueError(
                 "Boussinesq V1 currently supports only triangular cells; "
                 f"cell_id={cell_id} has geom_type='{bundle_cell.geom_type}'."
@@ -251,14 +251,43 @@ def assemble_mesh_arrays_from_bundle(bundle: CatchmentMeshBundle) -> dict:
     cell_index_by_id = {
         int(cell_id): int(index) for index, cell_id in enumerate(cell_ids_array.tolist())
     }
-
     cell_centroid_x_array = np.asarray(cell_centroid_x, dtype=float)
     cell_centroid_y_array = np.asarray(cell_centroid_y, dtype=float)
 
-    edge_arrays = _assemble_edge_arrays(
-        bundle=bundle,
-        node_index_by_id=node_index_by_id,
-        cell_index_by_id=cell_index_by_id,
+    edge_ids: list[int] = []
+    edge_node_a: list[int] = []
+    edge_node_b: list[int] = []
+    edge_cell_a: list[int] = []
+    edge_cell_b: list[int] = []
+    for bundle_edge in bundle.edges:
+        edge_id = int(bundle_edge.edge_id)
+        node_a_id = int(bundle_edge.node_a)
+        node_b_id = int(bundle_edge.node_b)
+        if node_a_id not in node_index_by_id or node_b_id not in node_index_by_id:
+            raise ValueError(
+                f"Unknown node reference on edge_id={edge_id}: ({node_a_id}, {node_b_id})."
+            )
+        cell_a_id = int(bundle_edge.cell_a)
+        if cell_a_id not in cell_index_by_id:
+            raise ValueError(f"Unknown cell_a={cell_a_id} referenced by edge_id={edge_id}.")
+        cell_b_index = -1
+        if bundle_edge.cell_b is not None:
+            cell_b_id = int(bundle_edge.cell_b)
+            if cell_b_id not in cell_index_by_id:
+                raise ValueError(f"Unknown cell_b={cell_b_id} referenced by edge_id={edge_id}.")
+            cell_b_index = int(cell_index_by_id[cell_b_id])
+        edge_ids.append(edge_id)
+        edge_node_a.append(node_a_id)
+        edge_node_b.append(node_b_id)
+        edge_cell_a.append(int(cell_index_by_id[cell_a_id]))
+        edge_cell_b.append(cell_b_index)
+
+    index_of_node = np.vectorize(node_index_by_id.__getitem__, otypes=[int])
+    edge_arrays = _edge_arrays(
+        node_a=index_of_node(np.asarray(edge_node_a, dtype=int)) if edge_ids else np.empty(0, int),
+        node_b=index_of_node(np.asarray(edge_node_b, dtype=int)) if edge_ids else np.empty(0, int),
+        cell_a=np.asarray(edge_cell_a, dtype=int),
+        cell_b=np.asarray(edge_cell_b, dtype=int),
         node_x=node_x,
         node_y=node_y,
         cell_centroid_x=cell_centroid_x_array,
@@ -279,103 +308,54 @@ def assemble_mesh_arrays_from_bundle(bundle: CatchmentMeshBundle) -> dict:
         "z_bottom_m": np.asarray(z_bottom_m, dtype=float),
         "hydraulic_conductivity_m_s": np.asarray(hydraulic_conductivity_m_s, dtype=float),
         "storage_coefficient": np.asarray(storage_coefficient, dtype=float),
+        "edge_ids": np.asarray(edge_ids, dtype=int),
         **edge_arrays,
+        "edge_node_a": np.asarray(edge_node_a, dtype=int),
+        "edge_node_b": np.asarray(edge_node_b, dtype=int),
+        "edge_length_m": np.asarray([float(e.length_m) for e in bundle.edges], dtype=float),
+        "edge_kind": tuple(str(e.edge_kind) for e in bundle.edges),
+        "edge_is_river": np.asarray([bool(e.is_river) for e in bundle.edges], dtype=bool),
         "cell_index_by_id": cell_index_by_id,
         "node_index_by_id": node_index_by_id,
     }
 
 
-def _assemble_edge_arrays(
+def _edge_arrays(
     *,
-    bundle: CatchmentMeshBundle,
-    node_index_by_id: dict[int, int],
-    cell_index_by_id: dict[int, int],
+    node_a: np.ndarray,
+    node_b: np.ndarray,
+    cell_a: np.ndarray,
+    cell_b: np.ndarray,
     node_x: np.ndarray,
     node_y: np.ndarray,
     cell_centroid_x: np.ndarray,
     cell_centroid_y: np.ndarray,
 ) -> dict:
-    edge_ids: list[int] = []
-    edge_node_a: list[int] = []
-    edge_node_b: list[int] = []
-    edge_cell_a: list[int] = []
-    edge_cell_b: list[int] = []
-    edge_length_m: list[float] = []
-    edge_distance_m: list[float] = []
-    edge_midpoint_distance_to_cell_a_m: list[float] = []
-    edge_midpoint_distance_to_cell_b_m: list[float] = []
-    edge_midpoint_x_m: list[float] = []
-    edge_midpoint_y_m: list[float] = []
-    edge_kind: list[str] = []
-    edge_is_river: list[bool] = []
+    """The edge midpoints and the distances from cell centroids to them and between them.
 
-    for bundle_edge in bundle.edges:
-        edge_id = int(bundle_edge.edge_id)
-        node_a_id = int(bundle_edge.node_a)
-        node_b_id = int(bundle_edge.node_b)
-        if node_a_id not in node_index_by_id or node_b_id not in node_index_by_id:
-            raise ValueError(
-                f"Unknown node reference on edge_id={edge_id}: ({node_a_id}, {node_b_id})."
-            )
-        cell_a_id = int(bundle_edge.cell_a)
-        if cell_a_id not in cell_index_by_id:
-            raise ValueError(f"Unknown cell_a={cell_a_id} referenced by edge_id={edge_id}.")
-        cell_a_index = int(cell_index_by_id[cell_a_id])
-        cell_b_index = -1
-        if bundle_edge.cell_b is not None:
-            cell_b_id = int(bundle_edge.cell_b)
-            if cell_b_id not in cell_index_by_id:
-                raise ValueError(f"Unknown cell_b={cell_b_id} referenced by edge_id={edge_id}.")
-            cell_b_index = int(cell_index_by_id[cell_b_id])
-
-        node_a_index = int(node_index_by_id[node_a_id])
-        node_b_index = int(node_index_by_id[node_b_id])
-        midpoint_x = 0.5 * (node_x[node_a_index] + node_x[node_b_index])
-        midpoint_y = 0.5 * (node_y[node_a_index] + node_y[node_b_index])
-        dx_a_mid = midpoint_x - cell_centroid_x[cell_a_index]
-        dy_a_mid = midpoint_y - cell_centroid_y[cell_a_index]
-        distance_a_mid = float(np.hypot(dx_a_mid, dy_a_mid))
-        distance_b_mid = np.nan
-        if cell_b_index >= 0:
-            dx = cell_centroid_x[cell_b_index] - cell_centroid_x[cell_a_index]
-            dy = cell_centroid_y[cell_b_index] - cell_centroid_y[cell_a_index]
-            dx_b_mid = midpoint_x - cell_centroid_x[cell_b_index]
-            dy_b_mid = midpoint_y - cell_centroid_y[cell_b_index]
-            distance_b_mid = float(np.hypot(dx_b_mid, dy_b_mid))
-        else:
-            dx = dx_a_mid
-            dy = dy_a_mid
-
-        edge_ids.append(edge_id)
-        edge_node_a.append(node_a_id)
-        edge_node_b.append(node_b_id)
-        edge_cell_a.append(cell_a_index)
-        edge_cell_b.append(cell_b_index)
-        edge_length_m.append(float(bundle_edge.length_m))
-        edge_distance_m.append(float(np.hypot(dx, dy)))
-        edge_midpoint_distance_to_cell_a_m.append(distance_a_mid)
-        edge_midpoint_distance_to_cell_b_m.append(distance_b_mid)
-        edge_midpoint_x_m.append(float(midpoint_x))
-        edge_midpoint_y_m.append(float(midpoint_y))
-        edge_kind.append(str(bundle_edge.edge_kind))
-        edge_is_river.append(bool(bundle_edge.is_river))
-
+    ``node_a``, ``node_b``, ``cell_a`` and ``cell_b`` are positions into the node
+    and cell arrays, ``cell_b = -1`` on the boundary. A boundary edge measures its
+    centroid distance to its own midpoint and has no ``cell_b`` distance.
+    """
+    midpoint_x = 0.5 * (node_x[node_a] + node_x[node_b])
+    midpoint_y = 0.5 * (node_y[node_a] + node_y[node_b])
+    dx_a_mid = midpoint_x - cell_centroid_x[cell_a]
+    dy_a_mid = midpoint_y - cell_centroid_y[cell_a]
+    inner = cell_b >= 0
+    other = np.where(inner, cell_b, cell_a)
+    dx = np.where(inner, cell_centroid_x[other] - cell_centroid_x[cell_a], dx_a_mid)
+    dy = np.where(inner, cell_centroid_y[other] - cell_centroid_y[cell_a], dy_a_mid)
+    distance_b_mid = np.where(
+        inner,
+        np.hypot(midpoint_x - cell_centroid_x[other], midpoint_y - cell_centroid_y[other]),
+        np.nan,
+    )
     return {
-        "edge_ids": np.asarray(edge_ids, dtype=int),
-        "edge_node_a": np.asarray(edge_node_a, dtype=int),
-        "edge_node_b": np.asarray(edge_node_b, dtype=int),
-        "edge_cell_a": np.asarray(edge_cell_a, dtype=int),
-        "edge_cell_b": np.asarray(edge_cell_b, dtype=int),
-        "edge_length_m": np.asarray(edge_length_m, dtype=float),
-        "edge_distance_m": np.asarray(edge_distance_m, dtype=float),
-        "edge_midpoint_distance_to_cell_a_m": np.asarray(
-            edge_midpoint_distance_to_cell_a_m, dtype=float
-        ),
-        "edge_midpoint_distance_to_cell_b_m": np.asarray(
-            edge_midpoint_distance_to_cell_b_m, dtype=float
-        ),
-        "edge_midpoint_x_m": np.asarray(edge_midpoint_x_m, dtype=float),
-        "edge_midpoint_y_m": np.asarray(edge_midpoint_y_m, dtype=float),
-        "edge_kind": tuple(edge_kind),
-        "edge_is_river": np.asarray(edge_is_river, dtype=bool),
+        "edge_cell_a": np.asarray(cell_a, dtype=int),
+        "edge_cell_b": np.asarray(cell_b, dtype=int),
+        "edge_distance_m": np.asarray(np.hypot(dx, dy), dtype=float),
+        "edge_midpoint_distance_to_cell_a_m": np.asarray(np.hypot(dx_a_mid, dy_a_mid), dtype=float),
+        "edge_midpoint_distance_to_cell_b_m": np.asarray(distance_b_mid, dtype=float),
+        "edge_midpoint_x_m": np.asarray(midpoint_x, dtype=float),
+        "edge_midpoint_y_m": np.asarray(midpoint_y, dtype=float),
     }

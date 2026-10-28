@@ -18,7 +18,7 @@ Two modes
 when ``[mesh.triangle] path`` is given and ``generated`` otherwise.
 
 ``generated``
-   ``generated.py`` places the generators from the size field, the river lines and the face
+   ``from_seeds.py`` places the generators from the size field, the river lines and the face
    lines.
 
 ``triangulation``
@@ -34,7 +34,7 @@ Generated mode
 
 The engine first resamples the request lines at the local size. Then it runs six steps.
 
-1. ``frame.py`` moves every coordinate to a frame centred on a multiple of 1 km, before any
+1. ``local_coords.py`` moves every coordinate to a frame centred on a multiple of 1 km, before any
    GEOS or scipy call. On Lambert-93 coordinates, two seeds a few metres apart can give
    identical cells.
 2. The ``constraints/`` package places the constraint seeds, one step per module, run in order
@@ -53,7 +53,7 @@ The engine first resamples the request lines at the local size. Then it runs six
    after 25 iterations.
 5. ``tessellation.py`` runs GEOS Voronoi and clips the cells to the domain. A piece that the
    clip cut away from its seed gets a boundary seed, for up to three rounds.
-6. ``gates.py`` checks the mesh, then ``line_families.py`` builds the families.
+6. ``checks.py`` checks the mesh, then ``families.py`` builds the families.
 
 Gates
 -----

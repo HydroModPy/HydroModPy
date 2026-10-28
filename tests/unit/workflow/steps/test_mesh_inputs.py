@@ -129,7 +129,11 @@ def test_the_lake_table_reaches_the_planner_as_walls_footprints_and_outlet() -> 
 
     expected = lake_structures({"a": wall}, {"a": first, "b": second}, Point(1.0, 2.0), table)
     assert inputs.lakes == (first, second)
-    assert [label for label, *_ in inputs.lake_structures] == ["voile:a", "sill:a-b", "dam_outlet"]
+    assert [structure.label for structure in inputs.lake_structures] == [
+        "voile:a",
+        "sill:a-b",
+        "dam_outlet",
+    ]
     assert inputs.lake_structures == expected
 
 

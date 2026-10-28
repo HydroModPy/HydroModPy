@@ -24,8 +24,8 @@ from hydromodpy.solver.modflow_common.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
+from hydromodpy.spatial.mesh.cells.boundary import label_cells, side_cells, stream_cells
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.family_cells import label_cells, side_cells, stream_cells
 
 logger = get_logger(__name__)
 

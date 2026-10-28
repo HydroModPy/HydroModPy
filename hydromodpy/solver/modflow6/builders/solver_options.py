@@ -10,7 +10,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.mesh_qa import nonorthogonality_summary
+from hydromodpy.spatial.mesh.model.quality import nonorthogonality_summary
 
 logger = get_logger(__name__)
 
@@ -124,7 +124,7 @@ def _recommend_xt3d(model, solver_mesh) -> _Xt3dAdvice:
             "triangle cells: the two-point flux between the vertex means of two triangles "
             "is not consistent, XT3D restores it",
         )
-    m = nonorthogonality_summary(solver_mesh.planar_mesh)
+    m = nonorthogonality_summary(solver_mesh.planar_mesh, centers=solver_mesh.generator_centers)
     if m["frac_gt_30"] > _NONORTH_FRAC_GT30_TRIGGER or m["p95"] > _NONORTH_P95_TRIGGER_DEG:
         return _Xt3dAdvice(
             True,

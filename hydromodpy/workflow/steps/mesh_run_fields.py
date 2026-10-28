@@ -28,7 +28,7 @@ from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-from hydromodpy.spatial.mesh.planning.refinement import RunFieldEnvelope
+from hydromodpy.spatial.mesh.planning.refinement_zones import RunFieldEnvelope
 from hydromodpy.spatial.mesh.refinement_config import RUN_FIELDS, RefinementZoneConfig
 
 __all__ = ["read_run_field", "read_run_fields"]

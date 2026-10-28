@@ -356,7 +356,7 @@ def _irregular_chd(geometry: PleasantTransientGeometry, mesh: SolverMesh) -> lis
     """
     domain = geometry.ncol * geometry.cell_size_m
     margin = geometry.cell_size_m * 0.6
-    centroids = mesh.cell_centroids()
+    centroids = mesh.cell_centers()
     idomain = mesh.idomain
     rows: list[list[Any]] = []
     for cell in range(mesh.n_cells):

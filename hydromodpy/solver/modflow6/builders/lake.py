@@ -526,7 +526,7 @@ def build_lake_connectiondata(
     botm = np.asarray(solver_mesh.botm, dtype=float)  # (nlay, n_cells)
     nlay = int(solver_mesh.nlay)
     vertices = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
-    centroids = solver_mesh.cell_centroids()
+    centroids = solver_mesh.cell_centers()
     top_active = top_active_layer(idomain)
 
     def _occ(cid: int) -> int:

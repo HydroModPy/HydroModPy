@@ -30,6 +30,7 @@ from hydromodpy.solver.modflow6.builders.lake import cutoff_wall_pairs
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
+from hydromodpy.spatial.mesh.planning.lake_structures import LakeStructure
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs
@@ -61,7 +62,7 @@ def _built(engine: str, offset: float, *, snapped: bool = True) -> SimpleNamespa
         domain=DOMAIN,
         watershed=DOMAIN,
         lakes=(wall.polygon,),
-        lake_structures=(("voile:r", line, 15.0, 60.0),),
+        lake_structures=(LakeStructure("voile", "r", line, 15.0, 60.0),),
         synthetic=False,
         barriers=(line,),
     )

@@ -1024,8 +1024,8 @@ class Modflow6OutputAdapter:
             reason,
         )
         try:
-            from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-            from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
+            from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
+            from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
             watershed = store.read_geographic_feature(sim_id, "watershed")
             if watershed is None or watershed.empty:

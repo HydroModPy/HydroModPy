@@ -47,7 +47,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
 from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.input_mesh import (
+from hydromodpy.spatial.mesh.planning.input_triangulation import (
     domain_polygon_of,
     read_input_triangulation,
 )
@@ -564,8 +564,7 @@ def cell_polygons(cell_mesh: PlanarCellMesh, *, origin: tuple[float, float]) -> 
     """The cell polygons from the vertices and the connectivity, relative to ``origin``."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2] - np.asarray(origin)
     rings = [
-        shapely.linearrings(vertices[np.asarray(ids, dtype=int)])
-        for ids in cell_mesh.mesh.flat_connectivity
+        shapely.linearrings(vertices[ids[ids >= 0]]) for ids in cell_mesh.mesh.flat_connectivity
     ]
     return shapely.polygons(rings)
 
@@ -574,10 +573,7 @@ def reference_centers(cell_mesh: PlanarCellMesh) -> np.ndarray:
     """The mean of the vertices of each cell: the centre of a regular or a triangle mesh."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
     return np.array(
-        [
-            vertices[np.asarray(ids, dtype=int)].mean(axis=0)
-            for ids in cell_mesh.mesh.flat_connectivity
-        ]
+        [vertices[ids[ids >= 0]].mean(axis=0) for ids in cell_mesh.mesh.flat_connectivity]
     )
 
 

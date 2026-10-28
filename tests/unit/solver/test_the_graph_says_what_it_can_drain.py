@@ -60,7 +60,7 @@ def _shared_edge_graph(model: SimpleNamespace):
         top,
         np.asarray(mesh.planar_mesh.flat_connectivity, dtype=int),
         vertices=np.asarray(mesh.planar_mesh.vertices, dtype=float),
-        centroids=np.asarray(mesh.cell_centroids(), dtype=float),
+        centroids=np.asarray(mesh.cell_centers(), dtype=float),
         inactive_mask=~np.isfinite(top),
     )
 
@@ -136,7 +136,7 @@ def test_the_basin_of_d_as_the_mask_drains_to_exactly_its_area(caplog):
     basin = descent_basin(
         model.descent,
         cell_area_m2=areas,
-        near=tuple(model.solver_mesh.cell_centroids()[talweg_cell]),
+        near=tuple(model.solver_mesh.cell_centers()[talweg_cell]),
     )
 
     with caplog.at_level(logging.WARNING):

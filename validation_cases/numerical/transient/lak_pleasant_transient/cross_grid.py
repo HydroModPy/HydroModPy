@@ -121,6 +121,7 @@ def _voronoi_solver_mesh(geometry: PleasantTransientGeometry) -> SolverMesh:
         top=np.full(n_cells, geometry.top_m),
         botm=botm,
         inactive_mask=np.zeros((geometry.nlay, n_cells), dtype=bool),
+        centers=points,
     )
 
 

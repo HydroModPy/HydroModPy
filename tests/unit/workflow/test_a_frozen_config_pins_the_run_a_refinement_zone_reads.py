@@ -25,7 +25,7 @@ from hydromodpy.results.storage.attempt import _config_changed
 from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.sealing import seal_completed
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.refinement import (
+from hydromodpy.spatial.mesh.planning.refinement_zones import (
     CriterionInputs,
     RefinementZone,
     load_refinement_zones,

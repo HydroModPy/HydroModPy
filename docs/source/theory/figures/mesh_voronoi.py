@@ -11,8 +11,8 @@ from scipy.spatial import Delaunay
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import connection_nonorthogonality_deg
-from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.model.quality import connection_nonorthogonality_deg
+from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
 
 
 def triangles(vertices, cells):
@@ -48,11 +48,11 @@ seeds[inner] += np.random.default_rng(3).uniform(-0.35, 0.35, (int(inner.sum()),
 tri = triangles(seeds, Delaunay(seeds).simplices)
 dual = voronoi_planar_mesh(seeds, domain_polygon_from_mesh(tri))
 angles_tri = connection_nonorthogonality_deg(tri)
-angles_dual = connection_nonorthogonality_deg(dual)
+angles_dual = connection_nonorthogonality_deg(dual, centers=seeds)
 for cell in tri.flat_connectivity:
     lattice.fill(*seeds[cell].T, fc="none", ec="C6", lw=0.6, ls=":")
 for cell in dual.flat_connectivity:
-    polygon = np.asarray(dual.vertices)[np.asarray(cell)]
+    polygon = np.asarray(dual.vertices)[cell[cell >= 0]]
     lattice.fill(*polygon.T, fc=("C5", 0.25), ec="C0", lw=1.4)
 lattice.plot(*seeds.T, "o", color="C6", ms=3)
 lattice.set_title(

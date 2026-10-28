@@ -161,7 +161,7 @@ def test_a_model_without_a_basin_falls_back_on_the_covered_centres(tmp_path, cap
     with caplog.at_level(logging.INFO):
         mask = catchment_cell_mask(model)
 
-    np.testing.assert_array_equal(mask, mesh.cell_centroids()[:, 0] < 50.0)
+    np.testing.assert_array_equal(mask, mesh.cell_centers()[:, 0] < 50.0)
     assert "model flow carries no basin of D" in caplog.text
     assert "'polygon_covers'" in caplog.text
 

@@ -459,7 +459,7 @@ hydromodpy.calibration.criteria.hydrographic_network_distance
 | The receivers and the distance to a set | `hydromodpy/core/topographic_distance.py` |
 | The outlet, the catchment, $h_{obs}$, $V$, the supports | `hydromodpy/core/stream_geometry.py` |
 | The heads rule | `hydromodpy/core/stream_heads.py` |
-| The crossing rule | `hydromodpy/spatial/mesh/ops/crossed_by_lines.py` |
+| The crossing rule | `hydromodpy/spatial/mesh/cells/crossed_by_lines.py` |
 | The means and the criterion | `hydromodpy/calibration/metrics/downslope_network.py` |
 | The two estimators | `hydromodpy/calibration/criteria/hydrographic_network_distance.py` |
 | The root search | `hydromodpy/calibration/optim/adapters/bisection_adapter.py` |

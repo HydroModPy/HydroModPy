@@ -17,15 +17,15 @@ import numpy as np
 import shapely
 from shapely.strtree import STRtree
 
+from hydromodpy.spatial.mesh.cells.regions import components_without
 from hydromodpy.spatial.mesh.engines.face_families import (
     EdgeLookup,
     FamilyEdges,
-    components_without,
     oriented_rows,
     request_zone_names,
     without_repeats,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.model.geometry import DerivedGeometry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 

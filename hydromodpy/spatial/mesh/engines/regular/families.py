@@ -20,16 +20,16 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
+from hydromodpy.spatial.mesh.cells.barrier_faces import crossed_edges
+from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.engines.regular.grid import GridLayout
-from hydromodpy.spatial.mesh.model.derived_geometry import (
+from hydromodpy.spatial.mesh.model.geometry import (
     BOX_SIDES,
     DerivedGeometry,
     cell_polygons,
 )
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
-from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
-from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec
 
 __all__ = ["FaceFamilies", "cell_chains", "face_family_columns"]

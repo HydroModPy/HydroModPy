@@ -15,18 +15,25 @@ _LOCAL_CRS_WKT = (
 
 
 def solver_mesh_of(
-    planar: HydroMesh, *, top: np.ndarray, botm: np.ndarray, inactive_mask: np.ndarray
+    planar: HydroMesh,
+    *,
+    top: np.ndarray,
+    botm: np.ndarray,
+    inactive_mask: np.ndarray,
+    centers: np.ndarray | None = None,
 ) -> SolverMesh:
     """Return the solver mesh of *planar*, in a local frame in metres.
 
-    The cell centres are the generators of ``cell_data["disv_cell_center"]`` when the
-    mesh carries them (a Voronoi mesh), the vertex means otherwise.
+    The cell centres are the generators ``centers`` of a Voronoi mesh when given,
+    the vertex means otherwise.
     """
-    x_centers, y_centers = planar.cell_centroids()
+    generated = centers is not None
+    if centers is None:
+        centers = np.column_stack(planar.cell_centroids())
     cell_mesh = build_planar_cell_mesh(
         planar,
-        np.column_stack([x_centers, y_centers]),
-        center_kind="generator" if "disv_cell_center" in planar.cell_data else "vertex_mean",
+        np.asarray(centers, dtype=float),
+        center_kind="generator" if generated else "vertex_mean",
         crs_wkt=_LOCAL_CRS_WKT,
         identity=MeshIdentity("validation_case", "0", "", None),
         declarations={

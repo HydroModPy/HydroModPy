@@ -32,21 +32,18 @@ import numpy as np
 import shapely
 from shapely.strtree import STRtree
 
-from hydromodpy.spatial.mesh.engines.face_families import (
-    FamilyEdges,
-    components_without,
-    face_table,
-)
+from hydromodpy.spatial.mesh.cells.regions import components_without
+from hydromodpy.spatial.mesh.engines.face_families import FamilyEdges, face_table
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangulatedRequest, triangulate_request
-from hydromodpy.spatial.mesh.engines.voronoi.frame import local_frame
-from hydromodpy.spatial.mesh.engines.voronoi.gates import check_gates, gated_geometry
+from hydromodpy.spatial.mesh.engines.voronoi.checks import check_gates, gated_geometry
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
     cell_topology,
     tessellate,
     voronoi_envelope,
 )
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import (
+from hydromodpy.spatial.mesh.model.geometry import (
     BOX_SIDES,
     DerivedGeometry,
     box_side_of_edges,
@@ -297,7 +294,6 @@ def dual_cell_mesh(
     mesh = HydroMesh(
         vertices=frame.to_world(topology.vertices),
         cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=topology.rings),),
-        cell_data={"disv_cell_center": centers},
     )
     geometry = gated_geometry(mesh)
     chains = dual_chains(triangulated, geometry, centers)

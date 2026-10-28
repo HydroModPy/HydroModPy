@@ -13,11 +13,12 @@ from hydromodpy.spatial.domain.spatial_support_config import (
     GeologySupportConfig,
 )
 from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.raster_support import RasterSupport
 
 
@@ -35,8 +36,8 @@ class AliasedSpatialSupportField(Field):
     def zone_keys(self) -> tuple[str, ...]:
         return tuple(getattr(self.delegate, "zone_keys", ()))
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
-        return self.delegate.on_mesh(mesh, cell_samples_per_axis=cell_samples_per_axis)
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
+        return self.delegate.on_mesh(cell_mesh, cell_samples_per_axis=cell_samples_per_axis)
 
     def __getattr__(self, name: str):
         return getattr(self.delegate, name)
@@ -147,13 +148,13 @@ class RasterZonesSupportField(Field):
             out[valid] = mapped
         return out.reshape(x_arr.shape)
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         fractions_by_zone = {
-            zone_key: np.zeros(mesh.n_cells, dtype=float) for zone_key in self.zone_keys
+            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
         }
         n_sub = max(2, int(cell_samples_per_axis))
 
-        for cell in mesh.cells:
+        for cell in mesh_cells(cell_mesh):
             x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(int(np.count_nonzero(zone_ids != "")), 1)
@@ -162,11 +163,11 @@ class RasterZonesSupportField(Field):
                 fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
 
         mesh_values = {
-            zone_key: np.asarray(mesh.to_cell_values(values), dtype=float)
+            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
             for zone_key, values in fractions_by_zone.items()
         }
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=self.zone_keys,
             fractions_by_zone=mesh_values,
@@ -204,12 +205,12 @@ class GeneratedBandsSupportField(Field):
         labels = np.asarray(self.labels, dtype=object)
         return labels[indexes]
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         fractions_by_zone = {
-            zone_key: np.zeros(mesh.n_cells, dtype=float) for zone_key in self.zone_keys
+            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
         }
         n_sub = max(2, int(cell_samples_per_axis))
-        for cell in mesh.cells:
+        for cell in mesh_cells(cell_mesh):
             x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(zone_ids.size, 1)
@@ -218,11 +219,11 @@ class GeneratedBandsSupportField(Field):
                 fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
 
         mesh_values = {
-            zone_key: np.asarray(mesh.to_cell_values(values), dtype=float)
+            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
             for zone_key, values in fractions_by_zone.items()
         }
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=self.zone_keys,
             fractions_by_zone=mesh_values,
@@ -274,12 +275,12 @@ class GeneratedRingsSupportField(Field):
         indexes = np.searchsorted(np.asarray(self.radii_abs, dtype=float), radius, side="right")
         return labels[indexes]
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         fractions_by_zone = {
-            zone_key: np.zeros(mesh.n_cells, dtype=float) for zone_key in self.zone_keys
+            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
         }
         n_sub = max(2, int(cell_samples_per_axis))
-        for cell in mesh.cells:
+        for cell in mesh_cells(cell_mesh):
             x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
             zone_ids = self.zone_id(x_samples, y_samples)
             total = max(zone_ids.size, 1)
@@ -288,11 +289,11 @@ class GeneratedRingsSupportField(Field):
                 fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
 
         mesh_values = {
-            zone_key: np.asarray(mesh.to_cell_values(values), dtype=float)
+            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
             for zone_key, values in fractions_by_zone.items()
         }
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=self.zone_keys,
             fractions_by_zone=mesh_values,

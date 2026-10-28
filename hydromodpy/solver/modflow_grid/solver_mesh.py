@@ -130,7 +130,7 @@ class SolverMesh:
 
     # -- Geometry helpers -----------------------------------------------------
 
-    def cell_centroids(self) -> np.ndarray:
+    def cell_centers(self) -> np.ndarray:
         """Return cell centers as ndarray (n_cells, 2).
 
         These are the ``centers`` of the cell mesh, the one centre rule of every
@@ -333,12 +333,25 @@ class SolverMesh:
 
     # -- DISV export (any topology) -------------------------------------------
 
+    @property
+    def generator_centers(self) -> np.ndarray | None:
+        """The ``(n_cells, 2)`` generators of a mesh centred on them (Voronoi), else ``None``."""
+        if self.cell_mesh.center_kind != "generator":
+            return None
+        return self.cell_mesh.centers
+
     def to_disv_kwargs(self) -> dict[str, Any]:
-        """Build FloPy DISV keyword arguments for MODFLOW 6."""
+        """Build FloPy DISV keyword arguments for MODFLOW 6.
+
+        A mesh centred on its generators (Voronoi) writes them as the DISV cell
+        centres, exact for its perpendicular-bisector faces. Any other mesh writes
+        the mean of the cell vertices.
+        """
         return to_flopy_disv_args(
             self.planar_mesh,
             top=self.top,
             botm=self.botm,
+            centers=self.generator_centers,
         )
 
     # -- Diagnostics ----------------------------------------------------------
@@ -384,6 +397,7 @@ def to_flopy_disv_args(
     *,
     top: float | np.ndarray,
     botm: np.ndarray,
+    centers: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Build flopy DISV keyword arguments from a 2D ``HydroMesh``.
 
@@ -398,6 +412,9 @@ def to_flopy_disv_args(
         Top elevation(s).
     botm : ndarray
         Bottom elevation per layer, shape ``(nlay, ncpl)``.
+    centers : ndarray, optional
+        Cell centres to write, shape ``(ncpl, 2)``, for example the Voronoi
+        generators. The mean of the cell vertices when ``None``.
 
     Notes
     -----
@@ -413,16 +430,13 @@ def to_flopy_disv_args(
     vertices = [[int(i), float(verts[i, 0]), float(verts[i, 1])] for i in range(nvert)]
 
     conn = hydro_mesh.flat_connectivity
-    ncpl = len(conn)  # rectangular array or ragged tuple; both len == n_cells
-    # An explicit per-cell center (e.g. the Voronoi generator, exact for CVFD
-    # orthogonality) overrides the vertex-mean centroid when supplied.
-    centers = hydro_mesh.cell_data.get("disv_cell_center")
+    ncpl = len(conn)
     if centers is not None:
         centers = np.asarray(centers, dtype=float).reshape(ncpl, 2)
     # cell2d: list of (icell, xc, yc, ncvert, iv1, iv2, ...)
     cell2d: list[list] = []
     for ic in range(ncpl):
-        nodes = _orient_nodes_for_disv(np.asarray(conn[ic], dtype=int), verts)
+        nodes = _orient_nodes_for_disv(conn[ic][conn[ic] >= 0], verts)
         if centers is not None:
             xc, yc = float(centers[ic, 0]), float(centers[ic, 1])
         else:

@@ -13,7 +13,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
-from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
+from hydromodpy.spatial.mesh.cells.locate import locate_cells
 
 
 def well_cell_to_disv(*, ncol: int, lay: int, row: int, col: int) -> tuple[int, int]:

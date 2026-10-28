@@ -38,7 +38,7 @@ class TestModelCellCentroids:
     def test_reads_from_solver_mesh_callable(self):
         centroids = _make_structured_centroids(2, 3)
         model = SimpleNamespace(
-            solver_mesh=SimpleNamespace(cell_centroids=lambda: centroids),
+            solver_mesh=SimpleNamespace(cell_centers=lambda: centroids),
             nrow=2,
             ncol=3,
         )
@@ -66,7 +66,7 @@ class TestResolveCellIndexFromModel:
         nrow, ncol = 2, 3
         centroids = _make_structured_centroids(nrow, ncol, dx=10.0, dy=5.0)
         model = SimpleNamespace(
-            solver_mesh=SimpleNamespace(cell_centroids=lambda: centroids),
+            solver_mesh=SimpleNamespace(cell_centers=lambda: centroids),
             nrow=nrow,
             ncol=ncol,
         )
@@ -80,7 +80,7 @@ class TestResolveCellIndexFromModel:
     def test_returns_flat_index_when_layout_unknown(self):
         centroids = _make_structured_centroids(1, 4)
         model = SimpleNamespace(
-            solver_mesh=SimpleNamespace(cell_centroids=lambda: centroids),
+            solver_mesh=SimpleNamespace(cell_centers=lambda: centroids),
         )
         cell = _resolve_cell_index_from_model(model, x=25.0, y=2.5)
         assert cell == (0, 0, 2, 2)
@@ -182,7 +182,7 @@ class TestExtractHeadAtPointFromDir:
         nrow, ncol = 2, 3
         centroids = _make_structured_centroids(nrow, ncol, dx=10.0, dy=5.0)
         model = SimpleNamespace(
-            solver_mesh=SimpleNamespace(cell_centroids=lambda: centroids),
+            solver_mesh=SimpleNamespace(cell_centers=lambda: centroids),
             nrow=nrow,
             ncol=ncol,
         )
@@ -255,7 +255,7 @@ class TestTruthAndTrialLocateOnePoint:
             solver_mesh=SimpleNamespace(
                 planar_mesh=SimpleNamespace(vertices=vertices, flat_connectivity=faces),
                 structured_shape=(self.nrow, self.ncol),
-                cell_centroids=lambda: vertices[faces].mean(axis=1),
+                cell_centers=lambda: vertices[faces].mean(axis=1),
             )
         )
         return run, model

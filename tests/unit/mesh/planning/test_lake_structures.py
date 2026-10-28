@@ -12,7 +12,11 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon, box
 
-from hydromodpy.spatial.mesh.planning.lake_structures import lake_structures, sill_zone
+from hydromodpy.spatial.mesh.planning.lake_structures import (
+    LakeStructure,
+    lake_structures,
+    sill_zone,
+)
 from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
 
 _LAKE = Polygon([(0.0, 0.0), (1000.0, 0.0), (1000.0, 600.0), (0.0, 600.0)])
@@ -34,7 +38,7 @@ def _labels(wall: LineString, outlet: Point | None = _OUTLET, **overrides: objec
     structures = lake_structures(
         {"reservoir": wall}, {"reservoir": _LAKE}, outlet, _table(**overrides)
     )
-    return {label for label, *_ in structures}
+    return {structure.label for structure in structures}
 
 
 def test_the_dam_disk_goes_when_the_wall_zone_reaches_the_outlet() -> None:
@@ -63,9 +67,10 @@ def test_the_dam_disk_is_a_point_the_planner_dilates_by_the_dam_buffer() -> None
 
     walls, lakes = {"reservoir": _WALL_FAR_FROM_THE_OUTLET}, {"reservoir": _LAKE}
 
-    structures = {s[0]: s for s in lake_structures(walls, lakes, _OUTLET, table)}
+    structures = {s.label: s for s in lake_structures(walls, lakes, _OUTLET, table)}
 
-    _, geometry, size, buffer = structures["dam_outlet"]
+    outlet = structures["dam_outlet"]
+    geometry, size, buffer = outlet.geometry, outlet.size_m, outlet.buffer_m
     assert (geometry.x, geometry.y) == (_OUTLET.x, _OUTLET.y)
     assert (size, buffer) == (table.dam_cell_size, table.dam_buffer)
 
@@ -82,7 +87,9 @@ def test_a_wall_zone_is_the_hfb_buffer_or_twice_the_dam_buffer(
         {"reservoir": _WALL_FAR_FROM_THE_OUTLET}, {}, None, _table(hfb_buffer=hfb_buffer)
     )
 
-    assert structures == (("voile:reservoir", _WALL_FAR_FROM_THE_OUTLET, 60.0, width),)
+    assert structures == (
+        LakeStructure("voile", "reservoir", _WALL_FAR_FROM_THE_OUTLET, 60.0, width),
+    )
 
 
 @pytest.mark.parametrize(("distance", "disk"), [(450.0, False), (450.5, True)])
@@ -95,7 +102,7 @@ def test_a_wall_reaches_the_disk_within_its_zone_width_plus_the_dam_buffer(
 
     structures = lake_structures({"a": wall}, {}, Point(distance, 50.0), table)
 
-    assert (structures[-1][0] == "dam_outlet") is disk
+    assert (structures[-1].label == "dam_outlet") is disk
 
 
 def test_an_empty_wall_line_adds_no_zone() -> None:
@@ -112,9 +119,10 @@ def test_two_lakes_apart_get_a_sill_zone_finer_than_their_gap() -> None:
     gap = 40.0
     table = LakeRefinementConfig(dam_cell_size=60.0)
 
-    structures = {s[0]: s for s in lake_structures({}, _two_lakes(gap), None, table)}
+    structures = {s.label: s for s in lake_structures({}, _two_lakes(gap), None, table)}
 
-    _, zone, size, margin = structures["sill:a-b"]
+    sill = structures["sill:a-b"]
+    zone, size, margin = sill.geometry, sill.size_m, sill.buffer_m
     assert size < gap
     assert margin >= table.dam_cell_size
     assert zone.contains(box(400.0, 50.0, 400.0 + gap, 350.0))
@@ -129,7 +137,8 @@ def test_the_sill_size_and_margin_follow_the_gap(gap: float, size: float, margin
     """The size is 0.4 of the gap within 5 m and the dam cell size, the margin 1.5 gaps."""
     table = LakeRefinementConfig(dam_cell_size=60.0)
 
-    ((label, _zone, sill_size, sill_margin),) = lake_structures({}, _two_lakes(gap), None, table)
+    (sill,) = lake_structures({}, _two_lakes(gap), None, table)
+    label, sill_size, sill_margin = sill.label, sill.size_m, sill.buffer_m
 
     assert (label, sill_size, sill_margin) == ("sill:a-b", size, margin)
 
@@ -157,7 +166,7 @@ def test_the_structures_are_the_walls_then_each_pair_of_lakes_then_the_disk() ->
 
     structures = lake_structures(walls, lakes, Point(5000.0, 5000.0), _table())
 
-    assert [label for label, *_ in structures] == [
+    assert [structure.label for structure in structures] == [
         "voile:a",
         "voile:c",
         "sill:a-b",

@@ -99,7 +99,7 @@ def test_a_voronoi_mesh_written_as_vtu_reads_back_in_its_cell_order(tmp_path: Pa
     seeds = np.random.default_rng(5).uniform(0.0, 100.0, (60, 2))
     original = voronoi_planar_mesh(seeds, box(0.0, 0.0, 100.0, 100.0))
     original = original.with_cell_data(k=np.arange(original.n_cells, dtype=float))
-    assert len({len(cell) for cell in original.flat_connectivity}) > 1
+    assert len(set((original.flat_connectivity >= 0).sum(axis=1).tolist())) > 1
 
     recovered = read_vtu(write_vtu(tmp_path / "voronoi.vtu", original))
 

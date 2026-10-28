@@ -1,11 +1,5 @@
 """Generic core components for field parameterization and discretization."""
 
-from hydromodpy.spatial.field.core.field_mesh import (
-    BaseFieldMesh,
-    FieldMesh,
-    MeshCell,
-    MeshWithValues,
-)
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_param_config import (
     load_field_param_toml,
@@ -18,6 +12,7 @@ from hydromodpy.spatial.field.core.field_spatial import Field, FieldDiscretizati
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import MeshCell, MeshWithValues
 
 __all__ = (
     "FieldParam",
@@ -29,8 +24,6 @@ __all__ = (
     "Field",
     "FieldDiscretization",
     "WeightedAverageFieldDiscretization",
-    "FieldMesh",
     "MeshCell",
     "MeshWithValues",
-    "BaseFieldMesh",
 )

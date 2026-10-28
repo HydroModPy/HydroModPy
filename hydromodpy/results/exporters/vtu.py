@@ -130,16 +130,13 @@ def _cell_block(connectivity: np.ndarray) -> CellBlock:
     """Return the cells of a ``face_node_connectivity`` padded by -1, in the order of the store.
 
     Cells of three nodes, or of four, make a triangle or a quadrilateral block.
-    Any other mesh, a Voronoi one among them, makes one ragged polygon block.
+    Any other mesh, a Voronoi one among them, makes one polygon block.
     """
     counts = (connectivity >= 0).sum(axis=1)
     if counts.size and int(counts.min()) == int(counts.max()) and int(counts[0]) in (3, 4):
         cell_type = CellType.TRIANGLE if int(counts[0]) == 3 else CellType.QUADRILATERAL
         return CellBlock(cell_type, connectivity[:, : int(counts[0])])
-    return CellBlock(
-        CellType.POLYGON,
-        tuple(row[:count] for row, count in zip(connectivity, counts.tolist(), strict=True)),
-    )
+    return CellBlock(CellType.POLYGON, connectivity)
 
 
 def _layer_arrays(data: np.ndarray, variable: str, layer: int | None) -> dict[str, np.ndarray]:

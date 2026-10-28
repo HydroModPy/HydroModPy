@@ -1,19 +1,30 @@
-"""Square-domain mesh factory built on top of generic reusable meshes."""
+"""Planar cell meshes of the unit square, for the square-domain field demos.
+
+``structured`` is a regular grid of quadrilaterals, row 0 south
+(``cell_mesh_from_edges``). The two triangular kinds are the Delaunay
+triangulations of a regular node grid and of a random node cloud, with their
+vertex means as cell centres.
+"""
 
 from __future__ import annotations
 
+import tomllib
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import matplotlib.tri as mtri
 import numpy as np
 
 from hydromodpy.core.rng import RngManager
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh, FieldMesh
-from hydromodpy.spatial.field.meshes import (
-    StructuredFieldMesh,
-    TriangularStructuredFieldMesh,
-    TriangularUnstructuredFieldMesh,
+from hydromodpy.spatial.field.core.field_spatial import _get_nested_section
+from hydromodpy.spatial.field.core.mesh_cells import cell_mesh_from_edges
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
+    MeshIdentity,
+    PlanarCellMesh,
+    build_planar_cell_mesh,
 )
 
 SUPPORTED_MESH_KINDS = (
@@ -25,13 +36,20 @@ SUPPORTED_MESH_KINDS = (
 _UNSTRUCTURED_RNG_LABEL = "spatial.field.square.unstructured_points"
 _DEFAULT_UNSTRUCTURED_SEED = 42
 
+UNIT_SQUARE_CRS_WKT = (
+    'ENGCRS["unit square",EDATUM["unit square"],CS[Cartesian,2],'
+    'AXIS["x",east],AXIS["y",north],LENGTHUNIT["metre",1]]'
+)
+"""The local engineering CRS of the unit square demos."""
 
-def _build_unit_square_grid(n_grid: int):
+_ENGINE_VERSION = "1.0.0"
+
+
+def _unit_square_edges(n_grid: int) -> np.ndarray:
     n_grid = int(n_grid)
     if n_grid <= 2:
         raise ValueError("n_grid must be > 2")
-    xy = np.linspace(0.0, 1.0, n_grid, dtype=float)
-    return np.meshgrid(xy, xy, indexing="xy")
+    return np.linspace(0.0, 1.0, n_grid, dtype=float)
 
 
 def _axis_points_from_target_cells(target_n_cells: int, *, mesh_kind: str):
@@ -81,7 +99,7 @@ def _build_unstructured_points(target_n_cells: int, *, rng: np.random.Generator)
     else:
         x = xb
         y = yb
-    return x, y, n_per_edge
+    return x, y
 
 
 def _resolve_unstructured_rng(
@@ -99,8 +117,29 @@ def _resolve_unstructured_rng(
     return np.random.default_rng(seed), seed
 
 
-class FieldMeshSquare(FieldMesh):
-    """Concrete factory for unit-square meshes."""
+def _triangle_cell_mesh(
+    triangulation: mtri.Triangulation, *, mesh_kind: str, seed: int | None
+) -> PlanarCellMesh:
+    """Wrap a matplotlib triangulation, its vertex means as cell centres."""
+    vertices = np.column_stack((triangulation.x, triangulation.y))
+    triangles = np.asarray(triangulation.triangles, dtype=int)
+    return build_planar_cell_mesh(
+        HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.TRIANGLE, triangles),)),
+        vertices[triangles].mean(axis=1),
+        center_kind="vertex_mean",
+        crs_wkt=UNIT_SQUARE_CRS_WKT,
+        identity=MeshIdentity(mesh_kind, _ENGINE_VERSION, "", seed),
+        declarations={
+            "graded": False,
+            "exact_faces": False,
+            "deterministic": True,
+            "needs_cache": False,
+        },
+    )
+
+
+class FieldMeshSquare:
+    """Builder of the unit-square planar cell meshes of the field demos."""
 
     @classmethod
     def from_unit_square(
@@ -109,55 +148,43 @@ class FieldMeshSquare(FieldMesh):
         target_n_cells: int,
         mesh_kind: str = "structured",
         rng_manager: RngManager | None = None,
-    ) -> BaseFieldMesh:
+    ) -> PlanarCellMesh:
+        """Build a unit-square mesh of about ``target_n_cells`` cells.
+
+        ``rng_manager`` seeds the node cloud of ``triangular_unstructured``.
+        Without one the seed is 42, so a test fixture stays the same.
+        """
         kind_key = str(mesh_kind).strip().lower()
         target = max(1, int(target_n_cells))
 
         if kind_key == "structured":
             n_axis = _axis_points_from_target_cells(target, mesh_kind=kind_key)
-            x2d, y2d = _build_unit_square_grid(n_axis)
-            return StructuredFieldMesh(
-                x_plot=x2d,
-                y_plot=y2d,
-                target_n_cells=target,
-                resolution_hint=n_axis,
-            )
+            edges = _unit_square_edges(n_axis)
+            return cell_mesh_from_edges(edges, edges, crs_wkt=UNIT_SQUARE_CRS_WKT)
 
         if kind_key == "triangular_structured":
             n_axis = _axis_points_from_target_cells(target, mesh_kind=kind_key)
-            x2d, y2d = _build_unit_square_grid(n_axis)
+            edges = _unit_square_edges(n_axis)
+            x2d, y2d = np.meshgrid(edges, edges, indexing="xy")
             triang = mtri.Triangulation(x2d.ravel(), y2d.ravel())
-            return TriangularStructuredFieldMesh(
-                x_plot=x2d,
-                y_plot=y2d,
-                triangulation=triang,
-                target_n_cells=target,
-                resolution_hint=n_axis,
-            )
+            return _triangle_cell_mesh(triang, mesh_kind=kind_key, seed=None)
 
         if kind_key == "triangular_unstructured":
             rng, seed_used = _resolve_unstructured_rng(rng_manager)
-            x, y, n_per_edge = _build_unstructured_points(target, rng=rng)
+            x, y = _build_unstructured_points(target, rng=rng)
             triang = mtri.Triangulation(x, y)
-            return TriangularUnstructuredFieldMesh(
-                x_plot=x,
-                y_plot=y,
-                triangulation=triang,
-                target_n_cells=target,
-                resolution_hint=n_per_edge,
-                seed=seed_used,
-            )
+            return _triangle_cell_mesh(triang, mesh_kind=kind_key, seed=seed_used)
 
         allowed = ", ".join(SUPPORTED_MESH_KINDS)
         raise ValueError(f"Unsupported mesh kind '{mesh_kind}'. Allowed: {allowed}")
 
     @classmethod
-    def from_dict(cls, config: Mapping[str, Any]) -> BaseFieldMesh:
+    def from_dict(cls, config: Mapping[str, Any]) -> PlanarCellMesh:
         """Build one unit-square mesh from a plain mapping.
 
-        The optional ``rng_seed`` (or legacy ``seed``) entry in ``config``
-        seeds an ad-hoc :class:`RngManager` so a TOML file remains
-        self-contained when no top-level master seed is available.
+        The optional ``rng_seed`` (or ``seed``) entry in ``config`` seeds an
+        ad-hoc :class:`RngManager`, so a TOML file stays self-contained when no
+        master seed is available.
         """
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping")
@@ -185,3 +212,11 @@ class FieldMeshSquare(FieldMesh):
             mesh_kind=mesh_kind,
             rng_manager=rng_manager,
         )
+
+    @classmethod
+    def from_toml(cls, toml_path: str | Path, section: str = "mesh") -> PlanarCellMesh:
+        """Build one unit-square mesh from a TOML section, through ``from_dict``."""
+        path = Path(toml_path).resolve()
+        with path.open("rb") as stream:
+            payload = tomllib.load(stream)
+        return cls.from_dict(_get_nested_section(payload, section))

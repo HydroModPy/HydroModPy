@@ -21,7 +21,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import substring
 from shapely.strtree import STRtree
 
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
 
 __all__ = [

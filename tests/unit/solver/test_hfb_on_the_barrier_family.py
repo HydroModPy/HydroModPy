@@ -22,10 +22,10 @@ from hydromodpy.solver.modflow6.builders import resolve_flow_barrier_hfb_rows
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import MESH_SIZE_PER_CELL_SIZE
+from hydromodpy.spatial.mesh.cells.barrier_faces import barrier_edges, crossed_edges
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import MESH_SIZE_PER_CELL_SIZE
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable, PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.flow_barrier import barrier_edges, crossed_edges
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_over, planning_inputs

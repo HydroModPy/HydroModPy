@@ -1254,7 +1254,7 @@ def _model_cell_centroids(model: Any) -> np.ndarray | None:
     """Return cell centroids ``(n_cells, 2)`` from a solver model, if exposed."""
     solver_mesh = getattr(model, "solver_mesh", None)
     if solver_mesh is not None:
-        accessor = getattr(solver_mesh, "cell_centroids", None)
+        accessor = getattr(solver_mesh, "cell_centers", None)
         if callable(accessor):
             try:
                 return np.asarray(accessor(), dtype=float)

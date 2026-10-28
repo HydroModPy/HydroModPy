@@ -15,18 +15,18 @@ Runner -> Param: from_toml(field_param_config)
 Param --> Runner: field_param
 
 Runner -> MeshFactory: from_toml(mesh_config)
-MeshFactory --> Runner: mesh
+MeshFactory --> Runner: cell_mesh
 
 alt field_param.is_heterogeneous
   Runner -> SpatialField: from_toml(field_spatial_config)
   SpatialField --> Runner: field
   Runner -> Runner: validate field_spatial_id == field.identifier
-  Runner -> SpatialField: on_mesh(mesh)
+  Runner -> SpatialField: on_mesh(cell_mesh)
   SpatialField --> Runner: field_discretization
   Runner -> Param: to_mesh_field(field_discretization)
   Param --> Runner: values_mesh
 else homogeneous
-  Runner -> Param: to_mesh_field(mesh=mesh)
+  Runner -> Param: to_mesh_field(mesh=cell_mesh)
   Param --> Runner: values_mesh
 end
 

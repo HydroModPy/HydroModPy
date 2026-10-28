@@ -23,7 +23,7 @@ from hydromodpy.solver.boussinesq.runtimes.stationary_picard_lscheme import (
     bounded_picard_lscheme,
     bounded_picard_vi_cycles,
 )
-from tests._helpers.mesh_doubles import _MiniMesh, line_mesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh, line_mesh
 
 
 def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _MiniMesh:

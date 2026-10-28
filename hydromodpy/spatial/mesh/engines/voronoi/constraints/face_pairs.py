@@ -22,32 +22,35 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import _Line
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import CanonicalLine
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import (
-    _MERGED,
+    LOST_BY_MERGE,
+    ConstraintState,
     SeedRole,
-    _demote,
-    _State,
+    drop_segment_pair,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import vertex_keys
+from hydromodpy.spatial.mesh.model.geometry import vertex_keys
 
 __all__ = [
     "MERGE_SHARE",
     "RADIUS_SHARE",
     "SECTOR_MARGIN_RAD",
+    "build_face_graph",
     "circle_segment_crossings",
     "enforce_eq1",
+    "free_end_seeds",
     "initial_radii",
+    "locate_shared_segments",
     "pair_seeds",
+    "place_mirror_seeds",
     "seed_angle",
-    "tip_seeds",
 ]
 
 
-def _build_face_graph(state: _State, face_lines: list[_Line]) -> None:
+def build_face_graph(state: ConstraintState, face_lines: list[CanonicalLine]) -> None:
     """Vertices (one per millimetre key) and oriented segments of every face line."""
     if not face_lines:
-        state.slot = np.empty((0, 2), dtype=np.int64)
+        state.segment_seeds = np.empty((0, 2), dtype=np.int64)
         return
     coords = np.vstack([line.coords for line in face_lines])
     keys = vertex_keys(coords)
@@ -79,13 +82,13 @@ def _build_face_graph(state: _State, face_lines: list[_Line]) -> None:
     n_seg = len(state.seg_nodes)
     state.conformal = np.ones(n_seg, dtype=bool)
     state.reason = np.zeros(n_seg, dtype=np.int8)
-    state.slot = np.full((n_seg, 2), -1, dtype=np.int64)
+    state.segment_seeds = np.full((n_seg, 2), -1, dtype=np.int64)
     n_vertices = len(state.vertices)
     state.vertex_ok = np.ones(n_vertices, dtype=bool)
-    state.tip = np.full(n_vertices, -1, dtype=np.int64)
+    state.free_end_seed = np.full(n_vertices, -1, dtype=np.int64)
 
 
-def _alias_shared(state: _State) -> None:
+def locate_shared_segments(state: ConstraintState) -> None:
     """The segments of each shared stretch, found on its owner line after the crossings.
 
     The stretch runs on the owner from the vertex nearest its start to the one
@@ -111,9 +114,9 @@ def _alias_shared(state: _State) -> None:
             segments.append(segment)
             families.append(stretch.family)
             reversed_.append(forward < 0)
-    state.alias_segment = np.asarray(segments, dtype=np.int64)
-    state.alias_family = np.asarray(families, dtype=np.int64)
-    state.alias_reversed = np.asarray(reversed_, dtype=bool)
+    state.shared_segment = np.asarray(segments, dtype=np.int64)
+    state.shared_family = np.asarray(families, dtype=np.int64)
+    state.shared_reversed = np.asarray(reversed_, dtype=bool)
 
 
 def _owner_path(coords: np.ndarray, stretch: np.ndarray, closed: bool) -> np.ndarray:
@@ -134,7 +137,7 @@ def _owner_path(coords: np.ndarray, stretch: np.ndarray, closed: bool) -> np.nda
     return forward if gap[0] <= gap[1] else backward
 
 
-def _place_mirror_seeds(state: _State) -> None:
+def place_mirror_seeds(state: ConstraintState) -> None:
     """Radii, sector rules, then the pairs of the segments that keep them and the tips."""
     if not len(state.seg_nodes):
         state.radius = np.empty(0)
@@ -159,16 +162,18 @@ def _place_mirror_seeds(state: _State) -> None:
             continue
         seed = _add_face_seeds(state, q[None, :], np.asarray([owners[0][0]]), owners[0][1])[0]
         for segment, side in owners:
-            state.slot[segment, side] = seed
+            state.segment_seeds[segment, side] = seed
     for side, points in ((0, plus), (1, minus)):
-        missing = np.flatnonzero(state.conformal & (state.slot[:, side] < 0))
+        missing = np.flatnonzero(state.conformal & (state.segment_seeds[:, side] < 0))
         if not missing.size:
             continue
-        state.slot[missing, side] = _add_face_seeds(state, points[missing], missing, side)
-    _place_tips(state)
+        state.segment_seeds[missing, side] = _add_face_seeds(state, points[missing], missing, side)
+    _place_free_end_seeds(state)
 
 
-def _add_face_seeds(state: _State, xy: np.ndarray, segments: np.ndarray, side: int) -> np.ndarray:
+def _add_face_seeds(
+    state: ConstraintState, xy: np.ndarray, segments: np.ndarray, side: int
+) -> np.ndarray:
     """Mirror seeds of *segments* on one side, sorted by line, segment, side."""
     sort = np.column_stack(
         [
@@ -257,7 +262,7 @@ class _Sectors:
 
 
 def _resolve_sectors(
-    state: _State, sectors: _Sectors, radius: np.ndarray
+    state: ConstraintState, sectors: _Sectors, radius: np.ndarray
 ) -> list[tuple[np.ndarray, list[tuple[int, int]]]]:
     """Keep, share or merge the seeds of every sector; adjusts *radius* in place.
 
@@ -329,13 +334,13 @@ def _resolve_sectors(
     return shared
 
 
-def _merge(state: _State, segments: np.ndarray) -> None:
+def _merge(state: ConstraintState, segments: np.ndarray) -> None:
     """Berge fusion: the segments lose their pairs, their cells become mixed."""
     for segment in np.unique(np.asarray(segments, dtype=np.int64)).tolist():
-        _demote(state, segment, _MERGED)
+        drop_segment_pair(state, segment, LOST_BY_MERGE)
 
 
-def _place_tips(state: _State) -> None:
+def _place_free_end_seeds(state: ConstraintState) -> None:
     """A tip seed past each free line end inside the domain."""
     degree = state.degree()
     ends = np.flatnonzero(degree == 1)
@@ -354,7 +359,7 @@ def _place_tips(state: _State) -> None:
     free, segments = free[keep], segments[keep]
     nodes = state.seg_nodes[segments]
     before = np.where(nodes[:, 0] == free, nodes[:, 1], nodes[:, 0])
-    xy = tip_seeds(state.vertices[free], state.vertices[before], state.radius[free])
+    xy = free_end_seeds(state.vertices[free], state.vertices[before], state.radius[free])
     sort = np.column_stack(
         [
             np.ones(len(free)),
@@ -363,9 +368,9 @@ def _place_tips(state: _State) -> None:
             np.where(nodes[:, 0] == free, 0.0, 1.0),
         ]
     )
-    state.tip[free] = state.seeds.add(
+    state.free_end_seed[free] = state.seeds.add(
         xy,
-        SeedRole.TIP,
+        SeedRole.FREE_END,
         state.h(xy),
         line=state.seg_line[segments],
         family=state.seg_family[segments],
@@ -449,7 +454,7 @@ def seed_angle(along: np.ndarray, radius: np.ndarray) -> np.ndarray:
     return np.arccos(np.clip(along / radius, -1.0, 1.0))
 
 
-def tip_seeds(end: np.ndarray, before: np.ndarray, radius: np.ndarray) -> np.ndarray:
+def free_end_seeds(end: np.ndarray, before: np.ndarray, radius: np.ndarray) -> np.ndarray:
     """The third seed of a free line end: on the outgoing tangent, on the end circle."""
     out = end - before
     out /= np.hypot(out[:, 0], out[:, 1])[:, None]

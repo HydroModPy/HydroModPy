@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.data.cases.geology import run_geology_property_case as demo
-from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
+from hydromodpy.spatial.field.geology.geology_mesh import regular_cell_mesh_over_bounds
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "geology_property_demo_brittany_signature.json"
@@ -128,8 +128,8 @@ def _compute_brittany_signature(tmp_path: Path) -> dict:
         identifier=str(loaded["field_id"]),
         target_n_cells=int(args.target_n_cells),
     )
-    mesh = GeologyStructuredMesh.from_bounds(
-        gdf.total_bounds, target_n_cells=int(args.target_n_cells)
+    mesh = regular_cell_mesh_over_bounds(
+        gdf.total_bounds, crs_wkt=gdf.crs.to_wkt(), target_n_cells=int(args.target_n_cells)
     )
     discretized = geology_field.on_mesh(
         mesh,
@@ -139,7 +139,8 @@ def _compute_brittany_signature(tmp_path: Path) -> dict:
     values = np.asarray(values_mesh.cell_values, dtype=float).reshape(-1)
 
     zone_counts = gdf["zone_key"].astype(str).value_counts()
-    mesh_shape = [int(v) for v in mesh.shape]
+    vertices = np.asarray(mesh.mesh.vertices, dtype=float)
+    mesh_shape = [np.unique(vertices[:, 1]).size, np.unique(vertices[:, 0]).size]
 
     return {
         "field_id": str(loaded["field_id"]),

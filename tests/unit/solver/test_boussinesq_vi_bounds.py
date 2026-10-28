@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.boussinesq.runtimes.vi_bounds import variable_bounds
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 
 def test_vi_bounds_relax_upper_obstacle_for_explicit_cauchy_drainage() -> None:

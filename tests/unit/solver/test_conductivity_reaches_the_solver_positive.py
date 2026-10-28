@@ -14,6 +14,7 @@ from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import cell_values
 
 
 def _heterogeneous_k() -> FieldParam:
@@ -38,8 +39,8 @@ def _k_with_an_uncovered_cell() -> tuple[FieldParam, np.ndarray]:
         field_id="field_geology",
         zone_keys=("granite", "schist"),
         fractions_by_zone={
-            "granite": np.asarray(mesh.to_cell_values(granite)),
-            "schist": np.asarray(mesh.to_cell_values(schist)),
+            "granite": np.asarray(cell_values(mesh, granite)),
+            "schist": np.asarray(cell_values(mesh, schist)),
         },
     )
     param = _heterogeneous_k()

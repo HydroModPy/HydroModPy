@@ -3,7 +3,7 @@
 Left: two Voronoi cells whose generators sit off the middle of their face. The
 line of the centres is normal to the face but crosses it off its middle.
 Right: the two triangles of the angle example. The line crosses the face in its
-middle but is not normal to it. Both measures come from mesh_qa.
+middle but is not normal to it. Both measures come from model/quality.py.
 """
 
 import matplotlib.pyplot as plt
@@ -12,15 +12,14 @@ from shapely.geometry import box
 
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import edge_bisection_offset, edge_nonorthogonality
+from hydromodpy.spatial.mesh.model.quality import edge_bisection_offset, edge_nonorthogonality
 
 
-def measures(mesh):
+def measures(mesh, centres):
     """Angle and bisection offset of the one interior face of a two-cell mesh."""
     vertices = np.asarray(mesh.vertices, dtype=float)[:, :2]
-    centres = np.column_stack(mesh.cell_centroids())
     geometry = derive_geometry(mesh)
     keep = geometry.edge_cells[:, 1] >= 0
     face = int(np.flatnonzero(keep)[0])
@@ -29,10 +28,13 @@ def measures(mesh):
     return vertices, centres, vertices[geometry.edge_nodes[face]], phi, beta
 
 
-def draw(ax, mesh, title):
-    vertices, centres, face, phi, beta = measures(mesh)
+def draw(ax, mesh, title, centres=None):
+    """Draw the two cells, the face and the centres: the vertex means unless given."""
+    if centres is None:
+        centres = np.column_stack(mesh.cell_centroids())
+    vertices, centres, face, phi, beta = measures(mesh, centres)
     for cell, colour in zip(mesh.flat_connectivity, ("C5", "C0"), strict=True):
-        ax.fill(*vertices[np.asarray(cell)].T, fc=(colour, 0.2), ec="C6", lw=0.8)
+        ax.fill(*vertices[cell[cell >= 0]].T, fc=(colour, 0.2), ec="C6", lw=0.8)
     ax.plot(*face.T, color="C1", lw=2.5)
     ax.annotate(
         "", centres[1], centres[0], arrowprops={"arrowstyle": "-|>", "color": "C0", "lw": 1.6}
@@ -52,7 +54,9 @@ fig, (pebi, tri) = plt.subplots(1, 2, figsize=(6.4, 3.0))
 
 # Two Voronoi cells, generators 0.6 above the middle of their face.
 seeds = np.array([[1.0, 1.6], [3.0, 1.6]])
-face, middle = draw(pebi, voronoi_planar_mesh(seeds, box(0.0, 0.0, 4.0, 2.0)), "Voronoi cells")
+face, middle = draw(
+    pebi, voronoi_planar_mesh(seeds, box(0.0, 0.0, 4.0, 2.0)), "Voronoi cells", centres=seeds
+)
 crossing = np.array([2.0, 1.6])
 pebi.annotate(
     "", crossing + [0.15, 0.0], middle + [0.15, 0.0], arrowprops={"arrowstyle": "<->", "lw": 1.0}

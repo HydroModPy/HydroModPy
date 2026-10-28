@@ -28,7 +28,7 @@ from hydromodpy.spatial.mesh.io.msh import (
 )
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.planning.input_mesh import read_input_triangulation
+from hydromodpy.spatial.mesh.planning.input_triangulation import read_input_triangulation
 
 
 def test_normalize_cell_type_supports_gmsh_aliases():

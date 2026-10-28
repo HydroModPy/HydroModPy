@@ -34,15 +34,14 @@ class _HalfDomainSupport:
         self.identifier = identifier
         self.default_cell_samples_per_axis = 4
 
-    def on_mesh(self, mesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh, *, cell_samples_per_axis: int = 10):
         _ = cell_samples_per_axis
-        x_centers, _ = mesh.cell_centroids()
-        x_centers = np.asarray(x_centers, dtype=float)
+        x_centers = np.asarray(cell_mesh.centers[:, 0], dtype=float)
         midpoint = 0.5 * (float(np.min(x_centers)) + float(np.max(x_centers)))
         left = (x_centers <= midpoint).astype(float)
         right = 1.0 - left
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=("left", "right"),
             fractions_by_zone={

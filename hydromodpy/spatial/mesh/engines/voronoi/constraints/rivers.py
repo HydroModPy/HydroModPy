@@ -14,18 +14,18 @@ import numpy as np
 import shapely
 from scipy.spatial import cKDTree
 
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import _Line
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import CanonicalLine
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import (
+    ConstraintState,
+    RiverChain,
+    RiverCrossing,
     SeedRole,
-    _Chain,
-    _chords_inside,
-    _cross,
-    _Crossing,
-    _rechain,
-    _State,
-    _unit,
+    chords_inside_domain,
+    cross_product_z,
+    remap_chain,
+    unit_vector,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import vertex_keys
+from hydromodpy.spatial.mesh.model.geometry import vertex_keys
 
 THALWEG_SHARE = 0.5
 """Two chain seeds of different lines closer than this share of the smaller size share a cell."""
@@ -34,7 +34,7 @@ CROSSING_ABSORB_SHARE = 0.4
 """Face vertices closer than this share of the local size to a crossing end are absorbed."""
 
 
-def _place_chain_seeds(state: _State, cell_lines: list[_Line]) -> None:
+def place_chain_seeds(state: ConstraintState, cell_lines: list[CanonicalLine]) -> None:
     """One seed per node of the cell lines; thalwegs closer than half a cell share one."""
     if not cell_lines:
         return
@@ -61,11 +61,13 @@ def _place_chain_seeds(state: _State, cell_lines: list[_Line]) -> None:
     for k, line in enumerate(cell_lines):
         seq = vertex_seed[bounds[k] : bounds[k + 1]]
         keep = np.concatenate([[True], seq[1:] != seq[:-1]])
-        state.chains.append(_Chain(line=line, ids=seq[keep], own=np.ones(int(keep.sum()), bool)))
+        state.chains.append(
+            RiverChain(line=line, ids=seq[keep], own=np.ones(int(keep.sum()), bool))
+        )
     _share_thalwegs(state, ids)
 
 
-def _share_thalwegs(state: _State, ids: np.ndarray) -> None:
+def _share_thalwegs(state: ConstraintState, ids: np.ndarray) -> None:
     """Drop the later of two chain seeds of different lines closer than half a cell.
 
     Two seeds share a cell only when the chord between them stays in the
@@ -94,27 +96,29 @@ def _share_thalwegs(state: _State, ids: np.ndarray) -> None:
                 continue
             gap = float(np.hypot(*(xy[i] - xy[j])))
             if gap < THALWEG_SHARE * min(size[i], size[j]) and gap < best_gap:
-                if _chords_inside(state, xy[i][None, :], xy[j][None, :]).all():
+                if chords_inside_domain(state, xy[i][None, :], xy[j][None, :]).all():
                     best, best_gap = i, gap
         if best >= 0:
             alive[j] = False
             seeds.alive[ids[j]] = False
-            seeds.rep[ids[j]] = ids[best]
+            seeds.successor[ids[j]] = ids[best]
             state.shared_cells += 1
     for chain in state.chains:
-        _rechain(state, chain)
+        remap_chain(state, chain)
 
 
 @dataclass
 class _FaceLine:
     """A face line being edited: its vertices (no closing repeat) and which are fixed."""
 
-    line: _Line
+    line: CanonicalLine
     points: list[np.ndarray]
     fixed: list[bool]
 
 
-def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossing]:
+def open_river_crossings(
+    state: ConstraintState, face_lines: list[CanonicalLine]
+) -> list[RiverCrossing]:
     """Open each river crossing of a face line into a short segment across the river.
 
     The crossing vertex ``X`` becomes ``X -/+ (h(X) / 2) t`` along the face
@@ -143,7 +147,7 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
         if not line.closed:
             fixed[0] = fixed[-1] = True
         editable.append(_FaceLine(line, list(points), fixed))
-    found: list[_Crossing] = []
+    found: list[RiverCrossing] = []
     face_by_key: dict[int, int] = {}
     for index, face in enumerate(editable):
         for key in vertex_keys(np.asarray(face.points)).tolist():
@@ -163,7 +167,7 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
             )
             if crossing is not None:
                 found.append(
-                    _Crossing(
+                    RiverCrossing(
                         chain=chain_index, seed=seed, upstream_left=crossing[0], keys=crossing[1]
                     )
                 )
@@ -173,7 +177,7 @@ def _crossing_face_lines(state: _State, face_lines: list[_Line]) -> list[_Crossi
     return found
 
 
-def _seed_of(state: _State, chain: _Chain, xy: np.ndarray) -> int:
+def _seed_of(state: ConstraintState, chain: RiverChain, xy: np.ndarray) -> int:
     """The seed of a vertex of a chain line, ``-1`` when the vertex lost its seed."""
     key = int(vertex_keys(xy)[0])
     keys = vertex_keys(state.seeds.xy[chain.ids])
@@ -182,7 +186,7 @@ def _seed_of(state: _State, chain: _Chain, xy: np.ndarray) -> int:
 
 
 def _open_crossing(
-    state: _State, face: _FaceLine, key: int, before: np.ndarray, after: np.ndarray
+    state: ConstraintState, face: _FaceLine, key: int, before: np.ndarray, after: np.ndarray
 ) -> tuple[bool, tuple[int, int]] | None:
     """Replace the crossing vertex of *face* by two ends across the river, or ``None``."""
     points = face.points
@@ -197,12 +201,12 @@ def _open_crossing(
         return None
     x = points[index]
     prev_pt, next_pt = points[(index - 1) % n], points[(index + 1) % n]
-    tangent = _unit(x - prev_pt) + _unit(next_pt - x)
+    tangent = unit_vector(x - prev_pt) + unit_vector(next_pt - x)
     if np.hypot(*tangent) == 0.0:
         return None
-    tangent = _unit(tangent)
-    side_before = _cross(tangent, before - x)
-    side_after = _cross(tangent, after - x)
+    tangent = unit_vector(tangent)
+    side_before = cross_product_z(tangent, before - x)
+    side_after = cross_product_z(tangent, after - x)
     size = float(state.h(x)[0])
     if side_before * side_after >= 0.0 or min(abs(side_before), abs(side_after)) <= 1.0e-9 * size:
         return None
@@ -245,7 +249,7 @@ def _open_crossing(
     return side_before > 0.0, (int(keys[0]), int(keys[1]))
 
 
-def _apply_crossings(state: _State, crossings: list[_Crossing]) -> None:
+def join_crossing_pairs(state: ConstraintState, crossings: list[RiverCrossing]) -> None:
     """Put the pair of each crossing segment into its river chain, upstream side first."""
     if not crossings:
         return
@@ -258,7 +262,7 @@ def _apply_crossings(state: _State, crossings: list[_Crossing]) -> None:
         if not match.size:
             continue
         segment = int(match[0])
-        if not state.conformal[segment] or (state.slot[segment] < 0).any():
+        if not state.conformal[segment] or (state.segment_seeds[segment] < 0).any():
             continue
         chain = state.chains[crossing.chain]
         xy = state.seeds.xy[chain.ids]
@@ -273,9 +277,11 @@ def _apply_crossings(state: _State, crossings: list[_Crossing]) -> None:
         if hi - lo + 1 != where.size or lo == 0 or hi == len(chain.ids) - 1:
             continue
         span = chain.ids[lo : hi + 1]
-        if not chain.own[lo : hi + 1].all() or any(_uses(state, s) != 1 for s in span.tolist()):
+        if not chain.own[lo : hi + 1].all() or any(
+            _count_in_chains(state, s) != 1 for s in span.tolist()
+        ):
             continue
-        plus, minus = state.slot[segment]
+        plus, minus = state.segment_seeds[segment]
         pair = [plus, minus] if crossing.upstream_left else [minus, plus]
         crossing.before_ids, crossing.before_own = chain.ids.copy(), chain.own.copy()
         crossing.removed = span.copy()
@@ -287,6 +293,6 @@ def _apply_crossings(state: _State, crossings: list[_Crossing]) -> None:
     state.crossings = crossings
 
 
-def _uses(state: _State, seed: int) -> int:
+def _count_in_chains(state: ConstraintState, seed: int) -> int:
     """How many chain entries hold *seed*."""
     return sum(int(np.count_nonzero(chain.ids == seed)) for chain in state.chains)

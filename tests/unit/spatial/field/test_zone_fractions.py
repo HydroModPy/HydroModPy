@@ -15,7 +15,6 @@ from rasterio.transform import from_origin
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.spatial.domain.spatial_support import GeneratedBandsSupportField
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.field.zone_fractions import ZonePolygons, zone_fractions
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -93,7 +92,7 @@ class _VectorSupport:
             [_shifted(zones[key]) for key in keys], keys, zone_keys=keys
         )
 
-    def on_mesh(self, mesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh, *, cell_samples_per_axis: int = 10):
         raise AssertionError("a vector support is never sampled")
 
 
@@ -261,7 +260,7 @@ def test_a_support_without_polygons_keeps_its_sampling() -> None:
     )
 
     fractions = zone_fractions(cell_mesh, bands)
-    sampled = bands.on_mesh(to_field_mesh(cell_mesh.mesh), cell_samples_per_axis=6)
+    sampled = bands.on_mesh(cell_mesh, cell_samples_per_axis=6)
 
     assert fractions.source == "sampled"
     for key in ("low", "high"):

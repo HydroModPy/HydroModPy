@@ -24,7 +24,7 @@ from hydromodpy.solver.modflow6.builders.solver_options import (
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import nonorthogonality_summary
+from hydromodpy.spatial.mesh.model.quality import nonorthogonality_summary
 from tests._helpers.mf6_toy_models import toy_model, two_triangle_model
 from tests._helpers.solver_meshes import solver_mesh_from
 

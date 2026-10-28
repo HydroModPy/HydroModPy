@@ -41,7 +41,7 @@ def _mesh(nrow: int, ncol: int, nlay: int = 2):
 def test_the_wall_faces_are_listed_lake_side_first() -> None:
     nrow, ncol = 5, 11
     mesh = _mesh(nrow, ncol)
-    centres = np.asarray(mesh.cell_centroids(), dtype=float)
+    centres = np.asarray(mesh.cell_centers(), dtype=float)
     lake = [r * ncol + c for r in (1, 2, 3) for c in (1, 2, 3)]
     # The wall runs between columns 3 and 4, with the lake (west) on its left.
     x = 0.5 * (centres[3, 0] + centres[4, 0])

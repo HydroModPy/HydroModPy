@@ -103,7 +103,7 @@ def test_interleaved_node_counts_keep_every_node_and_their_values(tmp_path):
     )
 
     assert recovered.cell_types == (CellType.POLYGON,)
-    assert [list(c) for c in recovered.flat_connectivity] == [
+    assert [[int(v) for v in c if v >= 0] for c in recovered.flat_connectivity] == [
         [0, 1, 2],
         [3, 4, 5, 6, 7],
         [8, 9, 10, 11],

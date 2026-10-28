@@ -233,9 +233,9 @@ def network_comparison_from_run(
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
     from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
-    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-    from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
+    from hydromodpy.spatial.mesh.cells.crossed_by_lines import line_crossing_cell_mask
+    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
+    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)
@@ -376,7 +376,7 @@ def _delineated_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.n
 
 def _watershed_catchment(sim: Run, polygons: np.ndarray, mesh_crs: str) -> np.ndarray | None:
     """Project the delineated watershed onto the cells, by their centre."""
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
+    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
 
     try:
         watershed = sim.geographic("watershed")

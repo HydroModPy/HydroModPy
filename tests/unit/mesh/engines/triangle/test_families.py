@@ -25,6 +25,7 @@ from hydromodpy.physics.flow.cutoff_wall_shore import SnappedWall, snap_wall_to_
 from hydromodpy.solver.modflow6.builders._lake_geometry import downstream_of_wall, wall_leaks
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 from hydromodpy.spatial.mesh import registry
+from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace
 from hydromodpy.spatial.mesh.engines.face_families import box_side_edges, edge_lookup
 from hydromodpy.spatial.mesh.engines.triangle.engine import (
     TriangleMeshEngine,
@@ -34,10 +35,9 @@ from hydromodpy.spatial.mesh.engines.triangle.families import chains_of
 from hydromodpy.spatial.mesh.engines.triangle.msh_groups import families_from_labels
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import (
     BARRIER_FAMILY,

@@ -202,7 +202,7 @@ def test_a_cell_field_that_is_not_one_value_per_cell_stays_behind() -> None:
     mesh = HydroMesh(
         vertices=mesh.vertices,
         cell_blocks=mesh.cell_blocks,
-        cell_data={**mesh.cell_data, "disv_cell_center": np.array([[0.5, 0.3], [1.0, 0.7]])},
+        cell_data={**mesh.cell_data, "centre_xy": np.array([[0.5, 0.3], [1.0, 0.7]])},
     )
 
     assert set(to_meshio(mesh).cell_data) == {"k"}

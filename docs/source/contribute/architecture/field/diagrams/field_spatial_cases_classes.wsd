@@ -1,30 +1,24 @@
 @startuml
 title Field Square Case - Relation To Core
 
-package "hydromodpy.spatial.field.core.field_mesh" {
-  abstract class BaseFieldMesh {
-    +n_cells
-    +cells
-    +to_cell_values(values)
-    +attach_cell_values(values, label=None)
-  }
+package "hydromodpy.spatial.mesh.model.planar_cell_mesh" {
+  class PlanarCellMesh
+}
 
-  abstract class FieldMesh {
-    +from_unit_square(target_n_cells, mesh_kind="structured", seed=42)
-    +from_dict(config)
-  }
+package "hydromodpy.spatial.field.core.mesh_cells" {
+  class "cell_mesh_from_edges(x_edges, y_edges, crs_wkt)" as cell_mesh_from_edges << (F,#FFFFFF) function >>
 }
 
 package "hydromodpy.spatial.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
-    +on_mesh(mesh, cell_samples_per_axis=10)
+    +on_mesh(cell_mesh, cell_samples_per_axis=10)
     +from_dict(config)
     +from_toml(toml_path, section)
   }
 
   abstract class FieldDiscretization {
-    +mesh: BaseFieldMesh
+    +mesh: PlanarCellMesh
     +field_id: str
     +aggregation_name()
     +weighted_components()
@@ -57,44 +51,28 @@ package "hydromodpy.spatial.field.cases.square.field_spatial_square" {
     +zone2_name: str
     +zone_id(x, y)
     +zone_display(n_plot=320)
-    +on_mesh(mesh, cell_samples_per_axis=10)
+    +on_mesh(cell_mesh, cell_samples_per_axis=10)
   }
 }
 
 package "hydromodpy.spatial.field.cases.square.field_mesh_square" {
   class FieldMeshSquare {
-    +from_unit_square(target_n_cells, mesh_kind, seed)
+    +from_unit_square(target_n_cells, mesh_kind, rng_manager)
     +from_dict(config)
+    +from_toml(toml_path, section="mesh")
   }
-}
-
-package "hydromodpy.spatial.field.meshes.structured_field_mesh" {
-  class StructuredFieldMesh
-}
-
-package "hydromodpy.spatial.field.meshes.triangular_field_mesh" {
-  abstract class _TriangularBaseFieldMesh
-  class TriangularStructuredFieldMesh
-  class TriangularUnstructuredFieldMesh
 }
 
 Field <|-- FieldSquare
 FieldDiscretization <|-- WeightedAverageFieldDiscretization
-FieldDiscretization --> BaseFieldMesh
+FieldDiscretization --> PlanarCellMesh
 
 FieldSquare --> WeightedAverageFieldDiscretization : on_mesh(...)
 
-FieldMesh <|.. FieldMeshSquare
-BaseFieldMesh <|-- StructuredFieldMesh
-BaseFieldMesh <|-- _TriangularBaseFieldMesh
-_TriangularBaseFieldMesh <|-- TriangularStructuredFieldMesh
-_TriangularBaseFieldMesh <|-- TriangularUnstructuredFieldMesh
+FieldMeshSquare ..> cell_mesh_from_edges : structured
+FieldMeshSquare ..> PlanarCellMesh : builds
 
-FieldMeshSquare ..> StructuredFieldMesh : builds
-FieldMeshSquare ..> TriangularStructuredFieldMesh : builds
-FieldMeshSquare ..> TriangularUnstructuredFieldMesh : builds
-
-FieldParam ..> BaseFieldMesh : homogeneous mapping
+FieldParam ..> PlanarCellMesh : homogeneous mapping
 FieldParam ..> WeightedAverageFieldDiscretization : heterogeneous mapping
 
 @enduml

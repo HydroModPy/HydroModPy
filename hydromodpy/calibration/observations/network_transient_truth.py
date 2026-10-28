@@ -17,7 +17,7 @@ from hydromodpy.calibration.observations.network_cost import (
     network_cost,
     positive_outflow,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import cell_areas, padded_rows
+from hydromodpy.spatial.mesh.model.geometry import cell_areas, padded_rows
 
 
 @dataclass(frozen=True, slots=True)

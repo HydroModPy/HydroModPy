@@ -17,6 +17,7 @@ from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
 from hydromodpy.spatial.field.geology import GeologyField
 
 
@@ -57,7 +58,7 @@ def _reference_on_mesh(
     zone_keys = field.zone_keys
     fractions_flat = {key: np.zeros(int(mesh.n_cells), dtype=float) for key in zone_keys}
 
-    for cell in mesh.cells:
+    for cell in mesh_cells(mesh):
         x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
         zones = np.asarray(field.zone_id(x_s, y_s), dtype=object).reshape(-1)
         valid = np.array([str(z).strip() != "" for z in zones], dtype=bool)
@@ -71,7 +72,7 @@ def _reference_on_mesh(
             fractions_flat[key][cell.index] = float(count) / float(n_valid)
 
     fractions_by_zone = {
-        key: np.asarray(mesh.to_cell_values(values), dtype=float)
+        key: np.asarray(cell_values(mesh, values), dtype=float)
         for key, values in fractions_flat.items()
     }
 
@@ -113,7 +114,8 @@ def test_geology_field_from_raster_to_mesh_field(tmp_path: Path):
     )
     values_mesh = param.to_mesh_field(discretization)
     values = np.asarray(values_mesh.cell_values, dtype=float)
-    assert values.shape == (4, 4)
+    assert values.shape == (16,)
+    values = values.reshape(4, 4)
     assert np.allclose(values[:, :2], 10.0)
     assert np.allclose(values[:, 2:], 3.0)
 

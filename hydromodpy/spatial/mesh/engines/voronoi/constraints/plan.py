@@ -41,30 +41,30 @@ from shapely.geometry import LineString
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.engines.face_families import request_zone_names
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.boundary_seeds import _place_boundary_seeds
-from hydromodpy.spatial.mesh.engines.voronoi.constraints.conflicts import _settle
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.boundary_seeds import place_boundary_seeds
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.conflicts import resolve_conflicts
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.face_pairs import (
-    _alias_shared,
-    _build_face_graph,
-    _place_mirror_seeds,
+    build_face_graph,
+    locate_shared_segments,
+    place_mirror_seeds,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.lines import (
-    _canonical_lines,
-    _family_order,
+    canonical_lines,
+    family_sort_key,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.rivers import (
-    _apply_crossings,
-    _crossing_face_lines,
-    _place_chain_seeds,
+    join_crossing_pairs,
+    open_river_crossings,
+    place_chain_seeds,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import (
-    _MERGED,
-    _YIELDED,
+    LOST_BY_CONFLICT,
+    LOST_BY_MERGE,
+    ConstraintState,
     SeedRole,
-    _conformal_vertices,
-    _State,
+    conformal_vertices,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, SizeSampler
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import LocalFrame, SizeSampler
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 
@@ -108,8 +108,8 @@ class FaceLineState:
     ``-1`` when the segment has none. A conformal vertex has every incident
     segment conformal and its sphere complete (tip or boundary end seeds at a
     line end): definition 2 is checked on it alone. Segment
-    ``alias_segment[k]`` also belongs to family ``alias_family[k]``, whose line
-    runs against it where ``alias_reversed[k]``.
+    ``shared_segment[k]`` also belongs to family ``shared_family[k]``, whose line
+    runs against it where ``shared_reversed[k]``.
     """
 
     vertices: np.ndarray
@@ -122,9 +122,9 @@ class FaceLineState:
     segment_line: np.ndarray
     zone_left: np.ndarray
     zone_right: np.ndarray
-    alias_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
-    alias_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
-    alias_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
+    shared_segment: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    shared_family: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    shared_reversed: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=bool))
 
 
 @dataclass(frozen=True, eq=False)
@@ -150,7 +150,7 @@ class ConstraintPlan:
         return {
             "n_seeds_chain": float(np.count_nonzero(role == SeedRole.CHAIN)),
             "n_seeds_mirror": float(np.count_nonzero(role == SeedRole.MIRROR)),
-            "n_seeds_tip": float(np.count_nonzero(role == SeedRole.TIP)),
+            "n_seeds_tip": float(np.count_nonzero(role == SeedRole.FREE_END)),
             "n_seeds_boundary": float(np.count_nonzero(role == SeedRole.BOUNDARY)),
         }
 
@@ -164,23 +164,23 @@ def place_constraints(request: MeshRequest, frame: LocalFrame, h: SizeSampler) -
     xmin, ymin, xmax, ymax = domain.bounds
     tol = BOUNDARY_TOL_REL * max(xmax - xmin, ymax - ymin)
     zone_names = request_zone_names(request)
-    specs = sorted(request.lines, key=_family_order)
+    specs = sorted(request.lines, key=family_sort_key)
     family_names = tuple(spec.name for spec in specs)
-    state = _State(domain=domain, tol=tol, h=h, family_names=family_names)
-    lines, shared, notes = _canonical_lines(specs, frame, domain, tol, zone_names)
+    state = ConstraintState(domain=domain, tol=tol, h=h, family_names=family_names)
+    lines, shared, notes = canonical_lines(specs, frame, domain, tol, zone_names)
     state.lines = lines
     state.shared = shared
     cell_lines = [line for line in lines if specs[line.family].intent == "cell"]
     face_lines = [line for line in lines if specs[line.family].intent == "face"]
-    _place_chain_seeds(state, cell_lines)
-    crossings = _crossing_face_lines(state, face_lines)
-    _build_face_graph(state, face_lines)
-    _alias_shared(state)
-    _place_mirror_seeds(state)
-    _apply_crossings(state, crossings)
-    _settle(state)
-    _place_boundary_seeds(state, step=h.h_min / 4.0, pixel=_pixel(request))
-    _settle(state)
+    place_chain_seeds(state, cell_lines)
+    crossings = open_river_crossings(state, face_lines)
+    build_face_graph(state, face_lines)
+    locate_shared_segments(state)
+    place_mirror_seeds(state)
+    join_crossing_pairs(state, crossings)
+    resolve_conflicts(state)
+    place_boundary_seeds(state, step=h.h_min / 4.0, pixel=_pixel(request))
+    resolve_conflicts(state)
     return _assemble(state, specs, zone_names, notes)
 
 
@@ -190,7 +190,7 @@ def _pixel(request: MeshRequest) -> float:
 
 
 def _assemble(
-    state: _State,
+    state: ConstraintState,
     specs: Sequence[LineFamilySpec],
     zone_names: tuple[str, ...],
     notes: tuple[str, ...],
@@ -202,14 +202,16 @@ def _assemble(
     order = alive[np.lexsort((key[:, 3], key[:, 2], key[:, 1], key[:, 0]))]
     final = np.full(len(seeds.xy), -1, dtype=np.int64)
     final[order] = np.arange(order.size)
-    slot = np.where(state.slot >= 0, final[np.maximum(state.slot, 0)], -1)
+    segment_seeds = np.where(
+        state.segment_seeds >= 0, final[np.maximum(state.segment_seeds, 0)], -1
+    )
     pair_id = np.full(order.size, -1, dtype=np.int64)
     for side in (1, 0):
-        has = slot[:, side] >= 0
+        has = segment_seeds[:, side] >= 0
         segments = np.flatnonzero(has)[::-1]
-        pair_id[slot[segments, side]] = segments
+        pair_id[segment_seeds[segments, side]] = segments
     vertex_id = np.where(
-        np.isin(seeds.role[order], (SeedRole.TIP, SeedRole.BOUNDARY)), seeds.vertex[order], -1
+        np.isin(seeds.role[order], (SeedRole.FREE_END, SeedRole.BOUNDARY)), seeds.vertex[order], -1
     )
     constraint = ConstraintSeeds(
         xy=seeds.xy[order],
@@ -221,14 +223,14 @@ def _assemble(
         family=seeds.family[order].astype(np.int16),
     )
     conformal_vertex = np.zeros(len(state.vertices), dtype=bool)
-    conformal_vertex[_conformal_vertices(state)] = True
+    conformal_vertex[conformal_vertices(state)] = True
     by_gid = {line.gid: line for line in state.lines}
     faces = FaceLineState(
         vertices=state.vertices,
         radius=state.radius,
         conformal=conformal_vertex,
         segment_nodes=state.seg_nodes,
-        segment_seeds=slot,
+        segment_seeds=segment_seeds,
         segment_conformal=state.conformal.copy(),
         segment_family=state.seg_family,
         segment_line=state.seg_line,
@@ -238,9 +240,9 @@ def _assemble(
         zone_right=np.asarray(
             [by_gid[g].zone_right for g in state.seg_line.tolist()], dtype=np.int32
         ),
-        alias_segment=state.alias_segment,
-        alias_family=state.alias_family,
-        alias_reversed=state.alias_reversed,
+        shared_segment=state.shared_segment,
+        shared_family=state.shared_family,
+        shared_reversed=state.shared_reversed,
     )
     chains = _cell_chains(state, specs, final, order)
     return ConstraintPlan(
@@ -256,7 +258,7 @@ def _assemble(
 
 
 def _cell_chains(
-    state: _State, specs: Sequence[LineFamilySpec], final: np.ndarray, order: np.ndarray
+    state: ConstraintState, specs: Sequence[LineFamilySpec], final: np.ndarray, order: np.ndarray
 ) -> tuple[CellChain, ...]:
     """Each river chain on the final seed ids, with the lateral offset of each cell."""
     chains = []
@@ -284,7 +286,7 @@ def _cell_chains(
 
 
 def _source_lines(
-    state: _State, specs: Sequence[LineFamilySpec]
+    state: ConstraintState, specs: Sequence[LineFamilySpec]
 ) -> dict[str, tuple[LineString, ...]]:
     """The lines each family was meshed on, local frame (face lines without the crossings)."""
     out: dict[str, list[LineString]] = {spec.name: [] for spec in specs}
@@ -299,7 +301,7 @@ def _source_lines(
 
 
 def _family_stats(
-    state: _State,
+    state: ConstraintState,
     seeds: ConstraintSeeds,
     faces: FaceLineState,
     specs: Sequence[LineFamilySpec],
@@ -308,7 +310,7 @@ def _family_stats(
     stats: dict[str, dict[str, float]] = {}
     open_end = state.degree() == 1
     open_end[state.end_vertices] = False
-    open_end &= state.tip < 0
+    open_end &= state.free_end_seed < 0
     for index, spec in enumerate(specs):
         if spec.intent == "cell":
             crossings = [
@@ -319,7 +321,7 @@ def _family_stats(
             offsets = np.asarray(
                 [
                     shapely.distance(
-                        shapely.points(state.seeds.xy[state.slot[c.segment]]),
+                        shapely.points(state.seeds.xy[state.segment_seeds[c.segment]]),
                         LineString(state.chains[c.chain].line.coords),
                     ).max()
                     for c in crossings
@@ -338,7 +340,7 @@ def _family_stats(
             }
             continue
         mine = state.seg_family == index
-        mine[state.alias_segment[state.alias_family == index]] = True
+        mine[state.shared_segment[state.shared_family == index]] = True
         touched = np.zeros(len(state.vertices), dtype=bool)
         touched[state.seg_nodes[mine].ravel()] = True
         length = float(state.seg_length[mine].sum())
@@ -350,14 +352,14 @@ def _family_stats(
             if length > 0.0
             else float("nan"),
             "def2_vertices": float(np.count_nonzero(touched & faces.conformal)),
-            "merged_circles": float(np.count_nonzero(mine & (state.reason == _MERGED))),
+            "merged_circles": float(np.count_nonzero(mine & (state.reason == LOST_BY_MERGE))),
             "shrunk_circles": float(np.count_nonzero(touched & state.shrunk)),
             "free_ends": float(
-                np.count_nonzero((seeds.role == SeedRole.TIP) & (seeds.family == index))
+                np.count_nonzero((seeds.role == SeedRole.FREE_END) & (seeds.family == index))
             ),
             "boundary_ends": float(
                 np.count_nonzero((seeds.role == SeedRole.BOUNDARY) & (seeds.family == index)) // 2
             ),
-            "yielded_segments": float(np.count_nonzero(mine & (state.reason == _YIELDED))),
+            "yielded_segments": float(np.count_nonzero(mine & (state.reason == LOST_BY_CONFLICT))),
         }
     return stats

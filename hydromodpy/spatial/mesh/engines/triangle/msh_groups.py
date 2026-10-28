@@ -11,13 +11,9 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.engines.face_families import (
-    EdgeLookup,
-    FamilyEdges,
-    components_without,
-    oriented_rows,
-)
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.cells.regions import components_without
+from hydromodpy.spatial.mesh.engines.face_families import EdgeLookup, FamilyEdges, oriented_rows
+from hydromodpy.spatial.mesh.model.geometry import DerivedGeometry
 
 __all__ = ["families_from_labels"]
 

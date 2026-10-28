@@ -6,19 +6,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from shapely.geometry import LineString, Point, Polygon
-from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.planning.geology import GeologyLines
-from hydromodpy.spatial.mesh.planning.refinement import RefinementZone
+from hydromodpy.spatial.mesh.planning.geology_contacts import GeologyLines
+from hydromodpy.spatial.mesh.planning.lake_structures import LakeStructure
+from hydromodpy.spatial.mesh.planning.refinement_zones import RefinementZone
 from hydromodpy.spatial.mesh.request import InputTriangulation, RasterGridSpec
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 
-__all__ = ["LakeStructure", "PlanningInputs"]
-
-LakeStructure = tuple[str, BaseGeometry, float, float]
-"""``(label, geometry, cell size [m], buffer [m])`` of a hydraulic structure of a lake."""
+__all__ = ["PlanningInputs"]
 
 
 @dataclass(frozen=True)

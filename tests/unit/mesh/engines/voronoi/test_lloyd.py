@@ -14,10 +14,9 @@ from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
     ConstraintSeeds,
     FaceLineState,
 )
-from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import DiskSet
 from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
-    BERGE_BALL_SCALE,
+    BERGE_CIRCLE_SCALE,
     GABRIEL_SCALE,
     LLOYD_CAP,
     PROTECTION_SHARE,
@@ -25,6 +24,7 @@ from hydromodpy.spatial.mesh.engines.voronoi.lloyd import (
     relax,
     weighted_centroids,
 )
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 from hydromodpy.spatial.mesh.request import SizeField
 from hydromodpy.spatial.mesh.resample import positions_at_local_size
@@ -107,7 +107,7 @@ def _plan() -> ConstraintPlan:
 def test_the_disks_scale_the_berge_gabriel_and_protection_radii() -> None:
     hard, protect = constraint_disks(_plan())
     assert np.allclose(hard.center, [[0.0, 0.0], [4.0, 10.0]])
-    assert np.allclose(hard.radius, [BERGE_BALL_SCALE * 5.0, GABRIEL_SCALE * 8.0])
+    assert np.allclose(hard.radius, [BERGE_CIRCLE_SCALE * 5.0, GABRIEL_SCALE * 8.0])
     assert np.allclose(protect.center, _plan().seeds.xy)
     assert np.allclose(protect.radius, PROTECTION_SHARE * np.array([20.0, 30.0, 30.0]))
 

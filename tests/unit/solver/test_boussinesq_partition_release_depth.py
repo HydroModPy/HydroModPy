@@ -20,7 +20,7 @@ from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
 )
 from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
 from hydromodpy.solver.boussinesq.solver_contract import build_runtime_options
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 DEPTH_M = DEFAULT_PARTITION_RELEASE_DEPTH_M
 

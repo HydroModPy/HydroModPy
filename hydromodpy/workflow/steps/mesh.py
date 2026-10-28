@@ -20,7 +20,7 @@ from hydromodpy.spatial.mesh.cache import (
     save_cell_mesh,
 )
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.model.mesh_qa import quality_warnings
+from hydromodpy.spatial.mesh.model.quality import quality_warnings
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request, smoothed_catchment
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
@@ -28,7 +28,7 @@ from hydromodpy.workflow.steps.mesh_inputs import planning_inputs
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-    from hydromodpy.spatial.mesh.planning.refinement import RefinementZone
+    from hydromodpy.spatial.mesh.planning.refinement_zones import RefinementZone
     from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
     from hydromodpy.spatial.mesh.request import MeshRequest
 
@@ -50,7 +50,7 @@ def step_mesh(ctx: WorkflowContext, *, resume: bool = False) -> None:
     it once per request: the project cache answers every later run. With
     ``resume`` a missing cache entry is reported, since meshing again then gives
     a mesh the earlier results were not computed on. A mesh whose cells cross a
-    quality threshold of :mod:`hydromodpy.spatial.mesh.model.mesh_qa` is logged
+    quality threshold of :mod:`hydromodpy.spatial.mesh.model.quality` is logged
     with a warning and used as it is.
     """
     mesh_cfg = ctx.cfg.mesh or MeshConfig()

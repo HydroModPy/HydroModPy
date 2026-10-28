@@ -209,9 +209,9 @@ class Modflow6Prt:
 
         if selected.size <= max_count:
             return selected
-        centroids = np.asarray(
-            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
-        ).reshape(int(self.model_modflow.ncpl), 2)
+        centroids = np.asarray(self.model_modflow.solver_mesh.cell_centers(), dtype=float).reshape(
+            int(self.model_modflow.ncpl), 2
+        )
         coords = centroids[selected]
         finite = np.all(np.isfinite(coords), axis=1)
         if np.count_nonzero(finite) < max_count:
@@ -304,9 +304,9 @@ class Modflow6Prt:
         return 0
 
     def _build_packagedata(self) -> list[tuple]:
-        centroids = np.asarray(
-            self.model_modflow.solver_mesh.cell_centroids(), dtype=float
-        ).reshape(int(self.model_modflow.ncpl), 2)
+        centroids = np.asarray(self.model_modflow.solver_mesh.cell_centers(), dtype=float).reshape(
+            int(self.model_modflow.ncpl), 2
+        )
         cells = self._select_release_cells()
         packagedata: list[tuple] = []
         for iprt, cell_id in enumerate(cells):

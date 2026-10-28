@@ -22,15 +22,15 @@ import numpy as np
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
-    build_runtime_bundle_from_cell_mesh,
     family_edge_indices,
+    mesh_arrays_from_cell_mesh,
 )
+from hydromodpy.spatial.mesh.cells.boundary import SIDE_IDS, label_cells, side_cells
+from hydromodpy.spatial.mesh.cells.locate import locate_cells
 from hydromodpy.spatial.mesh.io.bundle import (
     CatchmentMeshBundle,
     cell_mesh_from_bundle,
 )
-from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
-from hydromodpy.spatial.mesh.ops.family_cells import SIDE_IDS, label_cells, side_cells
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
@@ -220,14 +220,14 @@ class BoussinesqMesh:
         than pre-exported CSV tables. The river is the ``rivers`` face family of
         the cell mesh.
         """
-        runtime_bundle = build_runtime_bundle_from_cell_mesh(
+        arrays = mesh_arrays_from_cell_mesh(
             cell_mesh,
             domain=domain,
             hydraulic_conductivity_m_s=hydraulic_conductivity_m_s,
             storage_coefficient=storage_coefficient,
             source_path=source_path,
         )
-        return cls(**assemble_mesh_arrays_from_bundle(runtime_bundle), cell_mesh=cell_mesh)
+        return cls(**arrays, cell_mesh=cell_mesh)
 
     @classmethod
     def from_bundle(cls, bundle: CatchmentMeshBundle) -> BoussinesqMesh:

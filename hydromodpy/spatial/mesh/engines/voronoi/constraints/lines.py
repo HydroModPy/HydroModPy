@@ -16,21 +16,27 @@ import shapely
 from shapely.geometry import Polygon
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame
-from hydromodpy.spatial.mesh.model.derived_geometry import vertex_keys
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import LocalFrame
+from hydromodpy.spatial.mesh.model.geometry import vertex_keys
 from hydromodpy.spatial.mesh.request import LineFamilySpec
 
-__all__ = ["FACE_PRIORITY"]
+__all__ = [
+    "FACE_PRIORITY",
+    "CanonicalLine",
+    "SharedStretch",
+    "canonical_lines",
+    "family_sort_key",
+]
 
 FACE_PRIORITY = ("lakes", "barriers", "geology", "watershed_boundary")
 """Face families from the highest priority to the lowest; a family
 not named here comes after them, by name. A river wins over the others,
-except a barrier or a lake shore (``HOLDING_FAMILIES``). A barrier outranks
+except a barrier or a lake shore (``RIVER_PROOF_FAMILIES``). A barrier outranks
 a geology contact: a barrier segment that yields leaves a cell across the
 barrier."""
 
 
-def _family_order(spec: LineFamilySpec) -> tuple[int, int, str]:
+def family_sort_key(spec: LineFamilySpec) -> tuple[int, int, str]:
     """Cell families first, by name; face families by priority, then by name."""
     if spec.intent == "cell":
         return (0, 0, spec.name)
@@ -40,7 +46,7 @@ def _family_order(spec: LineFamilySpec) -> tuple[int, int, str]:
 
 
 @dataclass
-class _Line:
+class CanonicalLine:
     """One canonical line of the request, in the local frame."""
 
     gid: int
@@ -58,7 +64,7 @@ class _Line:
 
 
 @dataclass(frozen=True)
-class _Shared:
+class SharedStretch:
     """A stretch of a face line of family ``family`` that runs on line ``owner``."""
 
     family: int
@@ -73,13 +79,13 @@ def _line_key(coords: np.ndarray) -> tuple[float, ...]:
     return (*head, *coords.ravel().tolist())
 
 
-def _canonical_lines(
+def canonical_lines(
     specs: Sequence[LineFamilySpec],
     frame: LocalFrame,
     domain: Polygon,
     tol: float,
     zone_names: tuple[str, ...],
-) -> tuple[list[_Line], list[_Shared], tuple[str, ...]]:
+) -> tuple[list[CanonicalLine], list[SharedStretch], tuple[str, ...]]:
     """Every line in the local frame, families in priority order, lines sorted in each.
 
     A part of a face line that runs along the domain boundary is removed: the
@@ -87,9 +93,9 @@ def _canonical_lines(
     of an earlier face line is removed too and returned as a shared stretch.
     """
     boundary = domain.boundary
-    lines: list[_Line] = []
-    shared: list[_Shared] = []
-    held: dict[tuple[int, int], int] = {}
+    lines: list[CanonicalLine] = []
+    shared: list[SharedStretch] = []
+    segment_owner: dict[tuple[int, int], int] = {}
     notes: list[str] = []
     for index, spec in enumerate(specs):
         entries = []
@@ -108,14 +114,14 @@ def _canonical_lines(
                 removed += gone
             for piece, piece_closed in pieces:
                 if spec.intent == "cell":
-                    lines.append(_Line(len(lines), index, piece, piece_closed, left, right))
+                    lines.append(CanonicalLine(len(lines), index, piece, piece_closed, left, right))
                     continue
-                for owner, run, run_closed in _own_runs(piece, piece_closed, held):
+                for owner, run, run_closed in _own_runs(piece, piece_closed, segment_owner):
                     if owner >= 0:
-                        shared.append(_Shared(index, owner, run))
+                        shared.append(SharedStretch(index, owner, run))
                         continue
-                    lines.append(_Line(len(lines), index, run, run_closed, left, right))
-                    _hold(held, run, len(lines) - 1)
+                    lines.append(CanonicalLine(len(lines), index, run, run_closed, left, right))
+                    _claim_segments(segment_owner, run, len(lines) - 1)
         if removed > 0.0:
             notes.append(
                 f"{spec.name}: {removed:.1f} m of face line along the domain boundary "
@@ -130,21 +136,25 @@ def _segment_keys(coords: np.ndarray) -> list[tuple[int, int]]:
     return [(min(a, b), max(a, b)) for a, b in zip(keys[:-1], keys[1:], strict=True)]
 
 
-def _hold(held: dict[tuple[int, int], int], coords: np.ndarray, gid: int) -> None:
+def _claim_segments(
+    segment_owner: dict[tuple[int, int], int], coords: np.ndarray, gid: int
+) -> None:
     """Record the segments of line *gid*, so a later face line leaves them to it."""
     for pair in _segment_keys(coords):
-        held.setdefault(pair, gid)
+        segment_owner.setdefault(pair, gid)
 
 
 def _own_runs(
-    coords: np.ndarray, closed: bool, held: dict[tuple[int, int], int]
+    coords: np.ndarray, closed: bool, segment_owner: dict[tuple[int, int], int]
 ) -> list[tuple[int, np.ndarray, bool]]:
     """The runs of a face line: ``(owner, coords, closed)``, owner ``-1`` where it is its own.
 
     A run whose segments an earlier line already holds carries that line as
     its owner. A ring with no such segment stays one closed run.
     """
-    owner = np.asarray([held.get(pair, -1) for pair in _segment_keys(coords)], dtype=np.int64)
+    owner = np.asarray(
+        [segment_owner.get(pair, -1) for pair in _segment_keys(coords)], dtype=np.int64
+    )
     if (owner < 0).all():
         return [(-1, coords, closed)]
     count = owner.size

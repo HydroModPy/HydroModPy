@@ -331,7 +331,7 @@ def _discretize_heterogeneous_source(
     the cell polygons the ``"area"`` method weighs pixels by.
     """
     sim_window = model.time_grid.window if model.time_grid is not None else None
-    centers = model.solver_mesh.cell_centroids()
+    centers = model.solver_mesh.cell_centers()
 
     # Prefer fields; fall back to located points.
     if getattr(source, "has_fields", False):

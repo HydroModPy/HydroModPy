@@ -23,10 +23,11 @@ from hydromodpy.spatial.mesh.cache import cache_key
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning import size_terms
-from hydromodpy.spatial.mesh.planning.geology import contact_lines
+from hydromodpy.spatial.mesh.planning.geology_contacts import contact_lines
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
+from hydromodpy.spatial.mesh.planning.lake_structures import LakeStructure
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
-from hydromodpy.spatial.mesh.planning.refinement import RefinementZone, load_refinement_zones
+from hydromodpy.spatial.mesh.planning.refinement_zones import RefinementZone, load_refinement_zones
 from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
 from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, InputTriangulation
@@ -77,7 +78,9 @@ def _inputs(
         river_trace=SimpleNamespace(lines=(river,)),
         watershed=_CATCHMENT,
         lakes=lakes,
-        lake_structures=(("voile:1", LineString([(700.0, 180.0), (800.0, 180.0)]), 12.0, 30.0),),
+        lake_structures=(
+            LakeStructure("voile", "1", LineString([(700.0, 180.0), (800.0, 180.0)]), 12.0, 30.0),
+        ),
         geology=contact_lines(geology),
         refinement_zones=zones,
         input_triangulation=triangulation,
@@ -323,7 +326,7 @@ def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Pat
     """A point or a line is widened by its buffer; a polygon already is a zone."""
     sill = box(600.0, 300.0, 700.0, 350.0)
     inputs = dataclasses.replace(
-        _inputs(tmp_path), lake_structures=(("sill:a-b", sill, 12.0, 30.0),)
+        _inputs(tmp_path), lake_structures=(LakeStructure("sill", "a-b", sill, 12.0, 30.0),)
     )
 
     request = plan_mesh_request(_TRIANGLE, inputs)

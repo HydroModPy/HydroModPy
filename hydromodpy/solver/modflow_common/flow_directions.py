@@ -30,9 +30,9 @@ from hydromodpy.core.descent import Descent, build_descent
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import resolve_outlet
 from hydromodpy.solver.modflow_common.catchment_basin import (
-    _cell_areas,
-    _domain_is_the_catchment,
-    _outlet_search,
+    domain_is_the_catchment,
+    finite_cell_areas,
+    outlet_search,
 )
 from hydromodpy.solver.modflow_common.channel_tree import ChannelTree, project_channel_tree
 
@@ -110,8 +110,8 @@ def build_solver_mesh_descent(
         )
 
     descent = flood(None)
-    if _domain_is_the_catchment(geographic):
-        near, within = _outlet_search(geographic, solver_mesh, descent)
+    if domain_is_the_catchment(geographic):
+        near, within = outlet_search(geographic, solver_mesh, descent)
         if near is None and within is None:
             logger.warning(
                 "geographic.domain_extent = 'watershed' but the run has neither an outlet "
@@ -123,7 +123,7 @@ def build_solver_mesh_descent(
                 near=near,
                 within=within,
                 adjacency=descent.adjacency,
-                cell_area_m2=_cell_areas(solver_mesh),
+                cell_area_m2=finite_cell_areas(solver_mesh),
             )
             descent = flood(outlet)
             logger.info(

@@ -24,7 +24,7 @@ from hydromodpy.core.stream_heads import (
     trace_from_heads,
 )
 from hydromodpy.core.stream_recharge import criterion_mean_recharge
-from hydromodpy.spatial.mesh.model.derived_geometry import padded_rows
+from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
 if TYPE_CHECKING:
     from hydromodpy.calibration.config import CalibOutputNetwork
@@ -63,11 +63,10 @@ def mean_recharge_m_s(model: Any) -> float:
 
 
 def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
-    """Return a rectangular face-node table, padding ragged rows with ``-1``.
+    """Return the face-node table of the mesh, ``-1`` in the free slots of a row.
 
-    A Voronoi dual holds cells of different arity, so its connectivity comes
-    back ragged; the routing primitives read a rectangular table and ignore the
-    negative padding, which is the convention the persisted mesh already uses.
+    The routing primitives read a rectangular table and ignore the negative
+    padding, which is the convention of the planar mesh and of the persisted one.
     """
     connectivity = planar_mesh.flat_connectivity
     if len(connectivity) == 0:
@@ -211,10 +210,10 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
             "the network criterion needs the solver mesh of the run: the backend "
             "exposes no 'solver_mesh' attribute."
         )
-    if not hasattr(solver_mesh, "cell_centroids"):
+    if not hasattr(solver_mesh, "cell_centers"):
         raise ValueError(
             "the network criterion needs the cell centres the solver mesh sampled its top "
-            "at: the mesh exposes no 'cell_centroids' method, and deriving them from the "
+            "at: the mesh exposes no 'cell_centers' method, and deriving them from the "
             "vertices would route on other points than the elevations were read at."
         )
     planar_mesh = solver_mesh.planar_mesh
@@ -222,7 +221,7 @@ def network_maps_from_run(run_ctx: RunContext, output: CalibOutputNetwork) -> Ne
     # The centres MODFLOW 6 itself sees: on a Voronoi grid these are the
     # generator seeds written to the DISV file, which is where the mesh
     # sampled the top the criterion routes on. The crossing rule joins them.
-    centres = np.asarray(solver_mesh.cell_centroids(), dtype=float)
+    centres = np.asarray(solver_mesh.cell_centers(), dtype=float)
     # Resolved once per trial. Neither the mask projections below nor the
     # caller in metrics/solver_extract.py re-resolves them.
     resolved = resolve_observed_network(run_ctx, output)

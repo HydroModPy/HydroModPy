@@ -95,7 +95,7 @@ def _fake_run_ctx(bench, *, reference=None, generated=None):
         planar_mesh=planar_mesh,
         n_cells=N_CELLS,
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-        cell_centroids=lambda: centroids,
+        cell_centers=lambda: centroids,
     )
     model = SimpleNamespace(
         solver_mesh=solver_mesh, recharge=1.0e-8, lake_cell_ids_by_lake={}, dam_foot_cells={}
@@ -313,7 +313,7 @@ class TestTheRasterizationReachesTheTrial:
         assert seen["rasterization"] == "touch"
         assert projection.rasterization == "touch"
         centres = np.asarray(seen["cell_centres"])
-        np.testing.assert_array_equal(centres, run_ctx.model.solver_mesh.cell_centroids())
+        np.testing.assert_array_equal(centres, run_ctx.model.solver_mesh.cell_centers())
 
     def test_the_default_rule_is_heads(self) -> None:
         assert _network_output(stream_geometry_path="map.gpkg").observed_rasterization == ("heads")

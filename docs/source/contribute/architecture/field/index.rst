@@ -7,8 +7,7 @@ Open it when you want:
 
 - the reusable field abstractions behind ``Field`` and
   ``FieldParam``;
-- the concrete mesh implementations reused by geology and solver
-  adapters;
+- how a support samples the cells of a ``PlanarCellMesh``;
 - the bridge from field-side zoning to solver-side discretization
   workflows.
 
@@ -20,10 +19,12 @@ Code map
 - ``hydromodpy/spatial/field/core/field_param.py`` and
   ``field_param_config.py``: heterogeneous parameter contract
   consumed downstream by solvers.
-- ``hydromodpy/spatial/field/meshes/``: concrete structured,
-  triangular, polygon and Gmsh planar (``gmsh_planar_mesh.py``) mesh
-  implementations, their conversion to and from the ``HydroMesh``
-  (``field_mesh_adapter.py``) and ``plot_cell_values`` (``plotting.py``).
+- ``hydromodpy/spatial/field/core/mesh_cells.py``: the cells of a
+  ``PlanarCellMesh`` as a support samples them (``mesh_cells``), the
+  check of one value per cell (``cell_values``) and ``MeshWithValues``.
+- ``hydromodpy/spatial/field/zone_fractions.py``: the share of each
+  zone of a support in each cell, which the solvers read.
+- ``hydromodpy/spatial/field/plotting.py``: ``plot_cell_values``.
 - ``hydromodpy/spatial/field/geology/``: geology-backed
   specialisations built on the same field contract.
 
@@ -33,8 +34,7 @@ Recommended reading path
 1. ``hydromodpy/spatial/field/README.md``
 2. ``hydromodpy/spatial/field/core/field_spatial.py``
 3. ``hydromodpy/spatial/field/core/field_param.py``
-4. one mesh implementation under
-   ``hydromodpy/spatial/field/meshes/``
+4. ``hydromodpy/spatial/field/core/mesh_cells.py``
 5. ``hydromodpy/spatial/field/cases/square/`` for a concrete runnable
    example
 
@@ -50,7 +50,7 @@ Square case
 -----------
 
 This view shows how the square example specialises the core
-abstractions and which concrete mesh implementations it reuses.
+abstractions and builds its unit-square meshes.
 
 .. uml:: diagrams/field_spatial_cases_classes.wsd
 

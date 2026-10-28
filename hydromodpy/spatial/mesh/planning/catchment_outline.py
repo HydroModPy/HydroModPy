@@ -31,8 +31,8 @@ from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.spatial.mesh.mesh_config import MeshFamiliesConfig
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
-from hydromodpy.spatial.mesh.planning.cleanup import (
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
+from hydromodpy.spatial.mesh.planning.geometry_cleanup import (
     CLEANUP_PIXEL_SHARE,
     GeometryCleanup,
     OutlineSmoothing,

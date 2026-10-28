@@ -28,6 +28,8 @@ from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import RasterSupport, Surface
 from hydromodpy.spatial.domain import Domain, DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
+from hydromodpy.spatial.mesh.cells.boundary import side_cells, stream_cells
+from hydromodpy.spatial.mesh.cells.locate import locate_cells
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.io.bundle import cell_mesh_from_bundle
 from hydromodpy.spatial.mesh.model.cell_types import CellType
@@ -38,9 +40,7 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.spatial.mesh.ops.cell_location import locate_cells
-from hydromodpy.spatial.mesh.ops.family_cells import side_cells, stream_cells
-from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.dual_of_triangles import dual_of_the_triangles
 from tests._helpers.mesh_cases import grid_over, mesh_request
@@ -174,8 +174,8 @@ def _model_on(ctx) -> object:
 
 def _dual_polygon(ctx, cell: int) -> Polygon:
     planar = ctx.solver_mesh.planar_mesh
-    nodes = np.asarray(planar.flat_connectivity[cell], dtype=int)
-    return Polygon(np.asarray(planar.vertices, dtype=float)[nodes, :2])
+    row = planar.flat_connectivity[cell]
+    return Polygon(np.asarray(planar.vertices, dtype=float)[row[row >= 0], :2])
 
 
 POINTS = [(250.0, 250.0), (61.0, 433.0), (377.0, 120.0), (430.0, 470.0), (190.0, 300.0)]
@@ -197,7 +197,7 @@ def test_the_triangle_cell_mesh_carries_the_river_of_its_triangles() -> None:
     cell_mesh = ctx.solver_mesh.cell_mesh
 
     assert cell_mesh.n_cells == triangles.n_cells == ctx.solver_mesh.n_cells
-    centre_x, centre_y = ctx.solver_mesh.cell_centroids().T
+    centre_x, centre_y = ctx.solver_mesh.cell_centers().T
     assert np.array_equal(centre_x, [cell.centroid_x for cell in bundle.cells])
     assert np.array_equal(centre_y, [cell.centroid_y for cell in bundle.cells])
     river_cells = {
@@ -213,7 +213,7 @@ def test_a_point_lands_in_the_dual_cell_that_holds_it(x_m: float, y_m: float) ->
     cell = int(locate_cells(ctx.solver_mesh.cell_mesh, [(x_m, y_m)], allow_nearest=False)[0])
 
     assert _dual_polygon(ctx, cell).covers(Point(x_m, y_m))
-    center_x, center_y = ctx.solver_mesh.cell_centroids().T
+    center_x, center_y = ctx.solver_mesh.cell_centers().T
     nearest = int(np.argmin((center_x - x_m) ** 2 + (center_y - y_m) ** 2))
     assert cell == nearest
 
@@ -300,7 +300,7 @@ def _square_dual(seeds: np.ndarray, size_m: float = 400.0) -> PlanarCellMesh:
     mesh = voronoi_planar_mesh(seeds, box(0.0, 0.0, size_m, size_m))
     cell_mesh = build_planar_cell_mesh(
         mesh,
-        np.asarray(mesh.cell_data["disv_cell_center"], dtype=float).reshape(-1, 2),
+        np.asarray(seeds, dtype=float),
         center_kind="generator",
         crs_wkt=TEST_CRS_WKT,
         identity=MeshIdentity("voronoi", "0", "", None),

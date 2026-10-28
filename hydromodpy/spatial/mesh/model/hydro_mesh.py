@@ -12,6 +12,7 @@ is expressed by the *cell types* stored in ``cell_blocks`` and the optional
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -27,25 +28,24 @@ class CellBlock:
     A mesh may contain several blocks (e.g. triangles + quads in a hybrid
     mesh, or wedges across multiple physical groups).  Most HydroModPy meshes
     carry a single block.
+
+    ``connectivity`` is one ``(n_cells, k)`` int table, one row of node indices
+    per cell. A ``POLYGON`` block has as many columns as its largest cell: the
+    nodes of a cell fill its row from the left and the free slots hold ``-1``.
+    One node array per cell is accepted for a polygon block and padded so.
     """
 
     cell_type: CellType
-    # Rectangular ``(n_cells, nodes_per_cell)`` int array for fixed-size cells, or a
-    # tuple of 1D int arrays (one per cell) for a ragged ``POLYGON`` block.
-    connectivity: np.ndarray | tuple[np.ndarray, ...]
+    connectivity: np.ndarray
 
     def __post_init__(self) -> None:
-        """Normalize and validate the connectivity block (rectangular or ragged)."""
+        """Normalize and validate the connectivity table."""
         ct = self.cell_type
         if not isinstance(ct, CellType):
             object.__setattr__(self, "cell_type", CellType.from_string(str(ct)))
             ct = self.cell_type
         if ct.is_ragged:
-            cells = tuple(np.asarray(c, dtype=int).ravel() for c in self.connectivity)
-            for c in cells:
-                if c.size < 3:
-                    raise ValueError(f"{ct.value} cell needs >= 3 node indices, got {c.size}")
-            object.__setattr__(self, "connectivity", cells)
+            object.__setattr__(self, "connectivity", _polygon_rows(self.connectivity, ct))
             return
         conn = np.asarray(self.connectivity, dtype=int)
         if conn.ndim != 2 or conn.shape[1] != ct.nodes_per_cell:
@@ -58,9 +58,37 @@ class CellBlock:
     @property
     def n_cells(self) -> int:
         """Number of cells in this block."""
-        if self.cell_type.is_ragged:
-            return len(self.connectivity)
         return int(self.connectivity.shape[0])
+
+
+def _polygon_rows(
+    connectivity: np.ndarray | Sequence[np.ndarray], cell_type: CellType
+) -> np.ndarray:
+    """Return polygon cells as one int table padded with ``-1`` on the right.
+
+    A per-cell node array holds node ids only, so a negative entry in it is refused.
+    """
+    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
+        table = np.asarray(connectivity, dtype=int).copy()
+    else:
+        cells = [np.asarray(c, dtype=int).ravel() for c in connectivity]
+        if any(c.size and int(c.min()) < 0 for c in cells):
+            raise ValueError(
+                f"connectivity in {cell_type.value} block references node indices outside vertices"
+            )
+        lengths = np.fromiter((c.size for c in cells), dtype=int, count=len(cells))
+        table = np.full((len(cells), int(lengths.max(initial=0))), -1, dtype=int)
+        if cells:
+            owner = np.repeat(np.arange(len(cells)), lengths)
+            starts = np.cumsum(lengths) - lengths
+            table[owner, np.arange(owner.size) - starts[owner]] = np.concatenate(cells)
+    used = table >= 0
+    counts = used.sum(axis=1)
+    if np.any(counts < 3):
+        raise ValueError(f"{cell_type.value} cell needs >= 3 node indices, got {int(counts.min())}")
+    if np.any(table[~used] != -1) or np.any(used[:, 1:] & ~used[:, :-1]):
+        raise ValueError(f"{cell_type.value} rows hold their nodes first, then -1 padding")
+    return table
 
 
 @dataclass(frozen=True)
@@ -102,16 +130,9 @@ class HydroMesh:
 
         n_nodes = verts.shape[0]
         for block in self.cell_blocks:
-            if block.cell_type.is_ragged:
-                out_of_range = any(
-                    c.size and (int(c.min()) < 0 or int(c.max()) >= n_nodes)
-                    for c in block.connectivity
-                )
-            else:
-                out_of_range = bool(
-                    np.any(block.connectivity < 0) or np.any(block.connectivity >= n_nodes)
-                )
-            if out_of_range:
+            conn = block.connectivity
+            low = -1 if block.cell_type.is_ragged else 0
+            if np.any(conn < low) or np.any(conn >= n_nodes):
                 raise ValueError(
                     f"connectivity in {block.cell_type.value} block references "
                     "node indices outside vertices"
@@ -156,21 +177,25 @@ class HydroMesh:
         return next(iter(types))
 
     @property
-    def flat_connectivity(self) -> np.ndarray | tuple[np.ndarray, ...]:
-        """Connectivity across all blocks as a per-cell sequence.
+    def flat_connectivity(self) -> np.ndarray:
+        """Connectivity across all blocks as one ``(n_cells, k)`` int table.
 
-        Returns a rectangular ``(n_cells, k)`` array for a single fixed-size
-        block (the common case), or a tuple of 1D arrays for a ragged
-        ``POLYGON`` block. Either way it is indexable per cell (``conn[ic]``)
-        and has ``len(conn) == n_cells``, which is all the DISV adapter needs.
-        Mixing ragged and rectangular blocks is not supported here.
+        A single block is returned as it is. Blocks of different widths are
+        padded with ``-1`` to the widest one, like the rows of a polygon block.
         """
         if len(self.cell_blocks) == 1:
-            block = self.cell_blocks[0]
-            if block.cell_type.is_ragged:
-                return block.connectivity
-            return np.asarray(block.connectivity, dtype=int)
-        return np.vstack([b.connectivity for b in self.cell_blocks]).astype(int, copy=False)
+            return self.cell_blocks[0].connectivity
+        width = max(b.connectivity.shape[1] for b in self.cell_blocks)
+        return np.vstack(
+            [
+                np.pad(
+                    b.connectivity,
+                    ((0, 0), (0, width - b.connectivity.shape[1])),
+                    constant_values=-1,
+                )
+                for b in self.cell_blocks
+            ]
+        ).astype(int, copy=False)
 
     def bounds(self) -> tuple[float, ...]:
         """Return ``(xmin, ymin, [zmin,] xmax, ymax, [zmax])``."""
@@ -179,22 +204,17 @@ class HydroMesh:
         return mins + maxs
 
     def cell_centroids(self) -> tuple[np.ndarray, np.ndarray]:
-        """Per-cell ``(x, y)`` centers, matching the field-mesh signature.
+        """Per-cell ``(x, y)`` mean of the cell vertices.
 
-        Returns the explicit ``cell_data["disv_cell_center"]`` (the generator
-        seeds, exact for a Voronoi/PEBI DISV) when present, otherwise the
-        per-cell vertex mean. Ragged-safe (handles ``POLYGON`` blocks).
+        The cell centres the solvers read are ``PlanarCellMesh.centers``, the
+        Voronoi generators for a Voronoi mesh.
         """
-        centers = self.cell_data.get("disv_cell_center")
-        if centers is not None:
-            centers = np.asarray(centers, dtype=float)
-            return centers[:, 0].copy(), centers[:, 1].copy()
         conn = self.flat_connectivity
         verts = self.vertices
         xs = np.empty(self.n_cells, dtype=float)
         ys = np.empty(self.n_cells, dtype=float)
         for ic in range(self.n_cells):
-            nodes = np.asarray(conn[ic], dtype=int)
+            nodes = conn[ic][conn[ic] >= 0]
             xs[ic] = float(verts[nodes, 0].mean())
             ys[ic] = float(verts[nodes, 1].mean())
         return xs, ys

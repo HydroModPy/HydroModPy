@@ -124,7 +124,7 @@ flow.param.angle2.field.value
 
 ```{hmp-tested-by}
 hydromodpy.solver.modflow6.builders.solver_options
-hydromodpy.spatial.mesh.model.mesh_qa
+hydromodpy.spatial.mesh.model.quality
 ```
 
 ## In the code
@@ -132,7 +132,7 @@ hydromodpy.spatial.mesh.model.mesh_qa
 | What | Where |
 |---|---|
 | The rule and its limits | `hydromodpy/solver/modflow6/builders/solver_options.py` (`resolve_xt3d_decision`, `_recommend_xt3d`, `k_tensor_is_tilted`, `k_tensor_is_off_axis`, `_NONORTH_FRAC_GT30_TRIGGER`, `_NONORTH_P95_TRIGGER_DEG`) |
-| The angle of each connection | `hydromodpy/spatial/mesh/model/mesh_qa.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`) |
+| The angle of each connection | `hydromodpy/spatial/mesh/model/quality.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`) |
 | The IMS promotion | `solver_options.py` (`resolve_ims_complexity`) |
 | The regression with and without XT3D | `tests/regression/fast/intercomparison/test_xt3d_irregular_tri_fast_regression.py` |
 

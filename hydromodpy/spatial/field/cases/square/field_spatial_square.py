@@ -16,11 +16,12 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_section
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 SUPPORTED_LINES = (
     "diag_main",
@@ -118,14 +119,14 @@ class FieldSquare(Field):
             zone2_name=self.zone2_name,
         )
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         """
         Build field-to-mesh discretization using intra-cell sampling fractions.
         """
-        frac_zone1 = np.empty(mesh.n_cells, dtype=float)
-        frac_zone2 = np.empty(mesh.n_cells, dtype=float)
+        frac_zone1 = np.empty(cell_mesh.n_cells, dtype=float)
+        frac_zone2 = np.empty(cell_mesh.n_cells, dtype=float)
 
-        for cell in mesh.cells:
+        for cell in mesh_cells(cell_mesh):
             x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=cell_samples_per_axis)
             zones = self.zone_id(x_s, y_s)
 
@@ -137,11 +138,11 @@ class FieldSquare(Field):
             frac_zone2[cell.index] = float(c2) / float(total)
 
         fractions_by_zone = {
-            self.zone1_name: np.asarray(mesh.to_cell_values(frac_zone1), dtype=float),
-            self.zone2_name: np.asarray(mesh.to_cell_values(frac_zone2), dtype=float),
+            self.zone1_name: np.asarray(cell_values(cell_mesh, frac_zone1), dtype=float),
+            self.zone2_name: np.asarray(cell_values(cell_mesh, frac_zone2), dtype=float),
         }
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=(self.zone1_name, self.zone2_name),
             fractions_by_zone=fractions_by_zone,
