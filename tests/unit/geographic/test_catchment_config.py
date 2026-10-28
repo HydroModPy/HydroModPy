@@ -10,7 +10,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.geographic.geographic_config import DemCatchDef, GeographicConfig
+from hydromodpy.spatial.geographic.catchment_config import DemCatchDef
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
 
 def _outlet(**keys) -> dict:

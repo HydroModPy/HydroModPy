@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import InfluenceCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import InfluenceCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.influence import (
     evaluate_influence_criterion,
 )

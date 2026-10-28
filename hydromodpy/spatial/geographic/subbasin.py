@@ -23,7 +23,7 @@ import pandas as pd
 # HydroModPy
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
+from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 
 logger = get_logger(__name__)
 

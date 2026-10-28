@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.spatial.site_selection.config import InfluenceCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import InfluenceCriteriaConfig
 from hydromodpy.spatial.site_selection.domain.attribute_values import first_bool
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,

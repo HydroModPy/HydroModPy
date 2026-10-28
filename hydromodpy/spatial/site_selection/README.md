@@ -1,7 +1,7 @@
 # Site Selection Package
 
 This package holds the site selection: `hmp site select <file>` runs it, with
-the primitives below and the runner `runner.py`. It builds or filters basin
+the primitives below and the runner of `hydromodpy/workflow/site_selection/`. It builds or filters basin
 candidates and explains each decision. It does not expand sites into
 simulation recipes and it does not run solvers: the selected sites enter the
 workspace site catalog (`data/sites/catalog.csv`, `hydromodpy.data.sites`)
@@ -18,8 +18,6 @@ The package is responsible for:
 - auditable criterion components and selection decisions;
 - CSV/JSONL exports for selected and rejected sites;
 - the official `site_selection_manifest.json` contract;
-- the run of a selection file (`runner.py`) and its data adapters
-  (`runner_data.py`);
 - an optional static HTML review page generated from the manifest.
 
 The package is not responsible for:
@@ -32,9 +30,8 @@ The package is not responsible for:
   package never imports the reporting layer;
 - MF6, Boussinesq or calibration execution.
 
-Observation and DEM loading lives in `runner_data.py`, which calls the data
-manager stack (`hydromodpy.data`, through the documented `spatial -> data`
-tolerance of the layer matrix) and passes `PointRecord` objects into the
+Observation and DEM loading lives in `hydromodpy/workflow/site_selection/data_loading.py`,
+which calls the data manager stack (`hydromodpy.data`) and passes `PointRecord` objects into the
 spatial build pipeline.
 
 ## Running a selection

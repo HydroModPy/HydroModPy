@@ -26,6 +26,23 @@ catchment as ``watershed.tif`` and ``watershed.shp``, flat in a directory that
 twenty other artefacts share, and every golden in the tree reads them there.
 That shape is passed to the engine as a
 :class:`~hydromodpy.spatial.terrain.CatchmentLayout`.
+
+Import and normalize an externally provided catchment polygon.
+
+Purpose
+-------
+Support workflows where catchment delineation is already available outside
+HydroModPy and only needs to be standardized for internal pipeline contracts.
+
+Pipeline position
+-----------------
+Used when ``catch_def='from_polyg_shp'`` in the geographic workflow.
+
+Main responsibilities
+---------------------
+- copy the input polygon to canonical ``watershed.shp`` location,
+- remove duplicate attribute columns often found in shapefile exports,
+- enforce CRS metadata expected by downstream steps.
 """
 
 from __future__ import annotations
@@ -33,6 +50,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+import geopandas as gpd
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
@@ -51,6 +70,14 @@ from hydromodpy.spatial.terrain import (
     SnapMethod,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
+
+
+def write_shapefile_without_duplicate_columns(src_path: str | Path, dst_path: str | Path) -> None:
+    """Read a shapefile and write it back after dropping duplicate column names."""
+    gdf = gpd.read_file(src_path)
+    gdf = gdf.loc[:, ~gdf.columns.duplicated()]
+    gdf.to_file(dst_path)
+
 
 logger = get_logger(__name__)
 
@@ -227,3 +254,39 @@ def extract_catchment_from_point(
         y_outlet_snapped=catchment.snapped_y,
         snap_distance_m=catchment.snap_distance_m,
     )
+
+
+def extract_catchment_from_polygon(
+    *,
+    polyg_shp_path: str | Path,
+    output_shp_path: str | Path,
+    crs_project: str | None = None,
+) -> str:
+    """Copy and sanitize one input catchment polygon shapefile.
+
+    Parameters
+    ----------
+    polyg_shp_path:
+        Source catchment polygon path.
+    output_shp_path:
+        Canonical destination path (usually ``watershed.shp``).
+    crs_project:
+        Optional CRS override to enforce on output metadata.
+
+    Returns
+    -------
+    str
+        Path to the sanitized output shapefile.
+    """
+    src = Path(polyg_shp_path)
+    dst = Path(output_shp_path)
+    if not src.exists():
+        raise FileNotFoundError(f"polyg_shp_path not found: {src}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+
+    # Keep schema stable by dropping duplicate column names.
+    write_shapefile_without_duplicate_columns(src, dst)
+
+    # Enforce output CRS metadata when requested by caller.
+    ensure_crs(dst, crs_project)
+    return str(dst)

@@ -45,7 +45,7 @@ class LoadResultProto(Protocol):
 
 @runtime_checkable
 class FieldParamLike(Protocol):
-    """Structural view of ``spatial.field.core.field_param.FieldParam``.
+    """Structural view of ``spatial.field.field_param.FieldParam``.
 
     Physics-layer code consumes field-parameter objects through this
     Protocol so the physics package never imports the spatial package.

@@ -208,7 +208,7 @@ def test_a_field_declares_its_search_space_and_its_sampling() -> None:
 
 
 def test_the_hydraulic_conductivity_declares_a_log_search() -> None:
-    from hydromodpy.spatial.field.core._field_param_sections import FieldHomogeneousSection
+    from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 
     extra = FieldHomogeneousSection.model_fields["value"].json_schema_extra
     declared = extra["calibrable"]  # type: ignore[index]
@@ -217,7 +217,7 @@ def test_the_hydraulic_conductivity_declares_a_log_search() -> None:
 
 
 def test_the_documentation_catalogue_prints_the_new_words() -> None:
-    from hydromodpy.spatial.field.core._field_param_sections import FieldHomogeneousSection
+    from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
     from tools.docs import field_registry
 
     leaf = field_registry._leaf_info(

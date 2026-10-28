@@ -5,8 +5,8 @@ import pytest
 from pyproj import Transformer
 from shapely.geometry import LineString, Point
 
-from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.candidates.reference_network import (
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.hydrology.reference_network import (
     load_reference_network_for_outlets,
     score_outlets_against_reference_network,
     snap_outlet_to_reference_network,

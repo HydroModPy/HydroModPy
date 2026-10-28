@@ -29,6 +29,8 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     canonical_feature_name_for_role,
     default_vector_filename_for_role,
     hydrographic_network_naming_contract,
+)
+from hydromodpy.spatial.geographic.core.metric_crs import (
     measure_linework_length_m,
     measure_polygon_area_m2,
     project_gdf_for_metric_operations,

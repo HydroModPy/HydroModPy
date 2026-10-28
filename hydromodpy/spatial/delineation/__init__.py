@@ -7,8 +7,8 @@ Runtime entry points:
 - ``WhiteboxRasterBackend`` / ``WhiteboxFlowBackend`` /
   ``WhiteboxDelineationBackend`` - thematic sub-backends accessible via the
   facade attributes ``raster`` / ``flow`` / ``delineation``.
-- ``get_backend(name)`` - resolve a registered backend by name with
-  graceful fallback when an optional dependency is missing.
+- ``delineation.registry.get_backend(name)`` - resolve a registered backend
+  by name with graceful fallback when an optional dependency is missing.
 - ``get_whitebox_backend()`` - shortcut returning the default
   workflows-backed facade.
 """
@@ -16,12 +16,6 @@ Runtime entry points:
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-
-from hydromodpy.spatial.delineation.registry import (
-    available_backends,
-    get_backend,
-    register_backend,
-)
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.delineation.whitebox_workflows_backend import (
@@ -33,11 +27,8 @@ __all__ = [
     "WhiteboxFlowBackend",
     "WhiteboxRasterBackend",
     "WhiteboxWorkflowsBackend",
-    "available_backends",
     "clear_whitebox_backend_cache",
-    "get_backend",
     "get_whitebox_backend",
-    "register_backend",
 ]
 
 

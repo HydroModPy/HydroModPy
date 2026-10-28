@@ -385,7 +385,7 @@ def _release_session_scratch(trial_ctx: TrialContext | None) -> None:
     ``None`` when the named evaluator prepared no model: nothing was built, so
     there is nothing to release.
     """
-    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+    from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 
     if trial_ctx is None:
         return

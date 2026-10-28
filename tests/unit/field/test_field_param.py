@@ -1,4 +1,4 @@
-"""One field parameter, homogeneous or per zone, in SI, :mod:`hydromodpy.spatial.field.core.field_param`."""
+"""One field parameter, homogeneous or per zone, in SI, :mod:`hydromodpy.spatial.field.field_param`."""
 
 from __future__ import annotations
 
@@ -8,11 +8,9 @@ import numpy as np
 import pytest
 
 import hydromodpy.spatial.field as field_package
-from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
+from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 from tests._helpers.field_cases import two_zone_square
 
 GRANITE_SCHIST = {"granite": 10.0, "micaschists": 2.0}

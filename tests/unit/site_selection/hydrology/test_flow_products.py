@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import HydrologyConfig
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )

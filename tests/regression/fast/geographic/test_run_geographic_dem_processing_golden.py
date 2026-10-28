@@ -8,7 +8,9 @@ import numpy as np
 import pytest
 import rasterio
 
-from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
+from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
+    run_geographic_case_from_toml,
+)
 from tests._helpers.geographic_cases import NAIZIN, outlet_case_toml, write_json
 from tests._helpers.whitebox import configure_whitebox_single_thread
 from tests.regression.golden_utils import load_json_payload, resolve_tiered_golden_file

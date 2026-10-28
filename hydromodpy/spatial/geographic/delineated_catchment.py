@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
+from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 
 if TYPE_CHECKING:
     import geopandas as gpd

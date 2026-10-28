@@ -173,7 +173,7 @@ here would shift by one octant. The two are one 45 degree rotation apart, so a
 mix-up does not fail: every descent simply walks beside the talweg instead of
 down it, and the flow paths look plausible while being wrong. The convention is
 verified against the solver by
-``tests/unit/geographic/test_d8_pointer_convention.py``, which tilts a plane in
+``tests/unit/geographic/core/test_stream_dem_agreement.py``, which tilts a plane in
 each cardinal direction and reads back the code Whitebox writes.
 
 It lives beside the ``PointerConvention`` vocabulary that names it, and not in

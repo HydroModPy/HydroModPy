@@ -25,7 +25,7 @@ from hydromodpy.solver.modflow6.builders import (
     build_lake_connectiondata,
     carve_lake_bed,
 )
-from hydromodpy.spatial.lake_bed import simulate_abacus
+from hydromodpy.spatial.lake_bed.abacus import simulate_abacus
 from tests._helpers.lake_bed_cases import (
     BASE,
     CELLS,

@@ -31,10 +31,10 @@ from hydromodpy.spatial.geographic.core.flow_products import (
 from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
-from hydromodpy.spatial.geographic.regional_flow_copy import copy_regional_flow_from_job
 from hydromodpy.spatial.geographic.regional_flow_job import (
     RegionalFlowRequest,
     _resolved,
+    copy_regional_flow_from_job,
     load_regional_flow_job,
     materialize_regional_flow_job,
     regional_flow_identity,

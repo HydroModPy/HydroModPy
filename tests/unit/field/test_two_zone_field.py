@@ -1,4 +1,4 @@
-"""The two-zone square of the field demos, :mod:`hydromodpy.spatial.field.cases.square.field_spatial_square`."""
+"""The two-zone square of the field demos, :mod:`hydromodpy.spatial.field.two_zone_field`."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
+from hydromodpy.spatial.field.two_zone_field import FieldSquare
 from tests._helpers.field_cases import write_text
 
 X = np.array([[0.25, 0.75], [0.25, 0.75]])

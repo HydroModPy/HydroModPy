@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.geographic.core.lake_enforcement import lakes_from_config
+from hydromodpy.spatial.geographic.core.ground_inputs import lakes_from_config
 from tests._helpers.geographic_cases import write_features
 
 

@@ -10,10 +10,8 @@ from shapely.geometry import GeometryCollection, LineString, MultiLineString, Po
 
 from hydromodpy.spatial.geographic.core.river_mesh_trace import (
     RiverMeshTrace,
+    build_river_mesh_trace_from_network_gdf,
     build_river_mesh_trace_from_vector,
-)
-from hydromodpy.spatial.geographic.core.river_network import (
-    _build_river_mesh_trace_from_network_gdf,
 )
 from tests._helpers.geographic_cases import write_features
 
@@ -172,7 +170,7 @@ def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
         crs="EPSG:2154",
     )
 
-    trace = _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=None)
+    trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=None)
 
     assert trace.source_kind == "geographic_generated"
     assert trace.segment_count == 2
@@ -183,7 +181,7 @@ def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
 def test_a_network_without_crs_takes_the_one_it_is_given():
     network = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])], crs=None)
 
-    trace = _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="EPSG:2154")
+    trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="EPSG:2154")
 
     assert "Lambert-93" in trace.crs_wkt
 
@@ -202,6 +200,6 @@ def test_a_network_that_gives_no_line_gives_no_trace(geometry, network_crs, crs)
     network = gpd.GeoDataFrame(geometry=geometries, crs=crs)
 
     assert (
-        _build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
+        build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
         is None
     )

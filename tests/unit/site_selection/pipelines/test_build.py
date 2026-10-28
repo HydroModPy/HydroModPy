@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import DemAreaLightConfig, SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.pipelines.build import (
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,

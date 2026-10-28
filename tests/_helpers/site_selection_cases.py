@@ -19,7 +19,7 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.terrain_doubles import fake_flow_products
 
@@ -340,8 +340,8 @@ def make_catchment(
     **fields: Any,
 ):
     """A delineated catchment whose outlet carries the site id as candidate id."""
-    from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-    from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+    from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+    from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 
     outlet = CandidateOutlet(
         site_id, x, y, crs, source, priority=priority, attributes=dict(attributes or {})

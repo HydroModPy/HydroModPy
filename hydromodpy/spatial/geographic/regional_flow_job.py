@@ -1,7 +1,11 @@
-"""Materialize one immutable regional flow stack for several catchments."""
+"""Materialize one immutable regional flow stack for several catchments.
+
+Copy sealed regional flow products into a child geographic workspace.
+"""
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -19,11 +23,13 @@ from hydromodpy.schema.job.request import content_address
 from hydromodpy.schema.job.reuse import reuse_sealed_outcome
 from hydromodpy.schema.job.seal import seal_job, verify_job
 from hydromodpy.schema.media_types import GEOTIFF_MEDIA_TYPE, JSON_MEDIA_TYPE
+from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 from hydromodpy.spatial.geographic.core.flow_products import (
     FlowProducts,
     build_regional_flow_products,
     flow_products_from_paths,
 )
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import CappedBreach
 from hydromodpy.spatial.terrain import registry as terrain_registry
 
@@ -353,3 +359,37 @@ def materialize_regional_flow_job(
         ).write(job)
         raise
     return RegionalFlowJob(job.root, job_id, products, outcome)
+
+
+def copy_regional_flow_from_job(
+    *,
+    config: GeographicConfig,
+    routing_dem_path: str | Path,
+    output_dir: str | Path,
+    crs_project: str | None,
+    backend: object | None = None,
+) -> FlowProducts:
+    """Verify a regional job, then give one child its own flow rasters."""
+    if config.reg_fold is None:
+        raise ValueError("geographic.reg_fold is required")
+    if config.river_network.enabled:
+        raise ValueError("River network products cannot use a shared regional flow job")
+    job = load_regional_flow_job(
+        job_dir=config.reg_fold,
+        dem_init_path=routing_dem_path,
+        dem_correc_type=config.dem_correc_type,
+        crs_project=crs_project,
+        engine_id=config.terrain_engine,
+        backend=backend,
+        capped_breach=capped_breach_of(config),
+    )
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    for source in (job.products.correc, job.products.direc, job.products.acc):
+        source_path = Path(source)
+        shutil.copy2(source_path, destination / source_path.name)
+    return flow_products_from_paths(
+        dem_out_dir_path=destination,
+        dem_correc_type=config.dem_correc_type,
+        capped_breach=capped_breach_of(config),
+    )

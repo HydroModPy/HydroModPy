@@ -5,8 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.lake_bed.abacus_sim import simulate_abacus
-from hydromodpy.spatial.lake_bed.reconcile import reconcile_bed_to_abacus
+from hydromodpy.spatial.lake_bed.abacus import reconcile_bed_to_abacus, simulate_abacus
 from tests._helpers.lake_bed_cases import nse
 
 

@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
+from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
+    run_geographic_cases_from_toml,
+)
 from tests._helpers.geographic_cases import (
     CASE_RIVER_NETWORK,
     NAIZIN,

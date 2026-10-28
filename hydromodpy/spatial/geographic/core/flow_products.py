@@ -150,25 +150,6 @@ class FlowProducts:
         return str(self.accumulation.path)
 
 
-def capped_breach_of(geographic: object) -> CappedBreach | None:
-    """Return the capped-breach limits one geographic object selects, else ``None``.
-
-    Reads ``dem_correc_type`` and ``capped_breach`` off a ``GeographicConfig`` or
-    off the ``CatchmentDelineation`` that carries the same two attributes, so a
-    solver rebuilding its routing rasters conditions the DEM as the delineation
-    did. A ``capped_breach`` run with no section uses the defaults of the
-    section, which is what the configuration documents.
-    """
-    if str(getattr(geographic, "dem_correc_type", "")) != "capped_breach":
-        return None
-    from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
-
-    section = getattr(geographic, "capped_breach", None) or CappedBreachConfig()
-    return CappedBreach(
-        max_depth_m=float(section.max_depth), max_distance_m=float(section.max_distance)
-    )
-
-
 def conditioning_method(
     dem_correc_type: str, capped_breach: CappedBreach | None = None
 ) -> ConditioningMethod:

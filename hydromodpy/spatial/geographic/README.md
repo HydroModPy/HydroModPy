@@ -15,12 +15,17 @@ and simulation steps:
 ## Package Layout
 
 - `catchment_delineation.py`: runtime facade (`CatchmentDelineation`) used by existing code.
-- `geographic_config.py`: validated configuration model (`GeographicConfig`, `RiverNetworkConfig`).
+- `geographic_config.py`: validated configuration model (`GeographicConfig`), with one file per
+  table beside it (`catchment_config.py`, `river_network_config.py`, `enforce_lakes_config.py`,
+  `crossings_config.py`, `capped_breach_config.py`, `bed_regularization_config.py`).
+- `geographic_cache.py`: the cache of the geographic tree, its fingerprint and its manifest.
+- `preprocessing_cleanup.py`: removal of the preprocessing tree once the run holds what it needs.
+- `regional_flow_job.py`: the regional flow job and the copy of its rasters.
+- `synthetic_config.py`: the configuration of the synthetic support.
 - `dem_metadata.py`: DEM-derived metadata contract used by `Geographic`.
 - `domain_rasters.py`: historical raster bundle builder kept near the canonical pipeline.
 - `pipeline.py`: compatibility orchestration that hydrates the `Geographic` runtime payload.
 - `geographic_paths.py`: canonical output-path contract.
-- `geographic_io.py`: CRS and shapefile I/O helpers.
 - `delineated_catchment.py`: the one reader of the delineated catchment polygon (none for a synthetic domain). `catchment_outline(geographic, cell_mesh=None)` returns the smoothed outline the mesh followed when there is one.
 - `core/`: decomposed geographic pipeline modules (single-responsibility steps).
 - `cases/`: runnable examples and review scripts. `plotting_utils.py` holds the window helpers that the
@@ -30,13 +35,12 @@ and simulation steps:
 ## Core Modules (`geographic/core`)
 
 - `flow_products.py`: DEM correction + D8 direction + D8 accumulation rasters.
-- `catchment_from_point.py`: outlet-based watershed delineation.
-- `catchment_from_polygon.py`: normalize externally provided watershed polygon.
-- `catchment_domain.py`: derive buffered and box domain polygons.
+- `catchment_from_point.py`: outlet-based watershed delineation, and the watershed polygon
+  given by the user.
+- `catchment_domain.py`: derive buffered and box domain polygons, and the catchment area.
 - `domain_dem.py`: clip DEM to buffered rectangular support.
 - `surface_from_dem.py`: convert DEM raster to `RasterSupport` + `Surface`.
 - `catchment_zones.py`: build categorical zone rasters.
-- `catchment_metrics.py`: scalar metrics (currently catchment area).
 - `direct_dem_domain.py`: direct-domain mode from DEM (`catch_def="dem"`).
 - `river_network.py`: optional stream extraction and network diagnostics.
 - `hydrographic_network.py`: canonical hydrographic-network concept and naming contract.
@@ -63,11 +67,11 @@ For `standard`, `catch_def` selects the domain definition:
 
 1. Resolve output paths and DEM metadata.
 2. Build flow rasters (`flow_products`).
-3. Build catchment geometry (`catchment_from_point` or `catchment_from_polygon`).
+3. Build catchment geometry (`catchment_from_point`).
 4. Build domain supports (`catchment_domain`) or direct DEM supports (`direct_dem_domain`).
 5. Clip DEM to buffered box (`domain_dem`).
 6. Build topographic surface (`surface_from_dem`).
-7. Compute metrics (`catchment_metrics`).
+7. Compute metrics (`catchment_domain`).
 8. Optionally build the generated hydrographic network (`geographic.river_network`).
 
 `pipeline.build_geographic_runtime_context` orchestrates this sequence once, and

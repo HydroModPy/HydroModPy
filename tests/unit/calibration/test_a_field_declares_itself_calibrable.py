@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from hydromodpy.calibration.targets import declared_calibrable
 from hydromodpy.core.config_kit.calibrable import Calibrable
-from hydromodpy.spatial.field.core._field_param_sections import FieldHomogeneousSection
+from hydromodpy.spatial.field.field_param_sections import FieldHomogeneousSection
 
 
 def _annotation(model: type, field: str) -> Calibrable | None:

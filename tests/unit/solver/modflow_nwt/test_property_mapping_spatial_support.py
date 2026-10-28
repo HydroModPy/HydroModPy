@@ -9,10 +9,8 @@ from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 

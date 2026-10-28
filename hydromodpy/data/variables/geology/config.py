@@ -17,7 +17,7 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
 )
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.spatial.geology_config import GeologyConfigBlock
+from hydromodpy.spatial.field.geology_config import GeologyConfigBlock
 
 
 class _GeologySourceBase(HydroModelBase):
@@ -200,7 +200,7 @@ class GeologyConfig(HydroModelBase):
 
 # ---------------------------------------------------------------------------
 # Standalone geology field definitions, read with GeologyConfigBlock of
-# spatial.geology_config (GeologyField.from_dict/from_toml and the data
+# spatial.field.geology_config (GeologyField.from_dict/from_toml and the data
 # loader build a field from them directly).
 # ---------------------------------------------------------------------------
 

@@ -28,9 +28,9 @@ from hydromodpy.solver.modflow_common import (
     ModflowRunOptions,
 )
 from hydromodpy.solver.modflow_nwt import Modflow
-from hydromodpy.spatial.domain import Domain
-from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
-from hydromodpy.spatial.geographic.synthetic.synthetic_geographic import build_synthetic_geographic
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic_config import SyntheticGeographicConfig
 from hydromodpy.spatial.surface import Surface
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
 from validation_cases.shared import ValidationRunResult, load_case_metadata

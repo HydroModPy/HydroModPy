@@ -18,18 +18,18 @@ from shapely.geometry import Point, box
 
 from hydromodpy.core.io.crs import geojson_crs_member
 from hydromodpy.data.sites.importers import rows_from_layer
-from hydromodpy.spatial.site_selection.candidates.generation import (
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
+from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
+from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
+from hydromodpy.spatial.site_selection.outputs.candidate_files import (
     write_candidate_outlets_geojson,
     write_generated_network_geojson,
 )
-from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.config import HydrologyConfig
-from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
-from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
-from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
-from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 from hydromodpy.spatial.site_selection.outputs.evidence_layers import write_evidence_layer
 from hydromodpy.spatial.site_selection.outputs.writer import (
     write_observation_points_geojson,

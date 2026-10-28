@@ -660,7 +660,7 @@ EXTRA_FILES: dict[str, tuple[str, str, str]] = {
     "site-selection-file": (
         "The site selection file",
         "hmp site select FILE",
-        "hydromodpy.spatial.site_selection.config.models:SiteSelectionFile",
+        "hydromodpy.spatial.site_selection.config.site_selection_config:SiteSelectionFile",
     ),
 }
 
@@ -744,8 +744,8 @@ def _known_keys() -> None:
     tree of the file keeps the free name ``<id>``.
     """
     try:
+        from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS
         from hydromodpy.physics.flow.flow_config import FlowConfig
-        from hydromodpy.spatial.field.core.physical_bounds import PHYSICAL_BOUNDS
     except Exception:
         return
     host = nodes.get(KNOWN_HOST)

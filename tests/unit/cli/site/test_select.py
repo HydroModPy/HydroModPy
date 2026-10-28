@@ -19,7 +19,7 @@ from hydromodpy.cli.commands import site
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.config.hydromodpy_config import WorkflowConfig
 from hydromodpy.data.sites.catalog import read_catalog
-from hydromodpy.spatial.site_selection import runner
+from hydromodpy.workflow.site_selection import selection_run as runner
 from tests._helpers.site_selection_cases import selection_section, write_selection_toml
 
 pytestmark = pytest.mark.fast

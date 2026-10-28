@@ -21,8 +21,8 @@ from hydromodpy.spatial.geographic.core.catchment_zones import (
 )
 
 if TYPE_CHECKING:
-    from hydromodpy.spatial.domain import Domain
-    from hydromodpy.spatial.field.geology.geology_field import GeologyField
+    from hydromodpy.spatial.domain.domain import Domain
+    from hydromodpy.spatial.field.geology_field import GeologyField
 
 
 def apply_geology_to_domain(

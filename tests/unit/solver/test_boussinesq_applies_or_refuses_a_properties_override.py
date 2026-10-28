@@ -21,7 +21,7 @@ from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 FLOW_K = 1e-4

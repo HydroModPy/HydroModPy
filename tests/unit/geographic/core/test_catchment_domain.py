@@ -25,9 +25,9 @@ from hydromodpy.spatial.geographic.core.catchment_domain import (
     buffer_area_increase,
     buffer_distance_for_area_increase,
     buffer_distance_m,
+    compute_catchment_area_km2,
     derive_catchment_domain,
 )
-from hydromodpy.spatial.geographic.core.catchment_metrics import compute_catchment_area_km2
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests._helpers.geographic_cases import write_features
 from tests._helpers.geotiffs import write_geotiff

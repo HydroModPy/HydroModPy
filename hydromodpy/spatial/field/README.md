@@ -7,23 +7,24 @@
 
 ```text
 hydromodpy/spatial/field/
-|-- core/
-|   |-- cell_sampling.py
-|   |-- field_param.py
-|   |-- field_param_config.py
-|   |-- field_spatial.py
-|   |-- field_spatial_weighted_discretization.py
-|   `-- mesh_cells.py
-|-- geology/
-|   |-- geology_field.py
-|   `-- geology_mesh.py
+|-- cell_sampling.py
+|-- field_param.py
+|-- field_param_config.py
+|-- field_param_io.py
+|-- field_param_sections.py
+|-- field_param_units.py
+|-- field_spatial.py
+|-- geology_config.py
+|-- geology_field.py
+|-- mesh_cells.py
+|-- two_zone_field.py
+|-- unit_square_mesh.py
 |-- cases/
+|   |-- review_cases.py
 |   `-- square/
 |       |-- field_param_config.toml
 |       |-- field_spatial_config.toml
 |       |-- mesh_config.toml
-|       |-- field_spatial_square.py
-|       |-- field_mesh_square.py
 |       |-- run_field_demo.py
 |       `-- outputs/
 |-- plotting.py
@@ -34,26 +35,24 @@ hydromodpy/spatial/field/
 
 ## Structure (What Goes Where)
 
-- `core/`: generic interfaces and reusable implementations.
-- `core/field_param.py`: parameter values, config loading, and mapping rules.
-- `core/field_param_config.py`: Pydantic validation for field-parameter TOML
-  payloads.
-- `core/field_spatial.py`: abstract field geometry contract and abstract
-  discretization contract.
-- `core/field_spatial_weighted_discretization.py`: weighted-fraction
-  discretization implementation.
-- `core/mesh_cells.py`: the cells of a `PlanarCellMesh` as a support samples
+- `field_param.py`: parameter values, config loading, and mapping rules.
+- `field_param_config.py`: Pydantic validation and resolution of field-parameter
+  TOML payloads.
+- `field_spatial.py`: abstract field geometry contract, abstract discretization
+  contract and the weighted-fraction discretization.
+- `mesh_cells.py`: the cells of a `PlanarCellMesh` as a support samples
   them (`MeshCell`, `mesh_cells`), the check of one value per cell
   (`cell_values`), the mesh with its values (`MeshWithValues`), and the grid of
   quadrilaterals of the demos (`cell_mesh_from_edges`).
-- `core/cell_sampling.py`: the points a support samples in one cell.
+- `cell_sampling.py`: the points a support samples in one cell.
 - `zone_fractions.py`: the share of each zone of a support in each cell.
 - `plotting.py`: draws one value per cell of a `PlanarCellMesh` or a
   `HydroMesh` (`plot_cell_values`). The field package reads the mesh of
   `spatial/mesh`, and the mesh never imports the field package.
-- `cases/square/`: concrete square geometry, the unit-square meshes, runnable
-  demonstration, and example TOML files.
-- `geology/`: `GeologyField` and the regular mesh of the geology demo
+- `two_zone_field.py` and `unit_square_mesh.py`: the two-zone field and the meshes
+  of the unit square.
+- `cases/square/`: runnable demonstration and example TOML files.
+- `geology_field.py`: `GeologyField` and the regular mesh of the geology demo
   (`regular_cell_mesh_over_bounds`). Data management lives in
   `hydromodpy/data/variables/geology/`, the runnable scripts in
   `hydromodpy/data/cases/geology/`.

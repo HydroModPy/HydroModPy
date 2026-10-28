@@ -1,4 +1,4 @@
-"""The schema of a field-parameter table, :mod:`hydromodpy.spatial.field.core.field_param_config`.
+"""The schema of a field-parameter table, :mod:`hydromodpy.spatial.field.field_param_config`.
 
 ``validate_field_param_toml_data`` reads the ``[field]`` and
 ``[field_vertical_profile]`` tables a user writes, and
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.field.core.field_param_config import (
+from hydromodpy.spatial.field.field_param_config import (
     load_field_param_toml,
     resolve_field_param_config_payload,
     validate_field_param_toml_data,

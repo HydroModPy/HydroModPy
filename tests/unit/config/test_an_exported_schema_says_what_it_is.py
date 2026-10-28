@@ -47,7 +47,7 @@ def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> Non
 def test_two_models_of_one_name_do_not_share_an_identity() -> None:
     """``DemConfig`` exists twice in this tree, with different properties."""
     from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
-    from hydromodpy.spatial.site_selection.config.models import DemConfig as SiteDemConfig
+    from hydromodpy.spatial.site_selection.config.dem_config import DemConfig as SiteDemConfig
 
     assert DataDemConfig.__name__ == SiteDemConfig.__name__
     assert set(DataDemConfig.model_fields) != set(SiteDemConfig.model_fields)

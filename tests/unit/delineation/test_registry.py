@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from hydromodpy.spatial.delineation.registry import (
     available_backends,
+    backend_has_callables,
     clear_backend_cache,
     get_backend,
     register_backend,
+    resolve_delineation_backend,
 )
 from hydromodpy.spatial.delineation.whitebox_workflows_backend import WhiteboxWorkflowsBackend
 
@@ -64,3 +68,28 @@ def test_register_backend_can_add_custom_entry(monkeypatch):
     assert get_backend("FAKE").name == "fake"
     with pytest.raises(ImportError, match="'absent' is not available: missing optional dependency"):
         get_backend("absent")
+
+
+def test_an_injected_backend_wins_over_the_registry() -> None:
+    injected = object()
+
+    assert resolve_delineation_backend(injected) is injected
+    assert resolve_delineation_backend() is get_backend()
+
+
+_READ = SimpleNamespace(read=lambda: None, write=None)
+
+
+@pytest.mark.parametrize(
+    ("backend", "methods", "expected"),
+    [
+        (SimpleNamespace(), ("read",), False),
+        (SimpleNamespace(raster=_READ), ("read",), True),
+        (SimpleNamespace(raster=_READ), ("read", "write"), False),
+    ],
+    ids=["no-component", "every-method", "a-method-is-not-callable"],
+)
+def test_a_backend_has_a_capability_only_when_every_method_is_callable(
+    backend, methods, expected
+) -> None:
+    assert backend_has_callables(backend, "raster", *methods) is expected

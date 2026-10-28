@@ -15,17 +15,17 @@ from hydromodpy.core.workspace import Workspace
 from hydromodpy.results.storage.attempt import scratch_dir_for_attempt
 from hydromodpy.simulation import ensure_flow, ensure_transport
 from hydromodpy.spatial.domain.build import (
+    BINDER_ZONE_IDS,
     build_domain,
     read_layer_base_sources,
     read_substratum_source,
 )
 from hydromodpy.spatial.domain.spatial_support import SupportBuildContext
-from hydromodpy.spatial.domain.zone_arming import BINDER_ZONE_IDS
-from hydromodpy.spatial.geographic.artifacts import geographic_artifact_paths
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.derived_features import (
     coerce_geographic_derived_features,
 )
+from hydromodpy.spatial.geographic.geographic_cache import geographic_artifact_paths
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
 from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
 from hydromodpy.workflow.internals.state import PipelineState
@@ -408,12 +408,9 @@ def build_domain_spatial_supports(
     )
 
     for support_id, support_cfg in requested_domain_supports.items():
-        existing_zone = None
-        domain_get_zone = getattr(setup_state.domain, "get_zone", None)
-        if callable(domain_get_zone):
-            existing_zone = domain_get_zone(support_id)
-        elif str(support_id).strip().lower() in getattr(setup_state.domain, "zones", {}):
-            existing_zone = setup_state.domain.zones[str(support_id).strip().lower()]
+        existing_zone = (
+            None if setup_state.domain is None else setup_state.domain.get_zone(support_id)
+        )
         if (
             existing_zone is not None
             and str(getattr(existing_zone, "identifier", "")).strip() == str(support_id).strip()

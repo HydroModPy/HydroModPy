@@ -19,7 +19,8 @@ from hydromodpy.solver.modflow_grid.sgrid_config import (
     TopSamplingConfig,
 )
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.cells.zonal_stats import regular_grid_cell_ids
 from tests._helpers.regular_cell_meshes import regular_cell_mesh_of_surface

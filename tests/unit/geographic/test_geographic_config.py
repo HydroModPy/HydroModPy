@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.spatial.geographic import GeographicConfig, pipeline
-from hydromodpy.spatial.geographic.core import ground_corrections, lake_enforcement
+from hydromodpy.spatial.geographic.core import ground_corrections, ground_inputs
 from hydromodpy.spatial.terrain import registry
 
 _RETIRED_LAKE_KEYS = (
@@ -166,7 +166,7 @@ def test_the_lake_polygons_stay_a_declared_input_and_no_carve_code_is_left() -> 
     assert not hasattr(config, "dam_carve")
     for module, names in (
         (
-            lake_enforcement,
+            ground_inputs,
             (
                 "carve_routing_dem",
                 "capture_stream_gaps",

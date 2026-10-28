@@ -205,7 +205,7 @@ def test_the_cleanup_of_a_run_leaves_the_other_runs_alone(tmp_path: Path) -> Non
 
 
 def test_closing_a_project_leaves_no_empty_run_folder(tmp_path: Path) -> None:
-    from hydromodpy.spatial.geographic.store_ingestion import cleanup_stable_folder
+    from hydromodpy.spatial.geographic.preprocessing_cleanup import cleanup_stable_folder
 
     root = scratch_root_for(tmp_path)
     tree = root / "nancon_intermittence_mf6.p1" / "_preprocessing"

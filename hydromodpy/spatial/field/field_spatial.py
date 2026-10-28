@@ -1,0 +1,160 @@
+"""Generic field interface and shared discretization structure.
+
+`Field` is intentionally abstract: it defines the minimal contract expected by
+`FieldParam` to project heterogeneous values on a planar cell mesh. Concrete
+geometries (for example `FieldSquare`) implement the actual spatial logic.
+
+Concrete discretization based on per-zone cell fractions.
+
+This implementation corresponds to the current workflow:
+- each key (zone/material) has one per-cell weight/fraction array,
+- `FieldParam` aggregates values with a weighted average.
+"""
+
+from __future__ import annotations
+
+import tomllib
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
+
+
+def get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
+    """Resolve a nested TOML section from a dotted path."""
+    current: Any = payload
+    for token in str(dotted_path).split("."):
+        if not isinstance(current, Mapping) or token not in current:
+            raise KeyError(f"Missing TOML section '{dotted_path}'")
+        current = current[token]
+    if not isinstance(current, Mapping):
+        raise ValueError(f"TOML section '{dotted_path}' must be a mapping")
+    return current
+
+
+class Field(ABC):
+    """
+    Abstract field definition.
+
+    Concrete subclasses must implement `on_mesh`, which returns a
+    `FieldDiscretization` containing the fractions/weights needed by
+    `FieldParam.to_mesh_field(...)`.
+    """
+
+    def __init__(self, *, identifier: str):
+        ident = str(identifier).strip()
+        if ident == "":
+            raise ValueError("identifier must be a non-empty string")
+        self.identifier = ident
+
+    @abstractmethod
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
+        """
+        Project this field geometry on a planar cell mesh and return a discretization map.
+        """
+
+    @classmethod
+    def from_dict(cls, config: Mapping[str, Any]) -> Field:
+        """Optional constructor hook for subclasses."""
+        _ = config
+        raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented")
+
+    @classmethod
+    def from_toml(cls, toml_path: str | Path, section: str = "field") -> Field:
+        """Optional TOML constructor hook for subclasses."""
+        path = Path(toml_path).resolve()
+        with path.open("rb") as stream:
+            payload = tomllib.load(stream)
+        section_cfg = get_nested_section(payload, section)
+        return cls.from_dict(section_cfg)
+
+
+@dataclass(frozen=True)
+class FieldDiscretization(ABC):
+    """
+    Abstract discretization metadata to project field values onto a mesh.
+
+    Concrete implementations can encode cell-wise contributions in different
+    ways, but must expose:
+    - an aggregation operator name (`aggregation_name` / `aggregation`),
+    - weighted components (`weighted_components`).
+    """
+
+    mesh: PlanarCellMesh
+    field_id: str
+
+    def __post_init__(self):
+        if not isinstance(self.mesh, PlanarCellMesh):
+            raise TypeError("mesh must be a PlanarCellMesh instance")
+        ident = str(self.field_id).strip()
+        if ident == "":
+            raise ValueError("field_id must be a non-empty string")
+        object.__setattr__(self, "field_id", ident)
+
+    @abstractmethod
+    def aggregation_name(self) -> str:
+        """Return aggregation operator name (example: 'weighted_average')."""
+
+    @property
+    def aggregation(self) -> str:
+        """Compatibility accessor for the aggregation operator name."""
+        return str(self.aggregation_name()).strip().lower()
+
+    @abstractmethod
+    def weighted_components(self) -> tuple[tuple[str, ...], Mapping[str, np.ndarray]]:
+        """
+        Return weighted components used by `FieldParam.to_mesh_field`.
+
+        Returns
+        -------
+        tuple
+            `(component_keys, weights_by_key)` where each weight array is
+            cell-shaped on `mesh`.
+        """
+
+
+@dataclass(frozen=True)
+class WeightedAverageFieldDiscretization(FieldDiscretization):
+    """
+    Weighted-average discretization with per-zone fractions on mesh cells.
+
+    Attributes
+    ----------
+    zone_keys : tuple[str, ...]
+        Ordered keys expected in `FieldParam.values_by_key`.
+    fractions_by_zone : dict[str, np.ndarray]
+        Per-zone fractions on cells (same mesh cell shape for each key).
+    """
+
+    zone_keys: tuple[str, ...]
+    fractions_by_zone: dict[str, np.ndarray]
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        keys = tuple(str(k).strip() for k in self.zone_keys)
+        if len(keys) == 0:
+            raise ValueError("zone_keys cannot be empty")
+        if any(k == "" for k in keys):
+            raise ValueError("zone_keys cannot contain empty names")
+
+        raw_map = dict(self.fractions_by_zone)
+        normalized: dict[str, np.ndarray] = {}
+        for key in keys:
+            if key not in raw_map:
+                raise ValueError(f"fractions_by_zone is missing key '{key}'")
+            normalized[key] = np.asarray(raw_map[key], dtype=float)
+
+        object.__setattr__(self, "zone_keys", keys)
+        object.__setattr__(self, "fractions_by_zone", normalized)
+
+    def aggregation_name(self) -> str:
+        return "weighted_average"
+
+    def weighted_components(self) -> tuple[tuple[str, ...], dict[str, np.ndarray]]:
+        return self.zone_keys, self.fractions_by_zone

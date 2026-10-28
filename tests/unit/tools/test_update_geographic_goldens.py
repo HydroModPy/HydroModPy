@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.spatial.geographic.cases import update_geographic_goldens
+from tools.spatial import update_geographic_goldens
 
 pytestmark = pytest.mark.fast
 

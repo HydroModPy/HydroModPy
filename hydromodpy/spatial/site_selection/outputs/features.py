@@ -15,7 +15,7 @@ from typing import Any
 
 from shapely import make_valid
 
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_snap_distance_m,
     snapped_outlet_xy,

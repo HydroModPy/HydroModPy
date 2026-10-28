@@ -15,6 +15,7 @@ from pathlib import Path
 
 from geopy.geocoders import Nominatim
 
+from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 from hydromodpy.spatial.geographic.core.derived_features import (
     DomainGeographicContext,
     GeographicBoundaryFeatures,
@@ -29,7 +30,6 @@ from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProduct
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
 from hydromodpy.spatial.geographic.dem_metadata import read_dem_metadata
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.geographic_io import resolve_delineation_backend
 from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
 from hydromodpy.spatial.terrain import CappedBreach
 

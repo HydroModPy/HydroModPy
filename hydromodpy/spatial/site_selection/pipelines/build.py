@@ -11,15 +11,7 @@ import rasterio
 
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.site_selection.candidates.generation import (
-    CandidateGenerationEvidence,
-    write_candidate_generation_jsonl,
-    write_candidate_outlets_geojson,
-    write_generated_network_geojson,
-)
-from hydromodpy.spatial.site_selection.candidates.outlets import (
-    CandidateOutlet,
-)
+from hydromodpy.spatial.site_selection.candidates.generation import CandidateGenerationEvidence
 from hydromodpy.spatial.site_selection.candidates.pipeline import (
     GeneratedCandidateResult,
     build_dem_area_light_candidates,
@@ -29,13 +21,16 @@ from hydromodpy.spatial.site_selection.candidates.pipeline import (
     load_reference_network_for_station_candidates,
     site_selection_search_geometry,
 )
-from hydromodpy.spatial.site_selection.config import (
+from hydromodpy.spatial.site_selection.config.criteria_config import (
     AreaCriteriaConfig,
     CriteriaConfig,
-    SiteSelectionConfig,
-    SpatialSelectionConfig,
 )
-from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
+from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
+from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.spatial.site_selection.domain.watershed import watershed_geometry
 from hydromodpy.spatial.site_selection.evaluation.selection import (
     SelectionResult,
     select_delineated_catchments,
@@ -47,24 +42,27 @@ from hydromodpy.spatial.site_selection.evidence.observations import (
     build_observation_evidence,
     build_observation_evidence_from_attributes,
 )
-from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.hydrology.delineation import (
+    delineate_site_selection_candidates,
+)
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     FlowProductsBuilder,
     SiteSelectionFlowProducts,
     build_site_selection_flow_products,
 )
-from hydromodpy.spatial.site_selection.hydrology.pipeline import (
-    delineate_site_selection_candidates,
+from hydromodpy.spatial.site_selection.outputs.candidate_files import (
+    write_candidate_generation_jsonl,
+    write_candidate_outlets_geojson,
+    write_generated_network_geojson,
 )
-from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.outputs.cleanup import (
     cleanup_site_selection_intermediate_rasters,
 )
-from hydromodpy.spatial.site_selection.outputs.pipeline import (
+from hydromodpy.spatial.site_selection.outputs.manifest import write_manifest_and_optional_report
+from hydromodpy.spatial.site_selection.outputs.writer import (
     write_core_site_selection_outputs,
+    write_csv,
 )
-from hydromodpy.spatial.site_selection.outputs.watershed import watershed_geometry
-from hydromodpy.spatial.site_selection.outputs.writer import write_csv
 
 DEM_AREA_LIGHT_SNAP_DIST_M = 1
 """Snap distance of a DEM-area outlet, in metres.

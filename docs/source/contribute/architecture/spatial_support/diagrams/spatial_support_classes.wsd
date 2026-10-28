@@ -79,7 +79,7 @@ package "hydromodpy.spatial.catchment_zones_field" {
   }
 }
 
-package "hydromodpy.spatial.field.geology.geology_field" {
+package "hydromodpy.spatial.field.geology_field" {
   class GeologyField {
     +identifier: str
     +encoded_codes: np.ndarray
@@ -89,7 +89,7 @@ package "hydromodpy.spatial.field.geology.geology_field" {
   }
 }
 
-package "hydromodpy.spatial.field.core.field_spatial" {
+package "hydromodpy.spatial.field.field_spatial" {
   abstract class Field {
     +identifier: str
     +on_mesh(mesh, cell_samples_per_axis)
@@ -103,14 +103,14 @@ package "hydromodpy.spatial.field.core.field_spatial" {
   }
 }
 
-package "hydromodpy.spatial.field.core.field_spatial_weighted_discretization" {
+package "hydromodpy.spatial.field.field_spatial" {
   class WeightedAverageFieldDiscretization {
     +zone_keys: tuple[str, ...]
     +fractions_by_zone: dict[str, np.ndarray]
   }
 }
 
-package "hydromodpy.spatial.field.core.field_param" {
+package "hydromodpy.spatial.field.field_param" {
   class FieldParam {
     +identifier: str
     +kind: homogeneous | heterogeneous

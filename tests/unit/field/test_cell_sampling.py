@@ -1,4 +1,4 @@
-"""Points sampled inside one cell, :mod:`hydromodpy.spatial.field.core.cell_sampling`.
+"""Points sampled inside one cell, :mod:`hydromodpy.spatial.field.cell_sampling`.
 
 A support counts its zones on these points, so they must lie in the cell and
 spread over it evenly. A cell with no area falls back to its vertices or its
@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 import shapely
 
-from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
+from hydromodpy.spatial.field.cell_sampling import sample_points_in_cell
 
 L_SHAPE = [[0, 0], [4, 0], [4, 1], [1, 1], [1, 3], [0, 3]]
 

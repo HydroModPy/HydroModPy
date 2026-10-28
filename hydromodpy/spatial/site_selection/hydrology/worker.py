@@ -87,8 +87,14 @@ from hydromodpy.spatial.job_inputs import (
     read_raster_input,
     refuse_a_file_that_is_not_the_one_asked_for,
 )
-from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.config import HydrologyConfig
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
+    DelineatedCatchment,
+    outlet_snap_distance_m,
+    snapped_outlet_xy,
+)
+from hydromodpy.spatial.site_selection.domain.watershed import read_watershed, watershed_area_m2
 from hydromodpy.spatial.site_selection.hydrology.capability import (
     DEM_CORRECTED_PATH,
     FLOW_ACCUMULATION_PATH,
@@ -100,19 +106,10 @@ from hydromodpy.spatial.site_selection.hydrology.capability import (
     TerrainDelineateRequest,
 )
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
-    DelineatedCatchment,
-    outlet_snap_distance_m,
-    snapped_outlet_xy,
+    delineate_site_selection_candidates,
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
-)
-from hydromodpy.spatial.site_selection.hydrology.pipeline import (
-    delineate_site_selection_candidates,
-)
-from hydromodpy.spatial.site_selection.outputs.watershed import (
-    read_watershed,
-    watershed_area_m2,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
 

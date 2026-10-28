@@ -159,7 +159,7 @@ def _resolve_catchment_paths(
     Mirrors ``_resolve_section_paths`` but operates on the discriminated
     catchment variant identified by ``catch_def``.
     """
-    from hydromodpy.spatial.geographic import geographic_config as _geo_cfg
+    from hydromodpy.spatial.geographic import catchment_config as _geo_cfg
 
     catchment = payload.get("catchment")
     if not isinstance(catchment, Mapping):

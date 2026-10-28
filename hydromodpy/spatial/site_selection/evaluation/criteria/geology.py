@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from hydromodpy.spatial.site_selection.config import GeologyCriteriaConfig
+from hydromodpy.spatial.site_selection.config.criteria_config import GeologyCriteriaConfig
 from hydromodpy.spatial.site_selection.domain.attribute_values import first_text
+from hydromodpy.spatial.site_selection.domain.refs import geology_evidence_ref
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,
 )
-from hydromodpy.spatial.site_selection.evidence.refs import geology_evidence_ref
 
 
 def evaluate_geology_criterion(

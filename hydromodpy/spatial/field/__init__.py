@@ -17,15 +17,15 @@ __all__ = (
 )
 
 _LAZY_IMPORTS = {
-    "FieldParam": "hydromodpy.spatial.field.core:FieldParam",
-    "Field": "hydromodpy.spatial.field.core:Field",
-    "FieldSquare": "hydromodpy.spatial.field.cases.square:FieldSquare",
-    "GeologyField": "hydromodpy.spatial.field.geology:GeologyField",
-    "FieldDiscretization": "hydromodpy.spatial.field.core:FieldDiscretization",
-    "WeightedAverageFieldDiscretization": "hydromodpy.spatial.field.core:WeightedAverageFieldDiscretization",
-    "FieldMeshSquare": "hydromodpy.spatial.field.cases.square:FieldMeshSquare",
-    "MeshCell": "hydromodpy.spatial.field.core:MeshCell",
-    "MeshWithValues": "hydromodpy.spatial.field.core:MeshWithValues",
+    "FieldParam": "hydromodpy.spatial.field.field_param:FieldParam",
+    "Field": "hydromodpy.spatial.field.field_spatial:Field",
+    "FieldSquare": "hydromodpy.spatial.field.two_zone_field:FieldSquare",
+    "GeologyField": "hydromodpy.spatial.field.geology_field:GeologyField",
+    "FieldDiscretization": "hydromodpy.spatial.field.field_spatial:FieldDiscretization",
+    "WeightedAverageFieldDiscretization": "hydromodpy.spatial.field.field_spatial:WeightedAverageFieldDiscretization",
+    "FieldMeshSquare": "hydromodpy.spatial.field.unit_square_mesh:FieldMeshSquare",
+    "MeshCell": "hydromodpy.spatial.field.mesh_cells:MeshCell",
+    "MeshWithValues": "hydromodpy.spatial.field.mesh_cells:MeshWithValues",
 }
 
 

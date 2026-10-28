@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.data.cases.geology import run_geology_property_case as demo
-from hydromodpy.spatial.field.geology.geology_mesh import regular_cell_mesh_over_bounds
+from hydromodpy.spatial.field.geology_field import regular_cell_mesh_over_bounds
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "geology_property_demo_brittany_signature.json"

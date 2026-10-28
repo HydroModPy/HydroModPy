@@ -1,0 +1,44 @@
+"""Regenerate every geographic golden reference in one command.
+
+Usage
+-----
+python tools/spatial/update_geographic_goldens.py
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+# The geographic tests that own a committed golden reference. Two of these moved
+# to the regression tier; the previous hardcoded list still pointed at
+# tests/unit/geographic/ and at two files that never existed in this checkout,
+# so the command regenerated nothing and said so with an exit code nobody read.
+# tests/unit/tools/test_update_geographic_goldens.py keeps this list honest.
+GOLDEN_TEST_PATHS = (
+    "tests/regression/fast/geographic/test_run_geographic_dem_processing_golden.py",
+    "tests/regression/fast/geographic/test_run_geographic_river_network_golden.py",
+    "tests/unit/geographic/test_catchment_delineation.py",
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run pytest on geographic golden tests with ``--update-goldens``."""
+    extra_args = list(argv or [])
+    repo_root = Path(__file__).resolve().parents[2]
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        *GOLDEN_TEST_PATHS,
+        "-q",
+        "--update-goldens",
+        *extra_args,
+    ]
+    completed = subprocess.run(cmd, cwd=str(repo_root), check=False)
+    return int(completed.returncode)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

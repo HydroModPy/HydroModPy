@@ -16,7 +16,7 @@ field demos and the tests:
 
 .. code-block:: python
 
-   from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
+   from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 
    # mesh_kind: "structured", "triangular_structured" or "triangular_unstructured"
    mesh = FieldMeshSquare.from_unit_square(target_n_cells=400, mesh_kind="structured")
@@ -26,14 +26,14 @@ field demos and the tests:
 Placing a parameter on a mesh
 -----------------------------
 
-A ``FieldParam`` (``spatial/field/core/field_param.py``) is a scalar or one value per zone, with
-a unit and an optional vertical profile. A ``Field`` (``spatial/field/core/field_spatial.py``)
+A ``FieldParam`` (``spatial/field/field_param.py``) is a scalar or one value per zone, with
+a unit and an optional vertical profile. A ``Field`` (``spatial/field/field_spatial.py``)
 gives the zones, and a ``PlanarCellMesh`` gives the cells. A homogeneous parameter gives one value
 per cell:
 
 .. code-block:: python
 
-   from hydromodpy.spatial.field.core.field_param import FieldParam
+   from hydromodpy.spatial.field.field_param import FieldParam
 
    K = FieldParam(identifier="K", kind="homogeneous", unit="m/s", value=1e-4)
    result = K.to_mesh_field(mesh=mesh)     # MeshWithValues, every cell 1e-4
@@ -148,7 +148,7 @@ raises ``ValueError``. ``cell_mesh.connectivity_rows`` returns the cells as one 
 block itself for triangles and quadrilaterals, and the padded rows as 32-bit ids for polygons.
 The cell centres are ``cell_mesh.centers``, the generators of a Voronoi mesh: a ``HydroMesh``
 carries none, and its ``cell_centroids()`` gives the mean of the cell vertices.
-``mesh_cells`` in ``spatial/field/core/mesh_cells.py`` reads these rows without their ``-1``
+``mesh_cells`` in ``spatial/field/mesh_cells.py`` reads these rows without their ``-1``
 slots, for a support that samples a field on the cells.
 
 ``cell_mesh_from_bundle`` in ``spatial/mesh/io/bundle.py`` reads a Boussinesq validation bundle,

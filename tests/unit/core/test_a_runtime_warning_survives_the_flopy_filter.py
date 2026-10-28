@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import warnings
 
-from hydromodpy.spatial.lake_bed.reconcile import reconcile_bed_to_abacus
+from hydromodpy.spatial.lake_bed.abacus import reconcile_bed_to_abacus
 
 
 def test_the_message_is_logged_when_runtime_warnings_are_ignored(caplog):

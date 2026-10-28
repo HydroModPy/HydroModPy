@@ -168,10 +168,7 @@ def assert_bounds_are_physical(name: str, low: float, high: float, unit: object)
     impossible region once, before the first solve. An id the registry does not
     know is left alone, exactly as it is everywhere else.
     """
-    from hydromodpy.spatial.field.core.physical_bounds import (
-        PhysicalBoundsError,
-        validate_physical_value,
-    )
+    from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 
     unit_text = str(unit) if unit is not None else None
     for edge, value in (("lower", low), ("upper", high)):
@@ -367,10 +364,7 @@ def _assert_candidate_is_physical(param: CalibParameter, written: float) -> None
     in :mod:`hydromodpy.calibration.parameter_resolution`; what is left here is
     the best a bare name can do.
     """
-    from hydromodpy.spatial.field.core.physical_bounds import (
-        PhysicalBoundsError,
-        validate_physical_value,
-    )
+    from hydromodpy.core.units.physical_bounds import PhysicalBoundsError, validate_physical_value
 
     unit_text = str(param.units) if param.units is not None else None
     try:

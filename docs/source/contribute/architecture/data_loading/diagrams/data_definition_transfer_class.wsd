@@ -63,7 +63,7 @@ package "hydromodpy.data.loading" {
   }
 }
 
-package "hydromodpy.spatial.field.geology" {
+package "hydromodpy.spatial.field.geology_field" {
   class GeologyField
 }
 

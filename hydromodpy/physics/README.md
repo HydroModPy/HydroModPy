@@ -46,7 +46,7 @@ itself. No `physics_layout.yaml` orders the parts inside the package, so the
 layer matrix is the only gate. Three more rules hold in the code:
 
 1. One tolerated edge to `spatial`: `FlowParam.field` is a `FieldSection`
-   of `spatial.field.core.field_param_config`. Today only
+   of `spatial.field.field_param_config`. Today only
    `flow/flow_param_config.py` uses it. Do not extend it.
 2. Physics never imports `data`, `simulation` or `solver`. It sees loaded
    data through `LoadResultProto` and a field parameter through

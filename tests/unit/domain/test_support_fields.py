@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 from shapely.geometry import Polygon
 
-from hydromodpy.spatial.domain.spatial_support import (
+from hydromodpy.spatial.domain.support_fields import (
     AliasedSpatialSupportField,
     GeneratedBandsSupportField,
     GeneratedRingsSupportField,

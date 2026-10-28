@@ -104,7 +104,7 @@ if TYPE_CHECKING:
     from hydromodpy.results.publication import PublicationExtra, PublicationFormat
     from hydromodpy.results.run import Run
     from hydromodpy.simulation.spinup_config import SpinupConfig
-    from hydromodpy.spatial.domain import Domain
+    from hydromodpy.spatial.domain.domain import Domain
     from hydromodpy.spatial.geographic.catchment_delineation import (
         CatchmentDelineation,
     )

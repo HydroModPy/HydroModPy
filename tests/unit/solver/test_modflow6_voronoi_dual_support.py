@@ -26,7 +26,8 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import side_boundar
 from hydromodpy.solver.modflow_grid import build_spatial_discretization
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 from hydromodpy.spatial import RasterSupport, Surface
-from hydromodpy.spatial.domain import Domain, DomainConfig
+from hydromodpy.spatial.domain.domain import Domain
+from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.domain.layers_config import VerticalGridConfig
 from hydromodpy.spatial.mesh.cells.boundary import side_cells, stream_cells
 from hydromodpy.spatial.mesh.cells.locate import locate_cells

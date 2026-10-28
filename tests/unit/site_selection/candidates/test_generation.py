@@ -13,13 +13,10 @@ from hydromodpy.spatial.site_selection.candidates.generation import (
     generate_dem_area_light_candidate_outlets,
     generate_network_candidate_outlets,
 )
-from hydromodpy.spatial.site_selection.candidates.reference_network import (
+from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig, HydrologyConfig
+from hydromodpy.spatial.site_selection.config.outlets_config import OutletsConfig
+from hydromodpy.spatial.site_selection.hydrology.reference_network import (
     score_outlets_against_reference_network,
-)
-from hydromodpy.spatial.site_selection.config import (
-    DemAreaLightConfig,
-    HydrologyConfig,
-    OutletsConfig,
 )
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import site_flow_products, write_accumulation_raster

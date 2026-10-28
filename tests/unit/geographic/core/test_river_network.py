@@ -15,7 +15,7 @@ from hydromodpy.spatial.geographic.core.river_network import (
     build_river_network_products,
     resolve_stream_threshold_cells,
 )
-from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
+from hydromodpy.spatial.geographic.river_network_config import RiverNetworkConfig
 from tests._helpers.geographic_cases import write_features
 from tests._helpers.geotiffs import write_geotiff
 

@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from pydantic import Field, PrivateAttr
 
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.spatial.field.core.field_param_config import (
+from hydromodpy.spatial.field.field_param_config import (
     FieldParamConfig,
     FieldSection,
     FieldVerticalProfileSection,

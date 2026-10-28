@@ -18,14 +18,13 @@ import rasterio
 from rasterio.transform import from_origin, xy
 from shapely.geometry import Point, box
 
-from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
+from hydromodpy.spatial.geographic.core.channel_bed_fit import pixel_tree, regularize_channel_bed
+from hydromodpy.spatial.geographic.core.ground_bed import (
     WINDOW_MARGIN_M,
     _domain_bounds,
     bed_dem_path,
     ground_bed_path,
     ground_bed_report_path,
-    pixel_tree,
-    regularize_channel_bed,
     regularized_ground_from_config,
     restrict_to_window,
     top_dem_path_from_config,

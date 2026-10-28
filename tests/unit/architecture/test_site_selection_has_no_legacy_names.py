@@ -9,6 +9,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ACTIVE_TEXT_TARGETS = [
     REPO_ROOT / "hydromodpy" / "spatial" / "site_selection",
+    REPO_ROOT / "hydromodpy" / "workflow" / "site_selection",
     REPO_ROOT / "hydromodpy" / "cli" / "commands" / "site",
 ]
 FORBIDDEN_LEGACY_SNIPPETS = (

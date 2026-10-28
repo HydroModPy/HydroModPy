@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from hydromodpy.data.variables.geology.config import GeologyConfig
-from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
-from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.mesh_cells import mesh_cells
+from hydromodpy.spatial.field.cell_sampling import sample_points_in_cell
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.mesh_cells import mesh_cells
+from hydromodpy.spatial.field.two_zone_field import FieldSquare
+from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 
 V_A, V_B = 1e-5, 1e-7
 N_S = GeologyConfig.model_fields["cell_samples_per_axis"].default

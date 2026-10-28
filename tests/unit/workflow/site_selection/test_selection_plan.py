@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from hydromodpy.spatial.site_selection.config import OutputConfig
-from hydromodpy.spatial.site_selection.runner import plan_site_selection
+from hydromodpy.spatial.site_selection.config.site_selection_config import OutputConfig
+from hydromodpy.workflow.site_selection.selection_plan import plan_site_selection
 from tests._helpers.site_selection_cases import selection_section, write_selection_toml
 
 pytestmark = pytest.mark.fast

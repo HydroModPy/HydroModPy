@@ -26,10 +26,9 @@ from hydromodpy.data.variables.geology.io import load_vector_geology_dataframe
 from hydromodpy.data.variables.geology.processing import (
     uniformize_sea_zone_on_dataframe,
 )
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
-from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.geology.geology_mesh import regular_cell_mesh_over_bounds
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_param_io import field_param_from_toml
+from hydromodpy.spatial.field.geology_field import GeologyField, regular_cell_mesh_over_bounds
 from hydromodpy.spatial.field.plotting import plot_cell_values
 
 DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"

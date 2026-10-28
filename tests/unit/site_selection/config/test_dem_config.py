@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from hydromodpy.spatial.terrain import registry
 from tests._helpers.site_selection_cases import make_config
 

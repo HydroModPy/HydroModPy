@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.spatial.field.core.field_param_config import FieldHomogeneousSection
+from hydromodpy.spatial.field.field_param_config import FieldHomogeneousSection
 
 _FLOW_PARAM_EXAMPLES: tuple[tuple[str, str, str], ...] = (
     ("K", "homogeneous", "m/s"),

@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 from shapely.geometry import Point
 
-from hydromodpy.spatial.site_selection.config import (
+from hydromodpy.spatial.site_selection.config.criteria_config import (
     CriteriaConfig,
     InfluenceCriteriaConfig,
     InfluenceLayerConfig,
-    SpatialSelectionConfig,
 )
+from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
 from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
 from hydromodpy.spatial.site_selection.evidence.influence import (
     annotate_catchments_with_influence_layers,

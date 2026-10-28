@@ -1715,7 +1715,7 @@ def _geographic_choices(document: Mapping[str, Any]) -> dict[str, object]:
         return {}
     chosen = {key: geographic[key] for key in _GEOGRAPHIC_DEVIATIONS if key in geographic}
     if chosen.get("dem_correc_type") == "capped_breach":
-        from hydromodpy.spatial.geographic.geographic_config import CappedBreachConfig
+        from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig
 
         section = geographic.get("capped_breach")
         limits = CappedBreachConfig.model_validate(dict(section) if section else {})

@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
 logger = get_logger(__name__)

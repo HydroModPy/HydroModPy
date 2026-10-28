@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 from hydromodpy.spatial.site_selection.outputs.schemas import (
     SELECTED_SITES_FIELDS,
     site_record_from_catchment,

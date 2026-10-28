@@ -94,7 +94,7 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
      - FlowConfig embeds spatial FieldSection discriminated union
    * - ``spatial``
      - ``data``
-     - site selection: runner_data.py loads hydrometry and the DEM through hydromodpy.data, and reference_network.py fetches BD Topage for outlet snapping
+     - site selection: hydrology/reference_network.py fetches BD Topage for outlet snapping
    * - ``calibration``
      - ``display``
      - network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)

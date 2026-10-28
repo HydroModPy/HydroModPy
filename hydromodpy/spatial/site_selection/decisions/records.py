@@ -10,7 +10,7 @@ from hydromodpy.spatial.site_selection.decisions.models import (
     MetricValue,
 )
 from hydromodpy.spatial.site_selection.domain.attribute_values import first_text
-from hydromodpy.spatial.site_selection.evaluation.criteria import CriteriaComponent
+from hydromodpy.spatial.site_selection.evaluation.criteria.common import CriteriaComponent
 from hydromodpy.spatial.site_selection.evaluation.selection import (
     SelectionDecision,
     SelectionResult,

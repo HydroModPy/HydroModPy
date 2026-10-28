@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.io.crs import geojson_crs_member
-from hydromodpy.spatial.site_selection.domain.export_values import single_or_mixed
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_display_xy,
 )
+from hydromodpy.spatial.site_selection.domain.export_values import single_or_mixed
+from hydromodpy.spatial.site_selection.domain.watershed import read_watershed
 from hydromodpy.spatial.site_selection.outputs.features import (
     basin_properties,
     observation_location,
@@ -20,7 +21,6 @@ from hydromodpy.spatial.site_selection.outputs.features import (
     outlet_properties,
     repair_geometry_for_export,
 )
-from hydromodpy.spatial.site_selection.outputs.watershed import read_watershed
 
 
 def write_geojson(path: str | Path, collection: Mapping[str, Any]) -> Path:

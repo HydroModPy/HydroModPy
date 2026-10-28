@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from hydromodpy.physics.flow import Flow
     from hydromodpy.results.catalog.protocol import SimulationStore
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
-    from hydromodpy.spatial.domain import Domain
+    from hydromodpy.spatial.domain.domain import Domain
 
 logger = get_logger(__name__)
 

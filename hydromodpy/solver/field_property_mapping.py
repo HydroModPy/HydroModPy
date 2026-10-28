@@ -17,9 +17,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
+from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.spatial.field.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 

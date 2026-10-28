@@ -234,7 +234,7 @@ class BenchTerrain:
 
 def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters=None) -> None:
     """Replace the terrain steps of the geographic pipeline by *flow*, *catchment*, ..."""
-    from hydromodpy.spatial.geographic import pipeline
+    from hydromodpy.spatial.geographic import geographic_cache, pipeline
 
     tool = SimpleNamespace(delineation=SimpleNamespace(polygons_to_lines=lambda *a, **k: None))
     monkeypatch.setattr(pipeline, "resolve_delineation_backend", lambda backend: tool)
@@ -244,6 +244,7 @@ def patch_pipeline(monkeypatch, *, flow, catchment, network=None, domain_rasters
         monkeypatch.setattr(pipeline, "build_river_network_products", network)
     if domain_rasters is not None:
         monkeypatch.setattr(pipeline, "build_domain_rasters", domain_rasters)
+        monkeypatch.setattr(geographic_cache, "build_domain_rasters", domain_rasters)
     monkeypatch.setattr(
         pipeline, "read_dem_metadata", lambda **_: SimpleNamespace(runtime_attributes=dict)
     )
@@ -298,11 +299,11 @@ def touch_artifact(path: Path | str) -> None:
 def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, **sections):
     """A complete geographic cache under ``root/project`` and the config it was written for."""
     from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
-    from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
-    from hydromodpy.spatial.geographic.pipeline import (
+    from hydromodpy.spatial.geographic.geographic_cache import (
         _required_geographic_cache_artifacts,
-        _write_geographic_cache_manifest,
+        write_geographic_cache_manifest,
     )
+    from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 
     dem = root / "dem.tif"
     touch_artifact(dem)
@@ -333,7 +334,7 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
             **(domain or {}),
         }
     )
-    _write_geographic_cache_manifest(
+    write_geographic_cache_manifest(
         config=config,
         paths=paths,
         domain_products=domain_products,
@@ -346,9 +347,9 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
 
 def load_cached(config, paths):
     """The products a cache hit rebuilds, or None on a miss."""
-    from hydromodpy.spatial.geographic.pipeline import _load_cached_geographic_products
+    from hydromodpy.spatial.geographic.geographic_cache import load_cached_geographic_products
 
-    return _load_cached_geographic_products(config=config, paths=paths, crs_project=LAMBERT)
+    return load_cached_geographic_products(config=config, paths=paths, crs_project=LAMBERT)
 
 
 class FakeLocator:

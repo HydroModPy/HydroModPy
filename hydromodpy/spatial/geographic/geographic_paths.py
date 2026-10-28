@@ -6,10 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hydromodpy.core.state.paths import scratch_dir_for
-from hydromodpy.spatial.geographic.core.hydrographic_network import (
-    HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME,
-    HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME,
-)
+
+__all__ = [
+    "HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME",
+    "HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME",
+]
+HYDROGRAPHIC_NETWORK_GENERATED_VECTOR_FILENAME = "river_network.shp"
+HYDROGRAPHIC_NETWORK_GENERATED_SUMMARY_FILENAME = "river_network_summary.json"
 
 
 @dataclass(frozen=True)

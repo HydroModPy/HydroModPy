@@ -6,16 +6,16 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, MultiPoint, Point
 
-from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
-    delineate_candidate_outlet,
     outlet_display_xy,
     outlet_snap_distance_m,
-    try_delineate_candidate_outlet,
 )
-from hydromodpy.spatial.site_selection.hydrology.pipeline import (
+from hydromodpy.spatial.site_selection.hydrology.delineation import (
+    delineate_candidate_outlet,
     delineate_site_selection_candidates,
+    try_delineate_candidate_outlet,
 )
 from tests._helpers.site_selection_cases import delineation_spy, site_flow_products
 from tests._helpers.terrain_doubles import fake_flow_products

@@ -37,7 +37,7 @@ from hydromodpy.core.field_routing import accumulate_on_downhill_graph
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
-from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
+from hydromodpy.spatial.geographic.synthetic_config import SYNTHETIC_CATCH_DEF
 
 __all__ = [
     "catchment_cell_mask",

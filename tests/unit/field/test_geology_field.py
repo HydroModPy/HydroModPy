@@ -1,8 +1,8 @@
-"""A geology map as a zone support, :mod:`hydromodpy.spatial.field.geology.geology_field`.
+"""A geology map as a zone support, :mod:`hydromodpy.spatial.field.geology_field`.
 
 The map is an encoded raster, 0 for nodata, and keeps its polygons when it
 comes from a vector file. The regular cell mesh of the geology demo is built
-by :mod:`hydromodpy.spatial.field.geology.geology_mesh`.
+by :mod:`hydromodpy.spatial.field.geology_field`.
 """
 
 from __future__ import annotations
@@ -16,15 +16,12 @@ from rasterio.transform import from_origin
 
 from hydromodpy.core.rng import RngManager
 from hydromodpy.data.variables.geology.config import validate_geology_config_data
-from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
-from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
-from hydromodpy.spatial.field.core.field_param import FieldParam
-from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
-    WeightedAverageFieldDiscretization,
-)
-from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
-from hydromodpy.spatial.field.geology import GeologyField
-from hydromodpy.spatial.field.geology.geology_mesh import regular_cell_mesh_over_bounds
+from hydromodpy.spatial.field.cell_sampling import sample_points_in_cell
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
+from hydromodpy.spatial.field.geology_field import GeologyField, regular_cell_mesh_over_bounds
+from hydromodpy.spatial.field.mesh_cells import cell_values, mesh_cells
+from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
 from hydromodpy.spatial.field.zone_fractions import ZonePolygons
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from tests._helpers.cell_meshes import TEST_CRS_WKT

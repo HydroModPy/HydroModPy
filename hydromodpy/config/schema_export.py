@@ -111,7 +111,7 @@ def model_scope(model_cls: type) -> str:
     """Return the scope naming *model_cls*, qualified by where it is declared.
 
     The bare class name is not unique in this tree: ``DemConfig`` exists in
-    ``data.variables.dem.config`` and in ``spatial.site_selection.config.models``,
+    ``data.variables.dem.config`` and in ``spatial.site_selection.config.site_selection_config``,
     with different properties. Two documents that accept different payloads may
     not answer to one identity, so the scope carries the import path, minus the
     ``hydromodpy.`` prefix every one of them shares.
