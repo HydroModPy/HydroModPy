@@ -21,6 +21,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.ops import substring
 from shapely.strtree import STRtree
 
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec, SizeField
 
 __all__ = [
@@ -117,9 +118,7 @@ def node_tolerance(domain: Polygon) -> float:
 
 def _fixed_nodes(lines: list[LineString], domain: Polygon) -> np.ndarray:
     """Coordinates ``(k, 2)`` of the ends of the noded union of the lines and the boundary."""
-    rings = [LineString(domain.exterior.coords)] + [
-        LineString(ring.coords) for ring in domain.interiors
-    ]
+    rings = polygon_rings(domain)
     noded = shapely.get_parts(shapely.node(shapely.multilinestrings([*lines, *rings])))
     ends = np.concatenate(
         [

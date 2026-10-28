@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -42,6 +42,8 @@ RUN_FIELDS: tuple[str, ...] = ("watertable_depth", "seepage")
 
 class RefinementZoneConfig(HydroModelBase):
     """One zone of local refinement: a vector layer, or where a field passes a threshold."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
 
     path: Annotated[NonEmptyPath | None, Profile.USER] = Field(
         default=None,
@@ -199,6 +201,8 @@ class RefinementZoneConfig(HydroModelBase):
 
 class LakeRefinementConfig(HydroModelBase):
     """Local mesh-refinement targets for the lake shoreline and the hydraulic structures."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
 
     cell_size: Annotated[float, Profile.USER] = Field(
         default=40.0,

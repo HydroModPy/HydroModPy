@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.mesh.engines.voronoi.mirror import (
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.face_pairs import (
     RADIUS_SHARE,
     circle_segment_crossings,
     enforce_eq1,

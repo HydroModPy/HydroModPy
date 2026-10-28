@@ -102,13 +102,15 @@ from hydromodpy.solver.modflow_common import (
     build_solver_routing_context,
     write_grid_array_to_raster,
 )
-from hydromodpy.solver.modflow_common.mesh_descent import (
+from hydromodpy.solver.modflow_common.catchment_basin import run_basin
+from hydromodpy.solver.modflow_common.channel_tree import (
     active_channel_raster,
-    build_solver_mesh_descent,
     channel_tree_for_run,
+)
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_directions import (
+    build_solver_mesh_descent,
     resolve_dam_foot_cells,
-    run_basin,
-    write_descent_sidecar,
 )
 from hydromodpy.solver.modflow_common.sink_mask import resolve_sink_mask
 from hydromodpy.solver.modflow_grid import (

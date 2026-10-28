@@ -22,14 +22,11 @@ from rasterio.transform import from_origin
 from hydromodpy.physics.flow.sinks_sources.sfr import FlowReachConfig, FlowReachNetworkConfig
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders.sfr import resolve_sfr_networks
-from hydromodpy.solver.modflow_common import mesh_descent
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    ChannelTree,
-    build_solver_mesh_descent,
-    channel_tree_for_run,
-    read_descent_sidecar,
-    run_basin,
-)
+from hydromodpy.solver.modflow_common import catchment_basin
+from hydromodpy.solver.modflow_common.catchment_basin import run_basin
+from hydromodpy.solver.modflow_common.channel_tree import ChannelTree, channel_tree_for_run
+from hydromodpy.solver.modflow_common.descent_store import read_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
@@ -226,7 +223,7 @@ def _xy(row: int, col: int, nrow: int = 10) -> tuple[float, float]:
 def test_the_drainage_basin_closes_on_the_snapped_outlet(monkeypatch) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
     snapped, declared = _xy(9, 2), _xy(9, 7)
     geographic = SimpleNamespace(
         x_outlet=declared[0],
@@ -245,7 +242,7 @@ def test_the_drainage_basin_closes_on_the_snapped_outlet(monkeypatch) -> None:
 def test_without_a_snapped_outlet_the_declared_one_closes_the_basin(monkeypatch) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
     declared = _xy(9, 7)
 
     basin = run_basin(SimpleNamespace(x_outlet=declared[0], y_outlet=declared[1]), mesh, descent)
@@ -258,7 +255,7 @@ def test_without_an_outlet_the_basin_closes_inside_the_polygon(monkeypatch, capl
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     east = mesh.cell_centroids()[:, 0] > 50.0
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: east)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: east)
 
     with caplog.at_level(logging.INFO):
         basin = run_basin(None, mesh, descent)
@@ -274,7 +271,7 @@ def test_a_basin_far_from_the_polygon_is_a_warning(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
     east = mesh.cell_centroids()[:, 0] > 50.0
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: east)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: east)
     snapped = _xy(9, 2)
     geographic = SimpleNamespace(x_outlet_snapped=snapped[0], y_outlet_snapped=snapped[1])
 
@@ -290,7 +287,7 @@ def test_without_outlet_or_polygon_routing_the_largest_basin_is_a_warning(
 ) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
 
     with caplog.at_level(logging.INFO):
         basin = run_basin(None, mesh, descent)
@@ -310,7 +307,7 @@ def test_without_outlet_or_polygon_routing_the_largest_basin_is_a_warning(
 
 def test_the_build_keeps_the_basin_and_leaves_it_in_the_sidecar(tmp_path, monkeypatch) -> None:
     mesh = _two_valleys()
-    monkeypatch.setattr(mesh_descent, "polygon_cell_mask", lambda geographic, centroids: None)
+    monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: None)
     declared = _xy(9, 7)
     model = SimpleNamespace(
         flow=SimpleNamespace(active_bc=[], sinks_sources={}),
@@ -436,7 +433,7 @@ def _write_streams(path, shape: tuple[int, int], row: int, *, age_s: float = 0.0
 
 
 def test_the_active_raster_of_a_is_one_rule_for_every_reader(tmp_path) -> None:
-    from hydromodpy.solver.modflow_common.mesh_descent import active_channel_raster
+    from hydromodpy.solver.modflow_common.channel_tree import active_channel_raster
 
     streams = tmp_path / "dem_streams_full.tif"
     pruned = tmp_path / "dem_streams_pruned_full.tif"

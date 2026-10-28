@@ -44,7 +44,6 @@ def planning_inputs(ctx: WorkflowContext, mesh_cfg: MeshConfig) -> PlanningInput
     outlet = _declared_outlet(cfg.geographic)
     return PlanningInputs(
         dem_grid=grid,
-        crs_wkt=crs_wkt,
         domain=_domain_polygon(setup, cfg.geographic, grid, crs_wkt, synthetic),
         river_trace=river_trace,
         watershed=_watershed(setup, crs_wkt) if reads_catchment and not synthetic else None,

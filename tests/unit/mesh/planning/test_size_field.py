@@ -3,8 +3,9 @@
 A target is a geometry, burnt with every pixel it touches, or the pixels a
 criterion selected. Each target holds its size on its pixels and ramps back to
 the background, the field coarsens outside the catchment, and a field too large
-for memory keeps the minimum of each block. A target, a coarsening or a field
-that cannot be built is refused with a message that names it.
+for memory keeps the minimum of each block. A target on no pixel refines
+nothing, and a pixel region off the grid of the field is refused with a message
+that names it.
 """
 
 from __future__ import annotations
@@ -197,6 +198,7 @@ def test_a_large_grid_takes_the_block_minimum(monkeypatch: pytest.MonkeyPatch) -
     assert coarse.grid.dx == pytest.approx(block * grid.dx)
     assert coarse.grid.nrow * coarse.grid.ncol <= 500
     assert coarse.grid.xmin == grid.xmin and coarse.grid.ymax == grid.ymax
+    assert coarse.grid.crs_wkt == grid.crs_wkt
     padded = np.pad(fine.values, ((0, 1), (0, 2)), mode="edge")
     expected = padded.reshape(17, block, 24, block).min(axis=(1, 3))
     np.testing.assert_array_equal(coarse.values, expected)
@@ -299,19 +301,16 @@ def _pixels_of_another_grid() -> np.ndarray:
     return _field(region, _pixel_grid())
 
 
-def _built(**overrides: object) -> SizeField:
-    members: dict[str, object] = {
-        "h0": 100.0,
-        "h_floor": 10.0,
-        "terms": [],
-        "outside": None,
-        "max_slope": 0.5,
-    }
-    members.update(overrides)
-    return build_size_field(_grid(nrow=10, ncol=10), **members)
+def test_a_term_on_no_pixel_refines_nothing() -> None:
+    grid = _pixel_grid()
+    term = SizeTerm(name="zone", region=_empty_pixels(), size_m=20.0, ramp_m=40.0)
 
+    field = build_size_field(
+        grid, h0=100.0, h_floor=10.0, terms=[term], outside=None, max_slope=0.5
+    )
 
-_ZONE = box(1000.0, 5000.0, 1050.0, 5050.0)
+    assert np.all(field.values == 100.0)
+
 
 _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "pixel region of another shape": (
@@ -319,45 +318,6 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
         r"a pixel region has shape \(3, 3\)",
     ),
     "pixel region of another grid": (_pixels_of_another_grid, r"lies on another grid"),
-    "term on no pixel": (
-        lambda: SizeTerm(name="zone", region=_empty_pixels(), size_m=20.0, ramp_m=40.0),
-        r"size term 'zone' has an empty region",
-    ),
-    "term on an empty polygon": (
-        lambda: SizeTerm(name="zone", region=Polygon(), size_m=20.0, ramp_m=40.0),
-        r"size term 'zone' has an empty region",
-    ),
-    "term of size zero": (
-        lambda: SizeTerm(name="zone", region=_ZONE, size_m=0.0, ramp_m=40.0),
-        r"size term 'zone': size must be > 0 m",
-    ),
-    "term of an infinite size": (
-        lambda: SizeTerm(name="zone", region=_ZONE, size_m=float("inf"), ramp_m=40.0),
-        r"size term 'zone': size must be > 0 m",
-    ),
-    "term of a negative ramp": (
-        lambda: SizeTerm(name="zone", region=_ZONE, size_m=20.0, ramp_m=-1.0),
-        r"size term 'zone': ramp must be >= 0 m",
-    ),
-    "coarsening of an empty catchment": (
-        lambda: OutsideCoarsening(region=Polygon(), factor=2.0, transition_m=50.0),
-        r"needs a non-empty catchment region",
-    ),
-    "coarsening that refines": (
-        lambda: OutsideCoarsening(region=_ZONE, factor=0.5, transition_m=50.0),
-        r"outside factor must be >= 1",
-    ),
-    "coarsening of a negative transition": (
-        lambda: OutsideCoarsening(region=_ZONE, factor=2.0, transition_m=-1.0),
-        r"transition distance must be >= 0 m",
-    ),
-    "flat slope": (lambda: _built(max_slope=0.0), r"max_slope must be > 0"),
-    "slope not finite": (lambda: _built(max_slope=float("nan")), r"max_slope must be > 0"),
-    "floor of zero": (lambda: _built(h_floor=0.0), r"the size floor must be > 0 m"),
-    "background finer than the floor": (
-        lambda: _built(h0=5.0),
-        r"the background size 5.0 m is finer than the floor 10.0 m",
-    ),
 }
 
 

@@ -141,7 +141,6 @@ def _read_request(bundle: str, **options: Any):
     )
     return MeshRequest(
         domain=domain,
-        crs_wkt=BUNDLE_CRS_WKT,
         grid=grid,
         nominal_size_m=side,
         input_triangulation=triangulation,

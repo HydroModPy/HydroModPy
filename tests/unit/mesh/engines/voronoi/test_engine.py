@@ -11,11 +11,10 @@ import pytest
 import shapely
 from shapely.geometry import LineString
 
-from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
 from hydromodpy.spatial.mesh.engines.voronoi.frame import local_frame
+from hydromodpy.spatial.mesh.engines.voronoi.from_triangulation import _FACES_NOTE
 from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_CAP
-from hydromodpy.spatial.mesh.engines.voronoi.triangulation_seeds import _FACES_NOTE
 from hydromodpy.spatial.mesh.io.msh import read_msh
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
 from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
@@ -306,31 +305,3 @@ def test_the_lloyd_tolerance_of_the_request_stops_the_relaxation() -> None:
     assert loose["lloyd_converged"] == 1.0
     assert default["lloyd_iterations"] > 1.0
     assert default["lloyd_cap"] == float(LLOYD_CAP)
-
-
-# --------------------------------------------------------------------------- #
-# Refusals
-# --------------------------------------------------------------------------- #
-
-
-@pytest.mark.parametrize(
-    ("request_of", "message"),
-    [
-        (lambda: _square(seeds="triangulation"), "needs an input triangulation"),
-        (
-            lambda: _read(
-                "dupuit_circular_island_ocean_irregular_tri_radial_48", seeds="generated"
-            ),
-            "also carries a triangulation to read",
-        ),
-        (lambda: _square(seeds="lloyd"), "unknown voronoi seeds 'lloyd'"),
-    ],
-    ids=[
-        "triangulation_seeds_without_a_triangulation",
-        "generated_seeds_and_a_triangulation",
-        "unknown_seeds",
-    ],
-)
-def test_a_seed_source_the_request_cannot_feed_is_refused(request_of, message: str) -> None:
-    with pytest.raises(MeshRequestError, match=message):
-        VoronoiMeshEngine().build(request_of())

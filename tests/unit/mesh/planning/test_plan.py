@@ -22,13 +22,13 @@ from shapely.geometry import LineString, Point, Polygon, box
 from hydromodpy.spatial.mesh.cache import cache_key
 from hydromodpy.spatial.mesh.engines.triangle.engine import TriangleMeshEngine
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
-from hydromodpy.spatial.mesh.planning import plan
+from hydromodpy.spatial.mesh.planning import size_terms
 from hydromodpy.spatial.mesh.planning.geology import contact_lines
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.planning.refinement import RefinementZone, load_refinement_zones
 from hydromodpy.spatial.mesh.planning.size_field import PixelRegion
-from hydromodpy.spatial.mesh.refinement_config import RefinementZoneConfig
+from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig, RefinementZoneConfig
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, InputTriangulation
 from tests._helpers import reservoir_dam as dam
 from tests._helpers.fake_engines import fake_capabilities, fake_engine, registered
@@ -291,13 +291,13 @@ def test_the_size_holds_two_cells_across_a_narrow_lake_arm_unless_gap_cells_is_z
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     sized: list[list] = []
-    terms_of = plan.gap_terms
+    terms_of = size_terms.gap_terms
 
     def gap_terms(*args: object, **kwargs: object) -> list:
         sized.append(terms_of(*args, **kwargs))
         return sized[-1]
 
-    monkeypatch.setattr(plan, "gap_terms", gap_terms)
+    monkeypatch.setattr(size_terms, "gap_terms", gap_terms)
 
     def arm(cfg: MeshConfig):
         request = plan_mesh_request(cfg, _inputs(tmp_path, lakes=(_ARM_LAKE,)))
@@ -331,6 +331,20 @@ def test_a_structure_drawn_as_a_polygon_is_refined_on_its_own_area(tmp_path: Pat
     sizes = request.size_field.sample(np.array([[650.0, 325.0], [650.0, 420.0]]))
     assert sizes[0] == pytest.approx(12.0)
     assert sizes[1] > 12.0
+
+
+def test_the_interior_size_refines_the_whole_lake(tmp_path: Path) -> None:
+    """The shore term alone leaves the centre of a lake coarser than the interior size."""
+    interior = _TRIANGLE.model_copy(
+        update={"lake_refinement": LakeRefinementConfig(cell_size=20.0, interior_size=30.0)}
+    )
+    centre = np.array([[300.0, 750.0]])
+
+    shore_only = plan_mesh_request(_TRIANGLE, _inputs(tmp_path)).size_field.sample(centre)
+    whole_lake = plan_mesh_request(interior, _inputs(tmp_path)).size_field.sample(centre)
+
+    assert whole_lake[0] == pytest.approx(30.0)
+    assert shore_only[0] > 30.0
 
 
 _LABEL = "height_above_stream below 2 m"

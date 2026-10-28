@@ -24,9 +24,9 @@ import pytest
 from hydromodpy.core import descent as core_descent
 from hydromodpy.core.descent import DescentBasin
 from hydromodpy.solver.modflow6 import build
-from hydromodpy.solver.modflow_common import mesh_descent
-from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent, run_basin
+from hydromodpy.solver.modflow_common import catchment_basin
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask, run_basin
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -86,13 +86,13 @@ def _model(tmp_path, geographic: object) -> SimpleNamespace:
 
 def _count_calls(monkeypatch) -> list[int]:
     calls: list[int] = []
-    original = mesh_descent.descent_basin
+    original = catchment_basin.descent_basin
 
     def counted(*args, **kwargs):
         calls.append(1)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(mesh_descent, "descent_basin", counted)
+    monkeypatch.setattr(catchment_basin, "descent_basin", counted)
     return calls
 
 
@@ -138,7 +138,7 @@ def test_no_consumer_computes_the_basin_again(consumer, monkeypatch) -> None:
         raise AssertionError("a consumer computed the basin of D again")
 
     monkeypatch.setattr(core_descent, "descent_basin", refuse)
-    monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+    monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
     basin = _stored_basin(N * N)
 
     np.testing.assert_array_equal(consumer(basin), basin.mask)

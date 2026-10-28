@@ -233,11 +233,9 @@ def network_comparison_from_run(
         raise ValueError(f"stream comparison unavailable for {sim.sim_id}: {reason}")
 
     from hydromodpy.spatial.geographic.core.network_heads import network_head_candidates
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-        cell_polygons,
-        line_crossing_cell_mask,
-        vector_cell_mask,
-    )
+    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+    from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
+    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)

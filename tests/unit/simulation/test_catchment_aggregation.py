@@ -278,13 +278,13 @@ class TestAddRunoffToDischarge:
 
     def test_the_runoff_area_does_not_compute_the_basin_again(self, monkeypatch):
         from hydromodpy.core import descent as core_descent
-        from hydromodpy.solver.modflow_common import mesh_descent
+        from hydromodpy.solver.modflow_common import catchment_basin
 
         def refuse(*_args, **_kwargs):
             raise AssertionError("the runoff area computed the basin of D again")
 
         monkeypatch.setattr(core_descent, "descent_basin", refuse)
-        monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+        monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
         _patch_area(monkeypatch, 86_400_000.0)
         idx = pd.date_range("2020-01-01", periods=2, freq="D")
         discharge = pd.Series([0.0, 0.0], index=idx, name="discharge")
@@ -947,13 +947,13 @@ class TestTheCatchmentSeriesUseTheCatchment:
         from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
             _build_catchment_mask,
         )
-        from hydromodpy.solver.modflow_common import mesh_descent
+        from hydromodpy.solver.modflow_common import catchment_basin
 
         def refuse(*_args, **_kwargs):
             raise AssertionError("the aggregation computed the basin of D again")
 
         monkeypatch.setattr(core_descent, "descent_basin", refuse)
-        monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+        monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
         grp = self._with_basin(self._grp(4), [1, 0, 1, 0])
 
         mask = _build_catchment_mask(None, "sim", grp, np.ones(4, dtype=bool))

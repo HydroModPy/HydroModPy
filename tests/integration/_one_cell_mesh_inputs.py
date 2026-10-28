@@ -214,7 +214,6 @@ def regular_pair(tmp_path: Path) -> MeshPair:
     )
     request = MeshRequest(
         domain=box(grid.xmin, grid.ymin, grid.xmax, grid.ymax),
-        crs_wkt=CRS_WKT,
         grid=grid,
         nominal_size_m=pitch,
     )
@@ -251,7 +250,6 @@ def triangle_pair(tmp_path: Path) -> MeshPair:
     )
     request = MeshRequest(
         domain=domain_polygon,
-        crs_wkt=CRS_WKT,
         grid=grid,
         nominal_size_m=side,
         input_triangulation=triangulation,

@@ -17,6 +17,7 @@ from hydromodpy.calibration.observations.network_cost import (
     network_cost,
     positive_outflow,
 )
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_areas, padded_rows
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,19 +57,18 @@ def mesh_cell_geometry(
         raise ValueError("face_node_connectivity must be a 2D array.")
 
     centroids = np.full((faces.shape[0], 2), np.nan, dtype="float64")
-    area = np.full(faces.shape[0], np.nan, dtype="float64")
+    rows = []
     for cell_id, row in enumerate(faces):
         node_ids = np.asarray(row, dtype=int)
         node_ids = node_ids[(node_ids >= 0) & (node_ids < points.shape[0])]
+        rows.append(node_ids)
         if node_ids.size < 3:
             continue
         polygon = np.asarray(points[node_ids, :2], dtype=float)
         if not np.all(np.isfinite(polygon)):
             continue
         centroids[cell_id] = np.mean(polygon, axis=0)
-        x = polygon[:, 0]
-        y = polygon[:, 1]
-        area[cell_id] = 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+    area = cell_areas(points, padded_rows(rows, n_nodes=points.shape[0]))
 
     if not np.all(np.isfinite(centroids)):
         raise ValueError("Could not compute finite centroids for every mesh cell.")

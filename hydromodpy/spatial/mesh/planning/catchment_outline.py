@@ -22,7 +22,7 @@ follows.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import replace
 
 import numpy as np
@@ -31,6 +31,7 @@ from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.spatial.mesh.mesh_config import MeshFamiliesConfig
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.cleanup import (
     CLEANUP_PIXEL_SHARE,
     GeometryCleanup,
@@ -124,7 +125,7 @@ def smooth_polygon(
         shapely.prepare(others)
     rings = []
     changed = False
-    for ring in (polygon.exterior, *polygon.interiors):
+    for ring in polygon_rings(polygon):
         coords = np.asarray(ring.coords)[:, :2]
         smooth = _smoothed_ring(coords, pixel, others)
         changed = changed or smooth is not None
@@ -339,11 +340,7 @@ def _largest_shift(old: Polygon, new: Polygon) -> float:
 def _segments(polygon: Polygon) -> np.ndarray:
     """The segments of every ring of *polygon*, as line strings."""
     segments: list[np.ndarray] = []
-    for ring in _rings(polygon):
+    for ring in polygon_rings(polygon):
         coords = np.asarray(ring.coords)[:, :2]
         segments.append(shapely.linestrings(np.stack([coords[:-1], coords[1:]], axis=1)))
     return np.concatenate(segments)
-
-
-def _rings(polygon: Polygon) -> Iterable[LineString]:
-    return (polygon.exterior, *polygon.interiors)

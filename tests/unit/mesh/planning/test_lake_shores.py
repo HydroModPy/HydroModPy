@@ -23,14 +23,15 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import interior_cells, p
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
 from hydromodpy.spatial.mesh.engines.voronoi.generated import CLOSED_SHORE_SHARE
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning import plan
+from hydromodpy.spatial.mesh.planning import families
+from hydromodpy.spatial.mesh.planning.families import RIVER_MARGIN_SHARE
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.lake_shores import (
     LAKE_SHORE_SHARE,
     FollowedShores,
     followed_lake_shores,
 )
-from hydromodpy.spatial.mesh.planning.plan import RIVER_MARGIN_SHARE, plan_mesh_request
+from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over, planning_inputs
 
@@ -66,7 +67,7 @@ def followed(monkeypatch: pytest.MonkeyPatch) -> list[FollowedShores]:
         picked.append(followed_lake_shores(*args, **kwargs))
         return picked[-1]
 
-    monkeypatch.setattr(plan, "followed_lake_shores", record)
+    monkeypatch.setattr(families, "followed_lake_shores", record)
     return picked
 
 

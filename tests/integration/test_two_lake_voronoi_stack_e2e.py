@@ -32,7 +32,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import worst_percent_discrepancy
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine
@@ -59,7 +59,7 @@ def _voronoi_cells():
         xmin=0.0, xmax=_SIDE, ymin=0.0, ymax=_SIDE, dx=_SIDE, dy=_SIDE, nrow=1, ncol=1,
         crs_wkt=_WKT,
     )  # fmt: skip
-    request = MeshRequest(domain=domain, crs_wkt=_WKT, grid=grid, nominal_size_m=30.0, options={})
+    request = MeshRequest(domain=domain, grid=grid, nominal_size_m=30.0, options={})
     return VoronoiMeshEngine().build(request)
 
 

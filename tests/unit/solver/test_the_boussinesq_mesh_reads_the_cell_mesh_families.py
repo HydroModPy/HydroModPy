@@ -198,6 +198,23 @@ def test_the_edges_are_the_edges_of_the_cell_mesh(case: str) -> None:
 
 
 @pytest.mark.parametrize("case", BUNDLE_CASES)
+def test_the_cell_areas_are_the_areas_of_the_cell_mesh(case: str) -> None:
+    ours, reference = _from_cell_mesh(case), _from_bundle(case)
+
+    assert np.array_equal(ours.cell_area_m2, _cell_mesh(case).geometry.areas)
+    np.testing.assert_allclose(ours.cell_area_m2, reference.cell_area_m2, rtol=1e-5)
+
+
+def test_a_river_face_missing_from_the_edge_list_is_refused() -> None:
+    mesh = _from_cell_mesh(BUNDLE_CASES[0])
+    kept = np.setdiff1d(np.arange(mesh.n_edges), mesh.river_edge_indices())
+    cut = replace(mesh, edge_node_a=mesh.edge_node_a[kept], edge_node_b=mesh.edge_node_b[kept])
+
+    with pytest.raises(ValueError, match="not an edge of the mesh"):
+        cut.family_edge_indices("rivers")
+
+
+@pytest.mark.parametrize("case", BUNDLE_CASES)
 @pytest.mark.parametrize("build", [_from_bundle, _from_cell_mesh])
 def test_a_point_is_located_in_the_cell_that_holds_it(case: str, build) -> None:
     mesh = build(case)

@@ -36,12 +36,9 @@ from shapely.geometry import (
 )
 from shapely.ops import transform
 
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-    cell_area_fraction,
-    cell_polygons,
-    line_crossing_cell_mask,
-    vector_cell_mask,
-)
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction, vector_cell_mask
 from tests._helpers.mesh_cases import LAMBERT93_WKT, regular_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
 
@@ -119,18 +116,6 @@ def test_ragged_connectivity_is_accepted():
     mask = _mask(vertices, connectivity, [LineString([(24.0, 5.0), (28.0, 5.0)])])
 
     assert mask.tolist() == [False, True]
-
-
-def test_padded_connectivity_ignores_the_negative_nodes():
-    vertices, connectivity = _quad_grid(n=1)
-    padded = np.full((2, 4), -1, dtype=int)
-    padded[0] = connectivity[0]
-    padded[1, :3] = connectivity[0][:3]
-
-    polygons = cell_polygons(vertices, padded)
-
-    assert polygons[0].area == pytest.approx(100.0 * 100.0)
-    assert polygons[1].area == pytest.approx(0.5 * 100.0 * 100.0)
 
 
 def test_degenerate_cell_is_never_in_the_mask():
@@ -642,12 +627,6 @@ STRIP_NODES = np.array(
         [200.0, 100.0],
     ]
 )
-
-
-def test_a_table_padded_with_nan_gives_one_polygon_per_cell() -> None:
-    polygons = cell_polygons(STRIP_NODES, NAN_PADDED)
-
-    assert [polygon.area for polygon in polygons] == [100.0 * 100.0, 0.5 * 100.0 * 100.0]
 
 
 def test_a_mesh_with_no_usable_cell_reaches_nothing() -> None:

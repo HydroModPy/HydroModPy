@@ -6,12 +6,12 @@ read it. Each of them once resolved its own outlet and walked its own receivers
 or its own polygon, and the supports drifted apart. The gate reads every module
 under ``hydromodpy/``:
 
-- ``descent_basin(`` is called once, by ``run_basin`` in ``mesh_descent``;
+- ``descent_basin(`` is called once, by ``run_basin`` in ``catchment_basin``;
 - ``Descent.basin(`` is called once, by ``descent_basin`` in ``core.descent``
   (a call whose first argument is a string literal is another ``basin``, the
   annual budget of the soil reservoir, and is ignored);
 - ``resolve_outlet(`` is called by ``core.descent``, by the outlet pass of a
-  watershed domain in ``mesh_descent``, and by the stream criterion, which
+  watershed domain in ``flow_directions``, and by the stream criterion, which
   keeps its own flood on the top T (decision B4);
 - the old per-consumer copies (``watershed_drainage_cell_mask``,
   ``_drainage_basin``) are gone.
@@ -26,11 +26,11 @@ from collections import Counter
 PKG_ROOT = pathlib.Path(__file__).resolve().parents[3] / "hydromodpy"
 
 ALLOWED_CALLS: dict[str, dict[str, int]] = {
-    "descent_basin": {"solver/modflow_common/mesh_descent.py": 1},
+    "descent_basin": {"solver/modflow_common/catchment_basin.py": 1},
     "basin": {"core/descent.py": 1},
     "resolve_outlet": {
         "core/descent.py": 1,
-        "solver/modflow_common/mesh_descent.py": 1,
+        "solver/modflow_common/flow_directions.py": 1,
         # B4: the stream criterion keeps its own flood on T and its own outlet.
         "core/stream_geometry.py": 1,
     },

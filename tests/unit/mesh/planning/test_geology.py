@@ -253,10 +253,6 @@ def _rings(**members: object) -> GeologyLines | None:
 
 
 _REFUSALS = {
-    "zones that do not name one zone per line": (
-        lambda _: GeologyLines(lines=(LineString([(0, 0), (1, 0)]),), zone_left=(), zone_right=()),
-        "one left and one right zone per line",
-    ),
     "source with no path": (
         lambda _: geology_lines({"source": {}}, config_path=None, crs_wkt=_L93),
         "a geology support needs source.path",

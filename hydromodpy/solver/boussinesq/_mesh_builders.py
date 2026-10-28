@@ -24,7 +24,6 @@ from ._mesh_geometry import (
     normalize_geom_type,
     optional_finite_float,
     optional_finite_nanmean,
-    polygon_area,
 )
 
 if TYPE_CHECKING:
@@ -44,18 +43,16 @@ def family_edge_indices(
     rows = cell_mesh.face_rows(family)
     if table is None or not rows.any():
         return np.empty(0, dtype=np.int64)
-    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
+    geometry = cell_mesh.geometry
     edge_nodes = np.asarray(edge_nodes, dtype=np.int64)
-    known = np.minimum(edge_nodes[:, 0], edge_nodes[:, 1]) * n_nodes + np.maximum(
-        edge_nodes[:, 0], edge_nodes[:, 1]
-    )
-    if known.size == 0:
-        raise ValueError(f"a face of the family '{family}' is not an edge of the mesh")
-    order = np.argsort(known, kind="stable")
-    node_a, node_b = table.node_a[rows], table.node_b[rows]
-    wanted = np.minimum(node_a, node_b) * n_nodes + np.maximum(node_a, node_b)
-    position = order[np.minimum(np.searchsorted(known, wanted, sorter=order), known.size - 1)]
-    if np.any(known[position] != wanted):
+    known = geometry.edge_ids(edge_nodes[:, 0], edge_nodes[:, 1])
+    # Reversed, so an edge the caller lists twice maps to its first row.
+    held = np.flatnonzero(known >= 0)[::-1]
+    caller_row = np.full(geometry.edge_nodes.shape[0], -1, dtype=np.int64)
+    caller_row[known[held]] = held
+    wanted = geometry.edge_ids(table.node_a[rows], table.node_b[rows])
+    position = np.where(wanted >= 0, caller_row[wanted], -1)
+    if np.any(position < 0):
         raise ValueError(f"a face of the family '{family}' is not an edge of the mesh")
     return np.unique(position)
 
@@ -114,6 +111,7 @@ def build_runtime_bundle_from_cell_mesh(
         for node_id in range(int(mesh.n_nodes))
     )
 
+    geometry = cell_mesh.geometry
     cells: list[CatchmentMeshBundleCell] = []
     for cell in mesh.iter_cells():
         cell_index = int(cell.index)
@@ -133,7 +131,7 @@ def build_runtime_bundle_from_cell_mesh(
                 node_indices=node_indices,
                 centroid_x=float(cell.centroid[0]),
                 centroid_y=float(cell.centroid[1]),
-                area_m2=polygon_area(np.asarray(cell.vertices, dtype=float)),
+                area_m2=float(geometry.areas[cell_index]),
                 z_top_centroid=z_top_centroid,
                 z_top_mean=optional_finite_nanmean(cell_node_z_top),
                 z_bottom_centroid=z_bottom_centroid,
@@ -145,7 +143,6 @@ def build_runtime_bundle_from_cell_mesh(
             )
         )
 
-    geometry = cell_mesh.geometry
     is_river = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
     is_river[family_edge_indices(cell_mesh, "rivers", geometry.edge_nodes)] = True
     edges = tuple(

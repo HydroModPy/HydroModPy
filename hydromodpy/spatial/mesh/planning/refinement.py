@@ -21,13 +21,12 @@ from pathlib import Path
 import numpy as np
 import shapely
 from rasterio.features import rasterize
-from rasterio.transform import Affine
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.planning.height_above_stream import (
     height_above_stream,
     stream_pixels,
@@ -93,9 +92,10 @@ class RunFieldEnvelope:
         object.__setattr__(self, "maximum", maximum)
 
     def passing(self, *, below: float | None, above: float | None) -> np.ndarray:
-        """The cells whose field went below *below*, or above *above*, at some time step."""
-        if (below is None) == (above is None):
-            raise MeshRequestError("a threshold is either below or above, and one of them")
+        """The cells whose field went below *below*, or above *above*, at some time step.
+
+        One of the two is given, as ``[[mesh.refinement_zone]]`` requires.
+        """
         with np.errstate(invalid="ignore"):
             if below is not None:
                 return np.isfinite(self.minimum) & (self.minimum < below)
@@ -202,7 +202,7 @@ def cells_on_grid(
     mask |= rasterize(
         [(polygon, 1) for polygon in chosen],
         out_shape=(grid.nrow, grid.ncol),
-        transform=Affine(grid.dx, 0.0, grid.xmin, 0.0, -grid.dy, grid.ymax),
+        transform=grid.transform,
         fill=0,
         all_touched=False,
         dtype="uint8",

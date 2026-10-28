@@ -1,4 +1,14 @@
-"""Quality report of a planar cell mesh, computed by one routine for every engine."""
+"""Quality report of a planar cell mesh, computed by one routine for every engine.
+
+The non-orthogonality of a connection is the angle between the line of the two
+cell centres and the normal of the face they share. The conductance two-point
+flux of MODFLOW is exact at 0 degrees on an isotropic medium, and XT3D corrects
+the error that grows with the angle. :func:`connection_nonorthogonality_deg`
+measures it on any planar ``HydroMesh``, so the MF6 options can decide whether
+XT3D is worth its cost. Reference: Provost, Langevin and Hughes (2017),
+"Documentation for the 'XT3D' option in the NPF Package of MODFLOW 6", USGS TM
+6-A56.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +21,16 @@ import numpy as np
 import shapely
 from shapely.strtree import STRtree
 
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry
+from hydromodpy.spatial.mesh.model.derived_geometry import (
+    DerivedGeometry,
+    cell_polygons,
+    derive_geometry_from_rows,
+    padded_rows,
+)
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString
+    from shapely.geometry.base import BaseGeometry
 
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
@@ -32,9 +48,12 @@ __all__ = [
     "cell_edge_max",
     "cell_shape_qa",
     "compute_mesh_qa",
+    "connection_nonorthogonality_deg",
     "edge_bisection_offset",
     "edge_nonorthogonality",
     "edge_size_ratio",
+    "mixed_cells",
+    "nonorthogonality_summary",
     "quality_warnings",
 ]
 
@@ -188,6 +207,45 @@ def edge_nonorthogonality(
     measured = np.flatnonzero(keep)[seen]
     angles[measured] = np.degrees(np.arctan2(along[seen], across[seen]))
     return angles
+
+
+def connection_nonorthogonality_deg(planar_mesh: HydroMesh) -> np.ndarray:
+    """Return the non-orthogonality angle [deg] of every interior connection of a planar mesh.
+
+    The centres are those of ``HydroMesh.cell_centroids``, the generator seeds
+    of a Voronoi mesh and the vertex mean otherwise. A face of zero length and
+    two cells on one centre are not measured. The angles follow the edge table
+    of the derived geometry. Raises ``ValueError`` when an edge is shared by
+    more than two cells.
+    """
+    if planar_mesh.n_cells == 0:
+        return np.empty(0, dtype=float)
+    vertices = np.asarray(planar_mesh.vertices, dtype=float)[:, :2]
+    geometry = derive_geometry_from_rows(
+        vertices, padded_rows(planar_mesh.flat_connectivity, n_nodes=planar_mesh.n_nodes)
+    )
+    centers = np.column_stack(planar_mesh.cell_centroids())
+    keep = (geometry.edge_cells[:, 1] >= 0) & (geometry.edge_length > 0.0)
+    angles = edge_nonorthogonality(centers, vertices, geometry, keep)
+    return angles[~np.isnan(angles)]
+
+
+def nonorthogonality_summary(planar_mesh: HydroMesh) -> dict[str, float]:
+    """Return the count, median, p95, p99, max and share above 30 deg of the connection angles.
+
+    Every entry is zero on a mesh without a measured connection.
+    """
+    angles = connection_nonorthogonality_deg(planar_mesh)
+    if angles.size == 0:
+        return {"n": 0.0, "median": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0, "frac_gt_30": 0.0}
+    return {
+        "n": float(angles.size),
+        "median": float(np.median(angles)),
+        "p95": float(np.percentile(angles, 95)),
+        "p99": float(np.percentile(angles, 99)),
+        "max": float(angles.max()),
+        "frac_gt_30": float(np.mean(angles > NONORTHOGONALITY_LIMIT_DEG)),
+    }
 
 
 def edge_bisection_offset(
@@ -359,9 +417,7 @@ def quality_warnings(qa: MeshQA) -> tuple[str, ...]:
 
 
 def _is_member(sorted_keys: np.ndarray, probe: np.ndarray) -> np.ndarray:
-    """Return, element-wise, whether ``probe`` is in the sorted array ``sorted_keys``."""
-    if sorted_keys.size == 0:
-        return np.zeros(probe.shape, dtype=bool)
+    """Return, element-wise, whether ``probe`` is in the non-empty sorted array ``sorted_keys``."""
     found = np.minimum(np.searchsorted(sorted_keys, probe), sorted_keys.size - 1)
     return sorted_keys[found] == probe
 
@@ -382,10 +438,7 @@ def _chain_qa(
     moves = src != dst
     src, dst = src[moves], dst[moves]
 
-    indptr = geometry.adjacency_indptr
-    rows = np.repeat(np.arange(n_cells, dtype=np.int64), np.diff(indptr))
-    face_keys = rows * n_cells + geometry.adjacency_indices
-    by_face = _is_member(face_keys, src * n_cells + dst)
+    by_face = geometry.edge_between(src, dst) >= 0
 
     padded = geometry.padded_connectivity.astype(np.int64)
     corner_cell = np.broadcast_to(np.arange(n_cells, dtype=np.int64)[:, None], padded.shape)
@@ -408,25 +461,16 @@ def _chain_qa(
     return out
 
 
-def _cell_polygons(padded: np.ndarray, vertices: np.ndarray) -> np.ndarray:
-    """Return one polygon per padded connectivity row; the padding repeats the last corner."""
-    count = (padded >= 0).sum(axis=1)
-    pick = np.minimum(np.arange(padded.shape[1])[None, :], (count - 1)[:, None])
-    corners = np.take_along_axis(padded, pick, axis=1)
-    return shapely.polygons(shapely.linearrings(vertices[corners]))
+def mixed_cells(
+    source: BaseGeometry, geometry: DerivedGeometry, vertices: np.ndarray, tolerance_m: float
+) -> np.ndarray:
+    """Return the ids of the cells whose interior the lines of ``source`` cross.
 
-
-def _mixed_cells(
-    lines: Sequence[LineString],
-    geometry: DerivedGeometry,
-    vertices: np.ndarray,
-    tolerance_m: float,
-) -> int:
-    """Count the cells whose interior a face line crosses.
-
-    The cell is shrunk by ``tolerance_m`` first, so a line that follows a cell
-    edge within the tolerance (a conformal face) is not a crossing. The cells
-    measured are those whose bounding box meets the lines.
+    Each cell is shrunk by ``tolerance_m`` first, so a line that follows a cell
+    edge within the tolerance (a conformal face) is not a crossing. A cell is
+    crossed when the length of ``source`` inside it exceeds
+    :data:`MIXED_CELL_TRAVERSAL` of its side. The cells measured are those whose
+    bounding box meets ``source``. A degenerate or invalid cell is never crossed.
     """
     padded = geometry.padded_connectivity.astype(np.int64)
     valid = padded >= 0
@@ -438,13 +482,12 @@ def _mixed_cells(
         np.where(valid, x, -np.inf).max(axis=1),
         np.where(valid, y, -np.inf).max(axis=1),
     )
-    source = shapely.union_all(list(lines))
     near = np.unique(STRtree(boxes).query(source, predicate="intersects"))
     if near.size == 0:
-        return 0
-    polygons = shapely.buffer(_cell_polygons(padded[near], vertices), -tolerance_m)
+        return near
+    polygons = shapely.buffer(cell_polygons(vertices, padded[near]), -tolerance_m)
     inside = shapely.length(shapely.intersection(polygons, source))
-    return int(np.count_nonzero(inside > MIXED_CELL_TRAVERSAL * np.sqrt(geometry.areas[near])))
+    return near[inside > MIXED_CELL_TRAVERSAL * np.sqrt(geometry.areas[near])]
 
 
 def _face_family_qa(
@@ -467,7 +510,8 @@ def _face_family_qa(
         out["covered_length_rel"] = float(shapely.length(covered) / shapely.length(source))
         out["hausdorff_m"] = float(shapely.hausdorff_distance(source, faces, densify=0.25))
     if lines:
-        out["mixed_cells"] = float(_mixed_cells(lines, geometry, vertices, tolerance_m))
+        source = shapely.union_all(list(lines))
+        out["mixed_cells"] = float(mixed_cells(source, geometry, vertices, tolerance_m).size)
     return out
 
 

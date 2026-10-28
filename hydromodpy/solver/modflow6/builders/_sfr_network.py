@@ -39,7 +39,7 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders.wells import well_cell_to_disv
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString

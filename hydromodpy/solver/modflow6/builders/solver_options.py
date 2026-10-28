@@ -10,7 +10,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.ops.mesh_orthogonality import nonorthogonality_summary
+from hydromodpy.spatial.mesh.model.mesh_qa import nonorthogonality_summary
 
 logger = get_logger(__name__)
 

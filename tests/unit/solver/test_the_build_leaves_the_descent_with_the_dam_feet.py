@@ -17,7 +17,7 @@ import numpy as np
 
 from hydromodpy.solver.modflow6 import build
 from hydromodpy.solver.modflow6.builders import lake as lake_builder
-from hydromodpy.solver.modflow_common.mesh_descent import read_descent_sidecar
+from hydromodpy.solver.modflow_common.descent_store import read_descent_sidecar
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

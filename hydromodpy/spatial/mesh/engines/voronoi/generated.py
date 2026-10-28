@@ -16,7 +16,10 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.mesh.engines.voronoi.constraints import ConstraintPlan, place_constraints
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
+    ConstraintPlan,
+    place_constraints,
+)
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame, SizeSampler, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import (
     free_seed_count,
@@ -24,12 +27,8 @@ from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import (
     sample_free_seeds,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.gates import check_gates, gated_geometry
-from hydromodpy.spatial.mesh.engines.voronoi.line_families import (
-    cell_chains,
-    cell_zones,
-    face_family_table,
-)
-from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE, lloyd_invariants, relax
+from hydromodpy.spatial.mesh.engines.voronoi.line_families import cell_zones, face_family_table
+from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_TOLERANCE, constraint_disks, relax
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
     cell_topology,
     tessellate,
@@ -85,29 +84,18 @@ def generate_cell_mesh(
         free_seed_count(h, domain, n_constraint),
     )
     free = free[morton_order(free)]
-    balls, faces = plan.berge_balls(), plan.mirror_faces()
-    chain_start, chain_end = plan.chain_segments()
-    invariants = lloyd_invariants(
-        berge_center=balls.center,
-        berge_radius=balls.radius,
-        chain_start=chain_start,
-        chain_end=chain_end,
-        constraint_xy=plan.seeds.xy,
-        constraint_size=plan.seeds.radius,
-    )
     report = relax(
         np.vstack([plan.seeds.xy, free]),
         n_constraint,
         h,
         domain,
-        invariants,
+        *constraint_disks(plan),
         tolerance=float(request.options.get("lloyd_tolerance", LLOYD_TOLERANCE)),
     )
     tess = tessellate(report.seeds, n_constraint, domain, voronoi_envelope(domain, h.h_max))
     topology = cell_topology(tess.cells, frame)
     blocks = (CellBlock(cell_type=CellType.POLYGON, connectivity=topology.rings),)
     local_geometry = gated_geometry(HydroMesh(vertices=topology.vertices, cell_blocks=blocks))
-    chains = cell_chains(plan)
     gates = check_gates(
         seeds=tess.seeds,
         cells=tess.cells,
@@ -115,9 +103,8 @@ def generate_cell_mesh(
         geometry=local_geometry,
         domain_area=domain.area,
         frame=frame,
-        chains=chains,
-        balls=balls,
-        faces=faces,
+        chains=plan.chains,
+        plan=plan,
     )
     table = face_family_table(plan, local_geometry, topology.vertices)
     seeds = _inside_their_cells(tess.seeds, tess.cells)
@@ -133,7 +120,7 @@ def generate_cell_mesh(
         crs_wkt=request.crs_wkt,
         identity=identity,
         declarations=declarations,
-        cell_chains=chains,
+        cell_chains=plan.chains,
         face_families=table,
         cell_zone=cell_zones(plan, local_geometry, topology.vertices, table),
         zone_names=plan.zone_names,
@@ -172,10 +159,7 @@ def _with_open_shore_note(cell_mesh: PlanarCellMesh) -> PlanarCellMesh:
         "yield, the lake regions stay open and each lake takes the cells it overlaps. "
         "Refine the lake shore ([mesh.lake_refinement] cell_size) to close it"
     )
-    qa = dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note))
-    merged = dataclasses.replace(cell_mesh, qa=qa)
-    object.__setattr__(merged, "geometry", cell_mesh.geometry)
-    return merged
+    return cell_mesh.with_qa(dataclasses.replace(cell_mesh.qa, notes=(*cell_mesh.qa.notes, note)))
 
 
 def _inside_their_cells(seeds: np.ndarray, cells: np.ndarray) -> np.ndarray:
@@ -204,6 +188,4 @@ def with_family_stats(
     families = {name: dict(numbers) for name, numbers in cell_mesh.qa.families.items()}
     for name, numbers in stats.items():
         families.setdefault(name, {}).update(numbers)
-    merged = dataclasses.replace(cell_mesh, qa=dataclasses.replace(cell_mesh.qa, families=families))
-    object.__setattr__(merged, "geometry", cell_mesh.geometry)
-    return merged
+    return cell_mesh.with_qa(dataclasses.replace(cell_mesh.qa, families=families))

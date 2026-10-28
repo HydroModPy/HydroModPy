@@ -8,6 +8,7 @@ grid of the catalog, which a mesh is not obliged to follow.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -211,6 +212,20 @@ def test_areas_keep_their_precision_far_from_the_origin() -> None:
     triangle = 0.5 * abs((100 - 50) * (125 - 70) - (80 - 50) * (55 - 70))  # cell 4: corners 5, 6, 9
     assert areas[4] == pytest.approx(triangle)
     assert np.isnan(polygon_areas(vertices, np.array([[0, 1, -1, -1]]))[0])
+
+
+def test_a_face_table_padded_with_nan_gives_the_areas_of_its_integer_twin() -> None:
+    vertices, faces = _lambert_grid(2, 2)
+    padded = faces.astype(float)
+    padded[0, 3] = np.nan
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        areas = polygon_areas(vertices, padded)
+
+    twin = faces.copy()
+    twin[0, 3] = -1
+    np.testing.assert_array_equal(areas, polygon_areas(vertices, twin))
 
 
 def test_the_default_geotiff_resolution_is_the_smallest_cell(project) -> None:

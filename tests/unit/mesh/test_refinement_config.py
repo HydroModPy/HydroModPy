@@ -9,7 +9,8 @@ in a few words for the notes and the journal.
 ``[mesh.lake_refinement]`` refines the shore band, the structures and maybe the
 interior. The table is the switch: an ``enabled`` key is refused and names the
 table. A size or a band that would slip between the sampling nodes of the size
-field is refused, and so is an interior finer than the shore.
+field is refused, and so is an interior finer than the shore. In both tables a
+size of zero and an infinite number are refused, with the key.
 """
 
 from __future__ import annotations
@@ -40,6 +41,9 @@ _RUN_ZONE = {"where": "watertable_depth", "below": 1.0, "run": "coarse", "cell_s
         ({**_HAND, "radius": 3.0}, ("radius",)),
         ({"path": "z.gpkg", "cell_size": 40.0, "radius": 10.0}, ("radius",)),
         ({"path": "z.gpkg", "cell_size": 40.0, "buffer": 10.0}, ("buffer must be >= cell_size",)),
+        ({"path": "z.gpkg", "cell_size": 0.0}, ("cell_size", "greater than 0")),
+        ({"path": "z.gpkg", "cell_size": float("inf")}, ("cell_size", "finite number")),
+        ({**_HAND, "below": float("inf")}, ("below", "finite number")),
     ],
 )
 def test_a_zone_says_one_field_and_its_threshold_or_is_refused(
@@ -85,6 +89,9 @@ def test_a_zone_describes_its_field_threshold_unit_and_run(table: dict, descript
         ({"dam_cell_size": 60.0, "hfb_buffer": 10.0}, "hfb_buffer"),
         ({"enabled": True, "cell_size": 40.0}, r"\[mesh\.lake_refinement\] has no 'enabled' key"),
         ({"enabled": False, "cell_size": 40.0}, r"\[mesh\.lake_refinement\] has no 'enabled' key"),
+        ({"cell_size": 0.0}, r"cell_size\n.*greater than 0"),
+        ({"dam_buffer": float("inf")}, r"dam_buffer\n.*finite number"),
+        ({"cell_size": 40.0, "interior_size": float("inf")}, r"interior_size\n.*finite number"),
     ],
     ids=[
         "interior finer than the shore",
@@ -92,6 +99,9 @@ def test_a_zone_describes_its_field_threshold_unit_and_run(table: dict, descript
         "wall zone thinner than a dam cell",
         "enabled true",
         "enabled false",
+        "cell size of zero",
+        "infinite dam buffer",
+        "infinite interior size",
     ],
 )
 def test_a_lake_refinement_table_that_cannot_hold_its_cells_is_refused(

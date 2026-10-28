@@ -18,15 +18,13 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
-from hydromodpy.solver.modflow_common.catchment_support import (
+from hydromodpy.solver.modflow_common.catchment_basin import (
     catchment_cell_mask,
     polygon_cell_mask,
-)
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    build_solver_mesh_descent,
     run_basin,
-    write_descent_sidecar,
 )
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_nwt.extractors.flow import catchment_basin_the_build_left
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.synthetic import (

@@ -262,8 +262,10 @@ Module layout
    |-- request.py           MeshRequest, LineFamilySpec, RasterGridSpec, SizeField
    |-- resample.py          the lines resampled at the local cell size, read by the engines
    |-- cache.py             meshes an engine cannot rebuild bit for bit
-   |-- engines/             regular/, triangle/, voronoi/
-   |-- planning/            plan_mesh_request, catchment_outline.py, cleanup.py, input_mesh.py,
+   |-- engines/             regular/, triangle/, voronoi/, and face_families.py, the face
+   |                        family rows they share
+   |-- planning/            plan_mesh_request, the line families (families.py) and the size
+   |                        terms (size_terms.py), catchment_outline.py, cleanup.py, input_mesh.py,
    |                        the size field (size_field.py, gap_size.py), the refinement
    |                        zones (refinement.py, height_above_stream.py) and the lake
    |                        structures (lake_structures.py)

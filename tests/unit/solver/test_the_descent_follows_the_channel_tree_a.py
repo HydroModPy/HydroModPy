@@ -15,12 +15,12 @@ import numpy as np
 import pytest
 from rasterio.transform import from_origin
 
-from hydromodpy.solver.modflow_common.mesh_descent import (
+from hydromodpy.solver.modflow_common.channel_tree import (
     ChannelTree,
-    build_solver_mesh_descent,
     project_channel_tree,
     read_channel_tree,
 )
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

@@ -79,7 +79,7 @@ Two typed dataclasses carry the contract:
 
 - ``TemporalDiscretizationResult``
   (``discretization_temporal.py``)
-- ``SolverGridContext`` (``grid_context.py``), built by
+- ``SolverGridContext`` (``discretization_spatial.py``), built by
   ``build_spatial_discretization``
 
 Temporal contract
@@ -300,8 +300,10 @@ Routing descent contract
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Source: ``hydromodpy/core/descent.py`` (the computation) and
-``hydromodpy/solver/modflow_common/mesh_descent.py`` (the adapter both
-backends call; neither backend imports the other).
+``hydromodpy/solver/modflow_common/flow_directions.py`` (the adapter both
+backends call; neither backend imports the other). ``channel_tree.py`` projects
+the river network A onto the mesh, ``catchment_basin.py`` takes the basin of D
+at the outlet, and ``descent_store.py`` writes and reads the sidecar.
 
 Every MODFLOW 6 and MODFLOW-NWT run builds one descent D per model build and
 keeps it on the model (``model.descent``), without the neighbour sets the

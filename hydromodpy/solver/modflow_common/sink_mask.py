@@ -39,6 +39,7 @@ from hydromodpy.core.field_routing import (
     domain_edge_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
+from hydromodpy.spatial.mesh.model.derived_geometry import padded_rows
 
 __all__ = ("closed_depression_mask", "resolve_sink_mask")
 
@@ -73,7 +74,8 @@ def closed_depression_mask(
         When the mesh carries no active cell, or no cell water can leave
         through, so the flood would raise the whole surface.
     """
-    connectivity = _rectangular_connectivity(solver_mesh)
+    planar = solver_mesh.planar_mesh
+    connectivity = padded_rows(planar.flat_connectivity, n_nodes=planar.n_nodes)
     top = np.asarray(solver_mesh.top, dtype=float).reshape(-1)
     active = ~solver_mesh.closed_surface(covered_cells)
     surface = np.where(active & np.isfinite(top), top, np.nan)
@@ -120,20 +122,3 @@ def resolve_sink_mask(
         return closed_depression_mask(solver_mesh, covered_cells=covered_cells)
     except ValueError as exc:
         raise ValueError(f"model {model_name!r}: {exc}") from exc
-
-
-def _rectangular_connectivity(solver_mesh: SolverMesh) -> np.ndarray:
-    """Return the planar face-node connectivity as one ``(n_cells, k)`` array.
-
-    A ragged polygon block is padded with -1, the missing-node marker both mesh
-    graph builders already skip.
-    """
-    connectivity = solver_mesh.planar_mesh.flat_connectivity
-    if isinstance(connectivity, np.ndarray) and connectivity.ndim == 2:
-        return connectivity.astype(np.int64, copy=False)
-    rows = [np.asarray(row, dtype=np.int64).reshape(-1) for row in connectivity]
-    width = max((row.size for row in rows), default=0)
-    padded = np.full((len(rows), width), -1, dtype=np.int64)
-    for index, row in enumerate(rows):
-        padded[index, : row.size] = row
-    return padded

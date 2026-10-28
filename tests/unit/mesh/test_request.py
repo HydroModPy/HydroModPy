@@ -3,8 +3,8 @@
 The hash moves with every member and with the earlier runs the size field
 read. A request that reads no run keeps the hash the code gave it before the
 runs were hashed, so the meshes cached for every existing project stay valid.
-Every member a user or a planner can get wrong is refused with a message that
-names it. A size field is sampled bilinearly between its pixel centres.
+A request refuses what no engine can mesh, with a message that names the
+member; the type of a member is its annotation's, not the request's. A size field is sampled bilinearly between its pixel centres.
 """
 
 from __future__ import annotations
@@ -51,7 +51,6 @@ def _request(**overrides: object) -> MeshRequest:
     """A request of every member; a variant of the grid keeps the domain and the CRS."""
     members: dict[str, object] = dict(
         domain=_GRID_BOX,
-        crs_wkt=_WKT,
         lines=(
             _RIVER,
             LineFamilySpec(
@@ -86,6 +85,20 @@ def _request_without_runs(**overrides: object) -> MeshRequest:
     }
     members.update(overrides)
     return mesh_request(_GRID, **members)
+
+
+def test_the_request_is_in_the_crs_of_its_grid() -> None:
+    other_wkt = 'PROJCS["WGS 84 / UTM zone 30N"]'
+
+    assert _request().crs_wkt == _WKT
+    assert mesh_request(grid_spec(4, 4, 10.0, crs_wkt=other_wkt)).crs_wkt == other_wkt
+
+
+def test_the_grid_transform_puts_row_0_north() -> None:
+    grid = _GRID
+
+    assert grid.transform * (0, 0) == (grid.xmin, grid.ymax)
+    assert grid.transform * (grid.ncol, grid.nrow) == pytest.approx((grid.xmax, grid.ymin))
 
 
 def test_the_request_error_is_a_mesh_error() -> None:
@@ -135,7 +148,6 @@ def _variants() -> dict[str, MeshRequest]:
     return {
         "domain": _request(domain=box(1000.0, 2000.0, 1090.0, 2050.0)),
         "crs_wkt": _request(
-            crs_wkt=other_wkt,
             grid=_grid(crs_wkt=other_wkt),
             size_field=uniform_size_field(_grid(crs_wkt=other_wkt), 20.0),
         ),
@@ -262,7 +274,7 @@ def test_a_grid_keeps_the_bounds_it_was_given() -> None:
     assert grid.ymin == 2000.0000000001
 
 
-def test_a_grid_from_a_raster_support_takes_its_exact_bounds() -> None:
+def test_a_grid_from_a_raster_support_takes_its_exact_bounds_and_the_crs() -> None:
     support = SimpleNamespace(
         xmin=0.0, xmax=300.0, ymin=-75.0, ymax=0.0, dx=None, dy=25.0, nrows=3, ncols=4
     )
@@ -271,11 +283,12 @@ def test_a_grid_from_a_raster_support_takes_its_exact_bounds() -> None:
 
     assert (grid.xmin, grid.xmax, grid.ymin, grid.ymax) == (0.0, 300.0, -75.0, 0.0)
     assert (grid.dx, grid.dy, grid.nrow, grid.ncol) == (75.0, 25.0, 3, 4)
+    assert grid.crs_wkt == _WKT
 
 
 def test_a_minimal_request_takes_the_defaults() -> None:
     request = MeshRequest(
-        domain=box(1000.0, 2000.0, 1100.0, 2050.0), crs_wkt=_WKT, grid=_GRID, nominal_size_m=10.0
+        domain=box(1000.0, 2000.0, 1100.0, 2050.0), grid=_GRID, nominal_size_m=10.0
     )
 
     assert request.lines == ()
@@ -309,12 +322,10 @@ def _triangles(vertices: np.ndarray, triangles: list, **labels: list) -> InputTr
 _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "grid step of zero": (lambda: _grid(dx=0.0, ncol=10), r"grid steps must be > 0 m"),
     "grid step off the bounds": (lambda: _grid(dx=11.0), r"10 cells of 11.0 m span"),
-    "grid of no row": (lambda: _grid(nrow=0), r"nrow must be an integer >= 1"),
-    "grid of half a column": (lambda: _grid(ncol=2.5), r"ncol must be an integer >= 1"),
+    "grid of no row": (lambda: _grid(nrow=0), r"grid y: 0 cells of 10.0 m span 0.0 m"),
+    "grid of half a column": (lambda: _grid(ncol=2.5), r"grid x: 2 cells of 10.0 m span"),
     "grid of empty x bounds": (lambda: _grid(xmax=1000.0), r"grid x bounds are empty"),
     "grid bound not finite": (lambda: _grid(ymin=_NAN), r"ymin must be finite"),
-    "grid bound given as text": (lambda: _grid(xmin="1000"), r"xmin must be a number"),
-    "grid of a blank CRS": (lambda: _grid(crs_wkt=" "), r"non-empty WKT string"),
     "raster support without ymin": (_support_without_ymin, r"the raster support lacks ymin"),
     "size field of another shape": (
         lambda: SizeField(np.full((10, 5), 20.0), _GRID),
@@ -323,10 +334,6 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "size field with a zero": (
         lambda: SizeField(np.zeros((5, 10)), _GRID),
         r"size field values must be finite and > 0 m",
-    ),
-    "family of an unknown intent": (
-        lambda: LineFamilySpec("rivers", "node", (_LINE,)),  # type: ignore[arg-type]
-        r"'rivers': intent must be one of",
     ),
     "family with no name": (lambda: LineFamilySpec("", "cell", (_LINE,)), r"non-empty name"),
     "family line of zero length": (
@@ -365,34 +372,13 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
         lambda: _request(domain=Polygon([(0, 0), (1, 1), (1, 0), (0, 1)])),
         r"valid polygon with an area > 0",
     ),
-    "blank CRS": (lambda: _request(crs_wkt=""), r"needs a non-empty crs_wkt"),
-    "CRS other than the grid's": (
-        lambda: _request(crs_wkt='PROJCS["other"]'),
-        r"the grid and the request name different CRS",
-    ),
-    "grid of another type": (
-        lambda: dataclasses.replace(_request(), grid=SimpleNamespace(crs_wkt=_WKT)),
-        r"MeshRequest.grid must be a RasterGridSpec",
-    ),
-    "family of another type": (
-        lambda: _request(lines=("rivers",)),
-        r"must hold LineFamilySpec items",
-    ),
     "two families of one name": (
         lambda: _request(lines=(_RIVER, dataclasses.replace(_RIVER, intent="face"))),
         r"line families named twice: rivers",
     ),
-    "size field of another type": (
-        lambda: _request(size_field=np.full((5, 10), 20.0)),
-        r"size_field must be a SizeField or None",
-    ),
     "size field in another CRS": (
         lambda: _request(size_field=uniform_size_field(_grid(crs_wkt='PROJCS["other"]'), 20.0)),
         r"the size field and the request name different CRS",
-    ),
-    "nominal size given as text": (
-        lambda: _request(nominal_size_m="25"),
-        r"nominal_size_m must be a number, got '25'",
     ),
     "nominal size of zero": (
         lambda: _request(nominal_size_m=0.0),
@@ -401,16 +387,6 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
     "infinite nominal size": (
         lambda: _request(nominal_size_m=float("inf")),
         r"nominal_size_m must be finite and > 0 m",
-    ),
-    "fractional seed": (lambda: _request(seed=1.5), r"seed must be an integer"),
-    "boolean seed": (lambda: _request(seed=True), r"seed must be an integer"),
-    "notes given as one text": (
-        lambda: _request(notes="a note"),
-        r"notes must be a sequence of strings",
-    ),
-    "triangulation of another type": (
-        lambda: _request(input_triangulation=object()),
-        r"input_triangulation must be an InputTriangulation",
     ),
     "option that is no JSON": (
         lambda: _request(options={"path": object()}),
@@ -424,24 +400,12 @@ _REFUSALS: dict[str, tuple[Callable[[], object], str]] = {
         lambda: _request(options={1: "integer key"}),
         r"options keys must be strings",
     ),
-    "options that are no mapping": (
-        lambda: _request(options=[("seeds", "generated")]),
-        r"options must be a mapping",
-    ),
-    "run given as one text": (
-        lambda: _request_without_runs(source_runs="abc"),
-        r"source_runs must be a sequence of sim ids",
-    ),
     "empty run": (
         lambda: _request_without_runs(source_runs=("",)),
         r"source_runs must be a sequence of sim ids",
     ),
     "blank run": (
         lambda: _request_without_runs(source_runs=(" ",)),
-        r"source_runs must be a sequence of sim ids",
-    ),
-    "run given as a number": (
-        lambda: _request_without_runs(source_runs=(3,)),
         r"source_runs must be a sequence of sim ids",
     ),
 }

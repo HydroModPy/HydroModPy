@@ -16,8 +16,8 @@ import pytest
 from hydromodpy.core import descent as core_descent
 from hydromodpy.core.descent import DescentBasin
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
-from hydromodpy.solver.modflow_common import mesh_descent
-from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
+from hydromodpy.solver.modflow_common import catchment_basin
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from tests._helpers.descent_cases import grid_descent
 
 TOP = np.array([[5.0, 4.0, 3.0], [4.0, 1.0, 2.0], [6.0, 5.0, 4.0]])
@@ -62,7 +62,7 @@ def test_the_zone_does_not_compute_the_basin_again(tmp_path, monkeypatch) -> Non
 
     write_descent_sidecar(grid_descent(TOP), tmp_path, "model", basin=_basin())
     monkeypatch.setattr(core_descent, "descent_basin", refuse)
-    monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+    monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
 
     np.testing.assert_array_equal(_zone(tmp_path), _basin().mask)
 

@@ -253,22 +253,15 @@ def face_row_edges(cell_mesh: PlanarCellMesh) -> np.ndarray:
     table = cell_mesh.face_families
     if table is None or table.n_rows == 0:
         return np.empty(0, dtype=np.int64)
-    n_nodes = np.int64(cell_mesh.mesh.n_nodes)
-    edge_nodes = cell_mesh.geometry.edge_nodes
-    edge_keys = edge_nodes[:, 0] * n_nodes + edge_nodes[:, 1]
-    row_keys = np.minimum(table.node_a, table.node_b) * n_nodes + np.maximum(
-        table.node_a, table.node_b
-    )
-    rank = np.searchsorted(edge_keys, row_keys)
-    rank_in_range = np.minimum(rank, edge_keys.size - 1)
-    missing = (rank >= edge_keys.size) | (edge_keys[rank_in_range] != row_keys)
+    rank = cell_mesh.geometry.edge_ids(table.node_a, table.node_b)
+    missing = rank < 0
     if missing.any():
         row = int(np.flatnonzero(missing)[0])
         raise MeshError(
             f"face family row {row} ('{table.names[int(table.family[row])]}') joins nodes "
             f"({int(table.node_a[row])}, {int(table.node_b[row])}), which are not an edge of the mesh"
         )
-    return rank.astype(np.int64)
+    return rank
 
 
 def edge_family_bits(cell_mesh: PlanarCellMesh) -> np.ndarray:

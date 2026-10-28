@@ -17,7 +17,7 @@ from hydromodpy.solver.modflow_common.drain_conductance import (
     drain_discharge_band,
     hk_fallback_drain_conductance,
 )
-from hydromodpy.solver.modflow_grid.grid_context import grid_reference_from_solver_mesh
+from hydromodpy.solver.modflow_grid.discretization_spatial import grid_reference_from_solver_mesh
 from hydromodpy.solver.modflow_nwt.nwt.payloads.chd import forcing_units
 
 if TYPE_CHECKING:

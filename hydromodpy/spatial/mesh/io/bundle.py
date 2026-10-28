@@ -38,6 +38,7 @@ from typing import Any, Final
 import numpy as np
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.derived_geometry import BOX_SIDES, box_side_of_edges
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     FaceFamilyTable,
@@ -627,7 +628,6 @@ def load_catchment_mesh_bundle(bundle_dir: str | Path) -> CatchmentMeshBundle:
 
 
 _ENGINE_VERSION = "1.0.0"
-_SIDES = ("west", "east", "south", "north")
 
 
 def cell_mesh_from_bundle(bundle: CatchmentMeshBundle, *, crs_wkt: str) -> PlanarCellMesh:
@@ -684,52 +684,28 @@ def _face_families(
         [-1 if edge.cell_b is None else cell_position[int(edge.cell_b)] for edge in edges],
         dtype=np.int64,
     )
-    side_of_edge = _side_of_boundary_edges(vertices, node_a, node_b, cell_b)
+    side_of_edge = np.where(cell_b < 0, box_side_of_edges(vertices, node_a, node_b), -1)
 
     selections = {"rivers": np.flatnonzero([edge.is_river for edge in edges])}
-    for side in sorted(_SIDES):
-        selections[f"boundary:{side}"] = np.flatnonzero(side_of_edge == _SIDES.index(side))
+    for side in sorted(BOX_SIDES):
+        selections[f"boundary:{side}"] = np.flatnonzero(side_of_edge == BOX_SIDES.index(side))
     selections = {name: rows for name, rows in selections.items() if rows.size}
     if not selections:
         return None
-
-    rows = np.concatenate(list(selections.values()))
-    return FaceFamilyTable(
-        names=tuple(selections),
-        family=np.repeat(np.arange(len(selections)), [r.size for r in selections.values()]),
-        cell_a=cell_a[rows],
-        cell_b=cell_b[rows],
-        node_a=node_a[rows],
-        node_b=node_b[rows],
-        zone_left=np.full(rows.size, -1),
-        zone_right=np.full(rows.size, -1),
-    )
-
-
-def _side_of_boundary_edges(
-    vertices: np.ndarray, node_a: np.ndarray, node_b: np.ndarray, cell_b: np.ndarray
-) -> np.ndarray:
-    """Return, per edge, the index in ``_SIDES`` of the side of the bounding box it lies on, else -1.
-
-    Only boundary edges (``cell_b < 0``) take a side, by their midpoint, within
-    ``1e-8`` of the span of the box (at least ``1e-9`` m). An edge on two sides,
-    at a corner of a rectangle, takes the first of west, east, south, north.
-    """
-    x_min, y_min = vertices.min(axis=0)
-    x_max, y_max = vertices.max(axis=0)
-    tolerance_m = max(1.0e-9, 1.0e-8 * max(x_max - x_min, y_max - y_min, 1.0))
-    mid_x = 0.5 * (vertices[node_a, 0] + vertices[node_b, 0])
-    mid_y = 0.5 * (vertices[node_a, 1] + vertices[node_b, 1])
-    on_side = np.column_stack(
+    return FaceFamilyTable.stack(
         [
-            np.isclose(mid_x, x_min, atol=tolerance_m, rtol=0.0),
-            np.isclose(mid_x, x_max, atol=tolerance_m, rtol=0.0),
-            np.isclose(mid_y, y_min, atol=tolerance_m, rtol=0.0),
-            np.isclose(mid_y, y_max, atol=tolerance_m, rtol=0.0),
+            (
+                name,
+                {
+                    "cell_a": cell_a[rows],
+                    "cell_b": cell_b[rows],
+                    "node_a": node_a[rows],
+                    "node_b": node_b[rows],
+                },
+            )
+            for name, rows in selections.items()
         ]
     )
-    on_side &= (cell_b < 0)[:, None]
-    return np.where(on_side.any(axis=1), on_side.argmax(axis=1), -1)
 
 
 __all__ = [

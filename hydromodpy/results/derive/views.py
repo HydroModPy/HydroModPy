@@ -252,7 +252,7 @@ def _in_catchment(sim: Run, mask: np.ndarray) -> np.ndarray:
 
 def _mesh_cell_polygons(sim: Run) -> tuple[Mesh, np.ndarray]:
     """Read the mesh once and build one Shapely polygon per face."""
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_polygons
+    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 
     mesh = sim.mesh
     return mesh, cell_polygons(mesh.vertices, mesh.face_node_connectivity)

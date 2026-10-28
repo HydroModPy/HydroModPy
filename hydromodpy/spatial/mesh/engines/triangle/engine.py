@@ -13,20 +13,22 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.engines.triangle.families import (
+from hydromodpy.spatial.mesh.engines.face_families import (
     EdgeLookup,
-    TriangleFamilies,
     box_side_edges,
-    cell_zones,
-    chains_of,
     edge_lookup,
     face_table,
-    families_from_labels,
-    families_from_line_edges,
-    families_from_matching,
     request_zone_names,
 )
+from hydromodpy.spatial.mesh.engines.triangle.families import (
+    TriangleFamilies,
+    cell_zones,
+    chains_of,
+    families_from_line_edges,
+    families_from_matching,
+)
 from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import triangulate
+from hydromodpy.spatial.mesh.engines.triangle.msh_groups import families_from_labels
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry, derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

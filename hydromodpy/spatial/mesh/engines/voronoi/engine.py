@@ -5,7 +5,9 @@ seeds, Berge mirror pairs on the face lines, boundary seeds, then free seeds
 relaxed by a weighted Lloyd iteration, and tessellates them with GEOS. Every face
 lies on the perpendicular bisector of its two generators. ``seeds =
 "triangulation"`` takes the vertices of a triangulation read from a file as the
-generators (``triangulation_seeds.py``).
+generators (``from_triangulation.py``). The engine takes the second path
+exactly when the request carries a triangulation: ``[mesh.voronoi] seeds``
+agrees with ``[mesh.triangle] path``, which the config checks.
 
 The engine draws its free seeds from the request seed with an explicit generator
 and reads no global state, so one request gives one mesh on one platform and one
@@ -19,10 +21,9 @@ from typing import ClassVar
 
 import numpy as np
 
-from hydromodpy.core.exceptions import MeshRequestError
 from hydromodpy.spatial.mesh.cache import library_versions
+from hydromodpy.spatial.mesh.engines.voronoi.from_triangulation import dual_cell_mesh
 from hydromodpy.spatial.mesh.engines.voronoi.generated import generate_cell_mesh
-from hydromodpy.spatial.mesh.engines.voronoi.triangulation_seeds import dual_cell_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import MeshIdentity, PlanarCellMesh
 from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
@@ -37,23 +38,6 @@ _SIDE_STATEMENT = (
     "the boundary; when no generator lies there it applies to the cells that have a face on "
     "the side"
 )
-_SEEDS = ("generated", "triangulation")
-
-
-def _seeds(request: MeshRequest) -> str:
-    """The generator source the request names, checked against its input triangulation."""
-    given = request.input_triangulation is not None
-    seeds = str(request.options.get("seeds", "triangulation" if given else "generated"))
-    if seeds not in _SEEDS:
-        raise MeshRequestError(f"unknown voronoi seeds {seeds!r}; expected one of {_SEEDS}")
-    if seeds == "triangulation" and not given:
-        raise MeshRequestError('voronoi seeds = "triangulation" needs an input triangulation')
-    if seeds == "generated" and given:
-        raise MeshRequestError(
-            'voronoi seeds = "generated" places its own generators; '
-            "the request also carries a triangulation to read"
-        )
-    return seeds
 
 
 def _platform_note() -> str:
@@ -99,10 +83,9 @@ class VoronoiMeshEngine:
 
     def build(self, request: MeshRequest) -> PlanarCellMesh:
         """Generate the generators of the request, or read them, and tessellate."""
-        seeds = _seeds(request)
         declarations = self.capabilities.declarations()
         notes = (*request.notes, _platform_note())
-        if seeds == "generated":
+        if request.input_triangulation is None:
             identity = MeshIdentity(
                 self.engine_id, self.engine_version, request.canonical_hash(), request.seed
             )

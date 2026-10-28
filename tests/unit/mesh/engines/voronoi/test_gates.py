@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
 import pytest
 import shapely
 from shapely.geometry import box
 
 from hydromodpy.core.exceptions import MeshGenerationError
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import (
+    ConstraintPlan,
+    ConstraintSeeds,
+    FaceLineState,
+)
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import SeedRole
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame
 from hydromodpy.spatial.mesh.engines.voronoi.gates import (
-    BergeBalls,
-    MirrorFaces,
     check_gates,
     gated_geometry,
+    mirror_face_runs,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import (
     cell_topology,
@@ -40,29 +47,53 @@ FILL = np.array(
 )
 
 
-def _balls() -> BergeBalls:
-    return BergeBalls(
-        center=LINE,
-        radius=[RADIUS, RADIUS, RADIUS],
-        indptr=[0, 3, 7, 10],
-        members=[0, 1, 4, 0, 1, 2, 3, 2, 3, 5],
-        family=[0, 0, 0],
-        line_id=[7, 7, 7],
-        vertex_id=[0, 1, 2],
-        names=("geology",),
+def _plan(
+    pairs=((0, 1), (2, 3)),
+    *,
+    line: np.ndarray = LINE,
+    seeds: np.ndarray = PAIRS,
+    tips=(0, 2),
+    radius: float = RADIUS,
+) -> ConstraintPlan:
+    """The plan of one ``geology`` line 7 along *line*, its segments fed by *pairs*.
+
+    Its constraint seeds are *seeds*: the pairs of the segments, then a tip seed
+    on the sphere of each vertex of *tips*. Every vertex and segment is conformal.
+    """
+    n_vertex, n_segment = len(line), len(line) - 1
+    n_seed = len(seeds)
+    vertex_id = np.full(n_seed, -1, dtype=np.int64)
+    vertex_id[n_seed - len(tips) :] = tips
+    role = np.where(vertex_id >= 0, SeedRole.TIP, SeedRole.MIRROR)
+    constraint = ConstraintSeeds(
+        xy=np.asarray(seeds, dtype=float),
+        role=role,
+        line_id=np.full(n_seed, 7),
+        pair_id=np.full(n_seed, -1),
+        vertex_id=vertex_id,
+        radius=np.full(n_seed, 20.0),
+        family=np.zeros(n_seed, dtype=np.int16),
     )
-
-
-def _faces(plus=(0, 2), minus=(1, 3)) -> MirrorFaces:
-    return MirrorFaces(
-        plus=plus,
-        minus=minus,
-        start=LINE[:2],
-        end=LINE[1:],
-        family=[0, 0],
-        line_id=[7, 7],
-        segment_id=[0, 1],
-        names=("geology",),
+    faces = FaceLineState(
+        vertices=np.asarray(line, dtype=float),
+        radius=np.full(n_vertex, radius),
+        conformal=np.ones(n_vertex, dtype=bool),
+        segment_nodes=np.column_stack([np.arange(n_segment), np.arange(1, n_vertex)]),
+        segment_seeds=np.asarray(pairs, dtype=np.int64).reshape(n_segment, 2),
+        segment_conformal=np.ones(n_segment, dtype=bool),
+        segment_family=np.zeros(n_segment, dtype=np.int64),
+        segment_line=np.full(n_segment, 7),
+        zone_left=np.full(n_segment, -1, dtype=np.int32),
+        zone_right=np.full(n_segment, -1, dtype=np.int32),
+    )
+    return ConstraintPlan(
+        seeds=constraint,
+        faces=faces,
+        chains=(),
+        family_names=("geology",),
+        zone_names=(),
+        source_lines={},
+        family_stats={},
     )
 
 
@@ -93,7 +124,7 @@ def _check(seeds: np.ndarray, **kwargs):
 def test_conformal_pairs_pass_every_gate_and_give_their_face_rows() -> None:
     seeds = np.vstack([PAIRS, FILL])
     chain = CellChain("rivers", 0, np.array([6, 10, 8]))
-    report = _check(seeds, balls=_balls(), faces=_faces(), chains=(chain,))
+    report = _check(seeds, plan=_plan(), chains=(chain,))
     assert report.def2_vertices == 3
     assert report.mirror_faces == 2
     assert report.chain_links == 2
@@ -108,7 +139,7 @@ def test_a_seed_in_a_berge_ball_is_named_with_its_vertex() -> None:
     intruder = np.array([[1.0, 3.0]])
     seeds = np.vstack([PAIRS, FILL, intruder])
     with pytest.raises(MeshGenerationError) as raised:
-        _check(seeds, balls=_balls())
+        _check(seeds, plan=_plan())
     message = str(raised.value)
     assert "G1: 1" in message
     assert f"'geology' line 7 vertex 1 at ({X0:.3f}, {Y0:.3f})" in message
@@ -117,8 +148,9 @@ def test_a_seed_in_a_berge_ball_is_named_with_its_vertex() -> None:
 
 def test_a_pair_without_its_face_on_the_line_fails_g2() -> None:
     seeds = np.vstack([PAIRS, FILL])
-    with pytest.raises(MeshGenerationError, match=r"G2: 1.*seeds 0 and 3 share no face"):
-        _check(seeds, faces=_faces(plus=(0, 2), minus=(3, 3)))
+    with pytest.raises(MeshGenerationError, match=r"G2: 1.*seeds 0 and 3 share no face") as raised:
+        _check(seeds, plan=_plan(pairs=((0, 3), (2, 3))))
+    assert "G1" not in str(raised.value)
 
 
 def test_a_chain_through_cells_that_are_not_neighbours_fails_g3() -> None:
@@ -161,16 +193,7 @@ def test_a_seed_without_its_cell_fails_g0() -> None:
 def test_a_pair_on_a_mesh_of_one_cell_fails_g2() -> None:
     vertices = np.array([[-20.0, -10.0], [20.0, -10.0], [20.0, 10.0], [-20.0, 10.0]])
     mesh = HydroMesh(vertices=vertices, cell_blocks=(CellBlock(CellType.POLYGON, (np.arange(4),)),))
-    faces = MirrorFaces(
-        plus=[0],
-        minus=[0],
-        start=LINE[:1],
-        end=LINE[1:2],
-        family=[0],
-        line_id=[7],
-        segment_id=[0],
-        names=("geology",),
-    )
+    plan = _plan(pairs=((0, 0),), line=LINE[:2], seeds=np.zeros((1, 2)), tips=(), radius=1.0)
     with pytest.raises(MeshGenerationError, match="G2: 1"):
         check_gates(
             seeds=np.zeros((1, 2)),
@@ -179,24 +202,16 @@ def test_a_pair_on_a_mesh_of_one_cell_fails_g2() -> None:
             geometry=derive_geometry(mesh),
             domain_area=800.0,
             frame=FRAME,
-            faces=faces,
+            plan=plan,
         )
 
 
-def test_gate_inputs_refuse_rows_that_do_not_match() -> None:
-    with pytest.raises(ValueError, match="MirrorFaces.minus needs 2 rows, got 1"):
-        _faces(minus=(1,))
-    with pytest.raises(ValueError, match="indptr does not span members"):
-        BergeBalls(
-            center=LINE,
-            radius=[RADIUS] * 3,
-            indptr=[0, 3, 7, 9],
-            members=list(range(10)),
-            family=[0, 0, 0],
-            line_id=[7, 7, 7],
-            vertex_id=[0, 1, 2],
-            names=("geology",),
-        )
+def test_segments_sharing_one_pair_make_one_face_from_the_first_start_to_the_last_end() -> None:
+    assert mirror_face_runs(_plan().faces).tolist() == [[0, 0], [1, 1]]
+    assert mirror_face_runs(_plan(pairs=((0, 1), (0, 1))).faces).tolist() == [[0, 1]]
+    faces = _plan().faces
+    open_end = dataclasses.replace(faces, conformal=np.array([True, True, False]))
+    assert mirror_face_runs(open_end).tolist() == [[0, 0]]
 
 
 def test_a_seed_outside_its_cell_fails_g0() -> None:

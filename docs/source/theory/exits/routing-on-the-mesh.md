@@ -177,7 +177,8 @@ appears here on the next build.
 ```{hmp-tested-by}
 hydromodpy.core.descent
 hydromodpy.core.depression_filling
-hydromodpy.solver.modflow_common.mesh_descent
+hydromodpy.solver.modflow_common.flow_directions
+hydromodpy.solver.modflow_common.channel_tree
 ```
 
 ## In the code
@@ -186,5 +187,6 @@ hydromodpy.solver.modflow_common.mesh_descent
 |---|---|
 | The flood, the receivers, the pins | `hydromodpy/core/descent.py` |
 | The flood of the criterion | `hydromodpy/core/depression_filling.py` |
-| $D$ on a solver mesh, the channel pins | `hydromodpy/solver/modflow_common/mesh_descent.py` |
+| $D$ on a solver mesh | `hydromodpy/solver/modflow_common/flow_directions.py` |
+| The channel tree $A$ and its pins | `hydromodpy/solver/modflow_common/channel_tree.py` |
 | $D$ in the run store | `hydromodpy/solver/modflow_common/descent_store.py` |

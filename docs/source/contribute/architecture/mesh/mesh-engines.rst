@@ -34,14 +34,20 @@ The request
 -----------
 
 ``MeshRequest`` is plain frozen data (``spatial/mesh/request.py``). It holds the domain polygon,
-the CRS, the DEM grid (``RasterGridSpec``), the nominal cell size, the line families, the size
-field, the seed, the options of the engine, an optional input triangulation and the notes of the
-planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
+the DEM grid (``RasterGridSpec``), whose CRS is the CRS of the request, the nominal cell size,
+the line families, the size field, the seed, the options of the engine, an optional input
+triangulation and the notes of the planner, and ``source_runs``, the sorted ``sim_id`` of the runs a refinement zone read.
 ``canonical_hash()`` names it, so two requests with the same hash ask for the same mesh. The list
 of ``source_runs`` enters the hash when it is not empty, so a request with no such run keeps its
 hash.
 The engine and its version enter the identity hash of the run, so a run on another generator is
 never taken for an identical run.
+
+Each stage checks what only it can see. ``[mesh]`` refuses what a user writes, with a message in
+the terms of the TOML file. The request refuses what no engine can mesh, such as a grid whose steps,
+shape and bounds disagree, a size that is not finite and positive, an invalid domain or zones
+that do not match the lines. It does not check the type of a member, which its annotation
+states. An engine trusts its request and reads its options as the planner wrote them.
 
 Each line family (``LineFamilySpec``) has a name, an intent, the lines, the zone on each side of a
 contact and a flag for closed lines. A ``cell`` line runs through a chain of cells, and a ``face``

@@ -27,6 +27,7 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     wall_leaks,
 )
 from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
+from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_faces_from_line
 
 if TYPE_CHECKING:
@@ -38,10 +39,7 @@ logger = get_logger(__name__)
 
 def mesh_footprint(cell_mesh: PlanarCellMesh) -> shapely.Geometry:
     """Return the union of the cell polygons (the planar model domain)."""
-    rows = np.asarray(cell_mesh.connectivity_rows)
-    verts = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
-    polygons = [shapely.Polygon(verts[row[row >= 0]]) for row in rows]
-    return shapely.union_all(polygons)
+    return shapely.union_all(cell_polygons(cell_mesh.mesh.vertices, cell_mesh.connectivity_rows))
 
 
 def trace_end_gaps(footprint: shapely.Geometry, line: LineString) -> tuple[float, float]:
@@ -574,7 +572,7 @@ def _cells_between(
     geometry = cell_mesh.geometry
     pairs = np.array([(face.cell_a, face.cell_b) for face in faces], dtype=np.int64)
     size = np.sqrt(geometry.areas[pairs]).max(axis=1)
-    edges = _edge_rows(geometry, pairs)
+    edges = geometry.edge_between(pairs[:, 0], pairs[:, 1])
     along = shapely.line_locate_point(line, shapely.points(geometry.edge_midpoint[edges]))
     on_shore = (along > first + size) & (along < last - size)
     loose = pairs[on_shore & ~lake[pairs[:, 0]] & ~lake[pairs[:, 1]]].reshape(-1)
@@ -582,11 +580,3 @@ def _cells_between(
         return 0
     upstream = ~downstream_of_wall(line, cell_mesh.centers[loose])
     return int(np.unique(loose[upstream]).size)
-
-
-def _edge_rows(geometry: object, pairs: np.ndarray) -> np.ndarray:
-    """Edge row of each ``(cell_a, cell_b)`` pair, ``cell_a < cell_b``."""
-    n_cells = np.int64(geometry.n_cells)
-    keys = geometry.edge_cells[:, 0] * n_cells + geometry.edge_cells[:, 1]
-    order = np.argsort(keys)
-    return order[np.searchsorted(keys, pairs[:, 0] * n_cells + pairs[:, 1], sorter=order)]

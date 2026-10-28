@@ -27,13 +27,3 @@ def optional_finite_nanmean(values: np.ndarray) -> float | None:
     if not np.any(finite):
         return None
     return float(np.nanmean(array[finite]))
-
-
-def polygon_area(vertices: np.ndarray) -> float:
-    """Compute one polygon area from ordered XY vertices."""
-    coords = np.asarray(vertices, dtype=float)
-    x_vals = coords[:, 0]
-    y_vals = coords[:, 1]
-    return float(
-        0.5 * abs(np.dot(x_vals, np.roll(y_vals, -1)) - np.dot(y_vals, np.roll(x_vals, -1)))
-    )

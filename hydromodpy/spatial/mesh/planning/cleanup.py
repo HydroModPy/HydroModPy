@@ -27,6 +27,7 @@ from shapely.ops import substring
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.mesh_config import MeshFamiliesConfig
+from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.resample import node_tolerance
 
@@ -199,7 +200,9 @@ def clean_lines(
     barriers = [_merged_line(line, tol, pinned, cleanup) for line in barrier_lines]
     contacts = [_merged_line(line, tol, pinned, cleanup) for line in contact_lines]
 
-    rings = _rings_of(domain, *(lakes if lakes_on else ()), *([watershed] if watershed_on else []))
+    rings = polygon_rings(
+        domain, *(lakes if lakes_on else ()), *([watershed] if watershed_on else [])
+    )
     open_lines = _ends_cleaned(
         [*rivers, *barriers, *contacts],
         [True] * len(rivers) + [False] * len(barriers) + [True] * len(contacts),
@@ -343,18 +346,6 @@ def _merged_polygon(
         return polygon
     cleanup.merged_vertices += removed
     return candidate
-
-
-def _rings_of(*polygons: BaseGeometry | None) -> list[LineString]:
-    """Every ring of *polygons*, the end targets of the open lines."""
-    rings = []
-    for polygon in polygons:
-        if polygon is None:
-            continue
-        for part in shapely.get_parts(polygon):
-            rings.append(LineString(part.exterior.coords))
-            rings.extend(LineString(ring.coords) for ring in part.interiors)
-    return rings
 
 
 def _ends_cleaned(
