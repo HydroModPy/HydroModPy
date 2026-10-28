@@ -29,13 +29,19 @@ from hydromodpy.data.variables.geology.processing import (
 from hydromodpy.spatial.field.core.field_param import FieldParam
 from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.geology.geology_field import GeologyField
-from hydromodpy.spatial.field.geology.geology_mesh import GeologyStructuredMesh
+from hydromodpy.spatial.field.geology.geology_mesh import regular_cell_mesh_over_bounds
+from hydromodpy.spatial.field.plotting import plot_cell_values
 
 DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"
 DEFAULT_GEOLOGY_SECTION = "geology"
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "run_geology_property_case.toml"
 DEFAULT_FIELD_PARAM_SECTION = "field"
 DEFAULT_OUTPUT_FILE = "geology_property_demo.png"
+LOCAL_CRS_WKT = (
+    'ENGCRS["geology demo",EDATUM["local origin"],CS[Cartesian,2],'
+    'AXIS["x",east],AXIS["y",north],LENGTHUNIT["metre",1]]'
+)
+"""The CRS of the demo mesh when the geology map declares none."""
 DEFAULT_SEA_FIELD = "TERRE_MER"
 DEFAULT_SEA_VALUE = "M"
 DEFAULT_SEA_ZONE_KEY = "SEA"
@@ -100,8 +106,9 @@ def _plot_zone_map(ax, gdf):
 
 
 def _plot_mesh_property_map(ax, mesh, mesh_values, *, property_label: str):
-    img = mesh.plot_cell_values(
+    img = plot_cell_values(
         ax,
+        mesh,
         mesh_values.cell_values,
         cmap="viridis",
         show_mesh=True,
@@ -272,8 +279,10 @@ def main(argv=None):
         identifier=str(loaded["field_id"]),
         target_n_cells=int(args.target_n_cells),
     )
-    mesh = GeologyStructuredMesh.from_bounds(
+    crs = getattr(gdf, "crs", None)
+    mesh = regular_cell_mesh_over_bounds(
         gdf.total_bounds,
+        crs_wkt=LOCAL_CRS_WKT if crs is None else crs.to_wkt(),
         target_n_cells=int(args.target_n_cells),
     )
     field_discretization = geology_field.on_mesh(

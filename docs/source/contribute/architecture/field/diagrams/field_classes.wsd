@@ -1,7 +1,16 @@
 @startuml
 title Field - Core Class Diagram
 
-package "hydromodpy.spatial.field.core.field_mesh" {
+package "hydromodpy.spatial.mesh.model.planar_cell_mesh" {
+  class PlanarCellMesh {
+    +mesh: HydroMesh
+    +centers: np.ndarray
+    +n_cells
+    +connectivity_rows
+  }
+}
+
+package "hydromodpy.spatial.field.core.mesh_cells" {
   class MeshCell {
     +index: int
     +kind: str
@@ -11,43 +20,26 @@ package "hydromodpy.spatial.field.core.field_mesh" {
   }
 
   class MeshWithValues {
-    +mesh: BaseFieldMesh
+    +mesh: PlanarCellMesh
     +cell_values: np.ndarray
     +label: str | None
-    +kind
     +n_cells
   }
 
-  abstract class BaseFieldMesh {
-    +kind
-    +shape
-    +n_nodes
-    +n_cells
-    +cells
-    +iter_cells()
-    +cell_centroids()
-    +to_cell_values(values)
-    +plot_cell_values(ax, cell_values, ...)
-    +attach_cell_values(values, label=None)
-  }
-
-  abstract class FieldMesh {
-    +from_unit_square(target_n_cells, mesh_kind="structured", seed=42)
-    +from_dict(config)
-    +from_toml(toml_path, section="mesh")
-  }
+  class "mesh_cells(cell_mesh)" as mesh_cells << (F,#FFFFFF) function >>
+  class "cell_values(cell_mesh, values)" as cell_values << (F,#FFFFFF) function >>
 }
 
 package "hydromodpy.spatial.field.core.field_spatial" {
   abstract class Field {
     +identifier: str
-    +on_mesh(mesh, cell_samples_per_axis=10)
+    +on_mesh(cell_mesh, cell_samples_per_axis=10)
     +from_dict(config)
     +from_toml(toml_path, section="field")
   }
 
   abstract class FieldDiscretization {
-    +mesh: BaseFieldMesh
+    +mesh: PlanarCellMesh
     +field_id: str
     +aggregation_name()
     +aggregation
@@ -80,18 +72,19 @@ package "hydromodpy.spatial.field.core.field_param" {
   }
 }
 
-BaseFieldMesh "1" *-- "0..*" MeshCell
-MeshWithValues --> BaseFieldMesh
-BaseFieldMesh --> MeshWithValues : attach_cell_values(...)
+mesh_cells ..> PlanarCellMesh : reads
+mesh_cells ..> MeshCell : one per cell
+cell_values ..> PlanarCellMesh : checks the size
+MeshWithValues --> PlanarCellMesh
 
-FieldMesh ..> BaseFieldMesh : builds one concrete mesh
-
-FieldDiscretization --> BaseFieldMesh
+FieldDiscretization --> PlanarCellMesh
 FieldDiscretization <|-- WeightedAverageFieldDiscretization
 
+Field ..> mesh_cells : samples the cells
 Field ..> FieldDiscretization : on_mesh(...)
 
-FieldParam ..> BaseFieldMesh : homogeneous mapping
+FieldParam ..> PlanarCellMesh : homogeneous mapping
 FieldParam ..> FieldDiscretization : heterogeneous mapping
+FieldParam ..> MeshWithValues : returns
 
 @enduml

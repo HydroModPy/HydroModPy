@@ -84,7 +84,7 @@ def _solver_mesh_centres(nrow: int, ncol: int, xoff: float, yoff: float) -> np.n
         xoff=xoff,
         yoff=yoff,
     )
-    return mesh.cell_centroids()
+    return mesh.cell_centers()
 
 
 def test_the_centres_of_a_mesh_built_from_arrays_put_row_zero_north():

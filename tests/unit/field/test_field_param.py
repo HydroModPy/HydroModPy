@@ -46,7 +46,9 @@ def test_field_param_homogeneous_to_mesh_field_without_spatial_discretization():
     values = np.asarray(values_mesh.cell_values, dtype=float)
 
     assert values_mesh.n_cells == mesh.n_cells
-    assert values.shape == (3, 3)
+    assert values_mesh.mesh is mesh
+    assert values_mesh.label == "homogeneous_value"
+    assert values.shape == (9,)
     assert np.allclose(values, 7.25)
 
 
@@ -463,7 +465,7 @@ def test_field_param_to_mesh_field_applies_vertical_profile():
 
     values_mesh = param.to_mesh_field(mesh=mesh, depth=30.0)
     values = np.asarray(values_mesh.cell_values, dtype=float)
-    assert values.shape == (3, 3)
+    assert values.shape == (9,)
     assert np.allclose(values, 7.25 * np.exp(-1.0))
 
 

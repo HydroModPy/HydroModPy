@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 
+from hydromodpy.spatial.mesh.cells.boundary import annotate_side_cells
 from hydromodpy.spatial.mesh.engines.face_families import (
     EdgeLookup,
     box_side_edges,
@@ -27,17 +28,16 @@ from hydromodpy.spatial.mesh.engines.triangle.families import (
     families_from_line_edges,
     families_from_matching,
 )
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import triangulate
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import triangulate
 from hydromodpy.spatial.mesh.engines.triangle.msh_groups import families_from_labels
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry, derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import DerivedGeometry, derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 
@@ -104,8 +104,8 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
         triangles = np.asarray(triangulation.triangles, dtype=np.int64)
         lines = request.lines
     else:
-        cdt = triangulate(request)
-        vertices, triangles, lines = cdt.vertices, cdt.triangles, cdt.lines
+        generated = triangulate(request)
+        vertices, triangles, lines = generated.vertices, generated.triangles, generated.lines
     mesh = HydroMesh(
         vertices=vertices,
         cell_blocks=(CellBlock(cell_type=CellType.TRIANGLE, connectivity=triangles),),
@@ -113,7 +113,7 @@ def triangulate_request(request: MeshRequest) -> TriangulatedRequest:
     geometry = derive_geometry(mesh)
     lookup = edge_lookup(vertices, triangles)
     if triangulation is None:
-        families = families_from_line_edges(request, lookup, cdt.line_edges)
+        families = families_from_line_edges(request, lookup, generated.line_edges)
         notes: tuple[str, ...] = ()
     else:
         families, notes = _read_families(request, mesh, geometry, lookup)

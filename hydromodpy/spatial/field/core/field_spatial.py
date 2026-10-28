@@ -2,8 +2,8 @@
 Generic field interface and shared discretization structure.
 
 `Field` is intentionally abstract: it defines the minimal contract expected by
-`FieldParam` to project heterogeneous values on a mesh. Concrete geometries
-(for example `FieldSquare`) implement the actual spatial logic.
+`FieldParam` to project heterogeneous values on a planar cell mesh. Concrete
+geometries (for example `FieldSquare`) implement the actual spatial logic.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
@@ -48,9 +48,9 @@ class Field(ABC):
         self.identifier = ident
 
     @abstractmethod
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         """
-        Project this field geometry on a mesh and return a discretization map.
+        Project this field geometry on a planar cell mesh and return a discretization map.
         """
 
     @classmethod
@@ -80,12 +80,12 @@ class FieldDiscretization(ABC):
     - weighted components (`weighted_components`).
     """
 
-    mesh: BaseFieldMesh
+    mesh: PlanarCellMesh
     field_id: str
 
     def __post_init__(self):
-        if not isinstance(self.mesh, BaseFieldMesh):
-            raise TypeError("mesh must be a BaseFieldMesh instance")
+        if not isinstance(self.mesh, PlanarCellMesh):
+            raise TypeError("mesh must be a PlanarCellMesh instance")
         ident = str(self.field_id).strip()
         if ident == "":
             raise ValueError("field_id must be a non-empty string")

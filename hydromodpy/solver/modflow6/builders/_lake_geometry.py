@@ -29,9 +29,9 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
-from hydromodpy.spatial.mesh.engines.face_families import family_regions
-from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_edges
+from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace, barrier_edges
+from hydromodpy.spatial.mesh.cells.regions import family_regions
+from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     from shapely.geometry import LineString

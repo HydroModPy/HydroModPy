@@ -417,7 +417,7 @@ def _build_descent_and_dam_feet(
             model,
             lake_cells_by_id=lake_cell_ids_by_lake,
             cell_adjacency=solver_mesh.face_adjacency(),
-            cell_centroids=solver_mesh.cell_centroids(),
+            cell_centroids=solver_mesh.cell_centers(),
             idomain=solver_mesh.idomain,
             mesh_top=solver_mesh.top,
             outlet_xy=outlet_xy,
@@ -1142,7 +1142,7 @@ def run_pre_processing(  # noqa: PLR0915
     sfr_mover_records = build_sfr_mover_records(
         sfr_networks,
         lake_cells_by_number=lake_cells_by_number,
-        cell_centroids=solver_mesh.cell_centroids(),
+        cell_centroids=solver_mesh.cell_centers(),
         outlet_xy=sfr_outlet_xy,
     )
 
@@ -1151,7 +1151,7 @@ def run_pre_processing(  # noqa: PLR0915
         sfr_networks,
         spillway_seed_by_lake,
         lake_ids=list(lake_cell_ids_by_lake),
-        cell_centroids=solver_mesh.cell_centroids(),
+        cell_centroids=solver_mesh.cell_centers(),
     )
 
     # MF6 uses DISV for every grid (structured and unstructured) so one code path

@@ -12,10 +12,10 @@ lossless-enough bridge for the information that HydroModPy itself cares about:
 Unsupported ``meshio`` blocks such as line or vertex-only blocks are skipped
 deliberately because they do not map to the ``HydroMesh`` pivot contract.
 
-meshio holds polygons of one arity per block. A ragged ``POLYGON`` block of
-``HydroMesh`` (a Voronoi mesh) goes to meshio as its consecutive runs of one
-arity, so the cell order is kept, and consecutive polygon blocks read from
-meshio come back as one ragged block.
+meshio holds polygons of one node count per block. A ``POLYGON`` block of
+``HydroMesh`` (a Voronoi mesh, its rows padded with ``-1``) goes to meshio as
+its consecutive runs of one node count, so the cell order is kept, and
+consecutive polygon blocks read from meshio come back as one padded block.
 """
 
 from __future__ import annotations
@@ -35,7 +35,8 @@ _FROM_MESHIO: dict[str, CellType] = {ct.meshio_name: ct for ct in CellType}
 def from_meshio(mesh: Any) -> HydroMesh:
     """Convert a ``meshio.Mesh`` into a ``HydroMesh``.
 
-    Consecutive polygon blocks merge into one ragged ``POLYGON`` block. The
+    Consecutive polygon blocks merge into one ``POLYGON`` block, its rows
+    padded with ``-1``. The
     vertices keep x and y only when every cell is planar (triangle,
     quadrilateral, polygon) and every z is zero, the z that ``to_meshio`` adds
     to a planar mesh; any other mesh keeps its z.
@@ -129,8 +130,8 @@ def to_meshio(hydro_mesh: HydroMesh) -> Any:
     Notes
     -----
     ``meshio`` expects 3D point coordinates even for planar meshes, so 2D
-    vertices are padded with ``z=0`` before export. A ragged polygon block
-    becomes one meshio block per run of consecutive cells of one arity. The
+    vertices are padded with ``z=0`` before export. A polygon block becomes
+    one meshio block per run of consecutive cells of one node count. The
     node indices are 32-bit integers when the nodes fit, as the run store keeps
     them.
     """
@@ -150,9 +151,8 @@ def to_meshio(hydro_mesh: HydroMesh) -> Any:
         else:
             cells.append((block.cell_type.meshio_name, np.asarray(block.connectivity, dtype=index)))
 
-    # Rebuild per-block cell_data lists. Skip non-scalar per-cell channels such
-    # as the (n_cells, 2) ``disv_cell_center`` geometry, which is not a meshio
-    # cell field and would be mangled by the flat split.
+    # Rebuild per-block cell_data lists. Skip a per-cell channel of more than
+    # one value per cell, which the flat split would mangle.
     cell_data: dict[str, list[np.ndarray]] = {}
     if hydro_mesh.cell_data:
         total_cells = int(hydro_mesh.n_cells)
@@ -176,12 +176,12 @@ def to_meshio(hydro_mesh: HydroMesh) -> Any:
     )
 
 
-def _runs_of_one_arity(cells: tuple[np.ndarray, ...], index: type) -> list[np.ndarray]:
-    """Split ragged cells into their consecutive runs of one node count, as 2D arrays of ``index``."""
-    counts = np.fromiter((len(cell) for cell in cells), dtype=int, count=len(cells))
-    bounds = np.r_[0, np.flatnonzero(np.diff(counts)) + 1, len(cells)]
+def _runs_of_one_arity(rows: np.ndarray, index: type) -> list[np.ndarray]:
+    """Split ``-1`` padded polygon rows into their consecutive runs of one node count, as 2D arrays of ``index``."""
+    counts = (rows >= 0).sum(axis=1)
+    bounds = np.r_[0, np.flatnonzero(np.diff(counts)) + 1, len(rows)]
     return [
-        np.vstack(cells[start:stop]).astype(index, copy=False)
+        rows[start:stop, : counts[start]].astype(index, copy=False)
         for start, stop in zip(bounds[:-1], bounds[1:], strict=True)
         if stop > start
     ]

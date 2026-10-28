@@ -16,7 +16,7 @@ class CellType(Enum):
     # -- 2D -------------------------------------------------------------------
     TRIANGLE = "triangle"
     QUADRILATERAL = "quadrilateral"
-    POLYGON = "polygon"  # arbitrary n-gon, ragged (Voronoi/PEBI cells)
+    POLYGON = "polygon"  # arbitrary n-gon, rows padded with -1 (Voronoi/PEBI cells)
 
     # -- 3D (layered extrusion) -----------------------------------------------
     WEDGE = "wedge"  # triangular prism (3 + 3 nodes)
@@ -31,7 +31,7 @@ class CellType(Enum):
     def nodes_per_cell(self) -> int:
         if self.is_ragged:
             raise ValueError(
-                f"{self.value} cells have a variable node count; use ragged connectivity"
+                f"{self.value} cells have a variable node count; their rows are padded with -1"
             )
         return _NODES_PER_CELL[self]
 

@@ -432,7 +432,7 @@ def _simulated_network(
     from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
     from hydromodpy.core.stream_geometry import build_network_geometry
     from hydromodpy.core.stream_network import build_simulated_network
-    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     mesh = sim.mesh
     vertices = np.asarray(mesh.vertices, dtype=float)

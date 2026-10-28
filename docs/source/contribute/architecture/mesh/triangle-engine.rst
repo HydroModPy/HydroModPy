@@ -15,17 +15,18 @@ triangulation twice, so the engine builds the mesh of a request once and keeps i
 A generated triangulation
 -------------------------
 
-``gmsh_cdt.py`` drives Gmsh. It nodes the family lines with the domain boundary in shapely and
-gives Gmsh one point per vertex and one straight curve per segment. It embeds the interior
-segments in the plane surface and meshes it under the size field of the request. The developer
-key ``[mesh.triangle] algorithm`` picks the 2D algorithm (``delaunay`` by default). Building
-needs the ``mesh`` extra, because the engine imports ``gmsh`` only when it builds the mesh.
+``gmsh_triangulation.py`` drives Gmsh. It nodes the family lines with the domain boundary in shapely
+and gives Gmsh one point per vertex and one straight curve per segment. It embeds the interior
+segments in the plane surface and meshes it under the size field of the request. The developer key
+``[mesh.triangle] algorithm`` picks the 2D algorithm (``delaunay`` by default). Building needs the
+``mesh`` extra, because the engine imports ``gmsh`` only when it builds the mesh.
 
 ``[mesh] cell_size`` is the side of the square that has the mean area of a cell, as for the other
 engines. Gmsh reads a size as an edge length, so the adapter multiplies every size it hands to
 Gmsh by a factor measured for the algorithm: 1.62 for ``delaunay``, 1.58 for ``meshadapt`` and 1.52
-for ``frontal`` (``MESH_SIZE_PER_CELL_SIZE`` in ``gmsh_cdt.py``). A triangle is then about 1.5 times
-longer than ``cell_size``, and a uniform size gives A over its square in triangles, to within 3 %.
+for ``frontal`` (``MESH_SIZE_PER_CELL_SIZE`` in ``gmsh_triangulation.py``). A triangle is then
+about 1.5 times longer than ``cell_size``, and a uniform size gives A over its square in triangles,
+to within 3 %.
 When the request has a size field, the adapter also resamples the family lines at the field times
 the same factor, because Gmsh keeps every vertex it receives. The corners of the barriers stay
 fixed vertices. A request with no size field keeps its lines, and Gmsh cuts them at its own size.

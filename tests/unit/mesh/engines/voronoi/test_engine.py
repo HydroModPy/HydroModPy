@@ -12,12 +12,12 @@ import shapely
 from shapely.geometry import LineString
 
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine, _platform_note
-from hydromodpy.spatial.mesh.engines.voronoi.frame import local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.from_triangulation import _FACES_NOTE
 from hydromodpy.spatial.mesh.engines.voronoi.lloyd import LLOYD_CAP
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import local_frame
 from hydromodpy.spatial.mesh.io.msh import read_msh
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig
-from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from hydromodpy.spatial.mesh.planning.size_field import SizeTerm, build_size_field
 from hydromodpy.spatial.mesh.request import InputTriangulation, LineFamilySpec, MeshRequest
 from hydromodpy.spatial.mesh.resample import resample_families
@@ -161,9 +161,6 @@ def test_the_generators_of_a_triangulation_are_the_centres_to_the_bit() -> None:
     cell_mesh = VoronoiMeshEngine().build(request)
 
     assert np.array_equal(cell_mesh.centers, request.input_triangulation.vertices)
-    assert np.array_equal(
-        cell_mesh.mesh.cell_data["disv_cell_center"], request.input_triangulation.vertices
-    )
     assert cell_mesh.qa.extras["boundary_seeds_added"] == 0.0
 
 

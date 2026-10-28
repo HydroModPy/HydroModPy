@@ -11,7 +11,8 @@ on a target mesh.
 Pipeline in the field framework
 -------------------------------
 1) Build ``GeologyField`` from encoded grid data.
-2) Call ``on_mesh(mesh)`` to obtain per-cell fractions of geology zones.
+2) Call ``on_mesh(cell_mesh)`` to obtain per-cell fractions of geology zones
+   on a ``PlanarCellMesh``.
 3) Pass the returned discretization to
    ``FieldParam(kind="heterogeneous", values_by_key=...)``.
 4) ``FieldParam.to_mesh_field(...)`` computes one numerical value per mesh cell
@@ -45,12 +46,13 @@ from hydromodpy.spatial.field.core.cell_sampling import (
     sample_points_in_cell,
     triangle_sample_weights,
 )
-from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
+from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
 from hydromodpy.spatial.field.zone_fractions import ZonePolygons
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.protocols import get_geology_data_source
 
 
@@ -59,7 +61,7 @@ class GeologyField(Field):
     Geology-driven implementation of the generic spatial ``Field`` interface.
 
     This class stores a geology map (encoded raster classes) and exposes one
-    key operation: ``on_mesh(mesh)``. The operation does not assign parameter
+    key operation: ``on_mesh(cell_mesh)``. The operation does not assign parameter
     values directly; instead, it computes *zone fractions per mesh cell*.
     Those fractions are then combined with physical values by ``FieldParam``.
 
@@ -241,17 +243,16 @@ class GeologyField(Field):
             out[valid_codes] = mapped
         return out
 
-    def on_mesh(self, mesh: BaseFieldMesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
         """
-        Project geology zones onto a target mesh as per-cell zone fractions.
+        Project geology zones onto a planar cell mesh as per-cell zone fractions.
 
-        Works with both regular (structured) and irregular (triangular,
-        unstructured) meshes - any mesh implementing ``BaseFieldMesh``.
+        Quadrilateral, triangle and polygon cells are sampled.
 
         Parameters
         ----------
-        mesh : BaseFieldMesh
-            Target mesh providing ``cells``, ``n_cells``, ``to_cell_values``.
+        cell_mesh : PlanarCellMesh
+            Target mesh.
         cell_samples_per_axis : int, optional
             Sub-sampling density per local axis for each cell (minimum 2).
 
@@ -261,10 +262,10 @@ class GeologyField(Field):
         """
         n_sub = max(2, int(cell_samples_per_axis))
         zone_keys = self.zone_keys
-        n_cells = int(mesh.n_cells)
+        n_cells = int(cell_mesh.n_cells)
         fractions_flat = np.zeros((len(zone_keys), n_cells), dtype=float)
         grouped_cells: dict[str, list] = {}
-        for cell in mesh.cells:
+        for cell in mesh_cells(cell_mesh):
             grouped_cells.setdefault(cell.kind, []).append(cell)
 
         for cell_kind, kind_cells in grouped_cells.items():
@@ -330,12 +331,12 @@ class GeologyField(Field):
                     )
 
         fractions_by_zone = {
-            key: np.asarray(mesh.to_cell_values(fractions_flat[idx]), dtype=float)
+            key: np.asarray(cell_values(cell_mesh, fractions_flat[idx]), dtype=float)
             for idx, key in enumerate(zone_keys)
         }
 
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=zone_keys,
             fractions_by_zone=fractions_by_zone,

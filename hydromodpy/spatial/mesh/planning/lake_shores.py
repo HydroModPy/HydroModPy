@@ -31,7 +31,7 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points
 
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
 
 __all__ = ["LAKE_SHORE_SHARE", "SIGNIFICANT_SHARE", "FollowedShores", "followed_lake_shores"]
 

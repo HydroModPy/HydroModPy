@@ -16,7 +16,7 @@ from shapely.geometry import LineString
 from hydromodpy.core.exceptions import MeshError
 from hydromodpy.spatial.mesh import cache, registry
 from hydromodpy.spatial.mesh.engines.regular.engine import RegularMeshEngine
-from hydromodpy.spatial.mesh.model.mesh_qa import SHAPE_KEYS
+from hydromodpy.spatial.mesh.model.quality import SHAPE_KEYS
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest
 from tests._helpers.mesh_cases import (
     L93_ORIGIN,
@@ -191,6 +191,17 @@ def test_a_mesh_without_family_and_with_node_fields_comes_back_whole(tmp_path) -
         grid, mesh=grid.mesh.with_point_data(z=np.arange(grid.mesh.n_nodes, dtype=float))
     )
     assert built.face_families is None and built.cell_zone is None
+
+    cache.save_cell_mesh(built, tmp_path / "entry")
+
+    _assert_same_mesh(cache.load_cell_mesh(tmp_path / "entry"), built)
+
+
+def test_a_mesh_with_cell_fields_comes_back_whole(tmp_path) -> None:
+    grid = regular_mesh(3, 4, dx=25.0, xmin=X0, ymin=Y0)
+    built = replace(
+        grid, mesh=grid.mesh.with_cell_data(k=np.linspace(1e-5, 1e-4, grid.mesh.n_cells))
+    )
 
     cache.save_cell_mesh(built, tmp_path / "entry")
 

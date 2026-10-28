@@ -31,15 +31,15 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import SHAPE_KEYS, MeshQA, cell_shape_qa
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     CellChain,
     FaceFamilyTable,
     MeshIdentity,
     PlanarCellMesh,
 )
+from hydromodpy.spatial.mesh.model.quality import SHAPE_KEYS, MeshQA, cell_shape_qa
 from hydromodpy.spatial.mesh.request import MeshRequest
 
 __all__ = [
@@ -219,7 +219,7 @@ def _decode(arrays: dict[str, np.ndarray], description: dict[str, object]) -> Pl
     """Rebuild a mesh from its arrays and description."""
     block = CellBlock(
         cell_type=str(description["cell_type"]),
-        connectivity=_block_connectivity(arrays["connectivity"], str(description["cell_type"])),
+        connectivity=arrays["connectivity"],
     )
     mesh = HydroMesh(
         vertices=arrays["vertices"],
@@ -268,13 +268,6 @@ def _decode_qa(stored: dict[str, object], mesh: HydroMesh, centers: np.ndarray) 
         )
         qa = {**shape, **qa}
     return MeshQA(**qa)
-
-
-def _block_connectivity(rows: np.ndarray, cell_type: str) -> object:
-    """Cell rows as the block holds them: ragged polygons drop their ``-1`` padding."""
-    if cell_type != "polygon":
-        return rows
-    return tuple(row[row >= 0] for row in rows)
 
 
 def _prefixed(arrays: dict[str, np.ndarray], prefix: str) -> dict[str, np.ndarray]:

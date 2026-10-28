@@ -39,7 +39,15 @@ from hydromodpy.core.stream_geometry import CATCHMENT_MISMATCH_WARNING_SHARE
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
 from hydromodpy.spatial.geographic.synthetic.config import SYNTHETIC_CATCH_DEF
 
-__all__ = ["catchment_cell_mask", "polygon_cell_fraction", "polygon_cell_mask", "run_basin"]
+__all__ = [
+    "catchment_cell_mask",
+    "domain_is_the_catchment",
+    "finite_cell_areas",
+    "outlet_search",
+    "polygon_cell_fraction",
+    "polygon_cell_mask",
+    "run_basin",
+]
 
 logger = get_logger(__name__)
 
@@ -58,7 +66,7 @@ def polygon_cell_mask(geographic: object | None, solver_mesh: Any) -> np.ndarray
         return None
     polygon = frame.geometry.union_all()
     shapely.prepare(polygon)
-    centroids = np.asarray(solver_mesh.cell_centroids(), dtype=float).reshape(-1, 2)
+    centroids = np.asarray(solver_mesh.cell_centers(), dtype=float).reshape(-1, 2)
     return np.asarray(shapely.covers(polygon, shapely.points(centroids)), dtype=bool)
 
 
@@ -72,8 +80,8 @@ def polygon_cell_fraction(geographic: object | None, solver_mesh: Any) -> np.nda
     solver mesh was built in, as :func:`polygon_cell_mask` assumes. A polygon
     that declares no CRS gives no fraction rather than a guessed frame.
     """
-    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction
+    from hydromodpy.spatial.mesh.cells.in_polygons import cell_area_fraction
+    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     frame = catchment_outline(geographic, solver_mesh.cell_mesh)
     if frame is None:
@@ -198,9 +206,9 @@ def run_basin(geographic: object | None, solver_mesh: Any, descent: Descent) -> 
     one. It weights the catchment totals of a spatial quantity and leaves the
     cells of the basin as they are.
     """
-    areas = _cell_areas(solver_mesh)
-    near, within = _outlet_search(geographic, solver_mesh, descent)
-    seeded = _domain_is_the_catchment(geographic) and (near is not None or within is not None)
+    areas = finite_cell_areas(solver_mesh)
+    near, within = outlet_search(geographic, solver_mesh, descent)
+    seeded = domain_is_the_catchment(geographic) and (near is not None or within is not None)
     basin = descent_basin(
         descent, cell_area_m2=areas, near=near, within=within, seeded_at_outlet=seeded
     )
@@ -243,18 +251,19 @@ def _report_the_fraction(basin: DescentBasin, fraction: np.ndarray, areas: np.nd
     )
 
 
-def _domain_is_the_catchment(geographic: object | None) -> bool:
+def domain_is_the_catchment(geographic: object | None) -> bool:
     """Whether the active domain is the catchment itself, so D floods from its outlet."""
     # A synthetic geographic has no delineated extent: its domain is a box.
     return getattr(geographic, "domain_extent", "box") == "watershed"
 
 
-def _cell_areas(solver_mesh: Any) -> np.ndarray:
+def finite_cell_areas(solver_mesh: Any) -> np.ndarray:
+    """Cell areas of *solver_mesh* [m2], zero where an area is not finite."""
     areas = np.asarray(solver_mesh.cell_areas(), dtype=float)
     return np.where(np.isfinite(areas), areas, 0.0)
 
 
-def _outlet_search(
+def outlet_search(
     geographic: object | None, solver_mesh: Any, descent: Descent
 ) -> tuple[tuple[float, float] | None, np.ndarray | None]:
     """Return ``(near, within)``: the closing point and the routable polygon cells."""

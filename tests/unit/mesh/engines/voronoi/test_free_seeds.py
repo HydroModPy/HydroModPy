@@ -11,13 +11,13 @@ from shapely.geometry import box
 
 from hydromodpy.core.exceptions import MeshGenerationError
 from hydromodpy.spatial.mesh.engines.voronoi import free_seeds
-from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import (
     DiskSet,
     free_seed_count,
     morton_order,
     sample_free_seeds,
 )
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler, local_frame
 from hydromodpy.spatial.mesh.request import SizeField
 from tests._helpers.mesh_cases import L93_ORIGIN, grid_over
 

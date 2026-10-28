@@ -33,6 +33,7 @@ from matplotlib.patches import Patch
 from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.core.field_param_io import field_param_from_toml
+from hydromodpy.spatial.field.plotting import plot_cell_values
 from hydromodpy.spatial.geographic.cases.plotting_utils import maximize_figure_windows
 
 DEFAULT_FIELD_PARAM_CONFIG_FILE = "field_param_config.toml"
@@ -208,7 +209,7 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
             for k, v in sorted(field_param.values_by_key.items(), key=lambda kv: str(kv[0]))
         )
         suptitle = (
-            f"mesh={mesh.kind} | param_id={field_param.identifier} | "
+            f"mesh={mesh.identity.engine_id} | param_id={field_param.identifier} | "
             f"field_spatial_id={field.identifier} | line={line_name} "
             f"| zone1_side={field.zone1_side} | values: {values_txt}"
         )
@@ -237,7 +238,7 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
             f'"id"  ->  "{field_param.identifier}"\n"value"  ->  {float(field_param.value):g}'
         )
         suptitle = (
-            f"mesh={mesh.kind} | param_id={field_param.identifier} "
+            f"mesh={mesh.identity.engine_id} | param_id={field_param.identifier} "
             f"| homogeneous value={float(field_param.value):g}"
         )
 
@@ -257,8 +258,9 @@ def _create_figure(*, field_param, mesh, values_mesh, field=None):
     )
     ax_mid.set_title("values by zone", y=0.74, pad=2)
 
-    img = mesh.plot_cell_values(
+    img = plot_cell_values(
         ax_right,
+        mesh,
         values_mesh.cell_values,
         cmap="viridis",
         show_mesh=True,
@@ -361,7 +363,7 @@ def run_field_demo_case(
     return {
         "field_param_id": str(field_param.identifier),
         "field_id": None if field is None else str(field.identifier),
-        "mesh_kind": str(mesh.kind),
+        "mesh_kind": str(mesh.identity.engine_id),
         "n_cells": int(mesh.n_cells),
         "is_heterogeneous": bool(field_param.is_heterogeneous),
         "output_file": None if out_path is None else str(out_path),

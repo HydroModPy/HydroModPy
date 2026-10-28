@@ -1,15 +1,14 @@
 """Planar cell meshes for the solver and workflow unit tests.
 
-``cell_mesh_of`` wraps a hand-built planar mesh, a ``HydroMesh`` or a Gmsh
-planar mesh, into the ``PlanarCellMesh`` the solvers read. Centres are the
-vertex means. Not public API.
+``cell_mesh_of`` wraps a hand-built planar ``HydroMesh`` into the
+``PlanarCellMesh`` the solvers read. Centres are the vertex means. Not public
+API.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from hydromodpy.spatial.field.meshes.field_mesh_adapter import from_gmsh_planar
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
@@ -21,12 +20,11 @@ TEST_CRS_WKT = 'PROJCS["test",GEOGCS["test"]]'
 """Any non-empty text: the solvers never parse the CRS of a cell mesh."""
 
 
-def cell_mesh_of(mesh: object) -> PlanarCellMesh:
+def cell_mesh_of(mesh: HydroMesh) -> PlanarCellMesh:
     """Wrap a planar mesh with its vertex-mean centres and no family."""
-    hydro = mesh if isinstance(mesh, HydroMesh) else from_gmsh_planar(mesh)
-    x_centers, y_centers = hydro.cell_centroids()
+    x_centers, y_centers = mesh.cell_centroids()
     return build_planar_cell_mesh(
-        hydro,
+        mesh,
         np.column_stack([x_centers, y_centers]),
         center_kind="vertex_mean",
         crs_wkt=TEST_CRS_WKT,

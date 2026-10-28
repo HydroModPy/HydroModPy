@@ -1,6 +1,6 @@
 """Build the MODFLOW 6 HFB (Horizontal Flow Barrier) stress-period data.
 
-Turns the faces of a barrier line (``spatial.mesh.ops.flow_barrier``: the barrier
+Turns the faces of a barrier line (``spatial.mesh.cells.barrier_faces``: the barrier
 family faces laid on it, or the faces it crosses on a staircase) into HFB
 rows ``[(lay, cell_a), (lay, cell_b), hydchr]``, one per layer the barrier spans
 from the model top down to a (possibly per-segment) depth. ``hydchr`` is the
@@ -27,8 +27,8 @@ from hydromodpy.solver.modflow6.builders._lake_geometry import (
     wall_leaks,
 )
 from hydromodpy.solver.modflow6.builders.solver_options import xt3d_is_enabled
-from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_faces_from_line
+from hydromodpy.spatial.mesh.cells.barrier_faces import BarrierFace, barrier_faces_from_line
+from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh

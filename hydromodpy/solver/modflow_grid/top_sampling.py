@@ -15,7 +15,7 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
-from hydromodpy.spatial.mesh.ops.zonal_stats import regular_grid_cell_ids, zonal_top
+from hydromodpy.spatial.mesh.cells.zonal_stats import regular_grid_cell_ids, zonal_top
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _zonal_top_flat(
+def zonal_top_flat(
     *,
     hydro_mesh: object | None = None,
     grid_support: object | None = None,
@@ -49,7 +49,7 @@ def _zonal_top_flat(
     polygons, or the boxes of the regular grid described by ``grid_support``.
     ``label`` opens the log line. With ``clamp_to_bottom`` a top lowered to within
     ``min_thickness_m`` of ``bottom_flat`` is raised back to that distance; without
-    it the caller moves the bottom (see :func:`_bottom_under_lowered_top`).
+    it the caller moves the bottom (see :func:`bottom_under_lowered_top`).
     """
     from rasterio.transform import from_bounds
 
@@ -130,7 +130,7 @@ least (3.5 m of 30 m); columns of 0.2 to 1.6 m beside 30 m neighbours do not con
 """
 
 
-def _bottom_under_lowered_top(
+def bottom_under_lowered_top(
     *,
     top: np.ndarray,
     centroid_top: np.ndarray,
@@ -191,7 +191,7 @@ def _crossing_cells(cell_mesh: PlanarCellMesh) -> np.ndarray:
     return crossing
 
 
-def _lower_crossing_cells(
+def lower_crossing_cells(
     *,
     cell_mesh: PlanarCellMesh,
     top_surface: Surface,
@@ -221,7 +221,7 @@ def _lower_crossing_cells(
     sampling = (top_sampling or TopSamplingConfig()).model_copy(update={"channel_stat": "min"})
     # Every pixel of a crossing cell counts as channel: the river runs through it.
     every_pixel = np.ones(np.asarray(top_surface.as_array()).shape, dtype=bool)
-    return _zonal_top_flat(
+    return zonal_top_flat(
         hydro_mesh=cell_mesh.mesh,
         active=crossing,
         top_surface=top_surface,
@@ -245,7 +245,7 @@ def _cell_area(support: RasterSupport) -> float:
     return abs(width * height)
 
 
-def _cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: float = 2.0) -> bool:
+def cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: float = 2.0) -> bool:
     """True when a grid cell spans at least ``min_pixels`` DEM pixels, else log why not.
 
     Below that, a pixel centre falls in one cell out of several and the block
@@ -267,7 +267,7 @@ def _cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: f
     return False
 
 
-def _zonal_structured_top(
+def zonal_structured_top(
     *,
     native_top: Surface,
     grid_top: Surface,
@@ -285,7 +285,7 @@ def _zonal_structured_top(
     """
     centroid = np.asarray(grid_top.as_array(), dtype=float).reshape(-1)
     dead = ~np.isfinite(centroid) | (centroid <= float(nodata))
-    zonal = _zonal_top_flat(
+    zonal = zonal_top_flat(
         grid_support=grid_top.support,
         active=~dead,
         top_surface=native_top,

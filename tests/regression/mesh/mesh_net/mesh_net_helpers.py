@@ -118,7 +118,7 @@ BUNDLE_CRS_WKT = 'PROJCS["RGF93 v1 / Lambert-93"]'
 
 def _read_request(bundle: str, **options: Any):
     """Return the request that makes an engine read the committed ``.msh`` of *bundle*."""
-    from hydromodpy.spatial.mesh.planning.input_mesh import (
+    from hydromodpy.spatial.mesh.planning.input_triangulation import (
         domain_polygon_of,
         read_input_triangulation,
     )
@@ -165,7 +165,7 @@ def voronoi_mesh(bundle: str = ISLAND_BUNDLE):
 def polygons_of_mesh(cell_mesh) -> tuple[list[np.ndarray], np.ndarray]:
     """Cell polygons (vertex coordinates) and the cell centres of a ``PlanarCellMesh``."""
     vertices = np.asarray(cell_mesh.mesh.vertices, dtype=float)[:, :2]
-    polygons = [vertices[np.asarray(cell, dtype=int)] for cell in cell_mesh.mesh.flat_connectivity]
+    polygons = [vertices[row[row >= 0]] for row in cell_mesh.mesh.flat_connectivity]
     return polygons, np.asarray(cell_mesh.centers, dtype=float)
 
 
@@ -216,7 +216,7 @@ def geometry_metrics(mesh, probes: np.ndarray | None = None) -> dict[str, Any]:
       mesh, the probe cells are not.
     """
     polygons, centers = polygons_of_mesh(mesh)
-    connectivity = [np.asarray(c, dtype=int) for c in mesh.mesh.flat_connectivity]
+    connectivity = [row[row >= 0] for row in mesh.mesh.flat_connectivity]
     shapes = shapely.polygons([shapely.linearrings(p) for p in polygons])
     area = shapely.area(shapes)
     side = np.sqrt(area)

@@ -724,8 +724,8 @@ def _build_catchment_mask(store: Any, sim_id: str, grp, active: np.ndarray | Non
         )
         return active
 
-    from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-    from hydromodpy.spatial.mesh.ops.vector_cell_mask import vector_cell_mask
+    from hydromodpy.spatial.mesh.cells.in_polygons import vector_cell_mask
+    from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 
     polygons = cell_polygons(
         np.asarray(mesh["vertices"][:], dtype="float64"),

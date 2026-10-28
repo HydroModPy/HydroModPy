@@ -6,7 +6,7 @@ start
 :Parse CLI arguments;
 :Resolve config and output paths;
 :Load field parameters\nfield_param_from_toml(...);
-:Load mesh\nFieldMeshSquare.from_toml(...);
+:Load planar cell mesh\nFieldMeshSquare.from_toml(...);
 
 if (field_param.is_heterogeneous?) then (yes)
   :Load spatial field\nFieldSquare.from_toml(...);
@@ -15,10 +15,10 @@ if (field_param.is_heterogeneous?) then (yes)
     :Raise ValueError;
     stop
   endif
-  :Discretize field on mesh\nfield.on_mesh(mesh);
+  :Discretize field on mesh\nfield.on_mesh(cell_mesh);
   :Compute field values on mesh\nfield_param.to_mesh_field(discretization);
 else (no)
-  :Broadcast homogeneous value\nfield_param.to_mesh_field(mesh=mesh);
+  :Broadcast homogeneous value\nfield_param.to_mesh_field(mesh=cell_mesh);
 endif
 
 :Create 3-panel figure;

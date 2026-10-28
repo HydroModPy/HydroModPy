@@ -16,7 +16,7 @@ from hydromodpy.spatial.mesh.io.bundle import (
     load_catchment_mesh_bundle,
 )
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
-from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_from_mesh
+from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_from_mesh
 from hydromodpy.spatial.mesh.request import InputTriangulation
 from tests._helpers.cell_meshes import TEST_CRS_WKT
 from tests._helpers.mesh_cases import MESH_BUNDLES, grid_over, mesh_request

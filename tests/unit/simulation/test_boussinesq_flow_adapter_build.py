@@ -19,7 +19,8 @@ from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.cell_meshes import cell_mesh_of
 
 from ._test_boussinesq_flow_adapter_builders import (
@@ -46,15 +47,14 @@ class _HalfDomainSupport:
         self.identifier = identifier
         self.default_cell_samples_per_axis = 4
 
-    def on_mesh(self, mesh, *, cell_samples_per_axis: int = 10):
+    def on_mesh(self, cell_mesh, *, cell_samples_per_axis: int = 10):
         _ = cell_samples_per_axis
-        x_centers, _ = mesh.cell_centroids()
-        x_centers = np.asarray(x_centers, dtype=float)
+        x_centers = np.asarray(cell_mesh.centers[:, 0], dtype=float)
         midpoint = 0.5 * (float(np.min(x_centers)) + float(np.max(x_centers)))
         west = (x_centers <= midpoint).astype(float)
         east = 1.0 - west
         return WeightedAverageFieldDiscretization(
-            mesh=mesh,
+            mesh=cell_mesh,
             field_id=self.identifier,
             zone_keys=("west", "east"),
             fractions_by_zone={
@@ -73,24 +73,9 @@ def test_registry_exposes_boussinesq_flow_adapter() -> None:
 def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
     tmp_path: Path,
 ) -> None:
-    planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        connectivity=np.asarray(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-            ],
-            dtype=int,
-        ),
-        cell_type="triangle",
+    planar_mesh = HydroMesh(
+        vertices=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]])),),
     )
     support = _DummyRasterSupport(
         xmin=0.0,
@@ -158,24 +143,9 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
 def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_parameters(
     tmp_path: Path,
 ) -> None:
-    planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        connectivity=np.asarray(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-            ],
-            dtype=int,
-        ),
-        cell_type="triangle",
+    planar_mesh = HydroMesh(
+        vertices=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]])),),
     )
     support = _DummyRasterSupport(
         xmin=0.0,
@@ -276,10 +246,9 @@ def test_boussinesq_flow_adapter_refuses_a_flow_k_next_to_the_k_of_a_bundle(
     adapter falls back to the bundle. Before, the flow K mapped on the runtime
     mesh overwrote the bundle K in silence.
     """
-    planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
-        connectivity=np.asarray([[0, 1, 2], [0, 2, 3]], dtype=int),
-        cell_type="triangle",
+    planar_mesh = HydroMesh(
+        vertices=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]])),),
     )
     bundle_dir = _write_minimal_bundle(tmp_path / "bundle_heterogeneous_override")
     flow = Flow(

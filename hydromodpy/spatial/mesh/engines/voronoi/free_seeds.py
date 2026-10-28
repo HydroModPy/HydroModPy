@@ -16,7 +16,7 @@ from scipy.spatial import cKDTree
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler
 
 __all__ = [
     "DRAW_BLOCK",

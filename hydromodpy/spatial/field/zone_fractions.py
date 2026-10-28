@@ -29,8 +29,7 @@ import shapely
 from shapely.strtree import STRtree
 
 from hydromodpy.core.exceptions import MeshError
-from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
-from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 __all__ = [
@@ -204,7 +203,7 @@ def _sampled_fractions(
 ) -> tuple[tuple[str, ...], np.ndarray]:
     """The support's own sampling, at the density it declares."""
     n_samples = int(getattr(support, "default_cell_samples_per_axis", 8) or 8)
-    discretization = support.on_mesh(to_field_mesh(cell_mesh.mesh), cell_samples_per_axis=n_samples)
+    discretization = support.on_mesh(cell_mesh, cell_samples_per_axis=n_samples)
     keys, by_zone = discretization.weighted_components()
     values = np.column_stack([np.asarray(by_zone[key], dtype=float).reshape(-1) for key in keys])
     return tuple(str(key) for key in keys), values

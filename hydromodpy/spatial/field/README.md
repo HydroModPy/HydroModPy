@@ -8,18 +8,15 @@
 ```text
 hydromodpy/spatial/field/
 |-- core/
+|   |-- cell_sampling.py
 |   |-- field_param.py
 |   |-- field_param_config.py
 |   |-- field_spatial.py
 |   |-- field_spatial_weighted_discretization.py
-|   `-- field_mesh.py
-|-- meshes/
-|   |-- structured_field_mesh.py
-|   |-- triangular_field_mesh.py
-|   |-- polygon_field_mesh.py
-|   |-- gmsh_planar_mesh.py
-|   |-- field_mesh_adapter.py
-|   `-- plotting.py
+|   `-- mesh_cells.py
+|-- geology/
+|   |-- geology_field.py
+|   `-- geology_mesh.py
 |-- cases/
 |   `-- square/
 |       |-- field_param_config.toml
@@ -29,6 +26,8 @@ hydromodpy/spatial/field/
 |       |-- field_mesh_square.py
 |       |-- run_field_demo.py
 |       `-- outputs/
+|-- plotting.py
+|-- zone_fractions.py
 |-- __init__.py
 `-- README.md
 ```
@@ -43,19 +42,20 @@ hydromodpy/spatial/field/
   discretization contract.
 - `core/field_spatial_weighted_discretization.py`: weighted-fraction
   discretization implementation.
-- `core/field_mesh.py`: abstract mesh contracts (`BaseFieldMesh`, `FieldMesh`)
-  and generic containers (`MeshCell`, `MeshWithValues`).
-- `meshes/`: the concrete field meshes. `gmsh_planar_mesh.py` holds
-  `GmshPlanarMesh2D`, a planar mesh read from a Gmsh `.msh` file, with
-  `load_planar_mesh` and `save_planar_mesh`. `field_mesh_adapter.py` converts a
-  field mesh to and from the `HydroMesh` of `spatial/mesh`, and `plotting.py`
-  draws one value per cell of a `HydroMesh` (`plot_cell_values`). The field
-  package reads the mesh, and the mesh never imports the field package.
-- `cases/square/`: concrete square geometry, concrete mesh factory, runnable
+- `core/mesh_cells.py`: the cells of a `PlanarCellMesh` as a support samples
+  them (`MeshCell`, `mesh_cells`), the check of one value per cell
+  (`cell_values`), the mesh with its values (`MeshWithValues`), and the grid of
+  quadrilaterals of the demos (`cell_mesh_from_edges`).
+- `core/cell_sampling.py`: the points a support samples in one cell.
+- `zone_fractions.py`: the share of each zone of a support in each cell.
+- `plotting.py`: draws one value per cell of a `PlanarCellMesh` or a
+  `HydroMesh` (`plot_cell_values`). The field package reads the mesh of
+  `spatial/mesh`, and the mesh never imports the field package.
+- `cases/square/`: concrete square geometry, the unit-square meshes, runnable
   demonstration, and example TOML files.
-- geology case integration now lives under
-  `hydromodpy/spatial/field/geology/` (for `GeologyField` / `GeologyStructuredMesh`) and
-  `hydromodpy/data/variables/geology/` (for data management), with runnable scripts in
+- `geology/`: `GeologyField` and the regular mesh of the geology demo
+  (`regular_cell_mesh_over_bounds`). Data management lives in
+  `hydromodpy/data/variables/geology/`, the runnable scripts in
   `hydromodpy/data/cases/geology/`.
 
 ## Core Concepts
@@ -64,19 +64,18 @@ hydromodpy/spatial/field/
   `Sy`).
   - homogeneous mode: one scalar for all cells.
   - heterogeneous mode: one value per zone key + `field_spatial_id`.
-- `Field` (abstract): geometry model that can discretize itself on a mesh via
-  `on_mesh(mesh)`.
+- `Field` (abstract): geometry model that can discretize itself on a
+  `PlanarCellMesh` via `on_mesh(cell_mesh)`.
 - `FieldDiscretization` (abstract): bridge object containing the aggregation
   logic required by `FieldParam.to_mesh_field(...)`.
-- `BaseFieldMesh` (abstract): one mesh API for all mesh kinds.
-- `FieldMesh` (abstract): mesh factory API loaded from config.
 
 ## Shared API
 
 1. Build or load one `FieldParam`.
-2. Build or load one mesh (`FieldMeshSquare.from_*` in the square case).
+2. Build or load one `PlanarCellMesh` (`FieldMeshSquare.from_*` in the square
+   case).
 3. For heterogeneous mode, build/load one spatial field and compute
-   `field.on_mesh(mesh)`.
+   `field.on_mesh(cell_mesh)`.
 4. Convert to cell values with `FieldParam.to_mesh_field(...)`.
 
 Output object:

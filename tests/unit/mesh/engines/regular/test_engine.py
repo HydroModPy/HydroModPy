@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.spatial.mesh.cells.boundary import SIDE_OFFSET_KEY
 from hydromodpy.spatial.mesh.engines.regular.engine import _SIDE_STATEMENT, RegularMeshEngine
 from hydromodpy.spatial.mesh.engines.regular.grid import plan_layout
-from hydromodpy.spatial.mesh.ops.side_offset import SIDE_OFFSET_KEY
 from hydromodpy.spatial.mesh.request import InputTriangulation
 from tests._helpers.mesh_cases import LAMBERT93_WKT, grid_spec, mesh_request, uniform_size_field
 

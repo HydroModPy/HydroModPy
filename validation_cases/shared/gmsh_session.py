@@ -1,4 +1,8 @@
-"""Capture and write planar meshes from a live Gmsh session, for the validation cases."""
+"""Capture and write planar meshes from a live Gmsh session, for the validation cases.
+
+The captured mesh is a ``HydroMesh`` of one triangle or quadrilateral block, its
+nodes the ones the cells use, in increasing Gmsh tag order.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +14,12 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
 from hydromodpy.spatial.mesh.io.msh import (
     GmshCellBlock,
     GmshMeshData,
 )
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 
 _PLANAR_GMSH_ELEMENT_TYPES = {
     2: ("triangle", 3),
@@ -65,11 +70,7 @@ def _as_windows_extended_length_path(path: Path) -> str:
     return normalized
 
 
-def build_runtime_planar_mesh_from_gmsh(
-    gmsh,
-    *,
-    source_path: str | os.PathLike[str] | None = None,
-) -> GmshPlanarMesh2D:
+def build_runtime_planar_mesh_from_gmsh(gmsh) -> HydroMesh:
     """Capture one normalized planar mesh directly from one live Gmsh session."""
     node_tags, coords, _ = gmsh.model.mesh.getNodes()
     node_tags_arr = np.asarray(node_tags, dtype=int).reshape(-1)
@@ -149,12 +150,11 @@ def build_runtime_planar_mesh_from_gmsh(
         )
         for block in cell_blocks
     )
-    mesh_data = GmshMeshData(
-        points_xy=points_xy,
-        cell_blocks=normalized_blocks,
-        source_path=None if source_path is None else Path(source_path).resolve(),
+    mesh_data = GmshMeshData(points_xy=points_xy, cell_blocks=normalized_blocks)
+    return HydroMesh(
+        vertices=mesh_data.points_xy,
+        cell_blocks=(CellBlock(CellType.from_string(mesh_data.cell_type), mesh_data.connectivity),),
     )
-    return GmshPlanarMesh2D.from_mesh_data(mesh_data)
 
 
 __all__ = [

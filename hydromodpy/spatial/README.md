@@ -23,8 +23,8 @@ rules, how a catchment becomes a mesh, and where to add what. `field/`,
 | `terrain/` | the `TerrainEngine` port, what a flow-routing engine owes its callers, and the two engines that serve it (`whitebox_engine.py`, `numpy_engine.py`); `registry.py` resolves one by id, plugins included |
 | `geographic/` | the pre-simulation pipeline: `core/` builds the ground (DEM and its corrections), flow products, catchment from a point or a polygon, zones, river network, hydrographic network, SFR reach network, lake enforcement, the free ends of a mapped network; `pipeline.py` assembles the artifacts; `GeographicConfig` is `[geographic]`; `structure_binders.py` writes geology and catchment zones into the domain; `synthetic/` makes analytic geographies for validation; map in `geographic/README.md` |
 | `domain/` | the aquifer geometry: `Domain` (surface, depth model, zones), `build.py` (its one constructor), the four depth models, the layering of the column (`layers_config.py` for `[domain.layers]`, `layering.py` for the layer bottoms and `idomain`), `spatial_support.py` (the supports a parameter can be zoned by), and the `domain-build` capability (`capability.py`, `worker.py`) |
-| `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile), their TOML sections, geology, the field meshes, their conversion to and from a `HydroMesh` and `plot_cell_values` in `meshes/`; it reads the mesh, and `mesh/` never imports it |
-| `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `io/` holds the exchange formats (VTU, the meshio bridge, Gmsh `.msh` files, mesh bundles); `ops/` holds geometric operations; `mesh_config.py` and `refinement_config.py` hold the `[mesh]` config models |
+| `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile), their TOML sections, geology, the cells of a `PlanarCellMesh` the supports sample (`core/mesh_cells.py`) and `plot_cell_values` (`plotting.py`); it reads the mesh, and `mesh/` never imports it |
+| `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `io/` holds the exchange formats (VTU, the meshio bridge, Gmsh `.msh` files, mesh bundles); `cells/` answers which cells or faces; `mesh_config.py` and `refinement_config.py` hold the `[mesh]` config models |
 | `forcing/` | gridded and station forcings on the cells of a mesh: `cells.py` gives one rate per cell and per stress period (and the period bounds), `rasters.py` reads xarray, NetCDF and GeoTIFF, `stations.py` the located series, `sources.py` the units and variables, `area_weights.py` the `area` method, `interpolation.py` nearest, linear and IDW, `spatial_mean.py` the mean over the pixels; it reads the mesh model, and `mesh/` never imports it |
 | `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus, and the carve of a mesh column |
 | `site_selection/` | the primitives of a site selection: candidates, criteria, evidence, decisions, outputs, and the `terrain-delineate` capability (`hydrology/capability.py`, `hydrology/worker.py`); map in `site_selection/README.md` |
@@ -68,9 +68,9 @@ hydromodpy/spatial/
   administrative/  delineation/  terrain/
   geographic/       core/  synthetic/  pipeline.py  structure_binders.py  catchment_delineation.py ...
   domain/           domain.py  build.py  depth_model_config.py  layers_config.py  layering.py  spatial_support.py  capability.py  worker.py
-  field/            core/  geology/  meshes/
+  field/            core/  geology/  cases/
   forcing/          cells.py  rasters.py  stations.py  sources.py  area_weights.py  interpolation.py  spatial_mean.py
-  mesh/             model/  engines/  planning/  io/  ops/
+  mesh/             model/  engines/  planning/  io/  cells/
                     mesh_config.py  refinement_config.py  request.py  resample.py  cache.py
   lake_bed/
   site_selection/   candidates/  config/  decisions/  evaluation/  evidence/  hydrology/  outputs/  pipelines/
@@ -111,7 +111,7 @@ hydromodpy/spatial/
 | a depth model | a model in `domain/depth_model_config.py` joined to the depth-model union, its use in `domain/domain.py`, and a reader in `domain/build.py` if it needs a raster |
 | a spatial support kind | a provider in `domain/spatial_support.py` registered in `SpatialSupportProviderRegistry`, and its config in `domain/spatial_support_config.py`; see `docs/source/contribute/architecture/spatial_support/index.rst` |
 | a mesh engine | a class that satisfies the port in `mesh/port.py`, registered by `mesh.registry.register` or on the `hydromodpy.mesh.engine` entry-point group; see `docs/source/contribute/architecture/mesh/mesh-engines.rst` |
-| a mesh operation | a mesh-agnostic function in `mesh/ops/` |
+| a question on the cells or faces of a mesh | a mesh-agnostic function in `mesh/cells/` |
 | a field kind | `field/core/` (`Field`, `FieldParam` and their sections); see `docs/source/contribute/architecture/field/index.rst` |
 | a way to bring loaded data into the domain | a function in `geographic/structure_binders.py`, called from `workflow/steps/` |
 | a site-selection criterion | `site_selection/evaluation/criteria/`; see `site_selection/README.md` |

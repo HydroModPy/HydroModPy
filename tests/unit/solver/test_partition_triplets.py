@@ -20,7 +20,7 @@ from hydromodpy.solver.boussinesq.jacobian.operator_triplets import (
 from hydromodpy.solver.boussinesq.jacobian.partition_triplets import (
     build_sparse_semianalytic_partition_saturation_triplets,
 )
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 
 def _build_mesh() -> _MiniMesh:

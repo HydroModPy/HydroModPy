@@ -26,6 +26,7 @@ from hydromodpy.core.units.hydraulic_conductivity import (
 )
 from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.spatial.field.core.mesh_cells import MeshWithValues, cell_values
 
 
 def _length_to_m(value: object, *, label: str) -> float:
@@ -389,7 +390,7 @@ class FieldParam:
         factor = self.vertical_factor(depth)
         if np.ndim(factor) == 0:
             return float(factor)
-        return np.asarray(mesh.to_cell_values(factor), dtype=float)
+        return np.asarray(cell_values(mesh, factor), dtype=float)
 
     def to_array(
         self,
@@ -452,11 +453,12 @@ class FieldParam:
             if scalar_value is None:
                 raise RuntimeError("Internal state error: homogeneous field has no 'value'.")
             values = np.full(int(target_mesh.n_cells), float(scalar_value), dtype=float)
-            values = np.asarray(target_mesh.to_cell_values(values), dtype=float)
+            values = np.asarray(cell_values(target_mesh, values), dtype=float)
             vertical_factor = self._mesh_vertical_factor(target_mesh, depth=depth)
             values = values * vertical_factor
-            return target_mesh.attach_cell_values(
-                values,
+            return MeshWithValues(
+                mesh=target_mesh,
+                cell_values=cell_values(target_mesh, values),
                 label=label if label is not None else "homogeneous_value",
             )
 
@@ -487,7 +489,7 @@ class FieldParam:
                 missing.append(str(zone_key))
                 continue
             frac = np.asarray(fractions_by_zone[zone_key], dtype=float)
-            frac = np.asarray(mesh.to_cell_values(frac), dtype=float)
+            frac = np.asarray(cell_values(mesh, frac), dtype=float)
             value = float(values_by_key[zone_key])
             contribution = frac * value
             weighted = contribution if weighted is None else (weighted + contribution)
@@ -505,11 +507,12 @@ class FieldParam:
         if weighted is None:
             raise ValueError("Discretization did not produce any weighted contribution")
 
-        values = np.asarray(mesh.to_cell_values(weighted), dtype=float)
+        values = np.asarray(cell_values(mesh, weighted), dtype=float)
         vertical_factor = self._mesh_vertical_factor(mesh, depth=depth)
         values = values * vertical_factor
-        return mesh.attach_cell_values(
-            values,
+        return MeshWithValues(
+            mesh=mesh,
+            cell_values=cell_values(mesh, values),
             label=label if label is not None else "heterogeneous_values",
         )
 

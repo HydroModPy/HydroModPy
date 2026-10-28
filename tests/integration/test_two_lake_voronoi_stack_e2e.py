@@ -76,7 +76,7 @@ def _build_mesh() -> tuple[SolverMesh, dict[str, list[int]]]:
         botm=np.zeros((_NLAY, cell_mesh.n_cells)),
         idomain=np.ones((_NLAY, cell_mesh.n_cells), dtype=int),
     )
-    xy = np.asarray(probe.cell_centroids(), dtype=float)
+    xy = np.asarray(probe.cell_centers(), dtype=float)
     ground = _ground(xy)
     centres = {"lac0": (120.0, 300.0), "lac1": (130.0, 120.0)}
     cells = {
@@ -182,7 +182,7 @@ def stack(tmp_path_factory) -> SimpleNamespace:
     hfb_rows = build_flow_barrier_hfb(mesh, line=wall, depths=[40.0], hydchr=1e-9)
 
     networks = resolve_sfr_networks(model, solver_mesh=mesh)
-    xy = np.asarray(mesh.cell_centroids(), dtype=float)
+    xy = np.asarray(mesh.cell_centers(), dtype=float)
     top = np.asarray(mesh.top, dtype=float)
     lake_set = {c for ids in cells.values() for c in ids}
     candidates = [

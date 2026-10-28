@@ -39,7 +39,7 @@ from hydromodpy.core.field_routing import (
     domain_edge_cells,
 )
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.spatial.mesh.model.derived_geometry import padded_rows
+from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
 __all__ = ("closed_depression_mask", "resolve_sink_mask")
 

@@ -20,7 +20,6 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.meshes.field_mesh_adapter import to_field_mesh
 from hydromodpy.spatial.field.zone_fractions import ZoneFractions, zone_fractions
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
@@ -217,7 +216,6 @@ def map_flow_properties(
             "solver that reads it (MODFLOW 6 for K22 and the angles)."
         )
     fill_values = {str(name): float(value) for name, value in (optional_fill_values or {}).items()}
-    field_mesh = to_field_mesh(cell_mesh.mesh)
     fractions_by_support: dict[int, ZoneFractions] = {}
 
     out: dict[str, np.ndarray] = {}
@@ -243,14 +241,14 @@ def map_flow_properties(
                 fractions = zone_fractions(cell_mesh, support)
                 fractions_by_support[id(support)] = fractions
             discretization = WeightedAverageFieldDiscretization(
-                mesh=field_mesh,
+                mesh=cell_mesh,
                 field_id=str(support.identifier),
                 zone_keys=fractions.zone_keys,
                 fractions_by_zone=fractions.by_zone(),
             )
-        out[f"{name}_value"] = _cell_values(param, discretization, field_mesh, name, 0.0)
+        out[f"{name}_value"] = _cell_values(param, discretization, cell_mesh, name, 0.0)
         out[name] = np.vstack(
-            [_cell_values(param, discretization, field_mesh, name, depth) for depth in depths]
+            [_cell_values(param, discretization, cell_mesh, name, depth) for depth in depths]
         )
         logger.debug("%s mapped from flow.%s", label, selected)
     return out
@@ -277,13 +275,13 @@ def _heterogeneous_support(param: object, *, domain: object, property_label: str
 def _cell_values(
     param: object,
     discretization: WeightedAverageFieldDiscretization | None,
-    field_mesh: object,
+    cell_mesh: PlanarCellMesh,
     name: str,
     depth: float | np.ndarray,
 ) -> np.ndarray:
     """One value per cell of a parameter at one depth (scalar or per cell)."""
     if discretization is None:
-        values = param.to_mesh_field(mesh=field_mesh, label=name, depth=depth)
+        values = param.to_mesh_field(mesh=cell_mesh, label=name, depth=depth)
     else:
         values = param.to_mesh_field(discretization, label=name, depth=depth)
     return np.asarray(values.cell_values, dtype=float).reshape(-1)

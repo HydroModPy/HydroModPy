@@ -4,7 +4,7 @@ A family line lies on mesh edges. Each of its edges becomes one row with the
 cell on the left of the oriented line as ``cell_a`` and the cell on the right as
 ``cell_b`` (``-1`` on the domain boundary, where the row is flipped so that
 ``cell_a`` is the cell). The rows of every family make one ``FaceFamilyTable``.
-Cutting the faces of a family splits the cells into connected components.
+The regions the faces of a family cut live in ``cells/regions.py``.
 The module lives above the engines, so the Voronoi engine reads these rows without
 importing the families of the triangle engine.
 """
@@ -14,26 +14,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import connected_components
 
 from hydromodpy.core.exceptions import MeshGenerationError
-from hydromodpy.spatial.mesh.model.derived_geometry import (
-    BOX_SIDES,
-    DerivedGeometry,
-    box_side_of_edges,
-)
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable, PlanarCellMesh
+from hydromodpy.spatial.mesh.model.geometry import BOX_SIDES, DerivedGeometry, box_side_of_edges
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from hydromodpy.spatial.mesh.request import MeshRequest
 
 __all__ = [
     "EdgeLookup",
     "FamilyEdges",
     "box_side_edges",
-    "components_without",
     "edge_lookup",
     "face_table",
-    "family_regions",
     "oriented_rows",
     "request_zone_names",
     "without_repeats",
@@ -165,56 +157,6 @@ def request_zone_names(request: MeshRequest) -> tuple[str, ...]:
     """Sorted zone names of every family of the request."""
     names = {zone for family in request.lines for zone in (*family.zone_left, *family.zone_right)}
     return tuple(sorted(names))
-
-
-def components_without(
-    geometry: DerivedGeometry, cut_a: np.ndarray, cut_b: np.ndarray
-) -> np.ndarray:
-    """Connected components of the cells once the faces ``cut_a | cut_b`` are cut.
-
-    The cut goes by cell pair: two cells that share several edges are split
-    when their pair is cut, whatever edge the pair came from.
-    """
-    return _components_across(geometry, _pair_edges(geometry, cut_a, cut_b))
-
-
-def family_regions(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
-    """Return the region label of every cell once the faces of ``family`` are cut.
-
-    The cut goes by edge: two cells that share an edge outside the family stay
-    in one region.
-    """
-    geometry = cell_mesh.geometry
-    cut = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
-    rows = cell_mesh.face_rows(family)
-    if rows.any():
-        table = cell_mesh.face_families
-        edges = geometry.edge_ids(table.node_a[rows], table.node_b[rows])
-        cut[edges[edges >= 0]] = True
-    return _components_across(geometry, cut).astype(np.int64)
-
-
-def _pair_edges(geometry: DerivedGeometry, cell_a: np.ndarray, cell_b: np.ndarray) -> np.ndarray:
-    """Mask of the interior edges whose two cells are one of the pairs ``cell_a | cell_b``."""
-    n_cells = geometry.n_cells
-    interior = geometry.edge_cells[:, 1] >= 0
-    pairs = geometry.edge_cells[interior]
-    inside = cell_b >= 0
-    keys = np.minimum(cell_a, cell_b)[inside] * n_cells + np.maximum(cell_a, cell_b)[inside]
-    cut = np.zeros(geometry.edge_cells.shape[0], dtype=bool)
-    cut[interior] = np.isin(pairs[:, 0] * n_cells + pairs[:, 1], keys)
-    return cut
-
-
-def _components_across(geometry: DerivedGeometry, cut: np.ndarray) -> np.ndarray:
-    """Connected components of the cells through the interior edges left uncut."""
-    n_cells = geometry.n_cells
-    joined = (geometry.edge_cells[:, 1] >= 0) & ~cut
-    first, second = geometry.edge_cells[joined, 0], geometry.edge_cells[joined, 1]
-    graph = coo_matrix(
-        (np.ones(first.size, dtype=np.int8), (first, second)), shape=(n_cells, n_cells)
-    )
-    return connected_components(graph, directed=False)[1]
 
 
 def box_side_edges(

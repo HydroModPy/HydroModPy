@@ -15,7 +15,7 @@ from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     physical_saturated_thickness,
 )
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle import solve_steady_problem
-from tests._helpers.mesh_doubles import _MiniMesh, line_mesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh, line_mesh
 
 
 def _mesh(z_bottom: list[float], *, k_m_s: float = 1.0e-5) -> _MiniMesh:

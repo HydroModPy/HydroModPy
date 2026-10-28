@@ -260,12 +260,9 @@ def _resolve_run_grid_metadata(model: Any) -> dict | None:
         pass
     try:
         vertices = np.asarray(planar.vertices, dtype=float)
-        conn = planar.flat_connectivity  # rectangular array or ragged POLYGON tuple
-        conn_bytes = (
-            b"".join(np.asarray(c, dtype=np.int64).tobytes() for c in conn)
-            if isinstance(conn, tuple)
-            else np.asarray(conn, dtype=np.int64).tobytes()
-        )
+        conn = np.asarray(planar.flat_connectivity, dtype=np.int64)
+        # The node ids of each cell in turn, without the -1 padding of a polygon row.
+        conn_bytes = conn[conn >= 0].tobytes()
         meta["mesh_hash"] = hashlib.sha256(vertices.tobytes() + conn_bytes).hexdigest()
     except Exception:
         pass

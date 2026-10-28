@@ -15,11 +15,11 @@ from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig, TopSamplingConfig
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.solver.modflow_grid.top_sampling import (
-    _bottom_under_lowered_top,
-    _cells_cover_pixels,
-    _lower_crossing_cells,
-    _zonal_structured_top,
-    _zonal_top_flat,
+    bottom_under_lowered_top,
+    cells_cover_pixels,
+    lower_crossing_cells,
+    zonal_structured_top,
+    zonal_top_flat,
 )
 from hydromodpy.spatial.domain.layering import (
     assert_bottom_below_top,
@@ -157,7 +157,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
     # take their zonal minimum. Only top is zonal; bottom stays on the centroid.
     centroid_top = top_flat
     if top_sampling is not None and top_sampling.mode == "zonal":
-        top_flat = _zonal_top_flat(
+        top_flat = zonal_top_flat(
             hydro_mesh=hydro_mesh,
             top_surface=top_surface,
             centroid_top=centroid_top,
@@ -168,7 +168,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
             clamp_to_bottom=False,
         )
     else:
-        top_flat = _lower_crossing_cells(
+        top_flat = lower_crossing_cells(
             cell_mesh=cell_mesh,
             top_surface=top_surface,
             centroid_top=centroid_top,
@@ -176,7 +176,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
             nodata=nodata,
             top_sampling=top_sampling,
         )
-    bottom_flat = _bottom_under_lowered_top(
+    bottom_flat = bottom_under_lowered_top(
         top=top_flat,
         centroid_top=centroid_top,
         bottom=bottom_flat,
@@ -432,10 +432,10 @@ def _build_structured_solver_mesh(
         top_sampling is not None
         and top_sampling.mode == "zonal"
         and top_surface is not native_top
-        and _cells_cover_pixels(native_top, top_surface)
+        and cells_cover_pixels(native_top, top_surface)
     ):
         # Only the top is zonal; the bottom keeps the planar resampling rule.
-        top_surface = _zonal_structured_top(
+        top_surface = zonal_structured_top(
             native_top=native_top,
             grid_top=top_surface,
             grid_bottom=bottom_surface,

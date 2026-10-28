@@ -45,7 +45,7 @@ def _centre(row: int, col: int) -> tuple[float, float]:
 def _run_ctx(*, with_centres: bool = True):
     rows, cols = np.divmod(np.arange(N * N), N)
     centres = np.column_stack([(cols + 0.5) * CELL, (rows + 0.5) * CELL])
-    solver_mesh = SimpleNamespace(cell_centroids=lambda: centres) if with_centres else None
+    solver_mesh = SimpleNamespace(cell_centers=lambda: centres) if with_centres else None
     return SimpleNamespace(
         state=SimpleNamespace(setup=SimpleNamespace(geographic=SimpleNamespace(crs_project=CRS))),
         model=SimpleNamespace(solver_mesh=solver_mesh),
@@ -98,7 +98,7 @@ def test_explicit_centres_win_over_the_run() -> None:
 
 
 def test_a_run_without_centres_is_refused_by_the_crossing_rule() -> None:
-    with pytest.raises(ValueError, match="cell_centroids"):
+    with pytest.raises(ValueError, match="cell_centers"):
         _mask(_run_ctx(with_centres=False))
 
 

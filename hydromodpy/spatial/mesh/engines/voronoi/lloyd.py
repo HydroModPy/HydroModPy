@@ -25,12 +25,12 @@ import shapely
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import ConstraintPlan
-from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import DiskSet
+from hydromodpy.spatial.mesh.engines.voronoi.local_coords import SizeSampler
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_cells, voronoi_envelope
 
 __all__ = [
-    "BERGE_BALL_SCALE",
+    "BERGE_CIRCLE_SCALE",
     "GABRIEL_SCALE",
     "LLOYD_CAP",
     "LLOYD_TOLERANCE",
@@ -47,7 +47,7 @@ LLOYD_CAP = 25
 LLOYD_TOLERANCE = 0.01
 """Default stop: the root mean square of the free seed moves under this share of the size."""
 
-BERGE_BALL_SCALE = 1.02
+BERGE_CIRCLE_SCALE = 1.02
 """Hard radius of a Berge ball, as a multiple of its radius ``R_v``."""
 
 GABRIEL_SCALE = 0.51
@@ -100,7 +100,7 @@ def constraint_disks(plan: ConstraintPlan) -> tuple[DiskSet, DiskSet]:
         np.vstack([np.asarray(faces.vertices[conformal], dtype=np.float64), 0.5 * (start + end)]),
         np.concatenate(
             [
-                BERGE_BALL_SCALE * np.asarray(faces.radius[conformal], dtype=np.float64),
+                BERGE_CIRCLE_SCALE * np.asarray(faces.radius[conformal], dtype=np.float64),
                 GABRIEL_SCALE * np.hypot(*(end - start).T),
             ]
         ),

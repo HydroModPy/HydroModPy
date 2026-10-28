@@ -13,7 +13,7 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_mixed_common import (
     _fischer_burmeister_residual_and_derivatives,
     _fischer_burmeister_residual_and_gap_derivatives,
 )
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 
 def _assembly(residual_m3_s: np.ndarray) -> BoussinesqAssembly:

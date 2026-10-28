@@ -38,7 +38,7 @@ from typing import Any, Final
 import numpy as np
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import BOX_SIDES, box_side_of_edges
+from hydromodpy.spatial.mesh.model.geometry import BOX_SIDES, box_side_of_edges
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     FaceFamilyTable,

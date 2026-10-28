@@ -41,9 +41,9 @@ Each release section includes the following standard categories:
   `save_planar_mesh` write a path ending in `.msh` as gmsh 2.2 ASCII when no `file_format` is
   given, and an explicit `file_format` still wins.
 - A Voronoi mesh goes through meshio and VTU (2026-10-27). `to_meshio` handed meshio one polygon
-  block of mixed arity, which meshio refuses, so `write_vtu` failed on every Voronoi mesh. A ragged
+  block of mixed arity, which meshio refuses, so `write_vtu` failed on every Voronoi mesh. A polygon
   block now goes to meshio as its runs of cells of one arity, in its cell order, and `from_meshio`
-  and `read_vtu` give back one ragged block with its cell fields. A planar mesh written as VTU reads
+  and `read_vtu` give back one polygon block with its cell fields. A planar mesh written as VTU reads
   back with x and y only, where it kept the zero z that meshio adds. A mesh with a z that is not
   zero, or with 3D cells, keeps its z.
 - The NetCDF export writes the cell centres the model used, `mesh/face_x` and `mesh/face_y` of the
@@ -1219,6 +1219,62 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A `HydroMesh` holds its cells one way (2026-10-28). Each `CellBlock` keeps one `(n_cells, k)`
+  int table, and a polygon block (a Voronoi mesh) pads the rows of its smaller cells with `-1`,
+  where it held one node array per cell. A polygon block still takes one node array per cell and
+  pads it, and refuses a row with a free slot before a node. `flat_connectivity` is always one
+  table, blocks of two widths padded to the widest. A script that walks the rows of a polygon mesh
+  drops the `-1` slots (`row[row >= 0]`). `cell_data["disv_cell_center"]`, which copied
+  `PlanarCellMesh.centers`, goes: the Voronoi engines and `voronoi_planar_mesh` no longer write it,
+  and `HydroMesh.cell_centroids()` gives the mean of the cell vertices. `connection_nonorthogonality_deg`
+  and `nonorthogonality_summary` take the cell centres as `centers`, the vertex means when left
+  out. The meshes, the QA, the VTU export and the store are unchanged, and a new cache entry of a
+  Voronoi mesh holds the same arrays less `cell_data/disv_cell_center`. A mesh cached before keeps
+  that entry, which nothing reads.
+- The DISV export and the XT3D advice read the Voronoi generators from the cell mesh (2026-10-28),
+  since a `HydroMesh` no longer carries them. `to_flopy_disv_args` takes the cell centres to write
+  as `centers`, the vertex means when left out, and `SolverMesh.to_disv_kwargs` passes
+  `SolverMesh.generator_centers`, the centres of a mesh centred on its generators and `None`
+  otherwise. The XT3D advice measures its angles from the same centres. The DISV file and the
+  advice are unchanged. The solver mesh helpers of the tests and of the validation cases take the
+  generators of a hand-built Voronoi mesh as `centers`.
+- Boussinesq reads its arrays from the cell mesh (2026-10-28). `BoussinesqMesh.from_cell_mesh`
+  takes the cells, edges, areas and lengths of `cell_mesh.geometry` in a few vector operations,
+  instead of building a `CatchmentMeshBundle` node by node and reading it back. The arrays are the
+  same to the bit, the edge order and the error messages too, except a conductivity or a storage
+  of the wrong size, which now says "Boussinesq cell values must contain exactly one value per
+  cell". A quadrilateral or Voronoi mesh is
+  refused by the message on triangular cells, where a Voronoi mesh raised `AttributeError`. The
+  bundle folder of the validation cases keeps its path, `BoussinesqMesh.from_bundle`.
+  `build_runtime_bundle_from_cell_mesh` becomes `mesh_arrays_from_cell_mesh`, and
+  `_mesh_geometry.py` joins `_mesh_builders.py`.
+- `SolverMesh.cell_centroids()` becomes `SolverMesh.cell_centers()` (2026-10-28), because it
+  returns the centres MODFLOW 6 sees, the generator seeds on a Voronoi mesh, and not the
+  centroids. The network criterion of the calibration reads the new name, and its error on a mesh
+  without centres names `cell_centers`. `HydroMesh` keeps `cell_centroids()`. The helpers
+  `discretization_spatial.py` reads from `top_sampling.py`, and `flow_directions.py` from
+  `catchment_basin.py`, become public.
+- The mesh modules take names a reader guesses (2026-10-28). In `hydromodpy.spatial.mesh`,
+  `model/derived_geometry.py` becomes `model/geometry.py` and `model/mesh_qa.py` becomes
+  `model/quality.py`. The folder `ops/` becomes `cells/`, because each of its modules answers
+  which cells or which faces: `cell_location.py` becomes `locate.py`, `family_cells.py` and
+  `side_offset.py` join in `boundary.py`, `flow_barrier.py` becomes `barrier_faces.py`,
+  `vector_cell_mask.py` becomes `in_polygons.py`, and `family_regions` and `components_without`
+  leave `engines/face_families.py` for `cells/regions.py`, so the solver no longer imports the
+  engines. In `planning/`, `cleanup.py` becomes `geometry_cleanup.py`, `geology.py`
+  becomes `geology_contacts.py`, `input_mesh.py` becomes `input_triangulation.py` and
+  `refinement.py` becomes `refinement_zones.py`. In `engines/`, `triangle/gmsh_cdt.py` becomes
+  `triangle/gmsh_triangulation.py`, and the Voronoi engine names its modules as the two other
+  engines and its config do: `generated.py` becomes `from_seeds.py`, `line_families.py`
+  `families.py`, `frame.py` `local_coords.py` and `gates.py` `checks.py`. A script imports
+  from the new paths, the old ones are gone. Inside the code, a few names change too. `CdtResult`
+  becomes `Triangulation` and its graph `LineGraph`. A lake structure is a `LakeStructure`
+  (`kind`, `name`, `geometry`, `size_m`, `buffer_m`, and the `label` the size terms keep) instead
+  of a four-member tuple. The Voronoi constraints drop their jargon (`BALL_SHRINK` becomes
+  `CIRCLE_SHRINK`, `SeedRole.TIP` `SeedRole.FREE_END`, `tip_seeds` `free_end_seeds`), and the
+  names one module of the mesh reads from another become public. The QA keys, the store keys,
+  the messages and the value `"generated"` of `[mesh.voronoi] seeds` keep their names, and nothing
+  a run computes or writes changes. A logger named after a module takes the new module path.
 - The mesh code checks each fault at one stage (2026-10-28). `[mesh]`, `[mesh.voronoi]`,
   `[mesh.lake_refinement]` and `[[mesh.refinement_zone]]` refuse an infinite number and name the
   key. An infinite size, band, factor or transition used to be refused later by the size field,
@@ -1327,11 +1383,8 @@ Each release section includes the following standard categories:
   announces is read as gmsh and meshio read it, with the announced count, where it was refused. No
   result, TOML key, schema or mesh changes.
 - The field meshes leave the mesh package for `spatial/field/meshes/` (2026-10-27), so the mesh
-  no longer imports `spatial/field`. A script reads `GmshPlanarMesh2D`, `load_planar_mesh` and
-  `save_planar_mesh` from `hydromodpy.spatial.field.meshes.gmsh_planar_mesh`, `from_field_mesh`,
-  `from_gmsh_planar` and `to_field_mesh` from `hydromodpy.spatial.field.meshes.field_mesh_adapter`,
-  and `plot_cell_values` from `hydromodpy.spatial.field.meshes.plotting`. In place of
-  `load_planar_as_hydro_mesh` it calls `read_msh` of `hydromodpy.spatial.mesh.io.msh`, and in place
+  no longer imports `spatial/field`. They are removed on 2026-10-28, see Removed. In place of
+  `load_planar_as_hydro_mesh` a script calls `read_msh` of `hydromodpy.spatial.mesh.io.msh`, and in place
   of `save_hydro_mesh_vtu` and `load_hydro_mesh_vtu` it calls `write_vtu` and `read_vtu` of
   `hydromodpy.spatial.mesh.io.vtu`, since these three go (see Removed). No result, TOML key, schema
   or mesh changes.
@@ -1697,6 +1750,22 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The field meshes, a second mesh system older than `PlanarCellMesh` (2026-10-28). `BaseFieldMesh`,
+  `FieldMesh`, `StructuredFieldMesh`, `TriangularStructuredFieldMesh`,
+  `TriangularUnstructuredFieldMesh`, `PolygonFieldMesh`, `GeologyStructuredMesh` and
+  `GmshPlanarMesh2D` go, with `load_planar_mesh`, `save_planar_mesh`, `from_field_mesh`,
+  `from_gmsh_planar`, `to_field_mesh` and the folder `spatial/field/meshes/`. A support samples the
+  cells of a `PlanarCellMesh`, `Field.on_mesh(cell_mesh, *, cell_samples_per_axis=...)`, and
+  `FieldDiscretization.mesh` and `MeshWithValues.mesh` hold it. `mesh_cells` and `cell_values` of
+  `spatial/field/core/mesh_cells.py` give the cells of a mesh and check one value per cell, and
+  `MeshCell` and `MeshWithValues` live there. `plot_cell_values` moves to `spatial/field/plotting.py`
+  and draws a `PlanarCellMesh` or a `HydroMesh`. `FieldMeshSquare` returns a `PlanarCellMesh` of the
+  unit square, and `regular_cell_mesh_over_bounds` of `spatial/field/geology/geology_mesh.py`
+  replaces `GeologyStructuredMesh.from_bounds`. `read_msh` and `write_msh` read and write a `.msh`
+  file as a `HydroMesh`. `plot_cell_values(ax, mesh, values)` names its mesh `mesh`, where it was
+  `hydro_mesh`. `FieldParam.to_mesh_field` gives one flat value per cell, where a structured field
+  mesh gave a `(nrow, ncol)` table. Zone fractions, mapped properties and demo values are unchanged
+  to the bit.
 - `save_hydro_mesh_vtu` and `load_hydro_mesh_vtu` of `spatial/mesh/gmsh_grid/exchange_api.py`,
   which only called `write_vtu` and `read_vtu`, and `load_planar_as_hydro_mesh`, which `read_msh`
   replaces (2026-10-27). The checks for a missing meshio, a required dependency, go too.

@@ -1,8 +1,8 @@
 """The size rules of the hydraulic structures of the lakes the mesh refines.
 
-Each structure is a ``(label, geometry, cell size, buffer)`` target, and the
-planner refines the geometry dilated by its buffer at that cell size. There are
-three kinds.
+Each structure is a ``LakeStructure``, and the planner refines its geometry
+dilated by its buffer at its cell size. There are three kinds, named by the
+label of the structure.
 
 - ``voile:<id>``, the cutoff wall line of lake ``<id>``, at ``dam_cell_size``. Its
   zone is ``hfb_buffer`` wide on each side, ``2 * dam_buffer`` without it, so it
@@ -23,18 +23,19 @@ this module reads plain geometries only.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from itertools import combinations
 
 from shapely.geometry import LineString, Point, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.planning.inputs import LakeStructure
 from hydromodpy.spatial.mesh.refinement_config import LakeRefinementConfig
 
 __all__ = [
     "MIN_SILL_SIZE_M",
     "SILL_MARGIN_PER_GAP",
     "SILL_SIZE_PER_GAP",
+    "LakeStructure",
     "lake_structures",
     "sill_zone",
 ]
@@ -47,6 +48,28 @@ SILL_SIZE_PER_GAP = 0.4
 
 SILL_MARGIN_PER_GAP = 1.5
 """Dilation of each lake for its sill zone, as a multiple of the gap, at least ``dam_cell_size``."""
+
+
+@dataclass(frozen=True)
+class LakeStructure:
+    """A hydraulic structure of a lake that the mesh refines around.
+
+    ``kind`` is ``voile`` (a cutoff wall), ``sill`` (the zone between two lakes) or
+    ``dam_outlet``. ``name`` is the lake id of a wall, the pair ``<a>-<b>`` of a
+    sill, and None for the outlet. The planner refines ``geometry`` dilated by
+    ``buffer_m`` at ``size_m``.
+    """
+
+    kind: str
+    name: str | None
+    geometry: BaseGeometry
+    size_m: float
+    buffer_m: float
+
+    @property
+    def label(self) -> str:
+        """``<kind>:<name>``, or the kind alone when the structure has no name."""
+        return self.kind if self.name is None else f"{self.kind}:{self.name}"
 
 
 def lake_structures(
@@ -70,7 +93,7 @@ def lake_structures(
     wall_width = float(hfb_buffer) if hfb_buffer is not None else 2.0 * dam_buffer
     kept_walls = {lake_id: line for lake_id, line in walls.items() if not line.is_empty}
     structures: list[LakeStructure] = [
-        (f"voile:{lake_id}", line, dam_cell_size, wall_width)
+        LakeStructure("voile", f"{lake_id}", line, dam_cell_size, wall_width)
         for lake_id, line in kept_walls.items()
     ]
     for (first_id, first), (second_id, second) in combinations(footprints.items(), 2):
@@ -81,7 +104,9 @@ def lake_structures(
         margin = max(SILL_MARGIN_PER_GAP * gap, dam_cell_size)
         zone = sill_zone(first, second, margin, sill_size=sill_size)
         if not zone.is_empty:
-            structures.append((f"sill:{first_id}-{second_id}", zone, sill_size, margin))
+            structures.append(
+                LakeStructure("sill", f"{first_id}-{second_id}", zone, sill_size, margin)
+            )
     if outlet is not None:
         # The disk is redundant once a wall zone overlaps it.
         wall_reaches_the_outlet = any(
@@ -90,7 +115,7 @@ def lake_structures(
         if lake_cfg.dam_outlet_disk is True or (
             lake_cfg.dam_outlet_disk is None and not wall_reaches_the_outlet
         ):
-            structures.append(("dam_outlet", outlet, dam_cell_size, dam_buffer))
+            structures.append(LakeStructure("dam_outlet", None, outlet, dam_cell_size, dam_buffer))
     return tuple(structures)
 
 

@@ -63,7 +63,7 @@ def _run_ctx(bench, dam_foot_cells=None):
         ),
         n_cells=N_CELLS,
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-        cell_centroids=lambda: centroids,
+        cell_centers=lambda: centroids,
     )
     networks = SimpleNamespace(
         reference=_axis_network(FIRST_OBSERVED_ROW),

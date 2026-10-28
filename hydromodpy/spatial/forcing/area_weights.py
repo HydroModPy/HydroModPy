@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import sparse
 
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh

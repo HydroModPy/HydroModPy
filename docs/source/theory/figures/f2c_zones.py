@@ -8,6 +8,7 @@ from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSqu
 from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
 from hydromodpy.spatial.field.core.field_param import FieldParam
+from hydromodpy.spatial.field.core.mesh_cells import mesh_cells
 
 V_A, V_B = 1e-5, 1e-7
 N_S = GeologyConfig.model_fields["cell_samples_per_axis"].default
@@ -23,16 +24,18 @@ K = FieldParam(
 u_c = np.asarray(K.to_mesh_field(support).cell_values, dtype=float).ravel()
 F_A = np.asarray(support.fractions_by_zone["A"], dtype=float).ravel()
 
+cells = mesh_cells(mesh)
+
 fig, (plan, means) = plt.subplots(1, 2, figsize=(6.4, 3.3), gridspec_kw={"width_ratios": [1, 1.25]})
 plan.fill([0, 0.5, 0.5, 0], [0, 0, 1, 1], fc=("C5", 0.3), lw=0)
 plan.fill([0.5, 1, 1, 0.5], [0, 0, 1, 1], fc=("C4", 0.3), lw=0)
-for cell in mesh.cells:
+for cell in cells:
     plan.fill(*np.asarray(cell.vertices).T, fc="none", ec="C6", lw=1.0)
     x, y = sample_points_in_cell(cell, n_sub_per_axis=N_S)
     in_a = zones.zone_id(x, y) == "A"
     plan.plot(x[in_a], y[in_a], ".", color="C0", ms=2)
     plan.plot(x[~in_a], y[~in_a], ".", color="C1", ms=2)
-for cell, share in zip(mesh.cells, F_A, strict=True):
+for cell, share in zip(cells, F_A, strict=True):
     if cell.vertices[0][1] == 0.0:
         cx = float(np.mean(np.asarray(cell.vertices)[:, 0]))
         plan.text(cx, -0.1, f"{share:g}", ha="center", va="top", fontsize=9)

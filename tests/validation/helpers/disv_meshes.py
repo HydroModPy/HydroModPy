@@ -42,7 +42,7 @@ from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import nonorthogonality_summary
+from hydromodpy.spatial.mesh.model.quality import nonorthogonality_summary
 from tests._helpers.solver_meshes import solver_mesh_from
 
 KINDS = ("triangle", "voronoi")
@@ -118,7 +118,7 @@ def _boundary_cells(planar: HydroMesh) -> np.ndarray:
     """Cells that own at least one boundary edge (an edge held by a single cell)."""
     edge_cells: dict[tuple[int, int], list[int]] = defaultdict(list)
     for ic, nodes in enumerate(planar.flat_connectivity):
-        nodes = [int(n) for n in nodes]
+        nodes = [int(n) for n in nodes if n >= 0]
         for k, a in enumerate(nodes):
             b = nodes[(k + 1) % len(nodes)]
             edge_cells[(min(a, b), max(a, b))].append(ic)
@@ -126,7 +126,13 @@ def _boundary_cells(planar: HydroMesh) -> np.ndarray:
     return np.asarray(sorted(owners), dtype=int)
 
 
-def _finish(kind: str, planar: HydroMesh, top: float, botm: list[float]) -> DisvMesh:
+def _finish(
+    kind: str,
+    planar: HydroMesh,
+    top: float,
+    botm: list[float],
+    seeds: np.ndarray | None = None,
+) -> DisvMesh:
     ncpl = planar.n_cells
     botm_arr = np.tile(np.asarray(botm, dtype=float).reshape(-1, 1), (1, ncpl))
     solver_mesh = solver_mesh_from(
@@ -134,22 +140,23 @@ def _finish(kind: str, planar: HydroMesh, top: float, botm: list[float]) -> Disv
         top=np.full(ncpl, float(top)),
         botm=botm_arr,
         inactive_mask=np.zeros_like(botm_arr, dtype=bool),
+        centers=seeds,
     )
     model = _stub_model()
     mode = xt3d_mode(model, solver_mesh)
     enabled = resolve_xt3d_options(model, solver_mesh) is not None
-    m = nonorthogonality_summary(planar)
+    m = nonorthogonality_summary(planar, centers=solver_mesh.generator_centers)
     reason = (
         f"HydroModPy rule {mode}: XT3D {'on' if enabled else 'off'} "
         f"(p95 {m['p95']:.1f} deg, {100 * m['frac_gt_30']:.1f} % of connections above 30 deg, "
         f"median {m['median']:.1f} deg)"
     )
     verts = np.asarray(planar.vertices, dtype=float)
-    polygons = [Polygon(verts[np.asarray(c, dtype=int)]) for c in planar.flat_connectivity]
+    polygons = [Polygon(verts[c[c >= 0]]) for c in planar.flat_connectivity]
     return DisvMesh(
         kind=kind,
         solver_mesh=solver_mesh,
-        centers=solver_mesh.cell_centroids(),
+        centers=solver_mesh.cell_centers(),
         areas=solver_mesh.cell_areas(),
         boundary_cells=_boundary_cells(planar),
         nonorthogonality=m,
@@ -229,6 +236,7 @@ def strip_mesh(
         pts[:, 0] += rng.uniform(-amp, amp, len(pts)) * move_x
         pts[:, 1] += rng.uniform(-amp, amp, len(pts)) * move_y
         planar = voronoi_planar_mesh(pts, box(0.0, 0.0, length, width))
+        return _finish(kind, planar, top, botm, seeds=pts)
     return _finish(kind, planar, top, botm)
 
 
@@ -296,4 +304,5 @@ def radial_mesh(
         r_last = float(np.hypot(pts[:, 0], pts[:, 1]).max())
         clip = Point(0.0, 0.0).buffer(r_last * (1.0 + 0.5 * (growth - 1.0)), quad_segs=64)
         planar = voronoi_planar_mesh(pts, clip)
+        return _finish(kind, planar, top, botm, seeds=pts)
     return _finish(kind, planar, top, botm)

@@ -3,7 +3,7 @@
 The planner fixes the intent of each line family, builds the size field of a
 graded engine, which also follows the gaps between face lines (``gap_size.py``),
 and resamples its lines at the local size, on the geometry cleaned first
-(``cleanup.py``). A graded engine also gets the staircase of the catchment
+(``geometry_cleanup.py``). A graded engine also gets the staircase of the catchment
 outline smoothed, before anything reads it (``catchment_outline.py``). A
 non-graded engine (``regular``) gets the raw lines and no size field. A
 triangulation read from a file is meshed as it is: no size field, raw lines,
@@ -27,26 +27,26 @@ from hydromodpy.spatial.mesh import registry
 from hydromodpy.spatial.mesh.mesh_config import MeshConfig, MeshTriangleConfig, MeshVoronoiConfig
 from hydromodpy.spatial.mesh.planning.barrier_lines import split_barriers
 from hydromodpy.spatial.mesh.planning.catchment_outline import smooth_catchment
-from hydromodpy.spatial.mesh.planning.cleanup import (
+from hydromodpy.spatial.mesh.planning.families import (
+    follows_shores_by_pairs,
+    requested_families,
+    river_margin,
+    with_shore_rings,
+)
+from hydromodpy.spatial.mesh.planning.geometry_cleanup import (
     CLEANUP_PIXEL_SHARE,
     GeometryCleanup,
     clean_lines,
     drop_small_holes,
 )
-from hydromodpy.spatial.mesh.planning.families import (
-    _families,
-    _followed_shores,
-    _follows_shores_by_pairs,
-    _river_margin,
-)
-from hydromodpy.spatial.mesh.planning.input_mesh import domain_polygon_of
+from hydromodpy.spatial.mesh.planning.input_triangulation import domain_polygon_of
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.size_field import PixelRegion, SizeTerm, build_size_field
 from hydromodpy.spatial.mesh.planning.size_terms import (
-    _gap_notes,
-    _gap_terms,
-    _outside,
-    _size_terms,
+    gap_notes,
+    line_gap_terms,
+    outside_coarsening,
+    refinement_terms,
 )
 from hydromodpy.spatial.mesh.request import LineFamilySpec, MeshRequest, RasterGridSpec, SizeField
 from hydromodpy.spatial.mesh.resample import KINK_MIN_SHARE, node_tolerance, resample_families
@@ -82,7 +82,7 @@ def plan_mesh_request(mesh_cfg: MeshConfig, inputs: PlanningInputs) -> MeshReque
 
     A graded engine first gets the staircase of the catchment outline smoothed,
     where the mesh follows it (``catchment_outline.py``). Then the geometry is
-    cleaned, for every engine (``cleanup.py``). The holes of the domain, the
+    cleaned, for every engine (``geometry_cleanup.py``). The holes of the domain, the
     lakes and the catchment smaller than one local cell squared go: no cell
     fits in such a hole, and its ring only seeds cells a few metres apart.
     Then close vertices merge and loose line ends are cut back and snapped, at
@@ -172,7 +172,7 @@ def _sizing(
     the ring vertices there. A triangulation read, and a non-graded engine,
     get the raw families and no field.
     """
-    families = _families(mesh_cfg, inputs, domain, pixel=pixel)
+    families = requested_families(mesh_cfg, inputs, domain, pixel=pixel)
     if not graded or inputs.input_triangulation is not None:
         return _Sizing(
             families=families,
@@ -181,7 +181,7 @@ def _sizing(
             notes=tuple(_ignored_settings(mesh_cfg, graded=graded)),
         )
     h0 = max(mesh_cfg.cell_size or pixel, pixel)
-    terms = _size_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel)
+    terms = refinement_terms(mesh_cfg, inputs, families, h0=h0, pixel=pixel)
 
     def field(gaps: list[SizeTerm]) -> SizeField:
         return build_size_field(
@@ -189,20 +189,20 @@ def _sizing(
             h0=h0,
             h_floor=pixel,
             terms=[*terms, *gaps],
-            outside=_outside(mesh_cfg, inputs),
+            outside=outside_coarsening(mesh_cfg, inputs),
             max_slope=mesh_cfg.max_slope,
         )
 
     shore_notes: tuple[str, ...] = ()
-    if _follows_shores_by_pairs(mesh_cfg, inputs):
+    if follows_shores_by_pairs(mesh_cfg, inputs):
         # The gaps are those of the shores the mesh follows: an arm the
         # smoothing leaves out needs no cells.
-        families, shore_notes = _followed_shores(
-            families, inputs, domain, field([]), margin=_river_margin(mesh_cfg, pixel)
+        families, shore_notes = with_shore_rings(
+            families, inputs, domain, field([]), margin=river_margin(mesh_cfg, pixel)
         )
-    gaps = _gap_terms(mesh_cfg, families, domain, h0=h0, pixel=pixel)
+    gaps = line_gap_terms(mesh_cfg, families, domain, h0=h0, pixel=pixel)
     size_field = field(gaps)
-    notes = (*_gap_notes(gaps, mesh_cfg), *shore_notes)
+    notes = (*gap_notes(gaps, mesh_cfg), *shore_notes)
     split = split_barriers(
         families,
         node_tolerance(domain),

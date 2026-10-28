@@ -13,16 +13,16 @@ from typing import ClassVar
 import numpy as np
 
 from hydromodpy.core.exceptions import MeshRequestError
+from hydromodpy.spatial.mesh.cells.boundary import annotate_side_cells
 from hydromodpy.spatial.mesh.engines.regular.families import cell_chains, face_family_columns
 from hydromodpy.spatial.mesh.engines.regular.grid import plan_layout, quad_mesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
     MeshIdentity,
     PlanarCellMesh,
     build_planar_cell_mesh,
 )
-from hydromodpy.spatial.mesh.ops.side_offset import annotate_side_cells
 from hydromodpy.spatial.mesh.port import MeshEngineCapabilities
 from hydromodpy.spatial.mesh.request import MeshRequest
 

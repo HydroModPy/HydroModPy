@@ -21,7 +21,7 @@ import shapely
 from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
 from hydromodpy.spatial.mesh.planning.size_field import SizeTerm
 
 __all__ = ["GAP_DETOUR", "GAP_LEVEL_RATIO", "gap_terms"]

@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.spatial.mesh import port
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.mesh_qa import DECLARATION_KEYS
+from hydromodpy.spatial.mesh.model.quality import DECLARATION_KEYS
 from hydromodpy.spatial.mesh.port import (
     ANY_PLANAR_ENGINE,
     PLANAR_CELL_TYPES,

@@ -19,7 +19,7 @@ from shapely.geometry import LineString, Polygon
 
 from hydromodpy.solver.modflow6.builders.lake import _drop_interior_rings, resolve_lake_cells
 from hydromodpy.spatial.mesh import registry
-from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
+from hydromodpy.spatial.mesh.model.geometry import cell_polygons
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.mesh.request import LineFamilySpec
 from tests._helpers.mesh_cases import L93_ORIGIN, LAMBERT93_WKT, grid_spec, mesh_request

@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, Literal, get_args
 import numpy as np
 
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry, derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import DerivedGeometry, derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
-from hydromodpy.spatial.mesh.model.mesh_qa import MeshQA, compute_mesh_qa
+from hydromodpy.spatial.mesh.model.quality import MeshQA, compute_mesh_qa
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
@@ -283,10 +283,10 @@ class PlanarCellMesh:
 
     @property
     def connectivity_rows(self) -> np.ndarray:
-        """Return the cells as one ``(n_cells, k)`` array, ``-1`` padded when ragged.
+        """Return the cells as one ``(n_cells, k)`` array, the format of the Zarr store.
 
         A triangle or quadrilateral block is returned as the mesh holds it; a
-        polygon block is padded, the format of the Zarr store.
+        polygon block, ``-1`` padded, as 32-bit node ids.
         """
         if self.mesh.cell_types[0].is_ragged:
             return self.geometry.padded_connectivity

@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.mesh.engines.triangle.gmsh_cdt import require_gmsh
+from hydromodpy.spatial.mesh.engines.triangle.gmsh_triangulation import require_gmsh
 from validation_cases.shared.gmsh_session import (
     build_runtime_planar_mesh_from_gmsh,
     write_repository_compatible_mesh,
@@ -198,7 +198,7 @@ def _mesh_with_gmsh(gmsh, mesh_path: Path, *, kind: str):
     gmsh.option.setNumber("Mesh.Algorithm", 6)
     gmsh.option.setNumber("Mesh.RandomSeed", SEED)
     gmsh.model.mesh.generate(2)
-    planar_mesh = build_runtime_planar_mesh_from_gmsh(gmsh, source_path=mesh_path)
+    planar_mesh = build_runtime_planar_mesh_from_gmsh(gmsh)
     write_repository_compatible_mesh(gmsh, mesh_path)
     return planar_mesh
 
@@ -228,7 +228,7 @@ def build_mesh_bundle(bundle_dir: Path, *, kind: str) -> Path:
     finally:
         gmsh.finalize()
 
-    points = np.asarray(planar_mesh.points_xy, dtype=float)
+    points = np.asarray(planar_mesh.vertices, dtype=float)
     node_rows = [
         f"{index},{x:.6f},{y:.6f},{Z_TOP_M:.6f},{Z_BOTTOM_M:.6f}"
         for index, (x, y) in enumerate(points)
@@ -236,19 +236,21 @@ def build_mesh_bundle(bundle_dir: Path, *, kind: str) -> Path:
     cell_rows: list[str] = []
     geology_rows: list[str] = []
     edges: dict[tuple[int, int], list[int]] = {}
-    for cell in planar_mesh.cells:
-        nodes = tuple(int(node) for node in cell.node_indices)
-        cx, cy = (float(value) for value in cell.centroid)
-        area = _polygon_area(np.asarray(cell.vertices, dtype=float))
+    cell_kind = planar_mesh.single_cell_type.value
+    for cell_id, cell_nodes in enumerate(np.asarray(planar_mesh.flat_connectivity, dtype=int)):
+        nodes = tuple(int(node) for node in cell_nodes)
+        vertices = points[cell_nodes]
+        cx, cy = float(vertices[:, 0].mean()), float(vertices[:, 1].mean())
+        area = _polygon_area(vertices)
         cell_rows.append(
-            f"{int(cell.index)},{cell.kind},{nodes[0]},{nodes[1]},{nodes[2]},,"
+            f"{cell_id},{cell_kind},{nodes[0]},{nodes[1]},{nodes[2]},,"
             f"{cx:.6f},{cy:.6f},{area:.6f},{Z_TOP_M:.6f},{Z_TOP_M:.6f},"
             f"{Z_BOTTOM_M:.6f},{Z_BOTTOM_M:.6f},1,zone_1,"
             f"{HYDRAULIC_CONDUCTIVITY_M_S:.12g},{SPECIFIC_YIELD:.12g}"
         )
-        geology_rows.append(f"{int(cell.index)},zone_1,1.0")
+        geology_rows.append(f"{cell_id},zone_1,1.0")
         for a, b in ((nodes[0], nodes[1]), (nodes[1], nodes[2]), (nodes[2], nodes[0])):
-            edges.setdefault((min(a, b), max(a, b)), []).append(int(cell.index))
+            edges.setdefault((min(a, b), max(a, b)), []).append(cell_id)
     edge_rows = []
     for edge_id, ((a, b), owners) in enumerate(edges.items()):
         length = float(np.linalg.norm(points[b] - points[a]))

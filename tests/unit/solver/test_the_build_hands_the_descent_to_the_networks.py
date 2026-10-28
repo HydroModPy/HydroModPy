@@ -254,7 +254,7 @@ def test_without_a_snapped_outlet_the_declared_one_closes_the_basin(monkeypatch)
 def test_without_an_outlet_the_basin_closes_inside_the_polygon(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    east = mesh.cell_centroids()[:, 0] > 50.0
+    east = mesh.cell_centers()[:, 0] > 50.0
     monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: east)
 
     with caplog.at_level(logging.INFO):
@@ -270,7 +270,7 @@ def test_without_an_outlet_the_basin_closes_inside_the_polygon(monkeypatch, capl
 def test_a_basin_far_from_the_polygon_is_a_warning(monkeypatch, caplog) -> None:
     mesh = _two_valleys()
     descent = build_solver_mesh_descent(mesh, lake_cells_by_lake={}, base_level_mask=None)
-    east = mesh.cell_centroids()[:, 0] > 50.0
+    east = mesh.cell_centers()[:, 0] > 50.0
     monkeypatch.setattr(catchment_basin, "polygon_cell_mask", lambda geographic, centroids: east)
     snapped = _xy(9, 2)
     geographic = SimpleNamespace(x_outlet_snapped=snapped[0], y_outlet_snapped=snapped[1])

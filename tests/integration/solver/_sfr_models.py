@@ -298,7 +298,7 @@ def run_coupled_sfr_lak_model(ws: Path, *, route_drainage: bool = False):
     mover_records = build_sfr_mover_records(
         networks,
         lake_cells_by_number={0: list(lake_cells)},
-        cell_centroids=mesh.cell_centroids(),
+        cell_centroids=mesh.cell_centers(),
     )
     args = build_sfr_package_args(
         model,

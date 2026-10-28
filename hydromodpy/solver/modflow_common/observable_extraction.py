@@ -379,7 +379,7 @@ def extract_common_modflow_observables(
     if xy_requests:
         # The planar cell centres, in the model CRS. A gauge snap searches them,
         # and reads them here so the calibration layer never touches the mesh.
-        centroids = np.asarray(model.solver_mesh.cell_centroids(), dtype=float)[:, :2]
+        centroids = np.asarray(model.solver_mesh.cell_centers(), dtype=float)[:, :2]
         for request in xy_requests:
             if request.support == "cells":
                 values = centroids

@@ -1,9 +1,8 @@
 """Solver meshes for the unit tests, built from a hand-made planar mesh.
 
 ``solver_mesh_from`` wraps a ``HydroMesh`` into the ``PlanarCellMesh`` a
-``SolverMesh`` holds and adds the vertical part. The centres are the ones the
-mesh carries: the generators of ``cell_data["disv_cell_center"]`` when it has
-them, the vertex means otherwise. Not public API.
+``SolverMesh`` holds and adds the vertical part. The centres are the generators
+a caller gives (a Voronoi mesh), the vertex means otherwise. Not public API.
 """
 
 from __future__ import annotations
@@ -26,13 +25,19 @@ def solver_mesh_from(
     top: np.ndarray,
     botm: np.ndarray,
     inactive_mask: np.ndarray,
+    *,
+    centers: np.ndarray | None = None,
 ) -> SolverMesh:
-    """Return the solver mesh of ``planar`` with the given tops, bottoms and mask."""
-    x_centers, y_centers = planar.cell_centroids()
-    generated = "disv_cell_center" in planar.cell_data
+    """Return the solver mesh of ``planar`` with the given tops, bottoms and mask.
+
+    ``centers`` are the generators of a Voronoi mesh, its cell centres.
+    """
+    generated = centers is not None
+    if centers is None:
+        centers = np.column_stack(planar.cell_centroids())
     cell_mesh = build_planar_cell_mesh(
         planar,
-        np.column_stack([x_centers, y_centers]),
+        np.asarray(centers, dtype=float),
         center_kind="generator" if generated else "vertex_mean",
         crs_wkt=TEST_CRS_WKT,
         identity=MeshIdentity("test", "0", "", None),

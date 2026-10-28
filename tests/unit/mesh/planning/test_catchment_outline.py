@@ -32,7 +32,7 @@ from hydromodpy.spatial.mesh.planning.catchment_outline import (
     smooth_catchment,
     smooth_polygon,
 )
-from hydromodpy.spatial.mesh.planning.cleanup import CLEANUP_PIXEL_SHARE, GeometryCleanup
+from hydromodpy.spatial.mesh.planning.geometry_cleanup import CLEANUP_PIXEL_SHARE, GeometryCleanup
 from hydromodpy.spatial.mesh.planning.inputs import PlanningInputs
 from hydromodpy.spatial.mesh.planning.plan import plan_mesh_request, smoothed_catchment
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY

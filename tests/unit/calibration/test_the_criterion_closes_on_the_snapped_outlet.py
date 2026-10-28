@@ -50,7 +50,7 @@ def _run_ctx(**geographic):
         ),
         n_cells=N_CELLS,
         cell_areas=lambda: np.full(N_CELLS, CELL_SIZE * CELL_SIZE),
-        cell_centroids=lambda: centroids,
+        cell_centers=lambda: centroids,
     )
     return SimpleNamespace(
         run=SimpleNamespace(id="r1", solver="modflow6"),

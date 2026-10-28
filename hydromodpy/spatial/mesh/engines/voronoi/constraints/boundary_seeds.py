@@ -21,14 +21,14 @@ from hydromodpy.spatial.mesh.engines.voronoi.constraints.face_pairs import (
     seed_angle,
 )
 from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import (
-    _MERGED,
+    LOST_BY_MERGE,
+    ConstraintState,
     SeedRole,
-    _cross,
-    _demote,
-    _State,
-    _unit,
+    cross_product_z,
+    drop_segment_pair,
+    unit_vector,
 )
-from hydromodpy.spatial.mesh.model.derived_geometry import polygon_rings
+from hydromodpy.spatial.mesh.model.geometry import polygon_rings
 from hydromodpy.spatial.mesh.resample import positions_at_local_size
 
 CORNER_TURN_RAD = math.radians(45.0)
@@ -38,7 +38,7 @@ BOUNDARY_ANGLE_RAD = math.radians(30.0)
 """A line end on the boundary meeting it under this angle yields its last segment."""
 
 
-def _place_boundary_seeds(state: _State, *, step: float, pixel: float) -> None:
+def place_boundary_seeds(state: ConstraintState, *, step: float, pixel: float) -> None:
     """Seeds along every domain ring, between corners, river ends and line ends."""
     river_ends = _river_ends(state)
     for ring_index, line in enumerate(polygon_rings(state.domain)):
@@ -60,7 +60,7 @@ def _place_boundary_seeds(state: _State, *, step: float, pixel: float) -> None:
         _ring_seeds(state, line, ring_index, fixed, gaps, total, start_s, step)
 
 
-def _river_ends(state: _State) -> np.ndarray:
+def _river_ends(state: ConstraintState) -> np.ndarray:
     """The first and last seeds of each river chain."""
     ends = [state.seeds.xy[chain.ids[[0, -1]]] for chain in state.chains if chain.ids.size]
     return np.vstack(ends) if ends else np.empty((0, 2))
@@ -92,7 +92,7 @@ def _ring_gap(a: float, b: float, total: float) -> float:
 
 
 def _line_end_seeds(
-    state: _State,
+    state: ConstraintState,
     line: LineString,
     coords: np.ndarray,
     fixed: list[tuple[float, np.ndarray | None]],
@@ -122,7 +122,7 @@ def _line_end_seeds(
             or any(_inside_arc(s, placed[0], placed[1], total) for s in taken)
             or any(_arcs_meet(placed[0], placed[1], g[0], g[1], total) for g in gaps)
         ):
-            _demote(state, segment, _MERGED)
+            drop_segment_pair(state, segment, LOST_BY_MERGE)
             continue
         s_before, s_after, xy = placed
         sort = np.column_stack(
@@ -143,7 +143,7 @@ def _line_end_seeds(
 
 
 def _end_neighbours(
-    state: _State,
+    state: ConstraintState,
     vertex: int,
     segment: int,
     points: np.ndarray,
@@ -165,7 +165,7 @@ def _end_neighbours(
     v = state.vertices[vertex]
     nodes = state.seg_nodes[segment]
     w = state.vertices[nodes[1] if nodes[0] == vertex else nodes[0]]
-    inward = _unit(w - v)
+    inward = unit_vector(w - v)
     radius = state.radius
     _, _, along_pair, _ = pair_seeds(
         state.vertices[nodes[:1]], state.vertices[nodes[1:]], radius[nodes[:1]], radius[nodes[1:]]
@@ -174,11 +174,11 @@ def _end_neighbours(
     beta = float(seed_angle(np.asarray([at_vertex]), np.asarray([radius[vertex]]))[0])
     sides = []
     for xy in (points[i_before], points[i_after]):
-        direction = _unit(xy - v)
+        direction = unit_vector(xy - v)
         alpha = math.acos(max(-1.0, min(1.0, float(np.dot(inward, direction)))))
         if alpha < BOUNDARY_ANGLE_RAD or alpha - beta < SECTOR_MARGIN_RAD:
             return None
-        sides.append(_cross(inward, direction) > 0.0)
+        sides.append(cross_product_z(inward, direction) > 0.0)
     if sides[0] == sides[1]:
         return None
     return s_before % total, s_after % total, np.vstack([points[i_before], points[i_after]])
@@ -195,7 +195,7 @@ def _arcs_meet(a0: float, a1: float, b0: float, b1: float, total: float) -> bool
 
 
 def _ring_seeds(
-    state: _State,
+    state: ConstraintState,
     line: LineString,
     ring_index: int,
     fixed: list[tuple[float, np.ndarray | None]],

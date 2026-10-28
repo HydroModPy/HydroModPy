@@ -94,16 +94,43 @@ def test_the_flat_connectivity_of_one_block_is_its_table() -> None:
     assert _make_triangle_mesh().flat_connectivity.shape == (2, 3)
 
 
-def test_a_ragged_polygon_block_keeps_one_row_per_cell() -> None:
-    # A quad and a pentagon sharing an edge.
-    vertices = np.array([[0, 0], [2, 0], [2, 2], [0, 2], [1, 3], [-1, 2]], dtype=float)
+POLYGON_VERTICES = np.array([[0, 0], [2, 0], [2, 2], [0, 2], [1, 3], [-1, 2]], dtype=float)
+"""A quad (0, 1, 2, 3) and a triangle (3, 2, 4) sharing an edge, and one free node."""
+
+
+def test_a_polygon_block_pads_the_rows_of_its_smaller_cells_with_minus_one() -> None:
     block = CellBlock(
         cell_type=CellType.POLYGON,
-        connectivity=(np.array([0, 1, 2, 3]), np.array([3, 2, 4, 5])),
+        connectivity=(np.array([0, 1, 2, 3]), np.array([3, 2, 4])),
     )
-    mesh = HydroMesh(vertices=vertices, cell_blocks=(block,))
+    mesh = HydroMesh(vertices=POLYGON_VERTICES, cell_blocks=(block,))
     assert mesh.n_cells == 2
-    assert [list(row) for row in mesh.flat_connectivity] == [[0, 1, 2, 3], [3, 2, 4, 5]]
+    assert mesh.flat_connectivity.tolist() == [[0, 1, 2, 3], [3, 2, 4, -1]]
+
+
+def test_a_polygon_block_takes_a_padded_table_as_it_is() -> None:
+    table = np.array([[0, 1, 2, 3], [3, 2, 4, -1]])
+    block = CellBlock(cell_type=CellType.POLYGON, connectivity=table)
+    assert block.connectivity.tolist() == table.tolist()
+    assert block.n_cells == 2
+
+
+@pytest.mark.parametrize(
+    "rows", [[[0, 1, 2, 3], [3, -1, 2, 4]], [[0, 1, 2, 3], [3, 2, 4, -2]]], ids=["hole", "below -1"]
+)
+def test_a_polygon_row_with_a_free_slot_before_a_node_raises(rows: list[list[int]]) -> None:
+    with pytest.raises(ValueError, match="nodes first, then -1 padding"):
+        CellBlock(cell_type=CellType.POLYGON, connectivity=np.array(rows))
+
+
+def test_the_vertex_mean_of_a_polygon_skips_its_padding() -> None:
+    block = CellBlock(CellType.POLYGON, (np.array([0, 1, 2, 3]), np.array([3, 2, 4])))
+    x, y = HydroMesh(vertices=POLYGON_VERTICES, cell_blocks=(block,)).cell_centroids()
+    np.testing.assert_allclose(np.column_stack([x, y]), [[1.0, 1.0], [1.0, 7.0 / 3.0]])
+
+
+def test_blocks_of_two_widths_stack_into_one_table_padded_with_minus_one() -> None:
+    assert _mixed_mesh().flat_connectivity.tolist() == [[0, 1, 2, 3], [1, 4, 2, -1]]
 
 
 def test_two_blocks_of_one_width_stack_into_one_table() -> None:
@@ -172,6 +199,12 @@ def test_vertices_of_one_column_raise() -> None:
 def test_a_node_id_past_the_vertices_raises(block: CellBlock) -> None:
     with pytest.raises(ValueError, match="outside vertices"):
         HydroMesh(vertices=np.array([[0, 0], [1, 0]], dtype=float), cell_blocks=(block,))
+
+
+@pytest.mark.parametrize("cell", [[0, 1, 2, -1], [0, -5, 2]], ids=["minus one", "below"])
+def test_a_negative_node_id_in_a_polygon_node_array_raises(cell: list[int]) -> None:
+    with pytest.raises(ValueError, match="outside vertices"):
+        CellBlock(CellType.POLYGON, (np.array(cell), np.array([0, 1, 2])))
 
 
 def test_the_summary_names_the_grid() -> None:

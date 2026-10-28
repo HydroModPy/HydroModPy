@@ -328,7 +328,7 @@ def _south_wall(mesh: SolverMesh) -> tuple[set[tuple[int, int]], float]:
 
     from hydromodpy.solver.modflow6.builders.lake import cutoff_wall_pairs
 
-    cen = mesh.cell_centroids()
+    cen = mesh.cell_centers()
     body = cen[_LAKE_CELLS].mean(axis=0)
     y_wall = float(min(cen[c][1] for c in _LAKE_CELLS)) - 0.5
     # West to east, so the lake lies on the left of the wall.
@@ -343,7 +343,7 @@ def test_cutoff_wall_seals_horizontal_connections_behind_the_dam() -> None:
     from hydromodpy.solver.modflow6.builders.lake import build_lake_connectiondata
 
     mesh = _masked_grid()
-    cen = mesh.cell_centroids()
+    cen = mesh.cell_centers()
     sealed_faces, y_wall = _south_wall(mesh)
 
     sealed = build_lake_connectiondata(
@@ -448,7 +448,7 @@ def test_polygon_overlap_drops_a_sliver_below_the_relative_area_floor() -> None:
     from hydromodpy.solver.modflow6.builders._lake_geometry import polygon_overlap
 
     mesh = _grid_4x4(nlay=1)
-    cen = mesh.cell_centroids()
+    cen = mesh.cell_centers()
     first = int(np.argmin(cen[:, 0] + 10.0 * cen[:, 1]))
     x0, y0 = float(cen[first, 0]) - 0.5, float(cen[first, 1]) - 0.5
     polygon = box(x0, y0, x0 + 1.0 + 1e-8, y0 + 1.0)

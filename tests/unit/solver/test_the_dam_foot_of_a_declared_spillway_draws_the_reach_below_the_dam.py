@@ -16,7 +16,7 @@ from hydromodpy.solver.modflow6.builders import lake as lake_builder
 from hydromodpy.solver.modflow6.builders.lake import resolve_spillway_seed_cells
 from hydromodpy.solver.modflow_common.flow_directions import resolve_dam_foot_cells
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.derived_geometry import derive_geometry
+from hydromodpy.spatial.mesh.model.geometry import derive_geometry
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh

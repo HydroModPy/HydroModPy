@@ -221,10 +221,11 @@ def _brick_mesh(nrow: int, n_bricks: int, top: float) -> SolverMesh:
 
 
 def _brick_of(mesh: SolverMesh, x: float, y: float) -> int:
-    centroids = mesh.cell_centroids()
-    for cell, nodes in enumerate(mesh.planar_mesh.flat_connectivity):
-        xs = mesh.planar_mesh.vertices[np.asarray(nodes), 0]
-        ys = mesh.planar_mesh.vertices[np.asarray(nodes), 1]
+    centroids = mesh.cell_centers()
+    for cell, row in enumerate(mesh.planar_mesh.flat_connectivity):
+        nodes = row[row >= 0]
+        xs = mesh.planar_mesh.vertices[nodes, 0]
+        ys = mesh.planar_mesh.vertices[nodes, 1]
         if xs.min() < x < xs.max() and ys.min() < y < ys.max():
             return cell
     raise AssertionError(f"no brick holds ({x}, {y}); centroids {centroids[:3]}")

@@ -42,7 +42,7 @@ def _heterogeneous_on_grid(
     every solver takes, one value per cell.
     """
     solver_mesh = adapter.solver_mesh
-    centers = solver_mesh.cell_centroids()
+    centers = solver_mesh.cell_centers()
     if getattr(het_source, "has_fields", False):
         flat = discretize_fields_on_cells(
             load_result=het_source,

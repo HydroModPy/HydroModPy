@@ -19,7 +19,8 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.field.meshes.gmsh_planar_mesh import GmshPlanarMesh2D
+from hydromodpy.spatial.mesh.model.cell_types import CellType
+from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 from tests._helpers.cell_meshes import cell_mesh_of
 
@@ -67,24 +68,9 @@ def _make_static_recharge_field_record() -> FieldRecord:
 def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_recharge(
     tmp_path: Path,
 ) -> None:
-    planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        connectivity=np.asarray(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-            ],
-            dtype=int,
-        ),
-        cell_type="triangle",
+    planar_mesh = HydroMesh(
+        vertices=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]])),),
     )
     support = _DummyRasterSupport(
         xmin=0.0,
@@ -159,24 +145,9 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
 def test_boussinesq_flow_adapter_reads_the_river_faces_of_the_cell_mesh(
     tmp_path: Path,
 ) -> None:
-    planar_mesh = GmshPlanarMesh2D(
-        points_xy=np.asarray(
-            [
-                [0.0, 0.0],
-                [1.0, 0.0],
-                [1.0, 1.0],
-                [0.0, 1.0],
-            ],
-            dtype=float,
-        ),
-        connectivity=np.asarray(
-            [
-                [0, 1, 2],
-                [0, 2, 3],
-            ],
-            dtype=int,
-        ),
-        cell_type="triangle",
+    planar_mesh = HydroMesh(
+        vertices=np.asarray([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], dtype=float),
+        cell_blocks=(CellBlock(CellType.TRIANGLE, np.asarray([[0, 1, 2], [0, 2, 3]])),),
     )
     support = _DummyRasterSupport(
         xmin=0.0,

@@ -30,7 +30,7 @@ from hydromodpy.solver.boussinesq.export_payload import (
 from hydromodpy.solver.boussinesq.extractors.flow import BoussinesqOutputAdapter
 from hydromodpy.solver.boussinesq.runtimes.local import solve_backward_euler_step
 from hydromodpy.solver.boussinesq.runtimes.picard.picard import assemble_strict_steady_residual
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 RECHARGE_M_S = 5.0e-3 / 86400.0
 DAY_S = 86400.0

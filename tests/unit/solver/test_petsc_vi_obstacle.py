@@ -25,7 +25,7 @@ from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
     build_vi_obstacle_runtime_summary,
     write_vi_obstacle_diagnostic_files,
 )
-from tests._helpers.mesh_doubles import _MiniMesh
+from tests._helpers.boussinesq_mesh_doubles import _MiniMesh
 
 
 def _require_linux_petsc4py() -> None:
