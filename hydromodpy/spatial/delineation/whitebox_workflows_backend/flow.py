@@ -17,11 +17,11 @@ class WhiteboxFlowBackend(WhiteboxComponent):
     """
 
     def fill_depressions_raster(self, dem):
-        return self._run_depression_tool("fill_depressions", dem)
+        return self.run_depression_tool("fill_depressions", dem)
 
     def fill_depressions(self, input_dem: str, output_dem: str) -> None:
-        self._write_raster(
-            self.fill_depressions_raster(self._read_raster(input_dem)),
+        self.write_raster(
+            self.fill_depressions_raster(self.read_raster(input_dem)),
             output_dem,
         )
 
@@ -49,17 +49,17 @@ class WhiteboxFlowBackend(WhiteboxComponent):
             options["max_cost"] = float(max_cost)
         if fill_deps:
             options["fill_deps"] = True
-        return self._run_depression_tool("breach_depressions_least_cost", dem, **options)
+        return self.run_depression_tool("breach_depressions_least_cost", dem, **options)
 
     def breach_depressions(self, input_dem: str, output_dem: str) -> None:
-        self._write_raster(
-            self.breach_depressions_raster(self._read_raster(input_dem)),
+        self.write_raster(
+            self.breach_depressions_raster(self.read_raster(input_dem)),
             output_dem,
         )
 
     def d8_pointer_raster(self, dem, *, esri_pntr: bool = False):
-        return self._run(
-            self._env.d8_pointer,
+        return self.run(
+            self.env.d8_pointer,
             dem,
             esri_pointer=esri_pntr,
         )
@@ -71,8 +71,8 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         *,
         esri_pntr: bool = False,
     ) -> None:
-        self._write_raster(
-            self.d8_pointer_raster(self._read_raster(input_dem), esri_pntr=esri_pntr),
+        self.write_raster(
+            self.d8_pointer_raster(self.read_raster(input_dem), esri_pntr=esri_pntr),
             output_pointer,
         )
 
@@ -91,8 +91,8 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         would have computed itself changes no cell. ``out_type="catchment area"``
         returns the same counts times the cell area, exactly.
         """
-        return self._run(
-            self._env.d8_flow_accum,
+        return self.run(
+            self.env.d8_flow_accum,
             dem,
             out_type=out_type,
             log_transform=log,
@@ -110,9 +110,9 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         out_type: str = "cells",
         input_is_pointer: bool = False,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.d8_flow_accumulation_raster(
-                self._read_raster(input_dem),
+                self.read_raster(input_dem),
                 log=log,
                 out_type=out_type,
                 input_is_pointer=input_is_pointer,
@@ -121,8 +121,8 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         )
 
     def d8_mass_flux_raster(self, dem, loading, efficiency, absorption):
-        return self._run(
-            self._env.d8_mass_flux,
+        return self.run(
+            self.env.d8_mass_flux,
             dem,
             loading,
             efficiency,
@@ -137,12 +137,12 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         absorption: str,
         output: str,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.d8_mass_flux_raster(
-                self._read_raster(dem),
-                self._read_raster(loading),
-                self._read_raster(efficiency),
-                self._read_raster(absorption),
+                self.read_raster(dem),
+                self.read_raster(loading),
+                self.read_raster(efficiency),
+                self.read_raster(absorption),
             ),
             output,
         )
@@ -154,8 +154,8 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         *,
         use_dinf: bool | None = None,
     ):
-        return self._run(
-            self._env.downslope_distance_to_stream,
+        return self.run(
+            self.env.downslope_distance_to_stream,
             dem,
             streams,
             **given_options(use_dinf=use_dinf),
@@ -169,18 +169,18 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         *,
         use_dinf: bool | None = None,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.downslope_distance_to_stream_raster(
-                self._read_raster(dem),
-                self._read_raster(streams),
+                self.read_raster(dem),
+                self.read_raster(streams),
                 use_dinf=use_dinf,
             ),
             output_raster,
         )
 
     def trace_downslope_flowpaths_raster(self, input_points, d8_pntr):
-        return self._run(
-            self._env.trace_downslope_flowpaths,
+        return self.run(
+            self.env.trace_downslope_flowpaths,
             input_points,
             d8_pntr,
         )
@@ -191,10 +191,10 @@ class WhiteboxFlowBackend(WhiteboxComponent):
         d8_pntr: str,
         output_raster: str,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.trace_downslope_flowpaths_raster(
-                self._read_vector(input_points),
-                self._read_raster(d8_pntr),
+                self.read_vector(input_points),
+                self.read_raster(d8_pntr),
             ),
             output_raster,
         )

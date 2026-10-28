@@ -18,9 +18,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.site import SITE_ROW_COLUMNS, SiteRow
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    import geopandas as gpd
 
 StationDiscovery = Callable[..., list[dict]]
 """Finds the Hub'Eau reference rows inside a WGS84 box."""
@@ -211,6 +214,21 @@ def rows_from_selection(manifest_path: Path) -> SiteImport:
     return SiteImport(rows=tuple(rows))
 
 
+def fetch_bdtopage_reference_network(
+    bbox_wgs84: tuple[float, float, float, float],
+    *,
+    page_size: int,
+) -> gpd.GeoDataFrame:
+    """Download the BD Topage reaches inside *bbox_wgs84*, in EPSG:4326, to snap outlets on.
+
+    This is the fetcher that the site-selection reference network takes.
+    """
+    from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
+    from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
+
+    return fetch(HydrographySourceConfig(source="bdtopage", page_size=page_size), bbox_wgs84)
+
+
 def _snap(
     rows: list[SiteRow],
     *,
@@ -247,6 +265,7 @@ def _snap(
         outlets=outlets,
         target_crs=crs,
         output_dir=output_dir or Path("."),
+        fetcher=fetch_bdtopage_reference_network,
         path=None if source == "bdtopage" else Path(network),
     )
     snapped: list[SiteRow] = []
@@ -299,6 +318,7 @@ __all__ = [
     "HUBEAU_DEFAULT_CRS",
     "SiteImport",
     "StationDiscovery",
+    "fetch_bdtopage_reference_network",
     "rows_from_hubeau",
     "rows_from_layer",
     "rows_from_selection",

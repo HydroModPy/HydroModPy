@@ -13,6 +13,7 @@ from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
+from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import FlowProductsBuilder
@@ -97,6 +98,7 @@ def build_site_selection_from_hydrometry_config(
         )
     except Exception as exc:
         raise ConfigError(data_access_error("hydrometry", data_root=data_root, detail=exc)) from exc
+    build_kwargs.setdefault("reference_network_fetcher", fetch_bdtopage_reference_network)
     return build_site_selection_from_point_records(
         config=config,
         point_records=records,
@@ -182,6 +184,7 @@ def build_observed_site_selection_from_toml(
         step="building flow products, catchments and report artifacts",
         progress_callback=progress_callback,
         point_records=records,
+        reference_network_fetcher=fetch_bdtopage_reference_network,
         backend=backend,
         flow_products_builder=flow_products_builder,
         delineation_builder=delineation_builder,
@@ -219,6 +222,7 @@ def build_generated_site_selection_from_toml(
         missing_dem=_MISSING_GENERATION_DEM,
         step="generating candidates, catchments and report artifacts",
         progress_callback=progress_callback,
+        reference_network_fetcher=fetch_bdtopage_reference_network,
         backend=backend,
         flow_products_builder=flow_products_builder,
         delineation_builder=delineation_builder,

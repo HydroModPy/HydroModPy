@@ -50,6 +50,7 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     SiteSelectionFlowProducts,
     build_site_selection_flow_products,
 )
+from hydromodpy.spatial.site_selection.hydrology.reference_network import ReferenceNetworkFetcher
 from hydromodpy.spatial.site_selection.outputs.candidate_files import (
     write_candidate_generation_jsonl,
     write_candidate_outlets_geojson,
@@ -98,6 +99,7 @@ def build_site_selection_from_point_records(
     *,
     config: SiteSelectionConfig,
     point_records: Iterable[Any],
+    reference_network_fetcher: ReferenceNetworkFetcher,
     dem_init_path: str | Path | None = None,
     output_root: str | Path | None = None,
     crs_project: str | None = None,
@@ -111,13 +113,15 @@ def build_site_selection_from_point_records(
     """Run station-led site selection from loaded ``PointRecord`` objects.
 
     The function deliberately receives records rather than fetching Hub'Eau
-    itself. Existing data managers remain responsible for API/cache concerns.
+    itself. Existing data managers remain responsible for API/cache concerns,
+    and *reference_network_fetcher* downloads BD Topage when the outlets snap on it.
     """
 
     return _run_selection(
         "hydrometry",
         config=config,
         point_records=list(point_records),
+        reference_network_fetcher=reference_network_fetcher,
         dem_init_path=dem_init_path,
         output_root=output_root,
         crs_project=crs_project,
@@ -133,6 +137,7 @@ def build_site_selection_from_point_records(
 def build_site_selection_from_generated_network(
     *,
     config: SiteSelectionConfig,
+    reference_network_fetcher: ReferenceNetworkFetcher,
     dem_init_path: str | Path | None = None,
     output_root: str | Path | None = None,
     crs_project: str | None = None,
@@ -143,11 +148,16 @@ def build_site_selection_from_generated_network(
     write_outputs: bool = True,
     report_renderer: Callable[[str | Path], Path] | None = None,
 ) -> SiteSelectionBuildResult:
-    """Run DEM/network-generated site selection without station or CSV candidates."""
+    """Run DEM/network-generated site selection without station or CSV candidates.
+
+    *reference_network_fetcher* downloads BD Topage when the candidates snap on it or are
+    scored against it.
+    """
 
     return _run_selection(
         "generated_candidates",
         config=config,
+        reference_network_fetcher=reference_network_fetcher,
         dem_init_path=dem_init_path,
         output_root=output_root,
         crs_project=crs_project,
@@ -298,6 +308,7 @@ def _run_selection(
     *,
     config: SiteSelectionConfig,
     point_records: list[Any] | None = None,
+    reference_network_fetcher: ReferenceNetworkFetcher | None = None,
     dem_init_path: str | Path | None,
     output_root: str | Path | None,
     crs_project: str | None,
@@ -354,6 +365,7 @@ def _run_selection(
             candidates=station_candidates,
             target_crs=target_crs or first_candidate_crs(station_candidates),
             root=root,
+            fetcher=reference_network_fetcher,
         )
         found = GeneratedCandidateResult(
             candidates=station_candidates,
@@ -364,7 +376,7 @@ def _run_selection(
     elif light:
         found = build_dem_area_light_candidates(
             config=config,
-            flow_products=flow_products,
+            flow_products=flow_products.products,
             target_crs=target_crs,
             root=root,
             search_geometry=search_geometry,
@@ -374,10 +386,11 @@ def _run_selection(
     else:
         found = build_generated_network_candidates(
             config=config,
-            flow_products=flow_products,
+            flow_products=flow_products.products,
             target_crs=target_crs,
             root=root,
             search_geometry=search_geometry,
+            reference_network_fetcher=reference_network_fetcher,
         )
     candidates = found.candidates
     bundle = found.reference_bundle

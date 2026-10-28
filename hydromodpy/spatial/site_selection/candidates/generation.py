@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -15,10 +15,10 @@ from hydromodpy.spatial.delineation.registry import (
     backend_has_callables,
     resolve_delineation_backend,
 )
+from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig, HydrologyConfig
 from hydromodpy.spatial.site_selection.config.outlets_config import OutletsConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
 
 @dataclass(frozen=True)
@@ -83,7 +83,7 @@ class CandidateGenerationEvidence:
 
 def generate_network_candidate_outlets(
     *,
-    flow_products: SiteSelectionFlowProducts,
+    flow_products: FlowProducts,
     outlets: OutletsConfig,
     hydrology: HydrologyConfig,
     search_geometry: object | None = None,
@@ -97,7 +97,7 @@ def generate_network_candidate_outlets(
     candidate contract.
     """
 
-    raster = read_accumulation_raster(flow_products.products.acc)
+    raster = read_accumulation_raster(flow_products.acc)
     search_mask = search_geometry_mask(raster, search_geometry)
     valid_search_mask = (
         raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
@@ -124,112 +124,60 @@ def generate_network_candidate_outlets(
     min_distance_m = None
     if outlets.min_distance_between_outlets_km is not None:
         min_distance_m = float(outlets.min_distance_between_outlets_km) * 1000.0
-    max_count = outlets.max_generated_candidates
-    max_rejected_audit = outlets.max_rejected_candidate_audit_records
-    rejected_audit_count = 0
 
-    candidates: list[CandidateOutlet] = []
-    evidence: list[CandidateGenerationEvidence] = []
-    for accumulation_value, row, col in scored_cells:
-        x, y = raster.xy(row, col)
-        nearest_candidate_id, nearest_distance_m = _nearest_candidate_distance(
-            x,
-            y,
-            candidates,
-        )
-        if max_count is not None and len(candidates) >= int(max_count):
-            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
-                evidence.append(
-                    _candidate_evidence(
-                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
-                        x=x,
-                        y=y,
-                        raster=raster,
-                        row=row,
-                        col=col,
-                        accumulation_value=accumulation_value,
-                        threshold=threshold,
-                        hydrology=hydrology,
-                        outlets=outlets,
-                        status="rejected",
-                        rejection_reason="max_generated_candidates_reached",
-                        nearest_selected_candidate_id=nearest_candidate_id,
-                        nearest_selected_distance_m=nearest_distance_m,
-                    )
-                )
-            break
-        if (
-            min_distance_m is not None
-            and nearest_distance_m is not None
-            and nearest_distance_m < min_distance_m
-        ):
-            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
-                evidence.append(
-                    _candidate_evidence(
-                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
-                        x=x,
-                        y=y,
-                        raster=raster,
-                        row=row,
-                        col=col,
-                        accumulation_value=accumulation_value,
-                        threshold=threshold,
-                        hydrology=hydrology,
-                        outlets=outlets,
-                        status="rejected",
-                        rejection_reason="min_distance_between_outlets",
-                        nearest_selected_candidate_id=nearest_candidate_id,
-                        nearest_selected_distance_m=nearest_distance_m,
-                    )
-                )
-                rejected_audit_count += 1
-            continue
-        rank = len(candidates) + 1
-        candidate_id = f"{candidate_prefix}_{rank:05d}"
+    def outlet(
+        candidate_id: str, rank: int, x: float, y: float, row: int, col: int, value: float
+    ) -> CandidateOutlet:
         attributes = {
             "candidate_generation_source": "dem_accumulation",
             "candidate_generation_rank": rank,
-            "flow_accumulation_value": accumulation_value,
+            "flow_accumulation_value": value,
             "flow_accumulation_row": row,
             "flow_accumulation_col": col,
             "flow_accumulation_threshold_used": threshold,
             "network_threshold_area_km2": hydrology.network_threshold_area_km2,
         }
-        candidates.append(
-            CandidateOutlet(
-                candidate_id=candidate_id,
-                x=x,
-                y=y,
-                crs=raster.crs,
-                source="network_sampling",
-                source_feature_id=candidate_id,
-                source_label=candidate_id,
-                priority=accumulation_value,
-                attributes=attributes,
-            )
+        return CandidateOutlet(
+            candidate_id=candidate_id,
+            x=x,
+            y=y,
+            crs=raster.crs,
+            source="network_sampling",
+            source_feature_id=candidate_id,
+            source_label=candidate_id,
+            priority=value,
+            attributes=attributes,
         )
-        evidence.append(
-            _candidate_evidence(
-                candidate_id=candidate_id,
-                x=x,
-                y=y,
-                raster=raster,
-                row=row,
-                col=col,
-                accumulation_value=accumulation_value,
-                threshold=threshold,
-                hydrology=hydrology,
-                outlets=outlets,
-                status="accepted",
-                rank=rank,
-            )
+
+    def audit(row: int, col: int, value: float, **record: Any) -> CandidateGenerationEvidence:
+        return _candidate_evidence(
+            raster=raster,
+            row=row,
+            col=col,
+            accumulation_value=value,
+            threshold=threshold,
+            hydrology=hydrology,
+            outlets=outlets,
+            **record,
         )
-    return candidates, evidence
+
+    return _spaced_candidates(
+        ((row, col, value) for value, row, col in scored_cells),
+        raster=raster,
+        candidate_prefix=candidate_prefix,
+        max_count=outlets.max_generated_candidates,
+        max_count_reason="max_generated_candidates_reached",
+        min_distance_m=min_distance_m,
+        min_distance_reason="min_distance_between_outlets",
+        max_rejected_audit=outlets.max_rejected_candidate_audit_records,
+        outlet=outlet,
+        audit=audit,
+    )
 
 
 def generate_dem_area_light_candidate_outlets(
     *,
-    flow_products: SiteSelectionFlowProducts,
+    flow_products: FlowProducts,
     dem_area_light: DemAreaLightConfig,
     hydrology: HydrologyConfig,
     accumulation_cells_path: str | Path | None = None,
@@ -239,7 +187,7 @@ def generate_dem_area_light_candidate_outlets(
 ) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
     """Generate DEM-only outlet candidates from raw upstream area."""
 
-    acc_path = accumulation_cells_path or flow_products.products.acc
+    acc_path = accumulation_cells_path or flow_products.acc
     raster = read_accumulation_raster(acc_path)
     if raster.looks_log_scaled:
         raise ValueError(
@@ -281,71 +229,9 @@ def generate_dem_area_light_candidate_outlets(
     if max_count is None:
         max_count = max(int(dem_area_light.n_basins) * 20, int(dem_area_light.n_basins))
 
-    candidates: list[CandidateOutlet] = []
-    evidence: list[CandidateGenerationEvidence] = []
-    rejected_audit_count = 0
-    max_rejected_audit = 200
-    for area_error_km2, _neg_area, row, col in scored_cells:
-        x, y = raster.xy(row, col)
-        nearest_candidate_id, nearest_distance_m = _nearest_candidate_distance(
-            x,
-            y,
-            candidates,
-        )
-        if len(candidates) >= int(max_count):
-            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
-                evidence.append(
-                    _dem_area_candidate_evidence(
-                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
-                        x=x,
-                        y=y,
-                        raster=raster,
-                        row=row,
-                        col=col,
-                        accumulation_value=float(raster.array[row, col]),
-                        upstream_area_km2=float(upstream_area[row, col]),
-                        area_error_km2=float(area_error_km2),
-                        dem_area_light=dem_area_light,
-                        hydrology=hydrology,
-                        min_distance_m=min_distance_m,
-                        raw_candidate_count=raw_candidate_count,
-                        max_candidates_before_delineation=int(max_count),
-                        status="rejected",
-                        rejection_reason="max_candidates_before_delineation_reached",
-                        nearest_selected_candidate_id=nearest_candidate_id,
-                        nearest_selected_distance_m=nearest_distance_m,
-                    )
-                )
-            break
-        if nearest_distance_m is not None and nearest_distance_m < min_distance_m:
-            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
-                evidence.append(
-                    _dem_area_candidate_evidence(
-                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
-                        x=x,
-                        y=y,
-                        raster=raster,
-                        row=row,
-                        col=col,
-                        accumulation_value=float(raster.array[row, col]),
-                        upstream_area_km2=float(upstream_area[row, col]),
-                        area_error_km2=float(area_error_km2),
-                        dem_area_light=dem_area_light,
-                        hydrology=hydrology,
-                        min_distance_m=min_distance_m,
-                        raw_candidate_count=raw_candidate_count,
-                        max_candidates_before_delineation=int(max_count),
-                        status="rejected",
-                        rejection_reason="min_outlet_distance",
-                        nearest_selected_candidate_id=nearest_candidate_id,
-                        nearest_selected_distance_m=nearest_distance_m,
-                    )
-                )
-                rejected_audit_count += 1
-            continue
-
-        rank = len(candidates) + 1
-        candidate_id = f"{candidate_prefix}_{rank:05d}"
+    def outlet(
+        candidate_id: str, rank: int, x: float, y: float, row: int, col: int, area_error_km2: float
+    ) -> CandidateOutlet:
         accumulation_value = float(raster.array[row, col])
         upstream_area_km2 = float(upstream_area[row, col])
         priority = _area_priority(
@@ -366,35 +252,130 @@ def generate_dem_area_light_candidate_outlets(
             "network_threshold_area_km2": float(hydrology.network_threshold_area_km2),
             "min_outlet_distance_m": min_distance_m,
         }
-        candidates.append(
-            CandidateOutlet(
-                candidate_id=candidate_id,
-                x=x,
-                y=y,
-                crs=raster.crs,
-                source="dem_area_light",
-                source_feature_id=candidate_id,
-                source_label=candidate_id,
-                priority=priority,
-                attributes=attributes,
-            )
+        return CandidateOutlet(
+            candidate_id=candidate_id,
+            x=x,
+            y=y,
+            crs=raster.crs,
+            source="dem_area_light",
+            source_feature_id=candidate_id,
+            source_label=candidate_id,
+            priority=priority,
+            attributes=attributes,
         )
+
+    def audit(
+        row: int, col: int, area_error_km2: float, **record: Any
+    ) -> CandidateGenerationEvidence:
+        return _dem_area_candidate_evidence(
+            raster=raster,
+            row=row,
+            col=col,
+            accumulation_value=float(raster.array[row, col]),
+            upstream_area_km2=float(upstream_area[row, col]),
+            area_error_km2=float(area_error_km2),
+            dem_area_light=dem_area_light,
+            hydrology=hydrology,
+            min_distance_m=min_distance_m,
+            raw_candidate_count=raw_candidate_count,
+            max_candidates_before_delineation=int(max_count),
+            **record,
+        )
+
+    return _spaced_candidates(
+        ((row, col, area_error_km2) for area_error_km2, _neg_area, row, col in scored_cells),
+        raster=raster,
+        candidate_prefix=candidate_prefix,
+        max_count=max_count,
+        max_count_reason="max_candidates_before_delineation_reached",
+        min_distance_m=min_distance_m,
+        min_distance_reason="min_outlet_distance",
+        max_rejected_audit=200,
+        outlet=outlet,
+        audit=audit,
+    )
+
+
+def _spaced_candidates(
+    cells: Iterable[tuple[int, int, float]],
+    *,
+    raster: AccumulationRaster,
+    candidate_prefix: str,
+    max_count: int | None,
+    max_count_reason: str,
+    min_distance_m: float | None,
+    min_distance_reason: str,
+    max_rejected_audit: int | None,
+    outlet: Callable[..., CandidateOutlet],
+    audit: Callable[..., CandidateGenerationEvidence],
+) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
+    """Accept the ranked cells in order, keeping the outlets apart and within the count.
+
+    Each cell is a raster row, a raster column and the value its generator ranks
+    it by. *outlet* builds an accepted candidate and *audit* its evidence row.
+    A rejected cell gets an audit row while *max_rejected_audit* allows it.
+    """
+
+    candidates: list[CandidateOutlet] = []
+    evidence: list[CandidateGenerationEvidence] = []
+    rejected_audit_count = 0
+    for row, col, value in cells:
+        x, y = raster.xy(row, col)
+        nearest_candidate_id, nearest_distance_m = _nearest_candidate_distance(
+            x,
+            y,
+            candidates,
+        )
+        if max_count is not None and len(candidates) >= int(max_count):
+            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
+                evidence.append(
+                    audit(
+                        row,
+                        col,
+                        value,
+                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
+                        x=x,
+                        y=y,
+                        status="rejected",
+                        rejection_reason=max_count_reason,
+                        nearest_selected_candidate_id=nearest_candidate_id,
+                        nearest_selected_distance_m=nearest_distance_m,
+                    )
+                )
+            break
+        if (
+            min_distance_m is not None
+            and nearest_distance_m is not None
+            and nearest_distance_m < min_distance_m
+        ):
+            if _can_audit_rejected(rejected_audit_count, max_rejected_audit):
+                evidence.append(
+                    audit(
+                        row,
+                        col,
+                        value,
+                        candidate_id=f"{candidate_prefix}_rejected_{len(evidence) + 1:05d}",
+                        x=x,
+                        y=y,
+                        status="rejected",
+                        rejection_reason=min_distance_reason,
+                        nearest_selected_candidate_id=nearest_candidate_id,
+                        nearest_selected_distance_m=nearest_distance_m,
+                    )
+                )
+                rejected_audit_count += 1
+            continue
+        rank = len(candidates) + 1
+        candidate_id = f"{candidate_prefix}_{rank:05d}"
+        candidates.append(outlet(candidate_id, rank, x, y, row, col, value))
         evidence.append(
-            _dem_area_candidate_evidence(
+            audit(
+                row,
+                col,
+                value,
                 candidate_id=candidate_id,
                 x=x,
                 y=y,
-                raster=raster,
-                row=row,
-                col=col,
-                accumulation_value=accumulation_value,
-                upstream_area_km2=upstream_area_km2,
-                area_error_km2=float(area_error_km2),
-                dem_area_light=dem_area_light,
-                hydrology=hydrology,
-                min_distance_m=min_distance_m,
-                raw_candidate_count=raw_candidate_count,
-                max_candidates_before_delineation=int(max_count),
                 status="accepted",
                 rank=rank,
             )
@@ -416,14 +397,14 @@ def accumulation_to_area_km2(
 
 def ensure_raw_accumulation_cells(
     *,
-    flow_products: SiteSelectionFlowProducts,
+    flow_products: FlowProducts,
     output_dir: str | Path,
     backend: object | None = None,
     crs_project: str | None = None,
 ) -> Path:
     """Return a raw-cell accumulation raster, creating it when the default one is log-scaled."""
 
-    existing = Path(flow_products.products.acc)
+    existing = Path(flow_products.acc)
     if existing.is_file():
         try:
             if not read_accumulation_raster(existing).looks_log_scaled:
@@ -437,7 +418,6 @@ def ensure_raw_accumulation_cells(
         return destination
 
     tool = resolve_delineation_backend(backend)
-    products = flow_products.products
     if backend_has_callables(
         tool, "raster", "read_raster", "write_raster"
     ) and backend_has_callables(
@@ -445,7 +425,7 @@ def ensure_raw_accumulation_cells(
         "flow",
         "d8_flow_accumulation_raster",
     ):
-        correc_data = tool.raster.read_raster(str(products.correc))
+        correc_data = tool.raster.read_raster(str(flow_products.correc))
         acc_data = tool.flow.d8_flow_accumulation_raster(correc_data, log=False)
         tool.raster.write_raster(acc_data, str(destination))
     else:
@@ -455,7 +435,7 @@ def ensure_raw_accumulation_cells(
                 "flow.d8_flow_accumulation or flow.d8_flow_accumulation_raster."
             )
         tool.flow.d8_flow_accumulation(
-            str(products.correc),
+            str(flow_products.correc),
             str(destination),
             log=False,
         )

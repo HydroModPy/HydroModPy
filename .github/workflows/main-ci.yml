@@ -294,8 +294,9 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of spatial/ over the unit tier, the engine contract
-      # and the mesh regression. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
+      # Branch coverage of spatial/ over the unit tier, the engine contract,
+      # the mesh regression and the domain-build worker, which only its integration
+      # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
       - name: Run the tests that reach the spatial package
         env:
           HMP_REQUIRE_GMSH: "1"
@@ -304,6 +305,7 @@ jobs:
             tests/contract/test_mesh_engine_contract.py \
             tests/contract/test_mesh_conformance_reaches_an_installed_engine.py \
             tests/regression/mesh/ \
+            tests/integration/domain/test_worker.py \
             --ignore=tests/unit/architecture \
             --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
@@ -350,12 +352,12 @@ jobs:
           coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.25
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.3
-          coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=85.4
-          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=94.7
+          coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=95.1
           coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.5
-          coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.0
+          coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.2
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=95.4
+          coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=95.5
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.4
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
           coverage report --include='hydromodpy/workflow/site_selection/*' --precision=2 --fail-under=96.0

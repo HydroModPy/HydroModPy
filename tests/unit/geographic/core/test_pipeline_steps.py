@@ -52,29 +52,6 @@ def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Pa
     assert same.dem_init_path == str(dem)
 
 
-OUTLET = {"catch_def": "from_outlet_coord", "x_outlet": 0.0, "y_outlet": 0.0, "buff_area": "10%"}
-
-
-@pytest.mark.parametrize(
-    ("catchment", "reason"),
-    [
-        ({**OUTLET, "dem_resolution": 0.0}, "positive length"),
-        ({"catch_def": "txt", "cell_size": "25 m", "dem_resolution": "75 m"}, "say the grid twice"),
-    ],
-    ids=["zero", "txt keeps cell_size as its only grid"],
-)
-def test_a_cell_size_the_config_cannot_hold_is_refused_when_the_file_loads(
-    tmp_path, catchment, reason
-) -> None:
-    with pytest.raises(ValidationError, match=reason):
-        GeographicConfig.model_validate(
-            {
-                "catchment": {"dem_init_path": tmp_path / "dem.tif", **catchment},
-                "crs_project": "EPSG:2154",
-            }
-        )
-
-
 def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(tmp_path) -> None:
     dem = _dem(tmp_path)
     polygon = write_features(tmp_path / "given.shp", [box(200.0, 200.0, 800.0, 800.0)])

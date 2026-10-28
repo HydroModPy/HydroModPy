@@ -338,7 +338,7 @@ def test_a_failure_after_the_inputs_resolved_keeps_the_job_id(tmp_path, monkeypa
     def explode(*args, **kwargs):
         raise RuntimeError("the engine gave up")
 
-    monkeypatch.setattr(worker, "_produce", explode)
+    monkeypatch.setattr(worker, "build_site_selection_flow_products", explode)
     job = _staged(tmp_path, _request())
 
     outcome = run(job, exit_code_for=exit_code_for)

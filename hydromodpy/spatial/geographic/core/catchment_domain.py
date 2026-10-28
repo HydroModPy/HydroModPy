@@ -223,8 +223,6 @@ def _compute_buffer_distance(
 
     if rule == "area_percent":
         pct = float(str(buff_area).strip()[:-1].strip())
-        if pct <= 0.0:
-            raise ValueError("buff_area percentage must be > 0")
         raw = buffer_distance_for_area_increase(catchment, pct / 100.0)
         return _snap_to_resolution(raw, dem_resolution)
 

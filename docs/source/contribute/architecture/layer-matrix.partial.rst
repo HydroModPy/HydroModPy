@@ -76,7 +76,7 @@ is forbidden and fails CI.
 Documented tolerances
 ---------------------
 
-4 edges are tolerated rather than granted. Each one carries its reason in the
+3 edges are tolerated rather than granted. Each one carries its reason in the
 contract. They are temporary or deliberately narrow; tighten one when the edge disappears.
 
 .. list-table::
@@ -92,9 +92,6 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
    * - ``physics``
      - ``spatial``
      - FlowConfig embeds spatial FieldSection discriminated union
-   * - ``spatial``
-     - ``data``
-     - site selection: hydrology/reference_network.py fetches BD Topage for outlet snapping
    * - ``calibration``
      - ``display``
      - network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)

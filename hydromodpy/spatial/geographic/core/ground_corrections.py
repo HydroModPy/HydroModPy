@@ -25,12 +25,11 @@ import rasterio
 
 from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.core.logging import get_logger
+from hydromodpy.spatial.geographic.core.crossing_notch import NotchReport, notch_dem
 from hydromodpy.spatial.geographic.core.ground_inputs import lakes_from_config
 
 if TYPE_CHECKING:
-    pass
-
-from hydromodpy.spatial.geographic.core.crossing_notch import NotchReport, notch_dem
+    import geopandas as gpd
 
 logger = get_logger(__name__)
 
@@ -48,15 +47,6 @@ NOTCH_FOOTPRINT_FILENAME = "dem_ground_notch_footprint.tif"
 # products object only carries the clipped copies.
 _STREAMS_FULL_NAME = "dem_streams_full.tif"
 _STREAMS_PRUNED_FULL_NAME = "dem_streams_pruned_full.tif"
-
-"""A pixel moved by less than this is not counted as lowered."""
-
-"""The kinds of the crossings data variable. Spatial cannot import data, so the
-list is written here, and a test pins it to the variable's."""
-
-"""Declared barriers: a crossing next to one of them is a dam crest, not a wall."""
-
-"""Passes that move the bed ends past the neighbouring embankments."""
 
 
 @dataclass(frozen=True)
@@ -166,35 +156,14 @@ def _notched(
     channel: FirstPassChannel,
 ) -> Path:
     """Notch the crossings into *base*, write the ground and its report."""
-    import geopandas as gpd
-
     notch = config.crossings
-    if notch.path is None:
-        raise ValueError(
-            "geographic.crossings is enabled without a path, and no "
-            "[[data.crossings.sources]] filled one in. Set geographic.crossings.path, or "
-            "declare a crossings source."
-        )
-    path = Path(notch.path)
-    if not path.exists():
-        raise FileNotFoundError(f"geographic.crossings.path points to nothing: {path}")
-    crossings = gpd.read_file(path)
-    if crossings.crs is None:
-        raise ValueError(
-            f"geographic.crossings.path {path} carries no CRS, so its geometries cannot "
-            "be placed on the DEM. Save it with a CRS."
-        )
-    crs_project = getattr(setup, "crs_project", None)
-    if crs_project is not None:
-        crossings = crossings.to_crs(crs_project)
+    path, crossings = _read_crossings(notch, setup)
     lakes = (
         lakes_from_config(config.enforce_lakes, setup)
         if bool(getattr(getattr(config, "enforce_lakes", None), "enabled", False))
         else []
     )
-    network = None
-    if channel.network_shp is not None and Path(channel.network_shp).exists():
-        network = gpd.read_file(channel.network_shp)
+    network = _first_pass_network(channel)
 
     with rasterio.open(base) as src:
         dem = src.read(1).astype("float32")
@@ -234,7 +203,51 @@ def _notched(
         report=report,
         lakes=lakes,
     )
+    return _write_ground(setup, notched_dem, footprint, profile=profile, report=report)
 
+
+def _read_crossings(notch: object, setup: object) -> tuple[Path, gpd.GeoDataFrame]:
+    """Read the crossings file of *notch*, in the project CRS when the setup names one."""
+    import geopandas as gpd
+
+    if notch.path is None:
+        raise ValueError(
+            "geographic.crossings is enabled without a path, and no "
+            "[[data.crossings.sources]] filled one in. Set geographic.crossings.path, or "
+            "declare a crossings source."
+        )
+    path = Path(notch.path)
+    if not path.exists():
+        raise FileNotFoundError(f"geographic.crossings.path points to nothing: {path}")
+    crossings = gpd.read_file(path)
+    if crossings.crs is None:
+        raise ValueError(
+            f"geographic.crossings.path {path} carries no CRS, so its geometries cannot "
+            "be placed on the DEM. Save it with a CRS."
+        )
+    crs_project = getattr(setup, "crs_project", None)
+    if crs_project is not None:
+        crossings = crossings.to_crs(crs_project)
+    return path, crossings
+
+
+def _first_pass_network(channel: FirstPassChannel) -> gpd.GeoDataFrame | None:
+    """The channel vector of the first delineation, ``None`` when none was written."""
+    import geopandas as gpd
+
+    shp = channel.network_shp
+    return gpd.read_file(shp) if shp is not None and Path(shp).exists() else None
+
+
+def _write_ground(
+    setup: object,
+    notched_dem: np.ndarray,
+    footprint: np.ndarray,
+    *,
+    profile: dict,
+    report: NotchReport,
+) -> Path:
+    """Write the notched ground, its footprint and the JSON report, return the ground path."""
     out_path = Path(setup.paths.correcflow_path) / GROUND_FILENAME
     profile.pop("blockxsize", None)
     profile.pop("blockysize", None)

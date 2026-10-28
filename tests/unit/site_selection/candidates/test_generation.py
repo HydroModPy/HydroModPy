@@ -19,7 +19,8 @@ from hydromodpy.spatial.site_selection.hydrology.reference_network import (
     score_outlets_against_reference_network,
 )
 from tests._helpers.geotiffs import write_geotiff
-from tests._helpers.site_selection_cases import site_flow_products, write_accumulation_raster
+from tests._helpers.site_selection_cases import write_accumulation_raster
+from tests._helpers.terrain_doubles import fake_flow_products
 
 pytestmark = pytest.mark.fast
 
@@ -29,7 +30,7 @@ HYDROLOGY = HydrologyConfig(network_threshold_area_km2=0.0001)
 
 
 def _network(tmp_path, values=NETWORK, search_geometry=None, **outlets):
-    flow_products = site_flow_products(write_accumulation_raster(tmp_path / "acc.tif", values))
+    flow_products = fake_flow_products(acc=write_accumulation_raster(tmp_path / "acc.tif", values))
     return generate_network_candidate_outlets(
         flow_products=flow_products,
         outlets=OutletsConfig(**outlets),
@@ -92,7 +93,7 @@ def test_the_reference_network_scores_generated_candidates_and_updates_the_audit
 def _dem_area(tmp_path, acc, *, n_basins=2, **kwargs):
     acc_path = write_accumulation_raster(tmp_path / "acc_cells.tif", acc, cell_size=1000.0)
     return generate_dem_area_light_candidate_outlets(
-        flow_products=site_flow_products(acc_path, threshold_km2=1.0),
+        flow_products=fake_flow_products(acc=acc_path),
         dem_area_light=DemAreaLightConfig(n_basins=n_basins),
         hydrology=HydrologyConfig(network_threshold_area_km2=1.0),
         **kwargs,
@@ -183,7 +184,7 @@ def test_a_log_scaled_accumulation_is_rebuilt_in_cell_counts(tmp_path, route):
     backend = _backend(raster=route == "raster", flow=route == "flow")
 
     path = ensure_raw_accumulation_cells(
-        flow_products=site_flow_products(log_acc),
+        flow_products=fake_flow_products(acc=log_acc),
         output_dir=tmp_path / "flow",
         backend=backend,
         crs_project="EPSG:2154",
@@ -194,7 +195,7 @@ def test_a_log_scaled_accumulation_is_rebuilt_in_cell_counts(tmp_path, route):
         assert src.read(1).max() == 500.0
         assert str(src.crs) == "EPSG:2154"
     same = ensure_raw_accumulation_cells(
-        flow_products=site_flow_products(log_acc), output_dir=tmp_path / "flow", backend=None
+        flow_products=fake_flow_products(acc=log_acc), output_dir=tmp_path / "flow", backend=None
     )
     assert same == path
 
@@ -204,7 +205,7 @@ def test_a_raw_accumulation_is_used_as_it_is(tmp_path):
 
     assert (
         ensure_raw_accumulation_cells(
-            flow_products=site_flow_products(raw), output_dir=tmp_path / "flow"
+            flow_products=fake_flow_products(acc=raw), output_dir=tmp_path / "flow"
         )
         == raw
     )
@@ -214,7 +215,7 @@ def test_a_backend_without_an_accumulation_is_refused(tmp_path):
     (tmp_path / "missing.tif").write_text("not a raster", encoding="utf-8")
     with pytest.raises(TypeError, match="d8_flow_accumulation"):
         ensure_raw_accumulation_cells(
-            flow_products=site_flow_products(tmp_path / "missing.tif"),
+            flow_products=fake_flow_products(acc=tmp_path / "missing.tif"),
             output_dir=tmp_path / "flow",
             backend=_backend(raster=False, flow=False),
         )

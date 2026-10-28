@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+from hydromodpy.workflow.site_selection import build_from_toml
 from hydromodpy.workflow.site_selection.build_from_toml import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,
@@ -172,6 +175,27 @@ def test_a_selection_whose_data_cannot_be_loaded_says_where_to_look(
 
     with pytest.raises(error, match=match):
         builder(config_path=config_path, **loaders)
+
+
+@pytest.mark.parametrize("build", ["hydrometry_config", "observed", "generated"])
+def test_the_workflow_hands_the_bd_topage_fetcher_to_the_build(tmp_path, monkeypatch, build):
+    spy = MagicMock(side_effect=LookupError)
+    for name in ("point_records", "generated_network"):
+        monkeypatch.setattr(build_from_toml, f"build_site_selection_from_{name}", spy)
+    dem = dem_loader_spy(_fake_dem(tmp_path), [])
+    loaders = {"dem_loader": dem, "hydrometry_loader": lambda **_: [make_record("J1")]}
+    cfg, hm = make_config(tmp_path), HydrometryConfig.model_validate(HUBEAU)
+    gen = selection_section("custom", input={"mode": "generated_candidates"}, territory=TERRITORY)
+    with pytest.raises(LookupError):
+        if build == "hydrometry_config":
+            build_site_selection_from_hydrometry_config(config=cfg, hydrometry_config=hm, **loaders)
+        elif build == "observed":
+            build_observed_site_selection_from_toml(config_path=_observed(tmp_path), **loaders)
+        else:
+            path = write_selection_toml(tmp_path, gen, data=_data_dem())
+            build_generated_site_selection_from_toml(config_path=path, dem_loader=dem)
+
+    assert spy.call_args.kwargs["reference_network_fetcher"] is fetch_bdtopage_reference_network
 
 
 def test_an_observed_selection_reads_local_stations_and_dem_through_the_data_store(tmp_path):

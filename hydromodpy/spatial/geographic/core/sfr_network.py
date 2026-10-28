@@ -200,145 +200,266 @@ def delineate_sfr_reaches(
     lake = None if lake_label is None else (lake_label > 0)
 
     # 1. Group stream cells by link id.
+    cells_by_link = _cells_by_link(link_id)
+    # 2. A link that runs through a lake keeps its end below the dam as a link of its own.
+    if lake is not None:
+        link_id = _split_links_below_lakes(cells_by_link, link_id, d8, lake)
+    # 3. Per-link geometry + the downstream link (or lake / model outlet).
+    info, downstream_link, terminal_to_lake, terminal_lake_of = _link_reaches(
+        cells_by_link,
+        link_id=link_id,
+        d8=d8,
+        acc=acc,
+        top_dem=top_dem,
+        transform=transform,
+        dem_res_m=dem_res_m,
+        strahler=strahler,
+        lake=lake,
+        lake_label=lake_label,
+        min_slope=min_slope,
+        cell_area_km2=cell_area_km2,
+    )
+    # 4. Prune short reaches (re-link their upstream to their downstream), then
+    # the upstream adjacency and the Kahn topological order, downstream-increasing.
+    if float(min_reach_length_m) > 0.0:
+        _prune_short_links(
+            info, downstream_link, terminal_to_lake, terminal_lake_of, float(min_reach_length_m)
+        )
+    upstream_links = _upstream_links(info, downstream_link)
+    order = _topological_downstream_order(info, downstream_link, upstream_links)
+    # 5. One row per reach, numbered in that order.
+    reaches = _reach_rows(
+        order, info, downstream_link, upstream_links, terminal_to_lake, terminal_lake_of
+    )
+    return SfrReachTrace(reaches=tuple(reaches), crs_wkt=str(crs_wkt))
+
+
+def _cells_by_link(link_id: np.ndarray) -> dict[int, list[tuple[int, int]]]:
+    """Group the stream cells (``link_id > 0``) by link id, refusing a grid without any."""
     cells_by_link: dict[int, list[tuple[int, int]]] = {}
     rows, cols = np.where(link_id > 0)
     for row, col in zip(rows.tolist(), cols.tolist(), strict=True):
         cells_by_link.setdefault(int(link_id[row, col]), []).append((row, col))
     if not cells_by_link:
         raise ValueError("No stream cells (link_id > 0); cannot delineate an SFR network.")
+    return cells_by_link
 
-    # 1b. A link that runs through a lake keeps its end below the dam as a link of
-    # its own. The cut at the lake would otherwise drop it, and a release at the dam
-    # would find no channel to follow (it fell back on a tributary of the lake).
-    if lake is not None:
-        link_id = link_id.copy()
-        next_link = int(link_id.max()) + 1
-        for link in list(cells_by_link):
-            ordered_cells = _order_link_cells(cells_by_link[link], d8)
-            lake_positions = [i for i, cell in enumerate(ordered_cells) if lake[cell]]
-            if not lake_positions:
-                continue
-            below = [cell for cell in ordered_cells[lake_positions[-1] + 1 :] if not lake[cell]]
-            if not below:
-                continue
-            below_set = set(below)
-            cells_by_link[link] = [cell for cell in cells_by_link[link] if cell not in below_set]
-            cells_by_link[next_link] = below
-            for cell in below:
-                link_id[cell] = next_link
-            next_link += 1
 
-    # 2. Per-link geometry + the downstream link (or lake / model outlet). A
-    # link whose flow path ENTERS the lake footprint is truncated at the entry
-    # cell (the raster network continues through / below a reservoir, but the
-    # reach must stop at the shoreline and hand its flow to the lake); a link
-    # entirely inside the lake is dropped.
+def _split_links_below_lakes(
+    cells_by_link: dict[int, list[tuple[int, int]]],
+    link_id: np.ndarray,
+    d8: np.ndarray,
+    lake: np.ndarray,
+) -> np.ndarray:
+    """Give the end of each link below a lake a new link id, return the new link raster.
+
+    The cut at the lake would otherwise drop that end, and a release at the dam
+    would find no channel to follow (it fell back on a tributary of the lake).
+    *cells_by_link* is updated in place; *link_id* is copied, never changed.
+    """
+    link_id = link_id.copy()
+    next_link = int(link_id.max()) + 1
+    for link in list(cells_by_link):
+        ordered_cells = _order_link_cells(cells_by_link[link], d8)
+        lake_positions = [i for i, cell in enumerate(ordered_cells) if lake[cell]]
+        if not lake_positions:
+            continue
+        below = [cell for cell in ordered_cells[lake_positions[-1] + 1 :] if not lake[cell]]
+        if not below:
+            continue
+        below_set = set(below)
+        cells_by_link[link] = [cell for cell in cells_by_link[link] if cell not in below_set]
+        cells_by_link[next_link] = below
+        for cell in below:
+            link_id[cell] = next_link
+        next_link += 1
+    return link_id
+
+
+def _link_reaches(
+    cells_by_link: dict[int, list[tuple[int, int]]],
+    *,
+    link_id: np.ndarray,
+    d8: np.ndarray,
+    acc: np.ndarray,
+    top_dem: np.ndarray,
+    transform,
+    dem_res_m: float,
+    strahler: np.ndarray | None,
+    lake: np.ndarray | None,
+    lake_label: np.ndarray | None,
+    min_slope: float,
+    cell_area_km2: float,
+) -> tuple[dict[int, dict], dict[int, int | None], dict[int, bool], dict[int, int | None]]:
+    """The attributes and the downstream connection of every link.
+
+    A link whose flow path enters the lake footprint is truncated at the entry
+    cell; a link entirely inside the lake is dropped. Returns the attributes,
+    the downstream link, the terminal-to-lake flag and the lake number, by link.
+    """
     info: dict[int, dict] = {}
     downstream_link: dict[int, int | None] = {}
     terminal_to_lake: dict[int, bool] = {}
     terminal_lake_of: dict[int, int | None] = {}
     for link, cells in cells_by_link.items():
-        ordered = _order_link_cells(cells, d8)
-        truncated_at_lake = False
-        truncation_lake_cell: tuple[int, int] | None = None
-        if lake is not None:
-            kept: list[tuple[int, int]] = []
-            for cell in ordered:
-                if lake[cell]:
-                    truncated_at_lake = True
-                    truncation_lake_cell = cell
-                    break
-                kept.append(cell)
-            ordered = kept
+        ordered, truncation_lake_cell = _cells_before_lake(_order_link_cells(cells, d8), lake)
         if not ordered:
             continue
+        truncated_at_lake = truncation_lake_cell is not None
         cell_set = set(ordered)
         outlet = ordered[-1] if truncated_at_lake else _link_outlet_cell(ordered, d8, cell_set)
-        head = ordered[0]
-        coords = [_cell_xy(r, c, transform) for r, c in ordered]
-        if len(coords) == 1:
-            nxt = _downstream_cell(outlet[0], outlet[1], d8)
-            tail = (
-                _cell_xy(*nxt, transform)
-                if nxt is not None
-                else (coords[0][0] + dem_res_m, coords[0][1])
-            )
-            coords = [coords[0], tail]
-        line = LineString(coords)
-        rlen = max(float(line.length), float(dem_res_m))
-        top_head = float(top_dem[head])
-        top_outlet = float(top_dem[outlet])
-        if not (np.isfinite(top_head) and np.isfinite(top_outlet)):
-            raise ValueError(
-                f"SFR link {link} reads a nodata model top at {head} / {outlet}: "
-                "the top DEM does not cover the delineated stream network."
-            )
-        rgrd = max((top_head - top_outlet) / rlen, float(min_slope))
-        order_val = 1 if strahler is None else int(max(1, int(strahler[outlet])))
-        area_km2 = float(acc[outlet]) * cell_area_km2
-
-        nxt = _downstream_cell(outlet[0], outlet[1], d8)
-        is_lake = bool(lake is not None and nxt is not None and lake[nxt])
-        if truncated_at_lake or is_lake:
-            downstream_link[link] = None
-            terminal_to_lake[link] = True
-            # Tag the specific lake this reach drains into (1-based label) so the
-            # builder can route the MVR per terminal reach instead of per network.
-            lake_cell = truncation_lake_cell if truncated_at_lake else nxt
-            if lake_label is not None and lake_cell is not None:
-                terminal_lake_of[link] = int(lake_label[lake_cell])
-        elif nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
-            downstream_link[link] = int(link_id[nxt])
-            terminal_to_lake[link] = False
-        else:
-            # The immediate D8 neighbour is a non-stream gap cell (or None). Follow
-            # the D8 path through the gap: WBT link rasters drop cells between links
-            # and short of the lake, so a fragment that looks like an inland outlet
-            # usually continues to its true downstream link or to the lake a few
-            # cells on. Only a path that genuinely leaves the domain is a true bare
-            # outlet, and that leaves the model by EXT-OUTFLOW (not teleported to
-            # the lake from mid-catchment).
-            kind, target = _trace_downstream_target(outlet, d8, link_id, lake, link)
-            if kind == "lake":
-                downstream_link[link] = None
-                terminal_to_lake[link] = True
-                if lake_label is not None and target is not None:
-                    terminal_lake_of[link] = int(lake_label[target])
-            elif kind == "link":
-                downstream_link[link] = int(link_id[target])
-                terminal_to_lake[link] = False
-            else:
-                # A genuine bare outlet: the D8 path leaves the domain / pits without
-                # reaching a link or lake. The solver mover builder decides its fate
-                # (nearest lake in a lake-coupled catchment, else EXT-OUTFLOW), where
-                # the final reach geometry and the lake cells are known.
-                downstream_link[link] = None
-                terminal_to_lake[link] = False
-
-        info[link] = {
-            "line": line,
-            "rlen": rlen,
-            "rtp": top_outlet,
-            "rgrd": rgrd,
-            "strahler": order_val,
-            "area_km2": area_km2,
-        }
-
-    # 2b. Prune short reaches (re-link their upstream to their downstream).
-    if float(min_reach_length_m) > 0.0:
-        _prune_short_links(
-            info, downstream_link, terminal_to_lake, terminal_lake_of, float(min_reach_length_m)
+        reach = _reach_attributes(
+            link,
+            ordered,
+            outlet,
+            d8=d8,
+            acc=acc,
+            top_dem=top_dem,
+            transform=transform,
+            dem_res_m=dem_res_m,
+            strahler=strahler,
+            min_slope=min_slope,
+            cell_area_km2=cell_area_km2,
         )
+        down, to_lake, lake_number = _downstream_target(
+            link,
+            outlet,
+            truncation_lake_cell,
+            d8=d8,
+            link_id=link_id,
+            lake=lake,
+            lake_label=lake_label,
+        )
+        downstream_link[link] = down
+        terminal_to_lake[link] = to_lake
+        if lake_number is not None:
+            terminal_lake_of[link] = lake_number
+        info[link] = reach
+    return info, downstream_link, terminal_to_lake, terminal_lake_of
 
-    # 3. Upstream adjacency + Kahn topological order, downstream-increasing.
-    upstream_links: dict[int, list[int]] = {link: [] for link in info}
-    for link, down in downstream_link.items():
-        if down is not None and down in upstream_links:
-            upstream_links[down].append(link)
-    order = _topological_downstream_order(info, downstream_link, upstream_links)
 
+def _cells_before_lake(
+    ordered: list[tuple[int, int]], lake: np.ndarray | None
+) -> tuple[list[tuple[int, int]], tuple[int, int] | None]:
+    """Cut an ordered link at the first lake cell, return the kept cells and that cell.
+
+    The raster network continues through and below a reservoir, but the reach
+    must stop at the shoreline and hand its flow to the lake. A link entirely
+    inside the lake keeps no cell.
+    """
+    if lake is None:
+        return ordered, None
+    kept: list[tuple[int, int]] = []
+    for cell in ordered:
+        if lake[cell]:
+            return kept, cell
+        kept.append(cell)
+    return kept, None
+
+
+def _reach_attributes(
+    link: int,
+    ordered: list[tuple[int, int]],
+    outlet: tuple[int, int],
+    *,
+    d8: np.ndarray,
+    acc: np.ndarray,
+    top_dem: np.ndarray,
+    transform,
+    dem_res_m: float,
+    strahler: np.ndarray | None,
+    min_slope: float,
+    cell_area_km2: float,
+) -> dict:
+    """The line, length, bed top, gradient, order and drainage area of one reach."""
+    head = ordered[0]
+    coords = [_cell_xy(r, c, transform) for r, c in ordered]
+    if len(coords) == 1:
+        nxt = _downstream_cell(outlet[0], outlet[1], d8)
+        tail = (
+            _cell_xy(*nxt, transform)
+            if nxt is not None
+            else (coords[0][0] + dem_res_m, coords[0][1])
+        )
+        coords = [coords[0], tail]
+    line = LineString(coords)
+    rlen = max(float(line.length), float(dem_res_m))
+    top_head = float(top_dem[head])
+    top_outlet = float(top_dem[outlet])
+    if not (np.isfinite(top_head) and np.isfinite(top_outlet)):
+        raise ValueError(
+            f"SFR link {link} reads a nodata model top at {head} / {outlet}: "
+            "the top DEM does not cover the delineated stream network."
+        )
+    rgrd = max((top_head - top_outlet) / rlen, float(min_slope))
+    order_val = 1 if strahler is None else int(max(1, int(strahler[outlet])))
+    area_km2 = float(acc[outlet]) * cell_area_km2
+    return {
+        "line": line,
+        "rlen": rlen,
+        "rtp": top_outlet,
+        "rgrd": rgrd,
+        "strahler": order_val,
+        "area_km2": area_km2,
+    }
+
+
+def _downstream_target(
+    link: int,
+    outlet: tuple[int, int],
+    truncation_lake_cell: tuple[int, int] | None,
+    *,
+    d8: np.ndarray,
+    link_id: np.ndarray,
+    lake: np.ndarray | None,
+    lake_label: np.ndarray | None,
+) -> tuple[int | None, bool, int | None]:
+    """Where one reach drains: (downstream link, terminal to a lake, 1-based lake number).
+
+    The lake number tags the specific lake the reach drains into, so the builder
+    can route the MVR per terminal reach instead of per network.
+    """
+    nxt = _downstream_cell(outlet[0], outlet[1], d8)
+    is_lake = bool(lake is not None and nxt is not None and lake[nxt])
+    if truncation_lake_cell is not None or is_lake:
+        lake_cell = truncation_lake_cell if truncation_lake_cell is not None else nxt
+        return None, True, _lake_number(lake_label, lake_cell)
+    if nxt is not None and int(link_id[nxt]) > 0 and int(link_id[nxt]) != link:
+        return int(link_id[nxt]), False, None
+    # The immediate D8 neighbour is a non-stream gap cell (or None). Follow
+    # the D8 path through the gap: WBT link rasters drop cells between links
+    # and short of the lake, so a fragment that looks like an inland outlet
+    # usually continues to its true downstream link or to the lake a few
+    # cells on. Only a path that genuinely leaves the domain is a true bare
+    # outlet, and that leaves the model by EXT-OUTFLOW (not teleported to
+    # the lake from mid-catchment).
+    kind, target = _trace_downstream_target(outlet, d8, link_id, lake, link)
+    if kind == "lake":
+        return None, True, _lake_number(lake_label, target)
+    if kind == "link":
+        return int(link_id[target]), False, None
+    # A genuine bare outlet: the D8 path leaves the domain / pits without
+    # reaching a link or lake. The solver mover builder decides its fate
+    # (nearest lake in a lake-coupled catchment, else EXT-OUTFLOW), where
+    # the final reach geometry and the lake cells are known.
+    return None, False, None
+
+
+def _lake_number(lake_label: np.ndarray | None, cell: tuple[int, int] | None) -> int | None:
+    """The 1-based lake number at *cell*, ``None`` without a label or a cell."""
+    return None if lake_label is None or cell is None else int(lake_label[cell])
+
+
+def _reach_rows(
+    order: list[int],
+    info: dict[int, dict],
+    downstream_link: dict[int, int | None],
+    upstream_links: dict[int, list[int]],
+    terminal_to_lake: dict[int, bool],
+    terminal_lake_of: dict[int, int | None],
+) -> list[SfrReachRow]:
+    """One row per kept link, its ``ifno`` its rank in *order*."""
     ifno_of = {link: ifno for ifno, link in enumerate(order)}
-
     reaches: list[SfrReachRow] = []
     for link in order:
         data = info[link]
@@ -362,7 +483,7 @@ def delineate_sfr_reaches(
                 terminal_lake=terminal_lake_of.get(link),
             )
         )
-    return SfrReachTrace(reaches=tuple(reaches), crs_wkt=str(crs_wkt))
+    return reaches
 
 
 def _prune_short_links(
@@ -386,6 +507,17 @@ def _prune_short_links(
         downstream_link.pop(link, None)
         terminal_to_lake.pop(link, None)
         terminal_lake_of.pop(link, None)
+
+
+def _upstream_links(
+    info: dict[int, dict], downstream_link: dict[int, int | None]
+) -> dict[int, list[int]]:
+    """The links that drain into each kept link."""
+    upstream_links: dict[int, list[int]] = {link: [] for link in info}
+    for link, down in downstream_link.items():
+        if down is not None and down in upstream_links:
+            upstream_links[down].append(link)
+    return upstream_links
 
 
 def _topological_downstream_order(

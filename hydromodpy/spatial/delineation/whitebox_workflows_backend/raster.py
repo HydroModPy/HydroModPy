@@ -30,8 +30,8 @@ class WhiteboxRasterBackend:
     """Raster/vector IO, cache and format conversions on a shared environment."""
 
     def __init__(self) -> None:
-        self._env = wbw.WbEnvironment()
-        self._verbose = self._is_truthy_env(os.environ.get("HMP_WHITEBOX_VERBOSE"))
+        self.env = wbw.WbEnvironment()
+        self.verbose = self._is_truthy_env(os.environ.get("HMP_WHITEBOX_VERBOSE"))
         redirect_env = os.environ.get("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO")
         if redirect_env is not None:
             self._redirect_native_stdio = self._is_truthy_env(redirect_env)
@@ -42,7 +42,7 @@ class WhiteboxRasterBackend:
             # path (repeated dup2 cycles crash the binding under xdist).
             self._redirect_native_stdio = "PYTEST_CURRENT_TEST" not in os.environ
         try:
-            self._env.verbose = bool(self._verbose)
+            self.env.verbose = bool(self.verbose)
         except Exception:
             pass
         self._compress_rasters = False
@@ -62,9 +62,9 @@ class WhiteboxRasterBackend:
         return Path(path).suffix.lower() in _VECTOR_EXTENSIONS
 
     @contextmanager
-    def _silence_stdio(self):
+    def silence_stdio(self):
         """Suppress Python stdio while Whitebox native logging is disabled."""
-        if self._verbose:
+        if self.verbose:
             yield
             return
 
@@ -112,28 +112,29 @@ class WhiteboxRasterBackend:
         the catchment area, so those tools must run on a single worker to be
         reproducible.
         """
-        previous = self._env.max_procs
-        self._env.max_procs = 1
+        previous = self.env.max_procs
+        self.env.max_procs = 1
         try:
             yield
         finally:
-            self._env.max_procs = previous
+            self.env.max_procs = previous
 
-    def _run_env_operation(self, operation, *args, **kwargs):
+    def run_env_operation(self, operation, *args, **kwargs):
+        """Run one Whitebox operation under a progress status, stdio silenced."""
         op_name = getattr(operation, "__name__", "operation").replace("_", " ")
-        with progress.status(f"Whitebox: {op_name}"), self._silence_stdio():
+        with progress.status(f"Whitebox: {op_name}"), self.silence_stdio():
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
         cached = self._raster_cache.get(path)
         if cached is not None:
             return cached
-        return self._run_env_operation(self._env.read_raster, path)
+        return self.run_env_operation(self.env.read_raster, path)
 
     def _write_raster(self, raster, path: str) -> None:
         self._ensure_parent(path)
-        self._run_env_operation(
-            self._env.write_raster,
+        self.run_env_operation(
+            self.env.write_raster,
             raster,
             path,
             compress=self._compress_rasters,
@@ -142,7 +143,7 @@ class WhiteboxRasterBackend:
             self._raster_cache[path] = raster
 
     def _read_vector(self, path: str):
-        return self._run_env_operation(self._env.read_vector, path)
+        return self.run_env_operation(self.env.read_vector, path)
 
     @staticmethod
     def _vector_record_count(vector) -> int | None:
@@ -165,7 +166,7 @@ class WhiteboxRasterBackend:
                 "Whitebox produced an empty vector layer; refusing to write "
                 f"{path}. Check the upstream clipping/delineation step."
             )
-        self._run_env_operation(self._env.write_vector, vector, path)
+        self.run_env_operation(self.env.write_vector, vector, path)
 
     def read_raster(self, path: str):
         return self._read_raster(path)
@@ -183,7 +184,7 @@ class WhiteboxRasterBackend:
         return self._vector_record_count(vector)
 
     def clip_vector(self, vector, clip_layer):
-        return self._run_env_operation(self._env.clip, vector, clip_layer)
+        return self.run_env_operation(self.env.clip, vector, clip_layer)
 
     def set_compress_rasters(self, enabled: bool) -> None:
         self._compress_rasters = bool(enabled)
@@ -237,7 +238,7 @@ class WhiteboxRasterBackend:
             )
             return
         self._write_raster(
-            self._run_env_operation(self._env.clip, self._read_raster(input_path), clip_vector),
+            self.run_env_operation(self.env.clip, self._read_raster(input_path), clip_vector),
             output_path,
         )
 
@@ -250,8 +251,8 @@ class WhiteboxRasterBackend:
         snap_tolerance: float | None = None,
     ) -> None:
         self._write_vector(
-            self._run_env_operation(
-                self._env.dissolve,
+            self.run_env_operation(
+                self.env.dissolve,
                 self._read_vector(input_path),
                 dissolve_field=dissolve_field,
                 snap_tolerance=snap_tolerance,
@@ -266,8 +267,8 @@ class WhiteboxRasterBackend:
         *,
         maintain_dimensions: bool = False,
     ):
-        return self._run_env_operation(
-            self._env.clip_raster_to_polygon,
+        return self.run_env_operation(
+            self.env.clip_raster_to_polygon,
             raster,
             polygon,
             maintain_dimensions=maintain_dimensions,
@@ -291,14 +292,14 @@ class WhiteboxRasterBackend:
         )
 
     def polygon_area_vector(self, vector):
-        return self._run_env_operation(self._env.polygon_area, vector)
+        return self.run_env_operation(self.env.polygon_area, vector)
 
     def polygon_area(self, input_shp: str) -> None:
         self._write_vector(self.polygon_area_vector(self._read_vector(input_shp)), input_shp)
 
     def modify_no_data_value_raster(self, raster, *, new_value: float):
-        return self._run_env_operation(
-            self._env.modify_nodata_value,
+        return self.run_env_operation(
+            self.env.modify_nodata_value,
             raster,
             new_value=new_value,
         )
@@ -310,8 +311,8 @@ class WhiteboxRasterBackend:
         )
 
     def set_nodata_value_raster(self, raster, *, back_value: float):
-        return self._run_env_operation(
-            self._env.set_nodata_value,
+        return self.run_env_operation(
+            self.env.set_nodata_value,
             raster,
             back_value=back_value,
         )
@@ -337,8 +338,8 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        return self._run_env_operation(
-            self._env.vector_lines_to_raster,
+        return self.run_env_operation(
+            self.env.vector_lines_to_raster,
             vector,
             **given_options(
                 field_name=field,
@@ -379,8 +380,8 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        return self._run_env_operation(
-            self._env.vector_polygons_to_raster,
+        return self.run_env_operation(
+            self.env.vector_polygons_to_raster,
             vector,
             **given_options(
                 field_name=field,
@@ -422,8 +423,8 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        return self._run_env_operation(
-            self._env.vector_points_to_raster,
+        return self.run_env_operation(
+            self.env.vector_points_to_raster,
             vector,
             **given_options(
                 field_name=field,
@@ -459,8 +460,8 @@ class WhiteboxRasterBackend:
         )
 
     def extract_raster_values_at_points_vector(self, rasters: list, points):
-        point_vector, _ = self._run_env_operation(
-            self._env.extract_raster_values_at_points,
+        point_vector, _ = self.run_env_operation(
+            self.env.extract_raster_values_at_points,
             rasters,
             points,
         )

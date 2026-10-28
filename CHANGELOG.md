@@ -1280,6 +1280,32 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The members `WhiteboxComponent` shares with the Whitebox sub-backends (`env`, `run`, `read_raster`,
+  `write_raster`, `read_vector`, `write_vector`, `run_depression_tool`) and the members of
+  `WhiteboxRasterBackend` they read (`env`, `verbose`, `silence_stdio`, `run_env_operation`) are public, and
+  `spatial.terrain.whitebox_engine.read_point` is public (2026-10-28).
+- The vertical profile of a field parameter, with its `SUPPORTED_VERTICAL_PROFILE_*` constants, moves from
+  `spatial.field.field_param` to `spatial.field.vertical_profile`. `FieldParam` keeps `vertical_factor` and
+  `has_vertical_variation` (2026-10-28).
+- `build_site_selection_from_point_records` and `build_site_selection_from_generated_network` take a
+  required `reference_network_fetcher`, and `load_reference_network_for_outlets` a required `fetcher`,
+  called as `fetcher(bbox_wgs84, page_size=...)` instead of an optional one called with a
+  `HydrographySourceConfig`. The BD Topage one is `hydromodpy.data.sites.importers.fetch_bdtopage_reference_network`,
+  so `spatial` no longer imports `data` and the `spatial -> data` tolerance of the layer matrix is gone (2026-10-28).
+- The site-selection candidate generators (`generate_network_candidate_outlets`,
+  `generate_dem_area_light_candidate_outlets`, `ensure_raw_accumulation_cells`,
+  `build_generated_network_candidates`, `build_dem_area_light_candidates`) take a `FlowProducts` instead of a
+  `SiteSelectionFlowProducts`, and a `raw_accumulation_builder` receives a `FlowProducts` (2026-10-28).
+- The `terrain-delineate` worker helpers `dem_extent_of`, `terrain_inputset` and
+  `refuse_an_engine_this_installation_does_not_serve` are public (2026-10-28).
+- A `[geographic.catchment]` table with `catch_def = "txt"` and `dem_resolution` is refused with the
+  message that `txt` is not implemented, instead of a message about the grid said twice (2026-10-28).
+- `derive_catchment_domain` and `buffer_distance_m` called by hand with a percentage `buff_area` of zero
+  or less raise `the area increase must be > 0.` instead of `buff_area percentage must be > 0` (2026-10-28).
+- `geographic_cache_fingerprint`, `required_geographic_cache_artifacts` and `GeographicProducts` of
+  `spatial.geographic.geographic_cache`, `CatchmentDelineation.buffer_label` and `build_case_specs` of the
+  reference catchment case are public, their underscore names are gone (2026-10-28).
+- `spatial.geographic.core.ground_bed.domain_bounds` is public, it was `_domain_bounds` (2026-10-28).
 - The helpers one module of `spatial` or `workflow.site_selection` imports from a sibling module are
   public (2026-10-28), such as `domain.active_cells.active_cell_mask`,
   `domain.domain_document.ResolvedDomainRequest` and `build_domain_document`, the cache readers and

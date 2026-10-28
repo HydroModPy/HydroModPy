@@ -14,8 +14,8 @@ from shapely.geometry import LineString
 from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_FILENAME
 from hydromodpy.spatial.geographic.geographic_cache import (
     DESCRIPTION_FILENAME,
-    _geographic_cache_fingerprint,
     geographic_artifact_paths,
+    geographic_cache_fingerprint,
 )
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import CappedBreach, CappedBreachReport
@@ -66,7 +66,7 @@ def _outlet(**sections) -> GeographicConfig:
 
 
 def _fingerprint(**sections) -> str:
-    return _geographic_cache_fingerprint(_outlet(**sections))
+    return geographic_cache_fingerprint(_outlet(**sections))
 
 
 def _flow_products_with_a_report():
@@ -114,7 +114,7 @@ def test_a_changed_outlet_changes_the_fingerprint_and_is_a_miss(tmp_path: Path) 
         update={"catchment": config.catchment.model_copy(update={"x_outlet": 99.0})}
     )
 
-    assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(changed)
+    assert geographic_cache_fingerprint(config) != geographic_cache_fingerprint(changed)
     assert load_cached(changed, paths) is None
 
 
@@ -178,7 +178,7 @@ def test_a_fill_config_fingerprints_as_before_the_capped_breach_existed(
         x=1.0, y=2.0, dem="no_such_dem.tif", dem_correc_type="fill"
     )
 
-    assert _geographic_cache_fingerprint(config) == FILL_FINGERPRINT_WITHOUT_THE_BURN
+    assert geographic_cache_fingerprint(config) == FILL_FINGERPRINT_WITHOUT_THE_BURN
 
 
 _LIMITS = {"max_depth": 0.8, "max_distance": 100.0}
@@ -240,11 +240,11 @@ def test_editing_the_structures_file_in_place_changes_the_fingerprint(tmp_path) 
     structures = tmp_path / "crossings.gpkg"
     structures.write_bytes(b"one")
     config = _outlet(river_network=BENCH_RIVER, crossings={"enabled": True, "path": structures})
-    before = _geographic_cache_fingerprint(config)
+    before = geographic_cache_fingerprint(config)
 
     structures.write_bytes(b"two, longer")
 
-    assert _geographic_cache_fingerprint(config) != before
+    assert geographic_cache_fingerprint(config) != before
 
 
 # --- the files a runtime declares -------------------------------------------------
@@ -290,6 +290,6 @@ def test_the_geographic_cache_sees_the_cell_size(tmp_path) -> None:
     def config(**catchment):
         return outlet_config(dem, x=450.0, y=550.0, catchment=catchment)
 
-    assert _geographic_cache_fingerprint(config()) != _geographic_cache_fingerprint(
+    assert geographic_cache_fingerprint(config()) != geographic_cache_fingerprint(
         config(dem_resolution="300 m")
     )

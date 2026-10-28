@@ -39,7 +39,7 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
-from hydromodpy.spatial.geographic.geographic_cache import _geographic_cache_fingerprint
+from hydromodpy.spatial.geographic.geographic_cache import geographic_cache_fingerprint
 from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
 from hydromodpy.spatial.terrain import ConditioningExtent, JensonSnap, Outlet, registry
 from hydromodpy.spatial.terrain.port import LN_FLOAT32_COLLISION_COUNT
@@ -99,7 +99,7 @@ def _empty_polygon(backend, monkeypatch) -> None:
         backend.delineation, "raster_to_vector_polygons_raster", lambda r: FakeVector(frame=[])
     )
     monkeypatch.setattr(
-        "hydromodpy.spatial.terrain.whitebox_engine._read_point", lambda path: (10.0, 20.0)
+        "hydromodpy.spatial.terrain.whitebox_engine.read_point", lambda path: (10.0, 20.0)
     )
 
 
@@ -412,10 +412,10 @@ def test_the_snap_method_is_part_of_the_cache_fingerprint_only_when_it_is_not_th
     window = _outlet_config()
     jenson = _outlet_config(snap_method="jenson", river_network={"threshold_area_km2": 0.5})
 
-    assert _geographic_cache_fingerprint(window) == _geographic_cache_fingerprint(
+    assert geographic_cache_fingerprint(window) == geographic_cache_fingerprint(
         _outlet_config(snap_method="window")
     )
-    assert _geographic_cache_fingerprint(window) != _geographic_cache_fingerprint(jenson)
+    assert geographic_cache_fingerprint(window) != geographic_cache_fingerprint(jenson)
 
 
 def test_the_pipeline_snaps_onto_the_network_its_river_section_draws(tmp_path) -> None:

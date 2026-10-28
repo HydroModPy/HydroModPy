@@ -113,7 +113,7 @@ def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> 
     and was missing from the declaration, so the digest of the step did not
     cover a file a resume refuses to run without.
     """
-    from hydromodpy.spatial.geographic.geographic_cache import _required_geographic_cache_artifacts
+    from hydromodpy.spatial.geographic.geographic_cache import required_geographic_cache_artifacts
     from hydromodpy.workflow.steps.setup import BuildGeographicStep
 
     step = BuildGeographicStep()
@@ -121,7 +121,7 @@ def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> 
     declared = {Path(item) for item in step.artifacts(state)}
 
     ctx = state.get("ctx")
-    required = _required_geographic_cache_artifacts(
+    required = required_geographic_cache_artifacts(
         config=ctx.cfg.geographic, paths=ctx.setup.geographic._paths
     )
     missing = [str(item) for item in required if Path(item) not in declared]
@@ -204,7 +204,7 @@ def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Pa
     import geopandas as gpd
     from shapely.geometry import box
 
-    from hydromodpy.spatial.geographic.geographic_cache import _geographic_cache_fingerprint
+    from hydromodpy.spatial.geographic.geographic_cache import geographic_cache_fingerprint
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     lakes = tmp_path / "lakes.gpkg"
@@ -223,8 +223,8 @@ def test_the_fingerprint_sees_a_conditioning_vector_edited_in_place(tmp_path: Pa
     }
 
     _write(0.0)
-    before = _geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+    before = geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
     _write(500.0)
-    after = _geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
+    after = geographic_cache_fingerprint(GeographicConfig.model_validate(payload))
 
     assert before != after

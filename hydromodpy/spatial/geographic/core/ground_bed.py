@@ -127,7 +127,7 @@ def restrict_to_window(
     return kept
 
 
-def _domain_bounds(setup: object) -> tuple[float, float, float, float] | None:
+def domain_bounds(setup: object) -> tuple[float, float, float, float] | None:
     """Extent of the domain the model computes on, or ``None`` without a watershed on disk.
 
     The union of the watershed, its buffered copy and the buffered box. The
@@ -183,7 +183,7 @@ def regularized_ground_from_config(
     channel_raw, channel_nodata = _read_on_grid(channel_tif, transform, shape, fill=0.0)
     channel = valid_cells(channel_raw, channel_nodata) & (channel_raw > 0)
     del channel_raw
-    domain = _domain_bounds(setup)
+    domain = domain_bounds(setup)
     if domain is not None:
         channel = restrict_to_window(channel, transform, domain, margin_m=WINDOW_MARGIN_M)
     d8_raw, d8_nodata = _read_on_grid(d8_tif, transform, shape, fill=0.0)

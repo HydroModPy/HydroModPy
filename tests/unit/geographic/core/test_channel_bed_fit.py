@@ -21,8 +21,8 @@ from shapely.geometry import Point, box
 from hydromodpy.spatial.geographic.core.channel_bed_fit import pixel_tree, regularize_channel_bed
 from hydromodpy.spatial.geographic.core.ground_bed import (
     WINDOW_MARGIN_M,
-    _domain_bounds,
     bed_dem_path,
+    domain_bounds,
     ground_bed_path,
     ground_bed_report_path,
     regularized_ground_from_config,
@@ -357,7 +357,7 @@ def test_the_window_covers_the_buffered_domain_else_the_watershed(tmp_path, buff
         watershed_shp=str(watershed), box_buff=box_buff, geographic_path=str(tmp_path)
     )
 
-    bounds = _domain_bounds(SimpleNamespace(paths=paths))
+    bounds = domain_bounds(SimpleNamespace(paths=paths))
 
     assert bounds == ((500.0,) * 2 + (8500.0,) * 2 if buffered else (4000.0,) * 2 + (5000.0,) * 2)
 

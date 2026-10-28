@@ -70,7 +70,7 @@ def test_the_child_returns_the_raster_an_in_process_call_returns(
 
     from_child = getattr(backend.flow, correction)(dem, **options)
     with backend.raster.single_threaded():
-        in_process = getattr(backend.raster._env, tool)(dem, **options)
+        in_process = getattr(backend.raster.env, tool)(dem, **options)
 
     assert _cells(from_child) == _cells(in_process)
     assert from_child.configs.data_type == in_process.configs.data_type

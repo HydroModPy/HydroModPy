@@ -150,7 +150,7 @@ def test_whitebox_native_stdout_is_silenced_as_configured(capfd, monkeypatch, en
             wbw_backend.raster, "os", SimpleNamespace(**{**vars(os), "dup": no_descriptor_left})
         )
 
-    assert backend.raster._run_env_operation(_noisy_native_operation) == 123
+    assert backend.raster.run_env_operation(_noisy_native_operation) == 123
     captured = capfd.readouterr()
     assert captured.out == out
     assert captured.err == "native-stderr\n"

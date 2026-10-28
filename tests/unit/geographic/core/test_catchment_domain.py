@@ -298,8 +298,8 @@ def test_the_delineation_shows_the_declared_margin_and_what_it_drew() -> None:
     drawn = SimpleNamespace(buff_area="10%", buffer_distance_m=150.0, buffer_area_increase=0.106)
     unrecorded = SimpleNamespace(buff_area="10%", buffer_distance_m=None, buffer_area_increase=None)
 
-    assert CatchmentDelineation._buffer_label(drawn) == "10% (150 m, +10.6% area)"
-    assert CatchmentDelineation._buffer_label(unrecorded) == "10%"
+    assert CatchmentDelineation.buffer_label(drawn) == "10% (150 m, +10.6% area)"
+    assert CatchmentDelineation.buffer_label(unrecorded) == "10%"
 
 
 # --- the catchment area -------------------------------------------------------

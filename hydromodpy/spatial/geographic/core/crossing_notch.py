@@ -171,14 +171,7 @@ def notch_dem(
     )
     res_x, res_y = abs(float(transform.a)), abs(float(transform.e))
     sites = _sites(points, streams, transform, snap_radius_m, res_x, res_y, report)
-    guard = _Guard(
-        [
-            geometry
-            for kind, geometry in zip(crossings["kind"], crossings.geometry, strict=True)
-            if kind in _BARRIER_KINDS and geometry is not None and not geometry.is_empty
-        ],
-        list(lakes),
-    )
+    guard = _guard_of(crossings, lakes)
     plans = _plan_all(
         sites,
         guard=guard,
@@ -195,6 +188,50 @@ def notch_dem(
         report=report,
     )
 
+    capped = _lower_along_plans(
+        out,
+        plans,
+        original=original,
+        valid=valid,
+        notch_width_m=notch_width_m,
+        max_depth_m=max_depth_m,
+        res_x=res_x,
+        res_y=res_y,
+        report=report,
+    )
+    moved = _count_lowering(report, original=original, out=out, valid=valid, capped=capped)
+    return out, moved
+
+
+def _guard_of(crossings: gpd.GeoDataFrame, lakes: Sequence[BaseGeometry]) -> _Guard:
+    """The guard of the declared dams and weirs of *crossings* and of the *lakes*."""
+    return _Guard(
+        [
+            geometry
+            for kind, geometry in zip(crossings["kind"], crossings.geometry, strict=True)
+            if kind in _BARRIER_KINDS and geometry is not None and not geometry.is_empty
+        ],
+        list(lakes),
+    )
+
+
+def _lower_along_plans(
+    out: np.ndarray,
+    plans: list[tuple[_Site, _Plan]],
+    *,
+    original: np.ndarray,
+    valid: np.ndarray,
+    notch_width_m: float,
+    max_depth_m: float,
+    res_x: float,
+    res_y: float,
+    report: NotchReport,
+) -> set[tuple[int, int]]:
+    """Lower *out* in place to the bed line of each plan, never deeper than *max_depth_m*.
+
+    Counts each crossing notched or left with nothing to lower, and returns the
+    pixels the depth cap held up.
+    """
     capped: set[tuple[int, int]] = set()
     for site, plan in plans:
         targets = _notch_targets(
@@ -218,7 +255,18 @@ def notch_dem(
             report.notched[site.point.kind] = report.notched.get(site.point.kind, 0) + 1
         else:
             report.skip(site.point, "nothing_to_lower")
+    return capped
 
+
+def _count_lowering(
+    report: NotchReport,
+    *,
+    original: np.ndarray,
+    out: np.ndarray,
+    valid: np.ndarray,
+    capped: set[tuple[int, int]],
+) -> np.ndarray:
+    """Write the lowering statistics into *report*, return the mask of the lowered pixels."""
     lowering = original - out
     moved = valid & (lowering > _LOWERING_TOLERANCE_M)
     report.pixels_lowered = int(moved.sum())
@@ -226,7 +274,7 @@ def notch_dem(
         report.max_lowering_m = float(lowering[moved].max())
         report.median_lowering_m = float(np.median(lowering[moved]))
     report.capped_pixels = len(capped)
-    return out, moved
+    return moved
 
 
 @dataclass(frozen=True)

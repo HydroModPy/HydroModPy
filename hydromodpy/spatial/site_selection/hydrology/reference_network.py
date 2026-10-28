@@ -10,6 +10,7 @@ from typing import Any
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 
 ReferenceNetworkFetcher = Callable[..., Any]
+"""Downloads BD Topage as ``fetcher(bbox_wgs84, page_size=...)``, a frame in EPSG:4326."""
 
 
 @dataclass(frozen=True)
@@ -40,16 +41,17 @@ def load_reference_network_for_outlets(
     outlets: Iterable[CandidateOutlet],
     target_crs: str,
     output_dir: str | Path,
+    fetcher: ReferenceNetworkFetcher,
     path: str | Path | None = None,
     fetch_margin_m: float = 500.0,
     page_size: int = 2000,
     force_refresh: bool = False,
-    fetcher: ReferenceNetworkFetcher | None = None,
 ) -> tuple[Any, ReferenceNetworkBundle]:
     """Load the reference network used before DEM outlet snapping.
 
-    ``bdtopage`` downloads or reuses a run-local GeoPackage. ``custom`` reads
-    a local vector file. The returned GeoDataFrame is projected to ``target_crs``.
+    ``bdtopage`` downloads through *fetcher* or reuses a run-local GeoPackage.
+    ``custom`` reads a local vector file. The returned GeoDataFrame is projected
+    to ``target_crs``.
     """
 
     if source == "custom":
@@ -184,12 +186,9 @@ def _load_bdtopage_reference_network(
     fetch_margin_m: float,
     page_size: int,
     force_refresh: bool,
-    fetcher: ReferenceNetworkFetcher | None,
+    fetcher: ReferenceNetworkFetcher,
 ) -> tuple[Any, ReferenceNetworkBundle]:
     import geopandas as gpd
-
-    from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch as fetch_bdtopage
-    from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
 
     if not outlets:
         raise ValueError("Cannot fetch BD Topage reference network without outlets.")
@@ -205,9 +204,7 @@ def _load_bdtopage_reference_network(
     if destination.is_file() and not force_refresh:
         network = gpd.read_file(destination)
     else:
-        cfg = HydrographySourceConfig(source="bdtopage", page_size=int(page_size))
-        fetch = fetcher or fetch_bdtopage
-        network = fetch(cfg, bbox_wgs84)
+        network = fetcher(bbox_wgs84, page_size=int(page_size))
         if network.empty:
             raise ValueError("BD Topage returned no feature for the outlet extent.")
         network.to_file(destination, driver="GPKG")

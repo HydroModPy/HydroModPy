@@ -357,7 +357,7 @@ class CatchmentDelineation:
         for attr_name, value in self._dem_metadata.runtime_attributes().items():
             setattr(self, attr_name, value)
 
-    def _buffer_label(self) -> str:
+    def buffer_label(self) -> str:
         """Return the declared margin, the distance it drew and the area it added."""
         if self.buff_area is None:
             return "&mdash;"
@@ -383,7 +383,7 @@ class CatchmentDelineation:
                 "snap_dist",
                 f"{self.snap_dist} m" if self.snap_dist is not None else "&mdash;",
             ),
-            ("buff_area", self._buffer_label()),
+            ("buff_area", self.buffer_label()),
             (
                 "polygon",
                 f"<code>{self.polyg_shp_path}</code>"

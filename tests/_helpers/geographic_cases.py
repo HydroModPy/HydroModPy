@@ -300,7 +300,7 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
     """A complete geographic cache under ``root/project`` and the config it was written for."""
     from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
     from hydromodpy.spatial.geographic.geographic_cache import (
-        _required_geographic_cache_artifacts,
+        required_geographic_cache_artifacts,
         write_geographic_cache_manifest,
     )
     from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
@@ -322,7 +322,7 @@ def cached_tree(root: Path, *, flow_products=None, domain: dict | None = None, *
         }
     )
     paths = build_geographic_paths(root / "project")
-    for artifact in _required_geographic_cache_artifacts(config=config, paths=paths):
+    for artifact in required_geographic_cache_artifacts(config=config, paths=paths):
         touch_artifact(artifact)
     domain_products = CatchmentDomainProducts(
         **{
