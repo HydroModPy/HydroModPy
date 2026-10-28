@@ -202,8 +202,8 @@ def _refuse_area(method: InterpolationMethod) -> None:
     """Refuse ``"area"``, which needs cell polygons a centre grid does not carry."""
     if method == "area":
         raise ValueError(
-            "interpolation_method 'area' needs the cell polygons; use the forcing path "
-            "on cells (hydromodpy.spatial.forcing), which reads them from the mesh."
+            "interpolation_method 'area' needs the cell polygons; pass the planar mesh of "
+            "the cells to the forcing path on cells (hydromodpy.spatial.forcing)."
         )
 
 

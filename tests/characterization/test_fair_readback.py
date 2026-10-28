@@ -106,7 +106,9 @@ def test_a_stranger_opens_the_field_store_with_xarray(produced_run: ProducedRun)
             if referenced not in arrays:
                 missing_references.append(f"{name}.coordinates -> {referenced}")
         grid_mapping = attrs.get("grid_mapping")
-        if grid_mapping and str(grid_mapping) not in arrays:
+        group = name.rpartition("/")[0]
+        # CF looks a name up in the group of the array first, then at the root.
+        if grid_mapping and not {str(grid_mapping), f"{group}/{grid_mapping}"} & set(arrays):
             missing_references.append(f"{name}.grid_mapping -> {grid_mapping}")
     assert not missing_references, f"attributes naming absent arrays: {missing_references}"
 

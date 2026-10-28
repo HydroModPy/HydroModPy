@@ -8,17 +8,19 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
+from hydromodpy.core.io.crs import same_crs
 from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import (
     GeologyCriteriaConfig,
     ObservationsCriteriaConfig,
 )
+from hydromodpy.spatial.site_selection.domain.export_values import clean_value
 from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
     DelineatedCatchment,
     outlet_display_xy,
 )
+from hydromodpy.spatial.site_selection.outputs.watershed import watershed_geometry
 
 
 @dataclass(frozen=True)
@@ -119,82 +121,6 @@ def annotate_catchments_with_piezometer_layers(
     return annotated, all_evidence
 
 
-def write_geology_evidence_geojson(
-    path: str | Path,
-    evidence: Iterable[GeologyEvidence],
-) -> Path | None:
-    """Write geology evidence as basin GeoJSON features."""
-
-    materialized = [item for item in evidence if item.geometry is not None]
-    if not materialized:
-        return None
-    crs_values = {item.crs for item in materialized if item.crs}
-    features = [
-        {
-            "type": "Feature",
-            "id": _geology_feature_id(item),
-            "geometry": item.geometry.__geo_interface__,
-            "properties": _properties_without_geometry(item),
-        }
-        for item in materialized
-    ]
-    collection = {
-        "type": "FeatureCollection",
-        "name": Path(path).stem,
-        "hydromodpy_geometry_role": "geology_basins",
-        "hydromodpy_coordinate_crs": _single_or_mixed(crs_values),
-        "features": features,
-    }
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(collection, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return destination
-
-
-def write_geology_evidence_geopackage(
-    path: str | Path,
-    evidence: Iterable[GeologyEvidence],
-    *,
-    layer: str = "geology_basins",
-) -> Path | None:
-    """Write geology evidence to a GeoPackage layer."""
-
-    frame = geology_evidence_gdf(evidence)
-    if frame.empty:
-        return None
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_file(str(destination), layer=layer, driver="GPKG")
-    return destination
-
-
-def write_geology_evidence_geoparquet(
-    path: str | Path,
-    evidence: Iterable[GeologyEvidence],
-) -> Path | None:
-    """Write geology evidence to GeoParquet."""
-
-    frame = geology_evidence_gdf(evidence)
-    if frame.empty:
-        return None
-    return write_geoparquet_atomic(frame, path)
-
-
-def geology_evidence_gdf(evidence: Iterable[GeologyEvidence]):
-    """Return geology evidence as a GeoDataFrame."""
-
-    import geopandas as gpd
-
-    materialized = [item for item in evidence if item.geometry is not None]
-    crs = _single_crs(item.crs for item in materialized)
-    records = [_properties_without_geometry(item) for item in materialized]
-    geometries = [item.geometry for item in materialized]
-    return gpd.GeoDataFrame(records, geometry=geometries, crs=crs)
-
-
 def _match_geology_layer_to_catchment(
     catchment: DelineatedCatchment,
     *,
@@ -204,7 +130,7 @@ def _match_geology_layer_to_catchment(
     if layer_frame.empty:
         return []
     target_crs = catchment.outlet.crs
-    basin = _basin_geometry(catchment, target_crs=target_crs)
+    basin = watershed_geometry(catchment.watershed_shp, crs=target_crs)
     if basin is None:
         return []
 
@@ -290,7 +216,7 @@ def _match_piezometer_layer_to_catchment(
     target_crs = catchment.outlet.crs
     frame = _frame_in_target_crs(layer_frame, target_crs=target_crs)
     outlet = Point(*outlet_display_xy(catchment))
-    basin = _basin_geometry(catchment, target_crs=target_crs)
+    basin = watershed_geometry(catchment.watershed_shp, crs=target_crs)
     radius_m = None if max_distance_km is None else float(max_distance_km) * 1000.0
     if basin is None and radius_m is None:
         return []
@@ -413,31 +339,10 @@ def _load_vector_layer(layer_cfg: object) -> tuple[object, object]:
     return layer_cfg, frame
 
 
-def _basin_geometry(catchment: DelineatedCatchment, *, target_crs: str):
-    import geopandas as gpd
-
-    path = Path(catchment.watershed_shp or "")
-    if not catchment.watershed_shp or not path.is_file():
-        return None
-    frame = gpd.read_file(path)
-    if frame.empty:
-        return None
-    frame = _frame_in_target_crs(frame, target_crs=target_crs)
-    geometries = [
-        geometry for geometry in frame.geometry if geometry is not None and not geometry.is_empty
-    ]
-    if not geometries:
-        return None
-    union = (
-        frame.geometry.union_all() if hasattr(frame.geometry, "union_all") else frame.unary_union
-    )
-    return None if union is None or union.is_empty else union
-
-
 def _frame_in_target_crs(frame: object, *, target_crs: str):
     if frame.crs is None:
         return frame.set_crs(target_crs, allow_override=True)
-    if not _same_crs(str(frame.crs), target_crs):
+    if not same_crs(str(frame.crs), target_crs):
         return frame.to_crs(target_crs)
     return frame
 
@@ -493,62 +398,12 @@ def _feature_metadata(row: Mapping[str, Any]) -> dict[str, Any]:
     for key, value in row.items():
         if key == "geometry":
             continue
-        metadata[str(key)] = _clean_value(value)
+        metadata[str(key)] = clean_value(value)
     return metadata
-
-
-def _properties_without_geometry(item: GeologyEvidence) -> dict[str, Any]:
-    record = item.to_record()
-    return {key: _clean_value(value) for key, value in record.items() if key != "evidence_json"} | {
-        "evidence_json": json.dumps(item.evidence_json, ensure_ascii=True, sort_keys=True)
-    }
-
-
-def _geology_feature_id(item: GeologyEvidence) -> str:
-    return f"{item.site_id}:{item.source_layer}:{item.geology_class}"
-
-
-def _same_crs(left: str, right: str) -> bool:
-    if left.strip().upper() == right.strip().upper():
-        return True
-    try:
-        from pyproj import CRS
-
-        return CRS.from_user_input(left) == CRS.from_user_input(right)
-    except Exception:
-        return False
-
-
-def _single_crs(values: Iterable[str]) -> str | None:
-    clean = [value for value in values if value]
-    if not clean:
-        return None
-    return clean[0]
-
-
-def _single_or_mixed(values: set[str]) -> str:
-    clean = {value for value in values if value}
-    if not clean:
-        return ""
-    if len(clean) == 1:
-        return next(iter(clean))
-    return "mixed"
-
-
-def _clean_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    return json.dumps(value, ensure_ascii=True, sort_keys=True)
 
 
 __all__ = [
     "GeologyEvidence",
     "annotate_catchments_with_geology_layers",
     "annotate_catchments_with_piezometer_layers",
-    "geology_evidence_gdf",
-    "write_geology_evidence_geojson",
-    "write_geology_evidence_geopackage",
-    "write_geology_evidence_geoparquet",
 ]

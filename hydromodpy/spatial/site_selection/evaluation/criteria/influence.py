@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from hydromodpy.spatial.site_selection.config import InfluenceCriteriaConfig
+from hydromodpy.spatial.site_selection.domain.attribute_values import first_bool
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,
-    _first_bool,
 )
 
 
@@ -22,19 +22,19 @@ def evaluate_influence_criterion(
     """Evaluate explicit non-influence flags for a candidate basin."""
 
     flags = {
-        "major_dam_upstream": _first_bool(
+        "major_dam_upstream": first_bool(
             attributes,
             "major_dam_upstream",
             "has_major_dam_upstream",
             "dam_upstream",
         ),
-        "major_withdrawal_upstream": _first_bool(
+        "major_withdrawal_upstream": first_bool(
             attributes,
             "major_withdrawal_upstream",
             "has_major_withdrawal_upstream",
             "withdrawal_upstream",
         ),
-        "major_regulated_reach": _first_bool(
+        "major_regulated_reach": first_bool(
             attributes,
             "major_regulated_reach",
             "has_major_regulated_reach",

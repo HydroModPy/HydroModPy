@@ -33,6 +33,9 @@ from pathlib import Path
 
 import pytest
 
+# One worker runs the file, so each collection below runs once.
+pytestmark = pytest.mark.xdist_group("terrain_conformance_probe")
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFORMANCE_SUITE = "tests/contract/test_terrain_engine_contract.py"
 
@@ -206,19 +209,29 @@ def _collected(output: str) -> list[str]:
     return [line for line in output.splitlines() if line.startswith(CONFORMANCE_SUITE)]
 
 
-def test_the_suite_collects_nothing_for_an_engine_that_is_not_installed(tmp_path) -> None:
-    """The control. Without it, the run below could pass for the wrong reason."""
-    result = _pytest(tmp_path / "bare", "--collect-only", "-q")
-
-    assert result.returncode == 0, result.stdout[-4000:]
-    assert [node for node in _collected(result.stdout) if PROBE_ENGINE_ID in node] == []
+@pytest.fixture(scope="module")
+def bare_collection(tmp_path_factory) -> subprocess.CompletedProcess:
+    """The suite collected with no engine installed beside this build."""
+    return _pytest(tmp_path_factory.mktemp("bare"), "--collect-only", "-q")
 
 
-def test_installing_an_engine_adds_it_to_the_suite(installed_probe, tmp_path) -> None:
-    """One distribution unpacked on the path, and the suite grows a parameter set."""
-    without = _pytest(tmp_path / "bare", "--collect-only", "-q")
-    with_probe = _pytest(tmp_path / "probe", "--collect-only", "-q", site_packages=installed_probe)
+@pytest.fixture(scope="module")
+def probe_collection(installed_probe, tmp_path_factory) -> subprocess.CompletedProcess:
+    """The suite collected with the probe installed."""
+    session = tmp_path_factory.mktemp("probe_collect")
+    return _pytest(session, "--collect-only", "-q", site_packages=installed_probe)
 
+
+def test_installing_an_engine_adds_it_to_the_suite(bare_collection, probe_collection) -> None:
+    """One distribution unpacked on the path, and the suite grows a parameter set.
+
+    The bare collection is the control. Without it, the run below could pass for
+    the wrong reason.
+    """
+    without, with_probe = bare_collection, probe_collection
+
+    assert without.returncode == 0, without.stdout[-4000:]
+    assert [node for node in _collected(without.stdout) if PROBE_ENGINE_ID in node] == []
     assert with_probe.returncode == 0, with_probe.stdout[-4000:]
     probe_nodes = [node for node in _collected(with_probe.stdout) if PROBE_ENGINE_ID in node]
     assert probe_nodes, with_probe.stdout[-4000:]
@@ -227,7 +240,7 @@ def test_installing_an_engine_adds_it_to_the_suite(installed_probe, tmp_path) ->
 
 
 def test_every_conformance_assertion_passes_against_the_installed_engine(
-    installed_probe, tmp_path
+    installed_probe, probe_collection, tmp_path
 ) -> None:
     """The gate itself: the whole parameter set of an engine this file never names.
 
@@ -243,8 +256,7 @@ def test_every_conformance_assertion_passes_against_the_installed_engine(
     asserted one test above, at collection: the probe adds its own parameter set
     and changes no other node.
     """
-    expected = _pytest(tmp_path / "collect", "--collect-only", "-q", site_packages=installed_probe)
-    probe_nodes = [node for node in _collected(expected.stdout) if PROBE_ENGINE_ID in node]
+    probe_nodes = [node for node in _collected(probe_collection.stdout) if PROBE_ENGINE_ID in node]
 
     result = _pytest(tmp_path / "probe", "-q", "-k", PROBE_ENGINE_ID, site_packages=installed_probe)
 

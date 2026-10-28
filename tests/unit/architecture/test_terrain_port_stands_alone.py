@@ -20,6 +20,11 @@ import importlib.util
 import pathlib
 import sys
 
+import pytest
+
+# One worker runs the four tests, so the module fixture scans the package once.
+pytestmark = pytest.mark.xdist_group("terrain_port_scan")
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 TERRAIN_ROOT = PKG_ROOT / "spatial" / "terrain"
@@ -57,7 +62,9 @@ DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
 """Every remaining edge out of ``terrain``, each with the decision that allows it."""
 
 
-def _terrain_edges() -> list:
+@pytest.fixture(scope="module")
+def terrain_edges() -> list:
+    """Every import out of ``terrain``, from one scan of the package (the scan is slow)."""
     return [
         edge
         for edge in scan_package(PKG_ROOT)
@@ -73,20 +80,19 @@ def _is_allowed(module: str) -> bool:
     return any(module == prefix or module.startswith(prefix + ".") for prefix in ALLOWED_PREFIXES)
 
 
-def test_the_scanner_sees_the_terrain_package() -> None:
+def test_the_scanner_sees_the_terrain_package(terrain_edges) -> None:
     """Anti-vacuity: an empty scan would make every assertion below pass."""
-    edges = _terrain_edges()
-    files = {_relative(edge) for edge in edges}
+    files = {_relative(edge) for edge in terrain_edges}
     assert "hydromodpy/spatial/terrain/port.py" in files
     assert "hydromodpy/spatial/terrain/numpy_engine.py" in files
     assert "hydromodpy/spatial/terrain/whitebox_engine.py" in files
-    assert any(edge.target_module.startswith("hydromodpy.core.") for edge in edges)
+    assert any(edge.target_module.startswith("hydromodpy.core.") for edge in terrain_edges)
 
 
-def test_terrain_imports_no_sibling_of_spatial() -> None:
+def test_terrain_imports_no_sibling_of_spatial(terrain_edges) -> None:
     offenders = [
         f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
-        for edge in _terrain_edges()
+        for edge in terrain_edges
         if not _is_allowed(edge.target_module)
         and (_relative(edge), edge.target_module) not in DECLARED_EXCEPTIONS
     ]
@@ -96,18 +102,18 @@ def test_terrain_imports_no_sibling_of_spatial() -> None:
     )
 
 
-def test_every_declared_exception_is_still_taken() -> None:
+def test_every_declared_exception_is_still_taken(terrain_edges) -> None:
     """A stale exception protects nothing and hides the next one."""
-    taken = {(_relative(edge), edge.target_module) for edge in _terrain_edges()}
+    taken = {(_relative(edge), edge.target_module) for edge in terrain_edges}
     stale = sorted(key for key in DECLARED_EXCEPTIONS if key not in taken)
     assert not stale, f"declared exceptions no edge takes any more: {stale}"
 
 
-def test_the_whitebox_backend_import_stays_deferred() -> None:
+def test_the_whitebox_backend_import_stays_deferred(terrain_edges) -> None:
     """A module-level import of the backend would pull Whitebox into the port."""
     backend_edges = [
         edge
-        for edge in _terrain_edges()
+        for edge in terrain_edges
         if edge.target_module.startswith("hydromodpy.spatial.delineation")
     ]
     assert backend_edges, "the Whitebox engine no longer resolves its backend"

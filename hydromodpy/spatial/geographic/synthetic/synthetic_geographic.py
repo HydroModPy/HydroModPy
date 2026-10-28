@@ -7,12 +7,12 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-import rasterio
 from pyproj import Transformer
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from shapely.geometry import box
 
+from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.spatial.geographic.core.derived_features import (
     DomainGeographicContext,
     GeographicBoundaryFeatures,
@@ -88,8 +88,8 @@ def _resolve_lon_lat_metadata(
 
     centroid_long_lat = (centroid_lon, centroid_lat)
     centroid_long_lat_greenwich = [centroid_lon, centroid_lat]
-    if centroid_long_lat_greenwich[1] < 0.0:
-        centroid_long_lat_greenwich[1] += 360.0
+    if centroid_long_lat_greenwich[0] < 0.0:
+        centroid_long_lat_greenwich[0] += 360.0
 
     return {
         "centroid_long_lat": centroid_long_lat,
@@ -233,19 +233,18 @@ class SyntheticGeographic:
             "driver": "GTiff",
             "height": int(values.shape[0]),
             "width": int(values.shape[1]),
-            "count": 1,
             "dtype": "float32",
             "crs": self.crs_proj,
             "transform": transform,
             "nodata": float(self.config.grid.nodata),
         }
+        band = np.asarray(values, dtype=np.float32)
         for raster_path in (
             self.paths.watershed_dem,
             self.paths.watershed_buff_dem,
             self.paths.watershed_box_buff_dem,
         ):
-            with rasterio.open(str(raster_path), "w", **profile) as dst:
-                dst.write(np.asarray(values, dtype=np.float32), 1)
+            write_band(raster_path, band, profile)
 
     def _write_polygons_and_contour(self, *, transform) -> None:
         """Write the rectangular polygons and their boundary to canonical files."""
@@ -283,14 +282,12 @@ class SyntheticGeographic:
             "driver": "GTiff",
             "height": self.y_pixel,
             "width": self.x_pixel,
-            "count": 1,
             "dtype": "float32",
             "crs": self.crs_proj,
             "transform": transform,
             "nodata": 0.0,
         }
-        with rasterio.open(str(self.paths.watershed_contour_tif), "w", **profile) as dst:
-            dst.write(contour_values, 1)
+        write_band(self.paths.watershed_contour_tif, contour_values, profile)
 
     def build_georeferencing(self) -> dict[str, object]:
         """Expose historical georeferencing metadata used by older consumers."""

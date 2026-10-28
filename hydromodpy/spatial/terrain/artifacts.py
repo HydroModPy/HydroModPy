@@ -22,6 +22,7 @@ import rasterio.errors
 import rasterio.windows
 
 from hydromodpy.core.exceptions import TerrainProductError
+from hydromodpy.core.io.crs import crs_text
 from hydromodpy.spatial.terrain.port import MASK_INSIDE, MASK_NODATA
 
 
@@ -91,9 +92,12 @@ def is_stream_cell(path: str | Path, x: float, y: float) -> bool:
 
 
 def raster_crs(path: str | Path) -> str:
-    """Return the CRS a raster carries, as a string, or an empty string."""
+    """Return the CRS a raster carries, as a string, or an empty string.
+
+    Empty and not ``None``, because a :class:`ConditionedDem` carries its CRS as a string.
+    """
     with rasterio.open(str(path)) as src:
-        return str(src.crs) if src.crs else ""
+        return crs_text(src.crs) or ""
 
 
 def raster_nodata(path: str | Path) -> float:

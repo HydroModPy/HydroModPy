@@ -406,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     for case_id in selected_case_ids:
         summary = summaries[case_id]
-        print(f"[{case_id}] catch_folder={summary['catch_folder']}")
+        print(f"[{case_id}] project_root={summary['project_root']}")
         print(f"[{case_id}] watershed_shp={summary['watershed_shp']}")
         print(f"[{case_id}] watershed_box_buff_dem={summary['watershed_box_buff_dem']}")
         print(

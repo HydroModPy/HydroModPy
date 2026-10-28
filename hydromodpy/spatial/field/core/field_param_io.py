@@ -7,12 +7,15 @@ then build a `FieldParam` value-holder via `FieldParam.from_dict`.
 
 from __future__ import annotations
 
-import csv
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.spatial.field.core._field_param_resolution import (
+    _load_values_mapping_csv,
+    _resolve_relative_to,
+)
 from hydromodpy.spatial.field.core.field_param import SUPPORTED_KINDS, FieldParam
 from hydromodpy.spatial.field.core.field_param_config import (
     validate_field_param_toml_data,
@@ -40,71 +43,6 @@ def _optional_nested_section(
         return _get_nested_section(payload, dotted_path)
     except (KeyError, ValueError):
         return None
-
-
-def _resolve_relative_to(path_like: str | Path, *, base_dir: Path) -> Path:
-    """Resolve one path relative to a base directory if not absolute."""
-    raw = Path(str(path_like))
-    if raw.is_absolute():
-        return raw
-    return (base_dir / raw).resolve()
-
-
-def _load_values_mapping_csv(
-    csv_path: str | Path,
-    *,
-    key_column: str = "zone_key",
-    value_column: str = "value",
-) -> dict[str, float]:
-    """
-    Load one key->value mapping from CSV.
-
-    Duplicate keys are rejected to avoid ambiguous parameter assignment.
-    """
-    key_col = str(key_column).strip()
-    val_col = str(value_column).strip()
-    if key_col == "" or val_col == "":
-        raise ValueError("CSV key/value column names cannot be empty")
-
-    path = Path(csv_path)
-    if not path.exists():
-        raise FileNotFoundError(f"CSV values file not found: {path}")
-
-    with path.open("r", encoding="utf-8-sig", newline="") as stream:
-        reader = csv.DictReader(stream)
-        headers = [str(h).strip() for h in (reader.fieldnames or [])]
-        if key_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing key column '{key_col}'. "
-                f"Available columns: {headers}"
-            )
-        if val_col not in headers:
-            raise KeyError(
-                f"CSV values file '{path}' is missing value column '{val_col}'. "
-                f"Available columns: {headers}"
-            )
-
-        values: dict[str, float] = {}
-        for i, row in enumerate(reader, start=2):
-            key_raw = row.get(key_col, "")
-            key = str(key_raw).strip()
-            if key == "":
-                continue
-            if key in values:
-                raise ValueError(f"Duplicate key '{key}' in CSV mapping '{path}' at line {i}.")
-            raw_value = row.get(val_col, "")
-            try:
-                value = float(raw_value)
-            except Exception as exc:
-                raise ValueError(
-                    f"Invalid numeric value in CSV mapping '{path}' line {i}: "
-                    f"column '{val_col}' -> {raw_value!r}"
-                ) from exc
-            values[key] = value
-
-    if len(values) == 0:
-        raise ValueError(f"CSV values file '{path}' does not define any key/value pair")
-    return values
 
 
 def field_param_from_toml(toml_path: str | Path, section: str = "field") -> FieldParam:

@@ -12,55 +12,28 @@ from hydromodpy.spatial.field.core.mesh_cells import (
     mesh_cells,
 )
 from hydromodpy.spatial.mesh.model.cell_types import CellType
-from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import (
-    MeshIdentity,
-    PlanarCellMesh,
-    build_planar_cell_mesh,
-)
 from tests._helpers.cell_meshes import TEST_CRS_WKT
+from tests._helpers.field_cases import planar_mesh
 
 _VERTICES = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [0.0, 3.0]])
 
 
-def _cell_mesh(hydro: HydroMesh, centers: np.ndarray) -> PlanarCellMesh:
-    return build_planar_cell_mesh(
-        hydro,
-        centers,
-        center_kind="generator",
-        crs_wkt=TEST_CRS_WKT,
-        identity=MeshIdentity("test", "0", "", None),
-        declarations={
-            "graded": False,
-            "exact_faces": False,
-            "deterministic": True,
-            "needs_cache": False,
-        },
-    )
-
-
-def _two_polygon_mesh() -> PlanarCellMesh:
+def _two_polygon_mesh():
     """A left pentagon and a right quad sharing the edge (1, 0)-(1, 1), with their seeds."""
-    verts = np.array(
-        [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-0.3, 0.5], [0.0, 0.0], [2.0, 0.0], [2.0, 1.0]],
-        dtype=float,
-    )
-    left = np.array([0, 1, 2, 3, 4])
-    right = np.array([0, 5, 6, 1])
-    hydro = HydroMesh(
-        vertices=verts,
-        cell_blocks=(CellBlock(cell_type=CellType.POLYGON, connectivity=(left, right)),),
-    )
-    return _cell_mesh(hydro, np.array([[0.3, 0.5], [1.5, 0.5]]))
+    verts = [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [-0.3, 0.5], [0.0, 0.0], [2.0, 0.0], [2.0, 1.0]]
+    cells = [[0, 1, 2, 3, 4], [0, 5, 6, 1]]
+    return planar_mesh(verts, cells, CellType.POLYGON, centers=np.array([[0.3, 0.5], [1.5, 0.5]]))
 
 
 def test_triangles_are_read_as_triangles_with_their_nodes_in_order() -> None:
-    hydro = HydroMesh(
-        vertices=_VERTICES,
-        cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [0, 2, 3]])),),
+    cell_mesh = planar_mesh(
+        _VERTICES,
+        [[0, 1, 2], [0, 2, 3]],
+        CellType.TRIANGLE,
+        centers=np.array([[1.3, 1.0], [0.7, 2.0]]),
     )
 
-    cells = mesh_cells(_cell_mesh(hydro, np.array([[1.3, 1.0], [0.7, 2.0]])))
+    cells = mesh_cells(cell_mesh)
 
     assert [cell.kind for cell in cells] == ["triangle", "triangle"]
     assert [cell.index for cell in cells] == [0, 1]
@@ -70,12 +43,7 @@ def test_triangles_are_read_as_triangles_with_their_nodes_in_order() -> None:
 
 
 def test_quadrilaterals_keep_their_kind() -> None:
-    hydro = HydroMesh(
-        vertices=_VERTICES,
-        cell_blocks=(CellBlock(CellType.QUADRILATERAL, np.array([[0, 1, 2, 3]])),),
-    )
-
-    (cell,) = mesh_cells(_cell_mesh(hydro, np.array([[1.0, 1.5]])))
+    (cell,) = mesh_cells(planar_mesh(_VERTICES, [[0, 1, 2, 3]], CellType.QUADRILATERAL))
 
     assert cell.kind == "quadrilateral"
     np.testing.assert_array_equal(cell.vertices, _VERTICES)

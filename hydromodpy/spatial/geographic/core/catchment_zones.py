@@ -22,7 +22,9 @@ import numpy as np
 import rasterio
 from rasterio.features import rasterize
 
-from hydromodpy.core.io.crs import ensure_crs
+from hydromodpy.core.io.crs import crs_text
+from hydromodpy.core.io.raster_io import write_band
+from hydromodpy.core.nodata import valid_cells
 
 
 class CatchmentZoneCode(IntEnum):
@@ -54,13 +56,14 @@ def _persist_zone_codes(
     """Persist one zone raster to disk when an output path is requested."""
     if zone_codes_tif_path is None:
         return None
-    out_path = Path(zone_codes_tif_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    profile = profile.copy()
-    profile.update(count=1, dtype=np.uint8, nodata=int(zone_nodata_code))
-    with rasterio.open(str(out_path), "w", **profile) as dst:
-        dst.write(zone_codes, 1)
-    ensure_crs(out_path, crs_project or ref_crs)
+    out_path = write_band(
+        zone_codes_tif_path,
+        zone_codes,
+        profile,
+        crs=crs_project or ref_crs,
+        dtype=np.uint8,
+        nodata=int(zone_nodata_code),
+    )
     return str(out_path)
 
 
@@ -101,7 +104,7 @@ def build_catchment_zone_codes(
         transform = ref_src.transform
         shape = (ref_src.height, ref_src.width)
         profile = ref_src.profile.copy()
-        ref_crs = ref_src.crs.to_string() if ref_src.crs is not None else None
+        ref_crs = crs_text(ref_src.crs)
 
     zone_codes = np.full(shape, fill_value=int(zone_nodata_code), dtype=np.uint8)
 
@@ -157,11 +160,9 @@ def build_uniform_zone_codes(
         nodata = ref_src.nodata
         shape = (ref_src.height, ref_src.width)
         profile = ref_src.profile.copy()
-        ref_crs = ref_src.crs.to_string() if ref_src.crs is not None else None
+        ref_crs = crs_text(ref_src.crs)
 
-    valid_mask = np.isfinite(values)
-    if nodata is not None:
-        valid_mask &= values != float(nodata)
+    valid_mask = valid_cells(values, nodata)
 
     zone_codes = np.full(shape, fill_value=int(zone_nodata_code), dtype=np.uint8)
     zone_codes[valid_mask] = int(CatchmentZoneCode.UNIFORM)

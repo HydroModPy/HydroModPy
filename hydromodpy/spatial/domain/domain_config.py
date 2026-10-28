@@ -74,32 +74,5 @@ class DomainConfig(HydroModelBase):
     @field_validator("zone_ids")
     @classmethod
     def _normalize_zone_ids(cls, value: list[str]) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        for raw_item in value:
-            zone_id = str(raw_item).strip().lower()
-            if zone_id == "":
-                raise ValueError("domain.zone_ids cannot contain empty values")
-            if zone_id in seen:
-                continue
-            seen.add(zone_id)
-            out.append(zone_id)
-        return out
-
-    @field_validator("supports")
-    @classmethod
-    def _normalize_support_keys(
-        cls, value: dict[str, DomainSupportConfig]
-    ) -> dict[str, DomainSupportConfig]:
-        out: dict[str, DomainSupportConfig] = {}
-        seen: set[str] = set()
-        for raw_key, support_cfg in value.items():
-            support_id = str(raw_key).strip()
-            if support_id == "":
-                raise ValueError("domain.supports cannot contain empty ids")
-            normalized_key = support_id.lower()
-            if normalized_key in seen:
-                raise ValueError(f"Duplicate domain support id '{support_id}'")
-            seen.add(normalized_key)
-            out[support_id] = support_cfg
-        return out
+        """Keep the first of a zone id written twice, in the order written."""
+        return list(dict.fromkeys(value))

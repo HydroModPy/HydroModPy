@@ -18,7 +18,6 @@ import shutil
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 
 # HydroModPy
@@ -180,8 +179,6 @@ class Subbasin:
         shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
         shp.to_file(watershed_shp)
         self._backend.raster.polygon_area(watershed_shp)
-        area = gpd.read_file(watershed_shp).AREA[0] / 1000000
-        area = np.abs(area)
         # Create shapefile polyline of the watershed
         watershed_contour_shp = outpath + "watershed_contour.shp"
         self._backend.delineation.polygons_to_lines(watershed_shp, watershed_contour_shp)

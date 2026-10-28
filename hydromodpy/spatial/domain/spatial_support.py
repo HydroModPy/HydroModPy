@@ -12,14 +12,32 @@ from hydromodpy.spatial.domain.spatial_support_config import (
     GeneratedRingsSupportConfig,
     GeologySupportConfig,
 )
-from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
+from hydromodpy.spatial.field.core.cell_sampling import sampled_zone_fractions
 from hydromodpy.spatial.field.core.field_spatial import Field
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 from hydromodpy.spatial.raster_support import RasterSupport
+
+
+def _sampled_on_mesh(
+    field: RasterZonesSupportField | GeneratedBandsSupportField | GeneratedRingsSupportField,
+    cell_mesh: PlanarCellMesh,
+    cell_samples_per_axis: int,
+    *,
+    total: Literal["samples", "labelled"] = "samples",
+) -> WeightedAverageFieldDiscretization:
+    """Zone shares of each cell of ``cell_mesh``, read on sample points of the cell."""
+    fractions = sampled_zone_fractions(
+        cell_mesh, field.zone_id, field.zone_keys, cell_samples_per_axis, total=total
+    )
+    return WeightedAverageFieldDiscretization(
+        mesh=cell_mesh,
+        field_id=field.identifier,
+        zone_keys=field.zone_keys,
+        fractions_by_zone=fractions,
+    )
 
 
 class AliasedSpatialSupportField(Field):
@@ -149,29 +167,8 @@ class RasterZonesSupportField(Field):
         return out.reshape(x_arr.shape)
 
     def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
-        fractions_by_zone = {
-            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
-        }
-        n_sub = max(2, int(cell_samples_per_axis))
-
-        for cell in mesh_cells(cell_mesh):
-            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
-            zone_ids = self.zone_id(x_samples, y_samples)
-            total = max(int(np.count_nonzero(zone_ids != "")), 1)
-            for zone_key in self.zone_keys:
-                count = int(np.count_nonzero(zone_ids == zone_key))
-                fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
-
-        mesh_values = {
-            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
-            for zone_key, values in fractions_by_zone.items()
-        }
-        return WeightedAverageFieldDiscretization(
-            mesh=cell_mesh,
-            field_id=self.identifier,
-            zone_keys=self.zone_keys,
-            fractions_by_zone=mesh_values,
-        )
+        # A point outside the raster or on nodata counts in no zone.
+        return _sampled_on_mesh(self, cell_mesh, cell_samples_per_axis, total="labelled")
 
 
 class GeneratedBandsSupportField(Field):
@@ -206,28 +203,7 @@ class GeneratedBandsSupportField(Field):
         return labels[indexes]
 
     def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
-        fractions_by_zone = {
-            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
-        }
-        n_sub = max(2, int(cell_samples_per_axis))
-        for cell in mesh_cells(cell_mesh):
-            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
-            zone_ids = self.zone_id(x_samples, y_samples)
-            total = max(zone_ids.size, 1)
-            for zone_key in self.zone_keys:
-                count = int(np.count_nonzero(zone_ids == zone_key))
-                fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
-
-        mesh_values = {
-            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
-            for zone_key, values in fractions_by_zone.items()
-        }
-        return WeightedAverageFieldDiscretization(
-            mesh=cell_mesh,
-            field_id=self.identifier,
-            zone_keys=self.zone_keys,
-            fractions_by_zone=mesh_values,
-        )
+        return _sampled_on_mesh(self, cell_mesh, cell_samples_per_axis)
 
 
 class GeneratedRingsSupportField(Field):
@@ -276,28 +252,7 @@ class GeneratedRingsSupportField(Field):
         return labels[indexes]
 
     def on_mesh(self, cell_mesh: PlanarCellMesh, *, cell_samples_per_axis: int = 10):
-        fractions_by_zone = {
-            zone_key: np.zeros(cell_mesh.n_cells, dtype=float) for zone_key in self.zone_keys
-        }
-        n_sub = max(2, int(cell_samples_per_axis))
-        for cell in mesh_cells(cell_mesh):
-            x_samples, y_samples = sample_points_in_cell(cell, n_sub_per_axis=n_sub)
-            zone_ids = self.zone_id(x_samples, y_samples)
-            total = max(zone_ids.size, 1)
-            for zone_key in self.zone_keys:
-                count = int(np.count_nonzero(zone_ids == zone_key))
-                fractions_by_zone[zone_key][cell.index] = float(count) / float(total)
-
-        mesh_values = {
-            zone_key: np.asarray(cell_values(cell_mesh, values), dtype=float)
-            for zone_key, values in fractions_by_zone.items()
-        }
-        return WeightedAverageFieldDiscretization(
-            mesh=cell_mesh,
-            field_id=self.identifier,
-            zone_keys=self.zone_keys,
-            fractions_by_zone=mesh_values,
-        )
+        return _sampled_on_mesh(self, cell_mesh, cell_samples_per_axis)
 
 
 @dataclass(slots=True)
@@ -345,11 +300,9 @@ class GeneratedBandsSupportProvider:
         self,
         *,
         support_id: str,
-        config: DomainSupportConfig,
+        config: GeneratedBandsSupportConfig,
         context: SupportBuildContext,
     ) -> object:
-        if not isinstance(config, GeneratedBandsSupportConfig):
-            raise TypeError("generated_bands provider requires GeneratedBandsSupportConfig")
         surface_topo = getattr(context.domain, "surface_topo", None)
         support = getattr(surface_topo, "support", None)
         if not isinstance(support, RasterSupport):
@@ -399,11 +352,9 @@ class GeneratedRingsSupportProvider:
         self,
         *,
         support_id: str,
-        config: DomainSupportConfig,
+        config: GeneratedRingsSupportConfig,
         context: SupportBuildContext,
     ) -> object:
-        if not isinstance(config, GeneratedRingsSupportConfig):
-            raise TypeError("generated_rings provider requires GeneratedRingsSupportConfig")
         surface_topo = getattr(context.domain, "surface_topo", None)
         support = getattr(surface_topo, "support", None)
         if not isinstance(support, RasterSupport):
@@ -412,12 +363,12 @@ class GeneratedRingsSupportProvider:
 
         center_x = (
             float(config.center_x)
-            if getattr(config, "center_x", None) is not None
+            if config.center_x is not None
             else 0.5 * (float(support.xmin) + float(support.xmax))
         )
         center_y = (
             float(config.center_y)
-            if getattr(config, "center_y", None) is not None
+            if config.center_y is not None
             else 0.5 * (float(support.ymin) + float(support.ymax))
         )
         max_radius = min(
@@ -429,7 +380,7 @@ class GeneratedRingsSupportProvider:
         if max_radius <= 0.0:
             raise ValueError("Generated rings center must lie strictly inside the domain extent.")
 
-        if getattr(config, "coordinate_mode", "relative") == "relative":
+        if config.coordinate_mode == "relative":
             radii_abs = [float(value) * max_radius for value in config.radii]
         else:
             radii_abs = [float(value) for value in config.radii]
@@ -462,20 +413,11 @@ class CatchmentZonesSupportProvider:
         self,
         *,
         support_id: str,
-        config: DomainSupportConfig,
+        config: CatchmentZonesSupportConfig,
         context: SupportBuildContext,
     ) -> object:
-        if not isinstance(config, CatchmentZonesSupportConfig):
-            raise TypeError("catchment_zones provider requires CatchmentZonesSupportConfig")
-
         domain = context.domain
-        source_zone = None
-        getter = getattr(domain, "get_zone", None)
-        if callable(getter):
-            source_zone = getter(config.source_zone_id)
-        if source_zone is None:
-            zones = getattr(domain, "zones", {})
-            source_zone = zones.get(str(config.source_zone_id).strip().lower())
+        source_zone = domain.get_zone(config.source_zone_id)
         if source_zone is None:
             raise ValueError(
                 f"Catchment support '{support_id}' requires domain zone '{config.source_zone_id}'."
@@ -511,12 +453,9 @@ class GeologySupportProvider:
         self,
         *,
         support_id: str,
-        config: DomainSupportConfig,
+        config: GeologySupportConfig,
         context: SupportBuildContext,
     ) -> object:
-        if not isinstance(config, GeologySupportConfig):
-            raise TypeError("geology provider requires GeologySupportConfig")
-
         loaded_data = context.loaded_data
         geology = getattr(loaded_data, "geology", None) if loaded_data is not None else None
         if geology is None:

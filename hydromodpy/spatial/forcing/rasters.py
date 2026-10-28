@@ -1,4 +1,4 @@
-"""xarray and file-based field discretization on cell centres."""
+"""xarray and file-based fields on cell centres, and their spatial mean."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from hydromodpy.spatial.forcing.sources import (
     interpolate_on_cells,
     interpolate_stack_on_cells,
     pick_field_variable,
+    refuse_nodata_under_cells,
     unit_to_m_per_s_factor,
 )
 
@@ -30,12 +31,20 @@ _GEOTIFF_SUFFIXES = (".tif", ".tiff")
 _ACCEPTED_FILES = ", ".join((*_NETCDF_SUFFIXES, *_GEOTIFF_SUFFIXES))
 
 
-def _ensure_finite_field_values(values: object, *, label: str) -> np.ndarray:
-    """Return finite field values as a float array."""
+_DATASET = "dataset"
+"""How the refusals name a gridded source held in memory."""
+
+
+def _field_values(values: object, *, label: str, finite: bool = False) -> np.ndarray:
+    """Return field values as a float array; a nodata pixel is NaN.
+
+    ``finite`` refuses a nodata pixel too, for the spatial mean, which reads
+    every pixel.
+    """
     arr = np.asarray(values, dtype=float)
     if arr.size == 0:
         raise ValueError(f"{label} cannot be empty.")
-    if not np.all(np.isfinite(arr)):
+    if finite and not np.all(np.isfinite(arr)):
         raise ValueError(f"{label} must contain only finite numeric values.")
     return arr
 
@@ -103,8 +112,14 @@ def discretize_from_xarray(
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
+    source: str = _DATASET,
 ) -> dict[int, np.ndarray]:
-    """Reproject an xarray Dataset onto the cell centres, one value per cell."""
+    """Reproject an xarray Dataset onto the cell centres, one value per cell.
+
+    A nodata pixel (NaN once decoded) is refused where a cell reads it, see
+    :func:`refuse_nodata_under_cells`. A period mean is NaN on a pixel that is
+    nodata on any of its days.
+    """
     # Identify the data variable to use.
     var_name = pick_field_variable(ds)
     if var_name is None:
@@ -116,9 +131,16 @@ def discretize_from_xarray(
     has_time = "time" in da.dims
     if not has_time:
         # Static field: apply to all periods.
-        source_values = _ensure_finite_field_values(
-            da.values,
-            label="recharge gridded forcing values",
+        source_values = _field_values(da.values, label="gridded forcing values")
+        refuse_nodata_under_cells(
+            source_values,
+            da.coords[x_dim].values,
+            da.coords[y_dim].values,
+            centers,
+            method,
+            source=source,
+            slice_labels=["the static field"],
+            mesh=mesh,
         )
         on_cells = (
             interpolate_on_cells(
@@ -137,6 +159,7 @@ def discretize_from_xarray(
     # slice stack in one pass (shared nearest-neighbor plan across periods).
     time_coords = pd.DatetimeIndex(da.coords["time"].values)
     slices: list[np.ndarray] = []
+    labels: list[str] = []
 
     if period_bounds is not None:
         order = np.argsort(time_coords.asi8, kind="stable")
@@ -150,28 +173,38 @@ def discretize_from_xarray(
             label="The gridded forcing record",
         )
         for kper, (inside, fill) in enumerate(zip(periods.inside, periods.fill, strict=True)):
-            label = f"recharge gridded forcing values for stress period {kper}"
+            label = f"gridded forcing values for stress period {kper}"
             if inside.size:
                 selected = da.isel(time=order[inside])
-                _ensure_finite_field_values(selected.values, label=label)
-                slice_2d = selected.mean(dim="time").values
+                _field_values(selected.values, label=label)
+                slice_2d = selected.mean(dim="time", skipna=False).values
             else:
-                slice_2d = _ensure_finite_field_values(
-                    da.isel(time=int(order[int(fill)])).values, label=label
-                )
+                slice_2d = _field_values(da.isel(time=int(order[int(fill)])).values, label=label)
             slices.append(np.asarray(slice_2d, dtype=float))
+            labels.append(f"stress period {kper}")
     else:
         # No simulation window: one array per time step.
         for kper in range(min(len(time_coords), 1000)):
-            slice_2d = _ensure_finite_field_values(
+            slice_2d = _field_values(
                 da.isel(time=kper).values,
-                label=f"recharge gridded forcing values for stress period {kper}",
+                label=f"gridded forcing values for stress period {kper}",
             )
             slices.append(np.asarray(slice_2d, dtype=float))
+            labels.append(f"stress period {kper}")
 
     if not slices:
         return {}
 
+    refuse_nodata_under_cells(
+        np.stack(slices),
+        da.coords[x_dim].values,
+        da.coords[y_dim].values,
+        centers,
+        method,
+        source=source,
+        slice_labels=labels,
+        mesh=mesh,
+    )
     interpolated = interpolate_stack_on_cells(
         np.stack(slices),
         da.coords[x_dim].values,
@@ -210,6 +243,7 @@ def discretize_from_file(
                 unit_factor=unit_factor,
                 method=method,
                 mesh=mesh,
+                source=path.name,
             )
         finally:
             ds.close()
@@ -245,7 +279,9 @@ def discretize_geotiff(
 ) -> dict[int, np.ndarray]:
     """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centres.
 
-    Multi-band GeoTIFFs are treated as temporal: one band per time step.
+    Multi-band GeoTIFFs are treated as temporal: one band per time step. A
+    pixel equal to the declared nodata becomes NaN and is refused where a cell
+    reads it, see :func:`refuse_nodata_under_cells`.
     """
     import rasterio
 
@@ -258,10 +294,11 @@ def discretize_geotiff(
 
         if n_bands == 1:
             # Static single-band TIF.
-            band = _ensure_finite_field_values(
-                src.read(1),
-                label="recharge GeoTIFF forcing values",
-            )
+            band = _field_values(_read_band(src, 1), label="GeoTIFF forcing values")
+            refuse_nodata_under_cells(
+                band, src_x, src_y, centers, method,
+                source=path.name, slice_labels=["band 1"], mesh=mesh,
+            )  # fmt: skip
             on_cells = (
                 interpolate_on_cells(band, src_x, src_y, centers, method, mesh=mesh) * unit_factor
             )
@@ -270,13 +307,14 @@ def discretize_geotiff(
         # Multi-band: one band per time step, interpolated as one stack.
         bands = np.stack(
             [
-                _ensure_finite_field_values(
-                    src.read(b),
-                    label=f"recharge GeoTIFF forcing band {b}",
-                )
+                _field_values(_read_band(src, b), label=f"GeoTIFF forcing band {b}")
                 for b in range(1, n_bands + 1)
             ]
         )
+    refuse_nodata_under_cells(
+        bands, src_x, src_y, centers, method,
+        source=path.name, slice_labels=[f"band {b}" for b in range(1, n_bands + 1)], mesh=mesh,
+    )  # fmt: skip
     band_arrays = list(
         interpolate_stack_on_cells(bands, src_x, src_y, centers, method, mesh=mesh) * unit_factor
     )
@@ -305,3 +343,77 @@ def discretize_geotiff(
 
     # No simulation window: one band per kper.
     return {kper: band_arrays[kper].copy() for kper in range(min(nper, len(band_arrays)))}
+
+
+def _read_band(src: Any, band: int) -> np.ndarray:
+    """Read one band as floats, the pixels equal to the declared nodata as NaN."""
+    values = src.read(band).astype(float)
+    if src.nodata is not None:
+        values[values == src.nodata] = np.nan
+    return values
+
+
+def spatial_mean_one_field(field_rec: Any) -> pd.Series | None:
+    """Compute the spatial mean of a single FieldRecord.
+
+    Returns a pd.Series indexed by datetime (mm/day) or None.
+    """
+    data = field_rec.data
+
+    if isinstance(data, (str, Path)):
+        return spatial_mean_from_file(Path(data))
+
+    import xarray as xr
+
+    if isinstance(data, xr.Dataset):
+        return spatial_mean_from_xarray(data)
+    return None
+
+
+def spatial_mean_from_xarray(ds: xr.Dataset) -> pd.Series | None:
+    """Spatial mean of an xarray Dataset returned as pd.Series."""
+    var_name = pick_field_variable(ds)
+    if var_name is None:
+        return None
+    da = ds[var_name]
+    x_dim, y_dim = find_xy_dims(da)
+    del x_dim, y_dim  # values are not needed; identification validates dims.
+    _field_values(da.values, label="gridded forcing values", finite=True)
+
+    has_time = "time" in da.dims
+    if not has_time:
+        mean_val = float(da.values.mean())
+        return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
+
+    # Average over spatial dimensions, keep time.
+    spatial_dims = [d for d in da.dims if d != "time"]
+    mean_ts = da.mean(dim=spatial_dims).values
+    time_index = pd.DatetimeIndex(da.coords["time"].values)
+    return pd.Series(mean_ts.astype(float), index=time_index)
+
+
+def spatial_mean_from_file(path: Path) -> pd.Series | None:
+    """Spatial mean from a file (NetCDF or GeoTIFF)."""
+    suffix = path.suffix.lower()
+    if suffix in (".nc", ".nc4", ".netcdf"):
+        import xarray as xr
+
+        ds = xr.open_dataset(path)
+        try:
+            return spatial_mean_from_xarray(ds)
+        finally:
+            ds.close()
+
+    if suffix in (".tif", ".tiff"):
+        import rasterio
+
+        with rasterio.open(path) as src:
+            band = _field_values(
+                src.read(1),
+                label="GeoTIFF forcing values",
+                finite=True,
+            )
+            mean_val = float(np.mean(band))
+            return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
+
+    return None

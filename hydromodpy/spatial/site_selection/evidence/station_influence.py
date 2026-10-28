@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from hydromodpy.spatial.site_selection.domain.attribute_values import first_text
+
 STATION_INFLUENCE_FIELDS: tuple[str, ...] = (
     "influence_generale_site",
     "commentaire_influence_generale_site",
@@ -111,7 +113,7 @@ def station_influence_diagnostics(
         "local_influence",
         "flow_station_local_influence",
     )
-    general_comment = _first_text(
+    general_comment = first_text(
         attributes,
         "commentaire_influence_generale_site",
         "flow_station_commentaire_influence_generale_site",
@@ -120,7 +122,7 @@ def station_influence_diagnostics(
         "general_influence_comment",
         "flow_station_general_influence_comment",
     )
-    local_comment = _first_text(
+    local_comment = first_text(
         attributes,
         "commentaire_influence_locale_station",
         "flow_station_commentaire_influence_locale_station",
@@ -129,7 +131,7 @@ def station_influence_diagnostics(
         "local_influence_comment",
         "flow_station_local_influence_comment",
     )
-    station_comment = _first_text(
+    station_comment = first_text(
         attributes,
         "commentaire_station",
         "flow_station_commentaire_station",
@@ -242,17 +244,6 @@ def _first_value(attributes: Mapping[str, Any], *keys: str) -> object | None:
         value = attributes.get(key)
         if value not in (None, ""):
             return value
-    return None
-
-
-def _first_text(attributes: Mapping[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
     return None
 
 

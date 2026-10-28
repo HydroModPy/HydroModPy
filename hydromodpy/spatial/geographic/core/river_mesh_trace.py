@@ -12,11 +12,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import geopandas as gpd
-from shapely.geometry import GeometryCollection, LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString
+from shapely.geometry.base import BaseMultipartGeometry
 from shapely.ops import unary_union
+
+if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
 
 RiverMeshTraceSourceKind = Literal[
     "geographic_generated",
@@ -42,20 +46,27 @@ def _iter_non_empty_lines(geometries: Iterable[LineString | MultiLineString]) ->
     return lines
 
 
-def _extract_lines(geometry) -> list[LineString]:
-    """Extract ``LineString`` primitives from one geometry recursively."""
-    if geometry is None or geometry.is_empty:
-        return []
-    if isinstance(geometry, LineString):
-        return [] if geometry.is_empty else [geometry]
-    if isinstance(geometry, MultiLineString):
-        return [line for line in geometry.geoms if not line.is_empty]
-    if isinstance(geometry, GeometryCollection):
-        lines: list[LineString] = []
-        for child in geometry.geoms:
-            lines.extend(_extract_lines(child))
-        return lines
-    return []
+def linear_parts(
+    geometries: Iterable[BaseGeometry | None], *, refusal: str | None = None
+) -> list[LineString]:
+    """Split geometries into their non-empty lines, a ``LinearRing`` included.
+
+    Multi-part geometries and collections are opened at any depth, and a
+    ``None`` geometry is skipped. A part that is not a line is skipped too,
+    unless *refusal* is given: it then raises ``ValueError`` with that reason.
+    """
+    lines: list[LineString] = []
+    for geometry in geometries:
+        if geometry is None:
+            continue
+        if isinstance(geometry, LineString):
+            if not geometry.is_empty:
+                lines.append(geometry)
+        elif isinstance(geometry, BaseMultipartGeometry):
+            lines.extend(linear_parts(geometry.geoms, refusal=refusal))
+        elif refusal is not None:
+            raise ValueError(f"{refusal}; got a {geometry.geom_type}.")
+    return lines
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,9 +198,7 @@ def build_river_mesh_trace_from_vector(
     else:
         crs_wkt = rivers.crs.to_wkt()
 
-    lines: list[LineString] = []
-    for geometry in geometries:
-        lines.extend(_extract_lines(geometry))
+    lines = linear_parts(geometries)
     if not lines:
         return None
 

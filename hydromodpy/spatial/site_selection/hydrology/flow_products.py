@@ -54,15 +54,11 @@ def build_site_selection_flow_products(
 ) -> SiteSelectionFlowProducts:
     """Build DEM flow products by delegating to existing spatial code.
 
-    This function is intentionally thin. It validates the site-selection
-    contract and calls ``build_regional_flow_products`` instead of duplicating
-    D8, filling/breaching, or accumulation logic.
+    This function is intentionally thin. It calls ``build_regional_flow_products``
+    instead of duplicating D8, filling/breaching, or accumulation logic. The
+    ``Literal`` types of ``HydrologyConfig`` already restrict ``method`` to
+    ``"dem_only"`` and ``flow_algorithm`` to ``"d8"``.
     """
-
-    if hydrology.method != "dem_only":
-        raise ValueError("site selection currently supports hydrology.method='dem_only' only.")
-    if hydrology.flow_algorithm != "d8":
-        raise ValueError("site selection currently supports flow_algorithm='d8' only.")
 
     dem_correction_type = hydrology.dem_correction_type
     products = builder(

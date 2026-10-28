@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from hydromodpy.spatial.site_selection.config import GeologyCriteriaConfig
+from hydromodpy.spatial.site_selection.domain.attribute_values import first_text
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,
-    _first_text,
 )
 from hydromodpy.spatial.site_selection.evidence.refs import geology_evidence_ref
 
@@ -22,7 +22,7 @@ def evaluate_geology_criterion(
 ) -> CriteriaComponent:
     """Report or score geology evidence attached to a candidate basin."""
 
-    geology_value = _first_text(
+    geology_value = first_text(
         attributes,
         "geology_class",
         "dominant_geology",
@@ -32,10 +32,10 @@ def evaluate_geology_criterion(
     )
     evidence = {
         "geology_class": geology_value,
-        "source_name": _first_text(attributes, "geology_source"),
+        "source_name": first_text(attributes, "geology_source"),
         "evidence_ref": geology_evidence_ref(
             site_id=site_id,
-            source_layer=_first_text(attributes, "geology_source"),
+            source_layer=first_text(attributes, "geology_source"),
             geology_class=geology_value,
         ),
     }

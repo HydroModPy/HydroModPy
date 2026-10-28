@@ -113,10 +113,7 @@ def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> 
     and was missing from the declaration, so the digest of the step did not
     cover a file a resume refuses to run without.
     """
-    from hydromodpy.spatial.geographic.pipeline import (
-        _raster_products_from_paths,
-        _required_geographic_cache_artifacts,
-    )
+    from hydromodpy.spatial.geographic.pipeline import _required_geographic_cache_artifacts
     from hydromodpy.workflow.steps.setup import BuildGeographicStep
 
     step = BuildGeographicStep()
@@ -124,11 +121,8 @@ def test_the_step_declares_every_file_a_rebuild_reads(built_workspace: Path) -> 
     declared = {Path(item) for item in step.artifacts(state)}
 
     ctx = state.get("ctx")
-    paths = ctx.setup.geographic._paths
     required = _required_geographic_cache_artifacts(
-        config=ctx.cfg.geographic,
-        paths=paths,
-        raster_products=_raster_products_from_paths(paths),
+        config=ctx.cfg.geographic, paths=ctx.setup.geographic._paths
     )
     missing = [str(item) for item in required if Path(item) not in declared]
     assert not missing, f"required by a reuse but not declared: {missing}"

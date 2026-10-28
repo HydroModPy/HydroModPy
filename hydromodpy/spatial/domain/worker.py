@@ -1,33 +1,12 @@
 """``domain-build``, executed: a terrain and a depth model in, a geometry out.
 
-The body binds over :func:`hydromodpy.spatial.domain.build.build_domain`, which
-is the same constructor the setup step of a run calls and the same one a run
-that redefines its domain calls. That is the whole point of the phase: four
-sites construct a domain today, and a capability that reimplemented the
-vertical extent would be a fifth spelling of it, sealing an artefact provably
-unrelated to what a run does.
+The body calls :func:`hydromodpy.spatial.domain.build.build_domain`, the
+constructor a run uses, so the sealed geometry is the one a run builds.
 
-What is new here is everything around it -- reading a terrain off disk,
-bounding the grid, and writing the geometry down so that something which never
-held the object can read it.
-
-Three shapes worth knowing before reading the code.
-
-**The grid is the DEM's grid, and every output lands on it.** No resampling, no
-reprojection, no clipping to the mask: the mask decides which cells are active,
-not which cells exist. A consumer that lines the four rasters up cell by cell
-is doing the right thing, and that is worth more than a tighter bounding box.
-
-**Only the mask is reprojected.** A polygon in another CRS is projected onto
-the DEM's before it is burned, because that is a lossless operation on a
-boundary, while reprojecting the terrain would resample elevations and silently
-change the geometry the caller asked for.
-
-**The job runs on no engine.** Its provenance carries no backend: the
-arithmetic is the depth model and the readers are the ones the environment
-already records package by package. A backend record naming ``rasterio`` would
-add nothing the frozen package list does not already carry, and would suggest a
-substitutable engine where there is none.
+Every output lands on the grid of the DEM, which is never resampled nor
+clipped. The mask only decides which cells are active: it is projected onto the
+CRS of the DEM before it is burned. A substratum raster is reprojected onto the
+grid of the DEM. The job runs on no engine, so its provenance names no backend.
 """
 
 from __future__ import annotations
@@ -43,6 +22,8 @@ import rasterio
 from rasterio.features import rasterize
 
 from hydromodpy.core.exceptions import DataContractViolation, JobUsageError
+from hydromodpy.core.io.raster_io import write_band
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.documents import write_document
@@ -55,7 +36,6 @@ from hydromodpy.schema.job.inputset import (
 from hydromodpy.schema.job.outcome import (
     UNIDENTIFIED_JOB,
     JobOutcome,
-    OutputRecord,
     dismissed,
     error_record,
     now,
@@ -85,6 +65,11 @@ from hydromodpy.spatial.domain.capability import (
 from hydromodpy.spatial.domain.depth_model_config import RASTER_DEPTH_MODEL_KINDS
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.spatial.job_inputs import (
+    output_records,
+    read_raster_input,
+    refuse_a_file_that_is_not_the_one_asked_for,
+)
 from hydromodpy.spatial.surface import Surface
 
 ExitCodeMapper = Callable[[BaseException], int]
@@ -212,7 +197,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
 
     dem_path = _resolve_file(job, inputs.dem.href, member="dem")
     dem_digest, dem_bytes = sha256_file(dem_path)
-    _refuse_a_file_that_is_not_the_one_asked_for(
+    refuse_a_file_that_is_not_the_one_asked_for(
         inputs.dem.sha256, digest=dem_digest, href=inputs.dem.href, member="dem"
     )
     warnings.extend(
@@ -231,7 +216,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
     if inputs.mask is not None:
         mask_path = _resolve_file(job, inputs.mask.href, member="mask")
         mask_digest, mask_bytes = sha256_file(mask_path)
-        _refuse_a_file_that_is_not_the_one_asked_for(
+        refuse_a_file_that_is_not_the_one_asked_for(
             inputs.mask.sha256, digest=mask_digest, href=inputs.mask.href, member="mask"
         )
         mask_layer = _resolve_mask_layer(mask_path, declared=inputs.mask_layer)
@@ -254,7 +239,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
             )
         substratum_path = _resolve_file(job, inputs.substratum.href, member="substratum")
         substratum_digest, substratum_bytes = sha256_file(substratum_path)
-        _refuse_a_file_that_is_not_the_one_asked_for(
+        refuse_a_file_that_is_not_the_one_asked_for(
             inputs.substratum.sha256,
             digest=substratum_digest,
             href=inputs.substratum.href,
@@ -324,7 +309,7 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
         ),
     )
 
-    records = _output_records(job)
+    records = output_records(job, decl)
     outcome = JobOutcome(
         job_id=resolved.job_id,
         process_id=decl.id,
@@ -349,45 +334,19 @@ def _resolve_file(job: JobDirectory, href: str, *, member: str) -> Path:
     return path
 
 
-def _refuse_a_file_that_is_not_the_one_asked_for(
-    declared: str | None, *, digest: str, href: str, member: str
-) -> None:
-    """Refuse a file whose bytes are not the ones the request pinned."""
-    if declared is None:
-        return
-    if declared.lower() != digest:
-        raise DataContractViolation(
-            f"input {member} {href!r} hashes to {digest} and the request pinned "
-            f"{declared.lower()}; the bytes are not the ones the job asked for"
-        )
-
-
 def _check_a_raster_input(href: str, *, path: Path, member: str, why_a_crs: str) -> tuple[str, ...]:
     """Refuse a raster no grid can be read off, and warn about what was ignored.
 
-    The checks are on the input and not around the build: a file that is not a
-    raster, a raster carrying no CRS, a grid no axis-aligned cell size describes
-    -- each one is bad input, and without this they surfaced as an untyped
-    ``HMPY.E000`` and exit 1, the code whose whole meaning is "this is a bug in
-    HydroModPy, report it". The terrain and the substratum both go through it;
-    *why_a_crs* says what the CRS of that one is needed for.
+    A raster carrying no CRS, or a grid no axis-aligned cell size describes, is
+    bad input like a file that is not a raster. The terrain and the substratum
+    both go through it; *why_a_crs* says what the CRS of that one is needed for.
     """
-    try:
-        with rasterio.open(str(path)) as source:
-            band_count = source.count
-            crs = source.crs
-            transform = source.transform
-    except rasterio.errors.RasterioError as exc:
-        raise DataContractViolation(
-            f"input {member} {href!r} cannot be opened as a raster: {exc}"
-        ) from exc
-    except OSError as exc:
-        raise DataContractViolation(f"input {member} {href!r} cannot be read: {exc}") from exc
-    if band_count < 1:
-        raise DataContractViolation(
-            f"input {member} {href!r} carries {band_count} band(s); "
-            "an elevation model carries at least one"
-        )
+    crs, transform, band_count = read_raster_input(
+        href,
+        path=path,
+        member=member,
+        read=lambda source: (source.crs, source.transform, source.count),
+    )
     if crs is None:
         raise DataContractViolation(f"input {member} {href!r} carries no CRS, and {why_a_crs}")
     if transform.b or transform.d:
@@ -503,17 +462,25 @@ def _produce(job: JobDirectory, resolved: _Resolved) -> None:
     # The grid of the terrain, and nothing else of its file. Inheriting the
     # whole ``profile`` would carry its compression across too, and a float
     # predictor kept over a uint8 band is a raster GDAL refuses to write.
-    grid = {"height": top.shape[0], "width": top.shape[1], "crs": crs, "transform": transform}
-    _write_raster(job, BOTTOM_PATH, bottom, grid=grid, dtype="float64", nodata=float("nan"))
-    _write_raster(job, THICKNESS_PATH, thickness, grid=grid, dtype="float64", nodata=float("nan"))
-    _write_raster(
-        job,
-        ACTIVE_CELLS_PATH,
-        np.where(active, ACTIVE, INACTIVE),
-        grid=grid,
-        dtype="uint8",
-        nodata=None,
-    )
+    grid = {
+        "driver": "GTiff",
+        "height": top.shape[0],
+        "width": top.shape[1],
+        "crs": crs,
+        "transform": transform,
+    }
+    for relative, values, dtype, nodata_value in (
+        (BOTTOM_PATH, bottom, "float64", float("nan")),
+        (THICKNESS_PATH, thickness, "float64", float("nan")),
+        (ACTIVE_CELLS_PATH, np.where(active, ACTIVE, INACTIVE), "uint8", None),
+    ):
+        write_band(
+            job.resolve_output(relative),
+            np.asarray(values, dtype=dtype),
+            grid,
+            dtype=dtype,
+            nodata=nodata_value,
+        )
     write_document(
         job.resolve_output(DOMAIN_DOCUMENT_PATH),
         _domain_document(
@@ -539,12 +506,9 @@ def _active_cells(
     crs: Any,
 ) -> np.ndarray:
     """Return the boolean grid of cells the domain is defined on."""
-    active = np.isfinite(top)
-    if nodata is not None:
-        # Exact equality, which is how every consumer of a HydroModPy raster
-        # recognises the sentinel: ``Surface.shifted_down_by`` leaves it in
-        # place rather than shifting it, precisely so this comparison holds.
-        active &= top != float(nodata)
+    # Exact equality on the sentinel: ``Surface.shifted_down_by`` leaves it in
+    # place rather than shifting it, precisely so this comparison holds.
+    active = valid_cells(top, nodata)
     if mask is not None:
         mask_path, mask_layer = mask
         active &= _burned_mask(
@@ -639,28 +603,6 @@ def _burned_mask(
         dtype="uint8",
     )
     return burned.astype(bool)
-
-
-def _write_raster(
-    job: JobDirectory,
-    relative: str,
-    values: np.ndarray,
-    *,
-    grid: dict[str, Any],
-    dtype: str,
-    nodata: float | None,
-) -> None:
-    """Write one band onto the terrain's own grid."""
-    with rasterio.open(
-        str(job.resolve_output(relative)),
-        "w",
-        driver="GTiff",
-        count=1,
-        dtype=dtype,
-        nodata=nodata,
-        **grid,
-    ) as sink:
-        sink.write(np.asarray(values, dtype=dtype), 1)
 
 
 def _statistics(values: np.ndarray, active: np.ndarray) -> dict[str, float | None]:
@@ -805,32 +747,6 @@ def _build_inputset(resolved: _Resolved) -> InputSet:
             ),
         )
     return build_inputset(resources)
-
-
-def _output_records(job: JobDirectory) -> tuple[OutputRecord, ...]:
-    """Hash every declared artefact that exists once the job has written it.
-
-    ``outcome.json`` is declared and absent here: it cannot carry its own
-    digest. The seal hashes it from disk, which is the only place its bytes
-    can be read from.
-    """
-    records = []
-    for output in DOMAIN_BUILD.outputs:
-        if output.path == "outcome.json":
-            continue
-        path = job.resolve_output(output.path)
-        digest, size = sha256_file(path)
-        records.append(
-            OutputRecord(
-                id=output.id,
-                path=output.path,
-                media_type=output.media_type,
-                bytes=size,
-                sha256=digest,
-                extra=output.extra,
-            )
-        )
-    return tuple(records)
 
 
 __all__ = ["ExitCodeMapper", "run"]

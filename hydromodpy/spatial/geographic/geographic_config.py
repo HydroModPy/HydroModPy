@@ -43,9 +43,7 @@ def _normalize_buff_area(value):
                 raise ValueError("geographic.catchment.buff_area percent must be > 0.")
             return f"{int(pct)}%" if pct.is_integer() else f"{pct!r}%"
         quantity = UREG(token)
-        if not hasattr(quantity, "magnitude"):
-            dist_m = float(quantity)
-        elif quantity.dimensionless:
+        if quantity.dimensionless:
             dist_m = float(quantity.magnitude)
         else:
             dist_m = float(quantity.to("m").magnitude)
@@ -968,42 +966,42 @@ class GeographicConfig(HydroModelBase):
         return self
 
     @model_validator(mode="after")
-    def _check_crossings_section(self) -> GeographicConfig:
-        """Refuse a notch that has no channel tree, no DEM to cut, or a shared flow."""
-        if not self.crossings.enabled:
-            return self
-        if not self.river_network.enabled:
+    def _check_sections_on_the_channel_tree(self) -> GeographicConfig:
+        """Refuse a notch or a bed regularisation with no channel tree or no catchment.
+
+        The texts stay literal: the docs registry links the sections a refusal names.
+        """
+        if self.crossings.enabled and not self.river_network.enabled:
             raise ValueError(
                 "[geographic.crossings] enabled = true needs [geographic.river_network] "
                 "enabled = true: the notch follows the channel tree the DEM generates, "
                 "so without it there is no channel to cut."
             )
-        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+        if self.crossings.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.crossings] cuts a delineated catchment: it needs "
-                "catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
-                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+                f"catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
-        return self
-
-    @model_validator(mode="after")
-    def _check_bed_regularization_section(self) -> GeographicConfig:
-        """Refuse a bed regularisation that has no channel tree to follow."""
-        if not self.bed_regularization.enabled:
-            return self
-        if not self.river_network.enabled:
+        if self.bed_regularization.enabled and not self.river_network.enabled:
             raise ValueError(
                 "[geographic.bed_regularization] enabled = true needs "
                 "[geographic.river_network] enabled = true: the bed is fitted along "
                 "the channel tree the DEM generates, so without it there is no bed."
             )
-        if self.uses_synthetic_geographic() or self.catch_def == "dem":
+        if self.bed_regularization.enabled and (support := self._undelineated_support()):
             raise ValueError(
                 "[geographic.bed_regularization] fits the bed of a delineated catchment: "
-                "it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not "
-                f"{'a synthetic support' if self.uses_synthetic_geographic() else 'catch_def = dem'}."
+                f"it needs catch_def = 'from_outlet_coord' or 'from_polyg_shp', not {support}."
             )
         return self
+
+    def _undelineated_support(self) -> str | None:
+        """Name the support when it is not a delineated catchment, else None."""
+        if self.uses_synthetic_geographic():
+            return "a synthetic support"
+        if self.catch_def == "dem":
+            return "catch_def = dem"
+        return None
 
     @model_validator(mode="after")
     def _check_ground_with_shared_flow(self) -> GeographicConfig:
@@ -1012,13 +1010,10 @@ class GeographicConfig(HydroModelBase):
         The job was routed on the raw DEM and is checked against the DEM it is
         handed, so a corrected ground can never match it.
         """
-        if self.reg_fold is None:
-            return self
-        declared = [name for name, section in (("crossings", self.crossings),) if section.enabled]
-        if declared:
+        if self.reg_fold is not None and self.crossings.enabled:
             raise ValueError(
-                f"[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
-                f"[geographic.{declared[0]}] corrects the ground the routing starts from: "
+                "[geographic] reg_fold shares a regional flow routed on the raw DEM, and "
+                "[geographic.crossings] corrects the ground the routing starts from: "
                 "remove one of them."
             )
         return self

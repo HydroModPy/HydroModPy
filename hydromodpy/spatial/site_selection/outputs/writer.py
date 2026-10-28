@@ -18,8 +18,6 @@ from hydromodpy.spatial.site_selection.outputs.geojson import (
 )
 from hydromodpy.spatial.site_selection.outputs.geospatial import (
     GPKG_NAME,
-    write_observation_points_geopackage,
-    write_observation_points_geoparquet,
     write_selection_geopackage,
     write_selection_geoparquet_layers,
 )
@@ -141,8 +139,6 @@ __all__ = [
     "write_csv",
     "write_jsonl",
     "write_observation_points_geojson",
-    "write_observation_points_geopackage",
-    "write_observation_points_geoparquet",
     "write_selection_geopackage",
     "write_selection_geoparquet_layers",
     "write_outlets_geojson",

@@ -81,10 +81,11 @@ class FieldParamConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _enforce_physical_bounds(self) -> FieldParamConfig:
-        """Validate homogeneous scalar values against ``PHYSICAL_BOUNDS``.
+        """Validate a homogeneous value against ``PHYSICAL_BOUNDS``, in its declared unit.
 
-        Only numeric scalars are checked here; string payloads carry their
-        own unit and are handled by lower-level unit resolution.
+        The section has already split a ``"<number> <unit>"`` string, so the
+        value is a number and ``unit`` holds its unit, or None for the
+        canonical unit of the parameter.
         """
         from hydromodpy.spatial.field.core.physical_bounds import (
             validate_physical_value,
@@ -97,7 +98,9 @@ class FieldParamConfig(HydroModelBase):
         ):
             return self
         if isinstance(self.field.value, (int, float)) and not isinstance(self.field.value, bool):
-            validate_physical_value(param_id=self.field.id, value=float(self.field.value))
+            validate_physical_value(
+                param_id=self.field.id, value=float(self.field.value), unit=self.field.unit
+            )
         return self
 
 

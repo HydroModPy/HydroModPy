@@ -15,6 +15,7 @@ reads it without importing the mesh package.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -26,6 +27,7 @@ import xarray as xr
 from pyproj import CRS, Transformer
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
+from pyproj.exceptions import CRSError
 from shapely.geometry import Point
 
 from hydromodpy.core.io.vector_io import load_shapefile
@@ -187,6 +189,68 @@ def ensure_crs(path: str | Path, crs: str | None) -> None:
             prj_path.write_text(wkt, encoding="utf-8")
 
 
+def same_crs(left: str, right: str) -> bool:
+    """Tell whether two CRS labels name the same frame.
+
+    Labels equal up to case and outer spaces match at once. Otherwise both are
+    read by pyproj, and a label pyproj cannot read matches nothing.
+    """
+    if left.strip().upper() == right.strip().upper():
+        return True
+    try:
+        return CRS.from_user_input(left) == CRS.from_user_input(right)
+    except CRSError:
+        return False
+
+
+def crs_text(crs: object | None) -> str | None:
+    """Return the CRS a raster declares as text, or ``None`` when it declares none.
+
+    *crs* is the ``crs`` attribute of an open rasterio dataset. An empty CRS
+    counts as no CRS.
+    """
+    if crs is None or not crs:
+        return None
+    return crs.to_string()
+
+
+def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """Return the great-circle distance in km between two WGS 84 points.
+
+    The sphere has the mean Earth radius of 6371.0088 km.
+    """
+    radius_km = 6371.0088
+    lon1_rad = math.radians(lon1)
+    lat1_rad = math.radians(lat1)
+    lon2_rad = math.radians(lon2)
+    lat2_rad = math.radians(lat2)
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    a = math.sin(dlat / 2.0) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * (
+        math.sin(dlon / 2.0) ** 2
+    )
+    return radius_km * 2.0 * math.asin(math.sqrt(a))
+
+
+def geojson_crs_member(crs: str) -> dict[str, object]:
+    """Return the ``crs`` member of a GeoJSON collection written in *crs*.
+
+    RFC 7946 dropped this member and reads every GeoJSON in WGS 84. GDAL, and
+    so geopandas and QGIS, still read it, so a file written in a projected CRS
+    opens in that CRS. A CRS without an EPSG code, or an empty or ``"mixed"``
+    label, gives an empty mapping.
+    """
+    if not crs or crs == "mixed":
+        return {}
+    try:
+        code = CRS.from_user_input(crs).to_epsg()
+    except CRSError:
+        return {}
+    if code is None:
+        return {}
+    return {"crs": {"type": "name", "properties": {"name": f"urn:ogc:def:crs:EPSG::{code}"}}}
+
+
 def to_mesh_crs(
     geometries: Sequence[BaseGeometry],
     *,
@@ -217,7 +281,10 @@ def require_crs(crs_like: CrsLike | None, name: str) -> CRS:
 
 __all__ = [
     "CrsLike",
+    "crs_text",
     "ensure_crs",
+    "haversine_km",
+    "same_crs",
     "require_crs",
     "to_mesh_crs",
     "reproject_coord",

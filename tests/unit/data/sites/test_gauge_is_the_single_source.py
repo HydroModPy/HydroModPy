@@ -15,7 +15,7 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.site import GaugeConflictError, SiteConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.sites.gauge import apply_site_gauge, gauge_of_run
-from tests.unit.site_selection._records import make_point_record
+from tests._helpers.site_selection_cases import make_point_record
 
 NANCON = SiteConfig(name="nancon", gauge="NANCON")
 

@@ -54,48 +54,7 @@ def _distance_threshold_label(max_distance_km: float | None) -> str:
     return "" if max_distance_km is None else f"max_distance_km={max_distance_km:g}"
 
 
-def _first_number(attributes: dict[str, Any], *keys: str) -> float | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value is None or value == "":
-            continue
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            continue
-    return None
-
-
-def _first_bool(attributes: dict[str, Any], *keys: str) -> bool | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value is None or value == "":
-            continue
-        if isinstance(value, bool):
-            return value
-        text = str(value).strip().lower()
-        if text in {"1", "true", "t", "yes", "y", "oui", "o"}:
-            return True
-        if text in {"0", "false", "f", "no", "n", "non"}:
-            return False
-    return None
-
-
-def _first_text(attributes: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
-
-
 __all__ = [
     "CriteriaComponent",
     "_distance_threshold_label",
-    "_first_bool",
-    "_first_number",
-    "_first_text",
 ]

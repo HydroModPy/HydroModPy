@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from hydromodpy.spatial.geographic.core.catchment_domain import catchment_area_m2
 from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
 
 if TYPE_CHECKING:
@@ -219,8 +220,7 @@ def measure_polygon_area_m2(
     """Return total polygon area in m² after coercing to one metric CRS."""
     if gdf is None or gdf.empty:
         return 0.0
-    metric_gdf = project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
-    return float(np.sum(np.asarray(metric_gdf.area, dtype=float)))
+    return catchment_area_m2(project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs))
 
 
 def _compute_vector_metrics(
@@ -266,8 +266,7 @@ def _compute_vector_metrics(
     if watershed.empty:
         return metrics
 
-    catchment_area_m2 = measure_polygon_area_m2(watershed, fallback_crs=gdf.crs)
-    catchment_area_km2 = float(catchment_area_m2 / 1_000_000.0)
+    catchment_area_km2 = measure_polygon_area_m2(watershed, fallback_crs=gdf.crs) / 1_000_000.0
     metrics["catchment_area_km2"] = catchment_area_km2
     length_m = float(metrics.get("network_total_length_m", 0.0) or 0.0)
     if catchment_area_km2 > 0.0:

@@ -16,7 +16,6 @@ import numpy as np
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow_grid.sgrid_config import TopSamplingConfig
 from hydromodpy.spatial.mesh.cells.zonal_stats import regular_grid_cell_ids, zonal_top
-from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 
 if TYPE_CHECKING:
@@ -235,24 +234,14 @@ def lower_crossing_cells(
     )
 
 
-def _cell_area(support: RasterSupport) -> float:
-    """Mean cell area of a raster support from its bounds and shape, NaN when unknown."""
-    fields = (support.xmin, support.xmax, support.ymin, support.ymax, support.nrows, support.ncols)
-    if any(value is None for value in fields):
-        return float("nan")
-    width = (float(support.xmax) - float(support.xmin)) / int(support.ncols)
-    height = (float(support.ymax) - float(support.ymin)) / int(support.nrows)
-    return abs(width * height)
-
-
 def cells_cover_pixels(native_top: Surface, grid_top: Surface, *, min_pixels: float = 2.0) -> bool:
     """True when a grid cell spans at least ``min_pixels`` DEM pixels, else log why not.
 
     Below that, a pixel centre falls in one cell out of several and the block
     statistic is a checkerboard of raw pixels, so the resample stays.
     """
-    pixel_area = _cell_area(native_top.support)
-    cell_area = _cell_area(grid_top.support)
+    pixel_area = native_top.support.cell_area
+    cell_area = grid_top.support.cell_area
     if not (np.isfinite(pixel_area) and np.isfinite(cell_area)):
         return True  # no georeferencing: the zonal step warns and keeps the resample
     if pixel_area > 0.0 and cell_area >= min_pixels * pixel_area * (1.0 - 1e-9):

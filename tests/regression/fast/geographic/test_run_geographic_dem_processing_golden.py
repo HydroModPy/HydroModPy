@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -10,8 +9,9 @@ import pytest
 import rasterio
 
 from hydromodpy.spatial.geographic.cases import run_geographic_case_from_toml
+from tests._helpers.geographic_cases import NAIZIN, outlet_case_toml, write_json
 from tests._helpers.whitebox import configure_whitebox_single_thread
-from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
+from tests.regression.golden_utils import load_json_payload, resolve_tiered_golden_file
 
 GOLDEN_FILE = resolve_tiered_golden_file(
     test_file=__file__,
@@ -22,55 +22,6 @@ DEM_CORRECTION_TYPES = ["breach", "fill"]
 ABS_TOL_ELEV_M = 3e-2
 ABS_TOL_SUM_M = 20.0
 ABS_TOL_SUM_INT = 512.0
-
-
-def _write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2)
-        stream.write("\n")
-
-
-def _load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as stream:
-        return json.load(stream)
-
-
-def _write_tmp_config(tmp_path: Path, *, dem_correc_type: str) -> Path:
-    config_path = tmp_path / f"run_geographic_config_{dem_correc_type}.toml"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
-    out_path = (tmp_path / "results").as_posix()
-
-    ws_root = tmp_path.as_posix()
-    config_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "",
-                # The Naizin catchment of the regional DEM: a real basin is named.
-                "[site]",
-                'name = "naizin"',
-                "",
-                "[workspace]",
-                f'root = "{ws_root}"',
-                "",
-                "[geographic]",
-                'crs_project = "EPSG:2154"',
-                f'dem_correc_type = "{dem_correc_type}"',
-                "",
-                "[geographic.catchment]",
-                'catch_def = "from_outlet_coord"',
-                f'dem_init_path = "{dem_path}"',
-                "x_outlet = 265611.933",
-                "y_outlet = 6784182.776",
-                "snap_dist = 50",
-                "buff_area = 20.0",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    return config_path
 
 
 def _raster_signature(path: str | Path) -> dict:
@@ -120,9 +71,13 @@ def _raster_signature(path: str | Path) -> dict:
 
 
 def _dem_processing_signature(tmp_path: Path, *, dem_correc_type: str) -> dict:
-    config_path = _write_tmp_config(tmp_path, dem_correc_type=dem_correc_type)
-    workspace, geographic = run_geographic_case_from_toml(config_path)
-    _ = workspace
+    config_path = outlet_case_toml(
+        tmp_path / f"run_geographic_config_{dem_correc_type}.toml",
+        NAIZIN,
+        root=tmp_path,
+        dem_correc_type=dem_correc_type,
+    )
+    _workspace, geographic = run_geographic_case_from_toml(config_path)
 
     correc_name = "dem_fill.tif" if dem_correc_type == "fill" else "dem_breach.tif"
     correc_path = Path(geographic.correcflow_path) / correc_name
@@ -197,7 +152,7 @@ def test_run_geographic_dem_processing_golden(
     }
 
     if update_goldens:
-        _write_json(GOLDEN_FILE, actual)
+        write_json(GOLDEN_FILE, actual)
         return
 
     if not GOLDEN_FILE.exists():
@@ -206,7 +161,7 @@ def test_run_geographic_dem_processing_golden(
             "Run tests with --update-goldens to generate it."
         )
 
-    expected = _load_json(GOLDEN_FILE)
+    expected = load_json_payload(GOLDEN_FILE)
     assert set(actual.keys()) == set(expected.keys())
     for dem_correc_type in DEM_CORRECTION_TYPES:
         actual_sig = actual[dem_correc_type]

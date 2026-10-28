@@ -20,33 +20,12 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.spatial.terrain.d8 import d8_receivers
 
 logger = get_logger(__name__)
 
 _MAX_JUMPS = 64
 """Pointer jumps before the walk gives up; 2**64 steps exceed any raster."""
-
-
-def _receivers(d8: np.ndarray, sink: np.ndarray) -> np.ndarray:
-    """Flat index of the cell each cell drains to, itself for a pit, an edge or a sink."""
-    n_rows, n_cols = d8.shape
-    rows, cols = np.indices(d8.shape)
-    receiver = np.arange(d8.size, dtype=np.int64).reshape(d8.shape)
-    for code, (d_row, d_col) in D8_WBT_OFFSETS.items():
-        next_rows = rows + d_row
-        next_cols = cols + d_col
-        step = (
-            (d8 == code)
-            & (next_rows >= 0)
-            & (next_rows < n_rows)
-            & (next_cols >= 0)
-            & (next_cols < n_cols)
-        )
-        receiver[step] = (next_rows[step] * n_cols + next_cols[step]).astype(np.int64)
-    # A lake cell is where the walk ends: what falls in stays in.
-    receiver[sink] = np.flatnonzero(sink.ravel())
-    return receiver.reshape(-1)
 
 
 def lake_contributing_areas_m2(
@@ -91,7 +70,9 @@ def lake_contributing_areas_m2(
         label[mine] = number
     sink = label > 0
 
-    root = _receivers(d8, sink)
+    # A lake cell is where the walk ends: what falls in stays in.
+    root = d8_receivers(d8, pit="self")
+    root[sink.reshape(-1)] = np.flatnonzero(sink.ravel())
     for _ in range(_MAX_JUMPS):
         jumped = root[root]
         if np.array_equal(jumped, root):

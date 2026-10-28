@@ -22,7 +22,9 @@ from hydromodpy.spatial.field.core._field_param_sections import (
     FieldKind,
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
-    coerce_scalar_value_with_unit,
+    coerce_value_with_declared_unit,
+    normalize_value,
+    normalize_values,
 )
 from hydromodpy.spatial.field.core._field_param_units import UnitStr
 
@@ -78,54 +80,16 @@ class ResolvedFieldParam(HydroModelBase):
     @field_validator("value")
     @classmethod
     def _validate_value(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            raise TypeError("value must be numeric or '<number> <unit>'")
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            token = value.strip()
-            if token == "":
-                raise ValueError("value cannot be empty")
-            return token
-        raise TypeError("value must be numeric or '<number> <unit>'")
+        return None if value is None else normalize_value(value, label="value")
 
     @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
-        if value is None:
-            return None
-        values: dict[str, float | str] = {}
-        for key, raw_value in dict(value).items():
-            key_text = str(key)
-            if isinstance(raw_value, bool):
-                raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
-            if isinstance(raw_value, (int, float)):
-                values[key_text] = float(raw_value)
-                continue
-            if isinstance(raw_value, str):
-                token = raw_value.strip()
-                if token == "":
-                    raise ValueError(f"values['{key_text}'] cannot be empty")
-                values[key_text] = token
-                continue
-            raise TypeError(f"values['{key_text}'] must be numeric or '<number> <unit>'")
-        if len(values) == 0:
-            raise ValueError("values cannot be empty")
-        if any(str(key).strip() == "" for key in values):
-            raise ValueError("values cannot contain empty keys")
-        return values
+        return normalize_values(value, label="values")
 
     @model_validator(mode="after")
     def _coerce_value_with_declared_unit(self):
-        if isinstance(self.value, str):
-            scalar, resolved_unit = coerce_scalar_value_with_unit(
-                self.value, self.unit, location=f"{self.id or 'field'}.value"
-            )
-            object.__setattr__(self, "value", scalar)
-            object.__setattr__(self, "unit", resolved_unit)
-        return self
+        return coerce_value_with_declared_unit(self)
 
     @model_validator(mode="after")
     def _validate_by_kind(self):

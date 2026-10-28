@@ -11,24 +11,13 @@ from hydromodpy.spatial.site_selection.decisions import (
     write_evidence_records_jsonl,
 )
 from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
-from hydromodpy.spatial.site_selection.evidence.context import (
-    GeologyEvidence,
-    write_geology_evidence_geojson,
-    write_geology_evidence_geopackage,
-    write_geology_evidence_geoparquet,
-)
-from hydromodpy.spatial.site_selection.evidence.influence import (
-    InfluenceEvidence,
-    write_influence_evidence_geojson,
-    write_influence_evidence_geopackage,
-    write_influence_evidence_geoparquet,
-)
-from hydromodpy.spatial.site_selection.outputs.geojson import (
-    write_observation_points_geojson,
-)
+from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.spatial.site_selection.outputs.evidence_layers import write_evidence_layer
+from hydromodpy.spatial.site_selection.outputs.geojson import write_observation_points_geojson
 from hydromodpy.spatial.site_selection.outputs.geospatial import (
-    write_observation_points_geopackage,
-    write_observation_points_geoparquet,
+    observation_points_gdf,
+    write_vector_layer,
 )
 from hydromodpy.spatial.site_selection.outputs.tabular import write_jsonl
 from hydromodpy.spatial.site_selection.outputs.writer import GPKG_NAME
@@ -68,20 +57,19 @@ def write_site_selection_evidence_outputs(
         piezometer_evidence=piezometers,
         write_vectors=write_observation_vectors,
     )
-    _write_influence_evidence(
-        destination_root,
-        output=output,
-        paths=paths,
-        evidence=influences,
-        write_vectors=write_context_vectors,
-    )
-    _write_geology_evidence(
-        destination_root,
-        output=output,
-        paths=paths,
-        evidence=geologies,
-        write_vectors=write_context_vectors,
-    )
+    for name, role, evidence in (
+        ("influence", "influence_features", influences),
+        ("geology", "geology_basins", geologies),
+    ):
+        _write_layer_evidence(
+            destination_root,
+            name=name,
+            role=role,
+            output=output,
+            paths=paths,
+            evidence=evidence,
+            write_vectors=write_context_vectors,
+        )
     _write_normalized_evidence(
         destination_root,
         selection_id=selection_id,
@@ -113,16 +101,19 @@ def _write_observation_evidence(
                 observation_evidence,
             )
         if write_vectors and output.write_geopackage:
-            gpkg_path = write_observation_points_geopackage(
+            gpkg_path = write_vector_layer(
+                observation_points_gdf(observation_evidence),
                 paths.get("site_selection_gpkg", root / GPKG_NAME),
-                observation_evidence,
+                fmt="gpkg",
+                layer="observation_points",
             )
             if gpkg_path is not None:
                 paths["site_selection_gpkg"] = gpkg_path
         if write_vectors and output.write_geoparquet:
-            geoparquet_path = write_observation_points_geoparquet(
+            geoparquet_path = write_vector_layer(
+                observation_points_gdf(observation_evidence),
                 root / "observation_points.parquet",
-                observation_evidence,
+                fmt="geoparquet",
             )
             if geoparquet_path is not None:
                 paths["observation_points_geoparquet"] = geoparquet_path
@@ -133,78 +124,39 @@ def _write_observation_evidence(
         )
 
 
-def _write_influence_evidence(
+def _write_layer_evidence(
     root: Path,
     *,
+    name: str,
+    role: str,
     output: OutputConfig,
     paths: dict[str, Path],
-    evidence: list[InfluenceEvidence],
+    evidence: list[InfluenceEvidence] | list[GeologyEvidence],
     write_vectors: bool,
 ) -> None:
     if not evidence:
         return
-    paths["influence_evidence_jsonl"] = write_jsonl(
-        root / "influence_evidence.jsonl",
+    paths[f"{name}_evidence_jsonl"] = write_jsonl(
+        root / f"{name}_evidence.jsonl",
         [item.to_record() for item in evidence],
     )
-    if write_vectors and output.write_geojson:
-        geojson_path = write_influence_evidence_geojson(
-            root / "influence_features.geojson",
-            evidence,
-        )
-        if geojson_path is not None:
-            paths["influence_features_geojson"] = geojson_path
-    if write_vectors and output.write_geopackage:
-        gpkg_path = write_influence_evidence_geopackage(
-            paths.get("site_selection_gpkg", root / GPKG_NAME),
-            evidence,
-        )
-        if gpkg_path is not None:
-            paths["site_selection_gpkg"] = gpkg_path
-    if write_vectors and output.write_geoparquet:
-        geoparquet_path = write_influence_evidence_geoparquet(
-            root / "influence_features.parquet",
-            evidence,
-        )
-        if geoparquet_path is not None:
-            paths["influence_features_geoparquet"] = geoparquet_path
-
-
-def _write_geology_evidence(
-    root: Path,
-    *,
-    output: OutputConfig,
-    paths: dict[str, Path],
-    evidence: list[GeologyEvidence],
-    write_vectors: bool,
-) -> None:
-    if not evidence:
+    if not write_vectors:
         return
-    paths["geology_evidence_jsonl"] = write_jsonl(
-        root / "geology_evidence.jsonl",
-        [item.to_record() for item in evidence],
-    )
-    if write_vectors and output.write_geojson:
-        geojson_path = write_geology_evidence_geojson(
-            root / "geology_basins.geojson",
-            evidence,
-        )
-        if geojson_path is not None:
-            paths["geology_basins_geojson"] = geojson_path
-    if write_vectors and output.write_geopackage:
-        gpkg_path = write_geology_evidence_geopackage(
+    for enabled, fmt, path, key in (
+        (output.write_geojson, "geojson", root / f"{role}.geojson", f"{role}_geojson"),
+        (
+            output.write_geopackage,
+            "gpkg",
             paths.get("site_selection_gpkg", root / GPKG_NAME),
-            evidence,
-        )
-        if gpkg_path is not None:
-            paths["site_selection_gpkg"] = gpkg_path
-    if write_vectors and output.write_geoparquet:
-        geoparquet_path = write_geology_evidence_geoparquet(
-            root / "geology_basins.parquet",
-            evidence,
-        )
-        if geoparquet_path is not None:
-            paths["geology_basins_geoparquet"] = geoparquet_path
+            "site_selection_gpkg",
+        ),
+        (output.write_geoparquet, "geoparquet", root / f"{role}.parquet", f"{role}_geoparquet"),
+    ):
+        if not enabled:
+            continue
+        written = write_evidence_layer(path, evidence, role=role, fmt=fmt)
+        if written is not None:
+            paths[key] = written
 
 
 def _write_normalized_evidence(

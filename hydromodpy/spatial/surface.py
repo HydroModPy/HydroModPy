@@ -83,6 +83,8 @@ class Surface:
         """
         import rasterio
 
+        from hydromodpy.core.io.crs import crs_text
+
         raster_path = Path(path)
         if not raster_path.exists():
             raise FileNotFoundError(f"Raster not found: {raster_path}")
@@ -91,7 +93,7 @@ class Surface:
             values = np.asarray(src.read(1), dtype=float)
             transform = src.transform
             nodata = src.nodata
-            declared_crs = src.crs.to_string() if src.crs is not None else None
+            declared_crs = crs_text(src.crs)
         crs = declared_crs if declared_crs is not None else default_crs
         if declared_crs is None and default_crs is not None:
             logger.warning("Raster %s declares no CRS; it is read as %s.", raster_path, default_crs)

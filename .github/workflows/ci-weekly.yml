@@ -81,18 +81,18 @@ jobs:
         shell: bash
         run: |
           python -m pytest tests/unit/ \
-            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
-            --ignore=tests/unit/geographic/test_catchment_from_point.py \
-            --ignore=tests/unit/geographic/test_reference_river_network_nancon_case.py \
+            --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
+            --ignore=tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
             -n auto --dist loadgroup -q
 
       - name: Run whitebox backend tests (serial)
         shell: bash
         run: |
           python -m pytest \
-            tests/unit/backends/test_whitebox_workflows_backend.py \
-            tests/unit/geographic/test_catchment_from_point.py \
-            tests/unit/geographic/test_reference_river_network_nancon_case.py \
+            tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
+            tests/unit/geographic/core/test_catchment_from_point.py \
+            tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
             -q
 
       # The Whitebox native binding dies outright when several DEM workflows run

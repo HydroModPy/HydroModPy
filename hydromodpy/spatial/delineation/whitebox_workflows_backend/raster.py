@@ -24,6 +24,11 @@ _VECTOR_EXTENSIONS = {
 }
 
 
+def given_options(**options: object) -> dict[str, object]:
+    """Return the options that were given, the ``None`` ones left out."""
+    return {name: value for name, value in options.items() if value is not None}
+
+
 class WhiteboxRasterBackend:
     """Raster/vector IO, cache and format conversions on a shared environment."""
 
@@ -335,16 +340,16 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field_name"] = field
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base_raster is not None:
-            kwargs["base_raster"] = base_raster
-        return self._run_env_operation(self._env.vector_lines_to_raster, vector, **kwargs)
+        return self._run_env_operation(
+            self._env.vector_lines_to_raster,
+            vector,
+            **given_options(
+                field_name=field,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
+        )
 
     def vector_lines_to_raster(
         self,
@@ -356,17 +361,15 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field"] = field
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base is not None:
-            kwargs["base_raster"] = self._read_raster(base)
+        base_raster = None if base is None else self._read_raster(base)
         self._write_raster(
-            self.vector_lines_to_raster_vector(self._read_vector(input_path), **kwargs),
+            self.vector_lines_to_raster_vector(
+                self._read_vector(input_path),
+                field=field,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
             output_raster,
         )
 
@@ -379,16 +382,16 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field_name"] = field
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base_raster is not None:
-            kwargs["base_raster"] = base_raster
-        return self._run_env_operation(self._env.vector_polygons_to_raster, vector, **kwargs)
+        return self._run_env_operation(
+            self._env.vector_polygons_to_raster,
+            vector,
+            **given_options(
+                field_name=field,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
+        )
 
     def vector_polygons_to_raster(
         self,
@@ -400,17 +403,15 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field"] = field
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base is not None:
-            kwargs["base_raster"] = self._read_raster(base)
+        base_raster = None if base is None else self._read_raster(base)
         self._write_raster(
-            self.vector_polygons_to_raster_vector(self._read_vector(input_path), **kwargs),
+            self.vector_polygons_to_raster_vector(
+                self._read_vector(input_path),
+                field=field,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
             output_raster,
         )
 
@@ -424,18 +425,17 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base_raster=None,
     ):
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field_name"] = field
-        if assign_op is not None:
-            kwargs["assign_op"] = assign_op
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base_raster is not None:
-            kwargs["base_raster"] = base_raster
-        return self._run_env_operation(self._env.vector_points_to_raster, vector, **kwargs)
+        return self._run_env_operation(
+            self._env.vector_points_to_raster,
+            vector,
+            **given_options(
+                field_name=field,
+                assign_op=assign_op,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
+        )
 
     def vector_points_to_raster(
         self,
@@ -448,19 +448,16 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        kwargs: dict[str, object] = {}
-        if field is not None:
-            kwargs["field"] = field
-        if assign_op is not None:
-            kwargs["assign_op"] = assign_op
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        if cell_size is not None:
-            kwargs["cell_size"] = cell_size
-        if base is not None:
-            kwargs["base_raster"] = self._read_raster(base)
+        base_raster = None if base is None else self._read_raster(base)
         self._write_raster(
-            self.vector_points_to_raster_vector(self._read_vector(input_path), **kwargs),
+            self.vector_points_to_raster_vector(
+                self._read_vector(input_path),
+                field=field,
+                assign_op=assign_op,
+                zero_background=zero_background,
+                cell_size=cell_size,
+                base_raster=base_raster,
+            ),
             output_raster,
         )
 
@@ -531,4 +528,4 @@ class _WhiteboxComponent:
             )
 
 
-__all__ = ["WhiteboxRasterBackend", "_WhiteboxComponent"]
+__all__ = ["WhiteboxRasterBackend", "_WhiteboxComponent", "given_options"]

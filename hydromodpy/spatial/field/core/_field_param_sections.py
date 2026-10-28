@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import (
     Field,
@@ -53,6 +53,50 @@ def coerce_scalar_value_with_unit(
     if unit is None:
         return scalar, normalize_unit_token(resolved_unit)
     return scalar, unit
+
+
+def normalize_value(value: object, *, label: str) -> float | str:
+    """Return a number as a float and a text without its outer spaces.
+
+    ``label`` names the value in the error messages. A boolean, an empty text
+    and any other type are refused.
+    """
+    if isinstance(value, bool):
+        raise TypeError(f"{label} must be numeric or '<number> <unit>'")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        token = value.strip()
+        if token == "":
+            raise ValueError(f"{label} cannot be empty")
+        return token
+    raise TypeError(f"{label} must be numeric or '<number> <unit>'")
+
+
+def normalize_values(value: Any, *, label: str) -> dict[str, float | str] | None:
+    """Return a non-empty mapping of zone keys to values read by ``normalize_value``."""
+    if value is None:
+        return None
+    values: dict[str, float | str] = {}
+    for key, raw_value in dict(value).items():
+        key_text = str(key)
+        values[key_text] = normalize_value(raw_value, label=f"{label}['{key_text}']")
+    if len(values) == 0:
+        raise ValueError(f"{label} cannot be empty")
+    if any(str(key).strip() == "" for key in values):
+        raise ValueError(f"{label} cannot contain empty keys")
+    return values
+
+
+def coerce_value_with_declared_unit(section: Any) -> Any:
+    """Split a ``value`` written as ``'<number> <unit>'`` into ``value`` and ``unit``."""
+    if isinstance(section.value, str):
+        scalar, resolved_unit = coerce_scalar_value_with_unit(
+            section.value, section.unit, location=f"{section.id or 'field'}.value"
+        )
+        object.__setattr__(section, "value", scalar)
+        object.__setattr__(section, "unit", resolved_unit)
+    return section
 
 
 class FieldBaseSection(HydroModelBase):
@@ -121,28 +165,11 @@ class FieldHomogeneousSection(HydroModelBase):
     @field_validator("value")
     @classmethod
     def _validate_value(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            raise TypeError("field.value must be numeric or '<number> <unit>'")
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            token = value.strip()
-            if token == "":
-                raise ValueError("field.value cannot be empty")
-            return token
-        raise TypeError("field.value must be numeric or '<number> <unit>'")
+        return None if value is None else normalize_value(value, label="field.value")
 
     @model_validator(mode="after")
     def _coerce_value_with_declared_unit(self):
-        if isinstance(self.value, str):
-            scalar, resolved_unit = coerce_scalar_value_with_unit(
-                self.value, self.unit, location=f"{self.id or 'field'}.value"
-            )
-            object.__setattr__(self, "value", scalar)
-            object.__setattr__(self, "unit", resolved_unit)
-        return self
+        return coerce_value_with_declared_unit(self)
 
 
 class FieldHeterogeneousSection(HydroModelBase):
@@ -221,28 +248,7 @@ class FieldHeterogeneousSection(HydroModelBase):
     @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
-        if value is None:
-            return None
-        values: dict[str, float | str] = {}
-        for key, raw_value in dict(value).items():
-            key_text = str(key)
-            if isinstance(raw_value, bool):
-                raise TypeError(f"field.values['{key_text}'] must be numeric or '<number> <unit>'")
-            if isinstance(raw_value, (int, float)):
-                values[key_text] = float(raw_value)
-                continue
-            if isinstance(raw_value, str):
-                token = raw_value.strip()
-                if token == "":
-                    raise ValueError(f"field.values['{key_text}'] cannot be empty")
-                values[key_text] = token
-                continue
-            raise TypeError(f"field.values['{key_text}'] must be numeric or '<number> <unit>'")
-        if len(values) == 0:
-            raise ValueError("field.values cannot be empty")
-        if any(str(key).strip() == "" for key in values):
-            raise ValueError("field.values cannot contain empty keys")
-        return values
+        return normalize_values(value, label="field.values")
 
     @model_validator(mode="after")
     def _validate_value_source_payload(self):

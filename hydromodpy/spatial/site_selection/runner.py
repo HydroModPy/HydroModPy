@@ -31,14 +31,15 @@ from hydromodpy.spatial.site_selection._runner_csv import (
     _required_text,
 )
 from hydromodpy.spatial.site_selection._runner_dem import (
+    BBox,
     _candidate_outlets_for_dem_request,
+    _dem_request_bbox,
     _load_data_dem_config,
     _maybe_delineate_from_outlets,
     _maybe_resolve_map_dem_for_review,
     _observation_request_bbox_wgs84,
     _observed_dem_request_bbox,
-    _resolve_dem_path_for_generated_selection,
-    _resolve_dem_path_for_observed_selection,
+    _resolve_dem_path,
 )
 from hydromodpy.spatial.site_selection._runner_paths import (
     _data_access_error,
@@ -52,34 +53,19 @@ from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
 )
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig, SiteSelectionFile
-from hydromodpy.spatial.site_selection.evaluation.selection import (
-    SelectionResult,
-    select_delineated_catchments,
-)
-from hydromodpy.spatial.site_selection.evidence.annotations import (
-    annotate_site_selection_catchments,
-)
-from hydromodpy.spatial.site_selection.evidence.observations import (
-    build_observation_evidence_from_attributes,
-)
+from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
     DelineatedCatchment,
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     FlowProductsBuilder,
 )
-from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
-from hydromodpy.spatial.site_selection.outputs.cleanup import (
-    cleanup_site_selection_intermediate_rasters,
-)
-from hydromodpy.spatial.site_selection.outputs.pipeline import (
-    write_core_site_selection_outputs,
-)
 from hydromodpy.spatial.site_selection.pipelines.build import (
     SiteSelectionBuildResult,
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
+    select_catchments_and_write_outputs,
 )
 from hydromodpy.spatial.site_selection.runner_data import (
     DemLoader,
@@ -93,6 +79,10 @@ PLAN_MANIFEST_NAME = "site_selection_plan.json"
 ProgressCallback = Callable[[str], None]
 ReportRenderer = Callable[[str | Path], Path]
 """Draws the HTML report of a manifest and returns the page it wrote."""
+_MISSING_GENERATION_DEM = (
+    "site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either "
+    "site_selection.dem.path or a [data.dem] source."
+)
 
 
 @dataclass(frozen=True)
@@ -328,52 +318,17 @@ def select_delineated_catchments_from_csv(
             config_path=Path(config_path).expanduser().resolve(),
             dem_loader=dem_loader,
         )
-    annotations = annotate_site_selection_catchments(
+    _, result, _, paths = select_catchments_and_write_outputs(
         catchments,
-        criteria=cfg.criteria,
-    )
-    catchments = annotations.catchments
-    result = select_delineated_catchments(
-        catchments,
-        criteria=cfg.criteria,
-        spatial_selection=cfg.spatial_selection,
-        selection_principle=cfg.strategy.principle,
-    )
-    observation_evidence = [
-        evidence
-        for catchment in catchments
-        for evidence in build_observation_evidence_from_attributes(
-            site_id=catchment.site_id,
-            attributes=catchment.outlet.attributes,
-        )
-    ]
-    observation_evidence.extend(annotations.piezometer_evidence)
-    paths = write_core_site_selection_outputs(
-        target_root,
         config=cfg,
-        selection=result,
+        root=target_root,
+        action="delineated_catchments",
         region_id=region_id,
-        observation_evidence=observation_evidence,
-        piezometer_evidence=annotations.piezometer_evidence,
-        influence_evidence=annotations.influence_evidence,
-        geology_evidence=annotations.geology_evidence,
+        flow_manifest=flow_manifest,
+        manifest_config=cfg_for_outputs,
+        input_paths={"catchments_csv": catchments_csv},
+        report_renderer=report_renderer,
     )
-    paths.update(
-        write_manifest_and_optional_report(
-            config=cfg_for_outputs,
-            selection=result,
-            output_paths=paths,
-            action="delineated_catchments",
-            input_paths={"catchments_csv": catchments_csv},
-            flow_products=flow_manifest,
-            report_renderer=report_renderer,
-        )
-    )
-    if not cfg_for_outputs.output.keep_intermediate_rasters:
-        cleanup_site_selection_intermediate_rasters(
-            output_root=target_root,
-            catchments=catchments,
-        )
     return result, paths
 
 
@@ -447,13 +402,7 @@ def build_observed_site_selection_from_toml(
 ) -> SiteSelectionBuildResult:
     """Build an observation-led selection from ``[site_selection]`` + ``[hydrometry]``."""
 
-    path = Path(config_path).expanduser().resolve()
-    cfg = load_site_selection_config(path)
-    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
-    cfg = _with_default_data_root(
-        cfg.model_copy(update={"output_root": target_root}),
-        data_root,
-    )
+    path, cfg = _selection_config_for_run(config_path, output_root, data_root)
     hydrometry_cfg = load_hydrometry_config_for_site_selection(path)
     observation_extent = project_extent or _observation_request_bbox_wgs84(cfg)
     _emit_progress(
@@ -497,24 +446,21 @@ def build_observed_site_selection_from_toml(
                 "because no station outlet was available"
             ),
         )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
-    dem_path = _resolve_dem_path_for_observed_selection(
-        config=cfg,
-        config_path=path,
-        workspace_root=workspace_root or cfg.input.workspace_root,
-        data_root=cfg.input.data_root,
+    return _build_on_the_dem(
+        build_site_selection_from_point_records,
+        path=path,
+        cfg=cfg,
+        workspace_root=workspace_root,
         dem_loader=dem_loader,
-        candidate_outlets=candidate_outlets,
-    )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: calculation DEM ready: {dem_path}")
-    _emit_progress(
-        progress_callback,
-        f"{cfg.selection_id}: building flow products, catchments and report artifacts",
-    )
-    result = build_site_selection_from_point_records(
-        config=cfg,
+        dem_extent=lambda: dem_extent,
+        missing_dem=(
+            "site_selection.input.mode='hydrometry' requires either "
+            "site_selection.dem.path or a [data.dem] source so station outlets "
+            "can be delineated from a DEM."
+        ),
+        step="building flow products, catchments and report artifacts",
+        progress_callback=progress_callback,
         point_records=records,
-        dem_init_path=dem_path,
         backend=backend,
         flow_products_builder=flow_products_builder,
         delineation_builder=delineation_builder,
@@ -522,15 +468,6 @@ def build_observed_site_selection_from_toml(
         write_outputs=write_outputs,
         report_renderer=report_renderer,
     )
-    _emit_progress(
-        progress_callback,
-        (
-            f"{cfg.selection_id}: finished with {len(result.candidates)} candidates, "
-            f"{len(result.selection.selected)} selected, "
-            f"{len(result.selection.rejected)} rejected"
-        ),
-    )
-    return result
 
 
 def build_generated_site_selection_from_toml(
@@ -550,29 +487,17 @@ def build_generated_site_selection_from_toml(
 ) -> SiteSelectionBuildResult:
     """Build a site selection from DEM/network-generated candidates."""
 
-    path = Path(config_path).expanduser().resolve()
-    cfg = load_site_selection_config(path)
-    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
-    cfg = _with_default_data_root(
-        cfg.model_copy(update={"output_root": target_root}),
-        data_root,
-    )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
-    dem_path = _resolve_dem_path_for_generated_selection(
-        config=cfg,
-        config_path=path,
-        workspace_root=workspace_root or cfg.input.workspace_root,
-        data_root=cfg.input.data_root,
+    path, cfg = _selection_config_for_run(config_path, output_root, data_root)
+    return _build_on_the_dem(
+        build_site_selection_from_generated_network,
+        path=path,
+        cfg=cfg,
+        workspace_root=workspace_root,
         dem_loader=dem_loader,
-    )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: calculation DEM ready: {dem_path}")
-    _emit_progress(
-        progress_callback,
-        f"{cfg.selection_id}: generating candidates, catchments and report artifacts",
-    )
-    result = build_site_selection_from_generated_network(
-        config=cfg,
-        dem_init_path=dem_path,
+        dem_extent=lambda: _territory_dem_extent(cfg),
+        missing_dem=_MISSING_GENERATION_DEM,
+        step="generating candidates, catchments and report artifacts",
+        progress_callback=progress_callback,
         backend=backend,
         flow_products_builder=flow_products_builder,
         delineation_builder=delineation_builder,
@@ -580,15 +505,6 @@ def build_generated_site_selection_from_toml(
         write_outputs=write_outputs,
         report_renderer=report_renderer,
     )
-    _emit_progress(
-        progress_callback,
-        (
-            f"{cfg.selection_id}: finished with {len(result.candidates)} candidates, "
-            f"{len(result.selection.selected)} selected, "
-            f"{len(result.selection.rejected)} rejected"
-        ),
-    )
-    return result
 
 
 def build_dem_area_light_site_selection_from_toml(
@@ -609,29 +525,17 @@ def build_dem_area_light_site_selection_from_toml(
 ) -> SiteSelectionBuildResult:
     """Build a DEM-only light area-based site selection."""
 
-    path = Path(config_path).expanduser().resolve()
-    cfg = load_site_selection_config(path)
-    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
-    cfg = _with_default_data_root(
-        cfg.model_copy(update={"output_root": target_root}),
-        data_root,
-    )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
-    dem_path = _resolve_dem_path_for_generated_selection(
-        config=cfg,
-        config_path=path,
-        workspace_root=workspace_root or cfg.input.workspace_root,
-        data_root=cfg.input.data_root,
+    path, cfg = _selection_config_for_run(config_path, output_root, data_root)
+    return _build_on_the_dem(
+        build_site_selection_from_dem_area_light,
+        path=path,
+        cfg=cfg,
+        workspace_root=workspace_root,
         dem_loader=dem_loader,
-    )
-    _emit_progress(progress_callback, f"{cfg.selection_id}: calculation DEM ready: {dem_path}")
-    _emit_progress(
-        progress_callback,
-        f"{cfg.selection_id}: scanning DEM area candidates and building report artifacts",
-    )
-    result = build_site_selection_from_dem_area_light(
-        config=cfg,
-        dem_init_path=dem_path,
+        dem_extent=lambda: _territory_dem_extent(cfg),
+        missing_dem=_MISSING_GENERATION_DEM,
+        step="scanning DEM area candidates and building report artifacts",
+        progress_callback=progress_callback,
         backend=backend,
         flow_products_builder=flow_products_builder,
         raw_accumulation_builder=raw_accumulation_builder,
@@ -640,6 +544,57 @@ def build_dem_area_light_site_selection_from_toml(
         write_outputs=write_outputs,
         report_renderer=report_renderer,
     )
+
+
+def _selection_config_for_run(
+    config_path: str | Path,
+    output_root: str | Path | None,
+    data_root: str | Path | None,
+) -> tuple[Path, SiteSelectionConfig]:
+    """Load the selection file with its output root and its data root for a run."""
+
+    path = Path(config_path).expanduser().resolve()
+    cfg = load_site_selection_config(path)
+    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
+    cfg = _with_default_data_root(
+        cfg.model_copy(update={"output_root": target_root}),
+        data_root,
+    )
+    return path, cfg
+
+
+def _territory_dem_extent(cfg: SiteSelectionConfig) -> BBox | None:
+    return _dem_request_bbox(config=cfg, catchments=[], request_extent="territory")
+
+
+def _build_on_the_dem(
+    build: Callable[..., SiteSelectionBuildResult],
+    *,
+    path: Path,
+    cfg: SiteSelectionConfig,
+    workspace_root: str | Path | None,
+    dem_loader: DemLoader | None,
+    dem_extent: Callable[[], BBox | None],
+    missing_dem: str,
+    step: str,
+    progress_callback: ProgressCallback | None,
+    **build_kwargs: Any,
+) -> SiteSelectionBuildResult:
+    """Resolve the calculation DEM, run *build* on it and report its counts."""
+
+    _emit_progress(progress_callback, f"{cfg.selection_id}: resolving calculation DEM")
+    dem_path = _resolve_dem_path(
+        config=cfg,
+        config_path=path,
+        workspace_root=workspace_root or cfg.input.workspace_root,
+        data_root=cfg.input.data_root,
+        dem_loader=dem_loader,
+        project_extent=dem_extent,
+        missing=missing_dem,
+    )
+    _emit_progress(progress_callback, f"{cfg.selection_id}: calculation DEM ready: {dem_path}")
+    _emit_progress(progress_callback, f"{cfg.selection_id}: {step}")
+    result = build(config=cfg, dem_init_path=dem_path, **build_kwargs)
     _emit_progress(
         progress_callback,
         (

@@ -245,63 +245,75 @@ def test_two_requests_that_ask_for_the_same_work_carry_one_job_id(tmp_path):
     assert first.job_id == second.job_id
 
 
-def test_a_dem_that_is_not_there_fails_the_job_and_seals_nothing(tmp_path):
-    job = _staged(tmp_path, _request(inputs={"dem": {"href": "absent.tif"}}))
+def _not_a_raster(tmp_path: Path) -> dict:
+    impostor = tmp_path / "not-a-raster.tif"
+    impostor.write_text("elevation, more or less\n", encoding="utf-8")
+    return _request(inputs={"dem": {"href": str(impostor)}})
+
+
+def _other_capability(tmp_path: Path) -> dict:
+    return _request() | {"process": {"id": "data-request", "version": "1.0.0"}}
+
+
+@pytest.mark.parametrize(
+    ("document", "exit_code", "detail"),
+    [
+        (lambda _: _request(inputs={"dem": {"href": "absent.tif"}}), EXIT_NOT_FOUND, "absent.tif"),
+        (
+            lambda _: _request(inputs={"dem": {"href": str(DEM), "sha256": "0" * 64}}),
+            EXIT_VALIDATION,
+            "0" * 64,
+        ),
+        (lambda _: _request(outputs={"hillshade": {}}), EXIT_CONFIG, "/outputs/hillshade"),
+        (
+            lambda _: _request(inputs={"outlets": [{"site_id": "elsewhere", "x": 0.0, "y": 0.0}]}),
+            EXIT_SOLVER_ERROR,
+            None,
+        ),
+        (_other_capability, EXIT_CONFIG, "data-request"),
+        (_not_a_raster, EXIT_VALIDATION, DataContractViolation.code),
+        (lambda _: _request(inputs={"engine": "numpy_d8"}), EXIT_SOLVER_ERROR, "breach"),
+        (lambda _: _request(inputs={"engine": "pysheds"}), EXIT_CONFIG, "pysheds"),
+    ],
+    ids=[
+        "absent_dem",
+        "dem_bytes_not_pinned",
+        "undeclared_output",
+        "outlet_outside_the_dem",
+        "another_capability",
+        "dem_not_a_raster",
+        "engine_without_breach",
+        "engine_nobody_installed",
+    ],
+)
+def test_a_job_that_cannot_be_done_fails_with_its_typed_code_and_seals_nothing(
+    tmp_path, document, exit_code, detail
+):
+    """A typed code and never exit 1, which means "report this as a bug here".
+
+    A request whose inputs never resolved carries no job id. An engine that
+    cannot serve an option refuses it by name instead of a silent substitution,
+    and an engine nobody installed is refused before a byte is written.
+    """
+    job = _staged(tmp_path, document(tmp_path))
 
     outcome = run(job, exit_code_for=exit_code_for)
 
     assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_NOT_FOUND
+    assert outcome.exit_code == exit_code
     assert not job.is_sealed
     assert read_document(job.outcome_path)["status"] == "failed"
-
-
-def test_a_dem_whose_bytes_are_not_the_pinned_ones_fails_the_job(tmp_path):
-    job = _staged(
-        tmp_path,
-        _request(inputs={"dem": {"href": str(DEM), "sha256": "0" * 64}}),
-    )
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_VALIDATION
-    assert not job.is_sealed
-
-
-def test_an_output_nobody_declares_is_refused_before_the_run(tmp_path):
-    job = _staged(tmp_path, _request(outputs={"hillshade": {}}))
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_CONFIG
-    assert not job.outputs_dir.exists()
-    assert outcome.errors[0]["details"][0]["pointer"] == "/outputs/hillshade"
-
-
-def test_an_outlet_outside_the_dem_fails_as_a_backend_failure_not_as_a_bug(tmp_path):
-    job = _staged(
-        tmp_path,
-        _request(inputs={"outlets": [{"site_id": "elsewhere", "x": 0.0, "y": 0.0}]}),
-    )
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_SOLVER_ERROR
-    assert not job.is_sealed
-
-
-def test_a_request_that_targets_another_capability_is_refused(tmp_path):
-    document = _request()
-    document["process"] = {"id": "data-request", "version": "1.0.0"}
-    job = _staged(tmp_path, document)
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_CONFIG
+    if detail is not None:
+        assert detail in json.dumps(outcome.errors)
+    if exit_code in {EXIT_NOT_FOUND, EXIT_CONFIG}:
+        assert not (job.outputs_dir / "dem_corrected.tif").exists()
+    if detail == "absent.tif":
+        assert outcome.job_id == UNIDENTIFIED_JOB
+    if detail == "/outputs/hillshade":
+        assert not job.outputs_dir.exists()
+        assert outcome.errors[0]["details"][0]["pointer"] == detail
+    if detail == DataContractViolation.code:
+        assert outcome.errors[0]["code"] == detail
 
 
 def test_an_envelope_member_this_process_ignores_is_a_warning_not_a_refusal(tmp_path):
@@ -340,14 +352,6 @@ def run_job_id_of(tmp_path: Path) -> str:
     """The job id the same request carries when it succeeds."""
     job = _staged(tmp_path, _request(), name="reference")
     return run(job, exit_code_for=exit_code_for).job_id
-
-
-def test_a_request_whose_inputs_never_resolved_carries_no_job_id(tmp_path):
-    job = _staged(tmp_path, _request(inputs={"dem": {"href": "absent.tif"}}))
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.job_id == UNIDENTIFIED_JOB
 
 
 def test_the_same_request_into_a_sealed_directory_is_reused_and_not_re_run(sealed_job):
@@ -420,20 +424,6 @@ def test_a_request_that_no_longer_resolves_cannot_reuse_a_seal(sealed_job):
         run(job, exit_code_for=exit_code_for)
 
     assert job.outcome_path.read_bytes() == before
-
-
-def test_a_dem_that_is_not_a_raster_is_bad_input_and_not_an_internal_bug(tmp_path):
-    """Exit 1 means "report this as a bug here". A text file is not that."""
-    impostor = tmp_path / "not-a-raster.tif"
-    impostor.write_text("elevation, more or less\n", encoding="utf-8")
-    job = _staged(tmp_path, _request(inputs={"dem": {"href": str(impostor)}}))
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_VALIDATION
-    assert outcome.errors[0]["code"] == DataContractViolation.code
-    assert not job.is_sealed
 
 
 @pytest.mark.allow_subprocess
@@ -766,44 +756,4 @@ def test_the_job_runs_on_the_engine_the_request_names(tmp_path):
     assert outcome.status == "successful", outcome.errors
     assert job.is_sealed
     assert verify_job(job).ok
-
-
-def test_the_provenance_names_the_engine_the_request_asked_for(tmp_path):
-    """A record that names another engine than the one that ran is worse than none."""
-    job = _staged(
-        tmp_path,
-        _request(inputs={"engine": "numpy_d8", "dem_correction_type": "fill"}),
-        name="numpy_prov",
-    )
-    run(job, exit_code_for=exit_code_for)
-
-    provenance = read_document(job.root / "provenance.json")
-
-    assert provenance["backend"]["name"] == "numpy_d8"
-
-
-def test_an_engine_that_cannot_serve_an_option_refuses_it_by_name(tmp_path):
-    """``numpy_d8`` conditions with ``fill`` only, and the request defaults to ``breach``.
-
-    A refusal and never a silent substitution: the port says so, and the
-    capability declares ``TerrainCapabilityError`` so the published document
-    carries its exit code instead of the one that means "report this as a bug".
-    """
-    job = _staged(tmp_path, _request(inputs={"engine": "numpy_d8"}), name="numpy_breach")
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert any("breach" in str(error) for error in outcome.errors)
-    assert outcome.exit_code == EXIT_SOLVER_ERROR
-
-
-def test_an_engine_no_installation_serves_is_refused_before_a_byte_is_written(tmp_path):
-    """The refusal is a document refusal, at the boundary, not a mid-job death."""
-    job = _staged(tmp_path, _request(inputs={"engine": "pysheds"}), name="unknown_engine")
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == EXIT_CONFIG
-    assert not (job.outputs_dir / "dem_corrected.tif").exists()
+    assert read_document(job.provenance_path)["backend"]["name"] == "numpy_d8"

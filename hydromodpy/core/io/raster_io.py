@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import os
 import re
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -19,6 +20,7 @@ from pyproj.database import query_utm_crs_info
 from rasterio.warp import calculate_default_transform, reproject
 from shapely.geometry import Point
 
+from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -310,6 +312,33 @@ def load_to_xarray(file, src_crs=None, main_var=None, base_path: str = None, dst
         ds.latitude.attrs = {"long_name": "latitude", "units": "degrees_north"}
 
     return ds
+
+
+def write_band(
+    path: str | Path,
+    values: np.ndarray,
+    profile: dict,
+    *,
+    crs: str | None = None,
+    **updates: object,
+) -> Path:
+    """Write *values* as the single band of a GeoTIFF built on *profile*.
+
+    The profile is copied and never changed. The keyword *updates* override
+    its keys (``dtype``, ``nodata``, ``compress``), and ``count`` is always 1.
+    The parent folder is created. The array is written as it is, so its dtype
+    must be the one the profile declares. A *crs* given here is stamped on the
+    file after the write with :func:`hydromodpy.core.io.crs.ensure_crs`.
+    """
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    merged = dict(profile)
+    merged.update(updates)
+    merged["count"] = 1
+    with rio.open(str(out), "w", **merged) as dst:
+        dst.write(values, 1)
+    ensure_crs(out, crs)
+    return out
 
 
 def export_tif(base_dem_path, data_to_tif, data_tif_path, data_nodata_val=None, data_crs=None):

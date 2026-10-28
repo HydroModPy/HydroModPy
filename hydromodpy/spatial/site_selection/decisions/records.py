@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
 
 from hydromodpy.spatial.site_selection.decisions.models import (
     DecisionRecord,
     DecisionValue,
     MetricValue,
 )
+from hydromodpy.spatial.site_selection.domain.attribute_values import first_text
 from hydromodpy.spatial.site_selection.evaluation.criteria import CriteriaComponent
 from hydromodpy.spatial.site_selection.evaluation.selection import (
     SelectionDecision,
@@ -82,7 +82,7 @@ def _record_from_component(component: CriteriaComponent, *, run_id: str) -> Deci
         metric_name=component.criterion_id,
         metric_value=_metric_value(component.raw_value),
         threshold_value=_metric_value(component.threshold),
-        source_name=_first_text(
+        source_name=first_text(
             evidence,
             "source_name",
             "source_dataset",
@@ -90,8 +90,8 @@ def _record_from_component(component: CriteriaComponent, *, run_id: str) -> Deci
             "source",
             "reference_network_source",
         ),
-        source_version=_first_text(evidence, "source_version", "provider_version"),
-        evidence_ref=_first_text(evidence, "evidence_ref", "evidence_id"),
+        source_version=first_text(evidence, "source_version", "provider_version"),
+        evidence_ref=first_text(evidence, "evidence_ref", "evidence_id"),
         message=component.reason or None,
         properties={
             "selection_principle": component.selection_principle,
@@ -154,17 +154,6 @@ def _metric_value(value: object) -> MetricValue:
     if isinstance(value, (str, bool, int, float)):
         return value
     return str(value)
-
-
-def _first_text(mapping: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = mapping.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
 
 
 __all__ = [

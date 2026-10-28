@@ -30,7 +30,9 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points
 from shapely.strtree import STRtree
 
+from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.geographic.core.lake_enforcement import (
     lakes_from_config,
 )
@@ -338,15 +340,13 @@ def _notched(
     )
 
     out_path = Path(setup.paths.correcflow_path) / GROUND_FILENAME
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     profile.pop("blockxsize", None)
     profile.pop("blockysize", None)
-    profile.update(dtype="float32", compress="lzw", tiled=False)
-    with rasterio.open(out_path, "w", **profile) as dst:
-        dst.write(notched_dem.astype("float32"), 1)
-    profile.update(dtype="uint8", nodata=None)
-    with rasterio.open(notch_footprint_path(setup), "w", **profile) as dst:
-        dst.write(footprint.astype("uint8"), 1)
+    profile.update(compress="lzw", tiled=False)
+    write_band(out_path, notched_dem.astype("float32"), profile, dtype="float32")
+    write_band(
+        notch_footprint_path(setup), footprint.astype("uint8"), profile, dtype="uint8", nodata=None
+    )
     notch_report_path(setup).write_text(
         json.dumps(report.to_document(), indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
     )
@@ -393,9 +393,7 @@ def notch_dem(
     """
     out = dem.astype("float64").copy()
     original = out.copy()
-    valid = np.isfinite(out)
-    if nodata is not None:
-        valid &= out != nodata
+    valid = valid_cells(out, nodata)
 
     crossings = _normalised_kinds(crossings)
     points = _crossing_points(

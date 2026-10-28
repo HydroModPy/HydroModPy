@@ -145,3 +145,34 @@ def test_a_missing_frame_is_refused_by_name(missing: str, value: str | None) -> 
 )
 def test_a_crs_is_read_from_a_code_a_string_or_a_crs(crs_like: crs_io.CrsLike) -> None:
     assert crs_io.require_crs(crs_like, "mesh_crs") == CRS.from_epsg(2154)
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "same"),
+    [
+        ("EPSG:2154", " epsg:2154", True),
+        ("EPSG:4326", "WGS84", True),
+        ("EPSG:2154", "EPSG:4326", False),
+        ("EPSG:2154", "not a crs", False),
+    ],
+    ids=["label", "parsed", "other", "unreadable"],
+)
+def test_two_labels_name_the_same_frame_only_when_pyproj_agrees(
+    left: str, right: str, same: bool
+) -> None:
+    assert crs_io.same_crs(left, right) is same
+
+
+def test_a_raster_crs_reads_as_text_and_its_absence_as_none(tmp_path: Path) -> None:
+    path = tmp_path / "bare.tif"
+    _write_tif_without_crs(path)
+    with rasterio.open(path) as src:
+        assert crs_io.crs_text(src.crs) is None
+    crs_io.ensure_crs(path, "EPSG:2154")
+    with rasterio.open(path) as src:
+        assert crs_io.crs_text(src.crs) == "EPSG:2154"
+
+
+def test_one_degree_of_the_equator_is_a_great_circle_arc() -> None:
+    assert crs_io.haversine_km(0.0, 0.0, 1.0, 0.0) == pytest.approx(6371.0088 * np.pi / 180.0)
+    assert crs_io.haversine_km(2.0, 48.0, 2.0, 48.0) == 0.0

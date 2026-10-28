@@ -55,7 +55,7 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
         # file that never calls Whitebox only makes the group slower.
         "test_capped_breach_on_whitebox.py",
         "test_crossing_notch_on_whitebox.py",
-        "test_reference_river_network_nancon_case.py",
+        "test_run_case_river_network_nancon.py",
         "test_run_geographic_case_regression.py",
         "test_run_geographic_dem_processing_golden.py",
         "test_run_geographic_river_network_golden.py",

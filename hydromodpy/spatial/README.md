@@ -25,7 +25,7 @@ rules, how a catchment becomes a mesh, and where to add what. `field/`,
 | `domain/` | the aquifer geometry: `Domain` (surface, depth model, zones), `build.py` (its one constructor), the four depth models, the layering of the column (`layers_config.py` for `[domain.layers]`, `layering.py` for the layer bottoms and `idomain`), `spatial_support.py` (the supports a parameter can be zoned by), and the `domain-build` capability (`capability.py`, `worker.py`) |
 | `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile), their TOML sections, geology, the cells of a `PlanarCellMesh` the supports sample (`core/mesh_cells.py`) and `plot_cell_values` (`plotting.py`); it reads the mesh, and `mesh/` never imports it |
 | `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `io/` holds the exchange formats (VTU, the meshio bridge, Gmsh `.msh` files, mesh bundles); `cells/` answers which cells or faces; `mesh_config.py` and `refinement_config.py` hold the `[mesh]` config models |
-| `forcing/` | gridded and station forcings on the cells of a mesh: `cells.py` gives one rate per cell and per stress period (and the period bounds), `rasters.py` reads xarray, NetCDF and GeoTIFF, `stations.py` the located series, `sources.py` the units and variables, `area_weights.py` the `area` method, `interpolation.py` nearest, linear and IDW, `spatial_mean.py` the mean over the pixels; it reads the mesh model, and `mesh/` never imports it |
+| `forcing/` | gridded and station forcings on the cells of a mesh: `cells.py` gives one rate per cell and per stress period (and the period bounds), `rasters.py` reads xarray, NetCDF and GeoTIFF and gives the mean over the pixels, `stations.py` the located series, `sources.py` the units and variables, `area_weights.py` the `area` method, `interpolation.py` nearest, linear and IDW; it reads the mesh model, and `mesh/` never imports it |
 | `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus, and the carve of a mesh column |
 | `site_selection/` | the primitives of a site selection: candidates, criteria, evidence, decisions, outputs, and the `terrain-delineate` capability (`hydrology/capability.py`, `hydrology/worker.py`); map in `site_selection/README.md` |
 
@@ -69,7 +69,7 @@ hydromodpy/spatial/
   geographic/       core/  synthetic/  pipeline.py  structure_binders.py  catchment_delineation.py ...
   domain/           domain.py  build.py  depth_model_config.py  layers_config.py  layering.py  spatial_support.py  capability.py  worker.py
   field/            core/  geology/  cases/
-  forcing/          cells.py  rasters.py  stations.py  sources.py  area_weights.py  interpolation.py  spatial_mean.py
+  forcing/          cells.py  rasters.py  stations.py  sources.py  area_weights.py  interpolation.py
   mesh/             model/  engines/  planning/  io/  cells/
                     mesh_config.py  refinement_config.py  request.py  resample.py  cache.py
   lake_bed/

@@ -52,6 +52,16 @@ class RasterSupport:
     ncols: int | None = None
     nodata: float | None = None
 
+    @property
+    def cell_area(self) -> float:
+        """Mean cell area from the bounds and the shape, NaN when one is unknown."""
+        fields = (self.xmin, self.xmax, self.ymin, self.ymax, self.nrows, self.ncols)
+        if any(value is None for value in fields):
+            return float("nan")
+        width = (float(self.xmax) - float(self.xmin)) / int(self.ncols)
+        height = (float(self.ymax) - float(self.ymin)) / int(self.nrows)
+        return abs(width * height)
+
     @classmethod
     def from_georeferencing(
         cls,

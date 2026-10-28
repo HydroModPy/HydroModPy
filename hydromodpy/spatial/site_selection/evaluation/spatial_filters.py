@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from shapely import make_valid
+
 OverlapReference = Literal["smaller_basin", "candidate", "selected"]
 
 
@@ -45,10 +47,7 @@ def basin_overlap_fraction(
 def _geometry_area(geometry: object | None) -> float:
     if geometry is None:
         return 0.0
-    try:
-        return float(getattr(geometry, "area", 0.0) or 0.0)
-    except Exception:
-        return 0.0
+    return float(getattr(geometry, "area", 0.0) or 0.0)
 
 
 def _make_overlap_safe_geometry(geometry: object | None) -> object | None:
@@ -80,32 +79,20 @@ def _safe_intersection(candidate_geometry: object, selected_geometry: object) ->
 
 
 def _is_empty_geometry(geometry: object) -> bool:
-    try:
-        return bool(getattr(geometry, "is_empty", False))
-    except Exception:
-        return False
+    return bool(getattr(geometry, "is_empty", False))
 
 
 def _is_valid_geometry(geometry: object) -> bool:
-    try:
-        is_valid = geometry.is_valid
-    except Exception:
-        return True
-    try:
-        return bool(is_valid)
-    except Exception:
-        return True
+    return bool(getattr(geometry, "is_valid", True))
 
 
 def _repair_geometry(geometry: object) -> object | None:
-    make_valid = _load_make_valid()
-    if make_valid is not None:
-        try:
-            repaired = make_valid(geometry)
-        except Exception:
-            repaired = None
-        if repaired is not None and not _is_empty_geometry(repaired):
-            return repaired
+    try:
+        repaired = make_valid(geometry)
+    except Exception:  # Not a shapely geometry, or GEOS fails on it: buffer(0) comes next.
+        repaired = None
+    if repaired is not None and not _is_empty_geometry(repaired):
+        return repaired
 
     buffer = getattr(geometry, "buffer", None)
     if callable(buffer):
@@ -117,21 +104,6 @@ def _repair_geometry(geometry: object) -> object | None:
             return repaired
 
     return geometry
-
-
-def _load_make_valid():
-    try:
-        from shapely import make_valid
-
-        return make_valid
-    except Exception:
-        pass
-    try:
-        from shapely.validation import make_valid
-
-        return make_valid
-    except Exception:
-        return None
 
 
 def is_overlap_allowed(

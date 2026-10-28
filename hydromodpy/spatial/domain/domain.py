@@ -19,6 +19,7 @@ import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError, DataContractViolation
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     FlatSubstratumDepthModel,
@@ -26,9 +27,30 @@ from hydromodpy.spatial.domain.depth_model_config import (
     RasterThicknessDepthModel,
 )
 from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 
 logger = get_logger(__name__)
+
+
+def _covering_values(
+    source: Surface,
+    support: RasterSupport,
+    cells: np.ndarray,
+    *,
+    name: str,
+    label: str,
+    hint: str = ".",
+) -> np.ndarray:
+    """Return *source* on the grid of *support*, refused when a cell of the domain has no value."""
+    values = source.reprojected_onto(support, name=name).as_array()
+    n_uncovered = int(np.count_nonzero(cells & ~np.isfinite(values)))
+    if n_uncovered:
+        raise DataContractViolation(
+            f"The {label} leaves {n_uncovered} of the {int(np.count_nonzero(cells))} cells of "
+            f"the domain without a value. It must cover the whole extent the domain is built on{hint}"
+        )
+    return values
 
 
 class Domain:
@@ -118,19 +140,16 @@ class Domain:
             self.substratum = self.surface_topo.shifted_down_by(float(depth_model.thickness))
         elif isinstance(depth_model, FlatSubstratumDepthModel):
             self.substratum = self.surface_topo.flat_like(float(depth_model.substratum_elevation))
-        elif isinstance(depth_model, RasterDepthModel):
-            self.substratum = self._substratum_from_raster(depth_model)
         else:
-            raise TypeError(f"Unsupported depth_model payload: {type(depth_model)!r}")
+            self.substratum = self._substratum_from_raster(depth_model)
         self.layer_bases = self._layer_bases_from_rasters()
 
     def _domain_cells(self) -> tuple[np.ndarray, np.ndarray]:
         """Return the cells where the top carries data, and those narrowed to ``active_cells``."""
         support = self.surface_topo.support
-        top = self.surface_topo.as_array()
-        has_top = np.isfinite(top)
-        if support is not None and support.nodata is not None:
-            has_top &= top != float(support.nodata)
+        has_top = valid_cells(
+            self.surface_topo.as_array(), None if support is None else support.nodata
+        )
         cells = has_top if self._active_cells is None else has_top & self._active_cells
         return has_top, cells
 
@@ -161,14 +180,13 @@ class Domain:
         has_top, cells = self._domain_cells()
         bases: dict[str, Surface] = {}
         for name in names:
-            values = self._layer_base_sources[name].reprojected_onto(support, name=name).as_array()
-            n_uncovered = int(np.count_nonzero(cells & ~np.isfinite(values)))
-            if n_uncovered:
-                raise DataContractViolation(
-                    f"The layer base raster {name!r} leaves {n_uncovered} of the "
-                    f"{int(np.count_nonzero(cells))} cells of the domain without a value. It "
-                    "must cover the whole extent the domain is built on."
-                )
+            values = _covering_values(
+                self._layer_base_sources[name],
+                support,
+                cells,
+                name=name,
+                label=f"layer base raster {name!r}",
+            )
             if support.nodata is not None:
                 values = np.where(has_top, values, float(support.nodata))
             bases[name] = Surface(name=name, values=values, support=support)
@@ -200,15 +218,17 @@ class Domain:
         if n_cells == 0:
             raise ValueError("The domain holds no cell with a top elevation.")
 
-        values = source.reprojected_onto(support, name="substratum").as_array()
-        n_uncovered = int(np.count_nonzero(cells & ~np.isfinite(values)))
-        if n_uncovered:
-            raise DataContractViolation(
-                f"The substratum raster leaves {n_uncovered} of the {n_cells} cells of the "
-                "domain without a value. It must cover the whole extent the domain is "
-                "built on: the catchment for geographic.domain_extent = 'watershed', the "
-                "buffered box for 'box'. Extend the raster, or choose a smaller extent."
-            )
+        values = _covering_values(
+            source,
+            support,
+            cells,
+            name="substratum",
+            label="substratum raster",
+            hint=(
+                ": the catchment for geographic.domain_extent = 'watershed', the buffered "
+                "box for 'box'. Extend the raster, or choose a smaller extent."
+            ),
+        )
 
         offset = float(depth_model.offset)
         if isinstance(depth_model, RasterThicknessDepthModel):

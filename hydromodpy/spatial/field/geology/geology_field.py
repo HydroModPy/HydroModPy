@@ -42,6 +42,7 @@ import numpy as np
 from rasterio.transform import rowcol
 
 from hydromodpy.spatial.field.core.cell_sampling import (
+    quadrilateral_points_in_cells,
     quadrilateral_sample_weights,
     sample_points_in_cell,
     triangle_sample_weights,
@@ -150,45 +151,6 @@ class GeologyField(Field):
     def shape(self):
         """Raster shape ``(n_rows, n_cols)`` for internal encoded grid."""
         return self.encoded_codes.shape
-
-    @staticmethod
-    def _sample_points_in_cells(
-        vertices: np.ndarray, *, cell_kind: str, n_sub_per_axis: int
-    ) -> tuple[np.ndarray, np.ndarray]:
-        verts = np.asarray(vertices, dtype=float)
-        if verts.ndim != 3:
-            raise ValueError("vertices must have shape (n_cells, n_vertices, 2)")
-
-        if cell_kind == "quadrilateral":
-            weights = quadrilateral_sample_weights(n_sub_per_axis)
-            w0 = weights[:, 0][None, :]
-            w1 = weights[:, 1][None, :]
-            w2 = weights[:, 2][None, :]
-            w3 = weights[:, 3][None, :]
-            x = (
-                w0 * verts[:, 0, 0:1]
-                + w1 * verts[:, 1, 0:1]
-                + w2 * verts[:, 2, 0:1]
-                + w3 * verts[:, 3, 0:1]
-            )
-            y = (
-                w0 * verts[:, 0, 1:2]
-                + w1 * verts[:, 1, 1:2]
-                + w2 * verts[:, 2, 1:2]
-                + w3 * verts[:, 3, 1:2]
-            )
-            return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-        elif cell_kind == "triangle":
-            weights = triangle_sample_weights(n_sub_per_axis)
-            uu = weights[:, 1][None, :]
-            vv = weights[:, 2][None, :]
-            p0x = verts[:, 0, 0:1]
-            p0y = verts[:, 0, 1:2]
-            x = p0x + uu * (verts[:, 1, 0:1] - p0x) + vv * (verts[:, 2, 0:1] - p0x)
-            y = p0y + uu * (verts[:, 1, 1:2] - p0y) + vv * (verts[:, 2, 1:2] - p0y)
-            return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-        else:
-            raise ValueError(f"Unsupported cell kind '{cell_kind}'")
 
     def _sample_encoded_codes(self, x, y) -> np.ndarray:
         x_arr = np.asarray(x, dtype=float)
@@ -302,11 +264,7 @@ class GeologyField(Field):
                 for idx, cell in enumerate(chunk):
                     vertices[idx, :, :] = np.asarray(cell.vertices, dtype=float)
 
-                x_s, y_s = self._sample_points_in_cells(
-                    vertices,
-                    cell_kind=cell_kind,
-                    n_sub_per_axis=n_sub,
-                )
+                x_s, y_s = quadrilateral_points_in_cells(vertices, n_sub)
                 encoded = self._sample_encoded_codes(x_s, y_s)
                 valid = encoded > 0
                 if not np.any(valid):

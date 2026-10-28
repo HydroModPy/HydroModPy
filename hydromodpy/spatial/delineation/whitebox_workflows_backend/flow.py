@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
     _WhiteboxComponent,
+    given_options,
 )
 
 
@@ -155,14 +156,11 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
         *,
         use_dinf: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if use_dinf is not None:
-            kwargs["use_dinf"] = use_dinf
         return self._run(
             self._env.downslope_distance_to_stream,
             dem,
             streams,
-            **kwargs,
+            **given_options(use_dinf=use_dinf),
         )
 
     def downslope_distance_to_stream(
@@ -173,14 +171,11 @@ class WhiteboxFlowBackend(_WhiteboxComponent):
         *,
         use_dinf: bool | None = None,
     ) -> None:
-        kwargs: dict[str, object] = {}
-        if use_dinf is not None:
-            kwargs["use_dinf"] = use_dinf
         self._write_raster(
             self.downslope_distance_to_stream_raster(
                 self._read_raster(dem),
                 self._read_raster(streams),
-                **kwargs,
+                use_dinf=use_dinf,
             ),
             output_raster,
         )

@@ -26,7 +26,7 @@ from rasterio.features import rasterize
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.stream_criterion_defaults import STREAM_CRITERION_DEFAULTS
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
-from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from hydromodpy.spatial.terrain.d8 import d8_receivers
 
 logger = get_logger(__name__)
 
@@ -82,7 +82,7 @@ def measure_network_dem_agreement(
             "measure_network_dem_agreement: the mapped network and the catchment "
             "polygon do not share a single cell; check their CRS and extents."
         )
-    closure = _downstream_closure(_d8_receivers(codes), seeds)
+    closure = _downstream_closure(d8_receivers(codes, pit="none"), seeds)
     n_closure = int(np.count_nonzero(closure.reshape(shape) & core))
 
     return NetworkDemAgreement(
@@ -170,24 +170,6 @@ def report_network_dem_agreement(
             agreement.alpha,
         )
     return agreement
-
-
-def _d8_receivers(codes: np.ndarray) -> np.ndarray:
-    """Flat receiver index per cell, ``-1`` at a pit, a nodata code or the raster edge."""
-    nrow, ncol = codes.shape
-    receivers = np.full(nrow * ncol, -1, dtype=np.int64)
-    rows, cols = np.meshgrid(np.arange(nrow), np.arange(ncol), indexing="ij")
-    pointer = np.asarray(codes)
-    for code, (drow, dcol) in D8_WBT_OFFSETS.items():
-        hit = pointer == code
-        if not hit.any():
-            continue
-        target_row = rows[hit] + drow
-        target_col = cols[hit] + dcol
-        inside = (target_row >= 0) & (target_row < nrow) & (target_col >= 0) & (target_col < ncol)
-        source = np.flatnonzero(hit.ravel())
-        receivers[source[inside]] = target_row[inside] * ncol + target_col[inside]
-    return receivers
 
 
 def _downstream_closure(receivers: np.ndarray, seeds: np.ndarray) -> np.ndarray:

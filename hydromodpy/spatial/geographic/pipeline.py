@@ -20,7 +20,11 @@ from rasterio.errors import RasterioIOError
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.geographic.artifacts import DESCRIPTION_FILENAME
+from hydromodpy.spatial.geographic.artifacts import (
+    DESCRIPTION_FILENAME,
+    SHAPEFILE_SIDECARS,
+    reused_tree_files,
+)
 from hydromodpy.spatial.geographic.core.bed_regularization_raster import (
     bed_dem_path,
     bed_regularization_enabled,
@@ -264,7 +268,9 @@ def _vector_artifact_exists(path: str | Path) -> bool:
     vector_path = Path(path)
     if vector_path.suffix.lower() != ".shp":
         return vector_path.exists()
-    return all(vector_path.with_suffix(suffix).exists() for suffix in (".shp", ".shx", ".dbf"))
+    return all(
+        vector_path.with_suffix(suffix).exists() for suffix, needed in SHAPEFILE_SIDECARS if needed
+    )
 
 
 def _all_artifacts_exist(paths: list[str | Path]) -> bool:
@@ -385,42 +391,12 @@ def _required_geographic_cache_artifacts(
     *,
     config: GeographicConfig,
     paths: GeographicPaths,
-    raster_products: DomainRasterProducts,
 ) -> list[str | Path]:
     """Return the concrete files required for a safe cache hit."""
     required: list[str | Path] = [
         *_flow_raster_paths(paths, str(config.dem_correc_type)),
-        paths.watershed,
-        paths.watershed_shp,
-        paths.watershed_contour_shp,
-        Path(paths.geographic_path) / "watershed_buff.shp",
-        paths.watershed_box_shp,
-        paths.box_buff,
-        raster_products.watershed_box_buff_dem,
-        raster_products.watershed_box_buff_fill,
-        raster_products.watershed_box_buff_direc,
-        raster_products.watershed_buff_dem,
-        raster_products.watershed_buff_fill,
-        raster_products.watershed_buff_direc,
-        raster_products.watershed_dem,
-        raster_products.watershed_fill,
-        raster_products.watershed_direc,
-        raster_products.watershed_contour_tif,
+        *reused_tree_files(paths, config.river_network),
     ]
-    if bool(config.river_network.enabled):
-        required.extend(
-            [
-                Path(paths.correcflow_path) / "dem_acc_cells.tif",
-                paths.river_streams_tif,
-                paths.hydrographic_network_generated_summary_json,
-            ]
-        )
-        if bool(config.river_network.prune_short_streams):
-            required.append(paths.river_streams_pruned_tif)
-        if bool(config.river_network.compute_strahler_order):
-            required.append(paths.river_stream_order_strahler_tif)
-        if bool(config.river_network.compute_stream_links):
-            required.append(paths.river_stream_link_id_tif)
     required.extend(_top_surface_paths(config, paths).values())
     if bed_regularization_enabled(config):
         setup = SimpleNamespace(paths=paths)
@@ -511,11 +487,7 @@ def _load_cached_geographic_products(
         return None
 
     raster_products = _raster_products_from_paths(paths)
-    required = _required_geographic_cache_artifacts(
-        config=config,
-        paths=paths,
-        raster_products=raster_products,
-    )
+    required = _required_geographic_cache_artifacts(config=config, paths=paths)
     if not _all_artifacts_exist(required):
         return None
     # The model top is read from the ground. A tree written before the ground had
@@ -652,64 +624,103 @@ def _write_geographic_cache_manifest(
     )
 
 
-def _redelineate(
+def _delineate(
     *,
     config: GeographicConfig,
-    setup: object,
+    setup: Any,
     tool: object,
-    routing_dem_path: str | Path,
-) -> tuple[FlowProducts, float, CatchmentDomainProducts, RiverNetworkProducts]:
-    """Condition, delineate, buffer and extract the network again on one routing DEM.
+    routing_dem_path: str,
+) -> tuple[FlowProducts, object | None, float, CatchmentDomainProducts, RiverNetworkProducts]:
+    """Condition, delineate, buffer and extract the network on one routing DEM.
 
-    The second pass of the crossing notch: same steps as the first, on a routing
-    DEM that was corrected after it.
+    The first pass routes the ground, the second pass of the crossing notch
+    routes the notched ground. The config refuses the notch with a shared
+    regional job or a ``dem`` domain, so the second pass always routes and
+    delineates here. Returns the flow products, the catchment products (None
+    for a ``dem`` domain), the catchment area in km2, the domain polygons and
+    the river-network products.
     """
-    flow_products = build_regional_flow_products(
-        dem_init_path=routing_dem_path,
-        dem_out_dir_path=setup.paths.correcflow_path,
-        dem_correc_type=str(config.dem_correc_type),
-        capped_breach=capped_breach_of(config),
-        crs_project=setup.crs_project,
-        backend=tool,
-        engine_id=config.terrain_engine,
-    )
-    build_standard_catchment(
-        config=config,
-        paths=setup.paths,
-        accumulation=flow_products.accumulation,
-        crs_project=setup.crs_project,
-        backend=tool,
-        unsupported_mode="ignore",
-    )
-    catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
-    domain_products = build_standard_domain_polygons(
-        config=config,
-        paths=setup.paths,
-        dem_init_path=setup.dem_init_path,
-        crs_project=setup.crs_project,
-    )
+    if config.reg_fold is None:
+        flow_products = build_regional_flow_products(
+            dem_init_path=routing_dem_path,
+            dem_out_dir_path=setup.paths.correcflow_path,
+            dem_correc_type=str(config.dem_correc_type),
+            capped_breach=capped_breach_of(config),
+            crs_project=setup.crs_project,
+            backend=tool,
+            engine_id=config.terrain_engine,
+        )
+    else:
+        flow_products = copy_regional_flow_from_job(
+            config=config,
+            routing_dem_path=routing_dem_path,
+            output_dir=setup.paths.correcflow_path,
+            crs_project=setup.crs_project,
+            backend=tool,
+        )
+
+    catchment_products: object | None = None
+    if config.catch_def == "dem":
+        dem_products = build_direct_dem_domain(
+            dem_init_path=setup.dem_init_path,
+            paths=setup.paths,
+            crs_project=setup.crs_project,
+        )
+        catchment_area_km2 = float(dem_products.domain_area_km2)
+        domain_products = CatchmentDomainProducts(
+            catchment_area_km2=catchment_area_km2,
+            buffer_distance_m=0.0,
+            watershed_buff_shp=dem_products.watershed_buff_shp,
+            watershed_box_shp=dem_products.watershed_box_shp,
+            watershed_box_buff_shp=dem_products.watershed_box_buff_shp,
+        )
+    else:
+        catchment_products = build_standard_catchment(
+            config=config,
+            paths=setup.paths,
+            accumulation=flow_products.accumulation,
+            crs_project=setup.crs_project,
+            backend=tool,
+            unsupported_mode="ignore",
+        )
+        catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
+        domain_products = build_standard_domain_polygons(
+            config=config,
+            paths=setup.paths,
+            dem_init_path=setup.dem_init_path,
+            crs_project=setup.crs_project,
+        )
+
     tool.delineation.polygons_to_lines(
         setup.paths.watershed_shp,
         setup.paths.watershed_contour_shp,
     )
-    river_network_products = build_river_network_products(
-        river_network=config.river_network,
-        dem_correc_path=flow_products.correc,
-        d8_pointer_path=flow_products.direc,
-        watershed_shp=setup.paths.watershed_shp,
-        geographic_dir=setup.paths.geographic_path,
-        correcflow_dir=setup.paths.correcflow_path,
-        dem_res_m=float(setup.dem_res),
-        streams_tif_path=setup.paths.river_streams_tif,
-        streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
-        stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
-        stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-        network_shp_path=setup.paths.hydrographic_network_generated_shp,
-        summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
-        network_crs=setup.crs_project,
-        backend=tool,
+
+    with progress.status("Extracting river network"):
+        river_network_products = build_river_network_products(
+            river_network=config.river_network,
+            dem_correc_path=flow_products.correc,
+            d8_pointer_path=flow_products.direc,
+            watershed_shp=setup.paths.watershed_shp,
+            geographic_dir=setup.paths.geographic_path,
+            correcflow_dir=setup.paths.correcflow_path,
+            dem_res_m=float(setup.dem_res),
+            streams_tif_path=setup.paths.river_streams_tif,
+            streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
+            stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
+            stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
+            network_shp_path=setup.paths.hydrographic_network_generated_shp,
+            summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
+            network_crs=setup.crs_project,
+            backend=tool,
+        )
+    return (
+        flow_products,
+        catchment_products,
+        catchment_area_km2,
+        domain_products,
+        river_network_products,
     )
-    return flow_products, catchment_area_km2, domain_products, river_network_products
 
 
 def build_geographic_runtime_context(
@@ -759,84 +770,17 @@ def build_geographic_runtime_context(
         # model top (clipped below), so neither surface sees a structure the other
         # does not.
         ground = ground_dem_from_config(config, setup)
-        routing_dem_path = str(ground)
-        if config.reg_fold is None:
-            flow_products = build_regional_flow_products(
-                dem_init_path=routing_dem_path,
-                dem_out_dir_path=setup.paths.correcflow_path,
-                dem_correc_type=str(config.dem_correc_type),
-                capped_breach=capped_breach_of(config),
-                crs_project=setup.crs_project,
-                backend=tool,
-                engine_id=config.terrain_engine,
-            )
-        else:
-            flow_products = copy_regional_flow_from_job(
-                config=config,
-                routing_dem_path=routing_dem_path,
-                output_dir=setup.paths.correcflow_path,
-                crs_project=setup.crs_project,
-                backend=tool,
-            )
-
-        if config.catch_def == "dem":
-            dem_products = build_direct_dem_domain(
-                dem_init_path=setup.dem_init_path,
-                paths=setup.paths,
-                crs_project=setup.crs_project,
-            )
-            catchment_area_km2 = float(dem_products.domain_area_km2)
-            domain_products = CatchmentDomainProducts(
-                catchment_area_km2=catchment_area_km2,
-                buffer_distance_m=0.0,
-                watershed_buff_shp=dem_products.watershed_buff_shp,
-                watershed_box_shp=dem_products.watershed_box_shp,
-                watershed_box_buff_shp=dem_products.watershed_box_buff_shp,
-            )
-        else:
-            catchment_products = build_standard_catchment(
-                config=config,
-                paths=setup.paths,
-                accumulation=flow_products.accumulation,
-                crs_project=setup.crs_project,
-                backend=tool,
-                unsupported_mode="ignore",
-            )
-            catchment_area_km2 = float(compute_catchment_area_km2(setup.paths.watershed_shp))
-            domain_products = build_standard_domain_polygons(
-                config=config,
-                paths=setup.paths,
-                dem_init_path=setup.dem_init_path,
-                crs_project=setup.crs_project,
-            )
-
-        tool.delineation.polygons_to_lines(
-            setup.paths.watershed_shp,
-            setup.paths.watershed_contour_shp,
-        )
-
-        with progress.status("Extracting river network"):
-            river_network_products = build_river_network_products(
-                river_network=config.river_network,
-                dem_correc_path=flow_products.correc,
-                d8_pointer_path=flow_products.direc,
-                watershed_shp=setup.paths.watershed_shp,
-                geographic_dir=setup.paths.geographic_path,
-                correcflow_dir=setup.paths.correcflow_path,
-                dem_res_m=float(setup.dem_res),
-                streams_tif_path=setup.paths.river_streams_tif,
-                streams_pruned_tif_path=setup.paths.river_streams_pruned_tif,
-                stream_order_strahler_tif_path=setup.paths.river_stream_order_strahler_tif,
-                stream_link_id_tif_path=setup.paths.river_stream_link_id_tif,
-                network_shp_path=setup.paths.hydrographic_network_generated_shp,
-                summary_json_path=setup.paths.hydrographic_network_generated_summary_json,
-                network_crs=setup.crs_project,
-                backend=tool,
-            )
+        (
+            flow_products,
+            catchment_products,
+            catchment_area_km2,
+            domain_products,
+            river_network_products,
+        ) = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
 
         # Crossing notch: the channel tree of the first delineation says where the
         # embankments cross it. The ground is notched there and the catchment is
-        # delineated again on it.
+        # delineated again on it. The snapped outlet stays the one of the first pass.
         if notch_enabled(config):
             channel = first_pass_channel(
                 config,
@@ -847,18 +791,15 @@ def build_geographic_runtime_context(
             )
             ground = ground_dem_from_config(config, setup, channel=channel)
             if notch_lowered_pixels(setup) > 0:
-                routing_dem_path = str(ground)
                 with progress.status("Re-delineating on the notched ground"):
                     (
                         flow_products,
+                        _,
                         catchment_area_km2,
                         domain_products,
                         river_network_products,
-                    ) = _redelineate(
-                        config=config,
-                        setup=setup,
-                        tool=tool,
-                        routing_dem_path=routing_dem_path,
+                    ) = _delineate(
+                        config=config, setup=setup, tool=tool, routing_dem_path=str(ground)
                     )
             close_notch_report(setup, catchment_area_km2_after=catchment_area_km2)
 

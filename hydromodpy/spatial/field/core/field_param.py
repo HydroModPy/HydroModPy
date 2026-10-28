@@ -22,10 +22,13 @@ import numpy as np
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     factor_to_m_per_s,
-    normalize_m_per_s_unit,
 )
 from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.spatial.field.core._field_param_units import (
+    SUPPORTED_PARAMETER_UNITS,
+    normalize_unit_token,
+)
 from hydromodpy.spatial.field.core.mesh_cells import MeshWithValues, cell_values
 
 
@@ -52,22 +55,8 @@ SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
 SUPPORTED_VERTICAL_PROFILE_INTERPOLATIONS = ("linear", "step")
 
-# Unit conventions and conversion factors to SI.
-# Values in this class are always stored in SI internally.
-SUPPORTED_PARAM_UNITS = ("-", *M_PER_S_CANONICAL_UNITS, "m-1", "cm-1")
-_UNIT_ALIASES = {
-    "-": "-",
-    "1": "-",
-    "none": "-",
-    "dimensionless": "-",
-    "unitless": "-",
-    "m-1": "m-1",
-    "1/m": "m-1",
-    "m^-1": "m-1",
-    "cm-1": "cm-1",
-    "1/cm": "cm-1",
-    "cm^-1": "cm-1",
-}
+# Conversion factors to SI. Values in this class are always stored in SI
+# internally. The unit tokens and their aliases live in `_field_param_units`.
 _UNIT_TO_SI_UNIT = {
     "-": "-",
     **{unit: "m/s" for unit in M_PER_S_CANONICAL_UNITS},
@@ -97,22 +86,6 @@ class FieldParam:
     """
 
     @staticmethod
-    def _normalize_unit(unit: str | None) -> str:
-        """Normalize a unit token to a canonical representation."""
-        if unit is None:
-            return "-"
-        token = str(unit).strip().lower().replace(" ", "")
-        if token == "":
-            raise ValueError("unit cannot be empty when provided")
-        if token in _UNIT_ALIASES:
-            return _UNIT_ALIASES[token]
-        try:
-            return normalize_m_per_s_unit(token)
-        except ValueError:
-            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
-            raise ValueError(f"Unsupported unit '{unit}'. Allowed units: {allowed}") from None
-
-    @staticmethod
     def _expected_si_unit_for_identifier(identifier: str) -> str | None:
         """Return default SI unit expected for known parameter identifiers."""
         return _DEFAULT_SI_UNIT_BY_PARAM_ID.get(str(identifier).strip().lower())
@@ -126,9 +99,13 @@ class FieldParam:
     ) -> tuple[str, str, float]:
         """Resolve input unit, SI unit, and SI conversion factor."""
         expected_si = cls._expected_si_unit_for_identifier(identifier)
-        input_unit = cls._normalize_unit(unit) if unit is not None else (expected_si or "-")
+        input_unit = (
+            normalize_unit_token(unit, label="unit", allowed_label="Allowed units")
+            if unit is not None
+            else (expected_si or "-")
+        )
         if input_unit not in _UNIT_TO_SI_UNIT:
-            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
+            allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
             raise ValueError(f"Unsupported unit '{input_unit}'. Allowed units: {allowed}")
         si_unit = _UNIT_TO_SI_UNIT[input_unit]
         if expected_si is not None and si_unit != expected_si:
@@ -218,9 +195,11 @@ class FieldParam:
             default_unit=self.input_unit,
             explicit_unit=explicit_unit,
         )
-        canonical_unit = self._normalize_unit(resolved_unit)
+        canonical_unit = normalize_unit_token(
+            resolved_unit, label="unit", allowed_label="Allowed units"
+        )
         if canonical_unit not in _UNIT_TO_SI_UNIT:
-            allowed = ", ".join(SUPPORTED_PARAM_UNITS)
+            allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
             raise ValueError(f"Unsupported unit '{resolved_unit}'. Allowed units: {allowed}")
         resolved_si_unit = _UNIT_TO_SI_UNIT[canonical_unit]
         if resolved_si_unit != self.unit:
@@ -453,12 +432,11 @@ class FieldParam:
             if scalar_value is None:
                 raise RuntimeError("Internal state error: homogeneous field has no 'value'.")
             values = np.full(int(target_mesh.n_cells), float(scalar_value), dtype=float)
-            values = np.asarray(cell_values(target_mesh, values), dtype=float)
             vertical_factor = self._mesh_vertical_factor(target_mesh, depth=depth)
             values = values * vertical_factor
             return MeshWithValues(
                 mesh=target_mesh,
-                cell_values=cell_values(target_mesh, values),
+                cell_values=values,
                 label=label if label is not None else "homogeneous_value",
             )
 
@@ -507,12 +485,11 @@ class FieldParam:
         if weighted is None:
             raise ValueError("Discretization did not produce any weighted contribution")
 
-        values = np.asarray(cell_values(mesh, weighted), dtype=float)
         vertical_factor = self._mesh_vertical_factor(mesh, depth=depth)
-        values = values * vertical_factor
+        values = weighted * vertical_factor
         return MeshWithValues(
             mesh=mesh,
-            cell_values=cell_values(mesh, values),
+            cell_values=values,
             label=label if label is not None else "heterogeneous_values",
         )
 

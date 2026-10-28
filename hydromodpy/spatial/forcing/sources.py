@@ -11,8 +11,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy import sparse
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.spatial.forcing.area_weights import area_mean, area_weights
@@ -106,9 +108,10 @@ def interpolate_on_cells(
 ) -> np.ndarray:
     """Interpolate one source slice onto the cells, one value per cell.
 
-    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only.
+    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only. Without
+    it the interpolators refuse ``"area"``.
     """
-    if method == "area":
+    if method == "area" and mesh is not None:
         stack = np.asarray(source_values, dtype=float)[None, ...]
         return _area_on_cells(stack, source_x, source_y, centers, mesh)[0]
     target_x, target_y = _as_column(centers)
@@ -136,9 +139,10 @@ def interpolate_stack_on_cells(
 ) -> np.ndarray:
     """Interpolate a stack of source slices onto the cells, ``(n_slices, n_cells)``.
 
-    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only.
+    ``mesh`` is the planar mesh of the cells, read by ``"area"`` only. Without
+    it the interpolators refuse ``"area"``.
     """
-    if method == "area":
+    if method == "area" and mesh is not None:
         return _area_on_cells(
             np.asarray(source_stack, dtype=float), source_x, source_y, centers, mesh
         )
@@ -178,6 +182,104 @@ def interpolate_points_on_cells(
     return values.reshape(-1)
 
 
+_IDW_NEIGHBOURS = 16
+"""Pixels an IDW cell reads, as in :mod:`hydromodpy.spatial.forcing.interpolation`."""
+
+
+def refuse_nodata_under_cells(
+    source_stack: np.ndarray,
+    source_x: np.ndarray,
+    source_y: np.ndarray,
+    centers: np.ndarray,
+    method: InterpolationMethod,
+    *,
+    source: str,
+    slice_labels: list[str],
+    mesh: HydroMesh | None = None,
+) -> None:
+    """Refuse a slice with no valid pixel, and a cell that reads a nodata pixel.
+
+    A nodata pixel is a non-finite value. The interpolators drop such pixels,
+    so a cell that sits on one would silently take a neighbour, and a slice
+    with no valid pixel would give zero. A cell reads the nearest pixel
+    (``"nearest"``), the vertices of the pixel triangle around its centre
+    (``"linear"``), its nearest pixels (``"idw"``) or the pixels it overlaps
+    (``"area"``). A cell outside the reach of these rules reads its nearest
+    pixel, as the interpolators do.
+    """
+    flat = np.asarray(source_stack, dtype=float).reshape(len(slice_labels), -1)
+    nodata = ~np.isfinite(flat)
+    if not nodata.any():
+        return
+    empty = np.flatnonzero(nodata.all(axis=1))
+    if empty.size:
+        raise DataContractViolation(
+            f"The gridded forcing {source} holds no valid pixel in {slice_labels[empty[0]]}."
+        )
+    read = _pixels_read(source_x, source_y, centers, method, mesh)
+    # Only the pixels nodata in some slice can hit a cell: keep the product small.
+    columns = np.flatnonzero(nodata.any(axis=0))
+    hit = (read[:, columns] @ nodata[:, columns].T.astype(float)) > 0.0
+    touched = np.flatnonzero(hit.any(axis=0))
+    if touched.size:
+        k = touched[0]
+        cells = np.flatnonzero(hit[:, k])
+        raise DataContractViolation(
+            f"The gridded forcing {source} has a nodata pixel under {cells.size} cell(s) in "
+            f"{slice_labels[k]}, first cell {int(cells[0])}. Every cell must read valid "
+            "pixels only: cover the model domain with valid pixels."
+        )
+
+
+def _pixels_read(
+    source_x: np.ndarray,
+    source_y: np.ndarray,
+    centers: np.ndarray,
+    method: InterpolationMethod,
+    mesh: HydroMesh | None,
+) -> sparse.csr_array:
+    """Pixels each cell reads, ``(n_cells, n_pixels)``, pixels laid out ``(y, x)``.
+
+    ``source_x`` and ``source_y`` are the 1-D pixel centres of the grid, as a
+    GeoTIFF or the dimension coordinates of a dataset give them.
+    """
+    from scipy.spatial import cKDTree
+
+    x, y = np.meshgrid(
+        np.asarray(source_x, dtype=float), np.asarray(source_y, dtype=float), indexing="xy"
+    )
+    pixels = np.column_stack([x.ravel(), y.ravel()])
+    xy = np.asarray(centers, dtype=float)
+    n_cells, n_pixels = xy.shape[0], pixels.shape[0]
+    tree = cKDTree(pixels)
+    distance, nearest = tree.query(xy)
+    rows = [np.arange(n_cells)]
+    columns = [nearest]
+    if method == "area" and mesh is not None:
+        overlap = area_weights(mesh, source_x, source_y).tocoo()
+        rows.append(overlap.row)
+        columns.append(overlap.col)
+    elif method == "idw":
+        k = min(n_pixels, _IDW_NEIGHBOURS)
+        _, neighbours = tree.query(xy, k=k)
+        neighbours = neighbours.reshape(n_cells, k)
+        apart = np.flatnonzero(distance > 0.0)
+        rows.append(np.repeat(apart, k))
+        columns.append(neighbours[apart].ravel())
+    elif method == "linear" and n_pixels >= 3:
+        from scipy.spatial import Delaunay
+
+        triangles = Delaunay(pixels)
+        simplex = triangles.find_simplex(xy)
+        inside = np.flatnonzero((simplex >= 0) & (distance > 0.0))
+        corners = triangles.simplices[simplex[inside]]
+        rows.append(np.repeat(inside, corners.shape[1]))
+        columns.append(corners.ravel())
+    row = np.concatenate(rows)
+    column = np.concatenate(columns)
+    return sparse.csr_array((np.ones(row.size), (row, column)), shape=(n_cells, n_pixels))
+
+
 def refuse_area_for_stations(method: InterpolationMethod) -> None:
     """Refuse ``"area"`` for station values, which have no pixel to weigh."""
     if method == "area":
@@ -192,18 +294,13 @@ def _area_on_cells(
     source_x: np.ndarray,
     source_y: np.ndarray,
     centers: np.ndarray,
-    mesh: HydroMesh | None,
+    mesh: HydroMesh,
 ) -> np.ndarray:
     """Area-weighted mean of each slice over each cell, ``(n_slices, n_cells)``.
 
     A cell that shares no area with a finite pixel takes the nearest pixel, as
     ``"linear"`` does outside the hull of its source.
     """
-    if mesh is None:
-        raise ValueError(
-            "interpolation_method 'area' needs the cell polygons; the caller must pass "
-            "the planar mesh of the cells."
-        )
     if mesh.n_cells != centers.shape[0]:
         raise ValueError(
             f"the planar mesh holds {mesh.n_cells} cells for {centers.shape[0]} centres."
