@@ -8,7 +8,9 @@ pixel centres, so each term is Lipschitz with its own slope, and so is the
 minimum: the size of two neighbouring cells never differs by more than
 ``max_slope`` times their distance. A region is a geometry, burnt with every
 pixel it touches, or a :class:`PixelRegion`, the pixels of the grid a
-criterion selected.
+criterion selected. The sizes, ramps and slopes come from ``[mesh]``, which
+refuses a size or a slope out of range, and the field is a ``SizeField``, which
+refuses a size that is not finite and positive.
 """
 
 from __future__ import annotations
@@ -70,26 +72,14 @@ class SizeTerm:
 
     A geometry ``region`` is burnt with every pixel it touches, a
     :class:`PixelRegion` is taken as it is. Outside, the size grows by
-    ``(h0 - size_m) / ramp_m`` per metre, never faster than ``max_slope``.
+    ``(h0 - size_m) / ramp_m`` per metre, never faster than ``max_slope``. A
+    pixel region that selects no pixel refines nothing.
     """
 
     name: str
     region: BaseGeometry | PixelRegion
     size_m: float
     ramp_m: float
-
-    def __post_init__(self) -> None:
-        """Refuse an empty region, a size <= 0 or a negative ramp."""
-        if self.region is None or self.region.is_empty:
-            raise MeshRequestError(f"size term {self.name!r} has an empty region")
-        if not math.isfinite(self.size_m) or self.size_m <= 0.0:
-            raise MeshRequestError(
-                f"size term {self.name!r}: size must be > 0 m, got {self.size_m}"
-            )
-        if not math.isfinite(self.ramp_m) or self.ramp_m < 0.0:
-            raise MeshRequestError(
-                f"size term {self.name!r}: ramp must be >= 0 m, got {self.ramp_m}"
-            )
 
 
 @dataclass(frozen=True)
@@ -99,15 +89,6 @@ class OutsideCoarsening:
     region: BaseGeometry
     factor: float
     transition_m: float
-
-    def __post_init__(self) -> None:
-        """Refuse an empty catchment, a factor below 1 or a negative transition."""
-        if self.region is None or self.region.is_empty:
-            raise MeshRequestError("the outside coarsening needs a non-empty catchment region")
-        if not math.isfinite(self.factor) or self.factor < 1.0:
-            raise MeshRequestError(f"outside factor must be >= 1, got {self.factor}")
-        if not math.isfinite(self.transition_m) or self.transition_m < 0.0:
-            raise MeshRequestError(f"transition distance must be >= 0 m, got {self.transition_m}")
 
 
 def build_size_field(
@@ -127,12 +108,6 @@ def build_size_field(
     :data:`MAX_SIZE_FIELD_PIXELS` the field is reduced by an integer factor,
     each coarse pixel taking the minimum of its block.
     """
-    if not math.isfinite(max_slope) or max_slope <= 0.0:
-        raise MeshRequestError(f"max_slope must be > 0, got {max_slope}")
-    if not math.isfinite(h_floor) or h_floor <= 0.0:
-        raise MeshRequestError(f"the size floor must be > 0 m, got {h_floor}")
-    if not math.isfinite(h0) or h0 < h_floor:
-        raise MeshRequestError(f"the background size {h0} m is finer than the floor {h_floor} m")
     factor = 1.0 if outside is None else float(outside.factor)
     values = np.full((grid.nrow, grid.ncol), float(h0))
     if outside is not None and factor > 1.0:

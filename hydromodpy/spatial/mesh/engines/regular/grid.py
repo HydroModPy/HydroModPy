@@ -36,27 +36,6 @@ class GridLayout:
     native: bool
 
 
-def _shape_option(options: Mapping[str, object]) -> tuple[int, int] | None:
-    """Read ``options["shape"]`` as ``(nrow, ncol)``, or ``None`` when absent."""
-    unknown = sorted(set(options) - {"shape"})
-    if unknown:
-        raise MeshRequestError(
-            f"the regular engine reads the option 'shape' only, got {', '.join(unknown)}"
-        )
-    shape = options.get("shape")
-    if shape is None:
-        return None
-    if (
-        not isinstance(shape, (tuple, list))
-        or len(shape) != 2
-        or any(isinstance(n, bool) or not isinstance(n, int) or n < 1 for n in shape)
-    ):
-        raise MeshRequestError(
-            f"the regular option 'shape' is [nrow, ncol] with two integers >= 1, got {shape!r}"
-        )
-    return int(shape[0]), int(shape[1])
-
-
 def plan_layout(
     grid: RasterGridSpec, nominal_size_m: float, options: Mapping[str, object]
 ) -> GridLayout:
@@ -67,9 +46,10 @@ def plan_layout(
     shape equal to the DEM shape is the DEM grid, whatever way it was asked for:
     ``Surface.resample_to_shape`` returns the surface unchanged then. The native
     pitch is the DEM pitch; a resampled grid spans the DEM bounds, the rule of
-    ``Surface.resample_to_shape``.
+    ``Surface.resample_to_shape``. The shape is ``[nrow, ncol]``, as
+    ``[mesh.regular] shape`` gives it.
     """
-    shape = _shape_option(options)
+    shape = options.get("shape")
     if shape is None:
         h = float(nominal_size_m)
         if abs(h - grid.dx) <= PITCH_RTOL * grid.dx and abs(h - grid.dy) <= PITCH_RTOL * grid.dy:
@@ -84,8 +64,8 @@ def plan_layout(
                 max(1, round((grid.ymax - grid.ymin) / h)),
                 max(1, round((grid.xmax - grid.xmin) / h)),
             )
-    nrow, ncol = shape
-    native = shape == (grid.nrow, grid.ncol)
+    nrow, ncol = (int(n) for n in shape)
+    native = (nrow, ncol) == (grid.nrow, grid.ncol)
     if native:
         dx, dy = grid.dx, grid.dy
     else:

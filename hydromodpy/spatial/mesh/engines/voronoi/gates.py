@@ -14,8 +14,9 @@ total of each gate.
 - G5: no vertex repeated in a cell, at least three per cell.
 - G6: no face shorter than 1e-6 m.
 
-A segment that is not conformal (a merged sector, a crossing, a yielded
-contact) is not a fault: it is never handed to G1 or G2.
+G1 and G2 read the constraint plan of a generated mesh. A segment that is
+not conformal (a merged sector, a crossing, a yielded contact) is not a
+fault: G1 and G2 never check it.
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ import shapely
 from scipy.spatial import cKDTree
 
 from hydromodpy.core.exceptions import MeshGenerationError
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import ConstraintPlan, FaceLineState
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.state import BALL_SHRINK
 from hydromodpy.spatial.mesh.engines.voronoi.frame import LocalFrame
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import MAX_LISTED
 from hydromodpy.spatial.mesh.model.derived_geometry import DerivedGeometry, derive_geometry
@@ -37,88 +40,22 @@ from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain
 
 __all__ = [
     "AREA_GATE_REL",
-    "BALL_SHRINK",
     "FACE_ON_LINE_M",
     "SEED_COVER_M",
-    "BergeBalls",
     "GateReport",
-    "MirrorFaces",
     "check_gates",
     "gated_geometry",
+    "mirror_face_runs",
 ]
 
 AREA_GATE_REL = 1.0e-9
 """G4: largest relative gap between the cell area sum and the domain area."""
-
-BALL_SHRINK = 1.0e-9
-"""G1 tests the open ball of radius ``R_v (1 - BALL_SHRINK)``: the sphere seeds lie on its edge."""
 
 FACE_ON_LINE_M = 1.0e-3
 """G2: largest distance [m] between a face node and its segment end."""
 
 SEED_COVER_M = 1.0e-6
 """G0: largest distance [m] between a seed and its clipped cell (a seed on the boundary)."""
-
-
-@dataclass(frozen=True, eq=False)
-class BergeBalls:
-    """The conformal vertices of the face lines and the seeds allowed in each ball (G1).
-
-    ``members`` holds, for vertex ``i``, the seed ids
-    ``members[indptr[i]:indptr[i + 1]]``: the pairs of its segments, its tip or
-    boundary end seeds, a shared sector seed. ``family`` indexes ``names``.
-    """
-
-    center: np.ndarray
-    radius: np.ndarray
-    indptr: np.ndarray
-    members: np.ndarray
-    family: np.ndarray
-    line_id: np.ndarray
-    vertex_id: np.ndarray
-    names: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        """Check the shapes."""
-        n = len(np.asarray(self.radius).ravel())
-        _set(self, "center", np.asarray(self.center, dtype=np.float64).reshape(-1, 2), n)
-        _set(self, "radius", np.asarray(self.radius, dtype=np.float64).ravel(), n)
-        _set(self, "family", np.asarray(self.family, dtype=np.int64).ravel(), n)
-        _set(self, "line_id", np.asarray(self.line_id, dtype=np.int64).ravel(), n)
-        _set(self, "vertex_id", np.asarray(self.vertex_id, dtype=np.int64).ravel(), n)
-        _set(self, "indptr", np.asarray(self.indptr, dtype=np.int64).ravel(), n + 1)
-        object.__setattr__(self, "members", np.asarray(self.members, dtype=np.int64).ravel())
-        if self.indptr[0] != 0 or self.indptr[-1] != self.members.size:
-            raise ValueError("BergeBalls.indptr does not span members")
-
-
-@dataclass(frozen=True, eq=False)
-class MirrorFaces:
-    """The conformal segments ``[start, end]`` and the seeds of their pair (G2).
-
-    ``plus`` is the seed on the left of the oriented segment, ``minus`` the one
-    on its right; seed ids are cell ids.
-    """
-
-    plus: np.ndarray
-    minus: np.ndarray
-    start: np.ndarray
-    end: np.ndarray
-    family: np.ndarray
-    line_id: np.ndarray
-    segment_id: np.ndarray
-    names: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        """Check the shapes."""
-        n = len(np.asarray(self.plus).ravel())
-        _set(self, "plus", np.asarray(self.plus, dtype=np.int64).ravel(), n)
-        _set(self, "minus", np.asarray(self.minus, dtype=np.int64).ravel(), n)
-        _set(self, "start", np.asarray(self.start, dtype=np.float64).reshape(-1, 2), n)
-        _set(self, "end", np.asarray(self.end, dtype=np.float64).reshape(-1, 2), n)
-        _set(self, "family", np.asarray(self.family, dtype=np.int64).ravel(), n)
-        _set(self, "line_id", np.asarray(self.line_id, dtype=np.int64).ravel(), n)
-        _set(self, "segment_id", np.asarray(self.segment_id, dtype=np.int64).ravel(), n)
 
 
 @dataclass(frozen=True, eq=False)
@@ -158,24 +95,26 @@ def check_gates(
     domain_area: float,
     frame: LocalFrame,
     chains: Sequence[CellChain] = (),
-    balls: BergeBalls | None = None,
-    faces: MirrorFaces | None = None,
+    plan: ConstraintPlan | None = None,
 ) -> GateReport:
     """Run G0 to G6 and raise ``MeshGenerationError`` naming the faults of every failed gate.
 
     *seeds*, the clipped *cells* and the mesh *vertices* are in the local
-    frame; *geometry* is derived from the mesh. ``face_rows`` of the report
-    holds, for each conformal segment, the edge row of its face in *geometry*.
+    frame; *geometry* is derived from the mesh. G1 and G2 run on the
+    constraint *plan* of a generated mesh; without one they check nothing.
+    ``face_rows`` of the report holds, for each face of
+    :func:`mirror_face_runs`, the edge row of that face in *geometry*.
     """
     points = np.asarray(seeds, dtype=np.float64).reshape(-1, 2)
     xy = np.asarray(vertices, dtype=np.float64).reshape(-1, 2)
     faults: list[tuple[str, int, list[str]]] = []
     faults.append(_g0(points, np.asarray(cells), geometry, frame))
-    if balls is not None:
-        faults.append(_g1(points, balls, frame))
     face_rows = np.empty(0, dtype=np.int64)
-    if faces is not None:
-        fault, face_rows = _g2(faces, xy, geometry, frame)
+    def2_vertices = 0
+    if plan is not None:
+        fault, def2_vertices = _g1(points, plan, frame)
+        faults.append(fault)
+        fault, face_rows = _g2(plan, xy, geometry, frame)
         faults.append(fault)
     fault, links = _g3(chains, geometry, points, frame)
     faults.append(fault)
@@ -201,8 +140,8 @@ def check_gates(
     return GateReport(
         n_cells=geometry.n_cells,
         area_rel_error=area_rel,
-        def2_vertices=0 if balls is None else len(balls.radius),
-        mirror_faces=0 if faces is None else len(faces.plus),
+        def2_vertices=def2_vertices,
+        mirror_faces=0 if plan is None else len(face_rows),
         chain_links=links,
         face_rows=face_rows,
     )
@@ -214,13 +153,6 @@ def _area_fault(cells_area: float, domain_area: float) -> str:
     if cells_area < domain_area:
         fault += " (a hole touching another ring of the domain at one point leaves a sliver)"
     return fault
-
-
-def _set(owner: object, name: str, value: np.ndarray, n: int) -> None:
-    """Store *value* on the frozen *owner* after checking its length."""
-    if len(value) != n:
-        raise ValueError(f"{type(owner).__name__}.{name} needs {n} rows, got {len(value)}")
-    object.__setattr__(owner, name, value)
 
 
 def _at(frame: LocalFrame, xy: np.ndarray) -> str:
@@ -252,56 +184,139 @@ def _g0(
     return "G0", int(bad.size), listed
 
 
-def _g1(seeds: np.ndarray, balls: BergeBalls, frame: LocalFrame) -> tuple[str, int, list[str]]:
-    """No seed but its own sphere seeds in the open ball of each conformal vertex."""
-    if not len(balls.radius):
-        return "G1", 0, []
+def _g1(
+    seeds: np.ndarray, plan: ConstraintPlan, frame: LocalFrame
+) -> tuple[tuple[str, int, list[str]], int]:
+    """No seed but its own sphere seeds in the open ball of each conformal vertex.
+
+    Return the fault and the number of vertices checked.
+    """
+    faces = plan.faces
+    vertices = np.flatnonzero(faces.conformal)
+    if not vertices.size:
+        return ("G1", 0, []), 0
+    owner, members = _sphere_members(plan, vertices)
+    family, line = _first_line_of_vertices(faces)
+    center = faces.vertices[vertices]
     tree = cKDTree(seeds)
-    radius = balls.radius * (1.0 - BALL_SHRINK)
-    found = np.asarray(tree.query_ball_point(balls.center, radius, return_length=True))
-    owner = np.repeat(np.arange(len(radius)), np.diff(balls.indptr))
-    near = np.hypot(*(seeds[balls.members] - balls.center[owner]).T) < radius[owner]
+    radius = faces.radius[vertices] * (1.0 - BALL_SHRINK)
+    found = np.asarray(tree.query_ball_point(center, radius, return_length=True))
+    near = np.hypot(*(seeds[members] - center[owner]).T) < radius[owner]
     allowed = np.bincount(owner, weights=near, minlength=len(radius)).astype(np.int64)
     bad = np.flatnonzero(found > allowed)
     listed = []
     for i in bad[:MAX_LISTED].tolist():
-        own = set(balls.members[balls.indptr[i] : balls.indptr[i + 1]].tolist())
-        intruders = [j for j in tree.query_ball_point(balls.center[i], radius[i]) if j not in own]
+        own = set(members[owner == i].tolist())
+        intruders = [j for j in tree.query_ball_point(center[i], radius[i]) if j not in own]
+        vertex = vertices[i]
         listed.append(
-            f"family {balls.names[balls.family[i]]!r} line {int(balls.line_id[i])} vertex "
-            f"{int(balls.vertex_id[i])} at {_at(frame, balls.center[i])}, ball radius "
-            f"{balls.radius[i]:.3f} m: seed(s) "
+            f"family {plan.family_names[family[vertex]]!r} line {int(line[vertex])} vertex "
+            f"{int(vertex)} at {_at(frame, center[i])}, ball radius "
+            f"{faces.radius[vertex]:.3f} m: seed(s) "
             + ", ".join(f"{j} at {_at(frame, seeds[j])}" for j in sorted(intruders))
         )
-    return "G1", int(bad.size), listed
+    return ("G1", int(bad.size), listed), int(vertices.size)
+
+
+def _sphere_members(plan: ConstraintPlan, vertices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Rank in *vertices* and seed id of each seed allowed on the sphere of a conformal vertex.
+
+    These are the pairs of its segments and its tip or boundary end seeds,
+    each listed once, sorted by vertex then seed.
+    """
+    faces = plan.faces
+    rank = np.full(len(faces.vertices), -1, dtype=np.int64)
+    rank[vertices] = np.arange(vertices.size)
+    node = faces.segment_nodes.T.ravel()
+    segment = np.tile(np.arange(len(faces.segment_nodes)), 2)
+    sphere = np.flatnonzero(plan.seeds.vertex_id >= 0)
+    owner = np.concatenate([np.repeat(node, 2), plan.seeds.vertex_id[sphere]])
+    member = np.concatenate([faces.segment_seeds[segment].ravel(), sphere])
+    keep = (member >= 0) & (rank[owner] >= 0)
+    pairs = np.unique(np.column_stack([rank[owner[keep]], member[keep]]), axis=0)
+    return pairs[:, 0], pairs[:, 1]
+
+
+def _first_line_of_vertices(faces: FaceLineState) -> tuple[np.ndarray, np.ndarray]:
+    """Family and line of each face vertex, from its segment of the lowest line id."""
+    node = faces.segment_nodes.T.ravel()
+    segment = np.tile(np.arange(len(faces.segment_nodes)), 2)
+    primary = np.lexsort((faces.segment_line[segment], node))
+    first = primary[np.unique(node[primary], return_index=True)[1]]
+    family = np.full(len(faces.vertices), -1, dtype=np.int64)
+    line = np.full(len(faces.vertices), -1, dtype=np.int64)
+    family[node[first]] = faces.segment_family[segment[first]]
+    line[node[first]] = faces.segment_line[segment[first]]
+    return family, line
+
+
+def mirror_face_runs(faces: FaceLineState) -> np.ndarray:
+    """First and last segment ``(k, 2)`` of each face of a conformal pair (gate G2).
+
+    A run of segments that share one pair (a straight vertex whose two
+    sectors share their seeds has only those two seeds on its sphere) is
+    one face from the start of the run to its end. A face is kept when both
+    its ends are conformal vertices.
+    """
+    nodes = faces.segment_nodes
+    runs = _pair_runs(faces)
+    keep = faces.conformal[nodes[runs[:, 0], 0]] & faces.conformal[nodes[runs[:, 1], 1]]
+    return runs[keep]
+
+
+def _pair_runs(faces: FaceLineState) -> np.ndarray:
+    """First and last segment ``(k, 2)`` of each run of conformal segments sharing a pair."""
+    segments = np.flatnonzero(faces.segment_conformal & (faces.segment_seeds >= 0).all(axis=1))
+    pairs = faces.segment_seeds[segments]
+    _, group, count = np.unique(pairs, axis=0, return_inverse=True, return_counts=True)
+    group = group.ravel()
+    runs = np.column_stack([segments, segments])
+    single = count[group] == 1
+    merged = []
+    for g in np.unique(group[~single]).tolist():
+        members = segments[group == g]
+        starts = faces.segment_nodes[members, 0]
+        stops = faces.segment_nodes[members, 1]
+        head = members[~np.isin(starts, stops)]
+        tail = members[~np.isin(stops, starts)]
+        merged.append([head[0] if head.size else members[0], tail[0] if tail.size else members[-1]])
+    if not merged:
+        return runs[single]
+    runs = np.vstack([runs[single], np.asarray(merged, dtype=np.int64)])
+    return runs[np.argsort(runs[:, 0], kind="stable")]
 
 
 def _g2(
-    faces: MirrorFaces, vertices: np.ndarray, geometry: DerivedGeometry, frame: LocalFrame
+    plan: ConstraintPlan, vertices: np.ndarray, geometry: DerivedGeometry, frame: LocalFrame
 ) -> tuple[tuple[str, int, list[str]], np.ndarray]:
     """The face of each pair exists and lies on its segment; return its edge rows."""
-    rows = np.full(len(faces.plus), -1, dtype=np.int64)
+    faces = plan.faces
+    runs = mirror_face_runs(faces)
+    rows = np.full(len(runs), -1, dtype=np.int64)
     if not len(rows):
         return ("G2", 0, []), rows
-    edge = geometry.edge_between(faces.plus, faces.minus)
+    first = runs[:, 0]
+    plus, minus = faces.segment_seeds[first, 0], faces.segment_seeds[first, 1]
+    start = faces.vertices[faces.segment_nodes[first, 0]]
+    end = faces.vertices[faces.segment_nodes[runs[:, 1], 1]]
+    edge = geometry.edge_between(plus, minus)
     exists = edge >= 0
     nodes = vertices[geometry.edge_nodes[np.maximum(edge, 0)]]
     gap = np.minimum(
-        np.maximum(_dist(nodes[:, 0], faces.start), _dist(nodes[:, 1], faces.end)),
-        np.maximum(_dist(nodes[:, 0], faces.end), _dist(nodes[:, 1], faces.start)),
+        np.maximum(_dist(nodes[:, 0], start), _dist(nodes[:, 1], end)),
+        np.maximum(_dist(nodes[:, 0], end), _dist(nodes[:, 1], start)),
     )
     on_line = exists & (gap <= FACE_ON_LINE_M)
     rows[on_line] = edge[on_line]
     bad = np.flatnonzero(~on_line)
     listed = [
-        f"family {faces.names[faces.family[i]]!r} line {int(faces.line_id[i])} segment "
-        f"{int(faces.segment_id[i])} from {_at(frame, faces.start[i])} to "
-        f"{_at(frame, faces.end[i])}: "
+        f"family {plan.family_names[faces.segment_family[first[i]]]!r} line "
+        f"{int(faces.segment_line[first[i]])} segment {int(first[i])} from "
+        f"{_at(frame, start[i])} to {_at(frame, end[i])}: "
         + (
-            f"face of seeds {int(faces.plus[i])} and {int(faces.minus[i])} is "
-            f"{gap[i]:.2e} m off the segment"
+            f"face of seeds {int(plus[i])} and {int(minus[i])} is {gap[i]:.2e} m off the segment"
             if exists[i]
-            else f"seeds {int(faces.plus[i])} and {int(faces.minus[i])} share no face"
+            else f"seeds {int(plus[i])} and {int(minus[i])} share no face"
         )
         for i in bad[:MAX_LISTED].tolist()
     ]

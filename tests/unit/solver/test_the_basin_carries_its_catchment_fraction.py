@@ -17,13 +17,13 @@ from shapely.geometry import box
 
 from hydromodpy.core.descent import DescentBasin
 from hydromodpy.results.zarr_store import SimulationZarr
-from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    build_solver_mesh_descent,
+from hydromodpy.solver.modflow_common.catchment_basin import run_basin
+from hydromodpy.solver.modflow_common.descent_store import (
     read_descent_sidecar,
-    run_basin,
     write_descent_sidecar,
+    write_descent_sidecar_to_store,
 )
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 from tests._helpers.ugrid_meshes import quad_mesh

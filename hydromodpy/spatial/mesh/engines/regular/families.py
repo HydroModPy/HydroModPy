@@ -28,8 +28,8 @@ from hydromodpy.spatial.mesh.model.derived_geometry import (
 )
 from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
+from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.ops.flow_barrier import crossed_edges
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import line_crossing_cell_mask
 from hydromodpy.spatial.mesh.request import BARRIER_FAMILY, LineFamilySpec
 
 __all__ = ["FaceFamilies", "cell_chains", "face_family_columns"]
@@ -203,12 +203,13 @@ def _side_of_line(
     foot = shapely.line_interpolate_point(line, along)
     tangent = shapely.get_coordinates(after) - shapely.get_coordinates(before)
     origin = shapely.get_coordinates(foot)
+    return _left_turn(tangent, origin, first) > _left_turn(tangent, origin, second)
 
-    def cross(point: np.ndarray) -> np.ndarray:
-        offset = point - origin
-        return tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0]
 
-    return cross(first) > cross(second)
+def _left_turn(tangent: np.ndarray, origin: np.ndarray, point: np.ndarray) -> np.ndarray:
+    """Cross product of the tangent with the offset of each point from its foot on the line."""
+    offset = point - origin
+    return tangent[:, 0] * offset[:, 1] - tangent[:, 1] * offset[:, 0]
 
 
 def face_family_columns(
@@ -238,60 +239,84 @@ def face_family_columns(
     ]
     no_row = {key: np.empty(0, dtype=np.int64) for key in ("cell_a", "cell_b", "node_a", "node_b")}
 
-    interior = geometry.edge_cells[:, 1] >= 0
     cell_zone: np.ndarray | None = None
     for spec in specs:
-        pair = geometry.edge_cells
-        if spec.name == BARRIER_FAMILY:
-            labels = np.full(len(centers), -1, dtype=np.int64)
-            stairs = np.unique(
-                np.concatenate(
-                    [crossed_edges(geometry, centers, line) for line in spec.lines]
-                    or [np.empty(0, dtype=np.int64)]
-                )
-            )
-        else:
-            labels = _cell_labels(centers, domain, spec.lines)
-            label_a = labels[np.maximum(pair[:, 0], 0)]
-            label_b = labels[np.maximum(pair[:, 1], 0)]
-            stairs = np.flatnonzero(
-                interior & (label_a >= 0) & (label_b >= 0) & (label_a != label_b)
-            )
+        labels, stairs = _staircase_edges(spec, domain, geometry, centers)
         if stairs.size == 0 or not spec.lines:
             families.append((spec.name, no_row))
             continue
-        first = pair[stairs, 0]
-        second = pair[stairs, 1]
-        midpoints = geometry.edge_midpoint[stairs]
-        tree = STRtree(list(spec.lines))
-        line_of = tree.nearest(shapely.points(midpoints))
-        first_is_left = np.zeros(stairs.size, dtype=bool)
-        for line_index in np.unique(line_of):
-            rows = line_of == line_index
-            first_is_left[rows] = _side_of_line(
-                spec.lines[line_index], midpoints[rows], centers[first[rows]], centers[second[rows]]
-            )
-        cell_a = np.where(first_is_left, first, second)
-        cell_b = np.where(first_is_left, second, first)
-        zone_l = _zone_ids(spec.zone_left, line_of, zone_names)
-        zone_r = _zone_ids(spec.zone_right, line_of, zone_names)
-        families.append(
-            (
-                spec.name,
-                {
-                    "cell_a": cell_a,
-                    "cell_b": cell_b,
-                    "node_a": geometry.edge_nodes[stairs, 0],
-                    "node_b": geometry.edge_nodes[stairs, 1],
-                    "zone_left": zone_l,
-                    "zone_right": zone_r,
-                },
-            )
-        )
+        rows = _staircase_rows(spec, stairs, geometry, centers, zone_names)
+        families.append((spec.name, rows))
         if cell_zone is None and zone_names and spec.zone_left:
-            cell_zone = _label_zones(labels, labels[cell_a], labels[cell_b], zone_l, zone_r)
+            cell_zone = _label_zones(
+                labels,
+                labels[rows["cell_a"]],
+                labels[rows["cell_b"]],
+                rows["zone_left"],
+                rows["zone_right"],
+            )
 
     return FaceFamilies(FaceFamilyTable.stack(families), cell_zone, tuple(zone_names))
+
+
+def _staircase_edges(
+    spec: LineFamilySpec, domain: Polygon, geometry: DerivedGeometry, centers: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """The polygon label of each cell and the sorted edge ids of the staircase of one family.
+
+    The barrier family labels no cell: its staircase is the edges whose two cell
+    centres lie across one of its lines. Any other family labels each cell by the
+    polygon of ``domain boundary + lines`` holding its centre, and its staircase
+    is the interior edges between two labels.
+    """
+    pair = geometry.edge_cells
+    if spec.name == BARRIER_FAMILY:
+        labels = np.full(len(centers), -1, dtype=np.int64)
+        stairs = np.unique(
+            np.concatenate(
+                [crossed_edges(geometry, centers, line) for line in spec.lines]
+                or [np.empty(0, dtype=np.int64)]
+            )
+        )
+        return labels, stairs
+    labels = _cell_labels(centers, domain, spec.lines)
+    label_a = labels[np.maximum(pair[:, 0], 0)]
+    label_b = labels[np.maximum(pair[:, 1], 0)]
+    interior = pair[:, 1] >= 0
+    stairs = np.flatnonzero(interior & (label_a >= 0) & (label_b >= 0) & (label_a != label_b))
+    return labels, stairs
+
+
+def _staircase_rows(
+    spec: LineFamilySpec,
+    stairs: np.ndarray,
+    geometry: DerivedGeometry,
+    centers: np.ndarray,
+    zone_names: list[str],
+) -> dict[str, np.ndarray]:
+    """The table columns of the staircase edges ``stairs`` of one family.
+
+    Each edge goes to its nearest source line. ``cell_a`` is the cell on the
+    left of that line and the zones are the ones that line carries.
+    """
+    first = geometry.edge_cells[stairs, 0]
+    second = geometry.edge_cells[stairs, 1]
+    midpoints = geometry.edge_midpoint[stairs]
+    line_of = STRtree(list(spec.lines)).nearest(shapely.points(midpoints))
+    first_is_left = np.zeros(stairs.size, dtype=bool)
+    for line_index in np.unique(line_of):
+        rows = line_of == line_index
+        first_is_left[rows] = _side_of_line(
+            spec.lines[line_index], midpoints[rows], centers[first[rows]], centers[second[rows]]
+        )
+    return {
+        "cell_a": np.where(first_is_left, first, second),
+        "cell_b": np.where(first_is_left, second, first),
+        "node_a": geometry.edge_nodes[stairs, 0],
+        "node_b": geometry.edge_nodes[stairs, 1],
+        "zone_left": _zone_ids(spec.zone_left, line_of, zone_names),
+        "zone_right": _zone_ids(spec.zone_right, line_of, zone_names),
+    }
 
 
 def _zone_ids(zones: tuple[str, ...], line_of: np.ndarray, zone_names: list[str]) -> np.ndarray:

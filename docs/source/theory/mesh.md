@@ -632,6 +632,7 @@ hydromodpy.workflow.steps.mesh_run_fields
 hydromodpy.spatial.domain.layering
 hydromodpy.core.vertical_column
 hydromodpy.solver.modflow_grid.discretization_spatial
+hydromodpy.solver.modflow_grid.top_sampling
 hydromodpy.solver.modflow6.builders.solver_options
 ```
 
@@ -651,9 +652,9 @@ hydromodpy.solver.modflow6.builders.solver_options
 | The size field and the gap term | `hydromodpy/spatial/mesh/planning/size_field.py` (`build_size_field`), `hydromodpy/spatial/mesh/planning/gap_size.py` (`gap_terms`) |
 | The refinement zones drawn by a field | `hydromodpy/spatial/mesh/refinement_config.py` (`RefinementZoneConfig`), `hydromodpy/spatial/mesh/planning/height_above_stream.py`, `hydromodpy/spatial/mesh/planning/refinement.py` (`RunFieldEnvelope`), `hydromodpy/workflow/steps/mesh_run_fields.py` (the read of a run), `hydromodpy/workflow/steps/mesh.py` (`_zone_runs`), `hydromodpy/workflow/steps/prepare_solver/dispatch.py` (`frozen_config_document`) |
 | The size of a triangle | `hydromodpy/spatial/mesh/engines/triangle/gmsh_cdt.py` (`MESH_SIZE_PER_CELL_SIZE`) |
-| The catchment fraction and the weighted totals | `hydromodpy/spatial/mesh/ops/vector_cell_mask.py` (`cell_area_fraction`), `hydromodpy/solver/modflow_common/mesh_descent.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
+| The catchment fraction and the weighted totals | `hydromodpy/spatial/mesh/ops/vector_cell_mask.py` (`cell_area_fraction`), `hydromodpy/solver/modflow_common/catchment_basin.py` (`run_basin`), `hydromodpy/spatial/geographic/delineated_catchment.py` (`catchment_outline`), `hydromodpy/results/derive/views.py` (`catchment_weights`, `catchment_total`, `catchment_mean`) |
 | The centroid sample | `hydromodpy/spatial/surface_sampling.py` (`PreparedSurfaceSampler.sample`) |
-| The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `discretization_spatial.py` (`_zonal_top_flat`, `_zonal_structured_top`, `_bottom_under_lowered_top`, `_cells_cover_pixels`) |
+| The zonal top | `hydromodpy/spatial/mesh/ops/zonal_stats.py` (`zonal_top`), `hydromodpy/solver/modflow_grid/top_sampling.py` (`_zonal_top_flat`, `_zonal_structured_top`, `_bottom_under_lowered_top`, `_cells_cover_pixels`) |
 | The channel mask | `hydromodpy/solver/modflow6/build.py` (`_resolve_channel_mask_for_zonal`) |
 | The Voronoi tessellation | `hydromodpy/spatial/mesh/engines/voronoi/tessellation.py` (`voronoi_planar_mesh`) |
 | The angle of a connection | `hydromodpy/spatial/mesh/model/mesh_qa.py` (`connection_nonorthogonality_deg`, `nonorthogonality_summary`, callable on any planar `HydroMesh`) |

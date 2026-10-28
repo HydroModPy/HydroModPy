@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 from tests.e2e.test_sfr_cheze_e2e import _LAKE_ID, _config_body
 from tests.regression.golden_utils import (
     _open_result_store,

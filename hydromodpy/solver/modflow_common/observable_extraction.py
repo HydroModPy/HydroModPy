@@ -38,7 +38,7 @@ from hydromodpy.solver.modflow_common.calibration_extractors import (
     extract_release_flux_by_cell_from_cbc,
     extract_saturated_thickness_by_cell_from_hds,
 )
-from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 from hydromodpy.solver.modflow_common.discharge_routing import (
     flat_cell_index,
     route_release_to_discharge,

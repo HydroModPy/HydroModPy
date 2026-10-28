@@ -18,7 +18,7 @@ from hydromodpy.solver.modflow_common.discharge_routing import (
     route_release_to_discharge,
     routing_graph_for_model,
 )
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

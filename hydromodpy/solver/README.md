@@ -59,7 +59,7 @@ the package root.
 hydromodpy/solver/
   __init__.py  contracts.py  field_property_mapping.py  initial_conditions.py  steady_initial_conditions.py
   base/          adapter_protocol.py  registry.py  solver_config.py  observables.py  observable_support.py ...
-  modflow_grid/  solver_mesh.py  grid_context.py  discretization_spatial.py  discretization_temporal.py  sgrid_config.py
+  modflow_grid/  solver_mesh.py  discretization_spatial.py  top_sampling.py  discretization_temporal.py  sgrid_config.py
   modflow_common/  flow_adapter_helpers.py  binaries.py  boundary_packages.py  property_mapping.py ...
   modflow6/      build.py  run.py  builders/  api/  adapters/  extractors/  postprocess/  support/
   modflow_nwt/   nwt/  adapters/  extractors/  modpath/  mt3dms/

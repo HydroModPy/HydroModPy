@@ -7,7 +7,12 @@ requests with the same hash ask for the same mesh, which is what the mesh cache
 and the run provenance rely on.
 
 Arrays handed to these classes are copied and made read-only, so a request
-cannot change after its hash was taken.
+cannot change after its hash was taken. A request refuses what an engine
+cannot mesh: a grid whose steps, shape and bounds disagree, a size that is not
+finite and positive, an invalid domain, a family named twice, a line without
+length, zones that do not match the lines, an index outside the vertices. It
+does not check the type of a member, which its annotation states: the config
+refuses what a user writes, and the planner fills each member.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, Protocol, get_args
+from typing import TYPE_CHECKING, Literal, Protocol
 
 import numpy as np
 import shapely
@@ -96,23 +101,17 @@ class RasterGridSpec:
     crs_wkt: str
 
     def __post_init__(self) -> None:
-        """Refuse a grid whose steps, shape and bounds disagree."""
+        """Refuse a grid whose steps, shape and bounds disagree.
+
+        A count below one cell spans no bound, so the spacing check refuses it.
+        """
         for name in ("xmin", "xmax", "ymin", "ymax", "dx", "dy"):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise MeshRequestError(f"RasterGridSpec.{name} must be a number, got {value!r}")
+            value = float(getattr(self, name))
             if not math.isfinite(value):
                 raise MeshRequestError(f"RasterGridSpec.{name} must be finite, got {value!r}")
-            object.__setattr__(self, name, float(value))
+            object.__setattr__(self, name, value)
         for name in ("nrow", "ncol"):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 1:
-                raise MeshRequestError(
-                    f"RasterGridSpec.{name} must be an integer >= 1, got {value!r}"
-                )
-            object.__setattr__(self, name, int(value))
-        if not isinstance(self.crs_wkt, str) or not self.crs_wkt.strip():
-            raise MeshRequestError("RasterGridSpec.crs_wkt must be a non-empty WKT string")
+            object.__setattr__(self, name, int(getattr(self, name)))
         if self.dx <= 0.0 or self.dy <= 0.0:
             raise MeshRequestError(f"grid steps must be > 0 m, got dx={self.dx}, dy={self.dy}")
         for axis, low, high, step, count in (
@@ -223,17 +222,12 @@ class LineFamilySpec:
     closed: bool = False
 
     def __post_init__(self) -> None:
-        """Refuse an unnamed family, an unknown intent, an empty line or a zone count mismatch."""
-        if not isinstance(self.name, str) or not self.name.strip():
+        """Refuse an unnamed family, a line without length or a zone count mismatch."""
+        if not self.name.strip():
             raise MeshRequestError("a line family needs a non-empty name")
-        if self.intent not in get_args(LineIntent):
-            raise MeshRequestError(
-                f"line family {self.name!r}: intent must be one of {get_args(LineIntent)}, "
-                f"got {self.intent!r}"
-            )
         lines = tuple(self.lines)
         for line in lines:
-            if not isinstance(line, LineString) or line.is_empty or line.length <= 0.0:
+            if line.is_empty or line.length <= 0.0:
                 raise MeshRequestError(
                     f"line family {self.name!r}: every line must be a non-empty LineString"
                 )
@@ -339,46 +333,27 @@ class MeshRequest:
     source_runs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        """Validate every member and freeze the options."""
-        if not isinstance(self.domain, Polygon) or self.domain.is_empty:
+        """Refuse what no engine can mesh, then sort the lines and freeze the options."""
+        if self.domain.is_empty:
             raise MeshRequestError("the mesh domain must be a non-empty shapely Polygon")
         if not self.domain.is_valid or self.domain.area <= 0.0:
             raise MeshRequestError("the mesh domain must be a valid polygon with an area > 0")
-        if not isinstance(self.grid, RasterGridSpec):
-            raise MeshRequestError("MeshRequest.grid must be a RasterGridSpec")
-        if not all(isinstance(family, LineFamilySpec) for family in self.lines):
-            raise MeshRequestError("MeshRequest.lines must hold LineFamilySpec items")
         lines = tuple(sorted(self.lines, key=lambda family: family.name))
         names = [family.name for family in lines]
         duplicated = sorted({name for name in names if names.count(name) > 1})
         if duplicated:
             raise MeshRequestError(f"line families named twice: {', '.join(duplicated)}")
         object.__setattr__(self, "lines", lines)
-        if self.size_field is not None:
-            if not isinstance(self.size_field, SizeField):
-                raise MeshRequestError("MeshRequest.size_field must be a SizeField or None")
-            if self.size_field.grid.crs_wkt != self.crs_wkt:
-                raise MeshRequestError("the size field and the request name different CRS")
-        size = self.nominal_size_m
-        if isinstance(size, bool) or not isinstance(size, (int, float)):
-            raise MeshRequestError(f"nominal_size_m must be a number, got {size!r}")
+        if self.size_field is not None and self.size_field.grid.crs_wkt != self.crs_wkt:
+            raise MeshRequestError("the size field and the request name different CRS")
+        size = float(self.nominal_size_m)
         if not math.isfinite(size) or size <= 0.0:
             raise MeshRequestError(f"nominal_size_m must be finite and > 0 m, got {size!r}")
-        object.__setattr__(self, "nominal_size_m", float(size))
-        if isinstance(self.seed, bool) or not isinstance(self.seed, (int, np.integer)):
-            raise MeshRequestError(f"seed must be an integer, got {self.seed!r}")
+        object.__setattr__(self, "nominal_size_m", size)
         object.__setattr__(self, "seed", int(self.seed))
         object.__setattr__(self, "options", _freeze_options(self.options, "options"))
-        if isinstance(self.notes, str) or not all(isinstance(note, str) for note in self.notes):
-            raise MeshRequestError("MeshRequest.notes must be a sequence of strings")
         object.__setattr__(self, "notes", tuple(self.notes))
-        if self.input_triangulation is not None and not isinstance(
-            self.input_triangulation, InputTriangulation
-        ):
-            raise MeshRequestError("MeshRequest.input_triangulation must be an InputTriangulation")
-        if isinstance(self.source_runs, str) or not all(
-            isinstance(run, str) and run.strip() for run in self.source_runs
-        ):
+        if not all(run.strip() for run in self.source_runs):
             raise MeshRequestError("MeshRequest.source_runs must be a sequence of sim ids")
         object.__setattr__(self, "source_runs", tuple(sorted(set(self.source_runs))))
 
@@ -453,8 +428,6 @@ def _freeze_value(value: object, where: str) -> object:
 
 
 def _freeze_options(options: Mapping[str, object], where: str) -> Mapping[str, object]:
-    if not isinstance(options, Mapping):
-        raise MeshRequestError(f"{where} must be a mapping")
     frozen: dict[str, object] = {}
     for key in sorted(options, key=str):
         if not isinstance(key, str):

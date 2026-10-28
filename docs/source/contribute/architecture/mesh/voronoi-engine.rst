@@ -22,9 +22,9 @@ when ``[mesh.triangle] path`` is given and ``generated`` otherwise.
    lines.
 
 ``triangulation``
-   ``triangulation_seeds.py`` takes the vertices of the triangulation as generators, with no
+   ``from_triangulation.py`` takes the vertices of the triangulation as generators, with no
    constraint and no relaxation, so the cells are the dual of the triangles. A face family is
-   the staircase of dual faces between its two sides (``dual_families.py``), and a QA note says
+   the staircase of dual faces between its two sides, and a QA note says
    that the faces do not follow the lines. The engine declares exact faces and a staircase is
    not exact, so this mode publishes no cell zone and no staircase for the lake shores. The
    zones and the lake cells come from the support and the polygon overlap.
@@ -37,10 +37,12 @@ The engine first resamples the request lines at the local size. Then it runs six
 1. ``frame.py`` moves every coordinate to a frame centred on a multiple of 1 km, before any
    GEOS or scipy call. On Lambert-93 coordinates, two seeds a few metres apart can give
    identical cells.
-2. ``constraints.py`` and ``mirror.py`` place the constraint seeds. A river line gets one seed
-   per vertex. A face line gets one pair of mirror seeds per segment, after Berge (2019), so
-   that the two cells share a face. The boundary gets seeds between its corners. Lloyd never
-   moves them, and the rank of a seed is its cell id.
+2. The ``constraints/`` package places the constraint seeds, one step per module, run in order
+   by ``constraints/plan.py``. A river line gets one seed per vertex (``rivers.py``). A face line
+   gets one pair of mirror seeds per segment, after Berge (2019), so that the two cells share a
+   face (``face_pairs.py``). The conflicts between seeds are settled (``conflicts.py``), and the
+   boundary gets seeds between its corners (``boundary_seeds.py``). Lloyd never moves them, and
+   the rank of a seed is its cell id.
 3. ``free_seeds.py`` draws the free seeds. The total number of seeds is the integral of
    ``1 / h^2`` over the domain, so the seed does not change it. A PCG64 generator seeded with
    ``[mesh] seed`` draws them, and a Morton curve of a 1 m grid orders them.

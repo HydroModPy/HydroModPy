@@ -21,7 +21,7 @@ from hydromodpy.calibration.observations.network_geometry import network_maps_fr
 from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
 from hydromodpy.core import descent as core_descent
 from hydromodpy.core.descent import DescentBasin
-from hydromodpy.solver.modflow_common import mesh_descent
+from hydromodpy.solver.modflow_common import catchment_basin
 from tests._helpers.ugrid_meshes import quad_mesh
 from tests._helpers.v_valley import (
     AXIS_COL,
@@ -136,7 +136,7 @@ def test_no_calibration_reader_computes_the_basin_again(monkeypatch) -> None:
         raise AssertionError("a consumer recomputed the basin of D instead of reading it")
 
     monkeypatch.setattr(core_descent, "descent_basin", refuse)
-    monkeypatch.setattr(mesh_descent, "descent_basin", refuse)
+    monkeypatch.setattr(catchment_basin, "descent_basin", refuse)
     ctx = _ctx(_basin(_half()))
 
     delineated_catchment_mask(ctx, None, None)

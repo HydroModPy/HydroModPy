@@ -11,7 +11,7 @@ import logging
 
 import numpy as np
 
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh

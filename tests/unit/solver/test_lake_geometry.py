@@ -19,7 +19,6 @@ from shapely.geometry import LineString, box
 from hydromodpy.solver.modflow6.builders._lake_geometry import (
     cutoff_wall_faces,
     downstream_of_wall,
-    family_regions,
     interior_cells,
     lake_shore_faces,
     polygon_overlap,
@@ -65,10 +64,9 @@ def test_a_lake_off_every_region_still_owns_nothing() -> None:
     assert interior_cells(mesh, "lakes", ARM).size == 0
 
 
-def test_a_mesh_without_the_family_is_one_region() -> None:
+def test_a_box_overlaps_the_grid_cells_by_the_area_it_covers() -> None:
     grid = regular_mesh(3, 4, dx=10.0)
 
-    assert family_regions(grid, "lakes").tolist() == [0] * grid.n_cells
     cells, overlap = polygon_overlap(grid, box(0.0, 0.0, 15.0, 30.0))
     assert cells.tolist() == [0, 1, 4, 5, 8, 9]
     np.testing.assert_allclose(overlap, [100.0, 50.0] * 3)

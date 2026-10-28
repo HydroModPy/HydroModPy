@@ -32,16 +32,15 @@ _RING_QUAD_SEGS = 64
 
 @dataclass(frozen=True)
 class GeologyLines:
-    """The contacts of a geology map, each with the zone on its left and on its right."""
+    """The contacts of a geology map, each with the zone on its left and on its right.
+
+    ``zone_left`` and ``zone_right`` name one zone per line, as
+    :func:`contact_lines` and :func:`support_contacts` build them.
+    """
 
     lines: tuple[LineString, ...]
     zone_left: tuple[str, ...]
     zone_right: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        """Refuse zone lists that do not name one zone per line."""
-        if not (len(self.lines) == len(self.zone_left) == len(self.zone_right)):
-            raise MeshRequestError("geology contacts need one left and one right zone per line")
 
 
 def geology_lines(

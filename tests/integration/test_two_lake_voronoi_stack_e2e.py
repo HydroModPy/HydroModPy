@@ -32,7 +32,7 @@ from hydromodpy.solver.modflow6.builders.sfr import (
 )
 from hydromodpy.solver.modflow_common.binaries import ensure_solver_binary
 from hydromodpy.solver.modflow_common.flow_adapter_helpers import worst_percent_discrepancy
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from hydromodpy.spatial.geographic.core.sfr_network import SfrReachRow, SfrReachTrace
 from hydromodpy.spatial.mesh.engines.voronoi.engine import VoronoiMeshEngine

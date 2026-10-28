@@ -42,7 +42,7 @@ from hydromodpy.solver.base.cell_lookup import (
     top_active_layer_on_solver_mesh,
 )
 from hydromodpy.solver.modflow_common import observable_extraction as _extraction
-from hydromodpy.solver.modflow_common.mesh_descent import build_solver_mesh_descent
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

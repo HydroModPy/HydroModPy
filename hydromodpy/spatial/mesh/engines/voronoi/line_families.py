@@ -15,28 +15,20 @@ import numpy as np
 import shapely
 from shapely.strtree import STRtree
 
-from hydromodpy.spatial.mesh.engines.triangle.families import components_without
-from hydromodpy.spatial.mesh.engines.voronoi.constraints import ConstraintPlan, FaceLineState
+from hydromodpy.spatial.mesh.engines.face_families import components_without
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import ConstraintPlan, FaceLineState
 from hydromodpy.spatial.mesh.model.derived_geometry import (
     BOX_SIDES,
     DerivedGeometry,
     box_side_of_edges,
 )
 from hydromodpy.spatial.mesh.model.mesh_qa import RELATIVE_FACE_TOLERANCE, mixed_cells
-from hydromodpy.spatial.mesh.model.planar_cell_mesh import CellChain, FaceFamilyTable
+from hydromodpy.spatial.mesh.model.planar_cell_mesh import FaceFamilyTable
 
-__all__ = ["GEOLOGY_FAMILY", "cell_chains", "cell_zones", "face_family_table"]
+__all__ = ["GEOLOGY_FAMILY", "cell_zones", "face_family_table"]
 
 GEOLOGY_FAMILY = "geology"
 """The face family whose two sides carry the zones of the cells."""
-
-
-def cell_chains(plan: ConstraintPlan) -> tuple[CellChain, ...]:
-    """One chain per cell family line, the cells of its seeds, with their lateral offsets."""
-    return tuple(
-        CellChain(family=chain.family, chain_id=k, cell_ids=chain.seed_ids, offset_m=chain.offset_m)
-        for k, chain in enumerate(plan.chains)
-    )
 
 
 def face_family_table(

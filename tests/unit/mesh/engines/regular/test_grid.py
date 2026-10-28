@@ -166,27 +166,6 @@ def test_any_size_from_the_dem_pitch_up_gives_a_grid_on_the_dem_bounds(
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    ("size", "options", "message"),
-    [
-        (25.0, {}, "cannot mesh finer than the DEM"),
-        (50.0, {"shape": [3]}, "'shape' is \\[nrow, ncol\\]"),
-        (50.0, {"shape": [3, 0]}, "'shape' is \\[nrow, ncol\\]"),
-        (50.0, {"shape": [3.5, 4]}, "'shape' is \\[nrow, ncol\\]"),
-        (50.0, {"shape": "33"}, "'shape' is \\[nrow, ncol\\]"),
-        (50.0, {"shape": [True, 4]}, "'shape' is \\[nrow, ncol\\]"),
-        (50.0, {"algorithm": "frontal"}, "reads the option 'shape' only, got algorithm"),
-    ],
-    ids=[
-        "size_finer_than_the_dem",
-        "shape_of_one_number",
-        "shape_with_no_column",
-        "shape_not_integer",
-        "shape_as_text",
-        "shape_as_a_flag",
-        "option_of_another_engine",
-    ],
-)
-def test_a_grid_the_dem_cannot_give_is_refused(size, options, message) -> None:
-    with pytest.raises(MeshRequestError, match=message):
-        _layout(DEM, size, options)
+def test_a_grid_finer_than_the_dem_is_refused() -> None:
+    with pytest.raises(MeshRequestError, match="cannot mesh finer than the DEM"):
+        _layout(DEM, 25.0, {})

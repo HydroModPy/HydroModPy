@@ -37,11 +37,8 @@ from shapely.geometry import (
 from shapely.ops import transform
 
 from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
-from hydromodpy.spatial.mesh.ops.vector_cell_mask import (
-    cell_area_fraction,
-    line_crossing_cell_mask,
-    vector_cell_mask,
-)
+from hydromodpy.spatial.mesh.ops.crossed_by_lines import line_crossing_cell_mask
+from hydromodpy.spatial.mesh.ops.vector_cell_mask import cell_area_fraction, vector_cell_mask
 from tests._helpers.mesh_cases import LAMBERT93_WKT, regular_mesh
 from tests._helpers.ugrid_meshes import quad_mesh
 

@@ -19,7 +19,7 @@ import pytest
 
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.field_routing import CATCHMENT_BUDGET_ZONE, DOMAIN_BUDGET_ZONE
-from hydromodpy.solver.modflow_common.mesh_descent import DESCENT_SIDECAR_SUFFIX
+from hydromodpy.solver.modflow_common.descent_store import DESCENT_SIDECAR_SUFFIX
 from hydromodpy.solver.modflow_nwt.extractors import flow as nwt_flow
 from hydromodpy.solver.modflow_nwt.extractors.flow import ModflowNwtOutputAdapter
 

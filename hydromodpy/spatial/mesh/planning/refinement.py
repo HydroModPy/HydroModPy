@@ -92,9 +92,10 @@ class RunFieldEnvelope:
         object.__setattr__(self, "maximum", maximum)
 
     def passing(self, *, below: float | None, above: float | None) -> np.ndarray:
-        """The cells whose field went below *below*, or above *above*, at some time step."""
-        if (below is None) == (above is None):
-            raise MeshRequestError("a threshold is either below or above, and one of them")
+        """The cells whose field went below *below*, or above *above*, at some time step.
+
+        One of the two is given, as ``[[mesh.refinement_zone]]`` requires.
+        """
         with np.errstate(invalid="ignore"):
             if below is not None:
                 return np.isfinite(self.minimum) & (self.minimum < below)

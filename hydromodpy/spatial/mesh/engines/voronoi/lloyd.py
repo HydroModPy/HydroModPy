@@ -24,6 +24,7 @@ import numpy as np
 import shapely
 from shapely.geometry.base import BaseGeometry
 
+from hydromodpy.spatial.mesh.engines.voronoi.constraints.plan import ConstraintPlan
 from hydromodpy.spatial.mesh.engines.voronoi.frame import SizeSampler
 from hydromodpy.spatial.mesh.engines.voronoi.free_seeds import DiskSet
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_cells, voronoi_envelope
@@ -34,9 +35,8 @@ __all__ = [
     "LLOYD_CAP",
     "LLOYD_TOLERANCE",
     "PROTECTION_SHARE",
-    "LloydInvariants",
     "LloydReport",
-    "lloyd_invariants",
+    "constraint_disks",
     "relax",
     "weighted_centroids",
 ]
@@ -55,26 +55,6 @@ GABRIEL_SCALE = 0.51
 
 PROTECTION_SHARE = 0.6
 """Protection radius in Lloyd, as a share of the size ``h(c)`` at the constraint seed."""
-
-
-@dataclass(frozen=True, eq=False)
-class LloydInvariants:
-    """Disks a free seed must leave: hard ones (never entered) and protection ones."""
-
-    hard_center: np.ndarray
-    hard_radius: np.ndarray
-    protect_center: np.ndarray
-    protect_radius: np.ndarray
-
-    def __post_init__(self) -> None:
-        """Check one radius per centre."""
-        for name in ("hard", "protect"):
-            centre = np.asarray(getattr(self, f"{name}_center"), dtype=np.float64).reshape(-1, 2)
-            radius = np.asarray(getattr(self, f"{name}_radius"), dtype=np.float64).ravel()
-            if radius.size != len(centre):
-                raise ValueError(f"{name} disks need one radius per centre")
-            object.__setattr__(self, f"{name}_center", centre)
-            object.__setattr__(self, f"{name}_radius", radius)
 
 
 @dataclass(frozen=True, eq=False)
@@ -105,36 +85,42 @@ class LloydReport:
         }
 
 
-def lloyd_invariants(
-    *,
-    berge_center: np.ndarray,
-    berge_radius: np.ndarray,
-    chain_start: np.ndarray,
-    chain_end: np.ndarray,
-    constraint_xy: np.ndarray,
-    constraint_size: np.ndarray,
-) -> LloydInvariants:
-    """The disks of the relaxation from the line state, all in the local frame.
+def constraint_disks(plan: ConstraintPlan) -> tuple[DiskSet, DiskSet]:
+    """The hard and the protection disks of the relaxation, in the local frame of *plan*.
 
     Hard disks: each Berge ball of a conformal vertex at ``1.02 R_v``, and the
-    Gabriel disk of each chain segment ``[start, end]`` (centre at its middle,
-    radius ``0.51 |end - start|``). Protection disks: ``0.6 h(c)`` around each
-    constraint seed ``c``.
+    Gabriel disk of each link ``[start, end]`` between two distinct chain seeds
+    (centre at its middle, radius ``0.51 |end - start|``). Protection disks:
+    ``0.6 h(c)`` around each constraint seed ``c``.
     """
-    start = np.asarray(chain_start, dtype=np.float64).reshape(-1, 2)
-    end = np.asarray(chain_end, dtype=np.float64).reshape(-1, 2)
-    berge = np.asarray(berge_center, dtype=np.float64).reshape(-1, 2)
-    return LloydInvariants(
-        hard_center=np.vstack([berge, 0.5 * (start + end)]),
-        hard_radius=np.concatenate(
+    faces, seeds = plan.faces, plan.seeds
+    conformal = np.flatnonzero(faces.conformal)
+    start, end = _chain_links(plan)
+    hard = DiskSet(
+        np.vstack([np.asarray(faces.vertices[conformal], dtype=np.float64), 0.5 * (start + end)]),
+        np.concatenate(
             [
-                BERGE_BALL_SCALE * np.asarray(berge_radius, dtype=np.float64).ravel(),
+                BERGE_BALL_SCALE * np.asarray(faces.radius[conformal], dtype=np.float64),
                 GABRIEL_SCALE * np.hypot(*(end - start).T),
             ]
         ),
-        protect_center=np.asarray(constraint_xy, dtype=np.float64).reshape(-1, 2),
-        protect_radius=PROTECTION_SHARE * np.asarray(constraint_size, dtype=np.float64).ravel(),
     )
+    protect = DiskSet(seeds.xy, PROTECTION_SHARE * np.asarray(seeds.radius, dtype=np.float64))
+    return hard, protect
+
+
+def _chain_links(plan: ConstraintPlan) -> tuple[np.ndarray, np.ndarray]:
+    """Start and end ``(k, 2)`` of each link between two distinct chain seeds."""
+    xy = np.asarray(plan.seeds.xy, dtype=np.float64)
+    starts, ends = [], []
+    for chain in plan.chains:
+        ids = chain.cell_ids
+        link = ids[:-1] != ids[1:]
+        starts.append(xy[ids[:-1][link]])
+        ends.append(xy[ids[1:][link]])
+    if not starts:
+        return np.empty((0, 2)), np.empty((0, 2))
+    return np.vstack(starts), np.vstack(ends)
 
 
 def weighted_centroids(cells: np.ndarray, seeds: np.ndarray, h: SizeSampler) -> np.ndarray:
@@ -167,16 +153,19 @@ def relax(
     n_fixed: int,
     h: SizeSampler,
     domain: BaseGeometry,
-    invariants: LloydInvariants,
+    hard: DiskSet,
+    protect: DiskSet,
     *,
     tolerance: float = LLOYD_TOLERANCE,
     cap: int = LLOYD_CAP,
 ) -> LloydReport:
     """Relax the seeds after the first *n_fixed*, all in the local frame.
 
-    Stops when the root mean square of the moves of an iteration, each as a
-    share of the local size, is under *tolerance*, or after *cap* iterations.
-    ``rejected`` counts the refused moves over all iterations.
+    A free seed is projected out of the *hard* disks, then out of the
+    *protect* disks, and never ends in a hard disk. Stops when the root mean
+    square of the moves of an iteration, each as a share of the local size,
+    is under *tolerance*, or after *cap* iterations. ``rejected`` counts the
+    refused moves over all iterations.
     """
     points = np.array(seeds, dtype=np.float64, copy=True)
     fixed = int(n_fixed)
@@ -185,8 +174,6 @@ def relax(
         return LloydReport(points, 0, cap, n_free <= 0, 0.0, 0.0, 0.0, 0.0, 0)
     shapely.prepare(domain)
     envelope = voronoi_envelope(domain, h.h_max)
-    hard = DiskSet(invariants.hard_center, invariants.hard_radius)
-    protect = DiskSet(invariants.protect_center, invariants.protect_radius)
     rejected = 0
     iterations = 0
     move = np.zeros(n_free)

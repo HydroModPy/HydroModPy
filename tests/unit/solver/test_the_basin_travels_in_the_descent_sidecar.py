@@ -13,11 +13,11 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.descent import DescentBasin
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    build_solver_mesh_descent,
+from hydromodpy.solver.modflow_common.descent_store import (
     read_descent_sidecar,
     write_descent_sidecar,
 )
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N = 6

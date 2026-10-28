@@ -1219,6 +1219,48 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The mesh code checks each fault at one stage (2026-10-28). `[mesh]`, `[mesh.voronoi]`,
+  `[mesh.lake_refinement]` and `[[mesh.refinement_zone]]` refuse an infinite number and name the
+  key. An infinite size, band, factor or transition used to be refused later by the size field,
+  without the key, and an infinite `gap_cells`, `lloyd_tolerance`, `below` or `above` was taken.
+  The request refuses what no engine can mesh and no longer checks the type of its members. The
+  engines trust the request: the `voronoi` engine takes the generators of the triangulation the
+  request carries, the `regular` engine reads `shape` and the `triangle` engine `algorithm`
+  without checking them again. `SizeTerm`, `OutsideCoarsening`, `build_size_field`,
+  `RunFieldEnvelope.passing` and `GeologyLines` no longer check what `[mesh]`, the planner or the
+  size field already hold, and a size term on no pixel refines nothing. A request built by hand
+  with a member of the wrong type, or with options `[mesh]` would refuse, now fails in the engine
+  or is taken as it is. Nothing a run computes or writes changes.
+- `resolve_domain_surfaces` no longer checks the type and the shape of the domain surfaces, since
+  the domain builds its substratum on the grid of its top surface (2026-10-28). It still compares
+  their CRS and extent, which a planar mesh relies on.
+- The descent of a solver mesh and the top sampling of the solver grid are cut along their steps
+  (2026-10-28). `solver/modflow_common/mesh_descent.py` and `catchment_support.py` become
+  `flow_directions.py` (D, `build_solver_mesh_descent`, `resolve_dam_foot_cells`),
+  `channel_tree.py` (the river network A and its pinned receivers), `catchment_basin.py`
+  (`run_basin`, the polygon support and `catchment_cell_mask`) and `descent_store.py` (the
+  `.descent.npz` sidecar, `DescentRecord`, unchanged on disk). The zonal top of
+  `discretization_spatial.py` moves to `solver/modflow_grid/top_sampling.py`, and
+  `SolverGridContext` and `grid_reference_from_solver_mesh` move from `grid_context.py` to
+  `discretization_spatial.py`. Nothing a run computes or writes changes.
+- The large mesh modules are cut along their steps, and the Voronoi chain loses its relays
+  (2026-10-28). The constraint seeds of the Voronoi generator become the package
+  `engines/voronoi/constraints/` (`plan`, `state`, `lines`, `rivers`, `face_pairs`, which takes in
+  `mirror.py`, `conflicts`, `boundary_seeds`). The dual of a read triangulation lives in one
+  module, `engines/voronoi/from_triangulation.py`, which replaces `triangulation_seeds.py` and
+  `dual_families.py`. The face family rows the engines share move from `engines/triangle/families.py`
+  to `engines/face_families.py` (`FamilyEdges`, `EdgeLookup`, `edge_lookup`, `oriented_rows` and
+  `without_repeats`, now public, `request_zone_names`, `components_without`, `box_side_edges`,
+  `face_table`), and the physical groups of a read `.msh` to `engines/triangle/msh_groups.py`.
+  `family_regions` moves there from the MODFLOW 6 lake builder, and it shares one component count
+  with `components_without`, each keeping its own cut. `planning/plan.py` keeps the orchestration and
+  hands the line families to `planning/families.py` and the size terms to `planning/size_terms.py`.
+  `line_crossing_cell_mask` moves to `ops/crossed_by_lines.py`. `check_gates` reads the constraint
+  plan (`plan=`) and computes the Berge balls and the mirror faces itself, `relax` takes the hard and
+  protection disks that `constraint_disks(plan)` gives, and `ConstraintPlan.chains` holds `CellChain`
+  directly. `BergeBalls`, `MirrorFaces`, `LloydInvariants`, `lloyd_invariants`, `ChainPlan` and the
+  three extractors of `ConstraintPlan` are gone. `face_family_columns` of the regular engine calls two
+  named functions. The meshes do not change, bit for bit, QA and store keys included.
 - Each plane geometric fact of the mesh has one home, so a fix is made in one place (2026-10-28).
   `hydromodpy.spatial.mesh.model.derived_geometry` holds the padded cell rows (`padded_rows`), the
   shoelace area (`cell_areas`), the polygon of a cell (`cell_polygons`, which moves there from
@@ -1344,7 +1386,7 @@ Each release section includes the following standard categories:
   so `planning/geographic.py` goes. No mesh, TOML key, schema or store name changes.
 - The main CI measures the branch coverage of `spatial/mesh` and fails under a floor that only goes
   up, 98.2 % after the mesh tests were filed by module, then 98.4 % once the dead import fallbacks
-  left, then 98.5 % once the mesh package was flattened, then 99.1 % once the forcing, the solver grid and the field meshes left it (2026-10-27), then 99.15 % once each geometric fact had one home (2026-10-28). The coverage report no longer drops a whole function whose signature holds
+  left, then 98.5 % once the mesh package was flattened, then 99.1 % once the forcing, the solver grid and the field meshes left it (2026-10-27), then 99.15 % once each geometric fact had one home (2026-10-28), then 99.2 % once the large modules were cut (2026-10-28), then 99.25 % once each mesh fault was checked at one stage (2026-10-28). The coverage report no longer drops a whole function whose signature holds
   `...`, as in `tuple[str, ...]`. Only a stub body is excluded now. The old rule left about 1 400 lines of `spatial/mesh` out of the count.
 - Catchment totals read the outline the mesh followed (2026-10-26). When a `triangle` or
   `voronoi` mesh follows the smoothed catchment outline, the catchment area fraction, the polygon

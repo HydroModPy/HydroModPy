@@ -230,12 +230,6 @@ def test_the_threshold_is_passed_at_some_time_step_and_never_on_an_undefined_cel
     assert envelope.passing(below=None, above=0.5).tolist() == [False, True]
 
 
-@pytest.mark.parametrize(("below", "above"), [(0.5, 0.5), (None, None)], ids=["both", "neither"])
-def test_a_threshold_is_below_or_above_and_one_of_them(below, above) -> None:
-    with pytest.raises(MeshRequestError, match="either below or above"):
-        _envelope().passing(below=below, above=above)
-
-
 @pytest.mark.parametrize(
     ("minimum", "maximum"),
     [([0.5], [4.0]), ([0.5, 3.0], [4.0]), ([0.5, 3.0, 1.0], [4.0, 6.0, 2.0])],

@@ -467,7 +467,7 @@ class TestTheDischargeSeriesIsTheCatchmentAndNotTheDomain:
 
     def test_a_model_without_basin_or_catchment_is_refused_by_name(self) -> None:
 
-        from hydromodpy.solver.modflow_common.catchment_support import catchment_cell_mask
+        from hydromodpy.solver.modflow_common.catchment_basin import catchment_cell_mask
 
         model = SimpleNamespace(
             model_name="flow",

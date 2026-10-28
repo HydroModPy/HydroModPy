@@ -25,7 +25,7 @@ from rasterio.transform import Affine
 from shapely.geometry import Polygon, shape
 
 from hydromodpy.calibration.observations.observed_network import delineated_catchment_mask
-from hydromodpy.solver.modflow_common.catchment_support import (
+from hydromodpy.solver.modflow_common.catchment_basin import (
     catchment_cell_mask,
     polygon_cell_fraction,
     polygon_cell_mask,

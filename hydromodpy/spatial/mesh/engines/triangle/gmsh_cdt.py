@@ -107,13 +107,8 @@ def require_gmsh() -> ModuleType:
 
 
 def _algorithm(request: MeshRequest) -> str:
-    """The ``[mesh.triangle] algorithm`` the request names, checked."""
-    algorithm = str(request.options.get("algorithm", "delaunay"))
-    if algorithm not in ALGORITHMS:
-        raise MeshRequestError(
-            f"unknown triangle algorithm {algorithm!r}; expected one of {sorted(ALGORITHMS)}"
-        )
-    return algorithm
+    """The ``[mesh.triangle] algorithm`` the request names, ``delaunay`` when it names none."""
+    return str(request.options.get("algorithm", "delaunay"))
 
 
 def _lines_at_edge_length(request: MeshRequest, scale: float) -> tuple[LineFamilySpec, ...]:

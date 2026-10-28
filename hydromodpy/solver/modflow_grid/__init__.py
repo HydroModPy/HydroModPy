@@ -6,7 +6,9 @@ and from ``solver/modflow_common/`` (which holds non-grid shared helpers).
 """
 
 from .discretization_spatial import (
+    SolverGridContext,
     build_spatial_discretization,
+    grid_reference_from_solver_mesh,
     resolve_domain_surfaces,
 )
 from .discretization_temporal import (
@@ -14,7 +16,6 @@ from .discretization_temporal import (
     build_temporal_discretization_from_time_grid,
     resolve_first_period_steady,
 )
-from .grid_context import SolverGridContext, grid_reference_from_solver_mesh
 from .solver_mesh import SolverMesh
 
 __all__ = [

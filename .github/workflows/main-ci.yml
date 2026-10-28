@@ -323,7 +323,7 @@ jobs:
         run: |
           coverage combine || true
           coverage report --include='hydromodpy/spatial/mesh/*' \
-            --precision=2 --fail-under=99.15
+            --precision=2 --fail-under=99.25
 
   integration:
     name: Tests / integration py3.13

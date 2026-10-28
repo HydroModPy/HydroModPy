@@ -42,14 +42,12 @@ from hydromodpy.solver.modflow_common.budget_components import (
 )
 from hydromodpy.solver.modflow_common.budget_policy import record_budget_policy
 from hydromodpy.solver.modflow_common.descent_store import (
+    DescentRecord,
     descent_sidecar_path,
+    read_descent_sidecar,
     write_descent_sidecar_to_store,
 )
 from hydromodpy.solver.modflow_common.field_slab import slab_steps
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    DescentRecord,
-    read_descent_sidecar,
-)
 from hydromodpy.solver.modflow_common.period_steps import (
     group_steps_by_stamp,
     period_mean_balance,

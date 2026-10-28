@@ -29,6 +29,7 @@ from shapely.strtree import STRtree
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.modflow6.builders._lake_definitions import _active_lake_definitions
+from hydromodpy.spatial.mesh.engines.face_families import family_regions
 from hydromodpy.spatial.mesh.model.derived_geometry import cell_polygons
 from hydromodpy.spatial.mesh.ops.flow_barrier import BarrierFace, barrier_edges
 
@@ -336,25 +337,6 @@ def polygon_overlap(
     cell_areas = np.asarray(cell_mesh.geometry.areas, dtype=float)[candidates]
     keep = areas > _MIN_OVERLAP_SHARE * cell_areas
     return candidates[keep].astype(np.int64), np.asarray(areas[keep], dtype=float)
-
-
-def family_regions(cell_mesh: PlanarCellMesh, family: str) -> np.ndarray:
-    """Return the region label of every cell once the faces of ``family`` are cut."""
-    geometry = cell_mesh.geometry
-    n_cells = cell_mesh.n_cells
-    cut = np.zeros(geometry.edge_nodes.shape[0], dtype=bool)
-    rows = cell_mesh.face_rows(family)
-    if rows.any():
-        table = cell_mesh.face_families
-        edges = geometry.edge_ids(table.node_a[rows], table.node_b[rows])
-        cut[edges[edges >= 0]] = True
-    joined = (geometry.edge_cells[:, 1] >= 0) & ~cut
-    first, second = geometry.edge_cells[joined, 0], geometry.edge_cells[joined, 1]
-    graph = coo_matrix(
-        (np.ones(first.size, dtype=np.int8), (first, second)), shape=(n_cells, n_cells)
-    )
-    _, labels = connected_components(graph, directed=False)
-    return labels.astype(np.int64)
 
 
 def interior_cells(cell_mesh: PlanarCellMesh, family: str, polygon: BaseGeometry) -> np.ndarray:

@@ -17,8 +17,10 @@ from hydromodpy.results.run.contracts import Mesh
 from hydromodpy.results.run.descent import RunDescent, load_descent
 from hydromodpy.results.zarr_store import SimulationZarr
 from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
-from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar_to_store
-from hydromodpy.solver.modflow_common.mesh_descent import write_descent_sidecar
+from hydromodpy.solver.modflow_common.descent_store import (
+    write_descent_sidecar,
+    write_descent_sidecar_to_store,
+)
 from tests._helpers.descent_cases import grid_descent
 from tests._helpers.ugrid_meshes import quad_mesh
 

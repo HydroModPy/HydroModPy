@@ -181,9 +181,8 @@ def test_a_river_that_follows_a_contact_shares_its_edges(downstream: bool) -> No
             ),
             "line 0 of family 'rivers' is shorter than 1 mm",
         ),
-        (lambda: _square(algorithm="bowyer"), "unknown triangle algorithm 'bowyer'"),
     ],
-    ids=["line_out_of_the_domain", "line_shorter_than_a_millimetre", "unknown_algorithm"],
+    ids=["line_out_of_the_domain", "line_shorter_than_a_millimetre"],
 )
 def test_a_request_gmsh_cannot_triangulate_is_refused(request_of, message: str) -> None:
     with pytest.raises(MeshRequestError, match=message):

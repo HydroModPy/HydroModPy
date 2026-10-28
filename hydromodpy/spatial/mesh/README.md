@@ -44,10 +44,11 @@ An engine reads no file and no config. The workflow step is the only place that 
 | `registry.py` | Engine id to class, plus the `hydromodpy.mesh.engine` entry-point group |
 | `request.py` | `MeshRequest`, `LineFamilySpec`, `RasterGridSpec`, `SizeField` |
 | `resample.py` | The lines resampled at the local cell size, read by the planner and the engines |
-| `planning/` | `plan_mesh_request`: from the project to a request, after the catchment smoothing (`catchment_outline.py`) and the geometry cleanup (`cleanup.py`); `smoothed_catchment` gives the outline the mesh followed, kept on `PlanarCellMesh.smoothed_catchment`. The size field of the graded engines (`size_field.py`) and its terms on the gaps between face lines (`gap_size.py`), the refinement zones and the fields a zone reads (`refinement.py`, `height_above_stream.py`), the size rules of the lake walls, sills and outlet disk (`lake_structures.py`) |
+| `planning/` | `plan_mesh_request`: from the project to a request, after the catchment smoothing (`catchment_outline.py`) and the geometry cleanup (`cleanup.py`), with the line families in `families.py` and the size terms in `size_terms.py`; `smoothed_catchment` gives the outline the mesh followed, kept on `PlanarCellMesh.smoothed_catchment`. The size field of the graded engines (`size_field.py`) and its terms on the gaps between face lines (`gap_size.py`), the refinement zones and the fields a zone reads (`refinement.py`, `height_above_stream.py`), the size rules of the lake walls, sills and outlet disk (`lake_structures.py`) |
+| `engines/face_families.py` | The face family rows the engines share: oriented edges, the family table, the zones cut by the lines |
 | `engines/regular/` | Square cells of the DEM grid, bit for bit the FloPy grid |
-| `engines/triangle/` | Constrained Delaunay triangles from gmsh (`gmsh_cdt.py`), or a `.msh` file |
-| `engines/voronoi/` | Voronoi cells from generated seeds, mirror pairs, Lloyd, gates |
+| `engines/triangle/` | Constrained Delaunay triangles from gmsh (`gmsh_cdt.py`), or a `.msh` file and its physical groups (`msh_groups.py`) |
+| `engines/voronoi/` | Voronoi cells from generated seeds (`generated.py`, the constraint seeds in `constraints/`), Lloyd, gates, or the dual of a read triangulation (`from_triangulation.py`) |
 | `cache.py` | Mesh cache under `<project>/.hmp/mesh_cache/` |
 | `ops/` | Shared cell helpers: families, `locate_cells`, flow barriers, chains, zonal stats |
 | `io/` | The exchange formats, one module per format: `vtu.py`, `meshio_bridge.py`, `msh.py`, `bundle.py` |

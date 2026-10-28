@@ -2,7 +2,9 @@
 
 User keys are sizes in metres, a path, or an intention per line family. Every
 algorithm setting is a DEV key with a fixed default. Without ``[mesh]`` the
-``regular`` engine meshes the model with the DEM pixels.
+``regular`` engine meshes the model with the DEM pixels. Every number of the
+mesh tables must be finite, since the planner and the engines read the sizes
+as they are.
 
 A cell size is the side of the square of the same mean area as the cells, for
 every engine and every size of the size field (``cell_size``,
@@ -16,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -139,6 +141,8 @@ class MeshTriangleConfig(HydroModelBase):
 class MeshVoronoiConfig(HydroModelBase):
     """Settings of the ``voronoi`` engine."""
 
+    model_config = ConfigDict(allow_inf_nan=False)
+
     seeds: Annotated[Literal["generated", "triangulation"] | None, Profile.DEV] = Field(
         default=None,
         description=(
@@ -188,6 +192,8 @@ class MeshRegularConfig(HydroModelBase):
 
 class MeshConfig(HydroModelBase):
     """The mesh engine and the sizes it meshes the model with."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
 
     engine: Annotated[str, Profile.USER] = Field(
         default="regular",

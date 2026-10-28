@@ -31,12 +31,10 @@ from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
     write_grid_array_to_raster,
 )
-from hydromodpy.solver.modflow_common.mesh_descent import (
-    build_solver_mesh_descent,
-    channel_tree_for_run,
-    run_basin,
-    write_descent_sidecar,
-)
+from hydromodpy.solver.modflow_common.catchment_basin import run_basin
+from hydromodpy.solver.modflow_common.channel_tree import channel_tree_for_run
+from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
+from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_common.options import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
