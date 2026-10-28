@@ -1,236 +1,295 @@
+"""The geographic cache: what a tree must hold to be reused, and what its fingerprint reads."""
+
 from __future__ import annotations
 
+import logging
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
-import rasterio
-from rasterio.transform import from_origin
+import pytest
+from shapely.geometry import LineString
 
-from hydromodpy.spatial.geographic.core.catchment_domain import CatchmentDomainProducts
+from hydromodpy.spatial.geographic.artifacts import (
+    DESCRIPTION_FILENAME,
+    geographic_artifact_paths,
+)
+from hydromodpy.spatial.geographic.core.ground_corrections import GROUND_FILENAME
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
-from hydromodpy.spatial.geographic.pipeline import (
-    _geographic_cache_fingerprint,
-    _load_cached_geographic_products,
-    _raster_products_from_paths,
-    _required_geographic_cache_artifacts,
-    _write_geographic_cache_manifest,
+from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
+from hydromodpy.spatial.terrain import CappedBreach, CappedBreachReport
+from tests._helpers.geographic_cases import (
+    BENCH_RIVER,
+    cached_tree,
+    load_cached,
+    touch_artifact,
+    write_features,
+)
+from tests._helpers.geotiffs import write_geotiff
+from tests._helpers.terrain_doubles import fake_flow_products
+
+FILL_FINGERPRINT_WITHOUT_THE_BURN = (
+    "e98e054d5ea4b7e52eb24e122f7a85384b6e2338528dedb35b527b8708490ffb"
+)
+"""The fingerprint of 79fe734ea, before the capped breach existed, minus the burn.
+
+Removing ``[geographic.enforce_streams]`` took its section and its path signature out of
+the payload, so every cached tree is rebuilt once. Putting both back (defaults, no path)
+gives back ``ab83e008ba427355b3c68345745088b13a0337e006164879216e8d7571f626b3``, the value
+a clean export of 79fe734ea computes: the capped breach key is the only other thing the
+payload could have gained, and it is absent.
+
+Removing ``[geographic.dam_carve]`` and the ramp and capture keys of
+``[geographic.enforce_lakes]`` took them and the ``dam_carve_line_path`` signature out of
+the payload in turn, so every cached tree is rebuilt once. Putting them back (defaults, no
+path) gives back ``7b2ef36222c1439414f36aa3464a7c51e18ed18111f14601fb4112f79344a363``,
+the value before that removal.
+
+The DEM is a bare file name that does not exist. The payload holds the path as the OS
+spells it, so a name without a separator is the one input that hashes alike everywhere.
+"""
+
+REPORT = CappedBreachReport(
+    cells_lowered=4,
+    cells_raised=12,
+    max_lowering_m=0.56,
+    max_raise_m=0.2,
+    max_dist_cells=8,
+    max_cost_m=0.5,
+    move_threshold_m=0.01,
 )
 
 
-def _touch_artifact(path: str | Path) -> None:
-    """Materialise one cache artefact.
-
-    Rasters are written as real single-cell GeoTIFFs and not as empty files:
-    the flow stack is described by reading the CRS and the nodata off the
-    rasters themselves, so a cache hit has to survive being read.
-    """
-    path_obj = Path(path)
-    path_obj.parent.mkdir(parents=True, exist_ok=True)
-    if path_obj.suffix.lower() == ".shp":
-        for suffix in (".shp", ".shx", ".dbf"):
-            path_obj.with_suffix(suffix).write_text("", encoding="utf-8")
-        return
-    if path_obj.suffix.lower() == ".tif":
-        with rasterio.open(
-            str(path_obj),
-            "w",
-            driver="GTiff",
-            height=1,
-            width=1,
-            count=1,
-            dtype="float32",
-            crs="EPSG:2154",
-            transform=from_origin(0.0, 1.0, 1.0, 1.0),
-            nodata=-9999.0,
-        ) as dst:
-            dst.write(np.zeros((1, 1), dtype="float32"), 1)
-        return
-    path_obj.write_text("", encoding="utf-8")
+def _outlet(**sections) -> GeographicConfig:
+    return GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif", **sections)
 
 
-def _cached_config(tmp_path: Path) -> GeographicConfig:
-    dem_path = tmp_path / "dem.tif"
-    dem_path.write_text("dem", encoding="utf-8")
-    return GeographicConfig.model_validate(
-        {
-            "catchment": {
-                "catch_def": "from_outlet_coord",
-                "dem_init_path": dem_path,
-                "x_outlet": 1.0,
-                "y_outlet": 2.0,
-                "snap_dist": 10.0,
-                "buff_area": 10.0,
-            },
-            "reuse_existing_outputs": True,
-        }
+def _fingerprint(**sections) -> str:
+    return _geographic_cache_fingerprint(_outlet(**sections))
+
+
+def _flow_products_with_a_report():
+    flow_products = fake_flow_products(method=CappedBreach(0.5, 200.0))
+    directions = flow_products.accumulation.directions
+    conditioned = replace(directions.conditioned_dem, breach_report=REPORT)
+    directions = replace(directions, conditioned_dem=conditioned)
+    return type(flow_products)(
+        accumulation=replace(flow_products.accumulation, directions=directions)
     )
 
 
-def test_geographic_cache_loads_matching_complete_artifacts(tmp_path: Path) -> None:
-    config = _cached_config(tmp_path)
-    paths = build_geographic_paths(tmp_path / "project")
-    raster_products = _raster_products_from_paths(paths)
-    for path in _required_geographic_cache_artifacts(
-        config=config,
-        paths=paths,
-        raster_products=raster_products,
-    ):
-        _touch_artifact(path)
+# --- what a hit needs -----------------------------------------------------------
 
-    _write_geographic_cache_manifest(
-        config=config,
-        paths=paths,
-        domain_products=CatchmentDomainProducts(
-            catchment_area_km2=12.0,
-            buffer_distance_m=300.0,
-            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
-            watershed_box_shp=paths.watershed_box_shp,
-            watershed_box_buff_shp=paths.box_buff,
-        ),
-        catchment_area_km2=12.0,
-        catchment_products=None,
+
+def test_a_complete_matching_tree_is_a_hit_that_keeps_how_the_buffer_was_chosen(
+    tmp_path: Path,
+) -> None:
+    """A restored domain says which rule drew its margin, as a fresh one does."""
+    config, paths = cached_tree(
+        tmp_path,
+        domain={
+            "buffer_distance_m": 150.0,
+            "buffer_rule": "area_percent",
+            "buffer_declared": "10%",
+            "buffer_area_increase": 0.106,
+        },
     )
 
-    cached = _load_cached_geographic_products(
-        config=config,
-        paths=paths,
-        crs_project="EPSG:2154",
-    )
+    cached = load_cached(config, paths)
 
     assert cached is not None
     assert cached.catchment_area_km2 == 12.0
-    assert cached.domain_products.buffer_distance_m == 300.0
     assert cached.flow_products.direc.endswith("dem_direc.tif")
+    domain = cached.domain_products
+    assert domain.buffer_distance_m == 150.0
+    assert domain.buffer_rule == "area_percent"
+    assert domain.buffer_declared == "10%"
+    assert domain.buffer_area_increase == 0.106
 
 
-def test_a_cache_hit_keeps_how_the_buffer_was_chosen(tmp_path: Path) -> None:
-    """A restored domain says which rule drew its margin, as a fresh one does."""
-    config = _cached_config(tmp_path)
-    paths = build_geographic_paths(tmp_path / "project")
-    raster_products = _raster_products_from_paths(paths)
-    for path in _required_geographic_cache_artifacts(
-        config=config,
-        paths=paths,
-        raster_products=raster_products,
-    ):
-        _touch_artifact(path)
-    _write_geographic_cache_manifest(
-        config=config,
-        paths=paths,
-        domain_products=CatchmentDomainProducts(
-            catchment_area_km2=12.0,
-            buffer_distance_m=150.0,
-            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
-            watershed_box_shp=paths.watershed_box_shp,
-            watershed_box_buff_shp=paths.box_buff,
-            buffer_rule="area_percent",
-            buffer_declared="10%",
-            buffer_area_increase=0.106,
-        ),
-        catchment_area_km2=12.0,
-        catchment_products=None,
+def test_a_changed_outlet_changes_the_fingerprint_and_is_a_miss(tmp_path: Path) -> None:
+    config, paths = cached_tree(tmp_path)
+    changed = config.model_copy(
+        update={"catchment": config.catchment.model_copy(update={"x_outlet": 99.0})}
     )
 
-    cached = _load_cached_geographic_products(
-        config=config,
-        paths=paths,
-        crs_project="EPSG:2154",
-    )
-
-    assert cached is not None
-    assert cached.domain_products.buffer_rule == "area_percent"
-    assert cached.domain_products.buffer_declared == "10%"
-    assert cached.domain_products.buffer_area_increase == 0.106
+    assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(changed)
+    assert load_cached(changed, paths) is None
 
 
-def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
-    config = _cached_config(tmp_path)
-    paths = build_geographic_paths(tmp_path / "project")
-    raster_products = _raster_products_from_paths(paths)
-    for path in _required_geographic_cache_artifacts(
-        config=config,
-        paths=paths,
-        raster_products=raster_products,
-    ):
-        _touch_artifact(path)
-    _write_geographic_cache_manifest(
-        config=config,
-        paths=paths,
-        domain_products=CatchmentDomainProducts(
-            catchment_area_km2=12.0,
-            buffer_distance_m=300.0,
-            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
-            watershed_box_shp=paths.watershed_box_shp,
-            watershed_box_buff_shp=paths.box_buff,
-        ),
-        catchment_area_km2=12.0,
-        catchment_products=None,
-    )
-    changed_catchment = config.catchment.model_copy(update={"x_outlet": 99.0})
-    changed_config = config.model_copy(update={"catchment": changed_catchment})
-
-    assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(changed_config)
-    assert (
-        _load_cached_geographic_products(
-            config=changed_config,
-            paths=paths,
-            crs_project="EPSG:2154",
-        )
-        is None
-    )
-
-
-def test_geographic_cache_rejects_a_raster_it_cannot_describe(tmp_path: Path) -> None:
+def test_a_raster_it_cannot_describe_is_a_miss(tmp_path: Path) -> None:
     """A complete cache whose accumulation declares no nodata is a miss.
 
-    Existence is not describability. A GeoTIFF with no NoData tag is legal --
-    another tool wrote it, or a prior run was interrupted -- and the flow stack
-    is described by reading that tag. Before this was a miss it was an
-    unhandled exception that aborted a run which would otherwise have rebuilt.
+    Existence is not describability. A GeoTIFF with no NoData tag is legal, and
+    the flow stack is described by reading that tag. Before this was a miss it
+    was an unhandled exception that aborted a run which would otherwise have
+    rebuilt.
     """
-    config = _cached_config(tmp_path)
-    paths = build_geographic_paths(tmp_path / "project")
-    raster_products = _raster_products_from_paths(paths)
-    for path in _required_geographic_cache_artifacts(
-        config=config,
-        paths=paths,
-        raster_products=raster_products,
-    ):
-        _touch_artifact(path)
-    _write_geographic_cache_manifest(
-        config=config,
-        paths=paths,
-        domain_products=CatchmentDomainProducts(
-            catchment_area_km2=12.0,
-            buffer_distance_m=300.0,
-            watershed_buff_shp=str(Path(paths.geographic_path) / "watershed_buff.shp"),
-            watershed_box_shp=paths.watershed_box_shp,
-            watershed_box_buff_shp=paths.box_buff,
-        ),
-        catchment_area_km2=12.0,
-        catchment_products=None,
-    )
+    config, paths = cached_tree(tmp_path)
     accumulation = Path(paths.correcflow_path) / "dem_acc.tif"
-    with rasterio.open(
-        str(accumulation),
-        "w",
-        driver="GTiff",
-        height=1,
-        width=1,
-        count=1,
-        dtype="float32",
-        crs="EPSG:2154",
-        transform=from_origin(0.0, 1.0, 1.0, 1.0),
-    ) as dst:
-        dst.write(np.zeros((1, 1), dtype="float32"), 1)
+    write_geotiff(accumulation, np.zeros((1, 1), dtype="float32"), nodata=None)
 
-    assert accumulation.is_file()
-    assert (
-        _load_cached_geographic_products(
-            config=config,
-            paths=paths,
-            crs_project="EPSG:2154",
-        )
-        is None
+    assert load_cached(config, paths) is None
+
+
+@pytest.mark.parametrize(
+    ("notch", "ground_written", "hit"),
+    [(True, True, True), (True, False, False), (False, False, True)],
+    ids=["notched-ground-is-a-hit", "tree-older-than-the-ground-is-a-miss", "no-correction"],
+)
+def test_the_model_top_of_a_hit_is_the_ground_so_a_tree_that_lacks_it_is_a_miss(
+    tmp_path: Path, notch: bool, ground_written: bool, hit: bool
+) -> None:
+    sections = {}
+    if notch:
+        line = write_features(tmp_path / "crossings.gpkg", [LineString([(0, 0), (1, 1)])])
+        sections = {"crossings": {"enabled": True, "path": line}, "river_network": BENCH_RIVER}
+    config, paths = cached_tree(tmp_path, **sections)
+    if ground_written:
+        touch_artifact(Path(paths.correcflow_path) / GROUND_FILENAME)
+
+    assert (load_cached(config, paths) is not None) is hit
+
+
+def test_a_capped_breach_tree_keeps_its_report_and_a_hit_reads_it_back(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    config, paths = cached_tree(
+        tmp_path, dem_correc_type="capped_breach", flow_products=_flow_products_with_a_report()
+    )
+
+    with caplog.at_level(logging.INFO):
+        cached = load_cached(config, paths)
+
+    assert cached is not None
+    assert cached.flow_products.accumulation.directions.conditioned_dem.breach_report == REPORT
+    assert any("realised max lowering 0.560 m" in record.getMessage() for record in caplog.records)
+
+
+# --- the fingerprint --------------------------------------------------------------
+
+
+def test_a_fill_config_fingerprints_as_before_the_capped_breach_existed(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config = GeographicConfig.from_outlet(
+        x=1.0, y=2.0, dem="no_such_dem.tif", dem_correc_type="fill"
+    )
+
+    assert _geographic_cache_fingerprint(config) == FILL_FINGERPRINT_WITHOUT_THE_BURN
+
+
+_LIMITS = {"max_depth": 0.8, "max_distance": 100.0}
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "same"),
+    [
+        ({"dem_correc_type": "breach"}, {"dem_correc_type": "fill"}, False),
+        (
+            {"dem_correc_type": "capped_breach"},
+            {"dem_correc_type": "capped_breach", "capped_breach": _LIMITS},
+            False,
+        ),
+        (
+            {"river_network": BENCH_RIVER, "crossings": {"max_depth": 2.0}},
+            {"river_network": BENCH_RIVER, "crossings": {}},
+            True,
+        ),
+        (
+            {"river_network": BENCH_RIVER, "crossings": {"enabled": True, "max_depth": 2.0}},
+            {"river_network": BENCH_RIVER, "crossings": {"enabled": True, "max_depth": 2.5}},
+            False,
+        ),
+        (
+            {"river_network": BENCH_RIVER, "crossings": {}},
+            {"river_network": BENCH_RIVER, "crossings": {"enabled": True}},
+            False,
+        ),
+        (
+            {"river_network": BENCH_RIVER},
+            {
+                "river_network": BENCH_RIVER,
+                "bed_regularization": {"enabled": False, "min_slope": 1e-3},
+            },
+            True,
+        ),
+        (
+            {"river_network": BENCH_RIVER},
+            {"river_network": BENCH_RIVER, "bed_regularization": {"enabled": True}},
+            False,
+        ),
+    ],
+    ids=[
+        "the-breach-is-not-the-fill",
+        "the-capped-breach-limits-sign-the-cache",
+        "a-limit-of-a-notch-that-is-off-keeps-the-cache",
+        "a-limit-of-a-notch-that-is-on-does-not",
+        "switching-the-notch-on",
+        "a-bed-regularisation-that-is-off-keeps-the-cache",
+        "a-bed-regularisation-that-is-on-does-not",
+    ],
+)
+def test_only_what_a_rebuild_reads_signs_the_cache(first, second, same) -> None:
+    assert (_fingerprint(**first) == _fingerprint(**second)) is same
+
+
+def test_editing_the_structures_file_in_place_changes_the_fingerprint(tmp_path) -> None:
+    structures = tmp_path / "crossings.gpkg"
+    structures.write_bytes(b"one")
+    config = _outlet(river_network=BENCH_RIVER, crossings={"enabled": True, "path": structures})
+    before = _geographic_cache_fingerprint(config)
+
+    structures.write_bytes(b"two, longer")
+
+    assert _geographic_cache_fingerprint(config) != before
+
+
+# --- the files a runtime declares -------------------------------------------------
+
+
+def test_a_runtime_declares_every_file_it_still_holds_once_and_in_order(tmp_path) -> None:
+    geographic_path, correcflow = tmp_path / "geographic", tmp_path / "correcflow"
+    watershed = write_features(geographic_path / "watershed.shp", [LineString([(0, 0), (1, 1)])])
+    for path in (
+        geographic_path / DESCRIPTION_FILENAME,
+        correcflow / "dem_acc_cells.tif",
+        correcflow / "dem_fill.tif",
+    ):
+        touch_artifact(path)
+    runtime = SimpleNamespace(
+        geographic_path=str(geographic_path),
+        correcflow_path=str(correcflow),
+        watershed_shp=str(watershed),
+        box_buff=str(watershed),
+        watershed_dem=str(tmp_path / "never_written.tif"),
+        watershed_contour_shp="",
+        _flow_products=SimpleNamespace(correc=str(correcflow / "dem_fill.tif")),
+    )
+
+    found = geographic_artifact_paths(runtime)
+
+    sidecars = {p.suffix for p in found if p.stem == "watershed"}
+    assert {".shp", ".shx", ".dbf", ".prj"} <= sidecars
+    assert geographic_path / DESCRIPTION_FILENAME in found
+    assert correcflow / "dem_acc_cells.tif" in found
+    assert correcflow / "dem_fill.tif" in found
+    assert tmp_path / "never_written.tif" not in found
+    assert list(found) == sorted(set(found))
+    assert geographic_artifact_paths(None) == ()
+
+
+def test_the_geographic_cache_sees_the_cell_size(tmp_path) -> None:
+    from tests._helpers.geographic_cases import outlet_config
+    from tests._helpers.geotiffs import write_geotiff
+
+    dem = write_geotiff(tmp_path / "dem.tif", np.ones((10, 10)), cell=100.0)
+
+    def config(**catchment):
+        return outlet_config(dem, x=450.0, y=550.0, catchment=catchment)
+
+    assert _geographic_cache_fingerprint(config()) != _geographic_cache_fingerprint(
+        config(dem_resolution="300 m")
     )

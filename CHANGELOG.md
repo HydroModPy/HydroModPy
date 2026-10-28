@@ -34,6 +34,67 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A site selection whose territory writes its country in lower case (`country = "fr"`) asks the
+  DEM and the hydrometry stations over that territory (2026-10-28). The candidates were already
+  clipped to it, but the DEM request compared the country to `"FR"` exactly and fell back to the
+  outlets, or to no extent at all.
+- A DEM that the data layer cannot load for `delineate_from_outlets = true` stops
+  `hmp site select` with a configuration error that names the data root and the `[data.dem]`
+  section to check, as the other input modes already did (2026-10-28). The raw provider error
+  came through before, with its own exit code.
+- `get_whitebox_backend()` and `delineation.registry.get_backend()` return the same Whitebox
+  backend, so a process opens one Whitebox environment (2026-10-28). They returned two objects,
+  each with its own environment, and `clear_whitebox_backend_cache()` cleared one of the two
+  caches. A backend registered under `whitebox_workflows` is now what both return, and
+  `get_whitebox_backend()` still refuses the `"whitebox"` alias.
+- `compute_catchment_area_km2` sums every polygon of the watershed (2026-10-28). It read the first
+  row only, so a catchment in several parts reported less than the area its domain was built on.
+  A numeric `AREA` column still wins over the geometry, and a column of text still leaves the
+  geometry in charge.
+- `measure_polygon_area_m2` leaves out a polygon row without geometry (2026-10-28). The total
+  area of the layer became NaN.
+- The forcing refusals of an empty grid or of a non-finite pixel no longer call every variable
+  recharge (2026-10-28). They name the gridded or GeoTIFF forcing values, since ETP and the other
+  variables read the same path.
+- The `geographic` group of a run store opens with `xarray.open_zarr` (2026-10-28). Its rasters
+  stored the nodata as a float `_FillValue` attribute, which xarray refuses on a Zarr 3 array, and
+  had neither pixel coordinates nor a grid mapping. A raster now holds its nodata as the Zarr
+  `fill_value` (GDAL) and as the CF `missing_value` (xarray), an integer raster too when its type
+  holds the nodata, gets the axes `<name>_y` and `<name>_x` at its pixel centres, in metres or in
+  degrees after its CRS, and a `<name>_crs` grid-mapping variable. The `transform`,
+  `crs`, `nodata` and `shape` attributes stay, so `hmp export` and the run API read runs written
+  before the same way, and only the rasters are offered for export.
+- The `*_long_lat` metadata of a catchment, real or synthetic, is `(longitude, latitude)` as its
+  name says (2026-10-28). `read_dem_metadata` stored `(latitude, longitude)`, and the synthetic
+  catchment shifted the latitude by 360 degrees where the longitude was meant. The Greenwich copy
+  of the centroid now takes its longitude in [0, 360), and the department lookup asks Nominatim
+  for `"<latitude>, <longitude>"` with a longitude in [-180, 180]. No production code reads these
+  attributes.
+- The scripts of `spatial/geographic/cases/` and `spatial/domain/cases/` run from a checkout
+  (2026-10-28). `update_geographic_goldens.py` ran pytest from `hydromodpy/` so none of its four
+  test paths resolved, `reference_catchment_delineation_case/run_case.py` stopped on
+  `KeyError: 'catch_folder'` after its run, and the relative paths of five case TOML files led to
+  `hydromodpy/examples/data`, which does not exist. The domain case also drops a `data_path` key
+  that no code read and that named a folder removed from the repository.
+- The GeoJSON files of the site selection open in the CRS they are written in (2026-10-28). They
+  carried their CRS only in the `hydromodpy_coordinate_crs` key, so geopandas, QGIS and
+  `hmp sites import` read Lambert-93 coordinates as WGS 84 degrees. The seven writers (selected
+  outlets and basins, observation points, candidate outlets, generated network, geology and
+  influence evidence) now also write the `crs` member, `urn:ogc:def:crs:EPSG::<code>`, when the CRS
+  has an EPSG code. The coordinates and the `hydromodpy_coordinate_crs` key do not change.
+- A homogeneous field value is checked against its physical bounds in its declared unit
+  (2026-10-28). The check read the number as if it were in the canonical unit, so K = 150 m/day
+  was refused as 150 m/s and K = 1e-13 m/day was accepted. The value is now converted first, so a
+  K under 8.64e-10 m/day is refused, and so is a unit of another quantity, such as `m-1` for K.
+  The 115 homogeneous values of `examples/`, `validation_cases/` and the tests all pass.
+- A nodata pixel of a gridded recharge is refused where a cell reads it (2026-10-28). A GeoTIFF
+  pixel equal to its declared nodata reached the cell as -9999, and a cell on a NaN pixel took
+  its neighbour, because the interpolators drop non-finite pixels. The forcing now refuses, with
+  `DataContractViolation`, a cell whose nearest pixel, pixel triangle (`linear`), 16 nearest
+  pixels (`idw`) or overlapped pixels (`area`) hold nodata, and a slice with no valid pixel, which
+  gave zero recharge. A NetCDF follows the same rule, so a NaN pixel that no cell reads is now
+  accepted where the whole grid was refused, and a period mean is nodata on a pixel that is
+  nodata on any of its days.
 - A `.msh` file written by HydroModPy is a gmsh file, of format 2.2 ASCII (2026-10-27). It was an
   ANSYS Fluent file under the `.msh` name, because meshio takes ANSYS first for that suffix, so
   neither gmsh, `[mesh.triangle] path` nor the reader of the 2.2 format read it; meshio read it
@@ -1219,6 +1280,21 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The `area` interpolation of a forcing called from Python without the polygons of the cells is
+  refused with one message, which asks for the planar mesh of the cells (2026-10-28). Two texts
+  said the same thing before. No TOML reaches this refusal.
+- The heads view of a mapped stream network skips a part that is not a line, such as a polygon,
+  where it stopped on `NotImplementedError` (2026-10-28).
+- `read_raster_data_and_meta` moved from `spatial.geographic.geographic_io` to
+  `spatial.geographic.store_ingestion`, which reads the run rasters through it (2026-10-28). It
+  returns the affine transform the store takes, and `None` when neither the backend cache nor the
+  disk holds the raster. A raster read from the backend cache no longer comes back with the sign
+  of its pixel height flipped.
+- The lake bed read from a bathymetry raster no longer counts a pixel whose centre lies exactly on
+  a cell edge in the cell to its east or north (2026-10-28). Such a pixel now counts for no cell,
+  as `shapely.contains_xy` replaces a hand-written ray cast. With pixel centres on the edges a
+  cell bed can move by half a pixel of slope (12.5 m on a 25 m ramp in the test). The identity
+  harness of the clean-up sees no change.
 - A `HydroMesh` holds its cells one way (2026-10-28). Each `CellBlock` keeps one `(n_cells, k)`
   int table, and a polygon block (a Voronoi mesh) pads the rows of its smaller cells with `-1`,
   where it held one node array per cell. A polygon block still takes one node array per cell and
@@ -1750,6 +1826,14 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The copies the clean-up of `spatial/` merged into one function each (2026-10-28). The module
+  `spatial.forcing.spatial_mean` is folded into `spatial.forcing.rasters`, names unchanged.
+  `SUPPORTED_PARAM_UNITS` of `spatial.field.core.field_param` gives way to
+  `SUPPORTED_PARAMETER_UNITS` of the field unit table. In site selection, the geology and influence
+  evidence writers (`write_{geology,influence}_evidence_{geojson,geopackage,geoparquet}`,
+  `{geology,influence}_evidence_gdf`) give way to `outputs.evidence_layers.write_evidence_layer`
+  with a `role`, and `write_observation_points_{geopackage,geoparquet}` to
+  `outputs.geospatial.write_vector_layer`.
 - The field meshes, a second mesh system older than `PlanarCellMesh` (2026-10-28). `BaseFieldMesh`,
   `FieldMesh`, `StructuredFieldMesh`, `TriangularStructuredFieldMesh`,
   `TriangularUnstructuredFieldMesh`, `PolygonFieldMesh`, `GeologyStructuredMesh` and

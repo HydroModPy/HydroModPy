@@ -108,17 +108,11 @@ def network_head_candidates(
 
 
 def line_parts(geometries: Sequence[BaseGeometry]) -> list[BaseGeometry]:
-    """Split multi-part and collection geometries into their non-empty lines."""
-    import shapely
+    """Split multi-part and collection geometries into their lines of non-zero length.
 
-    parts: list[BaseGeometry] = []
-    for geometry in geometries:
-        for part in shapely.get_parts(geometry):
-            if part.geom_type in ("MultiLineString", "GeometryCollection"):
-                parts.extend(line_parts([part]))
-                continue
-            if part.geom_type not in ("LineString", "LinearRing"):
-                raise ValueError(f"the crossing rule rasterizes lines; got a {part.geom_type}.")
-            if not part.is_empty and part.length > 0.0:
-                parts.append(part)
-    return parts
+    Anything but a line is refused, because the crossing rule rasterizes lines.
+    """
+    from hydromodpy.spatial.geographic.core.river_mesh_trace import linear_parts
+
+    lines = linear_parts(geometries, refusal="the crossing rule rasterizes lines")
+    return [line for line in lines if line.length > 0.0]

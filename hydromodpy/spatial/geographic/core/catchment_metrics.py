@@ -7,8 +7,8 @@ and diagnostics.
 
 Current scope
 -------------
-Only catchment area (km2) is exposed here, with compatibility logic that
-preserves authored shapefile area metadata when an ``AREA`` attribute exists.
+Only catchment area (km2) is exposed here. An ``AREA`` attribute authored in
+the shapefile wins over the geometry, every row summed.
 """
 
 from __future__ import annotations
@@ -16,7 +16,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
+
+from hydromodpy.spatial.geographic.core.catchment_domain import catchment_area_m2
 
 
 def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
@@ -25,6 +26,8 @@ def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
     Compatibility policy:
     - prefer existing ``AREA`` attribute when present,
     - otherwise compute area directly from geometry.
+
+    Every row of the file counts.
     """
     shp = Path(watershed_shp)
     if not shp.exists():
@@ -32,9 +35,4 @@ def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
     gdf = gpd.read_file(str(shp))
     if gdf.empty:
         raise ValueError("watershed_shp is empty")
-
-    try:
-        area_km2 = float(np.abs(gdf.AREA.iloc[0]) / 1_000_000.0)
-    except Exception:
-        area_km2 = float(np.abs(gdf.area.iloc[0]) / 1_000_000.0)
-    return area_km2
+    return catchment_area_m2(gdf, area_field="AREA") / 1_000_000.0

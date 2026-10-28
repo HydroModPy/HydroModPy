@@ -66,6 +66,7 @@ from hydromodpy.spatial.terrain import (
     snap_window_cells,
 )
 from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.tolerances import tol
 
 rasterio = pytest.importorskip("rasterio")
@@ -133,9 +134,9 @@ def _engine(engine_id: str):
         raise
 
 
-@pytest.fixture(params=registry.list_engine_ids())
+@pytest.fixture(scope="module", params=registry.list_engine_ids())
 def engine(request):
-    """One terrain engine, once per implementation this installation serves."""
+    """One terrain engine, once per implementation this installation serves (stateless)."""
     return _engine(request.param)
 
 
@@ -145,22 +146,7 @@ def engine(request):
 
 
 def _write_dem(path: Path, surface: np.ndarray) -> Path:
-    rows, cols = surface.shape
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=rows,
-        width=cols,
-        count=1,
-        dtype="float32",
-        crs=CRS,
-        nodata=NODATA,
-        transform=rasterio.transform.from_origin(0.0, rows * RES, RES, RES),
-    ) as dst:
-        dst.write(surface.astype("float32"), 1)
-    return path
+    return write_geotiff(path, surface, cell=RES, crs=CRS, nodata=NODATA, dtype="float32")
 
 
 def _plane(size: int, drow: int, dcol: int) -> np.ndarray:
@@ -197,29 +183,33 @@ def _interior_data_cells(codes: np.ndarray) -> np.ndarray:
     return interior & ~absent & ~beside_a_hole
 
 
-def _crs_of(path: Path) -> str:
-    with rasterio.open(str(path)) as src:
-        return str(src.crs)
+def _drains_nowhere(directions) -> int:
+    """Interior data cells of a pointer coded as draining nowhere."""
+    codes = _read(directions.path)
+    return int(np.count_nonzero((codes == 0) & _interior_data_cells(codes)))
 
 
-@pytest.fixture
-def plane_east(tmp_path) -> Path:
-    return _write_dem(tmp_path / "plane_east.tif", _plane(30, 0, 1))
+@pytest.fixture(scope="module")
+def plane_east(tmp_path_factory) -> Path:
+    return _write_dem(tmp_path_factory.mktemp("plane") / "plane_east.tif", _plane(30, 0, 1))
 
 
-@pytest.fixture
-def valley(tmp_path) -> Path:
-    return _write_dem(tmp_path / "valley.tif", _valley(31))
+@pytest.fixture(scope="module")
+def valley(tmp_path_factory) -> Path:
+    return _write_dem(tmp_path_factory.mktemp("valley") / "valley.tif", _valley(31))
+
+
+CAPPED = CappedBreach(max_depth_m=0.5, max_distance_m=200.0)
+
+
+def _condition(engine, dem: Path, out: Path, method="fill"):
+    """Condition the whole DEM, the regional extent every caller of this tree uses."""
+    return engine.condition_dem(dem, method=method, extent=ConditioningExtent.regional(), out=out)
 
 
 def _products(engine, dem: Path, out: Path, *, method="fill", units="cells", transform="none"):
     """Run the chain a caller runs: condition, point, accumulate."""
-    conditioned = engine.condition_dem(
-        dem,
-        method=method,
-        extent=ConditioningExtent.regional(),
-        out=out / "conditioned.tif",
-    )
+    conditioned = _condition(engine, dem, out / "conditioned.tif", method)
     directions = engine.drainage_directions(conditioned, out=out / "pointer.tif")
     accumulation = engine.flow_accumulation(
         directions,
@@ -230,17 +220,35 @@ def _products(engine, dem: Path, out: Path, *, method="fill", units="cells", tra
     return conditioned, directions, accumulation
 
 
+@pytest.fixture(scope="module")
+def valley_chain(engine, valley, tmp_path_factory):
+    """The valley chain per ``(units, transform)``, run once and shared read-only."""
+    root = tmp_path_factory.mktemp("valley_chain")
+    cache: dict[tuple[str, str], tuple] = {}
+
+    def chain(units: str = "cells", transform: str = "none"):
+        if (units, transform) not in cache:
+            out = root / f"{units}_{transform}"
+            cache[units, transform] = _products(
+                engine, valley, out, units=units, transform=transform
+            )
+        return cache[units, transform]
+
+    return chain
+
+
+def _accumulation(valley_chain, units: str = "cells", transform: str = "none"):
+    return valley_chain(units, transform)[2]
+
+
 # --------------------------------------------------------------------------- #
 # The port itself
 # --------------------------------------------------------------------------- #
 
 
-def test_an_engine_satisfies_the_port(engine) -> None:
+def test_an_engine_satisfies_the_port_with_a_stable_digest(engine) -> None:
     assert missing_engine_members(engine) == ()
     assert isinstance(engine, TerrainEngine)
-
-
-def test_a_digest_is_stable_across_calls(engine) -> None:
     assert engine.engine_digest() == engine.engine_digest()
 
 
@@ -270,16 +278,57 @@ def test_no_two_engines_share_a_digest() -> None:
     assert len(set(digests.values())) == len(digests), digests
 
 
-def test_an_outlet_id_that_is_not_a_directory_name_is_refused() -> None:
-    with pytest.raises(TerrainRequestError):
-        Outlet(outlet_id="../escape", x=0.0, y=0.0)
+def _flat_layout(mask_name: str, boundary_name: str):
+    return lambda: CatchmentLayout.flat(mask_name=mask_name, boundary_name=boundary_name)
 
 
-def test_a_conditioning_extent_declares_its_buffer_or_none() -> None:
-    with pytest.raises(TerrainRequestError):
-        ConditioningExtent(kind="per_outlet_buffer")
-    with pytest.raises(TerrainRequestError):
-        ConditioningExtent(kind="regional", buffer_distance_m=100.0)
+@pytest.mark.parametrize(
+    ("build", "match"),
+    [
+        (lambda: Outlet(outlet_id="../escape", x=0.0, y=0.0), None),
+        # Otherwise the first mkdir raises a raw OSError instead of a named refusal.
+        (lambda: Outlet(outlet_id="a" * 300, x=0.0, y=0.0), "characters"),
+        (lambda: ConditioningExtent(kind="per_outlet_buffer"), "buffer"),
+        (lambda: ConditioningExtent(kind="regional", buffer_distance_m=100.0), "buffer"),
+        (lambda: ConditioningExtent(kind="ridge"), "Unknown conditioning extent"),
+        # A name carrying a separator writes outside the directory that was named.
+        (_flat_layout("../escape.tif", "boundary.shp"), None),
+        (_flat_layout("sub/mask.tif", "boundary.shp"), None),
+        (_flat_layout("mask.tif", "boundary.geojson"), None),
+        (_flat_layout("mask.asc", "boundary.shp"), None),
+        (_flat_layout("", "boundary.shp"), None),
+        # The boundary would overwrite the point the delineation ran from.
+        (_flat_layout("watershed.tif", OUTLET_LAYER_NAME), "point layer"),
+        (_flat_layout("watershed.tif", SNAPPED_OUTLET_LAYER_NAME), "point layer"),
+    ],
+    ids=[
+        "outlet_id_not_a_directory_name",
+        "outlet_id_too_long",
+        "buffer_extent_without_its_buffer",
+        "regional_extent_with_a_buffer",
+        "unknown_extent",
+        "mask_escapes",
+        "mask_in_a_sub_directory",
+        "boundary_not_a_shapefile",
+        "mask_not_a_geotiff",
+        "empty_mask_name",
+        "boundary_on_the_outlet_layer",
+        "boundary_on_the_snapped_outlet_layer",
+    ],
+)
+def test_a_port_value_that_names_nothing_usable_is_refused(build, match) -> None:
+    with pytest.raises(TerrainRequestError, match=match):
+        build()
+
+
+def test_the_per_outlet_layout_has_no_such_collision() -> None:
+    """A directory per outlet separates them, so the same name is legal there."""
+    layout = CatchmentLayout(
+        per_outlet_directory=True,
+        mask_name="mask.tif",
+        boundary_name=OUTLET_LAYER_NAME,
+    )
+    assert layout.boundary_name == OUTLET_LAYER_NAME
 
 
 # --------------------------------------------------------------------------- #
@@ -289,12 +338,7 @@ def test_a_conditioning_extent_declares_its_buffer_or_none() -> None:
 
 def test_conditioning_leaves_a_draining_surface_alone(engine, plane_east, tmp_path) -> None:
     """Every cell of a plane already drains, so nothing may move."""
-    conditioned = engine.condition_dem(
-        plane_east,
-        method="fill",
-        extent=ConditioningExtent.regional(),
-        out=tmp_path / "out" / "conditioned.tif",
-    )
+    conditioned = _condition(engine, plane_east, tmp_path / "out" / "conditioned.tif")
 
     assert np.array_equal(_read(conditioned.path), _read(plane_east))
 
@@ -309,12 +353,7 @@ def test_conditioning_raises_a_pit_to_its_lowest_way_out(engine, tmp_path) -> No
         surface[pit[0] + drow, pit[1] + dcol] for _code, (drow, dcol) in D8_WBT_OFFSETS.items()
     ]
 
-    conditioned = engine.condition_dem(
-        dem,
-        method="fill",
-        extent=ConditioningExtent.regional(),
-        out=tmp_path / "out" / "conditioned.tif",
-    )
+    conditioned = _condition(engine, dem, tmp_path / "out" / "conditioned.tif")
     filled = _read(conditioned.path)
 
     # An engine that resolves plateaus during the fill raises the pit to the
@@ -327,46 +366,33 @@ def test_conditioning_raises_a_pit_to_its_lowest_way_out(engine, tmp_path) -> No
     assert float(np.min(filled - surface.astype("float32"))) >= 0.0
 
 
-def test_a_conditioning_extent_no_engine_serves_is_refused(engine, plane_east, tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("method", "extent"),
+    [
+        ("fill", ConditioningExtent.per_outlet_buffer(500.0)),
+        ("carve", ConditioningExtent.regional()),
+    ],
+    ids=["extent", "method"],
+)
+def test_a_conditioning_no_engine_serves_is_refused(
+    engine, plane_east, tmp_path, method, extent
+) -> None:
     with pytest.raises(TerrainCapabilityError):
-        engine.condition_dem(
-            plane_east,
-            method="fill",
-            extent=ConditioningExtent.per_outlet_buffer(500.0),
-            out=tmp_path / "out" / "conditioned.tif",
-        )
+        engine.condition_dem(plane_east, method=method, extent=extent, out=tmp_path / "c.tif")
 
 
-def test_a_conditioning_method_no_engine_serves_is_refused(engine, plane_east, tmp_path) -> None:
-    with pytest.raises(TerrainCapabilityError):
-        engine.condition_dem(
-            plane_east,
-            method="carve",
-            extent=ConditioningExtent.regional(),
-            out=tmp_path / "out" / "conditioned.tif",
-        )
+@pytest.mark.parametrize(
+    "method",
+    ["breach", CAPPED],
+    ids=["breach", "capped"],
+)
+def test_the_numpy_engine_refuses_breaching_by_name(plane_east, tmp_path, method) -> None:
+    """Least-cost breaching is not implemented there, and it says so.
 
-
-def test_the_numpy_engine_refuses_breaching_by_name(plane_east, tmp_path) -> None:
-    """Least-cost breaching is not implemented there, and it says so."""
+    The capped breach is least-cost breaching with limits, and is refused likewise.
+    """
     with pytest.raises(TerrainCapabilityError, match="breach"):
-        _engine("numpy_d8").condition_dem(
-            plane_east,
-            method="breach",
-            extent=ConditioningExtent.regional(),
-            out=tmp_path / "out" / "conditioned.tif",
-        )
-
-
-def test_the_numpy_engine_refuses_a_capped_breach_by_name(plane_east, tmp_path) -> None:
-    """The capped breach is least-cost breaching with limits, and is refused likewise."""
-    with pytest.raises(TerrainCapabilityError, match="breach"):
-        _engine("numpy_d8").condition_dem(
-            plane_east,
-            method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
-            extent=ConditioningExtent.regional(),
-            out=tmp_path / "out" / "conditioned.tif",
-        )
+        _condition(_engine("numpy_d8"), plane_east, tmp_path / "c.tif", method)
 
 
 def test_the_numpy_engine_refuses_a_pointer_that_holds_a_cycle(valley, tmp_path) -> None:
@@ -383,11 +409,7 @@ def test_the_numpy_engine_refuses_a_pointer_that_holds_a_cycle(valley, tmp_path)
     east, west = 2, 32
     codes[5, 5] = east
     codes[5, 6] = west
-    with rasterio.open(str(directions.path)) as src:
-        profile = src.profile.copy()
-    cyclic = out / "cyclic_pointer.tif"
-    with rasterio.open(str(cyclic), "w", **profile) as dst:
-        dst.write(codes, 1)
+    cyclic = write_geotiff(out / "cyclic_pointer.tif", codes, cell=RES, crs=CRS, nodata=-32768)
 
     with pytest.raises(TerrainProductError, match="cycle"):
         engine.flow_accumulation(
@@ -449,57 +471,48 @@ def test_accumulation_counts_the_cell_itself(engine, plane_east, tmp_path) -> No
     assert np.array_equal(values, expected)
 
 
-def test_accumulation_in_m2_is_the_count_times_the_cell_area(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, cells = _products(engine, valley, out, units="cells")
-    _c, _d, square_metres = _products(engine, valley, out, units="m2")
+def test_accumulation_in_m2_is_the_count_times_the_cell_area(valley_chain) -> None:
+    square_metres = _accumulation(valley_chain, "m2")
+    cells = _accumulation(valley_chain)
 
     assert np.array_equal(_read(square_metres.path), _read(cells.path) * CELL_AREA_M2)
 
 
-def test_the_ln_transform_is_the_log_of_the_untransformed_product(engine, valley, tmp_path) -> None:
+def test_the_ln_transform_is_the_log_of_the_untransformed_product(valley_chain) -> None:
     """``ln`` means the natural logarithm, which is what the chain emits.
 
     The regional accumulation raster HydroModPy writes is this product, and a
     reader who assumed base 10 would be wrong by a factor 2.3.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, cells = _products(engine, valley, out, units="cells")
-    _c, _d, transformed = _products(engine, valley, out, units="cells", transform="ln")
-
-    counts = _read(cells.path).astype("float64")
-    logged = _read(transformed.path).astype("float64")
+    counts = _read(_accumulation(valley_chain).path).astype("float64")
+    logged = _read(_accumulation(valley_chain, transform="ln").path).astype("float64")
     positive = counts > 0
     gap = np.abs(np.log(counts[positive]) - logged[positive])
 
     assert float(gap.max()) <= tol("terrain_engine_conformance__ln_transform_identity")
 
 
-def test_a_transform_no_engine_serves_is_refused(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, directions, _acc = _products(engine, valley, out)
+@pytest.mark.parametrize(("units", "transform"), [("cells", "log10"), ("km2", "none")])
+def test_an_accumulation_no_engine_serves_is_refused(
+    engine, valley_chain, tmp_path, units, transform
+) -> None:
+    _conditioned, directions, _acc = valley_chain()
 
     with pytest.raises(TerrainCapabilityError):
         engine.flow_accumulation(
-            directions,
-            units="cells",
-            transform="log10",
-            out=out / "acc_log10.tif",
+            directions, units=units, transform=transform, out=tmp_path / "a.tif"
         )
 
 
 @pytest.mark.parametrize("transform", ["none", "ln"])
-def test_no_valid_cell_carries_the_nodata_the_product_declares(
-    engine, valley, tmp_path, transform
-) -> None:
+def test_no_valid_cell_carries_the_nodata_the_product_declares(valley_chain, transform) -> None:
     """A headwater cell of the ln product reads 0, so the nodata cannot be 0.
 
     The DEM has no absent cell, so the count has to be zero whatever the
     transform. With a nodata of 0 the ln product loses every headwater under a
     masked read, and nothing downstream says so.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out, transform=transform)
+    accumulation = _accumulation(valley_chain, transform=transform)
     values = _read(accumulation.path)
 
     with rasterio.open(str(accumulation.path)) as src:
@@ -515,17 +528,12 @@ def test_no_valid_cell_carries_the_nodata_the_product_declares(
 
 @pytest.mark.parametrize("threshold", [10.0, 20.0, 50.0])
 def test_a_threshold_selects_the_cells_that_carry_more_than_it(
-    engine, valley, tmp_path, threshold
+    engine, valley_chain, tmp_path, threshold
 ) -> None:
     """The channel count is the cell count above the threshold, exactly (C5)."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    accumulation = _accumulation(valley_chain)
 
-    streams = engine.stream_network(
-        accumulation,
-        threshold=threshold,
-        out=out / f"streams_{int(threshold)}.tif",
-    )
+    streams = engine.stream_network(accumulation, threshold=threshold, out=tmp_path / "s.tif")
 
     counts = _read(accumulation.path)
     assert int(np.count_nonzero(_read(streams.path) == 1)) == int(
@@ -534,25 +542,24 @@ def test_a_threshold_selects_the_cells_that_carry_more_than_it(
     assert streams.threshold_units == "cells"
 
 
-def test_a_transformed_accumulation_cannot_be_thresholded(engine, valley, tmp_path) -> None:
-    """R1: a cell threshold on a log raster selects nothing, and silently.
+@pytest.mark.parametrize(
+    ("transform", "threshold", "error", "match"),
+    [
+        # R1: a cell threshold on a log raster selects nothing, and silently. This
+        # refusal replaces ``looks_log_scaled``, the runtime heuristic that guessed
+        # the transform back from the values it happened to find.
+        ("ln", 20.0, TerrainProductError, "transform"),
+        ("none", 0.0, TerrainRequestError, None),
+    ],
+    ids=["transformed_accumulation", "non_positive_threshold"],
+)
+def test_a_stream_network_that_would_select_nothing_is_refused(
+    engine, valley_chain, tmp_path, transform, threshold, error, match
+) -> None:
+    accumulation = _accumulation(valley_chain, transform=transform)
 
-    This refusal is what replaces ``looks_log_scaled``, the runtime heuristic
-    that guessed the transform back from the values it happened to find.
-    """
-    out = tmp_path / "out"
-    _conditioned, _directions, transformed = _products(engine, valley, out, transform="ln")
-
-    with pytest.raises(TerrainProductError, match="transform"):
-        engine.stream_network(transformed, threshold=20.0, out=out / "streams.tif")
-
-
-def test_a_non_positive_threshold_is_refused(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-
-    with pytest.raises(TerrainRequestError):
-        engine.stream_network(accumulation, threshold=0.0, out=out / "streams.tif")
+    with pytest.raises(error, match=match):
+        engine.stream_network(accumulation, threshold=threshold, out=tmp_path / "streams.tif")
 
 
 # --------------------------------------------------------------------------- #
@@ -570,42 +577,36 @@ def _valley_exit(size: int = 31) -> Outlet:
     )
 
 
-def test_the_whole_valley_drains_through_its_exit(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-
+def _exit_catchment(engine, accumulation, out_dir: Path, snap_distance_m: float, **options):
+    """The one catchment of the valley exit."""
     (catchment,) = engine.delineate(
-        accumulation,
-        [_valley_exit()],
-        out_dir=out / "catchments",
-        snap_distance_m=RES,
+        accumulation, [_valley_exit()], out_dir=out_dir, snap_distance_m=snap_distance_m, **options
     )
-
-    assert catchment.cell_count == 31 * 31
-    assert catchment.area_m2 == pytest.approx(31 * 31 * CELL_AREA_M2, rel=0.0, abs=1e-6)
-    assert catchment.outlet.outlet_id == "valley_exit"
+    return catchment
 
 
-def test_the_mask_marks_the_catchment_and_nothing_else(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
+@pytest.fixture(scope="module")
+def valley_catchment(engine, valley_chain, tmp_path_factory):
+    """The catchment of the valley exit, delineated once per engine."""
+    out = tmp_path_factory.mktemp("valley_catchment")
+    return _exit_catchment(engine, _accumulation(valley_chain), out, RES * 4)
 
-    (catchment,) = engine.delineate(
-        accumulation,
-        [_valley_exit()],
-        out_dir=out / "catchments",
-        snap_distance_m=RES,
-    )
-    mask = _read(catchment.mask_path)
 
+def test_the_whole_valley_drains_through_its_exit(valley_catchment) -> None:
+    """And the mask marks the catchment and nothing else."""
+    mask = _read(valley_catchment.mask_path)
+
+    assert valley_catchment.cell_count == 31 * 31
+    assert valley_catchment.area_m2 == pytest.approx(31 * 31 * CELL_AREA_M2, rel=0.0, abs=1e-6)
+    assert valley_catchment.outlet.outlet_id == "valley_exit"
     assert set(np.unique(mask).tolist()) <= {1, -32768}
-    assert int(np.count_nonzero(mask == 1)) == catchment.cell_count
+    assert int(np.count_nonzero(mask == 1)) == valley_catchment.cell_count
 
 
-def test_a_batch_answers_every_outlet_in_the_order_it_was_given(engine, valley, tmp_path) -> None:
+def test_a_batch_answers_every_outlet_in_the_order_it_was_given(
+    engine, valley_chain, tmp_path
+) -> None:
     """N outlets against one accumulation, each with its own directory."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
     floor = 15
     outlets = [
         Outlet(outlet_id="left_side", x=(floor - 6 + 0.5) * RES, y=(31 - 20 - 0.5) * RES),
@@ -614,10 +615,7 @@ def test_a_batch_answers_every_outlet_in_the_order_it_was_given(engine, valley, 
     ]
 
     catchments = engine.delineate(
-        accumulation,
-        outlets,
-        out_dir=out / "catchments",
-        snap_distance_m=RES,
+        _accumulation(valley_chain), outlets, out_dir=tmp_path / "c", snap_distance_m=RES
     )
 
     assert [c.outlet.outlet_id for c in catchments] == [o.outlet_id for o in outlets]
@@ -633,7 +631,7 @@ def _off_talweg() -> Outlet:
 
 
 def test_a_snapped_outlet_is_the_accumulation_maximum_of_its_window(
-    engine, valley, tmp_path
+    engine, valley_chain, tmp_path
 ) -> None:
     """The snap takes the largest accumulation of the window it searches.
 
@@ -642,16 +640,12 @@ def test_a_snapped_outlet_is_the_accumulation_maximum_of_its_window(
     radius instead would pass on the numpy engine and fail on Whitebox, which
     is how this window came to be measured in the first place.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    accumulation = _accumulation(valley_chain)
     declared = _off_talweg()
     snap_distance_m = 4 * RES
 
     (catchment,) = engine.delineate(
-        accumulation,
-        [declared],
-        out_dir=out / "catchments",
-        snap_distance_m=snap_distance_m,
+        accumulation, [declared], out_dir=tmp_path / "c", snap_distance_m=snap_distance_m
     )
 
     counts = _read(accumulation.path)
@@ -671,22 +665,19 @@ def test_a_snapped_outlet_is_the_accumulation_maximum_of_its_window(
     )
 
 
-def test_a_snap_window_narrower_than_two_cells_moves_nothing(engine, valley, tmp_path) -> None:
+def test_a_snap_window_narrower_than_two_cells_moves_nothing(
+    engine, valley_chain, tmp_path
+) -> None:
     """A snap distance of one cell size snaps nowhere, and that is measured.
 
     It is the half of the contract a caller gets wrong: ``snap_dist`` is the
     width of the window, so the smallest value that moves an outlet at all is
     twice the cell size.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
     declared = _off_talweg()
 
     (catchment,) = engine.delineate(
-        accumulation,
-        [declared],
-        out_dir=out / "catchments",
-        snap_distance_m=RES,
+        _accumulation(valley_chain), [declared], out_dir=tmp_path / "c", snap_distance_m=RES
     )
 
     assert snap_window_cells(RES, dx=RES, dy=RES) == (0, 0)
@@ -695,24 +686,23 @@ def test_a_snap_window_narrower_than_two_cells_moves_nothing(engine, valley, tmp
 
 
 def test_a_jenson_snap_lands_on_a_stream_cell_or_the_engine_refuses_it_by_name(
-    engine, valley, tmp_path
+    engine, valley_chain, tmp_path
 ) -> None:
     """The snap method is part of the port, so an engine serves it or says it cannot.
 
     The two engines of this tree serve it and are held to the cell in
-    ``tests/unit/geographic/test_the_jenson_snap_stays_on_the_nearest_stream.py``.
+    ``tests/unit/geographic/core/test_catchment_from_point.py``.
     An engine from outside owes the port the same landing: on a cell of the
     network it was handed, two cells from the declared point here.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    streams = engine.stream_network(accumulation, threshold=60.0, out=out / "streams.tif")
+    accumulation = _accumulation(valley_chain)
+    streams = engine.stream_network(accumulation, threshold=60.0, out=tmp_path / "streams.tif")
 
     try:
         (catchment,) = engine.delineate(
             accumulation,
             [_off_talweg()],
-            out_dir=out / "catchments",
+            out_dir=tmp_path / "catchments",
             snap_distance_m=4 * RES,
             snap=JensonSnap(streams=streams),
         )
@@ -725,29 +715,21 @@ def test_a_jenson_snap_lands_on_a_stream_cell_or_the_engine_refuses_it_by_name(
     assert catchment.snap_distance_m == pytest.approx(2 * RES)
 
 
-def test_delineation_repeats_cell_for_cell(engine, valley, tmp_path) -> None:
+def test_delineation_repeats_cell_for_cell(engine, valley_chain, tmp_path) -> None:
     """Two identical requests produce the same mask, byte for byte."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    masks = []
-    for attempt in range(2):
-        (catchment,) = engine.delineate(
-            accumulation,
-            [_valley_exit()],
-            out_dir=out / f"attempt_{attempt}",
-            snap_distance_m=RES,
+    masks = [
+        _read(
+            _exit_catchment(engine, _accumulation(valley_chain), tmp_path / str(i), RES).mask_path
         )
-        masks.append(_read(catchment.mask_path).tobytes())
+        for i in range(2)
+    ]
 
-    assert masks[0] == masks[1]
+    assert masks[0].tobytes() == masks[1].tobytes()
 
 
-@pytest.mark.parametrize(
-    ("units", "transform"),
-    [("cells", "ln"), ("m2", "none")],
-)
+@pytest.mark.parametrize(("units", "transform"), [("cells", "ln"), ("m2", "none")])
 def test_a_rank_preserving_product_delineates_the_same_catchment(
-    engine, valley, tmp_path, units, transform
+    engine, valley_chain, valley_catchment, tmp_path, units, transform
 ) -> None:
     """A snap is a rank, so every order-preserving product answers the same.
 
@@ -756,15 +738,9 @@ def test_a_rank_preserving_product_delineates_the_same_catchment(
     accumulation to say the same thing. It is exact and not banded: the same
     cell, the same count, the same area.
     """
-    out = tmp_path / "out"
-    _c, _d, reference = _products(engine, valley, out / "ref")
-    _c2, _d2, other = _products(engine, valley, out / "other", units=units, transform=transform)
-
-    (expected,) = engine.delineate(
-        reference, [_valley_exit()], out_dir=out / "ref_c", snap_distance_m=RES * 4
-    )
-    (measured,) = engine.delineate(
-        other, [_valley_exit()], out_dir=out / "other_c", snap_distance_m=RES * 4
+    expected = valley_catchment
+    measured = _exit_catchment(
+        engine, _accumulation(valley_chain, units, transform), tmp_path, RES * 4
     )
 
     assert (measured.snapped_x, measured.snapped_y) == (expected.snapped_x, expected.snapped_y)
@@ -772,9 +748,7 @@ def test_a_rank_preserving_product_delineates_the_same_catchment(
     assert measured.area_m2 == pytest.approx(expected.area_m2, rel=0.0, abs=1e-6)
 
 
-def test_a_delineation_leaves_the_four_artefacts_the_port_declares(
-    engine, valley, tmp_path
-) -> None:
+def test_a_delineation_leaves_the_four_artefacts_the_port_declares(valley_catchment) -> None:
     """Every engine writes the mask, the boundary and the two point layers.
 
     The port says it in one line - "the two point layers every engine writes
@@ -785,22 +759,15 @@ def test_a_delineation_leaves_the_four_artefacts_the_port_declares(
     distance". A registry that certifies a class by the members it declares
     cannot see that, so the conformance suite has to.
     """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-
-    (catchment,) = engine.delineate(
-        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES * 4
-    )
-
-    site_dir = Path(catchment.mask_path).parent
+    site_dir = Path(valley_catchment.mask_path).parent
     for name in (OUTLET_LAYER_NAME, SNAPPED_OUTLET_LAYER_NAME):
         assert (site_dir / name).is_file(), name
-    assert Path(catchment.mask_path).is_file()
-    assert Path(catchment.boundary_path).is_file()
+    assert Path(valley_catchment.mask_path).is_file()
+    assert Path(valley_catchment.boundary_path).is_file()
 
 
 def test_the_snapped_point_layer_holds_the_point_the_catchment_declares(
-    engine, valley, tmp_path
+    valley_catchment,
 ) -> None:
     """The layer on disk and the field on the product say the same thing.
 
@@ -808,79 +775,62 @@ def test_the_snapped_point_layer_holds_the_point_the_catchment_declares(
     disagreeing, and only the file survives the process.
     """
     geopandas = pytest.importorskip("geopandas")
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    layer = Path(valley_catchment.mask_path).parent / SNAPPED_OUTLET_LAYER_NAME
 
-    (catchment,) = engine.delineate(
-        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES * 4
-    )
+    point = geopandas.read_file(str(layer)).geometry.iloc[0]
 
-    frame = geopandas.read_file(str(Path(catchment.mask_path).parent / SNAPPED_OUTLET_LAYER_NAME))
-    point = frame.geometry.iloc[0]
-
-    assert point.x == pytest.approx(catchment.snapped_x, abs=1e-6)
-    assert point.y == pytest.approx(catchment.snapped_y, abs=1e-6)
+    assert point.x == pytest.approx(valley_catchment.snapped_x, abs=1e-6)
+    assert point.y == pytest.approx(valley_catchment.snapped_y, abs=1e-6)
 
 
-def test_a_transform_that_does_not_preserve_the_order_cannot_be_delineated(
-    engine, valley, tmp_path
+_MID_FLOOR = Outlet(outlet_id="mid_floor", x=(15 + 0.5) * RES, y=(31 - 20 - 0.5) * RES)
+_FLAT = CatchmentLayout.flat(mask_name="w.tif", boundary_name="w.shp")
+
+
+@pytest.mark.parametrize(
+    ("outlets", "units", "transform", "options", "error", "match"),
+    [
+        ([], "cells", "none", {}, TerrainRequestError, None),
+        # Otherwise the second one overwrites the first one's files, in silence.
+        (
+            [_MID_FLOOR, replace(_MID_FLOOR, x=(15 - 6 + 0.5) * RES)],
+            "cells", "none", {}, TerrainRequestError, "mid_floor",
+        ),
+        # One directory on a case-insensitive filesystem, so refused on every one.
+        (
+            [_valley_exit(), replace(_valley_exit(), outlet_id="VALLEY_EXIT")],
+            "cells", "none", {}, TerrainRequestError, "case-folded",
+        ),
+        ([_valley_exit()], "cells", "none", {"snap_distance_m": 0.0}, TerrainRequestError, None),
+        # Two outlets, one pair of files: the second would eat the first.
+        (
+            [_valley_exit(), _MID_FLOOR],
+            "cells", "none", {"layout": _FLAT}, TerrainRequestError, "flat layout",
+        ),
+        # The refusal is on the rank, not on the vocabulary of the moment.
+        ([_valley_exit()], "cells", "rank_destroying", {}, TerrainProductError, "order of the cells"),
+        # The float32 bound is measured for bare counts only, so nothing else may claim it.
+        ([_valley_exit()], "m2", "ln", {}, TerrainProductError, "cells"),
+    ],
+    ids=[
+        "empty_batch",
+        "two_outlets_share_an_id",
+        "ids_differ_only_by_case",
+        "non_positive_snap_distance",
+        "flat_layout_with_a_batch",
+        "transform_destroys_the_order",
+        "transformed_square_metres",
+    ],
+)  # fmt: skip
+def test_a_delineation_request_the_port_cannot_answer_is_refused_before_writing(
+    engine, valley_chain, tmp_path, outlets, units, transform, options, error, match
 ) -> None:
-    """The refusal is on the rank, not on the vocabulary of the moment."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    scrambled = replace(accumulation, transform="rank_destroying")
+    accumulation = replace(_accumulation(valley_chain, units), transform=transform)
+    request = {"out_dir": tmp_path / "c", "snap_distance_m": RES, **options}
 
-    with pytest.raises(TerrainProductError, match="order of the cells"):
-        engine.delineate(
-            scrambled,
-            [_valley_exit()],
-            out_dir=out / "catchments",
-            snap_distance_m=RES,
-        )
-
-
-def test_an_empty_batch_is_refused(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-
-    with pytest.raises(TerrainRequestError):
-        engine.delineate(accumulation, [], out_dir=out / "c", snap_distance_m=RES)
-
-
-def test_two_outlets_cannot_share_an_id_in_one_batch(engine, valley, tmp_path) -> None:
-    """Otherwise the second one overwrites the first one's files, in silence.
-
-    The first ``Catchment`` would keep the cell count it was given and name a
-    file holding the other catchment's mask. Refused before anything is written.
-    """
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    outlets = [
-        Outlet(outlet_id="twice", x=(15 + 0.5) * RES, y=RES * 0.5),
-        Outlet(outlet_id="twice", x=(15 - 6 + 0.5) * RES, y=(31 - 20 - 0.5) * RES),
-    ]
-
-    with pytest.raises(TerrainRequestError, match="twice"):
-        engine.delineate(
-            accumulation,
-            outlets,
-            out_dir=out / "catchments",
-            snap_distance_m=RES,
-        )
-    assert not (out / "catchments").exists()
-
-
-def test_a_non_positive_snap_distance_is_refused(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-
-    with pytest.raises(TerrainRequestError):
-        engine.delineate(
-            accumulation,
-            [_valley_exit()],
-            out_dir=out / "c",
-            snap_distance_m=0.0,
-        )
+    with pytest.raises(error, match=match):
+        engine.delineate(accumulation, outlets, **request)
+    assert not (tmp_path / "c").exists()
 
 
 # --------------------------------------------------------------------------- #
@@ -888,21 +838,17 @@ def test_a_non_positive_snap_distance_is_refused(engine, valley, tmp_path) -> No
 # --------------------------------------------------------------------------- #
 
 
-def test_every_product_carries_the_crs_of_the_dem_it_came_from(engine, valley, tmp_path) -> None:
+def test_every_product_carries_the_crs_and_names_what_it_came_from(
+    engine, valley_chain, tmp_path
+) -> None:
     """A product that forgets its CRS is a product nothing downstream can place."""
-    out = tmp_path / "out"
-    conditioned, directions, accumulation = _products(engine, valley, out)
-    streams = engine.stream_network(accumulation, threshold=20.0, out=out / "streams.tif")
+    conditioned, directions, accumulation = valley_chain()
+    streams = engine.stream_network(accumulation, threshold=20.0, out=tmp_path / "streams.tif")
 
     assert conditioned.crs == CRS
     for product in (conditioned, directions, accumulation, streams):
-        assert _crs_of(product.path) == CRS
-
-
-def test_the_product_chain_names_what_it_was_derived_from(engine, valley, tmp_path) -> None:
-    out = tmp_path / "out"
-    conditioned, directions, accumulation = _products(engine, valley, out)
-
+        with rasterio.open(str(product.path)) as src:
+            assert str(src.crs) == CRS
     assert directions.conditioned_dem == conditioned
     assert accumulation.directions == directions
     assert accumulation.units == "cells"
@@ -938,36 +884,13 @@ def test_an_absent_cell_is_no_drainage_target_and_both_engines_say_so(
     surface[10, 8] -= 30.0
     dem = _write_dem(tmp_path / "holed.tif", surface)
 
-    products = {}
-    for name in IN_TREE_ENGINE_IDS:
-        conditioned, directions, accumulation = _products(_engine(name), dem, tmp_path / name)
-        products[name] = (conditioned, directions, accumulation)
+    products = {name: _products(_engine(name), dem, tmp_path / name) for name in IN_TREE_ENGINE_IDS}
 
     for left, right in zip(*(products[name] for name in sorted(products)), strict=True):
         assert np.array_equal(_read(left.path), _read(right.path)), left.path
     for name, (_conditioned, directions, _accumulation) in products.items():
-        codes = _read(directions.path)
-        assert codes[10, 8] == 0, name
-        assert int(np.count_nonzero((codes == 0) & _interior_data_cells(codes))) == 0, name
-
-
-def test_two_outlet_ids_that_differ_only_by_case_are_refused(engine, valley, tmp_path) -> None:
-    """One directory on a case-insensitive filesystem, so refused on every one."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    outlets = [
-        Outlet(outlet_id="Exit", x=(15 + 0.5) * RES, y=RES * 0.5),
-        Outlet(outlet_id="exit", x=(15 - 6 + 0.5) * RES, y=(31 - 20 - 0.5) * RES),
-    ]
-
-    with pytest.raises(TerrainRequestError, match="case-folded"):
-        engine.delineate(accumulation, outlets, out_dir=out / "c", snap_distance_m=RES)
-
-
-def test_an_outlet_id_too_long_for_a_directory_name_is_refused() -> None:
-    """Otherwise the first mkdir raises a raw OSError instead of a named refusal."""
-    with pytest.raises(TerrainRequestError, match="characters"):
-        Outlet(outlet_id="a" * 300, x=0.0, y=0.0)
+        assert _read(directions.path)[10, 8] == 0, name
+        assert _drains_nowhere(directions) == 0, name
 
 
 @pytest.fixture(scope="module")
@@ -1053,10 +976,10 @@ def test_the_second_engine_reproduces_the_production_chain_on_a_real_dem(
         )
 
 
-@pytest.mark.parametrize(
-    "dem_name",
-    ["tests/data/sfr_cheze/dem_valley.tif", "examples/data/dem/DEM_gouville_25m.tif"],
-)
+_REAL_DEMS = ["tests/data/sfr_cheze/dem_valley.tif", "examples/data/dem/DEM_gouville_25m.tif"]
+
+
+@pytest.mark.parametrize("dem_name", _REAL_DEMS)
 def test_conditioning_leaves_no_interior_cell_without_a_way_out(engine, tmp_path, dem_name) -> None:
     """After conditioning, no cell inside a real DEM may drain nowhere.
 
@@ -1074,49 +997,32 @@ def test_conditioning_leaves_no_interior_cell_without_a_way_out(engine, tmp_path
     """
     dem = Path(__file__).resolve().parents[2] / dem_name
     _conditioned, directions, _accumulation = _products(engine, dem, tmp_path / "out")
-    codes = _read(directions.path)
-    interior = _interior_data_cells(codes)
 
-    assert int(np.count_nonzero((codes == 0) & interior)) == 0
+    assert _drains_nowhere(directions) == 0
 
 
-@pytest.mark.parametrize(
-    "dem_name",
-    ["tests/data/sfr_cheze/dem_valley.tif", "examples/data/dem/DEM_gouville_25m.tif"],
-)
+@pytest.mark.parametrize("dem_name", _REAL_DEMS)
 def test_a_capped_breach_leaves_no_interior_cell_without_a_way_out(tmp_path, dem_name) -> None:
     """The residual fill is what makes the capped breach a conditioning at all.
 
     Breaching alone leaves the depressions its limits refused, and a pointer over
     them has cells that drain nowhere. Zero here says the fill ran after the cap.
     """
-    engine = _engine("whitebox_workflows")
     dem = Path(__file__).resolve().parents[2] / dem_name
     _conditioned, directions, _accumulation = _products(
-        engine,
+        _engine("whitebox_workflows"),
         dem,
         tmp_path / "out",
-        method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
+        method=CAPPED,
     )
-    codes = _read(directions.path)
 
-    assert int(np.count_nonzero((codes == 0) & _interior_data_cells(codes))) == 0
+    assert _drains_nowhere(directions) == 0
 
 
 def test_a_capped_breach_reports_what_it_dug_and_nothing_else_does(valley, tmp_path) -> None:
     engine = _engine("whitebox_workflows")
-    capped = engine.condition_dem(
-        valley,
-        method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
-        extent=ConditioningExtent.regional(),
-        out=tmp_path / "capped.tif",
-    )
-    filled = engine.condition_dem(
-        valley,
-        method="fill",
-        extent=ConditioningExtent.regional(),
-        out=tmp_path / "filled.tif",
-    )
+    capped = _condition(engine, valley, tmp_path / "capped.tif", CAPPED)
+    filled = _condition(engine, valley, tmp_path / "filled.tif")
 
     assert capped.breach_report is not None
     assert capped.breach_report.max_dist_cells == 8
@@ -1138,19 +1044,13 @@ def test_every_engine_serves_a_capped_breach_with_its_report_or_refuses_it(
     dem = _write_dem(tmp_path / "pit.tif", surface)
 
     try:
-        conditioned = engine.condition_dem(
-            dem,
-            method=CappedBreach(max_depth_m=0.5, max_distance_m=200.0),
-            extent=ConditioningExtent.regional(),
-            out=tmp_path / "out" / "conditioned.tif",
-        )
+        conditioned = _condition(engine, dem, tmp_path / "out" / "conditioned.tif", CAPPED)
     except TerrainCapabilityError:
         return
 
     assert conditioned.breach_report is not None
     directions = engine.drainage_directions(conditioned, out=tmp_path / "out" / "pointer.tif")
-    codes = _read(directions.path)
-    assert int(np.count_nonzero((codes == 0) & _interior_data_cells(codes))) == 0
+    assert _drains_nowhere(directions) == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -1158,76 +1058,20 @@ def test_every_engine_serves_a_capped_breach_with_its_report_or_refuses_it(
 # --------------------------------------------------------------------------- #
 
 
-def test_a_flat_layout_writes_the_two_files_the_caller_named(engine, valley, tmp_path) -> None:
+def test_a_flat_layout_writes_the_two_files_the_caller_named(
+    engine, valley_chain, tmp_path
+) -> None:
     """What makes the port adoptable by a pipeline with a published layout."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
+    out = tmp_path / "geographic"
 
-    (catchment,) = engine.delineate(
-        accumulation,
-        [_valley_exit()],
-        out_dir=out / "geographic",
-        snap_distance_m=RES,
-        layout=CatchmentLayout.flat(mask_name="watershed.tif", boundary_name="watershed.shp"),
-    )
+    layout = CatchmentLayout.flat(mask_name="watershed.tif", boundary_name="watershed.shp")
+    catchment = _exit_catchment(engine, _accumulation(valley_chain), out, RES, layout=layout)
 
-    assert catchment.mask_path == out / "geographic" / "watershed.tif"
-    assert catchment.boundary_path == out / "geographic" / "watershed.shp"
+    assert catchment.mask_path == out / "watershed.tif"
+    assert catchment.boundary_path == out / "watershed.shp"
     assert catchment.mask_path.is_file() and catchment.boundary_path.is_file()
     # And it still answers the question: the valley drains through its exit.
     assert catchment.cell_count == 31 * 31
-
-
-def test_a_flat_layout_refuses_a_batch(engine, valley, tmp_path) -> None:
-    """Two outlets, one pair of files: the second would eat the first."""
-    out = tmp_path / "out"
-    _conditioned, _directions, accumulation = _products(engine, valley, out)
-    outlets = [
-        _valley_exit(),
-        Outlet(outlet_id="mid_floor", x=(15 + 0.5) * RES, y=(31 - 20 - 0.5) * RES),
-    ]
-
-    with pytest.raises(TerrainRequestError, match="flat layout"):
-        engine.delineate(
-            accumulation,
-            outlets,
-            out_dir=out / "geographic",
-            snap_distance_m=RES,
-            layout=CatchmentLayout.flat(mask_name="w.tif", boundary_name="w.shp"),
-        )
-
-
-@pytest.mark.parametrize(
-    ("mask_name", "boundary_name"),
-    [
-        ("../escape.tif", "boundary.shp"),
-        ("sub/mask.tif", "boundary.shp"),
-        ("mask.tif", "boundary.geojson"),
-        ("mask.asc", "boundary.shp"),
-        ("", "boundary.shp"),
-    ],
-)
-def test_a_layout_refuses_a_name_that_is_not_one(mask_name, boundary_name) -> None:
-    """A name carrying a separator writes outside the directory that was named."""
-    with pytest.raises(TerrainRequestError):
-        CatchmentLayout.flat(mask_name=mask_name, boundary_name=boundary_name)
-
-
-@pytest.mark.parametrize("boundary_name", [OUTLET_LAYER_NAME, SNAPPED_OUTLET_LAYER_NAME])
-def test_a_flat_layout_refuses_to_land_on_the_outlet_layer(boundary_name) -> None:
-    """The boundary would overwrite the point the delineation ran from."""
-    with pytest.raises(TerrainRequestError, match="point layer"):
-        CatchmentLayout.flat(mask_name="watershed.tif", boundary_name=boundary_name)
-
-
-def test_the_per_outlet_layout_has_no_such_collision() -> None:
-    """A directory per outlet separates them, so the same name is legal there."""
-    layout = CatchmentLayout(
-        per_outlet_directory=True,
-        mask_name="mask.tif",
-        boundary_name=OUTLET_LAYER_NAME,
-    )
-    assert layout.boundary_name == OUTLET_LAYER_NAME
 
 
 # --------------------------------------------------------------------------- #
@@ -1235,49 +1079,26 @@ def test_the_per_outlet_layout_has_no_such_collision() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_a_transformed_accumulation_in_square_metres_is_refused(engine, valley, tmp_path) -> None:
-    """The bound is measured for bare counts only, so nothing else may claim it."""
-    out = tmp_path / "out"
-    _c, _d, accumulation = _products(engine, valley, out, units="m2")
-    transformed = replace(accumulation, transform="ln")
-
-    with pytest.raises(TerrainProductError, match="cells"):
-        engine.delineate(transformed, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES)
-
-
-def test_an_accumulation_float32_cannot_order_is_refused(engine, valley, tmp_path) -> None:
+def test_an_accumulation_float32_cannot_order_is_refused(engine, valley_chain, tmp_path) -> None:
     """Above the measured count, a snap window ties on cells of different area.
 
     The raster is written here rather than routed, because reaching
     ``LN_FLOAT32_COLLISION_COUNT`` by routing needs a million-cell DEM. What is
     under test is the refusal, and the refusal reads the stored values.
     """
-    out = tmp_path / "out"
-    _c, _d, accumulation = _products(engine, valley, out)
-
-    over = out / "acc_over_the_bound.tif"
-    with rasterio.open(str(accumulation.path)) as src:
-        profile = src.profile.copy()
-        shape = (src.height, src.width)
-    profile.update(dtype="float32", count=1)
-    values = np.full(shape, math.log(LN_FLOAT32_COLLISION_COUNT + 1), dtype="float32")
-    with rasterio.open(str(over), "w", **profile) as dst:
-        dst.write(values, 1)
+    accumulation = _accumulation(valley_chain)
+    values = np.full((31, 31), math.log(LN_FLOAT32_COLLISION_COUNT + 1))
+    over = _write_dem(tmp_path / "acc_over_the_bound.tif", values)
     too_large = replace(accumulation, path=over, transform="ln")
 
     with pytest.raises(TerrainProductError, match="float32"):
-        engine.delineate(too_large, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES)
+        _exit_catchment(engine, too_large, tmp_path / "c", RES)
 
 
 def test_the_bound_does_not_fire_on_anything_this_repository_routes(
-    engine, valley, tmp_path
+    engine, valley_chain, tmp_path
 ) -> None:
     """Anti-vacuity: the guard has to let the real products through."""
-    out = tmp_path / "out"
-    _c, _d, accumulation = _products(engine, valley, out, transform="ln")
-
-    (catchment,) = engine.delineate(
-        accumulation, [_valley_exit()], out_dir=out / "c", snap_distance_m=RES
-    )
+    catchment = _exit_catchment(engine, _accumulation(valley_chain, transform="ln"), tmp_path, RES)
 
     assert catchment.cell_count == 31 * 31

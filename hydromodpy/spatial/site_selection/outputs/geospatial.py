@@ -2,21 +2,53 @@
 
 from __future__ import annotations
 
-import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import Point
 
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
+from hydromodpy.spatial.site_selection.domain.export_values import clean_properties, single_crs
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
     DelineatedCatchment,
     outlet_display_xy,
-    outlet_snap_distance_m,
-    snapped_outlet_xy,
 )
-from hydromodpy.spatial.site_selection.outputs.schemas import site_record_from_catchment
+from hydromodpy.spatial.site_selection.outputs.features import (
+    basin_properties,
+    observation_location,
+    observation_properties,
+    outlet_properties,
+    repair_geometry_for_export,
+)
+from hydromodpy.spatial.site_selection.outputs.watershed import read_watershed
 
 GPKG_NAME = "site_selection.gpkg"
+
+VectorFormat = Literal["gpkg", "geoparquet"]
+
+
+def write_vector_layer(
+    frame: gpd.GeoDataFrame,
+    path: str | Path,
+    *,
+    fmt: VectorFormat,
+    layer: str | None = None,
+) -> Path | None:
+    """Write *frame* as the GeoPackage layer *layer* or as a GeoParquet file.
+
+    An empty frame writes nothing and gives ``None``.
+    """
+    if frame.empty:
+        return None
+    destination = Path(path)
+    if fmt == "geoparquet":
+        return write_geoparquet_atomic(frame, destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_file(str(destination), layer=layer, driver="GPKG")
+    return destination
 
 
 def write_selection_geopackage(
@@ -32,51 +64,12 @@ def write_selection_geopackage(
     destination = Path(path)
     if destination.exists():
         destination.unlink()
-    selected_list = list(selected)
-    rejected_list = list(rejected)
     written = False
-    for layer, frame in (
-        (
-            "selected_outlets",
-            _outlets_gdf(
-                selected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="selected",
-            ),
-        ),
-        (
-            "rejected_outlets",
-            _outlets_gdf(
-                rejected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="rejected",
-            ),
-        ),
-        (
-            "selected_basins",
-            _basins_gdf(
-                selected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="selected",
-            ),
-        ),
-        (
-            "rejected_basins",
-            _basins_gdf(
-                rejected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="rejected",
-            ),
-        ),
+    for layer, frame in _selection_layers(
+        selected, rejected, selection_id=selection_id, region_id=region_id
     ):
-        if frame.empty:
-            continue
-        _write_gpkg_layer(frame, destination, layer=layer)
-        written = True
+        if write_vector_layer(frame, destination, fmt="gpkg", layer=layer) is not None:
+            written = True
     return destination if written else None
 
 
@@ -91,121 +84,51 @@ def write_selection_geoparquet_layers(
     """Write selected/rejected outlets and basins as separate GeoParquet files."""
 
     root = Path(output_root)
-    selected_list = list(selected)
-    rejected_list = list(rejected)
-    layer_specs = {
-        "selected_outlets_geoparquet": (
-            "selected_outlets.parquet",
-            _outlets_gdf(
-                selected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="selected",
-            ),
-        ),
-        "rejected_outlets_geoparquet": (
-            "rejected_outlets.parquet",
-            _outlets_gdf(
-                rejected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="rejected",
-            ),
-        ),
-        "selected_basins_geoparquet": (
-            "selected_basins.parquet",
-            _basins_gdf(
-                selected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="selected",
-            ),
-        ),
-        "rejected_basins_geoparquet": (
-            "rejected_basins.parquet",
-            _basins_gdf(
-                rejected_list,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status="rejected",
-            ),
-        ),
-    }
     paths: dict[str, Path] = {}
-    for key, (filename, frame) in layer_specs.items():
-        if frame.empty:
-            continue
-        paths[key] = write_geoparquet_atomic(frame, root / filename)
+    for layer, frame in _selection_layers(
+        selected, rejected, selection_id=selection_id, region_id=region_id
+    ):
+        written = write_vector_layer(frame, root / f"{layer}.parquet", fmt="geoparquet")
+        if written is not None:
+            paths[f"{layer}_geoparquet"] = written
     return paths
 
 
-def write_observation_points_geopackage(
-    path: str | Path,
-    evidence: Iterable[object],
-    *,
-    layer: str = "observation_points",
-) -> Path | None:
-    """Append normalized observation points to a GeoPackage."""
-
-    frame = observation_points_gdf(evidence)
-    if frame.empty:
-        return None
-    destination = Path(path)
-    _write_gpkg_layer(frame, destination, layer=layer)
-    return destination
-
-
-def write_observation_points_geoparquet(
-    path: str | Path,
-    evidence: Iterable[object],
-) -> Path | None:
-    """Write normalized observation points to GeoParquet."""
-
-    frame = observation_points_gdf(evidence)
-    if frame.empty:
-        return None
-    return write_geoparquet_atomic(frame, path)
-
-
-def observation_points_gdf(evidence: Iterable[object]):
+def observation_points_gdf(evidence: Iterable[object]) -> gpd.GeoDataFrame:
     """Return normalized observation evidence as a point GeoDataFrame."""
-
-    import geopandas as gpd
-    from shapely.geometry import Point
 
     rows = [item.to_record() if hasattr(item, "to_record") else dict(item) for item in evidence]
     records: list[dict[str, Any]] = []
     geometries = []
     crs_values: list[str] = []
     for row in rows:
-        location = _observation_location(row)
+        location = observation_location(row)
         if location is None:
             continue
         x, y, crs = location
         if crs:
             crs_values.append(crs)
-        records.append(
-            _clean_properties(
-                {
-                    "site_id": row.get("site_id", ""),
-                    "observation_type": row.get("observation_type", ""),
-                    "source_dataset": row.get("source_dataset", ""),
-                    "feature_id": row.get("feature_id", ""),
-                    "feature_label": row.get("feature_label", ""),
-                    "record_start": row.get("record_start"),
-                    "record_end": row.get("record_end"),
-                    "record_year_count": row.get("record_year_count"),
-                    "quality_status": row.get("quality_status", "unknown"),
-                    "influence_status": row.get("influence_status", "unknown"),
-                    "distance_to_outlet_km": row.get("distance_to_outlet_km"),
-                    "distance_to_basin_km": row.get("distance_to_basin_km"),
-                    "inside_basin": row.get("inside_basin"),
-                    "observation_crs": crs,
-                }
-            )
-        )
+        records.append(clean_properties(observation_properties(row, crs=crs)))
         geometries.append(Point(x, y))
-    return gpd.GeoDataFrame(records, geometry=geometries, crs=_single_crs(crs_values))
+    return gpd.GeoDataFrame(records, geometry=geometries, crs=single_crs(crs_values))
+
+
+def _selection_layers(
+    selected: Iterable[DelineatedCatchment],
+    rejected: Iterable[DelineatedCatchment],
+    *,
+    selection_id: str,
+    region_id: str,
+) -> list[tuple[str, gpd.GeoDataFrame]]:
+    selected_list = list(selected)
+    rejected_list = list(rejected)
+    names = dict(selection_id=selection_id, region_id=region_id)
+    return [
+        ("selected_outlets", _outlets_gdf(selected_list, site_status="selected", **names)),
+        ("rejected_outlets", _outlets_gdf(rejected_list, site_status="rejected", **names)),
+        ("selected_basins", _basins_gdf(selected_list, site_status="selected", **names)),
+        ("rejected_basins", _basins_gdf(rejected_list, site_status="rejected", **names)),
+    ]
 
 
 def _outlets_gdf(
@@ -214,59 +137,24 @@ def _outlets_gdf(
     selection_id: str,
     region_id: str,
     site_status: str,
-):
-    import geopandas as gpd
-    from shapely.geometry import Point
-
-    materialized = list(catchments)
+) -> gpd.GeoDataFrame:
     records: list[dict[str, Any]] = []
     geometries = []
     crs_values: list[str] = []
-    for catchment in materialized:
+    for catchment in catchments:
         display_x, display_y = outlet_display_xy(catchment)
-        snapped = snapped_outlet_xy(catchment)
-        snap_distance = outlet_snap_distance_m(catchment)
         if catchment.outlet.crs:
             crs_values.append(catchment.outlet.crs)
-        properties = {
-            **site_record_from_catchment(
-                catchment,
-                selection_id=selection_id,
-                region_id=region_id,
-                site_status=site_status,
-            ),
-            "candidate_id": catchment.outlet.candidate_id,
-            "source": catchment.outlet.source,
-            "source_feature_id": catchment.outlet.source_feature_id,
-            "source_label": catchment.outlet.source_label,
-            "outlet_crs": catchment.outlet.crs,
-            "outlet_geometry_source": "snapped" if snapped is not None else "original",
-            "outlet_original_x": catchment.outlet.x,
-            "outlet_original_y": catchment.outlet.y,
-            "outlet_snap_shp": catchment.outlet_snap_shp or "",
-            "x_outlet_snapped": None if snapped is None else snapped[0],
-            "y_outlet_snapped": None if snapped is None else snapped[1],
-            "outlet_snap_distance_m": snap_distance,
-            "catchment_status": catchment.status,
-            "failure_reason": catchment.failure_reason,
-            "watershed_shp": catchment.watershed_shp or "",
-            "enabled": site_status == "selected",
-        }
-        for key in (
-            "reference_network_source",
-            "reference_network_snap_status",
-            "reference_network_snap_distance_m",
-            "reference_network_original_x",
-            "reference_network_original_y",
-            "reference_network_x",
-            "reference_network_y",
-        ):
-            value = catchment.outlet.attributes.get(key)
-            if value is not None:
-                properties[key] = value
-        records.append(_clean_properties(properties))
+        properties = outlet_properties(
+            catchment,
+            selection_id=selection_id,
+            region_id=region_id,
+            site_status=site_status,
+            missing=None,
+        )
+        records.append(clean_properties(properties))
         geometries.append(Point(display_x, display_y))
-    return gpd.GeoDataFrame(records, geometry=geometries, crs=_single_crs(crs_values))
+    return gpd.GeoDataFrame(records, geometry=geometries, crs=single_crs(crs_values))
 
 
 def _basins_gdf(
@@ -275,10 +163,7 @@ def _basins_gdf(
     selection_id: str,
     region_id: str,
     site_status: str,
-):
-    import geopandas as gpd
-    import pandas as pd
-
+) -> gpd.GeoDataFrame:
     frames = []
     target_crs = ""
     for catchment in catchments:
@@ -286,8 +171,8 @@ def _basins_gdf(
         if not catchment.watershed_shp or not watershed_path.is_file():
             continue
         try:
-            frame = gpd.read_file(str(watershed_path))
-        except Exception:
+            frame = read_watershed(watershed_path)
+        except Exception:  # noqa: BLE001 - an unreadable basin file leaves the layer.
             continue
         if frame.empty:
             continue
@@ -300,24 +185,14 @@ def _basins_gdf(
             target_crs = "" if frame.crs is None else str(frame.crs)
         elif frame.crs is not None and str(frame.crs) != target_crs:
             frame = frame.to_crs(target_crs)
-        properties = _clean_properties(
-            {
-                **site_record_from_catchment(
-                    catchment,
-                    selection_id=selection_id,
-                    region_id=region_id,
-                    site_status=site_status,
-                ),
-                "candidate_id": catchment.outlet.candidate_id,
-                "source": catchment.outlet.source,
-                "source_feature_id": catchment.outlet.source_feature_id,
-                "source_label": catchment.outlet.source_label,
-                "outlet_crs": catchment.outlet.crs,
-                "catchment_status": catchment.status,
-                "failure_reason": catchment.failure_reason,
-                "watershed_shp": str(watershed_path),
-                "enabled": site_status == "selected",
-            }
+        properties = clean_properties(
+            basin_properties(
+                catchment,
+                watershed_path=watershed_path,
+                selection_id=selection_id,
+                region_id=region_id,
+                site_status=site_status,
+            )
         )
         export_frame = gpd.GeoDataFrame(
             [properties for _geometry in frame.geometry],
@@ -334,90 +209,20 @@ def _basins_gdf(
     )
 
 
-def _write_gpkg_layer(frame: object, destination: Path, *, layer: str) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_file(str(destination), layer=layer, driver="GPKG")
-
-
-def _repair_frame_geometries(frame):
+def _repair_frame_geometries(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     frame = frame.copy()
-    frame.geometry = [_repair_geometry_for_export(geometry) for geometry in frame.geometry]
+    frame.geometry = [repair_geometry_for_export(geometry) for geometry in frame.geometry]
     frame = frame[frame.geometry.notna()]
     if frame.empty:
         return frame
     return frame[~frame.geometry.is_empty]
 
 
-def _repair_geometry_for_export(geometry):
-    if geometry is None or geometry.is_empty:
-        return None
-    if bool(getattr(geometry, "is_valid", True)):
-        return geometry
-    try:
-        from shapely import make_valid
-    except ImportError:  # pragma: no cover - depends on Shapely version.
-        try:
-            from shapely.validation import make_valid
-        except ImportError:
-            make_valid = None
-    if make_valid is not None:
-        try:
-            repaired = make_valid(geometry)
-            if repaired is not None and not repaired.is_empty:
-                return repaired
-        except Exception:
-            pass
-    try:
-        repaired = geometry.buffer(0)
-    except Exception:
-        return geometry
-    return None if repaired is None or repaired.is_empty else repaired
-
-
-def _observation_location(row: Mapping[str, Any]) -> tuple[float, float, str] | None:
-    evidence_json = row.get("evidence_json")
-    if isinstance(evidence_json, str):
-        try:
-            evidence_json = json.loads(evidence_json)
-        except json.JSONDecodeError:
-            evidence_json = {}
-    if not isinstance(evidence_json, Mapping):
-        evidence_json = {}
-    location = evidence_json.get("provider_location")
-    if not isinstance(location, Mapping):
-        return None
-    try:
-        x = float(location["x"])
-        y = float(location["y"])
-    except (KeyError, TypeError, ValueError):
-        return None
-    return x, y, str(location.get("crs") or "")
-
-
-def _single_crs(values: Iterable[str]) -> str | None:
-    clean = [value for value in values if value]
-    if not clean:
-        return None
-    return clean[0]
-
-
-def _clean_properties(properties: Mapping[str, Any]) -> dict[str, Any]:
-    return {str(key): _clean_value(value) for key, value in properties.items()}
-
-
-def _clean_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    return json.dumps(value, ensure_ascii=True, sort_keys=True)
-
-
 __all__ = [
     "GPKG_NAME",
+    "VectorFormat",
     "observation_points_gdf",
-    "write_observation_points_geopackage",
-    "write_observation_points_geoparquet",
     "write_selection_geopackage",
     "write_selection_geoparquet_layers",
+    "write_vector_layer",
 ]

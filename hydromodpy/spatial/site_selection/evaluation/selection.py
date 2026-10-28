@@ -6,7 +6,11 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from pyproj import Transformer
+
+from hydromodpy.core.io.crs import same_crs
 from hydromodpy.spatial.site_selection.config import CriteriaConfig, SpatialSelectionConfig
+from hydromodpy.spatial.site_selection.domain.attribute_values import first_number, first_text
 from hydromodpy.spatial.site_selection.evaluation.criteria import (
     CriteriaComponent,
     evaluate_area_criterion,
@@ -522,11 +526,11 @@ def _flow_station_xy(
     *,
     target_crs: str,
 ) -> tuple[float, float] | None:
-    x = _first_float(attributes, "flow_station_x", "hydro_station_x", "station_x")
-    y = _first_float(attributes, "flow_station_y", "hydro_station_y", "station_y")
+    x = first_number(attributes, "flow_station_x", "hydro_station_x", "station_x")
+    y = first_number(attributes, "flow_station_y", "hydro_station_y", "station_y")
     if x is None or y is None:
         return None
-    source_crs = _first_text(
+    source_crs = first_text(
         attributes,
         "flow_station_crs",
         "hydro_station_crs",
@@ -540,7 +544,7 @@ def _looks_station_led(catchment: DelineatedCatchment, attributes: dict[str, Any
     if catchment.outlet.source in {"station_outlets", "hubeau_hydrometrie"}:
         return True
     return any(
-        _first_text(attributes, key) is not None
+        first_text(attributes, key) is not None
         for key in ("flow_station_id", "hydro_station_id", "station_id")
     )
 
@@ -552,52 +556,14 @@ def _xy_in_target_crs(
     source_crs: str | None,
     target_crs: str,
 ) -> tuple[float, float] | None:
-    if source_crs is None or _same_crs(source_crs, target_crs):
+    if source_crs is None or same_crs(source_crs, target_crs):
         return x, y
-    try:
-        from pyproj import Transformer
-    except ImportError:
-        return None
     try:
         transformer = Transformer.from_crs(source_crs, target_crs, always_xy=True)
         target_x, target_y = transformer.transform(x, y)
     except Exception:
         return None
     return float(target_x), float(target_y)
-
-
-def _same_crs(left: str, right: str) -> bool:
-    if left.strip().upper() == right.strip().upper():
-        return True
-    try:
-        from pyproj import CRS
-
-        return CRS.from_user_input(left) == CRS.from_user_input(right)
-    except Exception:
-        return False
-
-
-def _first_float(attributes: dict[str, Any], *keys: str) -> float | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value in (None, ""):
-            continue
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            continue
-    return None
-
-
-def _first_text(attributes: dict[str, Any], *keys: str) -> str | None:
-    for key in keys:
-        value = attributes.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            return text
-    return None
 
 
 def _warning_count(components: list[CriteriaComponent]) -> int:

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from pyproj import Transformer
 
 from hydromodpy.core import progress
 from hydromodpy.core.exceptions import (
@@ -23,6 +26,7 @@ from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
     candidate_outlets_from_point_records,
 )
+from hydromodpy.spatial.site_selection.candidates.pipeline import territory_geometry
 from hydromodpy.spatial.site_selection.candidates.reference_network import (
     ReferenceNetworkBundle,
     load_reference_network_for_outlets,
@@ -37,6 +41,8 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
 from hydromodpy.spatial.site_selection.runner_data import DemLoader, load_dem_path
+
+BBox = tuple[float, float, float, float]
 
 
 def _load_data_dem_config(path: str | Path) -> DataDemConfig | None:
@@ -80,11 +86,21 @@ def _maybe_delineate_from_outlets(
 ) -> tuple[list[DelineatedCatchment], dict[str, Any]]:
     if not config.input.delineate_from_outlets:
         return catchments, {}
-    dem_path = _resolve_dem_path_for_delineation(
+    dem_path = _resolve_dem_path(
         config=config,
-        catchments=catchments,
         config_path=config_path,
+        workspace_root=config.input.workspace_root,
+        data_root=config.input.data_root,
         dem_loader=dem_loader,
+        project_extent=lambda: _dem_request_bbox(
+            config=config,
+            catchments=catchments,
+            request_extent=config.dem.request_extent,
+        ),
+        missing=(
+            "site_selection.input.delineate_from_outlets=true requires either "
+            "site_selection.dem.path or a [data.dem] source."
+        ),
     )
     flow_products = build_site_selection_flow_products(
         dem_init_path=dem_path,
@@ -200,50 +216,22 @@ def _maybe_resolve_map_dem_for_review(
     }
 
 
-def _resolve_dem_path_for_delineation(
-    *,
-    config: SiteSelectionConfig,
-    catchments: list[DelineatedCatchment],
-    config_path: str | Path | None,
-    dem_loader: DemLoader | None,
-) -> Path:
-    if config.dem.path is not None:
-        return Path(config.dem.path).expanduser().resolve()
-
-    data_dem_config = _data_dem_config_for_site_selection(
-        config=config,
-        config_path=config_path,
-    )
-
-    if data_dem_config is None:
-        raise ConfigMissingError(
-            "site_selection.input.delineate_from_outlets=true requires either "
-            "site_selection.dem.path or a [data.dem] source."
-        )
-
-    return load_dem_path(
-        data_dem_config,
-        workspace_root=config.input.workspace_root,
-        data_root=config.input.data_root,
-        project_extent=_dem_request_bbox(
-            config=config,
-            catchments=catchments,
-            request_extent=config.dem.request_extent,
-        ),
-        loader=dem_loader,
-    )
-
-
-def _resolve_dem_path_for_observed_selection(
+def _resolve_dem_path(
     *,
     config: SiteSelectionConfig,
     config_path: str | Path | None,
     workspace_root: str | Path | None,
     data_root: str | Path | None,
     dem_loader: DemLoader | None,
-    candidate_outlets: list[CandidateOutlet] | None = None,
+    project_extent: Callable[[], BBox | None],
+    missing: str,
 ) -> Path:
-    """Resolve the DEM used to derive flow products for station-led selection."""
+    """Return the calculation DEM: ``dem.path``, else the ``[data.dem]`` source.
+
+    The data layer is asked for the DEM over ``project_extent()``, called only
+    then. A failure there is raised as a ``ConfigError`` that says where to
+    look, and *missing* is the message when the file names no DEM at all.
+    """
 
     if config.dem.path is not None:
         return Path(config.dem.path).expanduser().resolve()
@@ -254,61 +242,14 @@ def _resolve_dem_path_for_observed_selection(
     )
 
     if data_dem_config is None:
-        raise ConfigMissingError(
-            "site_selection.input.mode='hydrometry' requires either "
-            "site_selection.dem.path or a [data.dem] source so station outlets "
-            "can be delineated from a DEM."
-        )
+        raise ConfigMissingError(missing)
 
     try:
         return load_dem_path(
             data_dem_config,
             workspace_root=workspace_root,
             data_root=data_root,
-            project_extent=_observed_dem_request_bbox(
-                config=config,
-                candidate_outlets=candidate_outlets or [],
-            ),
-            loader=dem_loader,
-        )
-    except Exception as exc:
-        raise ConfigError(_data_access_error("DEM", data_root=data_root, detail=exc)) from exc
-
-
-def _resolve_dem_path_for_generated_selection(
-    *,
-    config: SiteSelectionConfig,
-    config_path: str | Path | None,
-    workspace_root: str | Path | None,
-    data_root: str | Path | None,
-    dem_loader: DemLoader | None,
-) -> Path:
-    """Resolve the DEM used to generate network candidates."""
-
-    if config.dem.path is not None:
-        return Path(config.dem.path).expanduser().resolve()
-
-    data_dem_config = _data_dem_config_for_site_selection(
-        config=config,
-        config_path=config_path,
-    )
-
-    if data_dem_config is None:
-        raise ConfigMissingError(
-            "site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either "
-            "site_selection.dem.path or a [data.dem] source."
-        )
-
-    try:
-        return load_dem_path(
-            data_dem_config,
-            workspace_root=workspace_root,
-            data_root=data_root,
-            project_extent=_dem_request_bbox(
-                config=config,
-                catchments=[],
-                request_extent="territory",
-            ),
+            project_extent=project_extent(),
             loader=dem_loader,
         )
     except Exception as exc:
@@ -356,30 +297,19 @@ def _dem_request_bbox(
     request_extent: str,
 ) -> tuple[float, float, float, float] | None:
     margin_m = float(config.dem.margin_km or 0.0) * 1000.0
-    if request_extent == "outlets" and catchments:
-        return _outlet_bbox(catchments, margin_m=margin_m)
+    outlets = [catchment.outlet for catchment in catchments]
+    if request_extent == "outlets" and outlets:
+        return _outlet_bbox(outlets, margin_m=margin_m)
 
     territory = config.territory
     if territory.mode == "bbox" and territory.bbox is not None:
+        # The box goes to the data layer as written, corners unordered included.
         return _expand_projected_bbox(tuple(territory.bbox), margin_m)
-    if territory.country in {None, "", "FR"}:
-        if territory.mode == "admin_regions":
-            from hydromodpy.spatial.administrative.france import bbox_for_regions
-
-            return bbox_for_regions(territory.regions, margin_m=margin_m)
-        if territory.mode == "admin_departments":
-            from hydromodpy.spatial.administrative.france import bbox_for_departments
-
-            return bbox_for_departments(territory.departments, margin_m=margin_m)
-    if territory.mode == "polygon_file" and territory.polygon_file is not None:
-        import geopandas as gpd
-
-        gdf = gpd.read_file(territory.polygon_file)
-        if gdf.crs is not None and gdf.crs.to_epsg() != 2154:
-            gdf = gdf.to_crs("EPSG:2154")
-        return _expand_projected_bbox(tuple(float(v) for v in gdf.total_bounds), margin_m)
-    if catchments:
-        return _outlet_bbox(catchments, margin_m=margin_m)
+    geometry = territory_geometry(territory, target_crs="EPSG:2154", default_country="FR")
+    if geometry is not None:
+        return _expand_projected_bbox(tuple(float(v) for v in geometry.bounds), margin_m)
+    if outlets:
+        return _outlet_bbox(outlets, margin_m=margin_m)
     return None
 
 
@@ -390,7 +320,7 @@ def _observed_dem_request_bbox(
 ) -> tuple[float, float, float, float] | None:
     margin_m = float(config.dem.margin_km or 0.0) * 1000.0
     if config.dem.request_extent == "outlets" and candidate_outlets:
-        return _candidate_outlet_bbox(candidate_outlets, margin_m=margin_m)
+        return _outlet_bbox(candidate_outlets, margin_m=margin_m)
     return _dem_request_bbox(
         config=config,
         catchments=[],
@@ -437,11 +367,6 @@ def _bbox_projected_to_wgs84(
 ) -> tuple[float, float, float, float]:
     """Transform a Lambert-93 bbox to WGS84 for French observation APIs."""
 
-    try:
-        from pyproj import Transformer
-    except ImportError as exc:  # pragma: no cover - pyproj is part of spatial deps.
-        raise ImportError("pyproj is required to query observation APIs by territory.") from exc
-
     transformer = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True)
     xmin, ymin, xmax, ymax = bbox
     corners = [
@@ -456,22 +381,12 @@ def _bbox_projected_to_wgs84(
 
 
 def _outlet_bbox(
-    catchments: list[DelineatedCatchment],
+    outlets: list[CandidateOutlet],
     *,
     margin_m: float,
 ) -> tuple[float, float, float, float]:
-    xs = [catchment.outlet.x for catchment in catchments]
-    ys = [catchment.outlet.y for catchment in catchments]
-    return _expand_projected_bbox((min(xs), min(ys), max(xs), max(ys)), margin_m)
-
-
-def _candidate_outlet_bbox(
-    candidate_outlets: list[CandidateOutlet],
-    *,
-    margin_m: float,
-) -> tuple[float, float, float, float]:
-    xs = [candidate.x for candidate in candidate_outlets]
-    ys = [candidate.y for candidate in candidate_outlets]
+    xs = [outlet.x for outlet in outlets]
+    ys = [outlet.y for outlet in outlets]
     return _expand_projected_bbox((min(xs), min(ys), max(xs), max(ys)), margin_m)
 
 

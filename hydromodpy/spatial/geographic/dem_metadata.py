@@ -116,11 +116,15 @@ def _resolve_lon_lat_metadata(
     ymin: float,
     ymax: float,
 ) -> dict[str, object]:
-    """Project watershed bounds and centroid to WGS84 when possible."""
+    """Project watershed bounds and centroid to WGS84 when possible.
+
+    Every ``*_long_lat`` value is ``(longitude, latitude)``. The Greenwich
+    copy of the centroid takes its longitude in [0, 360).
+    """
     if crs_project is None:
         return {}
 
-    transformer = Transformer.from_crs(crs_project, "epsg:4326")
+    transformer = Transformer.from_crs(crs_project, "epsg:4326", always_xy=True)
     centroid_long_lat = transformer.transform(centroid[0], centroid[1])
     ur_long_lat = transformer.transform(xmax, ymax)
     ul_long_lat = transformer.transform(xmin, ymax)
@@ -130,8 +134,8 @@ def _resolve_lon_lat_metadata(
         centroid_long_lat[0],
         centroid_long_lat[1],
     ]
-    if centroid_long_lat_Greenwich[1] < 0:
-        centroid_long_lat_Greenwich[1] += 360
+    if centroid_long_lat_Greenwich[0] < 0:
+        centroid_long_lat_Greenwich[0] += 360
 
     return {
         "centroid_long_lat": centroid_long_lat,
@@ -145,17 +149,19 @@ def _resolve_lon_lat_metadata(
 
 def _resolve_dep_code(
     *,
-    centroid_long_lat_Greenwich: list[float] | None,
+    centroid_long_lat: tuple[float, float] | None,
     locator_factory: object,
 ) -> int | None:
     """Resolve one French department code from reverse geocoding when possible."""
-    if centroid_long_lat_Greenwich is None:
+    if centroid_long_lat is None:
         return None
+    longitude, latitude = centroid_long_lat
+    query = f"{latitude}, {longitude}"
 
     try:
         locator = locator_factory(user_agent="google")
         location = locator.reverse(
-            f"{centroid_long_lat_Greenwich[0]},{centroid_long_lat_Greenwich[1]}",
+            query,
             timeout=120,
         )
     except OSError:
@@ -164,7 +170,7 @@ def _resolve_dep_code(
             geopy.geocoders.options.default_ssl_context = ctx
             locator = locator_factory(user_agent="google")
             location = locator.reverse(
-                f"{centroid_long_lat_Greenwich[0]},{centroid_long_lat_Greenwich[1]}",
+                query,
                 timeout=120,
             )
         except Exception:
@@ -235,7 +241,7 @@ def read_dem_metadata(
         lon_lat_attrs = {}
 
     dep_code = _resolve_dep_code(
-        centroid_long_lat_Greenwich=lon_lat_attrs.get("centroid_long_lat_Greenwich"),
+        centroid_long_lat=lon_lat_attrs.get("centroid_long_lat"),
         locator_factory=locator_factory,
     )
 

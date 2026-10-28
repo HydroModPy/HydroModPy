@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
-import rasterio
 
 
 def write_shapefile_without_duplicate_columns(src_path: str | Path, dst_path: str | Path) -> None:
@@ -30,36 +29,3 @@ def backend_has_callables(backend: object, component_name: str, *method_names: s
     if component is None:
         return False
     return all(callable(getattr(component, method_name, None)) for method_name in method_names)
-
-
-def read_raster_data_and_meta(path: str | Path) -> tuple:
-    """Read raster data + metadata from backend cache or disk.
-
-    Returns ``(data, transform_gdal, nodata, crs_string)``.
-    ``transform_gdal`` is a 6-element GDAL-style geotransform tuple.
-    """
-
-    path_str = str(path)
-    backend = resolve_delineation_backend()
-    raster_backend = getattr(backend, "raster", None)
-    if raster_backend is not None and backend_has_callables(
-        backend,
-        "raster",
-        "get_cached_raster_numpy",
-        "get_cached_raster_metadata",
-    ):
-        data = raster_backend.get_cached_raster_numpy(path_str)
-        if data is not None:
-            meta = raster_backend.get_cached_raster_metadata(path_str)
-            t = meta["transform"]  # (res_x, 0, west, 0, -res_y, north)
-            gdal_transform = (t[2], t[0], 0.0, t[5], 0.0, -t[4])
-            nodata = meta["nodata"]
-            crs = str(meta.get("crs", ""))
-            return data, gdal_transform, nodata, crs
-
-    with rasterio.open(path_str) as src:
-        data = src.read(1)
-        gdal_transform = src.transform.to_gdal()
-        nodata = src.nodata
-        crs = str(src.crs) if src.crs else ""
-    return data, gdal_transform, nodata, crs

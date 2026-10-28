@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import numpy as np
+import shapely
 
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
@@ -91,7 +92,10 @@ def _zonal_mean(
     ncols: int,
     min_pixels: int,
 ) -> float | None:
-    """Mean of raster pixel centres inside ``poly``; ``None`` if too few."""
+    """Mean of the pixels whose centre lies inside ``poly``; ``None`` if too few.
+
+    A pixel centre on an edge of the polygon is not inside it.
+    """
     px_min, py_min = float(poly[:, 0].min()), float(poly[:, 1].min())
     px_max, py_max = float(poly[:, 0].max()), float(poly[:, 1].max())
 
@@ -114,30 +118,10 @@ def _zonal_mean(
     gx, gy = np.meshgrid(cx, cy)
     block = values[row_lo : row_hi + 1, col_lo : col_hi + 1]
 
-    inside = _points_in_polygon(poly, gx.reshape(-1), gy.reshape(-1)).reshape(gx.shape)
+    inside = shapely.contains_xy(shapely.Polygon(poly), gx, gy)
     finite = np.isfinite(block)
     keep = inside & finite
     n = int(np.count_nonzero(keep))
     if n < max(1, int(min_pixels)):
         return None
     return float(np.mean(block[keep]))
-
-
-def _points_in_polygon(poly: np.ndarray, px: np.ndarray, py: np.ndarray) -> np.ndarray:
-    """Even-odd ray-cast point-in-polygon test, vectorized over points."""
-    x = poly[:, 0]
-    y = poly[:, 1]
-    n = len(poly)
-    inside = np.zeros(px.shape, dtype=bool)
-    j = n - 1
-    for i in range(n):
-        yi, yj = y[i], y[j]
-        xi, xj = x[i], x[j]
-        denom = yj - yi
-        if denom == 0.0:
-            j = i
-            continue
-        cond = ((yi > py) != (yj > py)) & (px < (xj - xi) * (py - yi) / denom + xi)
-        inside ^= cond
-        j = i
-    return inside

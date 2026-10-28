@@ -2,10 +2,6 @@
 # Domain-only case extracted from examples_legacy/example12/config.toml
 # ----------------------------------------------------------------------
 
-[workspace]
-# Path to the input data folder (observations, climate, GIS layers, etc.).
-data_path = "../../../examples_legacy/example12/data"
-
 [site]
 name = "nancon"
 
@@ -33,7 +29,7 @@ catch_def = "from_outlet_coord"
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
-dem_init_path = "../../../examples/data/dem/DEM_armorican_massif.tif"
+dem_init_path = "../../../../examples/data/dem/DEM_armorican_massif.tif"
 
 # Base/example12 outlet kept for reference:
 # x_outlet = 265611.933
@@ -93,5 +89,5 @@ cell_samples_per_axis = 8
 
 [[data.geology.sources]]
 source = "custom"
-path = "../../../examples/data/geology/GEO1M_4x.shp"
+path = "../../../../examples/data/geology/GEO1M_4x.shp"
 code_field = "CODE_LEG"

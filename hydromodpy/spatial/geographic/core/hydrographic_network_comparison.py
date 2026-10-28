@@ -17,6 +17,7 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     measure_linework_length_m,
     project_gdf_for_metric_operations,
 )
+from hydromodpy.spatial.geographic.core.river_mesh_trace import linear_parts
 
 if TYPE_CHECKING:
     from geopandas import GeoDataFrame
@@ -206,26 +207,7 @@ def _normalize_linework(gdf: GeoDataFrame) -> GeoDataFrame:
     if gdf.empty:
         return gpd.GeoDataFrame(geometry=[], crs=gdf.crs)
 
-    geometries = []
-    for geom in gdf.geometry:
-        geometries.extend(_explode_linear_geometries(geom))
-    return gpd.GeoDataFrame(geometry=geometries, crs=gdf.crs)
-
-
-def _explode_linear_geometries(geom) -> list[object]:
-    if geom is None or geom.is_empty:
-        return []
-    geom_type = str(getattr(geom, "geom_type", ""))
-    if geom_type in {"LineString", "LinearRing"}:
-        return [geom]
-    if geom_type == "MultiLineString":
-        return [part for part in geom.geoms if part is not None and not part.is_empty]
-    if geom_type == "GeometryCollection":
-        out: list[object] = []
-        for part in geom.geoms:
-            out.extend(_explode_linear_geometries(part))
-        return out
-    return []
+    return gpd.GeoDataFrame(geometry=linear_parts(gdf.geometry), crs=gdf.crs)
 
 
 def _line_boolean(gdf: GeoDataFrame, polygon, *, mode: str) -> GeoDataFrame:
@@ -241,7 +223,7 @@ def _line_boolean(gdf: GeoDataFrame, polygon, *, mode: str) -> GeoDataFrame:
         if geom is None or geom.is_empty:
             continue
         result = geom.intersection(polygon) if mode == "intersection" else geom.difference(polygon)
-        geometries.extend(_explode_linear_geometries(result))
+        geometries.extend(linear_parts([result]))
     return gpd.GeoDataFrame(geometry=geometries, crs=gdf.crs)
 
 

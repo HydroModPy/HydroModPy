@@ -14,9 +14,9 @@ The stress-period bounds live here too. Implementation details are split across:
 - ``sources`` - units, dataset variables, interpolation on cell centres,
 - ``area_weights`` - area-weighted mean of a grid over the cell polygons,
 - ``interpolation`` - nearest, linear and IDW interpolation onto target centres,
-- ``rasters`` - xarray + NetCDF + GeoTIFF discretization,
-- ``stations`` - located point time-series,
-- ``spatial_mean`` - homogeneous fallback series.
+- ``rasters`` - xarray + NetCDF + GeoTIFF discretization, and the spatial mean
+  of the homogeneous fallback series,
+- ``stations`` - located point time-series.
 """
 
 from __future__ import annotations
@@ -27,9 +27,8 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
-from hydromodpy.spatial.forcing.rasters import discretize_one_field_record
+from hydromodpy.spatial.forcing.rasters import discretize_one_field_record, spatial_mean_one_field
 from hydromodpy.spatial.forcing.sources import refuse_area_for_stations
-from hydromodpy.spatial.forcing.spatial_mean import spatial_mean_one_field
 from hydromodpy.spatial.forcing.stations import (
     discretize_located_points,
     extract_located_points,
@@ -65,9 +64,6 @@ def stress_period_bounds(
     from hydromodpy.core.time import build_simulation_time_boundaries
 
     boundaries = build_simulation_time_boundaries(simulation_window)
-    if len(boundaries) < 2:
-        return None
-
     bounds = []
     for i in range(min(nper, len(boundaries) - 1)):
         bounds.append((boundaries[i], boundaries[i + 1]))

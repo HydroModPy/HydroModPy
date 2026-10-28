@@ -56,15 +56,6 @@ class PreparedGeographicRun:
     dem_res: float
 
 
-def _normalize_buff_area(buff_area: float | str | None) -> float | str:
-    """Normalize buffer control while preserving support for explicit-distance strings."""
-    if buff_area is None:
-        raise ValueError("geographic.catchment.buff_area is required")
-    if isinstance(buff_area, str):
-        return buff_area
-    return float(buff_area)
-
-
 def prepare_geographic_run(
     *,
     config: GeographicConfig,
@@ -148,10 +139,6 @@ def build_standard_catchment(
     tool = resolve_delineation_backend(backend)
 
     if config.catch_def == "from_outlet_coord":
-        if config.x_outlet is None or config.y_outlet is None or config.snap_dist is None:
-            raise ValueError(
-                "catch_def='from_outlet_coord' requires x_outlet, y_outlet and snap_dist"
-            )
         return extract_catchment_from_point(
             x_outlet=float(config.x_outlet),
             y_outlet=float(config.y_outlet),
@@ -166,8 +153,6 @@ def build_standard_catchment(
         )
 
     if config.catch_def == "from_polyg_shp":
-        if config.polyg_shp_path is None:
-            raise ValueError("catch_def='from_polyg_shp' requires polyg_shp_path")
         return extract_catchment_from_polygon(
             polyg_shp_path=config.polyg_shp_path,
             output_shp_path=paths.watershed_shp,
@@ -195,7 +180,7 @@ def build_standard_domain_polygons(
         return derive_catchment_domain(
             catchment_shp=paths.watershed_shp,
             output_dir=paths.geographic_path,
-            buff_area=_normalize_buff_area(config.buff_area),
+            buff_area=config.buff_area,
             dem_init_path=dem_init_path,
             crs_project=crs_project,
             watershed_buff_name="watershed_buff.shp",

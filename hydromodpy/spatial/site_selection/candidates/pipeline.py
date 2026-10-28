@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
+from shapely.geometry import box
+
 from hydromodpy.spatial.site_selection.candidates.generation import (
     CandidateGenerationEvidence,
     candidate_generation_evidence_with_candidate_attributes,
@@ -24,7 +27,7 @@ from hydromodpy.spatial.site_selection.candidates.reference_network import (
     load_reference_network_for_outlets,
     score_outlets_against_reference_network,
 )
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig, TerritoryConfig
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 
 RawAccumulationBuilder = Callable[..., str | Path]
@@ -206,37 +209,44 @@ def site_selection_search_geometry(
 ) -> object | None:
     """Return the optional territory geometry used to constrain candidate sampling."""
 
-    territory = config.territory
-    if not territory.clip_to_territory:
+    if not config.territory.clip_to_territory:
         return None
+    return territory_geometry(config.territory, target_crs=target_crs)
+
+
+def territory_geometry(
+    territory: TerritoryConfig,
+    *,
+    target_crs: str | None,
+    default_country: str | None = None,
+) -> object | None:
+    """Return the territory as one geometry in *target_crs*, or ``None``.
+
+    The administrative modes know France only. A territory that names no
+    country is taken in *default_country*, and an administrative territory
+    outside France gives ``None``. A polygon file is united and made valid.
+    """
+
     mode = territory.mode
-    if mode == "admin_departments" and (territory.country or "").upper() == "FR":
+    french = (territory.country or default_country or "").upper() == "FR"
+    if mode == "admin_departments" and french:
         from hydromodpy.spatial.administrative.france import geometry_for_departments
 
         return _make_search_geometry_valid(
             geometry_for_departments(territory.departments, target_crs=target_crs)
         )
-    if mode == "admin_regions" and (territory.country or "").upper() == "FR":
+    if mode == "admin_regions" and french:
         from hydromodpy.spatial.administrative.france import geometry_for_regions
 
         return _make_search_geometry_valid(
             geometry_for_regions(territory.regions, target_crs=target_crs)
         )
     if mode == "polygon_file" and territory.polygon_file is not None:
-        try:
-            import geopandas as gpd
-        except ImportError as exc:  # pragma: no cover - optional geospatial dependency.
-            raise ImportError(
-                "geopandas is required for site_selection territory polygons."
-            ) from exc
-
         frame = gpd.read_file(territory.polygon_file)
         if target_crs and frame.crs is not None and str(frame.crs) != str(target_crs):
             frame = frame.to_crs(target_crs)
         return _make_search_geometry_valid(_union_geometries(frame))
     if mode == "bbox" and territory.bbox is not None:
-        from shapely.geometry import box
-
         return box(*territory.bbox)
     return None
 
@@ -275,9 +285,7 @@ def _load_reference_network_for_candidates(
 
 def _union_geometries(frame: object) -> object:
     geometry = frame.geometry[frame.geometry.notna() & (~frame.geometry.is_empty)]
-    if hasattr(geometry, "union_all"):
-        return geometry.union_all()
-    return geometry.unary_union
+    return geometry.union_all()
 
 
 def _make_search_geometry_valid(geometry: object | None) -> object | None:
@@ -302,4 +310,5 @@ __all__ = [
     "load_reference_network_for_generated_candidates",
     "load_reference_network_for_station_candidates",
     "site_selection_search_geometry",
+    "territory_geometry",
 ]

@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Literal
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio
 from shapely.geometry import box
 
@@ -100,6 +101,23 @@ class CatchmentDomainProducts:
     buffer_rule: BufferRule | None = None
     buffer_declared: float | str | None = None
     buffer_area_increase: float | None = None
+
+
+def catchment_area_m2(frame: gpd.GeoDataFrame, *, area_field: str | None = None) -> float:
+    """Return the area of a catchment in m2, every part of it summed.
+
+    The area is the one of the geometry, in the CRS of *frame*. With
+    *area_field*, a numeric column of that name holds the area the file
+    declares, and it wins when present (a NaN there stays NaN). A column of
+    text leaves the geometry in charge. The sign of each declared row is dropped.
+    """
+    if (
+        area_field is not None
+        and area_field in frame.columns
+        and pd.api.types.is_numeric_dtype(frame[area_field])
+    ):
+        return float(frame[area_field].abs().sum(skipna=False))
+    return float(np.abs(frame.geometry.area.sum()))
 
 
 def _read_dem_resolution(
@@ -290,7 +308,7 @@ def derive_catchment_domain(
             "Use a projected CRS in meters before buffering."
         )
 
-    catchment_area_km2 = float(np.abs(catchment_gdf.geometry.area.sum()) / 1_000_000.0)
+    catchment_area_km2 = catchment_area_m2(catchment_gdf) / 1_000_000.0
     if catchment_area_km2 <= 0.0:
         raise ValueError("catchment area must be > 0")
 

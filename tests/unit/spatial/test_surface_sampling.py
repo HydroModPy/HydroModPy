@@ -1,51 +1,55 @@
+"""A prepared sampler reads a surface bilinearly at XY, with nodata as NaN."""
+
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
+import pytest
 
 from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
-
-def test_prepared_surface_sampler_samples_bilinear_values_once_surface_is_prepared() -> None:
-    support = RasterSupport(
-        crs="EPSG:2154",
-        dx=1.0,
-        dy=1.0,
-        xmin=0.0,
-        xmax=2.0,
-        ymin=0.0,
-        ymax=2.0,
-        nrows=2,
-        ncols=2,
-        nodata=-9999.0,
-    )
-    surface = Surface(
-        name="surface_topo",
-        values=np.array([[10.0, 20.0], [30.0, -9999.0]], dtype=float),
-        support=support,
-    )
-
-    sampler = PreparedSurfaceSampler.from_surface(surface)
-
-    sampled = sampler.sample(
-        np.array([0.5, 1.0, 1.5], dtype=float),
-        np.array([1.5, 1.0, 0.5], dtype=float),
-    )
-
-    assert np.isclose(sampled[0], 10.0)
-    assert np.isclose(sampled[1], 20.0)
-    assert np.isnan(sampled[2])
+SUPPORT = RasterSupport(
+    crs="EPSG:2154", dx=1.0, dy=1.0, xmin=0.0, xmax=2.0, ymin=0.0, ymax=2.0, nrows=2, ncols=2,
+    nodata=-9999.0,
+)  # fmt: skip
+VALUES = np.array([[10.0, 20.0], [30.0, -9999.0]])
 
 
-def test_prepared_surface_sampler_returns_nan_without_complete_support() -> None:
-    surface = Surface(
-        name="surface_topo",
-        values=np.array([[1.0, 2.0], [3.0, 4.0]], dtype=float),
-        support=None,
-    )
+def test_the_sampler_reads_bilinear_values_and_masks_nodata() -> None:
+    sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, SUPPORT))
+    x, y = np.array([0.5, 1.0, 1.5]), np.array([1.5, 1.0, 0.5])
 
-    sampler = PreparedSurfaceSampler.from_surface(surface)
-    sampled = sampler.sample(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
+    sampled = sampler.sample(x, y)
 
-    assert np.all(np.isnan(sampled))
+    np.testing.assert_allclose(sampled, [10.0, 20.0, np.nan])
+    np.testing.assert_array_equal(sampler.sample_points_xy(np.column_stack([x, y])), sampled)
+
+
+@pytest.mark.parametrize(
+    "support",
+    [None, replace(SUPPORT, dx=None), replace(SUPPORT, nrows=None), replace(SUPPORT, dx=0.0)],
+    ids=["no_support", "no_cell_size", "no_shape", "zero_cell_size"],
+)
+def test_a_support_that_places_no_cell_samples_nan(support) -> None:
+    sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, support))
+
+    assert np.all(np.isnan(sampler.sample(np.array([0.5, 1.0]), np.array([0.5, 1.0]))))
+
+
+@pytest.mark.parametrize(
+    ("call", "match"),
+    [
+        (lambda s: PreparedSurfaceSampler.from_surface(None), "surface is required"),
+        (lambda s: s.sample(np.zeros(2), np.zeros(3)), "same shape"),
+        (lambda s: s.sample_points_xy(np.zeros((2, 3))), r"shape \(n_points, 2\)"),
+    ],
+    ids=["no_surface", "x_and_y_differ", "points_not_xy"],
+)
+def test_a_request_with_no_coordinates_to_read_is_refused(call, match) -> None:
+    sampler = PreparedSurfaceSampler.from_surface(Surface("topo", VALUES, SUPPORT))
+
+    with pytest.raises(ValueError, match=match):
+        call(sampler)

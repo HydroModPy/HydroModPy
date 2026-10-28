@@ -143,26 +143,11 @@ def _map_heads(sim: Run, geometry: NetworkGeometry) -> MapHeads:
 
 def _lines_in_mesh_crs(network, mesh_crs: str | None) -> tuple[np.ndarray, ...]:
     """Return every line of a mapped network as one ``(n, 2)`` array, mesh CRS."""
+    from hydromodpy.spatial.geographic.core.river_mesh_trace import linear_parts
+
     if network is None or network.empty:
         return ()
     gdf = network
     if mesh_crs and network.crs is not None and str(network.crs) != str(mesh_crs):
         gdf = network.to_crs(mesh_crs)
-    lines: list[np.ndarray] = []
-    for geometry in gdf.geometry:
-        lines.extend(_line_parts(geometry))
-    return tuple(lines)
-
-
-def _line_parts(geometry) -> list[np.ndarray]:
-    """Flatten one geometry into its ``(n, 2)`` line coordinate arrays."""
-    if geometry is None or geometry.is_empty:
-        return []
-    parts = getattr(geometry, "geoms", None)
-    if parts is not None:
-        flat: list[np.ndarray] = []
-        for part in parts:
-            flat.extend(_line_parts(part))
-        return flat
-    coords = np.asarray(geometry.coords, dtype=float)
-    return [coords] if coords.shape[0] >= 2 else []
+    return tuple(np.asarray(line.coords, dtype=float) for line in linear_parts(gdf.geometry))

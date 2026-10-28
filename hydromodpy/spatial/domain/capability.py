@@ -1,46 +1,21 @@
-"""``domain-build``: the geometry a mesh is cut out of, as its own capability.
+"""``domain-build``: a terrain and a depth model in, a sealed vertical extent out.
 
-The audit calls this the one genuinely hard decomposition problem in the head
-of the pipeline, and the shape of the defect is an ordering: ``Domain(...)`` is
-constructed one step *after* the meshing, and the mesh persistence then reads
-``domain.z_interfaces`` back out of it. A capability that turns a terrain and a
-``[domain]`` depth model into a sealed vertical extent is what makes the head
-separable at all, because it is the artefact the meshing can be handed instead
-of a live object built after it.
+The extent is the geometry a mesh is cut out of, handed to the meshing as a
+sealed artefact instead of a live object.
 
-Four things this declaration says that the specification of the boundary did
-not, because the code on this tree says them.
+The request takes the depth model of ``[domain]``, not the whole section:
+``supports`` and ``zone_ids`` read artefacts this process never receives. The
+working CRS is the one of the DEM, and a DEM without one is refused.
 
-**It takes the depth model, not the whole** ``[domain]`` **section.** That
-section carries three members: ``depth_model``, which is pure geometry;
-``supports``, whose providers read loaded forcings, a time grid and a workspace
-through ``SupportBuildContext``; and ``zone_ids``, which is the permission to
-write zones that binders fill from artefacts produced elsewhere. Only the first
-is a function of a terrain and a document. Declaring the other two would be
-declaring inputs this process cannot honour.
+The top surface is not written again. ``domain.json`` carries the digest of the
+raster the bottom was derived from, so a reader holding a DEM can prove it is
+that one.
 
-**The working CRS is the DEM's own, and a DEM without one is refused.**
-``terrain-delineate`` takes ``crs_project`` as an input because the chain it
-binds over loses georeferencing and has to be told what to stamp back on. Here
-nothing is stamped: the domain *is* the DEM's grid, so a CRS the caller asserts
-and the file contradicts would be the exact class of false statement two phases
-of this campaign were spent removing.
-
-**The top surface is not re-emitted.** The domain is built on the DEM the
-request names, and copying it into ``outputs/`` would double the largest write
-of the job to produce a file identical to its input. What makes the seal mean
-something is that ``domain.json`` carries the digest of the raster the bottom
-was derived from, so a reader holding a DEM can prove it is that one.
-
-**The two elevation rasters are float64 and carry NaN outside the domain.**
-Not the DEM's own sentinel, and the adversarial gate is what settled it:
-``Surface.flat_like`` clamps a nodata cell to ``top - min_gap`` instead of
-leaving it at ``-9999``, and neither depth model marks a cell the *mask*
-excluded at all -- so a consumer masking on the declared nodata tag would read
-a fabricated elevation. A finite sentinel could not be used even if it were
-carried through, because a flat substratum at 0 m on a terrain whose nodata is
-0 would make every active cell read as no data. NaN cannot collide with an
-elevation, and ``active_cells.tif`` says the same thing in integers.
+The two elevation rasters are float64 and carry NaN outside the domain. The
+nodata of the DEM is not kept by ``Surface.flat_like``, and a finite sentinel
+could collide with an elevation: a flat substratum at 0 m on a terrain whose
+nodata is 0 would make every active cell read as no data. NaN cannot collide
+with an elevation, and ``active_cells.tif`` says the same thing in integers.
 """
 
 from __future__ import annotations

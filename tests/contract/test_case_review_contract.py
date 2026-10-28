@@ -246,3 +246,33 @@ def test_run_case_reviews_reports_progress_for_each_case(
     assert "[1/2] Completed case_a" in messages
     assert "[2/2] Running case_c" in messages
     assert "[2/2] Completed case_c" in messages
+
+
+CASE_TOMLS = sorted(
+    Path(__file__).resolve().parents[2].joinpath("hydromodpy", "spatial").glob("**/cases/**/*.toml")
+)
+
+
+def _path_values(node: object) -> list[str]:
+    """Every string under a key that ends with ``path``, at any depth."""
+    if isinstance(node, dict):
+        found = []
+        for key, value in node.items():
+            if isinstance(value, str) and key.endswith("path"):
+                found.append(value)
+            else:
+                found.extend(_path_values(value))
+        return found
+    if isinstance(node, list):
+        return [value for item in node for value in _path_values(item)]
+    return []
+
+
+@pytest.mark.parametrize("toml_path", CASE_TOMLS, ids=lambda path: path.name)
+def test_every_path_of_a_case_toml_resolves_from_its_folder(toml_path: Path) -> None:
+    import tomllib
+
+    paths = _path_values(tomllib.loads(toml_path.read_text(encoding="utf-8")))
+
+    missing = [value for value in paths if not (toml_path.parent / value).resolve().exists()]
+    assert not missing, f"{toml_path.name} names paths that do not exist: {missing}"

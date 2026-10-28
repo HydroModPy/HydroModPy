@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.core.io.crs import ensure_crs
+from hydromodpy.core.io.crs import crs_text, ensure_crs, geojson_crs_member
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
     resolve_delineation_backend,
@@ -22,7 +22,12 @@ from hydromodpy.spatial.site_selection.config import (
     HydrologyConfig,
     OutletsConfig,
 )
+from hydromodpy.spatial.site_selection.domain.export_values import (
+    clean_properties,
+    single_or_mixed,
+)
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
+from hydromodpy.spatial.site_selection.outputs.geojson import write_geojson
 
 
 @dataclass(frozen=True)
@@ -545,6 +550,7 @@ def write_generated_network_geojson(
         "name": Path(path).stem,
         "hydromodpy_geometry_role": "generated_dem_network",
         "hydromodpy_coordinate_crs": raster.crs,
+        **geojson_crs_member(raster.crs),
         "hydromodpy_network_threshold_area_km2": hydrology.network_threshold_area_km2,
         "hydromodpy_threshold_value_used": threshold,
         "hydromodpy_source_accumulation": str(flow_products.products.acc),
@@ -556,13 +562,7 @@ def write_generated_network_geojson(
         ),
         "features": features,
     }
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(collection, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return destination
+    return write_geojson(path, collection)
 
 
 def write_candidate_outlets_geojson(
@@ -587,7 +587,7 @@ def write_candidate_outlets_geojson(
                 "source_feature_id": candidate.source_feature_id,
                 "source_label": candidate.source_label,
                 "priority": candidate.priority,
-                **_clean_properties(candidate.attributes),
+                **clean_properties(candidate.attributes),
             },
         }
         for candidate in materialized
@@ -596,16 +596,11 @@ def write_candidate_outlets_geojson(
         "type": "FeatureCollection",
         "name": Path(path).stem,
         "hydromodpy_geometry_role": "candidate_outlets",
-        "hydromodpy_coordinate_crs": _single_or_mixed(crs_values),
+        "hydromodpy_coordinate_crs": single_or_mixed(crs_values),
+        **geojson_crs_member(single_or_mixed(crs_values)),
         "features": features,
     }
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(collection, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return destination
+    return write_geojson(path, collection)
 
 
 @dataclass(frozen=True)
@@ -636,7 +631,7 @@ def _read_accumulation_raster(path: str | Path) -> _AccumulationRaster:
         array = np.asarray(src.read(1), dtype="float64")
         nodata = src.nodata
         transform = src.transform
-        crs = "" if src.crs is None else str(src.crs)
+        crs = crs_text(src.crs) or ""
     valid = np.isfinite(array)
     if nodata is not None:
         valid &= array != float(nodata)
@@ -662,18 +657,8 @@ def _search_geometry_mask(
         return None
     if bool(getattr(search_geometry, "is_empty", False)):
         return np.zeros(raster.array.shape, dtype=bool)
-    try:
-        from shapely.geometry import mapping
-    except ImportError as exc:  # pragma: no cover - shapely is a geospatial dependency.
-        raise ImportError(
-            "shapely is required to rasterize site-selection territory masks."
-        ) from exc
-    try:
-        import rasterio.features
-    except ImportError as exc:  # pragma: no cover - rasterio is already required for rasters.
-        raise ImportError(
-            "rasterio is required to rasterize site-selection territory masks."
-        ) from exc
+    import rasterio.features
+    from shapely.geometry import mapping
 
     return rasterio.features.geometry_mask(
         [mapping(search_geometry)],
@@ -940,27 +925,6 @@ def _isolated_network_point_features(
             }
         )
     return features
-
-
-def _single_or_mixed(values: set[str]) -> str:
-    clean = {value for value in values if value}
-    if not clean:
-        return ""
-    if len(clean) == 1:
-        return next(iter(clean))
-    return "mixed"
-
-
-def _clean_properties(properties: dict[str, Any]) -> dict[str, Any]:
-    return {str(key): _clean_value(value) for key, value in properties.items()}
-
-
-def _clean_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, Path):
-        return str(value)
-    return json.dumps(value, ensure_ascii=True, sort_keys=True)
 
 
 def _optional_float(value: object) -> float | None:

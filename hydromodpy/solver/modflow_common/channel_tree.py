@@ -220,7 +220,7 @@ def project_channel_tree(
     the pointer and the accumulation disagree, and it is refused.
     """
     from hydromodpy.spatial.mesh.cells.zonal_stats import rasterize_cell_ids
-    from hydromodpy.spatial.terrain.port import D8_WBT_OFFSETS
+    from hydromodpy.spatial.terrain.d8 import d8_receivers
 
     on_graph = np.asarray(routable, dtype=bool).reshape(-1)
     lakes = np.asarray(lake_of, dtype=int).reshape(-1)
@@ -252,22 +252,20 @@ def project_channel_tree(
         zip(sorted_labels[last].tolist(), a_pixels[order][last].tolist(), strict=True)
     )
 
-    offsets = {int(code): step for code, step in D8_WBT_OFFSETS.items()}
-    link = tree.link
+    receivers = d8_receivers(tree.pointer, pit="none")
+    flat_labels = labels.reshape(-1)
+    flat_link = tree.link.reshape(-1)
     max_steps = nrows * ncols
     for cell, pixel in exit_pixel.items():
-        row, col = divmod(int(pixel), ncols)
+        current = int(pixel)
         for _ in range(max_steps):
-            step = offsets.get(int(tree.pointer[row, col]))
-            if step is None:
+            current = int(receivers[current])
+            if current < 0:
                 break
-            row, col = row + step[0], col + step[1]
-            if not (0 <= row < nrows and 0 <= col < ncols):
-                break
-            other = int(labels[row, col])
+            other = int(flat_labels[current])
             if other == cell:
                 continue
-            if other >= 0 and link[row, col] and channel[other]:
+            if other >= 0 and flat_link[current] and channel[other]:
                 pinned[cell] = other
             break
     _refuse_pin_cycles(pinned)

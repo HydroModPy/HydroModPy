@@ -27,7 +27,7 @@ GOLDEN_TEST_PATHS = (
 def main(argv: list[str] | None = None) -> int:
     """Run pytest on geographic golden tests with ``--update-goldens``."""
     extra_args = list(argv or [])
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[4]
     cmd = [
         sys.executable,
         "-m",

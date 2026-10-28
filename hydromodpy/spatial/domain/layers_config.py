@@ -31,8 +31,6 @@ def _require_positive_int(value, *, name: str) -> int:
 
     Floats representing exact integers (for example 5.0) are accepted.
     """
-    if value is None:
-        raise ValueError(f"{name} is required.")
     if isinstance(value, bool):
         raise ValueError(f"{name} must be an integer >= 1, got bool.")
     if isinstance(value, int):
@@ -281,8 +279,8 @@ class VerticalGridConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_cross_fields(self):
-        if self.genmtd_lay in ("constant", "decay"):
-            _require_positive_int(self.nlay, name="nlay")
+        if self.genmtd_lay in ("constant", "decay") and self.nlay is None:
+            raise ValueError("nlay is required.")
         if self.genmtd_lay == "decay":
             if self.lay_decay is None:
                 raise ValueError("lay_decay is required when genmtd_lay='decay'")

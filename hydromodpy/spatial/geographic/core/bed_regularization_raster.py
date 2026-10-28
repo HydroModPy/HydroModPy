@@ -36,7 +36,9 @@ from rasterio.windows import Window
 from shapely.geometry.base import BaseGeometry
 
 from hydromodpy.core.bed_regularization import BedRegularization, regularize_bed_on_tree
+from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.geographic.core.ground_corrections import (
     ground_dem_path_from_config,
     notch_enabled,
@@ -482,17 +484,17 @@ def regularized_ground_from_config(
         transform = src.transform
         nodata = src.nodata
         shape = (src.height, src.width)
-    valid = _valid(top, nodata)
+    valid = valid_cells(top, nodata)
 
     channel_tif = _channel_raster(config, setup, river_products)
     channel_raw, channel_nodata = _read_on_grid(channel_tif, transform, shape, fill=0.0)
-    channel = _valid(channel_raw, channel_nodata) & (channel_raw > 0)
+    channel = valid_cells(channel_raw, channel_nodata) & (channel_raw > 0)
     del channel_raw
     domain = _domain_bounds(setup)
     if domain is not None:
         channel = restrict_to_window(channel, transform, domain, margin_m=WINDOW_MARGIN_M)
     d8_raw, d8_nodata = _read_on_grid(d8_tif, transform, shape, fill=0.0)
-    d8 = np.where(_valid(d8_raw, d8_nodata), d8_raw, 0)
+    d8 = np.where(valid_cells(d8_raw, d8_nodata), d8_raw, 0)
     del d8_raw
     gap = _notch_footprint(config, setup, transform, shape)
     barriers, crossings_path = _barriers_from_config(config, setup)
@@ -530,24 +532,14 @@ def regularized_ground_from_config(
     )
 
     out = ground_bed_path(setup)
-    out.parent.mkdir(parents=True, exist_ok=True)
     for key in ("blockxsize", "blockysize"):
         profile.pop(key, None)
-    profile.update(driver="GTiff", compress="lzw", tiled=False)
-    with rasterio.open(out, "w", **profile) as dst:
-        dst.write(fitted, 1)
+    write_band(out, fitted, profile, driver="GTiff", compress="lzw", tiled=False)
     ground_bed_report_path(setup).write_text(
         json.dumps(report.to_document(), indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
     )
     logger.info(report.info_line())
     return out
-
-
-def _valid(array: np.ndarray, nodata: float | None) -> np.ndarray:
-    valid = np.isfinite(array)
-    if nodata is not None and not (isinstance(nodata, float) and math.isnan(nodata)):
-        valid &= array != nodata
-    return valid
 
 
 def _channel_raster(config: object, setup: object, river_products: object) -> Path:

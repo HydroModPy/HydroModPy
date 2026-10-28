@@ -163,8 +163,6 @@ def _area_range_failure_reason(area_km2: float, config: AreaCriteriaConfig) -> s
     if not config.ranges:
         return _area_hard_failure_reason(area_km2, config)
     ranges = _area_ranges(config)
-    if not ranges:
-        return _area_hard_failure_reason(area_km2, config)
     if any(area_range.min_area_km2 <= area_km2 <= area_range.max_area_km2 for area_range in ranges):
         return ""
     return (

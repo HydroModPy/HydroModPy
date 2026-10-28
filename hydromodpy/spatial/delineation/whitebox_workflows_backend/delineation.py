@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
     _WhiteboxComponent,
+    given_options,
 )
 
 
@@ -92,12 +93,14 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
         threshold: float | int | None = None,
         zero_background: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if threshold is not None:
-            kwargs["threshold"] = float(threshold)
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
-        return self._run(self._env.extract_streams, flow_accumulation, **kwargs)
+        return self._run(
+            self._env.extract_streams,
+            flow_accumulation,
+            **given_options(
+                threshold=None if threshold is None else float(threshold),
+                zero_background=zero_background,
+            ),
+        )
 
     def extract_streams(
         self,
@@ -124,16 +127,11 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
         esri_pointer: bool | None = None,
         all_vertices: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if esri_pointer is not None:
-            kwargs["esri_pointer"] = esri_pointer
-        if all_vertices is not None:
-            kwargs["all_vertices"] = all_vertices
         return self._run(
             self._env.raster_streams_to_vector,
             streams_raster,
             d8_pointer,
-            **kwargs,
+            **given_options(esri_pointer=esri_pointer, all_vertices=all_vertices),
         )
 
     def raster_streams_to_vector(
@@ -163,16 +161,11 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if esri_pntr is not None:
-            kwargs["esri_pntr"] = esri_pntr
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
         return self._run(
             self._env.strahler_stream_order,
             d8_pointer,
             streams_raster,
-            **kwargs,
+            **given_options(esri_pntr=esri_pntr, zero_background=zero_background),
         )
 
     def strahler_stream_order(
@@ -202,16 +195,11 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
         esri_pntr: bool | None = None,
         zero_background: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if esri_pntr is not None:
-            kwargs["esri_pntr"] = esri_pntr
-        if zero_background is not None:
-            kwargs["zero_background"] = zero_background
         return self._run(
             self._env.stream_link_identifier,
             d8_pointer,
             streams_raster,
-            **kwargs,
+            **given_options(esri_pntr=esri_pntr, zero_background=zero_background),
         )
 
     def stream_link_identifier(
@@ -241,16 +229,14 @@ class WhiteboxDelineationBackend(_WhiteboxComponent):
         min_length: float | int | None = None,
         esri_pntr: bool | None = None,
     ):
-        kwargs: dict[str, object] = {}
-        if min_length is not None:
-            kwargs["min_length"] = float(min_length)
-        if esri_pntr is not None:
-            kwargs["esri_pntr"] = esri_pntr
         return self._run(
             self._env.remove_short_streams,
             d8_pointer,
             streams_raster,
-            **kwargs,
+            **given_options(
+                min_length=None if min_length is None else float(min_length),
+                esri_pntr=esri_pntr,
+            ),
         )
 
     def remove_short_streams(

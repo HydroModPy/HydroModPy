@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 RASTER_NODATA = -9999.0
 RESULTS_NODATA = -99999.0
 EXTREME_NODATA = -999999.0
@@ -14,10 +16,25 @@ NODATA_SENTINELS = (RASTER_NODATA, RESULTS_NODATA, EXTREME_NODATA)
 # whose magnitude exceeds this threshold is a sentinel, never a result.
 SENTINEL_ABS_THRESHOLD = 1e20
 
+
+def valid_cells(values: np.ndarray, nodata: float | None) -> np.ndarray:
+    """Return the mask of the cells that hold a value.
+
+    A cell holds a value when it is finite and differs from the *nodata*
+    sentinel of its raster. A ``None`` or NaN sentinel leaves only the finite
+    test.
+    """
+    valid = np.isfinite(values)
+    if nodata is not None:
+        valid &= values != nodata
+    return valid
+
+
 __all__ = [
     "EXTREME_NODATA",
     "NODATA_SENTINELS",
     "RASTER_NODATA",
     "RESULTS_NODATA",
     "SENTINEL_ABS_THRESHOLD",
+    "valid_cells",
 ]

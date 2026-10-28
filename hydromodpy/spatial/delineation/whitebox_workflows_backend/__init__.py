@@ -10,8 +10,7 @@ that composes thematic sub-backends:
 
 from __future__ import annotations
 
-from functools import lru_cache
-
+from hydromodpy.spatial.delineation.registry import clear_backend_cache, get_backend
 from hydromodpy.spatial.delineation.whitebox_workflows_backend.delineation import (
     WhiteboxDelineationBackend,
 )
@@ -59,17 +58,16 @@ def _normalize_whitebox_backend_kind(kind: str | None = None) -> str:
     return "whitebox_workflows"
 
 
-@lru_cache(maxsize=1)
-def _get_cached_whitebox_backend(kind: str = "whitebox_workflows") -> WhiteboxWorkflowsBackend:
-    _normalize_whitebox_backend_kind(kind)
-    return WhiteboxWorkflowsBackend()
-
-
 def clear_whitebox_backend_cache() -> None:
-    """Clear the shared workflows backend singleton."""
-    _get_cached_whitebox_backend.cache_clear()
+    """Clear the shared workflows backend singleton, the one the registry caches."""
+    clear_backend_cache()
 
 
 def get_whitebox_backend(kind: str | None = None) -> WhiteboxWorkflowsBackend:
-    """Return the shared workflows backend used by runtime code."""
-    return _get_cached_whitebox_backend(_normalize_whitebox_backend_kind(kind))
+    """Return the shared workflows backend used by runtime code.
+
+    It is the instance :func:`hydromodpy.spatial.delineation.registry.get_backend`
+    returns, so one process holds one Whitebox environment. The ``kind`` check
+    stays here: the registry also accepts ``"whitebox"``, this function does not.
+    """
+    return get_backend(_normalize_whitebox_backend_kind(kind))

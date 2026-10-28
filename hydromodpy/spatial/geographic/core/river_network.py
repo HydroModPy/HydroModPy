@@ -19,22 +19,20 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
 import rasterio
 from shapely.geometry import LineString, MultiLineString
 
-from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+from hydromodpy.core.nodata import valid_cells
+from hydromodpy.spatial.geographic.core.catchment_domain import catchment_area_m2
+from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace, linear_parts
 from hydromodpy.spatial.geographic.geographic_config import RiverNetworkConfig
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
     resolve_delineation_backend,
 )
-
-if TYPE_CHECKING:
-    from shapely.geometry.base import BaseGeometry
 
 
 @dataclass(frozen=True)
@@ -92,9 +90,7 @@ def _active_positive_count(path: str | Path) -> int:
     with rasterio.open(str(path)) as src:
         arr = np.asarray(src.read(1))
         nodata = src.nodata
-    valid = np.isfinite(arr)
-    if nodata is not None:
-        valid &= arr != nodata
+    valid = valid_cells(arr, nodata)
     return int(np.count_nonzero((arr > 0) & valid))
 
 
@@ -102,9 +98,7 @@ def _max_positive_value(path: str | Path) -> float | None:
     with rasterio.open(str(path)) as src:
         arr = np.asarray(src.read(1))
         nodata = src.nodata
-    valid = np.isfinite(arr)
-    if nodata is not None:
-        valid &= arr != nodata
+    valid = valid_cells(arr, nodata)
     positive = arr[(arr > 0) & valid]
     if positive.size == 0:
         return None
@@ -113,23 +107,6 @@ def _max_positive_value(path: str | Path) -> float | None:
 
 def _valid_geometry_mask(geometries) -> object:
     return (~geometries.is_empty) & (~geometries.isna())
-
-
-def _iter_line_geometries(geometries: list[BaseGeometry]) -> list[BaseGeometry]:
-    out: list[BaseGeometry] = []
-    for geometry in geometries:
-        if geometry is None:
-            continue
-        if bool(getattr(geometry, "is_empty", True)):
-            continue
-        geom_type = str(getattr(geometry, "geom_type", ""))
-        if geom_type in {"LineString", "MultiLineString"}:
-            out.append(geometry)
-            continue
-        if geom_type == "GeometryCollection":
-            children = list(getattr(geometry, "geoms", ()))
-            out.extend(_iter_line_geometries(children))
-    return out
 
 
 def _build_river_mesh_trace_from_network_gdf(
@@ -148,8 +125,7 @@ def _build_river_mesh_trace_from_network_gdf(
     if crs is None:
         return None
 
-    geometries = [geometry for geometry in network_gdf.geometry.tolist() if geometry is not None]
-    line_geometries = _iter_line_geometries(geometries)
+    line_geometries = linear_parts(network_gdf.geometry.tolist())
     if not line_geometries:
         return None
 
@@ -264,11 +240,7 @@ def compute_river_network_summary(
         0.0 if segment_count == 0 else float(np.sum(np.asarray(network.length, dtype=float)))
     )
 
-    catchment = gpd.read_file(str(watershed_shp))
-    catchment_area_m2 = (
-        0.0 if catchment.empty else float(np.sum(np.asarray(catchment.area, dtype=float)))
-    )
-    catchment_area_km2 = float(catchment_area_m2 / 1_000_000.0)
+    catchment_area_km2 = catchment_area_m2(gpd.read_file(str(watershed_shp))) / 1_000_000.0
     drainage_density_km_per_km2 = (
         0.0
         if catchment_area_km2 <= 0.0

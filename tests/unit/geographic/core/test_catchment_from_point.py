@@ -1,0 +1,480 @@
+"""An outlet gives its catchment through the terrain engine, a polygon is copied as given.
+
+The Jenson part: two valleys run side by side down one slope. The outlet is
+declared two cells from the floor of the small one, and the floor of a larger
+one lies five cells away, still inside the snap window. The window snap takes
+the largest accumulation of the window, which is on the larger valley, so it
+delineates the wrong catchment. The Jenson snap takes the nearest cell of the
+stream network and stays on the stream the outlet was declared on. The surface
+is tie-free by construction, so the answers are exact and the two engines of
+the tree can be held to them.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import logging
+from pathlib import Path
+from types import SimpleNamespace
+
+import geopandas as gpd
+import numpy as np
+import pytest
+import rasterio
+from pydantic import ValidationError
+from shapely.geometry import box
+
+from hydromodpy.core.exceptions import (
+    EmptyCatchmentError,
+    TerrainProductError,
+    TerrainRequestError,
+)
+from hydromodpy.spatial.geographic.core.catchment_from_point import (
+    CATCHMENT_LAYOUT,
+    extract_catchment_from_point,
+)
+from hydromodpy.spatial.geographic.core.catchment_from_polygon import (
+    extract_catchment_from_polygon,
+)
+from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.geographic.core.pipeline_steps import build_standard_catchment
+from hydromodpy.spatial.geographic.core.surface_from_dem import build_surface_topo_from_dem
+from hydromodpy.spatial.geographic.geographic_paths import build_geographic_paths
+from hydromodpy.spatial.geographic.pipeline import _geographic_cache_fingerprint
+from hydromodpy.spatial.terrain import ConditioningExtent, JensonSnap, Outlet, registry
+from hydromodpy.spatial.terrain.port import LN_FLOAT32_COLLISION_COUNT
+from tests._helpers.geographic_cases import outlet_config, write_features
+from tests._helpers.geotiffs import write_geotiff
+from tests._helpers.terrain_doubles import fake_accumulation
+from tests._helpers.whitebox_double import FakeVector, FakeWhiteboxBackend
+
+
+def _accumulation_on_disk(tmp_path: Path):
+    """Write a small real ``ln`` accumulation and describe it.
+
+    Real and not a path string, because ``delineate`` reads the raster back to
+    check that float32 still orders the counts it carries. A product that names
+    a file nobody wrote would only ever exercise the file-missing branch.
+    """
+    acc = write_geotiff(
+        tmp_path / "acc.tif",
+        np.log(np.arange(1, 17, dtype="float32").reshape(4, 4)),
+        cell=25.0,
+        nodata=-9999.0,
+    )
+    return fake_accumulation(acc=acc, direc=tmp_path / "direc.tif")
+
+
+def _backend(monkeypatch: pytest.MonkeyPatch) -> FakeWhiteboxBackend:
+    """A conforming double whose CRS stamping is a no-op on absent files."""
+    for module in (
+        "spatial.terrain.whitebox_engine",
+        "spatial.geographic.core.catchment_from_point",
+    ):
+        monkeypatch.setattr(f"hydromodpy.{module}.ensure_crs", lambda *a, **k: None)
+    return FakeWhiteboxBackend()
+
+
+def test_the_flat_layout_is_the_one_geographic_paths_publish() -> None:
+    """The names are the contract: every golden in the tree reads them."""
+    assert CATCHMENT_LAYOUT.per_outlet_directory is False
+    assert CATCHMENT_LAYOUT.mask_name == "watershed.tif"
+    assert CATCHMENT_LAYOUT.boundary_name == "watershed.shp"
+
+
+def _empty_snap(backend, monkeypatch) -> None:
+    monkeypatch.setattr(
+        backend.delineation, "snap_pour_points_vector", lambda *a, **k: FakeVector(frame=[])
+    )
+    monkeypatch.setattr(backend.raster, "vector_record_count", lambda vector: 0)
+
+
+def _empty_polygon(backend, monkeypatch) -> None:
+    counts = iter([1, 0])
+    monkeypatch.setattr(backend.raster, "write_raster", lambda raster, path: None)
+    monkeypatch.setattr(backend.raster, "write_vector", lambda vector, path: None)
+    monkeypatch.setattr(backend.raster, "vector_record_count", lambda vector: next(counts))
+    monkeypatch.setattr(backend.delineation, "watershed_raster", lambda *a, **k: object())
+    monkeypatch.setattr(
+        backend.delineation, "raster_to_vector_polygons_raster", lambda r: FakeVector(frame=[])
+    )
+    monkeypatch.setattr(
+        "hydromodpy.spatial.terrain.whitebox_engine._read_point", lambda path: (10.0, 20.0)
+    )
+
+
+@pytest.mark.parametrize(
+    ("spoil", "error", "reason"),
+    [
+        (_empty_snap, TerrainProductError, "produced no feature"),
+        # The engine knows rasters; only this layer knows the TOML keys.
+        (_empty_snap, TerrainProductError, "geographic.catchment.snap_dist"),
+        (_empty_polygon, EmptyCatchmentError, ""),
+    ],
+    ids=["empty snapped outlet", "names the keys to change", "empty watershed polygon"],
+)
+def test_an_empty_snap_or_catchment_is_refused(monkeypatch, tmp_path, spoil, error, reason):
+    backend = _backend(monkeypatch)
+    monkeypatch.setattr(backend.raster, "read_raster", lambda path: object())
+    spoil(backend, monkeypatch)
+
+    with pytest.raises(error, match=reason):
+        extract_catchment_from_point(
+            x_outlet=10.0,
+            y_outlet=20.0,
+            snap_dist=50,
+            accumulation=_accumulation_on_disk(tmp_path),
+            output_dir=tmp_path / "geo",
+            crs_project="EPSG:2154",
+            backend=backend,
+        )
+
+
+class _SnappingEngine:
+    """An engine that snaps the outlet by a fixed distance and delineates."""
+
+    def __init__(self, tmp_path: Path, distance_m: float) -> None:
+        self._tmp_path = tmp_path
+        self._distance_m = distance_m
+
+    def delineate(self, accumulation, outlets, **_kwargs):
+        return (
+            SimpleNamespace(
+                mask_path=self._tmp_path / "watershed.tif",
+                boundary_path=self._tmp_path / "watershed.shp",
+                snapped_x=389175.004,
+                snapped_y=6816449.6,
+                snap_distance_m=self._distance_m,
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("distance_m", "level", "message"),
+    [
+        (
+            130.54,
+            logging.WARNING,
+            "Outlet moved 131 m (limit 150 m) onto the flow network, "
+            "from (389286, 6816519) to (389175, 6816450).",
+        ),
+        # The threshold is half the allowed distance.
+        (75.0, logging.INFO, None),
+    ],
+    ids=["long snap warns in one sentence", "short snap stays below the console"],
+)
+def test_the_snap_is_said_in_one_line_at_a_level_set_by_its_length(
+    monkeypatch, tmp_path, caplog, distance_m, level, message
+) -> None:
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.core.catchment_from_point.terrain_registry.create",
+        lambda engine_id, backend=None: _SnappingEngine(tmp_path, distance_m),
+    )
+    monkeypatch.setattr(
+        "hydromodpy.spatial.geographic.core.catchment_from_point.ensure_crs", lambda *a, **k: None
+    )
+    caplog.set_level(logging.INFO, logger="hydromodpy")
+
+    products = extract_catchment_from_point(
+        x_outlet=389285.91,
+        y_outlet=6816518.749,
+        snap_dist=150,
+        accumulation=fake_accumulation(acc=tmp_path / "acc.tif", direc=tmp_path / "d.tif"),
+        output_dir=tmp_path / "geo",
+        crs_project="EPSG:2154",
+    )
+
+    assert products.snap_distance_m == distance_m
+    (record,) = [r for r in caplog.records if r.getMessage().startswith("Outlet moved")]
+    assert record.levelno == level
+    if message is not None:
+        assert record.getMessage() == message
+
+
+@pytest.mark.parametrize(
+    ("snap_method", "threshold", "reason"),
+    [
+        ("nearest", None, "Unknown snap_method"),
+        ("jenson", None, "stream_threshold_cells"),
+        ("window", 100.0, "stream_threshold_cells"),
+    ],
+)
+def test_a_snap_method_and_a_threshold_that_do_not_go_together_are_refused_first(
+    tmp_path, snap_method, threshold, reason
+) -> None:
+    with pytest.raises(ValueError, match=reason):
+        extract_catchment_from_point(
+            x_outlet=0.0,
+            y_outlet=0.0,
+            snap_dist=50,
+            accumulation=fake_accumulation(),
+            output_dir=tmp_path / "geo",
+            snap_method=snap_method,
+            stream_threshold_cells=threshold,
+        )
+
+
+# --- a polygon and a surface given as files -----------------------------------
+
+
+def test_a_given_polygon_is_copied_without_its_duplicate_columns(tmp_path) -> None:
+    source = write_features(tmp_path / "given.shp", [box(0.0, 0.0, 100.0, 50.0)], name=["bv"])
+
+    written = extract_catchment_from_polygon(
+        polyg_shp_path=source, output_shp_path=tmp_path / "geo" / "watershed.shp"
+    )
+
+    copied = gpd.read_file(written)
+    assert copied.geometry.iloc[0].area == pytest.approx(5000.0)
+    assert copied["name"].tolist() == ["bv"]
+    with pytest.raises(FileNotFoundError, match="polyg_shp_path"):
+        extract_catchment_from_polygon(
+            polyg_shp_path=tmp_path / "gone.shp", output_shp_path=written
+        )
+
+
+def test_the_surface_reads_the_dem_it_is_given(tmp_path) -> None:
+    dem = write_geotiff(tmp_path / "dem.tif", np.arange(6.0).reshape(2, 3), cell=10.0)
+
+    surface = build_surface_topo_from_dem(dem)
+
+    assert surface.name == "surface_topo"
+    with pytest.raises(FileNotFoundError, match="DEM not found"):
+        build_surface_topo_from_dem(tmp_path / "gone.tif")
+
+
+# --- the Jenson snap on two valleys -------------------------------------------
+
+RES = 25.0
+SIZE = 41
+CRS = "EPSG:2154"
+SMALL_FLOOR, LARGE_FLOOR = 8, 15
+LAST_SMALL_COLUMN = 11
+"""The ridge sits between columns 11 and 12, so the small valley is columns 0 to 11."""
+OUTLET_ROW, OUTLET_COL = 25, 10
+SNAP_DISTANCE_M = 250.0
+"""Five cells each side: the window holds both floors, at 2 and 5 cells."""
+THRESHOLD_CELLS = 100.0
+"""Above what a valley side accumulates, below what either floor does by row 8."""
+
+
+def _write_two_valleys(path: Path) -> Path:
+    rows, cols = np.mgrid[0:SIZE, 0:SIZE]
+    walls = np.minimum(np.abs(cols - SMALL_FLOOR), np.abs(cols - LARGE_FLOOR))
+    surface = (100.0 - rows * 0.5 + walls * 2.0).astype("float32")
+    return write_geotiff(path, surface, cell=RES, nodata=-9999.0)
+
+
+def _centre_x(col: int) -> float:
+    return (col + 0.5) * RES
+
+
+def _centre_y(row: int) -> float:
+    return (SIZE - row - 0.5) * RES
+
+
+def _declared() -> Outlet:
+    return Outlet(outlet_id="declared", x=_centre_x(OUTLET_COL), y=_centre_y(OUTLET_ROW))
+
+
+@pytest.fixture(
+    params=[
+        "numpy_d8",
+        # Whitebox fills depressions in a child interpreter.
+        pytest.param(
+            "whitebox_workflows",
+            marks=[pytest.mark.allow_subprocess, pytest.mark.xdist_group(name="whitebox_backend")],
+        ),
+    ]
+)
+def engine(request):
+    if request.param == "whitebox_workflows":
+        pytest.importorskip("whitebox_workflows")
+        from tests._helpers.whitebox import configure_whitebox_single_thread
+
+        monkeypatch = pytest.MonkeyPatch()
+        configure_whitebox_single_thread(monkeypatch)
+        monkeypatch.undo()
+    return registry.create(request.param)
+
+
+@pytest.fixture
+def products(engine, tmp_path):
+    """The chain a caller runs: condition, point, accumulate, draw the streams."""
+    out = tmp_path / "out"
+    conditioned = engine.condition_dem(
+        _write_two_valleys(tmp_path / "dem.tif"),
+        method="fill",
+        extent=ConditioningExtent.regional(),
+        out=out / "conditioned.tif",
+    )
+    directions = engine.drainage_directions(conditioned, out=out / "pointer.tif")
+    accumulation = engine.flow_accumulation(
+        directions, units="cells", transform="none", out=out / "acc.tif"
+    )
+    streams = engine.stream_network(accumulation, threshold=THRESHOLD_CELLS, out=out / "s.tif")
+    return directions, accumulation, streams, out
+
+
+def _delineate(engine, accumulation, out, *, snap, outlet=None):
+    (catchment,) = engine.delineate(
+        accumulation,
+        [outlet or _declared()],
+        out_dir=out / "catchment",
+        snap_distance_m=SNAP_DISTANCE_M,
+        snap=snap,
+    )
+    return catchment
+
+
+def _mask_columns(path: Path) -> np.ndarray:
+    with rasterio.open(path) as src:
+        data = src.read(1)
+    return np.unique(np.nonzero(data == 1)[1])
+
+
+def test_the_window_snap_jumps_onto_the_larger_neighbour(engine, products) -> None:
+    """The failure the Jenson snap exists for, measured."""
+    _directions, accumulation, _streams, out = products
+
+    catchment = _delineate(engine, accumulation, out, snap="window")
+
+    assert catchment.snapped_x == pytest.approx(_centre_x(LARGE_FLOOR))
+    assert catchment.cell_count == (SIZE - LAST_SMALL_COLUMN - 1) * (OUTLET_ROW + 5 + 1)
+    assert _mask_columns(catchment.mask_path).min() > LAST_SMALL_COLUMN
+
+
+def test_the_jenson_snap_stays_on_the_nearest_stream(engine, products) -> None:
+    _directions, accumulation, streams, out = products
+
+    catchment = _delineate(engine, accumulation, out, snap=JensonSnap(streams=streams))
+
+    assert catchment.snapped_x == pytest.approx(_centre_x(SMALL_FLOOR))
+    assert catchment.snapped_y == pytest.approx(_centre_y(OUTLET_ROW))
+    assert catchment.snap_distance_m == pytest.approx(2 * RES)
+    assert catchment.cell_count == (LAST_SMALL_COLUMN + 1) * (OUTLET_ROW + 1)
+    assert _mask_columns(catchment.mask_path).max() <= LAST_SMALL_COLUMN
+
+
+def test_the_jenson_snap_reads_no_accumulation(engine, products) -> None:
+    """A transformed accumulation is not read, so the window snap's refusals do not apply."""
+    directions, _accumulation, streams, out = products
+    transformed = engine.flow_accumulation(
+        directions, units="m2", transform="ln", out=out / "acc_ln_m2.tif"
+    )
+
+    catchment = _delineate(engine, transformed, out, snap=JensonSnap(streams=streams))
+
+    assert catchment.snapped_x == pytest.approx(_centre_x(SMALL_FLOOR))
+
+
+def test_a_snap_the_engine_cannot_honour_is_refused(engine, products) -> None:
+    """Never delineate from a hillside cell: the catchment would be a few cells."""
+    directions, accumulation, streams, out = products
+    far_from_both = Outlet(outlet_id="far", x=_centre_x(28), y=_centre_y(OUTLET_ROW))
+    elsewhere = dataclasses.replace(directions, path=out / "another_pointer.tif")
+    other = dataclasses.replace(streams, directions=elsewhere)
+
+    with pytest.raises(TerrainProductError, match="no cell of the stream network"):
+        _delineate(
+            engine, accumulation, out, snap=JensonSnap(streams=streams), outlet=far_from_both
+        )
+    with pytest.raises(TerrainProductError, match="another pointer"):
+        _delineate(engine, accumulation, out, snap=JensonSnap(streams=other))
+    with pytest.raises(TerrainRequestError, match="Unknown snap method"):
+        _delineate(engine, accumulation, out, snap="nearest")
+
+
+def _outlet_config(**overrides):
+    snap = overrides.pop("snap_method", "window")
+    return outlet_config(
+        x=_centre_x(OUTLET_COL),
+        y=_centre_y(OUTLET_ROW),
+        catchment={"snap_dist": SNAP_DISTANCE_M, "snap_method": snap},
+        terrain_engine="numpy_d8",
+        **overrides,
+    )
+
+
+def test_the_config_takes_the_window_snap_by_default_and_a_jenson_snap_with_a_threshold() -> None:
+    config = _outlet_config(snap_method="jenson", river_network={"threshold_area_km2": 0.5})
+
+    assert _outlet_config().snap_method == "window"
+    assert config.snap_method == "jenson"
+    assert config.river_network.enabled is False
+    with pytest.raises(ValidationError, match="threshold_area_km2"):
+        _outlet_config(snap_method="jenson")
+    with pytest.raises(ValidationError, match="snap_method"):
+        _outlet_config(snap_method="nearest")
+
+
+def test_the_snap_method_is_part_of_the_cache_fingerprint_only_when_it_is_not_the_window() -> None:
+    window = _outlet_config()
+    jenson = _outlet_config(snap_method="jenson", river_network={"threshold_area_km2": 0.5})
+
+    assert _geographic_cache_fingerprint(window) == _geographic_cache_fingerprint(
+        _outlet_config(snap_method="window")
+    )
+    assert _geographic_cache_fingerprint(window) != _geographic_cache_fingerprint(jenson)
+
+
+def test_the_pipeline_snaps_onto_the_network_its_river_section_draws(tmp_path) -> None:
+    """The threshold is read in km2 and turned into cells on the grid of the routing."""
+    paths = build_geographic_paths(tmp_path / "geographic_run")
+    flow = build_regional_flow_products(
+        dem_init_path=_write_two_valleys(tmp_path / "dem.tif"),
+        dem_out_dir_path=paths.correcflow_path,
+        dem_correc_type="fill",
+        crs_project=CRS,
+        engine_id="numpy_d8",
+    )
+    area_km2 = THRESHOLD_CELLS * RES * RES / 1.0e6
+    jenson = _outlet_config(snap_method="jenson", river_network={"threshold_area_km2": area_km2})
+
+    def catchment_of(config):
+        return build_standard_catchment(
+            config=config,
+            paths=paths,
+            accumulation=flow.accumulation,
+            crs_project=CRS,
+            backend=object(),
+        )
+
+    on_window, on_jenson = catchment_of(_outlet_config()), catchment_of(jenson)
+
+    assert on_window.x_outlet_snapped == pytest.approx(_centre_x(LARGE_FLOOR))
+    assert on_jenson.x_outlet_snapped == pytest.approx(_centre_x(SMALL_FLOOR))
+    assert on_jenson.snap_distance_m == pytest.approx(2 * RES)
+
+
+# --- a basin beyond the float32 ln bound --------------------------------------
+
+
+@pytest.mark.allow_subprocess
+def test_a_basin_above_the_ln_float32_bound_is_delineated_not_refused(tmp_path) -> None:
+    """The accumulation is stored as ln in float32, which cannot order counts above
+    1 049 558 cells, so the snap window is ranked on raw counts."""
+    size = 1100  # 1.21 M cells, above the float32 ln bound.
+    assert size * size > LN_FLOAT32_COLLISION_COUNT
+    rows, cols = np.mgrid[0:size, 0:size]
+    dem = write_geotiff(
+        tmp_path / "dem.tif",
+        (500.0 - 0.5 * rows - 0.4 * cols).astype("float32"),
+        cell=5.0,
+        nodata=-9999.0,
+    )
+    products = build_regional_flow_products(
+        dem_init_path=dem, dem_out_dir_path=tmp_path / "flow", dem_correc_type="fill"
+    )
+
+    out = extract_catchment_from_point(
+        x_outlet=(size - 0.5) * 5.0,
+        y_outlet=0.5 * 5.0,
+        snap_dist=10,
+        accumulation=products.accumulation,
+        output_dir=tmp_path / "catchment",
+    )
+
+    with rasterio.open(out.watershed_tif) as src:
+        mask, nodata = src.read(1), src.nodata
+    assert int(np.count_nonzero((mask != nodata) & (mask > 0))) > LN_FLOAT32_COLLISION_COUNT

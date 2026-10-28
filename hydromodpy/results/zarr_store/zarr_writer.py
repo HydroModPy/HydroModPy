@@ -182,6 +182,7 @@ def _write_array(
     dimension_names: tuple[str, ...],
     attrs: dict[str, object] | None = None,
     compressors: Any | None = None,
+    fill_value: float | None = None,
 ) -> zarr.Array:
     """Pre-create the child dir, write an array, and stamp ``attrs``.
 
@@ -197,6 +198,8 @@ def _write_array(
     }
     if compressors is not None:
         kwargs["compressors"] = compressors
+    if fill_value is not None:
+        kwargs["fill_value"] = fill_value
     arr = parent.create_array(name, **kwargs)
     if attrs:
         update_attrs(arr, attrs)
@@ -239,6 +242,17 @@ _IDOMAIN_FLAGS: dict[str, object] = {
 
 _STANDARD_NAMES: dict[str, str] = {"x": "projection_x_coordinate", "y": "projection_y_coordinate"}
 """CF standard name of each horizontal axis: what tells a UGRID reader which array is x."""
+
+_DEGREE_AXES: dict[str, dict[str, str]] = {
+    "x": {"standard_name": "longitude", "units": "degrees_east"},
+    "y": {"standard_name": "latitude", "units": "degrees_north"},
+}
+"""CF standard name and unit of each axis of a raster in a geographic CRS."""
+
+_METRE_AXES: dict[str, dict[str, str]] = {
+    axis: {"standard_name": name, "units": "m"} for axis, name in _STANDARD_NAMES.items()
+}
+"""CF standard name and unit of each axis of a raster in a projected CRS."""
 
 _MESH_COORDINATES = ("node_x", "node_y", "face_x", "face_y")
 """The coordinate arrays of ``mesh/`` that name the grid mapping."""
@@ -1322,27 +1336,115 @@ def write_geographic_raster(
     crs: str,
     nodata: float = -99999.0,
 ) -> None:
-    """Persist a per-run raster under ``geographic/<name>``."""
+    """Persist a per-run raster under ``geographic/<name>``, readable as CF.
+
+    The nodata is the Zarr ``fill_value``, which GDAL reads, and the CF
+    ``missing_value``, which xarray masks. A ``_FillValue`` attribute would
+    have to be base64 text for xarray on a Zarr 3 float array, and CF types it
+    as a number. A north-up raster gets its own axes
+    ``<name>_y`` and ``<name>_x``, holding the pixel centres of the transform,
+    because two rasters of the group need not share a grid. A raster with a
+    CRS names its own grid-mapping variable ``<name>_crs``. The ``transform``,
+    ``crs``, ``nodata`` and ``shape`` attributes stay, so the HydroModPy reader
+    reads a run written before the same way.
+    """
+    values = np.asarray(data)
     with store_obj._guard_write():
         ensure_child_dir(store_obj, store_obj._root, "geographic")
         geo = store_obj._root.require_group("geographic")
+        dimensions = field_registry.per_array_dimensions(name, int(values.ndim))
+        attrs: dict[str, object] = {
+            "transform": list(transform),
+            "crs": str(crs),
+            "nodata": float(nodata),
+            "shape": list(values.shape),
+        }
+        fill_value = _fill_value(values.dtype, nodata)
+        if fill_value is not None:
+            attrs["missing_value"] = fill_value
+        north_up = len(transform) >= 6 and transform[1] == 0.0 and transform[3] == 0.0
+        grid_mapping = _grid_mapping_attrs(str(crs))
+        if values.ndim >= 2 and north_up:
+            dimensions = (*dimensions[:-2], f"{name}_y", f"{name}_x")
+            geographic = grid_mapping.get("grid_mapping_name") == "latitude_longitude"
+            _write_pixel_centres(store_obj, geo, name, values.shape[-2:], transform, geographic)
+        if grid_mapping:
+            _write_array(
+                store_obj,
+                geo,
+                f"{name}_crs",
+                np.zeros((), dtype="int32"),
+                dimension_names=(),
+                attrs=grid_mapping,
+            )
+            attrs["grid_mapping"] = f"{name}_crs"
         _write_array(
             store_obj,
             geo,
             name,
-            np.asarray(data),
-            dimension_names=field_registry.per_array_dimensions(name, int(np.asarray(data).ndim)),
-            attrs={
-                "transform": list(transform),
-                "crs": str(crs),
-                "nodata": float(nodata),
-                # CF _FillValue so xarray/rasterio auto-mask the nodata sentinel
-                # on load instead of the consumer having to know -99999.
-                "_FillValue": float(nodata),
-                "shape": list(np.asarray(data).shape),
-            },
+            values,
+            dimension_names=dimensions,
+            attrs=attrs,
             compressors=BLOSC_ZSTD,
+            fill_value=fill_value,
         )
+
+
+def _fill_value(dtype: np.dtype, nodata: float) -> float | int | None:
+    """Return ``nodata`` as a fill value of ``dtype``, or None when the type cannot hold it."""
+    if dtype.kind == "f":
+        return float(nodata)
+    if dtype.kind in "iu" and float(nodata).is_integer():
+        limits = np.iinfo(dtype)
+        if limits.min <= nodata <= limits.max:
+            return int(nodata)
+    return None
+
+
+def _write_pixel_centres(
+    store_obj: SimulationZarr,
+    geo: zarr.Group,
+    name: str,
+    shape: tuple[int, ...],
+    transform: tuple[float, ...],
+    geographic: bool,
+) -> None:
+    """Write the ``<name>_y`` and ``<name>_x`` axes at the pixel centres of a north-up raster.
+
+    A geographic CRS gives longitudes and latitudes in degrees, a projected
+    one coordinates in metres.
+    """
+    rows, columns = int(shape[0]), int(shape[1])
+    pixel_x, origin_x, pixel_y, origin_y = (float(transform[i]) for i in (0, 2, 4, 5))
+    for axis, centres in (
+        ("y", origin_y + (np.arange(rows) + 0.5) * pixel_y),
+        ("x", origin_x + (np.arange(columns) + 0.5) * pixel_x),
+    ):
+        _write_array(
+            store_obj,
+            geo,
+            f"{name}_{axis}",
+            centres,
+            dimension_names=(f"{name}_{axis}",),
+            attrs={
+                **(_DEGREE_AXES[axis] if geographic else _METRE_AXES[axis]),
+                "long_name": f"{axis} coordinate of the pixel centre of {name}",
+                "axis": axis.upper(),
+            },
+        )
+
+
+def _grid_mapping_attrs(crs: str) -> dict[str, object]:
+    """Return the CF grid-mapping attributes of ``crs``, empty when it names no CRS."""
+    if not crs:
+        return {}
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    try:
+        return dict(CRS.from_user_input(crs).to_cf())
+    except CRSError:
+        return {}
 
 
 # -- Lake abacus comparison (per-run) ---------------------------------------
@@ -1520,10 +1622,11 @@ def harmonize_axis_references(store_obj: SimulationZarr) -> None:
                 },
             )
         present = {path for path, _ in _walk_arrays(root)}
-        for _, array in _walk_arrays(root):
+        for path, array in _walk_arrays(root):
             attrs = dict(array.attrs)
             grid_mapping = attrs.get("grid_mapping")
-            if grid_mapping and str(grid_mapping) not in present:
+            group = path.rpartition("/")[0]
+            if grid_mapping and not {str(grid_mapping), f"{group}/{grid_mapping}"} & present:
                 del array.attrs["grid_mapping"]
             declared = str(attrs.get("coordinates", "")).split()
             resolved = [name for name in declared if name in present]

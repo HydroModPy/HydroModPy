@@ -9,10 +9,12 @@ so that downstream consumers can read from the store directly.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import geopandas as gpd
+import rasterio
 
+from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.flow_products import capped_breach_of
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
@@ -22,6 +24,9 @@ from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
     resolve_delineation_backend,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = get_logger(__name__)
 
@@ -65,62 +70,56 @@ def persist_geographic_to_store(
         _cleanup_intermediate_dirs(geographic)
 
 
+def read_raster_data_and_meta(
+    path: str | Path,
+) -> tuple[np.ndarray, tuple[float, ...], float | None, str] | None:
+    """Read band 1 of a raster from the backend cache, else from disk.
+
+    Returns ``(data, transform, nodata, crs)``, or None when neither the cache
+    nor the disk holds the raster. ``transform`` is the affine
+    ``(a, b, c, d, e, f)`` the store takes, whatever the source. ``nodata`` is
+    None and ``crs`` is ``""`` when the raster declares none.
+    """
+    path_str = str(path)
+    backend = resolve_delineation_backend()
+    if backend_has_callables(
+        backend, "raster", "get_cached_raster_numpy", "get_cached_raster_metadata"
+    ):
+        data = backend.raster.get_cached_raster_numpy(path_str)
+        if data is not None:
+            meta = backend.raster.get_cached_raster_metadata(path_str)
+            return data, meta["transform"], meta["nodata"], str(meta.get("crs", ""))
+    if not Path(path_str).exists():
+        return None
+    with rasterio.open(path_str) as src:
+        # The store's crs is a text field, so a raster without CRS gives "".
+        return src.read(1), tuple(src.transform)[:6], src.nodata, crs_text(src.crs) or ""
+
+
 def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
     if sim_id is None:
         return
-
-    backend = resolve_delineation_backend()
-    raster_backend = getattr(backend, "raster", None)
-    has_cache = backend_has_callables(
-        backend,
-        "raster",
-        "get_cached_raster_numpy",
-        "get_cached_raster_metadata",
-    )
 
     for attr in _RASTER_ATTRS:
         path = getattr(geographic, attr, None)
         if path is None:
             logger.debug("Skipping raster %s (no path)", attr)
             continue
-
-        name = attr.removesuffix("_tif")
-
-        data = raster_backend.get_cached_raster_numpy(path) if has_cache else None
-        if data is not None and raster_backend is not None:
-            meta = raster_backend.get_cached_raster_metadata(path)
-            store.write_geographic_raster(
-                sim_id,
-                name,
-                data,
-                transform=meta["transform"],
-                crs=str(meta.get("crs", "")),
-                nodata=float(meta["nodata"]) if meta["nodata"] is not None else -99999.0,
-            )
-            logger.debug("Ingested raster %s from cache (%s)", name, data.shape)
-            continue
-
-        if not Path(path).exists():
+        raster = read_raster_data_and_meta(path)
+        if raster is None:
             logger.debug("Skipping raster %s (not on disk)", attr)
             continue
-
-        import rasterio
-
-        with rasterio.open(path) as src:
-            data = src.read(1)
-            transform = tuple(src.transform)[:6]
-            crs = str(src.crs) if src.crs else ""
-            nodata = float(src.nodata) if src.nodata is not None else -99999.0
-
+        data, transform, nodata, crs = raster
+        name = attr.removesuffix("_tif")
         store.write_geographic_raster(
             sim_id,
             name,
             data,
             transform=transform,
             crs=crs,
-            nodata=nodata,
+            nodata=float(nodata) if nodata is not None else -99999.0,
         )
-        logger.debug("Ingested raster %s from disk (%s)", name, data.shape)
+        logger.debug("Ingested raster %s (%s)", name, data.shape)
 
 
 def _ingest_shapefiles(geographic: Any, store: Any, sim_id: str) -> None:

@@ -1,25 +1,11 @@
-"""The one constructor of a domain geometry, and its four callers.
+"""The one constructor of a domain geometry.
 
-``Domain(config=..., surface_topo=...)`` was written out at four sites: the
-setup step of a run, the rebuild a second run on a live project triggers, the
-domain case script, and the bundle exporter. Three of them deep-copied the
-declared section and armed the binder zone ids before constructing, each in
-its own spelling, and the fourth armed nothing. A fifth spelling was about to
-be added by the ``domain-build`` capability, which is what made the repetition
-worth removing rather than worth noting.
-
-What the function owns is small and was never the hard part: a configuration
-section is copied before it is armed, because ``arm_runtime_zone_ids`` mutates
-what it is given and the declared section belongs to the project, not to the
-domain built from it. Getting that wrong leaves a project whose ``[domain]``
-carries ``catchment`` and ``geology`` as if the user had written them.
-
-What it deliberately does **not** own is the binders. ``catchment`` and
-``geology`` are written into the domain after it exists, from artefacts the
-geographic step and the data step produce, and a capability that receives
-neither still builds a domain. The zone ids are armed here because they are
-the *permission* to write those zones, and the permission is a property of the
-configuration; the writing is not.
+The setup step of a run, the rebuild of a live project, the domain case and the
+``domain-build`` capability all build their ``Domain`` here. The declared
+section is copied before its zone ids are armed, so the ``[domain]`` of the
+project never carries ``catchment`` and ``geology`` as if the user had written
+them. The zones themselves are written later by the binders, from artefacts this
+function does not receive.
 """
 
 from __future__ import annotations

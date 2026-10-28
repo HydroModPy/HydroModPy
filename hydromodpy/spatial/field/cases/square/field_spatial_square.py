@@ -15,12 +15,11 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.spatial.field.core.cell_sampling import sample_points_in_cell
+from hydromodpy.spatial.field.core.cell_sampling import sampled_zone_fractions
 from hydromodpy.spatial.field.core.field_spatial import Field, _get_nested_section
 from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import (
     WeightedAverageFieldDiscretization,
 )
-from hydromodpy.spatial.field.core.mesh_cells import cell_values, mesh_cells
 from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 SUPPORTED_LINES = (
@@ -123,28 +122,14 @@ class FieldSquare(Field):
         """
         Build field-to-mesh discretization using intra-cell sampling fractions.
         """
-        frac_zone1 = np.empty(cell_mesh.n_cells, dtype=float)
-        frac_zone2 = np.empty(cell_mesh.n_cells, dtype=float)
-
-        for cell in mesh_cells(cell_mesh):
-            x_s, y_s = sample_points_in_cell(cell, n_sub_per_axis=cell_samples_per_axis)
-            zones = self.zone_id(x_s, y_s)
-
-            c1 = int(np.count_nonzero(zones == self.zone1_name))
-            c2 = int(np.count_nonzero(zones == self.zone2_name))
-            total = max(c1 + c2, 1)
-
-            frac_zone1[cell.index] = float(c1) / float(total)
-            frac_zone2[cell.index] = float(c2) / float(total)
-
-        fractions_by_zone = {
-            self.zone1_name: np.asarray(cell_values(cell_mesh, frac_zone1), dtype=float),
-            self.zone2_name: np.asarray(cell_values(cell_mesh, frac_zone2), dtype=float),
-        }
+        zone_keys = (self.zone1_name, self.zone2_name)
+        fractions_by_zone = sampled_zone_fractions(
+            cell_mesh, self.zone_id, zone_keys, cell_samples_per_axis, total="zone_keys"
+        )
         return WeightedAverageFieldDiscretization(
             mesh=cell_mesh,
             field_id=self.identifier,
-            zone_keys=(self.zone1_name, self.zone2_name),
+            zone_keys=zone_keys,
             fractions_by_zone=fractions_by_zone,
         )
 

@@ -125,8 +125,6 @@ def _sarea_inverse(stage: np.ndarray, sarea: np.ndarray, target_area: float) -> 
     """Smallest stage whose wetted area reaches ``target_area`` (lower edge on a plateau)."""
     if target_area <= sarea[0]:
         return float(stage[0])
-    if target_area >= sarea[-1]:
-        return float(stage[-1])
     for i in range(sarea.size - 1):
         s0 = sarea[i]
         s1 = sarea[i + 1]

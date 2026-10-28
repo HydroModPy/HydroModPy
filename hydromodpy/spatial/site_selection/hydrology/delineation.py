@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import geopandas as gpd
+
 from hydromodpy.spatial.geographic.core.catchment_from_point import (
     CatchmentFromPointProducts,
     extract_catchment_from_point,
@@ -19,6 +21,7 @@ from hydromodpy.spatial.site_selection.candidates.reference_network import (
     snap_outlet_to_reference_network,
 )
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
+from hydromodpy.spatial.site_selection.outputs.watershed import read_watershed, watershed_area_m2
 
 DelineationBuilder = Callable[..., CatchmentFromPointProducts]
 AreaReader = Callable[[str | Path], float | None]
@@ -187,15 +190,10 @@ def _flow_products(flow_products: SiteSelectionFlowProducts | FlowProducts) -> F
 def _read_area_km2(path: str | Path, *, area_reader: AreaReader | None) -> float | None:
     if area_reader is not None:
         return area_reader(path)
-    try:
-        import geopandas as gpd
-    except ImportError:
+    frame = read_watershed(path)
+    if frame.empty:
         return None
-
-    gdf = gpd.read_file(str(path))
-    if gdf.empty:
-        return None
-    return float(gdf.geometry.area.sum() / 1_000_000.0)
+    return watershed_area_m2(frame) / 1_000_000.0
 
 
 def _read_first_point_xy(path: Path) -> tuple[float, float] | None:
@@ -207,10 +205,6 @@ def _read_first_point_xy(path: Path) -> tuple[float, float] | None:
         except (json.JSONDecodeError, OSError):
             return None
         return _first_point_xy_from_geojson(payload)
-    try:
-        import geopandas as gpd
-    except ImportError:
-        return None
     try:
         frame = gpd.read_file(str(path))
     except Exception:

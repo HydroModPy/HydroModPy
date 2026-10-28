@@ -41,7 +41,6 @@ from typing import Any, cast
 
 import geopandas as gpd
 import pandas as pd
-import rasterio
 
 from hydromodpy.core.exceptions import (
     ConfigValidationError,
@@ -63,7 +62,6 @@ from hydromodpy.schema.job.inputset import (
 from hydromodpy.schema.job.outcome import (
     UNIDENTIFIED_JOB,
     JobOutcome,
-    OutputRecord,
     dismissed,
     error_record,
     now,
@@ -83,6 +81,11 @@ from hydromodpy.spatial.geographic.core.flow_products import (
     ACCUMULATION_NAME,
     DIRECTION_NAME,
     corrected_dem_name,
+)
+from hydromodpy.spatial.job_inputs import (
+    output_records,
+    read_raster_input,
+    refuse_a_file_that_is_not_the_one_asked_for,
 )
 from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import HydrologyConfig
@@ -106,6 +109,10 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
 )
 from hydromodpy.spatial.site_selection.hydrology.pipeline import (
     delineate_site_selection_candidates,
+)
+from hydromodpy.spatial.site_selection.outputs.watershed import (
+    read_watershed,
+    watershed_area_m2,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
 
@@ -233,7 +240,9 @@ def _resolve(job: JobDirectory) -> _Resolved:
 
     dem_path = _resolve_dem(job, inputs)
     dem_digest, dem_bytes = sha256_file(dem_path)
-    _refuse_a_dem_that_is_not_the_one_asked_for(inputs, digest=dem_digest)
+    refuse_a_file_that_is_not_the_one_asked_for(
+        inputs.dem.sha256, digest=dem_digest, href=inputs.dem.href, member="dem"
+    )
     dem_extent = _dem_extent(inputs, path=dem_path)
     _refuse_an_engine_this_installation_does_not_serve(inputs)
 
@@ -288,7 +297,7 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
         ),
     )
 
-    records = _output_records(job)
+    records = output_records(job, decl)
     outcome = JobOutcome(
         job_id=resolved.job_id,
         process_id=decl.id,
@@ -317,28 +326,12 @@ def _resolve_dem(job: JobDirectory, inputs: TerrainDelineateRequest) -> Path:
     return dem_path
 
 
-def _refuse_a_dem_that_is_not_the_one_asked_for(
-    inputs: TerrainDelineateRequest, *, digest: str
-) -> None:
-    """Refuse a DEM whose bytes are not the ones the request pinned."""
-    declared = inputs.dem.sha256
-    if declared is None:
-        return
-    if declared.lower() != digest:
-        raise DataContractViolation(
-            f"input dem {inputs.dem.href!r} hashes to {digest} and the request pinned "
-            f"{declared.lower()}; the bytes are not the ones the job asked for"
-        )
-
-
 def _dem_extent(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent:
     """Measure the declared DEM, refusing one no raster reader opens as one band.
 
     The check is here, on the input, and not around the chain: a failure the
     engine raises is the backend failing, and a file that is not a raster is
-    bad input. Without it a text file handed as ``dem`` surfaced as an
-    untyped ``HMPY.E000`` and exit 1, the code whose whole meaning is "this
-    is a bug in HydroModPy, report it".
+    bad input.
 
     The extent is the raster bounds in ``crs_project``: the request declares
     the DEM in that CRS, and the chain stamps it on every product. A raster
@@ -346,21 +339,9 @@ def _dem_extent(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent
     the max of each axis. A raster whose geotransform covers no area is bad
     input too, and is refused the same way.
     """
-    try:
-        with rasterio.open(str(path)) as source:
-            band_count = source.count
-            left, bottom, right, top = source.bounds
-    except rasterio.errors.RasterioError as exc:
-        raise DataContractViolation(
-            f"input dem {inputs.dem.href!r} cannot be opened as a raster: {exc}"
-        ) from exc
-    except OSError as exc:
-        raise DataContractViolation(f"input dem {inputs.dem.href!r} cannot be read: {exc}") from exc
-    if band_count < 1:
-        raise DataContractViolation(
-            f"input dem {inputs.dem.href!r} carries {band_count} band(s); "
-            "an elevation model carries at least one"
-        )
+    left, bottom, right, top = read_raster_input(
+        inputs.dem.href, path=path, member="dem", read=lambda source: source.bounds
+    )
     try:
         return SpatialExtent(
             bbox=(min(left, right), min(bottom, top), max(left, right), max(bottom, top)),
@@ -434,7 +415,7 @@ def _watershed_frame(catchments: Sequence[DelineatedCatchment], *, crs: str) -> 
     """Assemble one row per delineated outlet, its parts dissolved into one."""
     rows = []
     for catchment in catchments:
-        parts = gpd.read_file(str(catchment.watershed_shp))
+        parts = read_watershed(catchment.watershed_shp)
         snapped = snapped_outlet_xy(catchment)
         rows.append(
             {
@@ -444,7 +425,7 @@ def _watershed_frame(catchments: Sequence[DelineatedCatchment], *, crs: str) -> 
                 "x_snapped": None if snapped is None else snapped[0],
                 "y_snapped": None if snapped is None else snapped[1],
                 "snap_distance_m": outlet_snap_distance_m(catchment),
-                "area_m2": float(parts.geometry.area.sum()),
+                "area_m2": watershed_area_m2(parts),
                 "geometry": parts.geometry.union_all(),
             }
         )
@@ -568,32 +549,6 @@ def _build_inputset(
             ),
         ]
     )
-
-
-def _output_records(job: JobDirectory) -> tuple[OutputRecord, ...]:
-    """Hash every declared artefact that exists once the job has written it.
-
-    ``outcome.json`` is declared and absent here: it cannot carry its own
-    digest. The seal hashes it from disk, which is the only place its bytes
-    can be read from.
-    """
-    records = []
-    for output in TERRAIN_DELINEATE.outputs:
-        if output.path == "outcome.json":
-            continue
-        path = job.resolve_output(output.path)
-        digest, size = sha256_file(path)
-        records.append(
-            OutputRecord(
-                id=output.id,
-                path=output.path,
-                media_type=output.media_type,
-                bytes=size,
-                sha256=digest,
-                extra=output.extra,
-            )
-        )
-    return tuple(records)
 
 
 def _refuse_an_engine_this_installation_does_not_serve(

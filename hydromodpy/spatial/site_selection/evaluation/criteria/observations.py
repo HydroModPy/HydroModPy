@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 from hydromodpy.spatial.site_selection.config import ObservationsCriteriaConfig
+from hydromodpy.spatial.site_selection.domain.attribute_values import (
+    first_bool,
+    first_number,
+    first_text,
+)
 from hydromodpy.spatial.site_selection.evaluation.criteria.common import (
     CriteriaComponent,
     _distance_threshold_label,
-    _first_bool,
-    _first_number,
-    _first_text,
 )
 from hydromodpy.spatial.site_selection.evidence.refs import (
     observation_evidence_ref,
@@ -37,30 +40,30 @@ def evaluate_flow_station_criterion(
 
     detail = config.flow_station
     mode = detail.mode
-    record_years = _first_number(
+    record_years = first_number(
         attributes,
         "record_years",
         "flow_station_record_years",
         "station_record_years",
     )
-    n_records = _first_number(attributes, "n_records", "flow_station_n_records")
+    n_records = first_number(attributes, "n_records", "flow_station_n_records")
     if record_years is None and n_records is not None:
         record_years = n_records / 365.25
 
-    distance_km = _first_number(
+    distance_km = first_number(
         attributes,
         "station_to_outlet_distance_km",
         "flow_station_distance_km",
         "hydro_station_distance_km",
     )
-    station_inside = _first_bool(
+    station_inside = first_bool(
         attributes,
         "station_inside_or_at_outlet",
         "flow_station_inside_or_at_outlet",
         "station_inside_basin",
     )
     max_distance_km = detail.max_station_to_outlet_distance_km
-    station_id = _first_text(
+    station_id = first_text(
         attributes,
         "flow_station_id",
         "hydro_station_id",
@@ -103,23 +106,24 @@ def evaluate_flow_station_criterion(
     has_evidence = any(
         value is not None and value != "" for value in (record_years, n_records, distance_km)
     )
+    component = partial(
+        _component,
+        "flow_station",
+        site_id=site_id,
+        selection_principle=selection_principle,
+        mode=mode,
+        evaluation_order=evaluation_order,
+        raw_value=record_years,
+        evidence=evidence,
+    )
     if mode == "report_only":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="flow_station",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="reported" if has_evidence else "missing",
-            raw_value=record_years,
+        return component(
+            status="reported" if has_evidence else "missing",
             reason=(
                 "flow-station evidence reported without automatic decision"
                 if has_evidence
                 else "flow-station evidence is missing"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "score":
@@ -129,16 +133,8 @@ def evaluate_flow_station_criterion(
         if max_distance_km is not None and distance_km is not None:
             score_parts.append(max(0.0, 1.0 - distance_km / max_distance_km))
         score = sum(score_parts) / len(score_parts) if score_parts else None
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="flow_station",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="scored" if score is not None else "missing",
-            raw_value=record_years,
+        return component(
+            status="scored" if score is not None else "missing",
             threshold=_flow_station_threshold_label(
                 detail.min_record_years,
                 max_distance_km,
@@ -150,26 +146,16 @@ def evaluate_flow_station_criterion(
                 if score is not None
                 else "flow-station evidence is missing for score mode"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "stratify":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="flow_station",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="stratified" if has_evidence else "missing",
-            raw_value=record_years,
+        return component(
+            status="stratified" if has_evidence else "missing",
             reason=(
                 "flow-station evidence available for stratification"
                 if has_evidence
                 else "flow-station evidence is missing"
             ),
-            evidence_json=evidence,
         )
 
     failed = bool(failures)
@@ -178,20 +164,11 @@ def evaluate_flow_station_criterion(
         status = "failed" if mode == "hard_reject" else "warning"
     elif not has_evidence:
         status = "missing"
-    return CriteriaComponent(
-        site_id=site_id,
-        selection_principle=selection_principle,
-        criterion_id="flow_station",
-        criterion_family="observations",
-        criterion_mode=mode,
-        evaluation_stage="criteria",
-        evaluation_order=evaluation_order,
-        criterion_status=status,
-        raw_value=record_years,
+    return component(
+        status=status,
         threshold=_flow_station_threshold_label(detail.min_record_years, max_distance_km),
         blocking=failed and mode == "hard_reject",
         reason="; ".join(failures) if failures else "flow-station checks passed",
-        evidence_json=evidence,
     )
 
 
@@ -211,7 +188,7 @@ def evaluate_station_influence_criterion(
         attributes,
         comment_keywords=detail.comment_keywords,
     )
-    station_id = _first_text(
+    station_id = first_text(
         attributes,
         "flow_station_id",
         "hydro_station_id",
@@ -242,37 +219,30 @@ def evaluate_station_influence_criterion(
         detail=detail,
     )
 
+    component = partial(
+        _component,
+        "station_influence",
+        site_id=site_id,
+        selection_principle=selection_principle,
+        mode=mode,
+        evaluation_order=evaluation_order,
+        raw_value=diagnostics.status,
+        evidence=evidence,
+    )
     if mode == "report_only":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="station_influence",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="reported" if has_evidence else "missing",
-            raw_value=diagnostics.status,
+        return component(
+            status="reported" if has_evidence else "missing",
             reason=(
                 "station influence metadata reported without automatic decision"
                 if has_evidence
                 else "station influence metadata is missing"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "score":
         score = _station_influence_score(diagnostics.status)
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="station_influence",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="scored" if has_evidence else "missing",
-            raw_value=diagnostics.status,
+        return component(
+            status="scored" if has_evidence else "missing",
             threshold="non_influenced_station",
             weight=1.0 if has_evidence else None,
             score_component=score if has_evidence else None,
@@ -281,26 +251,16 @@ def evaluate_station_influence_criterion(
                 if has_evidence
                 else "station influence metadata is missing for score mode"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "stratify":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="station_influence",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="stratified" if has_evidence else "missing",
-            raw_value=diagnostics.status,
+        return component(
+            status="stratified" if has_evidence else "missing",
             reason=(
                 "station influence metadata available for stratification"
                 if has_evidence
                 else "station influence metadata is missing"
             ),
-            evidence_json=evidence,
         )
 
     failed = bool(blocking_issues)
@@ -315,16 +275,8 @@ def evaluate_station_influence_criterion(
         status = "missing"
     else:
         status = "reported"
-    return CriteriaComponent(
-        site_id=site_id,
-        selection_principle=selection_principle,
-        criterion_id="station_influence",
-        criterion_family="observations",
-        criterion_mode=mode,
-        evaluation_stage="criteria",
-        evaluation_order=evaluation_order,
-        criterion_status=status,
-        raw_value=diagnostics.status,
+    return component(
+        status=status,
         threshold="non_influenced_station",
         blocking=failed and mode == "hard_reject",
         reason=(
@@ -332,7 +284,6 @@ def evaluate_station_influence_criterion(
             if blocking_issues or warning_issues
             else _station_influence_pass_reason(diagnostics.status, has_evidence)
         ),
-        evidence_json=evidence,
     )
 
 
@@ -347,25 +298,25 @@ def evaluate_piezometer_criterion(
     """Evaluate piezometer evidence attached to a candidate basin."""
 
     mode = config.piezometer_mode
-    distance_km = _first_number(
+    distance_km = first_number(
         attributes,
         "piezometer_distance_km",
         "nearest_piezometer_distance_km",
         "piezometer_to_outlet_distance_km",
     )
-    count = _first_number(
+    count = first_number(
         attributes,
         "piezometer_count",
         "nearby_piezometer_count",
         "piezometers_in_basin",
     )
-    inside = _first_bool(
+    inside = first_bool(
         attributes,
         "piezometer_inside_basin",
         "has_piezometer_inside_basin",
     )
     max_distance_km = config.piezometer_max_distance_km
-    piezometer_id = _first_text(
+    piezometer_id = first_text(
         attributes,
         "piezometer_id",
         "nearest_piezometer_id",
@@ -384,23 +335,24 @@ def evaluate_piezometer_criterion(
         ),
     }
 
+    component = partial(
+        _component,
+        "piezometer",
+        site_id=site_id,
+        selection_principle=selection_principle,
+        mode=mode,
+        evaluation_order=evaluation_order,
+        raw_value=count if count is not None else distance_km,
+        evidence=evidence,
+    )
     if mode == "report_only":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="piezometer",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="reported" if has_evidence else "missing",
-            raw_value=count if count is not None else distance_km,
+        return component(
+            status="reported" if has_evidence else "missing",
             reason=(
                 "piezometer evidence reported without automatic decision"
                 if has_evidence
                 else "piezometer evidence is missing"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "score":
@@ -409,16 +361,8 @@ def evaluate_piezometer_criterion(
             score = max(0.0, 1.0 - distance_km / max_distance_km)
         elif count is not None:
             score = min(1.0, count)
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="piezometer",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="scored" if score is not None else "missing",
-            raw_value=count if count is not None else distance_km,
+        return component(
+            status="scored" if score is not None else "missing",
             threshold=_distance_threshold_label(max_distance_km),
             weight=1.0 if score is not None else None,
             score_component=score,
@@ -427,26 +371,16 @@ def evaluate_piezometer_criterion(
                 if score is not None
                 else "piezometer evidence is missing for score mode"
             ),
-            evidence_json=evidence,
         )
 
     if mode == "stratify":
-        return CriteriaComponent(
-            site_id=site_id,
-            selection_principle=selection_principle,
-            criterion_id="piezometer",
-            criterion_family="observations",
-            criterion_mode=mode,
-            evaluation_stage="criteria",
-            evaluation_order=evaluation_order,
-            criterion_status="stratified" if has_evidence else "missing",
-            raw_value=count if count is not None else distance_km,
+        return component(
+            status="stratified" if has_evidence else "missing",
             reason=(
                 "piezometer evidence available for stratification"
                 if has_evidence
                 else "piezometer evidence is missing"
             ),
-            evidence_json=evidence,
         )
 
     failures = []
@@ -461,19 +395,45 @@ def evaluate_piezometer_criterion(
     status = "passed"
     if failed:
         status = "failed" if mode == "hard_reject" else "warning"
+    return component(
+        status=status,
+        threshold=_distance_threshold_label(max_distance_km),
+        blocking=failed and mode == "hard_reject",
+        reason="; ".join(failures) if failures else "piezometer checks passed",
+    )
+
+
+def _component(
+    criterion_id: str,
+    *,
+    site_id: str,
+    selection_principle: str,
+    mode: str,
+    evaluation_order: int,
+    raw_value: float | str | bool | None,
+    evidence: dict[str, Any],
+    status: str,
+    reason: str,
+    threshold: float | str | None = None,
+    weight: float | None = None,
+    score_component: float | None = None,
+    blocking: bool = False,
+) -> CriteriaComponent:
     return CriteriaComponent(
         site_id=site_id,
         selection_principle=selection_principle,
-        criterion_id="piezometer",
+        criterion_id=criterion_id,
         criterion_family="observations",
         criterion_mode=mode,
         evaluation_stage="criteria",
         evaluation_order=evaluation_order,
         criterion_status=status,
-        raw_value=count if count is not None else distance_km,
-        threshold=_distance_threshold_label(max_distance_km),
-        blocking=failed and mode == "hard_reject",
-        reason="; ".join(failures) if failures else "piezometer checks passed",
+        raw_value=raw_value,
+        threshold=threshold,
+        weight=weight,
+        score_component=score_component,
+        blocking=blocking,
+        reason=reason,
         evidence_json=evidence,
     )
 

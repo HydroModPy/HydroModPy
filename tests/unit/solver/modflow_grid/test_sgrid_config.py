@@ -48,3 +48,10 @@ def test_an_sgrid_value_that_is_not_a_table_is_refused():
 
 def test_a_backend_without_sgrid_table_takes_the_default_sampling():
     assert SolverSGridConfig.from_mapping({}) == SolverSGridConfig()
+
+
+def test_a_modflow6_sgrid_vertical_table_is_refused_naming_the_doctor_fix():
+    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+
+    with pytest.raises(ValidationError, match=r"hmp doctor --fix-config"):
+        Modflow6Config.model_validate({"sgrid": {"vertical": {"nlay": 2}}})

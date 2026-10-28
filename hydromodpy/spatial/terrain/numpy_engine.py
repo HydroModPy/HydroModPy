@@ -46,6 +46,9 @@ from hydromodpy.core.exceptions import (
     TerrainProductError,
     TerrainRequestError,
 )
+from hydromodpy.core.io.crs import crs_text
+from hydromodpy.core.io.raster_io import write_band
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.terrain.artifacts import (
     MASK_INSIDE,
     MASK_NODATA,
@@ -105,14 +108,12 @@ class _Grid:
             self.profile = src.profile.copy()
             self.transform = src.transform
             self.nodata = src.nodata
-            self.crs = str(src.crs) if src.crs else ""
+            # A ConditionedDem carries its CRS as a string, empty when the grid has none.
+            self.crs = crs_text(src.crs) or ""
         self.rows, self.cols = self.values.shape
         self.dx = abs(float(self.transform.a))
         self.dy = abs(float(self.transform.e))
-        if self.nodata is None:
-            self.valid = np.isfinite(self.values)
-        else:
-            self.valid = np.isfinite(self.values) & (self.values != self.nodata)
+        self.valid = valid_cells(self.values, self.nodata)
 
     @property
     def cell_area_m2(self) -> float:
@@ -130,13 +131,8 @@ class _Grid:
         return int(row), int(col)
 
     def write(self, path: str | Path, data: np.ndarray, *, dtype: str, nodata: float) -> None:
-        profile = self.profile.copy()
-        profile.update(driver="GTiff", count=1, dtype=dtype, nodata=nodata)
-        if self.crs:
-            profile.update(crs=self.crs)
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with rasterio.open(str(path), "w", **profile) as dst:
-            dst.write(data.astype(dtype), 1)
+        profile = dict(self.profile, crs=self.crs) if self.crs else self.profile
+        write_band(path, data.astype(dtype), profile, driver="GTiff", dtype=dtype, nodata=nodata)
 
 
 class NumpyTerrainEngine:

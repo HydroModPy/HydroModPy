@@ -8,6 +8,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from pyproj import Transformer
+
+from hydromodpy.core.io.crs import haversine_km, same_crs
 from hydromodpy.spatial.site_selection.evidence.station_influence import STATION_INFLUENCE_FIELDS
 
 
@@ -127,7 +130,7 @@ def _location_coordinates_for_target(
 ) -> tuple[float, float, str]:
     """Return coordinates in the requested target CRS when needed."""
 
-    if not target_crs or _same_crs(source_crs, target_crs):
+    if not target_crs or same_crs(source_crs, target_crs):
         return x, y, source_crs
 
     if _is_lambert93(target_crs):
@@ -135,13 +138,6 @@ def _location_coordinates_for_target(
         y_l93 = _float_or_none(metadata.get("y_l93"))
         if x_l93 is not None and y_l93 is not None:
             return x_l93, y_l93, "EPSG:2154"
-
-    try:
-        from pyproj import Transformer
-    except ImportError as exc:  # pragma: no cover - pyproj is part of spatial deps.
-        raise ImportError(
-            "pyproj is required to reproject observation locations for site selection."
-        ) from exc
 
     transformer = Transformer.from_crs(source_crs, target_crs, always_xy=True)
     target_x, target_y = transformer.transform(x, y)
@@ -177,24 +173,13 @@ def _make_candidate_id(prefix: str, raw_id: str) -> str:
 
 def _distance_km(left: CandidateOutlet, right: CandidateOutlet) -> float:
     if _is_wgs84(left.crs) and _is_wgs84(right.crs):
-        return _haversine_km(left.x, left.y, right.x, right.y)
+        return haversine_km(left.x, left.y, right.x, right.y)
     if left.crs != right.crs:
         raise ValueError(
             "Cannot thin candidates with different projected CRS without prior reprojection: "
             f"{left.crs!r} != {right.crs!r}."
         )
     return math.hypot(left.x - right.x, left.y - right.y) / 1000.0
-
-
-def _same_crs(left: str, right: str) -> bool:
-    if left.strip().upper() == right.strip().upper():
-        return True
-    try:
-        from pyproj import CRS
-
-        return CRS.from_user_input(left) == CRS.from_user_input(right)
-    except Exception:
-        return False
 
 
 def _is_lambert93(crs: str) -> bool:
@@ -217,20 +202,6 @@ def _float_or_none(value: object) -> float | None:
         return float(text)
     except (TypeError, ValueError):
         return None
-
-
-def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    radius_km = 6371.0088
-    lon1_rad = math.radians(lon1)
-    lat1_rad = math.radians(lat1)
-    lon2_rad = math.radians(lon2)
-    lat2_rad = math.radians(lat2)
-    dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
-    a = math.sin(dlat / 2.0) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * (
-        math.sin(dlon / 2.0) ** 2
-    )
-    return radius_km * 2.0 * math.asin(math.sqrt(a))
 
 
 __all__ = [

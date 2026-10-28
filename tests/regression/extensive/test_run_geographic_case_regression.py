@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
 from hydromodpy.spatial.geographic.cases import run_geographic_cases_from_toml
+from tests._helpers.geographic_cases import (
+    CASE_RIVER_NETWORK,
+    NAIZIN,
+    outlet_case_toml,
+    river_network_summary_signature,
+    write_json,
+)
 from tests._helpers.whitebox import configure_whitebox_single_thread
-from tests.regression.golden_utils import REPO_ROOT, resolve_tiered_golden_file
+from tests.regression.golden_utils import load_json_payload, resolve_tiered_golden_file
 
 METRICS_GOLDEN_REFERENCE_FILE = resolve_tiered_golden_file(
     test_file=__file__,
@@ -61,62 +67,6 @@ COUNT_METRIC_KEYS = [
 ]
 
 
-def _write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=2)
-        stream.write("\n")
-
-
-def _load_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as stream:
-        return json.load(stream)
-
-
-def _write_tmp_config(tmp_path: Path) -> Path:
-    config_path = tmp_path / "run_geographic_regression_config.toml"
-    dem_path = (REPO_ROOT / "examples" / "data" / "dem" / "regional_dem_naizin.tif").as_posix()
-    out_path = (tmp_path / "results").as_posix()
-
-    config_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "",
-                # The Naizin catchment of the regional DEM: a real basin is named.
-                "[site]",
-                'name = "naizin"',
-                "",
-                "[workspace]",
-                f'root = "{out_path}"',
-                "",
-                "[geographic]",
-                'crs_project = "EPSG:2154"',
-                'dem_correc_type = "breach"',
-                "",
-                "[geographic.catchment]",
-                'catch_def = "from_outlet_coord"',
-                f'dem_init_path = "{dem_path}"',
-                "x_outlet = 265611.933",
-                "y_outlet = 6784182.776",
-                "snap_dist = 50",
-                "buff_area = 20.0",
-                "[geographic.river_network]",
-                "enabled = true",
-                'threshold_mode = "area_km2"',
-                "threshold_area_km2 = 0.5",
-                "prune_short_streams = false",
-                "compute_strahler_order = true",
-                "compute_stream_links = true",
-                "all_vertices = false",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    return config_path
-
-
 def _build_metrics_payload(
     summaries: dict[str, dict[str, object]],
 ) -> dict[str, dict[str, float | int]]:
@@ -139,20 +89,7 @@ def _collect_case_signature(
         summary_path = case_summary.get("hydrographic_network_generated_summary_json")
         raise AssertionError(f"Missing river network summary payload: {summary_path}")
 
-    return {
-        "enabled": bool(summary["enabled"]),
-        "threshold_mode": str(summary["threshold_mode"]),
-        "threshold_value": float(summary["threshold_value"]),
-        "threshold_cells": float(summary["threshold_cells"]),
-        "stream_pixel_count": int(summary["stream_pixel_count"]),
-        "segment_count": int(summary["segment_count"]),
-        "network_total_length_m": float(summary["network_total_length_m"]),
-        "max_strahler_order": (
-            None if summary["max_strahler_order"] is None else float(summary["max_strahler_order"])
-        ),
-        "catchment_area_km2": float(summary["catchment_area_km2"]),
-        "drainage_density_km_per_km2": float(summary["drainage_density_km_per_km2"]),
-    }
+    return river_network_summary_signature(summary)
 
 
 def _build_river_network_payload(
@@ -172,7 +109,14 @@ def test_run_geographic_case_regression_suite(
 ):
     """Validate metrics and river-network stability on all geographic demo cases."""
     configure_whitebox_single_thread(monkeypatch)
-    config_path = _write_tmp_config(tmp_path)
+    # The extensive suite keeps the default minimal stream length.
+    network = {k: v for k, v in CASE_RIVER_NETWORK.items() if k != "min_stream_length_m"}
+    config_path = outlet_case_toml(
+        tmp_path / "run_geographic_regression_config.toml",
+        NAIZIN,
+        root=tmp_path / "results",
+        river_network=network,
+    )
     summaries = run_geographic_cases_from_toml(
         config_path,
         case_ids=CASE_IDS,
@@ -185,8 +129,8 @@ def test_run_geographic_case_regression_suite(
     river_network_actual = _build_river_network_payload(summaries)
 
     if update_goldens:
-        _write_json(METRICS_GOLDEN_REFERENCE_FILE, metrics_actual)
-        _write_json(RIVER_NETWORK_GOLDEN_REFERENCE_FILE, river_network_actual)
+        write_json(METRICS_GOLDEN_REFERENCE_FILE, metrics_actual)
+        write_json(RIVER_NETWORK_GOLDEN_REFERENCE_FILE, river_network_actual)
         return
 
     if not METRICS_GOLDEN_REFERENCE_FILE.exists():
@@ -200,7 +144,7 @@ def test_run_geographic_case_regression_suite(
             "Run tests with --update-goldens to generate it."
         )
 
-    metrics_expected = _load_json(METRICS_GOLDEN_REFERENCE_FILE)
+    metrics_expected = load_json_payload(METRICS_GOLDEN_REFERENCE_FILE)
     metrics_expected = {
         key: value for key, value in metrics_expected.items() if not key.startswith("_")
     }
@@ -229,7 +173,7 @@ def test_run_geographic_case_regression_suite(
                 abs=ABS_TOL_PIXEL_COUNT,
             )
 
-    river_network_expected = _load_json(RIVER_NETWORK_GOLDEN_REFERENCE_FILE)
+    river_network_expected = load_json_payload(RIVER_NETWORK_GOLDEN_REFERENCE_FILE)
     river_network_expected = {
         key: value for key, value in river_network_expected.items() if not key.startswith("_")
     }

@@ -1,0 +1,303 @@
+"""One contract for the reference, generated and permanent networks, and their metres.
+
+The permanent part of the mapped network travels under its own role: the
+hydrography loader names the file in its load result, the network is lifted as
+``reference_permanent`` beside ``reference``, and a consumer picks the role
+without learning which provider said which reach flows all year.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import geopandas as gpd
+import numpy as np
+import pytest
+import xarray as xr
+from shapely.geometry import LineString, box
+
+from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
+from hydromodpy.spatial.geographic.core.hydrographic_network import (
+    HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
+    HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME,
+    HydrographicNetwork,
+    canonical_feature_name_for_role,
+    default_vector_filename_for_role,
+    hydrographic_network_naming_contract,
+    measure_linework_length_m,
+    measure_polygon_area_m2,
+    project_gdf_for_metric_operations,
+)
+from hydromodpy.spatial.geographic.core.river_mesh_trace import RiverMeshTrace
+from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
+from tests._helpers.geographic_cases import write_features
+
+FIELD = HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME
+KM_LINE = LineString([(0.0, 0.0), (1000.0, 0.0)])
+
+
+def _lines(path: Path, n: int = 1, **columns) -> Path:
+    lines = [LineString([(0.0, 100.0 * i), (1000.0, 100.0 * i)]) for i in range(n)]
+    return write_features(path, lines, **columns)
+
+
+def _load_result(array=np.zeros((2, 2)), **metadata) -> LoadResult:
+    metadata = {key: None if value is None else str(value) for key, value in metadata.items()}
+    record = FieldRecord(
+        variable=FIELD,
+        source="hydrography",
+        unit="",
+        data=xr.Dataset({FIELD: (("y", "x"), np.asarray(array, dtype=float))}),
+        bbox=(0.0, 0.0, 2.0, 2.0),
+        crs="EPSG:2154",
+        metadata={"array_name": FIELD, **metadata},
+    )
+    return LoadResult(fields=[record])
+
+
+# --- the reference network ----------------------------------------------------
+
+
+def test_the_reference_network_is_lifted_with_its_metrics(tmp_path: Path) -> None:
+    streams = _lines(tmp_path / "streams.shp", STRAHLER=[3])
+    watershed = write_features(tmp_path / "watershed.shp", [box(0.0, -500.0, 1000.0, 500.0)])
+    result = _load_result(
+        [[1.0, 0.0], [np.nan, 0.0]], vector_path=streams, raster_path=tmp_path / "streams.tif"
+    )
+
+    network = HydrographicNetwork.from_hydrography_load_result(result, watershed_shp=watershed)
+
+    assert (network.role, network.source_kind) == ("reference", "hydrography_loaded")
+    assert network.has_vector is True
+    assert network.has_raster is False
+    assert network.vector_path == str(streams)
+    assert "2154" in str(network.crs)
+    assert network.canonical_feature_name == HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME
+    assert len(network.read_vector()) == 1
+    metrics = network.metrics
+    assert metrics["segment_count"] == 1
+    assert float(metrics["network_total_length_m"]) == pytest.approx(1000.0)
+    assert float(metrics["catchment_area_km2"]) == pytest.approx(1.0)
+    assert float(metrics["drainage_density_km_per_km2"]) == pytest.approx(1.0)
+    assert float(metrics["max_strahler_order"]) == pytest.approx(3.0)
+    assert metrics["stream_pixel_count"] == 1
+
+
+def test_a_raster_only_reference_counts_its_stream_pixels(tmp_path: Path) -> None:
+    result = _load_result([[1.0, 0.0], [2.0, np.nan]], raster_path=tmp_path / "streams.tif")
+
+    network = HydrographicNetwork.from_hydrography_load_result(result)
+
+    assert network.vector_path is None
+    assert network.read_vector() is None
+    assert network.raster_path == str(tmp_path / "streams.tif")
+    assert network.metrics["stream_pixel_count"] == 2
+
+
+def _record(data, metadata=None) -> SimpleNamespace:
+    return SimpleNamespace(
+        fields=[SimpleNamespace(variable=FIELD, data=data, metadata=metadata, crs="")]
+    )
+
+
+@pytest.mark.parametrize(
+    ("result", "count"),
+    [
+        (_record(xr.Dataset({"other": (("y", "x"), [[1.0, 1.0]])})), 2),
+        (_record(xr.Dataset()), None),
+        (_record(SimpleNamespace(values=np.ones((3, 1)))), 3),
+        (_record(SimpleNamespace(values=np.ones((0, 0))), metadata=[]), 0),
+        (_record(None), None),
+    ],
+    ids=["first variable", "no variable", "array values", "empty array", "no data"],
+)
+def test_the_stream_pixels_are_read_on_whatever_array_the_record_carries(result, count) -> None:
+    network = HydrographicNetwork.from_hydrography_load_result(result)
+
+    assert network.metrics.get("stream_pixel_count") == count
+    assert network.crs is None
+
+
+def test_a_load_result_without_the_hydrography_field_is_refused() -> None:
+    with pytest.raises(ValueError, match=FIELD):
+        HydrographicNetwork.from_hydrography_load_result(LoadResult())
+
+
+@pytest.mark.parametrize("watershed", ["gone.shp", "empty.shp"])
+def test_a_watershed_that_cannot_be_read_leaves_the_area_out(tmp_path, watershed) -> None:
+    streams = _lines(tmp_path / "streams.shp")
+    if watershed == "empty.shp":
+        write_features(tmp_path / watershed, [])
+    empty_vector = write_features(tmp_path / "none.shp", [])
+
+    network = HydrographicNetwork.from_hydrography_load_result(
+        _load_result(vector_path=streams), watershed_shp=tmp_path / watershed
+    )
+    empty = HydrographicNetwork.from_hydrography_load_result(_load_result(vector_path=empty_vector))
+
+    assert "catchment_area_km2" not in network.metrics
+    assert network.metrics["network_total_length_m"] == pytest.approx(1000.0)
+    assert empty.metrics["segment_count"] == 0
+
+
+# --- the permanent part -------------------------------------------------------
+
+
+def test_the_permanent_part_is_lifted_with_its_own_length(tmp_path: Path) -> None:
+    full = _lines(tmp_path / "streams.shp", 3)
+    permanent = _lines(tmp_path / "streams_permanent.shp", 1)
+
+    network = HydrographicNetwork.permanent_from_hydrography_load_result(
+        _load_result(vector_path=full, permanent_vector_path=permanent)
+    )
+
+    assert network.role == "reference_permanent"
+    assert network.vector_path == str(permanent)
+    assert network.crs == "EPSG:2154"
+    assert network.metrics["network_total_length_m"] == pytest.approx(1000.0)
+
+
+@pytest.mark.parametrize("permanent", [None, "gone.shp"])
+def test_a_load_result_without_a_permanent_part_lifts_none(tmp_path, permanent) -> None:
+    """Never the full network under this role: that would be a wrong answer."""
+    full = _lines(tmp_path / "streams.shp", 3)
+    named = None if permanent is None else tmp_path / permanent
+
+    assert (
+        HydrographicNetwork.permanent_from_hydrography_load_result(
+            _load_result(vector_path=full, permanent_vector_path=named)
+        )
+        is None
+    )
+
+
+# --- the generated network ----------------------------------------------------
+
+
+def test_the_generated_network_takes_its_metrics_from_the_summary(tmp_path: Path) -> None:
+    network_path = _lines(tmp_path / "river_network.shp")
+    summary = tmp_path / "river_network_summary.json"
+    summary.write_text(
+        json.dumps(
+            {
+                "threshold_mode": "area_km2",
+                "threshold_value": 0.5,
+                "stream_pixel_count": 12,
+                "max_strahler_order": None,
+                "per_link": [1, 2],
+            }
+        ),
+        encoding="utf-8",
+    )
+    trace = RiverMeshTrace.from_geometries(
+        source_kind="geographic_generated", crs_wkt="EPSG:2154", geometries=[KM_LINE]
+    )
+    products = RiverNetworkProducts(
+        enabled=True,
+        threshold_cells=400.0,
+        active_streams_tif=str(tmp_path / "river_streams.tif"),
+        hydrographic_network_generated_shp=str(network_path),
+        network_crs="EPSG:2154",
+        river_mesh_trace=trace,
+        hydrographic_network_generated_summary_json=str(summary),
+    )
+
+    network = HydrographicNetwork.from_river_network_products(
+        products, watershed_shp=tmp_path / "watershed.shp"
+    )
+
+    assert (network.role, network.source_kind) == ("generated", "geographic_generated")
+    assert network.vector_path == str(network_path)
+    assert network.river_mesh_trace is trace
+    assert network.metrics["threshold_mode"] == "area_km2"
+    assert float(network.metrics["threshold_value"]) == pytest.approx(0.5)
+    assert network.metrics["stream_pixel_count"] == 12
+    assert network.metrics["max_strahler_order"] is None
+    assert "per_link" not in network.metrics
+    assert float(network.metadata["threshold_cells"]) == pytest.approx(400.0)
+
+
+def test_a_generated_network_without_a_summary_is_measured_on_its_vector(tmp_path) -> None:
+    products = RiverNetworkProducts(
+        enabled=True, hydrographic_network_generated_shp=str(_lines(tmp_path / "rn.shp", 2))
+    )
+
+    network = HydrographicNetwork.from_river_network_products(products)
+
+    assert network.metrics["segment_count"] == 2
+    assert HydrographicNetwork.from_river_network_products(RiverNetworkProducts(False)) is None
+
+
+# --- names and roles ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("role", "feature", "filename"),
+    [
+        ("reference", HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, "streams.shp"),
+        ("generated", HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, "river_network.shp"),
+        (
+            "reference_permanent",
+            HYDROGRAPHIC_NETWORK_REFERENCE_PERMANENT_FEATURE_NAME,
+            "streams_permanent.shp",
+        ),
+        ("mesh_constraint", None, None),
+    ],
+)
+def test_each_role_has_its_feature_and_file_names(role, feature, filename) -> None:
+    assert canonical_feature_name_for_role(role) == feature
+    assert default_vector_filename_for_role(role) == filename
+    contract = hydrographic_network_naming_contract(role)
+    assert contract["canonical_feature_name"] == feature
+    assert contract["reference_raster_forcing_name"] == (
+        "hydrography_streams" if role == "reference" else None
+    )
+
+
+@pytest.mark.parametrize(
+    ("members", "reason"),
+    [({"role": "drawn"}, "role must be one of"), ({"source_kind": "  "}, "cannot be empty")],
+)
+def test_a_network_refuses_a_role_or_a_source_it_does_not_know(members, reason) -> None:
+    with pytest.raises(ValueError, match=reason):
+        HydrographicNetwork(**{"role": "reference", "source_kind": "file", **members})
+
+
+# --- lengths and areas in metres ----------------------------------------------
+
+
+def _frame(geometry, crs):
+    return gpd.GeoDataFrame(geometry=[geometry], crs=crs)
+
+
+@pytest.mark.parametrize(
+    ("frame", "fallback", "crs"),
+    [
+        (_frame(KM_LINE, None), "EPSG:2154", "EPSG:2154"),
+        (_frame(KM_LINE, "EPSG:4326"), "EPSG:2154", "EPSG:2154"),
+        (_frame(KM_LINE, "EPSG:2154"), None, "EPSG:2154"),
+        (_frame(LineString([(-1.6, 48.1), (-1.6, 48.11)]), "EPSG:4326"), None, "EPSG:32630"),
+        (_frame(KM_LINE, None), None, None),
+    ],
+    ids=["no crs", "degrees label on metres", "projected", "degrees", "nothing to go on"],
+)
+def test_a_frame_is_put_in_one_metric_crs_before_it_is_measured(frame, fallback, crs) -> None:
+    out = project_gdf_for_metric_operations(frame, fallback_crs=fallback)
+
+    assert (None if out.crs is None else out.crs.to_string()) == crs
+    if crs == "EPSG:32630":
+        assert measure_linework_length_m(frame) == pytest.approx(1112.0, rel=0.01)
+
+
+def test_an_empty_frame_measures_nothing() -> None:
+    empty = gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")
+
+    assert project_gdf_for_metric_operations(empty) is empty
+    assert measure_linework_length_m(empty) == 0.0
+    assert measure_polygon_area_m2(empty) == 0.0
+    assert measure_polygon_area_m2(_frame(box(0, 0, 10, 10), "EPSG:2154")) == 100.0

@@ -17,6 +17,7 @@ from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 from rasterio.warp import reproject
 
+from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -96,10 +97,7 @@ def aggregate_dem(
             "nodata": nodata,
             "compress": "deflate",
         }
-    out = Path(out_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(str(out), "w", **profile) as dst:
-        dst.write(destination.astype(np.float32), 1)
+    out = write_band(out_path, destination.astype(np.float32), profile)
     logger.info(
         "DEM aggregated from %g m to %g m: %d x %d pixels to %d x %d, mean of the fine pixels.",
         native,

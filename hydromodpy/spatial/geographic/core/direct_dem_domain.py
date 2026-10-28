@@ -23,7 +23,9 @@ from rasterio.features import shapes
 from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
-from hydromodpy.core.io.crs import ensure_crs
+from hydromodpy.core.io.crs import crs_text, ensure_crs
+from hydromodpy.core.io.raster_io import write_band
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.spatial.geographic.geographic_paths import GeographicPaths
 
 
@@ -39,14 +41,6 @@ class DirectDemDomainProducts:
     domain_area_km2: float
 
 
-def _valid_dem_mask(values: np.ndarray, nodata: float | None) -> np.ndarray:
-    """Return the active-domain mask from DEM values and nodata metadata."""
-    mask = np.isfinite(values)
-    if nodata is not None:
-        mask &= values != float(nodata)
-    return mask
-
-
 def _write_raster_copy(
     *,
     src_path: str | Path,
@@ -57,12 +51,7 @@ def _write_raster_copy(
     with rasterio.open(str(src_path)) as src:
         profile = src.profile.copy()
         data = src.read(1)
-
-    dst = Path(dst_path)
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    with rasterio.open(str(dst), "w", **profile) as out:
-        out.write(data, 1)
-    ensure_crs(dst, crs_project)
+    write_band(dst_path, data, profile, crs=crs_project)
 
 
 def build_direct_dem_domain(
@@ -85,9 +74,9 @@ def build_direct_dem_domain(
         nodata = src.nodata
         transform = src.transform
         raster_bounds = src.bounds
-        src_crs = src.crs.to_string() if src.crs is not None else None
+        src_crs = crs_text(src.crs)
 
-    valid_mask = _valid_dem_mask(values, nodata)
+    valid_mask = valid_cells(values, nodata)
     if not np.any(valid_mask):
         raise ValueError("DEM mode requires at least one valid cell in dem_init_path")
 
