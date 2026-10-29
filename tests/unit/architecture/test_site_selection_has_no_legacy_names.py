@@ -1,7 +1,5 @@
 """The site selection code and its command name none of the retired tokens."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -13,20 +11,11 @@ ACTIVE_TEXT_TARGETS = [
     REPO_ROOT / "hydromodpy" / "cli" / "commands" / "site",
 ]
 FORBIDDEN_LEGACY_SNIPPETS = (
-    "_normalize_report_mode",
-    "candidate_outlets_from_rows",
-    "write_candidates",
-    "write_report_md",
-    "same_mainstem_policy",
-    "site_catalog_extent",
-    "geoparquet_filter",
-    'profile = "dem_only"',
-    'profile = "multicriteria"',
-    'mode = "report"',
-    'mode = "auto"',
-    'candidate_mode = "imported_points"',
-    'candidate_mode = "dem_area_light"',
-)
+    "_normalize_report_mode", "candidate_outlets_from_rows", "write_candidates", "write_report_md",
+    "same_mainstem_policy", "site_catalog_extent", "geoparquet_filter", 'profile = "dem_only"',
+    'profile = "multicriteria"', 'mode = "report"', 'mode = "auto"',
+    'candidate_mode = "imported_points"', 'candidate_mode = "dem_area_light"',
+)  # fmt: skip
 
 
 @pytest.mark.fast
@@ -39,5 +28,4 @@ def test_active_site_selection_files_do_not_reintroduce_legacy_tokens():
         for snippet in FORBIDDEN_LEGACY_SNIPPETS
         if snippet in path.read_text(encoding="utf-8")
     ]
-
     assert offenders == []

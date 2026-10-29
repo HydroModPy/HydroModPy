@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon
@@ -39,7 +37,6 @@ def test_station_candidates_are_thinned_by_the_configured_distance(tmp_path):
         make_point_record("C", x=2500.0, y=0.0, n_values=1),
     ]
     thinned = _config(tmp_path, outlets={"min_distance_between_outlets_km": 1.0})
-
     for cfg, expected in ((thinned, ["A", "C"]), (_config(tmp_path), ["A", "B", "C"])):
         candidates = build_station_candidate_outlets(records, config=cfg, target_crs="EPSG:2154")
         assert [one.source_feature_id for one in candidates] == expected
@@ -48,19 +45,14 @@ def test_station_candidates_are_thinned_by_the_configured_distance(tmp_path):
 BOWTIE = [[-1.7, 48.0], [-1.6, 48.1], [-1.6, 48.0], [-1.7, 48.1], [-1.7, 48.0]]
 
 
-@pytest.mark.parametrize(
-    ("territory", "bounds"),
-    [
-        ({"mode": "bbox", "bbox": [0.0, 0.0, 10.0, 20.0]}, (0.0, 0.0, 10.0, 20.0)),
-        ({"mode": "admin_departments", "departments": ["35"]}, bbox_for_departments(["35"])),
-        ({"mode": "admin_regions", "regions": ["Bretagne"]}, bbox_for_regions(["Bretagne"])),
-    ],
-)
+@pytest.mark.parametrize(("territory", "bounds"), [
+    ({"mode": "bbox", "bbox": [0.0, 0.0, 10.0, 20.0]}, (0.0, 0.0, 10.0, 20.0)),
+    ({"mode": "admin_departments", "departments": ["35"]}, bbox_for_departments(["35"])),
+    ({"mode": "admin_regions", "regions": ["Bretagne"]}, bbox_for_regions(["Bretagne"])),
+])  # fmt: skip
 def test_the_search_geometry_fills_the_territory_box(tmp_path, territory, bounds):
     cfg = _config(tmp_path, territory={"country": "FR", **territory})
-
     geometry = site_selection_search_geometry(cfg, target_crs="EPSG:2154")
-
     assert geometry.is_valid
     assert geometry.bounds == pytest.approx(bounds)
 
@@ -68,20 +60,15 @@ def test_the_search_geometry_fills_the_territory_box(tmp_path, territory, bounds
 def test_a_territory_polygon_is_reprojected_and_made_valid(tmp_path):
     polygon = write_polygon_geojson(tmp_path / "zone.geojson", coordinates=BOWTIE)
     cfg = _config(tmp_path, territory={"mode": "polygon_file", "polygon_file": polygon})
-
     geometry = site_selection_search_geometry(cfg, target_crs="EPSG:2154")
-
     assert geometry.is_valid and geometry.area > 0.0
     assert 300_000.0 < geometry.centroid.x < 400_000.0
 
 
-@pytest.mark.parametrize(
-    "territory",
-    [
-        {"mode": "bbox", "bbox": [0.0, 0.0, 1.0, 1.0], "clip_to_territory": False},
-        {"mode": "admin_departments", "departments": ["35"], "country": "BE"},
-    ],
-)
+@pytest.mark.parametrize("territory", [
+    {"mode": "bbox", "bbox": [0.0, 0.0, 1.0, 1.0], "clip_to_territory": False},
+    {"mode": "admin_departments", "departments": ["35"], "country": "BE"},
+])  # fmt: skip
 def test_no_search_geometry_without_a_french_or_clipped_territory(tmp_path, territory):
     cfg = _config(tmp_path, territory=territory)
     assert site_selection_search_geometry(cfg, target_crs=None) is None
@@ -90,27 +77,19 @@ def test_no_search_geometry_without_a_french_or_clipped_territory(tmp_path, terr
 NETWORK = np.array([[1.0, 50.0, 200.0]])
 
 
-def _generated(tmp_path, fetcher=fetch_bdtopage_reference_network, search_geometry=None, **outlets):
+def _generated(tmp_path, search_geometry=None, **outlets):
     flow = fake_flow_products(acc=write_accumulation_raster(tmp_path / "acc.tif", NETWORK))
     cfg = _config(tmp_path, "custom", outlets={"max_generated_candidates": 1, **outlets})
     return build_generated_network_candidates(
-        config=cfg,
-        flow_products=flow,
-        target_crs=None,
-        root=tmp_path,
-        search_geometry=search_geometry,
-        reference_network_fetcher=fetcher,
-    )
+        config=cfg, flow_products=flow, target_crs=None, root=tmp_path,
+        search_geometry=search_geometry, reference_network_fetcher=fetch_bdtopage_reference_network,
+    )  # fmt: skip
 
 
 def test_generated_candidates_are_scored_against_a_custom_network(tmp_path):
-    network = tmp_path / "network.gpkg"
-    gpd.GeoDataFrame(geometry=[LineString([(0.0, 25.0), (30.0, 25.0)])], crs="EPSG:2154").to_file(
-        network
-    )
-
+    network, river = tmp_path / "network.gpkg", LineString([(0.0, 25.0), (30.0, 25.0)])
+    gpd.GeoDataFrame(geometry=[river], crs="EPSG:2154").to_file(network)
     result = _generated(tmp_path, reference_network_source="custom", reference_network_path=network)
-
     (candidate,) = result.candidates
     assert candidate.attributes["reference_network_distance_m"] == 20.0
     assert result.evidence[0].reference_network_status == "within_reference_network_tolerance"
@@ -142,9 +121,6 @@ def test_a_reference_network_without_an_outlet_crs_is_refused(tmp_path):
 def test_the_dem_area_scan_needs_its_window(tmp_path):
     with pytest.raises(ValueError, match="requires dem_area_light config"):
         build_dem_area_light_candidates(
-            config=_config(tmp_path, "custom"),
-            flow_products=None,
-            target_crs=None,
-            root=tmp_path,
+            config=_config(tmp_path, "custom"), flow_products=None, target_crs=None, root=tmp_path,
             search_geometry=None,
-        )
+        )  # fmt: skip

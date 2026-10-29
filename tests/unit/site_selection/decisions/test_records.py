@@ -1,7 +1,3 @@
-"""Criterion components and final decisions become normalized decision records."""
-
-from __future__ import annotations
-
 import pytest
 
 from hydromodpy.spatial.site_selection.decisions.aggregate import (
@@ -19,26 +15,17 @@ pytestmark = pytest.mark.fast
 
 def _component(criterion_id: str, status: str, order: int, **fields) -> CriteriaComponent:
     return CriteriaComponent(
-        site_id="site_001",
-        selection_principle="criteria_crossing",
-        criterion_id=criterion_id,
-        criterion_family=fields.pop("family", "geometry"),
-        criterion_mode="hard_reject",
-        evaluation_stage="criteria",
-        evaluation_order=order,
-        criterion_status=status,
-        **fields,
-    )
+        site_id="site_001", selection_principle="criteria_crossing", criterion_id=criterion_id,
+        criterion_family=fields.pop("family", "geometry"), criterion_mode="hard_reject",
+        evaluation_stage="criteria", evaluation_order=order, criterion_status=status, **fields,
+    )  # fmt: skip
 
 
 RESULT = make_selection(
     decisions=[
         SelectionDecision(
-            site_id="site_001",
-            selection_principle="criteria_crossing",
-            selected=False,
-            decision_stage="selection",
-            decision_reason="target_count_reached",
+            site_id="site_001", selection_principle="criteria_crossing", selected=False,
+            decision_stage="selection", decision_reason="target_count_reached",
             blocking_flags=["target_count_reached"],
         )
     ],
@@ -54,18 +41,14 @@ RESULT = make_selection(
 )  # fmt: skip
 
 
-def test_each_component_and_the_final_decision_become_one_record():
+def test_each_component_and_the_optional_final_decision_become_one_record():
     records = decision_records_from_selection_result(RESULT, run_id="run_v1")
 
     by_id = {record.criterion_id: record for record in records}
-    decisions = {key: record.decision for key, record in by_id.items()}
-    assert decisions == {
-        "area": "ACCEPT",
-        "influence": "WARNING",
-        "quota": "REJECT",
-        "geology": "NEUTRAL",
+    assert {key: record.decision for key, record in by_id.items()} == {
+        "area": "ACCEPT", "influence": "WARNING", "quota": "REJECT", "geology": "NEUTRAL",
         "final_selection": "REJECT",
-    }
+    }  # fmt: skip
     assert [record.criterion_id for record in records][-1] == "final_selection"
     assert by_id["influence"].source_name == "custom_influence"
     assert (by_id["quota"].metric_value, by_id["quota"].evidence_ref) == ("[1, 2]", "q:1")
@@ -73,11 +56,7 @@ def test_each_component_and_the_final_decision_become_one_record():
     summary = aggregate_site_selection_decisions(records)[0]
     assert summary.global_decision == "REJECT"
     assert "final_selection: target_count_reached" in summary.reject_reasons
-
-
-def test_the_final_decision_can_be_left_out():
-    records = decision_records_from_selection_result(
+    without_final = decision_records_from_selection_result(
         RESULT, run_id="run_v1", include_final_selection=False
     )
-
-    assert "final_selection" not in {record.criterion_id for record in records}
+    assert "final_selection" not in {record.criterion_id for record in without_final}

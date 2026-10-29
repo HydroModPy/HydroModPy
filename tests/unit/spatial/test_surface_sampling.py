@@ -7,14 +7,11 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.raster_support import RasterSupport
 from hydromodpy.spatial.surface import Surface
 from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
+from tests._helpers.domain_cases import raster_support
 
-SUPPORT = RasterSupport(
-    crs="EPSG:2154", dx=1.0, dy=1.0, xmin=0.0, xmax=2.0, ymin=0.0, ymax=2.0, nrows=2, ncols=2,
-    nodata=-9999.0,
-)  # fmt: skip
+SUPPORT = raster_support(2, 2, cell=1.0, x0=0.0, y0=0.0)
 VALUES = np.array([[10.0, 20.0], [30.0, -9999.0]])
 
 

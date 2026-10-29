@@ -22,7 +22,6 @@ def test_the_float32_guard_refuses_only_a_transformed_value_past_the_bound() -> 
     """A delineation refuses a log accumulation only where its outlets snap."""
     bound = math.log(LN_FLOAT32_COLLISION_COUNT)
     assert math.log(2.0e6) >= bound  # a basin of two million cells is past it
-
     require_resolvable_counts(_accumulation("ln"), max_stored_value=bound - 1.0, member="delineate")
     require_resolvable_counts(_accumulation("none"), max_stored_value=1e30, member="delineate")
     with pytest.raises(TerrainProductError, match="cannot rank"):

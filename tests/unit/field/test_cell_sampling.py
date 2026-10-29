@@ -1,9 +1,4 @@
-"""Points sampled inside one cell, :mod:`hydromodpy.spatial.field.cell_sampling`.
-
-A support counts its zones on these points, so they must lie in the cell and
-spread over it evenly. A cell with no area falls back to its vertices or its
-centroid.
-"""
+"""Points sampled inside one cell, :mod:`hydromodpy.spatial.field.cell_sampling`."""
 
 from __future__ import annotations
 
@@ -46,18 +41,11 @@ def test_the_samples_lie_in_the_cell_and_spread_with_its_area(kind, vertices, n_
 
 @pytest.mark.parametrize(
     ("vertices", "expected"),
-    [
-        ([[0, 0], [2, 2]], ([0.0, 2.0], [0.0, 2.0])),
-        ([[0, 0], [1, 1], [2, 2], [3, 3]], ([1.5], [1.5])),
-    ],
+    [([[0, 0], [2, 2]], ([0.0, 2.0], [0.0, 2.0])), ([[0, 0], [1, 1], [2, 2], [3, 3]], ([1.5], [1.5]))],
     ids=["two-vertices", "collinear"],
-)
+)  # fmt: skip
 def test_a_polygon_without_area_gives_its_vertices_or_its_centroid(vertices, expected):
     x, y = sample_points_in_cell(_cell("polygon", vertices), n_sub_per_axis=4)
-
     np.testing.assert_allclose((x, y), expected)
-
-
-def test_a_cell_of_unknown_kind_is_refused():
     with pytest.raises(ValueError, match="Unsupported cell kind 'hexagon'"):
         sample_points_in_cell(_cell("hexagon", L_SHAPE), n_sub_per_axis=4)

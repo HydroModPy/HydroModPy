@@ -1,12 +1,9 @@
 """Both solver families build their routing context with the engine the delineation used.
 
-A solver reads the engine off the runtime geographic object. MODFLOW-NWT does
-not share ``ensure_solver_routing_context`` with MODFLOW 6, it carries its own
-copy of the call, so plumbing only one of the two leaves half the runs routing
-with the build default.
+A solver reads the engine off the runtime geographic object. MODFLOW-NWT does not share
+``ensure_solver_routing_context`` with MODFLOW 6, it carries its own copy of the call, so plumbing
+only one of the two leaves half the runs routing with the build default.
 """
-
-from __future__ import annotations
 
 from types import SimpleNamespace
 
@@ -49,7 +46,5 @@ def test_the_solver_routing_context_is_built_with_the_configured_engine(
         full_path=str(tmp_path),
         geographic=SimpleNamespace(terrain_engine=engine_id),
     )
-
     ensure(solver)
-
     assert captured["engine_id"] == engine_id

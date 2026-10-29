@@ -1,7 +1,5 @@
 """The file names of a geographic run."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from hydromodpy.core.state.paths import preprocessing_dir
@@ -10,7 +8,6 @@ from hydromodpy.spatial.geographic.geographic_paths import build_geographic_path
 
 def test_the_paths_name_every_river_network_output() -> None:
     paths = build_geographic_paths(Path("dummy_out"))
-
     assert paths.river_streams_tif.endswith("river_streams.tif")
     assert paths.river_streams_pruned_tif.endswith("river_streams_pruned.tif")
     assert paths.river_stream_order_strahler_tif.endswith("river_stream_order_strahler.tif")
@@ -22,7 +19,6 @@ def test_the_paths_name_every_river_network_output() -> None:
 def test_the_tree_sits_in_the_declared_stable_folder_or_in_the_preprocessing_one(tmp_path) -> None:
     declared = build_geographic_paths(tmp_path / "out", stable_folder=tmp_path / "stable")
     default = build_geographic_paths(tmp_path / "out")
-
     assert Path(declared.stable_folder) == tmp_path / "stable"
     assert Path(default.stable_folder) == preprocessing_dir(tmp_path / "out")
     assert Path(declared.geographic_path).parent == tmp_path / "stable"

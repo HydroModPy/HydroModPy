@@ -34,7 +34,6 @@ def test_every_alias_resolves_to_the_workflows_backend(alias):
 
 def test_get_backend_caches_instances_until_the_cache_is_cleared():
     first = get_backend("whitebox_workflows")
-
     assert get_backend("wbw") is first
     clear_backend_cache()
     assert get_backend("wbw") is not first
@@ -55,13 +54,10 @@ def test_register_backend_can_add_custom_entry(monkeypatch):
 
     monkeypatch.setattr(registry, "_BACKEND_LOADERS", dict(registry._BACKEND_LOADERS))
 
-    class _FakeBackend:
-        name = "fake"
-
     def _missing():
         raise ImportError("No module named 'fake_engine'")
 
-    register_backend(" Fake ", lambda: _FakeBackend)
+    register_backend(" Fake ", lambda: type("_FakeBackend", (), {"name": "fake"}))
     register_backend("absent", _missing)
 
     assert {"fake", "absent"} <= set(available_backends())
@@ -72,7 +68,6 @@ def test_register_backend_can_add_custom_entry(monkeypatch):
 
 def test_an_injected_backend_wins_over_the_registry() -> None:
     injected = object()
-
     assert resolve_delineation_backend(injected) is injected
     assert resolve_delineation_backend() is get_backend()
 

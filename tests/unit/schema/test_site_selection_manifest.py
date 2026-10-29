@@ -24,15 +24,10 @@ CORE = {
 
 
 def _vectors(root):
-    frame = gpd.GeoDataFrame(
-        {"site_id": ["site_001"]}, geometry=[Point(350000.0, 6810000.0)], crs="EPSG:2154"
-    )
+    frame = gpd.GeoDataFrame({"site_id": ["s"]}, geometry=[Point(350000.0, 6810000.0)], crs="EPSG:2154")  # fmt: skip
     frame.to_file(root / "site_selection.gpkg", layer="selected_outlets", driver="GPKG")
     write_geoparquet_atomic(frame, root / "selected_outlets.parquet")
-    return {
-        "site_selection_gpkg": "site_selection.gpkg",
-        "selected_outlets_geoparquet": "selected_outlets.parquet",
-    }
+    return {"site_selection_gpkg": "site_selection.gpkg", "selected_outlets_geoparquet": "selected_outlets.parquet"}  # fmt: skip
 
 
 def _geojson(root):
@@ -71,15 +66,11 @@ def test_a_manifest_is_valid_only_with_its_schema_and_readable_outputs(
         (root / name).write_text("", encoding="utf-8")
     path = root / SITE_SELECTION_MANIFEST_NAME
     manifest = {
-        "schema_version": schema_version,
-        "created_at_utc": "2026-01-01T00:00:00+00:00",
-        "selection_id": "demo",
-        "action": "delineated_catchments",
-        "output_root": str(root),
-        **dict.fromkeys(("strategy", "territory", "input", "criteria", "counts"), {}),
+        "schema_version": schema_version, "created_at_utc": "2026-01-01T00:00:00+00:00",
+        "selection_id": "demo", "action": "delineated_catchments", "output_root": str(root),
+        **dict.fromkeys(("strategy", "territory", "input", "criteria", "counts", "flow_products"), {}),
         "outputs": {**CORE, **extra_files(root)},
-        "flow_products": {},
-    }
+    }  # fmt: skip
     write_selection_manifest(path, manifest)
 
     errors = validate_selection_manifest(path, check_outputs=check_outputs)

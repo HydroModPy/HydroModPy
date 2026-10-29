@@ -11,13 +11,9 @@ import pytest
     ("package", "name", "module"),
     [
         ("hydromodpy.spatial", "RasterSupport", "hydromodpy.spatial.raster_support"),
-        (
-            "hydromodpy.spatial.terrain",
-            "NumpyTerrainEngine",
-            "hydromodpy.spatial.terrain.numpy_engine",
-        ),
+        ("hydromodpy.spatial.terrain", "NumpyTerrainEngine", "hydromodpy.spatial.terrain.numpy_engine"),
     ],
-)
+)  # fmt: skip
 def test_a_lazy_name_resolves_and_an_unknown_one_is_an_attribute_error(package, name, module):
     door = importlib.import_module(package)
 

@@ -1,174 +1,264 @@
-# Geographic Package
+# spatial/geographic
 
-## Scope
+This package prepares the land surface that every later step builds on. It starts from a DEM and
+a way to say where the catchment is (an outlet point, a polygon, or the whole DEM). It conditions
+the DEM so that water can run downhill, delineates the catchment, cuts the domain polygons and
+the clipped rasters, and extracts the river network. It can also build a synthetic support (flat,
+sloping or radial) when no real DEM is wanted. The result is a tree of files on disk plus one
+runtime object, `CatchmentDelineation`, that the domain, the mesh and the solvers read.
 
-`hydromodpy.spatial.geographic` prepares all geospatial inputs required before domain
-and simulation steps:
+## How the work flows
 
-- watershed delineation or direct DEM domain setup,
-- domain support polygons (catchment, box, buffered box),
-- clipped DEM products used by domain gridding,
-- optional DEM-derived river network products,
-- runtime payload consumed by the current facade and modern entrypoints,
-- canonical hydrographic-network objects shared with comparison and display layers.
+A geographic run has seven steps. `pipeline.py` runs them and `core/` holds the code of each one.
 
-## Package Layout
+1. `core/pipeline_steps.py` resolves the output paths, reads the CRS and the cell size of the
+   DEM, and aggregates the DEM to a coarser cell when `[geographic.catchment]` asks for it.
+2. `geographic_cache.py` checks whether an earlier run left a tree with the same fingerprint. If
+   it did, the run reads that tree and skips steps 3 to 6.
+3. `core/ground_corrections.py` builds the ground, which is the DEM plus the corrections the
+   project declares. Without a correction it is the raw DEM, with no copy.
+4. `core/flow_products.py` conditions the ground (fill, breach or capped breach) and computes the
+   D8 direction and accumulation rasters. With `reg_fold` set, `regional_flow_job.py` copies
+   these rasters from a sealed job instead.
+5. `core/catchment_from_point.py` delineates the catchment, or `core/direct_dem_domain.py` takes
+   the DEM extent. `core/catchment_domain.py` cuts the buffered and box polygons.
+   `core/river_network.py` extracts the streams.
+6. When `[geographic.crossings]` is on, `core/crossing_notch.py` lowers the embankments where
+   they cross the channel, and the delineation runs a second time on the notched ground. Then
+   `domain_rasters.py` clips the DEM rasters to the domain polygons. When
+   `[geographic.bed_regularization]` is on, `core/ground_bed.py` fits the channel bed.
+7. `geographic_cache.py` writes the manifest, and `dem_metadata.py` reads the metadata of the
+   clipped rasters. `pipeline.py` returns one `GeographicRuntimeContext`.
 
-- `catchment_delineation.py`: runtime facade (`CatchmentDelineation`) used by existing code.
-- `geographic_config.py`: validated configuration model (`GeographicConfig`), with one file per
-  table beside it (`catchment_config.py`, `river_network_config.py`, `enforce_lakes_config.py`,
-  `crossings_config.py`, `capped_breach_config.py`, `bed_regularization_config.py`).
-- `geographic_cache.py`: the cache of the geographic tree, its fingerprint and its manifest.
-- `preprocessing_cleanup.py`: removal of the preprocessing tree once the run holds what it needs.
-- `regional_flow_job.py`: the regional flow job and the copy of its rasters.
-- `synthetic_config.py`: the configuration of the synthetic support.
-- `dem_metadata.py`: DEM-derived metadata contract used by `Geographic`.
-- `domain_rasters.py`: historical raster bundle builder kept near the canonical pipeline.
-- `pipeline.py`: compatibility orchestration that hydrates the `Geographic` runtime payload.
-- `geographic_paths.py`: canonical output-path contract.
-- `delineated_catchment.py`: the one reader of the delineated catchment polygon (none for a synthetic domain). `catchment_outline(geographic, cell_mesh=None)` returns the smoothed outline the mesh followed when there is one.
-- `core/`: decomposed geographic pipeline modules (single-responsibility steps).
-- `cases/`: runnable examples and review scripts. `plotting_utils.py` holds the window helpers that the
-  geographic, domain and field cases share.
-- `synthetic/`: synthetic geographic support builder and config.
-
-## Core Modules (`geographic/core`)
-
-- `flow_products.py`: DEM correction + D8 direction + D8 accumulation rasters.
-- `catchment_from_point.py`: outlet-based watershed delineation, and the watershed polygon
-  given by the user.
-- `catchment_domain.py`: derive buffered and box domain polygons, and the catchment area.
-- `domain_dem.py`: clip DEM to buffered rectangular support.
-- `surface_from_dem.py`: convert DEM raster to `RasterSupport` + `Surface`.
-- `catchment_zones.py`: build categorical zone rasters.
-- `direct_dem_domain.py`: direct-domain mode from DEM (`catch_def="dem"`).
-- `river_network.py`: optional stream extraction and network diagnostics.
-- `hydrographic_network.py`: canonical hydrographic-network concept and naming contract.
-- `network_heads.py`: the free ends of a mapped stream network, where its heads may lie, and
-  `line_parts`, which splits a map into its lines.
-- `pipeline_steps.py`: shared setup helpers reused by orchestration.
-- `derived_features.py`: `GeographicDerivedFeatures` bundle and its narrow `DomainGeographicContext` view.
-
-## Processing Modes
-
-`GeographicConfig.source_mode` controls the mode:
-
-- `standard` (default): use DEM/outlet/polygon based preprocessing.
-- `synthetic`: build analytical support from `[geographic.synthetic]`.
-
-For `standard`, `catch_def` selects the domain definition:
-
-- `from_outlet_coord`: delineate watershed from one outlet coordinate.
-- `from_polyg_shp`: import a provided watershed polygon.
-- `dem`: use DEM extent directly as model domain (no watershed delineation).
-- `txt`: build domain from XYZ text file + `cell_size`.
-
-## Standard Pipeline (Conceptual Sequence)
-
-1. Resolve output paths and DEM metadata.
-2. Build flow rasters (`flow_products`).
-3. Build catchment geometry (`catchment_from_point`).
-4. Build domain supports (`catchment_domain`) or direct DEM supports (`direct_dem_domain`).
-5. Clip DEM to buffered box (`domain_dem`).
-6. Build topographic surface (`surface_from_dem`).
-7. Compute metrics (`catchment_domain`).
-8. Optionally build the generated hydrographic network (`geographic.river_network`).
-
-`pipeline.build_geographic_runtime_context` orchestrates this sequence once, and
-`CatchmentDelineation` exposes its products as runtime attributes and as
-`GeographicDerivedFeatures`.
-
-## Generated Hydrographic Network
-
-`[geographic.river_network]` controls stream extraction:
-
-- `enabled`: activate/deactivate network products.
-- `threshold_mode`: `"area_km2"` or `"cells"`.
-- `threshold_area_km2` or `threshold_cells`: stream initiation threshold.
-- `prune_short_streams`, `min_stream_length_m`: optional cleaning.
-- `compute_strahler_order`, `compute_stream_links`: optional diagnostics.
-
-Outputs can include:
-
-- extracted streams raster,
-- optional pruned streams raster,
-- optional Strahler order raster,
-- optional stream-link raster,
-- vector generated network (`river_network.shp`, established filename),
-- summary JSON (`river_network_summary.json`, established filename).
-
-Canonical concept:
-
-- `HydrographicNetwork(role="generated")` is the shared conceptual object used by
-  display, comparison and result APIs.
-- `RiverNetworkProducts` remains the technical low-level bundle produced by the
-  geographic preprocessing step.
-- `RiverMeshTrace` remains the narrow downstream projection used by meshing.
-
-Canonical persisted names:
-
-- `hydrographic_network_generated` for the generated network,
-- `hydrographic_network_reference` for the loaded reference network.
-
-Established filenames still kept for existing outputs:
-
-- `streams.shp` / `streams.tif` for the loaded reference files,
-- `river_network.shp` / `river_network_summary.json` for generated on-disk products.
-
-## Typical Inputs
-
-- DEM in projected CRS (meters recommended).
-- Outlet coordinates (`x_outlet`, `y_outlet`) for outlet mode.
-- Or polygon shapefile for polygon mode.
-- Optional explicit `crs_project` if CRS normalization is required.
-
-## Typical Outputs
-
-Common geographic outputs include:
-
-- `watershed.shp`
-- `watershed_buff.shp`
-- `watershed_box.shp`
-- `watershed_box_buff.shp`
-- `watershed_dem.tif`
-- `watershed_buff_dem.tif`
-- `watershed_box_buff_dem.tif`
-
-Exact outputs depend on selected mode and enabled options.
-
-## Runnable Cases
-
-Catchment delineation reference set:
-
-```bash
-python hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py --cases all --no-show-plot
+```text
+[geographic] table + DEM
+        |
+        |  core/pipeline_steps.py      paths, CRS, optional aggregation
+        v
+   cache hit? ---- yes ----> geographic_cache.py reads the tree
+        | no
+        |  core/ground_corrections.py  the ground
+        |  core/flow_products.py       conditioned DEM, D8 direction, accumulation
+        |  core/catchment_*.py         catchment and domain polygons
+        |  core/river_network.py       generated streams
+        |  domain_rasters.py           clipped rasters
+        v
+   GeographicRuntimeContext            pipeline.py
+        |
+        v
+   CatchmentDelineation                catchment_delineation.py, read by domain, mesh, solvers
 ```
 
-River-network reference case:
+`source_mode = "synthetic"` skips all of this. `synthetic/catchment.py` builds the support
+from the `[geographic.synthetic]` table and returns a `SyntheticGeographic` object with the
+same public attributes.
 
-```bash
-python hydromodpy/spatial/geographic/cases/reference_river_network_nancon/run_case_river_network_nancon.py --no-show-plot
+The workflow step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` is the caller.
+It chooses between the two runtimes. The tree lives in the preprocessing folder of the run
+(`preprocessing_dir` in `hydromodpy/core/state/paths.py`), and `preprocessing_cleanup.py` removes
+it once the run holds what it needs, unless `write_intermediates` keeps it.
+
+## The folder map
+
+The top level holds the runtime, the cache and one config file per TOML table. `core/` holds one
+module per processing block. `synthetic/` and `cases/` are small.
+
+```text
+geographic/
+├── geographic_config.py            GeographicConfig, the [geographic] table
+├── catchment_config.py             the four ways to give the catchment
+├── river_network_config.py         [geographic.river_network], stream extraction
+├── capped_breach_config.py         [geographic.capped_breach], limits of the capped breach
+├── crossings_config.py             [geographic.crossings], road and rail embankments
+├── bed_regularization_config.py    [geographic.bed_regularization], the channel bed fit
+├── enforce_lakes_config.py         [geographic.enforce_lakes], lake footprints to keep
+├── synthetic_config.py             [geographic.synthetic], grid and topography laws
+├── pipeline.py                     the run, GeographicRuntimeContext
+├── geographic_cache.py             fingerprint, manifest and reuse of the tree
+├── geographic_paths.py             every output path of the tree
+├── catchment_delineation.py        CatchmentDelineation, the runtime object others read
+├── domain_rasters.py               DEM rasters clipped to the domain polygons
+├── dem_metadata.py                 CRS, extent, cell size and elevations of the clipped rasters
+├── regional_flow_job.py            one sealed flow stack shared by several catchments
+├── delineated_catchment.py         the one reader of the delineated catchment polygon
+├── structure_binders.py            catchment zones and geology bound to the domain
+├── store_ingestion.py              the tree written into the catalog store
+├── preprocessing_cleanup.py        removal of the preprocessing tree
+├── subbasin.py                     results over sub-basins inside the domain
+│
+├── core/                           one module per processing block
+│   ├── pipeline_steps.py           paths, CRS, DEM aggregation, catchment and polygons
+│   ├── dem_aggregation.py          the DEM aggregated to a coarser cell
+│   ├── ground_corrections.py       the ground: the DEM plus the declared corrections
+│   ├── ground_inputs.py            the lake polygons that the corrections leave alone
+│   ├── crossing_notch.py           embankments of roads and rails cut out of the DEM
+│   ├── channel_bed_fit.py          least-change fit of the bed along the D8 tree
+│   ├── ground_bed.py               the regularised ground and its report
+│   ├── flow_products.py            conditioned DEM, D8 direction, D8 accumulation
+│   ├── catchment_from_point.py     catchment from an outlet, or from a given polygon
+│   ├── direct_dem_domain.py        the DEM extent taken as the domain
+│   ├── catchment_domain.py         buffered and box polygons, catchment area
+│   ├── domain_dem.py               the DEM clipped to the buffered box
+│   ├── catchment_zones.py          zone rasters: catchment core, buffer ring, outside
+│   ├── river_network.py            stream extraction and its products
+│   ├── river_network_vector.py     the stream vector read back, and its summary
+│   ├── river_mesh_trace.py         the river lines the mesh follows
+│   ├── sfr_network.py              the SFR reach table from the stream links
+│   ├── hydrographic_network.py     one object for a generated or a reference network
+│   ├── hydrographic_network_comparison.py   two networks compared within a tolerance
+│   ├── network_heads.py            free ends of a mapped network, where heads may lie
+│   ├── stream_dem_agreement.py     how far the D8 paths stray from the mapped network
+│   ├── lake_catchments.py          the area each lake drains on the D8 grid
+│   ├── metric_crs.py               lengths and areas measured in a projected CRS
+│   ├── derived_features.py         the bundle of geographic products and its domain view
+│   └── surface_from_dem.py         a DEM raster as a RasterSupport and a Surface
+│
+├── synthetic/                      the analytical support, with no DEM
+│   ├── catchment.py                SyntheticGeographic and its builder
+│   ├── topography.py               flat, linear and radial topography laws
+│   └── cases/                      a runnable synthetic case
+│       ├── run_geographic_synthetic_case.py   runner and summary figure
+│       └── run_geographic_synthetic_config.toml   the case configuration
+│
+└── cases/                          runnable cases and review launcher
+    ├── plotting_utils.py           window helpers shared by the spatial cases
+    ├── review_cases.py             the cases one after another, for a visual check
+    ├── reference_catchment_delineation_case/   catchments from an outlet, a polygon, a DEM
+    │   ├── run_case.py             runner, reads the TOML and plots
+    │   └── case_config.toml        the cases
+    └── reference_river_network_nancon/   stream extraction on one reference catchment
+        ├── run_case_river_network_nancon.py   runner
+        └── case_config_river_network_nancon.toml   the case
 ```
 
-Sequential visual review:
+The `__init__.py` of the package exports names lazily, so a name is imported when it is first
+used. `synthetic/__init__.py` does the same for the synthetic runtime, to avoid an import cycle
+with the config.
+
+## Where to start
+
+| To change | Open first |
+|-----------|------------|
+| a `[geographic]` key or its default | `geographic_config.py`, or the file of its sub-table |
+| a way to give the catchment | `catchment_config.py`, then `core/pipeline_steps.py` |
+| the order of the steps of a run | `pipeline.py` |
+| DEM conditioning or the D8 rasters | `core/flow_products.py` |
+| the outlet snap or the watershed | `core/catchment_from_point.py` |
+| the buffer around the catchment | `core/catchment_domain.py` |
+| the generated stream network | `core/river_network.py`, then `core/river_network_vector.py` |
+| the cut of an embankment | `core/crossing_notch.py`, then `core/ground_corrections.py` |
+| the regularised channel bed | `core/channel_bed_fit.py`, then `core/ground_bed.py` |
+| when a tree is reused | `geographic_cache.py` |
+| the name or place of an output file | `geographic_paths.py` |
+| the SFR reaches | `core/sfr_network.py` |
+| the shared network object | `core/hydrographic_network.py` |
+| a synthetic topography | `synthetic_config.py`, then `synthetic/topography.py` |
+
+## Rules between the folders
+
+The imports go one way, from the config files and the paths up to `core/`, then to the pipeline
+and the cache, and last to the runtime objects.
+
+- The config files import only `hydromodpy.core` and the terrain port. They import nothing from
+  `core/` or from the pipeline. `geographic_config.py` imports the other config files.
+- `geographic_paths.py` imports nothing else from the package.
+- `core/` imports only `river_network_config.py` and `geographic_paths.py` from the top level.
+  It never imports the pipeline, the cache, `domain_rasters.py` or the runtime objects. Only
+  `core/pipeline_steps.py` names `GeographicConfig`, under `TYPE_CHECKING`. The other modules
+  take the config as an argument.
+- `pipeline.py` reads `core/`, the cache, the config and the paths. `geographic_cache.py` and
+  `domain_rasters.py` read `core/` too.
+- `catchment_delineation.py` calls the pipeline. Only the cases import it inside the package.
+- `synthetic/` reads `synthetic_config.py`, `core/derived_features.py` and
+  `core/river_network.py`. Nothing in `core/` imports `synthetic/`.
+
+The package imports from other HydroModPy layers only `core`, `schema` and `spatial`, as
+`tests/unit/architecture/layer_matrix.yaml` allows for `spatial`.
+
+- `hydromodpy.core` supplies the config base classes, units, logging, raster and CRS helpers,
+  the exceptions and the path conventions.
+- `hydromodpy.schema` is read by `regional_flow_job.py` alone, for the sealed job documents.
+- Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
+  `delineation` (the backend registry), `surface`, `raster_support` and
+  `catchment_zones_field`. It reads `domain` and `field` only under `TYPE_CHECKING`, in
+  `structure_binders.py`.
+- `cases/reference_catchment_delineation_case/run_case.py` imports `hydromodpy.config` and
+  `hydromodpy.core.workspace`. The file is listed in `exempt_files` of `tests/unit/architecture/layer_matrix.yaml`,
+  because a case runner loads a full config like an example does.
+- Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.paths`
+  import of `geographic_paths.py` and `subbasin.py`, the `toml_io.loader` import of
+  `synthetic_config.py`, the terrain registry import of `geographic_config.py`, and two imports
+  of `core/network_heads.py`. A module that only needs its types or its constants does not load
+  them. The test `tests/unit/architecture/test_geographic_imports.py` checks that the config
+  and the network modules import without a cycle.
+
+The architecture gate runs with the layer rules:
 
 ```bash
-python hydromodpy/spatial/geographic/cases/review_cases.py --list
-python hydromodpy/spatial/geographic/cases/review_cases.py
+pytest tests/unit/architecture -q
 ```
 
-## Design Notes
+## What lives outside the package
 
-- The package keeps backward compatibility via `CatchmentDelineation` while
-  progressively moving logic into `core/`.
-- Core modules are intentionally small and explicit to simplify testing and
-  maintenance.
-- File/path contracts are centralized to keep downstream code deterministic.
-- `HydrographicNetwork` is the preferred cross-layer concept; `RiverNetworkProducts`
-  should be treated as an internal preprocessing contract.
+The package prepares files. What reads them is elsewhere.
 
-## Development Tips
+- The DEM conditioning and the D8 engines are in `hydromodpy/spatial/terrain/`. The package
+  calls them through `core/flow_products.py` and `core/catchment_from_point.py`.
+- The backend that wraps the flow-routing library is in `hydromodpy/spatial/delineation/`.
+- The workflow step `BuildGeographicStep` in `hydromodpy/workflow/steps/setup.py` runs a build.
+  Its function `build_geographic_runtime` chooses between `CatchmentDelineation` and the
+  synthetic runtime. `hydromodpy/workflow/steps/prepare_solver/prepare.py` calls
+  `persist_geographic_to_store` to write the tree into the catalog store.
+- The mesh planner reads the river lines through `resolve_river_mesh_trace`
+  (`core/derived_features.py`). `hydromodpy/workflow/steps/mesh_inputs.py` calls it.
+- The workflow data step `hydromodpy/workflow/steps/data.py` calls the reach builder of
+  `core/sfr_network.py` and `lake_contributing_areas_m2`. The MODFLOW 6 SFR builder in
+  `hydromodpy/solver/modflow6/builders/sfr.py` turns the reach table into package data.
+- `hydromodpy/results/` reads the network objects to compare and export them.
 
-- Add new geographic behavior in `core/` first, then wire through orchestration.
-- Keep module-level docstrings explicit about pipeline role, inputs, outputs.
-- Prefer deterministic output naming to keep non-regression tests stable.
+## Changing the code
+
+The tests mirror the code under `tests/unit/geographic/`, so `core/flow_products.py` is tested in
+`tests/unit/geographic/core/test_flow_products.py` and `pipeline.py` in
+`tests/unit/geographic/test_pipeline.py`. The cases are tested in `tests/unit/geographic/cases/`
+and the synthetic support in `tests/unit/geographic/synthetic/`. A test builds its DEMs, configs
+and cached trees with the helpers of `tests/_helpers/geographic_cases.py`, which uses
+`tests/_helpers/ground_bench.py`, a small valley with a road across it.
+
+Some checks sit outside the unit folder:
+
+- `tests/unit/geographic/golden/` holds the delineation signatures that the unit tests compare
+  to.
+- `tests/regression/fast/geographic/` runs two golden cases, the DEM processing and the river
+  network. `tests/regression/extensive/test_run_geographic_case_regression.py` is the larger one.
+- `tests/contract/test_crossing_notch_on_whitebox.py` and
+  `tests/contract/test_capped_breach_on_whitebox.py` run the notch and the capped breach on the
+  real flow-routing engine.
+- `tests/contract/test_case_review_contract.py` checks the review launcher against the contract
+  that the spatial packages share.
+
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the branch coverage of
+`hydromodpy/spatial/geographic/*` drops below 96.2, and that floor only goes up.
+
+```bash
+pytest tests/unit/geographic -q
+```
+
+A new `[geographic]` key is a field of the Pydantic model in `geographic_config.py` or in the
+file of its sub-table, with its description. The parameter reference is built from the model.
+A new output file gets its name in `geographic_paths.py`, and a file that a resume must find
+also goes into the tree list of `geographic_cache.py`.
+
+## Documentation
+
+- `docs/source/reference/parameters/geographic.md` is the parameter reference of the table.
+- `docs/source/reference/python/CatchmentDelineation.md` and
+  `docs/source/reference/python/Subbasin.md` document the two public classes.
+- `docs/source/contribute/architecture/spatial_support/hydrographic-network-uml-diagrams.rst`
+  and `hydrographic-network-simulated-active-inventory.rst` in
+  `docs/source/contribute/architecture/spatial_support/` describe the
+  network objects of `core/`.
+- `docs/source/theory/exits/simulated-network.md` points to
+  `core/hydrographic_network_comparison.py` for the overlap of lines.
+- `docs/source/contribute/architecture/how-to/add-a-config-field.rst` uses
+  `geographic_config.py` as its worked case.

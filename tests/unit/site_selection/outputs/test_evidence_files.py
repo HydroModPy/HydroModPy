@@ -27,25 +27,19 @@ def _evidence(located: bool) -> dict:
     location = {"provider_location": {"x": X93, "y": Y93, "crs": L93}} if located else {}
     kwargs = dict(site_id="site_001", crs=L93 if located else "")
     return {
-        "observation_evidence": [
-            ObservationEvidence(
-                site_id="site_001", observation_type="piezometer", source_dataset="BSS",
-                feature_id="PZ1", evidence_json=location,
-            )
-        ],
-        "influence_evidence": [
-            InfluenceEvidence(
-                influence_type="major_dam_upstream", source_layer="Dams", feature_id="D1",
-                geometry=Point(X93, Y93) if located else None, **kwargs,
-            )
-        ],
-        "geology_evidence": [
-            GeologyEvidence(
-                source_layer="BRGM", geology_class="schist", area_fraction=1.0, area_km2=0.01,
-                feature_count=1, geometry=box(X93, Y93, X93 + 100, Y93 + 100) if located else None,
-                **kwargs,
-            )
-        ],
+        "observation_evidence": [ObservationEvidence(
+            site_id="site_001", observation_type="piezometer", source_dataset="BSS",
+            feature_id="PZ1", evidence_json=location,
+        )],
+        "influence_evidence": [InfluenceEvidence(
+            influence_type="major_dam_upstream", source_layer="Dams", feature_id="D1",
+            geometry=Point(X93, Y93) if located else None, **kwargs,
+        )],
+        "geology_evidence": [GeologyEvidence(
+            source_layer="BRGM", geology_class="schist", area_fraction=1.0, area_km2=0.01,
+            feature_count=1, geometry=box(X93, Y93, X93 + 100, Y93 + 100) if located else None,
+            **kwargs,
+        )],
     }  # fmt: skip
 
 
@@ -72,15 +66,11 @@ def test_located_evidence_is_written_in_every_vector_format(tmp_path):
             True,
         )
         assert collection["features"][0]["properties"][kind] in {"major_dam_upstream", "schist"}
-    refs = {
-        json.loads(line)["evidence_ref"]
-        for line in paths["site_selection_evidence_jsonl"].read_text().splitlines()
-    }
-    assert refs == {
-        "piezometer:site_001:PZ1",
-        "influence:site_001:major_dam_upstream:D1",
+    lines = paths["site_selection_evidence_jsonl"].read_text().splitlines()
+    assert {json.loads(line)["evidence_ref"] for line in lines} == {
+        "piezometer:site_001:PZ1", "influence:site_001:major_dam_upstream:D1",
         "geology:site_001:BRGM:schist",
-    }
+    }  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -95,21 +85,12 @@ def test_evidence_without_geometry_or_vector_output_is_written_as_tables_only(
         write_context_vectors=vectors, **_evidence(located),
     )  # fmt: skip
 
-    tables = {"geology", "influence", "observation", "site_selection"}
-    assert {key for key in paths if key.endswith("_jsonl")} == {
-        f"{t}_evidence_jsonl" for t in tables
+    tables = {
+        f"{t}_evidence_jsonl" for t in ("geology", "influence", "observation", "site_selection")
     }
+    assert {key for key in paths if key.endswith("_jsonl")} == tables
     # The observation GeoJSON keeps the observations it could not place.
-    assert set(paths) - {f"{t}_evidence_jsonl" for t in tables} == (
-        set() if located else {"observation_points_geojson"}
-    )
-
-
-def test_no_evidence_writes_nothing(tmp_path):
-    assert (
-        write_site_selection_evidence_outputs(tmp_path, selection_id="v1", output=ALL_FORMATS) == {}
-    )
-    assert not list(tmp_path.iterdir())
+    assert set(paths) - tables == (set() if located else {"observation_points_geojson"})
 
 
 @pytest.mark.parametrize(("crs_values", "label"), [(["", ""], ""), ([L93, "EPSG:4326"], "mixed")])
@@ -131,6 +112,11 @@ def test_the_evidence_geojson_names_its_single_crs_or_says_mixed(tmp_path, crs_v
         collection = json.loads(path.read_text())
         assert collection["hydromodpy_coordinate_crs"] == label
         assert "crs" not in collection
-        assert collection["features"][0]["properties"]["source_path"] == str(
-            tmp_path / "layer.gpkg"
-        )
+        assert collection["features"][0]["properties"]["source_path"] == str(common["source_path"])
+
+
+def test_no_evidence_writes_nothing(tmp_path):
+    assert (
+        write_site_selection_evidence_outputs(tmp_path, selection_id="v1", output=ALL_FORMATS) == {}
+    )
+    assert not list(tmp_path.iterdir())

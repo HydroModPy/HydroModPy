@@ -1,7 +1,5 @@
 """A domain taken straight from the DEM: its valid pixels, its frame and a copy of it."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import geopandas as gpd
@@ -28,18 +26,13 @@ def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tm
     values[:, 0] = np.nan
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=NODATA)
     paths = _paths(tmp_path)
-
     products = build_direct_dem_domain(dem_init_path=dem, paths=paths, crs_project="EPSG:2154")
-
     # Four by four valid pixels of 100 m.
     assert products.domain_area_km2 == pytest.approx(0.16)
     watershed = gpd.read_file(products.watershed_shp)
     assert watershed.total_bounds.tolist() == [100.0, 0.0, 500.0, 400.0]
-    assert (
-        gpd.read_file(products.watershed_buff_shp)
-        .geometry.iloc[0]
-        .equals(watershed.geometry.iloc[0])
-    )
+    buffered = gpd.read_file(products.watershed_buff_shp).geometry.iloc[0]
+    assert buffered.equals(watershed.geometry.iloc[0])
     for frame in (products.watershed_box_shp, products.watershed_box_buff_shp):
         assert gpd.read_file(frame).total_bounds.tolist() == [0.0, 0.0, 500.0, 500.0]
     with rasterio.open(dem) as src, rasterio.open(products.watershed_box_buff_dem) as copy:
@@ -50,7 +43,6 @@ def test_the_domain_is_the_footprint_of_the_valid_pixels_framed_by_the_raster(tm
 
 def test_a_dem_with_no_valid_pixel_is_refused(tmp_path) -> None:
     dem = write_geotiff(tmp_path / "dem.tif", np.full((3, 3), NODATA), nodata=NODATA)
-
     with pytest.raises(ValueError, match="at least one valid cell"):
         build_direct_dem_domain(dem_init_path=dem, paths=_paths(tmp_path))
 
@@ -62,16 +54,9 @@ def test_a_dem_with_no_valid_pixel_is_refused(tmp_path) -> None:
 )
 def test_a_dem_in_degrees_gives_its_domain_area_in_square_kilometres(tmp_path) -> None:
     # 0.01 x 0.01 degree pixels near Rennes, about 0.74 x 1.11 km each.
-    dem = write_geotiff(
-        tmp_path / "dem.tif",
-        np.ones((4, 4), "float32"),
-        origin=(-1.7, 48.1),
-        cell=0.01,
-        crs="EPSG:4326",
-    )
-
+    ones = np.ones((4, 4), "float32")
+    dem = write_geotiff(tmp_path / "dem.tif", ones, origin=(-1.7, 48.1), cell=0.01, crs="EPSG:4326")
     products = build_direct_dem_domain(
         dem_init_path=dem, paths=_paths(tmp_path), crs_project="EPSG:2154"
     )
-
     assert products.domain_area_km2 == pytest.approx(16 * 0.74 * 1.11, rel=0.05)

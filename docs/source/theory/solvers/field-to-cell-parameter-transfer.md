@@ -126,7 +126,7 @@ hydromodpy.solver.field_property_mapping
 
 | What | Where |
 |---|---|
-| The weighted average and the depth factor | `hydromodpy/spatial/field/field_param.py` (`FieldParam.to_mesh_field`, `FieldParam.vertical_factor`) |
+| The weighted average and the depth factor | `hydromodpy/spatial/field/field_param.py` (`FieldParam.to_mesh_field`), `hydromodpy/spatial/field/vertical_profile.py` (`vertical_factor`, `mesh_vertical_factor`) |
 | The shares of each zone in a cell | `hydromodpy/spatial/field/zone_fractions.py` (`zone_fractions`) |
 | The sampled shares | `hydromodpy/spatial/domain/support_fields.py` (`on_mesh`), `hydromodpy/spatial/field/geology_field.py` (`GeologyField.on_mesh`) |
 | The sample points of a cell | `hydromodpy/spatial/field/cell_sampling.py` (`sample_points_in_cell`) |

@@ -1,7 +1,3 @@
-"""The geology criterion reports, scores or stratifies the dominant class."""
-
-from __future__ import annotations
-
 import pytest
 
 from hydromodpy.spatial.site_selection.config.criteria_config import GeologyCriteriaConfig
@@ -12,19 +8,16 @@ from hydromodpy.spatial.site_selection.evaluation.criteria.geology import (
 pytestmark = pytest.mark.fast
 
 
-@pytest.mark.parametrize(
-    ("mode", "attributes", "status", "score"),
-    [
-        ("report_only", {"dominant_geology": "socle cristallin"}, "reported", None),
-        ("report_only", {}, "missing", None),
-        ("score", {"lithology": "schist"}, "scored", 1.0),
-        ("score", {}, "missing", None),
-        ("stratify", {"geology_class": "granite"}, "stratified", None),
-        ("stratify", {"geology_class": "  "}, "missing", None),
-        ("warning", {"brgm_code": "g1"}, "reported", None),
-        ("hard_reject", {}, "missing", None),
-    ],
-)
+@pytest.mark.parametrize(("mode", "attributes", "status", "score"), [
+    ("report_only", {"dominant_geology": "socle cristallin"}, "reported", None),
+    ("report_only", {}, "missing", None),
+    ("score", {"lithology": "schist"}, "scored", 1.0),
+    ("score", {}, "missing", None),
+    ("stratify", {"geology_class": "granite"}, "stratified", None),
+    ("stratify", {"geology_class": "  "}, "missing", None),
+    ("warning", {"brgm_code": "g1"}, "reported", None),
+    ("hard_reject", {}, "missing", None),
+])  # fmt: skip
 def test_the_geology_criterion_follows_its_mode_and_never_blocks(mode, attributes, status, score):
     component = evaluate_geology_criterion(
         site_id="site_001",

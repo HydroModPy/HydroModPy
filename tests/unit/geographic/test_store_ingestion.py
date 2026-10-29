@@ -1,8 +1,5 @@
 """What a geographic run leaves in the project store, and how its tree is dropped."""
 
-from __future__ import annotations
-
-from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,10 +19,8 @@ from hydromodpy.spatial.geographic.store_ingestion import (
     persist_geographic_to_store,
     read_raster_data_and_meta,
 )
-from hydromodpy.spatial.terrain import CappedBreach, CappedBreachReport
-from tests._helpers.geographic_cases import LAMBERT, write_features
+from tests._helpers.geographic_cases import LAMBERT, capped_breach_flow_products, write_features
 from tests._helpers.geotiffs import write_geotiff
-from tests._helpers.terrain_doubles import fake_flow_products
 
 DEM = np.arange(12, dtype="float32").reshape(3, 4)
 
@@ -66,15 +61,6 @@ def _line(path: Path, *, crs: str | None) -> Path:
     return write_features(path, [LineString([(0, 0), (10, 0)])], crs=crs)
 
 
-def test_without_a_run_id_nothing_is_written(monkeypatch) -> None:
-    _backend(monkeypatch)
-    store = _Store()
-
-    persist_geographic_to_store(SimpleNamespace(crs_proj=LAMBERT), store, sim_id=None)
-
-    assert (store.rasters, store.features, store.metadata) == ({}, {}, {})
-
-
 def test_a_run_read_from_disk_reaches_the_store_and_its_tree_is_dropped(
     tmp_path, monkeypatch
 ) -> None:
@@ -99,9 +85,7 @@ def test_a_run_read_from_disk_reaches_the_store_and_its_tree_is_dropped(
         x_outlet=None,
         dem_box_buff_data=DEM,
     )
-
     store = _persist(geographic, monkeypatch, cleanup=True)
-
     assert list(store.rasters) == ["watershed_dem"]
     raster = store.rasters["watershed_dem"]
     np.testing.assert_array_equal(raster.data, DEM)
@@ -122,9 +106,7 @@ def test_a_raster_the_backend_still_holds_is_read_from_its_cache(tmp_path, monke
     )
     fill = write_geotiff(tmp_path / "fill.tif", DEM, nodata=None)
     geographic = SimpleNamespace(watershed_dem="cached.tif", watershed_fill=str(fill))
-
     store = _persist(geographic, monkeypatch, backend=SimpleNamespace(raster=raster_backend))
-
     assert store.rasters["watershed_dem"].data is cached
     assert store.rasters["watershed_dem"].transform == (1, 0, 0, 0, -1, 2)
     assert store.rasters["watershed_dem"].crs == ""
@@ -147,7 +129,6 @@ def test_a_cached_raster_reads_as_the_same_raster_on_disk(tmp_path, monkeypatch)
     )
     _backend(monkeypatch, SimpleNamespace(raster=raster))
     cached, *from_cache = read_raster_data_and_meta(tmp_path / "only_in_the_cache.tif")
-
     np.testing.assert_array_equal(data, DEM)
     assert cached is DEM
     assert on_disk == from_cache == [(5.0, 0.0, 10.0, 0.0, -5.0, 20.0), -9.0, LAMBERT]
@@ -183,51 +164,34 @@ def test_the_generated_network_is_found_and_given_a_crs_wherever_the_runtime_kee
         ),
         "nowhere": SimpleNamespace(hydrographic_network_generated_shp=network, crs_proj=""),
     }.get(where) or SimpleNamespace(get_geographic_derived_features=lambda: derived[where])
-
     store = _persist(geographic, monkeypatch)
-
     assert store.features[NETWORK].crs == (None if where == "nowhere" else LAMBERT)
 
 
-def test_a_runtime_without_a_network_writes_none(tmp_path, monkeypatch) -> None:
+def test_a_runtime_without_a_network_writes_none_and_without_a_run_id_nothing(
+    tmp_path, monkeypatch
+) -> None:
     empty = tmp_path / "empty.gpkg"
     gpd.GeoDataFrame(geometry=[], crs=LAMBERT).to_file(empty, driver="GPKG")
-
     for geographic in (
         SimpleNamespace(hydrographic_network_generated_shp=str(tmp_path / "absent.shp")),
         SimpleNamespace(hydrographic_network_generated_shp=str(empty)),
         SimpleNamespace(get_geographic_derived_features=lambda: None),
     ):
         assert _persist(geographic, monkeypatch).features == {}
+    store = _Store()
+    persist_geographic_to_store(SimpleNamespace(crs_proj=LAMBERT), store, sim_id=None)
+    assert (store.rasters, store.features, store.metadata) == ({}, {}, {})
 
 
 @pytest.mark.parametrize("method", ["fill", "capped_breach"])
 def test_the_run_metadata_records_the_capped_breach_limits_and_what_they_produced(
     method, monkeypatch
 ) -> None:
-    report = CappedBreachReport(
-        cells_lowered=4,
-        cells_raised=12,
-        max_lowering_m=0.56,
-        max_raise_m=0.2,
-        max_dist_cells=8,
-        max_cost_m=0.5,
-        move_threshold_m=0.01,
-    )
-    flow_products = fake_flow_products(method=CappedBreach(0.5, 200.0))
-    directions = flow_products.accumulation.directions
-    directions = replace(
-        directions, conditioned_dem=replace(directions.conditioned_dem, breach_report=report)
-    )
-    flow_products = type(flow_products)(
-        accumulation=replace(flow_products.accumulation, directions=directions)
-    )
     geographic = SimpleNamespace(
-        dem_correc_type=method, capped_breach=None, _flow_products=flow_products
+        dem_correc_type=method, capped_breach=None, _flow_products=capped_breach_flow_products()
     )
-
     written = _persist(geographic, monkeypatch).metadata
-
     limits = sorted(key for key in written if key.startswith("capped_breach"))
     if method == "fill":
         assert limits == []
@@ -253,11 +217,9 @@ def test_the_preprocessing_tree_is_dropped_with_its_empty_scratch_folders(
     shared = tmp_path / "shared" / "scratch" / "_preprocessing"
     shared.mkdir(parents=True)
     (shared.parent / "other_run.log").write_text("kept")
-
     kept = cleanup_stable_folder(SimpleNamespace(stable_folder=str(stable)), keep=True)
     freed = cleanup_stable_folder(SimpleNamespace(stable_folder=str(stable)))
     cleanup_stable_folder(SimpleNamespace(stable_folder=str(shared)))
-
     assert (kept, freed) == (0, 120)
     assert cleared == [True, True, True]
     assert not scratch.exists()

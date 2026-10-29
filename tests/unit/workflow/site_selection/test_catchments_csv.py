@@ -35,21 +35,18 @@ def _select(tmp_path: Path, rows: str = "site_001,10,20,100", *, data=None, load
     config_path = write_selection_toml(tmp_path, selection_section(**tables), **top)
     spies: dict = {"dem": [], "flow": {}, "delineation": []}
     result, paths = select_delineated_catchments_from_csv(
-        config_path=config_path,
-        catchments_csv=tmp_path / "catchments.csv",
+        config_path=config_path, catchments_csv=tmp_path / "catchments.csv",
         flow_products_builder=flow_spy(spies["flow"]),
         delineation_builder=delineation_spy(spies["delineation"], size=10.0),
-        area_reader=lambda _path: 100.0,
+        area_reader=lambda _path: 100.0, region_id="BZH",
         dem_loader=loader or dem_loader_spy(tmp_path / "dem.tif", spies["dem"]),
-        region_id="BZH",
-    )
+    )  # fmt: skip
     manifest = json.loads(paths["site_selection_manifest_json"].read_text(encoding="utf-8"))
     return result, paths, manifest, spies
 
 
 def test_the_csv_sites_are_selected_and_written_with_their_region(tmp_path):
     result, paths, manifest, _ = _select(tmp_path, "site_ok,0,0,100\nsite_bad,1,1,50")
-
     assert [site.site_id for site in result.selected] == ["site_ok"]
     with paths["selected_sites_csv"].open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -104,18 +101,12 @@ def test_outlets_snap_to_a_reference_network_before_the_dem(tmp_path, monkeypatc
     river.to_file(tmp_path / "river.gpkg")
     monkeypatch.setattr(bdtopage, "fetch", lambda cfg, bbox: river.to_crs("EPSG:4326"))
     outlets = {
-        "snap_strategy": "bdtopage_then_dem",
-        "reference_network_source": source,
-        "reference_network_path": "river.gpkg",
-        "reference_network_max_distance_m": 50.0,
-    }
+        "snap_strategy": "bdtopage_then_dem", "reference_network_source": source,
+        "reference_network_path": "river.gpkg", "reference_network_max_distance_m": 50.0,
+    }  # fmt: skip
 
     result, _, manifest, spies = _select(
-        tmp_path,
-        "site_001,25,12,100",
-        input=DELINEATE,
-        dem={"path": "dem.tif"},
-        outlets=outlets,
+        tmp_path, "site_001,25,12,100", input=DELINEATE, dem={"path": "dem.tif"}, outlets=outlets
     )
 
     call = spies["delineation"][0]
@@ -149,13 +140,7 @@ def test_the_dem_request_covers_the_search_geometry_and_its_margin(tmp_path, ter
     write_polygon_geojson(tmp_path / "zone.geojson", coordinates=BOWTIE)
     dem = {"source": "data", "margin_km": 2.0}
 
-    _, _, _, spies = _select(
-        tmp_path,
-        input=DELINEATE,
-        dem=dem,
-        territory=territory,
-        data=DATA_DEM,
-    )
+    _, _, _, spies = _select(tmp_path, input=DELINEATE, dem=dem, territory=territory, data=DATA_DEM)
 
     cfg = load_site_selection_config(tmp_path / "selection.toml")
     xmin, ymin, xmax, ymax = site_selection_search_geometry(cfg, target_crs="EPSG:2154").bounds
@@ -167,15 +152,12 @@ def test_the_dem_request_covers_the_search_geometry_and_its_margin(tmp_path, ter
 
 def test_a_territory_outside_france_asks_the_dem_around_the_outlets(tmp_path):
     territory = {"mode": "admin_regions", "regions": ["Wallonie"], "country": "BE"}
+    dem = {"source": "data", "margin_km": 1.0}
 
     _, _, _, spies = _select(
-        tmp_path,
-        "a,10,20,100\nb,110,220,100",
-        input=DELINEATE,
-        dem={"source": "data", "margin_km": 1.0},
-        territory=territory,
+        tmp_path, "a,10,20,100\nb,110,220,100", input=DELINEATE, dem=dem, territory=territory,
         data=DATA_DEM,
-    )
+    )  # fmt: skip
 
     assert spies["dem"][0]["project_extent"] == (-990.0, -980.0, 1110.0, 1220.0)
 

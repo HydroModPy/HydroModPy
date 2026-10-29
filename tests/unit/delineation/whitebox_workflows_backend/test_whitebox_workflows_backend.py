@@ -40,10 +40,7 @@ def _write_raster(path: Path, data: np.ndarray) -> Path:
 
 def _read(path: Path) -> np.ndarray:
     with rasterio.open(path) as src:
-        values = np.asarray(src.read(1), dtype=float)
-        if src.nodata is not None:
-            values[values == src.nodata] = np.nan
-    return values
+        return src.read(1, masked=True).astype(float).filled(np.nan)
 
 
 def _count_active_cells(path: Path) -> int:
@@ -55,15 +52,10 @@ def _count_active_cells(path: Path) -> int:
 def slope(tmp_path: Path) -> SimpleNamespace:
     """A 4 x 4 slope draining north-east, a box polygon, one point and one line."""
     layers = SimpleNamespace(dem=_write_raster(tmp_path / "dem.tif", SLOPE))
-    for name, geometry in {
-        "polygon": box(0.0, 0.0, 3.0, 4.0),
-        "points": Point(1.5, 2.5),
-        "lines": LineString([(0.5, 3.5), (2.5, 0.5)]),
-    }.items():
+    shapes = {"polygon": box(0.0, 0.0, 3.0, 4.0), "points": Point(1.5, 2.5), "lines": LineString([(0.5, 3.5), (2.5, 0.5)])}  # fmt: skip
+    for name, geometry in shapes.items():
         setattr(layers, name, tmp_path / f"{name}.shp")
-        gpd.GeoDataFrame({"id": [1]}, geometry=[geometry], crs="EPSG:2154").to_file(
-            getattr(layers, name)
-        )
+        gpd.GeoDataFrame({"id": [1]}, geometry=[geometry], crs="EPSG:2154").to_file(getattr(layers, name))  # fmt: skip
     return layers
 
 
@@ -72,18 +64,11 @@ def slope(tmp_path: Path) -> SimpleNamespace:
 )
 def test_every_spelling_of_whitebox_workflows_selects_the_one_shared_backend(kind):
     clear_whitebox_backend_cache()
-
     backend = get_whitebox_backend(kind)
-
     assert isinstance(backend, WhiteboxWorkflowsBackend)
     assert backend is get_whitebox_backend() is get_backend()
     delineation_pkg.clear_whitebox_backend_cache()
     assert get_whitebox_backend(kind) is not backend
-
-
-def test_get_whitebox_backend_rejects_legacy_whitebox_selection():
-    with pytest.raises(ValueError, match="only 'whitebox_workflows'"):
-        get_whitebox_backend("whitebox")
 
 
 def test_the_package_exposes_the_three_thematic_backends_lazily():
@@ -93,7 +78,6 @@ def test_the_package_exposes_the_three_thematic_backends_lazily():
         "WhiteboxFlowBackend": ("fill_depressions", "breach_depressions", "d8_pointer", "d8_flow_accumulation"),
         "WhiteboxDelineationBackend": ("watershed", "extract_streams", "snap_pour_points"),
     }  # fmt: skip
-
     for name, methods in surfaces.items():
         cls = getattr(delineation_pkg, name)
         assert cls is getattr(wbw_backend, name)
@@ -102,17 +86,17 @@ def test_the_package_exposes_the_three_thematic_backends_lazily():
 
 
 @pytest.mark.parametrize(
-    ("load", "error"),
+    ("load", "error", "match"),
     [
-        (lambda: delineation_pkg.WhiteboxToolsBackend, AttributeError),
-        (lambda: importlib.import_module("hydromodpy.spatial.delineation.whitebox_tools_backend"), ModuleNotFoundError),
+        (lambda: delineation_pkg.WhiteboxToolsBackend, AttributeError, None),
+        (lambda: importlib.import_module("hydromodpy.spatial.delineation.whitebox_tools_backend"), ModuleNotFoundError, None),
+        (lambda: get_whitebox_backend("whitebox"), ValueError, "only 'whitebox_workflows'"),
     ],
-    ids=["whitebox_tools_alias", "whitebox_tools_backend_module"],
+    ids=["whitebox_tools_alias", "whitebox_tools_backend_module", "legacy_whitebox_selection"],
 )  # fmt: skip
-def test_a_retired_whitebox_tools_name_is_gone(load, error):
+def test_a_retired_whitebox_tools_name_is_gone(load, error, match):
     sys.modules.pop("hydromodpy.spatial.delineation.whitebox_tools_backend", None)
-
-    with pytest.raises(error):
+    with pytest.raises(error, match=match):
         load()
 
 
@@ -124,22 +108,22 @@ def _noisy_native_operation():
 
 
 @pytest.mark.parametrize(
-    ("env", "dup_fails", "out"),
+    ("variable", "value", "dup_fails", "out"),
     [
-        ({"HMP_WHITEBOX_REDIRECT_NATIVE_STDIO": "1"}, False, ""),
-        ({"HMP_WHITEBOX_REDIRECT_NATIVE_STDIO": "1"}, True, "native-stdout\n"),
-        ({"HMP_WHITEBOX_REDIRECT_NATIVE_STDIO": None}, False, "native-stdout\n"),
-        ({"HMP_WHITEBOX_VERBOSE": "yes"}, False, "native-stdout\npython-stdout\n"),
+        ("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "1", False, ""),
+        ("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "1", True, "native-stdout\n"),
+        ("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", None, False, "native-stdout\n"),
+        ("HMP_WHITEBOX_VERBOSE", "yes", False, "native-stdout\npython-stdout\n"),
     ],
     ids=["fd_redirect", "fd_redirect_without_dup", "pytest_default_python_only", "verbose"],
 )
-def test_whitebox_native_stdout_is_silenced_as_configured(capfd, monkeypatch, env, dup_fails, out):
+def test_whitebox_native_stdout_is_silenced_as_configured(
+    capfd, monkeypatch, variable, value, dup_fails, out
+):
     """fd 2 is always left alone: it carries the live progress display."""
-    for name, value in env.items():
-        if value is None:
-            monkeypatch.delenv(name, raising=False)
-        else:
-            monkeypatch.setenv(name, value)
+    monkeypatch.delenv(variable, raising=False)
+    if value is not None:
+        monkeypatch.setenv(variable, value)
     backend = WhiteboxWorkflowsBackend()
     if dup_fails:
         # Only the module's view of ``os``: pytest's own capture needs ``os.dup``.
@@ -162,17 +146,14 @@ def test_whitebox_native_stdout_is_silenced_as_configured(capfd, monkeypatch, en
     ids=["no_records", "a_list", "an_iterator", "not_iterable"],
 )
 def test_the_record_count_of_a_vector_is_read_however_its_records_come(records, count):
-    assert (
-        WhiteboxWorkflowsBackend().raster.vector_record_count(SimpleNamespace(records=records))
-        == count
-    )
+    raster = WhiteboxWorkflowsBackend().raster
+    assert raster.vector_record_count(SimpleNamespace(records=records)) == count
 
 
 def test_whitebox_workflows_backend_rejects_empty_vector_write(tmp_path: Path):
+    raster = WhiteboxWorkflowsBackend().raster
     with pytest.raises(ValueError, match="empty vector layer"):
-        WhiteboxWorkflowsBackend().raster.write_vector(
-            SimpleNamespace(records=[]), str(tmp_path / "empty.shp")
-        )
+        raster.write_vector(SimpleNamespace(records=[]), str(tmp_path / "empty.shp"))
 
 
 def test_a_cached_raster_is_served_from_memory_until_the_cache_is_cleared(slope, tmp_path: Path):
@@ -196,7 +177,6 @@ def test_a_cached_raster_is_served_from_memory_until_the_cache_is_cleared(slope,
 def test_a_raster_is_written_compressed_only_when_asked(slope, tmp_path: Path):
     backend = WhiteboxWorkflowsBackend()
     raster = backend.raster.read_raster(str(slope.dem))
-
     for enabled in (False, True):
         backend.raster.set_compress_rasters(enabled)
         backend.raster.write_raster(raster, str(tmp_path / f"{enabled}.tif"))
@@ -209,20 +189,11 @@ def test_a_raster_is_written_compressed_only_when_asked(slope, tmp_path: Path):
 def test_whitebox_workflows_backend_smoke_operations(slope, tmp_path: Path):
     backend = get_whitebox_backend("whitebox_workflows")
     dem, polygon, points, lines = (str(slope.dem), str(slope.polygon), str(slope.points), str(slope.lines))  # fmt: skip
-    out = {
-        name: tmp_path / name
-        for name in (
-            "dem_fill.tif", "dem_breach.tif", "dem_direc.tif", "dem_acc.tif", "dem_acc_cells.tif",
-            "dem_clip.tif", "points_clip.shp", "points_snap.shp", "watershed.tif", "watershed.shp",
-            "watershed_lines.shp", "points.tif", "lines.tif", "poly.tif", "lines_nodata.tif",
-            "trace.tif", "downslope.tif", "mass_flux.tif", "streams.tif", "streams_pruned.tif",
-            "streams.shp", "streams_order.tif", "streams_link_id.tif", "dissolved.shp",
-        )
-    }  # fmt: skip
-    o = {
-        name.split(".")[0] + ("_shp" if name.endswith(".shp") else ""): str(path)
-        for name, path in out.items()
-    }
+    names = """dem_fill.tif dem_breach.tif dem_direc.tif dem_acc.tif dem_acc_cells.tif dem_clip.tif
+        points_clip.shp points_snap.shp watershed.tif watershed.shp watershed_lines.shp points.tif
+        lines.tif poly.tif lines_nodata.tif trace.tif downslope.tif mass_flux.tif streams.tif
+        streams_pruned.tif streams.shp streams_order.tif streams_link_id.tif dissolved.shp"""
+    o = {n.replace(".tif", "").replace(".shp", "_shp"): str(tmp_path / n) for n in names.split()}
 
     backend.flow.fill_depressions(dem, o["dem_fill"])
     backend.flow.breach_depressions(dem, o["dem_breach"])
@@ -261,14 +232,14 @@ def test_whitebox_workflows_backend_smoke_operations(slope, tmp_path: Path):
     absr = _write_raster(tmp_path / "abs.tif", np.zeros((4, 4), dtype=np.float32))
     backend.flow.d8_mass_flux(o["dem_fill"], o["points"], str(eff), str(absr), o["mass_flux"])
 
-    assert all(path.exists() for path in out.values())
+    assert all(Path(path).exists() for path in o.values())
     assert "AREA" in set(gpd.read_file(o["watershed_shp"]).columns)
     assert {"XCOORD", "YCOORD", "VALUE1"} <= set(gpd.read_file(o["points_clip_shp"]).columns)
     assert len(gpd.read_file(o["dissolved_shp"])) == 1
-    streams = _count_active_cells(out["streams.tif"])
-    assert 0 < _count_active_cells(out["streams_pruned.tif"]) <= streams
-    assert _count_active_cells(out["streams_order.tif"]) > 0
-    assert _count_active_cells(out["streams_link_id.tif"]) > 0
+    streams = _count_active_cells(o["streams"])
+    assert 0 < _count_active_cells(o["streams_pruned"]) <= streams
+    assert _count_active_cells(o["streams_order"]) > 0
+    assert _count_active_cells(o["streams_link_id"]) > 0
     assert not gpd.read_file(o["streams_shp"]).empty
 
 
@@ -304,19 +275,9 @@ def test_the_defaults_spelled_out_give_the_products_left_to_whitebox(slope, tmp_
 def test_a_vector_rasterized_with_a_zero_background_has_no_nodata_cell(slope, tmp_path: Path, kind):
     """A single point has no extent of its own, so it is rasterized on the DEM grid."""
     backend = WhiteboxWorkflowsBackend()
-    rasterize = getattr(
-        backend.raster, f"vector_{kind if kind != 'polygon' else 'polygons'}_to_raster"
-    )
+    rasterize = getattr(backend.raster, f"vector_{kind.replace('polygon', 'polygons')}_to_raster")
     grid = {"base": str(slope.dem), "assign_op": "last"} if kind == "points" else {"cell_size": 0.5}
-
-    rasterize(
-        str(getattr(slope, kind)),
-        str(tmp_path / "out.tif"),
-        field="id",
-        zero_background=True,
-        **grid,
-    )
-
+    rasterize(str(getattr(slope, kind)), str(tmp_path / "out.tif"), field="id", zero_background=True, **grid)  # fmt: skip
     values = _read(tmp_path / "out.tif")
     assert np.isfinite(values).all()
     assert 1.0 in values and set(np.unique(values)) <= {0.0, 1.0}
@@ -328,18 +289,13 @@ def test_a_vector_rasterized_with_a_zero_background_has_no_nodata_cell(slope, tm
     reason="WhiteboxRasterBackend.clip sends a raster to env.clip, which takes vectors only",
 )
 def test_a_raster_is_clipped_to_a_polygon_by_clip(slope, tmp_path: Path):
-    WhiteboxWorkflowsBackend().raster.clip(
-        str(slope.dem), str(slope.polygon), str(tmp_path / "box.tif")
-    )
-
+    raster = WhiteboxWorkflowsBackend().raster
+    raster.clip(str(slope.dem), str(slope.polygon), str(tmp_path / "box.tif"))
     assert np.nanmax(_read(tmp_path / "box.tif")) <= SLOPE.max()
 
 
 def test_the_nodata_value_of_a_raster_is_changed_in_place(slope):
-    backend = WhiteboxWorkflowsBackend()
-
-    backend.raster.modify_no_data_value(str(slope.dem), new_value=-1.0)
-
+    WhiteboxWorkflowsBackend().raster.modify_no_data_value(str(slope.dem), new_value=-1.0)
     with rasterio.open(slope.dem) as src:
         assert src.nodata == -1.0
         np.testing.assert_array_equal(src.read(1), SLOPE)

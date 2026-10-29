@@ -12,19 +12,12 @@ LABELS = {1: "riparian", 2: "hillslope", 3: "plateau"}
 
 
 def test_the_field_snapshot_names_its_zones_in_code_order() -> None:
-    field = CatchmentZonesField("zones", CODES, {3: " plateau ", 1: "riparian", 2: "hillslope"},
-                                source_meta={"tag": 4})  # fmt: skip
+    field = CatchmentZonesField("zones", CODES, {3: " plateau ", 1: "riparian", 2: "hillslope"}, source_meta={"tag": 4})  # fmt: skip
 
     assert field.zone_keys == ("riparian", "hillslope", "plateau")
     assert field.encoded_codes.dtype == np.uint8
-    assert field.as_dict() == {
-        "id": "zones",
-        "shape": (2, 2),
-        "nodata_code": 0,
-        "encoded_to_zone": LABELS,
-        "zone_keys": ("riparian", "hillslope", "plateau"),
-        "source_meta": {"tag": "4"},
-    }
+    assert field.as_dict() == {"id": "zones", "shape": (2, 2), "nodata_code": 0, "encoded_to_zone": LABELS,
+                               "zone_keys": ("riparian", "hillslope", "plateau"), "source_meta": {"tag": "4"}}  # fmt: skip
     assert CatchmentZonesField("zones", CODES, LABELS).as_dict()["source_meta"] is None
 
 

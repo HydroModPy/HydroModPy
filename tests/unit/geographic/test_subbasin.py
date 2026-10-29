@@ -1,7 +1,5 @@
 """Sub-basins upstream of the gauges, the intermittency points and a declared list."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,9 +32,7 @@ def parent(tmp_path, monkeypatch):
 def test_each_station_and_each_declared_point_gets_a_sub_basin_inside_its_parent(
     parent, tmp_path, caplog
 ) -> None:
-    hydrometry = SimpleNamespace(
-        code_bh=["J0001", ""], x_coord=[450.0, 450.0], y_coord=[450.0, 350.0]
-    )
+    hydrometry = SimpleNamespace(code_bh=["J0001", ""], x_coord=[450.0] * 2, y_coord=[450.0, 350.0])
     point = SimpleNamespace(x=450.0, y=450.0)
     intermittency = SimpleNamespace(
         points=[
@@ -48,17 +44,11 @@ def test_each_station_and_each_declared_point_gets_a_sub_basin_inside_its_parent
     declared = tmp_path / "declared"
     declared.mkdir()
     (declared / "points.csv").write_text("code_sub;x_outlet;y_outlet\nS1;450;450\n")
-
     with caplog.at_level(logging.WARNING):
         sub = Subbasin(parent, hydrometry, intermittency, sub_snap_dist=100, add_path=declared)
-
     names = sorted(path.name for path in Path(sub.subbasin_path).iterdir())
-    assert names == [
-        "hydrometry_J0001",
-        "hydrometry_default_2",
-        "intermittency_ONDE1",
-        "subbasin_S1",
-    ]
+    expected = ["hydrometry_J0001", "hydrometry_default_2", "intermittency_ONDE1", "subbasin_S1"]
+    assert names == expected
     assert "Hydrometry code missing at index 1" in caplog.text
     catchment = gpd.read_file(parent.watershed_shp).geometry.union_all()
     for name in names:
@@ -77,9 +67,7 @@ def test_a_runtime_without_a_preprocessing_folder_writes_under_the_output_path(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(subbasin_module, "resolve_delineation_backend", FakeWhiteboxBackend)
-
     sub = Subbasin(SimpleNamespace(), None, None, sub_snap_dist=50, out_path=str(tmp_path))
-
     assert Path(sub.subbasin_path) == preprocessing_dir(tmp_path) / "subbasin"
     assert list(Path(sub.subbasin_path).iterdir()) == []
 
@@ -95,8 +83,6 @@ def test_a_station_that_cannot_be_delineated_is_reported(parent, caplog, monkeyp
 
     monkeypatch.setattr(Subbasin, "extract_interest_zones", fail)
     hydrometry = SimpleNamespace(code_bh=["J0001"], x_coord=[450.0], y_coord=[450.0])
-
     with caplog.at_level(logging.WARNING):
         Subbasin(parent, hydrometry, None, sub_snap_dist=100)
-
     assert "J0001" in caplog.text

@@ -1,153 +1,121 @@
-# Field
+# spatial/field
 
-`hydromodpy/spatial/field/` provides generic field parameterization utilities
-(homogeneous and heterogeneous), plus a square-case example with mesh support.
+This package gives a parameter such as K, Sy or Ss a value in every cell. A parameter is one number for the whole domain, or one number per zone (geology class, band, ring), and it can fall with depth. The package reads the zone map on the cells of a mesh, weights each zone value by the share of the zone in the cell, and returns one value per cell. It also holds the TOML sections of a field parameter and a few small demos on a unit square.
 
-## Directory Map
+## How the work flows
+
+1. A `FieldParam` (`field_param.py`) holds the values of one parameter in SI units, and its depth profile if it has one. It is read from a TOML file or a mapping by `field_param_io.py`, and checked by `field_param_config.py`.
+2. A `Field` (`field_spatial.py`) is a zone map. Its `on_mesh` method cuts a mesh into zones and returns, for each zone, the share of every cell.
+3. The shares come from sample points in each cell (`cell_sampling.py`) or from the polygons of the zones (`zone_fractions.py`).
+4. `FieldParam.to_mesh_field` weights the zone values with the shares, applies the depth factor of `vertical_profile.py`, and returns a `MeshWithValues` (`mesh_cells.py`), the mesh with one value per cell.
 
 ```text
-hydromodpy/spatial/field/
-|-- cell_sampling.py
-|-- field_param.py
-|-- field_param_config.py
-|-- field_param_io.py
-|-- field_param_sections.py
-|-- field_param_units.py
-|-- field_spatial.py
-|-- geology_config.py
-|-- geology_field.py
-|-- mesh_cells.py
-|-- two_zone_field.py
-|-- unit_square_mesh.py
-|-- vertical_profile.py
-|-- cases/
-|   |-- review_cases.py
-|   `-- square/
-|       |-- field_param_config.toml
-|       |-- field_spatial_config.toml
-|       |-- mesh_config.toml
-|       |-- run_field_demo.py
-|       `-- outputs/
-|-- plotting.py
-|-- zone_fractions.py
-|-- __init__.py
-`-- README.md
+field_param_config.toml          field_spatial_config.toml / geology / support
+        |                                   |
+        v                                   v
+    FieldParam                           Field.on_mesh(cell_mesh)
+        |                                   |
+        +---------->  to_mesh_field  <------+
+                           |
+                           v
+                    MeshWithValues
 ```
 
-## Structure (What Goes Where)
+The bands, rings and catchment zones that a project uses are built in `spatial/domain/`. This package holds the base class they derive from, the geology field `GeologyField`, and `FieldSquare`.
 
-- `field_param.py`: parameter values, config loading, and mapping rules.
-- `vertical_profile.py`: the depth factor of a parameter, its check and its
-  application to surface values.
-- `field_param_config.py`: Pydantic validation and resolution of field-parameter
-  TOML payloads.
-- `field_spatial.py`: abstract field geometry contract, abstract discretization
-  contract and the weighted-fraction discretization.
-- `mesh_cells.py`: the cells of a `PlanarCellMesh` as a support samples
-  them (`MeshCell`, `mesh_cells`), the check of one value per cell
-  (`cell_values`), the mesh with its values (`MeshWithValues`), and the grid of
-  quadrilaterals of the demos (`cell_mesh_from_edges`).
-- `cell_sampling.py`: the points a support samples in one cell.
-- `zone_fractions.py`: the share of each zone of a support in each cell.
-- `plotting.py`: draws one value per cell of a `PlanarCellMesh` or a
-  `HydroMesh` (`plot_cell_values`). The field package reads the mesh of
-  `spatial/mesh`, and the mesh never imports the field package.
-- `two_zone_field.py` and `unit_square_mesh.py`: the two-zone field and the meshes
-  of the unit square.
-- `cases/square/`: runnable demonstration and example TOML files.
-- `geology_field.py`: `GeologyField` and the regular mesh of the geology demo
-  (`regular_cell_mesh_over_bounds`). Data management lives in
-  `hydromodpy/data/variables/geology/`, the runnable scripts in
-  `hydromodpy/data/cases/geology/`.
+## The folder map
 
-## Core Concepts
+```text
+field/
+├── field_param.py          FieldParam, values per parameter and the mapping to cells
+├── field_param_config.py   the schema of a field-parameter TOML payload and its resolution
+├── field_param_sections.py the sections of that payload, including the vertical profile
+├── field_param_units.py    unit aliases and their normalization
+├── field_param_io.py       the loader of a FieldParam from TOML and CSV
+├── vertical_profile.py     the depth factor of a parameter
+├── field_spatial.py        Field and FieldDiscretization, the weighted-fraction discretization
+├── cell_sampling.py        the sample points of a cell and the zone shares they give
+├── zone_fractions.py       the share of each zone in each cell, from polygons or engine zones
+├── mesh_cells.py           the cells of a PlanarCellMesh, MeshWithValues, the square grid builder
+├── geology_config.py       the config models of a geology field
+├── geology_field.py        GeologyField, a field from geology classes
+├── two_zone_field.py       FieldSquare, a field of two zones split by a line
+├── unit_square_mesh.py     the meshes of the unit square used by the demos
+├── plotting.py             plot_cell_values, one value per cell on a matplotlib axes
+│
+└── cases/                  the square demos
+    ├── review_cases.py         runs the demos one after another for a visual review
+    └── square/                 one demo on the unit square
+        ├── run_field_demo.py       the launcher
+        ├── field_param_config.toml the parameter of the demo
+        ├── field_spatial_config.toml  the two-zone field of the demo
+        └── mesh_config.toml        the mesh of the demo
+```
 
-- `FieldParam`: values for one parameter identifier (`id`, for example `K` or
-  `Sy`).
-  - homogeneous mode: one scalar for all cells.
-  - heterogeneous mode: one value per zone key + `field_spatial_id`.
-- `Field` (abstract): geometry model that can discretize itself on a
-  `PlanarCellMesh` via `on_mesh(cell_mesh)`.
-- `FieldDiscretization` (abstract): bridge object containing the aggregation
-  logic required by `FieldParam.to_mesh_field(...)`.
+`__init__.py` is the one file that re-exports names, and it does it lazily. The nine names it gives (`FieldParam`, `Field`, `FieldSquare`, `GeologyField` and the others) load their module on first use.
 
-## Shared API
+## Where to start
 
-1. Build or load one `FieldParam`.
-2. Build or load one `PlanarCellMesh` (`FieldMeshSquare.from_*` in the square
-   case).
-3. For heterogeneous mode, build/load one spatial field and compute
-   `field.on_mesh(cell_mesh)`.
-4. Convert to cell values with `FieldParam.to_mesh_field(...)`.
+| To change | Open first |
+|-----------|------------|
+| a key of the field-parameter TOML | `field_param_sections.py`, then `field_param_config.py` |
+| the accepted units or their aliases | `field_param_units.py` |
+| the depth profile | `vertical_profile.py`, then `FieldVerticalProfileSection` in `field_param_sections.py` |
+| how zone values become one value per cell | `FieldParam.to_mesh_field` in `field_param.py`, then `WeightedAverageFieldDiscretization` in `field_spatial.py` |
+| the sample points in a cell | `cell_sampling.py` |
+| the share of a zone in a cell | `zone_fractions.py` |
+| the geology field | `geology_config.py` and `geology_field.py` |
+| a new kind of zone map | `Field` in `field_spatial.py`, then `spatial/domain/support_fields.py` |
 
-Output object:
-- `MeshWithValues(mesh, cell_values, label)`
+## Rules between the folders
 
-## TOML Convention
+The package is part of the spatial layer, which may import `core`, `schema` and itself. The architecture tests check that rule.
 
-Field parameter file (`field_param_config.toml`):
-- `[field]`: `id`, `kind`, `unit`
-- `[field]`: `value`
-- `[field]`: `field_spatial_id` + value source:
-  - inline: `values = {...}`
-  - csv: `values_source = "csv"` + `values_csv_file` + CSV column names
-- optional `[field_vertical_profile]`: depth dependency shared over whole domain
-  - `mode = "none"` (default)
-  - `mode = "exponential"` + `characteristic_depth` with factor `exp(-z/characteristic_depth)`
-    and optional floor `min_factor`:
-    `max(exp(-z/characteristic_depth), min_factor)`
-  - `mode = "tabulated"` + `depths` + `factors` (+ `interpolation = "linear"|"step"`)
+- `field_param_units.py`, `field_param_sections.py`, `field_param_config.py` and `geology_config.py` read `core` and each other, and no mesh. `field_param_io.py` reads `field_param.py`, `field_param_config.py` and `field_spatial.py`.
+- `field_param.py` reads `core.units`, `field_param_units.py`, `mesh_cells.py` and `vertical_profile.py`. `vertical_profile.py` reads `mesh_cells.py` and `core.units`.
+- `mesh_cells.py`, `plotting.py`, `field_spatial.py`, `zone_fractions.py` and `unit_square_mesh.py` read the mesh model in `spatial/mesh/model/`. The mesh never imports this package.
+- `cell_sampling.py` reads `mesh_cells.py`. It imports `PlanarCellMesh` only for typing.
+- `geology_field.py` reads `spatial.protocols` for the geology data source, so it imports no `data` module.
+- Nothing in this package imports `spatial/domain/`. The domain reads `Field` and `cell_sampling` from here.
+- `field_param_config.py` imports `core.units.physical_bounds` inside the validator that checks the physical bounds of a value. The other imports of HydroModPy are at the top of their module, except in `cases/review_cases.py` below.
+- `cases/review_cases.py` imports its four demo modules inside the function that runs them. The demo sets the matplotlib backend when it is imported, so listing the cases does not.
+- `cases/square/run_field_demo.py` also reads `spatial/geographic/cases/plotting_utils.py` for the figure windows.
 
-Unit notes:
-- `K`: use `m/s` (other accepted inputs: `m/day`, `cm/s`, `cm/day`).
-- `Sy`: use `-` (dimensionless standard).
-- `Ss`: use `m-1` (also accepts `cm-1`).
-- Internally, `FieldParam` stores values converted to SI units.
+## What lives outside the package
 
-Mesh file (`mesh_config.toml`):
-- `[mesh]`: `kind`, `target_n_cells`, optional `seed`
+The geology data is managed in `hydromodpy/data/variables/geology/`, and `field.py` there builds a `GeologyField` from the loaded data. The geology demo that goes through `FieldParam` is `hydromodpy/data/cases/geology/run_geology_property_case.py`.
 
-Spatial field file (`field_spatial_config.toml`):
-- `[field]`: `id`, `line`, `zone1_side`, `zone1_name`, `zone2_name`
+The solvers read the parameter through `hydromodpy/solver/field_property_mapping.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter section (`hydromodpy/physics/flow/flow_param_config.py`), a tolerated edge in `layer_matrix.yaml`.
 
-## How To Run
+The supports a project declares in `[domain.supports]` live in `spatial/domain/`: the zone maps are built there and their zone shares are computed with `cell_sampling.py` from this package.
 
-From repository root (square case):
+## Changing the code
+
+The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py`, `field_param_sections.py` and `field_param_units.py` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`, and the review launcher by `tests/unit/field/cases/test_review_cases.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
+
+`tests/contract/test_case_review_contract.py` checks the review launcher. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 96.9.
 
 ```bash
-python hydromodpy/spatial/field/cases/square/run_field_demo.py
+pytest tests/unit/field -q
 ```
-
-Useful option:
 
 ```bash
-python hydromodpy/spatial/field/cases/square/run_field_demo.py --no-show-plot
+pytest tests/unit/architecture -q
 ```
 
-Default output:
-- `hydromodpy/spatial/field/cases/square/outputs/field_demo.png`
+A new key of the field-parameter TOML is a field of a Pydantic model in `field_param_sections.py`, with its description. The parameter reference is built from the models.
 
-Geology-to-property transfer demo via `FieldParam`:
+To run the square demo from the repository root:
 
 ```bash
-python hydromodpy/data/cases/geology/run_geology_property_case.py
+python -m hydromodpy.spatial.field.cases.square.run_field_demo
 ```
 
-Default output:
-- `hydromodpy/data/cases/geology/outputs/geology_property_demo.png`
+## Documentation
 
-In this geology demo:
-- value correspondence can be inline TOML or CSV (`values_source`),
-- CSV can include extra descriptive columns (for example `geology_name`),
-- figure layout follows square-case style with three panels.
-
-## Tests
-
-```bash
-python -m pytest tests/unit/field -q
-```
-
-## UML
-
-- Canonical UML sources: `docs/source/contribute/architecture/field/diagrams/`
-- Architecture page: `docs/source/contribute/architecture/field/index.rst`
+- `docs/source/contribute/architecture/field/index.rst` is the developer page of this layer. Its UML sources are in `docs/source/contribute/architecture/field/diagrams/`.
+- `docs/source/theory/solvers/field-to-cell-parameter-transfer.md` covers the weighted average, the depth factor and the shares of each zone in a cell.
+- `docs/source/theory/groundwater-flow.md` covers the depth factor in the flow problem.
+- `docs/source/contribute/architecture/mesh/mesh-pivot.rst` covers `FieldParam`, `Field` and the cell mesh.
+- `docs/source/contribute/architecture/spatial_support/` covers the supports a field is zoned by.
+- `docs/source/reference/parameters/flow/param.md` is the generated reference of the field-parameter section.

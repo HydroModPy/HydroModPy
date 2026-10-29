@@ -1,7 +1,6 @@
 """The river trace a mesh follows, from geometries, from a vector file or from the network."""
 
-from __future__ import annotations
-
+from contextlib import nullcontext
 from pathlib import Path
 
 import geopandas as gpd
@@ -17,23 +16,12 @@ from tests._helpers.geographic_cases import write_features
 
 
 def test_river_mesh_trace_from_geometries_computes_metrics():
+    lines = [LineString([(0, 0), (1, 0)]), MultiLineString([[(1, 0), (2, 0)], [(2, 0), (2, 1)]])]
     trace = RiverMeshTrace.from_geometries(
-        source_kind="file",
-        crs_wkt="EPSG:2154",
-        geometries=[
-            LineString([(0.0, 0.0), (1.0, 0.0)]),
-            MultiLineString(
-                [
-                    LineString([(1.0, 0.0), (2.0, 0.0)]),
-                    LineString([(2.0, 0.0), (2.0, 1.0)]),
-                ]
-            ),
-        ],
+        source_kind="file", crs_wkt="EPSG:2154", geometries=lines
     )
-
-    assert trace.segment_count == 3
+    assert (trace.segment_count, len(trace.lines)) == (3, 3)
     assert trace.total_length_m == pytest.approx(3.0)
-    assert len(trace.lines) == 3
 
 
 def test_build_river_mesh_trace_from_vector_applies_clip_and_target_crs(tmp_path: Path):
@@ -43,14 +31,12 @@ def test_build_river_mesh_trace_from_vector_applies_clip_and_target_crs(tmp_path
         crs="EPSG:4326",
     )
     clip = write_features(tmp_path / "clip.gpkg", [box(-0.1, -0.1, 0.2, 0.2)], crs="EPSG:4326")
-
     trace = build_river_mesh_trace_from_vector(
         vector_path=rivers,
         source_kind="geographic_generated",
         target_crs="EPSG:3857",
         clip_polygon_path=clip,
     )
-
     assert trace.segment_count == 1
     assert trace.total_length_m > 500.0
     assert "3857" in trace.crs_wkt or "Pseudo-Mercator" in trace.crs_wkt
@@ -68,11 +54,9 @@ def test_a_vector_without_crs_takes_the_target_or_the_clip_crs(tmp_path, target,
     clip = None
     if clip_crs is not None:
         clip = write_features(tmp_path / "clip.shp", [box(-5, -5, 5, 5)], crs=clip_crs)
-
     trace = build_river_mesh_trace_from_vector(
         vector_path=rivers, source_kind="file", target_crs=target, clip_polygon_path=clip
     )
-
     assert crs in trace.crs_wkt
     assert trace.total_length_m == pytest.approx(10.0 if clip is None else 5.0)
 
@@ -86,54 +70,40 @@ def _clip(tmp_path, geometries, crs="EPSG:2154"):
     return write_features(tmp_path / "clip.shp", geometries, crs=crs)
 
 
+# fmt: off
+NO_TRACE = {
+    "missing vector": (lambda t: t / "missing.shp", lambda t: None, FileNotFoundError, None),
+    "no crs anywhere": (lambda t: _rivers(t, crs=None), lambda t: None, ValueError, "has no CRS and no target CRS"),
+    "missing clip": (_rivers, lambda t: t / "gone.shp", FileNotFoundError, None),
+    "clip without crs": (_rivers, lambda t: _clip(t, [box(0, 0, 1, 1)], crs=None), ValueError, "Clip polygon has no CRS"),
+    "empty vector": (lambda t: _rivers(t, []), lambda t: None, None, None),
+    "empty clip": (_rivers, lambda t: _clip(t, []), None, None),
+    "clip away from the lines": (_rivers, lambda t: _clip(t, [box(50, 50, 60, 60)]), None, None),
+    "no line in the vector": (lambda t: _rivers(t, [Point(0, 0).buffer(1)]), lambda t: None, None, None),
+}
+# fmt: on
+
+
 @pytest.mark.filterwarnings("ignore:'crs' was not provided")
 @pytest.mark.parametrize(
-    ("vector", "clip", "error"),
-    [
-        (lambda t: t / "missing_network.shp", lambda t: None, FileNotFoundError),
-        (lambda t: _rivers(t, crs=None), lambda t: None, "has no CRS and no target CRS"),
-        (_rivers, lambda t: t / "gone.shp", FileNotFoundError),
-        (_rivers, lambda t: _clip(t, [box(0, 0, 1, 1)], crs=None), "Clip polygon has no CRS"),
-        (lambda t: _rivers(t, []), lambda t: None, None),
-        (_rivers, lambda t: _clip(t, []), None),
-        (_rivers, lambda t: _clip(t, [box(50, 50, 60, 60)]), None),
-        (lambda t: _rivers(t, [Point(0, 0).buffer(1)]), lambda t: None, None),
-    ],
-    ids=[
-        "missing vector",
-        "no crs anywhere",
-        "missing clip",
-        "clip without crs",
-        "empty vector",
-        "empty clip",
-        "clip away from the lines",
-        "no line in the vector",
-    ],
+    ("vector", "clip", "error", "match"), NO_TRACE.values(), ids=list(NO_TRACE)
 )
-def test_a_vector_that_gives_no_line_gives_no_trace_or_says_why(tmp_path, vector, clip, error):
-    def build():
-        return build_river_mesh_trace_from_vector(
+def test_a_vector_that_gives_no_line_gives_no_trace_or_says_why(
+    tmp_path, vector, clip, error, match
+):
+    with nullcontext() if error is None else pytest.raises(error, match=match):
+        trace = build_river_mesh_trace_from_vector(
             vector_path=vector(tmp_path), source_kind="file", clip_polygon_path=clip(tmp_path)
         )
-
-    if error is None:
-        assert build() is None
-    elif isinstance(error, str):
-        with pytest.raises(ValueError, match=error):
-            build()
-    else:
-        with pytest.raises(error):
-            build()
+        assert trace is None
 
 
 def test_a_clip_that_cuts_a_line_in_two_keeps_both_parts(tmp_path):
     rivers = _rivers(tmp_path, [LineString([(0, 0), (10, 0), (10, 10), (0, 10)])])
     corner = _clip(tmp_path, [box(-1, -1, 5, 11)])
-
     trace = build_river_mesh_trace_from_vector(
         vector_path=rivers, source_kind="file", clip_polygon_path=corner
     )
-
     assert trace.segment_count == 2
     assert trace.total_length_m == pytest.approx(10.0)
 
@@ -148,15 +118,9 @@ def test_a_clip_that_cuts_a_line_in_two_keeps_both_parts(tmp_path):
     ],
 )
 def test_a_trace_refuses_what_a_mesh_cannot_follow(members: dict, reason: str):
-    trace = {
-        "source_kind": "file",
-        "crs_wkt": "EPSG:2154",
-        "lines": (LineString([(0, 0), (1, 0)]),),
-    }
-    trace.update(members)
-
+    trace = dict(source_kind="file", crs_wkt="EPSG:2154", lines=(LineString([(0, 0), (1, 0)]),))
     with pytest.raises((ValueError, TypeError), match=reason):
-        RiverMeshTrace(**trace)
+        RiverMeshTrace(**{**trace, **members})
 
 
 def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
@@ -169,9 +133,7 @@ def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
         ],
         crs="EPSG:2154",
     )
-
     trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=None)
-
     assert trace.source_kind == "geographic_generated"
     assert trace.segment_count == 2
     assert trace.total_length_m == pytest.approx(150.0)
@@ -180,9 +142,7 @@ def test_the_network_gives_its_lines_and_drops_what_is_not_a_line():
 
 def test_a_network_without_crs_takes_the_one_it_is_given():
     network = gpd.GeoDataFrame(geometry=[LineString([(0.0, 0.0), (10.0, 0.0)])], crs=None)
-
     trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs="EPSG:2154")
-
     assert "Lambert-93" in trace.crs_wkt
 
 
@@ -198,8 +158,5 @@ def test_a_network_without_crs_takes_the_one_it_is_given():
 def test_a_network_that_gives_no_line_gives_no_trace(geometry, network_crs, crs):
     geometries = [] if geometry is None else [geometry]
     network = gpd.GeoDataFrame(geometry=geometries, crs=crs)
-
-    assert (
-        build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
-        is None
-    )
+    trace = build_river_mesh_trace_from_network_gdf(network_gdf=network, network_crs=network_crs)
+    assert trace is None

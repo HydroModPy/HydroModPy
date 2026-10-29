@@ -1,7 +1,5 @@
 """The DEM clipped to the buffered box, through either shape of the backend."""
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 
 import numpy as np
@@ -37,7 +35,6 @@ def _on_disk(calls: list[str]) -> SimpleNamespace:
 def test_the_clip_is_written_with_its_nodata_and_the_project_crs(tmp_path, raster_api) -> None:
     calls: list[str] = []
     backend = SimpleNamespace(raster=raster_api(calls))
-
     out = clip_dem_to_box_buffer(
         dem_init_path=tmp_path / "dem.tif",
         box_buff_shp=tmp_path / "box_buff.shp",
@@ -46,7 +43,6 @@ def test_the_clip_is_written_with_its_nodata_and_the_project_crs(tmp_path, raste
         nodata=-1.0,
         backend=backend,
     )
-
     assert "nodata -1.0" in calls
     with rasterio.open(out) as src:
         assert src.crs.to_epsg() == 2154

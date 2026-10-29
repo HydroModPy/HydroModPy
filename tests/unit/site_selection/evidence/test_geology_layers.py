@@ -1,17 +1,10 @@
-"""Geology layers give each basin its share of every geology class."""
-
-from __future__ import annotations
-
 import pytest
 from shapely.geometry import box
 
 from hydromodpy.spatial.site_selection.config.criteria_config import (
-    CriteriaConfig,
     GeologyCriteriaConfig,
     GeologyLayerConfig,
 )
-from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
-from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
 from hydromodpy.spatial.site_selection.evidence.geology_layers import (
     annotate_catchments_with_geology_layers,
 )
@@ -19,7 +12,9 @@ from tests._helpers.site_selection_cases import (
     L93,
     X93,
     Y93,
+    component_of,
     make_basin_catchment,
+    run_selection,
     to_wgs84,
     write_vector_layer,
 )
@@ -43,18 +38,10 @@ def _config(tmp_path, *, crs=L93, mode="stratify") -> GeologyCriteriaConfig:
     geometries = UNITS["geometry"] if crs != "EPSG:4326" else map(to_wgs84, UNITS["geometry"])
     columns = {key: value for key, value in UNITS.items() if key != "geometry"}
     layer = write_vector_layer(tmp_path / "geology.gpkg", list(geometries), crs=crs, **columns)
-    return GeologyCriteriaConfig(
-        mode=mode,
-        layers=[
-            GeologyLayerConfig(
-                name="BRGM demo",
-                path=layer,
-                class_field="class",
-                id_field="id",
-                label_field="label",
-            )
-        ],
-    )
+    layers = [
+        GeologyLayerConfig(name="BRGM demo", path=layer, class_field="class", id_field="id", label_field="label")
+    ]  # fmt: skip
+    return GeologyCriteriaConfig(mode=mode, layers=layers)
 
 
 def test_the_dominant_geology_of_a_basin_is_its_largest_class(tmp_path):
@@ -71,32 +58,22 @@ def test_the_dominant_geology_of_a_basin_is_its_largest_class(tmp_path):
         ("granite", ["G002"]), ("schist", ["Schist unit"]),
     ]  # fmt: skip
     assert evidence[0].evidence_json["coverage_fraction"] == pytest.approx(1.0)
-    result = select_delineated_catchments(
-        [annotated],
-        criteria=CriteriaConfig(geology=config),
-        spatial_selection=SpatialSelectionConfig(),
-        selection_principle="criteria_crossing",
-    )
-    component = next(item for item in result.criteria_components if item.criterion_id == "geology")
+    component = component_of(run_selection([annotated], {"geology": config}), "geology")
     assert (component.raw_value, component.criterion_status) == ("schist", "stratified")
 
 
-@pytest.mark.parametrize(
-    ("basin", "crs", "fractions"),
-    [
-        ("l93", None, {"granite": 0.4, "schist": 0.6}),
-        ("l93", "EPSG:4326", {"granite": 0.4, "schist": 0.6}),
-        ("wgs84", L93, {"granite": 0.4, "schist": 0.6}),
-        ("none", L93, {}),
-        ("empty", L93, {}),
-        ("no_rows", L93, {}),
-    ],
-)
+@pytest.mark.parametrize(("basin", "crs", "fractions"), [
+    ("l93", None, {"granite": 0.4, "schist": 0.6}),
+    ("l93", "EPSG:4326", {"granite": 0.4, "schist": 0.6}),
+    ("wgs84", L93, {"granite": 0.4, "schist": 0.6}),
+    ("none", L93, {}),
+    ("empty", L93, {}),
+    ("no_rows", L93, {}),
+])  # fmt: skip
 def test_geology_shares_hold_whatever_crs_the_layers_carry(tmp_path, basin, crs, fractions):
     _annotated, evidence = annotate_catchments_with_geology_layers(
         [make_basin_catchment(tmp_path, basin)], config=_config(tmp_path, crs=crs)
     )
-
     # A reprojected layer leaves a sliver of the unit that only touches the basin.
     shares = {
         item.geology_class: item.area_fraction for item in evidence if item.area_fraction > 1e-6
@@ -107,11 +84,7 @@ def test_geology_shares_hold_whatever_crs_the_layers_carry(tmp_path, basin, crs,
 
 def test_no_geology_layer_leaves_the_catchments_as_they_are(tmp_path):
     catchment = make_basin_catchment(tmp_path)
-
-    assert annotate_catchments_with_geology_layers([catchment], config=GeologyCriteriaConfig()) == (
-        [catchment],
-        [],
-    )
+    assert annotate_catchments_with_geology_layers([catchment], config=GeologyCriteriaConfig()) == ([catchment], [])  # fmt: skip
 
 
 @pytest.mark.parametrize("units", [slice(0, 0), slice(2, 3)], ids=["no-unit", "far-unit"])

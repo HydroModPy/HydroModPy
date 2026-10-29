@@ -1,7 +1,5 @@
 """The zone codes a domain gets from the geographic outputs, and why it gets none."""
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 
 import numpy as np
@@ -21,9 +19,7 @@ from tests._helpers.geotiffs import write_geotiff
 class _Domain:
     def __init__(self) -> None:
         self.zones: dict[str, object] = {}
-
-    def set_zone(self, zone_id: str, field: object) -> None:
-        self.zones[zone_id] = field
+        self.set_zone = self.zones.__setitem__
 
 
 def _outputs(tmp_path, **missing) -> SimpleNamespace:
@@ -62,10 +58,8 @@ def test_a_missing_output_leaves_the_domain_without_zones_and_says_which(
 ) -> None:
     geographic = _outputs(tmp_path, **missing)
     domain = _Domain()
-
     field, codes, said = build_catchment_zone_field_from_geographic(geographic=geographic)
     apply_catchment_zones_to_domain(domain=domain, geographic=geographic)
-
     assert (field, codes) == (None, None)
     assert said.startswith(note)
     assert domain.zones == {}
@@ -73,34 +67,23 @@ def test_a_missing_output_leaves_the_domain_without_zones_and_says_which(
 
 def test_the_zones_nest_the_core_in_the_buffer_ring_in_the_domain(tmp_path) -> None:
     domain = _Domain()
-
     apply_catchment_zones_to_domain(domain=domain, geographic=_outputs(tmp_path))
-
     codes = np.asarray(domain.zones["catchment"].encoded_codes)
-    core, ring, outside = (
-        np.count_nonzero(codes == int(code))
-        for code in (
-            CatchmentZoneCode.CATCHMENT_CORE,
-            CatchmentZoneCode.BUFFER_RING,
-            CatchmentZoneCode.DOMAIN_OUTSIDE_BUFFER,
-        )
-    )
-    assert core > 0 and ring > 0 and outside > 0
-    assert core + ring + outside == codes.size
+    zones = ("CATCHMENT_CORE", "BUFFER_RING", "DOMAIN_OUTSIDE_BUFFER")
+    counts = [np.count_nonzero(codes == int(CatchmentZoneCode[zone])) for zone in zones]
+    assert min(counts) > 0
+    assert sum(counts) == codes.size
 
 
 def test_a_uniform_domain_is_one_zone_and_a_missing_payload_is_said(tmp_path) -> None:
     geographic = _outputs(tmp_path)
     geographic.zone_kind = "uniform"
-
     field, codes, note = build_catchment_zone_field_from_geographic(geographic=geographic)
-
     assert note is None
     assert set(np.unique(field.encoded_codes).tolist()) == {int(CatchmentZoneCode.UNIFORM)}
     assert field.encoded_to_zone == {int(CatchmentZoneCode.UNIFORM): "uniform"}
-    assert build_catchment_zone_field_from_geographic(geographic=None)[2] == (
-        "geographic payload is missing"
-    )
+    _, _, missing = build_catchment_zone_field_from_geographic(geographic=None)
+    assert missing == "geographic payload is missing"
 
 
 def test_a_domain_without_zones_or_without_geology_is_left_alone(tmp_path) -> None:
@@ -108,5 +91,4 @@ def test_a_domain_without_zones_or_without_geology_is_left_alone(tmp_path) -> No
     domain = _Domain()
     apply_geology_to_domain(domain=domain, geology=None)
     apply_geology_to_domain(domain=domain, geology="field", zone_id="rock")
-
     assert domain.zones == {"rock": "field"}

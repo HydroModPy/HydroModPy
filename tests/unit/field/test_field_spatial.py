@@ -1,9 +1,4 @@
-"""The support interface and its zone fractions, :mod:`hydromodpy.spatial.field.field_spatial`.
-
-A support that does not build itself from a mapping says so by its class name,
-and a discretization refuses a mesh or zone list it cannot carry
-(:mod:`hydromodpy.spatial.field.field_spatial`).
-"""
+"""The support interface and its zone fractions, :mod:`hydromodpy.spatial.field.field_spatial`."""
 
 from __future__ import annotations
 
@@ -28,13 +23,6 @@ class _Bands(Field):
         raise AssertionError("never sampled here")
 
 
-def test_the_two_base_classes_are_abstract():
-    with pytest.raises(TypeError):
-        Field(identifier="abstract_only")
-    with pytest.raises(TypeError):
-        FieldDiscretization(mesh=MESH, field_id="field_square")
-
-
 def _weighted(mesh=MESH, field_id="geology", keys=("a",), fractions=None):
     fractions = {"a": np.ones(9)} if fractions is None else fractions
     return WeightedAverageFieldDiscretization(
@@ -55,22 +43,21 @@ def _weighted(mesh=MESH, field_id="geology", keys=("a",), fractions=None):
         (lambda tmp: _weighted(keys=()), ValueError, "zone_keys cannot be empty"),
         (lambda tmp: _weighted(keys=("a", " ")), ValueError, "cannot contain empty names"),
         (lambda tmp: _weighted(keys=("a", "b")), ValueError, "missing key 'b'"),
+        (lambda tmp: Field(identifier="abstract_only"), TypeError, "abstract"),
+        (lambda tmp: FieldDiscretization(mesh=MESH, field_id="field_square"), TypeError, "abstract"),
     ],
     ids=["blank-id", "no-from-dict", "toml-reaches-from-dict", "no-section", "section-not-a-table",
-         "not-a-cell-mesh", "blank-field-id", "no-zone", "blank-zone", "zone-without-fractions"],
+         "not-a-cell-mesh", "blank-field-id", "no-zone", "blank-zone", "zone-without-fractions",
+         "abstract-support", "abstract-discretization"],
 )  # fmt: skip
 def test_a_support_or_discretization_it_cannot_build_is_refused(tmp_path: Path, call, error, match):
     toml = write_text(tmp_path / "bands.toml", '[bands]\nid = "bands"')
-
     with pytest.raises(error, match=match):
         call(toml)
 
 
 def test_a_weighted_discretization_strips_its_names_and_reads_its_fractions_as_floats():
     discretization = _weighted(field_id=" geology ", keys=(" a ",), fractions={"a": [1] * 9})
-
     keys, fractions = discretization.weighted_components()
-
-    assert (discretization.field_id, keys) == ("geology", ("a",))
-    assert discretization.aggregation == "weighted_average"
+    assert (discretization.field_id, keys, discretization.aggregation) == ("geology", ("a",), "weighted_average")  # fmt: skip
     assert fractions["a"].dtype == float
