@@ -1,7 +1,3 @@
-"""An observation evidence separates the provider fields from the spatial match."""
-
-from __future__ import annotations
-
 import pytest
 
 from hydromodpy.spatial.site_selection.domain.observation_evidence import (
@@ -21,17 +17,12 @@ def test_a_hubeau_record_keeps_its_provider_fields_apart_from_the_spatial_match(
         "commentaire_influence_generale_site": "Retenue en amont.",
     }
     record = make_point_record("J123456701", x=-1.5, y=48.1, crs="EPSG:4326", metadata=metadata)
-    match = ObservationSpatialMatch(
-        distance_to_outlet_km=0.25, distance_to_basin_km=0.0, inside_basin=True
-    )
+    match = ObservationSpatialMatch(distance_to_outlet_km=0.25, distance_to_basin_km=0.0, inside_basin=True)  # fmt: skip
 
     evidence = ObservationEvidence.from_point_record(
-        site_id="site_001",
-        observation_type="flow_station",
-        record=record,
-        spatial_match=match,
+        site_id="site_001", observation_type="flow_station", record=record, spatial_match=match,
         influence_status="unknown",
-    )
+    )  # fmt: skip
 
     assert (evidence.source_dataset, evidence.feature_id) == ("hubeau", "J123456701")
     assert evidence.feature_label == "La Riviere a Exemple"

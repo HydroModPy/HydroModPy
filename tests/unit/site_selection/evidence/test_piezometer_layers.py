@@ -1,17 +1,10 @@
-"""Piezometer layers give each basin its nearby piezometers and their distances."""
-
-from __future__ import annotations
-
 import pytest
 from shapely.geometry import Point, box
 
 from hydromodpy.spatial.site_selection.config.criteria_config import (
-    CriteriaConfig,
     ObservationsCriteriaConfig,
     PiezometerLayerConfig,
 )
-from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
-from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
 from hydromodpy.spatial.site_selection.evidence.piezometer_layers import (
     annotate_catchments_with_piezometer_layers,
 )
@@ -19,7 +12,9 @@ from tests._helpers.site_selection_cases import (
     L93,
     X93,
     Y93,
+    component_of,
     make_basin_catchment,
+    run_selection,
     write_vector_layer,
 )
 
@@ -73,36 +68,24 @@ def test_the_nearest_piezometer_inside_the_basin_passes_the_criterion(tmp_path):
     assert (square.feature_label, square.record_year_count, square.quality_status) == (
         "PZ_BOX", None, "unknown",
     )  # fmt: skip
-    result = select_delineated_catchments(
-        [annotated],
-        criteria=CriteriaConfig(observations=config),
-        spatial_selection=SpatialSelectionConfig(),
-        selection_principle="criteria_crossing",
-    )
+    result = run_selection([annotated], {"observations": config})
     assert [item.site_id for item in result.selected] == ["site_001"]
-    component = next(
-        item for item in result.criteria_components if item.criterion_id == "piezometer"
-    )
-    assert component.criterion_status == "passed"
+    assert component_of(result, "piezometer").criterion_status == "passed"
 
 
-@pytest.mark.parametrize(
-    ("basin", "radius", "crs", "matches"),
-    [
-        ("l93", None, L93, {"PZ_IN": 0.0, "PZ_BOX": 0.0}),
-        ("l93", 1.0, None, {"PZ_IN": 0.0, "PZ_BOX": 0.0, "PZ_NEAR": 0.5}),
-        ("none", 1.0, L93, {"PZ_IN": None, "PZ_BOX": None, "PZ_NEAR": None}),
-        ("none", None, L93, {}),
-        ("empty", None, L93, {}),
-    ],
-)
+@pytest.mark.parametrize(("basin", "radius", "crs", "matches"), [
+    ("l93", None, L93, {"PZ_IN": 0.0, "PZ_BOX": 0.0}),
+    ("l93", 1.0, None, {"PZ_IN": 0.0, "PZ_BOX": 0.0, "PZ_NEAR": 0.5}),
+    ("none", 1.0, L93, {"PZ_IN": None, "PZ_BOX": None, "PZ_NEAR": None}),
+    ("none", None, L93, {}),
+    ("empty", None, L93, {}),
+])  # fmt: skip
 def test_a_piezometer_counts_inside_the_basin_or_within_the_search_radius(
     tmp_path, basin, radius, crs, matches
 ):
     _annotated, evidence = annotate_catchments_with_piezometer_layers(
         [make_basin_catchment(tmp_path, basin)], config=_config(tmp_path, radius=radius, crs=crs)
     )
-
     distances = {item.feature_id: item.distance_to_basin_km for item in evidence}
     assert distances == pytest.approx(matches)
     assert all(item.distance_to_outlet_km <= 1.0 for item in evidence)
@@ -110,15 +93,9 @@ def test_a_piezometer_counts_inside_the_basin_or_within_the_search_radius(
 
 def test_no_piezometer_layer_leaves_the_catchments_as_they_are(tmp_path):
     catchment = make_basin_catchment(tmp_path)
-
-    assert annotate_catchments_with_piezometer_layers(
-        [catchment], config=ObservationsCriteriaConfig()
-    ) == ([catchment], [])
-    empty = PiezometerLayerConfig(
-        name="BSS", path=write_vector_layer(tmp_path / "e.gpkg", [], id=[])
-    )
-    config = ObservationsCriteriaConfig(piezometer_max_distance_km=1.0, piezometer_layers=[empty])
-    assert annotate_catchments_with_piezometer_layers([catchment], config=config) == (
-        [catchment],
-        [],
-    )
+    empty = PiezometerLayerConfig(name="BSS", path=write_vector_layer(tmp_path / "e.gpkg", [], id=[]))  # fmt: skip
+    for config in (
+        ObservationsCriteriaConfig(),
+        ObservationsCriteriaConfig(piezometer_max_distance_km=1.0, piezometer_layers=[empty]),
+    ):
+        assert annotate_catchments_with_piezometer_layers([catchment], config=config) == ([catchment], [])  # fmt: skip

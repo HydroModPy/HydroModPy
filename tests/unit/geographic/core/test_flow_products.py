@@ -1,13 +1,11 @@
 """The regional flow stack: the method a config names and a stack read back from disk."""
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
+from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig, capped_breach_of
 from hydromodpy.spatial.geographic.core.flow_products import (
     build_regional_flow_products,
     conditioning_method,
@@ -48,10 +46,7 @@ def test_a_correction_and_limits_that_do_not_go_together_are_refused(method, lim
 
 
 def test_a_capped_breach_without_its_section_takes_the_documented_defaults() -> None:
-    from hydromodpy.spatial.geographic.capped_breach_config import CappedBreachConfig
-
     defaults = CappedBreachConfig()
-
     assert capped_breach_of(SimpleNamespace(dem_correc_type="fill")) is None
     assert capped_breach_of(SimpleNamespace(dem_correc_type="capped_breach")) == CappedBreach(
         max_depth_m=float(defaults.max_depth), max_distance_m=float(defaults.max_distance)
@@ -61,7 +56,6 @@ def test_a_capped_breach_without_its_section_takes_the_documented_defaults() -> 
 def test_a_stack_read_back_from_disk_describes_the_stack_that_was_written(tmp_path) -> None:
     rows, cols = np.mgrid[0:12, 0:12]
     dem = write_geotiff(tmp_path / "dem.tif", (50.0 - rows - 0.5 * cols).astype("float32"))
-
     written = build_regional_flow_products(
         dem_init_path=dem,
         dem_out_dir_path=tmp_path / "flow",
@@ -70,7 +64,6 @@ def test_a_stack_read_back_from_disk_describes_the_stack_that_was_written(tmp_pa
         engine_id="numpy_d8",
     )
     read = flow_products_from_paths(dem_out_dir_path=tmp_path / "flow", dem_correc_type="fill")
-
     assert (read.correc, read.direc, read.acc) == (written.correc, written.direc, written.acc)
     assert read.accumulation.transform == written.accumulation.transform
     assert read.accumulation.directions.conditioned_dem.method == "fill"
@@ -80,7 +73,6 @@ def test_an_accumulation_that_can_already_rank_the_window_is_kept(tmp_path) -> N
     raw = fake_accumulation(transform="none")
     missing = fake_accumulation(acc=tmp_path / "gone.tif")
     small = fake_accumulation(acc=write_geotiff(tmp_path / "acc.tif", np.log(np.ones((3, 3)))))
-
     for accumulation in (raw, missing, small):
         kept = rankable_accumulation(
             object(), accumulation, [(1.0, 1.0)], snap_distance_m=10.0, out=tmp_path / "x.tif"

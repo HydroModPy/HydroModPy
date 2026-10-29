@@ -16,9 +16,7 @@ def _load(key: str, values: object, *, mode: str = "absolute", labels: object = 
     model, kind = KINDS[key]
     count = len(values) + 1 if isinstance(values, list) else 2
     labels = [f"zone_{index}" for index in range(count)] if labels is None else labels
-    return model.model_validate(
-        {"kind": kind, "coordinate_mode": mode, key: values, "labels": labels}
-    )
+    return model.model_validate({"kind": kind, "coordinate_mode": mode, key: values, "labels": labels})  # fmt: skip
 
 
 @pytest.mark.parametrize("key", list(KINDS))

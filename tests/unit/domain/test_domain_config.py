@@ -14,10 +14,9 @@ RINGS = {"kind": "generated_rings", "radii": [0.4, 0.7], "labels": ["inner", "mi
 def test_the_default_domain_is_a_constant_thickness_of_50_m_without_zones():
     cfg = DomainConfig()
 
-    assert cfg.depth_model.kind == "constant_thickness"
-    assert float(cfg.depth_model.thickness) == 50.0
-    assert cfg.supports == {}
-    assert cfg.zone_ids == []
+    assert (cfg.depth_model.kind, float(cfg.depth_model.thickness)) == ("constant_thickness", 50.0)
+    assert (cfg.supports, cfg.zone_ids) == ({}, [])
+    assert DomainConfig(zone_ids=["geology", "lithofacies", "geology"]).zone_ids == ["geology", "lithofacies"]  # fmt: skip
 
 
 def test_every_support_kind_is_accepted_side_by_side():
@@ -25,29 +24,24 @@ def test_every_support_kind_is_accepted_side_by_side():
 
     cfg = DomainConfig.model_validate({"supports": supports})
 
-    assert {key: support.kind for key, support in cfg.supports.items()} == {
-        key: support["kind"] for key, support in supports.items()
-    }
-
-
-def test_a_zone_id_written_twice_is_kept_once():
-    assert DomainConfig(zone_ids=["geology", "lithofacies", "geology"]).zone_ids == [
-        "geology",
-        "lithofacies",
-    ]
+    assert {key: s.kind for key, s in cfg.supports.items()} == {key: s["kind"] for key, s in supports.items()}  # fmt: skip
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "match"),
     [
-        {"supports": {"field_geology": {"provider": "geology"}}},
-        {"depth_model": {"type": "constant_thickness", "thickness": "30 m"}},
-        {"support_mode": "zones"},
-        {"zone_ids": ["Geology"]},
-        {"supports": {"Halves": BANDS}},
+        ({"supports": {"field_geology": {"provider": "geology"}}}, None),
+        ({"depth_model": {"type": "constant_thickness", "thickness": "30 m"}}, None),
+        ({"support_mode": "zones"}, None),
+        ({"zone_ids": ["Geology"]}, None),
+        ({"supports": {"Halves": BANDS}}, None),
+        ({"depth_model": {"kind": "raster_substratum", "scale": 2.0}}, "scale"),
+        ({"depth_model": {"kind": "constant_thickness", "thickness": -5.0}}, "thickness"),
+        ({"depth_model": {"kind": "bedrock_map"}}, "kind"),
     ],
-    ids=["provider_key", "type_key", "support_mode", "upper_case_zone_id", "upper_case_support_id"],
-)
-def test_a_retired_key_or_a_non_snake_case_id_is_refused(payload):
-    with pytest.raises(ValidationError):
+    ids=["provider_key", "type_key", "support_mode", "upper_case_zone_id", "upper_case_support_id",
+         "scale_beside_an_elevation_raster", "negative_thickness", "unknown_depth_model_kind"],
+)  # fmt: skip
+def test_a_retired_key_a_non_snake_case_id_or_a_depth_model_its_kind_does_not_read_is_refused(payload, match):  # fmt: skip
+    with pytest.raises(ValidationError, match=match):
         DomainConfig.model_validate(payload)

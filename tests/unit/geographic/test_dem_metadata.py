@@ -1,7 +1,5 @@
 """The metadata read off the clipped DEMs: the grid, its WGS 84 corners and the department."""
 
-from __future__ import annotations
-
 import geopy.geocoders
 import numpy as np
 import pytest
@@ -46,16 +44,12 @@ def _read(tmp_path, *, answers=(), crs=LAMBERT):
     )
 
 
-def test_every_long_lat_is_longitude_then_latitude_and_the_geocoder_gets_the_reverse(
-    tmp_path,
-) -> None:
+def test_every_long_lat_is_longitude_then_latitude_and_the_geocoder_gets_the_reverse(tmp_path):
     meta = _read(tmp_path, answers=["Naizin, Morbihan, 56500, France"])
-
     longitude, latitude = meta.centroid_long_lat
     assert longitude == pytest.approx(-2.83, abs=0.01)
     assert latitude == pytest.approx(48.01, abs=0.01)
-    assert meta.ll_long_lat[0] < meta.ur_long_lat[0]
-    assert meta.ll_long_lat[1] < meta.ur_long_lat[1]
+    assert all(low < high for low, high in zip(meta.ll_long_lat, meta.ur_long_lat, strict=True))
     assert meta.centroid_long_lat_Greenwich == pytest.approx([360.0 + longitude, latitude])
     assert _Locator.queries == [f"{latitude}, {longitude}"]
     assert meta.dep_code == 56
@@ -66,13 +60,12 @@ def test_every_long_lat_is_longitude_then_latitude_and_the_geocoder_gets_the_rev
 @pytest.mark.parametrize(
     "answers",
     [
-        [GeocoderUnavailable("offline")],
-        [ValueError("no answer")],
-        [GeocoderServiceError("quota")],
-        [OSError("certificate"), OSError("still no certificate")],
-        ["an address without a postcode"],
+        pytest.param([GeocoderUnavailable("offline")], id="unavailable"),
+        pytest.param([ValueError("no answer")], id="any-failure"),
+        pytest.param([GeocoderServiceError("quota")], id="service-error"),
+        pytest.param([OSError("certificate"), OSError("still no")], id="ssl-retry-fails"),
+        pytest.param(["an address without a postcode"], id="no-postcode"),
     ],
-    ids=["unavailable", "any-failure", "service-error", "ssl-retry-fails", "no-postcode"],
 )
 def test_the_department_is_best_effort_and_never_fails_an_offline_run(tmp_path, answers) -> None:
     assert _read(tmp_path, answers=answers).dep_code is None
@@ -80,9 +73,7 @@ def test_the_department_is_best_effort_and_never_fails_an_offline_run(tmp_path, 
 
 def test_a_certificate_failure_is_retried_with_the_certifi_bundle(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(geopy.geocoders.options, "default_ssl_context", None)
-
     meta = _read(tmp_path, answers=[OSError("certificate"), "Rennes, 35000, France"])
-
     assert meta.dep_code == 35
     assert geopy.geocoders.options.default_ssl_context is not None
 
@@ -90,7 +81,6 @@ def test_a_certificate_failure_is_retried_with_the_certifi_bundle(tmp_path, monk
 @pytest.mark.parametrize("crs", [None, "not-a-crs"])
 def test_without_a_usable_crs_there_is_no_wgs84_corner_and_no_department(tmp_path, crs) -> None:
     meta = _read(tmp_path, crs=crs)
-
     assert meta.centroid_long_lat is None
     assert meta.dep_code is None
     assert _Locator.queries == []

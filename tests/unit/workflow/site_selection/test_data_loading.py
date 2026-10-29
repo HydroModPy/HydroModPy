@@ -8,14 +8,14 @@ from hydromodpy.core.exceptions import ConfigMissingError, DataContractViolation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
+from hydromodpy.workflow.site_selection import data_loading
 from hydromodpy.workflow.site_selection.catchments_csv import load_delineated_catchments_csv
-from hydromodpy.workflow.site_selection.data_loading import (
-    load_dem_path,
-    load_hydrometry_config_for_site_selection,
-    load_hydrometry_records,
-    load_site_selection_config,
+from tests._helpers.site_selection_cases import (
+    dem_loader_spy,
+    make_point_record,
+    selection_section,
+    write_selection_toml,
 )
-from tests._helpers.site_selection_cases import dem_loader_spy, make_point_record
 
 pytestmark = pytest.mark.fast
 
@@ -34,11 +34,9 @@ def test_the_hydrometry_period_comes_from_the_call_then_the_config(dates, explic
     calls: dict = {}
     cfg = HydrometryConfig(date_start=dates[0], date_end=dates[1], sources=HUBEAU)
 
-    records = load_hydrometry_records(
-        cfg,
-        project_period=explicit,
-        loader=lambda **kwargs: calls.update(kwargs) or [make_point_record()],
-    )
+    loader = lambda **kwargs: calls.update(kwargs) or [make_point_record()]  # noqa: E731
+
+    records = data_loading.load_hydrometry_records(cfg, project_period=explicit, loader=loader)
 
     assert len(records) == 1 and calls["config"] is cfg
     assert calls["project_period"] == (explicit or expected)
@@ -51,17 +49,18 @@ def test_a_geoplateforme_dem_is_asked_for_the_project_extent(tmp_path):
     extent = (100_000.0, 6_700_000.0, 120_000.0, 6_720_000.0)
     cfg = DemConfig(sources=[IgnGeoplateformeDemSource(regions=["Bretagne"])])
 
-    assert load_dem_path(cfg, project_extent=extent, loader=dem_loader_spy(dem, calls)) == dem
+    assert (
+        data_loading.load_dem_path(cfg, project_extent=extent, loader=dem_loader_spy(dem, calls))
+        == dem
+    )
     assert calls[0]["config"].sources[0].extent == "study_area"
     assert calls[0]["project_extent"] == extent
-    load_dem_path(cfg, loader=dem_loader_spy(dem, calls))
+    data_loading.load_dem_path(cfg, loader=dem_loader_spy(dem, calls))
     assert calls[1]["config"] is cfg
 
 
 def _field(data) -> FieldRecord:
-    return FieldRecord(
-        variable="dem", source="custom", unit="m", data=data, bbox=None, crs="EPSG:2154"
-    )
+    return FieldRecord(variable="dem", source="custom", unit="m", data=data, bbox=None, crs="EPSG:2154")  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -76,7 +75,9 @@ def test_a_dem_the_data_layer_cannot_hand_as_a_file_is_refused(tmp_path, fields,
     cfg = DemConfig.model_validate({"sources": [{"source": "custom", "path": str(tmp_path)}]})
 
     with pytest.raises(error, match=match):
-        load_dem_path(cfg, project_extent=(0.0, 0.0, 1.0, 1.0), loader=lambda **_: fields)
+        data_loading.load_dem_path(
+            cfg, project_extent=(0.0, 0.0, 1.0, 1.0), loader=lambda **_: fields
+        )
 
 
 def test_the_catchments_csv_reads_outlets_and_resolves_watershed_paths(tmp_path):
@@ -109,14 +110,12 @@ def test_a_catchments_row_without_an_id_or_a_place_is_refused(tmp_path, row, mat
 
 def test_the_hydrometry_section_resolves_custom_paths_against_the_file(tmp_path):
     (tmp_path / "hydrometry_data").mkdir()
-    config_path = tmp_path / "selection.toml"
-    config_path.write_text(
-        '[[hydrometry.sources]]\nsource = "custom"\npath = "hydrometry_data"\n'
-        '[[hydrometry.sources]]\nsource = "hubeau"\n',
-        encoding="utf-8",
+    sources = [{"source": "custom", "path": "hydrometry_data"}, {"source": "hubeau"}]
+    config_path = write_selection_toml(
+        tmp_path, selection_section(), hydrometry={"sources": sources}
     )
 
-    cfg = load_hydrometry_config_for_site_selection(config_path)
+    cfg = data_loading.load_hydrometry_config_for_site_selection(config_path)
 
     assert cfg.sources[0].path == (tmp_path / "hydrometry_data").resolve()
     assert cfg.sources[1].path is None
@@ -124,11 +123,8 @@ def test_the_hydrometry_section_resolves_custom_paths_against_the_file(tmp_path)
 
 @pytest.mark.parametrize(
     ("load", "section"),
-    [
-        (load_hydrometry_config_for_site_selection, "[hydrometry]"),
-        (load_site_selection_config, "[site_selection]"),
-    ],
-)
+    [(data_loading.load_hydrometry_config_for_site_selection, "[hydrometry]"), (data_loading.load_site_selection_config, "[site_selection]")],
+)  # fmt: skip
 def test_a_file_without_the_section_is_refused(tmp_path, load, section):
     (tmp_path / "empty.toml").write_text("", encoding="utf-8")
 

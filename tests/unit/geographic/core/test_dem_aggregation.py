@@ -1,7 +1,5 @@
 """``[geographic.catchment].dem_resolution`` aggregates the DEM before any delineation."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import numpy as np
@@ -19,9 +17,7 @@ def test_each_coarse_cell_is_the_mean_of_the_fine_pixels_it_covers(tmp_path: Pat
     values = np.arange(100, dtype=float).reshape(10, 10)
     values[1, 1] = NODATA
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=NODATA, dtype="float32")
-
     out = aggregate_dem(dem, tmp_path / "dem_300m.tif", resolution_m=300.0)
-
     with rasterio.open(out) as src:
         assert (src.height, src.width) == (4, 4)
         assert src.transform.a == 300.0 and src.transform.e == -300.0
@@ -41,10 +37,8 @@ def test_a_dem_without_nodata_leaves_its_non_finite_pixels_out_of_the_mean(tmp_p
     values = np.ones((4, 4), dtype="float32")
     values[0, 0] = np.nan
     dem = write_geotiff(tmp_path / "dem.tif", values, cell=100.0, nodata=None)
-
     with rasterio.open(aggregate_dem(dem, tmp_path / "out.tif", resolution_m=200.0)) as src:
         coarse = src.read(1)
-
     np.testing.assert_allclose(coarse, 1.0)
 
 

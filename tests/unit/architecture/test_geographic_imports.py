@@ -1,7 +1,5 @@
 """The geographic modules import without a cycle, and the package facade is lazy."""
 
-from __future__ import annotations
-
 import importlib
 
 import pytest

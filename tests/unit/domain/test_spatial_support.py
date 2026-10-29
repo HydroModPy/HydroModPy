@@ -1,7 +1,6 @@
 """The supports a heterogeneous parameter reads its zones from, and their providers.
 
-The domain grid is 4 x 4 cells of 5 m from (10, 100) to (30, 120), so its
-centre is (20, 110) and its largest inscribed circle has a radius of 10 m.
+The domain grid is 4 x 4 cells of 5 m from (10, 100) to (30, 120): centre (20, 110), inradius 10 m.
 """
 
 from __future__ import annotations
@@ -39,9 +38,7 @@ REGISTRY = build_default_spatial_support_provider_registry()
 
 
 def _domain() -> Domain:
-    return Domain(
-        DomainConfig(zone_ids=["catchment"]), surface_topo=surface(np.zeros((4, 4)), **GRID)
-    )
+    return Domain(DomainConfig(zone_ids=["catchment"]), surface_topo=surface(np.zeros((4, 4)), **GRID))  # fmt: skip
 
 
 def _context(domain: object = None, loaded_data: object = None) -> SupportBuildContext:
@@ -51,51 +48,30 @@ def _context(domain: object = None, loaded_data: object = None) -> SupportBuildC
     )  # fmt: skip
 
 
-def _build(
-    kind: str,
-    config: object,
-    context: SupportBuildContext | None = None,
-    support_id: str = "support",
-):
+def _build(kind: str, config: object, context: SupportBuildContext | None = None, support_id: str = "support"):  # fmt: skip
     return REGISTRY.get(kind).build(support_id=support_id, config=config, context=context or _context())  # fmt: skip
 
 
 def _catchment_zones() -> CatchmentZonesField:
-    return CatchmentZonesField(
-        identifier="catchment_zones", encoded_codes=CODES, encoded_to_zone=ZONES
-    )
+    return CatchmentZonesField(identifier="catchment_zones", encoded_codes=CODES, encoded_to_zone=ZONES)  # fmt: skip
 
 
 @pytest.mark.parametrize(
-    ("config", "breaks", "points", "labels"),
+    ("config", "cut", "points", "labels"),
     [
-        ({"axis": "x", "breaks": [0.5]}, [20.0], ([12.0, 25.0], [110.0, 110.0]), ["left", "right"]),
-        ({"axis": "y", "coordinate_mode": "absolute", "breaks": ["0.105 km"]}, [105.0], ([20.0, 20.0], [101.0, 119.0]), ["left", "right"]),
+        (GeneratedBandsSupportConfig(kind="generated_bands", axis="x", breaks=[0.5], labels=["a", "b"]), [20.0], ([12.0, 25.0], [110.0, 110.0]), ["a", "b"]),
+        (GeneratedBandsSupportConfig(kind="generated_bands", axis="y", coordinate_mode="absolute", breaks=["0.105 km"], labels=["a", "b"]), [105.0], ([20.0, 20.0], [101.0, 119.0]), ["a", "b"]),
+        (GeneratedRingsSupportConfig(kind="generated_rings", radii=[0.5], labels=["a", "b"]), [5.0], ([20.0, 27.0], [110.0, 110.0]), ["a", "b"]),
+        (GeneratedRingsSupportConfig(kind="generated_rings", coordinate_mode="absolute", radii=[2.0], center_x=15.0, center_y="0.112 km", labels=["a", "b"]),
+         [2.0], ([15.0, 20.0], [111.0, 110.0]), ["a", "b"]),
     ],
-    ids=["relative_x", "absolute_y"],
+    ids=["bands_relative_x", "bands_absolute_y", "rings_relative_around_the_centre", "rings_absolute_around_a_given_point"],
 )  # fmt: skip
-def test_generated_bands_split_the_domain_along_their_axis(config, breaks, points, labels):
-    support = _build("generated_bands", GeneratedBandsSupportConfig(kind="generated_bands", labels=["left", "right"], **config), support_id="halves")  # fmt: skip
+def test_generated_bands_and_rings_cut_the_domain_along_their_axis_or_around_their_centre(config, cut, points, labels):  # fmt: skip
+    support = _build(config.kind, config, support_id="cut")
 
-    assert support.identifier == "halves"
-    assert support.breaks_abs == breaks
-    assert support.zone_keys == ("left", "right")
-    np.testing.assert_array_equal(support.zone_id(*map(np.array, points)), labels)
-
-
-@pytest.mark.parametrize(
-    ("config", "radii", "points", "labels"),
-    [
-        ({"radii": [0.5]}, [5.0], ([20.0, 27.0], [110.0, 110.0]), ["inner", "outer"]),
-        ({"coordinate_mode": "absolute", "radii": [2.0], "center_x": 15.0, "center_y": "0.112 km"}, [2.0], ([15.0, 20.0], [111.0, 110.0]), ["inner", "outer"]),
-    ],
-    ids=["relative_around_the_centre", "absolute_around_a_given_point"],
-)  # fmt: skip
-def test_generated_rings_are_concentric_inside_the_domain(config, radii, points, labels):
-    support = _build("generated_rings", GeneratedRingsSupportConfig(kind="generated_rings", labels=["inner", "outer"], **config), support_id="rings")  # fmt: skip
-
-    assert support.identifier == "rings"
-    assert (support.radii_abs, support.zone_keys) == (radii, ("inner", "outer"))
+    assert (support.identifier, support.zone_keys) == ("cut", ("a", "b"))
+    assert (support.breaks_abs if config.kind == "generated_bands" else support.radii_abs) == cut
     np.testing.assert_array_equal(support.zone_id(*map(np.array, points)), labels)
 
 
@@ -106,13 +82,10 @@ def test_catchment_zones_wrap_the_catchment_zone_of_the_domain():
     support = _build("catchment_zones", CatchmentZonesSupportConfig(kind="catchment_zones"), _context(domain), "zones")  # fmt: skip
 
     assert isinstance(support, RasterZonesSupportField)
-    assert (support.identifier, support.zone_keys, support.shape) == (
-        "zones",
-        ("domain", "buffer", "core"),
-        (4, 4),
-    )
+    assert (support.identifier, support.zone_keys, support.shape) == ("zones", ("domain", "buffer", "core"), (4, 4))  # fmt: skip
     x, y = np.array([[12.0, 27.0], [12.0, 40.0]]), np.array([[118.0, 118.0], [107.0, 110.0]])
     np.testing.assert_array_equal(support.zone_id(x, y), [["domain", "core"], ["", ""]])
+    np.testing.assert_array_equal(_zonation().zone_id(np.array([0.0]), np.array([0.0])), [""])
 
 
 def test_a_geology_support_is_the_loaded_geology_or_an_alias_of_it():
@@ -125,12 +98,7 @@ def test_a_geology_support_is_the_loaded_geology_or_an_alias_of_it():
     alias = _build("geology", config, context, "rocks")
 
     assert isinstance(alias, AliasedSpatialSupportField)
-    assert (alias.identifier, alias.zone_keys, alias.default_cell_samples_per_axis) == (
-        "rocks",
-        ("granite", "schist"),
-        4,
-    )
-    assert alias.units == "lithology"
+    assert (alias.identifier, alias.zone_keys, alias.default_cell_samples_per_axis, alias.units) == ("rocks", ("granite", "schist"), 4, "lithology")  # fmt: skip
     assert alias.on_mesh("mesh", cell_samples_per_axis=3) == ("mesh", 3)
 
 
@@ -171,47 +139,35 @@ def test_a_provider_refuses_what_it_cannot_build(kind, config, context, error, m
         _build(kind, config, context)
 
 
+def _zonation(**change: object) -> RasterZonesSupportField:
+    arguments = {"identifier": "zones", "encoded_codes": CODES, "encoded_to_zone": ZONES, "raster_support": raster_support(4, 4, **GRID)}  # fmt: skip
+    return RasterZonesSupportField(**{**arguments, **change})
+
+
+def _rings(radii: list[float], labels: list[str]) -> GeneratedRingsSupportField:
+    return GeneratedRingsSupportField(identifier="rings", center_x=0.0, center_y=0.0, radii_abs=radii, labels=labels)  # fmt: skip
+
+
 @pytest.mark.parametrize(
-    ("change", "error", "match"),
+    ("build", "error", "match"),
     [
-        ({"encoded_codes": CODES[0]}, ValueError, "must be a 2D integer array"),
-        ({"encoded_codes": np.zeros((0, 0))}, ValueError, "cannot be empty"),
-        ({"encoded_to_zone": {}}, ValueError, "encoded_to_zone cannot be empty"),
-        ({"encoded_to_zone": {**ZONES, -1: "deep"}}, ValueError, "must be positive integers"),
-        ({"encoded_to_zone": {**ZONES, 3: " "}}, ValueError, "labels cannot be empty"),
-        ({"raster_support": "EPSG:2154"}, TypeError, "must be a RasterSupport instance"),
-        ({"raster_support": raster_support(4, 3, **GRID)}, ValueError, "shape mismatch"),
-        ({"encoded_to_zone": {1: "domain", 2: "buffer"}}, ValueError, r"unknown class codes: \[3\]"),
+        (lambda: _zonation(encoded_codes=CODES[0]), ValueError, "must be a 2D integer array"),
+        (lambda: _zonation(encoded_codes=np.zeros((0, 0))), ValueError, "cannot be empty"),
+        (lambda: _zonation(encoded_to_zone={}), ValueError, "encoded_to_zone cannot be empty"),
+        (lambda: _zonation(encoded_to_zone={**ZONES, -1: "deep"}), ValueError, "must be positive integers"),
+        (lambda: _zonation(encoded_to_zone={**ZONES, 3: " "}), ValueError, "labels cannot be empty"),
+        (lambda: _zonation(raster_support="EPSG:2154"), TypeError, "must be a RasterSupport instance"),
+        (lambda: _zonation(raster_support=raster_support(4, 3, **GRID)), ValueError, "shape mismatch"),
+        (lambda: _zonation(encoded_to_zone={1: "domain", 2: "buffer"}), ValueError, r"unknown class codes: \[3\]"),
+        (lambda: _zonation().zone_id(np.zeros(2), np.zeros(3)), ValueError, "same shape"),
+        (lambda: _rings([0.0], ["a", "b"]), ValueError, "strictly positive"),
+        (lambda: _rings([2.0, 1.0], ["a", "b", "c"]), ValueError, "strictly increasing"),
+        (lambda: _rings([1.0, 1.0], ["a", "b", "c"]), ValueError, "cannot contain duplicates"),
+        (lambda: _rings([1.0], ["a"]), ValueError, r"len\(radii_abs\) \+ 1"),
+        (lambda: _rings([1.0], ["a", " "]), ValueError, "cannot contain empty values"),
+        (lambda: _rings([1.0], ["a", "a"]), ValueError, "labels cannot contain duplicates"),
     ],
 )  # fmt: skip
-def test_a_raster_zonation_that_does_not_fit_its_grid_is_refused(change, error, match):
-    arguments = {"identifier": "zones", "encoded_codes": CODES, "encoded_to_zone": ZONES, "raster_support": raster_support(4, 4, **GRID)}  # fmt: skip
-
+def test_a_zonation_that_does_not_fit_its_grid_or_rings_that_do_not_nest_are_refused(build, error, match):  # fmt: skip
     with pytest.raises(error, match=match):
-        RasterZonesSupportField(**{**arguments, **change})
-
-
-def test_a_raster_zonation_reads_points_of_one_shape_only():
-    field = RasterZonesSupportField(identifier="zones", encoded_codes=CODES, encoded_to_zone=ZONES, raster_support=raster_support(4, 4, **GRID))  # fmt: skip
-
-    with pytest.raises(ValueError, match="same shape"):
-        field.zone_id(np.zeros(2), np.zeros(3))
-    np.testing.assert_array_equal(field.zone_id(np.array([0.0]), np.array([0.0])), [""])
-
-
-@pytest.mark.parametrize(
-    ("radii", "labels", "match"),
-    [
-        ([0.0], ["a", "b"], "strictly positive"),
-        ([2.0, 1.0], ["a", "b", "c"], "strictly increasing"),
-        ([1.0, 1.0], ["a", "b", "c"], "cannot contain duplicates"),
-        ([1.0], ["a"], r"len\(radii_abs\) \+ 1"),
-        ([1.0], ["a", " "], "cannot contain empty values"),
-        ([1.0], ["a", "a"], "labels cannot contain duplicates"),
-    ],
-)
-def test_rings_that_do_not_nest_are_refused(radii, labels, match):
-    with pytest.raises(ValueError, match=match):
-        GeneratedRingsSupportField(
-            identifier="rings", center_x=0.0, center_y=0.0, radii_abs=radii, labels=labels
-        )
+        build()

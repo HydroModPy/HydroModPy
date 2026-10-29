@@ -1,7 +1,5 @@
 """The lake polygons of ``[geographic.enforce_lakes]`` are read from the data folder."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,10 +24,8 @@ def test_a_lake_file_is_read_as_given_or_beside_the_declared_dem(tmp_path: Path)
         [box(0, 0, 10, 10), box(20, 0, 30, 10)],
         crs="EPSG:4326",
     )
-
     beside = lakes_from_config(SimpleNamespace(lake_geometry_path=Path("lakes.gpkg")), setup)
     as_given = lakes_from_config(SimpleNamespace(lake_geometry_path=lakes), setup)
-
     assert len(beside) == len(as_given) == 2
     # The polygons come back in the project CRS.
     assert beside[0].bounds[0] > 1.0e5

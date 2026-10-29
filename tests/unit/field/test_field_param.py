@@ -17,19 +17,18 @@ GRANITE_SCHIST = {"granite": 10.0, "micaschists": 2.0}
 
 
 def _homogeneous(value: object = 10.0, **kwargs) -> FieldParam:
-    return FieldParam(
-        identifier=kwargs.pop("identifier", "K"), kind="homogeneous", value=value, **kwargs
-    )
+    identifier = kwargs.pop("identifier", "K")
+    return FieldParam(identifier=identifier, kind="homogeneous", value=value, **kwargs)
 
 
 def _per_zone(values=GRANITE_SCHIST, **kwargs) -> FieldParam:
     return FieldParam(
-        identifier="K",
-        kind="heterogeneous",
-        values_by_key=values,
-        field_spatial_id="field_square",
-        **kwargs,
-    )
+        identifier="K", kind="heterogeneous", values_by_key=values, field_spatial_id="field_square", **kwargs
+    )  # fmt: skip
+
+
+def _exponential() -> FieldParam:
+    return _homogeneous(vertical_profile={"mode": "exponential", "characteristic_depth": 9.0})
 
 
 def _square(n_cells: int = 12, kind: str = "structured"):
@@ -38,39 +37,24 @@ def _square(n_cells: int = 12, kind: str = "structured"):
 
 @pytest.mark.parametrize(
     ("identifier", "unit", "value", "si_unit", "si_value"),
-    [
-        ("K", "m/day", 8.64, "m/s", 1e-4),
-        ("K", "mm/day", 8640.0, "m/s", 1e-4),
-        ("K", None, "8.64 m/day", "m/s", 1e-4),
-        ("Ss", "cm-1", 1e-6, "m-1", 1e-4),
-        ("Ss", None, "1e-6 cm-1", "m-1", 1e-4),
-        ("Sy", None, "0.2 -", "-", 0.2),
-        ("porosity", None, 0.3, "-", 0.3),
-    ],
+    [("K", "m/day", 8.64, "m/s", 1e-4), ("K", "mm/day", 8640.0, "m/s", 1e-4),
+     ("K", None, "8.64 m/day", "m/s", 1e-4), ("Ss", "cm-1", 1e-6, "m-1", 1e-4),
+     ("Ss", None, "1e-6 cm-1", "m-1", 1e-4), ("Sy", None, "0.2 -", "-", 0.2),
+     ("porosity", None, 0.3, "-", 0.3)],
     ids=["k-m-day", "k-mm-day", "k-inline", "ss-cm", "ss-inline", "sy-inline", "unknown-id"],
-)
-def test_a_value_is_stored_in_the_si_unit_of_its_parameter(
-    identifier, unit, value, si_unit, si_value
-):
+)  # fmt: skip
+def test_a_value_is_stored_in_its_si_unit(identifier, unit, value, si_unit, si_value):
     param = _homogeneous(value, identifier=identifier, unit=unit)
-
     assert param.unit == si_unit
     assert float(param.value) == pytest.approx(si_value)
 
 
 def test_per_zone_values_take_their_inline_units_and_the_profile():
     profile = {"mode": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]}
-    param = _per_zone(
-        {"granite": "10.0 m/day", "micaschists": "2.0 m/day"}, vertical_profile=profile
-    )
+    param = _per_zone({"granite": "10 m/day", "micaschists": "2 m/day"}, vertical_profile=profile)
     zones = np.array(["granite", "micaschists", "granite"], dtype=object)
-
-    np.testing.assert_allclose(
-        param.to_array(zone_ids=zones), np.array([10.0, 2.0, 10.0]) / 86400.0
-    )
-    np.testing.assert_allclose(
-        param.to_array(zone_ids=zones, depth=10.0), np.array([7.5, 1.5, 7.5]) / 86400.0
-    )
+    np.testing.assert_allclose(param.to_array(zone_ids=zones), np.array([10, 2, 10]) / 86400)
+    np.testing.assert_allclose(param.to_array(zone_ids=zones, depth=10.0), np.array([7.5, 1.5, 7.5]) / 86400)  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -86,26 +70,13 @@ def test_per_zone_values_take_their_inline_units_and_the_profile():
         ({"kind": "heterogeneous"}, ValueError, "requires 'values_by_key'"),
         ({"kind": "heterogeneous", "values_by_key": {}}, ValueError, "cannot be empty"),
         ({"kind": "heterogeneous", "values_by_key": {"a": 1.0}}, ValueError, "'field_spatial_id'"),
-        (
-            {"kind": "heterogeneous", "values_by_key": {"a": "1 m-1"}, "field_spatial_id": "g"},
-            ValueError,
-            r"K\.values\[a\] unit 'm-1' is inconsistent",
-        ),
+        ({"kind": "heterogeneous", "values_by_key": {"a": "1 m-1"}, "field_spatial_id": "g"},
+         ValueError, r"K\.values\[a\] unit 'm-1' is inconsistent"),
     ],
-    ids=[
-        "no-identifier",
-        "unknown-kind",
-        "blank-unit",
-        "unknown-unit",
-        "other-quantity",
-        "conflicting-inline-unit",
-        "no-value",
-        "no-zone-values",
-        "empty-zone-values",
-        "no-support",
-        "zone-value-of-another-quantity",
-    ],
-)
+    ids=["no-identifier", "unknown-kind", "blank-unit", "unknown-unit", "other-quantity",
+         "conflicting-inline-unit", "no-value", "no-zone-values", "empty-zone-values", "no-support",
+         "zone-value-of-another-quantity"],
+)  # fmt: skip
 def test_a_parameter_that_cannot_hold_its_values_is_refused(kwargs, error, match):
     with pytest.raises(error, match=match):
         FieldParam(**({"identifier": "K", "kind": "homogeneous", "value": 1.0} | kwargs))
@@ -118,24 +89,14 @@ def test_a_parameter_that_cannot_hold_its_values_is_refused(kwargs, error, match
         ({"mode": "none"}, [0.0, 50.0], [1.0, 1.0]),
         ({"mode": "exponential", "characteristic_depth": 20.0}, [0.0, 20.0], [1.0, np.exp(-1.0)]),
         ({"mode": "exponential", "characteristic_depth": "0.02 km"}, [10.0], [np.exp(-0.5)]),
-        (
-            {"mode": "exponential", "characteristic_depth": 5.0, "min_factor": 0.2},
-            [0.0, 1000.0],
-            [1.0, 0.2],
-        ),
-        (
-            {"mode": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]},
-            [10.0, 30.0, 80.0],
-            [0.75, 0.375, 0.25],
-        ),
-        (
-            {"mode": "tabulated", "depths": [0, 10], "factors": [1, 0.5], "interpolation": "step"},
-            [0.0, 5.0, 10.0, 20.0],
-            [1.0, 1.0, 0.5, 0.5],
-        ),
+        ({"mode": "exponential", "characteristic_depth": 5.0, "min_factor": 0.2}, [0.0, 1000.0], [1.0, 0.2]),
+        ({"mode": "tabulated", "depths": [0.0, 20.0, 40.0], "factors": [1.0, 0.5, 0.25]},
+         [10.0, 30.0, 80.0], [0.75, 0.375, 0.25]),
+        ({"mode": "tabulated", "depths": [0, 10], "factors": [1, 0.5], "interpolation": "step"},
+         [0.0, 5.0, 10.0, 20.0], [1.0, 1.0, 0.5, 0.5]),
     ],
     ids=["no-profile", "none", "exponential", "depth-in-km", "floor", "tabulated", "step"],
-)
+)  # fmt: skip
 def test_a_vertical_profile_scales_the_surface_value_with_depth(profile, depths, factors):
     param = _homogeneous(vertical_profile=profile)
 
@@ -162,16 +123,8 @@ def _tabulated(**override) -> dict:
         ({"mode": "exponential", "characteristic_depth": " "}, ValueError, "empty length string"),
         ({"mode": "exponential", "characteristic_depth": [1]}, TypeError, "unsupported length"),
         ({"mode": "exponential", "characteristic_depth": 0.0}, ValueError, "must be > 0"),
-        (
-            {"mode": "exponential", "characteristic_depth": 9, "min_factor": "nan"},
-            ValueError,
-            "finite",
-        ),
-        (
-            {"mode": "exponential", "characteristic_depth": 9, "min_factor": 1.2},
-            ValueError,
-            r"\[0, 1\]",
-        ),
+        ({"mode": "exponential", "characteristic_depth": 9, "min_factor": "nan"}, ValueError, "finite"),
+        ({"mode": "exponential", "characteristic_depth": 9, "min_factor": 1.2}, ValueError, r"\[0, 1\]"),
         ({"mode": "tabulated", "factors": [1.0]}, KeyError, "requires 'depths'"),
         ({"mode": "tabulated", "depths": [0.0]}, KeyError, "requires 'factors'"),
         (_tabulated(depths=[], factors=[]), ValueError, "cannot be empty"),
@@ -183,21 +136,10 @@ def _tabulated(**override) -> dict:
         (_tabulated(factors=[0.9, 0.5]), ValueError, "factor at depth 0.0 must be 1.0"),
         (_tabulated(interpolation="cubic"), ValueError, "interpolation 'cubic'"),
     ],
-)
+)  # fmt: skip
 def test_a_vertical_profile_it_cannot_apply_is_refused(profile, error, match):
     with pytest.raises(error, match=match):
         _homogeneous(vertical_profile=profile)
-
-
-@pytest.mark.parametrize(
-    ("depth", "match"),
-    [(np.nan, "only finite"), (-1.0, "must be >= 0"), (np.ones(3), "not broadcastable")],
-)
-def test_a_depth_outside_the_ground_or_of_another_shape_is_refused(depth, match):
-    param = _homogeneous(vertical_profile={"mode": "exponential", "characteristic_depth": 9.0})
-
-    with pytest.raises(ValueError, match=match):
-        param.to_array(shape=(2,), depth=depth)
 
 
 def test_a_homogeneous_value_fills_points_zones_and_shapes():
@@ -219,7 +161,7 @@ def test_zone_keys_read_as_text_whatever_their_number_type():
     np.testing.assert_array_equal(param.map_zone_ids(np.array([1, 1.0, 1.5])), [1.0, 1.0, 2.0])
     np.testing.assert_array_equal(param.map_zone_ids(np.array([1, 1])), [1.0, 1.0])
     np.testing.assert_array_equal(
-        param.to_array(zone_field=SimpleNamespace(cell_values=["a"])), [3.0]
+        param.to_array(zone_field=SimpleNamespace(cell_values=["a"])), [3]
     )
     with pytest.raises(ValueError, match="only valid for heterogeneous"):
         _homogeneous().map_zone_ids(["a"])
@@ -232,39 +174,30 @@ def test_zone_keys_read_as_text_whatever_their_number_type():
         (lambda p: p.to_array(zone_field=object()), TypeError, "must expose 'cell_values'"),
         (lambda p: p.to_mesh_field(), ValueError, "field_discretization"),
         (lambda p: p.to_mesh_field(object()), TypeError, "must expose: 'mesh'"),
-        (
-            lambda p: p.to_mesh_field(SimpleNamespace(mesh=None, aggregation="max", weighted_components=None)),
-            ValueError,
-            "Unsupported field discretization aggregation 'max'",
-        ),
-        (
-            lambda p: p.to_mesh_field(
-                SimpleNamespace(mesh=None, aggregation="weighted_average", weighted_components=lambda: ((), {}))
-            ),
-            ValueError,
-            "did not produce any weighted contribution",
-        ),
+        (lambda p: p.to_mesh_field(SimpleNamespace(mesh=None, aggregation="max", weighted_components=None)),
+         ValueError, "Unsupported field discretization aggregation 'max'"),
+        (lambda p: p.to_mesh_field(SimpleNamespace(
+            mesh=None, aggregation="weighted_average", weighted_components=lambda: ((), {}))),
+         ValueError, "did not produce any weighted contribution"),
         (lambda p: _homogeneous().to_mesh_field(), ValueError, "Homogeneous field requires 'mesh'"),
+        (lambda p: _exponential().to_array(shape=(2,), depth=np.nan), ValueError, "only finite"),
+        (lambda p: _exponential().to_array(shape=(2,), depth=-1.0), ValueError, "must be >= 0"),
+        (lambda p: _exponential().to_array(shape=(2,), depth=np.ones(3)), ValueError, "not broadcastable"),
     ],
     ids=["no-zones", "zone-field-without-values", "no-discretization", "not-a-discretization",
-         "other-aggregation", "no-zone", "homogeneous-without-mesh"],
+         "other-aggregation", "no-zone", "homogeneous-without-mesh", "depth-not-finite",
+         "depth-above-the-ground", "depth-of-another-shape"],
 )  # fmt: skip
-def test_a_parameter_placed_without_its_zones_or_mesh_is_refused(call, error, match):
+def test_a_parameter_placed_without_its_zones_mesh_or_depth_is_refused(call, error, match):
     with pytest.raises(error, match=match):
         call(_per_zone())
 
 
-@pytest.mark.parametrize("through", ["mesh", "discretization"])
-def test_a_homogeneous_value_on_a_mesh_takes_its_profile(through):
+@pytest.mark.parametrize("key", ["mesh", "field_discretization"])
+def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
     mesh = _square()
-    param = _homogeneous(
-        7.25, vertical_profile={"mode": "exponential", "characteristic_depth": 30.0}
-    )
-    target = (
-        {"mesh": mesh}
-        if through == "mesh"
-        else {"field_discretization": SimpleNamespace(mesh=mesh)}
-    )
+    param = _homogeneous(7.25, vertical_profile={"mode": "exponential", "characteristic_depth": 30})
+    target = {key: mesh if key == "mesh" else SimpleNamespace(mesh=mesh)}
 
     at_surface = param.to_mesh_field(**target)
     deep = param.to_mesh_field(**target, depth=np.full(9, 30.0), label="deep")
@@ -292,17 +225,13 @@ def test_zone_values_on_a_mesh_are_the_area_weighted_mean_of_the_zones():
     np.testing.assert_allclose(np.add(fractions["granite"], fractions["micaschists"]), 1.0)
     assert values.label == "heterogeneous_values"
     assert 2.0 - 1e-12 <= np.min(values.cell_values) <= np.max(values.cell_values) <= 10.0 + 1e-12
-    zones = field.zone_id(
-        np.array([[0.25, 0.75], [0.25, 0.75]]), np.array([[0.25, 0.25], [0.75, 0.75]])
-    )
+    zones = field.zone_id(np.array([[0.25, 0.75]] * 2), np.array([[0.25] * 2, [0.75] * 2]))
     np.testing.assert_allclose(param.to_array(zone_ids=zones), [[10.0, 2.0], [10.0, 10.0]])
 
 
 def test_a_value_table_that_misses_a_zone_is_refused():
-    """A zone of the support without a row in the table names itself."""
     param = _per_zone({"granite": 1e-5})
     discretization = two_zone_square().on_mesh(_square(20, "triangular_structured"))
-
     with pytest.raises(ValueError, match=r"'K'.*micaschists.*'field_square'.*values_csv_file"):
         param.to_mesh_field(discretization)
     with pytest.raises(ValueError, match=r"'K'.*micaschists"):
@@ -311,14 +240,10 @@ def test_a_value_table_that_misses_a_zone_is_refused():
 
 @pytest.mark.parametrize(
     "param",
-    [
-        _homogeneous(
-            1.0, unit="m/day", vertical_profile={"mode": "exponential", "characteristic_depth": 9.0}
-        ),
-        _per_zone(),
-    ],
+    [_homogeneous(1.0, unit="m/day", vertical_profile={"mode": "exponential", "characteristic_depth": 9.0}),
+     _per_zone()],
     ids=["homogeneous", "per-zone"],
-)
+)  # fmt: skip
 def test_a_parameter_comes_back_from_its_mapping(param):
     payload = param.as_dict()
     again = FieldParam.from_dict(payload)
@@ -330,12 +255,9 @@ def test_a_parameter_comes_back_from_its_mapping(param):
     assert again.field_spatial_id == param.field_spatial_id
 
 
-@pytest.mark.xfail(
-    strict=True, reason="as_dict writes the SI unit, so from_dict loses the unit the user wrote"
-)
+@pytest.mark.xfail(strict=True, reason="as_dict writes the SI unit, from_dict loses the user unit")
 def test_a_parameter_from_its_mapping_keeps_the_unit_the_user_wrote():
     param = _homogeneous(1.0, unit="m/day")
-
     assert FieldParam.from_dict(param.as_dict()).original_unit == "m/day"
 
 
@@ -347,13 +269,9 @@ def test_a_parameter_from_its_mapping_keeps_the_unit_the_user_wrote():
         ({"id": "K"}, KeyError, "'kind'"),
         ({"id": "K", "kind": "homogeneous"}, KeyError, "requires key 'value'"),
         ({"id": "K", "kind": "heterogeneous", "values": [1.0]}, KeyError, "mapping key 'values'"),
-        (
-            {"id": "K", "kind": "heterogeneous", "values": {"a": 1.0}},
-            KeyError,
-            "'field_spatial_id'",
-        ),
+        ({"id": "K", "kind": "heterogeneous", "values": {"a": 1.0}}, KeyError, "'field_spatial_id'"),
     ],
-)
+)  # fmt: skip
 def test_a_mapping_without_its_keys_is_refused(config, error, match):
     with pytest.raises(error, match=match):
         FieldParam.from_dict(config)

@@ -11,9 +11,17 @@ from tests._helpers.cell_meshes import TEST_CRS_WKT, cell_mesh_of
 from tests._helpers.mesh_cases import regular_mesh
 
 FOUR_NODES = np.array([[0, 0], [1, 0], [0.5, 1], [1.5, 1]], dtype=float)
+TRIANGLES = np.array([[0, 1, 2], [1, 3, 2]])
 TWO_TRIANGLES = HydroMesh(
+    vertices=FOUR_NODES, cell_blocks=(CellBlock(CellType.TRIANGLE, TRIANGLES),)
+)
+TWO_BLOCKS = HydroMesh(
     vertices=FOUR_NODES,
-    cell_blocks=(CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2], [1, 3, 2]])),),
+    cell_blocks=tuple(CellBlock(CellType.TRIANGLE, TRIANGLES[[k]]) for k in range(2)),
+)
+WEDGE = HydroMesh(
+    vertices=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], float),
+    cell_blocks=(CellBlock(CellType.WEDGE, np.array([[0, 1, 2, 3, 4, 5]])),),
 )
 
 
@@ -29,14 +37,18 @@ def ax():
     plt.close(fig)
 
 
-def test_plot_triangles(ax) -> None:
-    values = np.array([1.0, 2.0])
-
-    mappable = plot_cell_values(ax, TWO_TRIANGLES, values)
-
+@pytest.mark.parametrize(
+    ("mesh", "show_mesh"),
+    [(TWO_TRIANGLES, False), (TWO_BLOCKS, False), (TWO_TRIANGLES, True)],
+    ids=["one-block", "two-blocks", "with-their-edges"],
+)
+def test_triangles_are_drawn_as_one_triangulation_in_cell_order(ax, mesh, show_mesh) -> None:
+    mappable = plot_cell_values(ax, mesh, np.array([1.0, 2.0]), show_mesh=show_mesh)
     # A dropped or reordered cell value would still return a mappable;
     # only comparing the drawn array against the input catches it.
-    np.testing.assert_allclose(np.asarray(mappable.get_array()).ravel(), values)
+    np.testing.assert_array_equal(np.asarray(mappable.get_array()).ravel(), [1.0, 2.0])
+    assert bool(ax.lines) is show_mesh
+    assert not show_mesh or ax.get_xlim() == (0.0, 1.5)
 
 
 @pytest.mark.parametrize("show_mesh", [False, True])
@@ -52,30 +64,20 @@ def test_plot_structured_quads(ax, show_mesh: bool, planar: bool) -> None:
     assert len(ax.lines) == ((1 + 1) + (2 + 1) if show_mesh else 0)
 
 
-def test_a_regular_grid_is_drawn_over_its_own_bounds(ax) -> None:
-    plot_cell_values(
-        ax, regular_mesh(1, 1, dx=10.0, dy=20.0, xmin=10.0, ymin=30.0), np.array([1.0])
-    )
-
-    assert np.allclose(ax.get_xlim(), (10.0, 20.0))
-    assert np.allclose(ax.get_ylim(), (30.0, 50.0))
-
-
-def test_quads_without_a_grid_shape_are_drawn_as_polygons(ax) -> None:
-    mesh = cell_mesh_from_edges([10.0, 20.0, 30.0], [30.0, 50.0], crs_wkt=TEST_CRS_WKT)
-
-    collection = plot_cell_values(ax, mesh, np.array([1.0, 2.0]), show_mesh=True)
-
-    np.testing.assert_allclose(np.asarray(collection.get_array()), [1.0, 2.0])
-    assert np.allclose(ax.get_xlim(), (10.0, 30.0))
-    assert np.allclose(ax.get_ylim(), (30.0, 50.0))
-
-
-def test_plot_triangles_with_their_edges(ax) -> None:
-    plot_cell_values(ax, TWO_TRIANGLES, np.array([1.0, 2.0]), show_mesh=True)
-
-    assert ax.lines
-    assert ax.get_xlim() == (0.0, 1.5)
+@pytest.mark.parametrize(
+    ("mesh", "values", "xlim", "ylim"),
+    [
+        (regular_mesh(1, 1, dx=10.0, dy=20.0, xmin=10.0, ymin=30.0), [1.0], (10.0, 20.0), (30.0, 50.0)),
+        (cell_mesh_from_edges([10.0, 20.0, 30.0], [30.0, 50.0], crs_wkt=TEST_CRS_WKT), [1.0, 2.0], (10.0, 30.0),
+         (30.0, 50.0)),
+    ],
+    ids=["regular-grid", "quads-without-a-grid-shape"],
+)  # fmt: skip
+def test_quads_are_drawn_over_their_own_bounds(ax, mesh, values, xlim, ylim) -> None:
+    collection = plot_cell_values(ax, mesh, np.array(values), show_mesh=len(values) > 1)
+    np.testing.assert_allclose(np.asarray(collection.get_array()).ravel(), values)
+    assert np.allclose(ax.get_xlim(), xlim)
+    assert np.allclose(ax.get_ylim(), ylim)
 
 
 @pytest.mark.parametrize("planar", [False, True], ids=["hydro mesh", "cell mesh"])
@@ -93,25 +95,6 @@ def test_plot_ragged_polygons_on_the_colour_range_asked(ax, planar: bool) -> Non
     # A padding slot drawn as a corner would add a vertex to the short cell.
     np.testing.assert_array_equal(collection.get_paths()[1].vertices[:4], verts[cells[1]])
     assert [len(path.vertices) for path in collection.get_paths()] == [6, 5]
-
-
-def test_two_blocks_of_triangles_are_drawn_as_one_triangulation(ax) -> None:
-    block = CellBlock(CellType.TRIANGLE, np.array([[0, 1, 2]]))
-    other = CellBlock(CellType.TRIANGLE, np.array([[1, 3, 2]]))
-
-    mappable = plot_cell_values(
-        ax, HydroMesh(vertices=FOUR_NODES, cell_blocks=(block, other)), np.array([1.0, 2.0])
-    )
-
-    np.testing.assert_array_equal(mappable.get_array(), [1.0, 2.0])
-
-
-WEDGE = HydroMesh(
-    vertices=np.array(
-        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1]], dtype=float
-    ),
-    cell_blocks=(CellBlock(CellType.WEDGE, np.array([[0, 1, 2, 3, 4, 5]])),),
-)
 
 
 @pytest.mark.parametrize(

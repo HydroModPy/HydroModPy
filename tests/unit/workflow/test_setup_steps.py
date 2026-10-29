@@ -4,8 +4,6 @@ The run setup and the data overview resolve it with the same rule: when the
 notch or the bed regularisation is on, and never over a declared path.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,21 +13,19 @@ from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 from hydromodpy.workflow.steps.setup import resolve_crossings_path
-from tests._helpers.geographic_cases import BENCH_RIVER
+from tests._helpers.geographic_cases import BENCH_RIVER, outlet_document
 
 _RESOLVER = "hydromodpy.data.variables.crossings.resolver.resolve_crossings_path_from_data_sources"
 _ROE = [SimpleNamespace(source="roe")]
 
 
 def _geographic(section: str = "crossings", **crossings) -> GeographicConfig:
-    sections = {"crossings": {"enabled": True, **crossings}}
-    if section == "bed":
-        sections = {"bed_regularization": {"enabled": True}}
-    elif section == "off":
-        sections = {}
-    return GeographicConfig.from_outlet(
-        x=1.0, y=2.0, dem="dem.tif", river_network=BENCH_RIVER, **sections
-    )
+    sections = {
+        "crossings": {"crossings": {"enabled": True, **crossings}},
+        "bed": {"bed_regularization": {"enabled": True}},
+        "off": {},
+    }[section]
+    return outlet_document(river_network=BENCH_RIVER, **sections)
 
 
 def _cfg(geographic: GeographicConfig, sources: list | None) -> SimpleNamespace:
@@ -50,10 +46,6 @@ def _resolve(entry: str, cfg: SimpleNamespace, tmp_path: Path) -> None:
     overview._bootstrap_crossings(SimpleNamespace(cfg=cfg, workspace=None))
 
 
-def _forbid(monkeypatch) -> None:
-    monkeypatch.setattr(_RESOLVER, lambda *a, **k: pytest.fail("resolved a path"))
-
-
 @pytest.mark.parametrize("entry", ["run", "overview"])
 @pytest.mark.parametrize("section", ["crossings", "bed"])
 def test_the_path_is_filled_from_the_declared_sources(entry, section, monkeypatch, tmp_path):
@@ -66,27 +58,23 @@ def test_the_path_is_filled_from_the_declared_sources(entry, section, monkeypatc
 
     monkeypatch.setattr(_RESOLVER, resolve)
     cfg = _cfg(_geographic(section), _ROE)
-
     _resolve(entry, cfg, tmp_path)
-
     assert cfg.geographic.crossings.path == merged
     assert cfg.geographic.crossings.enabled is (section == "crossings")
     assert calls == [tmp_path / "project.toml"]
 
 
 @pytest.mark.parametrize("entry", ["run", "overview"])
-def test_a_declared_path_wins_and_a_notch_that_is_off_resolves_nothing(
+def test_a_declared_path_wins_and_a_notch_that_is_off_or_a_bed_without_source_resolves_nothing(
     entry, monkeypatch, tmp_path
 ) -> None:
-    _forbid(monkeypatch)
+    monkeypatch.setattr(_RESOLVER, lambda *a, **k: pytest.fail("resolved a path"))
     own = _cfg(_geographic(path=tmp_path / "mine.gpkg"), _ROE)
-    off = _cfg(_geographic("off"), _ROE)
-
-    for cfg in (own, off):
+    others = [_cfg(_geographic("off"), _ROE)] + [_cfg(_geographic("bed"), s) for s in (None, [])]
+    for cfg in (own, *others):
         _resolve(entry, cfg, tmp_path)
-
     assert own.geographic.crossings.path == tmp_path / "mine.gpkg"
-    assert off.geographic.crossings.path is None
+    assert [cfg.geographic.crossings.path for cfg in others] == [None, None, None]
 
 
 @pytest.mark.parametrize(
@@ -96,16 +84,3 @@ def test_a_declared_path_wins_and_a_notch_that_is_off_resolves_nothing(
 def test_a_notch_with_no_path_and_no_source_is_refused(entry, sources, error, tmp_path) -> None:
     with pytest.raises(error, match=r"crossings"):
         _resolve(entry, _cfg(_geographic(), sources), tmp_path)
-
-
-@pytest.mark.parametrize("entry", ["run", "overview"])
-@pytest.mark.parametrize("sources", [None, []])
-def test_the_bed_regularisation_without_a_source_fits_without_cuts(
-    entry, sources, monkeypatch, tmp_path
-) -> None:
-    _forbid(monkeypatch)
-    cfg = _cfg(_geographic("bed"), sources)
-
-    _resolve(entry, cfg, tmp_path)
-
-    assert cfg.geographic.crossings.path is None

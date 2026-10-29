@@ -552,7 +552,7 @@ hydromodpy.solver.modflow_nwt.nwt
 | Reading the substratum raster | `hydromodpy/spatial/domain/build.py` (`read_substratum_source`) |
 | Layers, the check bottom below top | `hydromodpy/spatial/domain/layering.py` (`layer_proportions`, `layer_stack`, `pinch_out`, `assert_bottom_below_top`), `hydromodpy/solver/modflow_grid/discretization_spatial.py` (`build_spatial_discretization`) |
 | The properties, per cell and per layer | `hydromodpy/solver/modflow6/support/property_mapping.py` (`resolve_k33_field`, `K_TENSOR_NPF_NAMES`), `hydromodpy/solver/field_property_mapping.py`, `resolve_required_flow_properties` |
-| The depth factor | `hydromodpy/spatial/field/field_param.py` (`FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
+| The depth factor | `hydromodpy/spatial/field/vertical_profile.py` (`vertical_factor`, read by `FieldParam.vertical_factor`), `SolverMesh.layer_center_depths` |
 | The MODFLOW 6 balance: `NPF`, `STO`, `IC`, Newton | `hydromodpy/solver/modflow6/build.py` (`run_pre_processing`, `newton_options`) |
 | The MODFLOW-NWT balance: `UPW` | `hydromodpy/solver/modflow_nwt/nwt/_pre_processing.py` |
 | Steady and transient periods | `hydromodpy/solver/modflow_grid/discretization_temporal.py`, `hydromodpy/solver/modflow6/builders/period_forcing.py` (`sto_period_settings`) |

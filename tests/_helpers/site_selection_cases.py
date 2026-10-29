@@ -1,10 +1,4 @@
-"""Shared builders for the site selection tests.
-
-GeoJSON writers, point records, a site selection config, an accumulation
-raster and fake flow and delineation builders.
-"""
-
-from __future__ import annotations
+"""Shared builders for the site selection tests."""
 
 import json
 from collections.abc import Callable
@@ -25,54 +19,26 @@ from tests._helpers.terrain_doubles import fake_flow_products
 
 
 def write_feature_collection_geojson(
-    path: Path,
-    *,
-    geometry: dict[str, Any],
-    properties: dict[str, Any] | None = None,
+    path: Path, *, geometry: dict[str, Any], properties: dict[str, Any] | None = None
 ) -> Path:
+    feature = {"type": "Feature", "geometry": geometry, "properties": properties or {}}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": geometry,
-                        "properties": properties or {},
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    path.write_text(json.dumps({"type": "FeatureCollection", "features": [feature]}), "utf-8")
     return path
 
 
 def write_point_geojson(
-    path: Path,
-    *,
-    coordinates: list[float],
-    properties: dict[str, Any] | None = None,
+    path: Path, *, coordinates: list[float], properties: dict[str, Any] | None = None
 ) -> Path:
-    return write_feature_collection_geojson(
-        path,
-        geometry={"type": "Point", "coordinates": coordinates},
-        properties=properties,
-    )
+    geometry = {"type": "Point", "coordinates": coordinates}
+    return write_feature_collection_geojson(path, geometry=geometry, properties=properties)
 
 
 def write_polygon_geojson(
-    path: Path,
-    *,
-    coordinates: list[list[float]],
-    properties: dict[str, Any] | None = None,
+    path: Path, *, coordinates: list[list[float]], properties: dict[str, Any] | None = None
 ) -> Path:
-    return write_feature_collection_geojson(
-        path,
-        geometry={"type": "Polygon", "coordinates": [coordinates]},
-        properties=properties,
-    )
+    geometry = {"type": "Polygon", "coordinates": [coordinates]}
+    return write_feature_collection_geojson(path, geometry=geometry, properties=properties)
 
 
 def write_square_geojson(
@@ -83,17 +49,9 @@ def write_square_geojson(
     y0: float = 0.0,
     properties: dict[str, Any] | None = None,
 ) -> Path:
-    return write_polygon_geojson(
-        path,
-        coordinates=[
-            [x0, y0],
-            [x0 + size, y0],
-            [x0 + size, y0 + size],
-            [x0, y0 + size],
-            [x0, y0],
-        ],
-        properties=properties,
-    )
+    x1, y1 = x0 + size, y0 + size
+    corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+    return write_polygon_geojson(path, coordinates=corners, properties=properties)
 
 
 def make_point_record(
@@ -108,36 +66,20 @@ def make_point_record(
     with_location: bool = True,
 ) -> PointRecord:
     start = datetime(2020, 1, 1)
-    end = start + timedelta(days=max(n_values, 1) - 1)
-    station_metadata = {"station_name": f"Station {station_id}"}
-    if metadata:
-        station_metadata.update(metadata)
-    location = (
-        StationLocation(
-            id=station_id,
-            x=x,
-            y=y,
-            crs=crs,
-            metadata=station_metadata,
-        )
-        if with_location
-        else None
-    )
+    days = [start + timedelta(days=day) for day in range(n_values)]
+    values = [float(day + 1) for day in range(n_values)]
+    station_metadata = {"station_name": f"Station {station_id}", **(metadata or {})}
+    location = StationLocation(id=station_id, x=x, y=y, crs=crs, metadata=station_metadata)
     return PointRecord(
         station_id=station_id,
         variable="discharge",
         source=source,
         unit="m3/s",
         frequency="D",
-        data=pd.DataFrame(
-            {
-                "datetime": [start + timedelta(days=day) for day in range(n_values)],
-                "value": [float(day + 1) for day in range(n_values)],
-            }
-        ),
+        data=pd.DataFrame({"datetime": days, "value": values}),
         date_start=start,
-        date_end=end,
-        location=location,
+        date_end=start + timedelta(days=max(n_values, 1) - 1),
+        location=location if with_location else None,
     )
 
 
@@ -146,44 +88,23 @@ def make_record(station_id: str, *, x: float = 350000.0, y: float = 6810000.0):
 
 
 def make_wgs84_hubeau_record(station_id: str):
+    metadata = {"x_l93": "352000.0", "y_l93": "6812000.0"}
     return make_point_record(
-        station_id,
-        x=-1.65,
-        y=48.12,
-        crs="EPSG:4326",
-        n_values=2,
-        metadata={
-            "x_l93": "352000.0",
-            "y_l93": "6812000.0",
-        },
+        station_id, x=-1.65, y=48.12, crs="EPSG:4326", n_values=2, metadata=metadata
     )
 
 
 def make_config(tmp_path: Path) -> SiteSelectionConfig:
-    return SiteSelectionConfig.model_validate(
-        {
-            "selection_id": "observed_demo",
-            "output_root": tmp_path / "out",
-            "strategy": {
-                "principle": "observation_led",
-                "profile": "gauged_downstream_station",
-                "primary_observation_type": "flow_station",
-            },
-            "territory": {
-                "mode": "admin_regions",
-                "country": "FR",
-                "regions": ["Bretagne"],
-            },
-            "dem": {
-                "source": "custom",
-                "path": tmp_path / "dem.tif",
-            },
-            "outlets": {
-                "candidate_mode": "station_outlets",
-                "snap_dist_m": 150,
-            },
-        }
-    )
+    strategy = {"principle": "observation_led", "profile": "gauged_downstream_station"}
+    payload = {
+        "selection_id": "observed_demo",
+        "output_root": tmp_path / "out",
+        "strategy": {**strategy, "primary_observation_type": "flow_station"},
+        "territory": {"mode": "admin_regions", "country": "FR", "regions": ["Bretagne"]},
+        "dem": {"source": "custom", "path": tmp_path / "dem.tif"},
+        "outlets": {"candidate_mode": "station_outlets", "snap_dist_m": 150},
+    }
+    return SiteSelectionConfig.model_validate(payload)
 
 
 def write_accumulation_raster(path: Path, values: np.ndarray, *, cell_size: float = 10.0) -> Path:
@@ -195,25 +116,16 @@ def write_accumulation_raster(path: Path, values: np.ndarray, *, cell_size: floa
 BRETAGNE = {"mode": "admin_regions", "country": "FR", "regions": ["Bretagne"]}
 SELECTION_PROFILES: dict[str, dict[str, Any]] = {
     "area_only": {
-        "strategy": {
-            "principle": "criteria_crossing",
-            "profile": "area_only",
-            "primary_axes": ["area"],
-        },
-        "criteria": {
-            "area": {"mode": "hard_reject", "hard_min_area_km2": 75.0, "hard_max_area_km2": 125.0}
-        },
+        "strategy": {"principle": "criteria_crossing", "profile": "area_only", "primary_axes": ["area"]},
+        "criteria": {"area": {"mode": "hard_reject", "hard_min_area_km2": 75.0, "hard_max_area_km2": 125.0}},
     },
     "gauged": {
-        "strategy": {
-            "principle": "observation_led",
-            "profile": "gauged_downstream_station",
-            "primary_observation_type": "flow_station",
-        },
+        "strategy": {"principle": "observation_led", "profile": "gauged_downstream_station",
+                     "primary_observation_type": "flow_station"},
         "outlets": {"candidate_mode": "station_outlets"},
     },
     "custom": {},
-}
+}  # fmt: skip
 
 
 def selection_section(profile: str = "area_only", **tables: Any) -> dict[str, Any]:
@@ -405,4 +317,28 @@ def make_basin_catchment(directory: Path, kind: str = "l93", **fields: Any):
         area_km2=0.01,
         watershed_shp=write_basin(directory, kind),
         **fields,
+    )
+
+
+def run_selection(catchments, criteria: dict[str, Any], principle="criteria_crossing", **kwargs):
+    """Select *catchments* under the *criteria* table; ``spatial`` holds the spatial table."""
+    from hydromodpy.spatial.site_selection.config.criteria_config import CriteriaConfig
+    from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
+    from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
+
+    return select_delineated_catchments(
+        catchments,
+        criteria=CriteriaConfig.model_validate(criteria),
+        spatial_selection=SpatialSelectionConfig(**kwargs.pop("spatial", {})),
+        selection_principle=principle,
+        **kwargs,
+    )
+
+
+def component_of(result, criterion_id: str, site_id: str | None = None):
+    """The first criteria component of *criterion_id* in *result*, for *site_id* if given."""
+    return next(
+        one
+        for one in result.criteria_components
+        if one.criterion_id == criterion_id and site_id in (None, one.site_id)
     )

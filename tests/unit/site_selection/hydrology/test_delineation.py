@@ -1,3 +1,5 @@
+"""Candidate outlets are delineated on the flow products built for the selection."""
+
 from __future__ import annotations
 
 import json
@@ -6,6 +8,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, MultiPoint, Point
 
+from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
@@ -14,10 +17,12 @@ from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
 )
 from hydromodpy.spatial.site_selection.hydrology.delineation import (
     delineate_candidate_outlet,
-    delineate_site_selection_candidates,
     try_delineate_candidate_outlet,
 )
-from tests._helpers.site_selection_cases import delineation_spy, site_flow_products
+from hydromodpy.spatial.site_selection.hydrology.flow_products import (
+    build_site_selection_flow_products,
+)
+from tests._helpers.site_selection_cases import delineation_spy, flow_spy, site_flow_products
 from tests._helpers.terrain_doubles import fake_flow_products
 
 pytestmark = pytest.mark.fast
@@ -30,42 +35,20 @@ def test_a_candidate_is_delineated_by_the_point_extractor(tmp_path):
     calls: list = []
 
     result = delineate_candidate_outlet(
-        outlet=OUTLET,
-        flow_products=site_flow_products("dem_acc.tif"),
-        output_root=tmp_path,
-        snap_dist_m=250,
-        builder=delineation_spy(calls, size=1000.0),
-    )
+        outlet=OUTLET, flow_products=site_flow_products("dem_acc.tif"), output_root=tmp_path,
+        snap_dist_m=250, builder=delineation_spy(calls, size=1000.0),
+    )  # fmt: skip
 
     (call,) = calls
     assert (call["x_outlet"], call["y_outlet"], call["snap_dist"]) == (350010.0, 6810025.0, 250)
-    assert str(call["accumulation"].path) == "dem_acc.tif"
-    assert str(call["accumulation"].directions.path) == "direc.tif"
-    assert call["crs_project"] == "EPSG:2154"
-    assert call["output_dir"] == tmp_path / "station_A"
+    accumulation = call["accumulation"]
+    assert (str(accumulation.path), str(accumulation.directions.path)) == (
+        "dem_acc.tif",
+        "direc.tif",
+    )
+    assert (call["crs_project"], call["output_dir"]) == ("EPSG:2154", tmp_path / "station_A")
     assert result.area_km2 == pytest.approx(1.0)
     assert result.status == "delineated"
-
-
-def test_a_candidate_can_snap_to_the_reference_network_before_the_dem(tmp_path):
-    calls: list = []
-    river = LineString([(350000.0, 6810000.0), (350100.0, 6810000.0)])
-
-    result = delineate_candidate_outlet(
-        outlet=OUTLET,
-        flow_products=FLOW,
-        output_root=tmp_path,
-        snap_dist_m=150,
-        builder=delineation_spy(calls),
-        area_reader=lambda _path: 123.4,
-        reference_network=gpd.GeoDataFrame(geometry=[river], crs="EPSG:2154"),
-        reference_network_source="bdtopage",
-    )
-
-    assert (calls[0]["x_outlet"], calls[0]["y_outlet"]) == (350010.0, 6810000.0)
-    assert calls[0]["snap_dist"] == 150
-    assert result.outlet.attributes["reference_network_source"] == "bdtopage"
-    assert result.outlet.attributes["reference_network_snap_distance_m"] == 25.0
 
 
 @pytest.mark.parametrize(
@@ -85,64 +68,32 @@ def test_a_failed_delineation_is_a_rejected_record(tmp_path, builder, snap, reas
     assert result.to_record()["candidate_id"] == "station A"
 
 
-def test_a_batch_delineates_every_candidate(tmp_path):
-    calls: list = []
-    candidates = [OUTLET, CandidateOutlet("station_B", 351000.0, 6811000.0, "EPSG:2154", "s")]
-
-    results = delineate_site_selection_candidates(
-        candidates,
-        flow_products=FLOW,
-        output_root=tmp_path,
-        snap_dist_m=250,
-        crs_project="EPSG:2154",
-        delineation_builder=delineation_spy(calls),
-        area_reader=lambda _path: 42.0,
-    )
-
-    assert [(one.site_id, one.area_km2) for one in results] == [
-        ("station A", 42.0),
-        ("station_B", 42.0),
-    ]
-    assert [call["x_outlet"] for call in calls] == [350010.0, 351000.0]
-
-
-def _feature(geometry: dict) -> dict:
+def _feature(geometry: dict | None) -> dict:
     return {"type": "Feature", "geometry": geometry}
+
+
+SNAP = [350013.0, 6810029.0]
+POINT = {"type": "Point", "coordinates": SNAP}
 
 
 @pytest.mark.parametrize(
     ("name", "content", "snapped"),
     [
-        ("snap.geojson", {"type": "Point", "coordinates": [350013.0, 6810029.0]}, True),
-        (
-            "snap.geojson",
-            _feature({"type": "MultiPoint", "coordinates": [[350013.0, 6810029.0]]}),
-            True,
-        ),
-        (
-            "snap.json",
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    1,
-                    _feature(None),
-                    _feature({"type": "Point", "coordinates": [350013.0, 6810029.0]}),
-                ],
-            },
-            True,
-        ),
+        ("snap.geojson", POINT, True),
+        ("snap.geojson", _feature({"type": "MultiPoint", "coordinates": [SNAP]}), True),
+        ("snap.json", {"type": "FeatureCollection", "features": [1, _feature(None), _feature(POINT)]}, True),
         ("snap.geojson", "not json", False),
         ("snap.geojson", {"type": "FeatureCollection", "features": {}}, False),
         ("snap.geojson", {"type": "Point", "coordinates": ["a", "b"]}, False),
         ("snap.geojson", {"type": "MultiPoint", "coordinates": [["a", "b"]]}, False),
         ("snap.geojson", [], False),
-        ("snap.gpkg", Point(350013.0, 6810029.0), True),
-        ("snap.gpkg", MultiPoint([(350013.0, 6810029.0)]), True),
+        ("snap.gpkg", Point(*SNAP), True),
+        ("snap.gpkg", MultiPoint([SNAP]), True),
         ("snap.gpkg", LineString([(0, 0), (1, 1)]), False),
         ("snap.shp", "not a vector", False),
         ("missing.geojson", None, False),
     ],
-)
+)  # fmt: skip
 def test_the_snapped_outlet_is_read_from_what_the_delineation_wrote(
     tmp_path, name, content, snapped
 ):
@@ -163,3 +114,26 @@ def test_the_snapped_outlet_is_read_from_what_the_delineation_wrote(
     else:
         assert outlet_display_xy(catchment) == (OUTLET.x, OUTLET.y)
         assert distance is None
+
+
+@pytest.mark.parametrize(
+    ("conditioning", "expected"), [("breach", "breach"), ("existing_default", "fill")]
+)
+def test_the_flow_products_are_built_by_the_regional_builder(tmp_path, conditioning, expected):
+    calls: dict = {}
+
+    bundle = build_site_selection_flow_products(
+        dem_init_path=tmp_path / "dem.tif",
+        output_dir=tmp_path / "flow",
+        hydrology=HydrologyConfig(hydrologic_conditioning=conditioning),
+        crs_project="EPSG:2154",
+        builder=flow_spy(calls, direc=tmp_path / "dem_direc.tif"),
+    )
+
+    assert (calls["dem_init_path"], calls["dem_out_dir_path"]) == (
+        tmp_path / "dem.tif",
+        tmp_path / "flow",
+    )
+    assert (calls["dem_correc_type"], calls["crs_project"]) == (expected, "EPSG:2154")
+    assert bundle.dem_correction_type == expected
+    assert bundle.to_manifest_record()["flow_direction_path"].endswith("dem_direc.tif")

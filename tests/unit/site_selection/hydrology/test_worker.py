@@ -1,8 +1,7 @@
-"""``terrain-delineate`` records the box its DEM covers, not a bare CRS.
+"""The ``terrain-delineate`` worker: the box its DEM covers, its engine, its interruption.
 
-The DEM resource of ``inputset.json`` used to carry ``{"crs": ...}`` alone,
-which names no place. It now carries the raster bounds in ``crs_project``,
-the one extent shape a view reads.
+The DEM resource of ``inputset.json`` carries the raster bounds in
+``crs_project``, the one extent shape a view reads, and not a bare CRS.
 """
 
 from __future__ import annotations
@@ -14,12 +13,12 @@ import numpy as np
 import pytest
 
 from hydromodpy.cli.helpers import exit_code_for
-from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.exceptions import ConfigValidationError, DataContractViolation
 from hydromodpy.schema.job import JobDirectory, read_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.spatial.site_selection.hydrology import worker
 from hydromodpy.spatial.site_selection.hydrology.capability import TerrainDelineateRequest
-from hydromodpy.spatial.site_selection.hydrology.worker import dem_extent_of, terrain_inputset
+from hydromodpy.spatial.terrain import registry
 from tests._helpers.geotiffs import write_geotiff
 
 rasterio = pytest.importorskip("rasterio")
@@ -33,14 +32,10 @@ EXPECTED = (WEST, NORTH - 4 * CELL, WEST + 6 * CELL, NORTH)
 ONES = np.ones((4, 6), dtype="float32")
 
 
-def _request(dem: Path) -> TerrainDelineateRequest:
-    return TerrainDelineateRequest.model_validate(
-        {
-            "dem": {"href": str(dem)},
-            "outlets": [{"site_id": "valley", "x": WEST + 50.0, "y": NORTH - 50.0}],
-            "crs_project": "EPSG:2154",
-        }
-    )
+def _request(dem: Path, **members) -> TerrainDelineateRequest:
+    outlets = [{"site_id": "valley", "x": WEST + 50.0, "y": NORTH - 50.0}]
+    inputs = {"dem": {"href": str(dem)}, "outlets": outlets, "crs_project": "EPSG:2154"}
+    return TerrainDelineateRequest.model_validate(inputs | members)
 
 
 @pytest.mark.parametrize(
@@ -49,39 +44,33 @@ def _request(dem: Path) -> TerrainDelineateRequest:
     ids=["north_up", "south_up"],
 )
 def test_the_dem_extent_is_its_ordered_bounds_in_the_project_crs(tmp_path, origin, cell):
+    """The input set carries that box and its CRS for the DEM."""
     dem = write_geotiff(tmp_path / "dem.tif", ONES, origin=origin, cell=cell)
+    inputs = _request(dem)
+    extent = worker.dem_extent_of(inputs, path=dem)
 
-    assert dem_extent_of(_request(dem), path=dem) == SpatialExtent(bbox=EXPECTED, crs="EPSG:2154")
+    inputset = worker.terrain_inputset(
+        dem_digest="a" * 64, dem_bytes=4, dem_extent=extent, inputs=inputs,
+        effective_inputs=inputs.model_dump(mode="json"),
+    )  # fmt: skip
+
+    assert extent == SpatialExtent(bbox=EXPECTED, crs="EPSG:2154")
+    resource = next(one for one in inputset.to_document()["resources"] if one["name"] == "dem")
+    assert resource["spatial"] == {"crs": "EPSG:2154", "bbox": list(EXPECTED)}
 
 
 def test_a_dem_whose_grid_covers_no_area_is_refused_as_bad_input(tmp_path):
     path = write_geotiff(tmp_path / "dem.tif", ONES, origin=(WEST, NORTH), cell=0.0)
 
     with pytest.raises(DataContractViolation, match="gives no valid extent"):
-        dem_extent_of(_request(path), path=path)
-
-
-def test_the_input_set_carries_the_dem_box_and_its_crs(tmp_path):
-    dem = write_geotiff(tmp_path / "dem.tif", ONES, origin=(WEST, NORTH), cell=CELL)
-    inputs = _request(dem)
-
-    inputset = terrain_inputset(
-        dem_digest="a" * 64,
-        dem_bytes=4,
-        dem_extent=dem_extent_of(inputs, path=dem),
-        inputs=inputs,
-        effective_inputs=inputs.model_dump(mode="json"),
-    )
-
-    resource = next(one for one in inputset.to_document()["resources"] if one["name"] == "dem")
-    assert resource["spatial"] == {"crs": "EPSG:2154", "bbox": list(EXPECTED)}
+        worker.dem_extent_of(_request(path), path=path)
 
 
 def test_an_interrupted_job_is_dismissed_and_not_sealed(tmp_path, monkeypatch):
     dem = write_geotiff(tmp_path / "dem.tif", ONES, origin=(WEST, NORTH), cell=CELL)
     job = JobDirectory.create(tmp_path / "job")
-    request = {"process": {"id": "terrain-delineate", "version": "1.1.0"}}
-    request["inputs"] = _request(dem).model_dump(mode="json")
+    process = {"id": "terrain-delineate", "version": "1.1.0"}
+    request = {"process": process, "inputs": _request(dem).model_dump(mode="json")}
     job.request_path.write_text(json.dumps(request), encoding="utf-8")
 
     def interrupt(*args, **kwargs):
@@ -94,3 +83,13 @@ def test_an_interrupted_job_is_dismissed_and_not_sealed(tmp_path, monkeypatch):
 
     assert read_document(job.outcome_path)["status"] == "dismissed"
     assert not job.is_sealed
+
+
+def test_the_capability_refuses_an_engine_this_installation_does_not_serve(tmp_path):
+    with pytest.raises(ConfigValidationError) as raised:
+        worker.refuse_an_engine_this_installation_does_not_serve(
+            _request(tmp_path, engine="pysheds")
+        )
+
+    assert "inputs.engine" in str(raised.value)
+    assert registry.ENTRY_POINT_GROUP in str(raised.value)

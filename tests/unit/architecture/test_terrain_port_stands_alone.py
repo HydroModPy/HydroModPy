@@ -1,17 +1,8 @@
 """The terrain package must not import a sibling of ``spatial``.
 
-The port's docstring promises a third-party engine that it needs no import of
-HydroModPy beyond the port module itself. Two imports denied it until F3c:
-``numpy_engine`` read the D8 offset table from ``spatial.geographic.core.d8``
-and ``whitebox_engine`` read ``ensure_crs`` from ``spatial.geographic``. Both
-symbols were misplaced rather than shared, and both moved -- the table to the
-port that names its convention, the CRS stamp to ``core.io``.
-
-The layer matrix cannot see that cycle: it declares ``spatial`` as one layer,
-so ``terrain -> geographic`` and ``geographic -> terrain`` are both intra-layer
-edges it allows. This module is the gate for the promise instead, and it reads
-the same scanner the matrix uses, so a deferred import inside a function is
-caught like a top-level one.
+The port promises a third-party engine no import of HydroModPy beyond the port
+itself. The layer matrix sees ``spatial`` as one layer and cannot check that, so
+this gate reads the same scanner, deferred imports included.
 """
 
 from __future__ import annotations
@@ -31,8 +22,7 @@ TERRAIN_ROOT = PKG_ROOT / "spatial" / "terrain"
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
 _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
-    "hydromodpy_terrain_build_graph",
-    _BUILD_GRAPH_PATH,
+    "hydromodpy_terrain_build_graph", _BUILD_GRAPH_PATH
 )
 if _BUILD_GRAPH_SPEC is None or _BUILD_GRAPH_SPEC.loader is None:
     raise RuntimeError(f"Could not load architecture scanner at {_BUILD_GRAPH_PATH}")
@@ -42,21 +32,13 @@ _BUILD_GRAPH_SPEC.loader.exec_module(_BUILD_GRAPH_MODULE)
 
 scan_package = _BUILD_GRAPH_MODULE.scan_package
 
-ALLOWED_PREFIXES = (
-    "hydromodpy.core",
-    "hydromodpy.spatial.terrain",
-)
+ALLOWED_PREFIXES = ("hydromodpy.core", "hydromodpy.spatial.terrain")
 """``core`` is the kernel leaf every layer may read; the rest is the port itself."""
 
 DECLARED_EXCEPTIONS: dict[tuple[str, str], str] = {
-    (
-        "hydromodpy/spatial/terrain/whitebox_engine.py",
-        "hydromodpy.spatial.delineation",
-    ): (
-        "D43: the injection point stays the Whitebox backend, which the geographic "
-        "pipeline holds and passes to a dozen calls the port does not cover. The "
-        "engine resolves it lazily, inside a method, so a third-party engine never "
-        "loads this module."
+    ("hydromodpy/spatial/terrain/whitebox_engine.py", "hydromodpy.spatial.delineation"): (
+        "D43: the injection point stays the Whitebox backend, resolved lazily inside a "
+        "method, so a third-party engine never loads this module."
     ),
 }
 """Every remaining edge out of ``terrain``, each with the decision that allows it."""
@@ -80,16 +62,12 @@ def _is_allowed(module: str) -> bool:
     return any(module == prefix or module.startswith(prefix + ".") for prefix in ALLOWED_PREFIXES)
 
 
-def test_the_scanner_sees_the_terrain_package(terrain_edges) -> None:
-    """Anti-vacuity: an empty scan would make every assertion below pass."""
-    files = {_relative(edge) for edge in terrain_edges}
-    assert "hydromodpy/spatial/terrain/port.py" in files
-    assert "hydromodpy/spatial/terrain/numpy_engine.py" in files
-    assert "hydromodpy/spatial/terrain/whitebox_engine.py" in files
-    assert any(edge.target_module.startswith("hydromodpy.core.") for edge in terrain_edges)
-
-
 def test_terrain_imports_no_sibling_of_spatial(terrain_edges) -> None:
+    # Anti-vacuity: an empty scan would make every assertion of this module pass.
+    files = {_relative(edge) for edge in terrain_edges}
+    for name in ("port", "numpy_engine", "whitebox_engine"):
+        assert f"hydromodpy/spatial/terrain/{name}.py" in files
+    assert any(edge.target_module.startswith("hydromodpy.core.") for edge in terrain_edges)
     offenders = [
         f"{_relative(edge)}:{edge.lineno} imports {edge.target_module}"
         for edge in terrain_edges
@@ -112,9 +90,7 @@ def test_every_declared_exception_is_still_taken(terrain_edges) -> None:
 def test_the_whitebox_backend_import_stays_deferred(terrain_edges) -> None:
     """A module-level import of the backend would pull Whitebox into the port."""
     backend_edges = [
-        edge
-        for edge in terrain_edges
-        if edge.target_module.startswith("hydromodpy.spatial.delineation")
+        e for e in terrain_edges if e.target_module.startswith("hydromodpy.spatial.delineation")
     ]
     assert backend_edges, "the Whitebox engine no longer resolves its backend"
     assert all(edge.in_function for edge in backend_edges), (

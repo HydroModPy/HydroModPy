@@ -1,10 +1,7 @@
 """Terrain products read back from disk.
 
-The snap ranks the cells of each outlet's search window. A regional raster whose
-main river carries more cells than float32 can tell apart, once stored as a
-natural logarithm, does not stop an outlet whose window holds far fewer: the
-filled DEM of example 04 drains 1.9 million cells to one river, and its outlet
-sits on a tributary.
+A river past the float32 bound (1.9 million cells in example 04) must not stop an
+outlet whose snap window holds far fewer cells.
 """
 
 from __future__ import annotations
@@ -35,19 +32,11 @@ def accumulation(tmp_path):
 
 @pytest.mark.parametrize(
     ("points", "expected"),
-    [
-        ([FAR], 50.0),
-        ([NEAR], 2.0e6),
-        ([FAR, NEAR], 2.0e6),
-        ([OFF], math.nan),
-        ([(20.0, 980.0)], math.nan),
-    ],
-    ids=["a_far_river_does_not_count", "a_near_river_counts", "union_of_outlets",
-         "off_the_raster", "on_nodata_only"],
+    [([FAR], 50.0), ([NEAR], 2.0e6), ([FAR, NEAR], 2.0e6), ([OFF], math.nan), ([(20.0, 980.0)], math.nan)],
+    ids=["a_far_river_does_not_count", "a_near_river_counts", "union_of_outlets", "off_the_raster", "on_nodata_only"],
 )  # fmt: skip
 def test_the_window_max_reads_only_what_the_snap_would_rank(accumulation, points, expected) -> None:
     near = raster_max_near(accumulation, points, 20.0)
-
     if math.isnan(expected):
         assert math.isnan(near)
     else:
@@ -57,9 +46,7 @@ def test_the_window_max_reads_only_what_the_snap_would_rank(accumulation, points
 def test_a_stream_cell_is_a_positive_cell_on_the_raster(tmp_path) -> None:
     values = np.array([[0.0, 1.0], [-9999.0, 2.0]])
     streams = write_geotiff(tmp_path / "streams.tif", values, cell=10.0, nodata=-9999.0)
-
     answers = [is_stream_cell(streams, x, y) for x, y in [(5, 15), (15, 15), (5, 5), (15, 5)]]
-
     assert answers == [False, True, False, True]
     assert not is_stream_cell(streams, -50.0, 5.0)
 
@@ -67,5 +54,4 @@ def test_a_stream_cell_is_a_positive_cell_on_the_raster(tmp_path) -> None:
 def test_an_empty_boundary_has_no_area(tmp_path) -> None:
     path = tmp_path / "empty.gpkg"
     gpd.GeoDataFrame(geometry=[], crs="EPSG:2154").to_file(path)
-
     assert boundary_area_m2(path) == 0.0

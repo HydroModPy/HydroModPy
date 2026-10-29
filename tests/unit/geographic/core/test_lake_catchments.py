@@ -1,11 +1,8 @@
 """Without a stream network each lake is fed the runoff of the ground it drains.
 
-The area comes from the D8 pointer of the regional flow products: a cell belongs
-to the first lake its path meets. Two lakes then share the basin runoff once, and
-each one is fed in proportion to its own area.
+A cell belongs to the first lake its D8 path meets, so two lakes share the
+basin runoff once, each in proportion to its own area.
 """
-
-from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -58,62 +55,24 @@ def test_each_lake_takes_the_ground_that_drains_to_it_first(
         d8_pointer_tif=str(_write_pointer(tmp_path / "d8.tif")),
         lake_polygons={name: _column(*columns) for name, columns in lakes.items()},
     )
-
     column = _ROWS * _CELL_M**2
     assert areas == {name: pytest.approx(n * column) for name, n in expected_columns.items()}
     assert sum(areas.values()) <= _ROWS * _COLS * _CELL_M**2
 
 
-def test_the_count_stays_inside_the_watershed_and_no_lake_counts_nothing(tmp_path) -> None:
+def test_the_count_stays_inside_the_watershed_and_a_pond_smaller_than_a_cell_catches_it(tmp_path):
     pointer = str(_write_pointer(tmp_path / "d8.tif"))
     first_two_rows = box(0.0, (_ROWS - 2) * _CELL_M, _COLS * _CELL_M, _ROWS * _CELL_M)
-
+    pond = box(41.0, 21.0, 44.0, 24.0)  # 3 m x 3 m, centre inside no cell centre
     areas = lake_contributing_areas_m2(
         d8_pointer_tif=pointer,
         lake_polygons={"upper": _column(3, 3)},
         watershed_polygons=[first_two_rows],
     )
-
+    ponds = lake_contributing_areas_m2(d8_pointer_tif=pointer, lake_polygons={"pond": pond})
     assert areas["upper"] == pytest.approx(2 * 4 * _CELL_M**2)
+    assert ponds["pond"] > 0.0
     assert lake_contributing_areas_m2(d8_pointer_tif=pointer, lake_polygons={}) == {}
-
-
-def test_a_footprint_smaller_than_a_cell_still_catches_its_cell(tmp_path: Path) -> None:
-    pointer = _write_pointer(tmp_path / "d8.tif")
-    pond = box(41.0, 21.0, 44.0, 24.0)  # 3 m x 3 m, centre inside no cell centre
-
-    areas = lake_contributing_areas_m2(d8_pointer_tif=str(pointer), lake_polygons={"pond": pond})
-
-    assert areas["pond"] > 0.0
-
-
-# --- the data step hands those areas to the lake runoff binder -----------------
-
-_DATES = ["2000-01-01", "2000-01-02", "2000-01-03"]
-
-
-def _window() -> ResolvedSimulationTimeWindow:
-    return ResolvedSimulationTimeWindow(
-        start=pd.Timestamp("2000-01-01"),
-        end=pd.Timestamp("2000-01-03"),
-        step_value=1,
-        step_unit="day",
-        coverage_policy="ignore",
-    )
-
-
-def _runoff_mm_per_day(value: float) -> LoadResult:
-    record = PointRecord(
-        station_id="grid_mean",
-        variable="climatic",
-        source="custom",
-        unit="mm/day",
-        frequency="D",
-        data=pd.DataFrame({"datetime": pd.to_datetime(_DATES), "value": [value] * 3}),
-        date_start=datetime(2000, 1, 1),
-        date_end=datetime(2000, 1, 3),
-    )
-    return LoadResult(points=[record])
 
 
 def _setup_state(pointer: Path, *, lakes: dict, sfr: bool = False) -> SimpleNamespace:
@@ -121,32 +80,41 @@ def _setup_state(pointer: Path, *, lakes: dict, sfr: bool = False) -> SimpleName
     if sfr:
         sinks_sources["sfr"] = {"net": {}}
     flow = SimpleNamespace(sinks_sources=sinks_sources, active_bc=["lake", "sfr"] if sfr else [])
-    geographic = SimpleNamespace(
-        _flow_products=SimpleNamespace(direc=str(pointer)), watershed_shp=None
-    )
+    flow_products = SimpleNamespace(direc=str(pointer))
+    geographic = SimpleNamespace(_flow_products=flow_products, watershed_shp=None)
     return SimpleNamespace(flow=flow, geographic=geographic)
 
 
-def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(
-    tmp_path: Path,
-) -> None:
-    pointer = _write_pointer(tmp_path / "d8.tif")
-    lakes = {
-        "upper": {"polygon": _column(3, 3)},
-        "lower": {"polygon": _column(9, 9)},
-    }
-    state = _setup_state(pointer, lakes=lakes)
+def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(tmp_path) -> None:
+    lakes = {"upper": {"polygon": _column(3, 3)}, "lower": {"polygon": _column(9, 9)}}
+    state = _setup_state(_write_pointer(tmp_path / "d8.tif"), lakes=lakes)
     basin_m2 = _ROWS * _COLS * _CELL_M**2
-
+    days = pd.DataFrame({"datetime": pd.date_range("2000-01-01", periods=3), "value": [1.0] * 3})
+    runoff = PointRecord(
+        station_id="grid_mean",
+        variable="climatic",
+        source="custom",
+        unit="mm/day",
+        frequency="D",
+        data=days,
+        date_start=datetime(2000, 1, 1),
+        date_end=datetime(2000, 1, 3),
+    )
+    window = ResolvedSimulationTimeWindow(
+        start=pd.Timestamp("2000-01-01"),
+        end=pd.Timestamp("2000-01-03"),
+        step_value=1,
+        step_unit="day",
+        coverage_policy="ignore",
+    )
     areas = lake_runoff_areas(state)
     apply_lake_meteo_forcings_to_flow(
         flow=state.flow,
-        runoff=_runoff_mm_per_day(1.0),
-        simulation_window=_window(),
+        runoff=LoadResult(points=[runoff]),
+        simulation_window=window,
         catchment_area_m2=basin_m2,
         lake_contributing_areas_m2=areas,
     )
-
     rate = 1.0e-3 / 86400.0
     fed = state.flow.sinks_sources["lakes"]
     assert fed["upper"]["runoff"]["values"][0] == pytest.approx(rate * 4 * _ROWS * _CELL_M**2)
@@ -155,16 +123,10 @@ def test_two_lakes_without_sfr_are_fed_the_basin_runoff_once_by_their_own_area(
     assert total == pytest.approx(rate * basin_m2)
 
 
-def test_a_routed_network_or_a_lone_lake_keeps_the_binder_default(tmp_path: Path) -> None:
+def test_a_routed_network_a_lone_lake_or_a_lake_without_footprint_keeps_the_default(tmp_path):
     pointer = _write_pointer(tmp_path / "d8.tif")
     two = {"a": {"polygon": _column(2, 2)}, "b": {"polygon": _column(6, 6)}}
-
     assert lake_runoff_areas(_setup_state(pointer, lakes=two, sfr=True)) is None
     assert lake_runoff_areas(_setup_state(pointer, lakes={"a": two["a"]})) is None
-
-
-def test_lakes_without_a_footprint_fall_back_to_the_even_split(tmp_path: Path) -> None:
-    pointer = _write_pointer(tmp_path / "d8.tif")
-    lakes = {"a": {"polygon": _column(2, 2)}, "b": {}}
-
-    assert lake_runoff_areas(_setup_state(pointer, lakes=lakes)) is None
+    # Lakes without a footprint fall back to the even split.
+    assert lake_runoff_areas(_setup_state(pointer, lakes={"a": two["a"], "b": {}})) is None

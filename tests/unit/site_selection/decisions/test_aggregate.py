@@ -1,7 +1,3 @@
-"""One global decision per catchment from its detailed decision records."""
-
-from __future__ import annotations
-
 import pytest
 
 from hydromodpy.spatial.site_selection.decisions.aggregate import (
@@ -14,28 +10,19 @@ pytestmark = pytest.mark.fast
 
 def _record(decision: str, message: str | None = "reason", ref: str | None = None):
     return DecisionRecord(
-        run_id="run_v1",
-        catchment_id="site_001",
-        criterion_family="test",
-        criterion_id=decision.lower(),
-        decision=decision,  # type: ignore[arg-type]
-        message=message,
-        evidence_ref=ref,
-    )
+        run_id="run_v1", catchment_id="site_001", criterion_family="test", criterion_id=decision.lower(),
+        decision=decision, message=message, evidence_ref=ref,  # type: ignore[arg-type]
+    )  # fmt: skip
 
 
-@pytest.mark.parametrize(
-    ("decisions", "expected"),
-    [
-        (["ACCEPT", "WARNING", "REJECT"], "REJECT"),
-        (["ACCEPT", "WARNING"], "ACCEPT_WITH_WARNINGS"),
-        (["NEUTRAL", "ACCEPT"], "ACCEPT"),
-        (["NEUTRAL"], "NEUTRAL"),
-    ],
-)
+@pytest.mark.parametrize(("decisions", "expected"), [
+    (["ACCEPT", "WARNING", "REJECT"], "REJECT"),
+    (["ACCEPT", "WARNING"], "ACCEPT_WITH_WARNINGS"),
+    (["NEUTRAL", "ACCEPT"], "ACCEPT"),
+    (["NEUTRAL"], "NEUTRAL"),
+])  # fmt: skip
 def test_the_worst_record_sets_the_global_decision(decisions, expected):
     (summary,) = aggregate_site_selection_decisions([_record(item) for item in decisions])
-
     assert summary.global_decision == expected
     counts = [summary.n_accept, summary.n_warning, summary.n_reject, summary.n_neutral]
     assert counts == [decisions.count(item) for item in ("ACCEPT", "WARNING", "REJECT", "NEUTRAL")]

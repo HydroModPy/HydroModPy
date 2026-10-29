@@ -1,33 +1,25 @@
-"""``terrain-delineate`` invoked the way an orchestrator invokes it.
+"""``terrain-delineate`` as an orchestrator invokes it: one directory in, one seal out.
 
-One directory in, one seal out. These tests read the directory the way a
-stranger would: with ``geopandas`` and ``json``, never through the objects
-that wrote it, because what the boundary promises is that a third party can
-do exactly that.
-
-The DEM is ``tests/data/sfr_cheze/dem_valley.tif``: 100 x 100 cells of 25 m in
-EPSG:2154, a valley draining west to (300012.5, 6701262.5). The outlet is
-declared 100 m east of the talweg so the snap has something to do.
+The outputs are read with ``geopandas`` and ``json`` alone. ``dem_valley.tif`` is 100 x 100
+cells of 25 m in EPSG:2154 draining west to (300012.5, 6701262.5); the outlet sits 100 m
+east of the talweg so the snap has something to do.
 """
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import json
 import os
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.cli.helpers import (
-    EXIT_CONFIG,
-    EXIT_NOT_FOUND,
-    EXIT_SOLVER_ERROR,
-    EXIT_VALIDATION,
-    exit_code_for,
-)
+from hydromodpy.cli import helpers as codes
+from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.core.exceptions import DataContractViolation, JobUsageError
 from hydromodpy.schema.job import UNIDENTIFIED_JOB, JobDirectory, read_document, verify_job
 from hydromodpy.schema.job.digest import sha256_file
@@ -42,25 +34,24 @@ pytest.importorskip("whitebox_workflows")
 pytestmark = pytest.mark.xdist_group(name="whitebox_backend")
 
 DEM = Path(__file__).resolve().parents[3] / "tests" / "data" / "sfr_cheze" / "dem_valley.tif"
-OUTLET_X = 300112.5
-OUTLET_Y = 6701262.5
+OUTLET_X, OUTLET_Y = 300112.5, 6701262.5
+VALLEY = {"site_id": "valley", "x": OUTLET_X, "y": OUTLET_Y}
+ELSEWHERE = {"site_id": "elsewhere", "x": 0.0, "y": 0.0}
 
 
 def _request(**overrides: object) -> dict:
     inputs: dict[str, object] = {
         "dem": {"href": str(DEM), "type": "image/tiff; application=geotiff"},
-        "outlets": [{"site_id": "valley", "x": OUTLET_X, "y": OUTLET_Y}],
+        "outlets": [VALLEY],
         "crs_project": "EPSG:2154",
         "dem_correction_type": "breach",
         "snap_distance_m": 100,
     }
     inputs.update(overrides.pop("inputs", {}))  # type: ignore[arg-type]
-    document: dict[str, object] = {
+    return {
         "process": {"id": "terrain-delineate", "version": "1.1.0"},
         "inputs": inputs,
-    }
-    document.update(overrides)
-    return document
+    } | overrides
 
 
 def _staged(tmp_path: Path, document: dict, *, name: str = "job") -> JobDirectory:
@@ -69,179 +60,106 @@ def _staged(tmp_path: Path, document: dict, *, name: str = "job") -> JobDirector
     return job
 
 
+def _run(tmp_path: Path, document: dict, *, name: str = "job"):
+    job = _staged(tmp_path, document, name=name)
+    return job, run(job, exit_code_for=exit_code_for)
+
+
+def _json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 @pytest.fixture
 def sealed_job(tmp_path):
-    job = _staged(tmp_path, _request())
-    outcome = run(job, exit_code_for=exit_code_for)
+    job, outcome = _run(tmp_path, _request())
     assert outcome.status == "successful", outcome.errors
     return job, outcome
 
 
-def test_a_job_that_finished_is_sealed_and_verifies_against_its_own_seal(sealed_job):
-    job, _ = sealed_job
+def test_a_job_that_finished_is_sealed_and_read_by_a_stranger_alone(sealed_job):
+    """The seal and the outcome name one job, and outcome.json is sealed with no digest of itself.
 
-    assert job.is_sealed
-    assert verify_job(job).ok
-
-
-def test_the_directory_carries_only_the_names_the_layout_allows(sealed_job):
-    job, _ = sealed_job
-
-    assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
-
-
-def test_outputs_holds_the_declared_artefacts_and_nothing_else(sealed_job):
-    job, _ = sealed_job
-    declared = {
-        output.path.removeprefix("outputs/")
-        for output in TERRAIN_DELINEATE.outputs
-        if output.path.startswith("outputs/")
-    }
-
-    assert {entry.name for entry in job.outputs_dir.iterdir()} == declared
-
-
-def test_the_seal_and_the_outcome_name_one_job(sealed_job):
-    job, outcome = sealed_job
-    manifest = read_document(job.manifest_path)
-
-    assert manifest["job_id"] == outcome.job_id
-    assert read_document(job.outcome_path)["job_id"] == outcome.job_id
-    assert outcome.job_id.startswith("sha256:")
-
-
-def test_the_outcome_hashes_every_artefact_the_seal_hashes(sealed_job):
+    The GeoPackage and the GeoParquet carry the same rows; the GeoJSON is in WGS 84.
+    """
     job, outcome = sealed_job
     manifest = read_document(job.manifest_path)
     sealed = {entry["path"]: entry["sha256"] for entry in manifest["artifacts"]}
+    declared = {
+        one.path.removeprefix("outputs/")
+        for one in TERRAIN_DELINEATE.outputs
+        if one.path.startswith("outputs/")
+    }
 
+    assert job.is_sealed and verify_job(job).ok
+    assert {entry.name for entry in job.root.iterdir()} <= ALLOWED_JOB_ENTRIES
+    assert {entry.name for entry in job.outputs_dir.iterdir()} == declared
+    assert manifest["job_id"] == read_document(job.outcome_path)["job_id"] == outcome.job_id
+    assert outcome.job_id.startswith("sha256:")
     for record in outcome.outputs:
         assert sealed[record.path] == record.sha256
-
-
-def test_outcome_json_is_sealed_although_it_can_carry_no_digest_of_itself(sealed_job):
-    job, outcome = sealed_job
-    manifest = read_document(job.manifest_path)
-    sealed = {entry["path"] for entry in manifest["artifacts"]}
-
-    assert "outcome.json" in sealed
     assert "outcome.json" not in {record.path for record in outcome.outputs}
-    digest, _ = sha256_file(job.outcome_path)
-    entry = next(one for one in manifest["artifacts"] if one["path"] == "outcome.json")
-    assert entry["sha256"] == digest
-
-
-def test_a_stranger_opens_the_catchment_with_geopandas_alone(sealed_job):
-    job, _ = sealed_job
-
+    assert sealed["outcome.json"] == sha256_file(job.outcome_path)[0]
+    provenance = read_document(job.provenance_path)
+    assert provenance["backend"]["name"] == "whitebox_workflows"
+    assert provenance["backend"]["digest"]
+    assert provenance["job_id"] == manifest["job_id"]
+    resources = {one["name"]: one for one in read_document(job.inputset_path)["resources"]}
+    assert (resources["dem"]["sha256"], resources["dem"]["bytes"]) == sha256_file(DEM)
+    assert resources["parameters"]["href"] == "request.json#/inputs"
     frame = gpd.read_file(job.outputs_dir / "watershed.gpkg")
+    table = gpd.read_parquet(job.outputs_dir / "watershed.parquet")
+    (feature,) = _json(job.outputs_dir / "outlets_snapped.geojson")["features"]
+    longitude, latitude = feature["geometry"]["coordinates"]
+    properties = feature["properties"]
 
-    assert list(frame["site_id"]) == ["valley"]
+    assert list(frame["site_id"]) == list(table["site_id"]) == ["valley"]
     assert str(frame.crs) == "EPSG:2154"
     assert frame["area_m2"].iloc[0] > 0.0
     assert not frame.geometry.iloc[0].is_empty
-
-
-def test_the_columnar_catchment_carries_the_same_rows(sealed_job):
-    job, _ = sealed_job
-
-    table = gpd.read_parquet(job.outputs_dir / "watershed.parquet")
-    frame = gpd.read_file(job.outputs_dir / "watershed.gpkg")
-
-    assert list(table["site_id"]) == list(frame["site_id"])
     assert table["area_m2"].tolist() == pytest.approx(frame["area_m2"].tolist())
-
-
-def test_the_snapped_outlets_are_published_in_the_one_geojson_crs(sealed_job):
-    job, _ = sealed_job
-
-    payload = json.loads((job.outputs_dir / "outlets_snapped.geojson").read_text(encoding="utf-8"))
-    (feature,) = payload["features"]
-    longitude, latitude = feature["geometry"]["coordinates"]
-
-    assert -180.0 <= longitude <= 180.0
-    assert -90.0 <= latitude <= 90.0
-    assert feature["properties"]["site_id"] == "valley"
-    assert feature["properties"]["status"] == "delineated"
-    assert feature["properties"]["x_outlet"] == OUTLET_X
-    assert feature["properties"]["x_snapped"] != OUTLET_X
-    assert feature["properties"]["snap_distance_m"] > 0.0
+    assert -180.0 <= longitude <= 180.0 and -90.0 <= latitude <= 90.0
+    assert (properties["site_id"], properties["status"]) == ("valley", "delineated")
+    assert properties["x_outlet"] == OUTLET_X != properties["x_snapped"]
+    assert properties["snap_distance_m"] > 0.0
 
 
 def test_an_outlet_that_produced_nothing_is_named_in_a_declared_artefact(tmp_path):
-    """A partial batch succeeds, and says which outlets produced no catchment.
+    """A partial batch succeeds and names, in a file, the outlets that gave no catchment.
 
-    Refusing the whole job over one bad coordinate would throw away the work
-    of every other outlet. Reporting the loss only in the prose of
-    ``warnings`` would make a machine parse sentences to find out what it
-    got, which is the defect the roll call exists to close.
+    A machine should not parse the prose of ``warnings`` to find out what it got.
+    The ``subscriber`` member this process ignores is a warning, not a refusal.
     """
-    job = _staged(
-        tmp_path,
-        _request(
-            inputs={
-                "outlets": [
-                    {"site_id": "valley", "x": OUTLET_X, "y": OUTLET_Y},
-                    {"site_id": "elsewhere", "x": 0.0, "y": 0.0},
-                ]
-            }
-        ),
-    )
+    outlets = [VALLEY, ELSEWHERE]
+    subscriber = {"successUri": "https://example.invalid/done"}
+    job, outcome = _run(tmp_path, _request(inputs={"outlets": outlets}, subscriber=subscriber))
 
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "successful"
-    assert job.is_sealed
-    payload = json.loads((job.outputs_dir / "outlets_snapped.geojson").read_text(encoding="utf-8"))
-    by_site = {one["properties"]["site_id"]: one["properties"] for one in payload["features"]}
+    assert outcome.status == "successful" and job.is_sealed
+    features = _json(job.outputs_dir / "outlets_snapped.geojson")["features"]
+    by_site = {one["properties"]["site_id"]: one["properties"] for one in features}
     assert set(by_site) == {"valley", "elsewhere"}
-    assert by_site["valley"]["status"] == "delineated"
-    assert by_site["elsewhere"]["status"] != "delineated"
+    assert by_site["valley"]["status"] == "delineated" != by_site["elsewhere"]["status"]
     assert by_site["elsewhere"]["failure_reason"]
     assert by_site["elsewhere"]["snap_distance_m"] is None
     # The catchment layer holds the outlets that produced a polygon, and only those.
     assert list(gpd.read_file(job.outputs_dir / "watershed.gpkg")["site_id"]) == ["valley"]
     assert any("elsewhere" in warning for warning in outcome.warnings)
-
-
-def test_the_provenance_names_the_engine_that_did_the_work(sealed_job):
-    job, _ = sealed_job
-
-    provenance = read_document(job.provenance_path)
-
-    assert provenance["backend"]["name"] == "whitebox_workflows"
-    assert provenance["backend"]["digest"]
-    assert provenance["job_id"] == read_document(job.manifest_path)["job_id"]
-
-
-def test_the_input_set_hashes_the_dem_that_was_read(sealed_job):
-    job, _ = sealed_job
-    digest, size = sha256_file(DEM)
-
-    resources = {one["name"]: one for one in read_document(job.inputset_path)["resources"]}
-
-    assert resources["dem"]["sha256"] == digest
-    assert resources["dem"]["bytes"] == size
-    assert resources["parameters"]["href"] == "request.json#/inputs"
+    assert any("subscriber" in warning for warning in outcome.warnings)
 
 
 def test_two_requests_that_ask_for_the_same_work_carry_one_job_id(tmp_path):
     """A member left out and the same member written at its default are one job.
 
-    The content address is computed over the **effective** inputs, which is
-    what makes the reuse short-circuit of ``job_id`` mean "this work was
-    already done" rather than "this document was already seen".
+    The address is computed over the effective inputs, so a reused ``job_id``
+    means "this work was already done", not "this document was already seen".
     """
-    spelled = _request(inputs={"dem_correction_type": "breach", "snap_distance_m": 50})
     omitted = _request()
-    del omitted["inputs"]["dem_correction_type"]  # type: ignore[union-attr]
-    del omitted["inputs"]["snap_distance_m"]  # type: ignore[union-attr]
+    del omitted["inputs"]["dem_correction_type"], omitted["inputs"]["snap_distance_m"]
+    spelled = _request(inputs={"dem_correction_type": "breach", "snap_distance_m": 50})
 
-    first = run(_staged(tmp_path, spelled, name="a"), exit_code_for=exit_code_for)
-    second = run(_staged(tmp_path, omitted, name="b"), exit_code_for=exit_code_for)
+    _, first = _run(tmp_path, spelled, name="a")
+    _, second = _run(tmp_path, omitted, name="b")
 
-    assert first.status == "successful"
-    assert second.status == "successful"
+    assert first.status == second.status == "successful"
     assert first.job_id == second.job_id
 
 
@@ -251,61 +169,42 @@ def _not_a_raster(tmp_path: Path) -> dict:
     return _request(inputs={"dem": {"href": str(impostor)}})
 
 
-def _other_capability(tmp_path: Path) -> dict:
-    return _request() | {"process": {"id": "data-request", "version": "1.0.0"}}
-
-
 @pytest.mark.parametrize(
     ("document", "exit_code", "detail"),
     [
-        (lambda _: _request(inputs={"dem": {"href": "absent.tif"}}), EXIT_NOT_FOUND, "absent.tif"),
-        (
-            lambda _: _request(inputs={"dem": {"href": str(DEM), "sha256": "0" * 64}}),
-            EXIT_VALIDATION,
-            "0" * 64,
-        ),
-        (lambda _: _request(outputs={"hillshade": {}}), EXIT_CONFIG, "/outputs/hillshade"),
-        (
-            lambda _: _request(inputs={"outlets": [{"site_id": "elsewhere", "x": 0.0, "y": 0.0}]}),
-            EXIT_SOLVER_ERROR,
-            None,
-        ),
-        (_other_capability, EXIT_CONFIG, "data-request"),
-        (_not_a_raster, EXIT_VALIDATION, DataContractViolation.code),
-        (lambda _: _request(inputs={"engine": "numpy_d8"}), EXIT_SOLVER_ERROR, "breach"),
-        (lambda _: _request(inputs={"engine": "pysheds"}), EXIT_CONFIG, "pysheds"),
+        pytest.param(lambda _: _request(inputs={"dem": {"href": "absent.tif"}}),
+                     codes.EXIT_NOT_FOUND, "absent.tif", id="absent_dem"),
+        pytest.param(lambda _: _request(inputs={"dem": {"href": str(DEM), "sha256": "0" * 64}}),
+                     codes.EXIT_VALIDATION, "0" * 64, id="dem_bytes_not_pinned"),
+        pytest.param(lambda _: _request(outputs={"hillshade": {}}),
+                     codes.EXIT_CONFIG, "/outputs/hillshade", id="undeclared_output"),
+        pytest.param(lambda _: _request(inputs={"outlets": [ELSEWHERE]}),
+                     codes.EXIT_SOLVER_ERROR, None, id="outlet_outside_the_dem"),
+        pytest.param(lambda _: _request() | {"process": {"id": "data-request", "version": "1.0.0"}},
+                     codes.EXIT_CONFIG, "data-request", id="another_capability"),
+        pytest.param(_not_a_raster, codes.EXIT_VALIDATION, DataContractViolation.code,
+                     id="dem_not_a_raster"),
+        pytest.param(lambda _: _request(inputs={"engine": "numpy_d8"}),
+                     codes.EXIT_SOLVER_ERROR, "breach", id="engine_without_breach"),
+        pytest.param(lambda _: _request(inputs={"engine": "pysheds"}),
+                     codes.EXIT_CONFIG, "pysheds", id="engine_nobody_installed"),
     ],
-    ids=[
-        "absent_dem",
-        "dem_bytes_not_pinned",
-        "undeclared_output",
-        "outlet_outside_the_dem",
-        "another_capability",
-        "dem_not_a_raster",
-        "engine_without_breach",
-        "engine_nobody_installed",
-    ],
-)
+)  # fmt: skip
 def test_a_job_that_cannot_be_done_fails_with_its_typed_code_and_seals_nothing(
     tmp_path, document, exit_code, detail
 ):
-    """A typed code and never exit 1, which means "report this as a bug here".
+    """A typed code, never exit 1, and no job id when the inputs never resolved.
 
-    A request whose inputs never resolved carries no job id. An engine that
-    cannot serve an option refuses it by name instead of a silent substitution,
-    and an engine nobody installed is refused before a byte is written.
+    An engine refuses by name an option it cannot serve; one nobody installed writes nothing.
     """
-    job = _staged(tmp_path, document(tmp_path))
+    job, outcome = _run(tmp_path, document(tmp_path))
 
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "failed"
-    assert outcome.exit_code == exit_code
+    assert (outcome.status, outcome.exit_code) == ("failed", exit_code)
     assert not job.is_sealed
     assert read_document(job.outcome_path)["status"] == "failed"
     if detail is not None:
         assert detail in json.dumps(outcome.errors)
-    if exit_code in {EXIT_NOT_FOUND, EXIT_CONFIG}:
+    if exit_code in {codes.EXIT_NOT_FOUND, codes.EXIT_CONFIG}:
         assert not (job.outputs_dir / "dem_corrected.tif").exists()
     if detail == "absent.tif":
         assert outcome.job_id == UNIDENTIFIED_JOB
@@ -316,217 +215,127 @@ def test_a_job_that_cannot_be_done_fails_with_its_typed_code_and_seals_nothing(
         assert outcome.errors[0]["code"] == detail
 
 
-def test_an_envelope_member_this_process_ignores_is_a_warning_not_a_refusal(tmp_path):
-    job = _staged(tmp_path, _request(subscriber={"successUri": "https://example.invalid/done"}))
-
-    outcome = run(job, exit_code_for=exit_code_for)
-
-    assert outcome.status == "successful"
-    assert any("subscriber" in warning for warning in outcome.warnings)
-
-
-def test_a_failure_after_the_inputs_resolved_keeps_the_job_id(tmp_path, monkeypatch):
-    """A job that failed at its work is still the job that was asked for.
-
-    The content address is computed before anything runs, so an outcome that
-    reported ``unidentified`` after the terrain engine failed would throw away
-    an id the process already held -- and with it every chance for a caller to
-    match the failure against the request that caused it.
-    """
+def test_a_failure_after_the_inputs_resolved_keeps_the_job_id(sealed_job, tmp_path, monkeypatch):
+    """The address is computed before anything runs, so the caller can match the failure."""
     from hydromodpy.spatial.site_selection.hydrology import worker
 
     def explode(*args, **kwargs):
         raise RuntimeError("the engine gave up")
 
     monkeypatch.setattr(worker, "build_site_selection_flow_products", explode)
-    job = _staged(tmp_path, _request())
 
-    outcome = run(job, exit_code_for=exit_code_for)
+    _, outcome = _run(tmp_path, _request(), name="failing")
 
     assert outcome.status == "failed"
     assert outcome.job_id.startswith("sha256:")
-    assert outcome.job_id == run_job_id_of(tmp_path)
-
-
-def run_job_id_of(tmp_path: Path) -> str:
-    """The job id the same request carries when it succeeds."""
-    job = _staged(tmp_path, _request(), name="reference")
-    return run(job, exit_code_for=exit_code_for).job_id
+    assert outcome.job_id == sealed_job[1].job_id
 
 
 def test_the_same_request_into_a_sealed_directory_is_reused_and_not_re_run(sealed_job):
-    """The short-circuit, on the only thing that can prove it: the disk.
-
-    Not a delay and not a spy on the engine. A re-run would rewrite every
-    artefact and every document, so "nothing changed, to the byte" is both the
-    strongest statement available and the exact promise §1.9 makes.
-    """
+    """Proved on the disk: nothing changes, to the byte, and the outcome re-reports the first run."""
     job, first = sealed_job
-    before = {
-        path.relative_to(job.root).as_posix(): path.read_bytes()
-        for path in sorted(job.root.rglob("*"))
-        if path.is_file()
-    }
+
+    def files() -> dict:
+        paths = sorted(job.root.rglob("*"))
+        return {one.relative_to(job.root).as_posix(): one.read_bytes() for one in paths if one.is_file()}  # fmt: skip
+
+    before = files()
 
     second = run(job, exit_code_for=exit_code_for)
 
-    assert second.reused is True
-    assert second.exit_code == 0
-    assert second.status == "successful"
+    assert (second.reused, second.exit_code, second.status) == (True, 0, "successful")
     assert second.job_id == first.job_id
-    after = {
-        path.relative_to(job.root).as_posix(): path.read_bytes()
-        for path in sorted(job.root.rglob("*"))
-        if path.is_file()
-    }
-    assert after == before
-
-
-def test_the_reused_outcome_carries_what_the_first_run_recorded(sealed_job):
-    """Re-reported and not re-derived: the artefacts are the ones on disk."""
-    job, first = sealed_job
-
-    second = run(job, exit_code_for=exit_code_for)
-
-    assert [record.to_document() for record in second.outputs] == [
-        record.to_document() for record in first.outputs
-    ]
-    assert second.started_at == first.started_at
-    assert second.finished_at == first.finished_at
+    assert files() == before
+    documents = [[record.to_document() for record in one.outputs] for one in (first, second)]
+    assert documents[0] == documents[1]
+    assert (second.started_at, second.finished_at) == (first.started_at, first.finished_at)
     assert read_document(job.outcome_path)["reused"] is False
 
 
-def test_a_different_request_into_a_sealed_directory_is_refused(sealed_job):
-    """One job, one directory. Another job would overwrite a finished seal."""
+@pytest.mark.parametrize(
+    "member",
+    [{"snap_distance_m": 75}, {"crs_project": "lambert93"}],
+    ids=["a_different_request", "a_request_that_no_longer_resolves"],
+)
+def test_another_request_into_a_sealed_directory_is_refused(sealed_job, member):
+    """One job, one directory, and an unaddressable request is not a matching one."""
     job, first = sealed_job
-    before = job.manifest_path.read_bytes()
-    job.request_path.write_text(
-        json.dumps(_request(inputs={"snap_distance_m": 75})), encoding="utf-8"
-    )
+    before = (job.manifest_path.read_bytes(), job.outcome_path.read_bytes())
+    job.request_path.write_text(json.dumps(_request(inputs=member)), encoding="utf-8")
 
     with pytest.raises(JobUsageError) as caught:
         run(job, exit_code_for=exit_code_for)
 
-    assert first.job_id in str(caught.value)
-    assert job.manifest_path.read_bytes() == before
+    assert (job.manifest_path.read_bytes(), job.outcome_path.read_bytes()) == before
     assert read_document(job.outcome_path)["job_id"] == first.job_id
+    if "snap_distance_m" in member:
+        assert first.job_id in str(caught.value)
 
 
-def test_a_request_that_no_longer_resolves_cannot_reuse_a_seal(sealed_job):
-    """Unaddressable is not the same as matching, and must not be answered as one."""
-    job, _ = sealed_job
-    before = job.outcome_path.read_bytes()
-    job.request_path.write_text(
-        json.dumps(_request(inputs={"crs_project": "lambert93"})), encoding="utf-8"
-    )
+# The job in a fresh interpreter; the spies put before it fill ``seen``.
+CHILD = """
+import json, sys
+from hydromodpy.cli.helpers import exit_code_for
+from hydromodpy.schema.job import JobDirectory
+from hydromodpy.spatial.site_selection.hydrology.worker import run
+try:
+    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)
+finally:
+    open(sys.argv[2], "w").write(json.dumps(seen))
+sys.exit(outcome.exit_code)
+"""
 
-    with pytest.raises(JobUsageError):
-        run(job, exit_code_for=exit_code_for)
 
-    assert job.outcome_path.read_bytes() == before
+def _run_in_a_child(tmp_path: Path, spies: str, **env: str):
+    job, seen = _staged(tmp_path, _request()), tmp_path / "seen.json"
+    completed = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(spies) + CHILD, str(job.root), str(seen)],
+        env=dict(os.environ, HMP_NO_PROGRESS="1", **env), capture_output=True, text=True,
+        timeout=600, check=False,
+    )  # fmt: skip
+    assert completed.returncode == 0, completed.stderr[-4000:]
+    assert job.is_sealed
+    return job, _json(seen)
 
 
 @pytest.mark.allow_subprocess
-def test_the_capability_writes_nothing_into_the_home_it_is_given(tmp_path):
-    """The one confinement guarantee that only a fresh process can show.
+def test_the_capability_writes_nothing_outside_the_job_but_its_declared_scratch(tmp_path):
+    """Shown in a fresh process, since ``tempfile`` caches its directory on first use.
 
-    ``hmp run`` registers every project it touches into a machine-wide DuckDB
-    under the user's state directory. A capability inherits none of that, and
-    the only honest way to say so is to hand it an empty ``HOME`` and an empty
-    ``XDG_STATE_HOME`` and look at them afterwards.
+    Unlike ``hmp run``, a capability registers nothing in the user's state
+    directory. Each catchment is assembled under a ``TemporaryDirectory``, so
+    ``writes_outside_jobdir`` declares it for an orchestrator that mounts all
+    but the job read-only.
     """
-    home = tmp_path / "home"
-    state = tmp_path / "state"
-    home.mkdir()
-    state.mkdir()
-    job = _staged(tmp_path, _request())
-
-    script = (
-        "from hydromodpy.cli.helpers import exit_code_for\n"
-        "from hydromodpy.schema.job import JobDirectory\n"
-        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
-        "import sys\n"
-        "outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
-        "sys.exit(outcome.exit_code)\n"
-    )
-    env = dict(os.environ, HOME=str(home), XDG_STATE_HOME=str(state), HMP_NO_PROGRESS="1")
-    completed = subprocess.run(
-        [sys.executable, "-c", script, str(job.root)],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
-
-    assert completed.returncode == 0, completed.stderr[-4000:]
-    assert job.is_sealed
-    assert list(home.iterdir()) == []
-    assert list(state.iterdir()) == []
-
-
-def test_the_only_thing_it_writes_outside_the_job_is_what_it_declares(tmp_path):
-    """The declaration of scratch space is checked, not asserted in prose.
-
-    ``writes_outside_jobdir`` said ``false`` when the generator first wrote it,
-    and it was false: the delineation assembles one catchment per outlet under a
-    ``TemporaryDirectory``, which lands under ``TMPDIR`` and not under the job.
-    An orchestrator mounting everything but the job directory read-only would
-    have followed that boolean into a crash.
-
-    A subprocess, because ``tempfile`` caches its directory on first use and
-    this test process has already used it.
+    home, state, scratch = (tmp_path / name for name in ("home", "state", "scratch"))
+    for folder in (home, state, scratch):
+        folder.mkdir()
+    spies = """
+        import tempfile
+        seen = []
+        real_dir, real_file = tempfile.mkdtemp, tempfile.mkstemp
+        def spy_dir(*a, **k):
+            path = real_dir(*a, **k)
+            seen.append(path)
+            return path
+        def spy_file(*a, **k):
+            handle, path = real_file(*a, **k)
+            seen.append(path)
+            return handle, path
+        tempfile.mkdtemp, tempfile.mkstemp = spy_dir, spy_file
     """
-    scratch = tmp_path / "scratch"
-    scratch.mkdir()
-    created = tmp_path / "created.json"
-    job = _staged(tmp_path, _request())
+    env = {"HOME": str(home), "XDG_STATE_HOME": str(state), "TMPDIR": str(scratch)}
 
-    script = (
-        "import json, os, sys, tempfile\n"
-        "seen = []\n"
-        "real_dir, real_file = tempfile.mkdtemp, tempfile.mkstemp\n"
-        "def spy_dir(*a, **k):\n"
-        "    path = real_dir(*a, **k)\n"
-        "    seen.append(path)\n"
-        "    return path\n"
-        "def spy_file(*a, **k):\n"
-        "    handle, path = real_file(*a, **k)\n"
-        "    seen.append(path)\n"
-        "    return handle, path\n"
-        "tempfile.mkdtemp, tempfile.mkstemp = spy_dir, spy_file\n"
-        "from hydromodpy.cli.helpers import exit_code_for\n"
-        "from hydromodpy.schema.job import JobDirectory\n"
-        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
-        "try:\n"
-        "    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
-        "finally:\n"
-        "    open(sys.argv[2], 'w').write(json.dumps(seen))\n"
-        "sys.exit(outcome.exit_code)\n"
-    )
-    env = dict(os.environ, TMPDIR=str(scratch), HMP_NO_PROGRESS="1")
-    completed = subprocess.run(
-        [sys.executable, "-c", script, str(job.root), str(created)],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
+    job, created = _run_in_a_child(tmp_path, spies, **env)
 
-    assert completed.returncode == 0, completed.stderr[-4000:]
-    paths = [Path(entry).resolve() for entry in json.loads(created.read_text(encoding="utf-8"))]
-
+    assert list(home.iterdir()) == [] and list(state.iterdir()) == []
+    paths = [Path(entry).resolve() for entry in created]
     # Derived from the declaration, never hard-coded: with ``writes_outside_jobdir``
-    # emptied, ``allowed`` shrinks to the job directory and this test goes red,
-    # which is the whole point of writing it.
+    # emptied, ``allowed`` shrinks to the job directory and this test goes red.
     known = {"$TMPDIR": scratch.resolve()}
     unknown = set(TERRAIN_DELINEATE.writes_outside_jobdir) - set(known)
     assert not unknown, f"this test cannot point at the declared location(s) {sorted(unknown)}"
-    allowed = [job.root.resolve()] + [
-        known[name] for name in TERRAIN_DELINEATE.writes_outside_jobdir
-    ]
-
+    allowed = [job.root.resolve()] + [known[one] for one in TERRAIN_DELINEATE.writes_outside_jobdir]
     outside = [path for path in paths if not any(path.is_relative_to(root) for root in allowed)]
     assert not outside, f"it writes into {outside}, which it does not declare"
     assert any(path.is_relative_to(scratch.resolve()) for path in paths), (
@@ -539,221 +348,100 @@ LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "ip6-localhost"})
 """Names of the local machine. Not egress: reachable with no route out at all."""
 
 CHILD_PROCESSES_THE_JOB_SPAWNS = ("git", Path(sys.executable).name, "uname")
-"""The executables the capability runs, and the ceiling of the two socket spies.
+"""The measured executables the job runs, which hold the guarantee for the children's sockets.
 
-A child process has its own interpreter and its own sockets, so patching
-``socket`` in the parent says nothing about what it does -- which makes this
-list, not the spies, what holds the guarantee for that path. All three entries
-are measured, and the last two were found by this assertion rather than by
-reading:
-
-- ``git``, twice, from ``schema/job/provenance.py``: ``rev-parse`` and
-  ``status --porcelain``, to record which revision did the work.
-- this interpreter, from ``spatial/delineation/whitebox_workflows_backend``:
-  Whitebox removes depressions in a child, because a lost thread race ends the
-  interpreter that called it. The same Rust code ran in this interpreter
-  before, where its sockets bypassed the ``socket`` spies as well, so the child
-  hides nothing new. An interpreter runs anything, so its script is pinned too.
-- ``uname -p``, from the standard library and not from this repository.
-  ``platform.platform()`` unpacks ``uname_result``, whose ``processor`` member is
-  a ``cached_property`` that falls back to ``subprocess.check_output(('uname',
-  '-p'))``. Reading the provenance code finds no subprocess at all.
-
-A capability that shells out to ``curl`` lands in this assertion by name rather
-than passing unseen, which is the whole reason the list is pinned.
+``git`` records the revision (``schema/job/provenance.py``), this interpreter
+runs the Whitebox depression removal apart (a lost thread race ends its caller),
+and ``uname -p`` comes from ``platform.platform()``. A ``curl`` lands here by name.
 """
 
 SCRIPTS_THE_INTERPRETER_CHILD_RUNS = ("depression_child.py",)
-"""The scripts the interpreter child runs. It imports ``json``, ``sys`` and
-``whitebox_workflows``, nothing else. A ``python -m pip`` lands here by name."""
+"""It imports ``json``, ``sys`` and ``whitebox_workflows``. A ``python -m pip`` lands here."""
 
 
 def _is_local(value: object) -> bool:
-    """True when *value* names this machine, in any of its spellings.
-
-    Semantic and not a string set: ``127.0.0.2``, ``::ffff:127.0.0.1`` and the
-    integer form ``2130706433`` are all loopback, and flagging one of them as
-    egress would turn this gate red for a reason that has nothing to do with the
-    capability under test.
-    """
+    """True when *value* names this machine in any spelling (``127.0.0.2``, ``2130706433``)."""
     text = str(value).casefold().rstrip(".")
-    if text in LOCAL_NAMES:
-        return True
-    try:
-        return ipaddress.ip_address(text).is_loopback
-    except ValueError:
-        pass
-    try:
-        return ipaddress.ip_address(int(text, 0)).is_loopback
-    except (ValueError, TypeError):
-        return False
+    for parse in (str, lambda one: int(one, 0)):  # a dotted address, or its integer form
+        with contextlib.suppress(ValueError):
+            return text in LOCAL_NAMES or ipaddress.ip_address(parse(text)).is_loopback
+    return False
 
 
 def test_the_only_hosts_it_contacts_are_the_ones_it_declares(tmp_path):
-    """The confinement guarantee that had been prose since the day it was written.
+    """Caught by host name, by literal address, and by the child executable this one cannot patch.
 
-    ``worker.py`` says "it reaches no network" in its own docstring, and the
-    specification asked the description to say ``network: "forbidden"``. Neither
-    was checked by anything, so the member was kept out of the published
-    description rather than shipped unbacked. This is what lets it in.
-
-    Three angles, because two are not enough: a host resolved through
-    ``getaddrinfo`` is caught by name, a connection opened straight to a
-    hardcoded address resolves nothing and is caught by address, and a child
-    process does its networking in an interpreter this one cannot patch, so it is
-    caught by the name of the executable instead.
-
-    A subprocess, and a sentinel before the run: a spy that silently fails to
-    install would make this test pass on any capability at all, so the spy is
-    made to catch a resolution and a connection of the harness's own before the
-    recording is cleared and the capability starts.
-
-    That every served capability has a gate of this name is pinned one level up,
-    in ``tests/unit/schema/test_capability_egress_gates.py``: the claim is about
-    the registry, and it could not name the gate of a capability whose tests live
-    in another file.
+    A sentinel of the harness's own proves each spy is installed. Every served
+    capability has a gate of this name: ``tests/unit/schema/test_capability_egress_gates.py``.
     """
-    seen = tmp_path / "seen.json"
-    job = _staged(tmp_path, _request())
+    spies = """
+        import contextlib, socket, subprocess, sys
+        names, addrs, spawned = [], [], []
+        real_addrinfo, real_connect = socket.getaddrinfo, socket.socket.connect
+        real_popen = subprocess.Popen.__init__
+        def spy_addrinfo(host, port, *a, **k):
+            names.append([host, port])
+            return real_addrinfo(host, port, *a, **k)
+        def spy_connect(self, address, *a, **k):
+            addrs.append(list(address) if isinstance(address, tuple) else [address])
+            return real_connect(self, address, *a, **k)
+        def spy_popen(self, args, *a, **k):
+            spawned.append(args if isinstance(args, str) else list(args))
+            return real_popen(self, args, *a, **k)
+        socket.getaddrinfo, socket.socket.connect = spy_addrinfo, spy_connect
+        subprocess.Popen.__init__ = spy_popen
+        socket.getaddrinfo("localhost", 9)  # loopback only: needs no route off the machine
+        with socket.socket() as probe, contextlib.suppress(OSError):  # refused is expected
+            probe.connect(("127.0.0.1", 9))
+        subprocess.run([sys.executable, "-c", ""], capture_output=True)
+        sentinel = {"names": list(names), "addrs": list(addrs), "spawned": list(spawned)}
+        names.clear(), addrs.clear(), spawned.clear()
+        seen = {"sentinel": sentinel, "names": names, "addrs": addrs, "spawned": spawned}
+    """
 
-    script = (
-        "import json, socket, subprocess, sys\n"
-        "names, addrs, spawned = [], [], []\n"
-        "real_addrinfo, real_connect = socket.getaddrinfo, socket.socket.connect\n"
-        "real_popen = subprocess.Popen.__init__\n"
-        "def spy_addrinfo(host, port, *a, **k):\n"
-        "    names.append([host, port])\n"
-        "    return real_addrinfo(host, port, *a, **k)\n"
-        "def spy_connect(self, address, *a, **k):\n"
-        "    addrs.append(list(address) if isinstance(address, tuple) else [address])\n"
-        "    return real_connect(self, address, *a, **k)\n"
-        "def spy_popen(self, args, *a, **k):\n"
-        "    spawned.append(args if isinstance(args, str) else list(args))\n"
-        "    return real_popen(self, args, *a, **k)\n"
-        "socket.getaddrinfo, socket.socket.connect = spy_addrinfo, spy_connect\n"
-        "subprocess.Popen.__init__ = spy_popen\n"
-        # The sentinel. Loopback only, so it needs no route off the machine.
-        "socket.getaddrinfo('localhost', 9)\n"
-        "probe = socket.socket()\n"
-        "try:\n"
-        "    probe.connect(('127.0.0.1', 9))\n"
-        "except OSError:\n"
-        "    pass\n"  # Refused is the expected answer and proves the spy fired.
-        "finally:\n"
-        "    probe.close()\n"
-        "subprocess.run([sys.executable, '-c', ''], capture_output=True)\n"
-        "sentinel = {'names': list(names), 'addrs': list(addrs), 'spawned': list(spawned)}\n"
-        "names.clear()\n"
-        "addrs.clear()\n"
-        "spawned.clear()\n"
-        "from hydromodpy.cli.helpers import exit_code_for\n"
-        "from hydromodpy.schema.job import JobDirectory\n"
-        "from hydromodpy.spatial.site_selection.hydrology.worker import run\n"
-        "try:\n"
-        "    outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)\n"
-        "finally:\n"
-        "    open(sys.argv[2], 'w').write(\n"
-        "        json.dumps(\n"
-        "            {\n"
-        "                'sentinel': sentinel,\n"
-        "                'names': names,\n"
-        "                'addrs': addrs,\n"
-        "                'spawned': spawned,\n"
-        "            }\n"
-        "        )\n"
-        "    )\n"
-        "sys.exit(outcome.exit_code)\n"
-    )
-    env = dict(os.environ, HMP_NO_PROGRESS="1")
-    completed = subprocess.run(
-        [sys.executable, "-c", script, str(job.root), str(seen)],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    )
+    _, recorded = _run_in_a_child(tmp_path, spies)
 
-    assert completed.returncode == 0, completed.stderr[-4000:]
-    recorded = json.loads(seen.read_text(encoding="utf-8"))
     sentinel = recorded["sentinel"]
     assert sentinel["names"] and sentinel["addrs"] and sentinel["spawned"], (
         "a spy caught nothing of the harness's own, so it is not installed"
     )
-    # The sentinel is kept and read, not reduced to a boolean: it contacted the
-    # local machine by name and by address, so it is also the one case that
-    # exercises the locality filter below. A broken filter would otherwise sit
-    # unnoticed behind a run that resolves nothing at all.
+    # The sentinel reached the local machine by name and by address, so it is
+    # also the one case that exercises the locality filter below.
     assert all(_is_local(entry[0]) for entry in sentinel["names"] + sentinel["addrs"]), (
         "the locality filter does not recognise the local machine it was handed"
     )
-
     declared = set(TERRAIN_DELINEATE.reaches_network)
-    # Locality is subtracted on both socket angles, and for the same reason: a
-    # local name and a local address are the same non-egress, and exempting one
-    # while flagging the other would make the gate depend on which of the two
-    # spellings a library happened to use.
-    undeclared = sorted(
-        {str(entry[0]) for entry in recorded["names"] if not _is_local(entry[0])} - declared
-    )
-    assert not undeclared, f"it resolves {undeclared}, which it does not declare"
-    # An address is read apart from a name: a connection to a literal address
-    # resolves nothing, so the list above would stay empty while the process
-    # reached the network anyway. Indexed and not unpacked, because an IPv6
-    # address is a four-member tuple and a unix socket is a bare path.
-    egress = sorted(
-        {str(entry[0]) for entry in recorded["addrs"] if not _is_local(entry[0])} - declared
-    )
-    assert not egress, f"it connects to {egress}, which it does not declare"
-    # And the ceiling of both: a child fetches in an interpreter this one never
-    # patched, so what holds here is that the set of children is the measured one.
-    children = sorted(
-        {Path(argv[0] if isinstance(argv, list) else argv).name for argv in recorded["spawned"]}
-    )
+
+    def reached(kind: str) -> list[str]:
+        # Indexed and not unpacked: an IPv6 address has four members, a unix socket none.
+        return sorted({str(one[0]) for one in recorded[kind] if not _is_local(one[0])} - declared)
+
+    assert not reached("names"), f"it resolves {reached('names')}, which it does not declare"
+    # A connection to a literal address resolves nothing, so it is read apart.
+    assert not reached("addrs"), f"it connects to {reached('addrs')}, which it does not declare"
+    # A child fetches in an interpreter this one never patched: the children are the measured ones.
+    children = sorted({Path(a[0] if isinstance(a, list) else a).name for a in recorded["spawned"]})
     assert children == sorted(CHILD_PROCESSES_THE_JOB_SPAWNS), (
         f"it spawns {children}, and only {sorted(CHILD_PROCESSES_THE_JOB_SPAWNS)} is accounted for"
     )
     # The script is the first argument that is not an option of the interpreter.
     interpreter = Path(sys.executable).name
-    scripts = sorted(
-        {
-            Path(next((arg for arg in argv[1:] if not arg.startswith("-")), "")).name
-            for argv in recorded["spawned"]
-            if isinstance(argv, list) and Path(argv[0]).name == interpreter
-        }
-    )
+    by_interpreter = [a for a in recorded["spawned"] if isinstance(a, list) and Path(a[0]).name == interpreter]  # fmt: skip
+    scripts = sorted({Path(next((one for one in a[1:] if not one.startswith("-")), "")).name for a in by_interpreter})  # fmt: skip
     assert scripts == sorted(SCRIPTS_THE_INTERPRETER_CHILD_RUNS), (
         f"its interpreter child runs {scripts}, and only "
         f"{sorted(SCRIPTS_THE_INTERPRETER_CHILD_RUNS)} is accounted for"
     )
 
 
-# --------------------------------------------------------------------------- #
-# The engine is chosen by the request, and the chain runs on the other one
-# --------------------------------------------------------------------------- #
-
-
 def test_the_job_runs_on_the_engine_the_request_names(tmp_path):
-    """G1's canonical test, executed rather than asserted.
+    """``numpy_d8``, named in ``request.json`` alone, seals with ``fill``, the one method it serves.
 
-    ``numpy_d8`` is selected from ``request.json`` alone: no caller imports it,
-    no file of the chain names it, and the whole capability runs, seals and
-    verifies on it. It conditions with ``fill`` because that is the one method
-    it serves, which is also why the refusal below is a separate test.
-
-    The two engines are substitutable, not equivalent, so nothing here compares
-    an area against the Whitebox answer. What is asserted is that the boundary
-    obeys the name it was given.
+    The engines are substitutable, not equivalent, so no area is compared with Whitebox's.
     """
-    job = _staged(
-        tmp_path,
-        _request(inputs={"engine": "numpy_d8", "dem_correction_type": "fill"}),
-        name="numpy_job",
-    )
-
-    outcome = run(job, exit_code_for=exit_code_for)
+    inputs = {"engine": "numpy_d8", "dem_correction_type": "fill"}
+    job, outcome = _run(tmp_path, _request(inputs=inputs), name="numpy_job")
 
     assert outcome.status == "successful", outcome.errors
-    assert job.is_sealed
-    assert verify_job(job).ok
+    assert job.is_sealed and verify_job(job).ok
     assert read_document(job.provenance_path)["backend"]["name"] == "numpy_d8"

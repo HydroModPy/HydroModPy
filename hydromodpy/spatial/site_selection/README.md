@@ -1,390 +1,233 @@
-# Site Selection Package
-
-This package holds the site selection: `hmp site select <file>` runs it, with
-the primitives below and the runner of `hydromodpy/workflow/site_selection/`. It builds or filters basin
-candidates and explains each decision. It does not expand sites into
-simulation recipes and it does not run solvers: the selected sites enter the
-workspace site catalog (`data/sites/catalog.csv`, `hydromodpy.data.sites`)
-with `--into-catalog` or `hmp site import --selection <manifest>`, and a
-project lists them in `[sites]`.
-
-## Boundaries
-
-The package is responsible for:
-
-- typed site-selection configuration models;
-- candidate outlet records;
-- delegation to existing DEM flow-product and catchment-delineation code;
-- auditable criterion components and selection decisions;
-- CSV/JSONL exports for selected and rejected sites;
-- the official `site_selection_manifest.json` contract;
-- an optional static HTML review page generated from the manifest.
-
-The package is not responsible for:
-
-- Hub'Eau API details or cache management;
-- reimplementing D8, flow accumulation or watershed delineation;
-- the site catalog of the workspace (`hydromodpy.data.sites`);
-- drawing the HTML report: the caller passes the renderers of
-  `hydromodpy.reporting.site_selection` to `run_site_selection`, so this
-  package never imports the reporting layer;
-- MF6, Boussinesq or calibration execution.
-
-Observation and DEM loading lives in `hydromodpy/workflow/site_selection/data_loading.py`,
-which calls the data manager stack (`hydromodpy.data`) and passes `PointRecord` objects into the
-spatial build pipeline.
-
-## Running a selection
-
-| entry | what it does |
-|---|---|
-| `hmp site select FILE` | runs the action `[site_selection.input] mode` names, writes under `[site_selection] output_root` |
-| `hmp site select FILE --dry-run` | validates the file and prints the plan; writes nothing |
-| `hmp site select FILE --into-catalog` | runs, then declares the selected sites in `data/sites/catalog.csv` |
-| `run_site_selection(path, report_renderer=..., plan_report_renderer=...)` | the same from Python; returns a `SelectionRun` (action, counts, outputs) |
-
-A selection file holds `[site_selection]`, plus `[hydrometry]` for an
-observation-led selection and `[data.dem]` to name the DEM. It never holds
-`[workflow] mode`: the runner refuses it.
-
-For station-led French workflows, observation APIs and hydrologic products do
-not use the same CRS. Hub'Eau station locations are fetched in WGS84 for API
-queries, while IGN DEMs and catchment delineation use Lambert-93. The workflow
-therefore resolves the observation bbox in WGS84, then `candidates/outlets.py`
-projects station locations to the DEM/project CRS before delineation. When
-Hub'Eau provides `x_l93` and `y_l93` metadata, those official Lambert-93
-coordinates are used directly.
-
-DEM loading follows the same boundary. `site_selection` may request
-`delineate_from_outlets = true`, but the DEM itself should be declared under
-`[data.dem]` and cached by the data manager stack. The workflow resolves the
-DEM file path before calling flow-product and catchment-from-point utilities.
-This keeps provider access, cache layout and regional data extents outside the
-selection primitives.
-
-Outlet snapping has two explicit strategies:
-
-- `site_selection.outlets.snap_strategy = "dem_accumulation"` keeps the direct
-  path: the candidate point is snapped to the DEM-derived accumulation raster
-  with the short radius `snap_dist_m`.
-- `site_selection.outlets.snap_strategy = "bdtopage_then_dem"` first projects
-  the candidate point onto BD Topage or a custom reference network, rejects the
-  site if that network is farther than `reference_network_max_distance_m`, then
-  runs the DEM snap locally with `snap_dist_m`.
-
-The reference-network strategy constrains the outlet to stay near the observed
-station and river line. It does not replace the DEM: watershed delineation still
-uses DEM flow direction and accumulation rasters.
-
-In `site_selection.input.mode = "hydrometry"`, the same rule applies: the
-workflow loads hydrometry through the existing data managers, resolves the DEM
-through `[data.dem]`, builds flow products, and only then delegates to the
-spatial selection primitives. The spatial package does not call Hub'Eau or
-Geoplateforme directly.
-
-Pre-delineated CSV inputs may also contain already-normalized observation
-columns such as `flow_station_id`, `flow_station_x`, `piezometer_id` and
-`piezometer_x`. These columns are converted into the same normalized evidence
-schema used by provider-loaded `PointRecord` objects. They are intended for
-fixtures, catalogs and frozen data extracts, not for direct provider access.
-
-## Main Modules
-
-The package is organized by workflow phase. Code should import detailed
-processing primitives from the subpackages below. The top-level
-`hydromodpy.spatial.site_selection` facade is intentionally small and exposes
-only stable workflow entrypoints, manifest helpers and report renderers.
-
-- `config/`: Pydantic configuration and validation models. `SiteSelectionFile` is the
-  file `hmp site select` reads (one `[site_selection]` table, `SiteSelectionConfig`);
-  the parameter reference is generated from it.
-- `domain/`: shared domain records that are not tied to one processing phase.
-- `candidates/`: candidate outlet records, DEM/network generation,
-  station-led candidate building, thinning, and reference-network snapping.
-- `hydrology/`: thin adapters to existing DEM flow-product and
-  catchment-from-point utilities, plus batch delineation.
-- `evidence/`: observation evidence, context-layer annotation, influence,
-  geology, piezometry, stable evidence references, and evidence exports.
-- `evaluation/criteria/`: auditable area, observation, influence and geology
-  criterion components.
-- `evaluation/selection.py`: final selected/rejected catchment decisions,
-  including spatial quota, outlet spacing and overlap rules.
-- `evaluation/spatial_filters.py`: geometry overlap helpers used by selection.
-- `outputs/`: stable output schemas, CSV/JSONL/GeoJSON/geospatial writers,
-  manifest IO, core output orchestration and final artifact assembly.
-- `reports/`: static map, HTML report, plan report and report blocks.
-- `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and
-  per-catchment summary helpers built from criteria and final selections.
-- `pipelines/build.py`: orchestration of the end-to-end spatial build phases.
-
-## Output Contract
-
-Completed selection runs always write the audit core:
-
-- `criteria_components.jsonl`
-- `site_selection_decisions.csv`
-- `site_selection_decisions.jsonl`
-- `site_selection_evidence.jsonl` when at least one normalized evidence row is
-  available
-- `site_selection_manifest.json`
-
-With the default GeoJSON switch they also write:
-
-- `selected_outlets.geojson`
-- `rejected_outlets.geojson`
-- `selected_basins.geojson`
-- `rejected_basins.geojson`
-
-With the default tabular switches they also write:
-
-- `selected_sites.csv`
-- `rejected_sites.csv`
-
-With production vector switches they can also write:
-
-- `site_selection.gpkg` when `site_selection.output.write_geopackage = true`;
-- `selected_outlets.parquet`, `rejected_outlets.parquet`,
-  `selected_basins.parquet`, `rejected_basins.parquet` when
-  `site_selection.output.write_geoparquet = true`.
-
-When influence layers are configured under
-`site_selection.criteria.influence.layers`, completed runs also write:
-
-- `influence_evidence.jsonl`
-- `influence_features.geojson` when `write_geojson = true`
-- `influence_features.parquet` when `write_geoparquet = true`
-- an `influence_features` layer in `site_selection.gpkg` when
-  `write_geopackage = true`
-
-When geology layers are configured under
-`site_selection.criteria.geology.layers`, completed runs also write:
-
-- `geology_evidence.jsonl`
-- `geology_basins.geojson` when `write_geojson = true`
-- `geology_basins.parquet` when `write_geoparquet = true`
-- a `geology_basins` layer in `site_selection.gpkg` when
-  `write_geopackage = true`
-
-When piezometer layers are configured under
-`site_selection.criteria.observations.piezometer_layers`, completed runs also
-write:
-
-- `piezometer_evidence.jsonl`
-- piezometer rows in `observation_evidence.jsonl`
-- piezometer point geometries in `observation_points.geojson`,
-  `observation_points.parquet` and the `observation_points` GeoPackage layer
-  when their corresponding output switches are active.
-
-If `site_selection.output.write_report_html = true`, they also write:
-
-- `review/index.html`
-- `review/site_selection_map.png`
-
-Plan-only runs use a lighter contract:
-
-- `site_selection_plan.json` when `site_selection.input.write_plan_manifest = true`
-  or when an HTML report is requested;
-- `review/index.html` when `site_selection.output.write_report_html = true`.
-
-The plan-only HTML explicitly states that no site has been selected or rejected.
-It is intended for reviewing strategy, territory, required data and planned
-outputs before running hydrometry loading or DEM-based delineation.
-
-DEM/network-generated runs use `site_selection.input.mode =
-"generated_candidates"` with `site_selection.outlets.candidate_mode =
-"network_sampling"`. This mode is experimental and remains outside the
-short-term stable business contract, but it is kept as a tested capability.
-It writes the normal selection outputs plus:
-
-- `candidate_generation.jsonl`
-- `candidate_outlets.geojson` when `write_geojson = true`
-- `generated_dem_network.geojson` when `write_geojson = true`
-
-These candidates come from high-accumulation DEM cells, constrained by
-`min_distance_between_outlets_km` and `max_generated_candidates`, then pass
-through the same delineation and selection stages as imported or station-led
-candidates. The generation audit includes accepted and rejected candidate cells,
-with rejection reasons such as spacing or candidate-count caps. When a BD
-Topage/custom reference network is loaded, candidates also carry
-`reference_network_distance_m`, `reference_network_score` and
-`reference_network_status`.
-
-Generated DEM candidates and their exported DEM network are clipped to the
-configured territory by default (`territory.clip_to_territory = true`). For
-French administrative territories, this uses the union of department or region
-geometries rather than only the rectangular DEM extent, which avoids sampling
-coastal sea cells.
-
-The outlet GeoJSON files are point geometries. When a delineation produced an
-`outlet_snap_shp`, selected outlet geometries use the snapped outlet point and
-preserve the original candidate coordinates in properties. If no snapped point
-is available, the outlet geometry remains the original candidate point. The
-basin GeoJSON files contain the corresponding watershed contours when the
-delineation stage produced a readable vector file. If a contour is missing, the
-file is still written and the missing basin is listed in
-`hydromodpy_skipped_basins`.
-
-When `bdtopage_then_dem` is active, outlet GeoJSON properties also carry
-`reference_network_source`, `reference_network_snap_distance_m`,
-`reference_network_original_x/y` and `reference_network_x/y` so reviewers can
-separate the station-to-reference-network adjustment from the later DEM snap.
-
-Observation-led builds also write:
-
-- `observation_evidence.jsonl`
-- `observation_points.geojson`
-
-When production vector switches are active, observation points are appended to
-the `observation_points` layer in `site_selection.gpkg` and written as
-`observation_points.parquet` when they have usable coordinates.
-
-Observation points are derived from normalized evidence, not from provider-
-specific raw schemas. This allows the same review map to symbolize flow stations,
-piezometers or future observation types once their coordinates are available.
-
-The HTML map is a figure of control. It is generated from the manifest-declared
-GeoJSON artifacts, colors selected basin contours by area class with light
-fills and thin edges, and uses separate symbols for selected outlets, rejected
-outlets when present, flow stations, piezometers and future observation point
-types. For generated-candidate runs, it also draws the vectorized DEM network
-from `generated_dem_network.geojson`. When outlets were snapped, the map draws
-the snapped outlet and a dashed station-to-outlet link for visible
-displacements.
-Optional `site_selection.map_context.layers` can add static context layers such
-as a territory outline, simplified hydrography or geology. These layers are for
-visual review only; they do not replace criterion evidence.
-
-Automatic influence layers are stricter than map context layers. They are
-declared under `site_selection.criteria.influence.layers`, intersected with
-delineated basin contours when available, and converted into normalized flags
-such as `major_dam_upstream`, `major_withdrawal_upstream` and
-`major_regulated_reach`. These flags are then consumed by the existing
-influence criterion and exported as auditable evidence.
-Geology and piezometer evidence layers follow the same rule: they are criterion
-evidence, not visual context. Geology layers are polygonal and fill dominant
-geology attributes plus surface fractions per class. Piezometer layers are
-point layers and fill the normalized observation evidence consumed by the
-`piezometer` criterion.
-Do not add the BD Topage snapping network as a default review-map layer: it is
-a reference used to constrain outlet placement, not evidence that the selected
-basins contain that exact hydrographic network.
-
-Candidate catalog export and Markdown reports are deliberately not enabled by
-default until their writers are implemented.
-
-## Selection Outputs
-
-`selected_sites.csv` is the table the site catalog imports
-(`hmp site import --selection`):
-
-- `site_id`: stable selected basin identifier; the site name of the catalog,
-  with every character outside `[A-Za-z0-9_]` turned into `_`.
-- `site_label`: human-readable label, defaulting to `site_id`.
-- `region_id`: optional campaign or administrative region identifier.
-- `source_selection_id`: selection campaign that produced the row.
-- `site_status`: selection status, usually `selected`.
-- `maturity`: downstream maturity flag, for example `screening`.
-- `x`, `y`: outlet coordinates in the outlet CRS.
-- `x_outlet`, `y_outlet`: explicit outlet coordinates in the outlet CRS.
-- `crs`: CRS of the outlet coordinates.
-- `gauge`: the flow station the outlet comes from, empty for a generated outlet.
-- `area_km2`: delineated catchment area when available.
-- `tags`: semicolon-separated provenance tags.
-- `enabled`: boolean flag kept for the review tables.
-
-A consumer reads the manifest, never a hard-coded CSV path: the manifest
-declares which file satisfies the `selected_sites_csv` output key.
-
-It also carries review fields for the snapped outlet when available:
-
-- `x_outlet_snapped`: snapped outlet x coordinate.
-- `y_outlet_snapped`: snapped outlet y coordinate.
-- `outlet_snap_distance_m`: distance between the original candidate outlet and
-  the snapped outlet, in projected metres.
-
-With `bdtopage_then_dem`, the catalog outlet coordinates are the reference-
-network point used for delineation. The outlet GeoJSON keeps the pre-reference
-station coordinates in `reference_network_original_x/y` and the projected
-reference point in `reference_network_x/y`.
-
-For station-led workflows, flow-station distance criteria are evaluated against
-the final displayed outlet. If a DEM delineation snapped the outlet, this means
-the station-to-outlet distance is recomputed from the station location to the
-snapped outlet rather than trusting an imported pre-snap distance.
-
-`criteria_components.jsonl` contains the detailed criterion evidence behind
-the selection. `site_selection_decisions.jsonl` is the normalized decision
-layer: it converts each criterion component and each final site decision into a
-stable `DecisionRecord` with `ACCEPT`, `WARNING`, `REJECT` or `NEUTRAL`.
-`site_selection_decisions.csv` aggregates those records into one readable row
-per catchment, with the global decision and rejection or warning reasons.
-
-`site_selection_evidence.jsonl` is the normalized evidence layer. It converts
-flow-station, piezometer, influence and geology evidence into stable
-`EvidenceRecord` rows. Decision records use the same `evidence_ref` convention
-when a criterion can be linked to a concrete evidence feature.
-
-`selected_basins.geojson` is the spatial association between selected sites and
-their watershed contours. It is intentionally separate from `selected_sites.csv`:
-the CSV remains a lightweight catalog, while the GeoJSON carries geometries and
-can be used directly by maps or GIS tools.
-
-## Criterion Families
-
-The current criterion layer is intentionally extensible:
-
-- area can be a hard rejection, a warning, a score, a stratification axis or a
-  report-only attribute;
-- flow-station evidence can check record length, station-to-outlet distance and
-  whether the station is inside or at the outlet;
-- station-influence evidence can use hydrometry station metadata to warn or
-  reject stations whose site or station is explicitly reported as influenced;
-- piezometer evidence can be reported, scored, warned on, stratified or used as
-  a hard criterion through `piezometer_mode`;
-- influence checks consume explicit flags such as upstream dam, major
-  withdrawal or regulated reach;
-- geology is currently an evidence and stratification hook, because the exact
-  geological rules are expected to vary by campaign.
-
-Unknown influence evidence is not treated as a hard rejection by default. A
-hard rejection is applied only when a configured rejection flag is explicitly
-present. This avoids silently discarding candidates because a regional data
-layer has not yet been loaded.
-
-For station-led campaigns, `station_influence` is a hydrometric metadata check.
-It is useful for filtering stations whose own reference metadata reports a
-local or general hydrologic influence. It is not a substitute for a spatial
-obstacle inventory such as ROE: it cannot prove that no dam exists upstream of
-the delineated basin. Hard rejection is based only on explicit influence fields;
-comment keyword matches remain warnings for human review.
-
-## Short-Term Profiles
-
-Two profiles are treated as the supported short-term contract:
-
-- `area_only`: select basins from DEM/candidate geometry using basin area as
-  the active criterion. This is the profile behind `dem_area_light` examples.
-- `gauged_downstream_station`: select gauged basins from downstream flow
-  stations. It requires `principle = "observation_led"`,
-  `primary_observation_type = "flow_station"` and
-  `outlets.candidate_mode = "station_outlets"`. Optional influence layers can reject
-  basins with major upstream dams or other configured major influences.
-
-Station-led hydrometry TOML files must declare
-`profile = "gauged_downstream_station"` explicitly. The manifest still exposes
-`strategy.effective_profile`, but it is no longer used to keep legacy
-hydrometry configurations without a profile alive. DEM-light runs must likewise
-declare `profile = "area_only"` explicitly.
-
-
-## Manifest Validation
-
-`site_selection_manifest.json` is the official hand-off contract. Use
-`validate_selection_manifest()` to check that the manifest has the expected
-schema version and that referenced output files exist. The HTML report is intentionally derived from the manifest and its
-declared artifacts; it should not become a second source of truth.
-
-Downstream steps receive the manifest path, not a copied catalog path:
-`hmp site import --selection <manifest>` reads `selected_sites_csv` through it.
-This keeps site-selection output naming, review artifacts and later catalog
-schema additions behind one stable contract.
+# spatial/site_selection
+
+This package picks the catchments that fit a study from a large set of possible ones. A candidate is an outlet, taken from a gauging station or sampled on the stream network of a DEM. The package delineates the catchment above each outlet, adds what is known about it (stations, piezometers, dams, geology), applies the criteria of the selection file and keeps or rejects each basin with a written reason. It writes the audit files, the selected sites and a manifest. It does not run a solver and it does not read any data provider. The data and the run of a selection file are in `hydromodpy/workflow/site_selection/`.
+
+The package also holds the `terrain-delineate` capability, in `hydrology/`. It delineates catchments from a DEM and a list of outlets inside one job directory and seals it.
+
+## How a selection is made
+
+A selection goes through these steps. The functions of `pipelines/build.py` run them in this order.
+
+1. The tables of the selection file are read into `SiteSelectionFile` (`config/`).
+2. The candidates are made (`candidates/`). Station outlets come from loaded `PointRecord` objects. Generated outlets are sampled on the accumulation raster of the DEM. An outlet can be moved onto a reference stream network first.
+3. The flow products of the DEM are built and one catchment is delineated per outlet (`hydrology/`). The result is a `DelineatedCatchment` (`domain/`).
+4. Each catchment is annotated with the influence, geology and piezometer layers of the file (`evidence/`).
+5. The criteria give one component per criterion and per basin, then the selection keeps or rejects the basin (`evaluation/`). The selection also applies the spatial quota, the spacing between outlets and the overlap rule.
+6. The components and the decisions become normalized records (`decisions/`).
+7. The files and the manifest are written (`outputs/`).
+
+```text
+selection file ([site_selection], [hydrometry], [data.dem])
+        |
+        |  config/                 SiteSelectionFile
+        v
+   candidate outlets               candidates/
+        |
+        |  hydrology/              flow products, then one catchment per outlet
+        v
+   DelineatedCatchment             domain/
+        |
+        |  evidence/               influence, geology, piezometers
+        |  evaluation/             criteria, then keep or reject
+        |  decisions/              DecisionRecord, EvidenceRecord
+        v
+   SelectionResult  ------>  outputs/  ------>  files + site_selection_manifest.json
+```
+
+The workflow layer calls the builders of `pipelines/build.py`. It hands them the loaded station records, the DEM path and the fetcher of the reference network, so this package never reads Hub'Eau, a data store or a network.
+
+## The input modes
+
+`[site_selection.input] mode` names the action. The workflow layer dispatches it.
+
+| mode | what runs |
+|------|-----------|
+| `plan_only` | the file is checked and the plan manifest is written, no spatial work |
+| `hydrometry` | station-led selection, with the stations loaded through the data layer |
+| `generated_candidates` | outlets sampled on the DEM stream network (`candidate_mode = "network_sampling"`) |
+| `dem_area_light` | a light selection on basin area only |
+| `delineated_catchments` | the selection stage alone, on a CSV of catchments delineated beforehand |
+
+Two strategy profiles are supported. `gauged_downstream_station` goes with `principle = "observation_led"` and station outlets. `area_only` goes with `criteria_crossing` and area as the only axis. `config/strategy_config.py` refuses any other mix. The keys, their defaults and their values are in the generated reference, so they are not repeated here.
+
+## Outlets and the reference network
+
+An outlet is snapped in one of two ways, set by `[site_selection.outlets] snap_strategy`.
+
+- `dem_accumulation` moves the point onto the accumulation raster of the DEM. It searches a square window whose width is `snap_dist_m`, so a point can move further than `snap_dist_m` along a diagonal (see `snap_window_cells` in `terrain/port.py`).
+- `bdtopage_then_dem` first projects the point onto a reference stream network (BD Topage, or a network the user gives) and refuses the site when the network is farther than `reference_network_max_distance_m`. Then it snaps on the DEM as in the first case.
+
+The reference network only keeps the outlet near the observed station and river line. The catchment is still delineated from the DEM flow direction and accumulation. `hydrology/reference_network.py` does the snapping and receives the download function as an argument, so it imports nothing from `data`.
+
+Station locations come in WGS84 from Hub'Eau. `candidates/outlets.py` projects them to the CRS of the DEM before the delineation, and uses the Lambert-93 coordinates of the provider when it gives them.
+
+## Criteria and decisions
+
+Each module of `evaluation/criteria/` holds one or more criterion families: basin area, flow stations, station influence, piezometers, influence flags and geology. A criterion can reject, warn, score, stratify or only report, as its `mode` says. A basin with no influence flag gets the status `missing`, so it is never rejected for lack of data. Only a flag that is explicitly true, and that the file lists as a rejection flag, fails the basin.
+
+`station_influence` reads the metadata of the station. It cannot tell that a dam exists upstream of the basin, which needs the influence layers of `evidence/influence.py`.
+
+The criteria components go to `criteria_components.jsonl`. `decisions/` turns each component and each final decision into a `DecisionRecord` with one of `ACCEPT`, `WARNING`, `REJECT` or `NEUTRAL`, and `decisions/aggregate.py` gives one summary row per catchment. Evidence rows carry an `evidence_ref` (`domain/refs.py`) so a decision can point to the feature behind it.
+
+## The output files
+
+A completed run always writes the audit core: `criteria_components.jsonl`, `site_selection_decisions.csv`, `site_selection_decisions.jsonl` and `site_selection_manifest.json`, plus `site_selection_evidence.jsonl` when there is evidence. The `write_*` switches of `[site_selection.output]` turn on or off the selected and rejected sites as CSV, the outlets and basins as GeoJSON, GeoParquet or one GeoPackage, and the evidence layers. A generated run also writes `candidate_generation.jsonl`, `candidate_outlets.geojson` and `generated_dem_network.geojson`. `write_report_html` adds `review/index.html` and its map, drawn by `hydromodpy/reporting/site_selection/`.
+
+The manifest is the hand-off. A consumer reads it and never a fixed file name, because the manifest says which file holds each output key. `selected_sites.csv` is the table that `hmp site import --selection` reads into the site catalog, and its columns are `SELECTED_SITES_FIELDS` in `outputs/schemas.py`. The schema and the check of the manifest are in `hydromodpy/schema/site_selection_manifest.py` (`validate_selection_manifest`).
+
+A plan-only run writes `site_selection_plan.json` instead, built in the workflow layer.
+
+## The folder map
+
+```text
+site_selection/
+├── config/                       the tables of the selection file
+│   ├── site_selection_config.py  SiteSelectionConfig, SiteSelectionFile, input, output and map context
+│   ├── strategy_config.py        [strategy] and [territory]
+│   ├── outlets_config.py         [outlets] and [spatial_selection]
+│   ├── dem_config.py             the DEM and hydrology tables, and the light area mode
+│   ├── criteria_config.py        one table per criterion family, and their layers
+│   └── value_types.py            the literal value types, with the text of each value
+│
+├── domain/                       the records that every phase shares
+│   ├── candidate_outlet.py       CandidateOutlet
+│   ├── delineated_catchment.py   DelineatedCatchment, snapped outlet and its distance
+│   ├── observation_evidence.py   ObservationEvidence, what a station or piezometer says
+│   ├── station_influence.py      the influence of a station, from its metadata
+│   ├── attribute_values.py       one text, number or flag out of the attributes of a site
+│   ├── refs.py                   stable evidence_ref strings
+│   ├── watershed.py              read the watershed file of a delineation
+│   └── export_values.py          values the vector exports write
+│
+├── candidates/                   from stations or the DEM network to outlets
+│   ├── outlets.py                outlets from station records, and thinning
+│   ├── generation.py             outlets sampled on the DEM stream network
+│   └── pipeline.py               the candidate phases, territory and reference network loading
+│
+├── hydrology/                    from outlets to catchments
+│   ├── flow_products.py          the flow products of the DEM for a selection
+│   ├── delineation.py            one catchment per outlet, and the batch
+│   ├── reference_network.py      snap an outlet on a reference stream network
+│   ├── capability.py             the terrain-delineate declaration and its request model
+│   └── worker.py                 terrain-delineate, one job directory in and one seal out
+│
+├── evidence/                     what is known about each catchment
+│   ├── annotations.py            the annotation phase over all the layers
+│   ├── observations.py           observation evidence from records or attributes
+│   ├── influence.py              dams, withdrawals and regulated reaches upstream
+│   ├── geology_layers.py         dominant geology and surface fractions
+│   └── piezometer_layers.py      piezometers inside each basin
+│
+├── evaluation/                   keep or reject
+│   ├── selection.py              SelectionResult, quota, spacing and overlap
+│   ├── spatial_filters.py        the overlap fraction between two basins
+│   └── criteria/                 one module per criterion family
+│       ├── common.py             CriteriaComponent, the shared primitives
+│       ├── area.py               basin area
+│       ├── observations.py       flow stations, station influence, piezometers
+│       ├── influence.py          influence flags
+│       └── geology.py            geology
+│
+├── decisions/                    the audit records
+│   ├── models.py                 DecisionRecord, EvidenceRecord, SiteDecisionSummary
+│   ├── records.py                records from the components and the decisions
+│   ├── evidence_records.py       evidence records from each kind of evidence
+│   └── aggregate.py              one summary row per catchment
+│
+├── outputs/                      the files of a run
+│   ├── writer.py                 the core outputs, the entry point of the phase
+│   ├── manifest.py               build and write the manifest, call the report renderer
+│   ├── schemas.py                the columns of selected_sites.csv and its row builder
+│   ├── tabular.py                CSV and JSONL writers
+│   ├── decision_files.py         decision, evidence and summary files
+│   ├── evidence_files.py         observation and evidence outputs
+│   ├── evidence_layers.py        vector layers of the geology and influence evidence
+│   ├── candidate_files.py        candidate generation files
+│   ├── features.py               properties and geometries of the vector exports
+│   ├── geojson.py                GeoJSON writers
+│   ├── geospatial.py             GeoPackage and GeoParquet writers
+│   └── cleanup.py                remove the intermediate rasters
+│
+└── pipelines/                    the whole build
+    └── build.py                  the builders of each input mode and the selection stage
+```
+
+No `__init__.py` re-exports a name. Each name is imported from the module that defines it.
+
+## Where to start
+
+| To change | Open first |
+|-----------|------------|
+| a key of the selection file or its default | `config/`, the table that owns it |
+| how outlets are taken from stations | `candidates/outlets.py` |
+| how outlets are sampled on the DEM network | `candidates/generation.py` |
+| the territory a search covers | `candidates/pipeline.py` |
+| how an outlet is snapped | `hydrology/reference_network.py`, then `hydrology/delineation.py` |
+| a criterion | `evaluation/criteria/<family>.py` |
+| the quota, the spacing or the overlap rule | `evaluation/selection.py` |
+| what a layer says about a basin | `evidence/` |
+| the text or the status of a decision | `decisions/records.py` |
+| a column of `selected_sites.csv` | `outputs/schemas.py` |
+| a written file or the manifest | `outputs/`, then `hydromodpy/schema/site_selection_manifest.py` |
+| the order of the phases | `pipelines/build.py` |
+| what `terrain-delineate` accepts or writes | `hydrology/capability.py` |
+| what `terrain-delineate` does | `hydrology/worker.py` |
+
+## Rules between the folders and with the rest of HydroModPy
+
+The folders read each other in one direction, from the records and the config up to the pipeline.
+
+- `config/` and `domain/` import only themselves.
+- `hydrology/` and `evidence/` read `config/` and `domain/`.
+- `evaluation/` reads `config/` and `domain/`.
+- `candidates/` reads `config/`, `domain/` and `hydrology/reference_network.py`.
+- `decisions/` reads `domain/`, `evaluation/` and `evidence/`.
+- `outputs/` reads every other folder but `pipelines/`.
+- `pipelines/` reads every other folder except `decisions/`. Nothing else in the package imports it, the workflow does.
+
+Outside the package, the code imports these layers, and no others:
+
+- `core`: CRS helpers, the config base classes (`config_kit`), exceptions, logging, the French administrative names and the GeoParquet writer.
+- `schema`: the site selection manifest (`outputs/manifest.py`), and the job documents, the capability declaration and the media types (`hydrology/capability.py`, `hydrology/worker.py`).
+- `spatial`: `geographic/core` (flow products, catchment from a point), `delineation/registry.py`, `terrain/registry.py`, `job_inputs.py`, and `administrative/france.py`.
+
+Two imports of HydroModPy are inside a function. `candidates/pipeline.py` imports `administrative/france.py` only when the territory is a set of French departments or regions. `config/site_selection_config.py` imports `terrain/registry.py` in the validator of `terrain_engine`, which runs only when an engine is named. Some geospatial libraries (geopandas, shapely, pyproj) are also imported inside the functions that use them.
+
+The package never imports `data`, `workflow`, `reporting` or `display`. The BD Topage download function and the report renderers are arguments that the workflow layer passes in. The layer rules are checked by `tests/unit/architecture/`.
+
+## What lives outside the package
+
+- `hydromodpy/workflow/site_selection/` reads the TOML, loads the hydrometry records and the DEM through `data`, resolves the paths, writes the plan manifest and calls the builders here. Its map is in its own `README.md`.
+- `hydromodpy/cli/commands/site/select.py` is `hmp site select`. It passes the renderers of `hydromodpy/reporting/site_selection/` to the run.
+- `hydromodpy/data/sites/` is the site catalog. `importers.py` reads `selected_sites.csv` through the manifest (`hmp site import --selection`) and holds the BD Topage download.
+- `hydromodpy/schema/site_selection_manifest.py` holds the manifest name, its writer and its check.
+- `hydromodpy/spatial/terrain/` holds the flow-routing engines that `hydrology/` calls. `hydromodpy/schema/processes/terrain-delineate@1.json` is the generated description of the capability.
+
+## Changing the code
+
+The tests mirror the code under `tests/unit/site_selection/`, one folder per folder, with `test_<module>.py` for most modules. A few small modules are tested through the module that calls them. For example `evidence/annotations.py` runs inside the whole build of `tests/unit/site_selection/pipelines/test_build.py`. The shared builders are in `tests/_helpers/site_selection_cases.py`. They write a selection TOML, a basin and a vector layer, and give fake flow products.
+
+Other tests guard the package.
+
+- `tests/integration/site_selection/test_terrain_delineate_seals_a_job.py` runs `terrain-delineate` on a job directory.
+- `tests/unit/schema/test_process_descriptions.py` and `tests/unit/schema/test_a_chain_feeds_one_job_from_another.py` read its declaration.
+- `tests/contract/test_terrain_engine_contract.py` holds what every terrain engine must do.
+- `tests/unit/architecture/test_site_selection_has_no_legacy_names.py` refuses retired names in this package, in the workflow package and in the CLI command.
+
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/spatial/site_selection/*` drops below 95.5. The floor only goes up.
+
+```bash
+pytest tests/unit/site_selection -q
+```
+
+```bash
+pytest tests/unit/architecture -q
+```
+
+A new key of the selection file is a field of the Pydantic model in `config/`, with its description. The parameter page is built from that model, so the key needs no other page.
+
+## Documentation
+
+- `docs/source/reference/parameters/site-selection-file.md` lists every key of the selection file. It is generated from `config/`.
+- `docs/source/reference/cli/site.md` documents `hmp site select`.
+- `docs/source/contribute/architecture/how-to/add-a-block-html-report.rst` shows how the review map of a selection is drawn.

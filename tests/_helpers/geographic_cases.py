@@ -218,17 +218,14 @@ class BenchTerrain:
 
         self.top.append(str(kwargs["dem_init_path"]))
         paths, source = kwargs["paths"], kwargs["dem_init_path"]
+        unused = [
+            f"watershed{z}_{k}" for z in ("_box_buff", "_buff", "") for k in ("fill", "direc")
+        ]
         return DomainRasterProducts(
             watershed_box_buff_dem=bench_clip(source, paths.watershed_box_buff_dem),
-            watershed_box_buff_fill="unused.tif",
-            watershed_box_buff_direc="unused.tif",
             watershed_buff_dem=bench_clip(source, paths.watershed_buff_dem),
-            watershed_buff_fill="unused.tif",
-            watershed_buff_direc="unused.tif",
             watershed_dem=bench_clip(source, paths.watershed_dem, blank_cols=BENCH_BLANK_COLS),
-            watershed_fill="unused.tif",
-            watershed_direc="unused.tif",
-            watershed_contour_tif="unused.tif",
+            **dict.fromkeys([*unused, "watershed_contour_tif"], "unused.tif"),
         )
 
 
@@ -409,16 +406,69 @@ def write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-CASE_RIVER_NETWORK = {
-    "enabled": True,
-    "threshold_mode": "area_km2",
-    "threshold_area_km2": 0.5,
-    "prune_short_streams": False,
-    "min_stream_length_m": 0.0,
-    "compute_strahler_order": True,
-    "compute_stream_links": True,
-    "all_vertices": False,
-}
+def golden_reference(golden: Path, actual: dict, update_goldens: bool) -> dict | None:
+    """Rewrite *golden* under ``--update-goldens`` and return None, else read it back."""
+    import pytest
+
+    if update_goldens:
+        write_json(golden, actual)
+        return None
+    if not golden.exists():
+        pytest.fail(f"Missing golden {golden}. Run tests with --update-goldens to generate it.")
+    return json.loads(golden.read_text(encoding="utf-8"))
+
+
+def within(expected: dict, tolerances: dict[str, float]) -> dict:
+    """*expected* with each key of *tolerances* matched to that absolute tolerance."""
+    import pytest
+
+    return {
+        key: pytest.approx(value, abs=tolerances[key], rel=0.0) if key in tolerances else value
+        for key, value in expected.items()
+    }
+
+
+def outlet_document(**sections) -> GeographicConfig:
+    """An outlet document on a DEM that is never read, with extra sections."""
+    return GeographicConfig.from_outlet(x=1.0, y=2.0, dem="dem.tif", **sections)
+
+
+def capped_breach_report():
+    """What a capped breach of 0.5 m and 200 m did, as the engine reports it."""
+    from hydromodpy.spatial.terrain import CappedBreachReport
+
+    return CappedBreachReport(
+        cells_lowered=4,
+        cells_raised=12,
+        max_lowering_m=0.56,
+        max_raise_m=0.2,
+        max_dist_cells=8,
+        max_cost_m=0.5,
+        move_threshold_m=0.01,
+    )
+
+
+def capped_breach_flow_products():
+    """Flow products of a capped breach whose conditioned DEM carries its report."""
+    from dataclasses import replace
+
+    from hydromodpy.spatial.terrain import CappedBreach
+    from tests._helpers.terrain_doubles import fake_flow_products
+
+    flow_products = fake_flow_products(method=CappedBreach(0.5, 200.0))
+    directions = flow_products.accumulation.directions
+    conditioned = replace(directions.conditioned_dem, breach_report=capped_breach_report())
+    directions = replace(directions, conditioned_dem=conditioned)
+    return type(flow_products)(
+        accumulation=replace(flow_products.accumulation, directions=directions)
+    )
+
+
+CASE_RIVER_NETWORK = dict(
+    enabled=True, threshold_mode="area_km2", threshold_area_km2=0.5, prune_short_streams=False,
+    min_stream_length_m=0.0, compute_strahler_order=True, compute_stream_links=True,
+    all_vertices=False,
+)  # fmt: skip
 NAIZIN = {"site": "naizin", "dem": "regional_dem_naizin.tif", "x": 265611.933, "y": 6784182.776}
 NANCON = {"site": "nancon", "dem": "DEM_armorican_massif.tif", "x": 389285.910, "y": 6816518.749}
 
@@ -459,18 +509,9 @@ def outlet_case_toml(
 
 
 GOLDEN_FLOAT_KEYS = (
-    "catch_area_km2",
-    "dx",
-    "dy",
-    "xmin",
-    "xmax",
-    "ymin",
-    "ymax",
-    "mean_box_buff",
-    "mean_core",
-    "top_left_box_buff",
-    "center_core",
-)
+    "catch_area_km2", "dx", "dy", "xmin", "xmax", "ymin", "ymax",
+    "mean_box_buff", "mean_core", "top_left_box_buff", "center_core",
+)  # fmt: skip
 
 
 def delineation_signature(geo) -> dict:
@@ -501,12 +542,9 @@ def assert_delineation_golden(actual: dict, golden: Path, update_goldens: bool) 
     """Rewrite *golden* under ``--update-goldens``, else compare *actual* to it."""
     import pytest
 
-    if update_goldens:
-        write_json(golden, actual)
+    expected = golden_reference(golden, actual, update_goldens)
+    if expected is None:
         return
-    if not golden.exists():
-        pytest.fail(f"Missing golden {golden}. Run tests with --update-goldens to generate it.")
-    expected = json.loads(golden.read_text(encoding="utf-8"))
     for key in ("shape_box_buff", "shape_buff", "shape_core", "crs_proj", "dep_code"):
         assert actual[key] == expected[key], key
     for key in GOLDEN_FLOAT_KEYS:
@@ -528,3 +566,38 @@ def river_network_summary_signature(summary: dict) -> dict:
         "catchment_area_km2": float(summary["catchment_area_km2"]),
         "drainage_density_km_per_km2": float(summary["drainage_density_km_per_km2"]),
     }
+
+
+# geo-core
+
+
+def write_lines(path: Path | str, n: int = 1, **columns: list) -> Path:
+    """Write *n* west-east lines of 1 km, 100 m apart, as a vector file."""
+    from shapely.geometry import LineString
+
+    lines = [LineString([(0.0, 100.0 * i), (1000.0, 100.0 * i)]) for i in range(n)]
+    return write_features(path, lines, **columns)
+
+
+def hydrography_load_result(array=((0.0, 0.0), (0.0, 0.0)), **metadata):
+    """The load result of the hydrography loader: one stream raster, paths as metadata."""
+    import xarray as xr
+
+    from hydromodpy.data.contracts.load_result import LoadResult
+    from hydromodpy.data.contracts.spatial_field import FieldRecord
+    from hydromodpy.spatial.geographic.core.hydrographic_network import (
+        HYDROGRAPHIC_NETWORK_REFERENCE_RASTER_FORCING_NAME as field,
+    )
+
+    metadata = {key: None if value is None else str(value) for key, value in metadata.items()}
+    data = xr.Dataset({field: (("y", "x"), np.asarray(array, dtype=float))})
+    record = FieldRecord(
+        variable=field,
+        source="hydrography",
+        unit="",
+        data=data,
+        bbox=(0.0, 0.0, 2.0, 2.0),
+        crs=LAMBERT,
+        metadata={"array_name": field, **metadata},
+    )
+    return LoadResult(fields=[record])

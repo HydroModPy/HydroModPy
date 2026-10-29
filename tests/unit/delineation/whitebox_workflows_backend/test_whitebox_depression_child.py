@@ -1,9 +1,8 @@
 """Whitebox depression removal in a child interpreter.
 
-Whitebox Workflows 1.3.5 can lose a thread race inside ``fill_depressions`` and
-then calls ``process::exit(1)`` from its panic hook. These tests pin what the
-child buys: the same raster as an in-process call, a rerun on that race only,
-and a raised error with Whitebox's own message on anything else.
+Whitebox Workflows 1.3.5 can lose a thread race in ``fill_depressions`` and exit
+the process. The child returns the in-process raster, reruns on that race only,
+and raises Whitebox's own message on anything else.
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -35,14 +35,16 @@ RACE_STDERR = (
 
 
 @pytest.fixture
-def pitted_dem(tmp_path) -> Path:
-    """A plane draining east with one pit and one flat, in float32."""
+def pitted(tmp_path):
+    """A backend and a plane draining east with one pit and one flat, in float32."""
     surface = 100.0 - np.mgrid[0:40, 0:40][1].astype("float64")
     surface[20, 20] -= 30.0
     surface[5:9, 5:9] = 80.0
-    return write_geotiff(
+    dem = write_geotiff(
         tmp_path / "dem.tif", surface, origin=(300000.0, 6800000.0), cell=25.0, nodata=-9999.0, dtype="float32"
     )  # fmt: skip
+    backend = WhiteboxWorkflowsBackend()
+    return backend, backend.raster.read_raster(str(dem))
 
 
 def _cells(raster) -> bytes:
@@ -55,23 +57,16 @@ def _cells(raster) -> bytes:
     [
         ("fill_depressions_raster", "fill_depressions", {}),
         ("breach_depressions_raster", "breach_depressions_least_cost", {}),
-        (
-            "breach_depressions_raster",
-            "breach_depressions_least_cost",
-            {"max_dist": 4, "max_cost": 2.0, "fill_deps": True},
-        ),
+        ("breach_depressions_raster", "breach_depressions_least_cost", {"max_dist": 4, "max_cost": 2.0, "fill_deps": True}),
     ],
-)
+)  # fmt: skip
 def test_the_child_returns_the_raster_an_in_process_call_returns(
-    pitted_dem, correction, tool, options
+    pitted, correction, tool, options
 ) -> None:
-    backend = WhiteboxWorkflowsBackend()
-    dem = backend.raster.read_raster(str(pitted_dem))
-
+    backend, dem = pitted
     from_child = getattr(backend.flow, correction)(dem, **options)
     with backend.raster.single_threaded():
         in_process = getattr(backend.raster.env, tool)(dem, **options)
-
     assert _cells(from_child) == _cells(in_process)
     assert from_child.configs.data_type == in_process.configs.data_type
     assert from_child.configs.nodata == in_process.configs.nodata
@@ -93,80 +88,53 @@ def _scripted_run(monkeypatch, outcomes: list[str | None]) -> list[list[str]]:
     return calls
 
 
-def test_a_child_that_lost_the_race_is_run_again_and_says_so(
-    monkeypatch, pitted_dem, caplog
-) -> None:
-    backend = WhiteboxWorkflowsBackend()
-    dem = backend.raster.read_raster(str(pitted_dem))
+def test_a_child_that_lost_the_race_is_run_again_and_says_so(monkeypatch, pitted, caplog) -> None:
+    backend, dem = pitted
     expected = _cells(backend.flow.fill_depressions_raster(dem))
     calls = _scripted_run(monkeypatch, [RACE_STDERR, None])
-
     with caplog.at_level(logging.WARNING):
         filled = backend.flow.fill_depressions_raster(dem)
-
     assert len(calls) == 2
     assert _cells(filled) == expected
     assert "lost the thread race" in caplog.text
     assert "Error unwrapping 'output'" in caplog.text
 
 
-def test_a_race_on_every_attempt_is_raised(monkeypatch, pitted_dem) -> None:
-    backend = WhiteboxWorkflowsBackend()
-    dem = backend.raster.read_raster(str(pitted_dem))
-    calls = _scripted_run(monkeypatch, [RACE_STDERR] * isolated.MAX_ATTEMPTS)
-
-    with pytest.raises(TerrainError, match="Error unwrapping 'output'"):
-        backend.flow.fill_depressions_raster(dem)
-
-    assert len(calls) == isolated.MAX_ATTEMPTS
-
-
-def test_any_other_failure_is_raised_at_once_with_the_child_message(
-    monkeypatch, pitted_dem
+@pytest.mark.parametrize(
+    ("outcomes", "match"),
+    [
+        ([RACE_STDERR] * isolated.MAX_ATTEMPTS, "Error unwrapping 'output'"),
+        (["thread '<unnamed>' panicked at src/tools/hydrology/fill_depressions.rs:80:9:\nboom\n"], "boom"),
+    ],
+    ids=["a_race_on_every_attempt", "any_other_failure_at_once"],
+)  # fmt: skip
+def test_a_child_failure_is_raised_with_the_child_message(
+    monkeypatch, pitted, outcomes, match
 ) -> None:
-    backend = WhiteboxWorkflowsBackend()
-    dem = backend.raster.read_raster(str(pitted_dem))
-    other = "thread '<unnamed>' panicked at src/tools/hydrology/fill_depressions.rs:80:9:\nboom\n"
-    calls = _scripted_run(monkeypatch, [other])
-
-    with pytest.raises(TerrainError, match="boom"):
+    backend, dem = pitted
+    expected_calls = len(outcomes)
+    calls = _scripted_run(monkeypatch, outcomes)
+    with pytest.raises(TerrainError, match=match):
         backend.flow.fill_depressions_raster(dem)
-
-    assert len(calls) == 1
-
-
-def test_a_real_child_failure_is_raised_with_its_message() -> None:
-    """A real child failing, not a scripted one: its own message reaches the caller."""
-
-    class _EnvThatWritesNothing:
-        """The parent writes no source, so the child has nothing to read."""
-
-        @staticmethod
-        def write_raster(raster, path, compress=False) -> None:
-            return None
-
-    with pytest.raises(TerrainError, match=r"exit code 1, attempt 1 of \d"):
-        isolated.run_depression_tool(
-            _EnvThatWritesNothing(),
-            "fill_depressions",
-            object(),
-            options={},
-            max_procs=1,
-            verbose=False,
-        )
+    assert len(calls) == expected_calls
 
 
-def test_only_the_depression_tools_run_in_a_child() -> None:
-    with pytest.raises(ValueError, match="not a Whitebox depression tool"):
-        isolated.run_depression_tool(
-            object(), "d8_pointer", object(), options={}, max_procs=1, verbose=False
-        )
+@pytest.mark.parametrize(
+    ("env", "tool", "error", "match"),
+    [
+        # A real child failing, not a scripted one: the parent writes no source.
+        (SimpleNamespace(write_raster=lambda raster, path, compress=False: None), "fill_depressions",
+         TerrainError, r"exit code 1, attempt 1 of \d"),
+        (object(), "d8_pointer", ValueError, "not a Whitebox depression tool"),
+    ],
+    ids=["a_real_child_failure_with_its_message", "only_the_depression_tools_run_in_a_child"],
+)  # fmt: skip
+def test_a_child_that_cannot_run_raises_with_its_message(env, tool, error, match) -> None:
+    with pytest.raises(error, match=match):
+        isolated.run_depression_tool(env, tool, object(), options={}, max_procs=1, verbose=False)
 
 
-def test_a_verbose_backend_relays_the_log_of_the_child(monkeypatch, capsys, pitted_dem) -> None:
+def test_a_verbose_backend_relays_the_log_of_the_child(monkeypatch, capsys, pitted) -> None:
     monkeypatch.setenv("HMP_WHITEBOX_VERBOSE", "1")
-    backend = WhiteboxWorkflowsBackend()
-
-    backend.flow.fill_depressions_raster(backend.raster.read_raster(str(pitted_dem)))
-
+    WhiteboxWorkflowsBackend().flow.fill_depressions_raster(pitted[1])
     assert "fill" in capsys.readouterr().out.lower()

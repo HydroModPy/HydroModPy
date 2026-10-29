@@ -12,12 +12,7 @@ from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.workflow.site_selection import build_from_toml
-from hydromodpy.workflow.site_selection.build_from_toml import (
-    build_dem_area_light_site_selection_from_toml,
-    build_generated_site_selection_from_toml,
-    build_observed_site_selection_from_toml,
-    build_site_selection_from_hydrometry_config,
-)
+from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
     delineation_spy,
     dem_loader_spy,
@@ -34,6 +29,11 @@ pytestmark = pytest.mark.fast
 
 HUBEAU = {"date_start": "2020-01-01", "date_end": "2020-01-02", "sources": [{"source": "hubeau"}]}
 TERRITORY = {"mode": "bbox", "bbox": [300000.0, 6800000.0, 310000.0, 6810000.0]}
+BUILDS = {
+    "hydrometry_config": build_from_toml.build_site_selection_from_hydrometry_config,
+    "observed": build_from_toml.build_observed_site_selection_from_toml,
+    "generated": build_from_toml.build_generated_site_selection_from_toml,
+}
 
 
 def _data_dem(path: str = "data/dem.tif") -> dict:
@@ -48,25 +48,21 @@ def _observed(tmp_path: Path, *, dem: dict | None = None, territory=TERRITORY) -
 
 
 def _fake_dem(tmp_path: Path) -> Path:
-    dem = tmp_path / "data" / "dem.tif"
-    dem.parent.mkdir(exist_ok=True)
-    dem.write_text("fake dem", encoding="utf-8")
-    return dem
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "dem.tif").write_text("fake dem", encoding="utf-8")
+    return tmp_path / "data" / "dem.tif"
 
 
 def test_hydrometry_records_from_the_loader_feed_the_build(tmp_path):
     calls: dict = {}
     config = HydrometryConfig.model_validate(HUBEAU)
 
-    result = build_site_selection_from_hydrometry_config(
-        config=make_config(tmp_path),
-        hydrometry_config=config,
+    result = BUILDS["hydrometry_config"](
+        config=make_config(tmp_path), hydrometry_config=config,
         hydrometry_loader=lambda **kwargs: calls.update(kwargs) or [make_record("J123456701")],
-        flow_products_builder=flow_spy(),
-        delineation_builder=delineation_spy(),
-        area_reader=lambda _path: 100.0,
-        write_outputs=False,
-    )
+        flow_products_builder=flow_spy(), delineation_builder=delineation_spy(),
+        area_reader=lambda _path: 100.0, write_outputs=False,
+    )  # fmt: skip
 
     assert calls["config"] is config
     assert [candidate.source_feature_id for candidate in result.candidates] == ["J123456701"]
@@ -76,24 +72,16 @@ def test_hydrometry_records_from_the_loader_feed_the_build(tmp_path):
 @pytest.mark.parametrize(
     ("dem", "territory", "dem_extent", "message", "station_x"),
     [
-        ({"source": "data"}, TERRITORY, tuple(TERRITORY["bbox"]), "loading hydrometry", 352000.0),
-        (
-            {"source": "data", "request_extent": "outlets", "margin_km": 2.0},
-            TERRITORY,
-            (350000.0, 6810000.0, 354000.0, 6814000.0),
-            "DEM extent from 1 station outlets",
-            352000.0,
-        ),
-        (
-            {"source": "data", "request_extent": "outlets"},
-            {**TERRITORY, "country": None},
-            tuple(TERRITORY["bbox"]),
-            "DEM extent falls back to territory",
-            -1.65,
-        ),
+        pytest.param({"source": "data"}, TERRITORY, tuple(TERRITORY["bbox"]), "loading hydrometry",
+                     352000.0, id="territory"),
+        pytest.param({"source": "data", "request_extent": "outlets", "margin_km": 2.0}, TERRITORY,
+                     (350000.0, 6810000.0, 354000.0, 6814000.0), "DEM extent from 1 station outlets",
+                     352000.0, id="station_outlets"),
+        pytest.param({"source": "data", "request_extent": "outlets"}, {**TERRITORY, "country": None},
+                     tuple(TERRITORY["bbox"]), "DEM extent falls back to territory", -1.65,
+                     id="no_french_outlets"),
     ],
-    ids=["territory", "station_outlets", "no_french_outlets"],
-)
+)  # fmt: skip
 def test_an_observed_selection_asks_the_stations_then_the_dem_for_its_extent(
     tmp_path, dem, territory, dem_extent, message, station_x
 ):
@@ -109,16 +97,12 @@ def test_an_observed_selection_asks_the_stations_then_the_dem_for_its_extent(
         order.append("dem")
         return dem_loader_spy(dem_path, dem_calls)(**kwargs)
 
-    result = build_observed_site_selection_from_toml(
-        config_path=_observed(tmp_path, dem=dem, territory=territory),
-        dem_loader=dem_loader,
-        hydrometry_loader=hydrometry_loader,
-        flow_products_builder=flow_spy(flow_calls),
-        delineation_builder=delineation_spy(),
-        area_reader=lambda _path: 100.0,
-        write_outputs=False,
-        progress_callback=progress.append,
-    )
+    result = build_from_toml.build_observed_site_selection_from_toml(
+        config_path=_observed(tmp_path, dem=dem, territory=territory), dem_loader=dem_loader,
+        hydrometry_loader=hydrometry_loader, flow_products_builder=flow_spy(flow_calls),
+        delineation_builder=delineation_spy(), area_reader=lambda _path: 100.0,
+        write_outputs=False, progress_callback=progress.append,
+    )  # fmt: skip
 
     assert order == ["hydrometry", "dem"]
     assert dem_calls[0]["project_extent"] == pytest.approx(dem_extent)
@@ -149,32 +133,23 @@ def _fail(**_kwargs):
 def test_a_selection_whose_data_cannot_be_loaded_says_where_to_look(
     tmp_path, build, case, error, match
 ):
-    if build == "hydrometry_config":
-        with pytest.raises(error, match=match):
-            build_site_selection_from_hydrometry_config(
-                config=make_config(tmp_path),
-                hydrometry_config=HydrometryConfig.model_validate(HUBEAU),
-                hydrometry_loader=_fail,
-            )
-        return
+    observed = build == "observed"
     section = selection_section(
-        "gauged" if build == "observed" else "custom",
-        input={"mode": "hydrometry" if build == "observed" else "generated_candidates"},
-        territory=TERRITORY,
-    )
+        "gauged" if observed else "custom", territory=TERRITORY,
+        input={"mode": "hydrometry" if observed else "generated_candidates"},
+    )  # fmt: skip
     data = {} if case.get("no_dem") else {"data": _data_dem()}
     config_path = write_selection_toml(tmp_path, section, hydrometry=HUBEAU, **data)
     loaders = {"dem_loader": case.get("dem_loader", _fail)}
-    if build == "observed":
-        builder = build_observed_site_selection_from_toml
-        loaders["hydrometry_loader"] = case.get(
-            "hydrometry_loader", lambda **_: [make_record("J1")]
-        )
-    else:
-        builder = build_generated_site_selection_from_toml
+    if observed:
+        loaders["hydrometry_loader"] = case.get("hydrometry_loader", lambda **_: [make_record("J1")])  # fmt: skip
 
     with pytest.raises(error, match=match):
-        builder(config_path=config_path, **loaders)
+        if build == "hydrometry_config":
+            hydrometry = HydrometryConfig.model_validate(HUBEAU)
+            BUILDS[build](config=make_config(tmp_path), hydrometry_config=hydrometry, hydrometry_loader=_fail)  # fmt: skip
+        else:
+            BUILDS[build](config_path=config_path, **loaders)
 
 
 @pytest.mark.parametrize("build", ["hydrometry_config", "observed", "generated"])
@@ -188,12 +163,11 @@ def test_the_workflow_hands_the_bd_topage_fetcher_to_the_build(tmp_path, monkeyp
     gen = selection_section("custom", input={"mode": "generated_candidates"}, territory=TERRITORY)
     with pytest.raises(LookupError):
         if build == "hydrometry_config":
-            build_site_selection_from_hydrometry_config(config=cfg, hydrometry_config=hm, **loaders)
+            BUILDS[build](config=cfg, hydrometry_config=hm, **loaders)
         elif build == "observed":
-            build_observed_site_selection_from_toml(config_path=_observed(tmp_path), **loaders)
+            BUILDS[build](config_path=_observed(tmp_path), **loaders)
         else:
-            path = write_selection_toml(tmp_path, gen, data=_data_dem())
-            build_generated_site_selection_from_toml(config_path=path, dem_loader=dem)
+            BUILDS[build](config_path=write_selection_toml(tmp_path, gen, data=_data_dem()), dem_loader=dem)  # fmt: skip
 
     assert spy.call_args.kwargs["reference_network_fetcher"] is fetch_bdtopage_reference_network
 
@@ -201,35 +175,23 @@ def test_the_workflow_hands_the_bd_topage_fetcher_to_the_build(tmp_path, monkeyp
 def test_an_observed_selection_reads_local_stations_and_dem_through_the_data_store(tmp_path):
     stations = tmp_path / "stations"
     stations.mkdir()
-    pd.DataFrame(
-        {"id": ["J1"], "x": [305000.0], "y": [6805000.0], "crs": ["EPSG:2154"], "unit": ["m3/s"]}
-    ).to_csv(stations / "hydrometry_custom_LOC.csv", index=False)
-    pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=2), "value": [1.0, 2.0]}).to_csv(
-        stations / "hydrometry_custom_J1.csv", index=False
-    )
-    from tests._helpers.geotiffs import write_geotiff
-
-    write_geotiff(
-        tmp_path / "data" / "dem.tif", np.ones((4, 4)), origin=(300000.0, 6810000.0), cell=2500.0
-    )
+    location = {"id": ["J1"], "x": [305000.0], "y": [6805000.0], "crs": ["EPSG:2154"], "unit": ["m3/s"]}  # fmt: skip
+    pd.DataFrame(location).to_csv(stations / "hydrometry_custom_LOC.csv", index=False)
+    series = {"datetime": pd.date_range("2020-01-01", periods=2), "value": [1.0, 2.0]}
+    pd.DataFrame(series).to_csv(stations / "hydrometry_custom_J1.csv", index=False)
+    write_geotiff(tmp_path / "data" / "dem.tif", np.ones((4, 4)), origin=(300000.0, 6810000.0), cell=2500.0)  # fmt: skip
     hydrometry = {**HUBEAU, "sources": [{"source": "custom", "path": "stations"}]}
     section = selection_section("gauged", input={"mode": "hydrometry"}, dem={"source": "data"})
-    config_path = write_selection_toml(
-        tmp_path, section | {"territory": TERRITORY}, hydrometry=hydrometry, data=_data_dem()
-    )
+    section["territory"] = TERRITORY
+    config_path = write_selection_toml(tmp_path, section, hydrometry=hydrometry, data=_data_dem())
     flow_calls: dict = {}
 
-    result = build_observed_site_selection_from_toml(
-        config_path=config_path,
-        flow_products_builder=flow_spy(flow_calls),
-        delineation_builder=delineation_spy(),
-        area_reader=lambda _path: 100.0,
-        write_outputs=False,
-    )
+    result = build_from_toml.build_observed_site_selection_from_toml(
+        config_path=config_path, flow_products_builder=flow_spy(flow_calls),
+        delineation_builder=delineation_spy(), area_reader=lambda _path: 100.0, write_outputs=False,
+    )  # fmt: skip
 
-    assert [(one.source_feature_id, one.x, one.y) for one in result.candidates] == [
-        ("J1", 305000.0, 6805000.0)
-    ]
+    assert [(one.source_feature_id, one.x, one.y) for one in result.candidates] == [("J1", 305000.0, 6805000.0)]  # fmt: skip
     assert Path(flow_calls["dem_init_path"]).is_file()
     assert (tmp_path / "out" / "data").is_dir()
 
@@ -243,30 +205,24 @@ def test_generated_candidates_write_their_audit_and_their_reference_score(tmp_pa
     dem = write_accumulation_raster(tmp_path / "data" / "dem.tif", np.ones((3, 3)))
     river = LineString([(0.0, 25.0), (30.0, 25.0)])
     gpd.GeoDataFrame(geometry=[river], crs="EPSG:2154").to_file(tmp_path / "river.gpkg")
+    outlets = {
+        "max_generated_candidates": 2, "min_distance_between_outlets_km": 0.01,
+        "reference_network_source": "custom", "reference_network_path": "river.gpkg" if scored else None,
+    }  # fmt: skip
     section = selection_section(
-        "custom",
-        input={"mode": "generated_candidates"},
-        dem={"source": "data"},
+        "custom", input={"mode": "generated_candidates"}, dem={"source": "data"}, outlets=outlets,
         strategy={"principle": "criteria_crossing", "primary_axes": ["area"]},
         territory={"mode": "bbox", "regions": [], "bbox": [0.0, 0.0, 30.0, 30.0]},
         hydrology={"network_threshold_area_km2": 0.0001},
-        outlets={
-            "max_generated_candidates": 2,
-            "min_distance_between_outlets_km": 0.01,
-            "reference_network_source": "custom",
-            "reference_network_path": "river.gpkg" if scored else None,
-        },
         criteria={"area": {"mode": "hard_reject", "hard_min_area_km2": 0.001}},
-    )
+    )  # fmt: skip
     dem_calls, calls = [], []
 
-    result = build_generated_site_selection_from_toml(
+    result = build_from_toml.build_generated_site_selection_from_toml(
         config_path=write_selection_toml(tmp_path, section, data=_data_dem()),
-        dem_loader=dem_loader_spy(dem, dem_calls),
-        flow_products_builder=flow_spy(correc=dem, acc=acc),
-        delineation_builder=delineation_spy(calls, size=20.0),
-        area_reader=lambda _path: 0.01,
-    )
+        dem_loader=dem_loader_spy(dem, dem_calls), flow_products_builder=flow_spy(correc=dem, acc=acc),
+        delineation_builder=delineation_spy(calls, size=20.0), area_reader=lambda _path: 0.01,
+    )  # fmt: skip
 
     assert dem_calls[0]["project_extent"] == (0.0, 0.0, 30.0, 30.0)
     assert len(calls) == 2
@@ -277,9 +233,7 @@ def test_generated_candidates_write_their_audit_and_their_reference_score(tmp_pa
     distance = result.candidates[0].attributes.get("reference_network_distance_m")
     assert distance == (20.0 if scored else None)
     paths = result.output_paths
-    audit = [
-        json.loads(line) for line in paths["candidate_generation_jsonl"].read_text().splitlines()
-    ]
+    audit = [json.loads(line) for line in paths["candidate_generation_jsonl"].read_text().splitlines()]  # fmt: skip
     assert [row["status"] for row in audit] == ["accepted", "accepted", "rejected"]
     assert audit[-1]["rejection_reason"] == "max_generated_candidates_reached"
     outlets = json.loads(paths["candidate_outlets_geojson"].read_text(encoding="utf-8"))
@@ -297,41 +251,29 @@ def test_the_dem_area_light_selection_writes_its_diagnostics(tmp_path):
     acc[0, 0], acc[9, 9] = 100.0, 99.0
     acc_path = write_accumulation_raster(tmp_path / "acc_cells.tif", acc, cell_size=1000.0)
     dem = write_accumulation_raster(tmp_path / "dem.tif", np.ones((10, 10)), cell_size=1000.0)
+    territory = {"mode": "admin_departments", "regions": [], "departments": ["35"], "clip_to_territory": False}  # fmt: skip
     section = selection_section(
-        input={"mode": "dem_area_light"},
-        dem={"path": "dem.tif"},
-        territory={
-            "mode": "admin_departments",
-            "regions": [],
-            "departments": ["35"],
-            "clip_to_territory": False,
-        },
-        hydrology={"network_threshold_area_km2": 1.0},
-        dem_area_light={"n_basins": 1},
-    )
+        input={"mode": "dem_area_light"}, dem={"path": "dem.tif"}, territory=territory,
+        hydrology={"network_threshold_area_km2": 1.0}, dem_area_light={"n_basins": 1},
+    )  # fmt: skip
     calls: list = []
 
-    result = build_dem_area_light_site_selection_from_toml(
+    result = build_from_toml.build_dem_area_light_site_selection_from_toml(
         config_path=write_selection_toml(tmp_path, section),
         flow_products_builder=flow_spy(correc=dem, acc=acc_path),
         raw_accumulation_builder=lambda **_kwargs: acc_path,
-        delineation_builder=delineation_spy(calls, size=20.0),
-        area_reader=lambda _path: 100.0,
-    )
+        delineation_builder=delineation_spy(calls, size=20.0), area_reader=lambda _path: 100.0,
+    )  # fmt: skip
 
     assert len(result.candidates) == len(calls) == 2
     assert calls[0]["snap_dist"] == 1
     assert len(result.selection.selected) == 1
-    diagnostics = pd.read_csv(result.output_paths["diagnostics_csv"]).set_index("metric")["count"]
+    paths = result.output_paths
+    diagnostics = pd.read_csv(paths["diagnostics_csv"]).set_index("metric")["count"]
     assert diagnostics.to_dict() == {
-        "raw_candidates": 2,
-        "thinned_candidates": 2,
-        "delineated_basins": 2,
-        "valid_basins": 2,
+        "raw_candidates": 2, "thinned_candidates": 2, "delineated_basins": 2, "valid_basins": 2,
         "selected_basins": 1,
-    }
-    assert result.output_paths["candidate_outlets_geojson"].is_file()
-    manifest = json.loads(
-        result.output_paths["site_selection_manifest_json"].read_text(encoding="utf-8")
-    )
+    }  # fmt: skip
+    assert paths["candidate_outlets_geojson"].is_file()
+    manifest = json.loads(paths["site_selection_manifest_json"].read_text(encoding="utf-8"))
     assert manifest["action"] == "dem_area_light"

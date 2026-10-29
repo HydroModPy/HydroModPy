@@ -1,57 +1,37 @@
-"""The ``sgrid`` table of a MODFLOW backend, :mod:`hydromodpy.solver.modflow_grid.sgrid_config`.
-
-It only says how the top of the solver grid is sampled from the DEM. A key it
-held before is refused with the name of the table that replaces it.
-"""
+"""The ``sgrid`` table of a MODFLOW backend only says how the top is sampled from the DEM."""
 
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_grid.sgrid_config import SolverSGridConfig
 
 
 @pytest.mark.parametrize(
-    ("key", "match"),
+    ("model", "payload", "match"),
     [
-        ("planar", r"sgrid\.planar is replaced by \[mesh\]: write cell_size"),
-        ("grid_dual", r"sgrid\.grid_dual is replaced by \[mesh\] engine"),
-        ("vertical", r"sgrid\.vertical is replaced by \[domain\.layers\]"),
+        (SolverSGridConfig, {"planar": {"nlay": 2}}, r"sgrid\.planar is replaced by \[mesh\]: write cell_size"),
+        (SolverSGridConfig, {"grid_dual": {"nlay": 2}}, r"sgrid\.grid_dual is replaced by \[mesh\] engine"),
+        (SolverSGridConfig, {"vertical": {"nlay": 2}}, r"sgrid\.vertical is replaced by \[domain\.layers\]"),
+        (SolverSGridConfig, "zonal", "Input should be a valid dictionary"),
+        (Modflow6Config, {"sgrid": {"vertical": {"nlay": 2}}}, r"hmp doctor --fix-config"),
     ],
-    ids=["planar", "grid_dual", "vertical"],
-)
-def test_a_retired_sgrid_key_is_refused_naming_the_table_that_replaces_it(key, match):
+    ids=["planar", "grid_dual", "vertical", "not_a_table", "modflow6_vertical_names_the_doctor_fix"],
+)  # fmt: skip
+def test_a_retired_sgrid_key_is_refused_naming_the_table_that_replaces_it(model, payload, match):
     with pytest.raises(ValidationError, match=match):
-        SolverSGridConfig.model_validate({key: {"nlay": 2}})
+        model.model_validate(payload)
 
 
 @pytest.mark.parametrize(
     "payload",
-    [
-        {"sgrid": {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}}},
-        {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}},
-    ],
+    [{"sgrid": {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}}}, {"top_sampling": {"mode": "zonal", "hillslope_stat": "p25"}}],
     ids=["backend-table", "bare-sgrid-table"],
-)
+)  # fmt: skip
 def test_from_mapping_reads_the_sgrid_table_of_a_backend_or_the_table_itself(payload):
     config = SolverSGridConfig.from_mapping(payload)
 
-    assert config.top_sampling.mode == "zonal"
-    assert config.top_sampling.hillslope_stat == "p25"
-
-
-def test_an_sgrid_value_that_is_not_a_table_is_refused():
-    with pytest.raises(ValidationError, match="Input should be a valid dictionary"):
-        SolverSGridConfig.model_validate("zonal")
-
-
-def test_a_backend_without_sgrid_table_takes_the_default_sampling():
+    assert (config.top_sampling.mode, config.top_sampling.hillslope_stat) == ("zonal", "p25")
     assert SolverSGridConfig.from_mapping({}) == SolverSGridConfig()
-
-
-def test_a_modflow6_sgrid_vertical_table_is_refused_naming_the_doctor_fix():
-    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-
-    with pytest.raises(ValidationError, match=r"hmp doctor --fix-config"):
-        Modflow6Config.model_validate({"sgrid": {"vertical": {"nlay": 2}}})

@@ -1,7 +1,5 @@
 """Two line networks compared within a tolerance: matched, missing and extra lengths."""
 
-from __future__ import annotations
-
 import geopandas as gpd
 import pytest
 from shapely.geometry import GeometryCollection, LineString, MultiLineString, Point
@@ -23,11 +21,7 @@ CASES = {
     "exact match": (
         [KM],
         25.0,
-        {
-            "candidate_total_length_m": 1000.0,
-            "extra_candidate_length_m": 0.0,
-            "length_f1_ratio": 1.0,
-        },
+        dict(candidate_total_length_m=1000.0, extra_candidate_length_m=0.0, length_f1_ratio=1.0),
     ),
     "missing and extra": (
         [LineString([(0, 0), (700, 0)]), LineString([(1000, 100), (1300, 100)])],
@@ -60,27 +54,23 @@ CASES = {
     "empty candidate": (
         [],
         10.0,
-        {"matched_reference_length_m": 0.0, "candidate_match_ratio": None, "length_f1_ratio": None},
+        dict(matched_reference_length_m=0.0, candidate_match_ratio=None, length_f1_ratio=None),
     ),
 }
 
 
 @pytest.mark.parametrize(("candidate", "tolerance", "expected"), CASES.values(), ids=list(CASES))
 def test_matched_plus_missing_is_the_reference_length(candidate, tolerance, expected) -> None:
-    comparison = compare_hydrographic_networks(_gdf([KM]), _gdf(candidate), tolerance_m=tolerance)
-
-    assert comparison.reference_total_length_m == pytest.approx(1000.0)
-    assert comparison.matched_reference_length_m + comparison.missing_reference_length_m == (
-        pytest.approx(1000.0)
-    )
-    assert comparison.matched_candidate_length_m + comparison.extra_candidate_length_m == (
-        pytest.approx(comparison.candidate_total_length_m)
+    c = compare_hydrographic_networks(_gdf([KM]), _gdf(candidate), tolerance_m=tolerance)
+    assert c.reference_total_length_m == pytest.approx(1000.0)
+    assert c.matched_reference_length_m + c.missing_reference_length_m == pytest.approx(1000.0)
+    assert c.matched_candidate_length_m + c.extra_candidate_length_m == pytest.approx(
+        c.candidate_total_length_m
     )
     for name, value in expected.items():
-        assert getattr(comparison, name) == (None if value is None else pytest.approx(value))
-    record = comparison.to_metrics_record(case="x")
-    assert record["case"] == "x"
-    assert record["reference_segment_count"] == 1
+        assert getattr(c, name) == (None if value is None else pytest.approx(value))
+    record = c.to_metrics_record(case="x")
+    assert (record["case"], record["reference_segment_count"]) == ("x", 1)
 
 
 @pytest.mark.parametrize(
@@ -93,7 +83,6 @@ def test_matched_plus_missing_is_the_reference_length(candidate, tolerance, expe
 )
 def test_the_candidate_is_measured_in_the_crs_of_the_reference(candidate, coverage) -> None:
     comparison = compare_hydrographic_networks(_gdf([KM]), candidate, tolerance_m=100.0)
-
     assert "2154" in comparison.crs
     assert comparison.reference_coverage_ratio == pytest.approx(coverage)
     assert comparison.candidate_total_length_m > 0.0
@@ -105,9 +94,7 @@ def test_the_candidate_is_measured_in_the_crs_of_the_reference(candidate, covera
 def test_two_networks_of_the_contract_are_read_from_their_vectors(tmp_path) -> None:
     path = write_features(tmp_path / "streams.shp", [KM])
     reference = HydrographicNetwork(role="reference", source_kind="file", vector_path=path)
-
     comparison = compare_hydrographic_networks(reference, _gdf([KM]), tolerance_m=1.0)
-
     assert comparison.length_f1_ratio == pytest.approx(1.0)
 
 
@@ -122,6 +109,5 @@ def test_two_networks_of_the_contract_are_read_from_their_vectors(tmp_path) -> N
 )
 def test_a_comparison_that_cannot_be_measured_is_refused(reference, error, reason) -> None:
     tolerance = -1.0 if reason == "tolerance" else 1.0
-
     with pytest.raises(error, match=reason):
         compare_hydrographic_networks(reference, _gdf([KM]), tolerance_m=tolerance)

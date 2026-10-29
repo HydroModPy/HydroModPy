@@ -60,13 +60,9 @@ def stack_mesh(botm=(70.0, 40.0, BASE), idomain=None):
 
     shape = (NCELL, NCELL)
     mesh = solver_mesh_from_structured_arrays(
-        nrow=NCELL,
-        ncol=NCELL,
-        top=np.full(shape, TOP),
-        botm=np.stack([np.full(shape, b) for b in botm]),
-        dx=10.0,
-        dy=10.0,
-    )
+        nrow=NCELL, ncol=NCELL, top=np.full(shape, TOP),
+        botm=np.stack([np.full(shape, b) for b in botm]), dx=10.0, dy=10.0,
+    )  # fmt: skip
     if idomain is None:
         return mesh
     column = np.asarray(idomain, dtype=int).reshape(-1, 1)
@@ -81,19 +77,13 @@ def lake_model(payload: dict) -> SimpleNamespace:
 
 def abacus() -> dict[str, list[float]]:
     """A cone abacus whose top area is the 10 000 m2 footprint of the mesh."""
-    return {
-        "stage": [20.0, 30.0, 40.0, 50.0, 60.0],
-        "sarea": [0.0, 2500.0, 5000.0, 7500.0, 10000.0],
-        "volume": [0.0, 12500.0, 50000.0, 112500.0, 200000.0],
-    }
+    stage = np.arange(20.0, 61.0, 10.0)
+    sarea = 250.0 * (stage - 20.0)
+    return {"stage": stage.tolist(), "sarea": sarea.tolist(), "volume": (sarea * (stage - 20.0) / 2).tolist()}  # fmt: skip
 
 
 def carve(tmp_path, bed, *, mesh=None, with_abacus=False, **config):
-    """Carve lake ``lac0`` over every cell of *mesh* and return ``(model, carved)``.
-
-    *bed* is a raster array or a flat value. *config* goes to
-    ``BathymetryReconstructionConfig``.
-    """
+    """Carve lake ``lac0`` over every cell of *mesh*; *config* is the bed reconstruction's."""
     from hydromodpy.physics.flow.sinks_sources.lake import BathymetryReconstructionConfig
     from hydromodpy.solver.modflow6.builders import carve_lake_bed
 

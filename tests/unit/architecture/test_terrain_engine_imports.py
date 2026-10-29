@@ -1,14 +1,10 @@
 """Every site of ``hydromodpy/`` that calls a flow builder passes the engine on.
 
-Derived from the source. A project TOML names the flow-routing engine, the
-configuration, the runtime object and both solvers carry it (``test_geographic_config.py``,
-``test_catchment_delineation.py``, ``solver/test_terrain_engine_routing.py``), and this gate
-checks that nothing on the way down drops the name. It does not check that something on the way in supplies one:
-``hydromodpy/spatial/site_selection/`` reaches the same two builders through a ``builder=``
-parameter and ``[site_selection]`` has no field that names an engine (F10f).
+The configuration, the runtime object and both solvers carry the engine a project names,
+and this gate, derived from the source, checks that nothing on the way down drops it.
+``spatial/site_selection/`` reaches the two builders through a ``builder=`` parameter, and
+``[site_selection]`` has no field that names an engine (F10f).
 """
-
-from __future__ import annotations
 
 import ast
 from pathlib import Path
@@ -23,20 +19,13 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FLOW_BUILDERS = ("build_regional_flow_products", "extract_catchment_from_point")
 """The two functions that turn a configuration into a terrain engine."""
 
-ROUTING_BUILDERS = ("build_solver_routing_context",)
-"""The frame both solver families call instead of reaching a flow builder directly.
-
-Named separately because leaving it out is exactly how the MODFLOW-NWT call site
-stayed unplumbed while the gate was green.
-"""
-
-SCANNED_BUILDERS = FLOW_BUILDERS + ROUTING_BUILDERS
+SCANNED_BUILDERS = (*FLOW_BUILDERS, "build_solver_routing_context")
+"""Plus the frame both solvers call: leaving it out once kept MODFLOW-NWT unplumbed."""
 
 DIRECT_CALL_FLOOR = 7
 """Anti-vacuity control. A scan that reads nothing satisfies an empty assertion."""
-
 WRAPPER_FLOOR = 3
-"""Same, for the indirect form: three wrappers take a builder as a parameter."""
+"""Same, for the three wrappers that take a builder as a parameter."""
 
 
 def _python_files() -> list[Path]:
@@ -48,39 +37,23 @@ def _named_here(node: ast.expr | None) -> str | None:
     if isinstance(node, ast.Name) and node.id in FLOW_BUILDERS:
         return node.id
     if isinstance(node, ast.BoolOp):
-        for value in node.values:
-            found = _named_here(value)
-            if found is not None:
-                return found
+        return next((found for v in node.values if (found := _named_here(v)) is not None), None)
     return None
 
 
-def _direct_calls(tree: ast.AST) -> list[ast.Call]:
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in SCANNED_BUILDERS
-    ]
-
-
 def test_every_site_that_calls_a_builder_by_name_passes_the_engine_on() -> None:
-    """Derived from the source, so a new call site cannot quietly skip it.
-
-    The count floor is the anti-vacuity control: a scan that finds no call site
-    would satisfy the assertion below over an empty set, and that is the hollow
-    green this campaign has now paid for twice.
-    """
     without: list[str] = []
     sites = 0
     for path in _python_files():
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        for call in _direct_calls(tree):
+        for call in ast.walk(tree):
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)):
+                continue
+            if call.func.id not in SCANNED_BUILDERS:
+                continue
             sites += 1
             if not any(keyword.arg == "engine_id" for keyword in call.keywords):
                 without.append(f"{path.relative_to(REPO_ROOT)}:{call.lineno}")
-
     assert sites >= DIRECT_CALL_FLOOR, f"found {sites} call sites, the scan read the wrong tree"
     assert without == []
 
@@ -102,13 +75,7 @@ def _declared_names(function: ast.FunctionDef) -> set[str]:
 
 
 def test_every_wrapper_that_receives_a_builder_declares_the_engine_and_forwards_it() -> None:
-    """The indirection the direct scan cannot see.
-
-    ``build_site_selection_flow_products`` and the two delineation helpers never
-    write a builder's name at their call: they take it as a parameter and call
-    that. A wrapper that cannot pass the engine on is a wrapper through which no
-    engine can be substituted, and the direct scan above is blind to it.
-    """
+    """``build_site_selection_flow_products`` and two delineation helpers call a parameter."""
     faulty: list[str] = []
     wrappers = 0
     for path in _python_files():
@@ -136,6 +103,5 @@ def test_every_wrapper_that_receives_a_builder_declares_the_engine_and_forwards_
                     continue
                 if not any(keyword.arg == "engine_id" for keyword in call.keywords):
                     faulty.append(f"{where} calls line {call.lineno} without engine_id")
-
     assert wrappers >= WRAPPER_FLOOR, f"found {wrappers} wrappers, the scan read the wrong tree"
     assert faulty == []

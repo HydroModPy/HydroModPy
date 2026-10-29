@@ -1,7 +1,5 @@
 """The steps the geographic pipeline chains: the run, the catchment and the domain polygons."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import geopandas as gpd
@@ -34,14 +32,13 @@ def _config(dem: Path, **catchment) -> GeographicConfig:
 def test_prepare_geographic_run_reads_the_aggregated_dem_when_asked(tmp_path: Path) -> None:
     dem = _dem(tmp_path)
 
-    native = prepare_geographic_run(config=_config(dem), out_dir_path=tmp_path / "a")
-    coarse = prepare_geographic_run(
-        config=_config(dem, dem_resolution="300 m"), out_dir_path=tmp_path / "b"
-    )
-    same = prepare_geographic_run(
-        config=_config(dem, dem_resolution=100.0), out_dir_path=tmp_path / "c"
-    )
+    def prepared(name: str, **catchment):
+        return prepare_geographic_run(
+            config=_config(dem, **catchment), out_dir_path=tmp_path / name
+        )
 
+    native, same = prepared("a"), prepared("c", dem_resolution=100.0)
+    coarse = prepared("b", dem_resolution="300 m")
     assert (native.dem_res, native.dem_init_path) == (100.0, str(dem))
     assert (native.crs_project, native.epsg) == ("EPSG:2154", 2154)
     assert coarse.dem_res == 300.0
@@ -57,18 +54,11 @@ def test_a_given_polygon_is_the_catchment_and_its_domain_is_buffered_around_it(t
     polygon = write_features(tmp_path / "given.shp", [box(200.0, 200.0, 800.0, 800.0)])
     config = GeographicConfig.from_polygon(polygon, dem=dem, buff_area="100 m")
     run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run")
-
+    options = dict(config=config, paths=run.paths, crs_project=run.crs_project)
     watershed = build_standard_catchment(
-        config=config,
-        paths=run.paths,
-        accumulation=fake_accumulation(),
-        crs_project=run.crs_project,
-        backend=object(),
+        **options, accumulation=fake_accumulation(), backend=object()
     )
-    domain = build_standard_domain_polygons(
-        config=config, paths=run.paths, dem_init_path=dem, crs_project=run.crs_project
-    )
-
+    domain = build_standard_domain_polygons(**options, dem_init_path=dem)
     assert watershed == run.paths.watershed_shp
     assert gpd.read_file(watershed).total_bounds.tolist() == [200.0, 200.0, 800.0, 800.0]
     assert domain.buffer_distance_m == 100.0
@@ -81,7 +71,6 @@ def test_a_dem_driven_domain_has_no_catchment_to_build(tmp_path) -> None:
     config = GeographicConfig.from_dem(dem)
     run = prepare_geographic_run(config=config, out_dir_path=tmp_path / "run")
     options = dict(config=config, paths=run.paths, accumulation=None, crs_project=None)
-
     assert build_standard_catchment(**options, backend=object(), unsupported_mode="ignore") is None
     with pytest.raises(ValueError, match="Unsupported catch_def"):
         build_standard_catchment(**options, backend=object())

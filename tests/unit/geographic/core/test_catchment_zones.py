@@ -1,7 +1,5 @@
 """The zone rasters: catchment core, buffer ring and outside, or one uniform zone."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import numpy as np
@@ -39,7 +37,8 @@ def _zones(tmp_path: Path, **options):
 
 def test_the_core_lies_inside_the_ring_inside_the_domain_and_the_rest_is_outside(tmp_path):
     products = _zones(tmp_path, zone_codes_tif_path=tmp_path / "out" / "zones.tif")
-
+    # Without an output path the zones stay in memory.
+    assert _zones(tmp_path / "memory").zone_codes_tif is None
     codes = products.zone_codes
     with rasterio.open(products.zone_codes_tif) as src:
         np.testing.assert_array_equal(src.read(1), codes)
@@ -54,37 +53,26 @@ def test_the_core_lies_inside_the_ring_inside_the_domain_and_the_rest_is_outside
     assert 0 < core < core + ring <= 12 * 12
 
 
-def test_without_an_output_path_the_zones_stay_in_memory(tmp_path):
-    assert _zones(tmp_path).zone_codes_tif is None
-
-
 @pytest.mark.parametrize("missing", ["gone.shp", "empty.shp"])
 def test_a_zone_polygon_file_missing_or_empty_is_refused(tmp_path, missing):
     reference = write_geotiff(tmp_path / "reference.tif", np.ones((2, 2)))
     if missing == "empty.shp":
         write_features(tmp_path / missing, [])
     polygon = tmp_path / missing
-
+    shapes = dict(catchment_shp=polygon, watershed_buff_shp=polygon, watershed_box_buff_shp=polygon)
     with pytest.raises((FileNotFoundError, ValueError), match="polygon shapefile"):
-        build_catchment_zone_codes(
-            catchment_shp=polygon,
-            watershed_buff_shp=polygon,
-            watershed_box_buff_shp=polygon,
-            reference_raster_path=reference,
-        )
+        build_catchment_zone_codes(**shapes, reference_raster_path=reference)
 
 
 @pytest.mark.parametrize("nodata", [-9999.0, None])
 def test_a_uniform_zone_covers_the_valid_pixels_of_the_dem(tmp_path, nodata):
     values = np.array([[-9999.0, 10.0, 11.0], [12.0, np.nan, -9999.0], [14.0, 15.0, 16.0]])
-
     products = build_uniform_zone_codes(
         reference_raster_path=write_geotiff(
             tmp_path / "dem.tif", values, cell=100.0, nodata=nodata, dtype="float32"
         ),
         zone_codes_tif_path=tmp_path / "zones.tif",
     )
-
     valid = np.isfinite(values) & ((values != nodata) if nodata is not None else True)
     np.testing.assert_array_equal(products.zone_codes == CatchmentZoneCode.UNIFORM, valid)
     assert (products.zone_codes[~valid] == 0).all()

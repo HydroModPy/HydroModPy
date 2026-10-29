@@ -42,41 +42,27 @@ def serve(monkeypatch):
     return _serve
 
 
-def test_known_french_regions_include_metropole_and_drom():
-    names = set(known_french_region_names())
-
-    assert {"Auvergne-Rhone-Alpes", "Bretagne", "Ile-de-France"} <= names
-    assert {"Guadeloupe", "La-Reunion", "Mayotte"} <= names
-
-
-def test_french_region_aliases_are_normalized_to_canonical_labels():
+def test_french_regions_are_known_by_name_alias_or_code_and_an_unknown_one_lists_them():
+    assert {"Auvergne-Rhone-Alpes", "Bretagne", "Ile-de-France", "Guadeloupe", "La-Reunion", "Mayotte"} <= set(known_french_region_names())  # fmt: skip
     assert normalize_french_region_key("La Reunion") == "la-reunion"
-    assert french_region_code("Auvergne-Rhone-Alpes") == "84"
-    assert french_region_code("La Reunion") == "04"
-    assert french_region_code("Reunion") == "04"
+    assert [french_region_code(name) for name in ("Auvergne-Rhone-Alpes", "La Reunion", "Reunion")] == ["84", "04", "04"]  # fmt: skip
     assert validate_french_regions(["La Reunion", "84"]) == ["La-Reunion", "Auvergne-Rhone-Alpes"]
-
-
-def test_unknown_french_region_lists_allowed_names():
     with pytest.raises(ValueError, match="Known regions:"):
         french_region_code("Bretange")
 
 
-@pytest.mark.parametrize(("regions", "codes"), [(["04"], ["974"]), (["Bretagne"], BRETAGNE)])
-def test_find_departments_in_regions(regions, codes):
-    assert find_departments_in_regions(regions) == codes
-
-
 @pytest.mark.parametrize(
-    ("raw", "padded"),
-    [("35", "035"), (" 7 ", "007"), ("2a", "02A"), ("02B", "02B"), ("971", "971"), ("x1", "X1")],
-)
-def test_department_code_to_padded(raw, padded):
-    assert department_code_to_padded(raw) == padded
-
-
-def test_a_point_in_rennes_falls_in_ille_et_vilaine():
-    assert find_departments_in_bbox((340_000, 6_780_000, 360_000, 6_800_000)) == ["035"]
+    ("call", "expected"),
+    [
+        (lambda: find_departments_in_regions(["04"]), ["974"]),
+        (lambda: find_departments_in_regions(["Bretagne"]), BRETAGNE),
+        (lambda: find_departments_in_bbox((340_000, 6_780_000, 360_000, 6_800_000)), ["035"]),
+        *[((lambda raw=raw: department_code_to_padded(raw)), padded) for raw, padded in [("35", "035"), (" 7 ", "007"), ("2a", "02A"), ("02B", "02B"), ("971", "971"), ("x1", "X1")]],
+    ],
+    ids=["departments_of_la_reunion", "departments_of_bretagne", "a_point_in_rennes_falls_in_ille_et_vilaine", *(f"padded_{c}" for c in ("35", "7", "2a", "02B", "971", "x1"))],
+)  # fmt: skip
+def test_a_department_is_found_by_region_by_bbox_and_its_code_is_padded(call, expected):
+    assert call() == expected
 
 
 def test_the_bbox_of_a_region_covers_its_departments_and_nothing_less():
@@ -116,27 +102,21 @@ def test_a_department_geometry_is_reprojected_to_the_target_crs():
     assert native.bounds == pytest.approx(bbox_for_departments(["35"]))
 
 
-def test_a_frame_in_lon_lat_is_brought_back_to_lambert_93(bundled, serve):
-    reference = bbox_for_departments(["35"])
-    serve(bundled.to_crs("EPSG:4326"))
+@pytest.mark.parametrize(
+    ("change", "read", "same"),
+    [
+        (lambda f: f.to_crs("EPSG:4326"), lambda: bbox_for_departments(["35"]), lambda ref: bbox_for_departments(["35"]) == pytest.approx(ref, abs=1.0)),
+        (lambda f: f.set_crs(None, allow_override=True), lambda: geometry_for_departments(["35"]), lambda ref: geometry_for_departments(["35"], target_crs="EPSG:4326").equals(ref)),
+        *[(lambda f, c=column: f.rename(columns={"code_insee": c}), lambda: bbox_for_departments(["35"]),
+           lambda ref: bbox_for_departments(["35"]) == ref and find_departments_in_bbox(ref)[:1] == ["022"]) for column in ("code", "code_dept", "CODE_DEPT", "INSEE_DEP")],
+    ],
+    ids=["lon_lat_is_brought_back_to_lambert_93", "without_crs_is_never_reprojected", "code", "code_dept", "CODE_DEPT", "INSEE_DEP"],
+)  # fmt: skip
+def test_a_frame_in_another_crs_or_with_another_code_column_reads_the_same_departments(bundled, serve, change, read, same):  # fmt: skip
+    reference = read()
+    serve(change(bundled))
 
-    assert bbox_for_departments(["35"]) == pytest.approx(reference, abs=1.0)
-
-
-def test_a_frame_without_crs_is_never_reprojected(bundled, serve):
-    reference = geometry_for_departments(["35"])
-    serve(bundled.set_crs(None, allow_override=True))
-
-    assert geometry_for_departments(["35"], target_crs="EPSG:4326").equals(reference)
-
-
-@pytest.mark.parametrize("column", ["code", "code_dept", "CODE_DEPT", "INSEE_DEP"])
-def test_the_department_code_is_found_under_each_known_column_name(bundled, serve, column):
-    reference = bbox_for_departments(["35"])
-    serve(bundled.rename(columns={"code_insee": column}))
-
-    assert bbox_for_departments(["35"]) == reference
-    assert find_departments_in_bbox(reference)[:1] == ["022"]
+    assert same(reference)
 
 
 def test_the_union_falls_back_on_unary_union_without_union_all(monkeypatch):

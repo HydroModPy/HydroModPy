@@ -1,7 +1,5 @@
 """The river network drawn on the DEM: rasters, vector, mesh trace and summary."""
 
-from __future__ import annotations
-
 import json
 import shutil
 from pathlib import Path
@@ -133,19 +131,15 @@ def test_a_threshold_that_names_no_count_is_refused(network, dem_res, reason) ->
 
 def test_a_disabled_network_builds_nothing_and_never_calls_the_backend(tmp_path) -> None:
     result = _build(tmp_path, _config(enabled=False), backend=object())
-
     assert result.enabled is False
-    assert result.threshold_cells is None
-    assert result.streams_tif is None
+    assert result.threshold_cells is result.streams_tif is None
     assert result.hydrographic_network_generated_shp is None
     assert result.hydrographic_network_generated_summary_json is None
 
 
 def test_the_full_network_is_pruned_ordered_linked_vectorised_and_summarised(tmp_path) -> None:
     backend = RecordingBackend()
-
     result = _build(tmp_path, _config(prune_short_streams=True), backend, network_crs="EPSG:2154")
-
     assert backend.calls == [
         "dem_acc_cells.tif",
         "dem_streams_full.tif",
@@ -175,15 +169,10 @@ def test_an_empty_vector_removes_the_stale_shapefile_and_keeps_the_summary(tmp_p
     stale.parent.mkdir(parents=True)
     for suffix in (".shp", ".dbf"):
         stale.with_suffix(suffix).touch()
-    config = _config(
-        compute_strahler_order=False, compute_stream_links=False, prune_short_streams=False
-    )
-
-    result = _build(tmp_path, config, backend)
-
+    flags = dict(compute_strahler_order=False, compute_stream_links=False)
+    result = _build(tmp_path, _config(**flags, prune_short_streams=False), backend)
     assert not any(call.startswith("write_vector") for call in backend.calls)
-    assert result.hydrographic_network_generated_shp is None
-    assert result.river_mesh_trace is None
+    assert result.hydrographic_network_generated_shp is result.river_mesh_trace is None
     assert result.stream_order_strahler_tif is None
     assert not stale.exists() and not stale.with_suffix(".dbf").exists()
     summary = json.loads(Path(result.hydrographic_network_generated_summary_json).read_text())

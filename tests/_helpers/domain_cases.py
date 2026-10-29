@@ -1,7 +1,6 @@
-"""Grids, surfaces and masks shared by the tests of ``hydromodpy.spatial.domain``.
+"""Grids, surfaces, layerings and masks shared by the tests of ``hydromodpy.spatial.domain``.
 
-A test says what differs from one small Lambert-93 grid: its shape, its cell,
-its values. The grid sits at (X0, Y0) in its south-west corner.
+A test says what differs from one small Lambert-93 grid with its south-west corner at (X0, Y0).
 """
 
 from __future__ import annotations
@@ -45,6 +44,11 @@ def tilted_top(nrows: int = 6, ncols: int = 8) -> Surface:
     """Return a plane rising 2 m per column and falling 1.5 m per row."""
     rows, cols = np.mgrid[0:nrows, 0:ncols]
     return surface(100.0 + 2.0 * cols - 1.5 * rows)
+
+
+def surfaces_table(*tables: dict) -> dict:
+    """Return a ``[domain.layers]`` table that layers by surfaces."""
+    return {"genmtd_lay": "surfaces", "layer": list(tables)}
 
 
 def write_mask(path: Path, layers: dict[str, tuple[float, ...]], *, crs: str | None = CRS) -> Path:

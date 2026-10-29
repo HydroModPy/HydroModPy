@@ -1,7 +1,5 @@
 """``[geographic.synthetic]``: the grid of the analytical support and its topography laws."""
 
-from __future__ import annotations
-
 import pytest
 from pydantic import ValidationError
 
@@ -14,7 +12,6 @@ from hydromodpy.spatial.geographic.synthetic import (
 
 def test_grid_lengths_accept_unit_strings_and_derive_cell_size() -> None:
     grid = SyntheticGridConfig(length_x="0.1 km", length_y="2 m", nx=100, ny=2)
-
     assert (grid.ncol, grid.nrow, grid.dx, grid.dy) == (100, 2, 1.0, 1.0)
 
 
@@ -52,8 +49,6 @@ def test_a_synthetic_section_reads_from_its_toml_table(tmp_path) -> None:
         '[synthetic_geographic.grid]\nlength_x = "40 m"\nlength_y = "20 m"\nnx = 4\nny = 2\n',
         encoding="utf-8",
     )
-
     config = SyntheticGeographicConfig.from_toml(path)
-
     assert config.case_id == "island"
     assert (config.grid.ncol, config.grid.dx) == (4, 10.0)
