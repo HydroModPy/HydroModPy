@@ -27,17 +27,15 @@ values. Measured on this tree:
 
 So ``units`` and ``transform`` are fields of the product, the vocabulary names
 ``ln`` rather than the ``log10`` a reader would assume, and ``stream_network``
-refuses a transformed product instead of emptying the network. That refusal is
-what replaces ``looks_log_scaled``, the runtime shape heuristic that guessed the
-transform back from the values it found.
+refuses a transformed product instead of emptying the network. No heuristic
+guesses the transform back from the values a raster holds.
 
 What is deliberately absent
 ---------------------------
 No ``weights`` argument on ``flow_accumulation``: no engine on this tree can
 serve one, and a declared parameter no implementation honours is the kind of
-false declaration this campaign spent two phases removing. No engine registry
-either: a selection point with no caller is decoration, and it arrives with the
-capability that has to choose.
+false declaration. No engine selection either: that is the job of
+:mod:`hydromodpy.spatial.terrain.registry`.
 
 What an out-of-tree engine names
 --------------------------------
@@ -49,9 +47,8 @@ package, the catalog layer and ``_api`` included. The eagerness of the package
 root is not something a port can fix, and claiming otherwise here would be one
 more false declaration in the module that exists to end them.
 
-Writing a second implementation as its own distribution is what measured both,
-and it moved one thing: :data:`MASK_INSIDE` and :data:`MASK_NODATA` were
-declared in ``artifacts``, a module that pulls in ``rasterio`` and
+:data:`MASK_INSIDE` and :data:`MASK_NODATA` live here and not in
+``artifacts``, a module that pulls in ``rasterio`` and
 ``geopandas``. They are not readback helpers. They are the two values a
 catchment mask and a flow pointer are *written* with, so an engine that has to
 guess them writes a pointer whose absent cells the conformance suite measures as
@@ -65,7 +62,7 @@ what is expensive, not the traversal. An engine is free to serve them in one
 call or in a loop; what the signature forbids is conditioning a DEM once per
 outlet.
 
-Its ``layout`` is the one concession the first production callers won. The
+Its ``layout`` is declared by the caller. The
 geographic pipeline publishes ``watershed.tif`` and ``watershed.shp`` in one
 directory that twenty other artefacts share, and every golden in the tree reads
 them there. An engine that could only write ``mask.tif`` under a directory named
@@ -177,7 +174,7 @@ verified against the solver by
 each cardinal direction and reads back the code Whitebox writes.
 
 It lives beside the ``PointerConvention`` vocabulary that names it, and not in
-the pipeline that first needed it, because a third-party engine has to read the
+a pipeline, because a third-party engine has to read the
 same table to serve the port without importing anything else of HydroModPy.
 """
 
@@ -629,9 +626,9 @@ LN_FLOAT32_COLLISION_COUNT = 1_049_558
 """First cell count whose natural logarithm collides with its successor's.
 
 ``float32(ln(1_049_558)) == float32(ln(1_049_559))``, and every smaller pair is
-still distinct. Found by scanning every integer, not by sampling: an earlier
-sampled probe of this campaign answered 1 059 591, which is **above** the true
-value and would therefore have been a bound that does not protect.
+still distinct. Found by scanning every integer, not by sampling: a sampled probe
+answers 1 059 591, which is **above** the true value and so gives a bound
+that does not protect.
 
 Above it, a snap window holding two cells whose raw counts differ by one sees
 one value, ties, and breaks the tie on something other than upstream area. A
@@ -800,10 +797,9 @@ def snap_window_cells(snap_distance_m: float, *, dx: float, dy: float) -> tuple[
     convention chosen here, it is what ``snap_pour_points`` was measured to do
     on a 25 m grid: no displacement at all up to 25 m, one cell from 50 m, two
     cells from 100 m. So the parameter every HydroModPy configuration calls
-    ``snap_dist`` is the **width** of a square window, and the docstring that
-    called it a maximum snapping distance was wrong twice over -- a value equal
-    to one cell size snaps nowhere, and a value of 100 m on a 25 m grid can move
-    an outlet 70.7 m, diagonally.
+    ``snap_dist`` is the **width** of a square window, not a maximum snapping
+    distance: a value equal to one cell size snaps nowhere, and a value of 100 m
+    on a 25 m grid can move an outlet 70.7 m, diagonally.
 
     On a grid whose two resolutions differ, each axis gets its own half-width.
     What Whitebox does in that case is not measured here.

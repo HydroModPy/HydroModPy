@@ -129,7 +129,7 @@ BOWTIE = [[-1.7, 48.0], [-1.6, 48.1], [-1.6, 48.0], [-1.7, 48.1], [-1.7, 48.0]]
 @pytest.mark.parametrize(
     "territory",
     [
-        {"mode": "bbox", "bbox": [0.0, 0.0, 10000.0, 10000.0]},
+        {"mode": "bbox", "bbox": [300000.0, 6800000.0, 310000.0, 6810000.0]},
         {"mode": "admin_regions", "regions": ["Bretagne"]},
         {"mode": "admin_regions", "regions": ["Bretagne"], "country": "fr"},
         {"mode": "admin_departments", "departments": ["35"]},
@@ -147,20 +147,8 @@ def test_the_dem_request_covers_the_search_geometry_and_its_margin(tmp_path, ter
     xmin, ymin, xmax, ymax = site_selection_search_geometry(cfg, target_crs="EPSG:2154").bounds
     expected = (xmin - 2000.0, ymin - 2000.0, xmax + 2000.0, ymax + 2000.0)
     if territory["mode"] == "bbox":
-        assert expected == (-2000.0, -2000.0, 12000.0, 12000.0)
+        assert expected == (298000.0, 6798000.0, 312000.0, 6812000.0)
     assert spies["dem"][0]["project_extent"] == pytest.approx(expected)
-
-
-def test_a_territory_outside_france_asks_the_dem_around_the_outlets(tmp_path):
-    territory = {"mode": "admin_regions", "regions": ["Wallonie"], "country": "BE"}
-    dem = {"source": "data", "margin_km": 1.0}
-
-    _, _, _, spies = _select(
-        tmp_path, "a,10,20,100\nb,110,220,100", input=DELINEATE, dem=dem, territory=territory,
-        data=DATA_DEM,
-    )  # fmt: skip
-
-    assert spies["dem"][0]["project_extent"] == (-990.0, -980.0, 1110.0, 1220.0)
 
 
 def test_the_data_dem_section_resolves_its_path_against_the_file(tmp_path):

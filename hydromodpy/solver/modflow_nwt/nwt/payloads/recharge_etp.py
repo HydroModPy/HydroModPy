@@ -61,6 +61,7 @@ def _heterogeneous_on_grid(
             simulation_window=adapter.simulation_window,
             method=method,
             source_unit=source_unit,
+            mesh_crs=solver_mesh.cell_mesh.crs_wkt,
         )
     else:
         flat = {kper: np.zeros(solver_mesh.n_cells, dtype=float) for kper in range(adapter.nper)}

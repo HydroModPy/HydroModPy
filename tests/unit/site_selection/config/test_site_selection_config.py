@@ -66,7 +66,7 @@ def test_a_territory_without_country_is_france_in_the_schema_and_in_the_referenc
     assert TerritoryConfig(mode="bbox", bbox=(0.0, 0.0, 1.0, 1.0)).country == "fr"
     leaf = field_registry._leaf_info("country", field, "site_selection.territory.country")
     assert leaf["default"] == '"fr"'
-    assert TerritoryConfig(mode="admin_regions", country=None, regions=["Wallonie"]).country is None
+    assert TerritoryConfig(mode="bbox", country=None, bbox=(0.0, 0.0, 1.0, 1.0)).country is None
 
 
 def test_removed_legacy_literals_stay_removed():
@@ -106,6 +106,8 @@ GAUGED = {"principle": "observation_led", "primary_observation_type": "flow_stat
     (TerritoryConfig, {"mode": "admin_regions", "country": "FR", "regions": ["Bretange"]}, "Unknown"),
     (TerritoryConfig, {"mode": "admin_regions", "regions": ["Bretange"]}, "Unknown"),
     (TerritoryConfig, {"mode": "admin_departments"}, "at least one department"),
+    (TerritoryConfig, {"mode": "admin_regions", "country": "be", "regions": ["Wallonie"]}, "'admin_regions'.*'be'"),
+    (TerritoryConfig, {"mode": "admin_departments", "country": None, "departments": ["35"]}, "'admin_departments'.*None"),
     (TerritoryConfig, {"mode": "polygon_file"}, "requires polygon_file"),
     (TerritoryConfig, {"mode": "bbox"}, "requires bbox"),
     (DemAreaLightConfig, {"min_area_km2": 125.0, "max_area_km2": 75.0}, "min_area_km2"),

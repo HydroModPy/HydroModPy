@@ -193,14 +193,21 @@ def same_crs(left: str, right: str) -> bool:
     """Tell whether two CRS labels name the same frame.
 
     Labels equal up to case and outer spaces match at once. Otherwise both are
-    read by pyproj, and a label pyproj cannot read matches nothing.
+    read by pyproj, and a label pyproj cannot read matches nothing. Two CRS
+    match when pyproj finds them equal up to the order of their axes, or when
+    it identifies both as the same EPSG code. A Lambert-93 written in proj4
+    without its datum is so EPSG:2154.
     """
     if left.strip().upper() == right.strip().upper():
         return True
     try:
-        return CRS.from_user_input(left) == CRS.from_user_input(right)
+        left_crs, right_crs = CRS.from_user_input(left), CRS.from_user_input(right)
     except CRSError:
         return False
+    if left_crs.equals(right_crs, ignore_axis_order=True):
+        return True
+    left_epsg = left_crs.to_epsg()
+    return left_epsg is not None and left_epsg == right_crs.to_epsg()
 
 
 def crs_text(crs: object | None) -> str | None:

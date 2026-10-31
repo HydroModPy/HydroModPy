@@ -1,23 +1,16 @@
 """``engine_id -> TerrainEngine class``, and the surface a third party registers on.
 
-Why it arrives only now, and what changed
------------------------------------------
-``spatial/terrain/__init__.py`` refused this module on purpose: a selection
-point that resolves a name nobody outside this repository can supply is
-decoration, which is D34. The refusal named its own condition -- "it arrives
-with the capability that has to choose one" -- and that capability is
-``terrain-delineate``, delivered by F4c. Its ``request.json`` now carries the
-name, so a third party selects an engine this repository does not name, from
-outside, without a patch.
+What it is for
+--------------
+The ``request.json`` of ``terrain-delineate`` carries the engine name, and this
+module resolves it, so a third party selects an engine this repository does not
+name, from outside, without a patch. The geographic chain and the site
+selection resolve their engine here too, so no caller constructs
+``WhiteboxTerrainEngine`` by name, and WhiteboxTools can be replaced without
+touching them.
 
-That is the canonical test of G1. Until this module existed, three production
-sites imported ``WhiteboxTerrainEngine`` and constructed it by name --
-``geographic/core/flow_products.py``, ``geographic/core/catchment_from_point.py``
-and ``site_selection/hydrology/worker.py`` -- so "replace WhiteboxTools without
-touching the callers" was not hard, it was impossible.
-
-No ``[project.entry-points]`` table, and that is D21
-----------------------------------------------------
+No ``[project.entry-points]`` table
+-----------------------------------
 The group is the **out-of-tree** surface only. The two engines of this tree are
 declared once, in :data:`_BUILTIN_PATHS`, and importing one is deferred to the
 first lookup that asks for it -- so resolving ``numpy_d8`` pulls in neither
@@ -201,8 +194,8 @@ def create(engine_id: str | None = None, **options: object) -> object:
     keeps the caller from having to know that ``backend`` means something to the
     Whitebox engine and nothing to the numpy one.
 
-    Restricting this to keyword-only parameters was rejected for the reason
-    D-level precedent already gives on the data-source side: both in-tree
+    Keyword-only parameters alone would not do, for the reason the
+    data-source side gives too: both in-tree
     engines happen to declare theirs positionally-or-keyword, so the narrower
     rule would pass every gate here while silently dropping the value of a
     third-party engine that spelled its parameter the same way.

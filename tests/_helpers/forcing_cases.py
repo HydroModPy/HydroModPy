@@ -32,6 +32,9 @@ MM_DAY_TO_M_S = 1.0e-3 / 86400.0  # one millimetre a day in metres a second
 PIXEL = 10.0  # side of a cell and of a pixel of the small grids, in metres
 ORIGIN = np.array(L93_ORIGIN)  # south-west corner of the square of the area tests
 SIDE = 1000.0  # side of that square, in metres
+L93_PROJ4_WITHOUT_DATUM = (  # Lambert-93 as an old GeoTIFF writes it, which pyproj identifies as EPSG:2154
+    "+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +units=m +no_defs"
+)  # fmt: skip
 
 
 def centres(nrow: int, ncol: int, pixel: float = PIXEL) -> np.ndarray:
@@ -39,17 +42,17 @@ def centres(nrow: int, ncol: int, pixel: float = PIXEL) -> np.ndarray:
     return regular_mesh(nrow, ncol, dx=pixel).centers
 
 
-def fields_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, **kwargs) -> dict:
+def fields_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, mesh_crs=None, **kwargs) -> dict:  # fmt: skip
     """Return the per-period rates of the grid *records* on the cells of ``centres``."""
     return discretize_fields_on_cells(
-        load_result=LoadResult(fields=list(records)), centers=centres(nrow, ncol), nper=nper, **kwargs
+        load_result=LoadResult(fields=list(records)), centers=centres(nrow, ncol), nper=nper, mesh_crs=mesh_crs, **kwargs
     )  # fmt: skip
 
 
-def points_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, **kwargs) -> dict:
+def points_on_cells(records, nrow: int = 2, ncol: int = 2, nper: int = 1, mesh_crs=None, **kwargs) -> dict:  # fmt: skip
     """Return the per-period rates of the station *records* on the cells of ``centres``."""
     return discretize_points_on_cells(
-        load_result=LoadResult(points=list(records)), centers=centres(nrow, ncol), nper=nper, **kwargs
+        load_result=LoadResult(points=list(records)), centers=centres(nrow, ncol), nper=nper, mesh_crs=mesh_crs, **kwargs
     )  # fmt: skip
 
 

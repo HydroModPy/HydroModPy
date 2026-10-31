@@ -200,3 +200,9 @@ def test_the_demo_reads_the_field_parameter_section_it_is_given(tmp_path: Path, 
     args = demo._parse_args(["--field-param-section", section])
     param = demo._load_and_validate_field_param(args, path, expected_field_id="g")
     assert (param.identifier, param.values_by_key) == ("K", {"1": 7.2e-5})
+
+
+def test_without_arguments_the_demo_reads_the_gallery_files_it_ships():
+    args = demo._parse_args([])
+    for name in (args.geology_config_file, args.field_param_config_file):
+        assert demo.resolve_case_path(name).is_file(), name

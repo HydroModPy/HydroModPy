@@ -1,11 +1,11 @@
-"""Administrative boundary detection - country-specific subdivision lookup.
+"""Administrative boundaries, for France only.
 
-Currently supported countries:
-
-- **France** (``france`` module): départements métropolitains + outre-mer.
-  Bundled GeoPackage (~600 KB), purely local intersection.
-
-To add a new country, create a ``<country>.py`` module here exposing at
-minimum a ``find_subdivisions_in_bbox()`` function following the same
-signature as :func:`france.find_departments_in_bbox`.
+The ``france`` module reads the bundled outlines of the departments
+(metropolitan and overseas, about 600 KB) and answers locally, without a
+network call. :func:`france.find_departments_in_bbox` gives the departments a
+rectangle touches, :func:`france.find_departments_in_regions` the departments
+of a region, :func:`france.bbox_for_departments` and
+:func:`france.bbox_for_regions` their bounding box, and
+:func:`france.geometry_for_departments` and :func:`france.geometry_for_regions`
+the union of their outlines. Callers import ``france`` by name.
 """

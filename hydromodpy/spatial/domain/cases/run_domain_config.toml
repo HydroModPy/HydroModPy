@@ -1,5 +1,6 @@
 # ----------------------------------------------------------------------
-# Domain-only case extracted from examples_legacy/example12/config.toml
+# Domain-only case: the Nançon catchment on the Armorican massif DEM,
+# a flat substratum, and the 1:1M geology sampled on the cells.
 # ----------------------------------------------------------------------
 
 [site]

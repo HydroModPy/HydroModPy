@@ -30,9 +30,9 @@ from hydromodpy.spatial.site_selection.domain.export_values import single_or_mix
 from hydromodpy.spatial.site_selection.domain.watershed import read_watershed
 from hydromodpy.spatial.site_selection.outputs.features import (
     basin_properties,
-    observation_location,
     observation_properties,
     outlet_properties,
+    placed_observations,
     repair_geometry_for_export,
 )
 
@@ -215,32 +215,9 @@ def write_observation_points_geojson(
     """Write observation locations from normalized observation evidence."""
 
     rows = [item.to_record() if hasattr(item, "to_record") else dict(item) for item in evidence]
+    placed, skipped = placed_observations(rows)
     features: list[dict[str, Any]] = []
-    skipped: list[dict[str, str]] = []
-    crs_values: set[str] = set()
-    for row in rows:
-        location = observation_location(row)
-        if location is None:
-            skipped.append(
-                {
-                    "site_id": str(row.get("site_id") or ""),
-                    "feature_id": str(row.get("feature_id") or ""),
-                    "reason": "missing_provider_location",
-                }
-            )
-            continue
-        x, y, crs = location
-        if not crs:
-            # A location in an unknown CRS cannot be placed in WGS 84.
-            skipped.append(
-                {
-                    "site_id": str(row.get("site_id") or ""),
-                    "feature_id": str(row.get("feature_id") or ""),
-                    "reason": "missing_provider_crs",
-                }
-            )
-            continue
-        crs_values.add(crs)
+    for row, x, y, crs in placed:
         feature_id = f"{row.get('site_id', '')}:{row.get('feature_id', '')}"
         features.append(
             {
@@ -253,7 +230,7 @@ def write_observation_points_geojson(
 
     collection = feature_collection(
         path,
-        project_crs=single_or_mixed(crs_values),
+        project_crs=single_or_mixed(crs for _row, _x, _y, crs in placed),
         features=features,
         hydromodpy_geometry_role="observation_points",
         hydromodpy_skipped_observations=skipped,

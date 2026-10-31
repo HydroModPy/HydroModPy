@@ -352,6 +352,7 @@ def _discretize_heterogeneous_source(
             simulation_window=sim_window,
             method=interpolation_method,
             source_unit=source_unit,
+            mesh_crs=model.solver_mesh.cell_mesh.crs_wkt,
         )
     return None
 

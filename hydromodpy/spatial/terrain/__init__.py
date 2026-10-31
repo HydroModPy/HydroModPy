@@ -5,9 +5,8 @@ Protocol and its value types and imports nothing heavier than the exception
 module. The two engines are resolved lazily, so a caller that only needs the
 vocabulary never pulls in ``whitebox_workflows``.
 
-``registry`` is the selection point. It was refused here for as long as it had
-no caller -- a selection point nothing selects through is decoration -- and it
-arrived with the capability that has to choose one, ``terrain-delineate``. It
+``registry`` is the selection point, and every caller of an engine goes
+through it, the capability ``terrain-delineate`` included. It
 resolves the two engines of this tree and anything installed under the
 ``hydromodpy.terrain.engine`` entry-point group, and it certifies a candidate on
 the members the port declares. That is all a registry can certify: the port also

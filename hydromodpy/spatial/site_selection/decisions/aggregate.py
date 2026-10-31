@@ -51,8 +51,8 @@ def _global_decision(records: list[DecisionRecord]) -> GlobalDecisionValue:
 
 
 def _reasons(records: list[DecisionRecord], *, decision: str) -> list[str]:
-    return _stable_unique(
-        _reason_label(record) for record in records if record.decision == decision
+    return list(
+        dict.fromkeys(_reason_label(record) for record in records if record.decision == decision)
     )
 
 
@@ -63,20 +63,11 @@ def _reason_label(record: DecisionRecord) -> str:
 
 
 def _evidence_refs(records: list[DecisionRecord]) -> list[str]:
-    return _stable_unique(
-        str(record.evidence_ref) for record in records if record.evidence_ref not in (None, "")
+    return list(
+        dict.fromkeys(
+            str(record.evidence_ref) for record in records if record.evidence_ref not in (None, "")
+        )
     )
-
-
-def _stable_unique(values: Iterable[str]) -> list[str]:
-    seen = set()
-    unique = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        unique.append(value)
-    return unique
 
 
 __all__ = ["aggregate_site_selection_decisions"]

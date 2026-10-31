@@ -64,8 +64,8 @@ lived in no file at all. It is not the end state: the end state is a
 site-selection pipeline, the store and the timeseries managers, none of which
 this phase needs. ``test_the_project_extent_crs_matches_what_site_selection_builds``
 pins it against ``bbox_for_departments``, and that is **one branch** of
-``_dem_request_bbox`` out of four -- the `polygon_file` branch reprojects to
-EPSG:2154 explicitly at line 376, and the `outlets` branch is metric by
+``workflow.site_selection.dem_request.dem_request_bbox`` out of three -- the
+`polygon_file` branch reprojects to EPSG:2154 explicitly, and the `outlets` branch is metric by
 construction of the delineation, but neither is measured here.
 """
 

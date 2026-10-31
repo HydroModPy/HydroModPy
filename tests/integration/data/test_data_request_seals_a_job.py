@@ -243,7 +243,7 @@ def test_a_mask_that_is_not_there_is_refused_as_not_found(tmp_path, stub_bdtopag
 
     outcome = run(job, exit_code_for=exit_code_for)
 
-    assert outcome.exit_code == EXIT_NOT_FOUND
+    assert (outcome.exit_code, outcome.errors[0]["code"]) == (EXIT_NOT_FOUND, "HMPY.E211")
     assert _untouched(job)
 
 

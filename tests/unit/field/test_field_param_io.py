@@ -70,7 +70,7 @@ def test_the_named_section_is_read_with_its_profile(tmp_path: Path, text, sectio
 @pytest.mark.parametrize(
     ("text", "section", "error", "match"),
     [
-        ('kind = "homogeneous"\nvalue = 1.0', "field", KeyError, "id"),
+        ('kind = "homogeneous"\nvalue = 1.0', "field", ConfigMissingError, r"\[field\] of .*field\.toml has no id"),
         ('id = "K"\nkind = "heterogeneous"\nvalues = { granite = 1.0, micaschists = 3.0 }', "field",
          ValueError, "field_spatial_id"),
         ('id = "K"\nkind = "homogeneous"\nvalue = 1.0', "field.id", ConfigValidationError,

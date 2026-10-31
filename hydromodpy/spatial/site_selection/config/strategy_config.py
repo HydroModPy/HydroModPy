@@ -153,15 +153,15 @@ class TerritoryConfig(HydroModelBase):
         description=(
             "Country code of the territory, in any case. With 'fr' the administrative "
             "modes read the French regions and departments, and the default CRS is "
-            "Lambert-93 (EPSG:2154). Another code gives no administrative geometry "
-            "and no default CRS."
+            "Lambert-93 (EPSG:2154). The administrative modes need 'fr'. Another "
+            "code gives no default CRS."
         ),
     )
     regions: Annotated[list[str], Profile.USER, VisibleWhen("mode", "admin_regions")] = Field(
         default_factory=list,
         description=(
-            "Names of the administrative regions that bound the territory. With "
-            "country = 'fr' the names are checked against the French regions."
+            "Names of the administrative regions that bound the territory, checked "
+            "against the French regions."
         ),
         examples=[["Bretagne"]],
     )
@@ -187,9 +187,17 @@ class TerritoryConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_territory(self) -> TerritoryConfig:
+        if self.mode in {"admin_regions", "admin_departments"} and (
+            str(self.country or "").upper() != "FR"
+        ):
+            raise ValueError(
+                f"mode={self.mode!r} needs country = 'fr', got country = {self.country!r}. "
+                "HydroModPy knows the administrative geometry of France only. Write "
+                "mode = 'polygon_file' or mode = 'bbox' for another country."
+            )
         if self.mode == "admin_regions" and not self.regions:
             raise ValueError("mode='admin_regions' requires at least one region.")
-        if self.mode == "admin_regions" and str(self.country or "").upper() == "FR":
+        if self.mode == "admin_regions":
             object.__setattr__(self, "regions", validate_french_regions(self.regions))
         if self.mode == "admin_departments" and not self.departments:
             raise ValueError("mode='admin_departments' requires at least one department.")

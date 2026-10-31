@@ -57,6 +57,37 @@ def _finite_metres(metres: float, *, value: object, label: str) -> float:
     return metres
 
 
+def _normalize_cuts_and_labels(value: object, *, key: str, kind: str) -> object:
+    """Read the cuts ``key`` of a bands or rings table and trim its labels.
+
+    A relative cut is a share in ]0, 1[. An absolute cut is a length read in
+    metres, and it must be > 0.
+    """
+    if not isinstance(value, Mapping):
+        return value
+    payload = dict(value)
+    coordinate_mode = str(payload.get("coordinate_mode", "relative")).strip().lower()
+    raw_cuts = payload.get(key) or []
+    if not isinstance(raw_cuts, list):
+        return payload
+    normalized: list[float] = []
+    for index, raw_cut in enumerate(raw_cuts):
+        if coordinate_mode == "relative":
+            value_m = float(raw_cut)
+            if not 0.0 < value_m < 1.0:
+                raise ValueError(f"Relative {kind} {key} must lie strictly between 0 and 1.")
+        else:
+            value_m = _to_meters(raw_cut, label=f"domain.supports.{key}[{index}]")
+            if value_m <= 0.0:
+                raise ValueError(f"Absolute {kind} {key} must be > 0.")
+        normalized.append(value_m)
+    payload[key] = normalized
+    raw_labels = payload.get("labels") or []
+    if isinstance(raw_labels, list):
+        payload["labels"] = [str(raw).strip() for raw in raw_labels]
+    return payload
+
+
 class DomainSupportBaseConfig(HydroModelBase):
     """Base schema for one named spatial-support declaration.
 
@@ -111,34 +142,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     @model_validator(mode="before")
     @classmethod
     def _normalize_breaks_and_labels(cls, value):
-        if not isinstance(value, Mapping):
-            return value
-        payload = dict(value)
-        coordinate_mode = str(payload.get("coordinate_mode", "relative")).strip().lower()
-        raw_breaks = payload.get("breaks") or []
-        if not isinstance(raw_breaks, list):
-            return payload
-        normalized: list[float] = []
-        for index, raw_break in enumerate(raw_breaks):
-            if coordinate_mode == "relative":
-                value_m = float(raw_break)
-                if not 0.0 < value_m < 1.0:
-                    raise ValueError(
-                        "Relative generated_bands breaks must lie strictly between 0 and 1."
-                    )
-            else:
-                value_m = _to_meters(
-                    raw_break,
-                    label=f"domain.supports.breaks[{index}]",
-                )
-                if value_m <= 0.0:
-                    raise ValueError("Absolute generated_bands breaks must be > 0.")
-            normalized.append(value_m)
-        payload["breaks"] = normalized
-        raw_labels = payload.get("labels") or []
-        if isinstance(raw_labels, list):
-            payload["labels"] = [str(raw).strip() for raw in raw_labels]
-        return payload
+        return _normalize_cuts_and_labels(value, key="breaks", kind="generated_bands")
 
     @model_validator(mode="after")
     def _validate_consistency(self) -> GeneratedBandsSupportConfig:
@@ -206,34 +210,7 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     @model_validator(mode="before")
     @classmethod
     def _normalize_radii_and_labels(cls, value):
-        if not isinstance(value, Mapping):
-            return value
-        payload = dict(value)
-        coordinate_mode = str(payload.get("coordinate_mode", "relative")).strip().lower()
-        raw_radii = payload.get("radii") or []
-        if not isinstance(raw_radii, list):
-            return payload
-        normalized: list[float] = []
-        for index, raw_radius in enumerate(raw_radii):
-            if coordinate_mode == "relative":
-                value_m = float(raw_radius)
-                if not 0.0 < value_m < 1.0:
-                    raise ValueError(
-                        "Relative generated_rings radii must lie strictly between 0 and 1."
-                    )
-            else:
-                value_m = _to_meters(
-                    raw_radius,
-                    label=f"domain.supports.radii[{index}]",
-                )
-                if value_m <= 0.0:
-                    raise ValueError("Absolute generated_rings radii must be > 0.")
-            normalized.append(value_m)
-        payload["radii"] = normalized
-        raw_labels = payload.get("labels") or []
-        if isinstance(raw_labels, list):
-            payload["labels"] = [str(raw).strip() for raw in raw_labels]
-        return payload
+        return _normalize_cuts_and_labels(value, key="radii", kind="generated_rings")
 
     @model_validator(mode="after")
     def _validate_rings_consistency(self) -> GeneratedRingsSupportConfig:

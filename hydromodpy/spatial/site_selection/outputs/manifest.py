@@ -55,23 +55,23 @@ def build_selection_manifest(
             "regions": list(config.territory.regions),
             "departments": list(config.territory.departments),
             "bbox": config.territory.bbox,
-            "polygon_file": _path_or_none(config.territory.polygon_file),
+            "polygon_file": path_or_none(config.territory.polygon_file),
         },
         "input": {
             "mode": config.input.mode,
-            "catchments_csv": _path_or_none(config.input.catchments_csv),
+            "catchments_csv": path_or_none(config.input.catchments_csv),
             "region_id": config.input.region_id,
-            "workspace_root": _path_or_none(config.input.workspace_root),
-            "data_root": _path_or_none(config.input.data_root),
+            "workspace_root": path_or_none(config.input.workspace_root),
+            "data_root": path_or_none(config.input.data_root),
             "delineate_from_outlets": config.input.delineate_from_outlets,
             "paths": {
-                key: _path_or_none(Path(value) if value is not None else None)
+                key: path_or_none(Path(value) if value is not None else None)
                 for key, value in (input_paths or {}).items()
             },
         },
         "dem": {
             "source": config.dem.source,
-            "path": _path_or_none(config.dem.path),
+            "path": path_or_none(config.dem.path),
             "margin_km": config.dem.margin_km,
             "request_extent": config.dem.request_extent,
             "map_background_extent": config.dem.map_background_extent,
@@ -87,7 +87,7 @@ def build_selection_manifest(
             ),
             "max_generated_network_cells": config.outlets.max_generated_network_cells,
             "reference_network_source": config.outlets.reference_network_source,
-            "reference_network_path": _path_or_none(config.outlets.reference_network_path),
+            "reference_network_path": path_or_none(config.outlets.reference_network_path),
             "reference_network_max_distance_m": config.outlets.reference_network_max_distance_m,
             "reference_network_fetch_margin_m": config.outlets.reference_network_fetch_margin_m,
         },
@@ -133,12 +133,14 @@ def _relative_path(path: str | Path, *, root: Path) -> str:
         return str(resolved)
 
 
-def _path_or_none(path: Path | None) -> str | None:
+def path_or_none(path: Path | None) -> str | None:
+    """Return *path* as text, or ``None`` when there is no path."""
     return None if path is None else str(path)
 
 
 __all__ = [
     "build_selection_manifest",
+    "path_or_none",
     "write_manifest_and_optional_report",
 ]
 

@@ -218,11 +218,18 @@ def _validate_map_context_layers(
         if not layer_path.is_file():
             errors.append(f"missing map context layer {index}: {layer_path}")
             continue
-        errors.extend(_validate_geojson_artifact(f"map_context.layers[{index}]", layer_path))
+        # A context layer is the user's own file: RFC 7946 needs no hydromodpy member.
+        errors.extend(
+            _validate_geojson_artifact(
+                f"map_context.layers[{index}]", layer_path, require_coordinate_crs=False
+            )
+        )
     return errors
 
 
-def _validate_geojson_artifact(key: str, path: Path) -> list[str]:
+def _validate_geojson_artifact(
+    key: str, path: Path, *, require_coordinate_crs: bool = True
+) -> list[str]:
     errors: list[str] = []
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -237,7 +244,7 @@ def _validate_geojson_artifact(key: str, path: Path) -> list[str]:
         errors.append(f"invalid GeoJSON for {key}: features must be a list")
         return errors
     crs = str(payload.get("hydromodpy_coordinate_crs") or "")
-    if features and not crs:
+    if require_coordinate_crs and features and not crs:
         errors.append(f"invalid GeoJSON for {key}: missing hydromodpy_coordinate_crs")
     for index, feature in enumerate(features):
         if not isinstance(feature, Mapping):

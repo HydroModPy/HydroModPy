@@ -29,7 +29,11 @@ from hydromodpy.solver.boussinesq.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
-from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
+from hydromodpy.solver.field_property_mapping import (
+    FLOW_PROPERTY_SPECS,
+    require_positive_conductivity,
+    require_positive_storage,
+)
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
@@ -128,6 +132,18 @@ def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:
             np.zeros(cell_mesh.n_cells, dtype=float),
         ),
         dtype=float,
+    )
+    # One convertible layer, every cell active. Every regime reads K, only a
+    # transient run requires and reads Sy.
+    active = np.ones(conductivity.size, dtype=bool)
+    require_positive_conductivity(conductivity, active_mask=active, flow=flow)
+    require_positive_storage(
+        storage,
+        None,
+        active_mask=active,
+        iconvert=1,
+        steady=["Sy" not in required_properties],
+        flow=flow,
     )
     mesh_summary = getattr(setup_state, "mesh_summary", None)
     output_mesh = (

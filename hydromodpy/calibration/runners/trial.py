@@ -48,6 +48,7 @@ from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
 )
+from hydromodpy.calibration.runners.failure_watch import INFEASIBLE_PREFIX
 from hydromodpy.calibration.runners.kept_solves import (
     KeptSolve,
     KeptSolveLauncher,
@@ -61,6 +62,7 @@ from hydromodpy.core.config_kit.root_config_protocol import get_root_config_prov
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.units.physical_bounds import PHYSICAL_BOUNDS, PhysicalBoundsError
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.attempt import close_sealed_attempt, finish_attempt
@@ -99,7 +101,9 @@ class TrialResult:
     better by convention: the blocks already flip higher-is-better metrics
     like NSE/KGE into costs). ``metrics`` holds the per-component
     breakdown. When ``status != "completed"``, ``primary_metric`` is
-    ``nan`` and ``error`` carries the exception string.
+    ``nan`` and ``error`` carries the exception string. That string starts
+    with ``INFEASIBLE_PREFIX`` when the candidate puts a quantity the search
+    moves outside its physical range, see :func:`_failure_text`.
     """
 
     values: Mapping[str, float]
@@ -496,14 +500,14 @@ def run_trial_light(
                 forked = trial_ctx.fork(values, flow_runtime_overrides=flow_overrides)
                 if sandbox is not None:
                     sandbox.track(forked.ctx.execution)
-        except Exception as exc:  # pragma: no cover - value injection bug
+        except Exception as exc:
             return TrialResult(
                 values=dict(values),
                 metrics={},
                 primary_metric=float("nan"),
                 status="failed",
                 duration_s=time.monotonic() - t0,
-                error=f"fork: {type(exc).__name__}: {exc}",
+                error=_failure_text(exc, f"fork: {type(exc).__name__}: {exc}", trial_ctx),
             )
 
         # Trials only run [earliest..8]. Derive/export/display are reserved
@@ -535,7 +539,7 @@ def run_trial_light(
                 primary_metric=float("nan"),
                 status="crashed",
                 duration_s=time.monotonic() - t0,
-                error=f"{type(exc).__name__}: {exc}",
+                error=_failure_text(exc, f"{type(exc).__name__}: {exc}", trial_ctx),
             )
 
         extractor = metric_fn if metric_fn is not None else _default_metric_extractor
@@ -595,6 +599,51 @@ def run_trial_light(
         status="completed",
         duration_s=time.monotonic() - t0,
     )
+
+
+def _moved_quantities(trial_ctx: TrialContext) -> frozenset[str]:
+    """The physical quantities the search moves, as labels of the registry.
+
+    Read off each moved parameter's name and the segments of its path, so
+    ``flow.param.Sy.field.value`` moves the specific yield. A label, not an id,
+    because the registry spells one quantity several ways (``sy`` and
+    ``specific_yield``).
+    """
+    paths = getattr(trial_ctx, "override_paths", None) or {}
+    pairs = [(str(k), str(v)) for k, v in dict(paths).items()]
+    for param in getattr(trial_ctx, "parameter_space", None) or ():
+        pairs.append((str(param.name), str(param.effective_path or "")))
+    labels: set[str] = set()
+    for name, path in pairs:
+        for word in (name, *path.split(".")):
+            bound = PHYSICAL_BOUNDS.get(word.lower())
+            if bound is not None:
+                labels.add(bound.label)
+    return frozenset(labels)
+
+
+def _failure_text(exc: BaseException, text: str, trial_ctx: TrialContext) -> str:
+    """Return the error text of a failed trial, marked infeasible when it is.
+
+    A trial is infeasible when a :class:`PhysicalBoundsError` in the chain of
+    its exception refuses a quantity the search moves: the pipeline
+    wraps a step error in a ``StepError``, and the candidate check of
+    ``mode = "scale"`` raises a ``ValueError`` while handling one. The optimizer
+    gets the failed cost either way, and the consecutive-failure watch leaves an
+    infeasible point out of its streak. A refusal of a fixed value, or one that
+    names no parameter, repeats on every trial: it stays a failure the watch
+    counts.
+    """
+    seen: set[int] = set()
+    link: BaseException | None = exc
+    while link is not None and id(link) not in seen:
+        if isinstance(link, PhysicalBoundsError):
+            bound = PHYSICAL_BOUNDS.get(str(link.param_id or "").lower())
+            if bound is not None and bound.label in _moved_quantities(trial_ctx):
+                return f"{INFEASIBLE_PREFIX}: {text}"
+        seen.add(id(link))
+        link = link.__cause__ or link.__context__
+    return text
 
 
 # Signature of a RAM-only metric extractor.

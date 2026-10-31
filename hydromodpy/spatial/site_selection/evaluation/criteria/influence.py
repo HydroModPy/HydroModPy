@@ -103,8 +103,8 @@ def _influence_refs_for_decision(
         for flag in failed_flags:
             refs.extend(_string_list(attributes.get(f"{flag}_evidence_refs")))
         if refs:
-            return _stable_unique(refs)
-    return _stable_unique(_string_list(attributes.get("influence_evidence_refs")))
+            return list(dict.fromkeys(refs))
+    return list(dict.fromkeys(_string_list(attributes.get("influence_evidence_refs"))))
 
 
 def _string_list(value: object) -> list[str]:
@@ -115,17 +115,6 @@ def _string_list(value: object) -> list[str]:
     if isinstance(value, list | tuple | set):
         return [str(item) for item in value if item not in (None, "")]
     return [str(value)]
-
-
-def _stable_unique(values: list[str]) -> list[str]:
-    seen = set()
-    unique = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        unique.append(value)
-    return unique
 
 
 __all__ = ["evaluate_influence_criterion"]

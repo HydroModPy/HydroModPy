@@ -34,6 +34,58 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A custom GeoTIFF or NetCDF grid masks its nodata code before its unit is converted (2026-11-01). A
+  GeoTIFF read in another unit was refused as declaring no nodata, and a NetCDF `nodata` attribute of
+  -9999 mm/day became -9.999 m/day, a value no later step recognised as nodata.
+- A `data-request` job, `hmp data get` and `run_request` refuse a mask that is not on disk with
+  `JobInputNotFoundError` (`HMPY.E211`), the code `domain-build` and `terrain-delineate` give a
+  missing input, instead of a bare `FileNotFoundError` reported as `HMPY.E000` (2026-11-01). The exit
+  code stays 10.
+- A gridded forcing dataset masks its `nodata`, `_FillValue` or `missing_value` attribute on the cells
+  (2026-11-01), so a cell on such a pixel is refused instead of reading -9999 as a rate. Its spatial
+  mean, which read only `nodata`, now masks the same three attributes, so the persisted `_watershed`
+  series of a dataset that declares its nodata only as `_FillValue` or `missing_value` changes.
+- A forcing station whose location is in another CRS than the mesh is refused, naming both CRS,
+  instead of being read in the wrong place (2026-11-01). The stations path also passes `idw_power` on,
+  which it dropped for the default of 2.
+- A GeoTIFF band or a dataset time step that no stress period reads is refused, naming both counts,
+  instead of being dropped, and the silent 1000-step cap of a dataset without a simulation window is
+  gone (2026-11-01).
+- `linear` on a forcing grid of one row or one column and a rotated GeoTIFF forcing are refused by
+  name (2026-11-01), instead of raising a raw `QhullError` or reading misplaced pixels.
+- Site selection refuses a French territory whose box, read in Lambert-93 (EPSG:2154), lies outside
+  the area of use of that CRS, metropolitan France and Corsica (2026-11-01): a DEM without a CRS, a
+  `bbox`, a polygon or administrative territory, the station outlets that size the DEM request, and
+  the box of the observation request. A territory of another country goes as written. The message
+  names the box, says that an overseas territory needs its own CRS and what to write instead.
+- A `map_context` layer of the site selection map is read as RFC 7946 (WGS 84 lon/lat), or in the CRS
+  its `crs` member names, and moved into the map CRS (2026-11-01). A layer whose coordinates leave the
+  degree bounds, hold a position of one number, or name a CRS pyproj cannot read is refused by name
+  instead of drawn in the wrong place, and the manifest check no longer asks a context layer for a
+  `hydromodpy_coordinate_crs` member.
+- An observation point of the site selection is placed the same way in every vector layer
+  (2026-11-01). A point without a readable location or CRS is skipped and recorded
+  (`hydromodpy_skipped_observations` in the GeoJSON, a log warning for the GeoPackage and GeoParquet
+  layers) instead of stopping the GeoJSON or being kept without a CRS, and a point given in another
+  CRS is moved into the CRS of the batch instead of being labelled with the first CRS met.
+- A geology support whose geology data did not load now stops with a configuration error (HMPY.E102)
+  that names `[domain.supports.<id>]` and says to declare `[data.geology]`, instead of a bare
+  `ValueError` (2026-11-01).
+- `field_param_from_toml` refuses a top-level `[field]` without `id` with a `ConfigMissingError` that
+  names the file, instead of a bare `KeyError` (2026-11-01).
+- A transient run refuses an active cell whose specific yield (convertible cell) or specific storage
+  (confined cell) is zero, negative or not finite, as a heterogeneous Sy gives where no zone of its
+  support covers the cell (2026-11-01). The refusal names the property, the layers and the cell count,
+  in MODFLOW 6, MODFLOW-NWT and Boussinesq. A steady run is not checked, it reads no storage.
+- A runtime property override is checked against its physical range as it was written, so the refusal
+  counts the values given and names the layer and the cell (2026-11-01). A steady run no longer
+  refuses a Sy or Ss override it does not read.
+- Boussinesq refuses a hydraulic conductivity that is zero, negative or not finite on a cell of its
+  runtime mesh, as MODFLOW 6 and MODFLOW-NWT do, naming the support when K is heterogeneous
+  (2026-11-01).
+- A gridded runoff that the watershed-mean reduction refuses, such as a day without any valid pixel,
+  now stops the run when its forcings are persisted and fails the calibration trial with its message,
+  instead of being dropped with a debug line (2026-11-01).
 - A runtime property override of `Project.run(properties=...)` and the cell values a field parameter
   gives the mesh, after its depth profile, are checked against the physical range of the property
   (2026-10-31). An override such as `Sy = 0.8` on one cell, or a profile that takes Sy under 1e-4 at
@@ -1330,6 +1382,24 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `Subbasin` writes under `output/` of the working directory by default, created on demand, instead of
+  a folder named `output\` inside the installed package (2026-11-01).
+- `mesh_crs` is a required argument of `discretize_fields_on_cells` and `discretize_points_on_cells`,
+  and `same_crs` also matches two CRS equal up to axis order or identified by pyproj as the same EPSG
+  code (2026-11-01), so a proj4 Lambert-93 GeoTIFF without datum is no longer refused.
+- An empty forcing grid or one without X and Y axes raises `ForcingGridError` (`HMPY.E201`, still a
+  `ValueError`) naming the source (2026-11-01).
+- A `[site_selection.territory]` in mode `admin_regions` or `admin_departments` is refused at read
+  time when `country` is not `"fr"`, naming the mode and the country, instead of giving no search
+  geometry (2026-11-01). The DEM request no longer falls back to the outlets for such a territory.
+- The geology property demo (`hydromodpy.data.cases.geology.run_geology_property_case`) runs without
+  arguments on the Brittany gallery TOML files it ships (2026-11-01). Its defaults named files that do
+  not exist.
+- A calibration trial refused by a `PhysicalBoundsError` on a quantity the search moves, such as a
+  scaled candidate past the physical ceiling, is infeasible (2026-11-01). Its error starts with
+  "infeasible", the optimizer gets the failed cost, and the consecutive-failure watch leaves it out of
+  its streak. The refusal of a fixed value stays a failure the watch counts, and a search that has
+  scored no point after 50 infeasible trials is stopped with a named refusal.
 - The Whitebox delineation chains its tools on the rasters in memory (2026-10-31). The terrain engine
   hands the conditioned DEM, the D8 pointer and the accumulation it just wrote to its next step, the
   river network reads the corrected DEM, the pointer and the watershed once, and the watershed contour

@@ -19,6 +19,7 @@ import xarray as xr
 
 from hydromodpy.calibration.metrics import series as series_module
 from hydromodpy.calibration.metrics.series import add_runoff_to_discharge
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
@@ -154,6 +155,15 @@ def test_a_gauge_scales_the_gridded_runoff_by_the_area_it_drains() -> None:
     )
 
     assert scored.tolist() == pytest.approx([1.75, 3.25, 5.25])
+
+
+def test_a_runoff_day_without_a_valid_pixel_is_refused_by_name() -> None:
+    runoff = _gridded_runoff()
+    runoff.fields[0].data["runoff"][5] = np.nan
+    baseflow = pd.Series(0.0, index=_SIM_INDEX, name="discharge")
+
+    with pytest.raises(DataContractViolation, match="no valid pixel in time step 5"):
+        add_runoff_to_discharge(baseflow, _context(runoff))
 
 
 def test_no_runoff_at_all_still_says_so(caplog) -> None:

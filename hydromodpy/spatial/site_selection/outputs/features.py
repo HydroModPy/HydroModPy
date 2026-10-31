@@ -10,10 +10,12 @@ GeoPackage and GeoParquet layers, whose columns hold one type.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from pyproj import CRS
+from pyproj.exceptions import CRSError
 from shapely import make_valid
 
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
@@ -159,6 +161,44 @@ def observation_location(row: Mapping[str, Any]) -> tuple[float, float, str] | N
     return x, y, str(location.get("crs") or "")
 
 
+def placed_observations(
+    rows: Iterable[Mapping[str, Any]],
+) -> tuple[list[tuple[Mapping[str, Any], float, float, str]], list[dict[str, str]]]:
+    """Split evidence records into the points a layer can place and the skipped ones.
+
+    A point is placed when its provider location is readable and names a CRS
+    pyproj reads. Every layer skips the others and records the site, the
+    feature and the reason: ``missing_provider_location``,
+    ``missing_provider_crs`` or ``unreadable_provider_crs``.
+    """
+    placed: list[tuple[Mapping[str, Any], float, float, str]] = []
+    skipped: list[dict[str, str]] = []
+    for row in rows:
+        location = observation_location(row)
+        reason = "missing_provider_location" if location is None else _crs_problem(location[2])
+        if reason:
+            skipped.append(
+                {
+                    "site_id": str(row.get("site_id") or ""),
+                    "feature_id": str(row.get("feature_id") or ""),
+                    "reason": reason,
+                }
+            )
+        else:
+            placed.append((row, *location))
+    return placed, skipped
+
+
+def _crs_problem(crs: str) -> str:
+    if not crs:
+        return "missing_provider_crs"
+    try:
+        CRS.from_user_input(crs)
+    except CRSError:
+        return "unreadable_provider_crs"
+    return ""
+
+
 def repair_geometry_for_export(geometry: Any) -> Any:
     """Return a valid version of *geometry*, or ``None`` when nothing is left.
 
@@ -215,5 +255,6 @@ __all__ = [
     "observation_location",
     "observation_properties",
     "outlet_properties",
+    "placed_observations",
     "repair_geometry_for_export",
 ]

@@ -93,7 +93,7 @@ The supports a project declares in `[domain.supports]` live in `spatial/domain/`
 
 The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py`, `field_param_sections.py` and `field_param_units.py` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`, and the review launcher by `tests/unit/field/cases/test_review_cases.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
 
-`tests/contract/test_case_review_contract.py` checks the review launcher. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 98.4.
+`tests/contract/test_case_review_contract.py` checks the review launcher. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 98.7.
 
 ```bash
 pytest tests/unit/field -q

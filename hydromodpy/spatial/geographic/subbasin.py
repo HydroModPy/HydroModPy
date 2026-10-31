@@ -43,7 +43,7 @@ class Subbasin:
         intermittency: object,
         sub_snap_dist: int,
         add_path: str = None,
-        out_path: str = os.path.dirname(os.path.dirname(__file__)) + "\\output\\",
+        out_path: str | Path | None = None,
     ):
         """
         Parameters
@@ -58,8 +58,10 @@ class Subbasin:
             Path folder with manual data list. Default is None.
         sub_snap_dist : int
             Maximum distance where the subbasin outlet can be moved.
-        out_path : str
-            Path of the HydroModPy outputs.
+        out_path : str or Path, optional
+            Folder of the outputs, used when *geographic* has no preprocessing
+            folder. Default is ``output/`` under the working directory, created
+            on demand.
         """
         logger.info("Extracting subbasin definitions for watershed")
         self._backend = resolve_delineation_backend()
@@ -70,7 +72,8 @@ class Subbasin:
         if stable is None:
             from hydromodpy.core.state.paths import preprocessing_dir
 
-            stable = str(preprocessing_dir(Path(out_path)))
+            root = Path(out_path) if out_path is not None else Path.cwd() / "output"
+            stable = str(preprocessing_dir(root))
         self.subbasin_path = os.path.join(str(stable), "subbasin")
         if not os.path.exists(self.subbasin_path):
             create_folder(self.subbasin_path)

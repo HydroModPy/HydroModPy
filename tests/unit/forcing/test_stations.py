@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import replace
 
 import numpy as np
 import pytest
+from pyproj import CRS
 
+from hydromodpy.core.exceptions import DataContractViolation
 from tests._helpers.forcing_cases import MM_DAY_TO_M_S, points_on_cells, station, window
 
 pytestmark = pytest.mark.fast
@@ -57,3 +60,30 @@ def test_a_station_with_a_missing_value_is_refused_naming_its_variable(values, s
         etp.data = etp.data.iloc[:0]
     with pytest.raises(ValueError, match="^Coverage check failed " + match):
         points_on_cells([etp], simulation_window=simulation_window)
+
+
+@pytest.mark.parametrize(("power", "rate"), [(1.0, 12.5), (2.0, 11.0)], ids=["power-1", "power-2"])
+def test_idw_weighs_the_stations_with_the_power_it_is_given(power, rate):
+    stations = [station("near", 4.0, 5.0, 10.0), station("far", 8.0, 5.0, 20.0)]  # 1 m and 3 m away
+    result = points_on_cells(stations, 1, 1, method="idw", idw_power=power)
+    np.testing.assert_allclose(result[0], rate * MM_DAY_TO_M_S)
+
+
+_L93_WKT = CRS.from_epsg(2154).to_wkt()
+
+
+@pytest.mark.parametrize(
+    ("station_crs", "mesh_crs", "refused"),
+    [("EPSG:4326", _L93_WKT, True), ("EPSG:2154", _L93_WKT, False), ("", _L93_WKT, False), ("EPSG:4326", None, False)],
+    ids=["another-crs", "same-crs-written-otherwise", "station-without-crs", "mesh-without-crs"],
+)  # fmt: skip
+def test_a_station_in_another_crs_than_the_mesh_is_refused(station_crs, mesh_crs, refused):
+    record = station("S1", 5.0, 5.0, 8.0)
+    record = replace(record, location=replace(record.location, crs=station_crs))
+    match = (
+        r"^The recharge station S1 is in EPSG:4326 and the mesh in EPSG:2154\. A station is never"
+    )
+    with pytest.raises(DataContractViolation, match=match) if refused else nullcontext():
+        np.testing.assert_allclose(
+            points_on_cells([record], mesh_crs=mesh_crs)[0], 8.0 * MM_DAY_TO_M_S
+        )

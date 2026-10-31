@@ -153,13 +153,11 @@ def _gridded_runoff_mm_per_day(runoff: Any) -> pd.Series | None:
     The reduction the run persists as ``forcing/runoff/_watershed``, which the
     derived catchment discharge reads back: every cell of each field averaged,
     in the data-manager unit, the index naive in UTC. What a trial is scored on
-    is then what its run reports.
+    is then what its run reports. The reduction says it has nothing to reduce
+    by returning None. Its refusals, such as a day without any valid pixel,
+    propagate and fail the trial with their message.
     """
-    try:
-        series = spatial_mean_from_fields(runoff)
-    except Exception:
-        logger.debug("Watershed-mean reduction of the runoff fields failed", exc_info=True)
-        return None
+    series = spatial_mean_from_fields(runoff)
     if series is None or len(series) == 0:
         return None
     idx = pd.DatetimeIndex(series.index)

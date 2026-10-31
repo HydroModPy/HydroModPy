@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import JobInputNotFoundError
 from hydromodpy.data import DataRequest, DataStore, run_request
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.location import StationLocation
@@ -429,7 +430,7 @@ def test_a_failed_source_leaves_no_file_and_the_other_source_keeps_its_own(
 def test_a_mask_that_is_not_there_writes_nothing(tmp_path: Path) -> None:
     request = DataRequest.for_variable("dem", mask=tmp_path / "absent.gpkg")
 
-    with pytest.raises(FileNotFoundError, match="absent.gpkg"):
+    with pytest.raises(JobInputNotFoundError, match="absent.gpkg"):
         run_request(request, tmp_path / "out")
     assert not (tmp_path / "out").exists()
 

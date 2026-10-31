@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.spatial import CatchmentZonesField
 from hydromodpy.spatial.domain.domain import Domain
 from hydromodpy.spatial.domain.domain_config import DomainConfig
@@ -129,8 +130,8 @@ _GEOLOGY = GeologySupportConfig(kind="geology")
         ("generated_rings", _RINGS.model_copy(update={"center_x": 10.0}), None, ValueError, "center must lie strictly inside"),
         ("catchment_zones", _CATCHMENT, None, ValueError, "requires domain zone 'catchment'"),
         ("catchment_zones", _CATCHMENT, _context(SimpleNamespace(get_zone=lambda _id: object())), TypeError, "must expose encoded_codes"),
-        ("geology", _GEOLOGY, None, ValueError, "requires loaded geology data"),
-        ("geology", _GEOLOGY, _context(loaded_data=SimpleNamespace()), ValueError, "requires loaded geology data"),
+        ("geology", _GEOLOGY, None, ConfigMissingError, r"\[domain.supports.support\] kind = 'geology' reads the geology data, and none"),
+        ("geology", _GEOLOGY, _context(loaded_data=SimpleNamespace()), ConfigMissingError, r"Declare \[data.geology\]"),
     ],
 )  # fmt: skip
 def test_a_provider_refuses_what_it_cannot_build(kind, config, context, error, match):

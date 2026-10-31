@@ -17,8 +17,10 @@ from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_dem_area_light_candidates,
     build_generated_network_candidates,
     build_station_candidate_outlets,
+    default_project_crs,
     first_candidate_crs,
     load_reference_network_for_station_candidates,
+    require_lambert93_extent,
     site_selection_search_geometry,
 )
 from hydromodpy.spatial.site_selection.config.criteria_config import (
@@ -336,7 +338,8 @@ def _run_selection(
     )
     if dem_path is None:
         raise ValueError(f"{_BUILD_OF_ACTION[action]} requires dem_init_path or dem.path.")
-    target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
+    dem_crs, dem_bounds = _read_raster_frame(dem_path)
+    target_crs = crs_project or dem_crs or _default_crs(config, dem_path, dem_bounds)
     stations = action == "hydrometry"
     light = action == "dem_area_light"
     station_candidates: list[CandidateOutlet] = []
@@ -598,20 +601,39 @@ def _dem_area_light_diagnostic_rows(
     ]
 
 
-def _read_raster_crs(path: Path) -> str | None:
-    """Read a DEM CRS when the path points to a real raster."""
+def _read_raster_frame(path: Path) -> tuple[str | None, tuple[float, ...] | None]:
+    """Read a DEM CRS and bounds when the path points to a real raster."""
 
     try:
         with rasterio.open(path) as src:
-            return crs_text(src.crs)
+            return crs_text(src.crs), tuple(src.bounds)
     except Exception:
+        return None, None
+
+
+def _default_crs(
+    config: SiteSelectionConfig,
+    dem_path: Path,
+    dem_bounds: tuple[float, ...] | None,
+) -> str | None:
+    """Return the territory default CRS for a DEM that declares none.
+
+    The default is Lambert-93 in France. It holds only when the DEM, and a
+    ``bbox`` territory written in the project CRS, lie in the EPSG:2154 area
+    of use, so a box outside it is refused.
+    """
+
+    crs = default_project_crs(config.territory)
+    if crs is None:
         return None
-
-
-def _default_project_crs(config: SiteSelectionConfig) -> str | None:
-    if (config.territory.country or "").upper() == "FR":
-        return "EPSG:2154"
-    return None
+    fix = "Pass crs_project to the build, or give it a DEM that carries its CRS."
+    if dem_bounds is not None:
+        require_lambert93_extent(dem_bounds, what=f"the DEM {dem_path}", fix=fix)
+    if config.territory.mode == "bbox":
+        require_lambert93_extent(
+            config.territory.bbox, what="site_selection.territory.bbox", fix=fix
+        )
+    return crs
 
 
 __all__ = [

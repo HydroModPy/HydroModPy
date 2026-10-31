@@ -137,11 +137,7 @@ def require_positive_conductivity(
     Inactive cells are not checked: the solver never reads them.
     """
     values = np.asarray(hk, dtype=float)
-    active = np.asarray(active_mask, dtype=bool)
-    if active.size == values.size:
-        active = active.reshape(values.shape)
-    else:
-        active = np.broadcast_to(active, values.shape)
+    active = _cells_like(active_mask, values, dtype=bool)
     invalid = active & ~(np.isfinite(values) & (values > 0.0))
     n_invalid = int(np.count_nonzero(invalid))
     if n_invalid == 0:
@@ -154,21 +150,106 @@ def require_positive_conductivity(
         f"{property_label} is zero, negative or not finite on {n_invalid} of {n_active} "
         f"active cell(s) ({n_zero} zero, {n_nonfinite} not finite)."
     )
+    hint = _value_hint(flow, property_label, (property_label, property_label.lower()))
+    raise DataContractViolation(detail + hint)
 
-    hint = " Check the value given to this parameter in [flow.param]."
+
+def require_positive_storage(
+    sy,
+    ss,
+    *,
+    active_mask,
+    iconvert,
+    steady,
+    flow: object | None = None,
+) -> None:
+    """Refuse a storage that a transient period reads and that is zero, negative or not finite.
+
+    The storage only counts in a transient period, so nothing is checked when
+    every flag of ``steady`` (one per stress period) is True. A convertible cell
+    (``iconvert`` not 0) stores water by its specific yield, so its Sy must be
+    positive. A confined cell (``iconvert`` 0) stores it by its specific
+    storage, so its Ss must be positive. Ss = 0 on a convertible cell stays
+    allowed: it is the Dupuit approximation the unconfined validation cases
+    make. As for K, a heterogeneous Sy or Ss gives 0 on a cell that no zone of
+    its support covers.
+
+    ``sy`` and ``ss`` have the layer first, ``(nlay, ...)``, or are one layer
+    ``(n_cells,)``. ``ss`` is None for a solver without specific storage
+    (Boussinesq). ``active_mask`` has their size. ``iconvert`` is one flag, one
+    flag per layer or one per cell. Inactive cells are not checked.
+    """
+    if bool(np.all(np.asarray(steady, dtype=bool))):
+        return
+    sy_values = _by_layer(sy)
+    active = _cells_like(active_mask, sy_values, dtype=bool)
+    convertible = _cells_like(iconvert, sy_values, dtype=int) != 0
+    _require_positive_storage_cells(sy_values, active & convertible, "Sy", "convertible", flow)
+    if ss is not None:
+        ss_values = _by_layer(ss)
+        _require_positive_storage_cells(ss_values, active & ~convertible, "Ss", "confined", flow)
+
+
+_STORAGE_ROLES = {
+    "Sy": "A convertible cell stores water by its specific yield, so Sy must be positive there.",
+    "Ss": "A confined cell stores water by its specific storage, so Ss must be positive there.",
+}
+
+
+def _require_positive_storage_cells(
+    values: np.ndarray, read: np.ndarray, label: str, kind: str, flow: object | None
+) -> None:
+    """Refuse ``label`` on the cells of ``read`` where it is not positive and finite."""
+    invalid = read & ~(np.isfinite(values) & (values > 0.0))
+    n_invalid = int(np.count_nonzero(invalid))
+    if n_invalid == 0:
+        return
+    per_layer = invalid.reshape(invalid.shape[0], -1).sum(axis=1)
+    layers = ", ".join(
+        f"layer {layer + 1}: {int(count)}" for layer, count in enumerate(per_layer) if count
+    )
+    n_zero = int(np.count_nonzero(invalid & (values == 0.0)))
+    n_nonfinite = int(np.count_nonzero(invalid & ~np.isfinite(values)))
+    aliases = next(names for canonical, names, _, _ in FLOW_PROPERTY_SPECS if canonical == label)
+    raise DataContractViolation(
+        f"{label} is zero, negative or not finite on {n_invalid} of "
+        f"{int(np.count_nonzero(read))} active {kind} cell(s) that a transient period "
+        f"reads ({layers}; {n_zero} zero, {n_nonfinite} not finite). {_STORAGE_ROLES[label]}"
+        + _value_hint(flow, label, aliases)
+    )
+
+
+def _by_layer(values) -> np.ndarray:
+    """``values`` as floats with the layer first; one layer when it is flat."""
+    array = np.asarray(values, dtype=float)
+    return array.reshape(1, -1) if array.ndim <= 1 else array
+
+
+def _cells_like(flags, values: np.ndarray, *, dtype) -> np.ndarray:
+    """``flags`` on the cells of ``values``: of their size, one per layer, or one."""
+    array = np.asarray(flags, dtype=dtype)
+    if array.size == values.size:
+        return array.reshape(values.shape)
+    if array.ndim == 1 and values.ndim > 1 and array.size == values.shape[0]:
+        array = array.reshape((-1,) + (1,) * (values.ndim - 1))
+    return np.broadcast_to(array, values.shape)
+
+
+def _value_hint(flow: object | None, label: str, aliases: tuple[str, ...]) -> str:
+    """Where to look for the value of ``label``: its zones when it is heterogeneous."""
     parameters = getattr(flow, "parameters", None)
     param_obj = None
     if isinstance(parameters, dict):
-        param_obj = parameters.get(property_label, parameters.get(property_label.lower()))
+        param_obj = next((parameters[name] for name in aliases if name in parameters), None)
     if param_obj is not None and getattr(param_obj, "is_heterogeneous", False):
         support_id = getattr(param_obj, "field_spatial_id", None)
-        hint = (
-            f" {property_label} is heterogeneous on spatial support '{support_id}'. A cell "
+        return (
+            f" {label} is heterogeneous on spatial support '{support_id}'. A cell "
             "that no zone of this support covers gets no value, so the support data does "
             "not cover the whole active domain. Make the support source cover the model "
             "extent, or check the values of the zones it does cover."
         )
-    raise DataContractViolation(detail + hint)
+    return " Check the value given to this parameter in [flow.param]."
 
 
 def map_flow_properties(
@@ -292,6 +373,7 @@ __all__ = [
     "k_tensor_parameter_ids",
     "map_flow_properties",
     "require_positive_conductivity",
+    "require_positive_storage",
     "resolve_field_param",
     "resolve_spatial_support_from_domain",
 ]

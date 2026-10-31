@@ -379,16 +379,16 @@ _WATERSHED_MEAN_STATION = "_watershed"
 
 
 def _watershed_mean_series(load_result: object):
-    """Reduce a gridded forcing family to one tz-naive watershed-mean series."""
+    """Reduce a gridded forcing family to one tz-naive watershed-mean series.
+
+    None when the reduction has nothing to reduce. Its refusals, such as a day
+    without any valid pixel, propagate and stop the run.
+    """
     import pandas as pd
 
     from hydromodpy.spatial.forcing.cells import spatial_mean_from_fields
 
-    try:
-        series = spatial_mean_from_fields(load_result)
-    except Exception:
-        logger.debug("Watershed-mean reduction failed", exc_info=True)
-        return None
+    series = spatial_mean_from_fields(load_result)
     if series is None or len(series) == 0:
         return None
     idx = pd.DatetimeIndex(series.index)

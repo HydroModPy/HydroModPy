@@ -44,7 +44,9 @@ class _Homogeneous:
         return SimpleNamespace(cell_values=np.full(mesh.n_cells, self.value))
 
 
-def _adapter(parameters: dict[str, object]) -> FlowToModflowAdapter:
+def _adapter(
+    parameters: dict[str, object], steady: tuple[bool, ...] = (True,)
+) -> FlowToModflowAdapter:
     dem = np.full((NROW, NCOL), 20.0)
     flow = SimpleNamespace(
         initial_conditions=SimpleNamespace(h=SimpleNamespace(type="top", value=0.0)),
@@ -53,7 +55,7 @@ def _adapter(parameters: dict[str, object]) -> FlowToModflowAdapter:
         sinks_sources={},
         active_sinks_sources=[],
         parameters=parameters,
-        flow_regime="steady",
+        flow_regime="steady" if all(steady) else "transient",
     )
     mesh = solver_mesh_from_structured_arrays(
         nrow=NROW, ncol=NCOL, top=dem, botm=np.stack([dem - 10.0, dem - 20.0]), dx=5.0, dy=5.0
@@ -62,9 +64,9 @@ def _adapter(parameters: dict[str, object]) -> FlowToModflowAdapter:
         flow=flow,
         domain=SimpleNamespace(zones={}),
         solver_mesh=mesh,
-        nper=1,
+        nper=len(steady),
         sink_fill=False,
-        steady=np.array([True]),
+        steady=np.array(steady),
     )
 
 
@@ -130,9 +132,21 @@ def test_a_flow_without_kv_hands_none() -> None:
     assert _adapter({"K": _Homogeneous(K_M_S)}).build().kv is None
 
 
-def test_a_kv_of_zero_is_refused_before_the_solver_runs() -> None:
-    adapter = _adapter({"K": _Homogeneous(K_M_S), "Kv": _Homogeneous(0.0)})
-    with pytest.raises(DataContractViolation, match="Kv"):
+@pytest.mark.parametrize(
+    ("values", "steady", "match"),
+    [({"Kv": 0.0}, (True,), "Kv"),
+     ({"Sy": 0.0, "Ss": 1e-5}, (True, False), r"Sy .* 24 of 24 active convertible .*layer 1: 12, layer 2: 12"),
+     ({"Sy": 0.0, "Ss": 1e-5}, (True,), None),
+     ({"Sy": 0.1, "Ss": 0.0}, (True, False), None)],
+    ids=["kv-zero", "sy-zero-transient", "sy-zero-steady", "ss-zero-convertible"],
+)  # fmt: skip
+def test_a_value_the_solver_reads_as_zero_is_refused_before_it_runs(values, steady, match) -> None:
+    parameters = {"K": _Homogeneous(K_M_S)} | {k: _Homogeneous(v) for k, v in values.items()}
+    adapter = _adapter(parameters, steady)
+    if match is None:
+        adapter.build()
+        return
+    with pytest.raises(DataContractViolation, match=match):
         adapter.build()
 
 

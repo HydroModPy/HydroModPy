@@ -68,7 +68,7 @@ def test_the_x_and_y_axes_are_named_or_taken_last(dims, expected):
 
 def test_a_dataarray_with_one_spatial_axis_is_refused():
     stations = xr.DataArray(np.zeros((3, 2)), dims=("time", "station"))
-    with pytest.raises(ValueError, match=r"Cannot identify X/Y dimensions.*'station'"):
+    with pytest.raises(ValueError, match=r"dataset has the variable None on the dimensions \('time', 'station'\), among which no X and Y axis"):  # fmt: skip
         find_xy_dims(stations)
 
 
@@ -80,6 +80,7 @@ def _area(n_centres: int | None, mesh) -> None:
         nper=1,
         method="area",
         mesh=mesh,
+        mesh_crs=None,
     )
 
 
@@ -88,7 +89,7 @@ def _area(n_centres: int | None, mesh) -> None:
     [
         (lambda: _area(None, None), "needs the cell polygons"),
         (lambda: _area(6, fc.triangle_mesh()), r"the planar mesh holds \d+ cells for 6 centres"),
-        (lambda: discretize_points_on_cells(load_result=LoadResult(), centers=np.zeros((3, 2)), nper=1, method="area"),
+        (lambda: discretize_points_on_cells(load_result=LoadResult(), centers=np.zeros((3, 2)), nper=1, method="area", mesh_crs=None),
          "station source has no pixel"),
     ],
     ids=["without-the-cell-polygons", "on-the-polygons-of-other-cells", "on-a-station-source"],
@@ -106,7 +107,7 @@ def test_a_cell_no_pixel_reaches_takes_the_nearest_pixel():
 
     result, nearest = (
         discretize_fields_on_cells(
-            load_result=fc.grid_source(values, x, y), centers=fc.mesh_centres(mesh), nper=1, method=method, mesh=mesh
+            load_result=fc.grid_source(values, x, y), centers=fc.mesh_centres(mesh), nper=1, method=method, mesh=mesh, mesh_crs=None
         )[0]
         for method in ("area", "nearest")
     )  # fmt: skip

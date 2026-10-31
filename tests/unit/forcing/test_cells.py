@@ -27,20 +27,30 @@ def test_a_source_without_field_gives_zero_on_every_period():
     assert all(result[kper].shape == (20,) and np.all(result[kper] == 0.0) for kper in range(3))
 
 
-@pytest.mark.parametrize(
+DISCRETIZE = pytest.mark.parametrize(
     "discretize", [discretize_fields_on_cells, discretize_points_on_cells], ids=["fields", "points"]
 )
+
+
+@DISCRETIZE
 @pytest.mark.parametrize("shape", [(6,), (3, 3)], ids=["flat", "three-columns"])
 def test_centres_that_are_not_pairs_are_refused(discretize, shape):
     with pytest.raises(ValueError, match=r"centers must have shape \(n_cells, 2\)"):
-        discretize(load_result=LoadResult(), centers=np.zeros(shape), nper=1)
+        discretize(load_result=LoadResult(), centers=np.zeros(shape), nper=1, mesh_crs=None)
+
+
+@DISCRETIZE
+def test_the_mesh_crs_is_required_so_no_caller_skips_the_crs_check(discretize):
+    with pytest.raises(TypeError, match="mesh_crs"):
+        discretize(load_result=LoadResult(), centers=np.zeros((1, 2)), nper=1)
 
 
 def test_each_cell_takes_the_pixel_under_its_centre():
     rows = np.repeat(np.array([[1.0], [2.0], [3.0]]), 4, axis=1)
     result = discretize_fields_on_cells(
-        load_result=fc.grid_source(rows, *fc.pixel_axes(3, 4)), centers=fc.centres(3, 4), nper=1
-    )
+        load_result=fc.grid_source(rows, *fc.pixel_axes(3, 4)), centers=fc.centres(3, 4), nper=1,
+        mesh_crs=None,
+    )  # fmt: skip
     np.testing.assert_allclose(result[0], rows.ravel() * fc.MM_DAY_TO_M_S, rtol=1e-6)
 
 
@@ -56,7 +66,7 @@ def test_a_raster_that_rises_to_the_north_gives_a_recharge_that_falls_with_the_r
     northing = np.repeat(y[:, None], ncol, axis=1)
 
     source = fc.grid_source(northing, x, y)
-    result = discretize_fields_on_cells(load_result=source, centers=cells, nper=1)
+    result = discretize_fields_on_cells(load_result=source, centers=cells, nper=1, mesh_crs=None)
 
     assert np.all(np.diff(grid[:, 0, 1]) < 0.0)
     assert grid[0, 0, 1] == pytest.approx(yoff + nrow * fc.PIXEL - fc.PIXEL / 2.0)

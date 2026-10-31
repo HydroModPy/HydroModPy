@@ -1,4 +1,4 @@
-"""The ``[geographic.crossing_notch]`` table, the cut of road and rail embankments out of the ground."""
+"""The ``[geographic.crossings]`` table, the cut of road and rail embankments out of the ground."""
 
 from __future__ import annotations
 

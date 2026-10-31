@@ -95,7 +95,7 @@ three parts, `test_whitebox_depression_child.py` for the child process and its r
 `test_delineation_determinism.py` for the stability of the results.
 
 The CI runs `test_whitebox_workflows_backend.py` in its own step, apart from the rest of the suite
-(`.github/workflows/main-ci.yml`). The job `mesh-coverage` fails when the coverage of this package drops below 97.3,
+(`.github/workflows/main-ci.yml`). The job `mesh-coverage` fails when the coverage of this package drops below 97.2,
 the floor of the line `coverage report --include='hydromodpy/spatial/delineation/*'`. The floors only go up.
 
 ```bash

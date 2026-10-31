@@ -25,6 +25,10 @@ from shapely.geometry import LineString, Point
 
 from hydromodpy.core.io import crs as crs_io
 
+L93_PROJ4_WITHOUT_DATUM = (  # pyproj identifies it as EPSG:2154, yet finds it unequal to it
+    "+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +units=m +no_defs"
+)  # fmt: skip
+
 
 def _write_tif_without_crs(path: Path) -> np.ndarray:
     values = np.arange(12, dtype="float32").reshape(3, 4)
@@ -154,8 +158,10 @@ def test_a_crs_is_read_from_a_code_a_string_or_a_crs(crs_like: crs_io.CrsLike) -
         ("EPSG:4326", "WGS84", True),
         ("EPSG:2154", "EPSG:4326", False),
         ("EPSG:2154", "not a crs", False),
+        (L93_PROJ4_WITHOUT_DATUM, "EPSG:2154", True),
+        ("EPSG:4326", "OGC:CRS84", True),
     ],
-    ids=["label", "parsed", "other", "unreadable"],
+    ids=["label", "parsed", "other", "unreadable", "proj4-identified-as-its-epsg", "axis-order"],
 )
 def test_two_labels_name_the_same_frame_only_when_pyproj_agrees(
     left: str, right: str, same: bool

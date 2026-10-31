@@ -86,7 +86,7 @@ def discretize_fields_on_cells(
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
-    mesh_crs: str | None = None,
+    mesh_crs: str | None,
 ) -> dict[int, np.ndarray]:
     """Discretize gridded FieldRecords onto the cells of a mesh.
 
@@ -114,11 +114,12 @@ def discretize_fields_on_cells(
         Planar mesh whose cells the centres belong to. ``"area"`` reads its
         cell polygons and refuses to run without it.
     mesh_crs:
-        CRS of the cells, as the mesh declares it. A record in another CRS is
-        refused, since a grid is never reprojected. Without it, or when the
-        record or the mesh declares no CRS that places it on the Earth (none,
-        unreadable, or a local frame), the two cannot be compared and the record
-        is read as it is.
+        CRS of the cells, as the mesh declares it, required so that no caller
+        skips the check by forgetting it. A record in another CRS is refused,
+        since a grid is never reprojected. When it is None, or when the record
+        or the mesh declares no CRS that places it on the Earth (none,
+        unreadable, or a local frame), the two cannot be compared and the
+        record is read as it is.
 
     Returns
     -------
@@ -174,6 +175,8 @@ def discretize_points_on_cells(
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
     source_unit: str = "mm/day",
+    mesh_crs: str | None,
+    idw_power: float = 2.0,
 ) -> dict[int, np.ndarray]:
     """Interpolate located PointRecords onto the cell centres of a mesh.
 
@@ -189,6 +192,11 @@ def discretize_points_on_cells(
         Same as :func:`discretize_fields_on_cells`.
     source_unit:
         Unit of a record that does not state its own.
+    mesh_crs:
+        Same as :func:`discretize_fields_on_cells`. A station whose location
+        is in another CRS is refused, since a station is never reprojected.
+    idw_power:
+        Exponent of the IDW weights, read by ``"idw"`` only.
 
     Returns
     -------
@@ -210,6 +218,8 @@ def discretize_points_on_cells(
         coverage_policy=str(getattr(simulation_window, "coverage_policy", "ignore")),
         method=method,
         source_unit=source_unit,
+        mesh_crs=mesh_crs,
+        idw_power=idw_power,
     )
 
 

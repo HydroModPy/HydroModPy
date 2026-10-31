@@ -17,7 +17,10 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import to_modflow6_time_units
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.field_property_mapping import require_positive_conductivity
+from hydromodpy.solver.field_property_mapping import (
+    require_positive_conductivity,
+    require_positive_storage,
+)
 from hydromodpy.solver.modflow6.builders import (
     PRIVATE_TRIAL_RECHARGE_KEY,
     TRIAL_RECHARGE_DIRNAME,
@@ -121,6 +124,7 @@ from hydromodpy.solver.modflow_grid import (
 from hydromodpy.solver.modflow_grid.active_connectivity import warn_on_disconnected_active_cells
 
 if TYPE_CHECKING:
+    from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
     from hydromodpy.spatial.mesh.model.planar_cell_mesh import PlanarCellMesh
 
 logger = get_logger(__name__)
@@ -843,6 +847,34 @@ def apply_preprocess_options(
     select_active_dem(model, box=bool(options.box))
 
 
+def _build_storage_package(model, solver_mesh: SolverMesh) -> None:
+    """Build STO on ``solver_mesh``, the grid DISV writes, lake footprint included.
+
+    Every layer is convertible. A storage a transient period reads is checked
+    on the active cells of that grid only, since the solver reads none on an
+    inactive cell (``require_positive_storage``).
+    """
+    steady_flags = [bool(model.steady[i]) for i in range(int(model.nper))]
+    steady_state_spd, transient_spd = sto_period_settings(steady_flags)
+    iconvert = np.ones((model.nlay,), dtype=int)
+    require_positive_storage(
+        model.sy,
+        model.ss,
+        active_mask=solver_mesh.idomain > 0,
+        iconvert=iconvert,
+        steady=steady_flags,
+        flow=model.flow,
+    )
+    model.sto = flopy.mf6.ModflowGwfsto(
+        model.gwf,
+        sy=model.sy,
+        ss=model.ss,
+        iconvert=iconvert,
+        steady_state=steady_state_spd or None,
+        transient=transient_spd or None,
+    )
+
+
 def run_pre_processing(  # noqa: PLR0915
     model,
     flow: object,
@@ -1185,17 +1217,7 @@ def run_pre_processing(  # noqa: PLR0915
         save_specific_discharge=bool(model.modflow_config.runtime.save_specific_discharge),
         save_saturation=bool(model.modflow_config.runtime.save_saturation),
     )
-    steady_state_spd, transient_spd = sto_period_settings(
-        [bool(model.steady[i]) for i in range(int(model.nper))]
-    )
-    model.sto = flopy.mf6.ModflowGwfsto(
-        model.gwf,
-        sy=model.sy,
-        ss=model.ss,
-        iconvert=np.ones((model.nlay,), dtype=int),
-        steady_state=steady_state_spd or None,
-        transient=transient_spd or None,
-    )
+    _build_storage_package(model, solver_mesh)
 
     # LOCAL, never an attribute of the model. On the shared calibration path
     # `externalize_recharge_spd` hands FloPy filenames without the arrays, so

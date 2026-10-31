@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 from hydromodpy.spatial.forcing.sources import (
+    crs_mismatch,
     interpolate_points_on_cells,
     unit_to_m_per_s_factor,
 )
@@ -29,6 +31,26 @@ def _variable_of(records: list[Any]) -> str:
     """Return the variable the station *records* hold, as the messages name it."""
     names = sorted({str(getattr(rec, "variable", None) or "forcing") for rec in records})
     return " and ".join(names)
+
+
+def _refuse_another_crs(located_points: list[Any], mesh_crs: str | None) -> None:
+    """Refuse a station whose location is not in the CRS of the mesh.
+
+    A station is never reprojected: its x and y are read as cell coordinates.
+    When the location or the mesh declares no CRS that places it on the Earth,
+    the two cannot be compared and the station is read as it is.
+    """
+    for rec in located_points:
+        names = crs_mismatch(rec.location.crs, mesh_crs)
+        if names is None:
+            continue
+        station_name, mesh_name = names
+        raise DataContractViolation(
+            f"The {_variable_of([rec])} station {getattr(rec, 'station_id', '?')} is in "
+            f"{station_name} and the mesh in {mesh_name}. A station is never reprojected, so "
+            f"each cell would read the value of another place. Give the station coordinates "
+            f"in {mesh_name}, or build the mesh in {station_name}."
+        )
 
 
 def period_means(
@@ -73,8 +95,15 @@ def discretize_located_points(
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
     source_unit: str = "mm/day",
+    mesh_crs: str | None,
+    idw_power: float = 2.0,
 ) -> dict[int, np.ndarray]:
-    """Interpolate the time series of located points onto cell centers."""
+    """Interpolate the time series of located points onto cell centers.
+
+    A station in another CRS than ``mesh_crs`` is refused. ``idw_power`` is the
+    exponent of the IDW weights.
+    """
+    _refuse_another_crs(located_points, mesh_crs)
     station_x = np.array([p.location.x for p in located_points])
     station_y = np.array([p.location.y for p in located_points])
 
@@ -129,7 +158,7 @@ def discretize_located_points(
         values_m_s = values * unit_factors
 
         rch_arrays[kper] = interpolate_points_on_cells(
-            station_x, station_y, values_m_s, centers, method
+            station_x, station_y, values_m_s, centers, method, idw_power=idw_power
         )
 
     return rch_arrays
