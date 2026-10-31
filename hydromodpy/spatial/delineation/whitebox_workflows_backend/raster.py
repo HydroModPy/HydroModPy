@@ -123,10 +123,10 @@ class WhiteboxRasterBackend:
         with progress.status(f"Whitebox: {op_name}"), self.silence_stdio():
             return operation(*args, **kwargs)
 
-    def _read_raster(self, path: str):
+    def read_raster(self, path: str):
         return self.run_env_operation(self.env.read_raster, path)
 
-    def _write_raster(self, raster, path: str) -> None:
+    def write_raster(self, raster, path: str) -> None:
         self._ensure_parent(path)
         self.run_env_operation(
             self.env.write_raster,
@@ -135,11 +135,11 @@ class WhiteboxRasterBackend:
             compress=self._compress_rasters,
         )
 
-    def _read_vector(self, path: str):
+    def read_vector(self, path: str):
         return self.run_env_operation(self.env.read_vector, path)
 
     @staticmethod
-    def _vector_record_count(vector) -> int | None:
+    def vector_record_count(vector) -> int | None:
         records = getattr(vector, "records", None)
         if records is None:
             return None
@@ -151,30 +151,15 @@ class WhiteboxRasterBackend:
             except Exception:
                 return None
 
-    def _write_vector(self, vector, path: str) -> None:
+    def write_vector(self, vector, path: str) -> None:
         self._ensure_parent(path)
-        record_count = self._vector_record_count(vector)
+        record_count = self.vector_record_count(vector)
         if record_count == 0:
             raise ValueError(
                 "Whitebox produced an empty vector layer; refusing to write "
                 f"{path}. Check the upstream clipping/delineation step."
             )
         self.run_env_operation(self.env.write_vector, vector, path)
-
-    def read_raster(self, path: str):
-        return self._read_raster(path)
-
-    def write_raster(self, raster, path: str) -> None:
-        self._write_raster(raster, path)
-
-    def read_vector(self, path: str):
-        return self._read_vector(path)
-
-    def write_vector(self, vector, path: str) -> None:
-        self._write_vector(vector, path)
-
-    def vector_record_count(self, vector) -> int | None:
-        return self._vector_record_count(vector)
 
     def clip_vector(self, vector, clip_layer):
         return self.run_env_operation(self.env.clip, vector, clip_layer)
@@ -183,15 +168,15 @@ class WhiteboxRasterBackend:
         self._compress_rasters = bool(enabled)
 
     def clip(self, input_path: str, clip_layer: str, output_path: str) -> None:
-        clip_vector = self._read_vector(clip_layer)
+        clip_vector = self.read_vector(clip_layer)
         if self._is_vector_path(input_path):
-            self._write_vector(
-                self.clip_vector(self._read_vector(input_path), clip_vector),
+            self.write_vector(
+                self.clip_vector(self.read_vector(input_path), clip_vector),
                 output_path,
             )
             return
-        self._write_raster(
-            self.run_env_operation(self.env.clip, self._read_raster(input_path), clip_vector),
+        self.write_raster(
+            self.run_env_operation(self.env.clip, self.read_raster(input_path), clip_vector),
             output_path,
         )
 
@@ -203,10 +188,10 @@ class WhiteboxRasterBackend:
         dissolve_field: str | None = None,
         snap_tolerance: float | None = None,
     ) -> None:
-        self._write_vector(
+        self.write_vector(
             self.run_env_operation(
                 self.env.dissolve,
-                self._read_vector(input_path),
+                self.read_vector(input_path),
                 dissolve_field=dissolve_field,
                 snap_tolerance=snap_tolerance,
             ),
@@ -235,10 +220,10 @@ class WhiteboxRasterBackend:
         *,
         maintain_dimensions: bool = False,
     ) -> None:
-        self._write_raster(
+        self.write_raster(
             self.clip_raster_to_polygon_raster(
-                self._read_raster(input_raster),
-                self._read_vector(input_polygon),
+                self.read_raster(input_raster),
+                self.read_vector(input_polygon),
                 maintain_dimensions=maintain_dimensions,
             ),
             output_raster,
@@ -248,7 +233,7 @@ class WhiteboxRasterBackend:
         return self.run_env_operation(self.env.polygon_area, vector)
 
     def polygon_area(self, input_shp: str) -> None:
-        self._write_vector(self.polygon_area_vector(self._read_vector(input_shp)), input_shp)
+        self.write_vector(self.polygon_area_vector(self.read_vector(input_shp)), input_shp)
 
     def modify_no_data_value_raster(self, raster, *, new_value: float):
         return self.run_env_operation(
@@ -258,8 +243,8 @@ class WhiteboxRasterBackend:
         )
 
     def modify_no_data_value(self, raster_path: str, *, new_value: float) -> None:
-        self._write_raster(
-            self.modify_no_data_value_raster(self._read_raster(raster_path), new_value=new_value),
+        self.write_raster(
+            self.modify_no_data_value_raster(self.read_raster(raster_path), new_value=new_value),
             raster_path,
         )
 
@@ -277,8 +262,8 @@ class WhiteboxRasterBackend:
         *,
         back_value: float,
     ) -> None:
-        self._write_raster(
-            self.set_nodata_value_raster(self._read_raster(input_raster), back_value=back_value),
+        self.write_raster(
+            self.set_nodata_value_raster(self.read_raster(input_raster), back_value=back_value),
             output_raster,
         )
 
@@ -312,10 +297,10 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        base_raster = None if base is None else self._read_raster(base)
-        self._write_raster(
+        base_raster = None if base is None else self.read_raster(base)
+        self.write_raster(
             self.vector_lines_to_raster_vector(
-                self._read_vector(input_path),
+                self.read_vector(input_path),
                 field=field,
                 zero_background=zero_background,
                 cell_size=cell_size,
@@ -354,10 +339,10 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        base_raster = None if base is None else self._read_raster(base)
-        self._write_raster(
+        base_raster = None if base is None else self.read_raster(base)
+        self.write_raster(
             self.vector_polygons_to_raster_vector(
-                self._read_vector(input_path),
+                self.read_vector(input_path),
                 field=field,
                 zero_background=zero_background,
                 cell_size=cell_size,
@@ -399,10 +384,10 @@ class WhiteboxRasterBackend:
         cell_size: float | None = None,
         base: str | None = None,
     ) -> None:
-        base_raster = None if base is None else self._read_raster(base)
-        self._write_raster(
+        base_raster = None if base is None else self.read_raster(base)
+        self.write_raster(
             self.vector_points_to_raster_vector(
-                self._read_vector(input_path),
+                self.read_vector(input_path),
                 field=field,
                 assign_op=assign_op,
                 zero_background=zero_background,
@@ -427,10 +412,10 @@ class WhiteboxRasterBackend:
     ) -> None:
         raster_paths = [rasters] if isinstance(rasters, str) else list(rasters)
         point_vector = self.extract_raster_values_at_points_vector(
-            [self._read_raster(path) for path in raster_paths],
-            self._read_vector(points),
+            [self.read_raster(path) for path in raster_paths],
+            self.read_vector(points),
         )
-        self._write_vector(point_vector, points)
+        self.write_vector(point_vector, points)
 
 
 __all__ = [

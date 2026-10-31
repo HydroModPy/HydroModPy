@@ -42,6 +42,7 @@ from hydromodpy.core.exceptions import (
     DataProductError,
     DataRequestError,
     DataSourceError,
+    JobInputNotFoundError,
     JobUsageError,
 )
 from hydromodpy.data.request.model import DataRequest
@@ -143,7 +144,7 @@ DATA_REQUEST = CapabilityDecl(
         JobUsageError,
         CapabilityVersionMismatchError,
         ConfigValidationError,
-        FileNotFoundError,
+        JobInputNotFoundError,
         DataContractViolation,
         DataRequestError,
         DataCapabilityError,
@@ -243,7 +244,7 @@ def _resolve_mask(job: JobDirectory, request: DataRequest) -> tuple[DataRequest,
     link = cast(FileLink, request.extent.mask)
     path = job.resolve_input(link.href, loc=("inputs", "extent", "mask", "href"))
     if not path.is_file():
-        raise FileNotFoundError(f"input mask names {link.href!r}, and {path} is not a file")
+        raise JobInputNotFoundError(f"input mask names {link.href!r}, and {path} is not a file")
     digest, size = sha256_file(path)
     if link.sha256 is not None and link.sha256.lower() != digest:
         raise DataContractViolation(

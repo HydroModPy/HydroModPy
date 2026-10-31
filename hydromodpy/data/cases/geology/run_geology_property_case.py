@@ -2,6 +2,8 @@
 
 Run with:
     python -m hydromodpy.data.cases.geology.run_geology_property_case
+
+Without arguments it reads the two Brittany gallery TOML files next to it.
 """
 
 from __future__ import annotations
@@ -31,9 +33,9 @@ from hydromodpy.spatial.field.field_param_io import field_param_from_toml
 from hydromodpy.spatial.field.geology_field import GeologyField, regular_cell_mesh_over_bounds
 from hydromodpy.spatial.field.plotting import plot_cell_values
 
-DEFAULT_GEOLOGY_CONFIG_FILE = "run_geology_case.toml"
+DEFAULT_GEOLOGY_CONFIG_FILE = "gallery_geology_config_brittany.toml"
 DEFAULT_GEOLOGY_SECTION = "geology"
-DEFAULT_FIELD_PARAM_CONFIG_FILE = "run_geology_property_case.toml"
+DEFAULT_FIELD_PARAM_CONFIG_FILE = "gallery_field_param_brittany.toml"
 DEFAULT_FIELD_PARAM_SECTION = "field"
 DEFAULT_OUTPUT_FILE = "geology_property_demo.png"
 LOCAL_CRS_WKT = (

@@ -8,7 +8,7 @@ the planar mesh, so each pixel weighs by the area it shares with a cell.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import sparse
@@ -28,6 +28,14 @@ if TYPE_CHECKING:
     from hydromodpy.spatial.mesh.model.hydro_mesh import HydroMesh
 
 logger = get_logger(__name__)
+
+
+class ForcingGridError(DataContractViolation, ValueError):
+    """A gridded forcing with no pixel, or with no X and Y axis to read it by.
+
+    It is a ``ValueError`` too, so a caller that catches the ``ValueError``
+    these checks raised before still catches it.
+    """
 
 
 def unit_to_m_per_s_factor(unit: str) -> float:
@@ -69,8 +77,47 @@ def pick_field_variable(ds: object) -> str | None:
     return str(data_vars[0])
 
 
-def find_xy_dims(da: object) -> tuple[str, str]:
-    """Identify X and Y dimension names in a DataArray."""
+def _earth_crs(crs: object) -> Any:
+    """Return *crs* as a pyproj CRS when it places the data on the Earth, else None.
+
+    A CRS is absent, unreadable or a local frame (``LOCAL_CS``, an engineering
+    CRS) when it is neither projected nor geographic. Such a CRS declares no
+    place, so nothing can be compared with it.
+    """
+    text = str(crs or "").strip()
+    if not text:
+        return None
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    try:
+        parsed = CRS.from_user_input(text)
+    except CRSError:
+        return None
+    return parsed if parsed.is_projected or parsed.is_geographic else None
+
+
+def crs_mismatch(source_crs: object, mesh_crs: str | None) -> tuple[str, str] | None:
+    """Return the names of the source CRS and the mesh CRS when they differ, else None.
+
+    A forcing is never reprojected, so a source in another CRS than the mesh
+    puts each value in another place. When the source or the mesh declares no
+    CRS that places it on the Earth, see :func:`_earth_crs`, the two cannot be
+    compared and None is returned. Two CRS compare through
+    :func:`~hydromodpy.core.io.crs.same_crs`.
+    """
+    source, mesh = _earth_crs(source_crs), _earth_crs(mesh_crs)
+    if source is None or mesh is None:
+        return None
+    from hydromodpy.core.io.crs import same_crs
+
+    if same_crs(str(source_crs), str(mesh_crs)):
+        return None
+    return source.to_string(), mesh.to_string()
+
+
+def find_xy_dims(da: object, *, source: str = "dataset") -> tuple[str, str]:
+    """Identify X and Y dimension names in a DataArray, or refuse it naming *source*."""
     dims = [str(d) for d in da.dims]
     x_candidates = ("x", "lon", "longitude", "easting", "X")
     y_candidates = ("y", "lat", "latitude", "northing", "Y")
@@ -83,7 +130,11 @@ def find_xy_dims(da: object) -> tuple[str, str]:
     if y_dim is None and len(spatial_dims) >= 2:
         y_dim = spatial_dims[-2]
     if x_dim is None or y_dim is None:
-        raise ValueError(f"Cannot identify X/Y dimensions in DataArray with dims={dims}")
+        raise ForcingGridError(
+            f"The gridded forcing {source} has the variable {getattr(da, 'name', None)!r} on "
+            f"the dimensions {tuple(dims)}, among which no X and Y axis. Name them x and y "
+            "(or lon and lat, easting and northing), or give two dimensions besides time."
+        )
     return x_dim, y_dim
 
 
@@ -166,8 +217,13 @@ def interpolate_points_on_cells(
     point_values: np.ndarray,
     centers: np.ndarray,
     method: InterpolationMethod,
+    *,
+    idw_power: float = 2.0,
 ) -> np.ndarray:
-    """Interpolate scattered station values onto the cell centres, one value per cell."""
+    """Interpolate scattered station values onto the cell centres, one value per cell.
+
+    ``idw_power`` is the exponent of the IDW weights, read by ``"idw"`` only.
+    """
     target_x, target_y = _as_column(centers)
     values = interpolate_points_to_grid(
         point_x=point_x,
@@ -178,6 +234,7 @@ def interpolate_points_on_cells(
         nrow=target_x.shape[0],
         ncol=1,
         method=method,
+        idw_power=idw_power,
     )
     return values.reshape(-1)
 
@@ -197,9 +254,10 @@ def refuse_nodata_under_cells(
     slice_labels: list[str],
     mesh: HydroMesh | None = None,
 ) -> None:
-    """Refuse a slice with no valid pixel, and a cell that reads a nodata pixel.
+    """Refuse a grid the cells cannot read, a slice with no valid pixel, and a cell on nodata.
 
-    A nodata pixel is a non-finite value. The interpolators drop such pixels,
+    ``"linear"`` triangulates the pixel centres, so it refuses a grid of one
+    row or one column, where every centre sits on one line. A nodata pixel is a non-finite value. The interpolators drop such pixels,
     so a cell that sits on one would silently take a neighbour, and a slice
     with no valid pixel would give zero. A cell reads the nearest pixel
     (``"nearest"``), the vertices of the pixel triangle around its centre
@@ -207,6 +265,14 @@ def refuse_nodata_under_cells(
     (``"area"``). A cell outside the reach of these rules reads its nearest
     pixel, as the interpolators do.
     """
+    if method == "linear":
+        n_rows, n_columns = np.asarray(source_y).size, np.asarray(source_x).size
+        if min(n_rows, n_columns) < 2:
+            raise DataContractViolation(
+                f"The gridded forcing {source} is a grid of {n_rows} row(s) and {n_columns} "
+                "column(s). interpolation_method 'linear' triangulates the pixel centres, "
+                "which needs at least two rows and two columns. Use 'nearest', 'idw' or 'area'."
+            )
     flat = np.asarray(source_stack, dtype=float).reshape(len(slice_labels), -1)
     nodata = ~np.isfinite(flat)
     if not nodata.any():

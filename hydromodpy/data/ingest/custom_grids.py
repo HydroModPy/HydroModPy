@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.common.unit_helpers import convert_array
 from hydromodpy.data.contracts.spatial_field import FieldRecord
@@ -38,6 +40,11 @@ def load_custom_nc(
         attrs_candidates=(ds[data_var].attrs, ds.attrs),
         target_unit=unit,
     )
+    # A nodata value is a code in the source unit. Mask it before the
+    # conversion, which would turn -9999 into a number nothing recognises.
+    nodata_resolved = declared_nodata if declared_nodata is not None else nodata
+    if nodata_resolved is not None:
+        ds[data_var] = _masked(ds[data_var], nodata_resolved)
     ds = _convert_dataset_to_unit(
         ds,
         data_var=data_var,
@@ -46,9 +53,6 @@ def load_custom_nc(
     )
 
     bbox, crs = _extract_bbox_and_crs(ds, data_var=data_var, fallback_crs=crs)
-    nodata_resolved = declared_nodata
-    if nodata_resolved is None:
-        nodata_resolved = nodata
     if nodata_resolved is None:
         raise ValueError(
             f"Custom grid dataset {path} must declare a nodata value: an attribute "
@@ -118,26 +122,27 @@ def load_custom_tif(
     import xarray as xr
 
     da = xr.open_dataarray(path, engine="rasterio")
+    if da.rio.crs is None:
+        raise ValueError(f"Custom GeoTIFF {path} must declare a CRS.")
+    if da.rio.nodata is None:
+        raise ValueError(f"Custom GeoTIFF {path} must declare a nodata value.")
+    # Read in the source unit, before the conversion drops them.
+    nodata = da.rio.nodata
+    crs = str(da.rio.crs)
+    bounds = da.rio.bounds()
+    bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
     source_unit_resolved = _resolve_source_unit(
         explicit_source_unit=source_unit,
         attrs_candidates=(da.attrs,),
         target_unit=unit,
     )
     da = _convert_dataarray_to_unit(
-        da,
+        _masked(da, nodata),
         source_unit=source_unit_resolved,
         target_unit=unit,
     )
-
-    if da.rio.crs is None:
-        raise ValueError(f"Custom GeoTIFF {path} must declare a CRS.")
-    if da.rio.nodata is None:
-        raise ValueError(f"Custom GeoTIFF {path} must declare a nodata value.")
-    crs = str(da.rio.crs)
-    bounds = da.rio.bounds()
-    bbox = (bounds[0], bounds[1], bounds[2], bounds[3])
     ds = da.to_dataset(name=variable)
-    ds[variable].attrs["nodata"] = da.rio.nodata
+    ds[variable].attrs["nodata"] = nodata
 
     return [
         FieldRecord(
@@ -153,6 +158,15 @@ def load_custom_tif(
             source_unit=source_unit_resolved,
         )
     ]
+
+
+def _masked(da, nodata: float | int | str):
+    """Return *da* as floats, NaN where it holds the *nodata* code."""
+    code = float(nodata)
+    values = da.astype(float)
+    if np.isnan(code):
+        return values
+    return values.where(values != code)
 
 
 def _extract_bbox_and_crs(

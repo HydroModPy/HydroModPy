@@ -15,9 +15,12 @@ grid, a triangulation and a Voronoi mesh are served alike.
 3. For a grid, `rasters.py` reads each record. A record whose CRS is not the CRS of the mesh is
    refused, because a grid is never reprojected. When the record or the mesh declares no CRS that
    places it on the Earth (none, an unreadable one, or a local frame), the two cannot be compared
-   and the record is read as it is. A dataset or a NetCDF file is averaged
-   in time over each period. A GeoTIFF gives one band per time step. For stations, `stations.py` takes the mean
-   of each series over each period.
+   and the record is read as it is. Two CRS compare through `same_crs` of `hydromodpy/core/io/crs.py`.
+   A dataset or a NetCDF file is averaged in time over each period. A GeoTIFF gives one band per
+   time step, and a rotated GeoTIFF is refused. With a window, every period takes the same number
+   of bands. Without one, each band or time step is one period. A band or a time step that no
+   period reads is refused. For stations, `stations.py` refuses a station whose location is in
+   another CRS than the mesh, then takes the mean of each series over each period.
 4. The coverage rule of `hydromodpy/core/time/coverage.py` says which samples a period takes and
    what happens when the record does not reach the period.
 5. `sources.py` refuses a nodata pixel under a cell, then interpolates onto the cells. The
@@ -41,9 +44,12 @@ LoadResult (fields or points) + cell centres + simulation window
    {stress period: array of n_cells}   in m/s
 ```
 
-A cell must read valid pixels only. If a pixel under a cell is nodata (NaN once decoded), the
+A cell must read valid pixels only. A pixel is nodata when it is NaN once decoded, equal to the
+nodata of a GeoTIFF, or equal to the `nodata`, `_FillValue` or `missing_value` attribute of a
+dataset. If a nodata pixel is under a cell, the
 package refuses the forcing and says which cell and which period. It never lets the cell take a
-neighbour silently. A slice with no valid pixel is refused too.
+neighbour silently. A slice with no valid pixel is refused too, and so is `linear` on a grid of one
+row or one column, which it cannot triangulate.
 
 The method `area` weighs each pixel by the area it shares with the cell polygon. A cell rate times
 the cell area is then the integral of the grid over the cell. It needs the planar mesh, because the
@@ -51,8 +57,8 @@ cell polygons come from it, and it is refused for stations, which have no pixel.
 
 The same package also gives the spatial mean of a grid (`spatial_mean_from_fields`). This is the
 homogeneous series used when a forcing is not spatial. It is the mean of the valid pixels only. A
-pixel equal to the nodata of a GeoTIFF, a NaN pixel of a NetCDF and a pixel equal to the `nodata`
-attribute of a dataset are left out alike, and a band or a time step with no valid pixel is refused.
+pixel equal to the nodata of a GeoTIFF, a NaN pixel of a NetCDF and a pixel equal to the `nodata`,
+`_FillValue` or `missing_value` attribute of a dataset are left out alike, and a band or a time step with no valid pixel is refused.
 
 ## The folder map
 

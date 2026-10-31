@@ -141,13 +141,14 @@ def test_a_site_selection_geojson_holds_wgs84_lon_lat_and_no_crs_member(tmp_path
         lambda path: _evidence(path.parent, "influence_features", crs=""),
         lambda path: _evidence(path.parent, "influence_features", crs="EPSG:999999"),
         lambda path: _evidence(path.parent, "influence_features", crs='LOCAL_CS["local",UNIT["metre",1]]'),
+        lambda path: observation_points_gdf([ROWS[0], {"site_id": "i", "feature_id": "9", "evidence_json": {"provider_location": {"x": 3, "y": 4, "crs": 'LOCAL_CS["local",UNIT["metre",1]]'}}}]),
     ],
-    ids=["outlets", "candidates", "network", "evidence", "unreadable-crs", "local-frame"],
+    ids=["outlets", "candidates", "network", "evidence", "unreadable-crs", "local-frame", "points-local-frame"],
 )  # fmt: skip
 def test_a_geojson_feature_without_a_readable_crs_is_refused_by_name(tmp_path, write):
     with pytest.raises(
         ExportError,
-        match=r"\.geojson: feature '.+' (has no CRS|names the CRS '.+').*RFC 7946",
+        match=r"\.geojson: feature '.+' (has no CRS|names the CRS '.+').*RFC 7946|point '9' of site 'i' names the CRS 'LOCAL_CS.+'EPSG:2154'",
     ):
         write(tmp_path / "layer.geojson")
 
@@ -184,6 +185,7 @@ def test_the_generated_network_stays_inside_the_search_geometry(tmp_path):
     assert network.total_bounds[0] >= 20.0 - 1e-6
 
 
+LON_LAT = to_wgs84(Point(X93 + 100.0, Y93)).coords[0]
 ROWS = [
     {"site_id": "a", "feature_id": "1",
      "evidence_json": json.dumps({"provider_location": {"x": 1.0, "y": 2.0, "crs": L93}})},
@@ -192,6 +194,9 @@ ROWS = [
     {"site_id": "d", "feature_id": "4", "evidence_json": [1, 2]},
     {"site_id": "e", "feature_id": "5", "evidence_json": {"provider_location": {"x": "east"}}},
     {"site_id": "f", "feature_id": "6", "evidence_json": {"provider_location": "here"}},
+    {"site_id": "g", "feature_id": "7",
+     "evidence_json": {"provider_location": {"x": LON_LAT[0], "y": LON_LAT[1], "crs": "EPSG:4326"}}},
+    {"site_id": "h", "feature_id": "8", "evidence_json": {"provider_location": {"x": 3, "y": 4, "crs": "EPSG:999999"}}},
 ]  # fmt: skip
 
 
@@ -200,13 +205,17 @@ def test_observation_points_keep_only_rows_with_a_readable_location(tmp_path):
     path = write_observation_points_geojson(tmp_path / "obs.geojson", ROWS)
     collection = json.loads(path.read_text())
 
-    assert list(frame["site_id"]) == ["a", "b"]
-    assert frame.crs == L93
-    # A location without a CRS cannot be placed in WGS 84, so the GeoJSON skips it.
-    assert [f["properties"]["site_id"] for f in collection["features"]] == ["a"]
+    # A location without a CRS, or with one pyproj cannot read, cannot be placed:
+    # every layer skips it and records why.
+    assert list(frame["site_id"]) == ["a", "g"]
+    assert [f["properties"]["site_id"] for f in collection["features"]] == ["a", "g"]
     skipped = {item["site_id"]: item["reason"] for item in collection["hydromodpy_skipped_observations"]}  # fmt: skip
-    assert skipped == {"b": "missing_provider_crs"} | dict.fromkeys("cdef", "missing_provider_location")  # fmt: skip
-    assert list(frame.geometry.x) == [1.0, 3.0]
+    assert skipped == {"b": "missing_provider_crs", "h": "unreadable_provider_crs"} | dict.fromkeys("cdef", "missing_provider_location")  # fmt: skip
+    assert frame.attrs["hydromodpy_skipped_observations"] == collection["hydromodpy_skipped_observations"]  # fmt: skip
+    # A point of another CRS is moved into the CRS of the batch.
+    assert frame.crs == L93
+    assert frame.geometry.iloc[1].coords[0] == pytest.approx((X93 + 100.0, Y93), abs=1e-3)
+    assert list(frame["observation_crs"]) == [L93, "EPSG:4326"]
     assert collection["features"][0]["properties"]["observation_crs"] == L93
     assert geospatial.write_vector_layer(frame, tmp_path / "obs.gpkg", fmt="gpkg").is_file()
     parquet = geospatial.write_vector_layer(frame, tmp_path / "obs.parquet", fmt="geoparquet")
@@ -214,7 +223,7 @@ def test_observation_points_keep_only_rows_with_a_readable_location(tmp_path):
 
 
 def test_no_observation_point_writes_no_file(tmp_path):
-    empty = observation_points_gdf(ROWS[2:])
+    empty = observation_points_gdf(ROWS[1:6])
     assert geospatial.write_vector_layer(empty, tmp_path / "obs.gpkg", fmt="gpkg") is None
     assert geospatial.write_vector_layer(empty, tmp_path / "obs.parquet", fmt="geoparquet") is None
     assert not list(tmp_path.iterdir())

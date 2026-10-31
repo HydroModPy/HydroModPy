@@ -67,7 +67,7 @@ When an outlet snaps on a reference network, `build_from_toml.py` and `dem_reque
 
 ## Rules with the rest of HydroModPy
 
-The modules read each other in one direction. `config_paths.py` imports no module of the package. `data_loading.py` reads `config_paths.py`. `selection_plan.py` and `dem_request.py` read these two. `catchments_csv.py` and `build_from_toml.py` read these two and `dem_request.py` and `selection_plan.py`. `selection_run.py` reads `build_from_toml.py`, `catchments_csv.py`, `data_loading.py` and `selection_plan.py`.
+The modules read each other in one direction. `config_paths.py` imports no module of the package. `data_loading.py` reads `config_paths.py`. `dem_request.py` reads these two, and `selection_plan.py` reads `data_loading.py`. `catchments_csv.py` and `build_from_toml.py` read these two and `dem_request.py` and `selection_plan.py`. `selection_run.py` reads `build_from_toml.py`, `catchments_csv.py`, `data_loading.py` and `selection_plan.py`.
 
 All the imports of HydroModPy are at the top of the modules, none is deferred. The package imports:
 
@@ -88,7 +88,7 @@ It imports no `reporting`, `display`, `cli` or `project`. The renderers of the H
 
 The tests are in `tests/unit/workflow/site_selection/`, with the modules `test_selection_run.py`, `test_build_from_toml.py`, `test_data_loading.py` and `test_catchments_csv.py`. `selection_plan.py`, `dem_request.py` and `config_paths.py` are tested through them. The builders of `tests/_helpers/site_selection_cases.py` write the selection file, a basin and a vector layer, and the tests pass fake loaders so no provider is called. The command is tested in `tests/unit/cli/site/test_select.py`.
 
-`tests/unit/architecture/test_site_selection_has_no_legacy_names.py` refuses retired names in this package. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/workflow/site_selection/*` drops below 96.0. The floor only goes up.
+`tests/unit/architecture/test_site_selection_has_no_legacy_names.py` refuses retired names in this package. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/workflow/site_selection/*` drops below 96.4. The floor only goes up.
 
 ```bash
 pytest tests/unit/workflow/site_selection tests/unit/cli/site -q

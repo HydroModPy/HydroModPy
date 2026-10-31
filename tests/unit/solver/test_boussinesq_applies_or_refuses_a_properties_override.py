@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.solver.boussinesq import flow_to_boussinesq_adapter as adapter
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
@@ -142,6 +143,27 @@ def test_a_project_run_override_reaches_the_solver_mesh(monkeypatch: pytest.Monk
 def test_a_run_without_override_keeps_the_flow(monkeypatch: pytest.MonkeyPatch) -> None:
     seen = _solver_mesh_inputs(monkeypatch, _setup(None))
     assert np.all(seen["conductivity"] == FLOW_K)
+
+
+@pytest.mark.parametrize(
+    ("name", "regime", "match"),
+    [("Sy", "transient", r"Sy .* 4 of 4 active convertible"),
+     ("Sy", "steady", None),
+     ("K", "steady", r"K is zero, negative or not finite on 4 of 4 active")],
+)  # fmt: skip
+def test_a_zero_value_is_refused_where_the_run_reads_it(monkeypatch, name, regime, match) -> None:
+    """A value of zero, as on a cell no zone of its support covers."""
+    uncovered = SimpleNamespace(
+        to_mesh_field=lambda mesh, label, depth: SimpleNamespace(cell_values=np.zeros(4))
+    )
+    setup = _setup(None)
+    setup.flow = _flow(regime)
+    setup.flow.parameters[name] = uncovered
+    if match is None:
+        assert np.all(_solver_mesh_inputs(monkeypatch, setup)["storage"] == 0.0)
+        return
+    with pytest.raises(DataContractViolation, match=match):
+        _solver_mesh_inputs(monkeypatch, setup)
 
 
 def test_a_project_run_override_of_k22_is_refused_before_the_solve() -> None:

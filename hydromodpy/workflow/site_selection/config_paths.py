@@ -121,7 +121,3 @@ def resolve_csv_path(value: object, *, base_dir: Path) -> str | None:
     if path.is_absolute():
         return str(path)
     return str((base_dir / path).resolve())
-
-
-def path_or_none(path: Path | None) -> str | None:
-    return None if path is None else str(path)

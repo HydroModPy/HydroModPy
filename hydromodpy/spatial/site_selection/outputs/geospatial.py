@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
 import geopandas as gpd
 import pandas as pd
+from pyproj import Transformer
+from pyproj.exceptions import CRSError, ProjError
 from shapely.geometry import Point
 
+from hydromodpy.core.exceptions import ExportError
+from hydromodpy.core.io.crs import same_crs
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
+from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_display_xy,
@@ -19,11 +24,13 @@ from hydromodpy.spatial.site_selection.domain.export_values import clean_propert
 from hydromodpy.spatial.site_selection.domain.watershed import read_watershed
 from hydromodpy.spatial.site_selection.outputs.features import (
     basin_properties,
-    observation_location,
     observation_properties,
     outlet_properties,
+    placed_observations,
     repair_geometry_for_export,
 )
+
+logger = get_logger(__name__)
 
 GPKG_NAME = "site_selection.gpkg"
 
@@ -95,22 +102,47 @@ def write_selection_geoparquet_layers(
 
 
 def observation_points_gdf(evidence: Iterable[object]) -> gpd.GeoDataFrame:
-    """Return normalized observation evidence as a point GeoDataFrame."""
+    """Return normalized observation evidence as a point GeoDataFrame.
+
+    The frame is in the first CRS of the batch, and a point given in another
+    CRS is moved into it. A point without a readable location or CRS cannot be
+    placed, so it is skipped as in the GeoJSON layer, logged, and recorded in
+    ``attrs["hydromodpy_skipped_observations"]``. ``observation_crs`` keeps
+    the CRS each provider gave.
+    """
 
     rows = [item.to_record() if hasattr(item, "to_record") else dict(item) for item in evidence]
+    placed, skipped = placed_observations(rows)
+    target = single_crs(crs for _row, _x, _y, crs in placed)
     records: list[dict[str, Any]] = []
     geometries = []
-    crs_values: list[str] = []
-    for row in rows:
-        location = observation_location(row)
-        if location is None:
-            continue
-        x, y, crs = location
-        if crs:
-            crs_values.append(crs)
+    for row, x, y, crs in placed:
+        if target is not None and not same_crs(crs, target):
+            x, y = _to_batch_crs(row, crs, target).transform(x, y)
         records.append(clean_properties(observation_properties(row, crs=crs)))
         geometries.append(Point(x, y))
-    return gpd.GeoDataFrame(records, geometry=geometries, crs=single_crs(crs_values))
+    if skipped:
+        logger.warning(
+            "Observation points left out of the vector layers, since they cannot be placed: %s",
+            ", ".join(
+                f"{item['site_id']}:{item['feature_id']} ({item['reason']})" for item in skipped
+            ),
+        )
+    frame = gpd.GeoDataFrame(records, geometry=geometries, crs=target)
+    frame.attrs["hydromodpy_skipped_observations"] = skipped
+    return frame
+
+
+def _to_batch_crs(row: Mapping[str, Any], crs: str, target: str) -> Transformer:
+    """Return the transform of one observation point from *crs* into *target*."""
+    try:
+        return Transformer.from_crs(crs, target, always_xy=True)
+    except (CRSError, ProjError) as exc:
+        raise ExportError(
+            f"observation point {row.get('feature_id', '')!r} of site {row.get('site_id', '')!r} "
+            f"names the CRS {crs!r}, which pyproj cannot transform into {target!r}, the CRS "
+            "of the batch (a local frame)."
+        ) from exc
 
 
 def _selection_layers(

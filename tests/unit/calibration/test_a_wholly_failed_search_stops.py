@@ -60,3 +60,32 @@ def test_a_limit_of_zero_never_fires() -> None:
 
     for _ in range(50):
         watch.record(failed=True, error="ignored")
+
+
+_FAILED = (True, "no observed discharge")
+_INFEASIBLE = (True, "infeasible: fork: ValueError: candidate 0.8")
+_SCORED = (False, None)
+
+
+@pytest.mark.parametrize(
+    ("trials", "refusal"),
+    [
+        # A point out of physical bounds says nothing about the configuration.
+        ([_SCORED, _FAILED, *[_INFEASIBLE] * 5, _FAILED], "2 calibration trials in a row"),
+        # A search that never scores a point is refused, by the infeasible count.
+        ([_FAILED, *[_INFEASIBLE] * 3], "3 calibration trials were infeasible"),
+        # Once a point is scored, an infeasible region is a region to walk out of.
+        ([_SCORED, *[_INFEASIBLE] * 10], None),
+    ],
+)
+def test_an_infeasible_trial_is_counted_apart(trials, refusal) -> None:
+    watch = ConsecutiveFailureWatch(limit=2, infeasible_limit=3)
+
+    *head, (failed, error) = trials
+    for head_failed, head_error in head:
+        watch.record(failed=head_failed, error=head_error)
+    if refusal is None:
+        watch.record(failed=failed, error=error)
+        return
+    with pytest.raises(EveryTrialFailedError, match=refusal):
+        watch.record(failed=failed, error=error)

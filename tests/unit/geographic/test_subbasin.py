@@ -77,12 +77,16 @@ def test_each_station_and_each_declared_point_gets_a_sub_basin_inside_its_parent
     assert (again / "watershed.shp").is_file()
 
 
+@pytest.mark.parametrize("out_path", ["given", None])  # None: ``output/`` of the working directory
 def test_a_runtime_without_a_preprocessing_folder_writes_under_the_output_path(
-    tmp_path, monkeypatch
+    out_path, tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(subbasin_module, "resolve_delineation_backend", FakeWhiteboxBackend)
-    sub = Subbasin(SimpleNamespace(), None, None, sub_snap_dist=50, out_path=str(tmp_path))
-    assert Path(sub.subbasin_path) == preprocessing_dir(tmp_path) / "subbasin"
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / (out_path or "output")
+    given = {"out_path": str(root)} if out_path else {}
+    sub = Subbasin(SimpleNamespace(), None, None, sub_snap_dist=50, **given)
+    assert Path(sub.subbasin_path) == preprocessing_dir(root) / "subbasin"
     assert list(Path(sub.subbasin_path).iterdir()) == []
     with pytest.raises(TerrainProductError, match="_flow_products"):
         sub.extract_interest_zones(SimpleNamespace(), 1.0, 2.0, str(tmp_path / "gauge"), 50)

@@ -125,7 +125,7 @@ Semantics:
 
 ## 5. Boundary Conditions (`[flow.bc]`)
 
-Boundary parsing is implemented by `_parse_flow_bc_sections(...)`.
+Boundary parsing is implemented by `normalize_bc_payloads(...)` in `flow_toml_loader.py`, then checked by the `bc` validator of `FlowConfig`.
 
 ### 5.1 Supported Sections
 
@@ -333,7 +333,9 @@ from pathlib import Path
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.physics.flow import Flow
 
-cfg = HydroModPyConfig.from_toml(Path("examples_legacy/example12/config.toml"))
+cfg = HydroModPyConfig.from_toml(
+    Path("examples/projects/04_streamflow_intermittence_in_transient/project.toml")
+)
 flow = Flow(config=cfg.flow)
 
 print(flow.flow_regime)
@@ -348,5 +350,5 @@ print(flow.sinks_sources.get("wells", {}).keys())
 
 - Keep user-facing TOML grammar in sync with:
   - `FlowConfig.bc` field description
-  - `_parse_flow_bc_sections(...)` docstring
-  - `examples_legacy/example12/config.toml` comments
+  - `normalize_bc_payloads(...)` docstring
+  - the `[flow]` tables of `examples/projects/04_streamflow_intermittence_in_transient/project.toml`

@@ -161,7 +161,7 @@ No `__init__.py` re-exports a name. Each name is imported from the module that d
 | a key of the selection file or its default | `config/`, the table that owns it |
 | how outlets are taken from stations | `candidates/outlets.py` |
 | how outlets are sampled on the DEM network | `candidates/generation.py` |
-| the territory a search covers | `candidates/pipeline.py` |
+| the territory a search covers, its default CRS and the Lambert-93 check | `candidates/pipeline.py` |
 | how an outlet is snapped | `hydrology/reference_network.py`, then `hydrology/delineation.py` |
 | a criterion | `evaluation/criteria/<family>.py` |
 | the quota, the spacing or the overlap rule | `evaluation/selection.py` |
@@ -214,7 +214,7 @@ Other tests guard the package.
 - `tests/contract/test_terrain_engine_contract.py` holds what every terrain engine must do.
 - `tests/unit/architecture/test_site_selection_has_no_legacy_names.py` refuses retired names in this package, in the workflow package and in the CLI command.
 
-The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/spatial/site_selection/*` drops below 96.3. The floor only goes up.
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/spatial/site_selection/*` drops below 96.4. The floor only goes up.
 
 ```bash
 pytest tests/unit/site_selection -q

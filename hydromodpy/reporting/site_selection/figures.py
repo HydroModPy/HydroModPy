@@ -110,7 +110,6 @@ def render_site_selection_map(
     generated_network = _read_geojson(
         manifest_output_path(manifest, "generated_network_geojson", manifest_path=manifest_file)
     )
-    context_layers = _read_context_layers(manifest, manifest_file=manifest_file)
     dem_path = _dem_path_from_manifest(manifest)
     prefer_dem_extent = _prefer_dem_extent_from_manifest(manifest)
     layers = {
@@ -122,6 +121,7 @@ def render_site_selection_map(
         "generated_network": generated_network,
     }
     map_crs = _map_crs(dem_path, layers.values())
+    context_layers = _read_context_layers(manifest, manifest_file=manifest_file, map_crs=map_crs)
 
     _write_map_png(
         destination,
@@ -979,8 +979,9 @@ def _in_map_crs(collection: Mapping[str, Any], map_crs: str) -> dict[str, Any]:
 
 
 def _read_context_layers(
-    manifest: Mapping[str, Any], *, manifest_file: Path
+    manifest: Mapping[str, Any], *, manifest_file: Path, map_crs: str
 ) -> list[dict[str, Any]]:
+    """Return the ``map_context.layers`` of *manifest*, their features in *map_crs*."""
     context = _mapping(manifest.get("map_context"))
     raw_layers = context.get("layers")
     if not isinstance(raw_layers, list):
@@ -1007,15 +1008,76 @@ def _read_context_layers(
             collection = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
+        source = {**collection, "hydromodpy_coordinate_crs": _context_layer_crs(collection, path)}
         layers.append(
             {
                 "name": str(raw_layer.get("name") or path.stem),
                 "role": str(raw_layer.get("role") or "other"),
                 "path": str(path),
-                "features": _features(collection),
+                "features": _features(_in_map_crs(source, map_crs)),
             }
         )
     return layers
+
+
+def _context_layer_crs(collection: Mapping[str, Any], path: Path) -> str:
+    """Return the CRS the coordinates of the context layer at *path* are written in.
+
+    A file HydroModPy wrote names it in ``hydromodpy_coordinate_crs``, where
+    ``"mixed"`` (a layer of several project CRS) still means RFC 7946. A file
+    of the 2008 GeoJSON format names it in its ``crs`` member, which GDAL
+    still writes for a layer outside WGS 84. Any other file follows RFC 7946
+    and holds WGS 84 lon/lat, so a coordinate outside the degree bounds (a
+    Lambert-93 file without its ``crs`` member) is refused rather than drawn
+    in the wrong place. A position with fewer than two numbers is refused too.
+    """
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    from hydromodpy.core.exceptions import DataContractViolation
+    from hydromodpy.core.io.crs import RFC7946_CRS
+
+    label = str(collection.get("hydromodpy_coordinate_crs") or "")
+    if label == "mixed":
+        label = RFC7946_CRS
+    if not label:
+        crs_member = _mapping(collection.get("crs"))
+        label = str(_mapping(crs_member.get("properties")).get("name") or "")
+    if label:
+        try:
+            CRS.from_user_input(label)
+        except CRSError as exc:
+            raise DataContractViolation(
+                f"map_context layer {path}: its coordinates are said to be in the CRS "
+                f"{label!r}, which pyproj cannot read, so the layer cannot be placed on the map."
+            ) from exc
+    for index, feature in enumerate(_features(collection)):
+        for position in _positions(_mapping(feature.get("geometry")).get("coordinates")):
+            if len(position) < 2:
+                raise DataContractViolation(
+                    f"map_context layer {path}: feature {index} holds the position "
+                    f"{list(position)}, which lacks its x or y coordinate."
+                )
+            x, y = position[:2]
+            if not label and not (-180.0 <= x <= 180.0 and -90.0 <= y <= 90.0):
+                raise DataContractViolation(
+                    f"map_context layer {path}: the coordinate ({x}, {y}) of feature "
+                    f"{index} is outside the WGS 84 degree bounds that a GeoJSON without "
+                    "a crs member holds (RFC 7946). Write the layer in WGS 84 longitude "
+                    "and latitude, or name its CRS."
+                )
+    return label or RFC7946_CRS
+
+
+def _positions(coordinates: object) -> Iterable[tuple[float, ...]]:
+    """Yield each position, a tuple of numbers, of the nested GeoJSON *coordinates*."""
+    if not isinstance(coordinates, list | tuple) or not coordinates:
+        return
+    if all(isinstance(value, int | float) for value in coordinates):
+        yield tuple(float(value) for value in coordinates)
+        return
+    for item in coordinates:
+        yield from _positions(item)
 
 
 def _dem_path_from_manifest(manifest: Mapping[str, Any]) -> Path | None:

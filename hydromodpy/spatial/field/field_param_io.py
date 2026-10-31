@@ -79,7 +79,11 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
     payload = _section_payload(document, parent_key, section_key=section_key, path=path)
     field_table = payload["field"]
     param_id = None
-    if parent_key and isinstance(field_table, Mapping) and "id" not in field_table:
+    if isinstance(field_table, Mapping) and "id" not in field_table:
+        if not parent_key:
+            raise ConfigMissingError(
+                f'[field] of {path} has no id. Write the parameter name in it, such as id = "K".'
+            )
         param_id = parent_key.rsplit(".", 1)[-1]
     resolved = resolve_field_param_config_payload(
         payload,

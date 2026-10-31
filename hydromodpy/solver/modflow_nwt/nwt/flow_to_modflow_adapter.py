@@ -34,7 +34,10 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.field_property_mapping import require_positive_conductivity
+from hydromodpy.solver.field_property_mapping import (
+    require_positive_conductivity,
+    require_positive_storage,
+)
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
@@ -52,6 +55,7 @@ from hydromodpy.solver.modflow_nwt.nwt.payloads.recharge_etp import (
     build_etp_payload,
     build_recharge_payload,
     resolve_flow_regime,
+    steady_period_flags,
 )
 from hydromodpy.solver.modflow_nwt.nwt.payloads.well_drainage import (
     build_drainage_spd,
@@ -304,6 +308,17 @@ class FlowToModflowAdapter:
                 flow=self.flow,
                 property_label="Kv",
             )
+
+        # UPW writes LAYTYP = 1, so every layer is convertible. Only the cells
+        # NWT solves (ibound > 0) read a storage.
+        require_positive_storage(
+            properties["sy"],
+            properties["ss"],
+            active_mask=np.asarray(ibound, dtype=float) > 0.0,
+            iconvert=1,
+            steady=steady_period_flags(self),
+            flow=self.flow,
+        )
 
         drn_spd = self._build_drainage_spd(
             drain_array=drain_array,

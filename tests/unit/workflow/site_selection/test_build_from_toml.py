@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -8,20 +9,23 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ConfigValidationError
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.workflow.site_selection import build_from_toml
+from hydromodpy.workflow.site_selection import build_from_toml, dem_request
+from hydromodpy.workflow.site_selection.data_loading import load_site_selection_config
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
     delineation_spy,
     dem_loader_spy,
     flow_spy,
     make_config,
+    make_point_record,
     make_record,
     make_wgs84_hubeau_record,
     selection_section,
     write_accumulation_raster,
+    write_polygon_geojson,
     write_selection_toml,
 )
 
@@ -116,6 +120,37 @@ def test_an_observed_selection_asks_the_stations_then_the_dem_for_its_extent(
     assert result.candidates[0].x == station_x
     assert any(message in line for line in progress)
     assert "finished with 1 candidates" in progress[-1]
+
+
+PRAIRIE = [[-100.0, 40.0], [-99.0, 40.0], [-99.0, 41.0], [-100.0, 40.0]]
+DEGREES = {"mode": "bbox", "bbox": [-1.7, 48.0, -1.5, 48.2]}
+POLYGON = {"mode": "polygon_file", "polygon_file": "zone.geojson"}
+OUTSIDE = "outside its area of use.*overseas"
+
+
+@pytest.mark.parametrize(("territory", "ask", "match"), [
+    (DEGREES, "dem", f"site_selection.territory.bbox.*{OUTSIDE}.*DEM request"),
+    (POLYGON, "dem", f"territory of mode 'polygon_file'.*{OUTSIDE}.*DEM request"),
+    ({**POLYGON, "country": "us"}, "dem", None),
+    (DEGREES, "observations", f"site_selection.territory.bbox.*{OUTSIDE}.*observation request"),
+    ({**DEGREES, "country": "be"}, "observations", None),
+    (TERRITORY, "stations", f"station outlets.*{OUTSIDE}.*DEM request"),
+])  # fmt: skip
+def test_a_french_box_read_in_lambert_93_outside_its_area_is_refused(
+    tmp_path, territory, ask, match
+):
+    write_polygon_geojson(tmp_path / "zone.geojson", coordinates=PRAIRIE)
+    section = selection_section(territory=territory, dem={"request_extent": "outlets"})
+    cfg = load_site_selection_config(write_selection_toml(tmp_path, section))
+    calls = {
+        "dem": lambda: dem_request.dem_request_bbox(config=cfg, catchments=[], request_extent="territory"),
+        "observations": lambda: dem_request.observation_request_bbox_wgs84(cfg),
+        "stations": lambda: dem_request.candidate_outlets_for_dem_request(
+            cfg, [make_point_record("X", x=-100.0, y=40.0, crs="EPSG:4326")]
+        ),
+    }  # fmt: skip
+    with nullcontext() if match is None else pytest.raises(ConfigValidationError, match=match):
+        calls[ask]()
 
 
 def _fail(**_kwargs):
@@ -215,7 +250,7 @@ def test_generated_candidates_write_their_audit_and_their_reference_score(tmp_pa
     section = selection_section(
         "custom", input={"mode": "generated_candidates"}, dem={"source": "data"}, outlets=outlets,
         strategy={"principle": "criteria_crossing", "primary_axes": ["area"]},
-        territory={"mode": "bbox", "regions": [], "bbox": [0.0, 0.0, 30.0, 30.0]},
+        territory={"mode": "bbox", "regions": [], "bbox": [0.0, 0.0, 30.0, 30.0], "country": "be"},
         hydrology={"network_threshold_area_km2": 0.0001},
         criteria={"area": {"mode": "hard_reject", "hard_min_area_km2": 0.001}},
     )  # fmt: skip

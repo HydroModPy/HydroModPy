@@ -27,7 +27,7 @@ CONSERVATION_REL = 1.0e-9
 
 def _on_cells(mesh, load_result: LoadResult, method: str, nper: int = 1, **kwargs) -> dict:
     return discretize_fields_on_cells(
-        load_result=load_result, centers=fc.mesh_centres(mesh), nper=nper, method=method, mesh=mesh, **kwargs
+        load_result=load_result, centers=fc.mesh_centres(mesh), nper=nper, method=method, mesh=mesh, mesh_crs=None, **kwargs
     )  # fmt: skip
 
 

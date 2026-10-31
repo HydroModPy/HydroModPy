@@ -25,13 +25,14 @@ from typing import Any, ClassVar
 
 import pytest
 
-from hydromodpy.calibration.optim.parameters import set_by_path
+from hydromodpy.calibration.optim.parameters import CalibParameter, set_by_path
 from hydromodpy.calibration.runners.trial import (
     TrialContext,
     TrialResult,
     run_trial_light,
 )
 from hydromodpy.core.state.execution import ExecutionRegistry
+from hydromodpy.core.units.physical_bounds import validate_physical_value
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.internals.step import Step  # noqa: F401
 
@@ -289,18 +290,44 @@ class TestRunTrialLight:
         after = _snapshot_files(tmp_path)
         assert before == after, "run_trial_light created disk artefacts"
 
-    def test_crash_is_captured_as_status(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        ("stage", "status", "error_start", "error_holds"),
+        [
+            ("solver", "crashed", "StepError: ", "solver crashed"),
+            # The search moves K: a K past its ceiling is a point it can leave.
+            ("moved", "crashed", "infeasible: StepError: ", "id='K'"),
+            # Sy is fixed: its refusal repeats on every trial, so it is a failure.
+            ("fixed", "crashed", "StepError: ", "id='Sy'"),
+            ("candidate", "failed", "infeasible: fork: ValueError: ", "candidate 8"),
+        ],
+    )
+    def test_a_failure_is_captured_as_status(
+        self, tmp_path: Path, stage: str, status: str, error_start: str, error_holds: str
+    ) -> None:
         trial_ctx, steps = _make_trial_context(tmp_path, earliest=6)
+        values = {"K": 0.1}
+        if stage == "candidate":
+            # A scale of 8 on Sy = 1 writes 8, past the physical ceiling.
+            trial_ctx.parameter_space = [
+                CalibParameter("Sy", 0.5, 8.0, path="flow.Sy.value", mode="scale", units="-")
+            ]
+            values = {"Sy": 8.0}
+        else:
 
-        def boom(_state):
-            raise RuntimeError("solver crashed")
+            def boom(_state):
+                if stage == "solver":
+                    raise RuntimeError("solver crashed")
+                validate_physical_value(
+                    param_id="K" if stage == "moved" else "Sy", value=1e4, where="zone 'a'"
+                )
 
-        steps[7].run = boom  # type: ignore[assignment]
+            steps[7].run = boom  # type: ignore[assignment]
 
-        result = run_trial_light(trial_ctx, {"K": 0.1})
-        assert result.status == "crashed"
+        result = run_trial_light(trial_ctx, values)
+        assert result.status == status
         assert result.primary_metric != result.primary_metric  # NaN
-        assert "solver crashed" in (result.error or "")
+        assert (result.error or "").startswith(error_start)
+        assert error_holds in (result.error or "")
 
     def test_default_metric_returns_failed_result(self, tmp_path: Path) -> None:
         """The stub metric extractor fails the trial with a non-finite objective.

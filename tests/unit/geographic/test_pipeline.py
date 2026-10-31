@@ -6,6 +6,7 @@ every cell flows south and the mapped channel follows column 10.
 
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -33,7 +34,10 @@ from hydromodpy.spatial.geographic.core.ground_corrections import (
     GROUND_FILENAME,
 )
 from hydromodpy.spatial.geographic.core.stream_dem_agreement import report_network_dem_agreement
-from hydromodpy.spatial.geographic.geographic_cache import DESCRIPTION_FILENAME
+from hydromodpy.spatial.geographic.geographic_cache import (
+    DESCRIPTION_FILENAME,
+    required_geographic_cache_artifacts,
+)
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -53,6 +57,7 @@ from tests._helpers.geographic_cases import (
     patch_pipeline,
     read_band,
     run_bench_pipeline,
+    touch_artifact,
 )
 from tests._helpers.terrain_doubles import fake_flow_products
 
@@ -228,13 +233,6 @@ def _unmeasurable_map(case: str, root: Path) -> Path:
     return root / "absent.gpkg"
 
 
-def _alpha_run(root: Path, monkeypatch, map_path, *, reuse: bool):
-    config = bench_config(root, river_network=BENCH_RIVER)
-    return run_bench_pipeline(
-        root, monkeypatch, config, reuse_existing_outputs=reuse, network_map_path=map_path
-    )[1]
-
-
 @pytest.mark.parametrize("case", ["outside", "no_crs", "missing"])
 def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geographic_step(
     case, tmp_path, monkeypatch, caplog
@@ -248,11 +246,11 @@ def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geogra
     journal = Path(paths.geographic_path) / "stream_dem_agreement.json"
     journal.parent.mkdir(parents=True)
     journal.write_text("{}")
-    unmeasurable = _unmeasurable_map(case, tmp_path)
+    map_path = _unmeasurable_map(case, tmp_path)
     with caplog.at_level(logging.WARNING):
         result = report_network_dem_agreement(
             SimpleNamespace(crs_project=bench.CRS, paths=paths),
-            network_map_path=unmeasurable,
+            network_map_path=map_path,
             d8_pointer_path=d8,
         )
     assert result is None
@@ -261,7 +259,8 @@ def test_a_map_that_cannot_be_measured_is_a_warning_and_does_not_stop_the_geogra
     assert not journal.exists()
     caplog.clear()
     with caplog.at_level(logging.WARNING):
-        context = _alpha_run(tmp_path, monkeypatch, unmeasurable, reuse=False)
+        config = bench_config(tmp_path, river_network=BENCH_RIVER)
+        _, context = run_bench_pipeline(tmp_path, monkeypatch, config, network_map_path=map_path)
     assert context.catchment_area_km2 > 0.0
     assert ALPHA_SKIPPED in caplog.text
     assert not _journal(tmp_path).exists()
@@ -280,22 +279,25 @@ def test_a_missing_custom_file_is_a_warning_in_the_resolver(tmp_path, caplog) ->
 
 def test_the_journal_follows_the_map_on_a_rebuild_and_on_a_cache_hit(tmp_path, monkeypatch) -> None:
     channel = _plant(tmp_path / "channel.gpkg", CHANNEL)
-    _alpha_run(tmp_path, monkeypatch, channel, reuse=False)
+    config = bench_config(tmp_path, river_network=BENCH_RIVER)
+    run = partial(run_bench_pipeline, tmp_path, monkeypatch, config, reuse_existing_outputs=True)
+    paths = run(network_map_path=channel)[1].paths
     first = json.loads(_journal(tmp_path).read_text())
     assert first["alpha"] == pytest.approx(1.0)
+    # The recorders write part of the tree. Completed, it is read back, never rebuilt.
+    for artifact in required_geographic_cache_artifacts(config=config, paths=paths):
+        Path(artifact).exists() or touch_artifact(artifact)
+    monkeypatch.setattr(runtime_pipeline, "_build_geographic_products", lambda **_: pytest.fail())
     # Cache hit, another map: the journal describes this one.
-    half = _plant(
-        tmp_path / "half.gpkg",
-        LineString([(bench.x_of(bench.AXIS), 100.0), (bench.x_of(bench.AXIS), 40.0)]),
-    )
-    _alpha_run(tmp_path, monkeypatch, half, reuse=True)
+    x = bench.x_of(bench.AXIS)
+    run(network_map_path=_plant(tmp_path / "half.gpkg", LineString([(x, 100.0), (x, 40.0)])))
     second = json.loads(_journal(tmp_path).read_text())
     assert second["n_network_cells"] < first["n_network_cells"]
     # Cache hit, no map: the stale journal is removed.
-    _alpha_run(tmp_path, monkeypatch, None, reuse=True)
+    run(network_map_path=None)
     assert not _journal(tmp_path).exists()
     # Cache hit, a map where there was none: the journal appears.
-    _alpha_run(tmp_path, monkeypatch, channel, reuse=True)
+    run(network_map_path=channel)
     assert json.loads(_journal(tmp_path).read_text()) == first
 
 

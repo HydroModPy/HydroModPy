@@ -25,8 +25,14 @@ from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     candidate_outlets_from_point_records,
 )
-from hydromodpy.spatial.site_selection.candidates.pipeline import territory_geometry
+from hydromodpy.spatial.site_selection.candidates.pipeline import (
+    LAMBERT_93,
+    default_project_crs,
+    require_lambert93_extent,
+    territory_geometry,
+)
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 from hydromodpy.spatial.site_selection.hydrology.delineation import try_delineate_candidate_outlet
@@ -46,6 +52,17 @@ __all__ = [
 ]
 
 BBox = tuple[float, float, float, float]
+
+_DEM_REQUEST = (
+    "The DEM request reads a French territory in Lambert-93. Write the territory "
+    "inside metropolitan France, set site_selection.territory.country to its own "
+    "country, or set site_selection.dem.path to a DEM file that carries its CRS."
+)
+_OBSERVATION_REQUEST = (
+    "The observation request reads a French territory in Lambert-93. Write the "
+    "territory inside metropolitan France, or set site_selection.territory.country "
+    "to its own country."
+)
 
 
 def _load_data_dem_config(path: str | Path) -> DataDemConfig | None:
@@ -299,22 +316,35 @@ def dem_request_bbox(
     config: SiteSelectionConfig,
     catchments: list[DelineatedCatchment],
     request_extent: str,
-) -> tuple[float, float, float, float] | None:
+) -> BBox:
+    """Return the box the DEM is asked over: the outlets, else the territory."""
+
     margin_m = float(config.dem.margin_km or 0.0) * 1000.0
     outlets = [catchment.outlet for catchment in catchments]
     if request_extent == "outlets" and outlets:
         return _outlet_bbox(outlets, margin_m=margin_m)
+    return _expand_projected_bbox(_territory_box(config.territory, fix=_DEM_REQUEST), margin_m)
 
-    territory = config.territory
-    if territory.mode == "bbox" and territory.bbox is not None:
-        # The box goes to the data layer as written, corners unordered included.
-        return _expand_projected_bbox(tuple(territory.bbox), margin_m)
-    geometry = territory_geometry(territory, target_crs="EPSG:2154")
-    if geometry is not None:
-        return _expand_projected_bbox(tuple(float(v) for v in geometry.bounds), margin_m)
-    if outlets:
-        return _outlet_bbox(outlets, margin_m=margin_m)
-    return None
+
+def _territory_box(territory: TerritoryConfig, *, fix: str) -> BBox:
+    """Return the territory box as the data layer reads it, before any margin.
+
+    A ``bbox`` is in the project CRS and goes as written, corners unordered
+    included. Another territory is projected to Lambert-93, the CRS the data
+    layer declares for the box. When the territory is French its CRS defaults
+    to Lambert-93, so the box must lie in the EPSG:2154 area of use. It is
+    checked before the margin, which may reach past that area.
+    """
+
+    if territory.mode == "bbox":
+        bounds, what = tuple(territory.bbox), "site_selection.territory.bbox"
+    else:
+        geometry = territory_geometry(territory, target_crs=LAMBERT_93)
+        bounds = tuple(float(v) for v in geometry.bounds)
+        what = f"the territory of mode {territory.mode!r}"
+    if default_project_crs(territory) is not None:
+        require_lambert93_extent(bounds, what=what, fix=fix)
+    return bounds
 
 
 def observed_dem_request_bbox(
@@ -338,40 +368,34 @@ def candidate_outlets_for_dem_request(
 ) -> list[CandidateOutlet]:
     if config.dem.request_extent != "outlets":
         return []
-    target_crs = _default_project_crs_for_selection(config)
+    target_crs = default_project_crs(config.territory)
     if target_crs is None:
         return []
-    return candidate_outlets_from_point_records(
+    outlets = candidate_outlets_from_point_records(
         records,
         candidate_prefix="station",
         source="station_outlets",
         target_crs=target_crs,
     )
+    if outlets:
+        require_lambert93_extent(
+            _outlet_bbox(outlets, margin_m=0.0), what="the station outlets", fix=_DEM_REQUEST
+        )
+    return outlets
 
 
-def _default_project_crs_for_selection(config: SiteSelectionConfig) -> str | None:
-    if (config.territory.country or "").upper() == "FR":
-        return "EPSG:2154"
-    return None
-
-
-def observation_request_bbox_wgs84(
-    config: SiteSelectionConfig,
-) -> tuple[float, float, float, float] | None:
+def observation_request_bbox_wgs84(config: SiteSelectionConfig) -> BBox:
     """Return a WGS84 bbox for observation APIs from the project territory."""
 
-    bbox = dem_request_bbox(config=config, catchments=[], request_extent="territory")
-    if bbox is None:
-        return None
-    return _bbox_projected_to_wgs84(bbox)
+    margin_m = float(config.dem.margin_km or 0.0) * 1000.0
+    bounds = _territory_box(config.territory, fix=_OBSERVATION_REQUEST)
+    return _bbox_projected_to_wgs84(_expand_projected_bbox(bounds, margin_m))
 
 
-def _bbox_projected_to_wgs84(
-    bbox: tuple[float, float, float, float],
-) -> tuple[float, float, float, float]:
+def _bbox_projected_to_wgs84(bbox: BBox) -> BBox:
     """Transform a Lambert-93 bbox to WGS84 for French observation APIs."""
 
-    transformer = Transformer.from_crs("EPSG:2154", "EPSG:4326", always_xy=True)
+    transformer = Transformer.from_crs(LAMBERT_93, "EPSG:4326", always_xy=True)
     xmin, ymin, xmax, ymax = bbox
     corners = [
         transformer.transform(xmin, ymin),

@@ -34,6 +34,7 @@ from hydromodpy.spatial.field.field_param import FieldParam
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 
 N_CELLS = 4
+TRANSIENT = frozenset({"K", "Sy", "Ss"})
 
 
 def _mesh() -> SolverMesh:
@@ -150,13 +151,24 @@ def test_the_trial_sandbox_keys_are_not_properties() -> None:
 
 @pytest.mark.parametrize(
     ("properties", "match"),
-    [({"K": 1e3}, r"hydraulic conductivity \(id='K'\) in the runtime override: 8 of 8 value"),
-     ({"K": 1e-5, "Sy": [0.1, 0.8, 0.1, 0.1]}, r"specific yield \(id='Sy'\) .* 2 of 8 .* index 1: 0.8"),
+    [({"K": 1e3}, r"hydraulic conductivity \(id='K'\) in the runtime override, one value for every cell, value 1000.0 outside"),
+     ({"K": 1e-5, "Sy": [0.1, 0.8, 0.1, 0.1]}, r"specific yield \(id='Sy'\) in the runtime override, every layer, by cell: 1 of 4 .* index 1: 0.8"),
+     ({"K": 1e-5, "Ss": [1e-5] * 6 + [0.0, 1e-5]}, r"specific storage \(id='Ss'\) in the runtime override, layer 2 of 2, by cell: 1 of 4 .* index 2: 0.0"),
      ({"K": 1e-5, "angle2": 120.0}, r"\(id='angle2'\) in the runtime override")],
-    ids=["k-everywhere", "sy-in-one-cell", "angle-past-the-vertical"],
+    ids=["k-everywhere", "sy-in-one-cell", "ss-in-one-cell-of-layer-2", "angle-past-the-vertical"],
 )  # fmt: skip
 def test_an_override_outside_the_physical_range_is_refused(properties, match) -> None:
     with pytest.raises(PhysicalBoundsError, match=match):
         resolve_flow_property_runtime_overrides(
-            {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
+            {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties=TRANSIENT
         )
+
+
+@pytest.mark.parametrize("properties", [{"Sy": 0.0}, {"Ss": [np.nan] * N_CELLS}], ids=["sy", "ss"])
+def test_a_steady_run_does_not_bound_the_storage_it_does_not_read(properties) -> None:
+    overrides = resolve_flow_property_runtime_overrides(
+        {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
+    )
+    assert overrides.keys() == {
+        f"{name.lower()}{end}" for name in properties for end in ("", "_value")
+    }

@@ -3,16 +3,20 @@ from __future__ import annotations
 from functools import partial
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
 from hydromodpy.spatial.site_selection.pipelines.build import (
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
 )
 from hydromodpy.spatial.terrain import registry
+from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
     delineation_spy,
     flow_spy,
@@ -101,6 +105,32 @@ def test_a_build_without_a_dem_is_refused(tmp_path, build):
 
     with pytest.raises(ValueError, match="requires dem_init_path or dem.path"):
         build(config=cfg, **kwargs)
+
+
+LAMBERT_DEM, DEGREE_DEM = ((350000.0, 6815000.0), 100.0), ((-1.7, 48.2), 0.01)
+
+
+@pytest.mark.parametrize(("dem", "bbox", "what"), [
+    (LAMBERT_DEM, None, None),
+    (DEGREE_DEM, None, "the DEM"),
+    (LAMBERT_DEM, [-1.7, 48.0, -1.5, 48.2], "site_selection.territory.bbox"),
+])  # fmt: skip
+def test_a_dem_without_crs_takes_lambert_93_only_inside_france(tmp_path, dem, bbox, what):
+    cfg, flow_calls = make_config(tmp_path), {}
+    write_geotiff(cfg.dem.path, np.ones((2, 2)), origin=dem[0], cell=dem[1], crs=None)
+    if bbox is not None:
+        cfg = cfg.model_copy(update={"territory": TerritoryConfig(mode="bbox", bbox=bbox)})
+    run = partial(
+        from_stations, config=cfg, point_records=[make_record(ONE)], area_reader=_area,
+        flow_products_builder=flow_spy(flow_calls), delineation_builder=delineation_spy(),
+        write_outputs=False,
+    )  # fmt: skip
+    if what is None:
+        run()
+        assert flow_calls["crs_project"] == "EPSG:2154"
+        return
+    with pytest.raises(ConfigValidationError, match=f"{what}.*outside its area.*crs_project"):
+        run()
 
 
 @pytest.mark.parametrize("engine", [registry.builtin_engine_ids()[0], None])

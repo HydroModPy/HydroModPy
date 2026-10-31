@@ -5,6 +5,7 @@ from typing import ClassVar, Literal, Protocol
 
 import numpy as np
 
+from hydromodpy.core.exceptions import ConfigMissingError
 from hydromodpy.spatial.domain.spatial_support_config import (
     CatchmentZonesSupportConfig,
     DomainSupportConfig,
@@ -207,7 +208,13 @@ class GeologySupportProvider:
         loaded_data = context.loaded_data
         geology = getattr(loaded_data, "geology", None) if loaded_data is not None else None
         if geology is None:
-            raise ValueError(f"Geology support '{support_id}' requires loaded geology data.")
+            # A geology the planner inferred for this support loads in warn mode,
+            # so a failed load reaches here as a warning, not as an error.
+            raise ConfigMissingError(
+                f"[domain.supports.{support_id}] kind = 'geology' reads the geology data, and "
+                "none was loaded. Declare [data.geology] with a source that covers the "
+                "domain, and list 'geology' in data.types so a failed load stops the run."
+            )
         if str(getattr(geology, "identifier", "")).strip() == str(support_id).strip():
             return geology
         return AliasedSpatialSupportField(identifier=support_id, delegate=geology)

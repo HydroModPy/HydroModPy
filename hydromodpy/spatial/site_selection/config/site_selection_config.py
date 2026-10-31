@@ -171,7 +171,10 @@ class MapContextLayerConfig(HydroModelBase):
     )
     path: Annotated[Path, Profile.USER] = Field(
         ...,
-        description="GeoJSON file used as static map context.",
+        description=(
+            "GeoJSON file used as static map context. It is read in WGS 84 lon/lat (RFC 7946), "
+            "or in the CRS its crs member names, and moved into the map CRS."
+        ),
         examples=["rivers.geojson"],
     )
     role: Annotated[MapContextLayerRole, Profile.USER] = Field(

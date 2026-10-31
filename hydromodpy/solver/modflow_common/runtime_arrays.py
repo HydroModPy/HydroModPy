@@ -8,7 +8,10 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.units.physical_bounds import validate_physical_array
+from hydromodpy.core.units.physical_bounds import (
+    validate_physical_array,
+    validate_physical_value,
+)
 from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
 
 logger = get_logger(__name__)
@@ -212,6 +215,35 @@ def _coerce_flow_property_override(
     )
 
 
+_STORAGE_PROPERTIES = frozenset({"Sy", "Ss"})
+"""Read by a transient period only: a steady run does not require them."""
+
+
+def _validate_override_as_written(
+    canonical_name: str, raw_value: object, *, nlay: int, n_cells: int
+) -> None:
+    """Check an override against the physical range of its property, as it was written.
+
+    A scalar is checked once, a per-cell array cell by cell, a full array layer
+    by layer. The refusal counts the values as written and names the layer and
+    the cell, not a position in the array repeated over the layers.
+    """
+    flat = np.asarray(raw_value, dtype=float).reshape(-1)
+    if flat.size == 1:
+        validate_physical_value(
+            param_id=canonical_name,
+            value=float(flat[0]),
+            where="the runtime override, one value for every cell,",
+        )
+        return
+    rows = flat.reshape(-1, n_cells)
+    for layer, row in enumerate(rows):
+        place = "every layer" if rows.shape[0] == 1 else f"layer {layer + 1} of {nlay}"
+        validate_physical_array(
+            param_id=canonical_name, values=row, where=f"the runtime override, {place}, by cell"
+        )
+
+
 def _extract_flow_property_mapping(
     parameters: Mapping[str, object] | None,
 ) -> Mapping[str, object]:
@@ -261,8 +293,10 @@ def resolve_flow_property_runtime_overrides(
     ``(nlay, n_cells)`` and ``(n_cells,)``.
 
     Every value given, in SI, is checked against the physical range of its
-    property, on every cell, since the override carries no active mask. A
-    fill value is the caller's own default and is not checked.
+    property as it was written, on every cell, since the override carries no
+    active mask. Sy and Ss are not checked when ``required_properties`` leaves
+    them out: a steady run does not read them. A fill value is the caller's own
+    default and is not checked.
     """
 
     property_mapping = _extract_flow_property_mapping(parameters)
@@ -299,9 +333,10 @@ def resolve_flow_property_runtime_overrides(
             values_3d, values_2d = _coerce_flow_property_override(
                 raw_value, nlay=int(nlay), n_cells=int(n_cells)
             )
-            validate_physical_array(
-                param_id=canonical_name, values=values_3d, where="the runtime override"
-            )
+            if canonical_name in required or canonical_name not in _STORAGE_PROPERTIES:
+                _validate_override_as_written(
+                    canonical_name, raw_value, nlay=int(nlay), n_cells=int(n_cells)
+                )
 
         out[target_3d_attr] = values_3d
         out[target_surface_attr] = values_2d

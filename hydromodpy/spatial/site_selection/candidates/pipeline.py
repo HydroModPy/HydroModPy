@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from pyproj import CRS, Transformer
 from shapely.geometry import box
 
+from hydromodpy.core.exceptions import ConfigValidationError
+from hydromodpy.core.io.crs import same_crs
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.spatial.site_selection.candidates.generation import (
     CandidateGenerationEvidence,
@@ -33,6 +37,9 @@ from hydromodpy.spatial.site_selection.hydrology.reference_network import (
 )
 
 RawAccumulationBuilder = Callable[..., str | Path]
+
+LAMBERT_93 = "EPSG:2154"
+"""The default CRS of a French territory, and the CRS of the French data requests."""
 
 
 @dataclass(frozen=True)
@@ -229,36 +236,77 @@ def territory_geometry(
     territory: TerritoryConfig,
     *,
     target_crs: str | None,
-) -> object | None:
-    """Return the territory as one geometry in *target_crs*, or ``None``.
+) -> object:
+    """Return the territory as one geometry in *target_crs*.
 
-    The administrative modes know France only, so an administrative territory
-    whose country is not ``fr`` gives ``None``. A polygon file is united and
-    made valid.
+    The configuration keeps the administrative modes to France, so they read
+    the French departments. A polygon file is united and made valid. A box is
+    taken as written, in *target_crs*.
     """
 
     mode = territory.mode
-    french = (territory.country or "").upper() == "FR"
-    if mode == "admin_departments" and french:
+    if mode == "admin_departments":
         from hydromodpy.spatial.administrative.france import geometry_for_departments
 
         return _make_search_geometry_valid(
             geometry_for_departments(territory.departments, target_crs=target_crs)
         )
-    if mode == "admin_regions" and french:
+    if mode == "admin_regions":
         from hydromodpy.spatial.administrative.france import geometry_for_regions
 
         return _make_search_geometry_valid(
             geometry_for_regions(territory.regions, target_crs=target_crs)
         )
-    if mode == "polygon_file" and territory.polygon_file is not None:
+    if mode == "polygon_file":
         frame = gpd.read_file(territory.polygon_file)
-        if target_crs and frame.crs is not None and str(frame.crs) != str(target_crs):
+        if target_crs and frame.crs is not None and not same_crs(frame.crs.to_string(), target_crs):
             frame = frame.to_crs(target_crs)
         return _make_search_geometry_valid(_union_geometries(frame))
-    if mode == "bbox" and territory.bbox is not None:
-        return box(*territory.bbox)
-    return None
+    return box(*territory.bbox)
+
+
+def default_project_crs(territory: TerritoryConfig) -> str | None:
+    """Return the CRS a territory falls back to: Lambert-93 in France, else ``None``."""
+
+    return LAMBERT_93 if (territory.country or "").upper() == "FR" else None
+
+
+def require_lambert93_extent(
+    bounds: tuple[float, float, float, float],
+    *,
+    what: str,
+    fix: str,
+) -> None:
+    """Refuse a box read in EPSG:2154 that falls outside the EPSG:2154 area of use.
+
+    The area of use pyproj gives in degrees is projected into EPSG:2154 with
+    densified edges, and the box is compared with it in metres, corners in any
+    order. Comparing the corners in degrees would refuse a box of the whole
+    country, because the north-east corner of a projected box lies east of the
+    area in longitude. A box that is not finite is outside. *what* names the
+    box and *fix* says what to write instead.
+    """
+
+    xmin, ymin, xmax, ymax = (float(value) for value in bounds)
+    west, south, east, north = _lambert93_area_of_use()
+    inside = (
+        west <= min(xmin, xmax) <= max(xmin, xmax) <= east
+        and south <= min(ymin, ymax) <= max(ymin, ymax) <= north
+    )
+    if not inside:
+        raise ConfigValidationError(
+            f"{what} {tuple(bounds)} is read in {LAMBERT_93} (Lambert-93) but lies "
+            f"outside its area of use, metropolitan France and Corsica (x {west:.0f} "
+            f"to {east:.0f} m, y {south:.0f} to {north:.0f} m). An overseas territory "
+            f"needs its own CRS. {fix}"
+        )
+
+
+@cache
+def _lambert93_area_of_use() -> tuple[float, float, float, float]:
+    area = CRS.from_user_input(LAMBERT_93).area_of_use
+    to_lambert = Transformer.from_crs("EPSG:4326", LAMBERT_93, always_xy=True)
+    return to_lambert.transform_bounds(area.west, area.south, area.east, area.north, densify_pts=21)
 
 
 def first_candidate_crs(candidates: list[CandidateOutlet]) -> str | None:
@@ -300,9 +348,7 @@ def _union_geometries(frame: object) -> object:
     return geometry.union_all()
 
 
-def _make_search_geometry_valid(geometry: object | None) -> object | None:
-    if geometry is None:
-        return None
+def _make_search_geometry_valid(geometry: object) -> object:
     if bool(getattr(geometry, "is_valid", True)):
         return geometry
     try:
@@ -314,13 +360,16 @@ def _make_search_geometry_valid(geometry: object | None) -> object | None:
 
 
 __all__ = [
+    "LAMBERT_93",
     "GeneratedCandidateResult",
     "build_dem_area_light_candidates",
     "build_generated_network_candidates",
     "build_station_candidate_outlets",
+    "default_project_crs",
     "first_candidate_crs",
     "load_reference_network_for_generated_candidates",
     "load_reference_network_for_station_candidates",
+    "require_lambert93_extent",
     "site_selection_search_geometry",
     "territory_geometry",
 ]

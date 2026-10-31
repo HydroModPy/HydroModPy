@@ -15,20 +15,20 @@ sub-package has a note of its own with the full map.
 
 | part | answers |
 |---|---|
-| `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits in space (`RasterSupport`), the surfaces of the domain (`Surface`), and prepared samplers for repeated sampling at points (`PreparedSurfaceSampler`) |
-| `catchment_zones_field.py` | `CatchmentZonesField`, the zonation kept in `Domain.zones`: a 2D matrix of class codes on the domain grid, a label per code, a nodata code and the provenance of the rasters. `geographic/structure_binders.py` fills it with the three classes `domain`, `buffer` and `core` of a catchment, or with the single class `uniform` when the zone kind is uniform |
-| `protocols.py` | what spatial needs from outside it: the `GeologyDataSource` Protocol and its registration (`register_geology_data_source`) |
-| `job_inputs.py` | the checks the `domain-build` and `terrain-delineate` workers share on their input files: a pinned `sha256`, a raster that opens, and the hashes of the outputs they seal |
-| `administrative/` | the French departments and regions from the bundled `departement.gpkg` (Lambert-93): the department codes that meet a bounding box or lie in a region, and the bounding box or union geometry of a set of departments or regions. The DEM and geology providers of `data` and the candidates of a site selection call it |
-| `delineation/` | the backends that delineate a catchment and route flow on a DEM; `registry.py` resolves one by name, `whitebox_workflows_backend/` is the one shipped |
-| `terrain/` | the `TerrainEngine` port, what a flow-routing engine owes its callers (`port.py`), the artifact writers (`artifacts.py`), the D8 pointer reader (`d8.py`), and the two engines that serve it (`whitebox_engine.py`, `numpy_engine.py`); `registry.py` resolves one by id, plugins included |
-| `geographic/` | the pre-simulation pipeline: `core/` builds the ground (DEM and its corrections), flow products, catchment from a point or a polygon, zones, river network, hydrographic network, SFR reach network, lake enforcement, the free ends of a mapped network; `pipeline.py` assembles the artifacts; `GeographicConfig` is `[geographic]`; `structure_binders.py` writes geology and catchment zones into the domain; `synthetic/` makes analytic geographies for validation; map in `geographic/README.md` |
-| `domain/` | the aquifer geometry: `Domain` (surface, depth model, zones), `build.py` (its one constructor), the four depth models, the layering of the column (`layers_config.py` for `[domain.layers]`, `layering.py` for the layer bottoms and `idomain`), `spatial_support.py` (the supports a parameter can be zoned by), and the `domain-build` capability (`capability.py`, `worker.py`) |
-| `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile in `vertical_profile.py`), their TOML sections, the geology config (`geology_config.py`) and field (`geology_field.py`), the cells of a `PlanarCellMesh` the supports sample (`mesh_cells.py`) and `plot_cell_values` (`plotting.py`); it reads the mesh, and `mesh/` never imports it |
-| `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `io/` holds the exchange formats (VTU, the meshio bridge, Gmsh `.msh` files, mesh bundles); `cells/` answers which cells or faces; `mesh_config.py` and `refinement_config.py` hold the `[mesh]` config models |
-| `forcing/` | gridded and station forcings on the cells of a mesh: `cells.py` gives one rate per cell and per stress period (and the period bounds), `rasters.py` reads xarray, NetCDF and GeoTIFF and gives the mean over each stress period, `stations.py` the located series, `sources.py` the units and variables, `area_weights.py` the `area` method, `interpolation.py` nearest, linear and IDW; it reads the mesh model, and `mesh/` never imports it |
+| `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits (`RasterSupport`), the surfaces of the domain (`Surface`), and samplers prepared for repeated reads at points |
+| `catchment_zones_field.py` | `CatchmentZonesField`, the class codes of `Domain.zones` on the domain grid, with their labels. `geographic/structure_binders.py` fills it with `domain`, `buffer` and `core`, or `uniform` |
+| `protocols.py` | the `GeologyDataSource` Protocol that spatial needs from outside, and its registration |
+| `job_inputs.py` | the input checks the `domain-build` and `terrain-delineate` workers share, and the hashes of the outputs they seal |
+| `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
+| `delineation/` | the backends that route flow on a DEM and delineate a catchment. `whitebox_workflows_backend/` is the one shipped |
+| `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader |
+| `geographic/` | the pipeline before the simulation: the ground, the flow products, the catchment, the zones and the river networks. `GeographicConfig` is `[geographic]` |
+| `domain/` | the aquifer geometry: `Domain`, its four depth models, the layering of the column, the zoning supports and the `domain-build` capability |
+| `field/` | values on zones, cells and depths: `Field`, `FieldParam` with its vertical profile, and the geology field. `mesh/` never imports it |
+| `mesh/` | the unified mesh (`HydroMesh`, `PlanarCellMesh`), its regular, triangle and Voronoi engines, its exchange formats and the `[mesh]` config |
+| `forcing/` | gridded and station forcings as one rate per cell and per stress period. `mesh/` never imports it |
 | `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus |
-| `site_selection/` | the primitives of a site selection: candidates, criteria, evidence, decisions, outputs, and the `terrain-delineate` capability (`hydrology/capability.py`, `hydrology/worker.py`); map in `site_selection/README.md` |
+| `site_selection/` | the steps of a site selection (candidates, criteria, evidence, decisions, outputs) and the `terrain-delineate` capability |
 
 ## Import rules
 

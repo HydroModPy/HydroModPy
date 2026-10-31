@@ -46,10 +46,8 @@ _ENGINE_VERSION = "1.0.0"
 
 
 def _unit_square_edges(n_grid: int) -> np.ndarray:
-    n_grid = int(n_grid)
-    if n_grid <= 2:
-        raise ValueError("n_grid must be > 2")
-    return np.linspace(0.0, 1.0, n_grid, dtype=float)
+    # ``_axis_points_from_target_cells`` gives at least 3 points per axis.
+    return np.linspace(0.0, 1.0, int(n_grid), dtype=float)
 
 
 def _axis_points_from_target_cells(target_n_cells: int, *, mesh_kind: str):
@@ -89,17 +87,13 @@ def _build_unstructured_points(target_n_cells: int, *, rng: np.random.Generator)
     xb, yb = _build_unstructured_boundary(n_per_edge)
     n_boundary = int(xb.size)
 
-    # Planar triangulation heuristic: n_triangles ~= 2*n_points - 2 - n_boundary
-    n_interior = max(0, int(np.ceil((float(target) - float(n_boundary) + 2.0) / 2.0)))
-    if n_interior > 0:
-        xi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
-        yi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
-        x = np.concatenate([xb, xi])
-        y = np.concatenate([yb, yi])
-    else:
-        x = xb
-        y = yb
-    return x, y
+    # Planar triangulation heuristic: n_triangles ~= 2*n_points - 2 - n_boundary.
+    # The boundary holds at most 2*sqrt(target) + 4 nodes, so from target = 8
+    # at least one node is drawn inside.
+    n_interior = int(np.ceil((float(target) - float(n_boundary) + 2.0) / 2.0))
+    xi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
+    yi = rng.uniform(1e-6, 1.0 - 1e-6, size=n_interior)
+    return np.concatenate([xb, xi]), np.concatenate([yb, yi])
 
 
 def _resolve_unstructured_rng(

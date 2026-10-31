@@ -148,7 +148,7 @@ def station_influence_diagnostics(
     station_keywords = _matched_keywords(station_comment, keywords)
 
     flags: list[str] = []
-    matched_keywords = _stable_unique([*general_keywords, *local_keywords, *station_keywords])
+    matched_keywords = list(dict.fromkeys([*general_keywords, *local_keywords, *station_keywords]))
     if general_state is True:
         flags.append("general_influence")
     if local_state is True:
@@ -171,7 +171,7 @@ def station_influence_diagnostics(
 
     return StationInfluenceDiagnostics(
         status=status,
-        flags=_stable_unique(flags),
+        flags=list(dict.fromkeys(flags)),
         raw_fields=raw_fields,
         matched_keywords=matched_keywords,
     )
@@ -236,7 +236,7 @@ def _matched_keywords(text: str | None, keywords: Sequence[str]) -> list[str]:
         token = _normalize_text(keyword)
         if token and token in normalized:
             matches.append(token)
-    return _stable_unique(matches)
+    return list(dict.fromkeys(matches))
 
 
 def _first_value(attributes: Mapping[str, Any], *keys: str) -> object | None:
@@ -252,17 +252,6 @@ def _normalize_text(value: object) -> str:
     text = unicodedata.normalize("NFKD", text)
     text = "".join(char for char in text if not unicodedata.combining(char))
     return " ".join(text.replace("_", " ").replace("-", " ").split())
-
-
-def _stable_unique(values: Sequence[str]) -> list[str]:
-    seen = set()
-    out: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        out.append(value)
-    return out
 
 
 __all__ = [

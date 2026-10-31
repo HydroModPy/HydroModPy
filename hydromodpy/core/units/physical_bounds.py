@@ -40,6 +40,7 @@ accepts reaches this comparison.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -157,7 +158,16 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
 
 
 class PhysicalBoundsError(ConfigValidationError, ValueError):
-    """A value lies outside the physical range of its parameter."""
+    """A value lies outside the physical range of its parameter.
+
+    ``param_id`` is the registry id the value was checked under, or None when
+    the raiser did not state one. A calibration trial reads it to tell a point
+    the search moved out of range from a fixed value that is out of range.
+    """
+
+    def __init__(self, message: str = "", *, param_id: str | None = None, **kwargs: Any) -> None:
+        super().__init__(message, **kwargs)
+        self.param_id = param_id
 
 
 def validate_physical_value(
@@ -209,7 +219,8 @@ def validate_physical_value(
     if not (bound.lo <= compared <= bound.hi):
         raise PhysicalBoundsError(
             f"{_subject(bound, param_id, where)} value {_written(float(value), unit, bound)} "
-            f"outside [{bound.lo}, {bound.hi}] {bound.canonical_unit}"
+            f"outside [{bound.lo}, {bound.hi}] {bound.canonical_unit}",
+            param_id=param_id,
         )
     return float(value)
 
@@ -243,7 +254,8 @@ def validate_physical_array(
         raise PhysicalBoundsError(
             f"{_subject(bound, param_id, where)}: {count} of {array.size} value(s) outside "
             f"[{bound.lo}, {bound.hi}] {bound.canonical_unit}, the first at index {first}: "
-            f"{_written(float(array.flat[first]), unit, bound)}"
+            f"{_written(float(array.flat[first]), unit, bound)}",
+            param_id=param_id,
         )
     return array
 
@@ -286,7 +298,8 @@ def _unit_refusal(
     """The refusal of a unit that measures another quantity."""
     return PhysicalBoundsError(
         f"{_subject(bound, param_id, where)} expects {bound.canonical_unit!r} or a unit "
-        f"convertible to it, got {unit!r}"
+        f"convertible to it, got {unit!r}",
+        param_id=param_id,
     )
 
 

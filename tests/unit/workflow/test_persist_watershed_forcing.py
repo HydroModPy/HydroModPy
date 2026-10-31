@@ -7,8 +7,10 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
@@ -118,25 +120,14 @@ def test_non_allowlisted_family_keeps_field_only(tmp_path):
             sz.close()
 
 
-def test_watershed_mean_failure_is_non_fatal(tmp_path, monkeypatch):
-    # A reduction failure must not break the persist step.
-    import hydromodpy.spatial.forcing.cells as cells
-
-    def _boom(_obj):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(cells, "spatial_mean_from_fields", _boom)
+def test_a_refused_reduction_stops_the_persist_step(tmp_path):
+    # A runoff day without any valid pixel has no watershed mean: the step
+    # refuses it by name instead of persisting the run without it.
     times = pd.date_range("2020-01-01", periods=2, freq="D")
     frames = np.ones((2, 2, 2), dtype="float64")
+    frames[1] = np.nan
     loaded = _Loaded(runoff=LoadResult(fields=[_runoff_field_record(frames, times)]))
 
     with open_run_store(tmp_path / "ws", n_cells=4, n_timesteps=3) as catalog:
-        sid = catalog.sim_id
-        step_persist_forcings(_ctx(sid, loaded), store=catalog)
-
-        sz = catalog.open_zarr(sid)
-        try:
-            forcing = sz.root["forcing"]
-            assert "runoff" not in forcing or "_watershed" not in forcing["runoff"]
-        finally:
-            sz.close()
+        with pytest.raises(DataContractViolation, match="no valid pixel in time step 1"):
+            step_persist_forcings(_ctx(catalog.sim_id, loaded), store=catalog)

@@ -1,7 +1,10 @@
+from contextlib import nullcontext
+
 import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon
 
+from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrography.apis import bdtopage
 from hydromodpy.spatial.administrative.france import bbox_for_departments, bbox_for_regions
@@ -9,6 +12,7 @@ from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_dem_area_light_candidates,
     build_generated_network_candidates,
     build_station_candidate_outlets,
+    require_lambert93_extent,
     site_selection_search_geometry,
 )
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
@@ -68,14 +72,26 @@ def test_a_territory_polygon_is_reprojected_and_made_valid(tmp_path):
     assert 300_000.0 < geometry.centroid.x < 400_000.0
 
 
-@pytest.mark.parametrize("territory", [
-    {"mode": "bbox", "bbox": [0.0, 0.0, 1.0, 1.0], "clip_to_territory": False},
-    {"mode": "admin_departments", "departments": ["35"], "country": "BE"},
-    {"mode": "admin_departments", "departments": ["35"], "country": None},
-])  # fmt: skip
-def test_no_search_geometry_without_a_french_or_clipped_territory(tmp_path, territory):
+def test_no_search_geometry_for_a_territory_left_unclipped(tmp_path):
+    territory = {"mode": "bbox", "bbox": [0.0, 0.0, 1.0, 1.0], "clip_to_territory": False}
     cfg = _config(tmp_path, territory=territory)
     assert site_selection_search_geometry(cfg, target_crs=None) is None
+
+
+@pytest.mark.parametrize(("bounds", "inside"), [
+    ((300000.0, 6700000.0, 400000.0, 6800000.0), True),
+    ((400000.0, 6800000.0, 300000.0, 6700000.0), True),
+    ((-1.7, 48.0, -1.5, 48.2), False),
+    ((0.0, 0.0, 30.0, 30.0), False),
+    ((float("inf"), 0.0, 1.0, 1.0), False),
+    ((99217.0, 6049646.0, 1242375.0, 7110480.0), True),
+    ((583916.5, 6046597.0, 1242419.4, 7110497.0), True),
+    ((10160579.7, 467799.5, 10294091.0, 565295.2), False),
+])  # fmt: skip
+def test_a_box_read_in_lambert_93_must_lie_in_its_area_of_use(bounds, inside):
+    match = r"the box \(.*\) is read in EPSG:2154.*outside its area of use.*overseas.*Fix it\."
+    with nullcontext() if inside else pytest.raises(ConfigValidationError, match=match):
+        require_lambert93_extent(bounds, what="the box", fix="Fix it.")
 
 
 NETWORK = np.array([[1.0, 50.0, 200.0]])

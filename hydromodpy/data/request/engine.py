@@ -37,7 +37,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from hydromodpy.core.exceptions import DataContractViolation, DataRequestError
+from hydromodpy.core.exceptions import (
+    DataContractViolation,
+    DataRequestError,
+    JobInputNotFoundError,
+)
 from hydromodpy.core.io.atomic_replace import staged_path
 from hydromodpy.data.common.source_extent import (
     PROJECT_EXTENT_CRS,
@@ -225,7 +229,7 @@ def _selector(request: DataRequest, scratch: Path) -> _Selector:
     if extent_in.mask is not None:
         mask = Path(extent_in.mask.href)
         if not mask.is_file():
-            raise FileNotFoundError(f"the request's mask {mask} is not a file")
+            raise JobInputNotFoundError(f"the request's mask {mask} is not a file")
         _refuse_a_mask_that_is_not_the_pinned_one(mask, extent_in.mask.sha256)
         try:
             extent = mask_extent(mask)

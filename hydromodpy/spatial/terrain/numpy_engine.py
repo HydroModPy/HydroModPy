@@ -333,7 +333,7 @@ def _priority_flood_fill(grid: _Grid) -> np.ndarray:
     The "plus one bit" is Barnes' epsilon variant, and it is not cosmetic: a
     plain fill leaves plateaus, a plateau cell has no strictly lower neighbour,
     and a steepest-descent pointer therefore codes it as draining nowhere.
-    Measured before this variant, on the 5 400 cells of
+    Measured with a plain fill, on the 5 400 cells of
     ``examples/data/dem/DEM_gouville_25m.tif``: 637 cells with no outlet against
     34 for Whitebox, and an accumulation maximum of 181 against 1 459 -- the
     upstream area of a coastal aquifer under-reported eightfold, in silence.
