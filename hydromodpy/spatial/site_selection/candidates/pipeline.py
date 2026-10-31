@@ -229,17 +229,16 @@ def territory_geometry(
     territory: TerritoryConfig,
     *,
     target_crs: str | None,
-    default_country: str | None = None,
 ) -> object | None:
     """Return the territory as one geometry in *target_crs*, or ``None``.
 
-    The administrative modes know France only. A territory that names no
-    country is taken in *default_country*, and an administrative territory
-    outside France gives ``None``. A polygon file is united and made valid.
+    The administrative modes know France only, so an administrative territory
+    whose country is not ``fr`` gives ``None``. A polygon file is united and
+    made valid.
     """
 
     mode = territory.mode
-    french = (territory.country or default_country or "").upper() == "FR"
+    french = (territory.country or "").upper() == "FR"
     if mode == "admin_departments" and french:
         from hydromodpy.spatial.administrative.france import geometry_for_departments
 

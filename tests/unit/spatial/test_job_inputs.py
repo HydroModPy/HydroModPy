@@ -8,7 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, exit_code_for
+from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
 from hydromodpy.schema.job import JobDirectory
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.spatial import job_inputs
@@ -23,6 +24,19 @@ def test_a_pinned_digest_is_read_in_any_case_and_other_bytes_are_refused():
     match = "'dem.tif' hashes to ab12 and the request pinned cd34"
     with pytest.raises(DataContractViolation, match=match):
         refuse("CD34", digest="ab12", href="dem.tif", member="dem")
+
+
+@pytest.mark.parametrize("href", ["absent.tif", "folder"])
+def test_an_input_file_that_is_not_there_is_refused_as_not_found(tmp_path, href):
+    job = JobDirectory.create(tmp_path / "job")
+    (job.root / "folder").mkdir()
+    job.request_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(JobInputNotFoundError, match=f"input dem names '{href}', and .+ is not a file") as caught:  # fmt: skip
+        job_inputs.resolve_input_file(job, href, member="dem")
+
+    assert (caught.value.code, exit_code_for(caught.value)) == ("HMPY.E211", EXIT_NOT_FOUND)
+    assert job_inputs.resolve_input_file(job, "request.json", member="dem") == job.request_path
 
 
 @pytest.mark.parametrize(

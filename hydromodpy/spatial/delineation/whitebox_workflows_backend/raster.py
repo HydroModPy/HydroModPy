@@ -1,4 +1,4 @@
-"""Raster/vector IO, cache and format conversions on a shared environment."""
+"""Raster/vector IO and format conversions on a shared environment."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def given_options(**options: object) -> dict[str, object]:
 
 
 class WhiteboxRasterBackend:
-    """Raster/vector IO, cache and format conversions on a shared environment."""
+    """Raster/vector IO and format conversions on a shared environment."""
 
     def __init__(self) -> None:
         self.env = wbw.WbEnvironment()
@@ -46,8 +46,6 @@ class WhiteboxRasterBackend:
         except Exception:
             pass
         self._compress_rasters = False
-        self._raster_cache: dict[str, object] = {}
-        self._cache_rasters = False
 
     @staticmethod
     def _ensure_parent(path: str) -> None:
@@ -126,9 +124,6 @@ class WhiteboxRasterBackend:
             return operation(*args, **kwargs)
 
     def _read_raster(self, path: str):
-        cached = self._raster_cache.get(path)
-        if cached is not None:
-            return cached
         return self.run_env_operation(self.env.read_raster, path)
 
     def _write_raster(self, raster, path: str) -> None:
@@ -139,8 +134,6 @@ class WhiteboxRasterBackend:
             path,
             compress=self._compress_rasters,
         )
-        if self._cache_rasters:
-            self._raster_cache[path] = raster
 
     def _read_vector(self, path: str):
         return self.run_env_operation(self.env.read_vector, path)
@@ -188,46 +181,6 @@ class WhiteboxRasterBackend:
 
     def set_compress_rasters(self, enabled: bool) -> None:
         self._compress_rasters = bool(enabled)
-
-    def set_cache_rasters(self, enabled: bool) -> None:
-        """Enable/disable in-memory raster caching."""
-        self._cache_rasters = bool(enabled)
-
-    def get_cached_raster_numpy(self, path: str):
-        """Return a cached raster as a numpy float64 array, or None."""
-        import numpy as np
-
-        raster = self._raster_cache.get(path)
-        if raster is None:
-            return None
-        configs = raster.configs
-        rows = configs.rows
-        cols = configs.columns
-        data = np.full((rows, cols), np.nan, dtype="float64")
-        for row in range(rows):
-            row_data = raster.get_row_data(row)
-            data[row, : len(row_data)] = row_data
-        nodata = configs.nodata
-        if nodata is not None and nodata != np.nan:
-            data[data == nodata] = np.nan
-        return data
-
-    def get_cached_raster_metadata(self, path: str) -> dict | None:
-        """Return rasterio-compatible metadata for a cached raster."""
-        raster = self._raster_cache.get(path)
-        if raster is None:
-            return None
-        c = raster.configs
-        return {
-            "transform": (c.resolution_x, 0.0, c.west, 0.0, -c.resolution_y, c.north),
-            "crs": getattr(c, "coordinate_ref_system_wkt", "") or getattr(c, "epsg", ""),
-            "nodata": c.nodata,
-            "shape": (c.rows, c.columns),
-        }
-
-    def clear_raster_cache(self) -> None:
-        """Release all cached rasters."""
-        self._raster_cache.clear()
 
     def clip(self, input_path: str, clip_layer: str, output_path: str) -> None:
         clip_vector = self._read_vector(clip_layer)

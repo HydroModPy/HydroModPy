@@ -207,7 +207,7 @@ def test_a_job_that_cannot_be_done_fails_with_its_typed_code_and_seals_nothing(
     if exit_code in {codes.EXIT_NOT_FOUND, codes.EXIT_CONFIG}:
         assert not (job.outputs_dir / "dem_corrected.tif").exists()
     if detail == "absent.tif":
-        assert outcome.job_id == UNIDENTIFIED_JOB
+        assert (outcome.job_id, outcome.errors[0]["code"]) == (UNIDENTIFIED_JOB, "HMPY.E211")
     if detail == "/outputs/hillshade":
         assert not job.outputs_dir.exists()
         assert outcome.errors[0]["details"][0]["pointer"] == detail

@@ -131,9 +131,9 @@ geographic/
         └── case_config_river_network_nancon.toml   the case
 ```
 
-The `__init__.py` of the package exports names lazily, so a name is imported when it is first
-used. `synthetic/__init__.py` does the same for the synthetic runtime, to avoid an import cycle
-with the config.
+The `__init__.py` files export no names. A name is imported from the module that defines it,
+for example `GeographicConfig` from `geographic_config.py` and `build_synthetic_geographic` from
+`synthetic/catchment.py`.
 
 ## Where to start
 

@@ -27,11 +27,11 @@ from hydromodpy.solver.modflow_common.descent_store import write_descent_sidecar
 from hydromodpy.solver.modflow_common.flow_directions import build_solver_mesh_descent
 from hydromodpy.solver.modflow_nwt.extractors.flow import catchment_basin_the_build_left
 from hydromodpy.spatial.geographic.delineated_catchment import catchment_outline
-from hydromodpy.spatial.geographic.synthetic import (
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic_config import (
     LinearTopography,
     SyntheticGeographicConfig,
     SyntheticGridConfig,
-    build_synthetic_geographic,
 )
 from tests._helpers.solver_meshes import solver_mesh_from_structured_arrays
 

@@ -34,8 +34,9 @@ and diagnostics.
 
 Current scope
 -------------
-Only catchment area (km2) is exposed here. An ``AREA`` attribute authored in
-the shapefile wins over the geometry, every row summed.
+Only catchment area (km2) is exposed here. It is the area of the geometry,
+every row summed. An ``AREA`` attribute authored in the shapefile is only
+compared to it.
 """
 
 from __future__ import annotations
@@ -51,6 +52,7 @@ import pandas as pd
 import rasterio
 from shapely.geometry import box
 
+from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import ensure_crs
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.units import UREG
@@ -115,20 +117,12 @@ class CatchmentDomainProducts:
     buffer_area_increase: float | None = None
 
 
-def catchment_area_m2(frame: gpd.GeoDataFrame, *, area_field: str | None = None) -> float:
-    """Return the area of a catchment in m2, every part of it summed.
+AREA_COLUMN_TOLERANCE = 0.01
+"""Relative gap between a declared ``AREA`` column and the geometry that gives a warning."""
 
-    The area is the one of the geometry, in the CRS of *frame*. With
-    *area_field*, a numeric column of that name holds the area the file
-    declares, and it wins when present (a NaN there stays NaN). A column of
-    text leaves the geometry in charge. The sign of each declared row is dropped.
-    """
-    if (
-        area_field is not None
-        and area_field in frame.columns
-        and pd.api.types.is_numeric_dtype(frame[area_field])
-    ):
-        return float(frame[area_field].abs().sum(skipna=False))
+
+def catchment_area_m2(frame: gpd.GeoDataFrame) -> float:
+    """Return the area of a catchment in m2, every part of it summed, in the CRS of *frame*."""
     return float(np.abs(frame.geometry.area.sum()))
 
 
@@ -381,13 +375,11 @@ def derive_catchment_domain(
 
 
 def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
-    """Return catchment area in km2 from watershed polygon.
+    """Return the catchment area in km2, read on the geometry of every row.
 
-    Compatibility policy:
-    - prefer existing ``AREA`` attribute when present,
-    - otherwise compute area directly from geometry.
-
-    Every row of the file counts.
+    The CRS must be projected, as for the domain polygons. A numeric ``AREA``
+    column, in m2, is compared to the geometry and a gap above 1 % is a warning;
+    the geometry is the area used.
     """
     shp = Path(watershed_shp)
     if not shp.exists():
@@ -395,4 +387,22 @@ def compute_catchment_area_km2(watershed_shp: str | Path) -> float:
     gdf = gpd.read_file(str(shp))
     if gdf.empty:
         raise ValueError("watershed_shp is empty")
-    return catchment_area_m2(gdf, area_field="AREA") / 1_000_000.0
+    if gdf.crs is not None and gdf.crs.is_geographic:
+        raise TerrainProductError(
+            f"watershed_shp {shp} is in the geographic CRS {gdf.crs.to_string()} (degrees): "
+            "its area needs a projected CRS in metres."
+        )
+    area_m2 = catchment_area_m2(gdf)
+    if "AREA" in gdf.columns and pd.api.types.is_numeric_dtype(gdf["AREA"]):
+        declared_m2 = float(gdf["AREA"].abs().sum())
+        gap = abs(declared_m2 - area_m2) / area_m2 if area_m2 > 0.0 else math.inf
+        if gap > AREA_COLUMN_TOLERANCE:
+            logger.warning(
+                "watershed_shp %s: the AREA column declares %.6g km2 but the geometry "
+                "measures %.6g km2, a gap of %.1f%%. The geometry is used.",
+                shp,
+                declared_m2 / 1_000_000.0,
+                area_m2 / 1_000_000.0,
+                100.0 * gap,
+            )
+    return area_m2 / 1_000_000.0

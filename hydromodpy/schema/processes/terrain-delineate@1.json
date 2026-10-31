@@ -351,10 +351,10 @@
       "title": "The configuration document failed validation."
     },
     {
-      "type": "urn:hmp:error:FileNotFoundError",
-      "code": "FileNotFoundError",
+      "type": "urn:hmp:error:HMPY.E211",
+      "code": "HMPY.E211",
       "exit_code": 10,
-      "title": "File not found."
+      "title": "A file the job request names is not on disk."
     },
     {
       "type": "urn:hmp:error:HMPY.E201",

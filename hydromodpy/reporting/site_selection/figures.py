@@ -113,6 +113,15 @@ def render_site_selection_map(
     context_layers = _read_context_layers(manifest, manifest_file=manifest_file)
     dem_path = _dem_path_from_manifest(manifest)
     prefer_dem_extent = _prefer_dem_extent_from_manifest(manifest)
+    layers = {
+        "selected_basins": selected_basins,
+        "rejected_basins": rejected_basins,
+        "selected_outlets": selected_outlets,
+        "rejected_outlets": rejected_outlets,
+        "observation_points": observation_points,
+        "generated_network": generated_network,
+    }
+    map_crs = _map_crs(dem_path, layers.values())
 
     _write_map_png(
         destination,
@@ -120,12 +129,7 @@ def render_site_selection_map(
         dem_path=dem_path,
         prefer_dem_extent=prefer_dem_extent,
         context_layers=context_layers,
-        selected_basins=_features(selected_basins),
-        rejected_basins=_features(rejected_basins),
-        selected_outlets=_features(selected_outlets),
-        rejected_outlets=_features(rejected_outlets),
-        observation_points=_features(observation_points),
-        generated_network=_features(generated_network),
+        **{name: _features(_in_map_crs(layer, map_crs)) for name, layer in layers.items()},
     )
     return destination
 
@@ -921,6 +925,57 @@ def _read_geojson(path: Path | None) -> dict[str, Any]:
     if path is None or not path.is_file():
         return {"type": "FeatureCollection", "features": []}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _map_crs(dem_path: Path | None, collections: Iterable[Mapping[str, Any]]) -> str:
+    """Return the CRS the map is drawn in: that of its DEM, else the project CRS of the layers.
+
+    A GeoJSON of the selection holds WGS 84 lon/lat (RFC 7946) and names in
+    ``hydromodpy_project_crs`` the CRS its features came from. ``""`` means the
+    layers are drawn as they are.
+    """
+    if dem_path is not None and dem_path.is_file():
+        try:
+            import rasterio
+
+            with rasterio.open(dem_path) as src:
+                if src.crs:
+                    return src.crs.to_string()
+        except Exception:  # noqa: BLE001 - an unreadable DEM leaves the map without background.
+            pass
+    for collection in collections:
+        label = str(collection.get("hydromodpy_project_crs") or "")
+        if label and label != "mixed":
+            return label
+    return ""
+
+
+def _in_map_crs(collection: Mapping[str, Any], map_crs: str) -> dict[str, Any]:
+    """Return *collection* with its geometries in *map_crs*.
+
+    The coordinates are in ``hydromodpy_coordinate_crs``, WGS 84 lon/lat when
+    the member is absent (RFC 7946). A file of an older run names the project
+    CRS there and is drawn as it is when that is the map CRS.
+    """
+    from hydromodpy.core.io.crs import RFC7946_CRS, same_crs
+
+    source = str(collection.get("hydromodpy_coordinate_crs") or RFC7946_CRS)
+    if not map_crs or source == "mixed" or same_crs(source, map_crs):
+        return dict(collection)
+    import shapely
+    from pyproj import Transformer
+    from shapely.geometry import shape
+    from shapely.ops import transform
+
+    project = Transformer.from_crs(source, map_crs, always_xy=True).transform
+    features = []
+    for feature in _features(collection):
+        geometry = feature.get("geometry")
+        if isinstance(geometry, Mapping):
+            moved = transform(project, shape(geometry))
+            feature = {**feature, "geometry": json.loads(shapely.to_geojson(moved))}
+        features.append(feature)
+    return {**collection, "features": features}
 
 
 def _read_context_layers(

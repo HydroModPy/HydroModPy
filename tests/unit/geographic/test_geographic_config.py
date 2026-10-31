@@ -5,8 +5,9 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.config import HydroModPyConfig
-from hydromodpy.spatial.geographic import GeographicConfig, pipeline
+from hydromodpy.spatial.geographic import pipeline
 from hydromodpy.spatial.geographic.core import ground_corrections, ground_inputs
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.terrain import registry
 from tests._helpers.geographic_cases import BENCH_RIVER, outlet_document
 

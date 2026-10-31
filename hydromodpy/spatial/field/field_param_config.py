@@ -32,6 +32,7 @@ from hydromodpy.spatial.field.field_param_sections import (
     HeterogeneousValueSource,
     VerticalProfileInterpolation,
     VerticalProfileMode,
+    coerce_scalar_value_with_unit,
     coerce_value_with_declared_unit,
     normalize_value,
     normalize_values,
@@ -326,23 +327,33 @@ class FieldParamConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _enforce_physical_bounds(self) -> FieldParamConfig:
-        """Validate a homogeneous value against ``PHYSICAL_BOUNDS``, in its declared unit.
+        """Validate every value the section writes against ``PHYSICAL_BOUNDS``, in its declared unit.
 
-        The section has already split a ``"<number> <unit>"`` string, so the
-        value is a float and ``unit`` holds its unit, or None for the
-        canonical unit of the parameter.
+        A homogeneous value and each inline zone value are checked here. A value
+        written ``"<number> <unit>"`` is checked in that unit. A section with no
+        ``id`` and a CSV table are checked by ``FieldParam``, once the id and the
+        values are known.
         """
         from hydromodpy.core.units.physical_bounds import validate_physical_value
 
-        if (
-            not isinstance(self.field, FieldHomogeneousSection)
-            or self.field.id is None
-            or self.field.value is None
-        ):
+        field = self.field
+        if field.id is None:
             return self
-        validate_physical_value(
-            param_id=self.field.id, value=cast(float, self.field.value), unit=self.field.unit
-        )
+        if isinstance(field, FieldHomogeneousSection):
+            if field.value is not None:
+                validate_physical_value(
+                    param_id=field.id, value=cast(float, field.value), unit=field.unit
+                )
+            return self
+        for zone_key, raw_value in (field.values or {}).items():
+            value, unit = raw_value, field.unit
+            if isinstance(raw_value, str):
+                value, unit = coerce_scalar_value_with_unit(
+                    raw_value, field.unit, location=f"{field.id}.values[{zone_key}]"
+                )
+            validate_physical_value(
+                param_id=field.id, value=float(value), unit=unit, where=f"zone {zone_key!r}"
+            )
         return self
 
 

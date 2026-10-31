@@ -400,7 +400,6 @@ class LogManager:
             "fiona",
             "rasterio",
             "urllib3",
-            "geopy",
             "matplotlib",
             "PIL",
             "shapely",

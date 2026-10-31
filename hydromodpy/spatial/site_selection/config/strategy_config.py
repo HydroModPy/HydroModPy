@@ -149,14 +149,19 @@ class TerritoryConfig(HydroModelBase):
         },
     )
     country: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Country code used by administrative territory modes.",
+        default="fr",
+        description=(
+            "Country code of the territory, in any case. With 'fr' the administrative "
+            "modes read the French regions and departments, and the default CRS is "
+            "Lambert-93 (EPSG:2154). Another code gives no administrative geometry "
+            "and no default CRS."
+        ),
     )
     regions: Annotated[list[str], Profile.USER, VisibleWhen("mode", "admin_regions")] = Field(
         default_factory=list,
         description=(
             "Names of the administrative regions that bound the territory. With "
-            "country = 'FR' the names are checked against the French regions."
+            "country = 'fr' the names are checked against the French regions."
         ),
         examples=[["Bretagne"]],
     )

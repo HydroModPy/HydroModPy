@@ -28,8 +28,8 @@ served, and the exit code is the typed code of the first failure.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
@@ -48,7 +48,6 @@ from hydromodpy.data.request.model import DataRequest
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import write_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     InputResource,
@@ -57,14 +56,11 @@ from hydromodpy.schema.job.inputset import (
     inline_resource,
 )
 from hydromodpy.schema.job.outcome import (
-    UNIDENTIFIED_JOB,
     JobOutcome,
     OutputRecord,
-    dismissed,
     error_record,
     now,
 )
-from hydromodpy.schema.job.provenance import build_provenance, write_provenance
 from hydromodpy.schema.job.refusal import refuse_request
 from hydromodpy.schema.job.request import (
     FileLink,
@@ -74,8 +70,7 @@ from hydromodpy.schema.job.request import (
     requested_outputs,
     validate_inputs,
 )
-from hydromodpy.schema.job.reuse import reuse_sealed_outcome
-from hydromodpy.schema.job.seal import seal_job
+from hydromodpy.schema.job.worker import ExitCodeMapper, run_job, seal_successful
 from hydromodpy.schema.media_types import (
     GEOPACKAGE_MEDIA_TYPE,
     GEOTIFF_MEDIA_TYPE,
@@ -84,9 +79,6 @@ from hydromodpy.schema.media_types import (
     PARQUET_MEDIA_TYPE,
 )
 from hydromodpy.schema.sources import SOURCES
-
-ExitCodeMapper = Callable[[BaseException], int]
-"""How the runtime turns an exception into the status a shim reads."""
 
 CAPABILITY_ID = "data-request"
 CAPABILITY_VERSION = "1.0.0"
@@ -182,53 +174,17 @@ class _Resolved:
 def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
     """Execute ``data-request`` inside *job* and return what happened.
 
-    Writes ``outcome.json`` in every case, and ``manifest.json`` only when the
-    job succeeded.
+    The loop is :func:`hydromodpy.schema.job.worker.run_job`. Writes
+    ``outcome.json`` in every case, and ``manifest.json`` only when the job
+    succeeded.
     """
-    if job.is_sealed:
-        return _reuse_or_refuse(job)
-    started_at = now()
-    decl = DATA_REQUEST
-    job_id = UNIDENTIFIED_JOB
-    try:
-        resolved = _resolve(job)
-        job_id = resolved.job_id
-        return _execute(job, resolved, started_at=started_at, exit_code_for=exit_code_for)
-    except KeyboardInterrupt as exc:
-        outcome = dismissed(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            started_at=started_at,
-            exc=exc,
-        )
-        outcome.write(job)
-        raise
-    except Exception as exc:
-        outcome = JobOutcome(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            status="failed",
-            exit_code=exit_code_for(exc),
-            started_at=started_at,
-            finished_at=now(),
-            errors=(error_record(exc),),
-        )
-        outcome.write(job)
-        return outcome
-
-
-def _reuse_or_refuse(job: JobDirectory) -> JobOutcome:
-    """Answer a directory that is already sealed, without writing into it."""
-    try:
-        resolved = _resolve(job)
-    except Exception as exc:
-        raise JobUsageError(
-            f"job directory {job.root} is already sealed, and this request does not "
-            f"resolve into a job id to compare against it: {exc}"
-        ) from exc
-    return reuse_sealed_outcome(job, job_id=resolved.job_id)
+    return run_job(
+        job,
+        decl=DATA_REQUEST,
+        resolve=_resolve,
+        execute=partial(_execute, exit_code_for=exit_code_for),
+        exit_code_for=exit_code_for,
+    )
 
 
 def _resolve(job: JobDirectory) -> _Resolved:
@@ -317,8 +273,8 @@ def _resolve_mask(job: JobDirectory, request: DataRequest) -> tuple[DataRequest,
 def _execute(
     job: JobDirectory,
     resolved: _Resolved,
-    *,
     started_at: str,
+    *,
     exit_code_for: ExitCodeMapper,
 ) -> JobOutcome:
     """Serve the request into ``outputs/`` and seal it when every variable was served."""
@@ -361,36 +317,20 @@ def _execute(
         outcome.write(job)
         return outcome
 
-    inputset = _build_inputset(resolved)
-    write_document(job.inputset_path, inputset.to_document())
-    write_provenance(
+    return seal_successful(
         job,
-        build_provenance(
-            job_id=resolved.job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            backend={
-                "name": "data-managers",
-                "kind": "data-request",
-                "sources": sorted({item.source for item in report.files}),
-            },
-        ),
-    )
-    records = _output_records(job, report)
-    outcome = JobOutcome(
+        decl=decl,
         job_id=resolved.job_id,
-        process_id=decl.id,
-        process_version=decl.version,
-        status="successful",
-        exit_code=0,
-        started_at=started_at,
-        finished_at=now(),
-        outputs=records,
+        inputset=_build_inputset(resolved),
+        backend={
+            "name": "data-managers",
+            "kind": "data-request",
+            "sources": sorted({item.source for item in report.files}),
+        },
+        outputs=lambda: _output_records(job, report),
         warnings=tuple(warnings),
+        started_at=started_at,
     )
-    outcome.write(job)
-    seal_job(job, job_id=resolved.job_id, inputset=inputset, outputs=records)
-    return outcome
 
 
 def _output_records(job: JobDirectory, report: Any) -> tuple[OutputRecord, ...]:
@@ -453,6 +393,5 @@ __all__ = [
     "MEDIA_TYPES",
     "REACHED_HOSTS",
     "REPORT_PATH",
-    "ExitCodeMapper",
     "run",
 ]

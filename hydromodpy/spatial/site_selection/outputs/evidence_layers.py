@@ -1,8 +1,9 @@
 """Vector layers of the geology and influence evidence of a selection.
 
 A geology item carries the basin it describes, an influence item the dam or
-withdrawal it found. Both are written the same way, as a GeoJSON file, a
-GeoPackage layer or a GeoParquet file named after their role.
+withdrawal it found. Both are written the same way, as a GeoJSON file in WGS 84
+lon/lat (RFC 7946), or as a GeoPackage layer or a GeoParquet file named after
+their role, in the CRS of the items.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ from typing import Any, Literal
 
 import geopandas as gpd
 
-from hydromodpy.core.io.crs import geojson_crs_member
 from hydromodpy.spatial.site_selection.domain.export_values import (
     clean_value,
     single_crs,
@@ -22,7 +22,11 @@ from hydromodpy.spatial.site_selection.domain.export_values import (
 )
 from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
 from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.outputs.geojson import write_geojson
+from hydromodpy.spatial.site_selection.outputs.geojson import (
+    feature_collection,
+    lon_lat_geometry,
+    write_geojson,
+)
 from hydromodpy.spatial.site_selection.outputs.geospatial import write_vector_layer
 
 EvidenceItem = GeologyEvidence | InfluenceEvidence
@@ -46,23 +50,25 @@ def write_evidence_layer(
         return None
     if fmt != "geojson":
         return write_vector_layer(_evidence_frame(located), path, fmt=fmt, layer=role)
-    crs_label = single_or_mixed({item.crs for item in located if item.crs})
-    collection = {
-        "type": "FeatureCollection",
-        "name": Path(path).stem,
-        "hydromodpy_geometry_role": role,
-        "hydromodpy_coordinate_crs": crs_label,
-        **geojson_crs_member(crs_label),
-        "features": [
+    features = []
+    for item in located:
+        feature_id = _feature_id(item)
+        features.append(
             {
                 "type": "Feature",
-                "id": _feature_id(item),
-                "geometry": item.geometry.__geo_interface__,
+                "id": feature_id,
+                "geometry": lon_lat_geometry(
+                    item.geometry, item.crs, path=path, feature_id=feature_id
+                ),
                 "properties": properties_without_geometry(item),
             }
-            for item in located
-        ],
-    }
+        )
+    collection = feature_collection(
+        path,
+        project_crs=single_or_mixed(item.crs for item in located),
+        features=features,
+        hydromodpy_geometry_role=role,
+    )
     return write_geojson(path, collection)
 
 

@@ -128,7 +128,6 @@ class SyntheticGeographic:
         self.x_outlet = None
         self.y_outlet = None
         self.crs_proj = str(config.grid.crs)
-        self.dep_code = None
 
         self._build()
 

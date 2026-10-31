@@ -342,6 +342,7 @@ def _discretize_heterogeneous_source(
             simulation_window=sim_window,
             method=interpolation_method,
             mesh=model.solver_mesh.planar_mesh,
+            mesh_crs=model.solver_mesh.cell_mesh.crs_wkt,
         )
     if getattr(source, "has_points", False):
         return discretize_points_on_cells(

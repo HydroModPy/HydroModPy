@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.spatial.field.field_param import FieldParam
 from hydromodpy.spatial.field.field_param_config import (
     load_field_param_toml,
     resolve_field_param_config_payload,
@@ -171,14 +172,38 @@ def test_a_project_section_takes_its_key_as_id_and_its_profile():
         resolve_field_param_config_payload({"field": CSV | {"field_spatial_id": "g"}})
 
 
+def _homogeneous(value: object, unit: str | None) -> object:
+    return validate_field_param_toml_data({"field": _k(value) | _unit(unit)})
+
+
+def _zone(value: object, unit: str | None) -> object:
+    return validate_field_param_toml_data({"field": PER_ZONE | {"values": {"granite": value}} | _unit(unit)})  # fmt: skip
+
+
+def _without_id(value: object, unit: str | None) -> object:
+    section = {"kind": "homogeneous", "value": value} | _unit(unit)
+    return FieldParam.from_dict(
+        resolve_field_param_config_payload({"field": section}, param_id="K")
+    )
+
+
+def _unit(unit: str | None) -> dict:
+    return {"unit": unit} if unit else {}
+
+
 @pytest.mark.parametrize(
-    ("value", "unit", "refused"),
-    [(150.0, "m/day", None), ("150 m/day", None, None), (1e-13, "m/day", "outside"),
-     (150.0, "m/s", "outside"), (1e-5, None, None),
-     (1e-5, "m-1", "expects 'm/s' or a unit convertible to it")],
-    ids=["m-day", "inline-m-day", "too-low-m-day", "too-high-m-s", "canonical", "other-quantity"],
+    ("enter", "value", "unit", "refused"),
+    [(_homogeneous, 150.0, "m/day", None), (_homogeneous, "150 m/day", None, None),
+     (_homogeneous, 1e-13, "m/day", "outside"), (_homogeneous, 150.0, "m/s", "outside"),
+     (_homogeneous, 1e-5, None, None), (_homogeneous, 1e-5, "m-1", "expects 'm/s' or a unit convertible to it"),
+     (_zone, 150.0, "m/day", None), (_zone, 1e3, None, r"in zone 'granite' value 1000.0 outside \[1e-14, 100.0\] m/s"),
+     (_zone, "1e9 m/day", None, r"in zone 'granite' value 1000000000.0 m/day \(11574.1 m/s\) outside"),
+     (_without_id, 1e-5, None, None), (_without_id, 1e3, None, r"\(id='K'\) value 1000.0 outside"),
+     (_without_id, "1e9 m/day", None, r"value 1000000000.0 m/day \(11574.1 m/s\)")],
+    ids=["m-day", "inline-m-day", "too-low-m-day", "too-high-m-s", "canonical", "other-quantity",
+         "zone-m-day", "zone-too-high", "zone-too-high-inline", "no-id", "no-id-too-high",
+         "no-id-too-high-inline"],
 )  # fmt: skip
-def test_a_homogeneous_value_is_bounded_in_its_declared_unit(value, unit, refused):
-    section = {"id": "K", "kind": "homogeneous", "value": value} | ({"unit": unit} if unit else {})
+def test_a_value_is_bounded_in_its_declared_unit_wherever_it_enters(enter, value, unit, refused):
     with nullcontext() if refused is None else pytest.raises(ValueError, match=refused):
-        validate_field_param_toml_data({"field": section})
+        enter(value, unit)

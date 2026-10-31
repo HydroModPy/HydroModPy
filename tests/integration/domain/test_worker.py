@@ -272,7 +272,7 @@ def _text(t: Path, name: str) -> str:
         (lambda t: {"dem": {"href": str(_dem(t / "bare.tif", crs=None))}}, {}, EXIT_VALIDATION, ("carries no CRS",), True),
         (lambda t: {"dem": {"href": _text(t, "text.tif")}}, {}, EXIT_VALIDATION, ("cannot be opened as a raster",), True),
         (lambda t: {"dem": {"href": str(t / "dem.tif"), "sha256": "00" * 32}}, {}, EXIT_VALIDATION, ("the bytes are not the ones the job asked for",), True),
-        (lambda t: {"dem": {"href": str(t / "absent.tif")}}, {}, EXIT_NOT_FOUND, (), True),
+        (lambda t: {"dem": {"href": str(t / "absent.tif")}}, {}, EXIT_NOT_FOUND, ('"code": "HMPY.E211"', "absent.tif', and"), True),
         (_rotated, {}, EXIT_VALIDATION, ("rotated or sheared transform",), True),
         (lambda t: {"mask": {"href": str(write_mask(t / "far.gpkg", {"watershed": ELSEWHERE}))}}, {}, EXIT_VALIDATION, ("no cell of the terrain is active",), False),
         (lambda t: {"mask": {"href": str(write_mask(t / "two.gpkg", {"first": MASK_BOX, "second": MASK_BOX}))}}, {}, EXIT_CONFIG, (POINTER.format("mask_layer"),), True),

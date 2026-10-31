@@ -61,10 +61,7 @@ def test_located_evidence_is_written_in_every_vector_format(tmp_path):
         ("geology_basins", "geology_class"),
     ):
         collection = json.loads(paths[f"{key}_geojson"].read_text())
-        assert (collection["hydromodpy_geometry_role"], collection["crs"] is not None) == (
-            key,
-            True,
-        )
+        assert (collection["hydromodpy_geometry_role"], "crs" in collection) == (key, False)
         assert collection["features"][0]["properties"][kind] in {"major_dam_upstream", "schist"}
     lines = paths["site_selection_evidence_jsonl"].read_text().splitlines()
     assert {json.loads(line)["evidence_ref"] for line in lines} == {
@@ -93,8 +90,12 @@ def test_evidence_without_geometry_or_vector_output_is_written_as_tables_only(
     assert set(paths) - tables == (set() if located else {"observation_points_geojson"})
 
 
-@pytest.mark.parametrize(("crs_values", "label"), [(["", ""], ""), ([L93, "EPSG:4326"], "mixed")])
-def test_the_evidence_geojson_names_its_single_crs_or_says_mixed(tmp_path, crs_values, label):
+@pytest.mark.parametrize(
+    ("crs_values", "label"), [([L93, L93], L93), ([L93, "EPSG:4326"], "mixed")]
+)
+def test_the_evidence_geojson_names_its_single_project_crs_or_says_mixed(
+    tmp_path, crs_values, label
+):
     common = dict(site_id="s", source_path=tmp_path / "layer.gpkg")
     geology = [
         GeologyEvidence(source_layer="B", geology_class=f"g{i}", area_fraction=1.0, area_km2=1.0,
@@ -110,7 +111,7 @@ def test_the_evidence_geojson_names_its_single_crs_or_says_mixed(tmp_path, crs_v
     for role, evidence in (("geology_basins", geology), ("influence_features", influence)):
         path = write_evidence_layer(tmp_path / "e.geojson", evidence, role=role, fmt="geojson")
         collection = json.loads(path.read_text())
-        assert collection["hydromodpy_coordinate_crs"] == label
+        assert (collection["hydromodpy_coordinate_crs"], collection["hydromodpy_project_crs"]) == ("OGC:CRS84", label)  # fmt: skip
         assert "crs" not in collection
         assert collection["features"][0]["properties"]["source_path"] == str(common["source_path"])
 

@@ -1,12 +1,12 @@
 """The river network drawn on the DEM: rasters, vector, mesh trace and summary."""
 
 import json
-import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from pyproj import CRS
 from shapely.geometry import box
 
 from hydromodpy.spatial.geographic.core.river_network import (
@@ -36,39 +36,37 @@ RECORDS = (
 )
 
 
+def _answer(values):
+    return lambda *args, **kwargs: values
+
+
 class RecordingBackend:
-    """A Whitebox double that writes the rasters of a four by four grid and records calls."""
+    """A Whitebox double whose rasters are four by four arrays, recording each write."""
 
     def __init__(self, records=RECORDS, projection: str = "") -> None:
         self.calls: list[str] = []
         self.records = records
         self.projection = projection
-        self.flow = SimpleNamespace(d8_flow_accumulation=self._raster(np.arange(16.0)))
+        self.flow = SimpleNamespace(d8_flow_accumulation_raster=_answer(np.arange(16.0)))
         self.delineation = SimpleNamespace(
-            extract_streams=self._raster(STREAMS),
-            remove_short_streams=self._raster(STREAMS, inputs=3),
-            strahler_stream_order=self._raster(2.0 * STREAMS, inputs=3),
-            stream_link_identifier=self._raster(STREAMS, inputs=3),
+            extract_streams_raster=_answer(STREAMS),
+            remove_short_streams_raster=_answer(STREAMS),
+            strahler_stream_order_raster=_answer(2.0 * STREAMS),
+            stream_link_identifier_raster=_answer(STREAMS),
             raster_streams_to_vector_raster=self._vector,
         )
         self.raster = SimpleNamespace(
-            clip_raster_to_polygon=self._clip,
+            clip_raster_to_polygon_raster=lambda raster, polygon, **kwargs: raster,
             read_raster=str,
             read_vector=str,
+            write_raster=self._write,
             clip_vector=lambda vector, clip: vector,
             write_vector=lambda vector, path: self.calls.append(f"write_vector {Path(path).name}"),
         )
 
-    def _raster(self, values, *, inputs: int = 2):
-        def write(*args, **kwargs) -> None:
-            out = args[inputs - 1]
-            self.calls.append(Path(out).name)
-            write_geotiff(out, np.asarray(values, dtype="float32").reshape(4, 4), cell=10.0)
-
-        return write
-
-    def _clip(self, source, polygon, out, *, maintain_dimensions=False) -> None:
-        shutil.copy(source, out)
+    def _write(self, values, out) -> None:
+        self.calls.append(Path(out).name)
+        write_geotiff(out, np.asarray(values, dtype="float32").reshape(4, 4), cell=10.0)
 
     def _vector(self, streams, d8, *, all_vertices=False):
         return SimpleNamespace(records=self.records, projection=self.projection)
@@ -140,18 +138,21 @@ def test_a_disabled_network_builds_nothing_and_never_calls_the_backend(tmp_path)
 def test_the_full_network_is_pruned_ordered_linked_vectorised_and_summarised(tmp_path) -> None:
     backend = RecordingBackend()
     result = _build(tmp_path, _config(prune_short_streams=True), backend, network_crs="EPSG:2154")
-    assert backend.calls == [
-        "dem_acc_cells.tif",
-        "dem_streams_full.tif",
-        "dem_streams_pruned_full.tif",
-        "dem_stream_order_strahler_full.tif",
-        "dem_stream_link_id_full.tif",
-        "write_vector river_network.shp",
+    full_and_clipped = [
+        ("dem_streams_full.tif", "river_streams.tif"),
+        ("dem_streams_pruned_full.tif", "river_streams_pruned.tif"),
+        ("dem_stream_order_strahler_full.tif", "river_stream_order_strahler.tif"),
+        ("dem_stream_link_id_full.tif", "river_stream_link_id.tif"),
     ]
+    written = [name for pair in full_and_clipped for name in pair]
+    assert backend.calls == ["dem_acc_cells.tif", *written, "write_vector river_network.shp"]
     assert result.threshold_cells == 50.0
     assert result.active_streams_tif == result.streams_pruned_tif
     assert Path(result.stream_link_id_full_tif).name == "dem_stream_link_id_full.tif"
     assert result.network_crs == "EPSG:2154"
+    # The backend wrote no .prj, so the network carries the CRS it was read in.
+    prj = Path(result.hydrographic_network_generated_shp).with_suffix(".prj")
+    assert prj.read_text() == CRS("EPSG:2154").to_wkt("WKT1_ESRI")
     # The one-point record and the one-point part of the last are left out.
     assert result.river_mesh_trace.segment_count == 4
     summary = json.loads(Path(result.hydrographic_network_generated_summary_json).read_text())

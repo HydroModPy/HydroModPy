@@ -2,8 +2,9 @@
 
 ``domain-build`` and ``terrain-delineate`` read the same kind of request: files
 named by an ``href``, optionally pinned by their ``sha256``. Both refuse a file
-whose bytes are not the pinned ones, and a raster no reader opens, with the
-same words. Both seal the outputs their declaration lists.
+that is not there, a file whose bytes are not the pinned ones, and a raster no
+reader opens, with the same words and the same codes. Both seal the outputs
+their declaration lists.
 """
 
 from __future__ import annotations
@@ -15,13 +16,21 @@ from typing import TypeVar
 import rasterio
 from rasterio.io import DatasetReader
 
-from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.exceptions import DataContractViolation, JobInputNotFoundError
 from hydromodpy.schema.capability import CapabilityDecl
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
 from hydromodpy.schema.job.outcome import OutputRecord
 
 T = TypeVar("T")
+
+
+def resolve_input_file(job: JobDirectory, href: str, *, member: str) -> Path:
+    """Resolve one declared input file and prove it is there before anything runs."""
+    path = job.resolve_input(href, loc=("inputs", member, "href"))
+    if not path.is_file():
+        raise JobInputNotFoundError(f"input {member} names {href!r}, and {path} is not a file")
+    return path
 
 
 def refuse_a_file_that_is_not_the_one_asked_for(
@@ -94,4 +103,5 @@ __all__ = [
     "output_records",
     "read_raster_input",
     "refuse_a_file_that_is_not_the_one_asked_for",
+    "resolve_input_file",
 ]

@@ -50,8 +50,11 @@ BOWTIE = [[-1.7, 48.0], [-1.6, 48.1], [-1.6, 48.0], [-1.7, 48.1], [-1.7, 48.0]]
     ({"mode": "admin_departments", "departments": ["35"]}, bbox_for_departments(["35"])),
     ({"mode": "admin_regions", "regions": ["Bretagne"]}, bbox_for_regions(["Bretagne"])),
 ])  # fmt: skip
-def test_the_search_geometry_fills_the_territory_box(tmp_path, territory, bounds):
-    cfg = _config(tmp_path, territory={"country": "FR", **territory})
+def test_the_search_geometry_fills_the_territory_box_of_a_territory_without_country(
+    tmp_path, territory, bounds
+):
+    section = selection_section(output_root=tmp_path / "out")
+    cfg = SiteSelectionConfig.model_validate({**section, "territory": territory})
     geometry = site_selection_search_geometry(cfg, target_crs="EPSG:2154")
     assert geometry.is_valid
     assert geometry.bounds == pytest.approx(bounds)
@@ -68,6 +71,7 @@ def test_a_territory_polygon_is_reprojected_and_made_valid(tmp_path):
 @pytest.mark.parametrize("territory", [
     {"mode": "bbox", "bbox": [0.0, 0.0, 1.0, 1.0], "clip_to_territory": False},
     {"mode": "admin_departments", "departments": ["35"], "country": "BE"},
+    {"mode": "admin_departments", "departments": ["35"], "country": None},
 ])  # fmt: skip
 def test_no_search_geometry_without_a_french_or_clipped_territory(tmp_path, territory):
     cfg = _config(tmp_path, territory=territory)

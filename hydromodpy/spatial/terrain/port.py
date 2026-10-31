@@ -396,6 +396,15 @@ Named here rather than in each engine because a flat layout has to refuse a
 catchment name that would land on one of them.
 """
 
+OUTLET_LAYER_COLUMNS = ("outlet_id", "x", "y")
+"""The attribute columns of both point layers, whatever engine wrote them.
+
+``outlet_id`` names the outlet the layer belongs to, and ``x`` and ``y`` are the
+coordinates of the point the layer holds: the declared one in the outlet layer,
+the snapped one in the snapped layer. A reader of the attribute table alone
+then sees which outlet it holds and where.
+"""
+
 
 @dataclass(frozen=True)
 class CatchmentLayout:
@@ -838,6 +847,7 @@ __all__ = [
     "DEFAULT_CATCHMENT_LAYOUT",
     "MASK_INSIDE",
     "MASK_NODATA",
+    "OUTLET_LAYER_COLUMNS",
     "OUTLET_LAYER_NAME",
     "SNAPPED_OUTLET_LAYER_NAME",
     "Catchment",

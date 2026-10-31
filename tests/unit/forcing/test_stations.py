@@ -43,13 +43,17 @@ def test_each_station_reads_its_own_unit():
 
 
 @pytest.mark.parametrize(
-    ("simulation_window", "match"),
+    ("values", "simulation_window", "match"),
     [
-        (window("2020-01-01", "2020-01-31"), r"The point forcing record of station S1 contains non-finite values"),
-        (None, r"point forcing contains non-finite values"),
+        ([2.0, np.nan, 2.0], window("2020-01-01", "2020-01-31"), r"for etp: The point forcing record of station S1 contains non-finite values"),
+        ([2.0, np.nan, 2.0], None, r"for etp: point forcing contains non-finite values"),
+        ([], None, r"for etp: stress period 0 contains non-finite values"),
     ],
-    ids=["with-window", "without-window"],
+    ids=["with-window", "without-window", "empty-series-without-window"],
 )  # fmt: skip
-def test_a_station_with_a_missing_value_is_refused(simulation_window, match):
-    with pytest.raises(ValueError, match=match):
-        points_on_cells([station("S1", 5.0, 5.0, [2.0, np.nan, 2.0])], simulation_window=simulation_window)  # fmt: skip
+def test_a_station_with_a_missing_value_is_refused_naming_its_variable(values, simulation_window, match):  # fmt: skip
+    etp = replace(station("S1", 5.0, 5.0, values or [0.0]), variable="etp")
+    if not values:  # a series with no sample has no mean
+        etp.data = etp.data.iloc[:0]
+    with pytest.raises(ValueError, match="^Coverage check failed " + match):
+        points_on_cells([etp], simulation_window=simulation_window)

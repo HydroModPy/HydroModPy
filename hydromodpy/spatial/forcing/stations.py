@@ -25,17 +25,25 @@ def extract_located_points(load_result: Any) -> list[Any]:
     return result
 
 
+def _variable_of(records: list[Any]) -> str:
+    """Return the variable the station *records* hold, as the messages name it."""
+    names = sorted({str(getattr(rec, "variable", None) or "forcing") for rec in records})
+    return " and ".join(names)
+
+
 def period_means(
     series: pd.Series,
     period_bounds: list[tuple[pd.Timestamp, pd.Timestamp]],
     *,
     coverage_policy: str,
     label: str,
+    variable: str = "forcing",
 ) -> np.ndarray:
     """Mean value of a station series in each period, under the coverage rule.
 
     :mod:`hydromodpy.core.time.coverage` says which samples a period takes and
-    what a period the record does not cover becomes.
+    what a period the record does not cover becomes. ``variable`` names the
+    variable of the series in the messages.
     """
     data = series.sort_index()
     boundaries = [period_bounds[0][0], *(end for _, end in period_bounds)]
@@ -50,7 +58,9 @@ def period_means(
         dtype=float,
     )
     if not np.all(np.isfinite(values)):
-        raise ValueError(f"Recharge coverage check failed: {label} contains non-finite values.")
+        raise ValueError(
+            f"Coverage check failed for {variable}: {label} contains non-finite values."
+        )
     return values
 
 
@@ -82,6 +92,7 @@ def discretize_located_points(
                 list(period_bounds),
                 coverage_policy=coverage_policy,
                 label=f"The point forcing record of station {getattr(rec, 'station_id', '?')}",
+                variable=_variable_of([rec]),
             )
             for s, rec in zip(station_series, located_points, strict=True)
         ]
@@ -94,18 +105,20 @@ def discretize_located_points(
         else:
             # No temporal alignment: use full-series mean.
             period_values: list[float] = []
-            for s in station_series:
+            for s, rec in zip(station_series, located_points, strict=True):
                 series_values = np.asarray(s.to_numpy(), dtype=float)
                 if not np.all(np.isfinite(series_values)):
                     raise ValueError(
-                        "Recharge coverage check failed: point forcing contains non-finite values."
+                        f"Coverage check failed for {_variable_of([rec])}: point forcing "
+                        "contains non-finite values."
                     )
                 period_values.append(float(s.mean()))
             values = np.asarray(period_values, dtype=float)
 
         if not np.all(np.isfinite(values)):
             raise ValueError(
-                f"Recharge coverage check failed: stress period {kper} contains non-finite values."
+                f"Coverage check failed for {_variable_of(located_points)}: stress period "
+                f"{kper} contains non-finite values."
             )
 
         # Convert from source unit to m/s.  Per-record unit takes precedence

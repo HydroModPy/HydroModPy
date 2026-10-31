@@ -232,23 +232,8 @@ def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     return radius_km * 2.0 * math.asin(math.sqrt(a))
 
 
-def geojson_crs_member(crs: str) -> dict[str, object]:
-    """Return the ``crs`` member of a GeoJSON collection written in *crs*.
-
-    RFC 7946 dropped this member and reads every GeoJSON in WGS 84. GDAL, and
-    so geopandas and QGIS, still read it, so a file written in a projected CRS
-    opens in that CRS. A CRS without an EPSG code, or an empty or ``"mixed"``
-    label, gives an empty mapping.
-    """
-    if not crs or crs == "mixed":
-        return {}
-    try:
-        code = CRS.from_user_input(crs).to_epsg()
-    except CRSError:
-        return {}
-    if code is None:
-        return {}
-    return {"crs": {"type": "name", "properties": {"name": f"urn:ogc:def:crs:EPSG::{code}"}}}
+RFC7946_CRS = "OGC:CRS84"
+"""The CRS of every GeoJSON coordinate (RFC 7946): WGS 84 longitude, then latitude."""
 
 
 def to_mesh_crs(
@@ -281,6 +266,7 @@ def require_crs(crs_like: CrsLike | None, name: str) -> CRS:
 
 __all__ = [
     "CrsLike",
+    "RFC7946_CRS",
     "crs_text",
     "ensure_crs",
     "haversine_km",

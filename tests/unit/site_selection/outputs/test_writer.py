@@ -6,8 +6,9 @@ import csv
 import json
 
 import geopandas as gpd
+import pandas as pd
 import pytest
-from shapely.geometry import Polygon, box
+from shapely.geometry import Point, Polygon, box
 
 from hydromodpy.spatial.site_selection.config.criteria_config import AreaCriteriaConfig
 from hydromodpy.spatial.site_selection.evaluation.criteria.area import evaluate_area_criterion
@@ -22,6 +23,7 @@ from tests._helpers.site_selection_cases import (
     L93,
     make_catchment,
     make_selection,
+    to_wgs84,
     write_basin,
     write_point_geojson,
     write_vector_layer,
@@ -121,19 +123,45 @@ def test_the_switches_leave_out_the_site_tables_or_the_geojson(tmp_path):
 
 
 def test_the_snapped_outlet_replaces_the_original_one(tmp_path):
-    snap = write_point_geojson(tmp_path / "outlet_snap.geojson", coordinates=[X + 30.0, Y + 40.0])
+    lon_lat = list(to_wgs84(Point(X + 30.0, Y + 40.0)).coords[0])
+    snap = write_point_geojson(tmp_path / "outlet_snap.geojson", coordinates=lon_lat)
     result = make_selection([_site(outlet_snap_shp=str(snap))])
 
     paths = write_selection_result(tmp_path / "out", result, selection_id="selection_v1")
 
     feature = json.loads(paths["selected_outlets_geojson"].read_text())["features"][0]
-    assert feature["geometry"]["coordinates"] == [X + 30.0, Y + 40.0]
+    assert feature["geometry"]["coordinates"] == pytest.approx(lon_lat, abs=1e-9)
     properties = feature["properties"]
     assert properties["outlet_geometry_source"] == "snapped"
-    assert (properties["outlet_original_x"], properties["x_outlet_snapped"]) == (X, X + 30.0)
+    assert properties["outlet_original_x"] == X
+    assert properties["x_outlet_snapped"] == pytest.approx(X + 30.0, abs=1e-6)
     assert properties["outlet_snap_distance_m"] == pytest.approx(50.0)
     row = _rows(paths["selected_sites_csv"])[0]
-    assert (row["x_outlet_snapped"], float(row["outlet_snap_distance_m"])) == ("350030.0", 50.0)
+    assert (float(row["x_outlet_snapped"]), float(row["outlet_snap_distance_m"])) == pytest.approx((X + 30.0, 50.0))  # fmt: skip
+
+
+def test_a_selection_mixing_a_snapped_and_an_unsnapped_outlet_writes_nulls_in_its_layers(tmp_path):
+    snap = str(write_vector_layer(tmp_path / "snap.gpkg", [Point(X + 30.0, Y + 40.0)]))
+    basin = write_basin(tmp_path)
+    sites = [
+        make_catchment("snapped", x=X, y=Y, outlet_snap_shp=snap, watershed_shp=basin),
+        make_catchment("unsnapped", x=X, y=Y, area_km2=None, watershed_shp=basin),
+    ]
+    write = dict(selection_id="v1", write_geopackage=True, write_geoparquet=True)
+
+    paths = write_selection_result(tmp_path / "out", make_selection(sites), **write)
+
+    for layer in ("selected_outlets", "selected_basins"):
+        for frame in (
+            gpd.read_parquet(paths[f"{layer}_geoparquet"]),
+            gpd.read_file(paths["site_selection_gpkg"], layer=layer),
+        ):
+            by_site = frame.set_index("site_id")
+            assert by_site.loc["snapped", "x_outlet_snapped"] == pytest.approx(X + 30.0)
+            assert by_site.loc["snapped", "area_km2"] == pytest.approx(100.0)
+            for key in ("x_outlet_snapped", "outlet_snap_distance_m", "area_km2"):
+                assert pd.isna(by_site.loc["unsnapped", key])
+    assert _rows(paths["selected_sites_csv"])[1]["x_outlet_snapped"] == ""
 
 
 def test_every_basin_export_skips_the_same_unreadable_basins(tmp_path):
@@ -154,7 +182,7 @@ def test_every_basin_export_skips_the_same_unreadable_basins(tmp_path):
     assert [feature["properties"]["site_id"] for feature in collection["features"]] == list(
         kinds[2:]
     )
-    assert collection["hydromodpy_coordinate_crs"] == "mixed"
+    assert (collection["hydromodpy_coordinate_crs"], collection["hydromodpy_project_crs"]) == ("OGC:CRS84", "mixed")  # fmt: skip
     assert "crs" not in collection
     for frame in (
         gpd.read_file(paths["site_selection_gpkg"], layer="selected_basins"),

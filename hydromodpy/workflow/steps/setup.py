@@ -27,7 +27,7 @@ from hydromodpy.spatial.geographic.core.derived_features import (
 )
 from hydromodpy.spatial.geographic.geographic_cache import geographic_artifact_paths
 from hydromodpy.spatial.geographic.structure_binders import apply_catchment_zones_to_domain
-from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
 from hydromodpy.workflow.internals.state import PipelineState
 
 if TYPE_CHECKING:

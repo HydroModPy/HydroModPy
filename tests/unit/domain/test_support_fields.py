@@ -11,6 +11,7 @@ from hydromodpy.spatial.domain.support_fields import (
     GeneratedRingsSupportField,
     RasterZonesSupportField,
 )
+from hydromodpy.spatial.field.field_param import FieldParam
 from hydromodpy.spatial.mesh.engines.voronoi.tessellation import voronoi_planar_mesh
 from hydromodpy.spatial.raster_support import RasterSupport
 from tests._helpers.cell_meshes import cell_mesh_of
@@ -57,3 +58,16 @@ def test_a_band_support_samples_the_ragged_polygons_of_a_voronoi_mesh():
     deep_west = np.flatnonzero(seeds[:, 0] < 300.0)
     assert deep_west.size > 0
     assert np.all(west[deep_west] > 0.99)
+
+
+def test_two_raster_codes_with_one_label_are_one_zone_and_its_value_counts_once():
+    cell_mesh = regular_mesh(2, 2, dx=10.0)
+    support = RasterSupport(crs="EPSG:2154", dx=10.0, dy=20.0, xmin=0.0, xmax=20.0, ymin=0.0, ymax=20.0, nrows=1, ncols=2)  # fmt: skip
+    raster = RasterZonesSupportField(identifier="geology", encoded_codes=np.array([[1, 2]], dtype=np.int32), encoded_to_zone={1: "granite", 2: " granite"}, raster_support=support)  # fmt: skip
+    param = FieldParam(identifier="K", kind="heterogeneous", values_by_key={"granite": 1e-5}, field_spatial_id="geology")  # fmt: skip
+
+    disc = raster.on_mesh(cell_mesh, cell_samples_per_axis=4)
+
+    assert raster.zone_keys == disc.zone_keys == ("granite",)
+    np.testing.assert_array_equal(disc.fractions_by_zone["granite"], 1.0)
+    np.testing.assert_allclose(param.to_mesh_field(disc).cell_values, 1e-5)

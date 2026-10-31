@@ -6,15 +6,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.geographic.synthetic import (
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic_config import (
     FlatTopography,
     LinearTopography,
     RadialIslandTopography,
     SyntheticGeographicConfig,
     SyntheticGridConfig,
-    build_synthetic_geographic,
 )
-from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 
 
 def _build(tmp_path: Path, topography, *, case_id: str = "case", **grid):

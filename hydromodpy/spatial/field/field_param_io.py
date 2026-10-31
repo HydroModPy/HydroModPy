@@ -1,8 +1,9 @@
 """
-TOML/CSV factories for `FieldParam`.
+TOML factory for `FieldParam`.
 
-Module-level loaders that turn TOML/CSV inputs into a fully-resolved mapping,
-then build a `FieldParam` value-holder via `FieldParam.from_dict`.
+`field_param_from_toml` reads one field-parameter section of a TOML file,
+resolves it like a project section and builds a `FieldParam` value-holder via
+`FieldParam.from_dict`.
 """
 
 from __future__ import annotations
@@ -12,55 +13,45 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.field.field_param import SUPPORTED_KINDS, FieldParam
-from hydromodpy.spatial.field.field_param_config import (
-    load_values_mapping_csv,
-    resolve_relative_to,
-    validate_field_param_toml_data,
-    validate_resolved_field_param_data,
-)
+from hydromodpy.core.exceptions import ConfigMissingError, ConfigValidationError
+from hydromodpy.spatial.field.field_param import FieldParam
+from hydromodpy.spatial.field.field_param_config import resolve_field_param_config_payload
 from hydromodpy.spatial.field.field_spatial import get_nested_section
-
-
-def _optional_nested_section(
-    payload: Mapping[str, Any], dotted_path: str
-) -> Mapping[str, Any] | None:
-    """Return section mapping if present, else None."""
-    try:
-        return get_nested_section(payload, dotted_path)
-    except (KeyError, ValueError):
-        return None
 
 
 def field_param_from_toml(toml_path: str | Path, section: str = "field") -> FieldParam:
     """
-    Build `FieldParam` from a TOML file.
+    Build `FieldParam` from the `[field]` table that `section` names in a TOML file.
 
-    Expected layouts:
+    `section` is the dotted path of a `[field]` table, `"field"` at the root of
+    the file or `"flow.param.K.field"` in a project file. The table that holds
+    it is the parameter payload: the `[field]` table and its optional
+    `[field_vertical_profile]` sibling, nothing else. A nested `[field]` with
+    no `id` takes the key of its parent table, as `[flow.param.<id>]` does in a
+    project. A relative `values_csv_file` is read from the folder of the file.
 
-    Single-section homogeneous:
+    Homogeneous:
         [field]
         id = "K"
         kind = "homogeneous"
         unit = "m/s"
-        value = 10.0
+        value = 1e-5
 
-    Single-section heterogeneous:
+    Heterogeneous, one value per zone of a spatial field:
         [field]
         id = "S"
         kind = "heterogeneous"
         unit = "-"
-        values = { granite = 10.0, micaschists = 3.5 }
+        values = { granite = 0.1, micaschists = 0.05 }
         field_spatial_id = "field_square"
 
-    Field with vertical profile:
-        [field]
-        id = "K"
+    With a vertical profile, in a project file:
+        [flow.param.K.field]
         kind = "homogeneous"
         unit = "m/s"
-        value = 12.5
+        value = 1e-5
 
-        [field_vertical_profile]
+        [flow.param.K.field_vertical_profile]
         mode = "exponential"
         characteristic_depth = 30.0
 
@@ -76,99 +67,37 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
     """
     path = Path(toml_path).resolve()
     with path.open("rb") as stream:
-        payload = tomllib.load(stream)
-    payload = validate_field_param_toml_data(payload)
+        document = tomllib.load(stream)
     section_key = str(section).strip()
-    section_cfg = get_nested_section(payload, section_key)
-
-    merged: dict[str, Any] = {}
-
-    if "." in section_key:
-        parent = section_key.rsplit(".", 1)[0]
-        common_parent = _optional_nested_section(payload, f"{parent}.field_common")
-        if common_parent is not None:
-            raise ValueError(
-                f"TOML section '{parent}.field_common' is no longer supported. "
-                f"Move shared keys to '{parent}.field'."
-            )
-    common_root = _optional_nested_section(payload, "field_common")
-    if common_root is not None:
-        raise ValueError(
-            "TOML section 'field_common' is no longer supported. Move shared keys to 'field'."
+    parent_key, _, leaf = section_key.rpartition(".")
+    if leaf != "field":
+        raise ConfigValidationError(
+            f"Section '{section_key}' of {path} names no [field] table. Name the "
+            "table that holds id, kind and the values, such as 'field' or "
+            "'flow.param.K.field'."
         )
-
-    if section_key != "field":
-        common_field = _optional_nested_section(payload, "field")
-        if common_field is not None:
-            merged.update(dict(common_field))
-
-    merged.update(dict(section_cfg))
-
-    leaf = section_key.rsplit(".", 1)[-1].strip().lower()
-    if leaf == "homogeneous":
-        merged["kind"] = "homogeneous"
-    elif leaf == "heterogeneous":
-        merged["kind"] = "heterogeneous"
-
-    kind_raw = merged.get("kind")
-    if kind_raw is not None:
-        kind_key = str(kind_raw).strip().lower()
-        if kind_key in SUPPORTED_KINDS:
-            target_leaf = f"field_{kind_key}"
-            if leaf not in {target_leaf, kind_key}:
-                candidate_sections: list[str] = []
-                if "." in section_key:
-                    parent = section_key.rsplit(".", 1)[0]
-                    candidate_sections.append(f"{parent}.{target_leaf}")
-                candidate_sections.append(target_leaf)
-                for candidate in candidate_sections:
-                    specific_cfg = _optional_nested_section(payload, candidate)
-                    if specific_cfg is not None:
-                        merged.update(dict(specific_cfg))
-                        break
-
-    if leaf not in ("field_vertical_profile", "vertical_profile"):
-        vertical_sections: list[str] = []
-        if "." in section_key:
-            parent = section_key.rsplit(".", 1)[0]
-            vertical_sections.extend(
-                [
-                    f"{parent}.field_vertical_profile",
-                    f"{parent}.vertical_profile",
-                ]
-            )
-        vertical_sections.extend(("field_vertical_profile", "vertical_profile"))
-        for candidate in vertical_sections:
-            vertical_cfg = _optional_nested_section(payload, candidate)
-            if vertical_cfg is not None:
-                merged["vertical_profile"] = dict(vertical_cfg)
-                break
-
-    kind_raw = merged.get("kind")
-    if kind_raw is not None and str(kind_raw).strip().lower() == "heterogeneous":
-        value_source = str(merged.get("values_source", "inline")).strip().lower()
-        if value_source == "csv":
-            csv_file = merged.get("values_csv_file")
-            if csv_file is None or str(csv_file).strip() == "":
-                raise KeyError(
-                    "Heterogeneous field with values_source='csv' requires 'values_csv_file'"
-                )
-            csv_path = resolve_relative_to(csv_file, base_dir=path.parent)
-            csv_key_column = str(merged.get("csv_key_column", "zone_key"))
-            csv_value_column = str(merged.get("csv_value_column", "value"))
-            merged["values"] = load_values_mapping_csv(
-                csv_path,
-                key_column=csv_key_column,
-                value_column=csv_value_column,
-            )
-
-    for helper_key in (
-        "values_source",
-        "values_csv_file",
-        "csv_key_column",
-        "csv_value_column",
-    ):
-        merged.pop(helper_key, None)
-
-    resolved = validate_resolved_field_param_data(merged)
+    payload = _section_payload(document, parent_key, section_key=section_key, path=path)
+    field_table = payload["field"]
+    param_id = None
+    if parent_key and isinstance(field_table, Mapping) and "id" not in field_table:
+        param_id = parent_key.rsplit(".", 1)[-1]
+    resolved = resolve_field_param_config_payload(
+        payload,
+        param_id=param_id,
+        base_dir=path.parent,
+        section_label=parent_key or "field",
+    )
     return FieldParam.from_dict(resolved)
+
+
+def _section_payload(
+    document: Mapping[str, Any], parent_key: str, *, section_key: str, path: Path
+) -> Mapping[str, Any]:
+    """The table that holds the `[field]` table `section_key` names."""
+    try:
+        payload = get_nested_section(document, parent_key) if parent_key else document
+    except (KeyError, ValueError):
+        payload = {}
+    if "field" not in payload:
+        raise ConfigMissingError(f"{path} has no section [{section_key}]")
+    return payload

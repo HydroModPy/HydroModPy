@@ -7,8 +7,11 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.geographic.synthetic import RadialIslandTopography, SyntheticGridConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic_config import (
+    RadialIslandTopography,
+    SyntheticGridConfig,
+)
 from validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.runtime_boussinesq import (
     boussinesq_island_cell_heads,
 )

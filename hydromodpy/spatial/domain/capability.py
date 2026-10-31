@@ -30,6 +30,7 @@ from hydromodpy.core.exceptions import (
     CapabilityVersionMismatchError,
     ConfigValidationError,
     DataContractViolation,
+    JobInputNotFoundError,
     JobUsageError,
 )
 from hydromodpy.schema.capability import CapabilityDecl, OutputDecl
@@ -157,7 +158,7 @@ DOMAIN_BUILD = CapabilityDecl(
         JobUsageError,
         CapabilityVersionMismatchError,
         ConfigValidationError,
-        FileNotFoundError,
+        JobInputNotFoundError,
         DataContractViolation,
     ),
     env=("HMP_NO_PROGRESS", "HMP_VERBOSITY"),

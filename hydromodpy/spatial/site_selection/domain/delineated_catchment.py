@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from pyproj import CRS, Transformer
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 
 __all__ = [
@@ -54,11 +55,15 @@ class DelineatedCatchment:
 
 
 def snapped_outlet_xy(catchment: DelineatedCatchment) -> tuple[float, float] | None:
-    """Return the snapped outlet coordinates when the delineation wrote them."""
+    """Return the snapped outlet coordinates when the delineation wrote them.
+
+    The point comes back in the CRS of the outlet. A GeoJSON file without a
+    ``crs`` member holds WGS 84 lon/lat (RFC 7946) and is reprojected.
+    """
 
     if not catchment.outlet_snap_shp:
         return None
-    return _read_first_point_xy(Path(catchment.outlet_snap_shp))
+    return _read_first_point_xy(Path(catchment.outlet_snap_shp), crs=catchment.outlet.crs)
 
 
 def outlet_display_xy(catchment: DelineatedCatchment) -> tuple[float, float]:
@@ -78,19 +83,31 @@ def outlet_snap_distance_m(catchment: DelineatedCatchment) -> float | None:
     )
 
 
-def _read_first_point_xy(path: Path) -> tuple[float, float] | None:
+def _read_first_point_xy(path: Path, *, crs: str) -> tuple[float, float] | None:
     if not path.is_file():
         return None
-    if path.suffix.lower() in {".geojson", ".json"}:
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return None
-        return _first_point_xy_from_geojson(payload)
     try:
         frame = gpd.read_file(str(path))
     except Exception:
         return None
+    point = _first_point(frame)
+    if point is None or frame.crs is None or not crs:
+        return point
+    x, y = point
+    if frame.crs.is_geographic and not (-180.0 <= x <= 180.0 and -90.0 <= y <= 90.0):
+        raise DataContractViolation(
+            f"{path}: the snapped outlet ({x}, {y}) is not a longitude and latitude, yet the "
+            f"file is in {frame.crs.to_string()}; a GeoJSON without a crs member holds WGS 84 "
+            "lon/lat (RFC 7946)."
+        )
+    target = CRS.from_user_input(crs)
+    if frame.crs == target:
+        return point
+    target_x, target_y = Transformer.from_crs(frame.crs, target, always_xy=True).transform(x, y)
+    return float(target_x), float(target_y)
+
+
+def _first_point(frame: gpd.GeoDataFrame) -> tuple[float, float] | None:
     for geometry in frame.geometry:
         if geometry is None or geometry.is_empty:
             continue
@@ -100,43 +117,4 @@ def _read_first_point_xy(path: Path) -> tuple[float, float] | None:
             point = next(iter(geometry.geoms), None)
             if point is not None:
                 return float(point.x), float(point.y)
-    return None
-
-
-def _first_point_xy_from_geojson(payload: object) -> tuple[float, float] | None:
-    if not isinstance(payload, dict):
-        return None
-    if payload.get("type") == "FeatureCollection":
-        features = payload.get("features")
-        if not isinstance(features, list):
-            return None
-        for feature in features:
-            if not isinstance(feature, dict):
-                continue
-            point = _point_xy_from_geometry(feature.get("geometry"))
-            if point is not None:
-                return point
-        return None
-    if payload.get("type") == "Feature":
-        return _point_xy_from_geometry(payload.get("geometry"))
-    return _point_xy_from_geometry(payload)
-
-
-def _point_xy_from_geometry(geometry: object) -> tuple[float, float] | None:
-    if not isinstance(geometry, dict):
-        return None
-    geometry_type = geometry.get("type")
-    coordinates = geometry.get("coordinates")
-    if geometry_type == "Point" and isinstance(coordinates, list | tuple) and len(coordinates) >= 2:
-        try:
-            return float(coordinates[0]), float(coordinates[1])
-        except (TypeError, ValueError):
-            return None
-    if geometry_type == "MultiPoint" and isinstance(coordinates, list) and coordinates:
-        first = coordinates[0]
-        if isinstance(first, list | tuple) and len(first) >= 2:
-            try:
-                return float(first[0]), float(first[1])
-            except (TypeError, ValueError):
-                return None
     return None

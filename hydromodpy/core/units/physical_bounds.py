@@ -41,6 +41,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
+from hydromodpy.core.exceptions import ConfigValidationError
+
 
 @dataclass(frozen=True)
 class PhysicalBound:
@@ -152,8 +156,8 @@ PHYSICAL_BOUNDS: dict[str, PhysicalBound] = {
 }
 
 
-class PhysicalBoundsError(ValueError):
-    """Raised when a numeric value breaches the central PHYSICAL_BOUNDS."""
+class PhysicalBoundsError(ConfigValidationError, ValueError):
+    """A value lies outside the physical range of its parameter."""
 
 
 def validate_physical_value(
@@ -161,6 +165,7 @@ def validate_physical_value(
     param_id: str,
     value: float,
     unit: str | None = None,
+    where: str | None = None,
 ) -> float:
     """Validate *value* against the central PHYSICAL_BOUNDS registry.
 
@@ -171,13 +176,15 @@ def validate_physical_value(
         case-insensitive. Unknown ids are accepted silently so that the
         registry can be extended incrementally.
     value
-        Numerical value, already expressed in the canonical unit of the
-        entry (the caller is responsible for unit coercion via
-        ``hydromodpy.core.units``).
+        Numerical value, in ``unit``.
     unit
-        If provided, must match the entry's ``canonical_unit``. The goal
-        is to catch unit mismatches that would silently pass a numeric
-        range check.
+        The unit the value is written in. It is converted to the entry's
+        ``canonical_unit`` before the range check, and a unit of another
+        quantity is refused. None means the value is already in the
+        canonical unit.
+    where
+        Where the value sits, such as ``"zone 'granite'"``. The refusal
+        names it.
 
     Returns
     -------
@@ -187,7 +194,7 @@ def validate_physical_value(
     Raises
     ------
     PhysicalBoundsError
-        If the value is outside [lo, hi], or if *unit* does not match
+        If the value is outside [lo, hi], or if *unit* does not convert to
         the registry's canonical unit.
     """
     bound = PHYSICAL_BOUNDS.get(param_id.lower())
@@ -197,18 +204,90 @@ def validate_physical_value(
     if unit is not None:
         converted = _in_canonical_unit(compared, unit, bound.canonical_unit)
         if converted is None:
-            raise PhysicalBoundsError(
-                f"{bound.label} (id={param_id!r}) expects {bound.canonical_unit!r} or a unit "
-                f"convertible to it, got {unit!r}"
-            )
+            raise _unit_refusal(bound, param_id, unit, where)
         compared = converted
     if not (bound.lo <= compared <= bound.hi):
-        written = "" if compared == float(value) else f" ({compared:g} {bound.canonical_unit})"
         raise PhysicalBoundsError(
-            f"{bound.label} (id={param_id!r}) value {value}{written} outside "
-            f"[{bound.lo}, {bound.hi}] {bound.canonical_unit}"
+            f"{_subject(bound, param_id, where)} value {_written(float(value), unit, bound)} "
+            f"outside [{bound.lo}, {bound.hi}] {bound.canonical_unit}"
         )
     return float(value)
+
+
+def validate_physical_array(
+    *,
+    param_id: str,
+    values: object,
+    unit: str | None = None,
+    where: str | None = None,
+    mask: object | None = None,
+) -> np.ndarray:
+    """Validate every entry of *values* against the range of *param_id*.
+
+    The array form of :func:`validate_physical_value`, for one value per cell.
+    A value that is not a number is outside the range. ``mask``, of the shape
+    of *values*, leaves out the entries where it is False. The refusal counts
+    the values outside and names the first one by its flat index.
+    """
+    array = np.asarray(values, dtype=float)
+    bound = PHYSICAL_BOUNDS.get(param_id.lower())
+    if bound is None:
+        return array
+    compared = array * _canonical_factor(bound, param_id=param_id, unit=unit, where=where)
+    outside = ~((compared >= bound.lo) & (compared <= bound.hi))
+    if mask is not None:
+        outside &= np.asarray(mask, dtype=bool)
+    count = int(np.count_nonzero(outside))
+    if count:
+        first = int(np.flatnonzero(outside)[0])
+        raise PhysicalBoundsError(
+            f"{_subject(bound, param_id, where)}: {count} of {array.size} value(s) outside "
+            f"[{bound.lo}, {bound.hi}] {bound.canonical_unit}, the first at index {first}: "
+            f"{_written(float(array.flat[first]), unit, bound)}"
+        )
+    return array
+
+
+def _subject(bound: PhysicalBound, param_id: str, where: str | None) -> str:
+    """The parameter a refusal is about, and where its value sits."""
+    place = "" if where is None else f" in {where}"
+    return f"{bound.label} (id={param_id!r}){place}"
+
+
+def _written(value: float, unit: str | None, bound: PhysicalBound) -> str:
+    """A value in the unit it was declared in, then in the canonical unit."""
+    if unit is None:
+        return f"{value}"
+    canonical = _in_canonical_unit(value, unit, bound.canonical_unit)
+    if canonical is None or canonical == value:
+        return f"{value} {unit}"
+    return f"{value} {unit} ({canonical:g} {bound.canonical_unit})"
+
+
+def _canonical_factor(
+    bound: PhysicalBound, *, param_id: str, unit: str | None, where: str | None
+) -> float:
+    """The factor that takes a value in ``unit`` to the canonical unit of ``bound``.
+
+    Every unit of the registry is a plain scale of its canonical unit, with no
+    offset, so one factor converts a whole array.
+    """
+    if unit is None:
+        return 1.0
+    factor = _in_canonical_unit(1.0, unit, bound.canonical_unit)
+    if factor is None:
+        raise _unit_refusal(bound, param_id, unit, where)
+    return factor
+
+
+def _unit_refusal(
+    bound: PhysicalBound, param_id: str, unit: str, where: str | None
+) -> PhysicalBoundsError:
+    """The refusal of a unit that measures another quantity."""
+    return PhysicalBoundsError(
+        f"{_subject(bound, param_id, where)} expects {bound.canonical_unit!r} or a unit "
+        f"convertible to it, got {unit!r}"
+    )
 
 
 def _in_canonical_unit(value: float, unit: str, canonical: str) -> float | None:
@@ -229,5 +308,6 @@ __all__ = [
     "PHYSICAL_BOUNDS",
     "PhysicalBound",
     "PhysicalBoundsError",
+    "validate_physical_array",
     "validate_physical_value",
 ]

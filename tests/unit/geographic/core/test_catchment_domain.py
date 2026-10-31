@@ -16,6 +16,7 @@ import pytest
 from pydantic import ValidationError
 from shapely.geometry import MultiPolygon, Point, Polygon, box
 
+from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
 from hydromodpy.spatial.geographic.core.catchment_domain import (
     CatchmentDomainProducts,
@@ -236,19 +237,42 @@ def test_the_delineation_shows_the_declared_margin_and_what_it_drew() -> None:
     assert CatchmentDelineation.buffer_label(unrecorded) == "10%"
 
 
-def test_the_catchment_area_reads_the_area_field_else_the_geometry(tmp_path) -> None:
-    square = box(0.0, 0.0, 1000.0, 2000.0)
-    plain = write_features(tmp_path / "plain.shp", [square])
-    halves = [box(0.0, 0.0, 1000.0, 1000.0), box(0.0, 1000.0, 1000.0, 2000.0)]
-    declared = write_features(tmp_path / "declared.shp", halves, AREA=[-1.0e6, 2.0e6])
-    text = write_features(tmp_path / "text.shp", [square], AREA=["3.0e6"])
+@pytest.mark.parametrize(
+    ("geometries", "columns", "stale"),
+    [
+        ([box(0.0, 0.0, 1000.0, 2000.0)], {}, None),
+        ([box(0.0, 0.0, 1000.0, 2000.0)], {"AREA": [2.01e6]}, None),
+        ([box(0.0, 0.0, 1000.0, 2000.0)], {"AREA": ["3.0e6"]}, None),
+        ([box(0.0, 0.0, 1000.0, 2000.0)], {"AREA": [3.0e6]}, ("3 km2", "2 km2", "50.0%")),
+        (
+            [box(0.0, 0.0, 1000.0, 1000.0), box(0.0, 1000.0, 1000.0, 2000.0)],
+            {"AREA": [-1.0e6, 2.0e6]},
+            ("3 km2", "2 km2", "50.0%"),
+        ),
+    ],
+    ids=["no-column", "column-within-1%", "text-column", "stale-column", "stale-in-two-rows"],
+)
+def test_the_catchment_area_is_the_geometry_and_a_stale_area_column_is_a_warning(
+    tmp_path, caplog, geometries, columns, stale
+) -> None:
+    path = write_features(tmp_path / "watershed.shp", geometries, **columns)
+    with caplog.at_level(logging.WARNING):
+        assert compute_catchment_area_km2(path) == pytest.approx(2.0)
+    warnings = [r.getMessage() for r in caplog.records if "AREA column" in r.getMessage()]
+    if stale is None:
+        assert warnings == []
+    else:
+        (message,) = warnings
+        assert all(word in message for word in (str(path), *stale))
+
+
+def test_the_catchment_area_is_the_one_the_domain_uses_and_degrees_are_refused(tmp_path) -> None:
     parts = write_features(tmp_path / "two.shp", [box(0, 0, 1e3, 1e3), box(2e3, 0, 3e3, 3e3)])
     domain = derive_catchment_domain(parts, tmp_path / "out", buff_area="10 m")
-    assert compute_catchment_area_km2(plain) == pytest.approx(2.0)
-    assert compute_catchment_area_km2(declared) == pytest.approx(3.0)
-    assert compute_catchment_area_km2(text) == pytest.approx(2.0)
-    # A watershed in two parts: the area is the one the domain uses.
     assert compute_catchment_area_km2(parts) == pytest.approx(domain.catchment_area_km2)
+    degrees = write_features(tmp_path / "wgs84.shp", [box(-2.0, 48.0, -1.9, 48.1)], crs="EPSG:4326")
+    with pytest.raises(TerrainProductError, match=r"wgs84\.shp.*EPSG:4326"):
+        compute_catchment_area_km2(degrees)
     with pytest.raises(FileNotFoundError, match="not found"):
         compute_catchment_area_km2(tmp_path / "gone.shp")
     with pytest.raises(ValueError, match="empty"):

@@ -102,12 +102,11 @@ def test_a_geology_support_is_the_loaded_geology_or_an_alias_of_it():
     assert alias.on_mesh("mesh", cell_samples_per_axis=3) == ("mesh", 3)
 
 
-def test_only_the_geology_provider_needs_data_and_runs_in_the_data_phase():
-    phases = {kind: (REGISTRY.get(kind).build_phase, REGISTRY.get(kind).required_data_types(None))
-              for kind in ("generated_bands", "generated_rings", "catchment_zones", " Geology ")}  # fmt: skip
+def test_only_the_geology_provider_runs_in_the_data_phase():
+    phases = {kind: REGISTRY.get(kind).build_phase for kind in ("generated_bands", "generated_rings", "catchment_zones", " Geology ")}  # fmt: skip
 
-    assert phases.pop(" Geology ") == ("data", ("geology",))
-    assert set(phases.values()) == {("setup", ())}
+    assert phases.pop(" Geology ") == "data"
+    assert set(phases.values()) == {"setup"}
     with pytest.raises(ValueError, match="Unknown spatial support provider 'voronoi'"):
         REGISTRY.get("voronoi")
 

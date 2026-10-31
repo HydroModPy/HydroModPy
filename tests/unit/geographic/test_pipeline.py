@@ -33,6 +33,7 @@ from hydromodpy.spatial.geographic.core.ground_corrections import (
     GROUND_FILENAME,
 )
 from hydromodpy.spatial.geographic.core.stream_dem_agreement import report_network_dem_agreement
+from hydromodpy.spatial.geographic.geographic_cache import DESCRIPTION_FILENAME
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.model.cell_types import CellType
 from hydromodpy.spatial.mesh.model.hydro_mesh import CellBlock, HydroMesh
@@ -69,6 +70,7 @@ CHANNEL = LineString(
 )
 OFF_CATCHMENT = LineString([(50_000.0, 50_000.0), (50_100.0, 50_100.0)])
 ALPHA_SKIPPED = "stream/DEM agreement (alpha) was skipped"
+SNAP_KEYS = ("x_outlet_snapped", "y_outlet_snapped", "outlet_snap_distance_m")
 
 
 def _crossings(root: Path, *rows: tuple[str, object]) -> dict:
@@ -123,6 +125,15 @@ def test_a_declared_crossing_is_notched_delineated_again_and_reported(
     lines = _logged(caplog, "Crossing notch")
     assert len(lines) == 1
     assert "1 notched" in lines[0]
+    # The outlet snapped on the notched ground, in the context and in the cache description.
+    manifest = json.loads((geographic_dir(tmp_path) / DESCRIPTION_FILENAME).read_text())
+    second = (170.0, 30.0, 170.0)
+    assert (
+        context.x_outlet_snapped,
+        context.y_outlet_snapped,
+        context.outlet_snap_distance_m,
+    ) == second
+    assert tuple(manifest[k] for k in SNAP_KEYS) == second
 
 
 def test_a_notch_that_lowers_nothing_does_not_delineate_again_and_logs_once(

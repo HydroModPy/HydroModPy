@@ -8,6 +8,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, MultiPoint, Point
 
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
@@ -22,7 +23,12 @@ from hydromodpy.spatial.site_selection.hydrology.delineation import (
 from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
-from tests._helpers.site_selection_cases import delineation_spy, flow_spy, site_flow_products
+from tests._helpers.site_selection_cases import (
+    delineation_spy,
+    flow_spy,
+    site_flow_products,
+    to_wgs84,
+)
 from tests._helpers.terrain_doubles import fake_flow_products
 
 pytestmark = pytest.mark.fast
@@ -73,15 +79,20 @@ def _feature(geometry: dict | None) -> dict:
 
 
 SNAP = [350013.0, 6810029.0]
-POINT = {"type": "Point", "coordinates": SNAP}
+LON_LAT = list(to_wgs84(Point(*SNAP)).coords[0])
+POINT = {"type": "Point", "coordinates": LON_LAT}
+LAMBERT_MEMBER = {"type": "name", "properties": {"name": "urn:ogc:def:crs:EPSG::2154"}}
 
 
 @pytest.mark.parametrize(
     ("name", "content", "snapped"),
     [
         ("snap.geojson", POINT, True),
-        ("snap.geojson", _feature({"type": "MultiPoint", "coordinates": [SNAP]}), True),
+        ("snap.geojson", _feature({"type": "MultiPoint", "coordinates": [LON_LAT]}), True),
         ("snap.json", {"type": "FeatureCollection", "features": [1, _feature(None), _feature(POINT)]}, True),
+        ("snap.geojson", {"type": "FeatureCollection", "crs": LAMBERT_MEMBER,
+                          "features": [_feature({"type": "Point", "coordinates": SNAP})]}, True),
+        ("snap.geojson", {"type": "Point", "coordinates": SNAP}, DataContractViolation),
         ("snap.geojson", "not json", False),
         ("snap.geojson", {"type": "FeatureCollection", "features": {}}, False),
         ("snap.geojson", {"type": "Point", "coordinates": ["a", "b"]}, False),
@@ -89,12 +100,13 @@ POINT = {"type": "Point", "coordinates": SNAP}
         ("snap.geojson", [], False),
         ("snap.gpkg", Point(*SNAP), True),
         ("snap.gpkg", MultiPoint([SNAP]), True),
+        ("snap.gpkg", (to_wgs84(Point(*SNAP)), "EPSG:4326"), True),
         ("snap.gpkg", LineString([(0, 0), (1, 1)]), False),
         ("snap.shp", "not a vector", False),
         ("missing.geojson", None, False),
     ],
 )  # fmt: skip
-def test_the_snapped_outlet_is_read_from_what_the_delineation_wrote(
+def test_the_snapped_outlet_is_read_from_what_the_delineation_wrote_in_the_outlet_crs(
     tmp_path, name, content, snapped
 ):
     path = tmp_path / name
@@ -103,13 +115,18 @@ def test_the_snapped_outlet_is_read_from_what_the_delineation_wrote(
     elif isinstance(content, dict | list):
         path.write_text(json.dumps(content), encoding="utf-8")
     elif content is not None:
-        gpd.GeoDataFrame(geometry=[content], crs="EPSG:2154").to_file(path)
+        geometry, crs = content if isinstance(content, tuple) else (content, "EPSG:2154")
+        gpd.GeoDataFrame(geometry=[geometry], crs=crs).to_file(path)
     catchment = DelineatedCatchment(site_id="a", outlet=OUTLET, outlet_snap_shp=str(path))
 
+    if snapped is DataContractViolation:
+        with pytest.raises(DataContractViolation, match=r"snap\.geojson.*350013.*RFC 7946"):
+            outlet_display_xy(catchment)
+        return
     distance = outlet_snap_distance_m(catchment)
 
     if snapped:
-        assert outlet_display_xy(catchment) == (350013.0, 6810029.0)
+        assert outlet_display_xy(catchment) == pytest.approx((350013.0, 6810029.0), abs=1e-6)
         assert distance == pytest.approx(5.0)
     else:
         assert outlet_display_xy(catchment) == (OUTLET.x, OUTLET.y)

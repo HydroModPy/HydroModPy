@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
@@ -12,22 +13,48 @@ from hydromodpy.core.units import UREG, LengthMeters
 
 
 def _to_meters(value: object, *, label: str) -> float:
-    """Convert a length-like value (number or pint string) to metres."""
+    """Convert a length-like value (number or pint string) to metres.
+
+    A number without a unit is read in metres, written as a number or as a
+    text, like the elevation of the DEM. Any other text must carry a length
+    unit, which it keeps. A length that is not finite is refused.
+    """
     if value is None:
         raise ValueError(f"{label} cannot be None.")
     if isinstance(value, bool):
         raise TypeError(f"{label} rejects boolean input.")
     if isinstance(value, (int, float)):
-        return float(value)
+        return _finite_metres(float(value), value=value, label=label)
     if isinstance(value, str):
         token = value.strip()
         if token == "":
             raise ValueError(f"{label}: empty length string is not allowed.")
-        quantity = UREG(token)
-        if not hasattr(quantity, "magnitude"):
-            return float(quantity)
-        return float(quantity.to("m").magnitude)
+        try:
+            number = float(token)
+        except ValueError:
+            number = None
+        if number is not None:
+            return _finite_metres(number, value=value, label=label)
+        try:
+            quantity = UREG(token)
+        except Exception as exc:  # noqa: BLE001 - pint raises half a dozen kinds on such text
+            raise ValueError(
+                f"{label}: {value!r} is not a number nor a length with a unit."
+            ) from exc
+        # pint reads "1,5" as 15 and "10 %" as 0.1, both without a dimension, so
+        # only a plain number above may be read in metres.
+        if not hasattr(quantity, "check") or not quantity.check("[length]"):
+            raise ValueError(
+                f"{label}: {value!r} is not a length; write it in metres or with a length unit."
+            )
+        return _finite_metres(float(quantity.to("m").magnitude), value=value, label=label)
     raise TypeError(f"{label}: unsupported length value type {type(value).__name__}.")
+
+
+def _finite_metres(metres: float, *, value: object, label: str) -> float:
+    if not math.isfinite(metres):
+        raise ValueError(f"{label}: {value!r} is not finite.")
+    return metres
 
 
 class DomainSupportBaseConfig(HydroModelBase):

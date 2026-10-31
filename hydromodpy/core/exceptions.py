@@ -234,6 +234,17 @@ class FrozenDataError(DataCacheError, RuntimeError):
     code = "HMPY.E210"
 
 
+class JobInputNotFoundError(DataError, FileNotFoundError):
+    """A file the job request names is not on disk.
+
+    A ``FileNotFoundError`` too, so it exits with the "not found" code. Its own
+    class, because a builtin is reported under ``HMPY.E000``, the code of a bug
+    in HydroModPy, and an absent input is the caller's fault.
+    """
+
+    code = "HMPY.E211"
+
+
 # -- Mesh ----------------------------------------------------------------------
 
 
@@ -740,6 +751,7 @@ __all__ = [
     "DataCapabilityError",
     "DataProductError",
     "FrozenDataError",
+    "JobInputNotFoundError",
     # Mesh
     "MeshError",
     "MeshGenerationError",

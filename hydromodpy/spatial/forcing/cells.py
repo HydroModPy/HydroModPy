@@ -86,6 +86,7 @@ def discretize_fields_on_cells(
     simulation_window: ResolvedSimulationTimeWindow | None = None,
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
+    mesh_crs: str | None = None,
 ) -> dict[int, np.ndarray]:
     """Discretize gridded FieldRecords onto the cells of a mesh.
 
@@ -112,6 +113,12 @@ def discretize_fields_on_cells(
     mesh:
         Planar mesh whose cells the centres belong to. ``"area"`` reads its
         cell polygons and refuses to run without it.
+    mesh_crs:
+        CRS of the cells, as the mesh declares it. A record in another CRS is
+        refused, since a grid is never reprojected. Without it, or when the
+        record or the mesh declares no CRS that places it on the Earth (none,
+        unreadable, or a local frame), the two cannot be compared and the record
+        is read as it is.
 
     Returns
     -------
@@ -140,6 +147,7 @@ def discretize_fields_on_cells(
             coverage_policy=coverage_policy,
             method=method,
             mesh=mesh,
+            mesh_crs=mesh_crs,
         )
         for kper, arr in field_arrays.items():
             if kper in sums:
@@ -209,8 +217,9 @@ def spatial_mean_from_fields(load_result: Any) -> pd.Series | None:
     """Compute the spatial mean of FieldRecords to produce a homogeneous series.
 
     Reduces gridded data (TIF, NC, xarray) to a single scalar per time step
-    by averaging all spatial cells. Returns a pandas Series in mm/day
-    (data-manager internal unit) or None if no fields are available.
+    by averaging the valid pixels: a nodata or NaN pixel is left out, and a
+    time step with no valid pixel is refused. Returns a pandas Series in
+    mm/day (data-manager internal unit) or None if no fields are available.
     """
     if not load_result.has_fields:
         return None

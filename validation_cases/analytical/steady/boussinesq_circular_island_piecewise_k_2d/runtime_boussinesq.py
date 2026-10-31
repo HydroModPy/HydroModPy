@@ -18,8 +18,11 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.geographic.synthetic import RadialIslandTopography, SyntheticGridConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
+from hydromodpy.spatial.geographic.synthetic_config import (
+    RadialIslandTopography,
+    SyntheticGridConfig,
+)
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
 )

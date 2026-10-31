@@ -71,7 +71,7 @@ The criteria components go to `criteria_components.jsonl`. `decisions/` turns ea
 
 ## The output files
 
-A completed run always writes the audit core: `criteria_components.jsonl`, `site_selection_decisions.csv`, `site_selection_decisions.jsonl` and `site_selection_manifest.json`, plus `site_selection_evidence.jsonl` when there is evidence. The `write_*` switches of `[site_selection.output]` turn on or off the selected and rejected sites as CSV, the outlets and basins as GeoJSON, GeoParquet or one GeoPackage, and the evidence layers. A generated run also writes `candidate_generation.jsonl`, `candidate_outlets.geojson` and `generated_dem_network.geojson`. `write_report_html` adds `review/index.html` and its map, drawn by `hydromodpy/reporting/site_selection/`.
+A completed run always writes the audit core: `criteria_components.jsonl`, `site_selection_decisions.csv`, `site_selection_decisions.jsonl` and `site_selection_manifest.json`, plus `site_selection_evidence.jsonl` when there is evidence. The `write_*` switches of `[site_selection.output]` turn on or off the selected and rejected sites as CSV, the outlets and basins as GeoJSON, GeoParquet or one GeoPackage, and the evidence layers. A generated run also writes `candidate_generation.jsonl`, `candidate_outlets.geojson` and `generated_dem_network.geojson`. Every GeoJSON follows RFC 7946: its coordinates are WGS 84 longitudes and latitudes, it has no `crs` member, and `hydromodpy_project_crs` names the CRS the features came from. The GeoPackage and GeoParquet layers keep the project CRS, and a number that does not exist is null there where the CSV and the GeoJSON write `""`. `write_report_html` adds `review/index.html` and its map, drawn by `hydromodpy/reporting/site_selection/`.
 
 The manifest is the hand-off. A consumer reads it and never a fixed file name, because the manifest says which file holds each output key. `selected_sites.csv` is the table that `hmp site import --selection` reads into the site catalog, and its columns are `SELECTED_SITES_FIELDS` in `outputs/schemas.py`. The schema and the check of the manifest are in `hydromodpy/schema/site_selection_manifest.py` (`validate_selection_manifest`).
 
@@ -214,7 +214,7 @@ Other tests guard the package.
 - `tests/contract/test_terrain_engine_contract.py` holds what every terrain engine must do.
 - `tests/unit/architecture/test_site_selection_has_no_legacy_names.py` refuses retired names in this package, in the workflow package and in the CLI command.
 
-The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/spatial/site_selection/*` drops below 95.5. The floor only goes up.
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of `hydromodpy/spatial/site_selection/*` drops below 96.3. The floor only goes up.
 
 ```bash
 pytest tests/unit/site_selection -q

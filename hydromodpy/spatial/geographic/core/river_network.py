@@ -139,12 +139,17 @@ def build_river_network_products(
         dem_res_m=float(dem_res_m),
     )
 
+    # Each input is read once and every step chains on the rasters in memory.
+    # Each product is still written, because other modules read it.
+    inputs = _NetworkInputs(
+        dem_correc=tool.raster.read_raster(str(dem_correc_path)),
+        d8_pointer=tool.raster.read_raster(str(d8_pointer_path)),
+        watershed=tool.raster.read_vector(str(watershed_shp)),
+    )
     streams = _stream_rasters(
         tool,
         river_network=river_network,
-        dem_correc_path=dem_correc_path,
-        d8_pointer_path=d8_pointer_path,
-        watershed_shp=watershed_shp,
+        inputs=inputs,
         correc_dir=correc_dir,
         threshold_cells=threshold_cells,
         streams_tif=streams_tif,
@@ -155,9 +160,8 @@ def build_river_network_products(
     output_stream_order_tif, output_stream_link_tif = _stream_diagnostics(
         tool,
         river_network=river_network,
-        d8_pointer_path=d8_pointer_path,
-        watershed_shp=watershed_shp,
-        active_streams_full_tif=streams.active_full_tif,
+        inputs=inputs,
+        active_streams_full=streams.active_full,
         stream_order_full_tif=stream_order_full_tif,
         stream_link_full_tif=stream_link_full_tif,
         stream_order_tif=stream_order_tif,
@@ -166,9 +170,8 @@ def build_river_network_products(
     network_gdf, output_network_shp, river_mesh_trace = _vector_network(
         tool,
         river_network=river_network,
-        d8_pointer_path=d8_pointer_path,
-        watershed_shp=watershed_shp,
-        active_streams_full_tif=streams.active_full_tif,
+        inputs=inputs,
+        active_streams_full=streams.active_full,
         network_shp=network_shp,
         network_crs=network_crs_value,
     )
@@ -213,19 +216,20 @@ def _raster_backend(backend: object | None) -> Any:
             "raster",
             "read_raster",
             "read_vector",
-            "clip_raster_to_polygon",
+            "write_raster",
+            "clip_raster_to_polygon_raster",
             "clip_vector",
             "write_vector",
         )
         and backend_has_callables(
             tool,
             "flow",
-            "d8_flow_accumulation",
+            "d8_flow_accumulation_raster",
         )
         and backend_has_callables(
             tool,
             "delineation",
-            "extract_streams",
+            "extract_streams_raster",
             "raster_streams_to_vector_raster",
         )
     ):
@@ -234,22 +238,42 @@ def _raster_backend(backend: object | None) -> Any:
 
 
 @dataclass(frozen=True)
+class _NetworkInputs:
+    """The corrected DEM, the D8 pointer and the watershed, read once."""
+
+    dem_correc: Any
+    d8_pointer: Any
+    watershed: Any
+
+
+@dataclass(frozen=True)
 class _StreamRasters:
     """The stream rasters of the first step, and the active pair the next steps read."""
 
     flow_acc_cells_tif: Path
     active_tif: Path
-    active_full_tif: Path
+    active_full: Any
     pruned_tif: str | None
+
+
+def _write_clipped(
+    tool: Any, raster: Any, inputs: _NetworkInputs, full: Path, clipped: Path
+) -> None:
+    """Write a full-grid raster, then its clip to the watershed."""
+    tool.raster.write_raster(raster, str(full))
+    tool.raster.write_raster(
+        tool.raster.clip_raster_to_polygon_raster(
+            raster, inputs.watershed, maintain_dimensions=False
+        ),
+        str(clipped),
+    )
 
 
 def _stream_rasters(
     tool: Any,
     *,
     river_network: RiverNetworkConfig,
-    dem_correc_path: str | Path,
-    d8_pointer_path: str | Path,
-    watershed_shp: str | Path,
+    inputs: _NetworkInputs,
     correc_dir: Path,
     threshold_cells: float,
     streams_tif: Path,
@@ -260,47 +284,33 @@ def _stream_rasters(
     streams_full_tif = correc_dir / "dem_streams_full.tif"
     streams_pruned_full_tif = correc_dir / "dem_streams_pruned_full.tif"
 
-    tool.flow.d8_flow_accumulation(
-        str(dem_correc_path),
-        str(flow_acc_cells_tif),
-        log=False,
-    )
-    tool.delineation.extract_streams(
-        str(flow_acc_cells_tif),
-        str(streams_full_tif),
+    accumulation = tool.flow.d8_flow_accumulation_raster(inputs.dem_correc, log=False)
+    tool.raster.write_raster(accumulation, str(flow_acc_cells_tif))
+    streams_full = tool.delineation.extract_streams_raster(
+        accumulation,
         threshold=float(threshold_cells),
         zero_background=True,
     )
-    tool.raster.clip_raster_to_polygon(
-        str(streams_full_tif),
-        str(watershed_shp),
-        str(streams_tif),
-        maintain_dimensions=False,
-    )
+    _write_clipped(tool, streams_full, inputs, streams_full_tif, streams_tif)
 
     active_streams_tif = streams_tif
-    active_streams_full_tif = streams_full_tif
+    active_streams_full = streams_full
     output_pruned_tif: str | None = None
     if bool(river_network.prune_short_streams):
-        tool.delineation.remove_short_streams(
-            str(d8_pointer_path),
-            str(streams_full_tif),
-            str(streams_pruned_full_tif),
+        active_streams_full = tool.delineation.remove_short_streams_raster(
+            inputs.d8_pointer,
+            streams_full,
             min_length=float(river_network.min_stream_length_m),
         )
-        tool.raster.clip_raster_to_polygon(
-            str(streams_pruned_full_tif),
-            str(watershed_shp),
-            str(streams_pruned_tif),
-            maintain_dimensions=False,
+        _write_clipped(
+            tool, active_streams_full, inputs, streams_pruned_full_tif, streams_pruned_tif
         )
         active_streams_tif = streams_pruned_tif
-        active_streams_full_tif = streams_pruned_full_tif
         output_pruned_tif = str(streams_pruned_tif)
     return _StreamRasters(
         flow_acc_cells_tif=flow_acc_cells_tif,
         active_tif=active_streams_tif,
-        active_full_tif=active_streams_full_tif,
+        active_full=active_streams_full,
         pruned_tif=output_pruned_tif,
     )
 
@@ -309,9 +319,8 @@ def _stream_diagnostics(
     tool: Any,
     *,
     river_network: RiverNetworkConfig,
-    d8_pointer_path: str | Path,
-    watershed_shp: str | Path,
-    active_streams_full_tif: Path,
+    inputs: _NetworkInputs,
+    active_streams_full: Any,
     stream_order_full_tif: Path,
     stream_link_full_tif: Path,
     stream_order_tif: Path,
@@ -320,34 +329,22 @@ def _stream_diagnostics(
     """Write the Strahler order and the link ids when asked, return the clipped paths."""
     output_stream_order_tif: str | None = None
     if bool(river_network.compute_strahler_order):
-        tool.delineation.strahler_stream_order(
-            str(d8_pointer_path),
-            str(active_streams_full_tif),
-            str(stream_order_full_tif),
+        order = tool.delineation.strahler_stream_order_raster(
+            inputs.d8_pointer,
+            active_streams_full,
             zero_background=True,
         )
-        tool.raster.clip_raster_to_polygon(
-            str(stream_order_full_tif),
-            str(watershed_shp),
-            str(stream_order_tif),
-            maintain_dimensions=False,
-        )
+        _write_clipped(tool, order, inputs, stream_order_full_tif, stream_order_tif)
         output_stream_order_tif = str(stream_order_tif)
 
     output_stream_link_tif: str | None = None
     if bool(river_network.compute_stream_links):
-        tool.delineation.stream_link_identifier(
-            str(d8_pointer_path),
-            str(active_streams_full_tif),
-            str(stream_link_full_tif),
+        links = tool.delineation.stream_link_identifier_raster(
+            inputs.d8_pointer,
+            active_streams_full,
             zero_background=True,
         )
-        tool.raster.clip_raster_to_polygon(
-            str(stream_link_full_tif),
-            str(watershed_shp),
-            str(stream_link_tif),
-            maintain_dimensions=False,
-        )
+        _write_clipped(tool, links, inputs, stream_link_full_tif, stream_link_tif)
         output_stream_link_tif = str(stream_link_tif)
     return output_stream_order_tif, output_stream_link_tif
 
@@ -356,25 +353,24 @@ def _vector_network(
     tool: Any,
     *,
     river_network: RiverNetworkConfig,
-    d8_pointer_path: str | Path,
-    watershed_shp: str | Path,
-    active_streams_full_tif: Path,
+    inputs: _NetworkInputs,
+    active_streams_full: Any,
     network_shp: Path,
     network_crs: str | None,
 ) -> tuple[gpd.GeoDataFrame, str | None, RiverMeshTrace | None]:
     """Vectorise the active streams, clip them, write the shapefile and build the mesh trace.
 
-    An empty network writes no shapefile and removes a stale one.
+    An empty network writes no shapefile and removes a stale one. The Whitebox
+    vector often carries no projection, so the shapefile gets the ``.prj`` of
+    the CRS it was read in when the backend wrote none: a reuse of the tree
+    needs it.
     """
-    streams_raster_obj = tool.raster.read_raster(str(active_streams_full_tif))
-    d8_pointer_obj = tool.raster.read_raster(str(d8_pointer_path))
     raw_vector_obj = tool.delineation.raster_streams_to_vector_raster(
-        streams_raster_obj,
-        d8_pointer_obj,
+        active_streams_full,
+        inputs.d8_pointer,
         all_vertices=bool(river_network.all_vertices),
     )
-    watershed_vector_obj = tool.raster.read_vector(str(watershed_shp))
-    clipped_vector_obj = tool.raster.clip_vector(raw_vector_obj, watershed_vector_obj)
+    clipped_vector_obj = tool.raster.clip_vector(raw_vector_obj, inputs.watershed)
     network_gdf = build_network_gdf_from_whitebox_vector(
         vector_obj=clipped_vector_obj,
         network_crs=network_crs,
@@ -384,6 +380,9 @@ def _vector_network(
         remove_vector_sidecars(network_shp)
     else:
         tool.raster.write_vector(clipped_vector_obj, str(network_shp))
+        prj = Path(network_shp).with_suffix(".prj")
+        if network_gdf.crs is not None and not prj.exists():
+            prj.write_text(network_gdf.crs.to_wkt("WKT1_ESRI"), encoding="utf-8")
         output_network_shp = str(network_shp)
     river_mesh_trace = build_river_mesh_trace_from_network_gdf(
         network_gdf=network_gdf,

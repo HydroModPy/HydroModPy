@@ -57,7 +57,7 @@ the facade `WhiteboxWorkflowsBackend` and `get_whitebox_backend`, which returns 
 |-----------|------------|
 | the backend that a name resolves to, or an alias | `registry.py` |
 | add another backend | `register_backend` in `registry.py` |
-| how a raster or a vector is read, written or cached | `whitebox_workflows_backend/raster.py` |
+| how a raster or a vector is read or written | `whitebox_workflows_backend/raster.py` |
 | the Whitebox messages on screen | `silence_stdio` in `whitebox_workflows_backend/raster.py` |
 | filling, breaching, D8 pointer or accumulation | `whitebox_workflows_backend/flow.py` |
 | snapping a pour point, a watershed or streams | `whitebox_workflows_backend/delineation.py` |

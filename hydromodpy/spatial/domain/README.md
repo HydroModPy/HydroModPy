@@ -75,7 +75,7 @@ The package is part of the spatial layer, which may import `core`, `schema` and 
 - `layering.py` reads `layers_config.py` and `core`. It works on arrays only, so it knows no `Domain`.
 - `build.py` and `domain.py` read the config modules, `spatial/surface.py` and `spatial/raster_support.py`.
 - `support_fields.py` reads `spatial/field/` (`Field`, `cell_sampling`) and `spatial/mesh/model/planar_cell_mesh.py`. `spatial_support.py` reads `support_fields.py` and the support config.
-- `capability.py` reads `schema` and `depth_model_config.py`. `worker.py` reads `schema` and `spatial/job_inputs.py`. It also reads `spatial/geographic/core/surface_from_dem.py` for the top surface.
+- `capability.py` reads `schema`, `depth_model_config.py` and `spatial/job_inputs.py` (the refusal of an absent input). `worker.py` reads `schema` and `spatial/job_inputs.py`. It also reads `spatial/geographic/core/surface_from_dem.py` for the top surface.
 - `active_cells.py` reads `core` and `schema.job.refusal`. `domain_document.py` reads `capability.py` and nothing else from HydroModPy.
 - Nothing in `field/` imports `domain/`. `geographic/structure_binders.py` imports `Domain` only for typing.
 - Every import of HydroModPy is at the top of its module. None is deferred inside a function.
@@ -93,7 +93,7 @@ The `domain-build` declaration is `DOMAIN_BUILD` in `capability.py`. Its JSON sc
 
 The unit tests are in `tests/unit/domain/`. A test file carries the name of the module it tests, for example `test_layering.py` for `layering.py`. The worker is tested in `tests/integration/domain/test_worker.py`. `active_cells.py`, `domain_document.py` and `capability.py` have no test file of their own. `test_build.py` and the worker test cover them. The grids, surfaces, layerings and masks come from `tests/_helpers/domain_cases.py`.
 
-Three more checks guard the package. `tests/contract/test_case_review_contract.py` checks `cases/review_cases.py`. `tests/contract/test_a_stack_with_inactive_and_pass_through_cells_reads_back.py` checks that a stack with pass-through cells reads back. The architecture tests check the layer rules. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 99.2.
+Three more checks guard the package. `tests/contract/test_case_review_contract.py` checks `cases/review_cases.py`. `tests/contract/test_a_stack_with_inactive_and_pass_through_cells_reads_back.py` checks that a stack with pass-through cells reads back. The architecture tests check the layer rules. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 99.3.
 
 ```bash
 pytest tests/unit/domain tests/integration/domain -q

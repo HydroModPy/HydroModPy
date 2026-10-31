@@ -85,7 +85,7 @@ def test_a_per_cell_override_reaches_each_cell() -> None:
 def test_a_property_the_backend_does_not_read_is_refused_by_name(key: str) -> None:
     canonical = {"Kv": "Kv", "Ss": "Ss"}.get(key, key)
     with pytest.raises(ValueError, match=f"sets {canonical}, which this solver does not read"):
-        _arrays("transient", {"properties": {"K": 3e-5, key: 1.0}})
+        _arrays("transient", {"properties": {"K": 3e-5, key: 1e-5}})
 
 
 def test_sy_is_refused_on_a_steady_run_that_does_not_read_it() -> None:

@@ -17,13 +17,14 @@ import os
 import shutil
 from pathlib import Path
 
-import geopandas as gpd
 import pandas as pd
 
 # HydroModPy
+from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
+from hydromodpy.spatial.geographic.core.catchment_from_point import extract_catchment_from_point
 
 logger = get_logger(__name__)
 
@@ -128,62 +129,47 @@ class Subbasin:
 
     def extract_interest_zones(self, geographic, X, Y, outpath, sub_snap_dist):
         """
-        Generate subassin from XY outlet with geospatial tools.
+        Delineate the sub-basin of one XY outlet through the terrain port.
+
+        The engine is the one the geographic run routed with
+        (``geographic.terrain_engine``), on the regional accumulation of that
+        run, so a sub-basin and its parent catchment come from one routing.
 
         Parameters
         ----------
         X : float
             X coordinate of the outlet.
         Y : float
-            Y coordinate of the outlet..
+            Y coordinate of the outlet.
         """
+        flow_products = getattr(geographic, "_flow_products", None)
+        if flow_products is None:
+            raise TerrainProductError(
+                f"Sub-basin at ({X}, {Y}) in {outpath}: the geographic runtime carries no "
+                "regional flow products (_flow_products) to delineate on. Pass the "
+                "CatchmentDelineation of the run, which builds them."
+            )
         # Path of subbasin
         if os.path.exists(outpath):
             shutil.rmtree(outpath)
         create_folder(outpath)
-        # Coordinates
-        outpath = outpath + "/"
-        df = pd.DataFrame({"x": [X], "y": [Y]})
-        gdf = gpd.GeoDataFrame(
-            df, geometry=gpd.points_from_xy(df["x"], df["y"]), crs=geographic.crs_proj
+        products = extract_catchment_from_point(
+            x_outlet=float(X),
+            y_outlet=float(Y),
+            snap_dist=int(sub_snap_dist),
+            accumulation=flow_products.accumulation,
+            output_dir=outpath,
+            crs_project=geographic.crs_proj,
+            backend=self._backend,
+            engine_id=getattr(geographic, "terrain_engine", None),
         )
-        outlet_shp = outpath + "outlet.shp"
-        gdf.to_file(outlet_shp)
-        # Snap the outlet shapefile from the flow accumulation
-        outlet_snap_shp = outpath + "outlet_snap.shp"
-        self._backend.delineation.snap_pour_points(
-            outlet_shp,
-            os.path.join(geographic.correcflow_path, "dem_acc.tif"),
-            outlet_snap_shp,
-            sub_snap_dist,
-            # geographic.snap_dist
-        )
-        logger.debug(
-            "Using regional accumulation from: %s",
-            os.path.join(geographic.correcflow_path, "dem_acc.tif"),
-        )
-        # Generate raster watershed
-        watershed = outpath + "watershed.tif"
-        self._backend.delineation.watershed(
-            os.path.join(geographic.correcflow_path, "dem_direc.tif"),
-            outlet_snap_shp,
-            watershed,
-            esri_pntr=False,
-        )
-
-        # Create shapefile polygon of the watershed
-        watershed_shp = outpath + "watershed.shp"
-        logger.debug("Creating watershed shapefile: %s", watershed_shp)
-        self._backend.delineation.raster_to_vector_polygons(watershed, watershed_shp)
-        shp = gpd.read_file(watershed_shp)
-        shp.set_crs(geographic.crs_proj, inplace=True, allow_override=True)
-        shp.to_file(watershed_shp)
+        watershed_shp = products.watershed_shp
         self._backend.raster.polygon_area(watershed_shp)
         # Create shapefile polyline of the watershed
-        watershed_contour_shp = outpath + "watershed_contour.shp"
+        watershed_contour_shp = os.path.join(outpath, "watershed_contour.shp")
         self._backend.delineation.polygons_to_lines(watershed_shp, watershed_contour_shp)
         # Clip buffer watershed DEM from watershed shapefile polygon
-        watershed_dem = outpath + "watershed_dem.tif"
+        watershed_dem = os.path.join(outpath, "watershed_dem.tif")
         self._backend.raster.clip_raster_to_polygon(
             geographic.watershed_buff_dem,
             watershed_shp,

@@ -1,4 +1,4 @@
-"""Readbacks every terrain engine owes its products, whatever wrote them.
+"""Readbacks every terrain engine owes its products, and the point layers it writes.
 
 Counting the cells of a mask and summing the area of a boundary are properties
 of the files, not of the engine that emitted them: an engine that computed them
@@ -8,6 +8,9 @@ carry.
 For the same reason this module is public rather than private to the package:
 a caller describing a product stack it finds on disk, and did not write, has to
 read the same facts from the same files.
+
+The two point layers beside a catchment are written here too, by both engines,
+so their attribute table is the same whatever engine delineated.
 """
 
 from __future__ import annotations
@@ -23,7 +26,22 @@ import rasterio.windows
 
 from hydromodpy.core.exceptions import TerrainProductError
 from hydromodpy.core.io.crs import crs_text
-from hydromodpy.spatial.terrain.port import MASK_INSIDE, MASK_NODATA
+from hydromodpy.spatial.terrain.port import MASK_INSIDE, MASK_NODATA, OUTLET_LAYER_COLUMNS
+
+
+def write_outlet_point(path: str | Path, outlet_id: str, x: float, y: float, crs: str) -> None:
+    """Write one point layer beside a catchment, with the columns the port declares.
+
+    The parent folder is created. An empty *crs* writes a layer without CRS.
+    """
+    columns = ([str(outlet_id)], [float(x)], [float(y)])
+    frame = gpd.GeoDataFrame(
+        dict(zip(OUTLET_LAYER_COLUMNS, columns, strict=True)),
+        geometry=gpd.points_from_xy([float(x)], [float(y)]),
+        crs=crs or None,
+    )
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    frame.to_file(str(path))
 
 
 def mask_cell_count(path: str | Path) -> int:
@@ -121,4 +139,5 @@ __all__ = [
     "raster_crs",
     "raster_max_near",
     "raster_nodata",
+    "write_outlet_point",
 ]

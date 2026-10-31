@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from hydromodpy.core.exceptions import ConfigMissingError, ConfigValidationError
+from hydromodpy.core.units.physical_bounds import PhysicalBoundsError
 from hydromodpy.spatial.field.field_param import FieldParam
 from hydromodpy.spatial.field.field_param_config import resolve_field_param_config_payload
 from hydromodpy.spatial.field.field_param_io import field_param_from_toml
@@ -19,6 +21,8 @@ CSV_FIELD = (
     'csv_key_column = "zone_key"\ncsv_value_column = "property_value"\nfield_spatial_id = "field_geology"'
 )
 PROFILE = '\n[field_vertical_profile]\nmode = "exponential"\ncharacteristic_depth = '
+ZONES = 'kind = "heterogeneous"\nvalues = { granite = 1e-5, micaschists = 2e-6 }\nfield_spatial_id = "g"\n'
+DEPTH = 'mode = "exponential"\ncharacteristic_depth = 30.0\n'
 
 
 @pytest.mark.parametrize(
@@ -50,14 +54,31 @@ def test_the_square_case_reads_one_value_per_zone():
 
 
 @pytest.mark.parametrize(
+    ("text", "section"),
+    [(f'[field]\nid = "K"\n{ZONES}[field_vertical_profile]\n{DEPTH}', "field"),
+     (f'[flow]\nparam_list = ["K"]\n[flow.param.K.field]\n{ZONES}[flow.param.K.field_vertical_profile]\n{DEPTH}',
+      "flow.param.K.field")],
+    ids=["plain", "dotted-takes-its-id-from-the-key"],
+)  # fmt: skip
+def test_the_named_section_is_read_with_its_profile(tmp_path: Path, text, section):
+    param = field_param_from_toml(write_text(tmp_path / "project.toml", text), section=section)
+    assert (param.identifier, param.field_spatial_id) == ("K", "g")
+    assert param.values_by_key == {"granite": 1e-5, "micaschists": 2e-6}
+    assert param.vertical_profile["characteristic_depth"] == 30.0
+
+
+@pytest.mark.parametrize(
     ("text", "section", "error", "match"),
     [
         ('kind = "homogeneous"\nvalue = 1.0', "field", KeyError, "id"),
         ('id = "K"\nkind = "heterogeneous"\nvalues = { granite = 1.0, micaschists = 3.0 }', "field",
          ValueError, "field_spatial_id"),
-        ('id = "K"\nkind = "homogeneous"\nvalue = 1.0', "field.id", ValueError, "must be a mapping"),
+        ('id = "K"\nkind = "homogeneous"\nvalue = 1.0', "field.id", ConfigValidationError,
+         r"Section 'field.id' of .*field\.toml names no \[field\] table"),
+        ('id = "K"\nkind = "homogeneous"\nvalue = 1.0', "flow.param.K.field", ConfigMissingError,
+         r"field\.toml has no section \[flow.param.K.field\]"),
     ],
-    ids=["no-id", "no-support", "a-section-that-is-not-a-table"],
+    ids=["no-id", "no-support", "a-section-that-is-not-a-field-table", "no-such-section"],
 )  # fmt: skip
 def test_a_toml_parameter_without_its_keys_is_refused(tmp_path: Path, text, section, error, match):
     path = write_text(tmp_path / "field.toml", "[field]\n" + text)
@@ -97,8 +118,10 @@ def test_a_csv_table_gives_one_value_per_zone_and_skips_blank_keys(tmp_path: Pat
         ("zone_key,property_value\n2141,1.0\n2141,2.0", ValueError, "Duplicate key '2141'.*line 3"),
         ("zone_key,property_value\na,high", ValueError, r"line 2: column 'property_value' -> 'high'"),
         ("zone_key,property_value\n,1", ValueError, "does not define any key/value pair"),
+        ("zone_key,property_value\na,1e3", PhysicalBoundsError, r"\(id='K'\) in zone 'a' value 1000.0 outside"),
     ],
-    ids=["no-file", "no-key-column", "no-value-column", "duplicate-key", "not-a-number", "no-row"],
+    ids=["no-file", "no-key-column", "no-value-column", "duplicate-key", "not-a-number", "no-row",
+         "out-of-bounds"],
 )  # fmt: skip
 def test_a_csv_table_it_cannot_read_is_refused(tmp_path: Path, csv, error, match):
     if csv is not None:

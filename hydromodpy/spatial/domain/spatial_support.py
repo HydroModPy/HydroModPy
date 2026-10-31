@@ -43,8 +43,6 @@ class SpatialSupportProvider(Protocol):
     provider_name: ClassVar[str]
     build_phase: ClassVar[Literal["setup", "data"]]
 
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]: ...
-
     def build(
         self,
         *,
@@ -57,10 +55,6 @@ class SpatialSupportProvider(Protocol):
 class GeneratedBandsSupportProvider:
     provider_name = "generated_bands"
     build_phase = "setup"
-
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]:
-        _ = config
-        return ()
 
     def build(
         self,
@@ -109,10 +103,6 @@ class GeneratedBandsSupportProvider:
 class GeneratedRingsSupportProvider:
     provider_name = "generated_rings"
     build_phase = "setup"
-
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]:
-        _ = config
-        return ()
 
     def build(
         self,
@@ -171,10 +161,6 @@ class CatchmentZonesSupportProvider:
     provider_name = "catchment_zones"
     build_phase = "setup"
 
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]:
-        _ = config
-        return ()
-
     def build(
         self,
         *,
@@ -210,10 +196,6 @@ class CatchmentZonesSupportProvider:
 class GeologySupportProvider:
     provider_name = "geology"
     build_phase = "data"
-
-    def required_data_types(self, config: DomainSupportConfig) -> tuple[str, ...]:
-        _ = config
-        return ("geology",)
 
     def build(
         self,

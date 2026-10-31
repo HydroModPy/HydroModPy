@@ -175,7 +175,6 @@ _DOC_OPTIONAL_IMPORTS = [
     "duckdb",
     "flopy",
     "geopandas",
-    "geopy",
     "gmsh",
     "h5py",
     "imageio",

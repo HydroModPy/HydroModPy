@@ -8,6 +8,7 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.units.physical_bounds import validate_physical_array
 from hydromodpy.solver.field_property_mapping import FLOW_PROPERTY_SPECS
 
 logger = get_logger(__name__)
@@ -258,6 +259,10 @@ def resolve_flow_property_runtime_overrides(
     Arrays of any shape are read in C order, so a grid-shaped ``(nrow, ncol)``
     array reads as its cells, row 0 first. The result is flat:
     ``(nlay, n_cells)`` and ``(n_cells,)``.
+
+    Every value given, in SI, is checked against the physical range of its
+    property, on every cell, since the override carries no active mask. A
+    fill value is the caller's own default and is not checked.
     """
 
     property_mapping = _extract_flow_property_mapping(parameters)
@@ -293,6 +298,9 @@ def resolve_flow_property_runtime_overrides(
         else:
             values_3d, values_2d = _coerce_flow_property_override(
                 raw_value, nlay=int(nlay), n_cells=int(n_cells)
+            )
+            validate_physical_array(
+                param_id=canonical_name, values=values_3d, where="the runtime override"
             )
 
         out[target_3d_attr] = values_3d
