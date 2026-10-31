@@ -32,6 +32,7 @@ rules, how a job directory is written, and where to add what.
 | `inputset.py`, `extent.py` | what the job consumed, hashed and annotated with a licence; the one box-and-CRS shape a job records a place in |
 | `provenance.py`, `outcome.py` | how the job ran, with no instant and no host name; the typed status, which refuses to contradict its exit code |
 | `seal.py`, `reuse.py` | `seal_job` and `verify_job`; what a sealed directory is answered with when the same job comes again |
+| `worker.py` | the loop every capability worker runs around its own work: reuse or refuse a sealed directory, resolve, execute, write a failed or dismissed outcome; `seal_successful` writes and seals a success |
 | `chain.py` | running several capabilities in a row, each filling its inputs from the artefacts of an earlier one; it knows no capability |
 | `documents.py`, `digest.py` | atomic document writes, the two digests |
 
@@ -67,7 +68,7 @@ hydromodpy/schema/
   processes/        index.json  <id>@<major>.json   (generated)
   job/              layout.py  directory.py  request.py  inputset.py  extent.py
                     provenance.py  outcome.py  seal.py  reuse.py  chain.py
-                    documents.py  digest.py  refusal.py
+                    documents.py  digest.py  refusal.py  worker.py
 ```
 
 ## The two ways in

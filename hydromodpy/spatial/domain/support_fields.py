@@ -113,7 +113,11 @@ class RasterZonesSupportField(Field):
 
     @property
     def zone_keys(self) -> tuple[str, ...]:
-        return tuple(self.encoded_to_zone[key] for key in sorted(self.encoded_to_zone))
+        # Two codes with one label are one zone, so the label is listed once
+        # and a parameter value applies once per cell.
+        return tuple(
+            dict.fromkeys(self.encoded_to_zone[key] for key in sorted(self.encoded_to_zone))
+        )
 
     @property
     def shape(self) -> tuple[int, int]:

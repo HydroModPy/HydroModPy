@@ -100,13 +100,15 @@ _FLOW_PRODUCT_ATTRIBUTES = ("correc", "direc", "acc")
 
 # A shapefile is a file only by convention: reopening it needs its sidecars, so
 # the declaration names them and a digest covers the whole vector. The flag
-# marks the three a reuse needs to reopen the vector. The .prj and .cpg are
-# digested when they exist and a reuse does not ask for them.
+# marks the four a reuse needs: the three that reopen the vector and the .prj,
+# because a polygon without its CRS cannot be reused safely. A tree that lost a
+# .prj is a cache miss and is rebuilt, as any derived product would be. The .cpg
+# is digested when it exists and a reuse does not ask for it.
 SHAPEFILE_SIDECARS = (
     (".shp", True),
     (".shx", True),
     (".dbf", True),
-    (".prj", False),
+    (".prj", True),
     (".cpg", False),
 )
 

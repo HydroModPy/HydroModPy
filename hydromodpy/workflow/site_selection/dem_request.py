@@ -309,7 +309,7 @@ def dem_request_bbox(
     if territory.mode == "bbox" and territory.bbox is not None:
         # The box goes to the data layer as written, corners unordered included.
         return _expand_projected_bbox(tuple(territory.bbox), margin_m)
-    geometry = territory_geometry(territory, target_crs="EPSG:2154", default_country="FR")
+    geometry = territory_geometry(territory, target_crs="EPSG:2154")
     if geometry is not None:
         return _expand_projected_bbox(tuple(float(v) for v in geometry.bounds), margin_m)
     if outlets:

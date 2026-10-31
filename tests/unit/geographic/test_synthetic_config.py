@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.geographic.synthetic import (
+from hydromodpy.spatial.geographic.synthetic_config import (
     RadialIslandTopography,
     SyntheticGeographicConfig,
     SyntheticGridConfig,

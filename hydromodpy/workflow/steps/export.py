@@ -227,23 +227,9 @@ def _release_cleanup_handles(ctx: WorkflowContext) -> None:
     """Release best-effort runtime handles before deleting scratch files.
 
     No catalog handle survives the step that opened it, so the Zarr handles a
-    catalog tracked are already closed by the time the scratch goes. What is
-    left to release is the delineation raster cache.
+    catalog tracked are already closed by the time the scratch goes. A garbage
+    collection drops what is left unreferenced.
     """
-    try:
-        from hydromodpy.spatial.delineation.registry import (
-            backend_has_callables,
-            resolve_delineation_backend,
-        )
-
-        backend = resolve_delineation_backend()
-        if backend_has_callables(backend, "raster", "clear_raster_cache"):
-            backend.raster.clear_raster_cache()
-    except Exception:
-        logger.debug(
-            "Could not clear delineation raster cache before scratch cleanup", exc_info=True
-        )
-
     gc.collect()
 
 

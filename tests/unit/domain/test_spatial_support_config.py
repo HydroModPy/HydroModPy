@@ -27,12 +27,6 @@ def test_absolute_coordinates_are_lengths_in_metres_and_labels_are_trimmed(key):
     assert config.labels == ["a", "b", "c", "d"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=TypeError,
-    reason="a bare number written as a string is parsed by pint as dimensionless and "
-    "refused with a raw DimensionalityError, instead of being read as metres",
-)
 @pytest.mark.parametrize("key", list(KINDS))
 def test_a_bare_number_written_as_a_string_is_read_as_metres(key):
     assert getattr(_load(key, ["300"]), key) == [300.0]
@@ -48,6 +42,12 @@ def test_a_bare_number_written_as_a_string_is_read_as_metres(key):
         ([True], "absolute", None, TypeError, "rejects boolean input"),
         ([" "], "absolute", None, ValueError, "empty length string"),
         ([[1.0]], "absolute", None, TypeError, "unsupported length value type list"),
+        (["three hundred"], "absolute", None, ValueError, r"\[0\]: 'three hundred' is not a number"),
+        (["300 kg"], "absolute", None, ValueError, r"\[0\]: '300 kg' is not a length"),
+        (["1,5"], "absolute", None, ValueError, r"\[0\]: '1,5' is not a length"),
+        (["10 %"], "absolute", None, ValueError, r"\[0\]: '10 %' is not a length"),
+        (["nan"], "absolute", None, ValueError, r"\[0\]: 'nan' is not finite"),
+        ([float("inf")], "absolute", None, ValueError, r"\[0\]: inf is not finite"),
         ([20.0, 10.0], "absolute", None, ValueError, "must be strictly increasing"),
         ([10.0, 10.0], "absolute", None, ValueError, "cannot contain duplicates"),
         ([10.0], "absolute", ["a", ""], ValueError, "cannot contain empty values"),

@@ -7,6 +7,7 @@ import textwrap
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from hydromodpy.data.cases.geology import run_geology_property_case as demo
 from hydromodpy.spatial.field.geology_field import regular_cell_mesh_over_bounds
@@ -184,3 +185,18 @@ def test_geology_property_demo_brittany_non_regression(tmp_path: Path, update_go
 
     expected = _load_json(GOLDEN_FILE)
     assert signature == expected
+
+
+@pytest.mark.parametrize(
+    ("section", "header"),
+    [("field", '[field]\nid = "K"'), ("flow.param.K.field", "[flow.param.K.field]")],
+    ids=["plain", "dotted"],
+)
+def test_the_demo_reads_the_field_parameter_section_it_is_given(tmp_path: Path, section, header):
+    path = tmp_path / "k.toml"
+    path.write_text(
+        f'{header}\nkind = "heterogeneous"\nvalues = {{ "1" = 7.2e-5 }}\nfield_spatial_id = "g"\n'
+    )
+    args = demo._parse_args(["--field-param-section", section])
+    param = demo._load_and_validate_field_param(args, path, expected_field_id="g")
+    assert (param.identifier, param.values_by_key) == ("K", {"1": 7.2e-5})

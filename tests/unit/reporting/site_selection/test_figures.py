@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pytest
-from shapely.geometry import box
+from pyproj import Transformer
+from shapely.geometry import box, shape
 
+from hydromodpy.reporting.site_selection import figures
 from hydromodpy.reporting.site_selection.blocks import build_site_selection_result_blocks
 from hydromodpy.reporting.site_selection.figures import (
     _choose_display_bounds,
     _prefer_dem_extent_from_manifest,
+    render_site_selection_map,
 )
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
 from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
@@ -19,7 +23,11 @@ from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDeci
 from hydromodpy.spatial.site_selection.outputs.geojson import write_observation_points_geojson
 from hydromodpy.spatial.site_selection.outputs.manifest import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.outputs.writer import write_selection_result
+from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
+    L93,
+    X93,
+    Y93,
     make_catchment,
     make_selection,
     selection_section,
@@ -82,6 +90,40 @@ def test_a_synthetic_review_shows_basins_observations_and_the_control_map(tmp_pa
     custom = tmp_path / "custom" / "report.html"
     assert render_site_selection_html_report(paths["site_selection_manifest_json"], output_path=custom) == custom  # fmt: skip
     assert "site_selected" in custom.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("dem_crs", "map_crs"),
+    [(None, L93), ("EPSG:32630", "EPSG:32630"), ("", L93), ("broken", L93)],
+    ids=["no-dem", "utm-dem", "dem-without-crs", "unreadable-dem"],
+)
+def test_the_control_map_draws_every_geojson_in_the_crs_of_the_map(
+    tmp_path, monkeypatch, dem_crs, map_crs
+):
+    basin = write_vector_layer(tmp_path / "basin.gpkg", [box(X93, Y93, X93 + 100.0, Y93 + 100.0)])
+    selection = make_selection([make_catchment(x=X93, y=Y93, watershed_shp=str(basin))])
+    paths = write_selection_result(tmp_path, selection, selection_id="v1")
+    dem = tmp_path / "dem.tif"
+    if dem_crs == "broken":
+        dem.write_text("not a raster", encoding="utf-8")
+    elif dem_crs is not None:
+        write_geotiff(dem, np.ones((2, 2)), crs=dem_crs or None)
+    flow = {} if dem_crs is None else {"dem_path": str(dem)}
+    manifest = {"output_root": str(tmp_path), "outputs": {key: path.name for key, path in paths.items()}, "flow_products": flow}  # fmt: skip
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    drawn: dict = {}
+    monkeypatch.setattr(
+        figures, "_write_map_png", lambda destination, **layers: drawn.update(layers)
+    )
+
+    render_site_selection_map(tmp_path / "manifest.json")
+
+    # The map is drawn in the CRS of its DEM, else in the project CRS of the layers.
+    project = Transformer.from_crs(L93, map_crs, always_xy=True).transform
+    (outlet,) = drawn["selected_outlets"]
+    assert outlet["geometry"]["coordinates"] == pytest.approx(project(X93, Y93), abs=1e-6)
+    (contour,) = drawn["selected_basins"]
+    assert shape(contour["geometry"]).centroid.coords[0] == pytest.approx(project(X93 + 50.0, Y93 + 50.0), abs=1e-2)  # fmt: skip
 
 
 def test_the_display_bounds_can_keep_the_requested_regional_dem_extent():

@@ -305,11 +305,11 @@ def carve_lake_bed(
     if not targets:
         return solver_mesh
 
-    from hydromodpy.spatial.lake_bed.abacus import simulate_abacus
-    from hydromodpy.spatial.lake_bed.carve_math import (
+    from hydromodpy.solver.modflow6.builders.lake_column_regrade import (
         regrade_column_active_top,
         regrade_column_to_bed,
     )
+    from hydromodpy.spatial.lake_bed.abacus import simulate_abacus
     from hydromodpy.spatial.lake_bed.regrid import reconstruct_lake_bed
     from hydromodpy.spatial.surface import Surface
 

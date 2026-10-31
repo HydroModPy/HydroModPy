@@ -27,7 +27,7 @@ sub-package has a note of its own with the full map.
 | `field/` | values on zones, cells and depths: `Field`, `FieldParam` (homogeneous or per zone, with a vertical profile in `vertical_profile.py`), their TOML sections, the geology config (`geology_config.py`) and field (`geology_field.py`), the cells of a `PlanarCellMesh` the supports sample (`mesh_cells.py`) and `plot_cell_values` (`plotting.py`); it reads the mesh, and `mesh/` never imports it |
 | `mesh/` | the unified mesh pivot and the engines that make one; `model/` has `HydroMesh`, `PlanarCellMesh`, `CellBlock`, `CellType`; `engines/` holds the regular, triangle and Voronoi engines, `planning/` and `cache.py` run and reuse a mesh; `io/` holds the exchange formats (VTU, the meshio bridge, Gmsh `.msh` files, mesh bundles); `cells/` answers which cells or faces; `mesh_config.py` and `refinement_config.py` hold the `[mesh]` config models |
 | `forcing/` | gridded and station forcings on the cells of a mesh: `cells.py` gives one rate per cell and per stress period (and the period bounds), `rasters.py` reads xarray, NetCDF and GeoTIFF and gives the mean over each stress period, `stations.py` the located series, `sources.py` the units and variables, `area_weights.py` the `area` method, `interpolation.py` nearest, linear and IDW; it reads the mesh model, and `mesh/` never imports it |
-| `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus, and the carve of a mesh column |
+| `lake_bed/` | the lake bed rebuilt from bathymetry and reconciled to the abacus |
 | `site_selection/` | the primitives of a site selection: candidates, criteria, evidence, decisions, outputs, and the `terrain-delineate` capability (`hydrology/capability.py`, `hydrology/worker.py`); map in `site_selection/README.md` |
 
 ## Import rules
@@ -141,7 +141,6 @@ spatial/
 │   └── interpolation.py       nearest, linear and IDW
 ├── lake_bed/                  lake bed from bathymetry
 │   ├── abacus.py              stage-volume-area curve
-│   ├── carve_math.py          the carve of a column
 │   └── regrid.py              raster bed to cell bed
 ├── mesh/                      the mesh pivot and the engines
 │   ├── model/                 PlanarCellMesh, HydroMesh, CellBlock, CellType

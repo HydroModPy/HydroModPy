@@ -11,14 +11,13 @@ grid of the DEM. The job runs on no engine, so its provenance names no backend.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
 import rasterio
 
-from hydromodpy.core.exceptions import DataContractViolation, JobUsageError
+from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.core.io.raster_io import write_band
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
@@ -30,13 +29,8 @@ from hydromodpy.schema.job.inputset import (
     inline_resource,
 )
 from hydromodpy.schema.job.outcome import (
-    UNIDENTIFIED_JOB,
     JobOutcome,
-    dismissed,
-    error_record,
-    now,
 )
-from hydromodpy.schema.job.provenance import build_provenance, write_provenance
 from hydromodpy.schema.job.refusal import refuse_request
 from hydromodpy.schema.job.request import (
     FileLink,
@@ -46,8 +40,7 @@ from hydromodpy.schema.job.request import (
     requested_outputs,
     validate_inputs,
 )
-from hydromodpy.schema.job.reuse import reuse_sealed_outcome
-from hydromodpy.schema.job.seal import seal_job
+from hydromodpy.schema.job.worker import ExitCodeMapper, run_job, seal_successful
 from hydromodpy.schema.media_types import GEOPACKAGE_MEDIA_TYPE, GEOTIFF_MEDIA_TYPE
 from hydromodpy.spatial.domain.active_cells import (
     ACTIVE,
@@ -72,72 +65,20 @@ from hydromodpy.spatial.job_inputs import (
     output_records,
     read_raster_input,
     refuse_a_file_that_is_not_the_one_asked_for,
+    resolve_input_file,
 )
 from hydromodpy.spatial.surface import Surface
-
-ExitCodeMapper = Callable[[BaseException], int]
-"""How the runtime turns an exception into the status a shim reads."""
 
 
 def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
     """Execute ``domain-build`` inside *job* and return what happened.
 
-    Writes ``outcome.json`` in every case. Writes ``manifest.json`` only when
-    the job succeeded and every declared output is on disk and hashed, which
-    is the one invariant a caller outside this process relies on.
-
-    A directory that is already sealed is answered before anything is touched,
-    under the rule the whole family keeps: the same ``job_id`` is the same
-    work and comes back reused, a different one is refused rather than
-    overwritten.
+    The loop is :func:`hydromodpy.schema.job.worker.run_job`: a sealed
+    directory is reused or refused, a failure becomes a failed outcome.
     """
-    if job.is_sealed:
-        # Answered outside the try, for the reason terrain-delineate gives:
-        # turning any of it into a failed outcome would overwrite the outcome
-        # of the job that did finish.
-        return _reuse_or_refuse(job)
-    started_at = now()
-    decl = DOMAIN_BUILD
-    job_id = UNIDENTIFIED_JOB
-    try:
-        resolved = _resolve(job)
-        job_id = resolved.job_id
-        return _execute(job, resolved, started_at=started_at)
-    except KeyboardInterrupt as exc:
-        outcome = dismissed(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            started_at=started_at,
-            exc=exc,
-        )
-        outcome.write(job)
-        raise
-    except Exception as exc:
-        outcome = JobOutcome(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            status="failed",
-            exit_code=exit_code_for(exc),
-            started_at=started_at,
-            finished_at=now(),
-            errors=(error_record(exc),),
-        )
-        outcome.write(job)
-        return outcome
-
-
-def _reuse_or_refuse(job: JobDirectory) -> JobOutcome:
-    """Answer a directory that is already sealed, without writing into it."""
-    try:
-        resolved = _resolve(job)
-    except Exception as exc:
-        raise JobUsageError(
-            f"job directory {job.root} is already sealed, and this request does not "
-            f"resolve into a job id to compare against it: {exc}"
-        ) from exc
-    return reuse_sealed_outcome(job, job_id=resolved.job_id)
+    return run_job(
+        job, decl=DOMAIN_BUILD, resolve=_resolve, execute=_execute, exit_code_for=exit_code_for
+    )
 
 
 def _resolve(job: JobDirectory) -> ResolvedDomainRequest:
@@ -214,7 +155,7 @@ def _read_inputs(job: JobDirectory) -> tuple[DomainBuildRequest, list[str]]:
 
 def _staged_file(job: JobDirectory, link: FileLink, *, member: str) -> tuple[Path, str, int]:
     """Return the path, digest and size of one declared file, refusing a wrong one."""
-    path = _resolve_file(job, link.href, member=member)
+    path = resolve_input_file(job, link.href, member=member)
     digest, size = sha256_file(path)
     refuse_a_file_that_is_not_the_one_asked_for(
         link.sha256, digest=digest, href=link.href, member=member
@@ -276,48 +217,21 @@ def _resolve_substratum(
     return substratum_path, substratum_digest, substratum_bytes, warnings
 
 
-def _execute(job: JobDirectory, resolved: ResolvedDomainRequest, *, started_at: str) -> JobOutcome:
+def _execute(job: JobDirectory, resolved: ResolvedDomainRequest, started_at: str) -> JobOutcome:
     """Do the work of a resolved request and seal what it produced."""
-    decl = DOMAIN_BUILD
     job.ensure_workspace()
     _produce(job, resolved)
-
-    inputset = _build_inputset(resolved)
-    write_document(job.inputset_path, inputset.to_document())
-    write_provenance(
+    return seal_successful(
         job,
-        build_provenance(
-            job_id=resolved.job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            # No backend: nothing here is an engine somebody could swap.
-            backend=None,
-        ),
-    )
-
-    records = output_records(job, decl)
-    outcome = JobOutcome(
+        decl=DOMAIN_BUILD,
         job_id=resolved.job_id,
-        process_id=decl.id,
-        process_version=decl.version,
-        status="successful",
-        exit_code=0,
-        started_at=started_at,
-        finished_at=now(),
-        outputs=records,
+        inputset=_build_inputset(resolved),
+        # No backend: nothing here is an engine somebody could swap.
+        backend=None,
+        outputs=lambda: output_records(job, DOMAIN_BUILD),
         warnings=resolved.warnings,
+        started_at=started_at,
     )
-    outcome.write(job)
-    seal_job(job, job_id=resolved.job_id, inputset=inputset, outputs=records)
-    return outcome
-
-
-def _resolve_file(job: JobDirectory, href: str, *, member: str) -> Path:
-    """Resolve one declared file and prove it is there before anything runs."""
-    path = job.resolve_input(href, loc=("inputs", member, "href"))
-    if not path.is_file():
-        raise FileNotFoundError(f"input {member} names {href!r}, and {path} is not a file")
-    return path
 
 
 def _check_a_raster_input(href: str, *, path: Path, member: str, why_a_crs: str) -> tuple[str, ...]:
@@ -560,6 +474,5 @@ def _build_inputset(resolved: ResolvedDomainRequest) -> InputSet:
 
 
 __all__ = [
-    "ExitCodeMapper",
     "run",
 ]

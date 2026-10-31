@@ -133,6 +133,7 @@ BOWTIE = [[-1.7, 48.0], [-1.6, 48.1], [-1.6, 48.0], [-1.7, 48.1], [-1.7, 48.0]]
         {"mode": "admin_regions", "regions": ["Bretagne"]},
         {"mode": "admin_regions", "regions": ["Bretagne"], "country": "fr"},
         {"mode": "admin_departments", "departments": ["35"]},
+        {"mode": "admin_departments", "departments": ["35"], "country": None},
         {"mode": "polygon_file", "polygon_file": "zone.geojson"},
     ],
 )

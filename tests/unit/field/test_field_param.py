@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import hydromodpy.spatial.field as field_package
+from hydromodpy.core.units.physical_bounds import PhysicalBoundsError
 from hydromodpy.spatial.field.field_param import FieldParam
 from hydromodpy.spatial.field.field_spatial import WeightedAverageFieldDiscretization
 from hydromodpy.spatial.field.unit_square_mesh import FieldMeshSquare
@@ -40,8 +40,9 @@ def _square(n_cells: int = 12, kind: str = "structured"):
     [("K", "m/day", 8.64, "m/s", 1e-4), ("K", "mm/day", 8640.0, "m/s", 1e-4),
      ("K", None, "8.64 m/day", "m/s", 1e-4), ("Ss", "cm-1", 1e-6, "m-1", 1e-4),
      ("Ss", None, "1e-6 cm-1", "m-1", 1e-4), ("Sy", None, "0.2 -", "-", 0.2),
-     ("porosity", None, 0.3, "-", 0.3)],
-    ids=["k-m-day", "k-mm-day", "k-inline", "ss-cm", "ss-inline", "sy-inline", "unknown-id"],
+     ("porosity", None, 0.3, "-", 0.3), ("Kv", None, 1e-5, "-", 1e-5)],
+    ids=["k-m-day", "k-mm-day", "k-inline", "ss-cm", "ss-inline", "sy-inline", "unknown-id",
+         "kv-without-unit-is-bounded-in-m-s"],
 )  # fmt: skip
 def test_a_value_is_stored_in_its_si_unit(identifier, unit, value, si_unit, si_value):
     param = _homogeneous(value, identifier=identifier, unit=unit)
@@ -72,10 +73,16 @@ def test_per_zone_values_take_their_inline_units_and_the_profile():
         ({"kind": "heterogeneous", "values_by_key": {"a": 1.0}}, ValueError, "'field_spatial_id'"),
         ({"kind": "heterogeneous", "values_by_key": {"a": "1 m-1"}, "field_spatial_id": "g"},
          ValueError, r"K\.values\[a\] unit 'm-1' is inconsistent"),
+        ({"value": 1e3}, PhysicalBoundsError, r"\(id='K'\) value 1000.0 outside \[1e-14, 100.0\] m/s"),
+        ({"unit": "m/day", "value": 1e9}, PhysicalBoundsError, r"value 1000000000.0 m/day \(11574.1 m/s\)"),
+        ({"identifier": "Kv", "value": 1e3}, PhysicalBoundsError, r"\(id='Kv'\) value 1000.0 outside"),
+        ({"kind": "heterogeneous", "values_by_key": {"a": 1e-5, "b": "1e9 m/day"}, "field_spatial_id": "g"},
+         PhysicalBoundsError, r"\(id='K'\) in zone 'b' value 1000000000.0 m/day \(11574.1 m/s\)"),
     ],
     ids=["no-identifier", "unknown-kind", "blank-unit", "unknown-unit", "other-quantity",
          "conflicting-inline-unit", "no-value", "no-zone-values", "empty-zone-values", "no-support",
-         "zone-value-of-another-quantity"],
+         "zone-value-of-another-quantity", "out-of-bounds", "out-of-bounds-in-its-unit",
+         "out-of-bounds-without-a-default-unit", "zone-out-of-bounds"],
 )  # fmt: skip
 def test_a_parameter_that_cannot_hold_its_values_is_refused(kwargs, error, match):
     with pytest.raises(error, match=match):
@@ -209,6 +216,22 @@ def test_a_homogeneous_value_on_a_mesh_takes_its_profile(key):
     np.testing.assert_allclose(deep.cell_values, 7.25 * np.exp(-1.0))
 
 
+@pytest.mark.parametrize(
+    ("param", "match"),
+    [(_homogeneous(0.01, identifier="Sy", vertical_profile={"mode": "exponential", "characteristic_depth": 1.0}),
+      r"specific yield \(id='Sy'\) in the mesh cells at depth 20.0 m: 9 of 9 value\(s\) outside"),
+     (_per_zone({"granite": 1e-12, "micaschists": 1e-5}, vertical_profile={"mode": "exponential", "characteristic_depth": 1.0}),
+      r"\(id='K'\) in the mesh cells at depth 20.0 m: [0-9]+ of 9 value\(s\) .* the first at index [0-9]+")],
+    ids=["homogeneous-under-its-profile", "zone-under-its-profile"],
+)  # fmt: skip
+def test_a_cell_value_the_profile_takes_out_of_range_is_refused(param, match):
+    target = two_zone_square().on_mesh(_square()) if param.is_heterogeneous else _square()
+    with pytest.raises(PhysicalBoundsError, match=match):
+        param.to_mesh_field(target, depth=20.0) if param.is_heterogeneous else param.to_mesh_field(
+            mesh=target, depth=20.0
+        )
+
+
 def test_zone_values_on_a_mesh_are_the_area_weighted_mean_of_the_zones():
     mesh = _square(20, "triangular_structured")
     field = two_zone_square()
@@ -275,10 +298,3 @@ def test_a_parameter_from_its_mapping_keeps_the_unit_the_user_wrote():
 def test_a_mapping_without_its_keys_is_refused(config, error, match):
     with pytest.raises(error, match=match):
         FieldParam.from_dict(config)
-
-
-@pytest.mark.parametrize("name", field_package.__all__)
-def test_the_package_names_load_on_first_use(name):
-    assert getattr(field_package, name).__name__ == name
-    with pytest.raises(AttributeError, match="no attribute 'Missing'"):
-        _ = field_package.Missing

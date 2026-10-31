@@ -34,6 +34,48 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A runtime property override of `Project.run(properties=...)` and the cell values a field parameter
+  gives the mesh, after its depth profile, are checked against the physical range of the property
+  (2026-10-31). An override such as `Sy = 0.8` on one cell, or a profile that takes Sy under 1e-4 at
+  depth, reached the solver. The refusal names the property, how many values fall outside and the flat
+  index of the first one. A cell that no zone of the support covers is not checked yet.
+- The spatial mean of a gridded forcing (the homogeneous series, the scored gridded runoff, the
+  persisted watershed mean) reads the valid pixels only (2026-10-31). A GeoTIFF nodata pixel no longer
+  enters the mean as -9999, a NaN pixel no longer refuses the whole grid, and a band or a time step with
+  no valid pixel is refused naming the file, the slice and the footprint.
+- The GeoParquet and GeoPackage layers of a selection write null where the CSV writes `""` (snapped
+  coordinates, snap distance, area), so a selection that mixes a snapped and an unsnapped outlet no
+  longer fails with `ArrowInvalid` (2026-10-31).
+- A `generated_bands` break or a `generated_rings` radius written as a text without a unit in absolute
+  mode (`breaks = ["300"]`) is read in metres, like the DEM elevation (2026-10-31). It raised a raw pint
+  `DimensionalityError`. A text that is not a number, a unit that is not a length (`"10 %"`, `"1,5"`,
+  which pint reads as 15) or a length that is not finite is refused naming the key and the value.
+- Two raster codes of a catchment-zone or raster support that carry the same label are one zone
+  (2026-10-31). The value of a heterogeneous parameter on that label was counted once per code, so
+  K = 1e-5 gave 2e-5 on every cell.
+- `domain-build` and `terrain-delineate` refuse an input file that is not on disk with the typed code
+  `HMPY.E211` (`hydromodpy.core.exceptions.JobInputNotFoundError`, a `FileNotFoundError`), still under
+  exit code 10 (2026-10-31).
+  The outcome said `HMPY.E000`, the code of a bug in HydroModPy. Both workers resolve their input files
+  with one function, `spatial.job_inputs.resolve_input_file`.
+- A geographic tree is reused only when every shapefile keeps its `.prj` (2026-10-31). The cache asked
+  for three sidecars, so a tree that had lost a `.prj` reused a polygon without CRS. It is now a miss and
+  the tree is rebuilt. The generated `river_network.shp`, which Whitebox wrote without a projection, now
+  carries the `.prj` of its CRS.
+- With `[geographic.crossings]` on, the snapped outlet of the context, of the runtime attributes and of
+  the cache manifest is the one of the second delineation, on the notched ground (2026-10-31). It was the
+  one of the first pass, while `outlet_snap.shp` and the catchment came from the second.
+- `field_param_from_toml(section=...)` and the `--field-param-section` option of the geology property
+  demo read a nested section such as `flow.param.K.field` (2026-10-31). Both failed with "Field required"
+  for any section but `field`, because the whole file was checked as one field-parameter table. The table
+  that holds the section is now the payload, a nested `[field]` with no `id` takes the key of its parent
+  table, and a section that is absent or that names no `[field]` table is refused by name.
+- Every value of a field parameter is checked against the physical range of its parameter, in the unit
+  it was declared in (2026-10-31). Per-zone values, inline or read from a CSV table, a section with no
+  `id` and a `FieldParam` built in code skipped the check, so a K of 1e3 m/s in one zone reached the
+  solver. The refusal names the parameter, the zone and the value.
+- A geographic raster that declares no nodata is stored with -9999, the nodata of the DEM beside it in
+  the geographic group, instead of -99999 (2026-10-31).
 - A site selection whose territory writes its country in lower case (`country = "fr"`) asks the
   DEM and the hydrometry stations over that territory (2026-10-28). The candidates were already
   clipped to it, but the DEM request compared the country to `"FR"` exactly and fell back to the
@@ -661,6 +703,14 @@ Each release section includes the following standard categories:
     HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
 
 ### Added
+- A GeoJSON feature without a readable CRS, or in a local frame that cannot go to WGS 84, stops the
+  export with an `ExportError` that names the file,
+  the feature and the CRS, and an observation without a provider CRS is listed in
+  `hydromodpy_skipped_observations` (`missing_provider_crs`) (2026-10-31). A snapped-outlet GeoJSON whose
+  coordinates are not longitudes and latitudes is refused with a `DataContractViolation`.
+- `validate_physical_array` in `hydromodpy.core.units.physical_bounds` checks one value per cell against
+  the range of a parameter (2026-10-31). It counts the values outside, not-a-number included, and names
+  the first one.
 - The mesh of a run opens in xugrid as it is stored (2026-10-27). `mesh/` of `fields.zarr` holds
   `node_x` and `node_y` beside `vertices`, and the topology names them in `node_coordinates`.
   `face_node_connectivity` declares `_FillValue = -1`, the coordinates carry the CF
@@ -1280,6 +1330,53 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The Whitebox delineation chains its tools on the rasters in memory (2026-10-31). The terrain engine
+  hands the conditioned DEM, the D8 pointer and the accumulation it just wrote to its next step, the
+  river network reads the corrected DEM, the pointer and the watershed once, and the watershed contour
+  is burned on the clipped DEM in memory. Every product is still written once, at the same path. Its
+  pixels and its live TIFF tags are the same, and `dem_direc.tif`, `dem_acc.tif` and
+  `watershed_contour.tif` are 20 to 104 bytes shorter, because they no longer carry an unreferenced
+  TIFF directory left behind when the CRS was rewritten.
+- A gridded forcing (GeoTIFF, NetCDF or dataset) whose CRS differs from the CRS of the mesh is refused
+  with a `DataContractViolation` naming the variable, the file and both CRS, since the forcing never
+  reprojects a grid (2026-10-31). The MODFLOW 6, MODFLOW-NWT and Boussinesq recharge builders pass the
+  mesh CRS. A grid or a mesh with no CRS, an unreadable one or a local frame is read as before.
+- The coverage messages of the gridded and station forcing name the variable read ("Coverage check
+  failed for etp: ...") instead of "Recharge coverage check failed" for every variable (2026-10-31).
+- Every GeoJSON of a site selection, and the `outlets_snapped.geojson` of `terrain-delineate`, follows
+  RFC 7946: WGS 84 longitude and latitude, no `crs` member (2026-10-31). `hydromodpy_coordinate_crs` reads
+  `OGC:CRS84` and the new `hydromodpy_project_crs` names the CRS the features came from. The GeoPackage
+  and GeoParquet layers keep the project CRS. GDAL rounds the coordinates of `outlets_snapped.geojson`
+  to 7 decimals, about a centimetre. `hmp site import --layer` on a GeoJSON gives its sites in
+  EPSG:4326, on a GeoPackage in the project CRS.
+- The snapped outlet of a site is read in the CRS of its outlet, a GeoJSON as RFC 7946 lon/lat or in its
+  `crs` member, and the control map draws every layer in the CRS of its DEM, else in the project CRS
+  (2026-10-31).
+- The catchment area is read on the geometry everywhere (2026-10-31). `compute_catchment_area_km2`
+  preferred a numeric `AREA` column of the shapefile, so a polygon with a stale column gave one run two
+  areas. The column is now only compared, and a gap above 1 % is a warning that names the file, both
+  areas and the gap. A watershed in a geographic CRS is refused with `TerrainProductError`, as the domain
+  polygons refuse it. `catchment_area_m2` loses its `area_field` argument.
+- `PhysicalBoundsError` is a `ConfigValidationError` as well as a `ValueError` (2026-10-31), so a value
+  out of its physical range raised outside a config load exits with the configuration code. Its message
+  names where the value sits and the unit it was written in.
+- Both terrain engines write `outlet.shp` and `outlet_snap.shp` with the same columns, `outlet_id`, `x`
+  and `y`, the coordinates of the point each layer holds, and both create the parent folder
+  (2026-10-31). The numpy engine wrote `value`, and the Whitebox snapped layer carried empty `x` and `y`.
+- `Subbasin` delineates through the terrain port, with the engine the geographic run routed with
+  (`geographic.terrain_engine`) and on its regional flow products (2026-10-31). It used to call the
+  Whitebox backend whatever the engine, and now snaps on raw counts where the ln accumulation cannot
+  order the snap window. A runtime without flow products is refused with a `TerrainProductError`.
+- A `[site_selection.territory]` that names no country is France everywhere (2026-10-31). `country`
+  defaults to `"fr"`, printed in the reference page, and the DEM request, the search geometry, the
+  French region check and the default CRS (EPSG:2154) all read it. Before, only the DEM request took a
+  missing country as France. A territory outside France writes its own code.
+- The DEM table of `[site_selection]` is `SiteSelectionDemConfig`, no longer a second `DemConfig`
+  beside the one of `[data]` (2026-10-31). The keys do not change, only the class name and the title
+  of its exported schema.
+- The re-grade of a mesh column around a carved lake bed moves from `spatial.lake_bed.carve_math` to
+  `solver.modflow6.builders.lake_column_regrade`, beside its only caller `carve_lake_bed` (2026-10-31).
+  The names `regrade_column_to_bed` and `regrade_column_active_top` do not change.
 - The members `WhiteboxComponent` shares with the Whitebox sub-backends (`env`, `run`, `read_raster`,
   `write_raster`, `read_vector`, `write_vector`, `run_depression_tool`) and the members of
   `WhiteboxRasterBackend` they read (`env`, `verbose`, `silence_stdio`, `run_env_operation`) are public, and
@@ -1913,6 +2010,23 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- The lazy re-exports of `hydromodpy.spatial.field`, `hydromodpy.spatial.geographic` and
+  `hydromodpy.spatial.geographic.synthetic` (2026-10-31). Import each name from the module that defines
+  it, for example `GeographicConfig` from `spatial.geographic.geographic_config` and
+  `build_synthetic_geographic` from `spatial.geographic.synthetic.catchment`. `hydromodpy.spatial` and
+  `hydromodpy.spatial.terrain` keep theirs.
+- `hydromodpy.core.io.crs.geojson_crs_member`, replaced by the constant `RFC7946_CRS` (2026-10-31).
+- `SpatialSupportProvider.required_data_types` and its four implementations, which no code called
+  (2026-10-31). The geology provider already refuses a missing geology where it reads it.
+- `read_dem_metadata`, `build_geographic_runtime_context` and `CatchmentDelineation` no longer ask
+  Nominatim for a French department code (2026-10-31). The reverse geocoding waited up to 120 s at every
+  build of the geographic context, a cache hit included, and no code read `dep_code`. The attribute, the
+  `locator_factory` argument and the geopy and certifi imports are gone.
+- The in-memory raster cache of the Whitebox backend (`set_cache_rasters`, `get_cached_raster_numpy`,
+  `get_cached_raster_metadata`, `clear_raster_cache`) (2026-10-31). Nothing ever switched it on, so every
+  reader already read the file on disk.
+- The `default_country` argument of `site_selection.candidates.pipeline.territory_geometry`
+  (2026-10-31). The `country` of the territory decides alone.
 - The copies the clean-up of `spatial/` merged into one function each (2026-10-28). The module
   `spatial.forcing.spatial_mean` is folded into `spatial.forcing.rasters`, names unchanged.
   `SUPPORTED_PARAM_UNITS` of `spatial.field.core.field_param` gives way to

@@ -109,7 +109,7 @@ def build_domain_rasters(
         "clip_raster_to_polygon_raster",
         "modify_no_data_value_raster",
         "write_raster",
-        "vector_lines_to_raster",
+        "vector_lines_to_raster_vector",
     ):
         dem_init_raster = tool.raster.read_raster(str(dem_init_path))
         correc_raster = tool.raster.read_raster(str(correc_path))
@@ -167,10 +167,13 @@ def build_domain_rasters(
                 clipped = tool.raster.modify_no_data_value_raster(clipped, new_value=float(nodata))
             tool.raster.write_raster(clipped, str(dst))
             ensure_crs(dst, crs_project)
-        tool.raster.vector_lines_to_raster(
-            str(watershed_shp),
+            raster_sources[str(dst)] = clipped
+        tool.raster.write_raster(
+            tool.raster.vector_lines_to_raster_vector(
+                watershed_vector,
+                base_raster=raster_sources[str(paths.watershed_dem)],
+            ),
             str(paths.watershed_contour_tif),
-            base=str(paths.watershed_dem),
         )
     else:
         clip_dem_to_box_buffer(

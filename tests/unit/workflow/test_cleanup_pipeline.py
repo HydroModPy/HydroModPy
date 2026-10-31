@@ -57,20 +57,3 @@ def test_a_session_that_owns_the_tree_keeps_it_whatever_the_option_says(cleanup_
 def test_a_run_without_a_geographic_runtime_cleans_nothing(cleanup_calls) -> None:
     assert step_cleanup_preprocessing(_ctx(None, write_intermediates=True)) == 0
     assert cleanup_calls == []
-
-
-def test_releasing_the_raster_cache_loses_nothing() -> None:
-    """A cached raster is on disk already: the backend writes, then caches."""
-    import inspect
-
-    from hydromodpy.spatial.delineation.whitebox_workflows_backend.raster import (
-        WhiteboxRasterBackend,
-    )
-
-    source = inspect.getsource(WhiteboxRasterBackend._write_raster)
-    write_at = source.index("write_raster")
-    cache_at = source.index("_raster_cache[path] = raster")
-    assert write_at < cache_at, (
-        "the raster cache is only ever filled after the file is written; if that "
-        "stops being true, dropping the cache starts losing data"
-    )

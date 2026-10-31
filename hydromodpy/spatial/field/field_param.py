@@ -23,6 +23,7 @@ from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     factor_to_m_per_s,
 )
+from hydromodpy.core.units.physical_bounds import validate_physical_array, validate_physical_value
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.spatial.field.field_param_units import normalize_unit_token
 from hydromodpy.spatial.field.mesh_cells import MeshWithValues, cell_values
@@ -132,6 +133,7 @@ class FieldParam:
                 value,
                 location=f"{self.identifier}.value",
                 enforce_explicit_unit=explicit_unit_is_set,
+                where=None,
             )
             self.values_by_key = None
             self.field_spatial_id = None
@@ -147,6 +149,7 @@ class FieldParam:
                 raw_value,
                 location=f"{self.identifier}.values[{zone_key}]",
                 enforce_explicit_unit=explicit_unit_is_set,
+                where=f"zone {zone_key!r}",
             )
         if len(values) == 0:
             raise ValueError("'values_by_key' cannot be empty")
@@ -163,8 +166,14 @@ class FieldParam:
         *,
         location: str,
         enforce_explicit_unit: bool,
+        where: str | None,
     ) -> float:
-        """Parse one scalar payload with optional inline unit and convert to SI."""
+        """Parse one scalar payload with optional inline unit, bound it and convert it to SI.
+
+        The physical bounds are checked in the unit the user declared. A value
+        written with no unit, under no declared unit, is in the canonical unit
+        of its parameter, so it is checked with no unit.
+        """
         explicit_unit = self.input_unit if enforce_explicit_unit else None
         scalar, resolved_unit = parse_scalar_and_unit(
             raw_value,
@@ -181,6 +190,12 @@ class FieldParam:
                 f"{location} unit '{resolved_unit}' is inconsistent with parameter "
                 f"'{self.identifier}'. Expected SI family '{self.unit}'."
             )
+        declared = canonical_unit
+        if self.original_unit is None and canonical_unit == self.input_unit:
+            declared = None
+        validate_physical_value(
+            param_id=self.identifier, value=float(scalar), unit=declared, where=where
+        )
         return float(scalar) * float(_UNIT_TO_SI_FACTOR[canonical_unit])
 
     @property
@@ -261,6 +276,7 @@ class FieldParam:
             values = np.full(int(target_mesh.n_cells), float(scalar_value), dtype=float)
             vertical_factor = mesh_vertical_factor(self.vertical_profile, target_mesh, depth=depth)
             values = values * vertical_factor
+            self._bound_cell_values(values, depth=depth, covered=None)
             return MeshWithValues(
                 mesh=target_mesh,
                 cell_values=values,
@@ -284,6 +300,7 @@ class FieldParam:
         mesh = field_discretization.mesh
         zone_keys, fractions_by_zone = field_discretization.weighted_components()
         weighted = None
+        coverage = None
         missing: list[str] = []
         values_by_key = self.values_by_key
         if values_by_key is None:
@@ -298,6 +315,7 @@ class FieldParam:
             value = float(values_by_key[zone_key])
             contribution = frac * value
             weighted = contribution if weighted is None else (weighted + contribution)
+            coverage = frac if coverage is None else (coverage + frac)
 
         if missing:
             missing_txt = ", ".join(sorted(set(missing)))
@@ -314,10 +332,30 @@ class FieldParam:
 
         vertical_factor = mesh_vertical_factor(self.vertical_profile, mesh, depth=depth)
         values = weighted * vertical_factor
+        self._bound_cell_values(values, depth=depth, covered=coverage > 0.0)
         return MeshWithValues(
             mesh=mesh,
             cell_values=values,
             label=label if label is not None else "heterogeneous_values",
+        )
+
+    def _bound_cell_values(self, values: np.ndarray, *, depth, covered) -> None:
+        """Refuse a cell value outside the physical range of the parameter.
+
+        The value is the one the solver reads, after the depth factor. A cell
+        that no zone covers (``covered`` False) is left out: it holds no value
+        of the field, and the solver refuses it on an active cell
+        (``require_positive_conductivity``) or never reads it.
+        """
+        place = "the mesh cells"
+        if np.ndim(depth) == 0:
+            place = f"the mesh cells at depth {float(depth)} m"
+        validate_physical_array(
+            param_id=self.identifier,
+            values=values,
+            unit=None if self.unit == "-" else self.unit,
+            where=place,
+            mask=covered,
         )
 
     @staticmethod

@@ -1,7 +1,6 @@
 {
   "catch_area_km2": 0.25,
   "crs_proj": "EPSG:2154",
-  "dep_code": 35,
   "shape_box_buff": [
     10,
     10

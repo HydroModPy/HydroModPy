@@ -39,7 +39,7 @@ The package is flat. The port stands alone, and each engine and helper reads it.
 terrain/
 ├── port.py             the TerrainEngine Protocol, the product types and the checks an engine shares
 ├── registry.py         engine_id to engine class, and the entry point group
-├── artifacts.py        readbacks of the files an engine wrote: mask cells, boundary area
+├── artifacts.py        readbacks of the files an engine wrote, and the writer of the two point layers
 ├── d8.py               the receiver of each cell of a D8 pointer raster
 ├── numpy_engine.py     NumpyTerrainEngine, priority flood and a topological sweep
 └── whitebox_engine.py  WhiteboxTerrainEngine, delegates to the Whitebox backend
@@ -57,6 +57,7 @@ The two engine classes load on first use, so importing the package never loads `
 | how an engine is found, or what the registry refuses | `registry.py` |
 | the default engine | `DEFAULT_ENGINE_ID` in `registry.py` |
 | how a mask or a boundary is read back | `artifacts.py` |
+| the columns of the two outlet point layers | `OUTLET_LAYER_COLUMNS` in `port.py`, `write_outlet_point` in `artifacts.py` |
 | the Whitebox calls and the capped breach report | `whitebox_engine.py` |
 | the reference engine | `numpy_engine.py` |
 | the flow direction of a pointer cell | `d8.py` |
@@ -109,7 +110,7 @@ Four more checks guard the package.
 - `tests/unit/architecture/test_terrain_engine_imports.py` checks that each call site of a flow builder passes the engine
   on.
 
-The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 94.4,
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 94.6,
 the floor of the line `coverage report --include='hydromodpy/spatial/terrain/*'`. The floors only go up.
 
 ```bash

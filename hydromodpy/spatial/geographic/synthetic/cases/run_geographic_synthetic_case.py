@@ -13,10 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
 
-from hydromodpy.spatial.geographic.synthetic import (
-    SyntheticGeographicConfig,
-    build_synthetic_geographic,
-)
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic_config import SyntheticGeographicConfig
 
 
 def run_synthetic_geographic_case_from_toml(config_toml: str | Path):

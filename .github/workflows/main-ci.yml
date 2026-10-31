@@ -352,14 +352,14 @@ jobs:
           coverage report --include='hydromodpy/spatial/mesh/*' --precision=2 --fail-under=99.25
           coverage report --include='hydromodpy/spatial/administrative/*' --precision=2 --fail-under=100.0
           coverage report --include='hydromodpy/spatial/delineation/*' --precision=2 --fail-under=97.3
-          coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=96.9
-          coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.5
+          coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=98.4
+          coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.7
           coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.2
-          coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=95.5
-          coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.4
-          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
+          coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=96.3
+          coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
+          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.3
           coverage report --include='hydromodpy/workflow/site_selection/*' --precision=2 --fail-under=96.0
 
   integration:

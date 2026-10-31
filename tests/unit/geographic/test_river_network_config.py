@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from tests._helpers.geographic_cases import OUTLET_CATCHMENT
 
 

@@ -12,8 +12,11 @@ grid, a triangulation and a Voronoi mesh are served alike.
    `discretize_points_on_cells` in `cells.py`. It gives the loaded records, the cell centres, the
    number of stress periods, the simulation window and the interpolation method.
 2. `cells.py` turns the window into the bounds of each stress period (`stress_period_bounds`).
-3. For a grid, `rasters.py` reads each record. A dataset or a NetCDF file is averaged in time over
-   each period. A GeoTIFF gives one band per time step. For stations, `stations.py` takes the mean
+3. For a grid, `rasters.py` reads each record. A record whose CRS is not the CRS of the mesh is
+   refused, because a grid is never reprojected. When the record or the mesh declares no CRS that
+   places it on the Earth (none, an unreadable one, or a local frame), the two cannot be compared
+   and the record is read as it is. A dataset or a NetCDF file is averaged
+   in time over each period. A GeoTIFF gives one band per time step. For stations, `stations.py` takes the mean
    of each series over each period.
 4. The coverage rule of `hydromodpy/core/time/coverage.py` says which samples a period takes and
    what happens when the record does not reach the period.
@@ -47,7 +50,9 @@ the cell area is then the integral of the grid over the cell. It needs the plana
 cell polygons come from it, and it is refused for stations, which have no pixel.
 
 The same package also gives the spatial mean of a grid (`spatial_mean_from_fields`). This is the
-homogeneous series used when a forcing is not spatial.
+homogeneous series used when a forcing is not spatial. It is the mean of the valid pixels only. A
+pixel equal to the nodata of a GeoTIFF, a NaN pixel of a NetCDF and a pixel equal to the `nodata`
+attribute of a dataset are left out alike, and a band or a time step with no valid pixel is refused.
 
 ## The folder map
 
@@ -85,12 +90,12 @@ The package is flat, so the rules are between its modules and with the rest of H
 - `sources.py` reads `area_weights.py` and `interpolation.py`.
 - `area_weights.py` and `interpolation.py` import no other module of the package.
 - Outside the package, it imports `hydromodpy.core` (config types, exceptions, logging, units, the
-  time window and the coverage rule) and one name of `spatial/mesh`, `derive_geometry` from
+  time window, the coverage rule, the nodata mask and the CRS comparison) and one name of `spatial/mesh`, `derive_geometry` from
   `hydromodpy/spatial/mesh/model/geometry.py`, in `area_weights.py`. `HydroMesh` is imported only
   for type hints, under `TYPE_CHECKING`, and so is `ResolvedSimulationTimeWindow`.
 - `mesh/` never imports this package.
-- `build_simulation_time_boundaries` is imported inside `stress_period_bounds`. xarray, rasterio
-  and the scipy interpolators are imported inside the functions that use them, so a run without a
+- `build_simulation_time_boundaries` is imported inside `stress_period_bounds`. xarray, rasterio,
+  pyproj and the scipy interpolators are imported inside the functions that use them, so a run without a
   grid forcing does not load them.
 
 The rules between HydroModPy layers are checked by `tests/unit/architecture/`.
@@ -120,7 +125,7 @@ forcing is also exercised by `tests/unit/physics/test_forcing_spatial_config.py`
 No contract or regression test is specific to this package.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of
-`hydromodpy/spatial/forcing/*` is under 99.5. The floor only goes up.
+`hydromodpy/spatial/forcing/*` is under 99.7. The floor only goes up.
 
 ```bash
 pytest tests/unit/forcing -q

@@ -44,14 +44,14 @@ def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> Non
     assert schema["$id"] == schema_urn("physics.flow.physical_properties.FlowPhysicalProperties")
 
 
-def test_two_models_of_one_name_do_not_share_an_identity() -> None:
-    """``DemConfig`` exists twice in this tree, with different properties."""
-    from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
-    from hydromodpy.spatial.site_selection.config.dem_config import DemConfig as SiteDemConfig
+def test_the_two_dem_tables_have_their_own_name_and_identity() -> None:
+    """The DEM table of ``[site_selection]`` is not the ``DemConfig`` of ``[data]``."""
+    from hydromodpy.data.variables.dem.config import DemConfig
+    from hydromodpy.spatial.site_selection.config.dem_config import SiteSelectionDemConfig
 
-    assert DataDemConfig.__name__ == SiteDemConfig.__name__
-    assert set(DataDemConfig.model_fields) != set(SiteDemConfig.model_fields)
-    assert export_schema(DataDemConfig)["$id"] != export_schema(SiteDemConfig)["$id"]
+    assert DemConfig.__name__ != SiteSelectionDemConfig.__name__
+    assert export_schema(SiteSelectionDemConfig)["title"] == "SiteSelectionDemConfig"
+    assert export_schema(DemConfig)["$id"] != export_schema(SiteSelectionDemConfig)["$id"]
 
 
 def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None:

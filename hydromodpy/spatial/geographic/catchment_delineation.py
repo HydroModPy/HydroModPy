@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from geopy.geocoders import Nominatim
-
 from hydromodpy.spatial.delineation.registry import resolve_delineation_backend
 from hydromodpy.spatial.geographic.core.derived_features import (
     DomainGeographicContext,
@@ -328,7 +326,6 @@ class CatchmentDelineation:
             config=self._config,
             out_dir_path=self.out_dir_path,
             backend=tool,
-            locator_factory=Nominatim,
             reuse_existing_outputs=self._reuse_existing_outputs,
             network_map_path=self._network_map_path,
         )
@@ -352,7 +349,6 @@ class CatchmentDelineation:
             watershed_buff_dem_path=self.watershed_buff_dem,
             watershed_dem_path=self.watershed_dem,
             crs_project=self.crs_proj,
-            locator_factory=Nominatim,
         )
         for attr_name, value in self._dem_metadata.runtime_attributes().items():
             setattr(self, attr_name, value)

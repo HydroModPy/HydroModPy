@@ -171,7 +171,8 @@ class BenchTerrain:
 
     They write the rasters of the bench valley. ``routing`` lists the DEM each
     flow pass was given, ``top`` the DEM each clip was cut from. The catchment
-    is a square whose side is read from *sides*, one per delineation.
+    is a square whose side is read from *sides*, one per delineation, and its
+    snapped outlet sits at ``(side, 30)``.
     """
 
     def __init__(self, *, sides: tuple[float, ...] = (180.0,)) -> None:
@@ -192,11 +193,12 @@ class BenchTerrain:
         acc = bench.write_raster(out / "dem_acc.tif", valley.acc)
         return fake_flow_products(correc=out / "dem_fill.tif", direc=direc, acc=acc)
 
-    def catchment(self, **kwargs) -> None:
+    def catchment(self, **kwargs) -> SimpleNamespace:
         side = self.sides[min(self.catchments, len(self.sides) - 1)]
         self.catchments += 1
         frame = gpd.GeoDataFrame(geometry=[box(30.0, 30.0, side, side)], crs=bench.CRS)
         frame.to_file(kwargs["paths"].watershed_shp)
+        return SimpleNamespace(x_outlet_snapped=side, y_outlet_snapped=30.0, snap_distance_m=side)
 
     def network(self, **kwargs):
         from hydromodpy.spatial.geographic.core.river_network import RiverNetworkProducts
@@ -276,7 +278,7 @@ def geographic_dir(root: Path) -> Path:
 
 
 def touch_artifact(path: Path | str) -> None:
-    """Write one cache artefact: a 1-pixel GeoTIFF, an empty shapefile trio or a file.
+    """Write one cache artefact: a 1-pixel GeoTIFF, the four files of a shapefile or a file.
 
     Rasters are real: a cache hit describes the flow stack by reading its CRS
     and nodata, so it has to survive being read.
@@ -287,7 +289,7 @@ def touch_artifact(path: Path | str) -> None:
     if suffix == ".tif":
         write_geotiff(path, np.zeros((1, 1), dtype="float32"), nodata=-9999.0)
     elif suffix == ".shp":
-        for sidecar in (".shp", ".shx", ".dbf"):
+        for sidecar in (".shp", ".shx", ".dbf", ".prj"):
             path.with_suffix(sidecar).write_text("", encoding="utf-8")
     else:
         path.write_text("{}" if suffix == ".json" else "", encoding="utf-8")
@@ -349,16 +351,6 @@ def load_cached(config, paths):
     return load_cached_geographic_products(config=config, paths=paths, crs_project=LAMBERT)
 
 
-class FakeLocator:
-    """A Nominatim double that places every point in Rennes."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        pass
-
-    def reverse(self, *args, **kwargs):
-        return SimpleNamespace(address="Rennes, 35000, France")
-
-
 OUTLET_CATCHMENT = {
     "catch_def": "from_outlet_coord",
     "x_outlet": 450.0,
@@ -384,7 +376,6 @@ def delineate_on_fake_backend(root: Path, monkeypatch, catchment: dict, **config
     monkeypatch.setattr(
         catchment_delineation, "resolve_delineation_backend", lambda b=None: backend
     )
-    monkeypatch.setattr(catchment_delineation, "Nominatim", FakeLocator)
     ramp = np.arange(100, dtype="float32").reshape(10, 10)
     dem = write_geotiff(
         root / "inputs" / "dem.tif", ramp, origin=(0.0, 1000.0), cell=100.0, nodata=-9999.0
@@ -521,7 +512,6 @@ def delineation_signature(geo) -> dict:
     return {
         "catch_area_km2": float(geo.catch_area),
         "crs_proj": str(geo.crs_proj),
-        "dep_code": int(getattr(geo, "dep_code", -1)),
         "shape_box_buff": [int(v) for v in geo.dem_box_buff_data.shape],
         "shape_buff": [int(v) for v in geo.dem_buff_data.shape],
         "shape_core": [int(v) for v in geo.dem_data.shape],
@@ -545,7 +535,7 @@ def assert_delineation_golden(actual: dict, golden: Path, update_goldens: bool) 
     expected = golden_reference(golden, actual, update_goldens)
     if expected is None:
         return
-    for key in ("shape_box_buff", "shape_buff", "shape_core", "crs_proj", "dep_code"):
+    for key in ("shape_box_buff", "shape_buff", "shape_core", "crs_proj"):
         assert actual[key] == expected[key], key
     for key in GOLDEN_FLOAT_KEYS:
         assert actual[key] == pytest.approx(expected[key], rel=0.0, abs=1e-9), key

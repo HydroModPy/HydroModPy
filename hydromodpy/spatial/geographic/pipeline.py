@@ -5,11 +5,9 @@ Builds the runtime payload consumed by ``CatchmentDelineation``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-from geopy.geocoders import Nominatim
 
 from hydromodpy.core import progress
 from hydromodpy.core.logging import get_logger
@@ -268,7 +266,8 @@ def _notch_crossings(
 
     The channel tree of the first delineation says where the embankments cross
     it. The ground is notched there and the catchment is delineated again on
-    it. The snapped outlet stays the one of the first pass.
+    it. Every product is then the one of the second pass, the snapped outlet
+    too: it is the outlet the final catchment was delineated from.
     """
     channel = first_pass_channel(
         config,
@@ -281,8 +280,9 @@ def _notch_crossings(
     delineation = first
     if notch_lowered_pixels(setup) > 0:
         with progress.status("Re-delineating on the notched ground"):
-            second = _delineate(config=config, setup=setup, tool=tool, routing_dem_path=str(ground))
-        delineation = replace(second, catchment_products=first.catchment_products)
+            delineation = _delineate(
+                config=config, setup=setup, tool=tool, routing_dem_path=str(ground)
+            )
     close_notch_report(setup, catchment_area_km2_after=delineation.catchment_area_km2)
     return delineation
 
@@ -355,7 +355,6 @@ def build_geographic_runtime_context(
     config: GeographicConfig,
     out_dir_path: str | Path,
     backend: object | None = None,
-    locator_factory: object = Nominatim,
     reuse_existing_outputs: bool | None = None,
     network_map_path: str | Path | None = None,
 ) -> GeographicRuntimeContext:
@@ -398,7 +397,6 @@ def build_geographic_runtime_context(
         watershed_buff_dem_path=products.raster_products.watershed_buff_dem,
         watershed_dem_path=products.raster_products.watershed_dem,
         crs_project=setup.crs_project,
-        locator_factory=locator_factory,
     )
 
     return GeographicRuntimeContext(

@@ -16,10 +16,7 @@ import rasterio
 
 from hydromodpy.core.io.crs import crs_text
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation.registry import (
-    backend_has_callables,
-    resolve_delineation_backend,
-)
+from hydromodpy.core.nodata import RASTER_NODATA
 from hydromodpy.spatial.geographic.capped_breach_config import capped_breach_of
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
@@ -75,22 +72,13 @@ def persist_geographic_to_store(
 def read_raster_data_and_meta(
     path: str | Path,
 ) -> tuple[np.ndarray, tuple[float, ...], float | None, str] | None:
-    """Read band 1 of a raster from the backend cache, else from disk.
+    """Read band 1 of a raster from disk.
 
-    Returns ``(data, transform, nodata, crs)``, or None when neither the cache
-    nor the disk holds the raster. ``transform`` is the affine
-    ``(a, b, c, d, e, f)`` the store takes, whatever the source. ``nodata`` is
-    None and ``crs`` is ``""`` when the raster declares none.
+    Returns ``(data, transform, nodata, crs)``, or None when the file is not on
+    disk. ``transform`` is the affine ``(a, b, c, d, e, f)`` the store takes.
+    ``nodata`` is None and ``crs`` is ``""`` when the raster declares none.
     """
     path_str = str(path)
-    backend = resolve_delineation_backend()
-    if backend_has_callables(
-        backend, "raster", "get_cached_raster_numpy", "get_cached_raster_metadata"
-    ):
-        data = backend.raster.get_cached_raster_numpy(path_str)
-        if data is not None:
-            meta = backend.raster.get_cached_raster_metadata(path_str)
-            return data, meta["transform"], meta["nodata"], str(meta.get("crs", ""))
     if not Path(path_str).exists():
         return None
     with rasterio.open(path_str) as src:
@@ -113,13 +101,15 @@ def _ingest_rasters(geographic: Any, store: Any, sim_id: str | None) -> None:
             continue
         data, transform, nodata, crs = raster
         name = attr.removesuffix("_tif")
+        # A raster that declares no nodata takes the one of the DEM it sits
+        # beside in the geographic group, so the group reads with one sentinel.
         store.write_geographic_raster(
             sim_id,
             name,
             data,
             transform=transform,
             crs=crs,
-            nodata=float(nodata) if nodata is not None else -99999.0,
+            nodata=float(nodata) if nodata is not None else RASTER_NODATA,
         )
         logger.debug("Ingested raster %s (%s)", name, data.shape)
 

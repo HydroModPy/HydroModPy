@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from hydromodpy.core.units.physical_bounds import PhysicalBoundsError
 from hydromodpy.solver.modflow6.builders.solver_options import resolve_xt3d_decision
 from hydromodpy.solver.modflow6.support.property_mapping import (
     K_TENSOR_NPF_NAMES,
@@ -145,3 +146,17 @@ def test_the_trial_sandbox_keys_are_not_properties() -> None:
         required_properties={"K", "Sy", "Ss"},
     )
     assert overrides == {}
+
+
+@pytest.mark.parametrize(
+    ("properties", "match"),
+    [({"K": 1e3}, r"hydraulic conductivity \(id='K'\) in the runtime override: 8 of 8 value"),
+     ({"K": 1e-5, "Sy": [0.1, 0.8, 0.1, 0.1]}, r"specific yield \(id='Sy'\) .* 2 of 8 .* index 1: 0.8"),
+     ({"K": 1e-5, "angle2": 120.0}, r"\(id='angle2'\) in the runtime override")],
+    ids=["k-everywhere", "sy-in-one-cell", "angle-past-the-vertical"],
+)  # fmt: skip
+def test_an_override_outside_the_physical_range_is_refused(properties, match) -> None:
+    with pytest.raises(PhysicalBoundsError, match=match):
+        resolve_flow_property_runtime_overrides(
+            {"properties": properties}, nlay=2, n_cells=N_CELLS, required_properties={"K"}
+        )

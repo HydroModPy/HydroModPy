@@ -51,6 +51,7 @@ def _heterogeneous_on_grid(
             simulation_window=adapter.simulation_window,
             method=method,
             mesh=solver_mesh.planar_mesh,
+            mesh_crs=solver_mesh.cell_mesh.crs_wkt,
         )
     elif getattr(het_source, "has_points", False):
         flat = discretize_points_on_cells(

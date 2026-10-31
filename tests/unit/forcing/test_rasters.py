@@ -7,18 +7,22 @@ from __future__ import annotations
 
 import warnings
 from contextlib import nullcontext
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from pyproj import CRS
 
 from hydromodpy.core.exceptions import DataContractViolation
 from hydromodpy.data.contracts.load_result import LoadResult
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.spatial.forcing.cells import discretize_fields_on_cells, spatial_mean_from_fields
 from hydromodpy.spatial.forcing.rasters import discretize_from_xarray
 from tests._helpers import forcing_cases as fc
+from tests._helpers import geotiffs
 
 pytestmark = pytest.mark.fast
 
@@ -127,17 +131,20 @@ def test_a_record_the_forcing_cannot_read_is_refused(tmp_path: Path, data, error
         fc.fields_on_cells([fc.field_record(data(tmp_path))])
 
 
+_NO_BAND = "^Coverage check failed for etp: no GeoTIFF forcing band mapped to stress period 2"
+
+
 @pytest.mark.parametrize(
     ("policy", "expectation"),
     [
         ("ignore", nullcontext()),
-        ("warn", pytest.warns(UserWarning, match="no GeoTIFF forcing band mapped to stress period 2")),
-        ("error", pytest.raises(ValueError, match="no GeoTIFF forcing band mapped to stress period 2")),
+        ("warn", pytest.warns(UserWarning, match=_NO_BAND)),
+        ("error", pytest.raises(ValueError, match=_NO_BAND)),
     ],
     ids=["ignore", "warn", "error"],
 )  # fmt: skip
 def test_a_period_no_band_reaches_takes_the_last_band_or_stops_the_run(tmp_path, policy, expectation):  # fmt: skip
-    record = _geotiff([2.0, 4.0], dtype="float64")(tmp_path)
+    record = replace(_geotiff([2.0, 4.0], dtype="float64")(tmp_path), variable="etp")
     three_months = fc.window("2020-01-01", "2020-03-31", coverage_policy=policy)
 
     with expectation, warnings.catch_warnings():
@@ -145,6 +152,35 @@ def test_a_period_no_band_reaches_takes_the_last_band_or_stops_the_run(tmp_path,
             warnings.simplefilter("error", UserWarning)
         result = fc.fields_on_cells([record], 3, 4, nper=3, simulation_window=three_months)
         assert [_rate(result[k]) for k in range(3)] == pytest.approx([2.0, 4.0, 4.0])
+
+
+# ---- the CRS of the grid against the CRS of the mesh ---------------------
+
+_L93_WKT = CRS.from_epsg(2154).to_wkt()
+_LOCAL_FRAME = 'LOCAL_CS["array grid",LOCAL_DATUM["local origin",0],UNIT["metre",1]]'
+_OTHER_CRS = r"^The recharge grid {} is in {} and the mesh in EPSG:2154\. A forcing grid is never reprojected"
+
+
+@pytest.mark.parametrize(
+    ("build", "grid_crs", "mesh_crs", "match"),
+    [
+        (lambda _: fc.static_field(2, 2, 5.0), "EPSG:4326", _L93_WKT, _OTHER_CRS.format("dataset", "EPSG:4326")),
+        (_geotiff([5.0], 2, 2), "EPSG:32630", "EPSG:2154", _OTHER_CRS.format(r"recharge\.tif", "EPSG:32630")),
+        (lambda _: fc.static_field(2, 2, 5.0), "EPSG:2154", _L93_WKT, None),
+        (lambda _: fc.static_field(2, 2, 5.0), "", _L93_WKT, None),
+        (lambda _: fc.static_field(2, 2, 5.0), "not-a-crs", _L93_WKT, None),
+        (lambda _: fc.static_field(2, 2, 5.0), "EPSG:4326", None, None),
+        (lambda _: fc.static_field(2, 2, 5.0), "EPSG:4326", _LOCAL_FRAME, None),
+    ],
+    ids=["dataset-in-another-crs", "geotiff-record-in-another-crs", "same-crs-written-otherwise",
+         "grid-without-crs-is-not-compared", "unreadable-grid-crs-is-not-compared",
+         "mesh-without-crs-is-not-compared", "mesh-in-a-local-frame-is-not-compared"],
+)  # fmt: skip
+def test_a_grid_in_another_crs_than_the_mesh_is_refused(tmp_path, build, grid_crs, mesh_crs, match):  # fmt: skip
+    record = replace(build(tmp_path), crs=grid_crs)
+    refused = pytest.raises(DataContractViolation, match=match) if match else nullcontext()
+    with refused:
+        assert _rate(fc.fields_on_cells([record], mesh_crs=mesh_crs)[0]) == pytest.approx(5.0)
 
 
 # ---- a nodata pixel ------------------------------------------------------
@@ -261,10 +297,29 @@ def _ramp(scale: float = 1.0) -> np.ndarray:
     return scale * np.arange(6, dtype=float).reshape(2, 3)
 
 
-def _nodata_ramp() -> np.ndarray:
-    values = _ramp()
-    values[0, 1] = np.nan
+def _nodata_ramp(nodata: float = np.nan, scale: float = 1.0) -> np.ndarray:
+    """The ramp with its pixel of value 1 * *scale* set to *nodata*; its valid pixels mean 2.8 * *scale*."""
+    values = _ramp(scale)
+    values[0, 1] = nodata
     return values
+
+
+def _ramp_tif(folder: Path, values: np.ndarray, nodata: float | None = None) -> FieldRecord:
+    return fc.field_record(geotiffs.write_geotiff(folder / "r.tif", values, cell=fc.PIXEL, nodata=nodata))  # fmt: skip
+
+
+def _ramp_netcdf(folder: Path, values: np.ndarray) -> FieldRecord:
+    encoding = {"recharge": {"_FillValue": NODATA}}
+    fc.grid_dataset(values, *fc.pixel_axes(2, 3)).to_netcdf(folder / "recharge.nc", encoding=encoding)  # fmt: skip
+    return fc.field_record(folder / "recharge.nc")
+
+
+def _ramp_dataset(values: np.ndarray, nodata: float | None = None, days: int | None = None) -> FieldRecord:  # fmt: skip
+    times = None if days is None else pd.date_range("2020-01-01", periods=days, freq="D")
+    dataset = fc.grid_dataset(values, *fc.pixel_axes(2, 3), times)
+    if nodata is not None:
+        dataset["recharge"].attrs["nodata"] = nodata
+    return fc.field_record(dataset, days=days)
 
 
 def test_a_static_grid_has_one_mean_value_and_a_daily_grid_one_a_day():
@@ -295,10 +350,18 @@ def _mean_netcdf(folder: Path, daily: bool) -> pd.Series | None:
         (lambda folder: _mean_netcdf(folder, daily=False), [2.5]),
         (lambda folder: _mean_netcdf(folder, daily=True), [2.5, 5.0]),
         (lambda folder: _mean(fc.field_record(str(fc.write_geotiff(folder / "r.tif", _ramp()[None], *fc.pixel_axes(2, 3))))), [2.5]),
+        (lambda folder: _mean(_ramp_tif(folder, _nodata_ramp(NODATA), nodata=NODATA)), [2.8]),
+        (lambda folder: _mean(_ramp_tif(folder, _nodata_ramp())), [2.8]),
+        (lambda folder: _mean(_ramp_netcdf(folder, _nodata_ramp())), [2.8]),
+        (lambda _: _mean(_ramp_dataset(_nodata_ramp())), [2.8]),
+        (lambda _: _mean(_ramp_dataset(_nodata_ramp(NODATA), nodata=NODATA)), [2.8]),
+        (lambda _: _mean(_ramp_dataset(np.stack([_ramp(), _nodata_ramp(scale=2.0)]), days=2)), [2.5, 5.6]),
     ],
-    ids=["static-netcdf", "daily-netcdf", "first-band-of-a-geotiff"],
+    ids=["static-netcdf", "daily-netcdf", "first-band-of-a-geotiff", "geotiff-declared-nodata-left-out",
+         "geotiff-nan-left-out", "netcdf-fill-value-left-out", "dataset-nan-left-out",
+         "dataset-nodata-attribute-left-out", "daily-dataset-nan-left-out-on-its-day"],
 )  # fmt: skip
-def test_a_file_has_the_mean_of_the_grid_it_holds(tmp_path: Path, read, expected):
+def test_a_grid_has_the_mean_of_its_valid_pixels(tmp_path: Path, read, expected):
     np.testing.assert_allclose(read(tmp_path).to_numpy(), expected)
 
 
@@ -311,18 +374,25 @@ def test_a_source_with_no_readable_grid_has_no_spatial_mean(records):
     assert _mean(*records) is None
 
 
+_NO_VALID = (
+    r"^The gridded forcing {} holds no valid pixel in {}, on the footprint x 5 to 25 and y 5 to 15 "
+)
+
+
 @pytest.mark.parametrize(
-    ("record", "match"),
+    ("record", "error", "match"),
     [
-        (lambda _: fc.field_record(fc.grid_dataset(_nodata_ramp(), *fc.pixel_axes(2, 3))),
-         "^gridded forcing values must contain only finite numeric values"),
         (lambda _: fc.field_record(fc.grid_dataset(np.ones((2, 0)), np.zeros(0), fc.pixel_axes(2, 3)[1])),
-         "^gridded forcing values cannot be empty"),
-        (lambda folder: fc.field_record(fc.write_geotiff(folder / "r.tif", _nodata_ramp()[None], *fc.pixel_axes(2, 3))),
-         "^GeoTIFF forcing values must contain only finite"),
+         ValueError, "^gridded forcing values cannot be empty"),
+        (lambda folder: _ramp_tif(folder, np.full((2, 3), NODATA), nodata=NODATA),
+         DataContractViolation, _NO_VALID.format(r"r\.tif", "band 1")),
+        (lambda folder: _ramp_netcdf(folder, np.full((2, 3), np.nan)),
+         DataContractViolation, _NO_VALID.format(r"recharge\.nc", "the static field")),
+        (lambda _: _ramp_dataset(np.stack([_ramp(), np.full((2, 3), np.nan)]), days=2),
+         DataContractViolation, _NO_VALID.format("dataset", r"time step 1 \(2020-01-02\)")),
     ],
-    ids=["a-nodata-pixel", "clipped-to-nothing", "a-geotiff-nodata-pixel"],
+    ids=["clipped-to-nothing", "geotiff-band-of-nodata", "netcdf-of-fill-values", "a-day-of-nan"],
 )  # fmt: skip
-def test_a_grid_with_a_nodata_pixel_or_no_pixel_has_no_mean(tmp_path: Path, record, match):
-    with pytest.raises(ValueError, match=match):
+def test_a_grid_with_no_valid_pixel_has_no_mean(tmp_path: Path, record, error, match):
+    with pytest.raises(error, match=match):
         _mean(record(tmp_path))

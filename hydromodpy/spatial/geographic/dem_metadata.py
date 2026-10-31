@@ -6,16 +6,11 @@ and downstream runtime components.
 
 from __future__ import annotations
 
-import ssl
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import certifi
-import geopy.geocoders
 import numpy as np
 import rasterio
-from geopy.exc import GeocoderServiceError
-from geopy.geocoders import Nominatim
 from pyproj import Transformer
 
 
@@ -24,9 +19,9 @@ class DemMetadata:
     """DEM-derived raster metadata for the geographic runtime.
 
     The dataclass stores the clipped DEM arrays, geotransform, pixel size,
-    projected bounds, centroid, optional WGS84 corner coordinates, and optional
-    French department code. ``CatchmentDelineation`` uses it to expose the
-    runtime attributes expected by domain and solver code.
+    projected bounds, centroid and optional WGS84 corner coordinates.
+    ``CatchmentDelineation`` uses it to expose the runtime attributes expected
+    by domain and solver code.
     """
 
     crs: str | None
@@ -55,7 +50,6 @@ class DemMetadata:
     lr_long_lat: tuple[float, float] | None = None
     ll_long_lat: tuple[float, float] | None = None
     centroid_long_lat_Greenwich: list[float] | None = None
-    dep_code: int | None = None
 
     def as_georeferencing(self) -> dict[str, object]:
         """Return the narrow georeferencing payload historically consumed by Domain."""
@@ -99,7 +93,6 @@ class DemMetadata:
             "lr_long_lat": self.lr_long_lat,
             "ll_long_lat": self.ll_long_lat,
             "centroid_long_lat_Greenwich": self.centroid_long_lat_Greenwich,
-            "dep_code": self.dep_code,
         }
         for key, value in optional.items():
             if value is not None:
@@ -147,58 +140,17 @@ def _resolve_lon_lat_metadata(
     }
 
 
-def _resolve_dep_code(
-    *,
-    centroid_long_lat: tuple[float, float] | None,
-    locator_factory: object,
-) -> int | None:
-    """Resolve one French department code from reverse geocoding when possible."""
-    if centroid_long_lat is None:
-        return None
-    longitude, latitude = centroid_long_lat
-    query = f"{latitude}, {longitude}"
-
-    try:
-        locator = locator_factory(user_agent="google")
-        location = locator.reverse(
-            query,
-            timeout=120,
-        )
-    except OSError:
-        try:
-            ctx = ssl.create_default_context(cafile=certifi.where())
-            geopy.geocoders.options.default_ssl_context = ctx
-            locator = locator_factory(user_agent="google")
-            location = locator.reverse(
-                query,
-                timeout=120,
-            )
-        except Exception:
-            return None
-    except GeocoderServiceError:
-        return None
-    except Exception:
-        return None
-
-    try:
-        return int(location.address.split(",")[-2][0:3])
-    except Exception:
-        return None
-
-
 def read_dem_metadata(
     *,
     watershed_box_buff_dem_path: str | Path,
     watershed_buff_dem_path: str | Path,
     watershed_dem_path: str | Path,
     crs_project: str | None,
-    locator_factory: object = Nominatim,
 ) -> DemMetadata:
     """Read clipped DEM rasters and return normalized geographic metadata.
 
     The function extracts grid shape, nodata, projected bounds, resolution,
-    centroid coordinates, optional WGS84 coordinates, and optional department
-    code. It returns a ``DemMetadata`` object instead of mutating the
+    centroid coordinates and optional WGS84 coordinates. It returns a ``DemMetadata`` object instead of mutating the
     ``CatchmentDelineation`` instance directly.
     """
     with rasterio.open(str(watershed_box_buff_dem_path)) as box_buff_dem_src:
@@ -240,11 +192,6 @@ def read_dem_metadata(
     except Exception:
         lon_lat_attrs = {}
 
-    dep_code = _resolve_dep_code(
-        centroid_long_lat=lon_lat_attrs.get("centroid_long_lat"),
-        locator_factory=locator_factory,
-    )
-
     return DemMetadata(
         crs=crs_project,
         dem_box_buff_data=dem_box_buff_data,
@@ -272,5 +219,4 @@ def read_dem_metadata(
         lr_long_lat=lon_lat_attrs.get("lr_long_lat"),
         ll_long_lat=lon_lat_attrs.get("ll_long_lat"),
         centroid_long_lat_Greenwich=lon_lat_attrs.get("centroid_long_lat_Greenwich"),
-        dep_code=dep_code,
     )

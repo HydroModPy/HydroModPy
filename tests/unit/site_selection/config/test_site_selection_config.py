@@ -59,6 +59,16 @@ def test_the_dem_window_defaults_to_100_km2_and_the_bdtopage_snap_to_bdtopage(tm
     assert outlets.reference_network_source == "bdtopage"
 
 
+def test_a_territory_without_country_is_france_in_the_schema_and_in_the_reference_toml():
+    from tools.docs import field_registry
+
+    field = TerritoryConfig.model_fields["country"]
+    assert TerritoryConfig(mode="bbox", bbox=(0.0, 0.0, 1.0, 1.0)).country == "fr"
+    leaf = field_registry._leaf_info("country", field, "site_selection.territory.country")
+    assert leaf["default"] == '"fr"'
+    assert TerritoryConfig(mode="admin_regions", country=None, regions=["Wallonie"]).country is None
+
+
 def test_removed_legacy_literals_stay_removed():
     assert "auto" not in get_args(WorkflowInputMode)
     assert {"dem_only", "multicriteria"}.isdisjoint(get_args(StrategyProfile))
@@ -94,6 +104,7 @@ GAUGED = {"principle": "observation_led", "primary_observation_type": "flow_stat
      "requires principle='observation_led'"),
     (TerritoryConfig, {"mode": "admin_regions", "country": "FR"}, "at least one region"),
     (TerritoryConfig, {"mode": "admin_regions", "country": "FR", "regions": ["Bretange"]}, "Unknown"),
+    (TerritoryConfig, {"mode": "admin_regions", "regions": ["Bretange"]}, "Unknown"),
     (TerritoryConfig, {"mode": "admin_departments"}, "at least one department"),
     (TerritoryConfig, {"mode": "polygon_file"}, "requires polygon_file"),
     (TerritoryConfig, {"mode": "bbox"}, "requires bbox"),

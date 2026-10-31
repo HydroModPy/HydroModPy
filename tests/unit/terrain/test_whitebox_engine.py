@@ -45,14 +45,22 @@ class _FakeFlowOps:
         self.calls.append(("fill", options))
         return source
 
+    def d8_pointer_raster(self, source, **options: object):
+        return source
 
-def _condition(tmp_path: Path, res: float, method, cut_m: float = 0.0):
-    flow = _FakeFlowOps(tmp_path, cut_m)
+
+def _engine(tmp_path: Path, cut_m: float = 0.0):
+    flow, reads = _FakeFlowOps(tmp_path, cut_m), []
     raster = SimpleNamespace(
-        read_raster=lambda path: SimpleNamespace(path=path),
+        read_raster=lambda path: reads.append(Path(path).name) or SimpleNamespace(path=path),
         write_raster=lambda raster, path: shutil.copyfile(raster.path, path),
     )
-    result = WhiteboxTerrainEngine(SimpleNamespace(raster=raster, flow=flow)).condition_dem(
+    return flow, WhiteboxTerrainEngine(SimpleNamespace(raster=raster, flow=flow)), reads
+
+
+def _condition(tmp_path: Path, res: float, method, cut_m: float = 0.0, engine=None):
+    flow, engine, _reads = engine or _engine(tmp_path, cut_m)
+    result = engine.condition_dem(
         _write(tmp_path / "dem.tif", _surface(), res).path,
         method=method,
         extent=ConditioningExtent.regional(),
@@ -118,3 +126,15 @@ def test_only_a_cut_past_the_depth_cap_and_its_centimetre_is_warned_about_with_b
     assert "0.560" in warning
     assert "0.500" in warning
     assert "cumulative" in warning
+
+
+@pytest.mark.parametrize("rewritten", [False, True])
+def test_the_next_step_reuses_the_raster_written_until_its_file_changes(
+    tmp_path, rewritten
+) -> None:
+    flow, engine, reads = _engine(tmp_path)
+    _calls, conditioned = _condition(tmp_path, 25.0, "fill", engine=(flow, engine, reads))
+    if rewritten:
+        _write(conditioned.path, _surface()[:5])
+    engine.drainage_directions(conditioned, out=tmp_path / "out" / "pointer.tif")
+    assert reads == ["dem.tif", "conditioned.tif"][: 1 + rewritten]

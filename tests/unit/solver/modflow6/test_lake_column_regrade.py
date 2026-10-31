@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hydromodpy.spatial.lake_bed.carve_math import (
+from hydromodpy.solver.modflow6.builders.lake_column_regrade import (
     regrade_column_active_top,
     regrade_column_to_bed,
 )

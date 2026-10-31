@@ -60,7 +60,11 @@ def _parse_args(argv=None):
     parser.add_argument("--geology-config-file", default=DEFAULT_GEOLOGY_CONFIG_FILE)
     parser.add_argument("--geology-section", default=DEFAULT_GEOLOGY_SECTION)
     parser.add_argument("--field-param-config-file", default=DEFAULT_FIELD_PARAM_CONFIG_FILE)
-    parser.add_argument("--field-param-section", default=DEFAULT_FIELD_PARAM_SECTION)
+    parser.add_argument(
+        "--field-param-section",
+        default=DEFAULT_FIELD_PARAM_SECTION,
+        help="Dotted path of the [field] table to read, such as 'field' or 'flow.param.K.field'.",
+    )
     parser.add_argument("--output-file", default=DEFAULT_OUTPUT_FILE)
     parser.add_argument("--sea-field", default=DEFAULT_SEA_FIELD)
     parser.add_argument("--sea-value", default=DEFAULT_SEA_VALUE)

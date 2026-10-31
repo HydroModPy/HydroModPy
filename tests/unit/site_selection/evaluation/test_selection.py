@@ -1,14 +1,14 @@
 import re
 
 import pytest
-from shapely.geometry import box
+from shapely.geometry import Point, box
 
 from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
 from tests._helpers.site_selection_cases import (
     component_of,
     make_catchment,
     run_selection,
-    write_point_geojson,
+    write_vector_layer,
 )
 
 pytestmark = pytest.mark.fast
@@ -70,7 +70,7 @@ def test_the_area_score_ranks_the_catchment_nearest_the_preferred_area_first():
 
 
 def test_the_flow_station_distance_is_measured_to_the_snapped_outlet(tmp_path):
-    snap_path = write_point_geojson(tmp_path / "outlet_snap.geojson", coordinates=[3000.0, 0.0])
+    snap_path = write_vector_layer(tmp_path / "outlet_snap.gpkg", [Point(3000.0, 0.0)])
     attributes = {
         "flow_station_id": "J001001001", "flow_station_x": "0.0", "flow_station_y": "0.0",
         "flow_station_crs": "EPSG:2154", "flow_station_record_years": "20.0",

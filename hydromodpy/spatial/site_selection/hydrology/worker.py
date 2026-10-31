@@ -33,7 +33,7 @@ different contracts. The caller that owns the process owns the mapping.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -46,12 +46,10 @@ from hydromodpy.core.exceptions import (
     ConfigValidationError,
     DataContractViolation,
     EmptyCatchmentError,
-    JobUsageError,
 )
 from hydromodpy.core.io.geoparquet import write_geoparquet_atomic
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.directory import JobDirectory
-from hydromodpy.schema.job.documents import write_document
 from hydromodpy.schema.job.extent import SpatialExtent
 from hydromodpy.schema.job.inputset import (
     InputResource,
@@ -60,13 +58,8 @@ from hydromodpy.schema.job.inputset import (
     inline_resource,
 )
 from hydromodpy.schema.job.outcome import (
-    UNIDENTIFIED_JOB,
     JobOutcome,
-    dismissed,
-    error_record,
-    now,
 )
-from hydromodpy.schema.job.provenance import build_provenance, write_provenance
 from hydromodpy.schema.job.request import (
     check_process,
     content_address,
@@ -74,8 +67,7 @@ from hydromodpy.schema.job.request import (
     requested_outputs,
     validate_inputs,
 )
-from hydromodpy.schema.job.reuse import reuse_sealed_outcome
-from hydromodpy.schema.job.seal import seal_job
+from hydromodpy.schema.job.worker import ExitCodeMapper, run_job, seal_successful
 from hydromodpy.schema.media_types import GEOTIFF_MEDIA_TYPE
 from hydromodpy.spatial.geographic.core.flow_products import (
     ACCUMULATION_NAME,
@@ -86,6 +78,7 @@ from hydromodpy.spatial.job_inputs import (
     output_records,
     read_raster_input,
     refuse_a_file_that_is_not_the_one_asked_for,
+    resolve_input_file,
 )
 from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
@@ -112,9 +105,6 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
 from hydromodpy.spatial.terrain import registry as terrain_registry
-
-ExitCodeMapper = Callable[[BaseException], int]
-"""How the runtime turns an exception into the status a shim reads."""
 
 WATERSHED_LAYER = "watershed"
 """The layer name inside the GeoPackage. A GeoPackage without one is unnamed."""
@@ -143,76 +133,22 @@ class _Resolved:
 def run(job: JobDirectory, *, exit_code_for: ExitCodeMapper) -> JobOutcome:
     """Execute ``terrain-delineate`` inside *job* and return what happened.
 
-    Writes ``outcome.json`` in every case. Writes ``manifest.json`` only when
-    the job succeeded and every declared output is on disk and hashed, which
-    is the one invariant a caller outside this process relies on.
-
-    A directory that is already sealed is answered before anything is touched,
-    and the answer depends on what it is sealed under. The same ``job_id`` is
-    the same work: nothing is written, the stored outcome comes back with
-    ``reused`` set, and the caller exits 0. A different one is refused, because
-    running would overwrite a seal, a job id and a set of outputs that somebody
-    else may already have read.
+    The loop is :func:`hydromodpy.schema.job.worker.run_job`. A directory
+    already sealed under the same ``job_id`` is the same work and comes back
+    reused; one sealed under a different id is refused, because running would
+    overwrite a seal, a job id and a set of outputs that somebody else may
+    already have read. Resolving the request first costs one pass over the DEM,
+    which is what the content address is made of, and that is the whole price
+    of the short-circuit: what it skips is the conditioning, the routing and
+    the delineation.
     """
-    if job.is_sealed:
-        # Answered outside the try on purpose. Turning any of it into a failed
-        # outcome would overwrite the outcome of the job that did finish, which
-        # is the very document this branch exists to protect.
-        return _reuse_or_refuse(job)
-    started_at = now()
-    decl = TERRAIN_DELINEATE
-    job_id = UNIDENTIFIED_JOB
-    try:
-        resolved = _resolve(job)
-        job_id = resolved.job_id
-        return _execute(job, resolved, started_at=started_at)
-    except KeyboardInterrupt as exc:
-        # TerminationRequested subclasses KeyboardInterrupt, so SIGTERM and
-        # Ctrl+C unwind through the same branch. Nothing is sealed: a
-        # cancelled directory is readable and explicitly unfinished.
-        outcome = dismissed(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            started_at=started_at,
-            exc=exc,
-        )
-        outcome.write(job)
-        raise
-    except Exception as exc:
-        outcome = JobOutcome(
-            job_id=job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            status="failed",
-            exit_code=exit_code_for(exc),
-            started_at=started_at,
-            finished_at=now(),
-            errors=(error_record(exc),),
-        )
-        outcome.write(job)
-        return outcome
-
-
-def _reuse_or_refuse(job: JobDirectory) -> JobOutcome:
-    """Answer a directory that is already sealed, without writing into it.
-
-    Resolving the request first costs one pass over the DEM, which is what the
-    content address is made of, and that is the whole price of the
-    short-circuit: what it skips is the conditioning, the routing and the
-    delineation. A request that no longer resolves cannot be addressed at all,
-    so it cannot match a seal, and it is refused the way a different job is --
-    as a usage error, because the caller pointed a finished directory at a
-    request that is not the one that finished it.
-    """
-    try:
-        resolved = _resolve(job)
-    except Exception as exc:
-        raise JobUsageError(
-            f"job directory {job.root} is already sealed, and this request does not "
-            f"resolve into a job id to compare against it: {exc}"
-        ) from exc
-    return reuse_sealed_outcome(job, job_id=resolved.job_id)
+    return run_job(
+        job,
+        decl=TERRAIN_DELINEATE,
+        resolve=_resolve,
+        execute=_execute,
+        exit_code_for=exit_code_for,
+    )
 
 
 def _resolve(job: JobDirectory) -> _Resolved:
@@ -235,7 +171,7 @@ def _resolve(job: JobDirectory) -> _Resolved:
     # before the run rather than after the seal.
     requested_outputs(request, decl)
 
-    dem_path = _resolve_dem(job, inputs)
+    dem_path = resolve_input_file(job, inputs.dem.href, member="dem")
     dem_digest, dem_bytes = sha256_file(dem_path)
     refuse_a_file_that_is_not_the_one_asked_for(
         inputs.dem.sha256, digest=dem_digest, href=inputs.dem.href, member="dem"
@@ -260,9 +196,8 @@ def _resolve(job: JobDirectory) -> _Resolved:
     )
 
 
-def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobOutcome:
+def _execute(job: JobDirectory, resolved: _Resolved, started_at: str) -> JobOutcome:
     """Do the work of a resolved request and seal what it produced."""
-    decl = TERRAIN_DELINEATE
     job.ensure_workspace()
     # Before the work and not after it: naming the engine builds one, and a
     # constructor that raises must take down a job that has done nothing, not a
@@ -275,52 +210,22 @@ def _execute(job: JobDirectory, resolved: _Resolved, *, started_at: str) -> JobO
         for catchment in catchments
         if catchment.status != DELINEATED
     )
-
-    inputset = terrain_inputset(
-        dem_digest=resolved.dem_digest,
-        dem_bytes=resolved.dem_bytes,
-        dem_extent=resolved.dem_extent,
-        inputs=resolved.inputs,
-        effective_inputs=resolved.effective_inputs,
-    )
-    write_document(job.inputset_path, inputset.to_document())
-    write_provenance(
+    return seal_successful(
         job,
-        build_provenance(
-            job_id=resolved.job_id,
-            process_id=decl.id,
-            process_version=decl.version,
-            backend=backend,
-        ),
-    )
-
-    records = output_records(job, decl)
-    outcome = JobOutcome(
+        decl=TERRAIN_DELINEATE,
         job_id=resolved.job_id,
-        process_id=decl.id,
-        process_version=decl.version,
-        status="successful",
-        # Not asked of the mapper: a success exits 0 by POSIX, and JobOutcome
-        # refuses any other code beside this status, so the literal cannot drift.
-        exit_code=0,
-        started_at=started_at,
-        finished_at=now(),
-        outputs=records,
+        inputset=terrain_inputset(
+            dem_digest=resolved.dem_digest,
+            dem_bytes=resolved.dem_bytes,
+            dem_extent=resolved.dem_extent,
+            inputs=resolved.inputs,
+            effective_inputs=resolved.effective_inputs,
+        ),
+        backend=backend,
+        outputs=lambda: output_records(job, TERRAIN_DELINEATE),
         warnings=tuple(warnings),
+        started_at=started_at,
     )
-    outcome.write(job)
-    seal_job(job, job_id=resolved.job_id, inputset=inputset, outputs=records)
-    return outcome
-
-
-def _resolve_dem(job: JobDirectory, inputs: TerrainDelineateRequest) -> Path:
-    """Resolve the declared DEM and prove it is there before anything runs."""
-    dem_path = job.resolve_input(inputs.dem.href, loc=("inputs", "dem", "href"))
-    if not dem_path.is_file():
-        raise FileNotFoundError(
-            f"input dem names {inputs.dem.href!r}, and {dem_path} is not a file"
-        )
-    return dem_path
 
 
 def dem_extent_of(inputs: TerrainDelineateRequest, *, path: Path) -> SpatialExtent:
@@ -480,7 +385,8 @@ def _write_outlet_roll_call(
         ),
         crs=crs,
     ).to_crs(GEOJSON_CRS)
-    frame.to_file(job.resolve_output(OUTLETS_SNAPPED_PATH), driver="GeoJSON")
+    # RFC7946 leaves out the crs member that GDAL writes otherwise.
+    frame.to_file(job.resolve_output(OUTLETS_SNAPPED_PATH), driver="GeoJSON", RFC7946="YES")
 
 
 def _or_declared(row: dict[str, Any], axis: str) -> float:
@@ -596,7 +502,6 @@ def _backend_identity(engine_id: str) -> dict[str, Any]:
 
 
 __all__ = [
-    "ExitCodeMapper",
     "dem_extent_of",
     "refuse_an_engine_this_installation_does_not_serve",
     "run",

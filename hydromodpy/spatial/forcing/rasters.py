@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -11,6 +12,7 @@ import pandas as pd
 
 from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.core.nodata import valid_cells
 from hydromodpy.core.time.coverage import enforce_coverage, samples_by_period
 from hydromodpy.spatial.forcing.sources import (
     find_xy_dims,
@@ -34,19 +36,62 @@ _ACCEPTED_FILES = ", ".join((*_NETCDF_SUFFIXES, *_GEOTIFF_SUFFIXES))
 _DATASET = "dataset"
 """How the refusals name a gridded source held in memory."""
 
+_FORCING = "forcing"
+"""How the messages name the variable of a record that does not state one."""
 
-def _field_values(values: object, *, label: str, finite: bool = False) -> np.ndarray:
-    """Return field values as a float array; a nodata pixel is NaN.
 
-    ``finite`` refuses a nodata pixel too, for the spatial mean, which reads
-    every pixel.
-    """
+def _field_values(values: object, *, label: str) -> np.ndarray:
+    """Return field values as a float array; a nodata pixel is NaN."""
     arr = np.asarray(values, dtype=float)
     if arr.size == 0:
         raise ValueError(f"{label} cannot be empty.")
-    if finite and not np.all(np.isfinite(arr)):
-        raise ValueError(f"{label} must contain only finite numeric values.")
     return arr
+
+
+def _earth_crs(crs: object) -> Any:
+    """Return *crs* as a pyproj CRS when it places the data on the Earth, else None.
+
+    A CRS is absent, unreadable or a local frame (``LOCAL_CS``, an engineering
+    CRS) when it is neither projected nor geographic. Such a CRS declares no
+    place, so nothing can be compared with it.
+    """
+    text = str(crs or "").strip()
+    if not text:
+        return None
+    from pyproj import CRS
+    from pyproj.exceptions import CRSError
+
+    try:
+        parsed = CRS.from_user_input(text)
+    except CRSError:
+        return None
+    return parsed if parsed.is_projected or parsed.is_geographic else None
+
+
+def _refuse_another_crs(field_rec: Any, mesh_crs: str | None, *, variable: str) -> None:
+    """Refuse a grid whose CRS is not the CRS of the mesh.
+
+    The forcing never reprojects a grid: it reads the pixels at the cell
+    coordinates as they are. When the grid or the mesh declares no CRS that
+    places it on the Earth, see :func:`_earth_crs`, the two cannot be compared
+    and the grid is read as it is.
+    """
+    grid_crs = getattr(field_rec, "crs", None)
+    grid, mesh = _earth_crs(grid_crs), _earth_crs(mesh_crs)
+    if grid is None or mesh is None:
+        return
+    from hydromodpy.core.io.crs import same_crs
+
+    if same_crs(str(grid_crs), str(mesh_crs)):
+        return
+    data = field_rec.data
+    source = Path(data).name if isinstance(data, (str, Path)) else _DATASET
+    grid_name, mesh_name = grid.to_string(), mesh.to_string()
+    raise DataContractViolation(
+        f"The {variable} grid {source} is in {grid_name} and the mesh in {mesh_name}. A forcing "
+        "grid is never reprojected, so each cell would read the pixels of another place. "
+        f"Reproject the grid to {mesh_name}, or build the mesh in {grid_name}."
+    )
 
 
 def discretize_one_field_record(
@@ -58,15 +103,19 @@ def discretize_one_field_record(
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
+    mesh_crs: str | None = None,
 ) -> dict[int, np.ndarray]:
     """Discretize a single FieldRecord onto the cells.
 
     Handles xarray Datasets, file paths (NetCDF, GeoTIFF), and static fields.
     Any other data is refused with :class:`DataContractViolation`. ``mesh`` is
-    the planar mesh of the cells, read by ``"area"`` only. All returned arrays
+    the planar mesh of the cells, read by ``"area"`` only. ``mesh_crs`` is the
+    CRS of the cells: a record in another CRS is refused. All returned arrays
     are in m/s.
     """
     data = field_rec.data
+    variable = str(getattr(field_rec, "variable", None) or _FORCING)
+    _refuse_another_crs(field_rec, mesh_crs, variable=variable)
     unit = getattr(field_rec, "unit", "mm/day")
     unit_factor = unit_to_m_per_s_factor(unit)
 
@@ -80,6 +129,7 @@ def discretize_one_field_record(
             unit_factor=unit_factor,
             method=method,
             mesh=mesh,
+            variable=variable,
         )
 
     import xarray as xr
@@ -226,8 +276,12 @@ def discretize_from_file(
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
+    variable: str = _FORCING,
 ) -> dict[int, np.ndarray]:
-    """Load and discretize from a NetCDF or GeoTIFF file, or refuse any other file."""
+    """Load and discretize from a NetCDF or GeoTIFF file, or refuse any other file.
+
+    ``variable`` names the variable the file holds in the coverage messages.
+    """
     suffix = path.suffix.lower()
     if suffix in _NETCDF_SUFFIXES:
         import xarray as xr
@@ -258,6 +312,7 @@ def discretize_from_file(
             unit_factor=unit_factor,
             method=method,
             mesh=mesh,
+            variable=variable,
         )
 
     raise DataContractViolation(
@@ -276,20 +331,19 @@ def discretize_geotiff(
     coverage_policy: str = "ignore",
     method: InterpolationMethod = "nearest",
     mesh: HydroMesh | None = None,
+    variable: str = _FORCING,
 ) -> dict[int, np.ndarray]:
     """Read a GeoTIFF (single- or multi-band) and discretize onto the cell centres.
 
     Multi-band GeoTIFFs are treated as temporal: one band per time step. A
     pixel equal to the declared nodata becomes NaN and is refused where a cell
-    reads it, see :func:`refuse_nodata_under_cells`.
+    reads it, see :func:`refuse_nodata_under_cells`. ``variable`` names the
+    variable of the bands in the coverage messages.
     """
     import rasterio
 
     with rasterio.open(path) as src:
-        transform = src.transform
-        src_nrow, src_ncol = src.height, src.width
-        src_x = np.array([transform[2] + (c + 0.5) * transform[0] for c in range(src_ncol)])
-        src_y = np.array([transform[5] + (r + 0.5) * transform[4] for r in range(src_nrow)])
+        src_x, src_y = _pixel_centres(src)
         n_bands = src.count
 
         if n_bands == 1:
@@ -329,8 +383,8 @@ def discretize_geotiff(
             end_b = min(start_b + bands_per_period, len(band_arrays))
             if start_b >= len(band_arrays):
                 message = (
-                    "Recharge coverage check failed: no GeoTIFF forcing band mapped to "
-                    f"stress period {kper}."
+                    f"Coverage check failed for {variable}: no GeoTIFF forcing band mapped "
+                    f"to stress period {kper}."
                 )
                 if coverage_policy == "error":
                     raise ValueError(message)
@@ -343,6 +397,14 @@ def discretize_geotiff(
 
     # No simulation window: one band per kper.
     return {kper: band_arrays[kper].copy() for kper in range(min(nper, len(band_arrays)))}
+
+
+def _pixel_centres(src: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Return the x and y of the pixel centres of an open GeoTIFF, one axis each."""
+    transform = src.transform
+    x = np.array([transform[2] + (c + 0.5) * transform[0] for c in range(src.width)])
+    y = np.array([transform[5] + (r + 0.5) * transform[4] for r in range(src.height)])
+    return x, y
 
 
 def _read_band(src: Any, band: int) -> np.ndarray:
@@ -370,50 +432,101 @@ def spatial_mean_one_field(field_rec: Any) -> pd.Series | None:
     return None
 
 
-def spatial_mean_from_xarray(ds: xr.Dataset) -> pd.Series | None:
-    """Spatial mean of an xarray Dataset returned as pd.Series."""
+def _declared_nodata(attrs: dict[Any, Any]) -> float | None:
+    """Return the numeric ``nodata`` attribute of a grid, or None."""
+    try:
+        return float(attrs["nodata"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _valid_means(
+    stack: np.ndarray,
+    nodata: float | None,
+    *,
+    source: str,
+    x: np.ndarray,
+    y: np.ndarray,
+    slice_label: Callable[[int], str],
+) -> np.ndarray:
+    """Mean of the valid pixels of each slice of ``(n_slices, ...)``, or refuse an empty slice.
+
+    A pixel is valid when it is finite and differs from *nodata*, see
+    :func:`~hydromodpy.core.nodata.valid_cells`. A slice with no valid pixel
+    has no mean and is refused, naming the source, the slice and the footprint
+    of the pixel centres *x* and *y*.
+    """
+    flat = stack.reshape(stack.shape[0], -1)
+    valid = valid_cells(flat, nodata)
+    counts = valid.sum(axis=1)
+    empty = np.flatnonzero(counts == 0)
+    if empty.size:
+        raise DataContractViolation(
+            f"The gridded forcing {source} holds no valid pixel in {slice_label(int(empty[0]))}, "
+            f"on the footprint x {np.min(x):.10g} to {np.max(x):.10g} and y {np.min(y):.10g} "
+            f"to {np.max(y):.10g} (pixel centres): it has no spatial mean."
+        )
+    return np.where(valid, flat, 0.0).sum(axis=1) / counts
+
+
+def spatial_mean_from_xarray(ds: xr.Dataset, *, source: str = _DATASET) -> pd.Series | None:
+    """Spatial mean of the valid pixels of an xarray Dataset, returned as pd.Series.
+
+    A NaN pixel and a pixel equal to the ``nodata`` attribute of the variable
+    are left out. A time step with no valid pixel is refused.
+    """
     var_name = pick_field_variable(ds)
     if var_name is None:
         return None
     da = ds[var_name]
     x_dim, y_dim = find_xy_dims(da)
-    del x_dim, y_dim  # values are not needed; identification validates dims.
-    _field_values(da.values, label="gridded forcing values", finite=True)
+    values = _field_values(da.values, label="gridded forcing values")
+    extent = {"x": da.coords[x_dim].values, "y": da.coords[y_dim].values}
+    nodata = _declared_nodata(da.attrs)
 
-    has_time = "time" in da.dims
-    if not has_time:
-        mean_val = float(da.values.mean())
-        return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
+    if "time" not in da.dims:
+        mean = _valid_means(
+            values[None, ...],
+            nodata,
+            source=source,
+            slice_label=lambda _: "the static field",
+            **extent,
+        )
+        return pd.Series([float(mean[0])], index=pd.DatetimeIndex(["2000-01-01"]))
 
     # Average over spatial dimensions, keep time.
-    spatial_dims = [d for d in da.dims if d != "time"]
-    mean_ts = da.mean(dim=spatial_dims).values
     time_index = pd.DatetimeIndex(da.coords["time"].values)
-    return pd.Series(mean_ts.astype(float), index=time_index)
+    means = _valid_means(
+        np.moveaxis(values, da.dims.index("time"), 0),
+        nodata,
+        source=source,
+        slice_label=lambda k: f"time step {k} ({time_index[k]:%Y-%m-%d})",
+        **extent,
+    )
+    return pd.Series(means.astype(float), index=time_index)
 
 
 def spatial_mean_from_file(path: Path) -> pd.Series | None:
-    """Spatial mean from a file (NetCDF or GeoTIFF)."""
+    """Spatial mean of the valid pixels of a file (NetCDF or GeoTIFF, first band)."""
     suffix = path.suffix.lower()
-    if suffix in (".nc", ".nc4", ".netcdf"):
+    if suffix in _NETCDF_SUFFIXES:
         import xarray as xr
 
         ds = xr.open_dataset(path)
         try:
-            return spatial_mean_from_xarray(ds)
+            return spatial_mean_from_xarray(ds, source=path.name)
         finally:
             ds.close()
 
-    if suffix in (".tif", ".tiff"):
+    if suffix in _GEOTIFF_SUFFIXES:
         import rasterio
 
         with rasterio.open(path) as src:
-            band = _field_values(
-                src.read(1),
-                label="GeoTIFF forcing values",
-                finite=True,
-            )
-            mean_val = float(np.mean(band))
-            return pd.Series([mean_val], index=pd.DatetimeIndex(["2000-01-01"]))
+            band = _field_values(_read_band(src, 1), label="GeoTIFF forcing values")
+            x, y = _pixel_centres(src)
+        mean = _valid_means(
+            band[None, ...], None, source=path.name, x=x, y=y, slice_label=lambda _: "band 1"
+        )
+        return pd.Series([float(mean[0])], index=pd.DatetimeIndex(["2000-01-01"]))
 
     return None

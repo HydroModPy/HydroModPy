@@ -46,7 +46,7 @@ from hydromodpy.spatial.geographic.core.derived_features import DomainGeographic
 from hydromodpy.spatial.geographic.structure_binders import (
     build_catchment_zone_field_from_geographic,
 )
-from hydromodpy.spatial.geographic.synthetic import build_synthetic_geographic
+from hydromodpy.spatial.geographic.synthetic.catchment import build_synthetic_geographic
 
 
 def _is_non_interactive_backend(backend_name: str) -> bool:

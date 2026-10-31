@@ -37,7 +37,6 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 from rasterio.features import shapes as raster_shapes
-from shapely.geometry import Point as shapely_point
 from shapely.geometry import shape as shapely_shape
 
 from hydromodpy.core.exceptions import (
@@ -55,6 +54,7 @@ from hydromodpy.spatial.terrain.artifacts import (
     boundary_area_m2,
     mask_cell_count,
     raster_max_near,
+    write_outlet_point,
 )
 from hydromodpy.spatial.terrain.port import (
     D8_WBT_OFFSETS,
@@ -287,8 +287,19 @@ class NumpyTerrainEngine:
             site_dir.mkdir(parents=True, exist_ok=True)
             mask_path = site_dir / layout.mask_name
             boundary_path = site_dir / layout.boundary_name
-            _write_point(site_dir / OUTLET_LAYER_NAME, outlet.x, outlet.y, pointer.crs)
-            _write_point(site_dir / SNAPPED_OUTLET_LAYER_NAME, snapped_x, snapped_y, pointer.crs)
+            # The geographic pipeline publishes both points beside the catchment
+            # and reads them back from disk, so an engine that writes neither
+            # is unusable through that caller.
+            write_outlet_point(
+                site_dir / OUTLET_LAYER_NAME, outlet.outlet_id, outlet.x, outlet.y, pointer.crs
+            )
+            write_outlet_point(
+                site_dir / SNAPPED_OUTLET_LAYER_NAME,
+                outlet.outlet_id,
+                snapped_x,
+                snapped_y,
+                pointer.crs,
+            )
             pointer.write(
                 mask_path,
                 np.where(inside, MASK_INSIDE, MASK_NODATA),
@@ -561,22 +572,6 @@ def _snap_to_stream(
     if best is None:
         raise TerrainProductError(stream_window_refusal(outlet, snap_distance_m, snap))
     return best[1], best[2]
-
-
-def _write_point(path: Path, x: float, y: float, crs: object) -> None:
-    """Write one point layer, the way the port says every engine does.
-
-    The two of them are not decoration: the geographic pipeline publishes the
-    declared outlet and the snapped one beside the catchment, and reads them
-    back from disk. An engine that delineates correctly and writes neither is
-    unusable through that caller, which is how ``numpy_d8`` stayed unusable
-    until a registry made it selectable.
-    """
-    frame = gpd.GeoDataFrame({"value": [1]}, geometry=[shapely_point(x, y)])
-    if crs:
-        frame = frame.set_crs(crs)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_file(str(path))
 
 
 def _write_boundary(path: Path, inside: np.ndarray, grid: _Grid) -> None:

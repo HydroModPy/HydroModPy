@@ -19,8 +19,8 @@ from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.spatial.site_selection.config.criteria_config import CriteriaConfig
 from hydromodpy.spatial.site_selection.config.dem_config import (
     DemAreaLightConfig,
-    DemConfig,
     HydrologyConfig,
+    SiteSelectionDemConfig,
 )
 from hydromodpy.spatial.site_selection.config.outlets_config import (
     OutletsConfig,
@@ -127,7 +127,10 @@ class OutputConfig(HydroModelBase):
     )
     write_geojson: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="Write the outlets and basins of the selected and rejected sites as GeoJSON.",
+        description=(
+            "Write the outlets and basins of the selected and rejected sites as GeoJSON, "
+            "in WGS 84 longitude and latitude (RFC 7946)."
+        ),
     )
     write_geoparquet: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -234,7 +237,9 @@ class SiteSelectionConfig(HydroModelBase):
         ...,
         description="Territory where candidate basins are searched.",
     )
-    dem: Annotated[DemConfig, Profile.USER] = Field(default_factory=DemConfig)
+    dem: Annotated[SiteSelectionDemConfig, Profile.USER] = Field(
+        default_factory=SiteSelectionDemConfig
+    )
     hydrology: Annotated[HydrologyConfig, Profile.USER] = Field(default_factory=HydrologyConfig)
     dem_area_light: Annotated[DemAreaLightConfig | None, Profile.USER] = Field(
         default=None,

@@ -2,8 +2,9 @@
 
 The GeoJSON files and the GeoPackage and GeoParquet layers carry the same
 outlet, basin and observation properties, built here once. One difference is
-kept on purpose: a snapped coordinate or distance that does not exist is
-``""`` in GeoJSON and ``None`` in the GeoPackage and GeoParquet layers.
+kept on purpose: a snapped coordinate, a snap distance or an area that does
+not exist is ``""`` in GeoJSON, as in the CSV, and ``None`` (null) in the
+GeoPackage and GeoParquet layers, whose columns hold one type.
 """
 
 from __future__ import annotations
@@ -33,6 +34,14 @@ REFERENCE_NETWORK_KEYS = (
 )
 """Outlet attributes that the snap to a reference network writes, exported when set."""
 
+_NUMBERS_EMPTY_IN_CSV = (
+    "area_km2",
+    "x_outlet_snapped",
+    "y_outlet_snapped",
+    "outlet_snap_distance_m",
+)
+"""Site record numbers that the CSV writes as ``""`` when they do not exist."""
+
 
 def outlet_properties(
     catchment: DelineatedCatchment,
@@ -44,14 +53,18 @@ def outlet_properties(
 ) -> dict[str, Any]:
     """Return the properties of the outlet point of *catchment*.
 
-    *missing* is the value written for a snapped coordinate or distance that
-    does not exist.
+    *missing* is the value written for a snapped coordinate, a snap distance
+    or an area that does not exist.
     """
     snapped = snapped_outlet_xy(catchment)
     snap_distance = outlet_snap_distance_m(catchment)
     properties = {
         **_site_properties(
-            catchment, selection_id=selection_id, region_id=region_id, site_status=site_status
+            catchment,
+            selection_id=selection_id,
+            region_id=region_id,
+            site_status=site_status,
+            missing=missing,
         ),
         "outlet_geometry_source": "snapped" if snapped is not None else "original",
         "outlet_original_x": catchment.outlet.x,
@@ -79,11 +92,20 @@ def basin_properties(
     selection_id: str,
     region_id: str,
     site_status: str,
+    missing: str | None,
 ) -> dict[str, Any]:
-    """Return the properties of each part of the basin contour of *catchment*."""
+    """Return the properties of each part of the basin contour of *catchment*.
+
+    *missing* is the value written for a number of the site record that does
+    not exist, as in :func:`outlet_properties`.
+    """
     return {
         **_site_properties(
-            catchment, selection_id=selection_id, region_id=region_id, site_status=site_status
+            catchment,
+            selection_id=selection_id,
+            region_id=region_id,
+            site_status=site_status,
+            missing=missing,
         ),
         "catchment_status": catchment.status,
         "failure_reason": catchment.failure_reason,
@@ -166,14 +188,19 @@ def _site_properties(
     selection_id: str,
     region_id: str,
     site_status: str,
+    missing: str | None,
 ) -> dict[str, Any]:
+    record = site_record_from_catchment(
+        catchment,
+        selection_id=selection_id,
+        region_id=region_id,
+        site_status=site_status,
+    )
+    for key in _NUMBERS_EMPTY_IN_CSV:
+        if record[key] == "":
+            record[key] = missing
     return {
-        **site_record_from_catchment(
-            catchment,
-            selection_id=selection_id,
-            region_id=region_id,
-            site_status=site_status,
-        ),
+        **record,
         "candidate_id": catchment.outlet.candidate_id,
         "source": catchment.outlet.source,
         "source_feature_id": catchment.outlet.source_feature_id,

@@ -6,10 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.spatial.delineation.registry import (
-    backend_has_callables,
-    resolve_delineation_backend,
-)
 
 logger = get_logger(__name__)
 
@@ -40,17 +36,8 @@ def cleanup_stable_folder(geographic: Any, *, keep: bool = False) -> int:
     that skips the setup steps - a calibration session reuses it across its
     whole trial loop - so only the code that owns the END of a session may drop
     it. ``keep`` honours ``[geographic] write_intermediates``.
-
-    The in-memory raster cache is released either way, and releasing it loses
-    nothing: the backend writes a raster to disk and caches it afterwards
-    (``whitebox_workflows_backend/raster.py:_write_raster``), so every entry of
-    that cache already has its file. ``keep`` therefore keeps the rasters.
     """
     import shutil
-
-    backend = resolve_delineation_backend()
-    if backend_has_callables(backend, "raster", "clear_raster_cache"):
-        backend.raster.clear_raster_cache()
 
     stable = getattr(geographic, "stable_folder", None)
     if keep or stable is None:

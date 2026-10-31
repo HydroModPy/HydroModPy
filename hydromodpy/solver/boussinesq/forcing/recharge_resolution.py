@@ -74,6 +74,7 @@ class RechargeResolutionMixin:
                 simulation_window=simulation_window,
                 method=str(interpolation_method),
                 mesh=planar_mesh,
+                mesh_crs=self.mesh.cell_mesh.crs_wkt,
             )
         elif getattr(heterogeneous_source, "has_points", False):
             raw_arrays = discretize_points_on_cells(

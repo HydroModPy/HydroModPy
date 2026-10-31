@@ -76,6 +76,13 @@ def test_a_complete_matching_tree_is_a_hit_and_one_that_differs_or_cannot_be_des
     assert load_cached(config, paths) is None
 
 
+def test_a_tree_whose_polygon_lost_its_prj_is_a_miss_that_rebuilds(tmp_path: Path) -> None:
+    config, paths = cached_tree(tmp_path)
+    assert load_cached(config, paths) is not None
+    Path(paths.watershed_shp).with_suffix(".prj").unlink()
+    assert load_cached(config, paths) is None
+
+
 @pytest.mark.parametrize(
     ("notch", "ground_written", "hit"),
     [(True, True, True), (True, False, False), (False, False, True)],

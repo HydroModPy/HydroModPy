@@ -156,24 +156,6 @@ def test_whitebox_workflows_backend_rejects_empty_vector_write(tmp_path: Path):
         raster.write_vector(SimpleNamespace(records=[]), str(tmp_path / "empty.shp"))
 
 
-def test_a_cached_raster_is_served_from_memory_until_the_cache_is_cleared(slope, tmp_path: Path):
-    backend = WhiteboxWorkflowsBackend()
-    raster = backend.raster.read_raster(str(slope.dem))
-    cached = str(tmp_path / "cached.tif")
-
-    assert backend.raster.get_cached_raster_numpy(cached) is None
-    backend.raster.set_cache_rasters(True)
-    backend.raster.write_raster(raster, cached)
-
-    assert backend.raster.read_raster(cached) is raster
-    np.testing.assert_array_equal(backend.raster.get_cached_raster_numpy(cached), SLOPE)
-    metadata = backend.raster.get_cached_raster_metadata(cached)
-    assert metadata["shape"] == SLOPE.shape
-    assert metadata["transform"] == pytest.approx((1.0, 0.0, 0.0, 0.0, -1.0, 4.0))
-    backend.raster.clear_raster_cache()
-    assert backend.raster.get_cached_raster_metadata(cached) is None
-
-
 def test_a_raster_is_written_compressed_only_when_asked(slope, tmp_path: Path):
     backend = WhiteboxWorkflowsBackend()
     raster = backend.raster.read_raster(str(slope.dem))

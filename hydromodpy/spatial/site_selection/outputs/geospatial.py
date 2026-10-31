@@ -192,6 +192,7 @@ def _basins_gdf(
                 selection_id=selection_id,
                 region_id=region_id,
                 site_status=site_status,
+                missing=None,
             )
         )
         export_frame = gpd.GeoDataFrame(

@@ -1,4 +1,8 @@
-"""The files that describe the generated candidates and the network they came from."""
+"""The files that describe the generated candidates and the network they came from.
+
+Both GeoJSON files hold WGS 84 lon/lat (RFC 7946), as every GeoJSON of a
+selection does.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from shapely.geometry import Point
 
-from hydromodpy.core.io.crs import geojson_crs_member
 from hydromodpy.spatial.site_selection.candidates.generation import (
     AccumulationRaster,
     CandidateGenerationEvidence,
@@ -21,7 +25,12 @@ from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
 from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
 from hydromodpy.spatial.site_selection.domain.export_values import clean_properties, single_or_mixed
 from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
-from hydromodpy.spatial.site_selection.outputs.geojson import write_geojson
+from hydromodpy.spatial.site_selection.outputs.geojson import (
+    feature_collection,
+    lon_lat_geometry,
+    lon_lat_transformer,
+    write_geojson,
+)
 
 __all__ = [
     "write_candidate_generation_jsonl",
@@ -69,26 +78,25 @@ def write_generated_network_geojson(
         threshold=threshold,
         max_cells=max_cells,
     )
-    features = _network_line_features(cells, raster)
-    isolated = _isolated_network_point_features(cells, raster, start_index=len(features) + 1)
+    lon_lat = _cell_lon_lat(cells, raster, path=path)
+    features = _network_line_features(cells, lon_lat)
+    isolated = _isolated_network_point_features(cells, lon_lat, start_index=len(features) + 1)
     features.extend(isolated)
-    collection = {
-        "type": "FeatureCollection",
-        "name": Path(path).stem,
-        "hydromodpy_geometry_role": "generated_dem_network",
-        "hydromodpy_coordinate_crs": raster.crs,
-        **geojson_crs_member(raster.crs),
-        "hydromodpy_network_threshold_area_km2": hydrology.network_threshold_area_km2,
-        "hydromodpy_threshold_value_used": threshold,
-        "hydromodpy_source_accumulation": str(flow_products.products.acc),
-        "hydromodpy_network_cell_count": len(cells),
-        "hydromodpy_network_source_cell_count": source_cell_count,
-        "hydromodpy_network_cell_export_cap": max_cells,
-        "hydromodpy_network_export_truncated": (
+    collection = feature_collection(
+        path,
+        project_crs=raster.crs,
+        features=features,
+        hydromodpy_geometry_role="generated_dem_network",
+        hydromodpy_network_threshold_area_km2=hydrology.network_threshold_area_km2,
+        hydromodpy_threshold_value_used=threshold,
+        hydromodpy_source_accumulation=str(flow_products.products.acc),
+        hydromodpy_network_cell_count=len(cells),
+        hydromodpy_network_source_cell_count=source_cell_count,
+        hydromodpy_network_cell_export_cap=max_cells,
+        hydromodpy_network_export_truncated=(
             False if max_cells is None else source_cell_count > int(max_cells)
         ),
-        "features": features,
-    }
+    )
     return write_geojson(path, collection)
 
 
@@ -99,15 +107,16 @@ def write_candidate_outlets_geojson(
     """Write generated candidate outlets as a lightweight GeoJSON."""
 
     materialized = list(candidates)
-    crs_values = {candidate.crs for candidate in materialized if candidate.crs}
     features = [
         {
             "type": "Feature",
             "id": candidate.candidate_id,
-            "geometry": {
-                "type": "Point",
-                "coordinates": [float(candidate.x), float(candidate.y)],
-            },
+            "geometry": lon_lat_geometry(
+                Point(float(candidate.x), float(candidate.y)),
+                candidate.crs,
+                path=path,
+                feature_id=candidate.candidate_id,
+            ),
             "properties": {
                 "candidate_id": candidate.candidate_id,
                 "source": candidate.source,
@@ -119,14 +128,12 @@ def write_candidate_outlets_geojson(
         }
         for candidate in materialized
     ]
-    collection = {
-        "type": "FeatureCollection",
-        "name": Path(path).stem,
-        "hydromodpy_geometry_role": "candidate_outlets",
-        "hydromodpy_coordinate_crs": single_or_mixed(crs_values),
-        **geojson_crs_member(single_or_mixed(crs_values)),
-        "features": features,
-    }
+    collection = feature_collection(
+        path,
+        project_crs=single_or_mixed(candidate.crs for candidate in materialized),
+        features=features,
+        hydromodpy_geometry_role="candidate_outlets",
+    )
     return write_geojson(path, collection)
 
 
@@ -154,9 +161,20 @@ def _network_cells_for_export(
     return {(row, col): value for value, row, col in scored}, source_cell_count
 
 
+def _cell_lon_lat(
+    cells: dict[tuple[int, int], float], raster: AccumulationRaster, *, path: str | Path
+) -> dict[tuple[int, int], list[float]]:
+    """Return the WGS 84 lon/lat of the centre of each network cell, in one transform."""
+    transformer = lon_lat_transformer(raster.crs, path=path, feature_id="generated_network")
+    keys = sorted(cells)
+    points = np.array([raster.xy(row, col) for row, col in keys], dtype=float).reshape(-1, 2)
+    lon, lat = transformer.transform(points[:, 0], points[:, 1])
+    return {key: [float(x), float(y)] for key, x, y in zip(keys, lon, lat, strict=True)}
+
+
 def _network_line_features(
     cells: dict[tuple[int, int], float],
-    raster: AccumulationRaster,
+    lon_lat: dict[tuple[int, int], list[float]],
 ) -> list[dict[str, Any]]:
     features: list[dict[str, Any]] = []
     cell_keys = set(cells)
@@ -170,8 +188,6 @@ def _network_line_features(
             neighbor = (neighbor_row, neighbor_col)
             if neighbor not in cell_keys:
                 continue
-            x0, y0 = raster.xy(row, col)
-            x1, y1 = raster.xy(neighbor_row, neighbor_col)
             start_value = float(cells[(row, col)])
             end_value = float(cells[neighbor])
             features.append(
@@ -180,7 +196,7 @@ def _network_line_features(
                     "id": f"generated_network_{len(features) + 1:07d}",
                     "geometry": {
                         "type": "LineString",
-                        "coordinates": [[x0, y0], [x1, y1]],
+                        "coordinates": [lon_lat[(row, col)], lon_lat[neighbor]],
                     },
                     "properties": {
                         "feature_kind": "network_segment",
@@ -198,7 +214,7 @@ def _network_line_features(
 
 def _isolated_network_point_features(
     cells: dict[tuple[int, int], float],
-    raster: AccumulationRaster,
+    lon_lat: dict[tuple[int, int], list[float]],
     *,
     start_index: int,
 ) -> list[dict[str, Any]]:
@@ -215,12 +231,11 @@ def _isolated_network_point_features(
                     connected.add(neighbor)
     features: list[dict[str, Any]] = []
     for row, col in sorted(cell_keys - connected):
-        x, y = raster.xy(row, col)
         features.append(
             {
                 "type": "Feature",
                 "id": f"generated_network_{start_index + len(features):07d}",
-                "geometry": {"type": "Point", "coordinates": [x, y]},
+                "geometry": {"type": "Point", "coordinates": lon_lat[(row, col)]},
                 "properties": {
                     "feature_kind": "isolated_network_cell",
                     "raster_row": row,

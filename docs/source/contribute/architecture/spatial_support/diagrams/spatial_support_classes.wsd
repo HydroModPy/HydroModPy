@@ -41,7 +41,6 @@ package "hydromodpy.spatial.domain.spatial_support" {
   interface SpatialSupportProvider {
     +provider_name
     +build_phase
-    +required_data_types(config)
     +build(support_id, config, context)
   }
 

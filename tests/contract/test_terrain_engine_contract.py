@@ -505,6 +505,33 @@ def test_a_delineation_leaves_the_four_artefacts_the_port_declares(valley_catchm
     assert point.y == pytest.approx(valley_catchment.snapped_y, abs=1e-6)
 
 
+def test_both_point_layers_carry_the_outlet_and_the_coordinates_of_their_own_point(
+    engine, valley_chain, tmp_path
+) -> None:
+    """Every engine writes the same columns, and x and y name the point the layer holds.
+
+    The outlet sits off the talweg, so the snap moves it and the two layers hold
+    two different points.
+    """
+    geopandas = pytest.importorskip("geopandas")
+    (catchment,) = engine.delineate(
+        _accumulation(valley_chain), [_OFF_TALWEG], out_dir=tmp_path, snap_distance_m=RES * 4
+    )
+    assert catchment.snap_distance_m > 0.0
+    expected = {
+        OUTLET_LAYER_NAME: (_OFF_TALWEG.x, _OFF_TALWEG.y),
+        SNAPPED_OUTLET_LAYER_NAME: (catchment.snapped_x, catchment.snapped_y),
+    }
+    for name, point in expected.items():
+        frame = geopandas.read_file(str(catchment.mask_path.parent / name))
+        columns = [column for column in frame.columns if column != "geometry"]
+        assert columns == ["outlet_id", "x", "y"], name
+        row = frame.iloc[0]
+        assert row["outlet_id"] == _OFF_TALWEG.outlet_id, name
+        assert (row["x"], row["y"]) == pytest.approx(point, abs=1e-6), name
+        assert (row.geometry.x, row.geometry.y) == pytest.approx(point, abs=1e-6), name
+
+
 _FLAT = CatchmentLayout.flat(mask_name="w.tif", boundary_name="w.shp")
 
 

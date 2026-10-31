@@ -13,12 +13,12 @@ from hydromodpy.core.config_kit.profile import Profile
 
 __all__ = [
     "DemAreaLightConfig",
-    "DemConfig",
+    "SiteSelectionDemConfig",
     "HydrologyConfig",
 ]
 
 
-class DemConfig(HydroModelBase):
+class SiteSelectionDemConfig(HydroModelBase):
     """DEM source requested by site selection."""
 
     model_refused_keys: ClassVar[Mapping[str, str]] = {

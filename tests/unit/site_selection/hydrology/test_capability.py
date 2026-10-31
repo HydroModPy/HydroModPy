@@ -47,7 +47,7 @@ DECLARED = [
     (errors.JobUsageError("bad invocation"), codes.EXIT_USAGE),
     (errors.CapabilityVersionMismatchError("major moved"), codes.EXIT_SCHEMA_MISMATCH),
     (errors.ConfigValidationError("refused"), codes.EXIT_CONFIG),
-    (FileNotFoundError("no dem"), codes.EXIT_NOT_FOUND),
+    (errors.JobInputNotFoundError("no dem"), codes.EXIT_NOT_FOUND),
     (errors.DataContractViolation("digest"), codes.EXIT_VALIDATION),
     (errors.TerrainCapabilityError("no breach"), codes.EXIT_SOLVER_ERROR),
     (errors.TerrainProductError("engine"), codes.EXIT_SOLVER_ERROR),
