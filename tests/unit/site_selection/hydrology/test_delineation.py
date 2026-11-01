@@ -9,18 +9,18 @@ import pytest
 from shapely.geometry import LineString, MultiPoint, Point
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
-from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.domain.delineated_catchment import (
+from hydromodpy.site_selection.config.dem_config import HydrologyConfig
+from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.site_selection.domain.delineated_catchment import (
     DelineatedCatchment,
     outlet_display_xy,
     outlet_snap_distance_m,
 )
-from hydromodpy.spatial.site_selection.hydrology.delineation import (
+from hydromodpy.site_selection.hydrology.delineation import (
     delineate_candidate_outlet,
     try_delineate_candidate_outlet,
 )
-from hydromodpy.spatial.site_selection.hydrology.flow_products import (
+from hydromodpy.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
 from tests._helpers.site_selection_cases import (

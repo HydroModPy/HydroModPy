@@ -1,11 +1,11 @@
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.site_selection.config.criteria_config import (
+from hydromodpy.site_selection.config.criteria_config import (
     GeologyCriteriaConfig,
     GeologyLayerConfig,
 )
-from hydromodpy.spatial.site_selection.evidence.geology_layers import (
+from hydromodpy.site_selection.evidence.geology_layers import (
     annotate_catchments_with_geology_layers,
 )
 from tests._helpers.site_selection_cases import (

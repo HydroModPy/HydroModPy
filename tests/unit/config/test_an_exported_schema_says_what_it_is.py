@@ -47,7 +47,7 @@ def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> Non
 def test_the_two_dem_tables_have_their_own_name_and_identity() -> None:
     """The DEM table of ``[site_selection]`` is not the ``DemConfig`` of ``[data]``."""
     from hydromodpy.data.variables.dem.config import DemConfig
-    from hydromodpy.spatial.site_selection.config.dem_config import SiteSelectionDemConfig
+    from hydromodpy.site_selection.config.dem_config import SiteSelectionDemConfig
 
     assert DemConfig.__name__ != SiteSelectionDemConfig.__name__
     assert export_schema(SiteSelectionDemConfig)["title"] == "SiteSelectionDemConfig"

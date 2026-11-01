@@ -1,11 +1,11 @@
 import pytest
 from shapely.geometry import Point
 
-from hydromodpy.spatial.site_selection.config.criteria_config import (
+from hydromodpy.site_selection.config.criteria_config import (
     InfluenceCriteriaConfig,
     InfluenceLayerConfig,
 )
-from hydromodpy.spatial.site_selection.evidence.influence import (
+from hydromodpy.site_selection.evidence.influence import (
     annotate_catchments_with_influence_layers,
 )
 from tests._helpers.site_selection_cases import (

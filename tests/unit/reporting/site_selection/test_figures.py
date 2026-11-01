@@ -18,12 +18,12 @@ from hydromodpy.reporting.site_selection.figures import (
     render_site_selection_map,
 )
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
-from hydromodpy.spatial.site_selection.outputs.geojson import write_observation_points_geojson
-from hydromodpy.spatial.site_selection.outputs.manifest import write_manifest_and_optional_report
-from hydromodpy.spatial.site_selection.outputs.writer import write_selection_result
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.site_selection.evaluation.selection import SelectionDecision
+from hydromodpy.site_selection.outputs.geojson import write_observation_points_geojson
+from hydromodpy.site_selection.outputs.manifest import write_manifest_and_optional_report
+from hydromodpy.site_selection.outputs.writer import write_selection_result
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
     L93,

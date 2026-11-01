@@ -100,6 +100,7 @@ geographic/
 │   ├── catchment_domain.py         buffered and box polygons, catchment area
 │   ├── domain_dem.py               the DEM clipped to the buffered box
 │   ├── catchment_zones.py          zone rasters: catchment core, buffer ring, outside
+│   ├── catchment_zones_field.py    CatchmentZonesField, the zone codes and labels kept in Domain.zones
 │   ├── river_network.py            stream extraction and its products
 │   ├── river_network_vector.py     the stream vector read back, and its summary
 │   ├── river_mesh_trace.py         the river lines the mesh follows
@@ -179,9 +180,8 @@ The package imports from other HydroModPy layers only `core`, `schema` and `spat
   the exceptions and the path conventions.
 - `hydromodpy.schema` is read by `regional_flow_job.py` alone, for the sealed job documents.
 - Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
-  `delineation` (the backend registry), `surface`, `raster_support` and
-  `catchment_zones_field`. It reads `domain` and `field` only under `TYPE_CHECKING`, in
-  `structure_binders.py`.
+  `delineation` (the backend registry), `surface` and `raster_support`. It reads `domain` and
+  `field` only under `TYPE_CHECKING`, in `structure_binders.py`.
 - `cases/reference_catchment_delineation_case/run_case.py` imports `hydromodpy.config` and
   `hydromodpy.core.workspace`. The file is listed in `exempt_files` of `tests/unit/architecture/layer_matrix.yaml`,
   because a case runner loads a full config like an example does.
@@ -238,7 +238,7 @@ Some checks sit outside the unit folder:
   that the spatial packages share.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the branch coverage of
-`hydromodpy/spatial/geographic/*` drops below 96.2, and that floor only goes up.
+`hydromodpy/spatial/geographic/*` drops below 96.4, and that floor only goes up.
 
 ```bash
 pytest tests/unit/geographic -q

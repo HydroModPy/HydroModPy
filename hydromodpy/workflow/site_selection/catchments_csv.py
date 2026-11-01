@@ -6,11 +6,11 @@ import csv
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
-from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
-from hydromodpy.spatial.site_selection.hydrology.flow_products import FlowProductsBuilder
-from hydromodpy.spatial.site_selection.pipelines.build import select_catchments_and_write_outputs
+from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.site_selection.domain.delineated_catchment import DelineatedCatchment
+from hydromodpy.site_selection.evaluation.selection import SelectionResult
+from hydromodpy.site_selection.hydrology.flow_products import FlowProductsBuilder
+from hydromodpy.site_selection.pipelines.build import select_catchments_and_write_outputs
 from hydromodpy.workflow.site_selection.config_paths import (
     resolve_csv_path,
     with_default_data_root,

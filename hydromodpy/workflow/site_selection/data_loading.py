@@ -13,7 +13,7 @@ from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.dem.config import DemConfig
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.spatial.site_selection.config.site_selection_config import (
+from hydromodpy.site_selection.config.site_selection_config import (
     SiteSelectionConfig,
     SiteSelectionFile,
 )

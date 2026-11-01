@@ -13,7 +13,7 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.reporting.site_selection.html import render_site_selection_html_report
 from hydromodpy.reporting.site_selection.plan import render_site_selection_plan_html_report
 from hydromodpy.schema.site_selection_manifest import SITE_SELECTION_MANIFEST_NAME
-from hydromodpy.spatial.site_selection.config.site_selection_config import OutputConfig
+from hydromodpy.site_selection.config.site_selection_config import OutputConfig
 from hydromodpy.workflow.site_selection.catchments_csv import select_delineated_catchments_from_csv
 from hydromodpy.workflow.site_selection.selection_plan import plan_site_selection
 from hydromodpy.workflow.site_selection.selection_run import run_site_selection

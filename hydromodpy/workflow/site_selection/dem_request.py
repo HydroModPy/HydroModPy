@@ -18,32 +18,32 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
-from hydromodpy.spatial.geographic.core.catchment_from_point import (
-    extract_catchment_from_point,
-)
-from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.site_selection.candidates.outlets import (
+from hydromodpy.site_selection.candidates.outlets import (
     candidate_outlets_from_point_records,
 )
-from hydromodpy.spatial.site_selection.candidates.pipeline import (
+from hydromodpy.site_selection.candidates.pipeline import (
     LAMBERT_93,
     default_project_crs,
     require_lambert93_extent,
     territory_geometry,
 )
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
-from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
-from hydromodpy.spatial.site_selection.hydrology.delineation import try_delineate_candidate_outlet
-from hydromodpy.spatial.site_selection.hydrology.flow_products import (
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.config.strategy_config import TerritoryConfig
+from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.site_selection.domain.delineated_catchment import DelineatedCatchment
+from hydromodpy.site_selection.hydrology.delineation import try_delineate_candidate_outlet
+from hydromodpy.site_selection.hydrology.flow_products import (
     FlowProductsBuilder,
     build_site_selection_flow_products,
 )
-from hydromodpy.spatial.site_selection.hydrology.reference_network import (
+from hydromodpy.site_selection.hydrology.reference_network import (
     ReferenceNetworkBundle,
     load_reference_network_for_outlets,
 )
+from hydromodpy.spatial.geographic.core.catchment_from_point import (
+    extract_catchment_from_point,
+)
+from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
 from hydromodpy.workflow.site_selection.config_paths import data_access_error
 from hydromodpy.workflow.site_selection.data_loading import DemLoader, load_dem_path
 

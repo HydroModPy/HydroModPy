@@ -2,7 +2,7 @@
 
 The configuration, the runtime object and both solvers carry the engine a project names,
 and this gate, derived from the source, checks that nothing on the way down drops it.
-``spatial/site_selection/`` reaches the two builders through a ``builder=`` parameter, and
+``site_selection/`` reaches the two builders through a ``builder=`` parameter, and
 ``[site_selection]`` has no field that names an engine (F10f).
 """
 

@@ -150,10 +150,6 @@ hydromodpy/data/cases/*/outputs/**
 hydromodpy/data/variables/*/outputs/**
 hydromodpy/spatial/**/cases/outputs/**
 hydromodpy/spatial/**/outputs/**
-!hydromodpy/spatial/site_selection/outputs/
-!hydromodpy/spatial/site_selection/outputs/**
-hydromodpy/spatial/site_selection/outputs/__pycache__/
-hydromodpy/spatial/site_selection/outputs/**/*.pyc
 hydromodpy/solver/**/cases/outputs/**
 **/.ipynb_checkpoints/
 examples/*.duckdb
@@ -278,10 +274,6 @@ hmp_wbw_*/
 # Reports & profiling
 # ──────────────────────────────────────────────
 reports*/
-!hydromodpy/spatial/site_selection/reports/
-!hydromodpy/spatial/site_selection/reports/**
-hydromodpy/spatial/site_selection/reports/__pycache__/
-hydromodpy/spatial/site_selection/reports/**/*.pyc
 timing_reports/
 _profile_launcher_*/
 _profiling_out/

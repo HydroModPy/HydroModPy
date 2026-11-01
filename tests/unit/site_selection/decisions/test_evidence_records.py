@@ -3,13 +3,13 @@ import json
 import pytest
 from shapely.geometry import Point, box
 
-from hydromodpy.spatial.site_selection.decisions.evidence_records import (
+from hydromodpy.site_selection.decisions.evidence_records import (
     evidence_records_from_site_selection_evidence,
 )
-from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
-from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
-from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.outputs.decision_files import write_evidence_records_jsonl
+from hydromodpy.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.site_selection.evidence.geology_layers import GeologyEvidence
+from hydromodpy.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.site_selection.outputs.decision_files import write_evidence_records_jsonl
 
 pytestmark = pytest.mark.fast
 

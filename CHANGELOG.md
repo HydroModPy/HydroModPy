@@ -1382,6 +1382,14 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The site selection is a layer of its own: `hydromodpy.spatial.site_selection` is now
+  `hydromodpy.site_selection`, with the same sub-packages and names (2026-11-01). It picks the
+  catchments a study can use and reads `spatial`, which never reads it. The `terrain-delineate`
+  capability keeps its identifier, version and outputs, at `hydromodpy.site_selection.hydrology`.
+- `CatchmentZonesField`, the catchment zonation kept in `Domain.zones`, is imported from
+  `hydromodpy.spatial.geographic.core.catchment_zones_field` instead of
+  `hydromodpy.spatial.catchment_zones_field` (2026-11-01), beside the code that computes its codes.
+  The lazy name `hydromodpy.spatial.CatchmentZonesField` is unchanged.
 - `Subbasin` writes under `output/` of the working directory by default, created on demand, instead of
   a folder named `output\` inside the installed package (2026-11-01).
 - `mesh_crs` is a required argument of `discretize_fields_on_cells` and `discretize_points_on_cells`,

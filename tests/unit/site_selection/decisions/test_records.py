@@ -1,13 +1,13 @@
 import pytest
 
-from hydromodpy.spatial.site_selection.decisions.aggregate import (
+from hydromodpy.site_selection.decisions.aggregate import (
     aggregate_site_selection_decisions,
 )
-from hydromodpy.spatial.site_selection.decisions.records import (
+from hydromodpy.site_selection.decisions.records import (
     decision_records_from_selection_result,
 )
-from hydromodpy.spatial.site_selection.evaluation.criteria.common import CriteriaComponent
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
+from hydromodpy.site_selection.evaluation.criteria.common import CriteriaComponent
+from hydromodpy.site_selection.evaluation.selection import SelectionDecision
 from tests._helpers.site_selection_cases import make_selection
 
 pytestmark = pytest.mark.fast

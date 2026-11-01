@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS = {
-    "CatchmentZonesField": "hydromodpy.spatial.catchment_zones_field:CatchmentZonesField",
+    "CatchmentZonesField": "hydromodpy.spatial.geographic.core.catchment_zones_field:CatchmentZonesField",
     "RasterSupport": "hydromodpy.spatial.raster_support:RasterSupport",
     "Surface": "hydromodpy.spatial.surface:Surface",
     "PreparedSurfaceSampler": "hydromodpy.spatial.surface_sampling:PreparedSurfaceSampler",

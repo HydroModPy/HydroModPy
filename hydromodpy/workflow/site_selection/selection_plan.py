@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.outputs.manifest import path_or_none
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.outputs.manifest import path_or_none
 from hydromodpy.workflow.site_selection.data_loading import load_site_selection_config
 
 __all__ = [

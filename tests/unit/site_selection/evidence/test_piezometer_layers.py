@@ -1,11 +1,11 @@
 import pytest
 from shapely.geometry import Point, box
 
-from hydromodpy.spatial.site_selection.config.criteria_config import (
+from hydromodpy.site_selection.config.criteria_config import (
     ObservationsCriteriaConfig,
     PiezometerLayerConfig,
 )
-from hydromodpy.spatial.site_selection.evidence.piezometer_layers import (
+from hydromodpy.site_selection.evidence.piezometer_layers import (
     annotate_catchments_with_piezometer_layers,
 )
 from tests._helpers.site_selection_cases import (

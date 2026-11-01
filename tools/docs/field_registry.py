@@ -660,7 +660,7 @@ EXTRA_FILES: dict[str, tuple[str, str, str]] = {
     "site-selection-file": (
         "The site selection file",
         "hmp site select FILE",
-        "hydromodpy.spatial.site_selection.config.site_selection_config:SiteSelectionFile",
+        "hydromodpy.site_selection.config.site_selection_config:SiteSelectionFile",
     ),
 }
 

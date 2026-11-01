@@ -1,6 +1,6 @@
 import pytest
 
-from hydromodpy.spatial.site_selection.domain.observation_evidence import (
+from hydromodpy.site_selection.domain.observation_evidence import (
     ObservationEvidence,
     ObservationSpatialMatch,
 )

@@ -4,16 +4,16 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.spatial.site_selection.candidates.generation import (
+from hydromodpy.site_selection.candidates.generation import (
     accumulation_to_area_km2,
     candidate_generation_evidence_with_candidate_attributes,
     ensure_raw_accumulation_cells,
     generate_dem_area_light_candidate_outlets,
     generate_network_candidate_outlets,
 )
-from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig, HydrologyConfig
-from hydromodpy.spatial.site_selection.config.outlets_config import OutletsConfig
-from hydromodpy.spatial.site_selection.hydrology.reference_network import (
+from hydromodpy.site_selection.config.dem_config import DemAreaLightConfig, HydrologyConfig
+from hydromodpy.site_selection.config.outlets_config import OutletsConfig
+from hydromodpy.site_selection.hydrology.reference_network import (
     score_outlets_against_reference_network,
 )
 from tests._helpers.geotiffs import write_geotiff
