@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.cases import recession_brutsaert as case
 from hydromodpy.calibration.criteria.series import SeriesCriterion
 from hydromodpy.core import metrics as core
 from hydromodpy.results.catalog import Catalog
@@ -26,6 +25,7 @@ from hydromodpy.results.manifest import MetricRow
 from hydromodpy.results.metric_rule import DateWindow, MetricRule, MetricScore, score
 from hydromodpy.results.storage.sealing import seal_completed
 from tests._helpers.run_stores import open_run_store
+from validation_cases.calibration.recession_hillslope_aquifer import experiment as case
 
 WINDOW = DateWindow(start=date(2001, 1, 1), end=date(2001, 1, 10))
 RULE = MetricRule(station="S", window=WINDOW)

@@ -35,7 +35,7 @@ Recommended reading path
 2. ``hydromodpy/spatial/field/field_spatial.py``
 3. ``hydromodpy/spatial/field/field_param.py``
 4. ``hydromodpy/spatial/field/mesh_cells.py``
-5. ``hydromodpy/spatial/field/cases/square/`` for a concrete runnable
+5. ``tools/cases/field/square/`` for a concrete runnable
    example
 
 Core classes

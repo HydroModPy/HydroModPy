@@ -1,6 +1,6 @@
 # spatial/field
 
-This package gives a parameter such as K, Sy or Ss a value in every cell. A parameter is one number for the whole domain, or one number per zone (geology class, band, ring), and it can fall with depth. The package reads the zone map on the cells of a mesh, weights each zone value by the share of the zone in the cell, and returns one value per cell. It also holds the TOML sections of a field parameter and a few small demos on a unit square.
+This package gives a parameter such as K, Sy or Ss a value in every cell. A parameter is one number for the whole domain, or one number per zone (geology class, band, ring), and it can fall with depth. The package reads the zone map on the cells of a mesh, weights each zone value by the share of the zone in the cell, and returns one value per cell. It also holds the TOML sections of a field parameter, and the unit-square mesh and two-zone field that the demos of `tools/cases/field/` and the tests use.
 
 ## How the work flows
 
@@ -41,15 +41,7 @@ field/
 ├── geology_field.py        GeologyField, a field from geology classes
 ├── two_zone_field.py       FieldSquare, a field of two zones split by a line
 ├── unit_square_mesh.py     the meshes of the unit square used by the demos
-├── plotting.py             plot_cell_values, one value per cell on a matplotlib axes
-│
-└── cases/                  the square demos
-    ├── review_cases.py         runs the demos one after another for a visual review
-    └── square/                 one demo on the unit square
-        ├── run_field_demo.py       the launcher
-        ├── field_param_config.toml the parameter of the demo
-        ├── field_spatial_config.toml  the two-zone field of the demo
-        └── mesh_config.toml        the mesh of the demo
+└── plotting.py             plot_cell_values, one value per cell on a matplotlib axes
 ```
 
 `__init__.py` exports no names. A name is imported from the module that defines it, for example `FieldParam` from `field_param.py` and `FieldSquare` from `two_zone_field.py`.
@@ -77,13 +69,11 @@ The package is part of the spatial layer, which may import `core`, `schema` and 
 - `cell_sampling.py` reads `mesh_cells.py`. It imports `PlanarCellMesh` only for typing.
 - `geology_field.py` reads `spatial.protocols` for the geology data source, so it imports no `data` module.
 - Nothing in this package imports `spatial/domain/`. The domain reads `Field` and `cell_sampling` from here.
-- `field_param_config.py` imports `core.units.physical_bounds` inside the validator that checks the physical bounds of a value. The other imports of HydroModPy are at the top of their module, except in `cases/review_cases.py` below.
-- `cases/review_cases.py` imports its four demo modules inside the function that runs them. The demo sets the matplotlib backend when it is imported, so listing the cases does not.
-- `cases/square/run_field_demo.py` also reads `spatial/geographic/cases/plotting_utils.py` for the figure windows.
+- `field_param_config.py` imports `core.units.physical_bounds` inside the validator that checks the physical bounds of a value. The other imports of HydroModPy are at the top of their module.
 
 ## What lives outside the package
 
-The geology data is managed in `hydromodpy/data/variables/geology/`, and `field.py` there builds a `GeologyField` from the loaded data. The geology demo that goes through `FieldParam` is `hydromodpy/data/cases/geology/run_geology_property_case.py`.
+The geology data is managed in `hydromodpy/data/variables/geology/`, and `field.py` there builds a `GeologyField` from the loaded data. The geology demo that goes through `FieldParam` is `tools/cases/geology/run_geology_property_case.py`.
 
 The solvers read the parameter through `hydromodpy/solver/field_property_mapping.py`, which asks for the zone shares and the weighted discretization. The flow config embeds the field-parameter section (`hydromodpy/physics/flow/flow_param_config.py`), a tolerated edge in `layer_matrix.yaml`.
 
@@ -91,9 +81,9 @@ The supports a project declares in `[domain.supports]` live in `spatial/domain/`
 
 ## Changing the code
 
-The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py`, `field_param_sections.py` and `field_param_units.py` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`, and the review launcher by `tests/unit/field/cases/test_review_cases.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
+The unit tests are in `tests/unit/field/`. A test file carries the name of the module it tests, for example `test_zone_fractions.py` for `zone_fractions.py`. `vertical_profile.py`, `field_param_sections.py` and `field_param_units.py` have no test file of their own. `test_field_param.py` and `test_field_param_config.py` cover them. `plotting.py` is covered by `test_plotting.py`. The cell meshes, TOML files and geology maps of the tests come from `tests/_helpers/field_cases.py`.
 
-`tests/contract/test_case_review_contract.py` checks the review launcher. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 98.7.
+The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 98.7.
 
 ```bash
 pytest tests/unit/field -q
@@ -105,10 +95,10 @@ pytest tests/unit/architecture -q
 
 A new key of the field-parameter TOML is a field of a Pydantic model in `field_param_sections.py`, with its description. The parameter reference is built from the models.
 
-To run the square demo from the repository root:
+The square demos live outside the package, in `tools/cases/field/`. To run one from the repository root:
 
 ```bash
-python -m hydromodpy.spatial.field.cases.square.run_field_demo
+python -m tools.cases.field.square.run_field_demo
 ```
 
 ## Documentation

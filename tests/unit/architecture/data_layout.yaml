@@ -23,7 +23,6 @@ allowed:
   workspace:  [schemas, common, ingest, provenance, registry]
   request:    [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace]
   "<init>":   [loading, request]
-  cases:      [contracts, schemas, source, common, ingest, provenance, registry, managers, variables, loading, workspace, request]
 
 # Rule 6: the source registry names the built-in source classes by a dotted
 # path written as text, imported on first lookup, so that a third-party plugin

@@ -43,9 +43,9 @@ _RETRY = 8
 _BACKOFF = 0.05
 
 #: Root of the installed ``hydromodpy`` package. Provenance sidecars are never
-#: written next to read-only data bundled inside the package (e.g. example and
-#: ``cases/`` reference inputs); those sidecars are version-controlled and must
-#: not be mutated at runtime.
+#: written next to read-only data bundled inside the package (e.g. example
+#: inputs); those sidecars are version-controlled and must not be mutated at
+#: runtime.
 _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -472,8 +472,8 @@ def emit_input_sidecar(
     Best-effort: any failure is logged at debug level and never propagates,
     so a sidecar issue cannot block the catalog registration.
 
-    Inputs that live inside the installed package tree (bundled example /
-    ``cases/`` data) are skipped: their sidecars are committed and read-only.
+    Inputs that live inside the installed package tree (bundled example data)
+    are skipped: their sidecars are committed and read-only.
 
     The licence comes from the source registry. A licence the user declared
     in the existing sidecar of the same bytes is kept, so a rewrite never

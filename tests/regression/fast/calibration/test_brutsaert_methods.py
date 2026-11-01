@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hydromodpy.calibration.cases.recession_brutsaert import calibrate_brutsaert
+from validation_cases.calibration.recession_hillslope_aquifer.experiment import calibrate_brutsaert
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"

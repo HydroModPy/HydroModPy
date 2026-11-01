@@ -29,7 +29,9 @@ a "where to add what" table. The rules are held by
   pair them with the observations.
 - ``hydromodpy/calibration/persistence.py`` writes a session (the journal first, then the
   DuckDB index), and ``report.py`` reads it back.
-- ``hydromodpy/calibration/cases/`` keeps two demonstrators as regression fixtures.
+- The two analytical demonstrators that the regression tests drive from Python live outside
+  the package, in ``validation_cases/calibration/unconfined_interface_1d/`` and
+  ``validation_cases/calibration/recession_hillslope_aquifer/``.
 
 Recommended reading path
 ------------------------

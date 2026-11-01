@@ -2,9 +2,6 @@
 
 import pytest
 
-from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
-    run_geographic_cases_from_toml,
-)
 from tests._helpers.geographic_cases import (
     CASE_RIVER_NETWORK,
     NAIZIN,
@@ -15,6 +12,9 @@ from tests._helpers.geographic_cases import (
 )
 from tests._helpers.whitebox import configure_whitebox_single_thread
 from tests.regression.golden_utils import resolve_tiered_golden_file
+from tools.cases.geographic.reference_catchment_delineation_case.run_case import (
+    run_geographic_cases_from_toml,
+)
 
 METRICS_GOLDEN, RIVER_NETWORK_GOLDEN = (
     resolve_tiered_golden_file(

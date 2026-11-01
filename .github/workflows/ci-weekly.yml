@@ -22,7 +22,7 @@ env:
   # binary download shares the anonymous rate limit of the runner's address,
   # which macOS runners exhaust.
   GITHUB_TOKEN: ${{ github.token }}
-  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
+  COVERAGE_OMIT: hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:
   # Cross-OS matrix on the fast tiers.
@@ -83,7 +83,7 @@ jobs:
           python -m pytest tests/unit/ \
             --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
-            --ignore=tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -n auto --dist loadgroup -q
 
       - name: Run whitebox backend tests (serial)
@@ -92,7 +92,7 @@ jobs:
           python -m pytest \
             tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             tests/unit/geographic/core/test_catchment_from_point.py \
-            tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -q
 
       # The Whitebox native binding dies outright when several DEM workflows run

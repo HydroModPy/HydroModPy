@@ -61,7 +61,8 @@ it once the run holds what it needs, unless `write_intermediates` keeps it.
 ## The folder map
 
 The top level holds the runtime, the cache and one config file per TOML table. `core/` holds one
-module per processing block. `synthetic/` and `cases/` are small.
+module per processing block. `synthetic/` is small. The demos that run the catchment cases by
+hand and plot them live outside the package, in `tools/cases/geographic/`.
 
 ```text
 geographic/
@@ -116,20 +117,7 @@ geographic/
 │
 ├── synthetic/                      the analytical support, with no DEM
 │   ├── catchment.py                SyntheticGeographic and its builder
-│   ├── topography.py               flat, linear and radial topography laws
-│   └── cases/                      a runnable synthetic case
-│       ├── run_geographic_synthetic_case.py   runner and summary figure
-│       └── run_geographic_synthetic_config.toml   the case configuration
-│
-└── cases/                          runnable cases and review launcher
-    ├── plotting_utils.py           window helpers shared by the spatial cases
-    ├── review_cases.py             the cases one after another, for a visual check
-    ├── reference_catchment_delineation_case/   catchments from an outlet, a polygon, a DEM
-    │   ├── run_case.py             runner, reads the TOML and plots
-    │   └── case_config.toml        the cases
-    └── reference_river_network_nancon/   stream extraction on one reference catchment
-        ├── run_case_river_network_nancon.py   runner
-        └── case_config_river_network_nancon.toml   the case
+│   └── topography.py               flat, linear and radial topography laws
 ```
 
 The `__init__.py` files export no names. A name is imported from the module that defines it,
@@ -169,7 +157,8 @@ and the cache, and last to the runtime objects.
   take the config as an argument.
 - `pipeline.py` reads `core/`, the cache, the config and the paths. `geographic_cache.py` and
   `domain_rasters.py` read `core/` too.
-- `catchment_delineation.py` calls the pipeline. Only the cases import it inside the package.
+- `catchment_delineation.py` calls the pipeline. No other module of this package imports it.
+  The workflow setup step and the project facade do, from outside.
 - `synthetic/` reads `synthetic_config.py`, `core/derived_features.py` and
   `core/river_network.py`. Nothing in `core/` imports `synthetic/`.
 
@@ -182,9 +171,6 @@ The package imports from other HydroModPy layers only `core`, `schema` and `spat
 - Inside `spatial`, the package reads `terrain` (the flow-routing port and its registry),
   `delineation` (the backend registry), `surface` and `raster_support`. It reads `domain` and
   `field` only under `TYPE_CHECKING`, in `structure_binders.py`.
-- `cases/reference_catchment_delineation_case/run_case.py` imports `hydromodpy.config` and
-  `hydromodpy.core.workspace`. The file is listed in `exempt_files` of `tests/unit/architecture/layer_matrix.yaml`,
-  because a case runner loads a full config like an example does.
 - Some imports sit inside the function that needs them. They are the `hydromodpy.core.state.paths`
   import of `geographic_paths.py` and `subbasin.py`, the `toml_io.loader` import of
   `synthetic_config.py`, the terrain registry import of `geographic_config.py`, and two imports
@@ -220,10 +206,11 @@ The package prepares files. What reads them is elsewhere.
 
 The tests mirror the code under `tests/unit/geographic/`, so `core/flow_products.py` is tested in
 `tests/unit/geographic/core/test_flow_products.py` and `pipeline.py` in
-`tests/unit/geographic/test_pipeline.py`. The cases are tested in `tests/unit/geographic/cases/`
-and the synthetic support in `tests/unit/geographic/synthetic/`. A test builds its DEMs, configs
-and cached trees with the helpers of `tests/_helpers/geographic_cases.py`, which uses
-`tests/_helpers/ground_bench.py`, a small valley with a road across it.
+`tests/unit/geographic/test_pipeline.py`, and the synthetic support in
+`tests/unit/geographic/synthetic/`. The demos are tested in `tests/unit/tools/cases/geographic/`.
+A test builds its DEMs, configs and cached trees with the helpers of
+`tests/_helpers/geographic_cases.py`, which uses `tests/_helpers/ground_bench.py`, a small valley
+with a road across it.
 
 Some checks sit outside the unit folder:
 
@@ -234,8 +221,6 @@ Some checks sit outside the unit folder:
 - `tests/contract/test_crossing_notch_on_whitebox.py` and
   `tests/contract/test_capped_breach_on_whitebox.py` run the notch and the capped breach on the
   real flow-routing engine.
-- `tests/contract/test_case_review_contract.py` checks the review launcher against the contract
-  that the spatial packages share.
 
 The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the branch coverage of
 `hydromodpy/spatial/geographic/*` drops below 96.4, and that floor only goes up.

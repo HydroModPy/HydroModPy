@@ -47,7 +47,6 @@ allowed:
   preflight:
     [criteria, metrics, observations, optim, parameter_resolution, protocols, runners, targets]
   "<init>": [config, optim, report, runners]
-  cases: ["<init>", optim]
 
 # Rule 5: evaluation/registry.py names two of its built-in evaluators
 # (hydromodpy_pipeline -> runners.pipeline_evaluator, scored_forward_model ->

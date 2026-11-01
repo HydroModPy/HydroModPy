@@ -1,6 +1,6 @@
 """Regression test for calibration diagnostics and figure rendering.
 
-Runs :func:`hydromodpy.calibration.cases.recession_brutsaert.calibrate_brutsaert`
+Runs :func:`validation_cases.calibration.recession_hillslope_aquifer.experiment.calibrate_brutsaert`
 for each runnable method, builds a synthetic iteration trace matching the
 ``calibration_iterations`` schema, and verifies:
 
@@ -29,13 +29,6 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
-from hydromodpy.calibration.cases.recession_brutsaert import (  # noqa: E402
-    _DEFAULT_CHRONICLE_TEST,
-    BaseflowConfig,
-    build_noisy_coarse_sand_chronicle,
-    calibrate_brutsaert,
-    make_baseflow_simulator,
-)
 from hydromodpy.calibration.optim.diagnostics import (  # noqa: E402
     convergence_rate,
     iterations_to_dataframe,
@@ -43,6 +36,13 @@ from hydromodpy.calibration.optim.diagnostics import (  # noqa: E402
 )
 from hydromodpy.core.metrics import kge as _kge_metric  # noqa: E402
 from hydromodpy.display import get as get_figure  # noqa: E402
+from validation_cases.calibration.recession_hillslope_aquifer.experiment import (  # noqa: E402
+    _DEFAULT_CHRONICLE_TEST,
+    BaseflowConfig,
+    build_noisy_coarse_sand_chronicle,
+    calibrate_brutsaert,
+    make_baseflow_simulator,
+)
 
 GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "calibration_brutsaert_methods_golden.json"
