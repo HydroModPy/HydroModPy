@@ -86,7 +86,7 @@ package, and it lists the one exception above. The layer matrix sees `spatial` a
 The callers pick the engine through the registry. `hydromodpy/spatial/geographic/core/flow_products.py` and
 `hydromodpy/spatial/geographic/regional_flow_job.py` build it, and `geographic_config.py` checks that
 `geographic.terrain_engine` names an engine the installation serves. The `terrain-delineate` capability of the site
-selection (`hydromodpy/spatial/site_selection/hydrology/capability.py` and `worker.py`) takes the engine name from its
+selection (`hydromodpy/site_selection/hydrology/capability.py` and `worker.py`) takes the engine name from its
 request. The Whitebox calls themselves are in `hydromodpy/spatial/delineation/`.
 
 A third party registers an engine in the entry point group `hydromodpy.terrain.engine`. The entry point name must equal

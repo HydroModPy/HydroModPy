@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from hydromodpy.cli import helpers as codes
 from hydromodpy.core import exceptions as errors
 from hydromodpy.schema.capability import NAMES_THE_JOB_DOES_NOT_PRODUCE
-from hydromodpy.spatial.site_selection.hydrology.capability import (
+from hydromodpy.site_selection.hydrology.capability import (
     TERRAIN_DELINEATE,
     TerrainDelineateRequest,
 )

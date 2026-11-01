@@ -71,6 +71,7 @@ PREFIX_RULES = [
     ("hydromodpy/data/", "data_connectors"),
     ("hydromodpy/data_managers/", "data_connectors"),
     ("hydromodpy/spatial/", "spatial"),
+    ("hydromodpy/site_selection/", "spatial"),
     ("hydromodpy/domain/", "spatial"),
     ("hydromodpy/field/", "spatial"),
     ("hydromodpy/geographic/", "spatial"),

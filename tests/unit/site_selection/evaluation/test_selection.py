@@ -3,7 +3,7 @@ import re
 import pytest
 from shapely.geometry import Point, box
 
-from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
+from hydromodpy.site_selection.domain.delineated_catchment import DelineatedCatchment
 from tests._helpers.site_selection_cases import (
     component_of,
     make_catchment,

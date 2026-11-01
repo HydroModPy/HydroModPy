@@ -1,6 +1,6 @@
 import pytest
 
-from hydromodpy.spatial.site_selection.domain.station_influence import (
+from hydromodpy.site_selection.domain.station_influence import (
     station_influence_diagnostics,
     station_influence_metadata_from_hubeau,
 )

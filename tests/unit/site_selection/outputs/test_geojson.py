@@ -19,24 +19,24 @@ from shapely.geometry import Point, box
 
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.data.sites.importers import rows_from_layer
-from hydromodpy.spatial.site_selection.config.dem_config import HydrologyConfig
-from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-from hydromodpy.spatial.site_selection.domain.observation_evidence import ObservationEvidence
-from hydromodpy.spatial.site_selection.evidence.geology_layers import GeologyEvidence
-from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.hydrology.worker import _write_outlet_roll_call
-from hydromodpy.spatial.site_selection.outputs import geospatial
-from hydromodpy.spatial.site_selection.outputs.candidate_files import (
+from hydromodpy.site_selection.config.dem_config import HydrologyConfig
+from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.site_selection.domain.observation_evidence import ObservationEvidence
+from hydromodpy.site_selection.evidence.geology_layers import GeologyEvidence
+from hydromodpy.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.site_selection.hydrology.worker import _write_outlet_roll_call
+from hydromodpy.site_selection.outputs import geospatial
+from hydromodpy.site_selection.outputs.candidate_files import (
     write_candidate_outlets_geojson,
     write_generated_network_geojson,
 )
-from hydromodpy.spatial.site_selection.outputs.evidence_layers import write_evidence_layer
-from hydromodpy.spatial.site_selection.outputs.geojson import (
+from hydromodpy.site_selection.outputs.evidence_layers import write_evidence_layer
+from hydromodpy.site_selection.outputs.geojson import (
     write_observation_points_geojson,
     write_outlets_geojson,
 )
-from hydromodpy.spatial.site_selection.outputs.geospatial import observation_points_gdf
-from hydromodpy.spatial.site_selection.outputs.writer import write_selection_result
+from hydromodpy.site_selection.outputs.geospatial import observation_points_gdf
+from hydromodpy.site_selection.outputs.writer import write_selection_result
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.site_selection_cases import (
     L93,

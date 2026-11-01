@@ -7,15 +7,15 @@ from shapely.geometry import LineString, Polygon
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrography.apis import bdtopage
-from hydromodpy.spatial.administrative.france import bbox_for_departments, bbox_for_regions
-from hydromodpy.spatial.site_selection.candidates.pipeline import (
+from hydromodpy.site_selection.candidates.pipeline import (
     build_dem_area_light_candidates,
     build_generated_network_candidates,
     build_station_candidate_outlets,
     require_lambert93_extent,
     site_selection_search_geometry,
 )
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.spatial.administrative.france import bbox_for_departments, bbox_for_regions
 from tests._helpers.site_selection_cases import (
     make_point_record,
     selection_section,

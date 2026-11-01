@@ -2,11 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from hydromodpy.spatial.site_selection.candidates.outlets import (
+from hydromodpy.site_selection.candidates.outlets import (
     candidate_outlets_from_point_records,
     thin_candidate_outlets,
 )
-from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
+from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
 from tests._helpers.site_selection_cases import make_point_record
 
 pytestmark = pytest.mark.fast

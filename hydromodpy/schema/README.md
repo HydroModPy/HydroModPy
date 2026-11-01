@@ -50,11 +50,12 @@ itself. Today it imports `core`, and `config` at two places only:
 2. A capability is declared next to the code that serves it, not here:
    `data/request/job.py` (`DATA_REQUEST`),
    `spatial/domain/capability.py` (`DOMAIN_BUILD`) and
-   `spatial/site_selection/hydrology/capability.py` (`TERRAIN_DELINEATE`).
+   `site_selection/hydrology/capability.py` (`TERRAIN_DELINEATE`).
 3. The schema export stays deterministic: no side effect, no field that
    depends on the environment.
 
-Who imports schema: `spatial` (job documents, site-selection manifest),
+Who imports schema: `spatial` (job documents, capability declaration, media
+types), `site_selection` (the same, and the site-selection manifest),
 `data` (job documents, sources), `results` (sources, media types, generated
 views), `cli`, `reporting` and `analysis`.
 

@@ -56,7 +56,7 @@ administrative/
 - The callers import it inside their functions: `hydromodpy/data/variables/dem/manager.py`,
   `hydromodpy/data/variables/dem/apis/ign_dem_fr.py`,
   `hydromodpy/data/variables/geology/apis/brgm_50k.py` and
-  `hydromodpy/spatial/site_selection/candidates/pipeline.py`.
+  `hydromodpy/site_selection/candidates/pipeline.py`.
 
 The rules between HydroModPy layers are checked by `tests/unit/architecture/`.
 

@@ -45,8 +45,8 @@ from hydromodpy.schema.processes import (
     PROCESS_PROFILE,
     description_filename,
 )
+from hydromodpy.site_selection.hydrology.capability import TERRAIN_DELINEATE
 from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
-from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTIONS_DIR = REPO_ROOT / "hydromodpy" / "schema" / "processes"

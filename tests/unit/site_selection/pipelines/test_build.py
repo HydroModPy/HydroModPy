@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 
 from hydromodpy.core.exceptions import ConfigValidationError
-from hydromodpy.spatial.site_selection.config.dem_config import DemAreaLightConfig
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.config.strategy_config import TerritoryConfig
-from hydromodpy.spatial.site_selection.pipelines.build import (
+from hydromodpy.site_selection.config.dem_config import DemAreaLightConfig
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.config.strategy_config import TerritoryConfig
+from hydromodpy.site_selection.pipelines.build import (
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,

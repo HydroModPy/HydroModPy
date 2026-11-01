@@ -10,15 +10,15 @@ import pandas as pd
 import pytest
 from shapely.geometry import Point, Polygon, box
 
-from hydromodpy.spatial.site_selection.config.criteria_config import AreaCriteriaConfig
-from hydromodpy.spatial.site_selection.evaluation.criteria.area import evaluate_area_criterion
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
-from hydromodpy.spatial.site_selection.outputs.schemas import (
+from hydromodpy.site_selection.config.criteria_config import AreaCriteriaConfig
+from hydromodpy.site_selection.evaluation.criteria.area import evaluate_area_criterion
+from hydromodpy.site_selection.evaluation.selection import SelectionDecision
+from hydromodpy.site_selection.outputs.schemas import (
     SELECTED_SITES_FIELDS,
     SELECTED_SITES_SCHEMA,
     site_record_from_catchment,
 )
-from hydromodpy.spatial.site_selection.outputs.writer import write_selection_result
+from hydromodpy.site_selection.outputs.writer import write_selection_result
 from tests._helpers.site_selection_cases import (
     L93,
     make_catchment,

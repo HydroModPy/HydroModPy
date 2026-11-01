@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.data.variables.hydrography.apis import bdtopage
-from hydromodpy.spatial.site_selection.candidates.pipeline import site_selection_search_geometry
+from hydromodpy.site_selection.candidates.pipeline import site_selection_search_geometry
 from hydromodpy.workflow.site_selection.catchments_csv import select_delineated_catchments_from_csv
 from hydromodpy.workflow.site_selection.data_loading import load_site_selection_config
 from hydromodpy.workflow.site_selection.dem_request import load_data_dem_config_for_site_selection

@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.spatial.catchment_zones_field import CatchmentZonesField
 from hydromodpy.spatial.geographic.core.catchment_zones import (
     CatchmentZoneCode,
     build_catchment_zone_codes,
     build_uniform_zone_codes,
 )
+from hydromodpy.spatial.geographic.core.catchment_zones_field import CatchmentZonesField
 
 if TYPE_CHECKING:
     from hydromodpy.spatial.domain.domain import Domain

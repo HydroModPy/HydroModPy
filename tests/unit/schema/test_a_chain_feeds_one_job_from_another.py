@@ -482,7 +482,7 @@ def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Pat
     declaration rather than from a string written here.
     """
     from hydromodpy.data.request.job import DATA_REQUEST
-    from hydromodpy.spatial.site_selection.hydrology.capability import (
+    from hydromodpy.site_selection.hydrology.capability import (
         TERRAIN_DELINEATE,
         WATERSHED_VECTOR_PATH,
     )
@@ -531,12 +531,12 @@ def test_the_terrain_and_the_domain_chain_on_the_corrected_dem_and_the_watershed
     it. The two links are read off the declarations rather than off a path
     written here, so renaming an output on either side lands in this test.
     """
-    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
-    from hydromodpy.spatial.site_selection.hydrology.capability import (
+    from hydromodpy.site_selection.hydrology.capability import (
         DEM_CORRECTED_PATH,
         TERRAIN_DELINEATE,
         WATERSHED_VECTOR_PATH,
     )
+    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
 
     served = {DOMAIN_BUILD.id: DOMAIN_BUILD, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
     chain = ChainRequest.model_validate(

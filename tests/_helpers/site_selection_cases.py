@@ -11,9 +11,9 @@ import pandas as pd
 
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
 from tests._helpers.geotiffs import write_geotiff
 from tests._helpers.terrain_doubles import fake_flow_products
 
@@ -199,7 +199,7 @@ def delineation_spy(
 
 def site_flow_products(acc: Path | str, *, threshold_km2: float = 0.0001):
     """Site-selection flow products whose accumulation raster is *acc*."""
-    from hydromodpy.spatial.site_selection.hydrology.flow_products import (
+    from hydromodpy.site_selection.hydrology.flow_products import (
         SiteSelectionFlowProducts,
     )
 
@@ -252,8 +252,8 @@ def make_catchment(
     **fields: Any,
 ):
     """A delineated catchment whose outlet carries the site id as candidate id."""
-    from hydromodpy.spatial.site_selection.domain.candidate_outlet import CandidateOutlet
-    from hydromodpy.spatial.site_selection.domain.delineated_catchment import DelineatedCatchment
+    from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
+    from hydromodpy.site_selection.domain.delineated_catchment import DelineatedCatchment
 
     outlet = CandidateOutlet(
         site_id, x, y, crs, source, priority=priority, attributes=dict(attributes or {})
@@ -263,7 +263,7 @@ def make_catchment(
 
 def make_selection(selected=(), rejected=(), decisions=(), components=()):
     """A selection result built from plain sequences."""
-    from hydromodpy.spatial.site_selection.evaluation.selection import SelectionResult
+    from hydromodpy.site_selection.evaluation.selection import SelectionResult
 
     return SelectionResult(list(selected), list(rejected), list(decisions), list(components))
 
@@ -322,9 +322,9 @@ def make_basin_catchment(directory: Path, kind: str = "l93", **fields: Any):
 
 def run_selection(catchments, criteria: dict[str, Any], principle="criteria_crossing", **kwargs):
     """Select *catchments* under the *criteria* table; ``spatial`` holds the spatial table."""
-    from hydromodpy.spatial.site_selection.config.criteria_config import CriteriaConfig
-    from hydromodpy.spatial.site_selection.config.outlets_config import SpatialSelectionConfig
-    from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
+    from hydromodpy.site_selection.config.criteria_config import CriteriaConfig
+    from hydromodpy.site_selection.config.outlets_config import SpatialSelectionConfig
+    from hydromodpy.site_selection.evaluation.selection import select_delineated_catchments
 
     return select_delineated_catchments(
         catchments,

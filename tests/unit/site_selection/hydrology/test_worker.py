@@ -16,8 +16,8 @@ from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.core.exceptions import ConfigValidationError, DataContractViolation
 from hydromodpy.schema.job import JobDirectory, read_document
 from hydromodpy.schema.job.extent import SpatialExtent
-from hydromodpy.spatial.site_selection.hydrology import worker
-from hydromodpy.spatial.site_selection.hydrology.capability import TerrainDelineateRequest
+from hydromodpy.site_selection.hydrology import worker
+from hydromodpy.site_selection.hydrology.capability import TerrainDelineateRequest
 from hydromodpy.spatial.terrain import registry
 from tests._helpers.geotiffs import write_geotiff
 

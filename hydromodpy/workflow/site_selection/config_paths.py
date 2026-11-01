@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
 
 
 def resolve_paths(cfg: SiteSelectionConfig, *, base_dir: Path) -> SiteSelectionConfig:

@@ -18,7 +18,7 @@ from hydromodpy.core.exceptions import (
     ConfigMissingError,
 )
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.spatial.site_selection.config.site_selection_config import (
+from hydromodpy.site_selection.config.site_selection_config import (
     SiteSelectionConfig,
 )
 from hydromodpy.workflow.site_selection.build_from_toml import (

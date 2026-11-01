@@ -294,7 +294,7 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of spatial/ over the unit tier, the engine contract,
+      # Branch coverage of spatial/ and site_selection/ over the unit tier, the engine contract,
       # the mesh regression and the domain-build worker, which only its integration
       # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
       - name: Run the tests that reach the spatial package
@@ -315,6 +315,7 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/site_selection \
             --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-report= \
@@ -334,6 +335,7 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
+            --cov=hydromodpy/site_selection \
             --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-append \
@@ -345,8 +347,8 @@ jobs:
       # an average. The floors only go up: raise each to the value a clean-up
       # lot reaches. A floor goes down only when files enter or leave a package, or
       # covered code leaves it, with no covered line lost, and the commit says so.
-      # The last two lines gate the modules at the top of spatial/ and the site
-      # selection runner.
+      # The last three lines gate the modules at the top of spatial/, the site
+      # selection layer and its runner.
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
@@ -356,11 +358,11 @@ jobs:
           coverage report --include='hydromodpy/spatial/domain/*' --precision=2 --fail-under=99.3
           coverage report --include='hydromodpy/spatial/field/*' --precision=2 --fail-under=98.7
           coverage report --include='hydromodpy/spatial/forcing/*' --precision=2 --fail-under=99.7
-          coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.2
+          coverage report --include='hydromodpy/spatial/geographic/*' --precision=2 --fail-under=96.4
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
-          coverage report --include='hydromodpy/spatial/site_selection/*' --precision=2 --fail-under=96.4
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
-          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.3
+          coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
+          coverage report --include='hydromodpy/site_selection/*' --precision=2 --fail-under=96.4
           coverage report --include='hydromodpy/workflow/site_selection/*' --precision=2 --fail-under=96.4
 
   integration:

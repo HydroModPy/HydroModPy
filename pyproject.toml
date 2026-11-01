@@ -214,6 +214,7 @@ source = [
     "hydromodpy.schema",
     "hydromodpy.config",
     "hydromodpy.spatial",
+    "hydromodpy.site_selection",
     "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.catalog",

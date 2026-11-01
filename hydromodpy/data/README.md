@@ -264,11 +264,13 @@ class LoadResult:
 
 ## Layer neighbours
 
-`data` imports `core`, `schema` and `spatial`
-(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`,
-`calibration`, `analysis`, `workflow`, `catalog`, `project`, `cli` and the root
-facade import it, plus the documented `spatial` to `data` tolerance for the
-optional hydrography fetch of site selection. `data` never imports `catalog`.
+`data` imports `core`, `schema`, `spatial` and `site_selection`
+(`tests/unit/architecture/layer_matrix.yaml`). The edge to `site_selection` is
+the outlet snap of `sites/importers.py`, which reads `CandidateOutlet` and the
+reference-network snapping. `config`, `simulation`, `calibration`, `analysis`,
+`workflow`, `catalog`, `project`, `cli` and the root facade import `data`.
+Neither `spatial` nor `site_selection` imports it, and `data` never imports
+`catalog`.
 
 ## Reading path
 

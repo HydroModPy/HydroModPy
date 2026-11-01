@@ -1,7 +1,7 @@
 import pytest
 from shapely.geometry import LineString, Polygon, box
 
-from hydromodpy.spatial.site_selection.evaluation.spatial_filters import (
+from hydromodpy.site_selection.evaluation.spatial_filters import (
     basin_overlap_fraction,
     is_overlap_allowed,
 )

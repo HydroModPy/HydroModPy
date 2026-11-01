@@ -24,8 +24,8 @@ from hydromodpy.core.exceptions import DataContractViolation, JobUsageError
 from hydromodpy.schema.job import UNIDENTIFIED_JOB, JobDirectory, read_document, verify_job
 from hydromodpy.schema.job.digest import sha256_file
 from hydromodpy.schema.job.layout import ALLOWED_JOB_ENTRIES
-from hydromodpy.spatial.site_selection.hydrology.capability import TERRAIN_DELINEATE
-from hydromodpy.spatial.site_selection.hydrology.worker import run
+from hydromodpy.site_selection.hydrology.capability import TERRAIN_DELINEATE
+from hydromodpy.site_selection.hydrology.worker import run
 
 gpd = pytest.importorskip("geopandas")
 pytest.importorskip("whitebox_workflows")
@@ -217,7 +217,7 @@ def test_a_job_that_cannot_be_done_fails_with_its_typed_code_and_seals_nothing(
 
 def test_a_failure_after_the_inputs_resolved_keeps_the_job_id(sealed_job, tmp_path, monkeypatch):
     """The address is computed before anything runs, so the caller can match the failure."""
-    from hydromodpy.spatial.site_selection.hydrology import worker
+    from hydromodpy.site_selection.hydrology import worker
 
     def explode(*args, **kwargs):
         raise RuntimeError("the engine gave up")
@@ -277,7 +277,7 @@ CHILD = """
 import json, sys
 from hydromodpy.cli.helpers import exit_code_for
 from hydromodpy.schema.job import JobDirectory
-from hydromodpy.spatial.site_selection.hydrology.worker import run
+from hydromodpy.site_selection.hydrology.worker import run
 try:
     outcome = run(JobDirectory.open(sys.argv[1]), exit_code_for=exit_code_for)
 finally:

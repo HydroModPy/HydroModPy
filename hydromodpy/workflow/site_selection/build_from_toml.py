@@ -15,9 +15,9 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.sites.importers import fetch_bdtopage_reference_network
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
-from hydromodpy.spatial.site_selection.config.site_selection_config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.hydrology.flow_products import FlowProductsBuilder
-from hydromodpy.spatial.site_selection.pipelines.build import (
+from hydromodpy.site_selection.config.site_selection_config import SiteSelectionConfig
+from hydromodpy.site_selection.hydrology.flow_products import FlowProductsBuilder
+from hydromodpy.site_selection.pipelines.build import (
     SiteSelectionBuildResult,
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,

@@ -6,7 +6,7 @@ This package describes the aquifer as a body of rock. It takes the ground surfac
 
 1. The `[domain]` table is read into a `DomainConfig` (`domain_config.py`). Its three parts are the depth model, the layers and the supports.
 2. `build.py` builds a `Domain` (`domain.py`) from that config and a surface. The depth model gives the base of the aquifer, and the raster models read a base raster first.
-3. The binders in `spatial/geographic/structure_binders.py` write the geology and the catchment zones into the domain, once the data is loaded.
+3. The binders in `spatial/geographic/structure_binders.py` write the geology and the catchment zones into the domain, once the data is loaded. The catchment zones are a `CatchmentZonesField`, defined in `spatial/geographic/core/catchment_zones_field.py` beside the code that computes them.
 4. The solvers read the layers. `layering.py` turns `[domain.layers]` and the two surfaces into the bottom and the `idomain` of every layer.
 5. A heterogeneous parameter asks for a support. The provider in `spatial_support.py` builds a support field (`support_fields.py`), which gives the zone share of each cell of a mesh.
 

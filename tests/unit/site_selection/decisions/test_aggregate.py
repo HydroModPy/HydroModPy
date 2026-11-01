@@ -1,9 +1,9 @@
 import pytest
 
-from hydromodpy.spatial.site_selection.decisions.aggregate import (
+from hydromodpy.site_selection.decisions.aggregate import (
     aggregate_site_selection_decisions,
 )
-from hydromodpy.spatial.site_selection.decisions.models import DecisionRecord
+from hydromodpy.site_selection.decisions.models import DecisionRecord
 
 pytestmark = pytest.mark.fast
 
