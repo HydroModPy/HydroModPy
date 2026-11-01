@@ -258,9 +258,10 @@ source of the ``moved together`` caution.
 Test cases without a solver
 ---------------------------
 
-``calibration/cases/recession_brutsaert.py`` fits a recession
-:math:`Q(t) = Q_0 e^{-t/\tau}` and ``calibration/cases/groundwater_1d.py`` a
-one-dimensional aquifer with an analytical head profile. Neither needs MODFLOW,
+``validation_cases/calibration/recession_hillslope_aquifer/experiment.py`` fits a
+recession :math:`Q(t) = Q_0 e^{-t/\tau}` and
+``validation_cases/calibration/unconfined_interface_1d/experiment.py`` a one-dimensional
+aquifer with an analytical head profile. Neither needs MODFLOW,
 so they are the quickest way to check a new adapter against known answers. The
 calibration validation cases, which find a known truth with the real forward
 model, are listed in :doc:`/theory/validation`.

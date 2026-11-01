@@ -499,6 +499,16 @@ def outlet_case_toml(
     return path
 
 
+def delineate_case_toml(path: Path):
+    """Delineate the catchment of a project TOML in its workspace, as a run does."""
+    from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.workspace import Workspace
+    from hydromodpy.spatial.geographic.catchment_delineation import CatchmentDelineation
+
+    cfg = HydroModPyConfig.from_toml(path)
+    return CatchmentDelineation(config=cfg.geographic, initializing=Workspace(config=cfg.workspace))
+
+
 GOLDEN_FLOAT_KEYS = (
     "catch_area_km2", "dx", "dy", "xmin", "xmax", "ymin", "ymax",
     "mean_box_buff", "mean_core", "top_left_box_buff", "center_core",

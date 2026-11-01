@@ -234,7 +234,7 @@ jobs:
             --ignore=tests/unit/architecture \
             --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
-            --ignore=tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
@@ -250,7 +250,7 @@ jobs:
           python -m pytest \
             tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             tests/unit/geographic/core/test_catchment_from_point.py \
-            tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" --timeout=300 -q
 
       - name: Write unit coverage XML
@@ -309,7 +309,7 @@ jobs:
             --ignore=tests/unit/architecture \
             --ignore=tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             --ignore=tests/unit/geographic/core/test_catchment_from_point.py \
-            --ignore=tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            --ignore=tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             -n 2 --dist loadgroup \
             --max-worker-restart=0 \
@@ -331,7 +331,7 @@ jobs:
           python -m pytest \
             tests/unit/delineation/whitebox_workflows_backend/test_whitebox_workflows_backend.py \
             tests/unit/geographic/core/test_catchment_from_point.py \
-            tests/unit/geographic/cases/test_run_case_river_network_nancon.py \
+            tests/unit/tools/cases/geographic/test_run_case_river_network_nancon.py \
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \

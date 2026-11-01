@@ -1,9 +1,9 @@
-"""Contract tests for the ``cases/review_cases.py`` visual-review launchers.
+"""Contract tests for the ``review_cases.py`` visual-review launchers of ``tools/cases/``.
 
-Three spatial packages ship the same registry API (``CaseReviewSpec``,
+Three demo folders ship the same registry API (``CaseReviewSpec``,
 ``available_case_review_names``, ``resolve_case_review_specs``,
 ``list_case_reviews``, ``run_case_reviews``). This file is the single place the
-shared contract is asserted, so a new package re-runs the suite by adding one row
+shared contract is asserted, so a new demo folder re-runs the suite by adding one row
 to ``REVIEW_MODULES``. Selection follows registry order rather than request
 order, an unknown case is refused by name with the available ones listed, and a
 blank request means the whole registry.
@@ -22,16 +22,16 @@ import pytest
 
 # Import path -> fragment of the "unknown case" error message.
 REVIEW_MODULES: dict[str, str] = {
-    "hydromodpy.spatial.domain.cases.review_cases": "Unknown domain/cases review case",
-    "hydromodpy.spatial.field.cases.review_cases": "Unknown field/cases review case",
-    "hydromodpy.spatial.geographic.cases.review_cases": "Unknown geographic review case",
+    "tools.cases.domain.review_cases": "Unknown cases/domain review case",
+    "tools.cases.field.review_cases": "Unknown cases/field review case",
+    "tools.cases.geographic.review_cases": "Unknown geographic review case",
 }
 
-# Packages whose run_case_reviews() calls spec.runner() and needs no input data.
-# domain/cases runs a full TOML case from disk, so it is out of scope here.
+# Launchers whose run_case_reviews() calls spec.runner() and needs no input data.
+# cases/domain runs a full TOML case from disk, so it is out of scope here.
 RUNNER_MODULES: tuple[str, ...] = (
-    "hydromodpy.spatial.field.cases.review_cases",
-    "hydromodpy.spatial.geographic.cases.review_cases",
+    "tools.cases.field.review_cases",
+    "tools.cases.geographic.review_cases",
 )
 
 
@@ -158,7 +158,7 @@ def test_run_case_reviews_runs_selected_cases_in_registry_order_and_reports_them
 
 
 CASE_TOMLS = sorted(
-    Path(__file__).resolve().parents[2].joinpath("hydromodpy", "spatial").glob("**/cases/**/*.toml")
+    Path(__file__).resolve().parents[2].joinpath("tools", "cases").glob("**/*.toml")
 )
 
 

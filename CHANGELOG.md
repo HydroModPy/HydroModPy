@@ -1382,6 +1382,11 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- The demos of the six `cases/` folders left the `hydromodpy` package (2026-11-02), with no alias.
+  The spatial and data demos run from `tools/cases/<part>/` (`python -m tools.cases.field.review_cases`),
+  the data of the intermittency and oceanic goldens sits next to their tests, and the two calibration
+  demonstrators are `validation_cases.calibration.unconfined_interface_1d.experiment` and
+  `validation_cases.calibration.recession_hillslope_aquifer.experiment`. The library does not change.
 - The site selection is a layer of its own: `hydromodpy.spatial.site_selection` is now
   `hydromodpy.site_selection`, with the same sub-packages and names (2026-11-01). It picks the
   catchments a study can use and reads `spatial`, which never reads it. The `terrain-delineate`

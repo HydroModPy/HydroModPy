@@ -43,13 +43,10 @@ domain/
 ├── support_fields.py       the support fields, zone shares on the cells of a mesh
 ├── capability.py           the domain-build declaration and its request model
 ├── domain_document.py      the domain.json document written for the mesh generator
-├── worker.py               the domain-build job, from a request to a sealed output
-│
-└── cases/                  runnable domain cases
-    ├── run_domain_case.py      builds a Domain from a TOML file and draws a summary figure
-    ├── run_domain_config.toml  the config of that case
-    └── review_cases.py         runs the cases one after another for a visual review
+└── worker.py               the domain-build job, from a request to a sealed output
 ```
+
+The demo that builds a Domain from a project TOML and draws a summary figure lives outside the package, in `tools/cases/domain/`.
 
 No `__init__.py` re-exports a name. Each name is imported from the module that defines it.
 
@@ -79,7 +76,6 @@ The package is part of the spatial layer, which may import `core`, `schema` and 
 - `active_cells.py` reads `core` and `schema.job.refusal`. `domain_document.py` reads `capability.py` and nothing else from HydroModPy.
 - Nothing in `field/` imports `domain/`. `geographic/structure_binders.py` imports `Domain` only for typing.
 - Every import of HydroModPy is at the top of its module. None is deferred inside a function.
-- `cases/run_domain_case.py` also imports `config` and `core.workspace`, to read a full project file. The matrix lists it under `exempt_files` for that reason.
 
 ## What lives outside the package
 
@@ -93,7 +89,7 @@ The `domain-build` declaration is `DOMAIN_BUILD` in `capability.py`. Its JSON sc
 
 The unit tests are in `tests/unit/domain/`. A test file carries the name of the module it tests, for example `test_layering.py` for `layering.py`. The worker is tested in `tests/integration/domain/test_worker.py`. `active_cells.py`, `domain_document.py` and `capability.py` have no test file of their own. `test_build.py` and the worker test cover them. The grids, surfaces, layerings and masks come from `tests/_helpers/domain_cases.py`.
 
-Three more checks guard the package. `tests/contract/test_case_review_contract.py` checks `cases/review_cases.py`. `tests/contract/test_a_stack_with_inactive_and_pass_through_cells_reads_back.py` checks that a stack with pass-through cells reads back. The architecture tests check the layer rules. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 99.3.
+Two more checks guard the package. `tests/contract/test_a_stack_with_inactive_and_pass_through_cells_reads_back.py` checks that a stack with pass-through cells reads back. The architecture tests check the layer rules. The CI job `mesh-coverage` in `.github/workflows/main-ci.yml` fails when the coverage of this package drops below 99.3.
 
 ```bash
 pytest tests/unit/domain tests/integration/domain -q

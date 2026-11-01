@@ -303,8 +303,8 @@ Tests to add
   ``__init__`` (option parsing), ``ask`` (point generation),
   ``tell`` (state update), ``best`` (post-loop selection).
 - **Synthetic benchmark** under
-  ``hydromodpy/calibration/cases/`` reusing
-  ``recession_brutsaert`` or ``groundwater_1d``: assert the method
+  ``validation_cases/calibration/`` reusing
+  ``recession_hillslope_aquifer`` or ``unconfined_interface_1d``: assert the method
   recovers the truth within a method-specific
   ``METHOD_ABS_TOL`` tolerance.
 - **Integration** under ``tests/integration/`` for a

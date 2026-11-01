@@ -30,7 +30,10 @@ root of the package.
 | `runners/` | how a calibration runs: the three entry points, the phases and what they hand to each other, the trial primitive, the default evaluator, restarts, resume, promotion of the best trials |
 | `reporting/` | the diagnostic page of the B0 network validation case |
 | `preflight.py` | every check of a calibration before anything is prepared, run at the start of every launch and printed by `hmp config check` |
-| `cases/` | two demonstrators kept as regression fixtures |
+
+The two analytical demonstrators that the regression tests drive from Python live outside the
+package, in `validation_cases/calibration/unconfined_interface_1d/` and
+`validation_cases/calibration/recession_hillslope_aquifer/`.
 
 ## Import rules
 
@@ -55,7 +58,6 @@ cycle. Every part may import the layers `layer_matrix.yaml` gives calibration.
 | `reporting` | `observations` |
 | `preflight` | inside its checks: `criteria`, `metrics`, `observations`, `optim`, `parameter_resolution`, `protocols`, `runners`, `targets` |
 | `__init__.py` | `config`, `optim`, `report`, `runners` |
-| `cases` | `__init__.py`, `optim` |
 
 Five more rules:
 
@@ -107,7 +109,6 @@ hydromodpy/calibration/
                 kept_solves.py (trial solves kept on disk for their promotion)
                 prepared_model.py (the checks that need the prepared model)
   reporting/    network_transient_html.py  network_transient/
-  cases/
 ```
 
 ## Template of a search method
@@ -577,7 +578,7 @@ provider of `runners/contracts.py`, which the bootstrap fills.
 3. `runners/cli_runner.py`, then `optim/engine.py`.
 4. `runners/trial.py` for the prepare-once and evaluate-many primitive.
 5. One adapter: `optim/adapters/optuna_adapter.py` is the most generic.
-6. One case: `cases/recession_brutsaert.py`.
+6. One case driven from Python: `validation_cases/calibration/recession_hillslope_aquifer/experiment.py`.
 
 ## What other layers import
 

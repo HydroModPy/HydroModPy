@@ -47,8 +47,7 @@ float with the unit moved to the sibling ``unit``):
   ``validate_resolved_field_param_data`` directly, without ever going
   through ``FieldHomogeneousSection`` / ``field_param_sections.py``. That
   path is used by the mesh/geology demo cases
-  (``hydromodpy/spatial/field/cases/review_cases.py``,
-  ``hydromodpy/spatial/mesh/*/examples/*``, ``.../cases/*``), not by the
+  (``tools/cases/``, ``hydromodpy/spatial/mesh/*/examples/*``), not by the
   project ``[flow.param.*]`` pipeline the calibration catalogue walks, so it
   does not affect the catalogue either way. But fixing only
   ``field_param_sections.py`` would leave this duplicate validator

@@ -168,8 +168,7 @@ def render_layer_matrix(matrix: dict[str, Any]) -> str:
         "Files exempt from the layer rule",
         "--------------------------------",
         "",
-        f"{len(exempt)} files are exempt: bootstrap shims that wire forward references, and the case",
-        "runners that load a user TOML and belong semantically to ``examples/``.",
+        f"{len(exempt)} files are exempt: the bootstrap shims that wire forward references.",
         "",
     ]
     lines.extend(f"- ``{rel}``" for rel in exempt)

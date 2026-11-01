@@ -59,13 +59,8 @@ tolerances:
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
   - {src: calibration, tgt: display,  reason: "network-transient calibration diagnostics reuse the shared static HTML report-block renderer; hydromodpy.display.report_blocks only (tolerated in display_layout.yaml)"}
 
-# Files exempt from the layer rule. Bootstrap shims that wire forward refs,
-# plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a
-# user-provided TOML (these are example runners, semantically closer to the
-# `examples/` tree than to the layer they live under).
+# Files exempt from the layer rule: the bootstrap shims that wire forward refs.
 exempt_files:
   - hydromodpy/__init__.py
   - hydromodpy/_bootstrap.py
   - hydromodpy/__main__.py
-  - hydromodpy/spatial/domain/cases/run_domain_case.py
-  - hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py

@@ -21,7 +21,7 @@ env:
   # flopy's get_modflow sends GITHUB_TOKEN to the GitHub API. Without it the
   # binary download shares the anonymous rate limit of the runner's address.
   GITHUB_TOKEN: ${{ github.token }}
-  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
+  COVERAGE_OMIT: hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:
   regression-extensive:

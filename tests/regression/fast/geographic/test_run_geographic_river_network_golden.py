@@ -7,12 +7,10 @@ import numpy as np
 import pytest
 import rasterio
 
-from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
-    run_geographic_case_from_toml,
-)
 from tests._helpers.geographic_cases import (
     CASE_RIVER_NETWORK,
     NAIZIN,
+    delineate_case_toml,
     golden_reference,
     outlet_case_toml,
     river_network_summary_signature,
@@ -58,7 +56,7 @@ def _river_network_signature(root: Path) -> dict:
         root=root,
         river_network=CASE_RIVER_NETWORK,
     )
-    _workspace, geographic = run_geographic_case_from_toml(config_path)
+    geographic = delineate_case_toml(config_path)
     summary = Path(geographic.hydrographic_network_generated_summary_json)
     assert summary.exists(), f"Missing river network summary JSON: {summary}"
     network = gpd.read_file(str(geographic.hydrographic_network_generated_shp))

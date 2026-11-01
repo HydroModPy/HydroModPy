@@ -34,12 +34,8 @@ sub-package has a note of its own with the full map.
 itself, and treats it as one block: the parts import each other freely, and
 `domain`, `geographic`, `mesh` and `field` do. A grep of every `hydromodpy`
 import in the package, deferred ones included, finds only `core`, `schema`
-and `spatial`, with one exception:
-
-1. `config`, in two scripts. `domain/cases/run_domain_case.py` and
-   `geographic/cases/reference_catchment_delineation_case/run_case.py` load a
-   `HydroModPyConfig` from a TOML file. Both are listed under `exempt_files`
-   of the matrix.
+and `spatial`. The demos that load a whole project TOML live outside the
+package, in `tools/cases/`.
 
 No module of spatial imports `data`. The matrix has no `spatial -> data`
 tolerance left. The one link to data goes through the caller: geology reaches
@@ -95,7 +91,6 @@ spatial/
 ├── geographic/                the pre-simulation pipeline
 │   ├── core/                  ground, flow products, catchment, zones, networks, lakes
 │   ├── synthetic/             analytic geographies for validation
-│   ├── cases/                 reference cases and their data
 │   ├── pipeline.py            assembles the artifacts
 │   ├── geographic_config.py   GeographicConfig, the [geographic] table
 │   ├── structure_binders.py   geology and catchment zones into the domain
@@ -112,16 +107,14 @@ spatial/
 │   ├── active_cells.py        the cells a domain is defined on
 │   ├── domain_document.py     the document written for the mesh generator
 │   ├── capability.py          the domain-build capability
-│   ├── worker.py              its worker
-│   └── cases/                 a run script and a TOML for the domain
+│   └── worker.py              its worker
 ├── field/                     values on zones, cells and depths
 │   ├── field_param.py         FieldParam
 │   ├── field_spatial.py       Field
 │   ├── vertical_profile.py    depth profile of a parameter
 │   ├── geology_config.py      geology polygons or raster, and its config
 │   ├── geology_field.py       geology as a field
-│   ├── mesh_cells.py          cells of a PlanarCellMesh a support samples
-│   └── cases/                 square-domain demos
+│   └── mesh_cells.py          cells of a PlanarCellMesh a support samples
 ├── forcing/                   gridded and station forcings on mesh cells
 │   ├── cells.py               one rate per cell and per stress period
 │   ├── rasters.py             xarray, NetCDF and GeoTIFF sources

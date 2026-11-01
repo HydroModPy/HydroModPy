@@ -6,10 +6,13 @@ import numpy as np
 import pytest
 import rasterio
 
-from hydromodpy.spatial.geographic.cases.reference_catchment_delineation_case.run_case import (
-    run_geographic_case_from_toml,
+from tests._helpers.geographic_cases import (
+    NAIZIN,
+    delineate_case_toml,
+    golden_reference,
+    outlet_case_toml,
+    within,
 )
-from tests._helpers.geographic_cases import NAIZIN, golden_reference, outlet_case_toml, within
 from tests._helpers.whitebox import configure_whitebox_single_thread
 from tests.regression.golden_utils import resolve_tiered_golden_file
 
@@ -64,7 +67,7 @@ def _dem_processing_signature(root: Path, method: str) -> dict:
     config_path = outlet_case_toml(
         root / f"run_geographic_config_{method}.toml", NAIZIN, root=root, dem_correc_type=method
     )
-    _workspace, geographic = run_geographic_case_from_toml(config_path)
+    geographic = delineate_case_toml(config_path)
     flow = Path(geographic.correcflow_path)
     names = {"dem_correc": f"dem_{method}", "dem_direc": "dem_direc", "dem_acc": "dem_acc"}
     return {

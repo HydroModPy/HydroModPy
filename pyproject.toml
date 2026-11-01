@@ -230,7 +230,6 @@ source = [
 ]
 parallel = true
 omit = [
-    "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
     "hydromodpy/physics/hydrology/pyhelp/*",
     "hydromodpy/physics/hydrology/pyhelp/**/*",
@@ -321,7 +320,6 @@ ignore = [
 # Annex: legacy/peripheral code, minimal linting.
 "hydromodpy_annex/**" = ["E402", "F401", "B006", "B007"]
 # Demo / validation scripts: lenient, they're not production code.
-"hydromodpy/**/cases/**" = ["E402", "F401", "B007"]
 "hydromodpy/**/examples/**" = ["E402", "F401", "B007"]
 "validation_cases/**" = ["E402", "F401", "B007", "B905"]
 "examples/**" = ["E402", "F401", "B007"]

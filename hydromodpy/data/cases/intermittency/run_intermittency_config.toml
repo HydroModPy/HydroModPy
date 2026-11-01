@@ -1,5 +1,0 @@
-[intermittency_case]
-source = "custom"
-data_path = "data"
-date_start = "2018-01-01"
-date_end = "2023-12-31"

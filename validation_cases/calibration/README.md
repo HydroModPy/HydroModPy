@@ -35,6 +35,10 @@ Reference used by the documentation:
 - `shared/`: reusable inverse-validation contracts and runtime helpers.
 - `twin/`: standardized same-solver twin-experiment cases.
 - `run_benchmarks.py`: run one or several twin benchmarks outside pytest.
+- `groundwater_1d/`, `recession_brutsaert/` and `reservoir/`: standalone experiments with a
+  forward model of a few lines and a command line.
+- `unconfined_interface_1d/` and `recession_hillslope_aquifer/`: two analytical cases driven
+  from Python, a two-material unconfined aquifer and the recession of a hillslope aquifer.
 
 ## Solver columns
 

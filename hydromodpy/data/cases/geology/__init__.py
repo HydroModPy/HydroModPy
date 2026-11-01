@@ -1,1 +1,0 @@
-"""Standalone geology demo cases."""

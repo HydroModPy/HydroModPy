@@ -7,12 +7,13 @@ head chronicle. No MODFLOW, no filesystem, no network.
 
 There is no `project.toml`. The draft is kept as `project.toml.draft` because
 `hmp run` does not dispatch this project: analytical cases live under
-`hydromodpy.calibration.cases` and are driven from Python.
+`validation_cases/calibration/` and are driven from Python. This one is
+`validation_cases/calibration/unconfined_interface_1d/`.
 
 ## Run
 
 ```python
-from hydromodpy.calibration.cases.groundwater_1d import (
+from validation_cases.calibration.unconfined_interface_1d.experiment import (
     build_noisy_groundwater_chronicle,
     calibrate_groundwater,
 )

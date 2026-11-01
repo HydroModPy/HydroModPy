@@ -15,7 +15,6 @@ from hydromodpy.spatial.field.field_param_config import resolve_field_param_conf
 from hydromodpy.spatial.field.field_param_io import field_param_from_toml
 from tests._helpers.field_cases import write_text
 
-SQUARE_CASE = Path("hydromodpy/spatial/field/cases/square/field_param_config.toml")
 CSV_FIELD = (
     '[field]\nid = "K"\nkind = "heterogeneous"\nvalues_source = "csv"\nvalues_csv_file = "{csv}"\n'
     'csv_key_column = "zone_key"\ncsv_value_column = "property_value"\nfield_spatial_id = "field_geology"'
@@ -44,13 +43,6 @@ def test_a_homogeneous_parameter_reads_its_value_and_profile(
     assert float(param.to_array()) == pytest.approx(expected)
     assert float(param.to_array(depth=30.0)) == pytest.approx(expected * depth_factor)
     np.testing.assert_allclose(param.to_array(shape=(2, 3)), expected)
-
-
-def test_the_square_case_reads_one_value_per_zone():
-    param = field_param_from_toml(SQUARE_CASE)
-    assert param.is_heterogeneous
-    assert (param.identifier, param.field_spatial_id) == ("K", "field_square")
-    assert param.values_by_key == {"granite": 10.0, "micaschists": 2.0}
 
 
 @pytest.mark.parametrize(

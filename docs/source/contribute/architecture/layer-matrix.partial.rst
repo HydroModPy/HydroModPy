@@ -103,12 +103,9 @@ contract. They are temporary or deliberately narrow; tighten one when the edge d
 Files exempt from the layer rule
 --------------------------------
 
-5 files are exempt: bootstrap shims that wire forward references, and the case
-runners that load a user TOML and belong semantically to ``examples/``.
+3 files are exempt: the bootstrap shims that wire forward references.
 
 - ``hydromodpy/__init__.py``
 - ``hydromodpy/_bootstrap.py``
 - ``hydromodpy/__main__.py``
-- ``hydromodpy/spatial/domain/cases/run_domain_case.py``
-- ``hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py``
 

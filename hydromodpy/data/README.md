@@ -38,7 +38,6 @@ In dependency order, lowest first.
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold and scan of custom files |
 | `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process |
-| `cases/` | demonstrators driven by a TOML, with their data (golden tests, gallery) |
 
 ## Import rules
 

@@ -1,17 +1,23 @@
-"""Golden non-regression test for deterministic intermittency case outputs."""
+"""Golden non-regression test of the custom intermittency loader on three ONDE stations."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from hydromodpy.data.cases.intermittency.run_intermittency_case import (
-    run_intermittency_case_from_toml,
+from hydromodpy.data.loading.store import DataStore
+from hydromodpy.data.variables.intermittency.config import (
+    IntermittencyConfig,
+    IntermittencySourceConfig,
 )
 
-GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "run_intermittency_case_golden.json"
+HERE = Path(__file__).resolve().parent
+DATA_DIR = HERE / "data"
+GOLDEN_FILE = HERE / "golden" / "run_intermittency_case_golden.json"
+START, END = "2018-01-01", "2023-12-31"
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -26,33 +32,34 @@ def _load_json(path: Path) -> dict:
         return json.load(stream)
 
 
-def _repo_root() -> Path:
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "hydromodpy").is_dir():
-            return parent
-    raise RuntimeError("Cannot locate repository root from test path")
+def _signature() -> dict:
+    config = IntermittencyConfig(
+        sources=[IntermittencySourceConfig(source="custom", path=DATA_DIR)],
+        date_start=START,
+        date_end=END,
+    )
+    store = DataStore(project_period=(datetime.fromisoformat(START), datetime.fromisoformat(END)))
+    points = store.load_intermittency(config).points
+    codes = [int(code) for record in points for code in record.data["value"]]
+    dates = [record.data["datetime"] for record in points if not record.data.empty]
+    station_ids = sorted({record.station_id for record in points})
+    return {
+        "station_count": len(station_ids),
+        "station_ids": station_ids,
+        "total_observations": sum(len(record.data) for record in points),
+        "date_start": min(d.min() for d in dates).strftime("%Y-%m-%d"),
+        "date_end": max(d.max() for d in dates).strftime("%Y-%m-%d"),
+        "flow_code_hist": {str(code): codes.count(code) for code in sorted(set(codes))},
+    }
 
 
 @pytest.mark.slow
-def test_run_intermittency_case_golden(update_goldens: bool, tmp_path: Path) -> None:
-    """Check intermittency-case summary stays stable on local deterministic input."""
-    base_config_path = (
-        _repo_root()
-        / "hydromodpy"
-        / "data"
-        / "cases"
-        / "intermittency"
-        / "run_intermittency_config.toml"
-    )
-    actual = run_intermittency_case_from_toml(
-        base_config_path,
-        output_json=tmp_path / "intermittency_case_summary.json",
-    )
-
-    sanitized_actual = json.loads(json.dumps(actual))
+def test_run_intermittency_case_golden(update_goldens: bool) -> None:
+    """The stations, the observation count, the dates and the flow codes stay the same."""
+    actual = _signature()
 
     if update_goldens:
-        _write_json(GOLDEN_FILE, sanitized_actual)
+        _write_json(GOLDEN_FILE, actual)
         return
 
     if not GOLDEN_FILE.exists():
@@ -61,5 +68,4 @@ def test_run_intermittency_case_golden(update_goldens: bool, tmp_path: Path) -> 
             "Run tests with --update-goldens to generate it."
         )
 
-    expected = _load_json(GOLDEN_FILE)
-    assert sanitized_actual == expected
+    assert actual == _load_json(GOLDEN_FILE)
