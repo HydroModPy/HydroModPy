@@ -9,6 +9,8 @@ import pytest
 from hydromodpy.core.exceptions import TerrainProductError, TerrainRequestError
 from hydromodpy.spatial.terrain.port import (
     LN_FLOAT32_COLLISION_COUNT,
+    ConditioningExtent,
+    Outlet,
     require_resolvable_counts,
     snap_window_cells,
 )
@@ -32,3 +34,29 @@ def test_the_float32_guard_refuses_only_a_transformed_value_past_the_bound() -> 
 def test_a_snap_window_of_no_width_is_refused(distance) -> None:
     with pytest.raises(TerrainRequestError, match="snap distance"):
         snap_window_cells(distance, dx=25.0, dy=25.0)
+
+
+def test_a_conditioning_extent_says_what_it_conditions() -> None:
+    assert ConditioningExtent.per_outlet_buffer(500.0).buffer_distance_m == 500.0
+
+
+@pytest.mark.parametrize(
+    ("kind", "distance", "match"),
+    [
+        ("everywhere", None, "Unknown conditioning extent"),
+        ("regional", 100.0, "carries no buffer distance"),
+        ("per_outlet_buffer", 0.0, "needs a buffer distance"),
+    ],
+)
+def test_a_conditioning_extent_that_contradicts_itself_is_refused(kind, distance, match) -> None:
+    with pytest.raises(TerrainRequestError, match=match):
+        ConditioningExtent(kind=kind, buffer_distance_m=distance)
+
+
+@pytest.mark.parametrize(
+    ("outlet_id", "match"),
+    [("../up", "not usable as a directory name"), ("a" * 65, "over the 64")],
+)
+def test_an_outlet_id_that_makes_no_directory_name_is_refused(outlet_id, match) -> None:
+    with pytest.raises(TerrainRequestError, match=match):
+        Outlet(outlet_id=outlet_id, x=0.0, y=0.0)

@@ -1,13 +1,11 @@
 """Turn a source of sites into :class:`SiteRow` rows.
 
 Each importer reads one kind of source and stops at the rows: adding them to
-the catalog is :func:`hydromodpy.data.sites.catalog.add_sites`. Four sources:
+the catalog is :func:`hydromodpy.data.sites.catalog.add_sites`. Three sources:
 
 - a site table (CSV in the columns of ``SITE_ROW_COLUMNS``);
 - a vector layer of outlets (one point per site, the name in a field);
-- the Hub'Eau stations inside a box, optionally snapped onto a river network
-  with the snapping of the site selection;
-- the selected sites of a site-selection manifest.
+- the Hub'Eau stations inside a box, optionally snapped onto a river network.
 """
 
 from __future__ import annotations
@@ -125,7 +123,7 @@ def rows_from_hubeau(
     site with several stations keeps the first one. ``min_years`` keeps the
     stations open for at least that many years, closing date or today.
     ``snap_network`` (a vector file, or ``bdtopage``) moves each outlet onto
-    the nearest line within ``snap_max_m``, as the site selection does; a
+    the nearest line within ``snap_max_m``; a
     station farther away is skipped and named.
     """
     from pyproj import Transformer
@@ -181,39 +179,6 @@ def rows_from_hubeau(
     return SiteImport(rows=tuple(rows), skipped=tuple(skipped))
 
 
-def rows_from_selection(manifest_path: Path) -> SiteImport:
-    """Read the selected sites of a site-selection manifest."""
-    from hydromodpy.schema.site_selection_manifest import (
-        load_selection_manifest,
-        manifest_output_path,
-    )
-
-    manifest = load_selection_manifest(manifest_path)
-    table = manifest_output_path(manifest, "selected_sites_csv", manifest_path=manifest_path)
-    if table is None or not table.is_file():
-        raise FileNotFoundError(
-            f"{manifest_path}: the manifest lists no selected_sites.csv on disk; "
-            "run the selection with [site_selection.output] write_selected = true."
-        )
-    selection_id = str(manifest.get("selection_id") or "")
-    rows: list[SiteRow] = []
-    with table.open(newline="", encoding="utf-8") as handle:
-        for record in csv.DictReader(handle):
-            tags = [tag for tag in (record.get("tags") or "").split(";") if tag]
-            rows.append(
-                SiteRow(
-                    site=site_name(record["site_id"]),
-                    label=_text(record.get("site_label")),
-                    gauge=_text(record.get("gauge")),
-                    x_outlet=_number(record.get("x_outlet")),
-                    y_outlet=_number(record.get("y_outlet")),
-                    crs=_text(record.get("crs")),
-                    tags=tuple(dict.fromkeys(tags or ["site_selection", selection_id])),
-                )
-            )
-    return SiteImport(rows=tuple(rows))
-
-
 def fetch_bdtopage_reference_network(
     bbox_wgs84: tuple[float, float, float, float],
     *,
@@ -221,7 +186,7 @@ def fetch_bdtopage_reference_network(
 ) -> gpd.GeoDataFrame:
     """Download the BD Topage reaches inside *bbox_wgs84*, in EPSG:4326, to snap outlets on.
 
-    This is the fetcher that the site-selection reference network takes.
+    This is the fetcher of the outlet snap.
     """
     from hydromodpy.data.variables.hydrography.apis.bdtopage import fetch
     from hydromodpy.data.variables.hydrography.config import HydrographySourceConfig
@@ -240,27 +205,13 @@ def _snap(
     """Move each outlet onto the nearest line of a river network, or skip it."""
     from dataclasses import replace
 
-    from hydromodpy.site_selection.domain.candidate_outlet import CandidateOutlet
-    from hydromodpy.site_selection.hydrology.reference_network import (
-        load_reference_network_for_outlets,
-        snap_outlet_to_reference_network,
-    )
+    from hydromodpy.data.sites.outlet_snap import load_network, snap_outlet
 
     source = "bdtopage" if str(network) == "bdtopage" else "custom"
-    outlets = [
-        CandidateOutlet(
-            candidate_id=row.site,
-            x=float(row.x_outlet),
-            y=float(row.y_outlet),
-            crs=crs,
-            source="hubeau",
-            source_feature_id=row.gauge or row.site,
-        )
-        for row in rows
-    ]
+    outlets = [(float(row.x_outlet), float(row.y_outlet)) for row in rows]
     if source == "bdtopage" and output_dir is None:
         raise ValueError("snapping onto bdtopage needs a folder to cache the network in.")
-    loaded, _bundle = load_reference_network_for_outlets(
+    loaded = load_network(
         source=source,
         outlets=outlets,
         target_crs=crs,
@@ -272,13 +223,13 @@ def _snap(
     far: list[str] = []
     for row, outlet in zip(rows, outlets, strict=True):
         try:
-            moved = snap_outlet_to_reference_network(
-                outlet, loaded, max_distance_m=max_distance_m, source=source
+            x, y = snap_outlet(
+                row.site, outlet, loaded, crs=crs, max_distance_m=max_distance_m, source=source
             )
         except ValueError as exc:
             far.append(f"site {row.site}: {exc}")
             continue
-        snapped.append(replace(row, x_outlet=moved.x, y_outlet=moved.y))
+        snapped.append(replace(row, x_outlet=x, y_outlet=y))
     return snapped, far
 
 
@@ -321,7 +272,6 @@ __all__ = [
     "fetch_bdtopage_reference_network",
     "rows_from_hubeau",
     "rows_from_layer",
-    "rows_from_selection",
     "rows_from_table",
     "site_name",
 ]

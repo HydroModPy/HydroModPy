@@ -1,11 +1,8 @@
 """Two capabilities compose through the disk, and the chain is what writes it.
 
 The mechanics are checked against declarations built here, because the chain
-knows no capability and asserting it against the two this build ships would
-hide that. One test does use the real pair, and it is the contract of the
-phase: the GeoPackage ``terrain-delineate`` seals fills the ``extent.mask``
-member of ``data-request``, at the path the declaration gives it and nowhere
-else.
+knows no capability and asserting it against the ones this build ships would
+hide that.
 """
 
 from __future__ import annotations
@@ -471,104 +468,3 @@ def test_a_byte_order_mark_is_read_and_not_refused(tmp_path: Path) -> None:
     )
 
     assert read_chain(path).steps[0].id == "only"
-
-
-def test_the_two_capabilities_of_this_build_chain_on_the_watershed(tmp_path: Path) -> None:
-    """The contract of the phase, against the real declarations.
-
-    ``data-request`` takes its extent as an input, and a mask already produced
-    is one of the three spellings it accepts. What the chain has to get right is
-    which artefact of the first step is that mask, and it reads that from the
-    declaration rather than from a string written here.
-    """
-    from hydromodpy.data.request.job import DATA_REQUEST
-    from hydromodpy.site_selection.hydrology.capability import (
-        TERRAIN_DELINEATE,
-        WATERSHED_VECTOR_PATH,
-    )
-
-    served = {DATA_REQUEST.id: DATA_REQUEST, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
-    chain = ChainRequest.model_validate(
-        {
-            "steps": [
-                {
-                    "id": "delineate",
-                    "process": {"id": TERRAIN_DELINEATE.id, "version": TERRAIN_DELINEATE.version},
-                    "inputs": {
-                        "dem": {"href": "/data/dem.tif"},
-                        "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
-                        "crs_project": "EPSG:2154",
-                    },
-                },
-                {
-                    "id": "fetch",
-                    "process": {"id": DATA_REQUEST.id},
-                    "inputs": {"data": {"dem": {"sources": [{"source": "ign_geoplateforme_dem"}]}}},
-                    "links": [
-                        {
-                            "member": "extent.mask",
-                            "step": "delineate",
-                            "output": "watershed_vector",
-                        }
-                    ],
-                },
-            ]
-        }
-    )
-
-    resolved = resolve_chain(chain, declaration=served.get)
-
-    assert resolved[1].links[0].path == f"01-delineate/{WATERSHED_VECTOR_PATH}"
-    assert resolved[1].links[0].media_type == "application/geopackage+sqlite3"
-
-
-def test_the_terrain_and_the_domain_chain_on_the_corrected_dem_and_the_watershed() -> None:
-    """The contract F7e was opened for, against the real declarations.
-
-    What the audit called missing between terrain and mesh is a capability
-    whose inputs are artefacts the delineation already seals: the corrected DEM
-    is the top surface of the domain, and the catchment polygon is what bounds
-    it. The two links are read off the declarations rather than off a path
-    written here, so renaming an output on either side lands in this test.
-    """
-    from hydromodpy.site_selection.hydrology.capability import (
-        DEM_CORRECTED_PATH,
-        TERRAIN_DELINEATE,
-        WATERSHED_VECTOR_PATH,
-    )
-    from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
-
-    served = {DOMAIN_BUILD.id: DOMAIN_BUILD, TERRAIN_DELINEATE.id: TERRAIN_DELINEATE}
-    chain = ChainRequest.model_validate(
-        {
-            "steps": [
-                {
-                    "id": "delineate",
-                    "process": {"id": TERRAIN_DELINEATE.id, "version": TERRAIN_DELINEATE.version},
-                    "inputs": {
-                        "dem": {"href": "/data/dem.tif"},
-                        "outlets": [{"site_id": "valley", "x": 300112.5, "y": 6701262.5}],
-                        "crs_project": "EPSG:2154",
-                    },
-                },
-                {
-                    "id": "domain",
-                    "process": {"id": DOMAIN_BUILD.id},
-                    "inputs": {
-                        "depth_model": {"kind": "constant_thickness", "thickness": 30.0},
-                        "mask_layer": "watershed",
-                    },
-                    "links": [
-                        {"member": "dem", "step": "delineate", "output": "dem_corrected"},
-                        {"member": "mask", "step": "delineate", "output": "watershed_vector"},
-                    ],
-                },
-            ]
-        }
-    )
-
-    resolved = resolve_chain(chain, declaration=served.get)
-
-    assert resolved[1].links[0].path == f"01-delineate/{DEM_CORRECTED_PATH}"
-    assert resolved[1].links[1].path == f"01-delineate/{WATERSHED_VECTOR_PATH}"
-    assert resolved[1].links[1].media_type == "application/geopackage+sqlite3"

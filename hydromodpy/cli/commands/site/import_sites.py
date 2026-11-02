@@ -1,4 +1,4 @@
-"""``hmp site import``: declare sites from a table, a layer, Hub'Eau or a selection."""
+"""``hmp site import``: declare sites from a table, a layer or Hub'Eau."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from hydromodpy.cli._conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_USAGE, exit_code_for
 
 NAME: str = "import"
-HELP: str = "Declare sites from a table, a vector layer, Hub'Eau stations or a selection"
+HELP: str = "Declare sites from a table, a vector layer or Hub'Eau stations"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -22,8 +22,7 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Examples:\n"
             "  hmp site import stations.csv --tag bretagne\n"
             "  hmp site import --hubeau --bbox 150000 6700000 420000 6900000 --min-years 10\n"
-            "  hmp site import --layer exutoires.gpkg --name-field code --gauge-field station\n"
-            "  hmp site import --selection outputs/site_selection_manifest.json"
+            "  hmp site import --layer exutoires.gpkg --name-field code --gauge-field station"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -34,14 +33,11 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         help="CSV site table in the columns site, label, gauge, uri, x_outlet, y_outlet, crs, tags",
     )
-    source = parser.add_argument_group("source (one of the table, --hubeau, --layer, --selection)")
+    source = parser.add_argument_group("source (one of the table, --hubeau, --layer)")
     source.add_argument(
         "--hubeau", action="store_true", help="Hub'Eau discharge stations inside --bbox"
     )
     source.add_argument("--layer", type=Path, default=None, help="Vector layer of outlet points")
-    source.add_argument(
-        "--selection", type=Path, default=None, help="A site_selection_manifest.json"
-    )
     hubeau = parser.add_argument_group("--hubeau")
     hubeau.add_argument(
         "--bbox",
@@ -101,14 +97,13 @@ def run(args: argparse.Namespace) -> None:
             ("a table", args.table is not None),
             ("--hubeau", args.hubeau),
             ("--layer", args.layer is not None),
-            ("--selection", args.selection is not None),
         )
         if given
     ]
     if len(chosen) != 1:
         print(
-            "hmp site import reads exactly one source: a table, --hubeau, --layer or "
-            f"--selection (given: {', '.join(chosen) or 'none'}).",
+            "hmp site import reads exactly one source: a table, --hubeau or --layer "
+            f"(given: {', '.join(chosen) or 'none'}).",
             file=sys.stderr,
         )
         sys.exit(EXIT_USAGE)
@@ -141,7 +136,6 @@ def _read(args: argparse.Namespace, root: Path):
     from hydromodpy.data.sites.importers import (
         rows_from_hubeau,
         rows_from_layer,
-        rows_from_selection,
         rows_from_table,
     )
 
@@ -155,8 +149,6 @@ def _read(args: argparse.Namespace, root: Path):
             label_field=args.label_field,
             layer=args.layer_name,
         )
-    if args.selection is not None:
-        return rows_from_selection(args.selection)
     return rows_from_hubeau(
         args.bbox,
         crs=args.crs,

@@ -5,7 +5,7 @@
 Layer matrix
 ------------
 
-20 layers, 156 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
+19 layers, 146 granted edges. A layer always implicitly allows imports targeting itself; anything absent from a row
 is forbidden and fails CI.
 
 .. list-table::
@@ -16,27 +16,24 @@ is forbidden and fails CI.
      - Allowed import targets
    * - ``<root>``
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``site_selection``, ``simulation``,
-       ``solver``, ``calibration``, ``results``, ``display``,
-       ``analysis``, ``reporting``, ``workflow``, ``catalog``,
-       ``examples``, ``cli``
+       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``examples``, ``cli``
    * - ``core``
      - ``core``
    * - ``schema``
      - ``core``, ``schema``, ``config``
    * - ``config``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``site_selection``, ``simulation``, ``solver``,
-       ``calibration``, ``results``, ``display``, ``analysis``,
-       ``reporting``, ``workflow``
+       ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``
    * - ``physics``
      - ``core``, ``schema``, ``physics``
    * - ``data``
-     - ``core``, ``schema``, ``data``, ``spatial``, ``site_selection``
+     - ``core``, ``schema``, ``data``, ``spatial``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
-   * - ``site_selection``
-     - ``core``, ``schema``, ``spatial``, ``site_selection``
    * - ``simulation``
      - ``core``, ``schema``, ``physics``, ``spatial``, ``data``,
        ``simulation``
@@ -58,24 +55,23 @@ is forbidden and fails CI.
        ``analysis``, ``reporting``
    * - ``workflow``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``site_selection``, ``simulation``, ``solver``,
-       ``calibration``, ``results``, ``display``, ``analysis``,
-       ``reporting``, ``workflow``
+       ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``
    * - ``examples``
      - ``core``, ``examples``
    * - ``catalog``
      - ``core``, ``schema``, ``data``, ``results``, ``catalog``
    * - ``project``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
-       ``spatial``, ``site_selection``, ``simulation``, ``solver``,
-       ``calibration``, ``results``, ``display``, ``analysis``,
-       ``reporting``, ``workflow``, ``catalog``, ``project``
+       ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``project``
    * - ``cli``
      - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
-       ``data``, ``spatial``, ``site_selection``, ``simulation``,
-       ``solver``, ``calibration``, ``results``, ``display``,
-       ``analysis``, ``reporting``, ``workflow``, ``catalog``,
-       ``project``, ``examples``, ``cli``
+       ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``project``, ``examples``, ``cli``
 
 Documented tolerances
 ---------------------

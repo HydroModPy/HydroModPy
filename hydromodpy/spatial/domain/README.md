@@ -83,7 +83,7 @@ The setup step, `hydromodpy/workflow/steps/setup.py`, builds the domain of a run
 
 The solvers read the layering through `hydromodpy/solver/modflow_grid/discretization_spatial.py`, which calls `layer_stack` and `assert_bottom_below_top`. The `[domain]` config is a field of `HydroModPyConfig` in `hydromodpy/config/hydromodpy_config.py`. The calibration reads the depth models in `hydromodpy/calibration/parameter_resolution.py`.
 
-The `domain-build` declaration is `DOMAIN_BUILD` in `capability.py`. Its JSON schema is `hydromodpy/schema/processes/domain-build@1.json`, and `hydromodpy/spatial/job_inputs.py` holds the input checks it shares with `terrain-delineate`.
+The `domain-build` declaration is `DOMAIN_BUILD` in `capability.py`. Its JSON schema is `hydromodpy/schema/processes/domain-build@1.json`, and `hydromodpy/spatial/job_inputs.py` holds its input checks.
 
 ## Changing the code
 

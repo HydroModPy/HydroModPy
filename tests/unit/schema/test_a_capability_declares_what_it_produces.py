@@ -67,7 +67,7 @@ def test_an_output_that_was_not_declared_is_a_key_error() -> None:
 
 @pytest.mark.parametrize(
     "capability_id",
-    ["Terrain-Delineate", "terrain_delineate", "terrain delineate", "-terrain", "terrain-"],
+    ["Domain-Build", "domain_build", "domain build", "-domain", "domain-"],
 )
 def test_an_id_that_is_not_kebab_case_is_refused(capability_id: str) -> None:
     with pytest.raises(ValueError, match="kebab-case"):

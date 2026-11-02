@@ -146,7 +146,7 @@ def _read_inputs(job: JobDirectory) -> tuple[DomainBuildRequest, list[str]]:
         for member in request.undeclared_members
     )
     inputs = cast(DomainBuildRequest, validate_inputs(request, decl))
-    # Validated and not used to filter, as terrain-delineate does: every
+    # Validated and not used to filter: every
     # declared output is produced whatever the caller asked to hear about, and
     # what this call is for is refusing an output name nobody declares.
     requested_outputs(request, decl)

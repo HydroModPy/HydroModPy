@@ -165,7 +165,7 @@ def _job_directory(
         {
             "schema": "hmp-provenance/v1",
             "job_id": JOB_ID,
-            "process": {"id": "terrain-delineate", "version": "1.0.0"},
+            "process": {"id": "domain-build", "version": "1.0.0"},
             "tool": {"name": "hydromodpy", "version": "2.0.0a1"},
             "git": {"commit": None, "dirty": None},
             "backend": {"name": "whitebox", "version": "2.4.0", "sha256": "cd" * 32},
@@ -173,7 +173,7 @@ def _job_directory(
     )
     JobOutcome(
         job_id=JOB_ID,
-        process_id="terrain-delineate",
+        process_id="domain-build",
         process_version="1.0.0",
         status="successful",
         exit_code=0,
@@ -415,7 +415,7 @@ class TestAJobDirectory:
         context = context_from_directory(job.root)
         assert context.solver_name == "whitebox"
         assert context.solver_binary_sha256 == "cd" * 32
-        assert context.sim_row["name"] == "terrain-delineate 1.0.0"
+        assert context.sim_row["name"] == "domain-build 1.0.0"
         graph = _read(write_prov_view(job.root))["@graph"]
         assert graph[0]["startTime"] == "2026-09-16T08:12:05.113Z"
 

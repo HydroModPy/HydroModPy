@@ -152,28 +152,6 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     assert cfg.calibration is None
 
 
-def test_an_empty_site_selection_table_is_refused_by_name(tmp_path: Path) -> None:
-    config_path = tmp_path / "empty_site_selection.toml"
-    config_path.write_text(
-        "\n".join(
-            [
-                '[workflow]\nmode = "simulation"',
-                "[workspace]",
-                f'root = "{tmp_path}"',
-                "",
-                "[geographic]",
-                'source_mode = "synthetic"',
-                "",
-                "[site_selection]",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigValidationError, match="hmp site select"):
-        HydroModPyConfig.from_toml(config_path)
-
-
 def test_hydromodpy_config_from_dict_resolves_nested_geographic_catchment(
     tmp_path: Path,
 ) -> None:

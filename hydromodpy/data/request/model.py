@@ -4,7 +4,7 @@ A program with no project and no TOML -- a Docker container, a web service, a
 GIS tool -- asks for ``[data]`` sections over an extent and a period. The
 sections are the models of the TOML itself, so what works in a project works
 in a request. The extent is exactly one of three things: a box with its CRS, a
-vector mask (a basin ``terrain-delineate`` sealed, for instance), or a list of
+vector mask (a basin polygon, for instance), or a list of
 stations. ``installed`` asks a plugin source by its name.
 
 The mask is a file link, the shape every job input takes: ``href``, an optional
@@ -56,10 +56,7 @@ class RequestExtent(HydroModelBase):
     )
     mask: Annotated[FileLink | None, Profile.USER] = Field(
         default=None,
-        description=(
-            "vector file whose shape bounds the request, typically a watershed "
-            "sealed by terrain-delineate"
-        ),
+        description="vector file whose shape bounds the request, typically a watershed",
     )
     station_ids: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,

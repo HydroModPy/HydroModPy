@@ -34,10 +34,9 @@ DESCRIPTIONS_DIR = Path(processes_package.__file__).resolve().parent
 def capability_decls() -> tuple[Any, ...]:
     """Return the declarations the descriptions are generated from."""
     from hydromodpy.data.request.job import DATA_REQUEST
-    from hydromodpy.site_selection.hydrology.capability import TERRAIN_DELINEATE
     from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
 
-    return (DATA_REQUEST, DOMAIN_BUILD, TERRAIN_DELINEATE)
+    return (DATA_REQUEST, DOMAIN_BUILD)
 
 
 def _render_all() -> dict[str, str]:

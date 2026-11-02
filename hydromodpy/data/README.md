@@ -34,7 +34,7 @@ In dependency order, lowest first.
 | `registry/` | the DuckDB index of the cache (`data/cache.duckdb`); the files and their sidecars stay the truth. `DataCatalogDuckDB` opens it read-write (one process), read-only (`hmp data` reads, the `--frozen` check) or layered inside a case the launcher started: writes go to a private cache, the shared file is read one query at a time, and `merge_private_cache` folds the private file in when the case ends |
 | `managers/` | the bases the variable managers inherit: shared state and the `SOURCES` dispatch, the grid cache, the per-station cache, the user-file-only variables |
 | `variables/` | one package per `[data.<name>]` section, all on the template below |
-| `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations, site-selection manifest), and `[site] gauge` as the station of the series sources (`gauge.py`) |
+| `sites/` | the sites of the workspace: `data/sites/catalog.csv` in `SiteRow` rows (`catalog.py`, its only reader and writer, with the name and `near_site_m` checks), the importers behind `hmp site import` (site table, outlet layer, Hub'Eau stations), and `[site] gauge` as the station of the series sources (`gauge.py`) |
 | `loading/` | `[data]` of the TOML to the variables it activates to the data loaded: `DataManagersConfig`, `DataPlanner`, `DataManagersRuntimeLoader`, `DataStore` |
 | `workspace/` | the workspace data folder: scaffold and scan of custom files |
 | `request/` | data asked for from outside a project: `DataRequest`, `run_request`, the `data-request` process |
@@ -174,8 +174,7 @@ result = store.load_variable("hydrometry", cfg)
 A workspace declares its sites once, in `data/sites/catalog.csv`, one
 `SiteRow` per line (`site, label, gauge, uri, x_outlet, y_outlet, crs, tags`,
 `hydromodpy.core.site`). `hmp site add`, `hmp site import`, `hmp site ls` and
-`hmp site show` read and write it through `sites/catalog.py`, and so does
-`hmp site select --into-catalog`. A name is declared once. An outlet closer
+`hmp site show` read and write it through `sites/catalog.py`. A name is declared once. An outlet closer
 than `[sites] near_site_m` of `workspace.toml` (default 500 m) to the outlet
 of a site of another name is refused, since it is most likely the same
 catchment twice; `--force` replaces a site of the same name and accepts a
@@ -263,12 +262,10 @@ class LoadResult:
 
 ## Layer neighbours
 
-`data` imports `core`, `schema`, `spatial` and `site_selection`
-(`tests/unit/architecture/layer_matrix.yaml`). The edge to `site_selection` is
-the outlet snap of `sites/importers.py`, which reads `CandidateOutlet` and the
-reference-network snapping. `config`, `simulation`, `calibration`, `analysis`,
+`data` imports `core`, `schema` and `spatial`
+(`tests/unit/architecture/layer_matrix.yaml`). `config`, `simulation`, `calibration`, `analysis`,
 `workflow`, `catalog`, `project`, `cli` and the root facade import `data`.
-Neither `spatial` nor `site_selection` imports it, and `data` never imports
+`spatial` does not import it, and `data` never imports
 `catalog`.
 
 ## Reading path

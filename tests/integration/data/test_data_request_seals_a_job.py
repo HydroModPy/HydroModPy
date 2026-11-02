@@ -271,7 +271,7 @@ def test_a_mask_that_is_not_a_vector_file_is_refused_as_bad_input(tmp_path, stub
 
 def test_a_request_for_another_capability_is_refused(tmp_path, stub_bdtopage):
     document = _request()
-    document["process"] = {"id": "terrain-delineate", "version": "1.1.0"}
+    document["process"] = {"id": "domain-build", "version": "1.1.0"}
     job = _staged(tmp_path, document)
 
     outcome = run(job, exit_code_for=exit_code_for)

@@ -17,7 +17,7 @@ delineation backend" and never imports `whitebox_workflows` itself.
    exception, when two of its threads race. The child dies instead, and the parent runs it again, three attempts in all.
 
 ```text
-caller (geographic, site selection, solver routing)
+caller (geographic, solver routing)
         |
         |  registry.py                       name to backend class, one instance
         v
@@ -82,7 +82,7 @@ The layer matrix is checked by `tests/unit/architecture/`.
 ## What lives outside the package
 
 The users of the backend are in `hydromodpy/spatial/geographic/` (the pipeline, the catchment delineation, the river
-network), in `hydromodpy/site_selection/candidates/generation.py`, in `hydromodpy/data/variables/hydrography/`,
+network), in `hydromodpy/data/variables/hydrography/`,
 in `hydromodpy/solver/modflow_common/` and `modflow_nwt/modpath/`, and in `hydromodpy/workflow/steps/export.py`. They
 call `resolve_delineation_backend` or `get_whitebox_backend`, or take a backend as an argument. The terrain engine
 `WhiteboxTerrainEngine` in `hydromodpy/spatial/terrain/` calls it through `get_whitebox_backend`.

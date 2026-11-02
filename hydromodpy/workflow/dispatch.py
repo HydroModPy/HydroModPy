@@ -7,8 +7,7 @@ simulates. :func:`infer_workflow` is the one place that rule is written, and
 :func:`resolve_workflow` applies it to a file, so ``hmp run`` and ``hmp.run``
 read a file the same way.
 
-The modes of the retired orchestrators (``comparison``, ``testbed``,
-``site_selection``) are refused with their replacement, the same sentence the
+The modes of the retired orchestrators (``comparison``, ``testbed``) are refused with their replacement, the same sentence the
 configuration model gives (:data:`hydromodpy.config.hydromodpy_config.RETIRED_WORKFLOW_MODES`).
 """
 

@@ -7,7 +7,7 @@ introduced to remove, reappearing one level up.
 
 This file is the pin, and it lives here rather than beside one capability's
 tests because the claim is about the **registry**: it used to sit in the
-``terrain-delineate`` file, where the second capability's gate could not be
+file of one capability, where the second capability's gate could not be
 named. What it holds is that each served capability is paired with a test module
 that runs it and reads the names it resolved, and that the module is on disk and
 still carries that test.
@@ -27,7 +27,6 @@ EGRESS_GATE_NAME = "test_the_only_hosts_it_contacts_are_the_ones_it_declares"
 EGRESS_GATES: dict[str, str] = {
     "data-request": "tests/integration/data/test_data_request_seals_a_job.py",
     "domain-build": "tests/integration/domain/test_worker.py",
-    "terrain-delineate": ("tests/integration/site_selection/test_terrain_delineate_seals_a_job.py"),
 }
 """Which module runs each capability and reads back what it reached.
 

@@ -7,7 +7,7 @@ behind it can change. Two engines ship with the package, and a third party can a
 
 ## How the work flows
 
-A caller (the geographic chain, the site selection worker, the regional flow job) never builds an engine by name. It
+A caller (the geographic chain, the regional flow job) never builds an engine by name. It
 asks the registry for an `engine_id`, then calls the five steps of the port in order.
 
 1. The registry (`registry.py`) resolves the `engine_id` to a class and builds it. A caller that names none gets
@@ -85,9 +85,7 @@ package, and it lists the one exception above. The layer matrix sees `spatial` a
 
 The callers pick the engine through the registry. `hydromodpy/spatial/geographic/core/flow_products.py` and
 `hydromodpy/spatial/geographic/regional_flow_job.py` build it, and `geographic_config.py` checks that
-`geographic.terrain_engine` names an engine the installation serves. The `terrain-delineate` capability of the site
-selection (`hydromodpy/site_selection/hydrology/capability.py` and `worker.py`) takes the engine name from its
-request. The Whitebox calls themselves are in `hydromodpy/spatial/delineation/`.
+`geographic.terrain_engine` names an engine the installation serves. The Whitebox calls themselves are in `hydromodpy/spatial/delineation/`.
 
 A third party registers an engine in the entry point group `hydromodpy.terrain.engine`. The entry point name must equal
 the `engine_id` of the class, and a name that a built-in engine already uses is refused. A bad plug-in is skipped with a
@@ -127,7 +125,6 @@ runs on both. A new engine is a class with `engine_id`, `engine_version` and the
 
 ## Documentation
 
-No developer page is written for this package. The parameters that select an engine are generated from the code:
-`geographic.terrain_engine` in `docs/source/reference/parameters/geographic.md` and `site_selection.terrain_engine` in
-`docs/source/reference/parameters/site-selection-file.md`. The gate that keeps the port free of other parts of `spatial`
+No developer page is written for this package. The parameter that selects an engine is generated from the code:
+`geographic.terrain_engine` in `docs/source/reference/parameters/geographic.md`. The gate that keeps the port free of other parts of `spatial`
 is explained in `docs/source/contribute/architecture/how-to/fix-an-architecture-gate.rst`.

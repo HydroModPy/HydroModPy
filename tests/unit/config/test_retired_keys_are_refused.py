@@ -45,7 +45,6 @@ def test_a_retired_simulation_key_names_its_replacement(key: str, advice: str) -
     [
         ("testbed", r"\[sites.recipes\]"),
         ("comparison", "hmp report compare"),
-        ("site_selection", "hmp site select"),
     ],
 )
 def test_a_retired_workflow_mode_names_its_replacement(mode: str, advice: str) -> None:
@@ -117,7 +116,6 @@ def test_the_mesh_catchment_batch_section_stays_refused() -> None:
     ("section", "advice"),
     [
         ("analysis", "hmp report compare over sealed runs"),
-        ("site_selection", "hmp site select <file>, not by hmp run"),
         ("hydrometry", r"\[data.hydrometry\]"),
     ],
 )

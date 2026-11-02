@@ -1,8 +1,7 @@
-"""``hmp site import``: four sources, one row shape, one catalog.
+"""``hmp site import``: three sources, one row shape, one catalog.
 
-A site table, a vector layer of outlets, the Hub'Eau stations of a box (with
-the snapping of the site selection) and the selected sites of a selection
-manifest all become ``SiteRow`` rows; ``--tag`` marks them, ``--dry-run``
+A site table, a vector layer of outlets and the Hub'Eau stations of a box all
+become ``SiteRow`` rows; ``--tag`` marks them, ``--dry-run``
 writes nothing, and the catalog refuses what ``add`` refuses.
 """
 
@@ -22,7 +21,6 @@ from hydromodpy.data.sites.catalog import read_catalog, write_catalog
 from hydromodpy.data.sites.importers import (
     rows_from_hubeau,
     rows_from_layer,
-    rows_from_selection,
     rows_from_table,
     site_name,
 )
@@ -196,63 +194,6 @@ def test_hubeau_outlets_are_snapped_onto_the_network_or_skipped(tmp_path):
     assert imported.rows[0].y_outlet == pytest.approx(y + 50, abs=0.01)
     assert len(imported.skipped) == 1
     assert imported.skipped[0].startswith("site J0020010:")
-
-
-@pytest.mark.fast
-def test_the_selected_sites_of_a_manifest_are_imported(tmp_path):
-    out = tmp_path / "out"
-    out.mkdir()
-    with (out / "selected_sites.csv").open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=["site_id", "site_label", "x_outlet", "y_outlet", "crs", "gauge", "tags"],
-        )
-        writer.writeheader()
-        writer.writerow(
-            {
-                "site_id": "obs_J001401001",
-                "site_label": "Le Nancon",
-                "x_outlet": 389285.9,
-                "y_outlet": 6816518.7,
-                "crs": "EPSG:2154",
-                "gauge": "J001401001",
-                "tags": "site_selection;demo",
-            }
-        )
-    manifest = out / "site_selection_manifest.json"
-    manifest.write_text(
-        json.dumps(
-            {
-                "selection_id": "demo",
-                "output_root": str(out),
-                "outputs": {"selected_sites_csv": "selected_sites.csv"},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    rows = rows_from_selection(manifest).rows
-
-    assert rows == (
-        SiteRow(
-            site="obs_J001401001",
-            label="Le Nancon",
-            gauge="J001401001",
-            x_outlet=389285.9,
-            y_outlet=6816518.7,
-            crs="EPSG:2154",
-            tags=("site_selection", "demo"),
-        ),
-    )
-
-
-@pytest.mark.fast
-def test_a_manifest_without_selected_sites_says_which_switch_writes_them(tmp_path):
-    manifest = tmp_path / "site_selection_manifest.json"
-    manifest.write_text(json.dumps({"selection_id": "demo", "outputs": {}}), encoding="utf-8")
-
-    with pytest.raises(FileNotFoundError, match="write_selected = true"):
-        rows_from_selection(manifest)
 
 
 @pytest.mark.fast

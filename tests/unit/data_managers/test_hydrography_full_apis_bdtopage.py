@@ -2,7 +2,7 @@
 
 What the adapter adds to the Sandre client: its one layer, every reach of
 metropolitan France, the canonical ``permanence`` column read off the Sandre
-vocabulary, and the WGS84 entry point site selection calls. The client's own
+vocabulary, and the WGS84 entry point the outlet snap calls. The client's own
 paging and refusals are covered by ``tests/unit/data/test_sandre_topage_client.py``.
 """
 

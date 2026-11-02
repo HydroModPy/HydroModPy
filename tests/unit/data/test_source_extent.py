@@ -166,20 +166,11 @@ def test_a_source_naming_neither_resolves_to_nothing():
 
 
 @pytest.mark.fast
-def test_the_project_extent_crs_matches_what_site_selection_builds():
-    """Anti-vacuity for the constant, on one branch of its producer.
+def test_the_project_extent_crs_reads_a_department_box():
+    """Anti-vacuity for the constant.
 
-    ``bbox_for_departments`` is what ``_dem_request_bbox`` returns for a
-    territory given as departments, and its module says EPSG:2154. Read back
-    through the declared constant, department 35 has to land on
+    Read back through the declared constant, department 35 has to land on
     Ille-et-Vilaine; read as degrees it would land in the Gulf of Guinea.
-
-    **This is one branch of four**, and the net is narrower than it looks:
-    ``polygon_file`` reprojects to EPSG:2154 explicitly
-    (``_site_selection_dem.py:376``), ``outlets`` is metric by construction of
-    the delineation, and ``territory.bbox`` is passed through unreprojected
-    with no CRS documented anywhere -- that last one is a footgun this phase
-    did not introduce and does not close.
     """
     from hydromodpy.data.source.port import Extent
     from hydromodpy.spatial.administrative.france import bbox_for_departments

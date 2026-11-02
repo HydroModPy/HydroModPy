@@ -2143,6 +2143,12 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+
+- The site selection left the repository (2026-11-02): `hmp site select`, `hmp site import
+  --selection`, the `[site_selection]` file, its report and manifest, and the `terrain-delineate`
+  capability, which no command ran any more. No example and no project used them. `[site_selection]`
+  in a project file is now an unknown section. `hmp site import --snap-network` stays, its snap now
+  lives in `hydromodpy/data/sites/outlet_snap.py`.
 - `[data.recharge] runoff_ratio`, which no code read (2026-11-02). The key is now refused, so a project
   file that writes it must drop the line. The example projects, tests and validation cases are updated.
 - The lazy re-exports of `hydromodpy.spatial.field`, `hydromodpy.spatial.geographic` and

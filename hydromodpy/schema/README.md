@@ -20,7 +20,6 @@ rules, how a job directory is written, and where to add what.
 | `job/` | the job directory contract: layout and write order, `JobDirectory`, the request, the input set, the provenance, the outcome, the seal, reuse, and chains of capabilities |
 | `media_types.py`, `generated_views.py` | the media types a job document names and the file names of the generated views (RO-Crate, STAC, PROV), each spelled once |
 | `sources.py` | the licence of each data source this build reads, the sidecar a user file may carry, and how licences roll up |
-| `site_selection_manifest.py` | the manifest of a site-selection run: names, required keys, and the checks of each output file |
 
 `job/` in short:
 
@@ -49,14 +48,12 @@ itself. Today it imports `core`, and `config` at two places only:
    it names no engine.
 2. A capability is declared next to the code that serves it, not here:
    `data/request/job.py` (`DATA_REQUEST`),
-   `spatial/domain/capability.py` (`DOMAIN_BUILD`) and
-   `site_selection/hydrology/capability.py` (`TERRAIN_DELINEATE`).
+   and `spatial/domain/capability.py` (`DOMAIN_BUILD`).
 3. The schema export stays deterministic: no side effect, no field that
    depends on the environment.
 
 Who imports schema: `spatial` (job documents, capability declaration, media
-types), `site_selection` (the same, and the site-selection manifest),
-`data` (job documents, sources), `results` (sources, media types, generated
+types), `data` (job documents, sources), `results` (sources, media types, generated
 views), `cli`, `reporting` and `analysis`.
 
 ## Tree
@@ -65,7 +62,7 @@ views), `cli`, `reporting` and `analysis`.
 hydromodpy/schema/
   __init__.py       export_full_schema, validate_field, ValidationResult
   export.py  partial_validator.py
-  capability.py  media_types.py  generated_views.py  sources.py  site_selection_manifest.py
+  capability.py  media_types.py  generated_views.py  sources.py
   processes/        index.json  <id>@<major>.json   (generated)
   job/              layout.py  directory.py  request.py  inputset.py  extent.py
                     provenance.py  outcome.py  seal.py  reuse.py  chain.py

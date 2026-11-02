@@ -2,10 +2,9 @@
 
 What it is for
 --------------
-The ``request.json`` of ``terrain-delineate`` carries the engine name, and this
-module resolves it, so a third party selects an engine this repository does not
-name, from outside, without a patch. The geographic chain and the site
-selection resolve their engine here too, so no caller constructs
+``[geographic] terrain_engine`` carries the engine name, and this module
+resolves it, so a third party selects an engine this repository does not name,
+from outside, without a patch. No caller constructs
 ``WhiteboxTerrainEngine`` by name, and WhiteboxTools can be replaced without
 touching them.
 
@@ -263,9 +262,8 @@ def load_plugins(*, force: bool = False) -> int:
             continue
         if name in _BUILTIN_PATHS:
             logger.warning(
-                "terrain engine plugin %r ignored: %r is an engine this build ships and "
-                "names in the description of terrain-delineate. Answering under that name "
-                "would make a published, byte-gated document describe a different engine.",
+                "terrain engine plugin %r ignored: %r is an engine this build ships. "
+                "Answering under that name would make it a different engine.",
                 entry_point,
                 name,
             )

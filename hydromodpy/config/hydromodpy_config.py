@@ -121,10 +121,8 @@ ANALYSIS_SECTION_REFUSAL = (
     "[analysis] was removed: a comparison is hmp report compare over sealed runs, "
     "figures are hmp viz regen on a run"
 )
-SITE_SELECTION_SECTION_REFUSAL = "[site_selection] is run by hmp site select <file>, not by hmp run"
 HYDROMETRY_SECTION_REFUSAL = (
-    "a root [hydrometry] belongs to a site-selection file run by hmp site select <file>; "
-    "a run reads its stations from [data.hydrometry]"
+    "a root [hydrometry] is not read: a run reads its stations from [data.hydrometry]"
 )
 
 RETIRED_WORKFLOW_MODES: dict[str, str] = {
@@ -136,10 +134,6 @@ RETIRED_WORKFLOW_MODES: dict[str, str] = {
         "workflow.mode = 'comparison' is gone: the legs of a comparison are recipes of "
         "one site in [sites.recipes]. Run them with hmp run, then compare the runs with "
         "hmp report compare <run> <run>."
-    ),
-    "site_selection": (
-        "workflow.mode = 'site_selection' is gone: run the selection with "
-        "hmp site select <file>, and remove [workflow] mode."
     ),
 }
 
@@ -714,7 +708,6 @@ class HydroModPyConfig(HydroModelBase):
             "variants in [sites.recipes]."
         ),
         "analysis": ANALYSIS_SECTION_REFUSAL,
-        "site_selection": SITE_SELECTION_SECTION_REFUSAL,
         "hydrometry": HYDROMETRY_SECTION_REFUSAL,
     }
 
@@ -1622,7 +1615,7 @@ class HydroModPyConfig(HydroModelBase):
                 "a run are drawn again by hmp viz regen on the run.",
                 source_path=source_path,
             )
-        for retired_section in ("analysis", "site_selection", "hydrometry"):
+        for retired_section in ("analysis", "hydrometry"):
             if retired_section in raw:
                 raise _section_refusal(
                     retired_section,

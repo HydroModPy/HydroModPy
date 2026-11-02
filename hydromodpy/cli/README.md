@@ -39,7 +39,7 @@ from the same parsers.
 | `run` | execute the workflow a TOML names in `[workflow].mode`, or the one its sections imply |
 | `calibrate` | run a calibration workflow from a TOML |
 | `spinup` | cyclic spin-up until heads and lake stage converge |
-| `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `select`, `ls`, `show`. `select` also renders the review report when `[site_selection.output] write_report_html` is set: there is no separate report verb |
+| `site` | the sites of a workspace (`data/sites/catalog.csv`): `add`, `import`, `ls`, `show` |
 | `test` | run the `unit`, `regression` or `validation` tier |
 | `report` | `render` a calibration report, `compare` sealed runs of one case, build a `catchment` report |
 | `doctor` | diagnose Python, dependencies, solver binaries and the workspace; it reads and reports, it rewrites no file |
