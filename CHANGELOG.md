@@ -33,7 +33,19 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
+### Changed
+- `hmp report compare` is rewritten as one file, `analysis/comparison/compare.py`, which reads the
+  runs through `Run` (2026-11-02). It replaces 12 800 lines and writes a folder of tables and figures
+  with a `README.md`, in place of the HTML page. `hmp.compare` gives the same tables from Python.
+  `--allow-different-mesh` and `--budget-zone` are gone: another mesh is read at its nearest cells and
+  `same_mesh` says so, and `budget.csv` holds each zone. The GeoTIFF maps, the storage dashboards, the
+  head series by elevation and the release network metrics of a comparison are gone too.
+
 ### Fixed
+- `hmp report compare` no longer scales the outlet discharge by cell area / 86400, about 15 times too
+  low on a 75 m mesh, and no longer pairs runs by rank when their dates differ (2026-11-02). Runs with
+  no date in common are refused, a monthly run compares with a daily one on the months, and the
+  percentages of a map are weighted by cell surface.
 - Every `hmp` command starts again on Python 3.11, where a mesh request default raised `ValueError` at import, and a
   run no longer prints `'Event' object is not callable` when its heartbeat stops (2026-11-02).
 - A recharge series with a negative rate, or a negative `first_clim` on a series, no longer stops

@@ -12,7 +12,6 @@ from datetime import date
 
 import pytest
 
-from hydromodpy.analysis.comparison.run_comparison import CLOSURE_METRIC_NAMES
 from hydromodpy.calibration.criteria.series import METRICS as CALIBRATION_METRICS
 from hydromodpy.results.catalog import Catalog
 from hydromodpy.results.catalog.constants import METRIC_SENSE, RETIRED_METRIC_NAMES
@@ -25,7 +24,6 @@ from tests._helpers.run_stores import open_run_store
 PRODUCERS = {
     "the run kernels": set(METRIC_NAMES),
     "the calibration criteria": set(CALIBRATION_METRICS),
-    "the closure of a comparison": set(CLOSURE_METRIC_NAMES),
 }
 
 

@@ -1365,7 +1365,7 @@ def _write_report(
         parts.extend(f"<li>{html.escape(line)}</li>" for line in skipped)
         parts.append("</ul>")
     compare_dir = report_dir / "compare"
-    pages = sorted(compare_dir.glob(f"**/{REPORT_INDEX_FILENAME}")) if compare_dir.is_dir() else []
+    pages = sorted(compare_dir.glob("**/README.md")) if compare_dir.is_dir() else []
     if pages:
         parts.append("<h2>Comparisons</h2><ul>")
         for page in pages:

@@ -461,15 +461,15 @@ def test_the_crate_lists_every_file_and_the_runs_it_reads(campaign: Path) -> Non
 
 
 def test_a_second_collect_keeps_the_comparisons(campaign: Path) -> None:
-    compare = campaign / "summary" / "report" / "compare" / "a-vs-b" / "web"
+    compare = campaign / "summary" / "report" / "compare" / "a-vs-b"
     compare.mkdir(parents=True)
-    (compare / "index.html").write_text("<html></html>", encoding="utf-8")
+    (compare / "README.md").write_text("# a vs b\n", encoding="utf-8")
 
     collect_project(campaign)
     collect_project(campaign)
 
-    assert (compare / "index.html").is_file()
-    assert "compare/a-vs-b/web/index.html" in (
+    assert (compare / "README.md").is_file()
+    assert "compare/a-vs-b/README.md" in (
         campaign / "summary" / "report" / "index.html"
     ).read_text(encoding="utf-8")
 

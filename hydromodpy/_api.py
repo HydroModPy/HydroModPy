@@ -34,7 +34,7 @@ from hydromodpy.core.version import __version__
 
 if TYPE_CHECKING:
     import os
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator, Mapping, Sequence
     from datetime import date
 
     import geopandas as gpd
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     import xarray as xr
     from matplotlib.figure import Figure
 
+    from hydromodpy.analysis.comparison.compare import Comparison
     from hydromodpy.calibration import CalibrationReport
     from hydromodpy.calibration.runners.staged_runner import StagedCalibrationReport
     from hydromodpy.config import HydroModPyConfig
@@ -782,6 +783,64 @@ def compare_pair(sim_a: str, sim_b: str, *, workspace: PathLike | None = None) -
     from hydromodpy.analysis.comparison.pairwise import compare_pair as _compare_pair
 
     return _compare_pair(sim_a, sim_b, workspace=workspace)
+
+
+def compare(
+    refs: Sequence[str],
+    *,
+    variables: Sequence[str] | None = None,
+    out: PathLike | None = None,
+    workspace: PathLike | None = None,
+) -> Comparison:
+    """Compare sealed runs of one site, the first one as the reference.
+
+    Two series are compared on the dates they share and two maps at the last of
+    those dates. Runs with no date in common are refused.
+
+    Parameters
+    ----------
+    refs
+        Run directories, run names under ``runs/`` (``base.v2``) or recipes (the
+        latest run of each of their cases).
+    variables
+        Fields to map. Defaults to the head and the depth to the water table,
+        when every run has them.
+    out
+        Folder to write the tables, the figures and the README into. By default
+        nothing is written, and ``Comparison.write`` can do it later.
+    workspace
+        Project directory the references are read from. Defaults to the project
+        around the working directory.
+
+    Returns
+    -------
+    hydromodpy.analysis.comparison.compare.Comparison
+        ``tables`` holds the data frames ``runs``, ``parameters``, ``scores``,
+        ``budget``, ``network``, ``series`` and ``maps``.
+
+    Raises
+    ------
+    hydromodpy.analysis.comparison.compare.ComparisonReferenceError
+        If a reference names no sealed run.
+    hydromodpy.analysis.comparison.compare.ComparisonCaseError
+        If the runs model different sites or share no date.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> result = hmp.compare(["k_mid", "k_low"])  # doctest: +SKIP
+    >>> result.tables["series"]  # doctest: +SKIP
+    >>> result.write("../study")  # doctest: +SKIP
+    """
+    from hydromodpy.analysis.comparison.compare import compare_references
+    from hydromodpy.core.state.paths import resolve_project_root
+
+    start = Path(workspace or Path.cwd()).expanduser().resolve()
+    root = resolve_project_root(start)
+    comparison = compare_references(refs, project_root=root, variables=variables)
+    if out is not None:
+        comparison.write(Path(out))
+    return comparison
 
 
 def report(session: str | None = None, *, workspace: PathLike | None = None) -> Path:

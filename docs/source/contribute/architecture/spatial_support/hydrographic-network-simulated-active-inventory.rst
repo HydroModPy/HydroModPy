@@ -84,8 +84,7 @@ The figures ``simulated_active_network`` and ``simulated_active_network_referenc
 draw the mask and its overlay with the reference. Both are cell maps, not a vectorised
 river network. They need ``accumulation_flux`` and a plottable mesh.
 
-The comparison workflow writes the matching exports: the metrics, the overlap and the
-distance, each with a ``..._skipped.json`` that says why a simulation was left out
+A comparison writes the overlap and the distance of each run in ``network.csv``
 (:doc:`../simulation/comparison-workflow`).
 
 Words to keep apart

@@ -20,6 +20,7 @@ PRESENT = (
     "export",
     "run",
     "calibrate",
+    "compare",
     "compare_pair",
     "report",
     "doctor",
@@ -27,7 +28,7 @@ PRESENT = (
 
 # Verbs removed by the interface refactor: merged into ``hmp.open`` /
 # ``hmp.run`` dispatch. They must not come back.
-REMOVED = ("open_catalog", "overview", "compare", "mesh", "testbed")
+REMOVED = ("open_catalog", "overview", "mesh", "testbed")
 
 
 @pytest.mark.parametrize("name", PRESENT)

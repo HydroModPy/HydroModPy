@@ -414,9 +414,7 @@ opposite to a removal (``_assembly_with_dry_deficit`` in
 
 If a cell sits at :math:`h_i = z_{\mathrm{bot},i}`, the term offsets the remaining
 demand and does not add water through a physical boundary. It is not a flux of the
-water budget of the catchment. The comparison budget reads it as available water
-only to close the balance of the cells (``_closure_residual`` in
-``analysis/comparison/numerical_closure.py``).
+water budget of the catchment.
 
 The head-only closures have no explicit lower constraint: their storage is
 lower-bounded, and the run reports whether the accepted heads went below the bottom.

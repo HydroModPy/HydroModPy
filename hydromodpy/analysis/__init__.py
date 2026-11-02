@@ -1,10 +1,7 @@
 """Readings across sealed runs.
 
-:mod:`hydromodpy.analysis.comparison` compares N sealed runs of one case: it
-reads their directories, extracts the observables, computes the differences,
-the stability checks and the budget closure, and draws the maps and series.
-``hmp report compare`` renders the page on top of it, from
-:mod:`hydromodpy.reporting.comparison`.
+:mod:`hydromodpy.analysis.comparison` compares sealed runs of one site through
+the public ``Run`` API, for ``hmp report compare`` and ``hmp.compare``.
 """
 
 from __future__ import annotations

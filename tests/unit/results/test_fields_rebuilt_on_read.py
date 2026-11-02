@@ -656,30 +656,6 @@ def test_the_mass_chain_needs_a_budget_group(exact_store: RunStore) -> None:
 # -- Readers that walk the steps read the range ------------------------------
 
 
-def test_a_comparison_series_of_a_rebuilt_field_is_read_over_the_range(
-    built, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from hydromodpy.analysis.comparison.runtime.series import _virtual_field_slices
-
-    store = built("transport")
-    sid = store.sim_id
-    reads: list[tuple[int, int]] = []
-    original = virtual_fields.read_field_range_or_virtual
-
-    def spy(source, sim_id, variable, start, stop, layer=None):
-        reads.append((start, stop))
-        return original(source, sim_id, variable, start, stop, layer=layer)
-
-    monkeypatch.setattr(virtual_fields, "read_field_range_or_virtual", spy)
-    slices = _virtual_field_slices(store, sid, "mass_accumulated", reference.N_STEPS, [], False)
-
-    assert reads == [(0, reference.N_STEPS)]
-    expected = _reference("transport", "base__mass_accumulated")
-    assert len(slices) == reference.N_STEPS
-    for step, time_slice in enumerate(slices):
-        np.testing.assert_array_equal(time_slice.values, expected[step])
-
-
 def test_the_golden_signature_reads_the_time_axis_not_a_probe(built) -> None:
     store = built("transport")
     sid = store.sim_id

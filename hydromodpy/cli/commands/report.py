@@ -7,9 +7,10 @@ Sub-actions:
   calibration run id/prefix (mapped to its parent session); omit it to render
   the most recent session. Federates across every project in the workspace.
 - ``hmp report compare <ref> <ref>... [--by site]``: compare N sealed runs of
-  one case (diffs, stability, budget closure, maps, series) and render the page
-  under ``summary/report/compare/`` of the project, or ``--out``; ``--by site``
-  writes one page per site and joins the references on the site.
+  one site (differences, parameters, scores, budget, network, maps, series) and
+  write a folder with its README under ``summary/report/compare/`` of the
+  project, or ``--out``; ``--by site`` writes one folder per site and joins the
+  scores of the references.
 - ``hmp report catchment <report_config>``: build a catchment HTML report from
   one catchment report TOML configuration.
 """
@@ -76,13 +77,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
     compare_p = sub.add_parser(
         "compare",
-        help="Compare sealed runs of one case and render the page",
+        help="Compare sealed runs of one site and write a folder with its README",
         parents=[workspace_parser(), verbosity_parser()],
         epilog=(
             "Examples:\n"
             "  hmp report compare k_low k_high\n"
             "  hmp report compare calage_nm calage_tpe --by site\n"
-            "  hmp report compare runs/coarse runs/fine --allow-different-mesh --out ../mesh_study"
+            "  hmp report compare runs/coarse runs/fine --out ../mesh_study"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -100,16 +101,16 @@ def register(subparsers) -> argparse.ArgumentParser:
         choices=("site",),
         default=None,
         help=(
-            "Compare the runs of each site separately, one page per site, and join the "
-            "references on the site in by_site.csv and index.html."
+            "Compare the runs of each site separately, one folder per site, and join "
+            "their scores in by_site.csv."
         ),
     )
     compare_p.add_argument(
         "--variables",
         default=None,
         help=(
-            "Comma-separated variables mapped at the last step. Default: the head and "
-            "the depth to the water table when every run has them."
+            "Comma-separated variables mapped at the last shared date. Default: the head "
+            "and the depth to the water table when every run has them."
         ),
     )
     compare_p.add_argument(
@@ -117,20 +118,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Folder of the comparison. Default: summary/report/compare/<refs>/ of the project.",
-    )
-    compare_p.add_argument(
-        "--allow-different-mesh",
-        action="store_true",
-        help="Compare runs solved on different meshes of the same site.",
-    )
-    compare_p.add_argument(
-        "--budget-zone",
-        choices=("domain", "catchment"),
-        default="domain",
-        help=(
-            "Zone of the budget the comparison sums: the whole model domain (default) or "
-            "the delineated catchment, the basin of D inside the domain."
-        ),
     )
 
     catchment_p = sub.add_parser(
@@ -187,11 +174,13 @@ def _cmd_render(args: argparse.Namespace) -> None:
 
 
 def _cmd_compare(args: argparse.Namespace) -> None:
-    from hydromodpy.analysis.comparison.runs import (
+    from hydromodpy.analysis.comparison.compare import (
         ComparisonCaseError,
         ComparisonReferenceError,
+        compare_by_site,
+        compare_references,
+        default_folder,
     )
-    from hydromodpy.reporting.comparison.compare import compare_runs
 
     start = Path(args.workspace or Path.cwd()).expanduser().resolve()
     project_root = resolve_project_root(start)
@@ -202,23 +191,23 @@ def _cmd_compare(args: argparse.Namespace) -> None:
     )
     try:
         with progress.status("Comparing runs"):
-            pages = compare_runs(
-                args.refs,
-                project_root=project_root,
-                out=args.out,
-                by_site=args.by == "site",
-                variables=variables,
-                allow_different_mesh=args.allow_different_mesh,
-                budget_zone=args.budget_zone,
-            )
+            folder = args.out or default_folder(args.refs, project_root)
+            if args.by == "site":
+                written = compare_by_site(
+                    args.refs, folder, project_root=project_root, variables=variables
+                )
+            else:
+                comparison = compare_references(
+                    args.refs, project_root=project_root, variables=variables
+                )
+                written = comparison.write(folder)
     except ComparisonReferenceError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
     except ComparisonCaseError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_VALIDATION)
-    for page in pages:
-        print(f"wrote {page}", file=sys.stderr)
+    print(f"wrote {written}", file=sys.stderr)
 
 
 def _add_catchment_arguments(parser: argparse.ArgumentParser) -> None:
