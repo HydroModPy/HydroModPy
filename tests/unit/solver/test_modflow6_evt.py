@@ -54,7 +54,9 @@ def test_modflow6_extracts_evt_payload_from_negative_2d_recharge(
     expected_evt: dict[int, np.ndarray],
 ) -> None:
     # All transient: each period keeps its own positive/negative split (H5 fix).
-    clipped_rch, evt_data = extract_evt_payload_2d(recharge_2d, True, steady=[False, False])
+    clipped_rch, evt_data = extract_evt_payload_2d(
+        recharge_2d, True, steady=[False, False], durations=[1.0, 1.0]
+    )
 
     assert evt_data is not None
     np.testing.assert_allclose(clipped_rch[0], expected_clipped[0])

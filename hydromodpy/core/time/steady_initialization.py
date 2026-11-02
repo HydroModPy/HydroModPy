@@ -32,7 +32,12 @@ def _source_boundaries(source_time_grid: object) -> tuple[object, ...]:
 
 
 def single_period_mean_forcing_time_grid(source_time_grid: object) -> SimpleNamespace:
-    """Return a one-period grid whose forcing window spans the source grid."""
+    """Return a one-period grid whose forcing window spans the source grid.
+
+    ``record_lengths_seconds`` keeps the source periods: a recharge the solve reads
+    as one rate per source period takes its time mean over them. A source of one
+    period has none.
+    """
     positive_periods = _positive_period_lengths_seconds(source_time_grid)
     period_length = float(np.sum(positive_periods)) if positive_periods.size else 1.0
 
@@ -53,6 +58,7 @@ def single_period_mean_forcing_time_grid(source_time_grid: object) -> SimpleName
 
     return SimpleNamespace(
         period_lengths_seconds=np.asarray([period_length], dtype=float),
+        record_lengths_seconds=positive_periods if positive_periods.size >= 2 else None,
         nstp_per_period=1,
         window=mean_window,
         boundaries=() if len(boundaries) < 2 else (boundaries[0], boundaries[-1]),

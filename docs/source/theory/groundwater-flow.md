@@ -369,8 +369,8 @@ gives the default.
 
 **The equilibrium.** For `steady_state`, the code first solves an auxiliary
 steady problem with the same solver, the same grid and the same properties. Its
-recharge is a constant, set by {toml}`flow.ic.h.source`: the mean of the record,
-one weight per period, or the rate that you state. The result is $h_0$:
+recharge is a constant, set by {toml}`flow.ic.h.source`: the time mean of the
+record, each period by its length, or the rate that you state. The result is $h_0$:
 
 $$
 \nabla\!\cdot\!\bigl(K\,B(h^\star)\,\nabla h^\star\bigr) + \bar N + q_\mathrm{bc}(h^\star) = 0 ,

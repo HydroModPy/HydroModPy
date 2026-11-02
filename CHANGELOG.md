@@ -68,8 +68,11 @@ Each release section includes the following standard categories:
   comparison figure finds it (2026-11-02). A run keeps on its `forcing` group the mean recharge its
   trials read, and a redraw reads it back.
 - The mean recharge of the network criterion averages each period over the cells by their area, so a
-  refined mesh does not weigh its small cells like its large ones (2026-11-02). Each period still counts
-  once, like `first_clim = "mean"`. The K/R of a gridded forcing on an irregular mesh changes.
+  refined mesh does not weigh its small cells like its large ones (2026-11-02). The K/R of a gridded
+  forcing on an irregular mesh changes.
+- Under MODFLOW-NWT the mean recharge of the network criterion read the rate written in the package, so a
+  steady first period counted at the record mean instead of its own rate (2026-11-02). MODFLOW-NWT now
+  holds the own rate of each period, as MODFLOW 6 does.
 - MODPATH runs without drains and on a grid that is not the DEM grid (2026-11-02). A zero specific
   yield, which gives it a zero porosity and a division by zero in `mp6`, and a run without recharge are
   refused by name.
@@ -1421,6 +1424,14 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- `first_clim = "mean"` and the mean recharge of the network criterion weigh each period by its length, so
+  a steady period receives the mean volume of the record (2026-11-02). The auxiliary steady solve of
+  `flow.ic` reads the same mean, under every solver. Each steady state on periods of unequal length changes:
+  on the monthly Nancon 2000-2002, the rate moves by -0.15 per cent and the heads of the steady period by
+  4 mm on average and 18 mm at most.
+- Inside a period, each sample of a monthly or yearly record counts by the length of its month or year, for a
+  series, a station, a grid and a runoff (2026-11-02). So a steady phase that reads a monthly file on one
+  period keeps the mean recharge of the monthly phase after it. A daily record does not change.
 - The demos of the six `cases/` folders left the `hydromodpy` package (2026-11-02), with no alias.
   The spatial and data demos run from `tools/cases/<part>/` (`python -m tools.cases.field.review_cases`),
   the data of the intermittency and oceanic goldens sits next to their tests, and the two calibration

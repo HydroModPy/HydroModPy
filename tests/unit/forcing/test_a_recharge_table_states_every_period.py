@@ -64,7 +64,7 @@ def test_modflow6_reads_a_complete_table_and_refuses_a_partial_one() -> None:
 
 def test_modflow_nwt_reads_a_complete_table_and_refuses_a_partial_one() -> None:
     steady = np.array([False, False])
-    kwargs = {"first_clim": "mean", "steady": steady, "nper": 2}
+    kwargs = {"first_clim": "mean", "steady": steady, "nper": 2, "durations": [1.0, 1.0]}
 
     assert assemble_rch_data(payload={0: 1.0, 1: 2.0}, **kwargs) == {0: 1.0, 1: 2.0}
     with pytest.raises(ValueError, match="gives no rate"):
@@ -75,10 +75,11 @@ def test_modflow_nwt_reads_a_list_as_the_other_solvers_do() -> None:
     kwargs = {"first_clim": "mean"}
 
     steady = np.array([True])
-    assert assemble_rch_data(payload=[1.0, 2.0, 6.0], steady=steady, nper=1, **kwargs)[
-        0
-    ] == pytest.approx(3.0)
+    assert assemble_rch_data(
+        payload=[1.0, 2.0, 6.0], steady=steady, nper=1, durations=[1.0], **kwargs
+    )[0] == pytest.approx(3.0)
     transient = np.array([False, False])
+    kwargs["durations"] = [1.0, 1.0]
     assert assemble_rch_data(payload=[1.5], steady=transient, nper=2, **kwargs) == {0: 1.5, 1: 1.5}
     with pytest.raises(ValueError, match="holds 3 rates and this run has 2 periods"):
         assemble_rch_data(payload=[1.0, 2.0, 6.0], steady=transient, nper=2, **kwargs)

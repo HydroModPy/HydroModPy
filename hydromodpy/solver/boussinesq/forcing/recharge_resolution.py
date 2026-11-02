@@ -142,6 +142,7 @@ class RechargeResolutionMixin:
             result,
             steady=self.boussinesq_steady_flags(nper),
             first_clim=first_clim,
+            durations=self.period_durations(nper),
         )
         return tuple(
             np.asarray(ruled[kper], dtype=float).reshape(-1).copy() for kper in range(nper)

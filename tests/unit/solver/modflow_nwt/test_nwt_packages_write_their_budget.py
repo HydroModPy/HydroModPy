@@ -68,6 +68,7 @@ def _flow_inputs() -> SimpleNamespace:
         ss=np.full(shape, 1e-5),
         ss_value=1e-5,
         rch_data={0: 1e-8, 1: 2e-8},
+        recharge_own_rates={0: 1e-8, 1: 2e-8},
         evt_spd=None,
         drn_spd={0: drn_rows},
         wel_spd=None,

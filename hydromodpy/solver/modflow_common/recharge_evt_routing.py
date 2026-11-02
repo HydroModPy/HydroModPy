@@ -22,13 +22,16 @@ def route_negative_recharge_to_evt(
     *,
     steady: Sequence[bool],
     first_clim: object = "mean",
+    durations: Sequence[float] | np.ndarray,
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray]]:
     """Split per-period recharge into clipped RCH (>=0) and routed EVT deficit (>=0).
 
     Returns ``(clipped_rch, evt_deficit)``. Transient periods keep their own
     split; steady periods follow ``first_clim`` on each part.
     """
-    return split_net_recharge(rch_by_period, steady=steady, first_clim=first_clim)
+    return split_net_recharge(
+        rch_by_period, steady=steady, first_clim=first_clim, durations=durations
+    )
 
 
 __all__ = ["route_negative_recharge_to_evt"]

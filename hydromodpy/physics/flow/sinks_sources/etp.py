@@ -53,7 +53,7 @@ class FlowEtpConfig(HydroModelBase):
             "ETP rate of every steady stress period, read by MODFLOW-NWT: every "
             "period of a steady run, and the first period of a transient run when "
             "flow.first_period_steady is true. 'mean' is the mean of the "
-            "per-period rates, one weight per period; 'first' is the rate of "
+            "per-period rates, each weighted by its length; 'first' is the rate of "
             "period 0; a number is that rate. A transient period keeps its own "
             "rate."
         ),

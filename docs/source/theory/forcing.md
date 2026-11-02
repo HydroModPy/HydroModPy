@@ -97,16 +97,20 @@ One rule holds for every forcing record: a series, a station, or a grid with a
 time axis, which is averaged cell by cell of its own grid before it is placed on
 the mesh.
 
-**Samples inside the period.** Period $k$ takes the equal-weight mean of the
-$n_k$ samples stamped inside it:
+**Samples inside the period.** Period $k$ takes the weighted mean of the samples
+stamped inside it:
 
 $$
-\bar x_k = \frac{1}{n_k} \sum_{t_j \in [b_k,\, b_{k+1})} x_j \qquad \text{if } n_k > 0 .
+\bar x_k = \frac{\sum_{t_j \in [b_k,\, b_{k+1})} w_j\, x_j}{\sum_{t_j \in [b_k,\, b_{k+1})} w_j}
+\qquad \text{if a sample lies inside.}
 $$ (eq-period-value)
 
-The mean has equal weights, so it is the time mean only for a record with one
-sample per equal step. Several gridded records that cover one period are averaged
-the same way, with equal weights.
+A record with one sample per calendar month or year gives each sample the length
+of its month or year as $w_j$, whether the sample is stamped at the start of the
+month, at its end or on the same day of each. Any other record has $w_j = 1$. So
+the mean is the time mean for a record with one sample per equal step, per month or
+per year, and only for those. Several gridded records that cover one period are
+averaged with equal weights.
 
 **No sample inside.** A sample is the rate of the interval from its stamp to the
 next stamp. The last sample stands for one step $\Delta t_r$ of the record, the
@@ -162,19 +166,21 @@ of every steady stress period, and of no other period:
 $$
 \hat N =
 \begin{cases}
-\dfrac{1}{n_\mathrm{per}} \displaystyle\sum_{k=0}^{n_\mathrm{per}-1} N_k & \texttt{"mean"},\\[1.5ex]
+\dfrac{\sum_{k} \Delta t_k\, N_k}{\sum_{k} \Delta t_k} & \texttt{"mean"},\\[1.5ex]
 N_0 & \texttt{"first"},\\[0.5ex]
 F & \text{a number } F,\ \text{in the units of the values.}
 \end{cases}
 $$ (eq-steady-rate)
 
-The mean has one weight per period, whatever the length of the period. The
+where $\Delta t_k$ is the length of period $k$. So the steady period receives the
+mean volume of the record, and a short month weighs less than a long one. The
 steady periods are every period of a steady run, and period 0 of a transient run
 when {toml}`flow.first_period_steady` is true, in the three solvers. A transient
 period keeps its own rate, whatever its index. Under MODFLOW-NWT the ETP follows the same rule
 with {toml}`first_clim|flow.sinks_sources.etp.first_clim`.
 
-Four periods with rates 2, 4, 9 and 1, from calls of `apply_first_clim`:
+Four periods of equal length with rates 2, 4, 9 and 1, from calls of
+`apply_first_clim`. With lengths of 31, 28, 31 and 30 days, `"mean"` gives 4.025:
 
 | Period 0 | `"mean"` | `"first"` | the number 7 |
 |---|---|---|---|
@@ -185,7 +191,9 @@ Periods 1 to 3 keep 4, 9 and 1 in both rows.
 
 A run that starts from a steady state of its own ({toml}`flow.ic`, type
 `steady_state`) builds an auxiliary steady model for that state, with
-`first_clim` set to `"mean"`, or to the prescribed rate. The starting states are
+`first_clim` set to `"mean"`, or to the prescribed rate. That model has one period
+and reads the rates of the run's periods with their lengths, so the mean is the
+same one. The starting states are
 the types of {doc}`[flow.ic] <../reference/parameters/flow/ic>`.
 
 In the code: `apply_first_clim`.
@@ -203,10 +211,10 @@ $$ (eq-recharge-split)
 
 The recharge package receives $N^+_k$ and the evapotranspiration package
 $N^-_k$. A transient period keeps its own split. A steady period takes
-`first_clim` on each part: `"mean"` gives the mean of $N^+_k$ and the mean of
+`first_clim` on each part: `"mean"` gives the time mean of $N^+_k$ and the time mean of
 $N^-_k$, `"first"` gives $N^+_0$ and $N^-_0$, and a number $F$ gives $\max(F, 0)$
 and $\max(-F, 0)$. So the net rate of a steady period, $\hat N^+ - \hat N^-$, is
-always the one `first_clim` states: the mean of the net rates, $N_0$, or $F$.
+always the one `first_clim` states: the time mean of the net rates, $N_0$, or $F$.
 
 A negative number for `first_clim` needs `negative_to_evt`, or the file is
 refused. Boussinesq has no ETP package and refuses it whatever `negative_to_evt`
@@ -292,8 +300,9 @@ are on {doc}`soil-reservoir`.
 - **Constant within the period.** Rain, ETP and runoff are one value per period
   and per cell. Recharge is a flux set from outside and does not read the water
   table.
-- **`"mean"` weights each period equally.** On periods of unequal length, the
-  steady rate is not the time mean of the record.
+- **An irregular record has equal weights inside a period.** Only a record with one
+  sample per equal step, per month or per year gives a time mean inside a period.
+  A weekly record on monthly periods, or one with gaps, counts each sample once.
 - **The ETP is not read under MODFLOW 6 outside soil mode.** A loaded ETP is
   ignored, with a warning.
 - **Aggregation by `last` exists for declared forcings only.** The data layer

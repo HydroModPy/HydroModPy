@@ -7688,7 +7688,7 @@
             }
           ],
           "default": "mean",
-          "description": "ETP rate of every steady stress period, read by MODFLOW-NWT: every period of a steady run, and the first period of a transient run when flow.first_period_steady is true. 'mean' is the mean of the per-period rates, one weight per period; 'first' is the rate of period 0; a number is that rate. A transient period keeps its own rate.",
+          "description": "ETP rate of every steady stress period, read by MODFLOW-NWT: every period of a steady run, and the first period of a transient run when flow.first_period_steady is true. 'mean' is the mean of the per-period rates, each weighted by its length; 'first' is the rate of period 0; a number is that rate. A transient period keeps its own rate.",
           "examples": [
             "mean",
             "first",
@@ -11353,7 +11353,7 @@
     },
     "FlowRechargeConfig": {
       "additionalProperties": false,
-      "description": "Typed payload for diffuse recharge over the model domain.\n\nRecharge drives RCHA under MODFLOW 6, RCH under MODFLOW-NWT and the recharge\nterm of the residual under Boussinesq. Each solver builds its own\nstress-period data from this payload. Negative values can be routed to EVT\nwhen ``negative_to_evt`` is enabled, under the two MODFLOW solvers only.\n\nAttributes\n----------\nvalues :\n    Recharge payload. Accepted forms:\n\n    - **scalar** ``float``: uniform rate applied to every stress period,\n    - **list / numpy array**: one value per stress period\n      (length must match ``nper``),\n    - **mapping** ``{period_index: value}``: one value for every stress\n      period, the keys counted from 0,\n    - **runtime series** (pandas-like object with ``.iloc``): used when\n      recharge is computed dynamically (e.g. from PyHELP output).\n\nfirst_clim : str | float\n    Rate of every steady stress period, taken from the rates of all the\n    periods (``hydromodpy.physics.forcing.steady_periods``). A transient\n    period keeps its own rate. Options:\n\n    - ``\"mean\"``: mean of the per-period rates, one weight per period\n      (default),\n    - ``\"first\"``: rate of period 0,\n    - *numeric*: that rate.\n\nunits : str\n    Physical units of ``values``. The flow runtime converts the payload\n    to SI ``m/s`` when the process is built.",
+      "description": "Typed payload for diffuse recharge over the model domain.\n\nRecharge drives RCHA under MODFLOW 6, RCH under MODFLOW-NWT and the recharge\nterm of the residual under Boussinesq. Each solver builds its own\nstress-period data from this payload. Negative values can be routed to EVT\nwhen ``negative_to_evt`` is enabled, under the two MODFLOW solvers only.\n\nAttributes\n----------\nvalues :\n    Recharge payload. Accepted forms:\n\n    - **scalar** ``float``: uniform rate applied to every stress period,\n    - **list / numpy array**: one value per stress period\n      (length must match ``nper``),\n    - **mapping** ``{period_index: value}``: one value for every stress\n      period, the keys counted from 0,\n    - **runtime series** (pandas-like object with ``.iloc``): used when\n      recharge is computed dynamically (e.g. from PyHELP output).\n\nfirst_clim : str | float\n    Rate of every steady stress period, taken from the rates of all the\n    periods (``hydromodpy.physics.forcing.steady_periods``). A transient\n    period keeps its own rate. Options:\n\n    - ``\"mean\"``: time mean of the per-period rates, each weighted by its length\n      (default),\n    - ``\"first\"``: rate of period 0,\n    - *numeric*: that rate.\n\nunits : str\n    Physical units of ``values``. The flow runtime converts the payload\n    to SI ``m/s`` when the process is built.",
       "properties": {
         "values": {
           "calibrable": {
@@ -11403,7 +11403,7 @@
             }
           ],
           "default": "mean",
-          "description": "Recharge rate of every steady stress period: every period of a steady run, and the first period of a transient run when flow.first_period_steady is true. 'mean' is the mean of the per-period rates, one weight per period; 'first' is the rate of period 0; a number is that rate, in the units of values. A transient period keeps its own rate. The same rule holds for one value per period and for one grid per period, under every solver. With negative_to_evt, the steady period takes the rule on the recharge part and on the deficit part, so its net rate is the one stated here. Boussinesq has no EVT and refuses a negative number.",
+          "description": "Recharge rate of every steady stress period: every period of a steady run, and the first period of a transient run when flow.first_period_steady is true. 'mean' is the mean of the per-period rates, each weighted by its length; 'first' is the rate of period 0; a number is that rate, in the units of values. A transient period keeps its own rate. The same rule holds for one value per period and for one grid per period, under every solver. With negative_to_evt, the steady period takes the rule on the recharge part and on the deficit part, so its net rate is the one stated here. Boussinesq has no EVT and refuses a negative number.",
           "examples": [
             "mean",
             "first",

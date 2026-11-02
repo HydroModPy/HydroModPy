@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -33,7 +34,7 @@ FORCING_MM_D = pd.Series(
     [2.0, 1.0, 0.5], index=pd.DatetimeIndex(["2000-01-31", "2000-02-29", "2000-03-31"])
 )
 EDGES = pd.DatetimeIndex(["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01"])
-MEAN_M_S = float(FORCING_MM_D.mean()) * factor_to_m_per_s("mm/day")
+MEAN_M_S = float(np.average(FORCING_MM_D, weights=[31, 29, 31])) * factor_to_m_per_s("mm/day")
 
 
 def _run(tmp_path, *, budget_recharge: bool, forcing: bool, dates: bool = True, policy=None):

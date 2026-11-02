@@ -32,7 +32,9 @@ _MAPPING = {
 
 
 def test_steady_period_routed_evt_carries_mean_deficit() -> None:
-    clipped, evt = route_negative_recharge_to_evt(_MAPPING, steady=[True, False, False])
+    clipped, evt = route_negative_recharge_to_evt(
+        _MAPPING, steady=[True, False, False], durations=[1.0, 1.0, 1.0]
+    )
     # Steady period 0: per-cell time mean of positives / deficits.
     np.testing.assert_allclose(clipped[0], [2.0e-6, (0.0 + 4.0e-6 + 0.0) / 3.0])
     np.testing.assert_allclose(evt[0], [1.0e-6, 1.0e-6])
@@ -42,7 +44,9 @@ def test_steady_period_routed_evt_carries_mean_deficit() -> None:
 
 
 def test_evt_routing_keyed_on_steady_flag_not_period_index() -> None:
-    clipped, evt = route_negative_recharge_to_evt(_MAPPING, steady=[False, False, False])
+    clipped, evt = route_negative_recharge_to_evt(
+        _MAPPING, steady=[False, False, False], durations=[1.0, 1.0, 1.0]
+    )
     # All transient: period 0 keeps its OWN split, not zeroed.
     np.testing.assert_allclose(clipped[0], [2.0e-6, 0.0])
     np.testing.assert_allclose(evt[0], [0.0, 1.0e-6])
@@ -51,7 +55,9 @@ def test_evt_routing_keyed_on_steady_flag_not_period_index() -> None:
 def test_routed_evt_unit_conversion_factor() -> None:
     # 8.64 mm/day = 1.0e-7 m/s; -86.4 mm/day deficit = 1.0e-6 m/s.
     mapping = {0: np.array([1.0e-7]), 1: np.array([-1.0e-6])}
-    clipped, evt = route_negative_recharge_to_evt(mapping, steady=[True, False])
+    clipped, evt = route_negative_recharge_to_evt(
+        mapping, steady=[True, False], durations=[1.0, 1.0]
+    )
     np.testing.assert_allclose(clipped[0], [(1.0e-7 + 0.0) / 2.0])
     np.testing.assert_allclose(evt[0], [(0.0 + 1.0e-6) / 2.0])
 
@@ -59,6 +65,7 @@ def test_routed_evt_unit_conversion_factor() -> None:
 def test_steady_period_recharge_uses_first_clim_mean() -> None:
     model = toy_model()
     model.nper = 3
+    model.perlen = np.ones(3)
     model.ncpl = 2
     model.steady = np.array([True, False, False])
     model.recharge = np.array([1.0e-7, 2.0e-7, 3.0e-7])

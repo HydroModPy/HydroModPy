@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.time.coverage import calendar_sample_days
 from hydromodpy.core.time.time_method import check_time_method
 
 __all__ = (
@@ -213,7 +214,8 @@ def period_mean_on_index(values: Any, index: Any, *, start: Any = None) -> pd.Se
     ``start`` when the caller knows it, else one inferred step before the first
     stamp (see :func:`period_edges`). A period holding no sample comes back as
     ``NaN``: a forcing that does not cover the run is a gap the caller has to
-    see, not a zero to add.
+    see, not a zero to add. Each sample of a monthly or yearly record counts by the
+    length of its month or year, as in the solver forcing.
 
     A single stamp without ``start`` carries no spacing, so no period can be
     read from the index alone; the mean of the whole series is returned, which
@@ -239,16 +241,28 @@ def period_mean_on_index(values: Any, index: Any, *, start: Any = None) -> pd.Se
     if series.empty or len(target) == 0:
         return pd.Series(np.nan, index=labels, dtype=float)
 
+    weights = calendar_sample_days(series.index)
     if start is None and len(target.unique()) == 1:
-        return pd.Series(float(series.mean()), index=labels, dtype=float)
+        mean = series.mean() if weights is None else np.average(series, weights=weights)
+        return pd.Series(float(mean), index=labels, dtype=float)
 
     edges = period_edges(target, start=start)
     position = edges.searchsorted(series.index, side="right") - 1
     inside = (position >= 0) & (position < len(edges) - 1)
-    averaged = series[inside].groupby(position[inside]).mean()
+    averaged = _mean_per_period(
+        series[inside], position[inside], None if weights is None else weights[inside]
+    )
     per_period = pd.Series(np.nan, index=edges[1:], dtype=float)
     per_period.iloc[averaged.index.to_numpy()] = averaged.to_numpy(dtype=float)
     return pd.Series(per_period.reindex(target).to_numpy(dtype=float), index=labels)
+
+
+def _mean_per_period(series: pd.Series, period: np.ndarray, weights: Any) -> pd.Series:
+    """Return the mean of ``series`` in each period, by ``weights`` when it has any."""
+    if weights is None or np.unique(period).size == period.size:
+        return series.groupby(period).mean()
+    weight = pd.Series(weights, index=series.index)
+    return (series * weight).groupby(period).sum() / weight.groupby(period).sum()
 
 
 def observation_step(stamps: Any) -> pd.DateOffset | pd.Timedelta | None:

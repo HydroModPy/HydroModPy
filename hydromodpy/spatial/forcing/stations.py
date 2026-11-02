@@ -73,10 +73,7 @@ def period_means(
     enforce_coverage(periods, boundaries, policy=coverage_policy, label=label)
     samples = np.asarray(data.to_numpy(), dtype=float)
     values = np.asarray(
-        [
-            float(samples[inside].mean()) if inside.size else float(samples[int(fill)])
-            for inside, fill in zip(periods.inside, periods.fill, strict=True)
-        ],
+        [float(periods.value_of(samples, kper)) for kper in range(len(period_bounds))],
         dtype=float,
     )
     if not np.all(np.isfinite(values)):

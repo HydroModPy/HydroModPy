@@ -131,8 +131,8 @@ $$
 \Sigma(t) = \{\, n : q^\mathrm{rel}_n(t) > \tau_\mathrm{s}\,\bar N\,a_n \,\} .
 $$ (eq-sources)
 
-$\bar N$ is the mean recharge rate of the run. Each period counts once, like
-`first_clim = "mean"`, and takes the mean of its finite rates over the cells,
+$\bar N$ is the mean recharge rate of the run. Each period counts by its length,
+like `first_clim = "mean"`, and takes the mean of its finite rates over the cells,
 weighted by their area, so that the small cells of a refined mesh do not outweigh
 the large ones. The threshold is a flux per unit of area, not a discharge, so
 that the network follows the physics and not the refinement of the mesh: a fixed

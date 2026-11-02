@@ -434,8 +434,8 @@ def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     Such a run rebuilds the rates from the forcing it stores, put on the run's
     own period edges by the rule the solver forcing is built by, so a steady
     spin-up period counts at its own rate. The budget the solver wrote holds the
-    record mean there instead: on the monthly Nancon, 8.656e-9 m/s against the
-    9.075e-9 every trial scored with. The budget is read only when the run stores
+    record mean there instead: on the monthly Nancon, 8.634e-9 m/s against the
+    9.062e-9 every trial scored with. The budget is read only when the run stores
     no forcing, or no dates to place it on. A zero ratio makes the threshold zero
     whatever the recharge is, so the run is not asked for one. The gates ask
     :func:`has_recharge_source`, which answers from the same sources.
@@ -448,7 +448,10 @@ def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     forcing = _recharge_forcing_on_periods(sim)
     if forcing is not None:
         stored, edges = forcing
-        return criterion_mean_recharge(forcing_period_rates(stored, edges))
+        return criterion_mean_recharge(
+            list(forcing_period_rates(stored, edges)),
+            durations=_edge_lengths_s(edges),
+        )
     if not sim.has_field("recharge"):
         raise ValueError(
             f"stream comparison unavailable for {sim.sim_id}: {no_recharge_reason(sim, ratio)}. "
@@ -543,11 +546,17 @@ def _run_period_edges(sim: Run) -> pd.DatetimeIndex | None:
     return period_edges(stamps)
 
 
+def _edge_lengths_s(edges: pd.DatetimeIndex) -> np.ndarray:
+    """Return the length of each period between its edges, in seconds."""
+    return (edges[1:] - edges[:-1]).total_seconds().to_numpy(dtype=float)
+
+
 def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
     """Return the mean recharge rate of the budget the solver wrote, in m/s.
 
-    Every timestep counts once, its cells by their area. The last timestep alone
-    is one day of a transient run: 4.5 times the mean on the daily Nancon run.
+    Every timestep counts by its length, its cells by their area, and once when
+    the run has no dates for its steps. The last timestep alone is one day of a
+    transient run: 4.5 times the mean on the daily Nancon run.
     """
     from hydromodpy.core.stream_extent import CHUNK_ELEMENTS
     from hydromodpy.results.run.geographic import field_steps
@@ -567,8 +576,12 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
             usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
             if np.any(usable):
                 rates.append(float(recharge_m3_s[usable].sum() / areas[usable].sum()))
+    edges = _run_period_edges(sim)
+    durations = None
+    if edges is not None and len(edges) == len(rates) + 1:
+        durations = _edge_lengths_s(edges)
     try:
-        return criterion_mean_recharge(rates)
+        return criterion_mean_recharge(rates, durations=durations)
     except ValueError as exc:
         raise ValueError(
             f"stream comparison unavailable for {sim.sim_id}: its recharge budget holds "

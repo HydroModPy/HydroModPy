@@ -3,8 +3,9 @@
 One rule for every forcing record: a series, a station or a grid with a time
 axis.
 
-1. A period ``[b_i, b_{i+1})`` takes the samples stamped inside it, with equal
-   weights.
+1. A period ``[b_i, b_{i+1})`` takes the samples stamped inside it. They have
+   equal weights, except in a record of one sample per calendar month or year,
+   where each counts by the length of its month or year.
 2. A sample is the rate of the interval from its stamp to the next stamp. The
    last sample stands for one step of the record: the median spacing of its
    stamps. A record of one sample stands for all later time.
@@ -37,12 +38,44 @@ class PeriodSamples:
 
     ``inside[i]`` lists the samples stamped in period ``i``. ``fill[i]`` is the
     sample a period with none inside takes, or -1 when it has samples inside.
-    ``uncovered`` lists the periods no sample interval reaches.
+    ``uncovered`` lists the periods no sample interval reaches. ``weights`` holds
+    the weight of every sample of a calendar record, and is None for equal weights.
     """
 
     inside: tuple[np.ndarray, ...]
     fill: np.ndarray
     uncovered: tuple[int, ...]
+    weights: np.ndarray | None = None
+
+    def value_of(self, samples: np.ndarray, period: int) -> np.ndarray:
+        """Return what ``period`` takes from ``samples``, whose first axis is time."""
+        inside = self.inside[period]
+        if inside.size == 0:
+            return samples[int(self.fill[period])]
+        if self.weights is None or inside.size == 1:
+            return samples[inside].mean(axis=0)
+        return np.average(samples[inside], axis=0, weights=self.weights[inside])
+
+
+def calendar_sample_days(stamps: pd.DatetimeIndex) -> np.ndarray | None:
+    """Return the days each sample of a calendar record stands for, or None.
+
+    A record of one sample per calendar month or year, each stamped at the same
+    place of it, stands for those months or years. The rule does not ask whether
+    that place is the start or the end, so both conventions weigh a sample alike.
+    Any other record answers None: its samples have equal weights.
+    """
+    index = pd.DatetimeIndex(stamps)
+    if len(index) < 2 or not (index.is_month_end.all() or index.day.nunique() == 1):
+        return None
+    steps = np.diff(np.asarray(index.year * 12 + index.month, dtype=int))
+    if np.any(steps < 1):
+        return None
+    if np.median(steps) == 1:
+        return np.asarray(index.days_in_month, dtype=float)
+    if np.all(steps % 12 == 0):
+        return np.where(index.is_leap_year, 366.0, 365.0)
+    return None
 
 
 def record_step(stamps: pd.DatetimeIndex) -> pd.Timedelta | None:
@@ -94,7 +127,12 @@ def samples_by_period(
         fill[i] = first - 1
         if record_end is not None and first == len(index) and record_end <= edges[i]:
             uncovered.append(i)
-    return PeriodSamples(inside=tuple(inside), fill=fill, uncovered=tuple(uncovered))
+    return PeriodSamples(
+        inside=tuple(inside),
+        fill=fill,
+        uncovered=tuple(uncovered),
+        weights=calendar_sample_days(index),
+    )
 
 
 def enforce_coverage(

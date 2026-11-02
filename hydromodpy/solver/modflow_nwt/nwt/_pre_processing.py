@@ -132,11 +132,11 @@ def assemble_flopy_packages(
 
     if rch_data_solver is not None:
         solver.rch = flopy.modflow.ModflowRch(solver.mf, rech=rch_data_solver)
-    # Store the processed RCH schedule so post-processing can read it
-    # back without going through the flow object. Format: dict
-    # {kper: rate [L/T]} in solver time units, mirroring what was fed
-    # to ModflowRch. None when recharge is not active.
-    solver.recharge = rch_data_solver
+    # Keep each period's own rate, as MODFLOW 6 holds it, for the network criterion
+    # to read. The package holds the first_clim rate in a steady period, and a mean
+    # read from it counts that rate twice over. Format: dict {kper: rate [L/T]} in
+    # solver time units. None when recharge is not active.
+    solver.recharge = scale_rate_payload(flow_inputs.recharge_own_rates, si_to_solver)
 
     # DRN is applied to all the surface of the model: enables seepage on the top layer
     if flow_inputs.drn_spd is not None:

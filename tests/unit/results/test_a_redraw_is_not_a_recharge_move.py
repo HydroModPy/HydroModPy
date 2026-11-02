@@ -2,12 +2,13 @@
 
 The by-hand Nancon calibration scores the network in a steady phase, then
 promotes a transient run whose first period is a steady spin-up. The trials
-read the rate the forcing gives each period (9.075e-9 m/s on average). The
+read the rate the forcing gives each period (9.062e-9 m/s on average). The
 redraw read the budget the solver wrote, where the spin-up period holds the
-record mean in place of January (8.656e-9), so the figures cut the network at
+record mean in place of January (8.634e-9), so the figures cut the network at
 another threshold than the one scored, and the check logged "The mean recharge
 moved" though the forcing never changed. Both now average the forcing rates by
-one rule, the redraw rebuilding them from the station forcing the run stores.
+one rule, each period by its length, the redraw rebuilding them from the station
+forcing the run stores.
 A real change of data or of window still warns.
 """
 
@@ -50,7 +51,8 @@ FORCING_MM_D = pd.Series(
 )
 EDGES = pd.DatetimeIndex(["2000-01-01", "2000-02-01", "2000-03-01", "2000-04-01"])
 RATES_M_S = FORCING_MM_D.to_numpy() * MM_PER_DAY
-RECORD_MEAN_M_S = float(RATES_M_S.mean())
+PERIOD_DAYS = np.array([31.0, 29.0, 31.0])
+RECORD_MEAN_M_S = float(np.average(RATES_M_S, weights=PERIOD_DAYS))
 
 
 @pytest.fixture(autouse=True)
@@ -121,28 +123,34 @@ def test_a_period_takes_the_mean_of_its_samples_or_carries_the_last() -> None:
 
 def test_the_steady_and_transient_models_hold_the_record_mean() -> None:
     steady = SimpleNamespace(recharge=pd.Series([RECORD_MEAN_M_S]))
-    transient = SimpleNamespace(recharge=pd.Series(RATES_M_S, index=EDGES[:-1]))
+    transient = SimpleNamespace(
+        recharge=pd.Series(RATES_M_S, index=EDGES[:-1]), perlen=PERIOD_DAYS * 86400.0
+    )
 
     assert mean_recharge_m_s(steady) == pytest.approx(RECORD_MEAN_M_S, rel=1e-12)
     assert mean_recharge_m_s(transient) == pytest.approx(RECORD_MEAN_M_S, rel=1e-12)
 
 
-def test_a_grid_weighs_its_cells_by_area_and_its_periods_once() -> None:
+def test_a_grid_weighs_its_cells_by_area_and_its_periods_by_length() -> None:
     fine_and_coarse = np.array([1.0, 100.0])
     mesh = SimpleNamespace(cell_areas=lambda: fine_and_coarse)
     model = SimpleNamespace(
-        recharge={0: np.array([3.0, 1.0]), 1: np.array([5.0, 1.0])}, solver_mesh=mesh
+        recharge={0: np.array([3.0, 1.0]), 1: np.array([5.0, 1.0])},
+        solver_mesh=mesh,
+        perlen=np.array([1.0, 3.0]),
     )
 
     own = [(3.0 + 100.0) / 101.0, (5.0 + 100.0) / 101.0]
-    assert mean_recharge_m_s(model) == pytest.approx(np.mean(own))
+    assert mean_recharge_m_s(model) == pytest.approx(np.average(own, weights=[1.0, 3.0]))
 
 
 def test_a_series_as_long_as_the_mesh_stays_one_rate_per_period() -> None:
     mesh = SimpleNamespace(cell_areas=lambda: np.array([1.0, 100.0]))
-    model = SimpleNamespace(recharge=pd.Series([3.0, 1.0]), solver_mesh=mesh)
+    model = SimpleNamespace(
+        recharge=pd.Series([3.0, 1.0]), solver_mesh=mesh, perlen=np.array([1.0, 3.0])
+    )
 
-    assert mean_recharge_m_s(model) == pytest.approx(2.0)
+    assert mean_recharge_m_s(model) == pytest.approx(1.5)
 
 
 def test_the_run_gives_back_the_number_its_trials_read(tmp_path) -> None:
@@ -199,7 +207,7 @@ def test_another_window_still_warns(tmp_path, caplog) -> None:
 def test_a_run_without_a_stored_forcing_reads_its_budget(tmp_path) -> None:
     comparison = network_comparison_from_run(_promoted_run(tmp_path, store=False))
 
-    spin_up_budget = (RECORD_MEAN_M_S + RATES_M_S[1:].sum()) / 3
+    spin_up_budget = np.average([RECORD_MEAN_M_S, *RATES_M_S[1:]], weights=PERIOD_DAYS)
     assert comparison.geometry.mean_recharge_m_s == pytest.approx(spin_up_budget, rel=1e-9)
 
 
