@@ -7,4 +7,3 @@ value = "2.5e-6 m/s"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [0.0864]
-runoff_ratio = 0.0

@@ -925,7 +925,6 @@ def run_pre_processing(  # noqa: PLR0915
     # factor stays exactly 1.0; the flow extractor reads this token back and
     # converts fluxes from it, so the two sides can no longer disagree.
     time_units = to_modflow6_time_units(temporal.time_units)
-    finalize_pending_recharge_evt(model)
 
     model.grid_ctx = build_spatial_discretization(
         domain=model.domain,
@@ -941,6 +940,7 @@ def run_pre_processing(  # noqa: PLR0915
     model.inactive_mask = solver_mesh.closed_surface()
     model.nlay = solver_mesh.nlay
     model.ncpl = solver_mesh.n_cells
+    finalize_pending_recharge_evt(model)  # reads nper and ncpl
     model.dem = model.top_elevation  # flat (ncpl,)
     model.dem_mask = model.inactive_mask  # flat (ncpl,)
     model.dem_watershed_path = write_solver_grid_template(model)

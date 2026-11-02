@@ -26,11 +26,15 @@ kind = "homogeneous"
 unit = "m-1"
 value = 1e-5
 
+# The series loaded below replaces the rate of step 1, so that rate goes.
+[flow.sinks_sources.recharge]
+values__delete = true
+
 # A list replaces the parent's, so the four families are written out.
 [data]
 types = ["hydrography", "hydrometry", "recharge", "runoff"]
 
-# 36 monthly rates replace the steady mean of step 1.
+# 36 monthly rates.
 [[data.recharge.sources]]
 source = "custom"
 path = "recharge"

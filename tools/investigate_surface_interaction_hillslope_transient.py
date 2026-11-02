@@ -365,7 +365,6 @@ def _apply_transient_payload(
                 "source": "synthetic",
                 "values": [float(value) for value in RECHARGE_SERIES_MM_DAY],
                 "freq": f"{int(DT_DAYS)}D",
-                "runoff_ratio": 0.0,
             }
         ]
     }

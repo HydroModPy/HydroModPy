@@ -353,7 +353,6 @@ def _case_payload(case: CatchmentCase) -> dict:
         "run_failed": run_status["failed"],
         "recharge_mm_day": recharge_mm_day,
         "recharge_mm_year": recharge_mm_year,
-        "runoff_ratio": recharge_source["runoff_ratio"],
         "k_kind": k_cfg["field"]["kind"],
         "k_csv_rel": k_csv_rel.as_posix(),
         "k_table_rows": k_reference["n_rows"],
@@ -404,7 +403,6 @@ def _html_for_case(case: dict) -> str:
             <tr><th>Regime</th><td>permanent</td></tr>
             <tr><th>Recharge affichee</th><td>{case["recharge_mm_year"]:.0f} mm/an</td></tr>
             <tr><th>Recharge interne</th><td>{case["recharge_mm_day"]:.4f} mm/j</td></tr>
-            <tr><th>Runoff ratio</th><td>{case["runoff_ratio"]}</td></tr>
             <tr><th>K</th><td>{case["k_kind"]} par geologie</td></tr>
             <tr><th>Table K</th><td><code>{case["k_csv_rel"]}</code></td></tr>
             <tr><th>Plage K table</th><td>{case["k_table_min"]:.1e} a {case["k_table_max"]:.1e} m/s</td></tr>

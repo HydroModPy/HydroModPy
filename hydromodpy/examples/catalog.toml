@@ -123,8 +123,8 @@ sha256 = "20e6b08bf10235fdc9d6c1e029abdea8fad88ff43f5224b5cb8985c9468b75bd"
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
 dest = "projects/04_streamflow_intermittence_in_transient/step4_transient.toml"
-size = 2160
-sha256 = "789bb172b2838299b8e5191cbebf9a2c10ee5fdd886af6a458d61fe5c024c69c"
+size = 2253
+sha256 = "e0c81b7704d7c086c8eac5cbd79fdd3a88f3480fd965bf7bdffc53622b00b09e"
 
 [[example.file]]
 repo_path = "examples/projects/04_streamflow_intermittence_in_transient/step5_export.toml"

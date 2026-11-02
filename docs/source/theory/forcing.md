@@ -209,7 +209,8 @@ and $\max(-F, 0)$. So the net rate of a steady period, $\hat N^+ - \hat N^-$, is
 always the one `first_clim` states: the mean of the net rates, $N_0$, or $F$.
 
 A negative number for `first_clim` needs `negative_to_evt`, or the file is
-refused. With `negative_to_evt` off, a negative rate in the file is refused when
+refused. Boussinesq has no ETP package and refuses it whatever `negative_to_evt`
+says. With `negative_to_evt` off, a negative rate in the file is refused when
 it is read. The deficit is drawn from the water table near the top of each cell,
 down to the extinction depth $d_\mathrm{ext}$, and not under the sea, a river
 head or a lake ({doc}`exits/drains-and-et`).
@@ -238,7 +239,8 @@ reaches the ETP package:
 - **Boussinesq.** `"etp"` in {toml}`flow.active_sinks_sources` is refused.
 
 Under MODFLOW 6 the recharge is set to zero on lake cells: the lake gets its own
-rain through the lake package. The law, the surface and the depth of the ETP
+rain through the lake package. A bed cell of an active-shore lake recharges as land
+when the shore falls below its bed ({doc}`exits/lakes`). The law, the surface and the depth of the ETP
 package are on {doc}`exits/drains-and-et`.
 
 (forcing-runoff)=
@@ -280,10 +282,10 @@ would take a loaded recharge, ETP and runoff, so they go through the rules of
 {ref}`forcing-coverage` and {ref}`forcing-runoff`. A daily step gives one slice per period; a monthly step
 gives the mean of the daily slices of the month.
 
-A soil run refuses a steady first period, since that period would hold the
-recharge of one day only. A soil run therefore has no steady period, and
-`first_clim` acts on none of its periods. The daily rules are on
-{doc}`soil-reservoir`.
+A transient soil run refuses a steady first period, since that period would hold
+the recharge of one day only, and `first_clim` acts on none of its periods. A steady
+soil run has one period, which takes the mean of the daily recharge. The daily rules
+are on {doc}`soil-reservoir`.
 
 ## Assumptions and limits
 

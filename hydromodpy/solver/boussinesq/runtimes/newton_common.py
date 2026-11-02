@@ -53,12 +53,16 @@ def _newton_loop_template(
     solve_linear_system: NewtonLinearSolver,
     log_start: NewtonLogStart = _noop_log_start,
     log_iteration: NewtonLogIteration = _noop_log_iteration,
+    line_search_norm: Callable[[np.ndarray], float] = residual_norm_inf,
 ) -> RuntimeSolveResult:
     """Run the shared damped Newton loop.
 
     The dense and sparse head-only runtimes differ mainly in how they build the
     Jacobian and solve the resulting linear system. The surrounding nonlinear
     control flow stays identical and lives here.
+
+    ``line_search_norm`` is what a step must lower to be taken; the convergence test
+    always reads the largest entry of the residual.
     """
 
     head = np.asarray(head_initial_guess_m, dtype=float).copy()
@@ -77,6 +81,7 @@ def _newton_loop_template(
             termination_reason="initial residual already satisfies tol_residual_inf",
         )
 
+    merit = float(line_search_norm(residual))
     log_start(residual_norm, float(tol_residual_inf), int(max_iterations))
     termination_reason = f"{newton_label} Newton max_iterations reached before tol_residual_inf"
     for iteration in range(1, int(max_iterations) + 1):
@@ -108,12 +113,13 @@ def _newton_loop_template(
             candidate_head = head + damping * delta
             candidate_assembly = assembly_for(candidate_head)
             candidate_residual = np.asarray(candidate_assembly.solver_residual, dtype=float)
-            candidate_norm = residual_norm_inf(candidate_residual)
-            if candidate_norm < residual_norm or damping <= float(min_damping):
+            candidate_merit = float(line_search_norm(candidate_residual))
+            if candidate_merit < merit or damping <= float(min_damping):
                 head = candidate_head
                 assembly = candidate_assembly
                 residual = candidate_residual
-                residual_norm = candidate_norm
+                residual_norm = residual_norm_inf(candidate_residual)
+                merit = candidate_merit
                 accepted = True
                 break
             damping *= 0.5

@@ -74,7 +74,6 @@ value = 0.0
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-runoff_ratio = 0.0
 
 [flow]
 flow_regime = "steady"
@@ -126,7 +125,7 @@ def island_toml(
     )
 
 
-def run_island(config: Path) -> None:
+def run_island(config: Path, *, cwd: Path = REPO_ROOT) -> None:
     """Solve the project of ``config`` in a child process and raise when it fails."""
     code = (
         "from pathlib import Path\n"
@@ -137,4 +136,4 @@ def run_island(config: Path) -> None:
         "finally:\n"
         "    project.close()\n"
     )
-    subprocess.run([sys.executable, "-c", code], cwd=REPO_ROOT, check=True)
+    subprocess.run([sys.executable, "-c", code], cwd=cwd, check=True)

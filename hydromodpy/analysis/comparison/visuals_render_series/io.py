@@ -222,6 +222,8 @@ def _write_total_input_output_dashboard(
             "prescribed_head_out_total_m3_s",
             "drainage_total_m3_s",
             "surface_excess_total_m3_s",
+            "evapotranspiration_total_m3_s",
+            "boundary_exchange_out_total_m3_s",
             "balance_implied_outflow_total_m3_s",
             "comparable_outflow_total_m3_s",
         }:

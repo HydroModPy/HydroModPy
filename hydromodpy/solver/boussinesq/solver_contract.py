@@ -134,10 +134,10 @@ def build_runtime_options(
     )
     max_iterations = 20
     if runtime_backend_resolved == "scipy_sparse":
-        # The sparse Newton backend converges reliably on the larger 2-D
-        # validation meshes, but it can need a few extra nonlinear
-        # iterations beyond the dense prototype defaults.
-        max_iterations = 30
+        # Where the water table reaches the ground over a wide area, Newton slows to
+        # a linear rate near the kink of the release: 39 iterations on an island
+        # under 7 mm/day, residual 1e-8 at the 30th and falling 20 % per iteration.
+        max_iterations = 60
     runtime_max_iterations = getattr(flow, "runtime_max_iterations", None)
     if runtime_max_iterations is not None:
         max_iterations = int(runtime_max_iterations)

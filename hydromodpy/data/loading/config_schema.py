@@ -202,7 +202,7 @@ class DataManagersConfig(HydroModelBase):
     )
     recharge: Annotated[RechargeConfig | None, Profile.USER] = Field(
         default=None,
-        description="Recharge configuration (drainage / soil infiltration time series).",
+        description="Recharge data: a synthetic series, custom files or SIM2 grids, in mm/day.",
     )
     runoff: Annotated[RunoffConfig | None, Profile.USER] = Field(
         default=None,

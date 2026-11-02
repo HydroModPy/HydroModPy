@@ -61,7 +61,6 @@ types = ["recharge"]
 [[data.recharge.sources]]
 source = "synthetic"
 freq = "30D"
-runoff_ratio = 0.0
 values = [
     33.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,

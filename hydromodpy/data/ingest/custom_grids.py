@@ -75,10 +75,15 @@ def load_custom_nc(
         import pandas as pd
 
         time_index = pd.DatetimeIndex(times)
+        if len(time_index) == 0:
+            raise ValueError(
+                f"Custom grid dataset {path} holds no date in the period {project_period}."
+            )
         date_start = time_index[0].to_pydatetime()
         date_end = time_index[-1].to_pydatetime()
-        frequency = pd.infer_freq(time_index)
-        if len(time_index) > 1 and frequency is None:
+        # pandas needs three dates to name a frequency; fewer cannot be irregular.
+        frequency = pd.infer_freq(time_index) if len(time_index) >= 3 else None
+        if len(time_index) >= 3 and frequency is None:
             raise ValueError(f"Custom grid dataset {path} must declare a regular time axis.")
     else:
         date_start = None

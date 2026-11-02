@@ -259,7 +259,6 @@ def _write_steady_overlay(mk: float) -> Path:
                 'start_date = "2000-09-01"',
                 "periods = 1",
                 "values = [0.6629166666666667]",
-                "runoff_ratio = 0.0",
                 "",
                 "[flow]",
                 'flow_regime = "steady"',

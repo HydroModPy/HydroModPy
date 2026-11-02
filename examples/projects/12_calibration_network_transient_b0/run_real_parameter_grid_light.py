@@ -475,7 +475,6 @@ def _write_steady_light_base_config() -> Path:
                 "start_date": "2000-09-01",
                 "periods": 1,
                 "values": [steady_recharge],
-                "runoff_ratio": 0.0,
             }
         ],
     }
@@ -542,8 +541,7 @@ def _source_recharge_values_mm_per_day(payload: dict[str, Any]) -> np.ndarray:
         raw_values = np.asarray(source.get("values", []), dtype=float).reshape(-1)
         if raw_values.size == 0:
             continue
-        runoff_ratio = float(source.get("runoff_ratio", 0.0) or 0.0)
-        return raw_values * max(0.0, 1.0 - runoff_ratio)
+        return raw_values
     return np.asarray([], dtype=float)
 
 

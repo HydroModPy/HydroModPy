@@ -33,9 +33,16 @@ def resolve_watershed_shp(model_modflow: Any) -> str | None:
 
 
 def resolve_domain_raster(model_modflow: Any) -> str:
-    """Resolve default domain raster path for particle injection."""
+    """Resolve default domain raster path for particle injection.
+
+    The solver grid when the model wrote its template, because the injection mask
+    is read by MODFLOW row and column: a raster on the DEM grid fits a model only
+    when ``cell_size`` is the DEM resolution.
+    """
     geo = get_geographic(model_modflow)
-    raster_path = getattr(geo, "watershed_box_buff_dem", None) if geo is not None else None
+    raster_path = getattr(model_modflow, "dem_watershed_path", None) or (
+        getattr(geo, "watershed_box_buff_dem", None) if geo is not None else None
+    )
     if raster_path is None:
         raise ValueError(
             "Cannot resolve default zone_partic='domain'. "

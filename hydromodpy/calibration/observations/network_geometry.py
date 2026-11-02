@@ -23,7 +23,7 @@ from hydromodpy.core.stream_heads import (
     concat_candidates,
     trace_from_heads,
 )
-from hydromodpy.core.stream_recharge import criterion_mean_recharge
+from hydromodpy.core.stream_recharge import mean_recharge_m_s
 from hydromodpy.spatial.mesh.model.geometry import padded_rows
 
 if TYPE_CHECKING:
@@ -33,33 +33,6 @@ if TYPE_CHECKING:
     from hydromodpy.simulation.planning.plan import RunContext
 
 logger = get_logger(__name__)
-
-
-def mean_recharge_m_s(model: Any) -> float:
-    """Read the mean recharge back from the built model, not from the TOML.
-
-    Unit conversion and spatial distribution can diverge between what a user
-    wrote and what the solver received, and the calibrated ratio is only a
-    ratio if the recharge that divides it is the one the model actually used.
-
-    A station forcing is held as the rate it gives each period, a steady
-    spin-up period at its own rate: the solver writes the record mean there
-    only when it writes the package. A gridded forcing is held per cell as the
-    solver writes it. The mean is the criterion's one definition
-    (:func:`hydromodpy.core.stream_recharge.criterion_mean_recharge`), which a
-    figure redrawing the run rebuilds from the forcing the run stores.
-    """
-    recharge = getattr(model, "recharge", None)
-    if recharge is None:
-        raise ValueError(
-            "the built model declares no recharge, so the specific seepage threshold "
-            "and the K/R ratio have no denominator."
-        )
-    periods = list(recharge.values()) if isinstance(recharge, dict) else [recharge]
-    try:
-        return criterion_mean_recharge(periods)
-    except ValueError as exc:
-        raise ValueError("the recharge the model holds is not a finite number.") from exc
 
 
 def dense_face_connectivity(planar_mesh: Any) -> np.ndarray:
@@ -430,7 +403,6 @@ __all__ = (
     "dam_foot_cells_of_model",
     "dense_face_connectivity",
     "heads_settings",
-    "mean_recharge_m_s",
     "mesh_cell_m",
     "network_maps_from_run",
     "share_outside",

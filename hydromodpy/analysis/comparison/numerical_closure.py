@@ -200,6 +200,7 @@ def _closure_residual(components: Mapping[str, float]) -> tuple[float | None, st
         - float(components.get("surface_excess_total_m3_s", 0.0))
         - float(components.get("prescribed_head_out_total_m3_s", 0.0))
         - float(components.get("evapotranspiration_total_m3_s", 0.0))
+        - float(components.get("boundary_exchange_out_total_m3_s", 0.0))
         - float(components.get("storage_change_total_m3_s", 0.0))
     )
     return residual, "reconstructed_from_budget_components"

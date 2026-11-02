@@ -65,7 +65,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [3.0]
-runoff_ratio = 0.0
 
 [flow]
 flow_regime = "steady"

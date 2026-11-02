@@ -117,7 +117,6 @@ freq = "YE"
 start_date = "2020-01-01"
 periods = 1
 values = [0.49026346153846156]
-runoff_ratio = 0.0
 
 [display]
 enabled = false

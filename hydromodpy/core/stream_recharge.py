@@ -2,15 +2,17 @@
 
 The criterion thresholds seepage at a fraction of the recharge and calibrates
 ``K/R``, so ``R`` has one definition for the trials that score a run and for
-the figures that redraw it: the unweighted mean, over the run's periods and
-cells, of the rate the recharge forcing gives each period.
+the figures that redraw it: the mean over the run's periods, one weight per
+period like ``first_clim = "mean"``, of the rate the recharge forcing gives each
+period, itself averaged over the cells by their area.
 
 A period's rate is its own. A solver writes the record mean into a steady
 spin-up period in place of that period's rate, and a mean read from what it
 wrote is another statistic: on the monthly Nancon, 8.656e-9 m/s where the
 forcing gives 9.075e-9, and the steady phase that seeds the run reads 9.075e-9.
-So the trials read the rates the built model holds, the redraw rebuilds them
-from the forcing the run stores, and both average them here.
+So the trials read the rates the built model holds. A run keeps that number on
+its ``forcing`` group, and the redraw reads it back. A run that kept none
+rebuilds the rates from the station forcing it stores, and both average them here.
 
 It lives in ``core`` because the calibration and the results layers both need
 it and neither may import the other.
@@ -25,7 +27,15 @@ import pandas as pd
 
 from hydromodpy.core.time.period_aggregation import period_mean_on_index
 
-__all__ = ("criterion_mean_recharge", "forcing_period_rates")
+__all__ = (
+    "CRITERION_MEAN_RECHARGE_ATTR",
+    "criterion_mean_recharge",
+    "forcing_period_rates",
+    "mean_recharge_m_s",
+)
+
+# Attribute of the ``forcing`` group: the mean recharge of the run, in m/s.
+CRITERION_MEAN_RECHARGE_ATTR = "criterion_mean_recharge_m_s"
 
 
 def forcing_period_rates(samples: pd.Series, edges: Any) -> np.ndarray:
@@ -51,16 +61,55 @@ def forcing_period_rates(samples: pd.Series, edges: Any) -> np.ndarray:
     return np.maximum(rates, 0.0)
 
 
-def criterion_mean_recharge(values: Any) -> float:
-    """Return the unweighted mean of the finite recharge rates, over periods and cells.
+def criterion_mean_recharge(values: Any, *, areas: Any = None) -> float:
+    """Return the mean recharge rate of a run: one weight per period, the cells by area.
 
-    ``values`` is one array or a sequence of per-period arrays; a uniform
-    period may be one number.
+    ``values`` is one array or a sequence of one entry per period, a number or an
+    array. An entry sized like ``areas`` holds one rate per cell and takes their
+    area-weighted mean, so the refined cells of a mesh do not outweigh the coarse
+    ones. Any other entry takes its plain mean. A non-finite rate carries no weight.
     """
     parts = values if isinstance(values, list | tuple) else [values]
-    flat = [np.asarray(part, dtype=float).reshape(-1) for part in parts]
-    rates = np.concatenate(flat) if flat else np.empty(0)
-    finite = rates[np.isfinite(rates)]
-    if finite.size == 0:
+    cell_areas = None if areas is None else np.asarray(areas, dtype=float).reshape(-1)
+    rates: list[float] = []
+    for part in parts:
+        flat = np.asarray(part, dtype=float).reshape(-1)
+        usable = np.isfinite(flat)
+        if cell_areas is not None and flat.size == cell_areas.size:
+            usable &= np.isfinite(cell_areas) & (cell_areas > 0.0)
+            if np.any(usable):
+                rates.append(float(np.average(flat[usable], weights=cell_areas[usable])))
+        elif np.any(usable):
+            rates.append(float(np.mean(flat[usable])))
+    if not rates:
         raise ValueError("the recharge holds no finite rate.")
-    return float(np.mean(finite))
+    return float(np.mean(rates))
+
+
+def mean_recharge_m_s(model: Any) -> float:
+    """Read the mean recharge back from the built model, not from the TOML.
+
+    Unit conversion and spatial distribution can diverge between what a user
+    wrote and what the solver received, and the calibrated ratio is only a
+    ratio if the recharge that divides it is the one the model actually used.
+
+    A station forcing is held as the rate it gives each period, a steady
+    spin-up period at its own rate: the solver writes the record mean there
+    only when it writes the package. A gridded forcing is held per cell as the
+    solver writes it.
+    """
+    recharge = getattr(model, "recharge", None)
+    if recharge is None:
+        raise ValueError(
+            "the built model declares no recharge, so the specific seepage threshold "
+            "and the K/R ratio have no denominator."
+        )
+    periods = list(recharge.values()) if isinstance(recharge, dict) else [recharge]
+    solver_mesh = getattr(model, "solver_mesh", None)
+    # A list or a series holds one rate per period, whatever its length.
+    holds_cells = isinstance(recharge, dict | np.ndarray) and solver_mesh is not None
+    areas = solver_mesh.cell_areas() if holds_cells else None
+    try:
+        return criterion_mean_recharge(periods, areas=areas)
+    except ValueError as exc:
+        raise ValueError("the recharge the model holds is not a finite number.") from exc

@@ -10,8 +10,14 @@ import numpy as np
 from hydromodpy.core.time import validate_recharge_coverage
 from hydromodpy.core.units import convert_payload_to_m_per_s
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.physics.forcing.steady_periods import apply_first_clim, steady_flags
+from hydromodpy.physics.forcing.steady_periods import (
+    apply_first_clim,
+    first_clim_sets_a_deficit,
+    one_period_rate,
+    steady_flags,
+)
 from hydromodpy.physics.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
@@ -156,9 +162,12 @@ def extract_negative_recharge_evt_payload(
     ``payload`` holds the own rate of every period, before ``first_clim``. A
     transient period keeps its own split; a steady period takes the
     ``first_clim`` rate on each part (``route_negative_recharge_to_evt``, shared
-    with MODFLOW 6). Without a negative value, nothing is routed.
+    with MODFLOW 6). Without a negative value or a negative ``first_clim`` on a
+    steady period, nothing is routed.
     """
-    if not payload_has_negative_values(payload):
+    if not payload_has_negative_values(payload) and not first_clim_sets_a_deficit(
+        first_clim, steady
+    ):
         return payload, None
 
     if isinstance(payload, Mapping):
@@ -222,12 +231,33 @@ def merge_evt_payloads(
     return merged
 
 
-def _own_rates_by_period(payload: object, *, nper: int) -> dict[int, np.ndarray]:
-    """Return the own rate of every period of a recharge or ETP payload."""
+def _own_rates_by_period(
+    payload: object, *, nper: int, steady: object, first_clim: object
+) -> dict[int, np.ndarray]:
+    """Return the own rate of every period of a recharge or ETP payload.
+
+    A list holds one rate or one per period. A run of one period may read a longer
+    record, as under the other solvers (``one_period_rate``). Any other length is
+    refused: cutting it would change the water the model receives.
+    """
     if isinstance(payload, Mapping):
-        return {int(k): np.asarray(v, dtype=float) for k, v in payload.items()}
+        table = complete_period_table(
+            payload, nper=int(nper), label="flow.sinks_sources.recharge.values"
+        )
+        return {kper: np.asarray(value, dtype=float) for kper, value in table.items()}
     if is_scalar_number(payload):
         return {kper: np.asarray(float(payload)) for kper in range(int(nper))}
+    if np.ndim(payload) == 1 and len(payload) != int(nper):
+        record = np.asarray(payload, dtype=float)
+        if record.size == 1:
+            return {kper: np.asarray(float(record[0])) for kper in range(int(nper))}
+        if int(nper) != 1:
+            raise ValueError(
+                f"flow.sinks_sources.recharge.values holds {record.size} rates and this run "
+                f"has {int(nper)} periods: give one rate, or one per period."
+            )
+        is_steady = bool(np.asarray(steady, dtype=bool).reshape(-1)[0])
+        return {0: np.asarray(one_period_rate(record, steady=is_steady, first_clim=first_clim))}
     return {kper: np.asarray(series_value(payload, kper), dtype=float) for kper in range(int(nper))}
 
 
@@ -250,7 +280,7 @@ def assemble_rch_data(
         ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     if isinstance(payload, Mapping) and len(payload) == 0:
         raise ValueError("flow.sinks_sources.recharge.values mapping cannot be empty.")
-    rows = _own_rates_by_period(payload, nper=nper)
+    rows = _own_rates_by_period(payload, nper=nper, steady=steady, first_clim=first_clim)
     return _scalars_as_floats(apply_first_clim(rows, steady=steady, first_clim=first_clim))
 
 
@@ -364,7 +394,12 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
     if negative_to_evt:
         ensure_finite_numeric_payload(recharge_payload, label="flow.sinks_sources.recharge.values")
         rch_data, evt_payload = extract_negative_recharge_evt_payload(
-            payload=_own_rates_by_period(recharge_payload, nper=adapter.nper),
+            payload=_own_rates_by_period(
+                recharge_payload,
+                nper=adapter.nper,
+                steady=steady,
+                first_clim=recharge_cfg.first_clim,
+            ),
             nper=adapter.nper,
             steady=steady,
             first_clim=recharge_cfg.first_clim,

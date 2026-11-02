@@ -2,13 +2,52 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import replace
+from typing import TypeVar
+
 import numpy as np
 
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
+from hydromodpy.solver.boussinesq.runtime_contract import (
+    RuntimeSolveResult,
+    SteadySolveInputs,
+    TransientStepInputs,
+)
+
+SolveInputs = TypeVar("SolveInputs", SteadySolveInputs, TransientStepInputs)
 
 _MIN_PARTITION_JACOBIAN_SHIFT = 1.0e-8
 _PARTITION_JACOBIAN_SHIFT_FACTOR = 0.2
 _SURFACE_TOLERANCE_M = 1.0e-9
+_RELEASE_DEPTH_LADDER = (16.0, 8.0, 4.0, 2.0, 1.0)
+
+
+def solve_by_release_depth_continuation(
+    inputs: SolveInputs,
+    *,
+    direct: RuntimeSolveResult,
+    solve: Callable[[SolveInputs], RuntimeSolveResult],
+) -> RuntimeSolveResult:
+    """Retry a failed solve from a smoother surface closure, back to the depth asked.
+
+    Where the water table reaches the ground over a wide area, the kink of the
+    release at the land surface can stop Newton. A larger release depth smooths
+    that kink. Each rung starts from the heads of the last one that converged, and
+    only the last rung, at the depth the run asks for, can be the answer. So a run
+    that converged directly never comes here, and the answer does not depend on the
+    ladder. When the last rung fails, the direct failure comes back with its
+    diagnostics.
+    """
+    depth_m = float(inputs.options.regularization_radius)
+    guess = inputs.head_initial_guess_m
+    result = direct
+    for factor in _RELEASE_DEPTH_LADDER:
+        options = replace(inputs.options, regularization_radius=depth_m * factor)
+        result = solve(replace(inputs, options=options, head_initial_guess_m=guess))
+        if result.converged:
+            guess = result.head_m
+    return result if result.converged else direct
 
 
 def interiorize_regularized_partition_initial_guess(
@@ -67,4 +106,5 @@ def regularized_partition_jacobian_shift(
 __all__ = [
     "interiorize_regularized_partition_initial_guess",
     "regularized_partition_jacobian_shift",
+    "solve_by_release_depth_continuation",
 ]

@@ -119,8 +119,9 @@ declared among the lakes.
 (lakes-mask)=
 ## The mask on the other packages
 
-The lake cells carry no recharge and no aquifer evapotranspiration: the lake
-takes its own rain and evaporates through LAK. Without the mask, MODFLOW 6 would
+The lake cells carry no recharge and no aquifer evapotranspiration, except a bed
+cell of an active-shore lake once the shore has fallen below it: the lake takes its
+own rain and evaporates through LAK. Without the mask, MODFLOW 6 would
 hand the recharge of an inactive lake cell to the first active cell below it, and
 the rain would be counted twice ({doc}`drains-and-et`).
 

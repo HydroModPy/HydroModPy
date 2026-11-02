@@ -728,8 +728,13 @@ plus the position and capacity of each column (``cell_index``,
 ``soil_column``, and every array is float64: these are daily forcing inputs,
 not a solved field, so ``field_precision`` never quantizes them. The recharge
 grid MODFLOW receives is written the same way a SIM2 recharge would be, as
-``forcing/recharge_recharge``: soil mode never opens a ``forcing/recharge/``
-group.
+``forcing/recharge_recharge``.
+
+A gridded recharge also keeps its spatial mean as a station-shaped series under
+``forcing/recharge/_watershed``, like a gridded runoff, so a reader of
+``forcing/recharge`` finds a series whatever the source is. A run whose solver holds
+its recharge on the model stamps ``criterion_mean_recharge_m_s`` on the ``forcing``
+group: the mean recharge its trials score with, which a figure reads back.
 
 Per-run Parquet directory
 -------------------------

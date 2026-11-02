@@ -59,7 +59,6 @@ path = "conceptual_dem.tif"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.5]
-runoff_ratio = 0.0
 
 
 [flow]

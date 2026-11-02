@@ -1027,7 +1027,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Recharge configuration (drainage / soil infiltration time series).",
+                "description": "Recharge data: a synthetic series, custom files or SIM2 grids, in mm/day.",
                 "x-hmp-profile": "user"
               },
               "runoff": {
@@ -5113,7 +5113,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Sinusoidal period in days.",
+                "description": "Period of the sinusoid in days, whatever freq is. Each sample holds the mean of the wave over its own period.",
                 "title": "Period Days",
                 "x-hmp-profile": "expert"
               },
@@ -5127,23 +5127,9 @@
                   }
                 ],
                 "default": null,
-                "description": "Sinusoidal baseline offset in mm/day.",
+                "description": "Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
                 "title": "Offset",
                 "x-hmp-profile": "expert"
-              },
-              "runoff_ratio": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "Fraction of recharge routed to runoff (0.0 to 1.0).",
-                "title": "Runoff Ratio",
-                "x-hmp-profile": "dev"
               }
             },
             "required": [

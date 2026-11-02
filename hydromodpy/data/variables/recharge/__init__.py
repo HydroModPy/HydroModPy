@@ -1,1 +1,1 @@
-"""Recharge data manager -- drainage / soil infiltration time series."""
+"""Recharge data manager: a synthetic series, custom files or SIM2 grids, in mm/day."""

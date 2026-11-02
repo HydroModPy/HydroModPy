@@ -78,7 +78,6 @@ path = "naizin_stream_network.gpkg"
 source = "synthetic"
 values = [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0]
 freq = "MS"
-runoff_ratio = 0.1
 
 
 [flow]

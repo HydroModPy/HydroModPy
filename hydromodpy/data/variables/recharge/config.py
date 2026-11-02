@@ -76,15 +76,11 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     )
     period_days: Annotated[int | None, Profile.EXPERT] = Field(
         default=None,
-        description="Sinusoidal period in days.",
+        description="Period of the sinusoid in days, whatever freq is. Each sample holds the mean of the wave over its own period.",
     )
     offset: Annotated[float | None, Profile.EXPERT] = Field(
         default=None,
-        description="Sinusoidal baseline offset in mm/day.",
-    )
-    runoff_ratio: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Fraction of recharge routed to runoff (0.0 to 1.0).",
+        description="Added to the sinusoid, in mm/day. Requires amplitude and period_days.",
     )
 
     @model_validator(mode="after")
@@ -99,6 +95,24 @@ class RechargeSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
                 raise ValueError(
                     "Synthetic source requires 'values' (list of recharge values in mm/day)."
                 )
+        wave = {"amplitude": self.amplitude, "period_days": self.period_days}
+        if self.source != "synthetic" and any(v is not None for v in wave.values()):
+            raise ValueError("amplitude and period_days only shape a synthetic source.")
+        if self.source != "synthetic" and self.offset is not None:
+            raise ValueError("offset only shapes a synthetic source.")
+        written = [name for name, value in wave.items() if value is not None]
+        if len(written) == 1:
+            missing = "period_days" if written[0] == "amplitude" else "amplitude"
+            raise ValueError(
+                f"{written[0]} draws a sinusoid only with {missing}: write both, or neither."
+            )
+        if self.offset is not None and not written:
+            raise ValueError(
+                f"offset = {self.offset} shifts the sinusoid, and this source declares none: "
+                "write amplitude and period_days, or add the offset to values."
+            )
+        if self.period_days is not None and self.period_days <= 0:
+            raise ValueError(f"period_days must be positive, got {self.period_days}.")
         return self
 
 

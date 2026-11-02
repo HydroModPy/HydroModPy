@@ -108,7 +108,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [0.8]
-runoff_ratio = 0.0
 
 [mesh.regular]
 shape = [1, 6]

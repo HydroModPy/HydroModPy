@@ -71,7 +71,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-runoff_ratio = 0.0
 
 [modflownwt.sgrid.vertical]
 nlay = 1

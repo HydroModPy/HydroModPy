@@ -115,8 +115,9 @@ period (``forcing/dirichlet_support_resolution.py``):
 - a side of the mesh (north, south, east, west): the owner cells of the boundary
   edges on that side;
 - the streams: the owner cells of the edges the mesh tags as river;
-- the ocean: the owner cells of boundary edges that are not river edges and whose
-  land surface is at or below the ocean stage of the period.
+- the ocean: every cell whose land surface is at or below the ocean stage of the
+  period, as MODFLOW 6 builds its ocean CHD. A cell inside a wide sea is constrained
+  like a cell on the edge of the mesh.
 
 A boundary can also name a support of the mesh with
 :toml:`flow.bc.<name>.support_label`. The cells of that support are constrained
@@ -163,7 +164,9 @@ The recharge :math:`N_i` is a rate per unit of area. It is constant over a stres
 period. It is either one number per period, the same on every cell, or one value
 per cell when the file loads a recharge field. The volume rate that enters the cell
 is :math:`a_i N_i`. A negative recharge is refused: the message says
-``must be non-negative.`` A transient period keeps its own value. A steady period
+``must be non-negative.`` A negative
+:toml:`flow.sinks_sources.recharge.first_clim` on a steady period is refused too,
+because this solver has no ETP package to take a deficit. A transient period keeps its own value. A steady period
 takes :toml:`flow.sinks_sources.recharge.first_clim` (:doc:`forcing`): the period of a
 steady run, and the first period of a transient run when
 :toml:`flow.first_period_steady` is true, as in MODFLOW.
@@ -331,8 +334,14 @@ under the surface about a third of it, and a water table 1 m under the surface
 nothing that matters. As :math:`\delta` goes to zero the law becomes the threshold of
 the complementarity closure below. A smaller :math:`\delta` comes closer to that
 threshold and makes the Newton solve stiffer: near the surface, the release switches
-on and off with the sign of the arriving water. This is a pragmatic law and not a
-model of overland flow. The four runtimes of this method use the same law.
+on and off with the sign of the arriving water. So the line search of the sparse
+runtime asks the L2 norm of the residual to fall, which a Newton step lowers, and not
+its largest entry, which one cell on that kink can hold. Convergence still reads the
+largest entry. If Newton still stops, that runtime solves again from a depth scale 16 times larger and
+halves it down to the one asked, each solve starting from the heads of the last. Only
+the solve at the depth asked can be the answer, so a run that converges directly does
+not change. This is a pragmatic law and not a model of overland flow. The four runtimes of this method use
+the same law.
 
 The complementarity closure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -489,8 +498,8 @@ false, the first period is a backward Euler step from the initial heads, like th
 others.
 
 The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
-first runs one steady solve with the same method, under the time-mean recharge or
-under the rate of :toml:`flow.ic.h.rate`, with the boundary heads of the first period.
+first runs one steady solve with the same method, under the mean recharge, one
+weight per period, or under the rate of :toml:`flow.ic.h.rate`, with the boundary heads of the first period.
 It starts the transient from the result. Cyclic spin-up and :toml:`flow.restart_from`
 are not implemented for this solver and the file is refused when it asks for them.
 In the code: ``run_transient_runtime``.

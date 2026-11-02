@@ -105,7 +105,6 @@ source = "synthetic"
 # One value per period: a synthetic list repeats to fill the run.
 values = [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 freq = "10D"
-runoff_ratio = 0.0
 
 [display]
 enabled = false

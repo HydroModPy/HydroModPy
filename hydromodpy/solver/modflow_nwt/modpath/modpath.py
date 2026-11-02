@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from contextlib import redirect_stdout
 
 import flopy
+import numpy as np
 
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.logging import get_logger
@@ -28,6 +29,7 @@ from ._filt_processing import filter_pathlines
 from ._post_processing import write_shapefiles
 from ._pre_processing import (
     attach_starting_locations,
+    budget_holds,
     build_modpath_model,
     compute_seepage_zone,
     load_modflow_for_modpath,
@@ -217,8 +219,11 @@ class Modpath:
         bud_file = os.path.join(self.full_path, f"{self.model_name}.cbc")
         head_file = os.path.join(self.full_path, f"{self.model_name}.hds")
         cbb = open_cell_budget(bud_file)  # NWT ecrit en simple, MF6 en double
-        cbb.get_data(kstpkper=(0, 0), text="DRAINS")
-        cbb.get_data(kstpkper=(0, 0), text="RECHARGE")
+        if not budget_holds(cbb, "RECHARGE"):
+            raise ConfigError(
+                "MODPATH weighs its particles by the recharge, and this run has none: add "
+                '"recharge" to flow.active_sinks_sources.'
+            )
         _ = head_file
 
         if self.track_dir == "forward":
@@ -280,6 +285,13 @@ class Modpath:
 
         self.poro_modpath = self.model_modflow.sy
         self.ss_modpath = self.model_modflow.ss
+        without_porosity = int(np.sum((np.asarray(self.poro_modpath) <= 0.0) & (ibound != 0)))
+        if without_porosity:
+            raise ConfigError(
+                f"MODPATH takes its porosity from the specific yield, and Sy is zero on "
+                f"{without_porosity} active cells, so the particle velocity is undefined: "
+                'declare it with "Sy" in flow.param_list and [flow.param.Sy.field].'
+            )
 
         flopy.modpath.Modpath6Bas(
             self.mp,

@@ -233,7 +233,6 @@ inference_mode = "warn"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [{recharge_mm_day!r}]
-runoff_ratio = 0.0
 
 {solver_blocks}
 [display]
