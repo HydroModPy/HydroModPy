@@ -469,9 +469,9 @@ def test_a_second_collect_keeps_the_comparisons(campaign: Path) -> None:
     collect_project(campaign)
 
     assert (compare / "README.md").is_file()
-    assert "compare/a-vs-b/README.md" in (
-        campaign / "summary" / "report" / "index.html"
-    ).read_text(encoding="utf-8")
+    assert "compare/a-vs-b/README.md" in (campaign / "summary" / "report" / "index.html").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_a_project_without_sites_is_collected_with_the_defaults(tmp_path: Path) -> None:

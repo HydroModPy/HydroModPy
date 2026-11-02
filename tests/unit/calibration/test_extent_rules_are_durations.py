@@ -32,7 +32,7 @@ from hydromodpy.core.time import nominal_step_days
 from hydromodpy.results.derive.network_criterion_settings import network_criterion_settings
 from hydromodpy.results.derive.stream_extent import network_extents_from_run, run_step_days
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
-from tests.unit.config.test_a_renamed_key_is_refused_and_a_sealed_one_reads import (
+from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import (
     PROJECT,
     _project,
 )

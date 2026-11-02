@@ -22,7 +22,7 @@ import sys
 import tarfile
 from pathlib import Path
 
-from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_GENERIC,
     EXIT_NOT_FOUND,

@@ -1,50 +1,175 @@
 Contracts and design patterns
 =============================
 
-This page lists what users and integrators can rely on (the public facade, two
-storage Protocols, the field registry), then the patterns the code reuses. Know
-the patterns and the code is predictable: adding a backend, a data manager or a
-figure follows one of them.
+This page says which names the contract of :doc:`/about/versions` covers: the
+public import paths, the plugin ports, the two storage Protocols and the field
+registry. Then it lists the patterns the code reuses. Know the patterns and the
+code is predictable: adding a backend, a data manager or a figure follows one of
+them.
 
 The public facade
 -----------------
 
-The single supported import path is ``import hydromodpy as hmp``. The package
-exports a flat set of verbs from ``hydromodpy/_api.py`` and a set of config
-classes, all listed in ``hydromodpy.__all__`` and documented in the generated
-Python reference (:doc:`/reference/python/index`). The verbs:
+A user imports ``import hydromodpy as hmp``. The package exports a flat set of
+verbs from ``hydromodpy/_api.py``, the objects they return and the config classes,
+all listed in ``hydromodpy.__all__``. The generated
+:doc:`/reference/python/index` documents every name, so this page does not repeat
+them. ``hmp.open(path)`` opens what a path stands for: a ``Project``, a ``Run``, a
+``Session`` or a ``Workspace``. ``project.store`` is the read-only ``Catalog`` over
+``.hmp/index.duckdb``, the index derived from the run directories.
+
+Public import paths
+-------------------
+
+Two lists are public. One is ``hydromodpy.__all__``. The other is the short list
+of modules below, which a plugin, an extension or a test has to import from. Their
+public names follow the same rules as the facade. Every other module is internal
+whatever its name, and can move in any version. A module with a leading underscore
+is private to its package.
+
+``tests/unit/architecture/test_public_import_paths.py`` reads this list. It fails
+when a listed module disappears, and when a page of the reference or of the how-to
+guides imports a module that is neither listed nor in the facade.
+
+.. public-modules-start
+
+- ``hydromodpy.core.exceptions``: the exception hierarchy.
+- ``hydromodpy.core.logging``: ``get_logger``.
+- ``hydromodpy.core.units``: the quantity types of a config field.
+- ``hydromodpy.core.config_kit.profile``: ``Profile``, the level of a config field.
+- ``hydromodpy.core.tracking.input_file``: ``InputFile``, a file a run depends on.
+- ``hydromodpy.core.contracts.observables``: what a solver and a forward model
+  answer.
+- ``hydromodpy.core.state.run_state``: ``RunState``, what a solver adapter reads.
+- ``hydromodpy.schema``: the JSON Schema export and the partial validator.
+- ``hydromodpy.spatial.terrain.port``: the terrain engine port.
+- ``hydromodpy.spatial.mesh.port``: the mesh engine port.
+- ``hydromodpy.data.source.port``: the data source port.
+- ``hydromodpy.data.contracts.spatial_field``: the records a gridded provider returns.
+- ``hydromodpy.data.managers.base_config``: the base of a data variable config.
+- ``hydromodpy.data.managers.base_manager_field``: the base of a gridded variable.
+- ``hydromodpy.data.managers.timeseries_config``: the base of a series variable.
+- ``hydromodpy.solver.base.adapter_protocol``: the solver port.
+- ``hydromodpy.simulation.planning.plan``: ``RunContext`` and ``RunExecutionResult``,
+  what a solver adapter receives and returns.
+- ``hydromodpy.simulation.extraction.derivation.base``: the solver extractor port.
+- ``hydromodpy.calibration.evaluation.port``: the trial evaluator port.
+- ``hydromodpy.calibration.evaluation.forward``: the forward model port.
+- ``hydromodpy.calibration.optim.optimizer``: the base of a calibration method.
+- ``hydromodpy.calibration.optim.parameters``: ``ParameterSpace``.
+- ``hydromodpy.display.figure``: ``BaseFigure`` and ``FigureSpec``.
+- ``hydromodpy.display.figure_registry``: ``register``.
+- ``hydromodpy.display.figures.scalar_face_map``: the base of a map of one value per
+  face.
+- ``hydromodpy.display.report_blocks``: the static HTML blocks of a report.
+- ``hydromodpy.results.run``: ``Run``.
+- ``hydromodpy.results.zarr_store``: ``SimulationZarr``, the field store an exporter reads.
+- ``hydromodpy.results.exporters.fields``: what every field exporter reads the same
+  way.
+- ``hydromodpy.results.catalog.indexer``: ``rebuild_index``.
+- ``hydromodpy.results.annotations``: tags and notes of a run directory.
+- ``hydromodpy.results.trash``: the trash of a run directory.
+- ``hydromodpy.cli.conventions``: the shared argparse grammar.
+- ``hydromodpy.cli.helpers``: exit codes and workspace resolution of a command.
+
+.. public-modules-end
+
+Plugin ports
+------------
+
+A plugin joins through an entry-point group. Each group has one Protocol.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 70
+   :widths: 33 37 30
 
-   * - Symbol
-     - Role
-   * - ``hmp.open(path)``
-     - Open what a path stands for: a ``Project``, a ``Run``, a ``Session`` or a
-       ``Workspace``. ``project.store`` is the read-only ``Catalog`` over
-       ``.hmp/index.duckdb``, the index derived from the run directories.
-   * - ``hmp.read(sim, var, ...)``
-     - Read a variable of a run. The name is resolved against the field registry, then
-       the ``timeseries`` table, then the geographic features.
-   * - ``hmp.run(config, **kwargs)``
-     - Run the workflow a TOML file or a config object declares.
-   * - ``hmp.calibrate(config, *, phase=None, ...)``
-     - Drive a calibration session.
-   * - ``hmp.figure(sim, name, ...)`` and ``hmp.viz.show``
-     - Render one figure of a run.
-   * - ``hmp.export(sim, variables, ...)``
-     - Export variables of a run.
-   * - ``hmp.compare_pair``, ``hmp.report``, ``hmp.spinup``, ``hmp.doctor``
-     - Pairwise comparison, the HTML report of a calibration session, the
-       cyclic spin-up, an environment diagnostic.
+   * - Group
+     - Protocol
+     - Stability
+   * - ``hydromodpy.terrain.engine``
+     - ``TerrainEngine``, ``hydromodpy.spatial.terrain.port``
+     - stable
+   * - ``hydromodpy.mesh.engine``
+     - ``MeshEngine``, ``hydromodpy.spatial.mesh.port``
+     - stable
+   * - ``hydromodpy.data.source``
+     - ``DataSource``, ``hydromodpy.data.source.port``
+     - stable
+   * - ``hydromodpy.calibration.forward_model``
+     - ``ForwardModel``, ``hydromodpy.calibration.evaluation.forward``
+     - stable signature, experimental construction options
+   * - ``hydromodpy.calibration.evaluator``
+     - ``TrialEvaluator``, ``hydromodpy.calibration.evaluation.port``
+     - experimental
+   * - ``hydromodpy.solver``
+     - ``SolverAdapter``, ``hydromodpy.solver.base.adapter_protocol``
+     - experimental
+   * - ``hydromodpy.solver.extractor``
+     - ``OutputAdapter``, ``hydromodpy.simulation.extraction.derivation.base``
+     - experimental
 
-A change to the facade or to the two Protocols below is a breaking change. It
-needs, when it touches a stored schema, a migration entry (workspace cache) or a
-rebuild of the index, a bump of the matching version constant, and an update of this
-page and of :doc:`storage-layout`. The constants and where they live are in
-:doc:`data-scopes`. The code keeps no compatibility shim, alias or re-export
-outside the facade.
+A stable port is frozen as the facade is: a change keeps the old form working for
+two minor versions. Its types are its own, so it depends on nothing else of the
+package. For ``ForwardModel`` the stable part is ``model_id`` and
+``simulate(ForwardRequest) -> ForwardOutcome``. The arguments its constructor can ask
+for (``cfg``, ``cfg_path``, ``space``, ``workspace``) are experimental, because
+``cfg`` is the whole configuration.
+
+An experimental port can change in any minor version. ``TrialEvaluator`` waits for
+the rework of the calibration, and two of its construction options (``trial_ctx``,
+``metric_fn``) are internals of the calibration. ``SolverAdapter`` hands over
+``state.setup`` and ``state.cfg``, so a refactor of either reaches the adapter, and
+``OutputAdapter`` writes through the 30 methods of ``SimulationStore``. The stored
+result of a run is not experimental, whichever port wrote it.
+
+``tests/contract/`` holds the conformance suites. They are not in the wheel, so run
+them from a clone with your distribution installed. The suites of the terrain, mesh,
+evaluator and forward model ports run on every engine the registry serves. The suite
+of the data source port runs its declarations and its refusals on every source the
+registry serves, as :doc:`how-to/add-a-data-source` explains. The solver ports have
+no suite yet, which is one more reason why they are experimental.
+
+Changing a contract
+-------------------
+
+A change to the facade, to a stable port or to the two Protocols below is announced.
+The old name keeps working for two minor versions and warns, and this page and
+:doc:`storage-layout` change with it. A renamed TOML key gets its row in
+``hydromodpy/config/config_migration.py``, with ``since``, and a test fails once a
+row outlives its delay. A change to a stored schema needs a bump of the matching
+version constant and a reader for the old version. The constants and where they live
+are in :doc:`data-scopes`.
+
+``tests/unit/architecture/test_public_surfaces_are_frozen.py`` compares the public
+surfaces with the snapshot files of ``tests/unit/architecture/surface/``: the names
+and signatures of ``hmp.__all__``, the public methods of the result objects, the
+command line with its flags, the exit codes, the TOML paths with their types and
+defaults, and the process descriptions. A difference fails the test, which says what
+changed. To accept it, regenerate the files and commit them with the change:
+
+.. code-block:: bash
+
+   python -m tools.surface_snapshot
+
+The command refuses to drop a stable TOML key that has no row in the migration table.
+A key it drops goes into ``removed_toml_keys.tsv``, and the test holds it there until
+its delay ends.
+
+Storage
+-------
+
+Disk is the truth and the index is derived. A run directory holds everything a run
+needs to be read, replayed, resumed or compared: Zarr for fields, Parquet for tables,
+and its manifest and provenance. ``.hmp/index.duckdb`` is a query index over those
+directories and rebuilds at any time (:doc:`storage-layout`). DuckDB is the only SQL
+backend the contract promises. The catalog reaches it through a port, and the port
+takes SQL in the dialect of DuckDB.
+
+``hydromodpy.lock`` freezes the data cache of a project before a run. The launcher of
+a ``[sites]`` project writes it, and ``hmp dev lock`` writes it by hand for a single
+project. ``hmp run --frozen`` verifies it and refuses without one. No other run needs
+it, because the manifest of a run records the inputs of that run. See
+:ref:`artifact-policy` for the sidecar formats that are allowed.
 
 Storage Protocol: ``CatalogBackend``
 ------------------------------------

@@ -69,13 +69,14 @@ import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.resources import files
-from typing import Final, Literal
+from typing import Annotated, Final
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary
 from hydromodpy.results.checks import CalibrationSessionStatus, Checks
 from hydromodpy.results.metric_rule import DateWindow
 
@@ -85,7 +86,7 @@ RULE_VERSION: Final[str] = "2"
 KNOWN_ISSUES_FILENAME: Final[str] = "known_issues.toml"
 """The register of known issues, package data of this module."""
 
-Label = Literal["exploratory", "calibrated", "evaluated", "failed"]
+Label = Annotated[str, Vocabulary("exploratory", "calibrated", "evaluated", "failed")]
 """What a reader may call a run today."""
 
 CALIBRATED_LABELS: Final[tuple[Label, ...]] = ("calibrated", "evaluated")

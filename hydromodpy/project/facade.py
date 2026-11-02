@@ -112,7 +112,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _resolve_config(config: str | Path | object | dict) -> object:
+def resolve_config(config: str | Path | object | dict) -> object:
     """Normalize a polymorphic config input to a path or ``HydroModPyConfig``.
 
     ``dict`` -> validated config; JSON string (starts with ``{``) -> validated
@@ -179,7 +179,7 @@ class Project:
         object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
-            _resolve_config(config),
+            resolve_config(config),
             solver=solver,
             headless=headless,
             no_display=no_display,

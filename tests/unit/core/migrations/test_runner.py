@@ -9,6 +9,7 @@ import duckdb
 import pytest
 from filelock import FileLock, Timeout
 
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
 from hydromodpy.core.migrations import (
     DEFAULT_COMPONENT,
     Migration,
@@ -26,6 +27,7 @@ from hydromodpy.core.migrations.runner import (
     _fold_schema_into_the_database_file,
     repair_hint_for,
 )
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
 def _write(versions_dir: Path, version: int, slug: str, sql: str) -> Path:
@@ -194,6 +196,50 @@ def test_discover_migrations_rejects_malformed_filename(versions_dir: Path) -> N
 
     with pytest.raises(MigrationDiscoveryError, match="Malformed"):
         discover_migrations(versions_dir)
+
+
+def test_a_ledger_holding_an_unknown_migration_is_refused_naming_both(
+    versions_dir: Path, db_path: Path
+) -> None:
+    """A newer version wrote the database: nothing runs, and the ledger stays as it was."""
+    _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
+    later = _write(versions_dir, 2, "beta", "CREATE TABLE beta (id INTEGER);")
+    apply_migrations(db_path, versions_dir)
+    later.unlink()
+
+    with pytest.raises(SchemaVersionMismatchError) as refused:
+        apply_migrations(db_path, versions_dir)
+
+    assert "0002_beta" in str(refused.value) and "0001_alpha" in str(refused.value)
+    connection = duckdb.connect(str(db_path))
+    try:
+        assert current_version(connection, component=DEFAULT_COMPONENT) == 2
+    finally:
+        connection.close()
+
+
+def test_the_data_cache_refuses_a_ledger_written_by_a_newer_version(tmp_path: Path) -> None:
+    """The real data cache, on disk, with one row a later version would have added."""
+    path = tmp_path / "cache.duckdb"
+    DataCatalogDuckDB(path).close()
+    connection = duckdb.connect(str(path))
+    connection.execute(
+        "INSERT INTO schema_migrations (version, component, slug, checksum) "
+        "VALUES (99, 'data_cache', 'later', 'x')"
+    )
+    connection.close()
+
+    with pytest.raises(SchemaVersionMismatchError, match="0099_later"):
+        DataCatalogDuckDB(path)
+
+
+def test_an_earlier_ledger_is_brought_up_to_date(versions_dir: Path, db_path: Path) -> None:
+    """A ledger behind the code is what the runner is for: it is not refused."""
+    _write(versions_dir, 1, "alpha", "CREATE TABLE alpha (id INTEGER);")
+    assert apply_migrations(db_path, versions_dir) == 1
+    _write(versions_dir, 2, "beta", "CREATE TABLE beta (id INTEGER);")
+
+    assert apply_migrations(db_path, versions_dir) == 2
 
 
 def test_ensure_schema_rejects_checksum_drift(versions_dir: Path) -> None:

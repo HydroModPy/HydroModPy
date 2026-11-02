@@ -51,6 +51,8 @@ import pyarrow as pa
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.licensing import UNDETERMINED_LICENSE
 from hydromodpy.results.checks import Checks
 from hydromodpy.results.identity import Identity
@@ -95,6 +97,16 @@ from hydromodpy.results.storage.parquet_schemas import PARAMETERS_SCHEMA, SIMULA
 INPUTS_SCHEMA: Final[str] = "hydromodpy.inputs.v1"
 """Schema id of ``inputs.json``."""
 
+INPUTS_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.inputs.v1", current=INPUTS_SCHEMA
+)
+"""Versions of ``inputs.json`` this code reads."""
+
+PROVENANCE_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest=2, current=RUN_RECORD_MANIFEST_VERSION
+)
+"""Versions of ``provenance.json`` this code reads."""
+
 
 class RunProvenance(HydroModelBase):
     """``provenance.json``: what produced the numbers, environment included."""
@@ -130,26 +142,25 @@ class InputsDocument(HydroModelBase):
 
     @model_validator(mode="after")
     def _schema(self) -> InputsDocument:
-        if self.schema_ != INPUTS_SCHEMA:
+        if not INPUTS_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {INPUTS_SCHEMA!r}")
         return self
 
 
 def read_provenance(run_dir: str | Path) -> RunProvenance:
     """Read ``provenance.json`` of a sealed run."""
-    return RunProvenance.model_validate(
+    return read_stored(
+        RunProvenance,
         read_sealed_json(
-            Path(run_dir) / RUN_PROVENANCE_FILENAME,
-            RUN_RECORD_MANIFEST_VERSION,
-            key="provenance_version",
-        )
+            Path(run_dir) / RUN_PROVENANCE_FILENAME, PROVENANCE_VERSIONS, key="provenance_version"
+        ),
     )
 
 
 def read_inputs(run_dir: str | Path) -> InputsDocument:
     """Read ``inputs.json`` of a sealed run or of a published copy."""
-    return InputsDocument.model_validate(
-        read_sealed_json(Path(run_dir) / RUN_INPUTS_FILENAME, INPUTS_SCHEMA)
+    return read_stored(
+        InputsDocument, read_sealed_json(Path(run_dir) / RUN_INPUTS_FILENAME, INPUTS_VERSIONS)
     )
 
 
@@ -397,7 +408,7 @@ class RunRecord(HydroModelBase):
     def read(cls, run_dir: str | Path) -> RunRecord:
         """Read a record back from a sealed directory."""
         directory = Path(run_dir)
-        manifest = Manifest.model_validate(read_manifest(directory))
+        manifest = read_stored(Manifest, read_manifest(directory))
         provenance = read_provenance(directory)
         inputs = read_inputs(directory)
         return cls(
@@ -429,7 +440,7 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
     names is left out: derived, mutable, diagnostic or history.
     """
     return [
-        ManifestArtifact.model_validate(entry)
+        ManifestArtifact(**entry)
         for entry in list_artifacts(Path(run_dir))
         if Path(entry["path"]).parts[0] not in UNSEALED_RUN_ENTRIES
     ]
@@ -437,6 +448,8 @@ def sealed_artifacts(run_dir: str | Path) -> list[ManifestArtifact]:
 
 __all__ = [
     "INPUTS_SCHEMA",
+    "INPUTS_VERSIONS",
+    "PROVENANCE_VERSIONS",
     "InputsDocument",
     "RunProvenance",
     "RunRecord",

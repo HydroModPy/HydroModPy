@@ -180,7 +180,9 @@ One set of patterns governs the two databases.
   ``0001_initial.sql``. The project index has none: it is derived, so a schema
   change there is a new DDL in ``results/catalog/index_schema.py``, a bump of
   ``INDEX_SCHEMA_VERSION`` and a rebuild. The reader refuses an index written
-  under another version and names the command that rebuilds it.
+  under another version and names the command that rebuilds it. A ledger holding
+  a migration this code does not know means a newer version wrote the cache, and
+  it is refused, naming both.
 - **Per-scope doors**: one entry point per database.
   ``hmp.open(path)`` returns a ``Project`` for the directory holding
   ``project.toml``, a ``Run`` for a run directory received alone and a
@@ -204,18 +206,22 @@ One set of patterns governs the two databases.
 Schema evolution
 ----------------
 
-HydroModPy ships a migration runner for the workspace cache and pins one version
-on each columnar store and each JSON document. Covered: the workspace cache,
-the project index (rebuilt, never migrated), the Zarr field store
-(``runs/<name>/fields.zarr/``, Zarr format 3), the Parquet 2.6 outputs, and the
-JSON documents of a run or a session (``manifest.json``, ``session.json``,
-``annotations.json``, the ledgers, ``PUBLICATION.json``). User TOML files are
-out of scope: Pydantic with ``extra="forbid"`` handles them.
+Three things move differently, and only the first is migrated.
 
-The project index is the exception to the chain-of-migrations model. It is an
-index over the run directories, so its schema moves forward by replacing the
-DDL and rebuilding from disk with ``hmp catalog reindex``, which is the
-supported path.
+The workspace cache is a primary record, so it has a migration runner. The
+project index is derived, so its schema moves forward by replacing the DDL and
+rebuilding from disk with ``hmp catalog reindex``.
+
+The stored documents of a run or a session (the Zarr field store, the Parquet
+tables, ``manifest.json``, ``session.json``, the ledgers, ``PUBLICATION.json``)
+are never rewritten. Each family reads a window of versions, and every later 2.x
+reads every 2.0.0 document, by the rule in
+:doc:`storage-layout` and in :mod:`hydromodpy.core.io.document_version`.
+
+User TOML files are out of scope: Pydantic with ``extra="forbid"`` handles them,
+and ``hmp doctor --fix-config`` rewrites their grammar. ``workspace.toml`` also
+says the oldest HydroModPy that opens the workspace, ``hydromodpy_version_min``,
+and an older one refuses it, naming both.
 
 The migration runner
 ~~~~~~~~~~~~~~~~~~~~
@@ -227,7 +233,8 @@ A migration is a numbered SQL file (``0001_initial.sql``, ``0002_<slug>.sql``, .
 The runner keeps a ``schema_migrations`` ledger with one row per applied migration
 and component, reads the highest applied version, applies every newer file in one
 transaction per file, and records a SHA-256 checksum of the SQL. It refuses to go
-on when a recorded checksum no longer matches the file.
+on when a recorded checksum no longer matches the file, and when the ledger holds
+a migration no file describes.
 
 ``ensure_schema()`` on a backend deploys the latest schema for its component, so a
 user never sees a half-deployed cache. ``hydromodpy/core/migrations/auto_boot.py``
@@ -245,18 +252,20 @@ Rules for a change
    carries ``hmp.schema_version`` in its key-value metadata. SQL and columnar
    versions never share a number.
 2. **Additive first.** Prefer ``ALTER TABLE ... ADD COLUMN`` with a default to a
-   deletion or a rename. Zarr fields only grow.
-3. **Monotone numbering.** Integers, one by one, no gaps. A migration is a
-   one-way door; downgrades are not supported.
+   deletion or a rename. Zarr fields only grow, and a new Parquet column or JSON key
+   is optional. None of this changes the version of a stored document.
+3. **Monotone numbering.** Integers, one by one, no gaps. A migration of the
+   workspace cache is a one-way door; downgrades are not supported.
 4. **A round-trip test for every migration.** Start from a minimal hand-built
    ``v(n)`` fixture, check that the migrated ``v(n+1)`` store reads with the
    current backend, and check that applying the migration twice changes nothing.
-5. **A reader-breaking change bumps the version.** A change of shape, dtype,
-   column order or meaning of an existing field needs a bump and a migration. A
-   refactor that does not touch the disk does not. The float width of a Zarr field
-   is the exception: ``float32`` (``field_precision = "compact"``) and ``float64``
-   (``"exact"``) is a per-store choice written in each array's metadata, and every
-   reader returns ``float64``.
+5. **A reader-breaking change raises the current version of its family.** A change
+   of shape, dtype, column order or meaning of an existing field keeps the oldest
+   version of the window and brings the reader of the old version. Nothing rewrites
+   the stored document. A refactor that does not touch the disk changes nothing. The
+   float width of a Zarr field is the exception: ``float32``
+   (``field_precision = "compact"``) and ``float64`` (``"exact"``) is a per-store
+   choice written in each array's metadata, and every reader returns ``float64``.
 6. A published copy carries ``PUBLICATION.json`` with a SHA-256 for every file.
    ``hmp catalog import`` checks every digest before it writes anything into the
    project.
@@ -299,8 +308,9 @@ The values are in the code. Read them there, not here.
 Artifact policy
 ---------------
 
-DuckDB, Zarr and Parquet are the canonical stores. Other formats are allowed only
-when their role is explicit.
+The results of a run live on disk, in Zarr and Parquet, and those files are the
+truth. DuckDB holds the indexes, which are rebuilt from them. Other formats are
+allowed only when their role is explicit.
 
 .. list-table::
    :header-rows: 1

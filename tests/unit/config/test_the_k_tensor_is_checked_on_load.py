@@ -103,5 +103,7 @@ def test_k22_takes_a_vertical_profile_like_k(tmp_path: Path) -> None:
 
 
 def test_an_angle2_past_the_vertical_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(ConfigValidationError, match="rise of the first K axis above the horizontal"):
+    with pytest.raises(
+        ConfigValidationError, match="rise of the first K axis above the horizontal"
+    ):
         _load(tmp_path, {"angle2": "120.0"})

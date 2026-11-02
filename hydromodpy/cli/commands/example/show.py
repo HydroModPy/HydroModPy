@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from hydromodpy.cli._conventions import format_parser
+from hydromodpy.cli.conventions import format_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 
 NAME: str = "show"

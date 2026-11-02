@@ -50,6 +50,14 @@ a form can hide the developer and expert fields. These annotations are the
 contract between the models and the UI. Honour them and you need no mapping
 layer. They are added to a field as described in :doc:`add-a-config-field`.
 
+The contract of the schema is its property paths, their types and their
+annotations. The names under ``$defs`` are not part of it. They are the names of
+Python classes, and a class can be renamed in any version without any TOML key
+changing, so follow a ``$ref`` and never match on the name it points to. The
+document holds no package version: its ``$id`` is ``urn:hmp:schema:<scope>``, so
+two releases that leave the models alone export the same bytes. Which changes of
+a key each version number allows is in :doc:`/about/versions`.
+
 A second schema file is committed under ``docs/source/_static/`` and published
 with the site: ``hydromodpy-schema.json``, the editor schema. It accepts what
 the loader reads: ``base_config``, the ``__append``, ``__delete`` and

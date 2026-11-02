@@ -85,19 +85,40 @@ def test_a_file_carries_the_keys_of_an_example_file(tmp_path) -> None:
     assert stored_name("a" * 64, STATION_FILE.dest) == "a" * 64 + ".csv"
 
 
-def test_an_unknown_key_of_a_file_is_refused_by_name(tmp_path) -> None:
-    write_index(tmp_path, _index())
-    path = tmp_path / INSTALL_FILENAME
-    path.write_text(
-        path.read_text(encoding="utf-8").replace("size = 1234", "size = 1234\nowner = 'me'", 1),
+def test_a_key_a_later_version_added_to_a_file_reads(tmp_path) -> None:
+    written = write_index(tmp_path, _index())
+    written.write_text(
+        written.read_text(encoding="utf-8").replace("size = 1234", "size = 1234\nowner = 'me'", 1),
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="unknown key"):
+    assert read_index(tmp_path).files == _index().files
+
+
+def test_a_key_a_later_version_added_to_a_site_reads(tmp_path) -> None:
+    written = write_index(tmp_path, _index())
+    written.write_text(
+        written.read_text(encoding="utf-8").replace(
+            'gauge = "J0014010"', 'gauge = "J0014010"\nowner = "me"', 1
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_index(tmp_path).sites == _index().sites
+
+
+def test_a_root_this_code_cannot_place_is_refused_by_name(tmp_path) -> None:
+    written = write_index(tmp_path, _index())
+    written.write_text(
+        written.read_text(encoding="utf-8").replace("size = 1234", "size = 1234\nroot = 'moon'", 1),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="root is 'moon'"):
         read_index(tmp_path)
 
 
-def test_an_index_of_another_schema_is_refused_by_name(tmp_path) -> None:
+def test_an_index_of_a_later_schema_is_refused_by_name(tmp_path) -> None:
     write_index(tmp_path, _index())
     path = tmp_path / INSTALL_FILENAME
     path.write_text(
@@ -105,5 +126,6 @@ def test_an_index_of_another_schema_is_refused_by_name(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.install.v2"):
+    with pytest.raises(SchemaVersionMismatchError, match="hydromodpy.install.v2") as refused:
         read_index(tmp_path)
+    assert f"written by HydroModPy {_index().hydromodpy_version}" in str(refused.value)

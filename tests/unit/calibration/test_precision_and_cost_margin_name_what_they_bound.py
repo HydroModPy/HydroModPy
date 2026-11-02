@@ -29,7 +29,7 @@ from hydromodpy.calibration.config import (
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.config.config_migration import fix_config_file, migrate_sealed_config_doc
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
-from tests.unit.config.test_a_renamed_key_is_refused_and_a_sealed_one_reads import (
+from tests.unit.config.test_a_renamed_key_warns_and_a_sealed_one_reads import (
     PROJECT,
     _project,
 )

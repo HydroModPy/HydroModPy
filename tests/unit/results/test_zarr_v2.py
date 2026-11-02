@@ -15,6 +15,8 @@ import pytest
 import zarr
 
 import hydromodpy.results.zarr_store.zarr_schema as zarr_schema
+from hydromodpy.core.exceptions import SchemaVersionMismatchError
+from hydromodpy.core.io.document_version import NEWER_REMEDY, OLDER_REMEDY
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
 from hydromodpy.results.zarr_store import (
     BALANCED_TARGET_BYTES,
@@ -22,7 +24,6 @@ from hydromodpy.results.zarr_store import (
     SHARD_TRIGGER_BYTES,
     ZARR_SCHEMA_VERSION,
     SimulationZarr,
-    ZarrSchemaVersionError,
     compose_acdd_root_attrs,
     compute_balanced_chunks_2d,
     should_use_sharding,
@@ -259,39 +260,43 @@ def test_zarr_schema_version_stored(fresh_store: SimulationZarr) -> None:
     assert meta.attrs["zarr_schema_version"] == ZARR_SCHEMA_VERSION
 
 
-def test_zarr_schema_version_mismatch_raises(tmp_path: Path) -> None:
-    path = tmp_path / "old.zarr"
+@pytest.mark.parametrize(
+    ("stored", "said"),
+    [("9", NEWER_REMEDY), ("1", OLDER_REMEDY), (None, OLDER_REMEDY)],
+)
+def test_a_store_outside_the_window_is_refused_by_name(
+    tmp_path: Path, stored: str | None, said: str
+) -> None:
+    path = tmp_path / "store.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
-    sz.root.attrs["zarr_schema_version"] = "1"
+    sz.root.attrs["zarr_schema_version"] = stored
     sz.close()
-    with pytest.raises(ZarrSchemaVersionError) as exc:
+
+    with pytest.raises(SchemaVersionMismatchError) as refused:
         SimulationZarr(path)
-    assert exc.value.actual == "1"
-    assert exc.value.expected == ZARR_SCHEMA_VERSION
+
+    assert refused.value.context["expected"] == ZARR_SCHEMA_VERSION
+    assert said in str(refused.value)
 
 
-def test_open_rejects_zarr_with_missing_schema_version(tmp_path: Path) -> None:
-    """A Zarr that already carries content but lacks the version attr raises."""
+def test_a_store_without_the_version_attribute_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "no_version.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
     del sz.root.attrs["zarr_schema_version"]
     sz.close()
-    with pytest.raises(ZarrSchemaVersionError) as exc:
+
+    with pytest.raises(SchemaVersionMismatchError, match="carries no zarr_schema_version"):
         SimulationZarr(path)
-    assert exc.value.actual is None
-    assert exc.value.expected == ZARR_SCHEMA_VERSION
 
 
-def test_open_rejects_zarr_with_null_schema_version(tmp_path: Path) -> None:
-    """A Zarr that advertises ``zarr_schema_version=None`` is rejected."""
-    path = tmp_path / "null_version.zarr"
+def test_a_newer_store_names_the_version_that_wrote_it(tmp_path: Path) -> None:
+    path = tmp_path / "newer.zarr"
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
-    sz.root.attrs["zarr_schema_version"] = None
+    sz.root.attrs.update({"zarr_schema_version": "9", "hydromodpy_version": "2.9.0"})
     sz.close()
-    with pytest.raises(ZarrSchemaVersionError) as exc:
+
+    with pytest.raises(SchemaVersionMismatchError, match="written by HydroModPy 2.9.0"):
         SimulationZarr(path)
-    assert exc.value.actual is None
-    assert exc.value.expected == ZARR_SCHEMA_VERSION
 
 
 def test_groups_renamed_topography_and_particles(fresh_store: SimulationZarr) -> None:

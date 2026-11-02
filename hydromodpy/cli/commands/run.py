@@ -32,7 +32,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from hydromodpy.cli._conventions import profile_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import profile_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.effective_toml import (
     ConfigFileError,
     add_override_arguments,
@@ -81,12 +81,12 @@ def _stops_before_setup_process(until_step: str | None) -> bool:
     if until_step is None:
         return False
     from hydromodpy.core.exceptions import ConfigError
-    from hydromodpy.project.runner import _model_phase_index, _resolve_step_index
+    from hydromodpy.project.runner import model_phase_index, resolve_step_index
     from hydromodpy.workflow.orchestrator import standard_steps
 
     steps = standard_steps()
     try:
-        return _resolve_step_index(until_step, steps) < _model_phase_index(steps)
+        return resolve_step_index(until_step, steps) < model_phase_index(steps)
     except ConfigError:
         # The runner refuses an unknown step by itself; here only the message is at stake.
         return False

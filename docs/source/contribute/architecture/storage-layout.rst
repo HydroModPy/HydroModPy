@@ -389,17 +389,45 @@ Every document HydroModPy writes carries its version: a ``schema`` id (``outcome
 and ``published.jsonl``, ``plan.json``, ``PUBLICATION.json``, the ledgers ``index.json``,
 ``<file>.meta.json``, ``logs/heartbeat.json``, ``facts.json``, ``steps.json``,
 ``launcher.lease``), an integer (``manifest_version``, ``provenance_version``,
-``annotations_version``), ``[hydromodpy] version`` in ``hydromodpy.lock``, or the
-``schema_version`` row of the index. A reader refuses a document without a version, or with one
-it does not know, and the message names the version read, the version this code reads and what
-to do (:mod:`hydromodpy.core.io.document_version`):
+``annotations_version``), ``[hydromodpy] version`` in ``hydromodpy.lock``,
+``zarr_schema_version`` on a store, ``hmp.schema_version`` on a Parquet table, or the
+``schema_version`` row of the index.
 
-- the index: ``hmp catalog reindex`` rebuilds it from the directories;
-- a sealed document: read it with the HydroModPy version that wrote it, named in the message;
-- a transient one (pulse, facts, step journal, lease): delete it and run again;
+The rule is written once, in :mod:`hydromodpy.core.io.document_version`. Every later 2.x reads
+every 2.0.0 document. Each family of sealed documents declares a window next to its current
+version, the oldest version it reads and the current one, and the two are equal at 2.0.0. A
+change that a reader can ignore (a new optional key, column or array) does not change the
+version. A change it cannot ignore raises the current version, keeps the oldest one and brings
+the reader of the old version with it. Nothing rewrites a stored document.
+
+A reader refuses a document outside the window, and the message names the version read, the
+version that wrote it when known, what this code reads and what to do:
+
+- newer than the window: upgrade HydroModPy to read it;
+- older than the window, or with no version: a pre-release wrote it, so it must be run again;
 - the lockfile: ``hmp dev lock update`` writes it again.
 
-Stored data is never migrated. The one migration kept is the grammar of a configuration file
+Two kinds of document keep one exact version, because what they hold can be made again:
+
+- the index: ``hmp catalog reindex`` rebuilds it from the directories;
+- a transient document (pulse, facts, step journal, lease): delete it and run again.
+
+Inside the window a document written by a later 2.x reads. Models refuse an unknown key when
+they write, and every read of a stored document ignores one, at any depth
+(:func:`~hydromodpy.core.config_kit.stored.read_stored`). The published JSON Schemas under
+``hydromodpy/schema/results/`` allow additional properties. A stored field that can grow (a
+status, a kind, a regime, a topology) is a string with a written vocabulary: a word outside it
+is refused when the model is built to be written, and any word reads back. An append to a
+Parquet table keeps a column this code does not declare, and its own rows read it as null.
+
+Where a list or a decision reads a run or a session (``hmp project show``, ``hmp project status``,
+the skip of a case that is done, the trash, the gc), a document this code cannot read costs one
+warning naming it and is left out
+(:func:`~hydromodpy.results.storage.json_io.readable`). A case with an unreadable run is not
+done, and running it takes a new version beside the one left out. A gesture that names one
+document (``hmp.open``, ``hmp calibrate --resume``) keeps the refusal.
+
+The one migration of a file HydroModPy keeps is the grammar of a configuration
 (``config/config_migration.py``, applied on load; ``hmp doctor --fix-config <file>`` rewrites
 the file in place). ``tests/unit/results/test_every_document_carries_its_version.py`` holds the
 rule and lists the exempt files with their reason.
@@ -443,7 +471,8 @@ The effective status of a run directory is read from its files, in this order:
    ``aborted``.
 #. ``outcome.json`` says ``running`` and the heartbeat is old: ``stale``, display only.
 #. ``outcome.json`` says ``running`` and the heartbeat is fresh: ``running``.
-#. no ``outcome.json``: ``unknown``.
+#. no ``outcome.json``: ``unknown``;
+#. a ``manifest.json`` or an ``outcome.json`` this code cannot read: ``unreadable``.
 
 ``effective_status`` in :mod:`hydromodpy.results.outcome` is the one implementation.
 ``hmp project status`` and ``hmp catalog watch`` read the outcomes and the heartbeats, never the
@@ -653,8 +682,8 @@ of the thickness and ``surfaces`` for the base surfaces of ``[domain.layers]``. 
 MODFLOW-NWT (from ``IBOUND``) and Boussinesq write them, and ``run.mesh.z_interfaces`` is always
 one column per cell. Layers are counted from 0 everywhere: a layered field is
 ``<var>_layer0``, ``<var>_layer1`` in NetCDF and VTU, and a message names layer, row and column
-from 0. A store of schema 2 is refused when it is opened, like any other version, and is read
-with the HydroModPy that wrote it (the rule of the versions of the stored documents, above).
+from 0. A store of schema 2 is refused when it is opened, like any version below the window of
+its family, and must be run again (the rule of the versions of the stored documents, above).
 The array ``idomain`` is never rounded, and a reader that needs the top active cell of a column
 takes ``top_active_layer`` of ``hydromodpy/core/vertical_column.py``.
 

@@ -113,7 +113,7 @@ def make_record(**overrides: Any) -> RunRecord:
         "geometry": ManifestGeometry(
             n_cells=4148,
             n_layers=1,
-            mesh_topology="voronoi",
+            mesh_topology="polygon",
             mesh_engine="voronoi",
             mesh_engine_version="1",
             mesh_hash=MESH_HASH,

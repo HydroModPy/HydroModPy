@@ -24,11 +24,13 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final
 
 from pydantic import ConfigDict, Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.rel_dir import checked_rel_dir
 from hydromodpy.results.storage.contract import SESSION_TRIALS_FILENAME
 from hydromodpy.results.storage.json_io import check_sealed
@@ -36,7 +38,12 @@ from hydromodpy.results.storage.json_io import check_sealed
 TRIAL_SCHEMA: Final[str] = "hydromodpy.trial.v1"
 """Schema id of one line of ``trials.jsonl``."""
 
-TrialStatus = Literal["running", "completed", "failed", "crashed", "aborted"]
+TRIAL_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.trial.v1", current=TRIAL_SCHEMA
+)
+"""Versions of one line of the journal this code reads."""
+
+TrialStatus = Annotated[str, Vocabulary("running", "completed", "failed", "crashed", "aborted")]
 """Where a trial stands."""
 
 
@@ -102,8 +109,8 @@ def read_trials(session_dir: str | Path) -> list[TrialLine]:
             payload = json.loads(text)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{target}:{number} is not a trial line: {exc}") from exc
-        line = TrialLine.model_validate(
-            check_sealed(payload, TRIAL_SCHEMA, path=target, line=number)
+        line = read_stored(
+            TrialLine, check_sealed(payload, TRIAL_VERSIONS, path=target, line=number)
         )
         latest[line.trial] = line
     return [latest[number] for number in sorted(latest)]
@@ -141,6 +148,7 @@ def trial_row(line: TrialLine) -> dict[str, Any]:
 
 __all__ = [
     "TRIAL_SCHEMA",
+    "TRIAL_VERSIONS",
     "TrialLine",
     "TrialStatus",
     "append_trial",

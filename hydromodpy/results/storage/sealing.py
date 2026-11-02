@@ -59,8 +59,9 @@ from hydromodpy.results.manifest import (
 from hydromodpy.results.outcome import Outcome
 from hydromodpy.results.readme import manifest_sha256, render_run_readme, write_readme
 from hydromodpy.results.record import RunProvenance, RunRecord
-from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME, RUN_MANIFEST_FILENAME
+from hydromodpy.results.storage.contract import RUN_CONFIG_FILENAME
 from hydromodpy.results.storage.geo_metadata import wgs84_bounds
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.storage.run_facts import RunFacts
 from hydromodpy.results.storage.run_store import RunStore
 from hydromodpy.results.zarr_store import SimulationZarr
@@ -548,12 +549,7 @@ def sealed_config_hash(run_dir: Path) -> str | None:
     read: a run whose seal is unreadable matches nothing, which errs on the
     side of computing.
     """
-    try:
-        payload = read_manifest(run_dir)
-    except (OSError, ValueError) as exc:
-        if not isinstance(exc, FileNotFoundError):
-            logger.warning("Unreadable %s in %s: %s", RUN_MANIFEST_FILENAME, run_dir, exc)
-        return None
+    payload = readable(read_manifest, run_dir)
     identity = payload.get("identity") if isinstance(payload, dict) else None
     value = identity.get("config_hash") if isinstance(identity, dict) else None
     return None if value is None else str(value)

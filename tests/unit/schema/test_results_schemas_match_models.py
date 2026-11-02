@@ -10,6 +10,7 @@ model is made here, not in ``hydromodpy.schema``, which may not import
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -60,11 +61,38 @@ def test_the_committed_file_is_what_the_model_generates(schema_id: str) -> None:
     )
 
 
+def _closed_objects(node: Any) -> list[Any]:
+    """Return every object of a schema that refuses additional properties."""
+    if isinstance(node, list):
+        return [found for item in node for found in _closed_objects(item)]
+    if not isinstance(node, dict):
+        return []
+    own = [node] if node.get("additionalProperties") is False else []
+    return own + [found for value in node.values() for found in _closed_objects(value)]
+
+
 @pytest.mark.parametrize("schema_id", sorted(MODELS))
-def test_a_committed_schema_forbids_unknown_members(schema_id: str) -> None:
+def test_a_committed_schema_allows_what_a_later_version_adds(schema_id: str) -> None:
     document = read_schema(schema_filename(schema_id))
-    assert document["additionalProperties"] is False
+    assert document["additionalProperties"] is True
     assert "properties" in document
+    assert _closed_objects(document) == []
+
+
+@pytest.mark.parametrize(
+    ("filename", "field", "word"),
+    [
+        ("session.v3.json", "status", "partial"),
+        ("outcome.v1.json", "written_by", "trap"),
+        ("publication.v1.json", "kind", "project"),
+    ],
+)
+def test_a_field_that_can_grow_is_a_string_with_its_words(
+    filename: str, field: str, word: str
+) -> None:
+    member = read_schema(filename)["properties"][field]
+    assert member["type"] == "string" and "enum" not in member
+    assert word in member["x-hmp-vocabulary"]
 
 
 def test_a_schema_id_maps_to_one_file_name():

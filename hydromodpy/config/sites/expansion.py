@@ -53,6 +53,7 @@ from hydromodpy.config.sites.tables import (
     read_table,
     table_from_site_rows,
 )
+from hydromodpy.core.config_kit.written import written_experimental_keys
 from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.core.site import SITE_NAME_PATTERN
 from hydromodpy.core.state.paths import (
@@ -185,6 +186,9 @@ class DraftCase:
 
     done: bool
     """Whether a sealed run or a completed session already holds this hash."""
+
+    experimental_keys: tuple[str, ...] = ()
+    """The experimental keys the document of the case writes."""
 
     def toml(self) -> str:
         """Return the document as TOML text."""
@@ -789,6 +793,7 @@ def _resolve_case(
         solves=max(1, solves),
         kept_solves=max(1, kept),
         done=case_is_done(root, case_id, config_hash, kind),
+        experimental_keys=written_experimental_keys(cfg),
     )
 
 
@@ -886,6 +891,7 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
         return False
     from hydromodpy.results.catalog.registration import split_stem_version
     from hydromodpy.results.manifest import is_sealed, read_manifest
+    from hydromodpy.results.storage.json_io import readable
 
     if kind == "calibration":
         from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
@@ -897,8 +903,12 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
                     continue
                 if not session_descriptor_path(entry).is_file():
                     continue
-                descriptor = read_session(entry)
-                if descriptor.status == "completed" and descriptor.config_hash == config_hash:
+                descriptor = readable(read_session, entry)
+                if (
+                    descriptor is not None
+                    and descriptor.status == "completed"
+                    and descriptor.config_hash == config_hash
+                ):
                     return True
         return False
     runs = runs_dir_for(root)
@@ -907,7 +917,10 @@ def case_is_done(root: Path, case_id: str, config_hash: str | None, kind: CaseKi
     for entry in runs.iterdir():
         if split_stem_version(entry.name)[0] != case_id or not is_sealed(entry):
             continue
-        identity = read_manifest(entry).get("identity") or {}
+        manifest = readable(read_manifest, entry)
+        if manifest is None:
+            continue
+        identity = manifest.get("identity") or {}
         if identity.get("config_hash") == config_hash:
             return True
     return False

@@ -2621,7 +2621,7 @@
     },
     "CalibrationConfig": {
       "additionalProperties": false,
-      "description": "Top-level ``[calibration]`` section.\n\nThe config selects the optimizer, iteration budget, candidate persistence\npolicy, parameter declarations, observable outputs, and objective blocks.\nIt is the stable user-facing schema used by CLI calibration and\n``Project.calibrate``.\n\nWhen no explicit objective block is declared, HydroModPy can synthesize one\nfrom ``objective`` and ``variable`` if the matching output exists.",
+      "description": "Top-level ``[calibration]`` section.\n\nThe config selects the optimizer, iteration budget, candidate persistence\npolicy, parameter declarations, observable outputs, and objective blocks.\nIt is the user-facing schema used by CLI calibration and\n``Project.calibrate``. This section and the shape of ``CalibrationReport``\nare experimental until the rework of the calibration is published.\n\nWhen no explicit objective block is declared, HydroModPy can synthesize one\nfrom ``objective`` and ``variable`` if the matching output exists.",
       "properties": {
         "protocol": {
           "anyOf": [
@@ -3820,6 +3820,7 @@
           "examples": [
             "example"
           ],
+          "stability": "experimental",
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
@@ -7225,7 +7226,7 @@
         },
         "surface_interaction_model": {
           "default": "auto",
-          "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.",
+          "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the PETSc head-only VI obstacle formulation, and 'ts_vi_obstacle' the same one integrated by PETSc TS; 'auto' keeps the historical backend-dependent default.",
           "enum": [
             "auto",
             "regularized_partition",
@@ -7237,7 +7238,11 @@
             "auto",
             "regularized_partition"
           ],
-          "stability": "experimental",
+          "experimental_values": [
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle"
+          ],
           "title": "Surface Interaction Model",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7250,6 +7255,7 @@
             0.02
           ],
           "exclusiveMinimum": 0.0,
+          "stability": "experimental",
           "title": "Partition Release Depth M",
           "type": "number",
           "unit": "m",
@@ -7270,6 +7276,7 @@
           "display_min": 1,
           "display_name_fr": "It\u00e9rations max (solveur)",
           "help_text_fr": "Budget d'it\u00e9rations non-lin\u00e9aires pour le solveur.",
+          "stability": "experimental",
           "title": "Runtime Max Iterations",
           "unit": "-",
           "widget_type": "input",
@@ -7286,6 +7293,7 @@
           ],
           "default": null,
           "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.",
+          "stability": "experimental",
           "title": "Runtime Tol Residual Inf",
           "x-hmp-profile": "dev"
         },
@@ -7300,15 +7308,17 @@
           ],
           "default": null,
           "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.",
+          "stability": "experimental",
           "title": "Runtime Tol State Update Inf",
           "x-hmp-profile": "dev"
         },
         "vi_substeps_per_period": {
           "default": 1,
-          "description": "Fixed number of Backward-Euler substeps per time step for the experimental PETSc VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps. Rate-based forcing values are kept unchanged on each substep.",
+          "description": "Fixed number of Backward-Euler substeps per time step for the PETSc VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps. Rate-based forcing values are kept unchanged on each substep.",
           "examples": [
             1
           ],
+          "stability": "experimental",
           "title": "Vi Substeps Per Period",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -7319,6 +7329,7 @@
           "examples": [
             false
           ],
+          "stability": "experimental",
           "title": "Vi Substep On Failure",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7334,25 +7345,28 @@
           ],
           "default": null,
           "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.",
+          "stability": "experimental",
           "title": "Vi Max Adaptive Substeps",
           "x-hmp-profile": "dev"
         },
         "ts_vi_steps_per_period": {
           "default": 4,
-          "description": "Fixed PETSc TS Backward-Euler steps per time step for the experimental TS VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps.",
+          "description": "Fixed PETSc TS Backward-Euler steps per time step for the TS VI obstacle runtime. A stress period holds simulation.time.substeps_per_period time steps.",
           "examples": [
             4
           ],
+          "stability": "experimental",
           "title": "Ts Vi Steps Per Period",
           "type": "integer",
           "x-hmp-profile": "dev"
         },
         "ts_vi_adapt": {
           "default": false,
-          "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.",
+          "description": "Enable PETSc TS adaptivity for the TS VI obstacle runtime.",
           "examples": [
             false
           ],
+          "stability": "experimental",
           "title": "Ts Vi Adapt",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7363,6 +7377,7 @@
           "examples": [
             0.015625
           ],
+          "stability": "experimental",
           "title": "Ts Vi Dt Min Fraction",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -7373,26 +7388,29 @@
           "examples": [
             0.25
           ],
+          "stability": "experimental",
           "title": "Ts Vi Dt Max Fraction",
           "type": "number",
           "x-hmp-profile": "dev"
         },
         "ts_vi_type": {
           "default": "beuler",
-          "description": "PETSc TS type for the experimental TS VI obstacle runtime.",
+          "description": "PETSc TS type for the TS VI obstacle runtime.",
           "examples": [
             "beuler"
           ],
+          "stability": "experimental",
           "title": "Ts Vi Type",
           "type": "string",
           "x-hmp-profile": "dev"
         },
         "ts_vi_snes_type": {
           "default": "vinewtonrsls",
-          "description": "PETSc SNES type for the experimental TS VI obstacle runtime.",
+          "description": "PETSc SNES type for the TS VI obstacle runtime.",
           "examples": [
             "vinewtonrsls"
           ],
+          "stability": "experimental",
           "title": "Ts Vi Snes Type",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8707,6 +8725,7 @@
           ],
           "default": null,
           "description": "Optional dam cutoff wall / grout curtain on the dam axis, modeled as a MODFLOW 6 HFB laid on the lake shore. The barrier forces the under-dam seepage to dive below the wall instead of leaking through the top layers. The flow across its faces is published per layer as the cutoff_wall_flow series.",
+          "stability": "experimental",
           "x-hmp-profile": "user"
         },
         "rainfall": {
@@ -11547,6 +11566,7 @@
             "$ref": "#/$defs/FlowBarrierConfig"
           },
           "description": "Mapping of flow-barrier ids to typed HFB payloads (general addon, modflow6 backend only; declaring one activates it). A lake's dam cutoff wall is declared on the lake instead.",
+          "stability": "experimental",
           "title": "Flow Barriers",
           "type": "object",
           "x-hmp-profile": "user",
@@ -12715,7 +12735,7 @@
         },
         "domain_extent": {
           "default": "box",
-          "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask. Experimental.",
+          "description": "Selects the DEM surface used for the domain. 'box' (default) keeps the full buffered rectangular support. 'watershed' / 'watershed_buff' select the catchment (optionally with a buffer ring) surface. Note: the MODFLOW 6 mesh still covers the buffered box (the buffer stays active for inter-basin exchange); out-of-watershed drainage is kept out of the catchment discharge by the DRN watershed-routing, not by an idomain mask.",
           "enum": [
             "box",
             "watershed_buff",
@@ -12724,6 +12744,7 @@
           "examples": [
             "box"
           ],
+          "stability": "experimental",
           "title": "Domain Extent",
           "type": "string",
           "x-hmp-profile": "user"
@@ -22727,6 +22748,7 @@
           ],
           "exclusiveMinimum": 0.0,
           "maximum": 1.0,
+          "stability": "experimental",
           "title": "Alpha",
           "type": "number",
           "x-hmp-profile": "user"
@@ -22751,6 +22773,7 @@
           ],
           "maximum": 2.0,
           "minimum": 0.0,
+          "stability": "experimental",
           "title": "Kc",
           "type": "number",
           "x-hmp-profile": "user"
@@ -22772,6 +22795,7 @@
           ],
           "exclusiveMaximum": 1.0,
           "minimum": 0.0,
+          "stability": "experimental",
           "title": "Impervious Fraction",
           "type": "number",
           "x-hmp-profile": "user"
@@ -22796,6 +22820,7 @@
           ],
           "exclusiveMaximum": 1.0,
           "minimum": 0.0,
+          "stability": "experimental",
           "title": "Bypass Fraction",
           "type": "number",
           "x-hmp-profile": "user"
@@ -22830,6 +22855,7 @@
           "examples": [
             0.0
           ],
+          "stability": "experimental",
           "title": "Transit Time",
           "x-hmp-profile": "user"
         },
@@ -22855,6 +22881,7 @@
           },
           "default": null,
           "description": "SCS curve number (AMC II), dimensionless, of a HELP-style surface runoff (Schroeder et al. 1994): the unsealed share of the rain above a daily retention loses some to a fast runoff, more as the soil is wetter. None turns the term off, bit for bit as before. Between 30 and 98; the calibrated value tends to exceed the tabulated one, since SAFRAN rain is smoothed over 8 km cells. Calibrate it with [calibration.parameters.curve_number].",
+          "stability": "experimental",
           "title": "Curve Number",
           "x-hmp-profile": "user"
         },
@@ -22888,6 +22915,7 @@
           "examples": [
             1.0
           ],
+          "stability": "experimental",
           "title": "Runoff Time",
           "x-hmp-profile": "user"
         },
@@ -22921,6 +22949,7 @@
           "examples": [
             0.0
           ],
+          "stability": "experimental",
           "title": "Runoff Lag",
           "x-hmp-profile": "user"
         },
@@ -22934,6 +22963,7 @@
           "examples": [
             "first_year"
           ],
+          "stability": "experimental",
           "title": "Spinup",
           "type": "string",
           "value_docs": {
@@ -22997,7 +23027,7 @@
         },
         "drain_bed_thickness_m": {
           "default": 1.0,
-          "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (tens of metres) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. For R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched.",
+          "description": "Metres. Thickness of the drain BED in the fallback conductance C = K * cell_area / bed_thickness, used when no drainage conductance is declared. A drain bed is the clogging layer at the bottom of a watercourse, decimetres to a metre; it is NOT the aquifer, and the layer thickness this used to borrow (tens of metres) has no physical relation to it. The value matters because it sets how much head the drain itself imposes to pass the recharge: dh = R * bed_thickness / K, independent of the cell size. For R = 439 mm/yr, 30 m gives 4.17 m of head at K = 1e-7 m/s and makes the drain the limiting resistance over two decades of a [1e-7, 1e-3] search; 1 m gives 13.9 cm and 0.1 m gives 1.4 cm. In this method the drain is a seepage face, so it must never limit: K and the recharge decide where water surfaces, not the boundary condition. Proportionality to K is preserved either way, so the K/R invariance the network criterion rests on is untouched. The default of 1 m is a convention with no measured source. Write your own value when you have a measure.",
           "examples": [
             1.0,
             0.5,
@@ -23958,6 +23988,7 @@
         "modpath": {
           "$ref": "#/$defs/TransportModpathConfig",
           "description": "Modpath solver configuration block.",
+          "stability": "experimental",
           "x-hmp-profile": "user"
         },
         "mt3dms": {
@@ -23973,6 +24004,7 @@
         "modflow6prt": {
           "$ref": "#/$defs/TransportModflow6PrtConfig",
           "description": "MODFLOW 6 PRT particle-tracking solver configuration block.",
+          "stability": "experimental",
           "x-hmp-profile": "user"
         }
       },
@@ -24124,6 +24156,10 @@
         },
         "solvers": {
           "description": "Ordered list of active transport solver names. At least one solver is required for transport processes.",
+          "experimental_values": [
+            "modpath",
+            "modflow6_prt"
+          ],
           "items": {
             "type": "string"
           },
@@ -25545,7 +25581,8 @@
         }
       ],
       "default": null,
-      "description": "Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.",
+      "description": "Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow. The section and the shape of CalibrationReport are experimental until the rework of the calibration is published.",
+      "stability": "experimental",
       "x-hmp-profile": "user"
     },
     "spinup": {

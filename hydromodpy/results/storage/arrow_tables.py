@@ -5,7 +5,8 @@ one schema of :mod:`hydromodpy.results.storage.parquet_schemas`. The
 builders here take records or columns, fill the missing columns with their
 defaults, coerce the instants to UTC milliseconds and cast to the declared
 types. :func:`merge_with_existing` is the last-write-wins merge a payload
-goes through when a run writes it again.
+goes through when a run writes it again. It keeps a column this code does not
+declare: a later version added it, and the rows of this writer read it as null.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from hydromodpy.results.storage.parquet_schemas import check_schema_version
+from hydromodpy.results.storage.parquet_io import read_checked_table
 
 
 def coerce_timestamp_utc(value: Any) -> pd.Timestamp | None:
@@ -140,16 +141,22 @@ def table_from_columns(
 
 
 def merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[str]) -> pa.Table:
-    """Merge *new_table* over the file at *target*, the new row winning on *pk_cols*."""
-    import pyarrow.parquet as pq
+    """Merge *new_table* over the file at *target*, the new row winning on *pk_cols*.
 
-    existing = pq.read_table(target)
-    check_schema_version(existing.schema.metadata)
+    A column of the file that *new_table* does not have stays, nullable.
+    """
+    existing = read_checked_table(target)
     combined = pa.concat_tables([existing, new_table], promote_options="default")
     frame = combined.to_pandas().drop_duplicates(subset=list(pk_cols), keep="last")
-    return pa.Table.from_pandas(
-        frame, schema=new_table.schema, preserve_index=False
-    ).replace_schema_metadata(new_table.schema.metadata)
+    unknown = [
+        existing.schema.field(name).with_nullable(True)
+        for name in existing.column_names
+        if name not in new_table.column_names
+    ]
+    schema = pa.schema([*new_table.schema, *unknown], metadata=new_table.schema.metadata)
+    return pa.Table.from_pandas(frame, schema=schema, preserve_index=False).replace_schema_metadata(
+        new_table.schema.metadata
+    )
 
 
 __all__ = [

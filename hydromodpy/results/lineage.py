@@ -19,13 +19,14 @@ paths to values, so a ``.v2`` says what differs from the ``.v1``.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary
 
-LineageKind = Literal["rerun", "promoted", "trial", "version"]
+LineageKind = Annotated[str, Vocabulary("rerun", "promoted", "trial", "version")]
 """The relation a run has with what it comes from."""
 
 

@@ -12,11 +12,14 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 
 from hydromodpy.core import metrics as kernels
 from hydromodpy.results.fit_metrics import fit_metrics, score_timeseries
 from hydromodpy.results.metric_rule import METRIC_NAMES, DateWindow, MetricRule
+from hydromodpy.results.storage.parquet_io import write_table_atomic
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
 GAUGE = "J0014010"
 YEAR_2001 = DateWindow(start=date(2001, 1, 1), end=date(2001, 12, 31))
@@ -275,7 +278,11 @@ def test_the_run_directory_is_read_without_the_index(tmp_path, monkeypatch) -> N
     component = frame.iloc[:5].assign(component="baseflow", value=1e6)
     tables = tmp_path / "tables.parquet"
     tables.mkdir()
-    pd.concat([frame, component]).to_parquet(tables / "timeseries.parquet")
+    write_table_atomic(
+        pa.Table.from_pandas(pd.concat([frame, component])),
+        tables / "timeseries.parquet",
+        kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
+    )
 
     scores = fit_metrics(tmp_path, rule=MetricRule(station=GAUGE, window=YEAR_2001))
 

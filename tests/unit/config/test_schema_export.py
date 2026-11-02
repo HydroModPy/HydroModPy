@@ -82,10 +82,9 @@ def test_write_schema_creates_valid_json_file(tmp_path: Path):
 
 
 def test_root_sections_lists_expected_keys():
-    from hydromodpy.config.schema_export import _ensure_root_sections
-    from hydromodpy.core.config_kit.registry import root_scalar_fields
+    from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
 
-    sections = _ensure_root_sections()
+    sections = root_sections()
     scalars = root_scalar_fields()
     # Registry derives from HydroModPyConfig.model_fields; nested
     # ``flow_physical_properties`` is reachable via FlowConfig, not as a

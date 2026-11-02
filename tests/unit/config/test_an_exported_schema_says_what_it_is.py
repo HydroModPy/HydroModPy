@@ -1,8 +1,9 @@
-"""An exported schema declares its dialect, its identity and its version.
+"""An exported schema declares its dialect and its identity, and no package version.
 
-A document handed to a stranger has to say what it is. Three members do it:
-the dialect so a validator stops guessing the keyword set, a ``urn:`` that
-names which model was exported, and the HydroModPy version that produced it.
+A document handed to a stranger has to say what it is. Two members do it: the
+dialect so a validator stops guessing the keyword set, and a ``urn:`` that names
+which model was exported. The package version stays out, so a release that leaves
+the models alone exports the same bytes and a frontend's schema diff stays quiet.
 
 The identity carries the profile when one filtered the document, because a
 trimmed schema is a different schema: two documents that accept different
@@ -10,6 +11,8 @@ payloads may not answer to one name.
 """
 
 from __future__ import annotations
+
+import json
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -24,12 +27,13 @@ from hydromodpy.config.schema_export import (
 from hydromodpy.core.version import __version__
 
 
-def test_the_root_export_declares_dialect_identity_and_version() -> None:
+def test_the_root_export_declares_its_dialect_and_identity_and_no_package_version() -> None:
     schema = export_schema()
 
     assert schema["$schema"] == JSON_SCHEMA_DIALECT
-    assert schema["$id"] == schema_urn(ROOT_SCOPE)
-    assert schema["x-hmp-version"] == __version__
+    assert schema["$id"] == schema_urn(ROOT_SCOPE) == "urn:hmp:schema:config"
+    assert __version__ not in json.dumps(schema)
+    assert "x-hmp-version" not in schema
     Draft202012Validator.check_schema(schema)
 
 

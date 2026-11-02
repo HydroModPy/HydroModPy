@@ -690,8 +690,11 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional calibration settings loaded from the [calibration] "
-            "section.  When present, triggers the calibration workflow."
+            "section.  When present, triggers the calibration workflow. The section "
+            "and the shape of CalibrationReport are experimental until the rework of "
+            "the calibration is published."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     spinup: Annotated[SpinupConfig | None, Profile.USER] = Field(
         default=None,

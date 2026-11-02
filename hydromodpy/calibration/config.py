@@ -2234,8 +2234,9 @@ class CalibrationConfig(HydroModelBase):
 
     The config selects the optimizer, iteration budget, candidate persistence
     policy, parameter declarations, observable outputs, and objective blocks.
-    It is the stable user-facing schema used by CLI calibration and
-    ``Project.calibrate``.
+    It is the user-facing schema used by CLI calibration and
+    ``Project.calibrate``. This section and the shape of ``CalibrationReport``
+    are experimental until the rework of the calibration is published.
 
     When no explicit objective block is declared, HydroModPy can synthesize one
     from ``objective`` and ``variable`` if the matching output exists.

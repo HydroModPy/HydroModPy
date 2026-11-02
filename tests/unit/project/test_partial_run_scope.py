@@ -189,9 +189,9 @@ def test_a_pipeline_without_a_process_step_claims_no_model_phase(tmp_path: Path)
     from hydromodpy.project import runner as runner_mod
     from hydromodpy.workflow.orchestrator import standard_steps
 
-    assert runner_mod._model_phase_index(()) == 0
-    assert runner_mod._model_phase_index((SimpleNamespace(name="alpha"),)) == 0
-    assert runner_mod._model_phase_index(standard_steps()) == 5
+    assert runner_mod.model_phase_index(()) == 0
+    assert runner_mod.model_phase_index((SimpleNamespace(name="alpha"),)) == 0
+    assert runner_mod.model_phase_index(standard_steps()) == 5
 
 
 def test_a_head_only_window_refuses_to_resume(tmp_path: Path) -> None:

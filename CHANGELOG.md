@@ -33,784 +33,31 @@ Each release section includes the following standard categories:
 
 ## [Unreleased]
 
-### Changed
-- `hmp report compare` is rewritten as one file, `analysis/comparison/compare.py`, which reads the
-  runs through `Run` (2026-11-02). It replaces 12 800 lines and writes a folder of tables and figures
-  with a `README.md`, in place of the HTML page. `hmp.compare` gives the same tables from Python.
-  `--allow-different-mesh` and `--budget-zone` are gone: another mesh is read at its nearest cells and
-  `same_mesh` says so, and `budget.csv` holds each zone. The GeoTIFF maps, the storage dashboards, the
-  head series by elevation and the release network metrics of a comparison are gone too.
-
-### Fixed
-- `hmp report compare` no longer scales the outlet discharge by cell area / 86400, about 15 times too
-  low on a 75 m mesh, and no longer pairs runs by rank when their dates differ (2026-11-02). Runs with
-  no date in common are refused, a monthly run compares with a daily one on the months, and the
-  percentages of a map are weighted by cell surface.
-- Every `hmp` command starts again on Python 3.11, where a mesh request default raised `ValueError` at import, and a
-  run no longer prints `'Event' object is not callable` when its heartbeat stops (2026-11-02).
-- A recharge series with a negative rate, or a negative `first_clim` on a series, no longer stops
-  MODFLOW 6 on a missing `ncpl` (2026-11-02). The deficit reaches EVT as it does for a grid.
-- `flow.sinks_sources.recharge.values` beside `[data.recharge]` is refused when it is not zero,
-  instead of being dropped without a word (2026-11-02). A calibration of that rate is refused too, and
-  `hmp config targets` no longer lists it. `values = 0.0` stays accepted, because a frozen
-  configuration writes it.
-- A table `{period: rate}` written in TOML reaches every solver, and it must state every period
-  (2026-11-02). A partial table repeated its last value under MODFLOW-NWT and read zero under
-  Boussinesq. MODFLOW-NWT also reads a list as the other solvers do: a run of one period takes the mean
-  of a longer record, where it took the first value, and another length is refused, where it was cut.
-- A negative `first_clim` goes to EVT under MODFLOW-NWT and is refused under Boussinesq, instead of
-  staying a negative recharge (2026-11-02).
-- The synthetic recharge counts the time of its sinusoid in days, so `period_days` holds whatever `freq`
-  is, and each sample holds the mean of the wave over its period (2026-11-02). A list that is neither
-  one value nor one per sample is refused, and so is an `offset`, an `amplitude` or a `period_days` that
-  would be ignored. Every synthetic series with a sinusoid changes.
-- A custom NetCDF grid with one or two dates in the window loads, and a window without a date is named
-  (2026-11-02).
-- A recharge rate above 1000 mm/day is refused, the mark of a wrong unit (2026-11-02). A recharge loaded
-  in `[data]` and absent from `flow.active_sinks_sources` now gives a warning.
-- The comparison budget keeps the evapotranspiration, the wells and the stream, lake, river and
-  general-head exchanges, which the closure residual used to absorb (2026-11-02).
-- Under Boussinesq, every cell at or below the ocean stage holds the head, as the MODFLOW 6 ocean CHD
-  does (2026-11-02). A wide sea used to stay free and shed the recharge at the level of its bed. Heads
-  of a run with such a sea change: the island centre goes from 3.12 m to 3.56 m against 3.44 m exact.
-- The sparse Boussinesq runtime no longer stalls where the water table reaches the ground (2026-11-02).
-  Its line search reads the L2 norm of the residual, not its largest entry, which one cell on the kink
-  of the surface closure can hold. A solve that still fails restarts from a release depth 16 times
-  larger and halves it down to the depth asked. Its iteration limit goes from 30 to 60. The convergence
-  test and a run that converged directly do not change. The dense runtime keeps its line search.
-- A gridded or soil recharge keeps its spatial mean under `forcing/recharge/_watershed`, so the
-  comparison figure finds it (2026-11-02). A run keeps on its `forcing` group the mean recharge its
-  trials read, and a redraw reads it back.
-- The mean recharge of the network criterion averages each period over the cells by their area, so a
-  refined mesh does not weigh its small cells like its large ones (2026-11-02). The K/R of a gridded
-  forcing on an irregular mesh changes.
-- Under MODFLOW-NWT the mean recharge of the network criterion read the rate written in the package, so a
-  steady first period counted at the record mean instead of its own rate (2026-11-02). MODFLOW-NWT now
-  holds the own rate of each period, as MODFLOW 6 does.
-- MODPATH runs without drains and on a grid that is not the DEM grid (2026-11-02). A zero specific
-  yield, which gives it a zero porosity and a division by zero in `mp6`, and a run without recharge are
-  refused by name.
-- A custom GeoTIFF or NetCDF grid masks its nodata code before its unit is converted (2026-11-01). A
-  GeoTIFF read in another unit was refused as declaring no nodata, and a NetCDF `nodata` attribute of
-  -9999 mm/day became -9.999 m/day, a value no later step recognised as nodata.
-- A `data-request` job, `hmp data get` and `run_request` refuse a mask that is not on disk with
-  `JobInputNotFoundError` (`HMPY.E211`), the code `domain-build` and `terrain-delineate` give a
-  missing input, instead of a bare `FileNotFoundError` reported as `HMPY.E000` (2026-11-01). The exit
-  code stays 10.
-- A gridded forcing dataset masks its `nodata`, `_FillValue` or `missing_value` attribute on the cells
-  (2026-11-01), so a cell on such a pixel is refused instead of reading -9999 as a rate. Its spatial
-  mean, which read only `nodata`, now masks the same three attributes, so the persisted `_watershed`
-  series of a dataset that declares its nodata only as `_FillValue` or `missing_value` changes.
-- A forcing station whose location is in another CRS than the mesh is refused, naming both CRS,
-  instead of being read in the wrong place (2026-11-01). The stations path also passes `idw_power` on,
-  which it dropped for the default of 2.
-- A GeoTIFF band or a dataset time step that no stress period reads is refused, naming both counts,
-  instead of being dropped, and the silent 1000-step cap of a dataset without a simulation window is
-  gone (2026-11-01).
-- `linear` on a forcing grid of one row or one column and a rotated GeoTIFF forcing are refused by
-  name (2026-11-01), instead of raising a raw `QhullError` or reading misplaced pixels.
-- Site selection refuses a French territory whose box, read in Lambert-93 (EPSG:2154), lies outside
-  the area of use of that CRS, metropolitan France and Corsica (2026-11-01): a DEM without a CRS, a
-  `bbox`, a polygon or administrative territory, the station outlets that size the DEM request, and
-  the box of the observation request. A territory of another country goes as written. The message
-  names the box, says that an overseas territory needs its own CRS and what to write instead.
-- A `map_context` layer of the site selection map is read as RFC 7946 (WGS 84 lon/lat), or in the CRS
-  its `crs` member names, and moved into the map CRS (2026-11-01). A layer whose coordinates leave the
-  degree bounds, hold a position of one number, or name a CRS pyproj cannot read is refused by name
-  instead of drawn in the wrong place, and the manifest check no longer asks a context layer for a
-  `hydromodpy_coordinate_crs` member.
-- An observation point of the site selection is placed the same way in every vector layer
-  (2026-11-01). A point without a readable location or CRS is skipped and recorded
-  (`hydromodpy_skipped_observations` in the GeoJSON, a log warning for the GeoPackage and GeoParquet
-  layers) instead of stopping the GeoJSON or being kept without a CRS, and a point given in another
-  CRS is moved into the CRS of the batch instead of being labelled with the first CRS met.
-- A geology support whose geology data did not load now stops with a configuration error (HMPY.E102)
-  that names `[domain.supports.<id>]` and says to declare `[data.geology]`, instead of a bare
-  `ValueError` (2026-11-01).
-- `field_param_from_toml` refuses a top-level `[field]` without `id` with a `ConfigMissingError` that
-  names the file, instead of a bare `KeyError` (2026-11-01).
-- A transient run refuses an active cell whose specific yield (convertible cell) or specific storage
-  (confined cell) is zero, negative or not finite, as a heterogeneous Sy gives where no zone of its
-  support covers the cell (2026-11-01). The refusal names the property, the layers and the cell count,
-  in MODFLOW 6, MODFLOW-NWT and Boussinesq. A steady run is not checked, it reads no storage.
-- A runtime property override is checked against its physical range as it was written, so the refusal
-  counts the values given and names the layer and the cell (2026-11-01). A steady run no longer
-  refuses a Sy or Ss override it does not read.
-- Boussinesq refuses a hydraulic conductivity that is zero, negative or not finite on a cell of its
-  runtime mesh, as MODFLOW 6 and MODFLOW-NWT do, naming the support when K is heterogeneous
-  (2026-11-01).
-- A gridded runoff that the watershed-mean reduction refuses, such as a day without any valid pixel,
-  now stops the run when its forcings are persisted and fails the calibration trial with its message,
-  instead of being dropped with a debug line (2026-11-01).
-- A runtime property override of `Project.run(properties=...)` and the cell values a field parameter
-  gives the mesh, after its depth profile, are checked against the physical range of the property
-  (2026-10-31). An override such as `Sy = 0.8` on one cell, or a profile that takes Sy under 1e-4 at
-  depth, reached the solver. The refusal names the property, how many values fall outside and the flat
-  index of the first one. A cell that no zone of the support covers is not checked yet.
-- The spatial mean of a gridded forcing (the homogeneous series, the scored gridded runoff, the
-  persisted watershed mean) reads the valid pixels only (2026-10-31). A GeoTIFF nodata pixel no longer
-  enters the mean as -9999, a NaN pixel no longer refuses the whole grid, and a band or a time step with
-  no valid pixel is refused naming the file, the slice and the footprint.
-- The GeoParquet and GeoPackage layers of a selection write null where the CSV writes `""` (snapped
-  coordinates, snap distance, area), so a selection that mixes a snapped and an unsnapped outlet no
-  longer fails with `ArrowInvalid` (2026-10-31).
-- A `generated_bands` break or a `generated_rings` radius written as a text without a unit in absolute
-  mode (`breaks = ["300"]`) is read in metres, like the DEM elevation (2026-10-31). It raised a raw pint
-  `DimensionalityError`. A text that is not a number, a unit that is not a length (`"10 %"`, `"1,5"`,
-  which pint reads as 15) or a length that is not finite is refused naming the key and the value.
-- Two raster codes of a catchment-zone or raster support that carry the same label are one zone
-  (2026-10-31). The value of a heterogeneous parameter on that label was counted once per code, so
-  K = 1e-5 gave 2e-5 on every cell.
-- `domain-build` and `terrain-delineate` refuse an input file that is not on disk with the typed code
-  `HMPY.E211` (`hydromodpy.core.exceptions.JobInputNotFoundError`, a `FileNotFoundError`), still under
-  exit code 10 (2026-10-31).
-  The outcome said `HMPY.E000`, the code of a bug in HydroModPy. Both workers resolve their input files
-  with one function, `spatial.job_inputs.resolve_input_file`.
-- A geographic tree is reused only when every shapefile keeps its `.prj` (2026-10-31). The cache asked
-  for three sidecars, so a tree that had lost a `.prj` reused a polygon without CRS. It is now a miss and
-  the tree is rebuilt. The generated `river_network.shp`, which Whitebox wrote without a projection, now
-  carries the `.prj` of its CRS.
-- With `[geographic.crossings]` on, the snapped outlet of the context, of the runtime attributes and of
-  the cache manifest is the one of the second delineation, on the notched ground (2026-10-31). It was the
-  one of the first pass, while `outlet_snap.shp` and the catchment came from the second.
-- `field_param_from_toml(section=...)` and the `--field-param-section` option of the geology property
-  demo read a nested section such as `flow.param.K.field` (2026-10-31). Both failed with "Field required"
-  for any section but `field`, because the whole file was checked as one field-parameter table. The table
-  that holds the section is now the payload, a nested `[field]` with no `id` takes the key of its parent
-  table, and a section that is absent or that names no `[field]` table is refused by name.
-- Every value of a field parameter is checked against the physical range of its parameter, in the unit
-  it was declared in (2026-10-31). Per-zone values, inline or read from a CSV table, a section with no
-  `id` and a `FieldParam` built in code skipped the check, so a K of 1e3 m/s in one zone reached the
-  solver. The refusal names the parameter, the zone and the value.
-- A geographic raster that declares no nodata is stored with -9999, the nodata of the DEM beside it in
-  the geographic group, instead of -99999 (2026-10-31).
-- A site selection whose territory writes its country in lower case (`country = "fr"`) asks the
-  DEM and the hydrometry stations over that territory (2026-10-28). The candidates were already
-  clipped to it, but the DEM request compared the country to `"FR"` exactly and fell back to the
-  outlets, or to no extent at all.
-- A DEM that the data layer cannot load for `delineate_from_outlets = true` stops
-  `hmp site select` with a configuration error that names the data root and the `[data.dem]`
-  section to check, as the other input modes already did (2026-10-28). The raw provider error
-  came through before, with its own exit code.
-- `get_whitebox_backend()` and `delineation.registry.get_backend()` return the same Whitebox
-  backend, so a process opens one Whitebox environment (2026-10-28). They returned two objects,
-  each with its own environment, and `clear_whitebox_backend_cache()` cleared one of the two
-  caches. A backend registered under `whitebox_workflows` is now what both return, and
-  `get_whitebox_backend()` still refuses the `"whitebox"` alias.
-- `compute_catchment_area_km2` sums every polygon of the watershed (2026-10-28). It read the first
-  row only, so a catchment in several parts reported less than the area its domain was built on.
-  A numeric `AREA` column still wins over the geometry, and a column of text still leaves the
-  geometry in charge.
-- `measure_polygon_area_m2` leaves out a polygon row without geometry (2026-10-28). The total
-  area of the layer became NaN.
-- The forcing refusals of an empty grid or of a non-finite pixel no longer call every variable
-  recharge (2026-10-28). They name the gridded or GeoTIFF forcing values, since ETP and the other
-  variables read the same path.
-- The `geographic` group of a run store opens with `xarray.open_zarr` (2026-10-28). Its rasters
-  stored the nodata as a float `_FillValue` attribute, which xarray refuses on a Zarr 3 array, and
-  had neither pixel coordinates nor a grid mapping. A raster now holds its nodata as the Zarr
-  `fill_value` (GDAL) and as the CF `missing_value` (xarray), an integer raster too when its type
-  holds the nodata, gets the axes `<name>_y` and `<name>_x` at its pixel centres, in metres or in
-  degrees after its CRS, and a `<name>_crs` grid-mapping variable. The `transform`,
-  `crs`, `nodata` and `shape` attributes stay, so `hmp export` and the run API read runs written
-  before the same way, and only the rasters are offered for export.
-- The `*_long_lat` metadata of a catchment, real or synthetic, is `(longitude, latitude)` as its
-  name says (2026-10-28). `read_dem_metadata` stored `(latitude, longitude)`, and the synthetic
-  catchment shifted the latitude by 360 degrees where the longitude was meant. The Greenwich copy
-  of the centroid now takes its longitude in [0, 360), and the department lookup asks Nominatim
-  for `"<latitude>, <longitude>"` with a longitude in [-180, 180]. No production code reads these
-  attributes.
-- The scripts of `spatial/geographic/cases/` and `spatial/domain/cases/` run from a checkout
-  (2026-10-28). `update_geographic_goldens.py` ran pytest from `hydromodpy/` so none of its four
-  test paths resolved, `reference_catchment_delineation_case/run_case.py` stopped on
-  `KeyError: 'catch_folder'` after its run, and the relative paths of five case TOML files led to
-  `hydromodpy/examples/data`, which does not exist. The domain case also drops a `data_path` key
-  that no code read and that named a folder removed from the repository.
-- The GeoJSON files of the site selection open in the CRS they are written in (2026-10-28). They
-  carried their CRS only in the `hydromodpy_coordinate_crs` key, so geopandas, QGIS and
-  `hmp sites import` read Lambert-93 coordinates as WGS 84 degrees. The seven writers (selected
-  outlets and basins, observation points, candidate outlets, generated network, geology and
-  influence evidence) now also write the `crs` member, `urn:ogc:def:crs:EPSG::<code>`, when the CRS
-  has an EPSG code. The coordinates and the `hydromodpy_coordinate_crs` key do not change.
-- A homogeneous field value is checked against its physical bounds in its declared unit
-  (2026-10-28). The check read the number as if it were in the canonical unit, so K = 150 m/day
-  was refused as 150 m/s and K = 1e-13 m/day was accepted. The value is now converted first, so a
-  K under 8.64e-10 m/day is refused, and so is a unit of another quantity, such as `m-1` for K.
-  The 115 homogeneous values of `examples/`, `validation_cases/` and the tests all pass.
-- A nodata pixel of a gridded recharge is refused where a cell reads it (2026-10-28). A GeoTIFF
-  pixel equal to its declared nodata reached the cell as -9999, and a cell on a NaN pixel took
-  its neighbour, because the interpolators drop non-finite pixels. The forcing now refuses, with
-  `DataContractViolation`, a cell whose nearest pixel, pixel triangle (`linear`), 16 nearest
-  pixels (`idw`) or overlapped pixels (`area`) hold nodata, and a slice with no valid pixel, which
-  gave zero recharge. A NetCDF follows the same rule, so a NaN pixel that no cell reads is now
-  accepted where the whole grid was refused, and a period mean is nodata on a pixel that is
-  nodata on any of its days.
-- A `.msh` file written by HydroModPy is a gmsh file, of format 2.2 ASCII (2026-10-27). It was an
-  ANSYS Fluent file under the `.msh` name, because meshio takes ANSYS first for that suffix, so
-  neither gmsh, `[mesh.triangle] path` nor the reader of the 2.2 format read it; meshio read it
-  back only because it tries ANSYS first too. `write_gmsh_2d_mesh`, `write_msh` and
-  `save_planar_mesh` write a path ending in `.msh` as gmsh 2.2 ASCII when no `file_format` is
-  given, and an explicit `file_format` still wins.
-- A Voronoi mesh goes through meshio and VTU (2026-10-27). `to_meshio` handed meshio one polygon
-  block of mixed arity, which meshio refuses, so `write_vtu` failed on every Voronoi mesh. A polygon
-  block now goes to meshio as its runs of cells of one arity, in its cell order, and `from_meshio`
-  and `read_vtu` give back one polygon block with its cell fields. A planar mesh written as VTU reads
-  back with x and y only, where it kept the zero z that meshio adds. A mesh with a z that is not
-  zero, or with 3D cells, keeps its z.
-- The NetCDF export writes the cell centres the model used, `mesh/face_x` and `mesh/face_y` of the
-  run store, in place of the mean of the vertices of each cell (2026-10-27). On a Voronoi mesh of
-  cells about 20 m wide the mean was up to 14.7 m off the generator. A store written before the
-  centres still exports the mean. `export_netcdf()` called on its own writes a mapping attribute,
-  such as `hydromodpy_identity`, as JSON text, where it failed before. `hmp export` already did.
-- A buffer written as a distance (`[geographic.catchment] buff_area = "1 km"`) is snapped to the
-  DEM grid like a percentage (2026-10-26). An off-grid distance put the domain edges, and the
-  cells of a regular grid, 25 to 50 m off the pixels of a 75 m DEM, so the ground of a cell moved
-  by about 2 m at control points. On a 75 m DEM, 500 m becomes 525 m and 1 km becomes 975 m.
-  Example 05 (`"10 m"`) now gets a buffer of one pixel.
-- The mesh build no longer warns about the bisection offset on an orthogonal mesh (2026-10-26).
-  On a mesh whose 95th percentile of non-orthogonality is under 1 degree, the two-point flux stays
-  consistent wherever the line of the two centres crosses the face. The warning fired on 44 to 70
-  per cent of the cells of a generated Voronoi mesh. The QA still reports the offset, and a
-  non-orthogonal mesh still warns.
-- A comparison exports the budget of one zone, and `flux_timeseries` divides each line by the area
-  of its own zone (2026-10-26). The budget exports of `hmp report compare` added the `catchment` row
-  to the domain row, so a run that carried both counted the water of the catchment twice. On example
-  04 the mean recharge was 2.02 m3/s, 54 % above the 1.31 m3/s of the domain.
-  `budget_timeseries_long.csv` and `budget_timeseries_wide.csv` hold one zone and a `budget_zone`
-  column. `--budget-zone {domain,catchment}` picks the zone, the domain by default, and
-  `ComparisonSpec.budget_zone`, `run_comparison` and `compare_runs` take it too. A Boussinesq state
-  has no `catchment` zone, so it enters the domain export only, and a catchment export leaves it out
-  with a warning. The numerical closure reads the same rows, and the three budget figures of the
-  comparison name their zone in the title. `flux_timeseries` in `mm/period` divided the `catchment`
-  line by the area of the whole domain, so its depths were 0.54 times too small on example 04 (64.77
-  km2 of basin, 120.41 km2 of domain). It divides by the whole cells of the basin of D for the
-  `catchment` line and by the active domain for the domain line, and the axis names the zone. A run
-  with a `catchment` line and no stored basin is refused, with the advice to plot m3/s. On example
-  04 the recharge of the catchment line gives 0.943 mm/d, like the domain line. The CSV of an
-  earlier export are not comparable with the new ones (`69e7c4209`).
-- A lake over a pinched or sloping stack connects to every active cell that faces its water
-  (2026-10-26). The bank connections went to the occupied layer index only, and only where the
-  neighbour was active in that layer. A neighbour whose layer was pinched out had no bank, and on a
-  sloping stack the deeper layers that face the lake were ignored. A bank now joins the water slice
-  of a lake column to each active cell of the neighbour column that holds a part of it, whatever its
-  layer, and a band thinner than 1 mm is dropped. A flat stack gives the same rows as before. On a
-  lake of 20 columns with layers that follow the terrain, the bank rows go from 14 to 27, the
-  lake-aquifer exchange rises by 1.6 % (1.7045e-2 to 1.7311e-2 m3/s) and the stage moves from
-  103.7300 to 103.7314 m. The balance of the LAK package stays under 0.01 % in these cases. A carved
-  lake bed on a stack with pass-through cells keeps them flat, so the first active cell under the
-  lake has its top on the carved bed, where the minimum thickness of the carve had put it 0.5 m
-  lower than the bed the lake table holds. A lake in the active-shore mode connects to the top
-  active cell of the column, where it connected to layer 0, a pass-through cell on a stack pinched
-  from the top. The count of bank connections that a cutoff wall seals can drop, because it counts
-  the connections that exist (`3d2b45dc9`).
-- MODFLOW-NWT reads a flow `Kv` as the vertical conductivity of UPW (2026-10-26). `Kv` was dropped
-  and the vertical conductivity stayed K. The code writes `layvka = 0` and `vka = Kv`, in the time
-  unit of the solver like K, because `layvka = 0` is what makes `vka` a conductivity. Without `Kv`
-  nothing changes. A `Kv` that is not positive is refused, and so is a `Kv` beside a `vka` other
-  than 1, as in MODFLOW 6. The results of an NWT run with a `Kv` change, and a calibration of `Kv`
-  under NWT has an effect now. No example sets `Kv` with NWT (`3d2b45dc9`).
-- The warning about disconnected active cells runs on the final grid, after the lake mask
-  (2026-10-26). It counts a pass-through cell as a link between the layers above and below it, and a
-  lake as a link between the active cells it touches, as MODFLOW 6 does. It no longer reports false
-  groups when a whole layer is pinched or when a lake takes the only active cell of its columns. The
-  text says `no face, vertical connection or lake joins` (`3d2b45dc9`).
-- A calibration output with `support = "cell"` and no `layer` reads the top active cell of its
-  column (2026-10-26), like any point given without a layer. It read layer 0, a pass-through cell on
-  a pinched stack. `CalibOutputCell.layer` is optional. The adapter answers through a new method of
-  the `CellLocator` protocol, `top_active_layer(ctx, row, col)`, which MODFLOW 6, MODFLOW-NWT and
-  Boussinesq implement. A column with no active cell reads layer 0, a row or a column off the grid
-  is refused, and so is an adapter that cannot answer, both naming the output. A layer written in
-  the file keeps its meaning. A target whose physical range reaches below zero, which today means
-  the three angles of the K tensor, is searched as written with a uniform sampling. It inherited the
-  log space of K, and a bound such as [-30, 30] stopped the load with `log search space requires
-  lower > 0`. `Project.run(properties=...)` takes `Kv`, `K22` and the three angles beside K, Sy and
-  Ss, where they were dropped without a word. A name that is no property is refused, and so is a
-  property that the solver does not read, such as `K22` under NWT (`3d2b45dc9`, `3d2b45dc9`).
-- The head series `head_domain_low`, `head_domain_mid` and `head_domain_high` of a comparison pick
-  their cells by surface elevation (2026-10-26). They took the cell at the rank 0.2, 0.5 and 0.8 of
-  the index in `observables.csv`, which has no relation to elevation. They now draw the median cell
-  of the lower, middle and upper third of the active cells of the reference run, sorted by the
-  elevation of `mesh/topography`, or the top of `mesh/z_interfaces`. A run whose head map has
-  another cell count is left out, where it was read at the same indices. Without a reference run,
-  the cells come from the first run that has a head map. A run that stores no elevation draws no
-  figure, and the new `head_domain_figures_skipped.json` at the root of the comparison says why. A
-  figure whose plot fails is logged. The images written before are not comparable (`3d2b45dc9`).
-- Validation cases that failed before the mesh campaign pass again (2026-10-26). A twin observation
-  point on a cell edge reads the same cell on the route of the truth and on the route of the trial,
-  because both locate it on the polygons of the mesh. The truth route rounded on a regular grid. The
-  cost at the true value of the piecewise-K twin on MODFLOW 6 goes from 0.040145 to under 1e-12. The
-  loader of the Brutsaert cases reads the boundary flux on the domain row of the budget, since a
-  synthetic run carries a `catchment` row beside it, and the truth discharge no longer adds that
-  row. The NWT recharge-step case declares `HEADTOL = 1e-9` m and `FLUXTOL = 1e-10` m3/s in its own
-  file, so every step closes at 0.00 % where the defaults left up to 1.47 %. The goldens `fast_mf6`
-  and `extensive_mf6` take the 15-decimal floats that MODFLOW 6 reads since the DISV input is
-  widened (the p50 of the water-table depth moves by 1.15e-4 relative, the mean depth of the
-  extensive one from 0.448996 to 0.449116 m), and the offline test of the data seal no longer
-  expects the provenance children. No tolerance moves. The benchmark figures of the `modflow6` and
-  `modflow_nwt` columns of the twins can move a little (`3d2b45dc9`, `3d2b45dc9`, `3d2b45dc9`,
-  `3d2b45dc9`, `3d2b45dc9`).
-- A mesh refined by an earlier run replays from that run (2026-10-26). The frozen `config.toml`
-  writes the `sim_id` that a `[[mesh.refinement_zone]]` `run` read in place of its name, taken from
-  the new `zone_runs` key of the mesh summary. So `hmp catalog rerun` and `hmp run --resume` read
-  the same run even after a later version of it exists, and a replay whose source is gone stops with
-  a message that names it. The run identity hash reads the `sim_id` of the run that `[flow]
-  restart_from` and the zones name (`hydromodpy/results/source_runs.py`). A resume of an interrupted
-  run no longer starts from zero, a `.v2` of the source gives another hash, and the three forms of
-  `restart_from` (name, table, path) hash alike. The hash of a run with a `restart_from` or a zone
-  with `run` changes once, so such a run is recomputed once. A run with neither keeps its hash. The
-  message of a river mesh without a network threshold names the zone when a `height_above_stream`
-  zone asks for the network (`3d2b45dc9`, `3d2b45dc9`).
-- A run calibrated by a `[calibration] protocol` replays from its own frozen `config.toml`
-  (2026-10-19). The load writes `[site] gauge` into each stage and `[metrics] window` into a
-  transient stage without one after it expands the protocol, so the frozen stages read as a
-  contradiction of the protocol and `hmp catalog rerun` or `hmp run --resume` refused the run.
-  Both sides of the comparison now take these project defaults. Another station or another
-  window is still refused.
-- HydroModPy's own `RuntimeWarning`s reach the log again (2026-10-26). `flopy.plot.plotutil`
-  ignores every `RuntimeWarning` when flopy is imported, so an unsettled cyclic spin-up, a
-  steady initialisation closed on its budget only, the fixed EVT extinction depth of a routed
-  deficit, a lake footprint far from its abacus, a failed GP surrogate fit and a failed HELP3O
-  download were silent in a run. Each is now logged as a warning too.
-- Calibration audit leftovers fixed on 2026-10-25 (thirteen commits `737953279..737953279`).
-  `Project.best` and `[sites.summary] best = "calibrated"` keep the `evaluated` runs, the calibrated
-  runs scored out of their calibration window; `label="calibrated"` keeps the in-window ones only.
-  An observed gauge is scored only against the simulated series of its own name, or against the single
-  simulated series when it is the station of the metric rule: an upstream gauge is no longer scored
-  against the outlet discharge, and a gauge left unscored is logged and sealed as the failed, non-fatal
-  check `observations_scored`. A pair dropped because the simulated value is NaN (a dry cell) is
-  counted: trial component `<output>.n_sim_nan`, `n_sim_nan` in `objective_samples` of `session.json`,
-  and a new column `n_sim_nan` of the run metric rows, `metrics.parquet` and the index, with a warning;
-  `[calibration.aggregate] min_samples` applies to every scored output and stays 1. Index schema 9:
-  run `hmp catalog reindex`. `units` of a calibrated parameter converts: bounds written in another unit
-  of the same quantity are converted into the unit of the target (m/s on a conductivity read in m/day:
-  86 400), a unit of another quantity is refused naming both, and `units` beside `mode = "scale"` is
-  refused. A lake `bedleak`, SFR `streambed_k`, barrier `hydchr` or `k` and well `flux` is searched in
-  the unit its own field names (`bedleak_unit = "1/day"` was read 86 400 times off) and carries a
-  physical range; `hmp config targets` prints every range in the unit of its target. A search says why
-  it stopped, `rule_met`, `plan_exhausted` or `budget_spent`, sealed as `stop_state` in `session.json`,
-  each phase and `checks.calibrated_by`, and printed by the console, the READMEs and the HTML report;
-  `converged` is true only in the first two. A phase whose search has no rule of its own (random_search,
-  cma_es) still passes its best trial on and says it "froze the best of a budget-only search"; a search
-  with a rule stopped by its budget freezes nothing, as before. Every calibration launch (`hmp
-  calibrate`, `hmp run` in calibration mode, both `--dry-run`, `hmp.calibrate`, `Project.calibrate`)
-  runs the checks of `hmp config check` first, on the effective document and phase by phase,
-  overrides included, and stops with exit code 14 before anything is prepared; the checks of the
-  prepared model run once, before the session is reserved; a `path` outside the catalogue that reaches
-  a value of the config warns instead of refusing. Example 21's `auto_sfr_drn.toml` is no longer
-  refused: each phase is checked with its own overrides.
-- Calibration audit of 2026-10-22, batch q01 (2026-10-22). `hmp calibrate --resume` refuses a
-  session whose journal holds trials this document scores another way, and a session a live process
-  of this host still writes; each trial row carries its `params_hash` (`dc8675921`). The promoted
-  run is the trial `session.json` names, a speculative trial never ranking first (`dc8675921`). The
-  cache preload skips a session journal this version cannot read, with a warning (`dc8675921`). No
-  linearized width is reported when a perturbed run fails (`dc8675921`). Bounds written in another
-  unit than the target are refused with the converted bounds (`dc8675921`, `dc8675921`). A declared
-  output that no block and no `variable` scores is refused when the file loads (`dc8675921`).
-  `[calibration.persistence]` is retired: still read, ignored with a warning (`dc8675921`).
-  `hmp calibrate` and `hmp run` exit with code 21 when the session closed failed, partial or
-  aborted, and print the reason `session.json` gives (`dc8675921`). `grid` and `lhs` stop when every
-  point of their design is solved: a `max_trials` below the design is refused before the first
-  solve and by `hmp config check`, and `"auto"` budgets the design (`dc8675921`). The trial cache
-  key holds the content of `stream_geometry_path` and `minimal_stream_geometry_path`, sidecars of a
-  shapefile included, so a network calibration solves its trials again once and a session written
-  before cannot be resumed (`dc8675921`). `nse`, `log_nse`, `nse_delta` and `nse_seasonal` give NaN
-  when the observed spread is no larger than rounding; the metric rule version is unchanged, so a
-  cached cost of such a series stays as it was (`dc8675921`). The network protocol is tested on
-  MODFLOW-NWT and unsupported on Boussinesq (`dc8675921`). Docstrings and pages corrected: the
-  default rasterization `heads`, the validity bound, the default window of the second stage, the
-  three rasterization rules, the method how-to and the diagnostics notes (`dc8675921`, `dc8675921`,
-  `dc8675921`, `dc8675921`). The code identity of the cache key and the release flux Boussinesq
-  declares without serving it are not done yet.
-- Calibration audit of 2026-10-14, windows (2026-10-20, decisions m03 and m04). A `[metrics]
-  window` that shares no day with `[simulation.time]` is refused when a file is loaded, naming both
-  periods (`b2e4a7eed`); the frozen config of a run already on disk that carries such a window still
-  reads, with a warning, and the run has no score (`b2e4a7eed`). Series figures of a run
-  (hydrograph, hydrograph_sim_obs, piezometer and lake sim/obs, sfr_reach_timeseries,
-  flux_timeseries, residuals) shade what precedes the `[metrics] window` start, read from the run;
-  there is no `spinup_end` key (`b2e4a7eed`). The validation window (m05), the single `window` type
-  (m06), the refusal of `warmup_periods` (m07) and example 04 split in calibration and validation
-  (m24) are not done yet.
-- Calibration audit of 2026-10-14, metrics (2026-10-20, decisions m10, m12, m13, m14). One scoring
-  route: a calibration written `variable` + `objective` is scored by implicit blocks, one output
-  `<variable>@<station>` and one block `<objective>@<station>` per scored station, with the trial
-  costs of before; `ScalarObjective` and `ObservationSet` are removed (`b2e4a7eed`, `b2e4a7eed`).
-  The trial components of that form are renamed (`cost:<objective>@<station>` becomes
-  `<objective>@<station>.raw_cost`, with `.n_values`, `.n_paired`, `.date_start`, `.date_end`); only
-  the gauge `observed_station_id` names is scored; an undefined metric gives the trial an infinite
-  cost instead of raising; `aggregate.min_samples` applies to it. `nse_log` clips a negative value
-  to zero and counts it, for a run as for the calibration cost, and the run writes `n_clipped` on its
-  metric row and in the index (`b2e4a7eed`). `pbias` is `100 x sum(s - o) / sum(o)`, positive when the
-  model overestimates, the sign of `bias` (`b2e4a7eed`). The metric rule is version 2: runs scored
-  under 1 and 2 no longer rank together, and the calibration cache is solved again once. The KGE is
-  written as its 2009 form everywhere it is described (`b2e4a7eed`, `b2e4a7eed`). Index schema 8:
-  run `hmp catalog reindex`. The cost naming (m15) is not done yet.
-- Calibration audit of 2026-10-14, parameter surface (2026-10-20, decisions m17 to m23 and m28). A
-  renamed key in a file is refused with its new name, `hmp doctor --fix-config` rewrites it, and the
-  frozen config of a run on disk reads under the new names (`b2e4a7eed`). Renamed:
-  `max_iter` -> `max_trials`, the only search budget (protocol `steady_max_trials`,
-  `transient_max_trials`; `Project.calibrate(max_trials=)`); the budget options of the methods
-  (`maxfev`, `maxiter`, `max_evaluations`, gp_mapping `max_iter`) are refused, the doctor moves an
-  evaluation count into `max_trials`, and da_mh_gp `max_iter` is `chain_length`; gp_mapping and
-  cma_es spend `max_trials` (100 under "auto", no longer 30) (`b2e4a7eed`). `tolerance` ->
-  `precision` (protocol `steady_precision`, `transient_precision`); `uncertainty.tolerance` and
-  `mode` -> `cost_margin`, "5%" of the best cost or a length such as "75 m" on a search scored only
-  by network distances (`b2e4a7eed`). `parameters.<p>.transform` -> `search_space`, `prior` ->
-  `sampling`, `objective_blocks[].transform` -> `cost_transform`, and `Calibrable` follows
-  (`b2e4a7eed`). `extent.maximal_flowing_steps` and `minimal_dry_steps` -> `maximal_flowing_duration`
-  and `minimal_dry_duration`, durations converted by the run's step (flowing rounded up, dry rounded
-  down); left unwritten they are one time step, as before (`b2e4a7eed`, `b2e4a7eed`). A phase that
-  writes no `method`, `max_trials`, `precision` or `method_options` takes them from `[calibration]`,
-  and `--list-phases` says where each comes from (`b2e4a7eed`). `hmp calibrate` takes `--set`,
-  `--overlay` and `--case`, and a calibration launched with them is named after the user's file or
-  `--case`, not after the temporary copy (`b2e4a7eed`, `b2e4a7eed`). `[sites.summary] rank_by`
-  names the ranking metric (default "nse"); the order of `metrics` no longer chooses it
-  (`b2e4a7eed`). The trial cache is keyed on what changes a cost only: a new method, seed,
-  precision, budget, method options, bounds or search space replays the trials already solved;
-  params_hash v3 solves every earlier trial again, once (`b2e4a7eed`). The removal of
-  `observed_station_id` (m16) is not done yet.
-- Calibration audit of 2026-10-14, methods (2026-10-20, decisions m25 to m30). The GR4J package
-  without a model, `hydromodpy.calibration.lumped`, is removed and the docs no longer announce GR4J
-  (`4ca07e106`, `b2e4a7eed`). `da_mh_gp` is described as a sequential search, not a posterior
-  (`b2e4a7eed`, `b2e4a7eed`). A phase may write `bounds` for its parameters, inside the section's
-  bounds or the field's range, refused otherwise (`b2e4a7eed`). The acceptable interval of
-  `cost_profile` is read on the total cost only; a block cost drawn alone gets no interval
-  (`b2e4a7eed`, `b2e4a7eed`). A MODFLOW-NWT run writes the catchment budget row, so a run without
-  the per-cell budget reads its `_catchment` discharge on the catchment and its score matches its
-  trial cost (Nançon, session `26952cbc`: KGE 0.24 -> 0.87) (`b2e4a7eed`). Trials are not truncated
-  (m31).
-- The four decided items of the calibration and score audit of 2026-10-14 are applied: m01, m08,
-  m09 and m11 (2026-10-20, eight commits `4ca07e106..4ca07e106`). What changes for a user:
-  - A calibration session keeps the periods of its scoring window the way the run scores them:
-    a mean counts when its whole period lies in the window, a state when its stamp does
-    (`core.time.period_aggregation.periods_in_window`, one rule for both). The session cost is
-    now `1 - score` of the run it promotes. Under a start-only window a session scores one pair
-    fewer (24 months instead of 25 on example 04, 1827 days instead of 1828) and its cost moves
-    slightly. The cache key carries the scoring rule version: every trial cached before is
-    solved again, once.
-  - `evaluated` needs a score window that shares no day with the calibration window. A window
-    that overlaps it without being equal keeps the run `calibrated`, with the reason "scored on
-    a window that overlaps the calibration window". The label rules are version 2.
-  - The index never ranks two rules together. `Catalog.rank/best/worst`, `@best:`/`@worst:`,
-    `find(<metric>_gt=...)`, `Project.runs.best` and `hmp dev rank` raise `MixedWindowsError` on
-    scores of different stations, variables, windows or rule versions; `mixed_windows=True`
-    (`--mixed-windows` for `hmp dev rank`) ranks them anyway, and a named station
-    (`@best:nse@STATION`, `--station`) only needs one window and one version. The CLI verbs that
-    take an `@`-selector have no flag: name the run, narrow with `--site`, or resolve it from
-    Python. `hmp dev rank` prints each score's window. `v_best_per_project` holds one row per
-    project and rule, with the rule columns, and leaves unscored runs out. Index schema 7: run
-    `hmp catalog reindex`.
-  - A block whose metric rises with the fit (nse, nse_log, kge, nse_delta, nse_seasonal,
-    reservoir) over several outputs is refused at load: write one block per output, each with its
-    weight, so the costs average per station instead of pooling the stations into one efficiency.
-    rmse, mae and the network distances still pool several outputs. No example, documentation
-    page or protocol declared such a block.
-- The calibration and score audit of 2026-10-14 closes its second batch of fixes that needed no
-  decision (2026-10-20, 33 commits `4ca07e106..4ca07e106`). What changes for a user:
-  - Search engines. `gp_mapping` with `kappa != 0` no longer stops after three proposals on
-    positive costs: it compares the improvement the lower confidence bound still promises to
-    `ei_tol`. `scipy_nelder_mead` no longer stops at a hard 100 iterations: with no `maxiter` or
-    `maxfev` in `method_options` the session budget `max_iter` is its cap, and a start on an
-    upper bound no longer builds a flat initial simplex. `cma_es` with `seed = 0` repeats (cma
-    read 0 as "seed from the clock"). `uncertainty = "linearized"` reads the residuals of the
-    calibrated point, not of the last trial perturbed by 1 %. The "search did NOT converge"
-    warning promises a cache replay only for a larger `max_iter` on the same file: a new
-    `tolerance`, `seed`, `method` or `method_options` changes the cache key.
-  - Scores. A period the gridded runoff does not cover is a gap in the scored discharge, no
-    longer scored as baseflow only (the count is logged once). `normalize_cost` divides by the
-    standard deviation of the scored sample, after the burn-in, not of the whole record, and its
-    fallback is logged: a normalised block with a burn-in gets a different cost. The nse_log
-    epsilon is one rule, `core.metrics.log_floor`; the `hydrograph_log_nse` floor is read on the
-    scored sample. The Brutsaert recession case scores with the core kernels (its NSElog takes
-    the common epsilon). A score turns into a cost by `METRIC_SENSE` alone (`cost_of`,
-    `score_of`); the fit panel of `calibration_progress` frames a transformed efficiency block
-    and labels it "lower is better".
-  - Index and readers. Metric names come from one list: `METRIC_SENSE` drops `r2`, `mse`,
-    `kge_delta`, `objective_best`, `closure_mean_abs_m3_s` and `closure_rmse_m3_s`, which nothing
-    produces, and `v_metrics_wide` pivots the run kernels, one row per run, station and
-    variable. The index `metrics` table drops `n_samples`, `period_start` and `period_end`;
-    runtime numbers (solve time, budget discrepancy) stay in the run facts and the seal but leave
-    `hmp catalog show`, `hmp catalog diff`, `compare_pair` and the index (index schema 6: run
-    `hmp catalog reindex`). `hmp catalog diff` and `compare_pair` compare per (metric, station,
-    variable) and show each side's window and n; the diff JSON rows change shape.
-    `Catalog.find(<metric>_gt=...)` refuses an unknown or retired metric name instead of
-    returning nothing.
-  - "Same rule" is one definition and one exception, `MixedWindowsError` in
-    `results.run.sealed` (a `DataError`, no longer a bare `ValueError` from `RunSet.best`).
-    `hmp catalog ls --best` without `--by` refuses runs scored at different stations and
-    suggests `--by site`.
-  - Promotion. With `save_catalog = false` and `save_runs` other than `"none"`, the promotion
-    no longer hands out a `sim_id` for a run it never wrote: it is reported as failed with the
-    reason, the session closes `partial`, and `hmp project promote` refuses the same way.
-  - What a session prints. The cost is labelled with what it is, transform and normalisation
-    included (`log10(rmse / sd(observed))`, `1 - nse_log`), in `hmp calibrate`, the `hmp run`
-    recap and the session HTML report, which now shows the best cost at all; `session.json`
-    records it as `objective_label`. Beside the best cost the console and the HTML print the pairs
-    it was scored on (count, first and last period-end stamp, per output) and the declared window;
-    `session.json` keeps `objective_window` (the declared window, which `calibrated_by` reads)
-    and adds `objective_samples`. The single-metric route counts no pair and says so. The
-    `methods.md` of a protocol calibration states each stage's metric and scored pairs instead
-    of the generic spin-up sentence. A staged session records as `objective_name` the metric of
-    its last phase, the one its value belongs to, not `distance_gap + nse_log`. A session left
-    `partial` by a failed trial names the trials, and names the stopping rule only when it was
-    not met. A phase that did not converge no longer promises a replay after loosening the
-    tolerance.
-  - What a check prints. `hmp calibrate --list-phases`, `--dry-run` and `hmp config check` print
-    the window each phase scores on, and the check prints `[metrics] window`. `hmp config check`
-    compares a protocol `scoring_window` with the window the recipe really scores, `[metrics]
-    window` when declared. `lineage.overrides` keeps the case of an `HMP_SET_*` key
-    (`flow.param.K`, no longer `flow.param.k`).
-- The lake-river stack closes the findings of the 2026-10-14 audit left open on 2026-10-15
-  (2026-10-20, nine commits `f65e21d63..f65e21d63`). What changes for a user:
-  - Lake outlets run one way. Two WEIR outlets of two lakes toward each other at the same crest
-    are refused, naming both outlets: they made the water circulate instead of a sill. A
-    spillway without a reach on the dam foot is refused (enable `rectify_on_mesh`) instead of
-    falling back on the nearest reach, which sent the release back into the reservoir on the
-    Chèze; the SFR link below the dam is kept after the cut at the lake. With a cutoff wall the
-    dam foot is chosen downstream of the wall. The guard against a LAK to SFR to LAK loop maps
-    the 1-based `terminal_lake` and covers every reach upstream of the lake.
-  - Lake series: `outlet_inflow` is published and `outlet` is now a positive outflow (the
-    published series changes sign). `seepage_under_dam` is renamed `lake_bed_vertical_exchange`,
-    which is what it measures. The flow through a cutoff wall is published as `cutoff_wall_flow`
-    (FLOW-JA-FACE summed over the wall faces, per layer, stations `lake:<id>:layer<k>`).
-  - `[geographic.dam_carve]` and the `slope`, `buffer_m` and `capture_*` keys of
-    `[geographic.enforce_lakes]` are refused: the ramp, the outlet notch and the stream capture
-    moved neither the basin, the network nor the drains once the cell drainage D crosses the
-    lakes. The lake polygons stay for the crossing notch and the bed regularisation. On the
-    Chèze grid the lake stage moves by 1e-5 m and the run budget is unchanged.
-  - Calibration: `reject_water_budget_above` defaults to 1.0 % and reads the worst time step of
-    the whole-model volume budget, the figure the run checks report, not the lake package. A
-    rejected trial is neither ranked nor promoted. A steady phase that fits a lake parameter of
-    a model with a lake is refused (its objective is flat). MF6 names are lower case, so flopy
-    writes the MVR of a simulation named with capitals, and the steady start reads the listing
-    under the name MF6 wrote.
-  - `catch_def = "txt"` is refused. A basin past the float32 range of ln(accumulation) is
-    delineated. The Hub'Eau gauge area guard runs on the gauge of the run. The crossings box of
-    a polygon basin is its bounds plus its buffer, and the bed fit is windowed on the domain
-    (8.3 s to 2.0 s on the Chèze grid).
-  - The Voronoi engine (2.2.0) closes lake shores: rivers are cut at the lakes, the shore is
-    smoothed to the largest shore cell, a shore does not yield to a river, and a cell covered
-    for most of its area outside its region goes to the lake. On the Chèze, shore coverage goes
-    from 0.54 to 1.0 and the lake footprint over its polygon from 1.88 to 0.96.
-  - Each lake of a model without SFR takes the runoff of the ground it drains (D8 areas, not an
-    equal share). With `route_drainage = false` the discharge series is the routed series plus
-    the basin DRAIN, for calibration and for the published series alike.
-  - `route_drainage = false` under a lake in soil mode is refused. A well the solver throttles
-    is sealed with the run as the non-fatal validity `wells_pumped` (the report written on
-    2026-10-15 never read the budget file). The first-year spin-up message says 52 weeks.
-  - An MF6 input error at the API `initialize` raises `SolverInputError` with the end of
-    `mfsim.stdout` instead of ending Python (the check runs in a child interpreter first).
-  - `hmp doctor --fix-config` migrates `[workspace] project_root`, `if_exists = "replace"`,
-    `display.output_dir` and `calibration.rerun_best_with_outputs`; `[site]` stays to write by
-    hand.
-- `hmp calibrate` names the metric its best cost is, `cost: 0.1234 (1 - nse_log)`, as the phase
-  recap of `hmp run` already did (2026-10-20). A bare `cost: 0.12` on an efficiency read as a
-  poor score where it is `1 - NSE`.
-- A calibration output refuses what nothing reads (2026-10-20). Beside `observes`, a `reducer`
-  other than `"none"` is refused: the record is paired with the series step by step and the
-  reduced value was overwritten, so `none`, `mean` and `sum` gave the same cost. A list of dates
-  in `time` is refused on point, boundary, cell and lake outputs: it was documented as
-  selecting steps and read as `"all"`.
-- The bounds of a `mode = "scale"` parameter are factors, no longer faced with the physical
-  range of the property (2026-10-20). `Sy` scaled by `[0.5, 2]` was refused, "upper bound 2.0
-  outside [0.0001, 0.5]", by the load, the name resolution and `hmp config check` alike. The
-  product the run writes is still faced with that range.
-- `method = "da_mh_gp"` no longer hangs under `parallel > 1` or `batch_size > 1` (2026-10-20).
-  The chain proposes its next point only once the previous one is told, and the engine asked
-  for several in one batch: the second waited forever. It now returns one point per batch and
-  declares `supports_parallel = False`, so `hmp config check` says a parallel setting buys
-  nothing.
-- `method = "grid"` publishes its counted budget, the product of `points_per_dim`, so
-  `max_iter = "auto"` visits every point (2026-10-20). It took the 100 trials of an engine that
-  cannot count: a 5 x 5 x 5 grid was cut at 100 points, the last value of the first parameter
-  never visited, and the session still reported a converged search. An explicit `max_iter`
-  below the grid still truncates it.
-- `scatter_one_to_one` and `hydrograph_log_nse` print the scores the run recorded on
-  `[metrics] window`, with that window and its sample count, read from the seal or, before it,
-  from the facts of the run's store (`hydromodpy.results.run.sealed.metrics_of`) (2026-10-20).
-  The scatter computed its own NSE, RMSE and BIAS on every pair sharing a timestamp, spin-up
-  included; it now pairs as the run's score does and draws in gray the pairs that score left
-  out. The `scoring_window` and `nse_log` options of `hydrograph_log_nse` are removed: typed
-  beside the figure, they could disagree with the score the run is ranked on. Examples 04, 19
-  and 21 drop their `[display.overrides.hydrograph_log_nse]` tables.
-- The best trial of a session, the one promoted and resumed from, is a trial the search read
-  (2026-10-20). A speculative engine (Nelder-Mead with `parallel > 1`) solves candidates it then
-  leaves unread, and `best_trial` took the minimum over them too, so the promoted run could be a
-  point the search never returned. The `speculative_unused` mark is now journaled at every
-  `persist_iteration_detail`, `"none"` included.
-- `nse_seasonal`, `nse_delta`, `kge_delta` and `reservoir` read the dates of the series, not the
-  position in the vector (2026-10-20). The pairing drops the dates where the record has no value,
-  so past a gap the harmonics were fitted out of phase and an increment spanned the gap as one
-  step: on four daily years with 120 days missing, `nse_seasonal` read 0.98 for 0.31 and
-  `nse_delta` 0.95 for 0.48. Both routes hand the paired dates to the kernels, a NaN left in the
-  vector is a gap, and month ends are placed at their own dates.
-- The single-metric route (`variable` + `objective`) hands the sampling step of the aligned series
-  to `nse_seasonal` and `reservoir`, as the block route does (2026-10-20). It passed none, so a
-  monthly series was taken as daily: NaN on three years and a refused trial, where the block
-  route scored a number. A daily series now reads a year of 365.25 days, not 365 samples.
-- `distance_mean` of an empty simulated network is NaN (2026-10-20). The pair of an empty
-  network rebuilds `D_so` as `D_os - L_cap`, so `(D_so + D_os) / 2` was negative and ranked the
-  empty network below every real one (-1300 m for `D_os = 1200`, `L_cap = 5000`). `distance_gap`
-  still reads `L_cap`.
-- Example 04: `run_calibration_api_daily.toml` and `step6_soil_reservoir.toml` write
-  `[metrics] window` 2016-01-01 to 2020-12-31 (2026-10-20). They ran 2015-2020 and inherited the
-  2001-2002 window of `project.toml` through `base_config`, so their runs had no score.
-- Under `[calibration.protocol]`, `[metrics] window` reaches the transient stage (2026-10-20). The
-  protocol wrote its own default, one year past `[simulation.time].start_datetime` with no end,
-  before the project defaults ran, so the stage kept it and scored past the end of
-  `[metrics] window`. The protocol now writes `[metrics] window` itself, both bounds, and the
-  spin-up default applies only without it. A stage sealed with the spin-up window still replays
-  it. Protocol version stays 1.2: no release carried `[metrics]`.
-- A flow barrier whose line runs through cell centres is barred again (2026-10-19). Along a row of
-  centres, or through them on a diagonal, the line touches the centre-to-centre links at an end
-  or lies along them and crosses none, so the crossing rule barred no face: an 80 m regular grid
-  gave 0 faces for a 600 m line on a row of centres, 8 for the same line 1 cm off it. The line is
-  now tested a millionth of a link to its left whenever a centre lies on it, which bars the faces
-  on that side; other lines give the same faces as before. A trace inside one cell through its
-  centre now bars the link it crosses, like the same trace beside the centre already did. The
-  `regular` engine is 1.1.1: its `barriers` staircase uses the same rule.
-- A run with `[flow.sinks_sources.recharge.soil]` passes `prepare_solver` again, and its frozen
-  `config.toml` replays (2026-10-19). Since aa8c33809 the frozen configuration spelled out every
-  default, so `recharge.values = 0.0` counted as written beside the soil section and was refused,
-  on the run and on `hmp catalog rerun`. The frozen document now keeps what the run was given
-  (`core/config_kit/written.py`, `to_toml(written_only=True)`): the fields a file, a caller or the
-  run set, the fields a validator derived (`step_unit` from `"7 days"`), a value set under a
-  section the file never wrote, and the tag of each union member. Chosen over comparing to the
-  default inside the validators because `model_fields_set` also decides values, not only
-  refusals: in soil mode the ETP `surface_offset` is read only when the file wrote it, and a copy
-  that spells out every default replays a soil run with the EVT surface 2 m below the drains
-  instead of on them, under the same run hash. A default is no longer frozen: a rerun under a
-  version whose defaults moved takes the new ones, and the run hash, still taken on every default,
-  tells the two runs apart. On the 81 loadable example and Flume configurations, the frozen copy
-  validates back into the same values.
-- A lake cutoff wall lies on the lake shore (2026-10-19): no cell is left between the reservoir
-  and the wall. On the synthetic catchment, trace 12 m off the dam shore, the non-lake cells on the
-  lake side of the HFB faces of the shore section went from 19 (triangle) and 17 (voronoi) to 0,
-  and every such face touches a lake cell (one cell size left out at each corner of the section).
-  The choices:
-  - Geometry before the mesh: `snap_wall_to_shore` (`physics/flow/cutoff_wall_shore.py`, pure
-    shapely) runs right after the trace is resolved, explicit or `auto`. The shore section is the
-    lake outline nearest to the trace points within `snap_tolerance` and seen within 45 degrees of
-    the trace normal, so it stops at the corners of the dam shore instead of folding back along a
-    bank. Its ends join their feet on the trace; the wings beyond are kept as declared. A trace
-    that crosses the lake cuts the footprint, the largest piece stays the lake and the dropped area
-    is logged. A trace farther than `snap_tolerance` (new field of `CutoffWallConfig`, default
-    50 m), or facing no shore, is refused naming the lake and the gap. The payload carries the
-    wall (`cutoff_wall_line`, lake on its left), its shore section, the declared trace (its
-    vertices keep the depths) and the cut footprint, which the mesh step reads for the lake ring
-    and the dam refinement. Without a bound footprint the trace stays as declared, with a warning.
-  - HFB faces (`spatial/mesh/ops/flow_barrier.py:cutoff_wall_faces`): every face between a lake
-    cell and a cell across the wall (the staircase on `regular`, the shore faces on `triangle` and
-    `voronoi`), plus the faces the wall line crosses: the wings, the joints and the corners where
-    the cells round the shore (without them `voronoi` leaked at the corners). A face between two
-    lake cells is never barred. HFB rows still go only where both cells are active (5ae2bc784), so
-    a lake face is barred below the bed and sealed by LAK in the lake layers.
-  - LAK seal and drop: the HORIZONTAL connections are cut across exactly the faces the HFB bars,
-    and the lake cells dropped are those across the wall within its span, the side read at the
-    nearest point of the wall. The infinite chord through the trace ends is gone
-    (`_wall_endpoints`, `_cell_behind_wall`).
-  - Gate (`check_cutoff_wall_seal`, after the HFB in `build.py`): per lake with a wall, no
-    lake-side cell is reached from downstream along the wall, no LAK bank connection reaches a
-    cell across it, every lake face across it has its HFB rows, and no wall face of the shore
-    section leaves a non-lake cell on the lake side; otherwise `SolverInputError` names the lake
-    and the counts.
-- Mesh zone labels (2026-10-19): the `voronoi` engine (2.0.1) no longer leaves every cell at
-  zone `-1` when a river makes a geology contact yield its pair; the groups are cut at the
-  cells the yielded segment crosses and at the edges it touches, so only those mixed cells stay
-  `-1` (synthetic catchment: 103 to 2388 of 2390 cells named). The `regular` engine (1.0.1) nodes
-  a contact clipped to the domain into the domain boundary, so the contact splits the domain:
-  its staircase faces exist and no cell takes the zone of the other side. `K` was right before
-  (area fractions); `face_zone` of the run and the `geology` face family were not.
-- Outputs and orchestration, real user tour of 2026-10-16 (129 commands of the documented path run
-  from an empty home; the defects it found):
-  - The seal no longer records a product of the run scratch (`_preprocessing/`) as an input, so
-    `hmp publish --with inputs` and `hmp replay` work for a run that loaded the hydrographic
-    network; a declared folder input is copied whole under `inputs/<sha256>/`; the replay points
-    the inputs of `[[data.*.sources]]` lists too, refuses by name an input that `inputs/` does not
-    hold, and `hmp replay` prints the full command with `-w <project>`; the `--frozen` pre-check of
-    `hmp run` that refused every custom input is gone (the rule lives in the replay payload).
-  - The directory digest of the identity hash leaves out the provenance sidecars a load writes next
-    to a file, so `hmp.run(cfg)` and `hmp run` on an unchanged configuration return the sealed run
-    instead of computing a `.v2`.
-  - `mesh_engine` of the index comes from the seal (schema 4, rebuilt by `hmp catalog reindex`);
-    `hmp catalog import` builds the missing index; `hmp catalog show --format json` writes `null`
-    for a missing score; `summary/by_case` and `by_site` carry every parameter of the seal under
-    its own name and the overrides of the recipe; `by_site` carries `best_reason`, and
-    `Project.best()` and `hmp catalog ls --best` say why a site has no best run (on stderr for a
-    machine format); `hmp project show .` reads the project of the current directory; a campaign
-    copy written by `hmp publish .` carries a root `PUBLICATION.json` of kind `project` listing its
-    members, `hmp publish --verify` checks them one by one and names a missing one, and
-    `hmp catalog import` refuses a project copy by name; the complete `hmp config template` passes
-    `hmp config check` up to the catchment it cannot invent (a field with a default factory is
-    written with its value, a required field of a disabled section is written commented).
-  - `HMP_SET_<key>` keeps the case of the key (`HMP_SET_flow__param__K__field__value`); a window
-    that stops before `setup_process` says that no run directory is written; `hmp config template`
-    writes no `[sites]` unless asked; a reference answered by a missing index names `-w`; the SLURM
-    scripts call `"$HMP_PYTHON" -m hydromodpy`, never a bare `hmp`.
-- Outputs and orchestration, closing pass of 2026-10-16 (adverse review of the whole campaign, seven
-  high findings, all fixed):
-  - A run name that already carries `.vN` (`--case a.v2`, `[simulation] name = "a.v2"`) no longer
-    bypasses the trash and the tombstones: `[simulation] name` refuses a version suffix by name, a
-    versioned reference on the command line is accepted only for a live version (`--resume a.v2`
-    resumes it in place), and a held name is never given again.
-  - A dead calibration worker of a `[sites]` campaign closes its session as well as its outcome
-    (`failed`, exit code and signal), so `hmp project status` reads `failed` and the case is relaunched;
-    a relaunched calibration reopens its session (`--resume`) when the session recorded the plan's
-    hash, and `--fresh` opens `sessions/<case>.v2`; `hmp run` accepts a bare `--resume` on a
-    calibration file.
-  - The solve budget of a launch counts the width of a calibration case (the widest `[calibration]
-    parallel` of its phases): a case wider than `[sites.run] parallel`, than the measured ceiling or
-    than the cores is refused without `--force`.
-  - `hmp project plan` refuses to rewrite the plan while a calibration session is `running`, as it
-    already did for a run.
-  - `hmp publish` never copies `summary/published.jsonl`; `_refuse_leaks` scans `.jsonl`, `.csv`,
-    `.tsv`, `.toml`, `.md`, `.html`, `.txt` and `.json`; CSV and TSV cells go through `redact()`; a
-    Parquet column that holds an absolute path refuses the publication by file and column;
-    `summary/by_case` and `by_site` write paths relative to the project root; `hmp publish .` stages
-    every run and the summary together and moves them at once (`publish_project`), so a refused
-    member leaves nothing behind.
-  - `simulation.parquet` and `parameters.parquet` of the seal carry the same footer as every other
-    table of the run (`run_parquet_footer()`: identity, licence, `sim_id`, `hydromodpy_version`,
-    extent); the seal resolves the projection of the catchment into `crs_wkt` and `crs_epsg`, lost
-    since the writer of the index left.
-  - The evaluator contract and the step-artefact characterization follow the current surface
-    (`run_calibration_core` with an open session, the run journal read before the seal); the twin
-    calibration benchmarks of `validation_cases/` no longer write `[workspace] project_root`, read
-    the session journal instead of the index, compare projections with `pyproj` and read the trial
-    `params` column.
-  - The local CI doctest list no longer names `core/state/global_index.py`; `hmp workspace clean
-    --scratch` aims at the project scratch folders only; the default `[sites.run] parallel` bends to
-    the cores of the machine instead of being refused.
-- Lake-river stack, correction of the audit of 2026-10-14 (seven lots integrated on 2026-10-15):
-  - MODFLOW 6 API path: a solve that does not converge raises `SolverDivergedError`
-    [HMPY.E401] like the executable path, libmf6 is finalized on every exception,
-    ATS is refused under the API (C-02, API-2, API-3).
-  - `[modflow6.runtime] mf6_backtracking_number` (None = preset, 0 cuts IMS
-    backtracking); the E401 message names `mf6_enable_xt3d = false` when the NPF
-    carries XT3D (C-03, TRI-XT3D).
-  - LAK HORIZONTAL banks in marnage cover [carved lake cell top, neighbour top], never
-    the carved bed; the table bottom is compared to the connection floor (warning);
-    a lake connected to a CHD cell is refused; slivers below 1e-6 of the cell area
-    are dropped; the implicit seal behind a cutoff wall is a WARNING with its count
-    (C-01, LAK-7, CHD, BV-2, HFB-3).
-  - HFB: every layer cut by the wall is barred on both cells of the link, face
-    `hydchr` weighted by trace length over face chain length, `hydchr <= 0`
-    refused under XT3D, open length at each end reported (HFB-1, HFB-4, HFB-5).
-  - Soil + lake: per-period forcings are averaged for the steady initial
-    condition; `spinup = first_year` accepted on 52 weekly periods; two lakes
-    without SFR share the basin runoff once (SOL-2, SPIN, LAK-6).
-  - Mesh: WARNING when a size term asks less than the DEM pixel; sill zone contour
-    simplified before the buffer; DISV vertices written with 15 decimals (C-06, C-07,
-    DISV-PREC).
-  - SFR: the routed outflow counts lake outlets and refuses an all-zero series;
-    `route_drainage` defaults to true with SFR; DRN movers to a lake are counted
-    (C-08, SFR-4, BC-1).
-  - Config: lake, outlet and SFR csv forcings resolve against `data/`; `runtime_reuse`
-    removed and its key refused; throttled wells (AUTO_FLOW_REDUCE) reported; DRAINC
-    break dated 2015-07-31 (CSV, REUSE, WEL-1, RCH-0).
-  - `tests/integration/test_two_lake_voronoi_stack_e2e.py`: two lakes, Voronoi mesh,
-    HFB, SFR routed drainage, WEIR + mover, real mf6 solve (TST-1).
-
 ### Added
+- Each family of stored documents now declares the oldest version it reads next to its current one. Every later 2.x reads every 2.0.0 document.
+- `hydromodpy_version_min` in `workspace.toml` is now enforced. A run, a project or a command on a workspace that asks for a newer HydroModPy stops before any work and names both versions. A pre-release counts as its release.
+- `docs/source/about/versions.md` is now the one statement of what a version may change. The whole 2 line
+  reads a run it stored. A TOML key, an `hmp` command or flag, or a name of `hydromodpy.__all__` can be
+  renamed in a minor version, and the old name keeps working for two minor versions. A fix to a wrong
+  number can land in any version, under the new `Numbers` heading of this file and with an entry in
+  `hydromodpy/results/known_issues.toml`. A file that does not say which defaults it wants follows the
+  defaults of 2.0.
+- A gate freezes the public surfaces: the names and signatures of `hydromodpy.__all__`, the public methods
+  of `Project`, `Run`, `RunSet`, `Catalog`, `Session` and `Workspace`, the command line with its flags, the
+  exit codes, the TOML paths with their types and defaults, and the process descriptions. A change fails
+  `tests/unit/architecture/test_public_surfaces_are_frozen.py`, which says what changed.
+  `python -m tools.surface_snapshot` accepts the change, and refuses a stable TOML key that left with no
+  rewrite.
+- `contracts.rst` lists the public import paths: `hydromodpy.__all__` and a short list of modules for plugin
+  authors. Every other module is internal. A gate fails when a listed module disappears, or when a page of
+  the reference or of the how-to guides imports a module outside the list.
+- `contracts.rst` says which plugin port is stable: `terrain`, `mesh` and `data.source` are stable.
+  `solver`, `solver.extractor` and `calibration.evaluator` are experimental. `forward_model` is stable in
+  its signature and experimental in its construction options.
+- The conformance suite of the data-source port now runs its declarations and its refusals on every source
+  the registry serves, an installed one too.
+- A run now says which experimental keys its file wrote, in one line of information, once per run. A calibration says it once per session, at its preflight, and never per trial. `hmp config check` prints the same line. `--quiet` hides it. Nothing is refused and no warning is raised.
+- `field_metadata` takes `experimental_values`, which marks some values of a selector when the key itself stays stable. The JSON Schema carries it and the parameter pages show it.
 - A GeoJSON feature without a readable CRS, or in a local frame that cannot go to WGS 84, stops the
   export with an `ExportError` that names the file,
   the feature and the CRS, and an observation without a provider CRS is listed in
@@ -1438,6 +685,30 @@ Each release section includes the following standard categories:
   (`ADDITIVE_MEMBERS`) when the older run predates that layout, and lists them in its report.
 
 ### Changed
+- A document newer than what this HydroModPy reads is refused with "upgrade HydroModPy", and it names the version that wrote it when known. One older, or with no version, is refused as written by a pre-release that must be run again. A store of another Zarr or Parquet version now raises `SchemaVersionMismatchError` like any other document.
+- A key or a word a later 2.x added to a stored document now reads, at any depth: `manifest.json`, `outcome.json`, `session.json`, the plan, the ledgers, `PUBLICATION.json`, `inputs.json`, `provenance.json` and `INSTALL.toml`. Models still refuse an unknown key or word when they write.
+- The published JSON Schemas under `hydromodpy/schema/results/` allow additional properties. A status, a kind, a regime or a topology is a string with its words in `x-hmp-vocabulary`.
+- A stored run or session this version cannot read costs one warning and is left out of a list: `hmp project show`, `hmp project status`, `hmp catalog ls`, `hmp catalog watch`, `hmp catalog gc`, `hmp run` and the trash. A case with such a run is not done, and running it takes a new version beside it. `hmp project show` counts these as `unreadable`.
+- `hmp project collect` still stops on a run it cannot read, because a summary states every case.
+- The index keeps a flow regime, a mesh topology or a session status it does not know. It used to store an empty value, or to leave the session out.
+- A file that writes a renamed key loads with a warning instead of being refused. The warning names the old
+  key, the new key and `hmp doctor --fix-config <file>`, once per key and per file. This covers
+  `calibration.max_iter`, `tolerance`, `transform`, `prior`, `steady_max_iter` and the other calibration keys
+  renamed before 2.0. A config built in Python is still refused with the new name.
+- Every migration in `hydromodpy/config/config_migration.py` states `since`, and a test fails when one
+  outlives its delay of two minor versions.
+- `hmp doctor --fix-config` also rewrites `optimizer_kwargs`, `steady_engine_options` and
+  `transient_engine_options`.
+- The exported JSON Schema no longer holds the package version. `$id` is `urn:hmp:schema:<scope>`, and
+  `x-hmp-version` is gone, because nothing read it. Two releases that leave the models alone export the same
+  bytes, so a schema diff in the CI of a frontend stays quiet.
+- `$defs` names are declared outside the contract of the schema. They are Python class names, so follow a
+  `$ref` and do not match on its target.
+- Three modules a plugin has to import lost their underscore: `hydromodpy.display.figures.scalar_face_map`,
+  `hydromodpy.results.exporters.fields` and `hydromodpy.cli.conventions`.
+- These keys are now marked experimental and may change in a minor release: `[calibration]` as a whole, the `flow.runtime_*`, `flow.vi_*` and `flow.ts_vi_*` keys, `flow.partition_release_depth_m`, `transport.modflow6prt`, `transport.modpath`, `flow.sinks_sources.flow_barriers`, a lake's `cutoff_wall`, the soil reservoir keys `curve_number`, `runoff_time`, `runoff_lag`, `transit_time`, `bypass_fraction`, `impervious_fraction`, `spinup`, `alpha` and `kc`, `geographic.domain_extent`, and `solver.backend.name` of a custom backend. So are the values `complementarity`, `vi_obstacle` and `ts_vi_obstacle` of `flow.surface_interaction_model`, and the transport solvers `modpath` and `modflow6_prt` of `[[simulation.process]]`.
+- The shape of `CalibrationReport` is experimental until the rework of the calibration is published.
+- On the parameter pages, the experimental badge now also shows on every key below a marked section.
 - `first_clim = "mean"` and the mean recharge of the network criterion weigh each period by its length, so
   a steady period receives the mean volume of the record (2026-11-02). The auxiliary steady solve of
   `flow.ic` reads the same mean, under every solver. Each steady state on periods of unequal length changes:
@@ -2157,7 +1428,10 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
-
+- `ZarrSchemaVersionError` and `ParquetSchemaVersionError`. Use `SchemaVersionMismatchError`.
+- The adoption of data caches older than the migration ledger. None shipped in a stable release.
+- The "V1 release contract" page. Its address redirects to the versions page. Its surface table gave way to
+  the generated references.
 - The site selection left the repository (2026-11-02): `hmp site select`, `hmp site import
   --selection`, the `[site_selection]` file, its report and manifest, and the `terrain-delineate`
   capability, which no command ran any more. No example and no project used them. `[site_selection]`
@@ -2341,6 +1615,16 @@ Each release section includes the following standard categories:
   A run sealed before the family tables draws no reference line.
 
 ### Fixed
+- An append to a Parquet table of a run no longer drops a column a later version added. The rows of this writer read it as null.
+- Reading a table of a run now checks its `hmp.schema_version`, like an append does. The log line "rewriting as v2", which came just before a refusal, is gone.
+- A data cache migrated by a newer HydroModPy is refused, naming the migration it holds and the latest this code knows. It used to open silently.
+- `add-a-solver.rst` described fields of `RunExecutionResult` and `RunState` the code does not have, and a
+  `SolverOutputAdapter` class that does not exist. An adapter written from the page failed at construction.
+- `hmp doctor --fix-config` keeps the comments and the place of a table it renames.
+- The docs no longer call DuckDB a canonical store. The run directories are the truth, and DuckDB holds the
+  indexes rebuilt from them. `hydromodpy.lock` is described as what it is: the launcher of a `[sites]`
+  project and `hmp dev lock` write it, and no ordinary run does.
+- The description of `solver.drain_bed_thickness_m` now says that its default of 1 m is a convention with no measured source. The value does not change.
 - A polygon cell whose zonal top falls so far under its centre sample that less than
   `min_thickness_m` or a tenth of the column is left (a coarse cell on the flank of a quarry)
   kept a column of a few centimetres, which MODFLOW 6 could not solve under Newton: the Flume v2
@@ -2409,6 +1693,9 @@ Each release section includes the following standard categories:
   converges. MODFLOW 6 and MODFLOW-NWT agree on the new domain: mean head 122.686 against
   122.685 m, drain outflow 0.06307 against 0.06305 m3/s, where the GMRES golden stood 0.5 m
   below MODFLOW 6.
+
+### Numbers
+- None. This lot changes no number of a run.
 
 ## [v2.0.0a5] - 2026-10-13
 

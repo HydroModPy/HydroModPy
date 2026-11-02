@@ -7,6 +7,15 @@ bound to a concrete backend. Today three backends ship: ``modflow6``,
 fourth flow backend or, equivalently, a new ``transport`` /
 ``postprocess`` solver.
 
+The ``hydromodpy.solver`` and ``hydromodpy.solver.extractor`` ports are
+experimental (:doc:`../contracts`), so they can change in any minor version.
+They also have two limits today. The boundary conditions name the backends
+they support in a closed list, so a backend outside the tree that writes a
+boundary condition is refused when the file loads
+(``physics/flow/boundary_condition_registry.py``). The run index knows a closed
+list of solver codes too, so the index leaves out a run of such a backend, and
+says so (``results/catalog/index_schema.py``).
+
 Contract
 --------
 
@@ -32,28 +41,38 @@ A solver implements the ``SolverAdapter`` Protocol declared in
            time_index=None,
        ) -> "dict[str, ObservableResult]": ...
 
-``RunExecutionResult`` is a small dataclass exposing
-``success: bool`` and ``outputs: dict | None``.
+``RunContext`` and ``RunExecutionResult`` are declared in
+``hydromodpy/simulation/planning/plan.py``. ``RunExecutionResult`` is a frozen
+dataclass with three fields:
+
+- ``primary_model``: the model the run produced, or ``None`` for a run that
+  produces none. The runner keeps it for a run that depends on this one.
+- ``solver_output_dir``: the directory that holds the raw output files, or
+  ``None`` for an in-memory solver.
+- ``metrics``: what the run has to say about itself. The catalog keeps what
+  converts to a finite float and skips the rest. Optional.
 
 ``ctx.state`` is a ``RunState``: the reduced view of the workflow runtime
 an adapter is allowed to read, and not the pipeline state itself. It
-carries four members and no more - ``setup`` (workspace, domain, flow,
-mesh ...), ``cfg``, ``execution`` (the produced models and the solver
-output directory of each run), and ``sim_id``. Reading anything else
+carries three members and no more: ``setup`` (workspace, domain, flow,
+mesh ...), ``cfg`` and ``sim_id``. Reading anything else
 raises ``AttributeError``, and a static gate in
-``tests/unit/architecture/`` says so before the solver ever runs. The
-catalog handle of the enclosing run is not in there: it arrives as
+``tests/unit/architecture/`` says so before the solver ever runs. What the run
+itself produced arrives beside it, as ``ctx.model`` and ``ctx.output_dir``. The
+catalog handle of the enclosing run is not in there either: it arrives as
 ``ctx.store``, borrowed for the span of the call, and an adapter keeps no
 reference to it past ``execute``.
 
 A separate **output adapter** (the *extractor*) ingests the persisted
 outputs into the catalog. It is registered on the same
-``(process_type, solver_name)`` pair as the adapter and implements:
+``(process_type, solver_name)`` pair as the adapter and implements the
+``OutputAdapter`` Protocol of
+``hydromodpy/simulation/extraction/derivation/base.py``:
 
 .. code-block:: python
 
-   class SolverOutputAdapter:
-       def extract(self, sim_id: str, solver_output_dir: Path, store) -> None: ...
+   class OutputAdapter(Protocol):
+       def extract(self, sim_id: str, solver_output_dir: Path, store: Any) -> None: ...
 
 Files to create
 ---------------
@@ -86,7 +105,7 @@ Minimal adapter skeleton
    # hydromodpy/solver/mysolver/adapters/flow.py
    from typing import ClassVar
 
-   from hydromodpy.solver.base.adapter_protocol import RunExecutionResult
+   from hydromodpy.simulation.planning.plan import RunExecutionResult
 
 
    class MysolverFlowAdapter:
@@ -99,9 +118,9 @@ Minimal adapter skeleton
            ...
 
        def execute(self, ctx) -> RunExecutionResult:
-           # build, run, persist
-           outputs = {...}
-           return RunExecutionResult(success=True, outputs=outputs)
+           # build and run, under ctx.state.setup.workspace.solver_scratch_folder
+           model, output_dir = ...
+           return RunExecutionResult(primary_model=model, solver_output_dir=output_dir)
 
        def cleanup(self, ctx) -> None:
            # remove scratch files; leave persisted outputs alone

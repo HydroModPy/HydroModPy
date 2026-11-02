@@ -98,7 +98,7 @@ def filled(tmp_path: Path) -> RunStore:
     store.write_provenance(sid, "dem", "ign_geoplateforme_dem", np.ones(4))
     store.record_input(sid, DEM_INPUT)
     store.write_geographic_metadata(sid, CATCHMENT)
-    store.update_simulation_grid_metadata(sid, mesh_hash="mesh01", mesh_topology="regular")
+    store.update_simulation_grid_metadata(sid, mesh_hash="mesh01", mesh_topology="structured_2d")
     return store
 
 

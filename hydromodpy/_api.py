@@ -706,7 +706,7 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
     import dataclasses
 
     from hydromodpy.project import Project
-    from hydromodpy.project.facade import _resolve_config
+    from hydromodpy.project.facade import resolve_config
     from hydromodpy.project.spinup import run_spinup
 
     headless = bool(kwargs.pop("headless", True))
@@ -722,7 +722,7 @@ def spinup(config: ConfigLike, **kwargs: Any) -> SpinupResult:
 
             prod_cfg = HydroModPyConfig.from_toml(source)
         else:
-            prod_cfg = copy.deepcopy(_resolve_config(source))
+            prod_cfg = copy.deepcopy(resolve_config(source))
 
     with Project(source, headless=headless, no_display=True) as project:
         result = run_spinup(project, **kwargs)

@@ -19,7 +19,7 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   read them
 - ``solver_scratch`` and ``persistence.save_lock`` dropped: both drove
   nothing. The solver scratch directory is ``<project>/.hmp/scratch`` and
-  the lockfile is written on every run.
+  no run option writes the lockfile.
 - ``[modflow6.sgrid.vertical]`` and ``[modflownwt.sgrid.vertical]`` ->
   ``[domain.layers]``, which every solver reads. When both are written, the
   table of the flow solver is kept (the first solver of the first flow
@@ -52,27 +52,40 @@ Rewrites legacy ``[simulation]`` keys in place, preserving comments and layout:
   written here: it names the catchment, which only the user knows.
 
 This is a migration tool, not a backward-compat shim: the runtime model itself
-never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` is the
-one pure document-to-document transform; two callers wrap it. ``fix_config_file``
-(reached through ``hmp doctor --fix-config``) rewrites a file on disk once, so a
-project TOML catches up for good. ``migrate_config_doc_on_load`` runs the same
-transform in memory on a payload already parsed by a caller, without touching
-the file it came from, and logs what it changed. ``HydroModPyConfig.from_toml``
-calls it on the raw payload, before validation, so a config written for an
-earlier schema still loads without the doctor having run on it first. The
-calibration loader reaches it through the root-config provider, since the
-calibration layer does not import this one.
+never accepts the old keys (``extra="forbid"``). ``migrate_config_doc`` and
+:data:`RENAMED_KEYS` are the document-to-document transforms; two callers wrap
+them. ``fix_config_file`` (reached through ``hmp doctor --fix-config``) rewrites a
+file on disk once, so a project TOML catches up for good.
+``migrate_config_doc_on_load`` runs the same transforms in memory on a payload
+already parsed by a caller, without touching the file it came from, and warns once
+per key and per file. ``HydroModPyConfig.from_toml`` calls it on the raw payload,
+before validation, so a config written for an earlier schema still loads without
+the doctor having run on it first. The calibration loader reaches it through the
+root-config provider, since the calibration layer does not import this one.
+
+Deprecation
+-----------
+Every old form says since which version it is old (:data:`DEPRECATION_DELAY_MINORS`
+and :func:`old_forms`). A form keeps loading for two minor versions, the one that
+retired it included, then it leaves this module:
+``tests/unit/config/test_config_migration.py`` fails when one outlives its delay.
+The policy is ``docs/source/about/versions.md``. A rename from now on is one row of
+:data:`RENAMED_KEYS`. At the end of its delay the row stays with
+``sealed_only=True``, because a run sealed under the old name stays readable for
+the whole major line, and only the live file loses it.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import tomlkit
+from packaging.version import Version
 
+from hydromodpy.core.config_kit.base import warn_old_form
 from hydromodpy.core.config_kit.export_spec import RUN_FORMATS, format_from_path
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import is_sealed_run_config
@@ -81,6 +94,43 @@ from hydromodpy.core.time import parse_step_spec
 _logger = get_logger(__name__)
 
 _SOLVER_SECTIONS = ("modflow6", "modflownwt")
+
+DEPRECATION_DELAY_MINORS = 2
+"""How many minor versions an old form loads, the one that retired it included.
+
+``since = "2.3.0"`` loads, with a warning, in 2.3 and in 2.4, and goes in 2.5.
+"""
+
+ALPHA_FORM = "2.0.0"
+"""``since`` of a form only an alpha wrote. Its delay counts from the first stable version."""
+
+
+@dataclass(frozen=True)
+class OldForm:
+    """One old spelling of the grammar: what it was, what it is now, since when.
+
+    ``old`` and ``new`` are written as the path of the document, with ``[*]`` for
+    each table of a list and ``{*}`` for the tables under free names. ``new`` is
+    ``None`` for a key that left with nothing in its place. ``rewritten`` says that
+    this module carries the old form across. A form it does not (a field whose old
+    shape has no exact new one) is refused by the loader with what to write instead.
+    """
+
+    old: str
+    new: str | None
+    since: str
+    rewritten: bool = True
+
+    @property
+    def removal(self) -> str:
+        """The first version that may no longer hold this form."""
+        major, minor = Version(self.since).release[:2]
+        return f"{major}.{minor + DEPRECATION_DELAY_MINORS}.0"
+
+    def outlived_by(self, version: str) -> bool:
+        """Whether *version*, a pre-release included, is past the delay of this form."""
+        return Version(version).release[:2] >= Version(self.removal).release[:2]
+
 
 #: The result tables a run no longer reads. A stored config and a user file both
 #: drop them, and the docs list them as migrated keys.
@@ -102,6 +152,7 @@ class TableMove:
 
     old: str
     new: str
+    since: str
 
     @property
     def section(self) -> str:
@@ -114,7 +165,8 @@ _LAYERING = "domain.layers"
 #: The tables the loader moves to another path: the layering each solver wrote
 #: under ``sgrid``, which every solver reads from ``[domain.layers]`` now.
 MOVED_TABLES: tuple[TableMove, ...] = tuple(
-    TableMove(f"{section}.sgrid.vertical", _LAYERING) for section in _SOLVER_SECTIONS
+    TableMove(f"{section}.sgrid.vertical", _LAYERING, since=ALPHA_FORM)
+    for section in _SOLVER_SECTIONS
 )
 
 
@@ -287,6 +339,9 @@ class KeyRename:
     run never needed. ``sealed_drop_unconverted`` drops it only when ``convert``
     cannot decide, so the key falls back to the default of the new one and the
     sealed run still reads.
+
+    ``since`` is the version that retired the old name. ``sealed_only`` ends the
+    delay: a live file is refused again and only a sealed config still reads it.
     """
 
     scope: str
@@ -295,6 +350,8 @@ class KeyRename:
     convert: Callable[[Any, Any], Any] | None = None
     sealed_drop: bool = False
     sealed_drop_unconverted: bool = False
+    since: str = field(kw_only=True)
+    sealed_only: bool = False
 
 
 def _steps_to_duration(value: Any, doc: Any) -> str:
@@ -352,28 +409,51 @@ _EXTENT_RULE_KEYS = (
 )
 
 RENAMED_KEYS: tuple[KeyRename, ...] = (
-    KeyRename("calibration", "max_iter", "max_trials"),
-    KeyRename("calibration.phases[*]", "max_iter", "max_trials"),
-    KeyRename("calibration.protocol", "steady_max_iter", "steady_max_trials"),
-    KeyRename("calibration.protocol", "transient_max_iter", "transient_max_trials"),
-    KeyRename("calibration", "tolerance", "precision"),
-    KeyRename("calibration.phases[*]", "tolerance", "precision"),
-    KeyRename("calibration.protocol", "steady_tolerance", "steady_precision"),
-    KeyRename("calibration.protocol", "transient_tolerance", "transient_precision"),
-    KeyRename("calibration.parameters.{*}", "transform", "search_space"),
-    KeyRename("calibration.parameters.{*}", "prior", "sampling"),
-    KeyRename("calibration.objective_blocks[*]", "transform", "cost_transform"),
+    KeyRename("calibration", "max_iter", "max_trials", since=ALPHA_FORM),
+    KeyRename("calibration.phases[*]", "max_iter", "max_trials", since=ALPHA_FORM),
+    KeyRename("calibration.protocol", "steady_max_iter", "steady_max_trials", since=ALPHA_FORM),
+    KeyRename(
+        "calibration.protocol", "transient_max_iter", "transient_max_trials", since=ALPHA_FORM
+    ),
+    KeyRename("calibration", "tolerance", "precision", since=ALPHA_FORM),
+    KeyRename("calibration.phases[*]", "tolerance", "precision", since=ALPHA_FORM),
+    KeyRename("calibration.protocol", "steady_tolerance", "steady_precision", since=ALPHA_FORM),
+    KeyRename(
+        "calibration.protocol", "transient_tolerance", "transient_precision", since=ALPHA_FORM
+    ),
+    KeyRename("calibration.parameters.{*}", "transform", "search_space", since=ALPHA_FORM),
+    KeyRename("calibration.parameters.{*}", "prior", "sampling", since=ALPHA_FORM),
+    KeyRename("calibration.objective_blocks[*]", "transform", "cost_transform", since=ALPHA_FORM),
+    KeyRename("calibration", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
+    KeyRename("calibration.phases[*]", "optimizer_kwargs", "method_options", since=ALPHA_FORM),
+    KeyRename(
+        "calibration.protocol", "steady_engine_options", "steady_method_options", since=ALPHA_FORM
+    ),
+    KeyRename(
+        "calibration.protocol",
+        "transient_engine_options",
+        "transient_method_options",
+        since=ALPHA_FORM,
+    ),
     *(
-        KeyRename(scope, old, new, convert=_steps_to_duration, sealed_drop_unconverted=True)
+        KeyRename(
+            scope,
+            old,
+            new,
+            convert=_steps_to_duration,
+            sealed_drop_unconverted=True,
+            since=ALPHA_FORM,
+        )
         for scope in _EXTENT_RULE_SCOPES
         for old, new in _EXTENT_RULE_KEYS
     ),
 )
-"""Every key the loader refuses under its old name, with the name that replaced it.
+"""Every key a file wrote under another name, with the name that replaced it.
 
-A user file is refused naming the new key, and ``hmp doctor --fix-config``
-rewrites it. A sealed run config is renamed on read, so a run on disk replays.
-Each model lists the old key in ``model_refused_keys``; its new field declares
+A load reads the old name under the new one and warns; ``hmp doctor --fix-config``
+rewrites the file. A sealed run config is renamed on read, in silence, so a run on
+disk replays. Each model lists the old key in ``model_refused_keys`` or
+``model_legacy_keys``, for a config built in Python; its new field declares
 ``renamed_from`` so the generated docs list the rename. The two keys of
 ``[calibration.uncertainty]`` that said how wide an interval is, ``tolerance`` and
 ``mode``, become one ``cost_margin`` and are rewritten apart
@@ -397,6 +477,8 @@ def _rename_keys(doc: Any, *, sealed: bool) -> list[str]:
     """Apply :data:`RENAMED_KEYS` to *doc*, for a file (the doctor) or a sealed read."""
     changes: list[str] = []
     for rule in RENAMED_KEYS:
+        if rule.sealed_only and not sealed:
+            continue
         for where, table in _tables_at(doc, rule.scope):
             if rule.old not in table:
                 continue
@@ -760,6 +842,22 @@ def _rewrite_option(
     return [f"{label} -> {search.budget} = {kept}"]
 
 
+def _moved_table(original: Any) -> Any:
+    """Return a tomlkit table as an item for its new key, with its comments, or ``None``.
+
+    A ``[header]`` table renders under the name it was parsed with, so its items go
+    into a fresh table. An inline table has no header and moves as it is.
+    """
+    if isinstance(original, tomlkit.items.InlineTable):
+        return original
+    if not isinstance(original, tomlkit.items.Table):
+        return None
+    fresh = tomlkit.table()
+    for key, item in original.value.body:
+        fresh.append(key, item)
+    return fresh
+
+
 def _move_key(table: Any, old: str, new: str, value: Any) -> None:
     """Write *value* under ``new`` where ``old`` stood, and keep the comment of the line.
 
@@ -767,9 +865,10 @@ def _move_key(table: Any, old: str, new: str, value: Any) -> None:
     comment that introduces it.
     """
     position = _position(table, old)
-    comment = getattr(getattr(table.get(old), "trivia", None), "comment", "") or ""
+    original = table.get(old)
+    comment = getattr(getattr(original, "trivia", None), "comment", "") or ""
     del table[old]
-    item = _scalar_item(value, comment)
+    item = _moved_table(original) or _scalar_item(value, comment)
     if position is None or item is None:
         table[new] = value
         if comment.startswith("#") and hasattr(table[new], "comment"):
@@ -849,35 +948,26 @@ def migrate_config_doc_on_load(doc: Any, *, source: str | Path | None = None) ->
     Meant for ``HydroModPyConfig.from_toml``: called on the freshly parsed
     payload, before Pydantic validation, so a config written for an earlier
     schema still loads. Never touches the file *doc* came from - only
-    ``fix_config_file`` writes to disk. Logs one line naming what changed and
-    that ``hmp doctor`` persists it; says nothing when the document was
+    ``fix_config_file`` writes to disk. Warns once per key and per file, naming
+    the old key, the new key and the doctor; says nothing when the document was
     already current.
 
     A *source* that is the frozen config of a run already on disk
-    (:func:`~hydromodpy.core.state.paths.is_sealed_run_config`) also gets
-    :func:`migrate_sealed_config_doc`: the keys renamed since the run was sealed
-    are read under their new name, without a line to persist, since no one
-    edits a sealed file.
+    (:func:`~hydromodpy.core.state.paths.is_sealed_run_config`) is read in silence,
+    with the rules of :func:`migrate_sealed_config_doc`: no one edits a sealed file.
     """
     changes = migrate_config_doc(doc)
-    loud = [change for change in changes if change not in _QUIET_CHANGES]
-    if loud:
-        where = f"{source}" if source is not None else "config"
-        _logger.info(
-            "%s: migrated %d legacy key(s) on load, not persisted to disk "
-            "(run `hmp doctor --fix-config %s` to persist): %s",
-            where,
-            len(loud),
-            source if source is not None else "<path>",
-            "; ".join(loud),
-        )
-    elif changes:
-        _logger.debug("%s: %s", source or "config", "; ".join(changes))
-    if source is not None and is_sealed_run_config(source):
-        sealed = migrate_sealed_config_doc(doc)
-        if sealed:
-            _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(sealed))
-        changes.extend(sealed)
+    sealed = source is not None and is_sealed_run_config(source)
+    changes.extend(_rename_keys(doc, sealed=sealed))
+    if sealed:
+        if changes:
+            _logger.debug("%s: sealed config read as renamed: %s", source, "; ".join(changes))
+        return changes
+    for change in changes:
+        if change in _QUIET_CHANGES:
+            _logger.debug("%s: %s", source or "config", change)
+        else:
+            warn_old_form(source, change)
     return changes
 
 
@@ -1558,15 +1648,123 @@ def _promote_export(doc: Any, simulation: Any) -> list[str]:
     return ["simulation.results.export -> [export]"]
 
 
+_PERSISTENCE = "simulation.results.persistence", "persistence", "calibration.persistence"
+
+HAND_WRITTEN_FORMS: tuple[OldForm, ...] = (
+    OldForm("simulation.on_collision", "simulation.if_exists", ALPHA_FORM),
+    OldForm("simulation.run_id", "simulation.name", ALPHA_FORM),
+    OldForm("simulation.results.export", "export", ALPHA_FORM),
+    OldForm("simulation.results.solver_scratch", None, ALPHA_FORM),
+    *(OldForm(f"{path}.save_lock", None, ALPHA_FORM) for path in _PERSISTENCE),
+    *(OldForm(table, None, ALPHA_FORM) for table in RETIRED_RESULTS_TABLES),
+    *(
+        OldForm(f"export.{key}", "export", ALPHA_FORM)
+        for key in (*_EXPORT_TOGGLES, "csv_timeseries", "package", "output_dir", "artifacts")
+    ),
+    OldForm("export.variables.{*}", "export.variables", ALPHA_FORM),
+    OldForm("export.times", "export.time", ALPHA_FORM),
+    OldForm("display.overrides.{*}.timestep", "display.overrides.{*}.time", ALPHA_FORM),
+    *(OldForm(f"{section}.tgrid", None, ALPHA_FORM) for section in _SOLVER_SECTIONS),
+    OldForm("geographic.bottom_path", "data.substratum.sources", ALPHA_FORM),
+    OldForm(
+        "calibration.outputs.{*}.roptim_max", "calibration.outputs.{*}.validity_length", ALPHA_FORM
+    ),
+    *(
+        OldForm(f"flow.bc.{kind}.{{*}}", "flow.bc.{*}", ALPHA_FORM)
+        for kind in ("dirichlet", "cauchy", "robin")
+    ),
+    OldForm("calibration.uncertainty.tolerance", "calibration.uncertainty.cost_margin", ALPHA_FORM),
+    OldForm("calibration.uncertainty.mode", "calibration.uncertainty.cost_margin", ALPHA_FORM),
+    OldForm(
+        "calibration.phases[*].uncertainty.tolerance",
+        "calibration.phases[*].uncertainty.cost_margin",
+        ALPHA_FORM,
+    ),
+    OldForm(
+        "calibration.phases[*].uncertainty.mode",
+        "calibration.phases[*].uncertainty.cost_margin",
+        ALPHA_FORM,
+    ),
+    *(
+        OldForm(
+            f"{search.scope}.{search.options[0]}.{key}",
+            f"{search.scope}.{search.budget}",
+            ALPHA_FORM,
+        )
+        for search in _SEARCH_SCOPES
+        for key in sorted({option for _, option in _BUDGET_OPTIONS})
+    ),
+    *(OldForm(path, None, ALPHA_FORM) for path in _DROPPED_KEYS),
+)
+"""The old forms a function of this module rewrites, one line for each key it reads."""
+
+REFUSED_OR_RETIRED_FORMS: tuple[OldForm, ...] = (
+    *(
+        OldForm(path, "mesh", ALPHA_FORM, rewritten=False)
+        for path in (
+            "mesh_catchment",
+            "mesh_input",
+            "modflow6.sgrid.planar",
+            "modflownwt.sgrid.planar",
+            "modflow6.sgrid.grid_dual",
+            "modflownwt.sgrid.grid_dual",
+        )
+    ),
+    *(
+        OldForm(f"calibration.aggregate.{key}", None, ALPHA_FORM, rewritten=False)
+        for key in ("weighting", "nested_gauges", "on_member_failure")
+    ),
+    *(
+        OldForm(f"calibration.{key}", None, ALPHA_FORM, rewritten=False)
+        for key in ("lightweight_extraction", "persist_model_distribution", "persistence")
+    ),
+    OldForm("data.project_crs", "geographic.crs_project", ALPHA_FORM, rewritten=False),
+    OldForm("data.hydrography.sources[*].typename", None, ALPHA_FORM, rewritten=False),
+)
+"""The old forms no rule here carries: the models refuse them, or read and ignore them."""
+
+
+def old_forms() -> tuple[OldForm, ...]:
+    """Return every old form of the grammar this build still knows, with its ``since``."""
+    return (
+        *(
+            OldForm(f"{rule.scope}.{rule.old}", f"{rule.scope}.{rule.new}", rule.since)
+            for rule in RENAMED_KEYS
+            if not rule.sealed_only
+        ),
+        *(OldForm(move.old, move.new, move.since) for move in MOVED_TABLES),
+        *HAND_WRITTEN_FORMS,
+        *REFUSED_OR_RETIRED_FORMS,
+    )
+
+
+def outlived_forms(version: str) -> tuple[OldForm, ...]:
+    """Return the old forms *version* should no longer hold."""
+    return tuple(form for form in old_forms() if form.outlived_by(version))
+
+
+def document_path(form_path: str) -> str:
+    """Return a form's path as the docs and the snapshots write it, with no list marker."""
+    return form_path.replace("[*]", "").replace(".{*}", "")
+
+
 __all__ = [
+    "ALPHA_FORM",
+    "DEPRECATION_DELAY_MINORS",
+    "HAND_WRITTEN_FORMS",
     "MOVED_TABLES",
+    "REFUSED_OR_RETIRED_FORMS",
     "RENAMED_KEYS",
     "RETIRED_RESULTS_TABLES",
     "KeyRename",
+    "OldForm",
     "TableMove",
+    "document_path",
     "drop_retired_results_tables",
     "fix_config_file",
     "migrate_config_doc",
     "migrate_config_doc_on_load",
     "migrate_sealed_config_doc",
+    "old_forms",
+    "outlived_forms",
 ]

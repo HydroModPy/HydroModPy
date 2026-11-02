@@ -29,6 +29,7 @@ from typing import Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.results.storage.contract import HEARTBEAT_FILENAME, RUN_LOGS_DIRNAME
 from hydromodpy.results.storage.json_io import read_transient_json, write_json_atomic
 
@@ -65,7 +66,7 @@ def read_heartbeat(run_dir: str | Path) -> Heartbeat | None:
         payload = read_transient_json(heartbeat_path(run_dir), HEARTBEAT_SCHEMA)
     except FileNotFoundError:
         return None
-    return Heartbeat.model_validate(payload)
+    return read_stored(Heartbeat, payload)
 
 
 def heartbeat_age_s(run_dir: str | Path, now: datetime | None = None) -> float | None:

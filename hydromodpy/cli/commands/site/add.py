@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, exit_code_for
 
 NAME: str = "add"

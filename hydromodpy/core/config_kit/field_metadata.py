@@ -30,6 +30,13 @@ a station, a site-specific file). A ``[sites]`` project refuses a case whose
 resolved config keeps a literal value in such a field without a ``bind`` or a
 site overlay, and the generated docs say the value varies by site.
 :func:`hydromodpy.core.config_kit.introspect.site_scoped_paths` lists them.
+
+``stability="experimental"`` marks a key that may change in a minor release. A
+mark on a section root covers every key below it. ``experimental_values`` marks
+some values of a selector, a choice or a list of names, whose other values stay
+stable. The docs and the JSON Schema read both marks, and
+:func:`hydromodpy.core.config_kit.written.written_experimental_keys` lists the
+marked keys a configuration wrote.
 """
 
 from __future__ import annotations
@@ -61,6 +68,7 @@ class FieldMetadata(TypedDict, total=False):
     toml_exclude: bool
     group: str
     stability: Stability
+    experimental_values: list[str]
     value_docs: dict[str, str]
     renamed_from: list[str]
     site_scoped: bool

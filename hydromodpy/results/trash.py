@@ -64,6 +64,7 @@ from hydromodpy.results.storage.contract import (
     RUN_PUBLISHED_FILENAME,
     SESSION_DESCRIPTOR_FILENAME,
 )
+from hydromodpy.results.storage.json_io import readable
 
 logger = get_logger(__name__)
 
@@ -151,8 +152,12 @@ def parse_trashed_dirname(name: str) -> tuple[str, datetime]:
 
 
 def is_protected(directory: Path) -> bool:
-    """Return whether ``directory`` carries :data:`PROTECTED_TAG`."""
-    return PROTECTED_TAG in read_annotations(directory).tags
+    """Return whether ``directory`` carries :data:`PROTECTED_TAG`.
+
+    Annotations this code cannot read may carry it: the directory stays protected.
+    """
+    annotations = readable(read_annotations, directory)
+    return annotations is None or PROTECTED_TAG in annotations.tags
 
 
 def trash_run(project_root: Path, rel_dir: str, *, now: datetime, force: bool = False) -> Path:
@@ -321,17 +326,18 @@ def gc_trash(project_root: Path, *, older_than: timedelta, now: datetime) -> lis
 
 def identity_of(directory: Path) -> str | None:
     """Return the ``sim_id`` or ``session_id`` a directory declares, if any."""
-    outcome = read_outcome(directory)
+    outcome = readable(read_outcome, directory)
     if outcome is not None and outcome.sim_id:
         return str(outcome.sim_id)
     if is_sealed(directory):
-        sim_id = read_manifest(directory).get("run", {}).get("sim_id")
+        manifest = readable(read_manifest, directory)
+        sim_id = None if manifest is None else manifest.get("run", {}).get("sim_id")
         if sim_id:
             return str(sim_id)
     if (directory / SESSION_DESCRIPTOR_FILENAME).is_file():
-        session_id = read_session(directory).session_id
-        if session_id:
-            return str(session_id)
+        descriptor = readable(read_session, directory)
+        if descriptor is not None and descriptor.session_id:
+            return str(descriptor.session_id)
     return None
 
 

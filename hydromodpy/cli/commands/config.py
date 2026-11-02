@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.conventions import verbosity_parser
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity
 
 if TYPE_CHECKING:
@@ -349,6 +349,7 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     file it comes from.
     """
     from hydromodpy.config.sites.check import check_project, report_lines
+    from hydromodpy.core.config_kit.written import experimental_keys_line
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -360,6 +361,8 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     if report.kind == "calibration" and verbosity != "quiet":
         for line in _calibration_notes(path, verbose=verbosity in ("verbose", "debug")):
             print(line, file=sys.stderr)
+    if report.experimental_keys and verbosity != "quiet":
+        print(experimental_keys_line(report.experimental_keys), file=sys.stderr)
     summary, *findings = report_lines(report)
     if report.ok:
         print(summary)
@@ -397,14 +400,11 @@ def _calibration_notes(path: Path, *, verbose: bool) -> list[str]:
 
 def _cmd_config_schema(args: argparse.Namespace) -> None:
     """Export the JSON Schema for the HydroModPy configuration."""
-    from hydromodpy.config.schema_export import (
-        _ensure_root_sections,
-        export_schema,
-        write_schema,
-    )
+    from hydromodpy.config.schema_export import export_schema, write_schema
+    from hydromodpy.core.config_kit.registry import root_sections
 
     if getattr(args, "list_sections", False):
-        for name in sorted(_ensure_root_sections()):
+        for name in sorted(root_sections()):
             print(name)
         return
 

@@ -65,6 +65,7 @@ from typing import Any, Final
 
 import tomlkit
 
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import ConfigMissingError, ExportError
 from hydromodpy.core.payload import PayloadBundle, sidecar_name, stored_name, write_index
 from hydromodpy.core.payload.install import sha256_of as file_sha256
@@ -84,7 +85,7 @@ from hydromodpy.results.ledger import sha256_of
 from hydromodpy.results.manifest import is_sealed
 from hydromodpy.results.publication import (
     PROJECT_REL_DIR,
-    PUBLICATION_SCHEMA,
+    PUBLICATION_VERSIONS,
     REDACTED_PATH,
     Publication,
     PublicationExtra,
@@ -799,9 +800,9 @@ def _tar_digests(archive_path: Path) -> tuple[dict[str, str], dict[str, str]]:
             _, _, name = member.name.partition("/")
             if name == PUBLICATION_FILENAME:
                 payload = check_sealed(
-                    json.loads(data), PUBLICATION_SCHEMA, path=archive_path / member.name
+                    json.loads(data), PUBLICATION_VERSIONS, path=archive_path / member.name
                 )
-                recorded = Publication.model_validate(payload).files
+                recorded = read_stored(Publication, payload).files
                 continue
             found[name] = hashlib.sha256(data).hexdigest()
     return found, recorded

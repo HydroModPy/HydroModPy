@@ -91,7 +91,9 @@ class SoilReservoirConfig(HydroModelBase):
             "of FAO-56 and LP of HBV. Above 0, at most 1. Kept fixed by default: the "
             "discharge alone hardly constrains it."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.3, 1.0), units="-")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.3, 1.0), units="-"), stability="experimental"
+        ),
     )
     kc: Annotated[float, Profile.USER] = Field(
         default=1.0,
@@ -102,7 +104,9 @@ class SoilReservoirConfig(HydroModelBase):
             "kc x ETP a day. 1.0 takes the ETP as loaded, a reference grass. Between "
             "0 and 2. Kept fixed by default: kc and ru move the same annual volume."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.7, 1.3), units="-")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.7, 1.3), units="-"), stability="experimental"
+        ),
     )
     impervious_fraction: Annotated[float, Profile.USER] = Field(
         default=0.0,
@@ -116,7 +120,9 @@ class SoilReservoirConfig(HydroModelBase):
             "Calibrate it with [calibration.parameters.impervious_fraction]; the "
             "range belongs to the site, so a file has to state it."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(units="-")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(units="-"), stability="experimental"
+        ),
     )
     bypass_fraction: Annotated[float, Profile.USER] = Field(
         default=0.0,
@@ -129,7 +135,9 @@ class SoilReservoirConfig(HydroModelBase):
             "calibrated: a bypass can rebuild the summer recharge the soil "
             "reservoir removes."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 0.3), units="-")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.0, 0.3), units="-"), stability="experimental"
+        ),
     )
     transit_time: Annotated[DurationDays, Profile.USER] = Field(
         default=0.0,
@@ -143,7 +151,9 @@ class SoilReservoirConfig(HydroModelBase):
             "a longer delay would rebuild the slow groundwater memory MODFLOW "
             "computes itself."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 30.0), units="day")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.0, 30.0), units="day"), stability="experimental"
+        ),
     )
     curve_number: Annotated[float | None, Profile.USER] = Field(
         default=None,
@@ -158,7 +168,9 @@ class SoilReservoirConfig(HydroModelBase):
             "smoothed over 8 km cells. Calibrate it with "
             "[calibration.parameters.curve_number]."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(units="-")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(units="-"), stability="experimental"
+        ),
     )
     runoff_time: Annotated[DurationDays, Profile.USER] = Field(
         default=1.0,
@@ -171,7 +183,9 @@ class SoilReservoirConfig(HydroModelBase):
             "longer delay would smooth away the fast surface peak the term exists "
             "for."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 10.0), units="day")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.0, 10.0), units="day"), stability="experimental"
+        ),
     )
     runoff_lag: Annotated[DurationDays, Profile.USER] = Field(
         default=0.0,
@@ -187,7 +201,9 @@ class SoilReservoirConfig(HydroModelBase):
             "shift belongs to runoff_time's reservoir, not to a fixed travel time. "
             "Calibrate it with [calibration.parameters.runoff_lag]."
         ),
-        json_schema_extra=field_metadata(calibrable=Calibrable(bounds=(0.0, 5.0), units="day")),
+        json_schema_extra=field_metadata(
+            calibrable=Calibrable(bounds=(0.0, 5.0), units="day"), stability="experimental"
+        ),
     )
     spinup: Annotated[Literal["first_year", "none"], Profile.USER] = Field(
         default="first_year",
@@ -198,12 +214,13 @@ class SoilReservoirConfig(HydroModelBase):
             '(52 weeks) at least, and a 364-day run repeats those 364 days. "none" starts from a full soil, the state of a soil in a wet '
             "winter."
         ),
-        json_schema_extra={
-            "value_docs": {
+        json_schema_extra=field_metadata(
+            value_docs={
                 "first_year": "Repeat the first year until the soil storage settles.",
                 "none": "Start from a full soil and an empty transit store.",
-            }
-        },
+            },
+            stability="experimental",
+        ),
     )
 
     @field_validator("ru", mode="before")

@@ -7,7 +7,7 @@ import csv
 import json
 import sys
 
-from hydromodpy.cli._conventions import format_parser, workspace_parser
+from hydromodpy.cli.conventions import format_parser, workspace_parser
 from hydromodpy.cli.helpers import exit_code_for
 
 NAME: str = "ls"

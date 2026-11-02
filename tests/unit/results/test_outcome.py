@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -9,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.results.heartbeat import Heartbeat, write_heartbeat
+from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION
 from hydromodpy.results.outcome import (
     OUTCOME_SCHEMA,
     Outcome,
@@ -104,7 +106,9 @@ def test_the_outcome_is_flushed_to_the_disk(tmp_path, monkeypatch):
 
 def test_a_manifest_means_completed_whatever_the_outcome_says(tmp_path):
     write_outcome(tmp_path, _outcome("failed"))
-    (tmp_path / RUN_MANIFEST_FILENAME).write_text("{}", encoding="utf-8")
+    (tmp_path / RUN_MANIFEST_FILENAME).write_text(
+        json.dumps({"manifest_version": RUN_RECORD_MANIFEST_VERSION}), encoding="utf-8"
+    )
 
     assert effective_status(tmp_path) == "completed"
 

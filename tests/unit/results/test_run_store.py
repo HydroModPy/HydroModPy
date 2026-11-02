@@ -116,7 +116,7 @@ def test_the_grid_and_the_tracked_inputs_land_in_the_facts(run_dir: Path, tmp_pa
     dem.write_bytes(b"dem")
     with RunStore.open(run_dir, facts=_facts(), workspace=tmp_path) as store:
         store.update_simulation_grid_metadata(
-            SIM_ID, n_cells=4148, n_layers=2, mesh_hash="abc", mesh_topology="voronoi"
+            SIM_ID, n_cells=4148, n_layers=2, mesh_hash="abc", mesh_topology="polygon"
         )
         written = store.register_tracked_files(
             SIM_ID,
@@ -137,7 +137,7 @@ def test_the_grid_and_the_tracked_inputs_land_in_the_facts(run_dir: Path, tmp_pa
         4148,
         2,
         "abc",
-        "voronoi",
+        "polygon",
     )
     assert facts.tracked_inputs[0].path == "dem.tif"
     assert facts.tracked_inputs[0].sha256

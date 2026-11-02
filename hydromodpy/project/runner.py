@@ -18,6 +18,7 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.attempt import AttemptHandle, SealedRun, run_attempt, sealed_run_of
@@ -52,7 +53,7 @@ def _pin_parent_sim_id(ctx: WorkflowContext, parent_sim_id: str | None) -> Itera
         ctx.parent_sim_id = previous
 
 
-def _resolve_step_index(step: str | int, steps: tuple) -> int:
+def resolve_step_index(step: str | int, steps: tuple) -> int:
     """Resolve a step name (or integer/digit string) to a tuple index.
 
     Accepts either the ``step.name`` attribute (snake_case, e.g.
@@ -90,7 +91,7 @@ def _bounded_step_index(
     """
     if step is None:
         return None
-    index = _resolve_step_index(step, steps)
+    index = resolve_step_index(step, steps)
     if not 0 <= index < len(steps):
         raise ConfigError(
             f"{label} {step!r} resolves to index {index}, outside the {len(steps)}-step "
@@ -99,7 +100,7 @@ def _bounded_step_index(
     return index
 
 
-def _model_phase_index(steps: tuple) -> int:
+def model_phase_index(steps: tuple) -> int:
     """Return the index of the first step that consumes the shared model phase.
 
     ``0`` when the pipeline declares no ``setup_process``: an ad-hoc step list
@@ -371,8 +372,8 @@ class ProjectRunner:
 
         # A window that stops before ``setup_process`` reaches no step able to
         # open a run, so it is not a run and claims no directory.
-        model_phase_index = _model_phase_index(all_steps)
-        head_only = until_idx is not None and until_idx < model_phase_index
+        first_model_step = model_phase_index(all_steps)
+        head_only = until_idx is not None and until_idx < first_model_step
         if head_only and resume is not None:
             raise ConfigError(
                 f"until_step {until_step!r} stops before 'setup_process', so the run keeps no "
@@ -398,7 +399,7 @@ class ProjectRunner:
         if dry_run:
             resume_from = from_idx if from_idx is not None else None
             if resume_from is None and model_phase_ready:
-                resume_from = model_phase_index
+                resume_from = first_model_step
             _print_dry_run_plan(run_id=name, steps=steps, resume_from=resume_from)
             return None
 
@@ -408,6 +409,9 @@ class ProjectRunner:
         # declares; the context carries the one of the run in flight.
         cfg_run = resolve_run_config(project._cfg, thickness=thickness)
         project._ctx.cfg = cfg_run
+        # Here and not in the validate step: the prefix of a calibration and its
+        # trials run that step too, and a session says it once, at its preflight.
+        log_experimental_keys(cfg_run)
         rebuild_domain_if_stale(project._ctx)
 
         step_build_plan(
@@ -471,7 +475,7 @@ class ProjectRunner:
                 resume=resume,
                 from_idx=from_idx,
                 model_phase_ready=model_phase_ready,
-                model_phase_index=model_phase_index,
+                model_phase_index=first_model_step,
                 skip_display=skip_display,
                 frozen=frozen,
                 parallel=parallel,

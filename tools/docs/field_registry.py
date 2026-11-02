@@ -505,6 +505,7 @@ def _leaf_info(name: str, field: FieldInfo, path: str) -> dict[str, Any]:
         "examples": [_toml_lit(e) for e in (field.examples or [])],
         "calibrable": calib_info,
         "stability": extra.get("stability"),
+        "experimental_values": list(extra.get("experimental_values") or ()),
         "group": extra.get("group"),
         "when": when,
         "description": desc,
@@ -551,6 +552,7 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
                 existing = nodes.get(child_path)
                 if existing and existing.get("variants"):
                     existing["variants"].append(variant["value"])
+                    existing["experimental_values"] += info["experimental_values"]
                     if key == variant["field"]:
                         for v in info["literal"]:
                             if v not in existing["literal"]:
@@ -582,6 +584,7 @@ def walk(model: type[BaseModel], path: str, stack: tuple[type, ...], variant: di
             "source": _source_of(models[0]),
             "model": model.__name__,
             "renamed_from": _renamed_from(_extra_of(field)),
+            "stability": _extra_of(field).get("stability"),
         }
         if variant and child_path not in nodes:
             table["variants"] = [variant["value"]]
@@ -712,6 +715,14 @@ def _walk_extra_files() -> dict[str, dict[str, Any]]:
 FILES: dict[str, dict[str, Any]] = {}
 
 
+def _spread_stability(path: str, stability: str | None) -> None:
+    """Give every key below a marked section the mark of that section."""
+    for child in children.get(path, []):
+        node = nodes[child]
+        node["stability"] = node.get("stability") or stability
+        _spread_stability(child, node["stability"])
+
+
 def build() -> dict[str, Any]:
     nodes.clear()
     children.clear()
@@ -719,6 +730,7 @@ def build() -> dict[str, Any]:
     nodes[""] = {"path": "", "name": "", "kind": "root", "anchor": "p-root"}
     walk(HydroModPyConfig, "", (HydroModPyConfig,), None)
     FILES.update(_walk_extra_files())
+    _spread_stability("", None)
     _known_keys()
     for path, node in nodes.items():
         node["children"] = children.get(path, [])

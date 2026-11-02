@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "list"

@@ -7,15 +7,23 @@ written key, and such a validator then answers otherwise: it refuses a key the
 file never wrote, or takes the default where the file was silent. The copy
 written here leaves out the defaults nobody gave, so it validates into the same
 model, with the same fields set.
+
+The same reading tells which experimental keys a configuration wrote, so a run
+can say so without a default ever counting.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from functools import cache
 from typing import Annotated, Any, Literal, get_args, get_origin
 
 from pydantic import BaseModel, TypeAdapter
+
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.progress import MILESTONE
+
+logger = get_logger(__name__)
 
 
 def written_fields(model: BaseModel) -> tuple[str, ...]:
@@ -41,6 +49,56 @@ def written_payload(model: BaseModel) -> dict[str, Any]:
     pruned = _prune(model, model.model_dump(mode="json"))
     assert isinstance(pruned, dict)
     return pruned
+
+
+def written_experimental_keys(model: BaseModel) -> tuple[str, ...]:
+    """Return the experimental keys *model* was given, as dotted paths, in field order.
+
+    A key counts the way :func:`written_fields` counts it, so a default taken in
+    silence gives nothing. A marked section is one entry and the walk stops
+    there, since the mark covers what is below it. A selector counts when it holds
+    a marked value, and its entry names the value.
+    """
+    return tuple(_experimental_keys(model, ""))
+
+
+def experimental_keys_line(keys: Sequence[str]) -> str:
+    """Return the one line that tells a user which experimental keys are in use."""
+    return f"Experimental keys in use, they may change in a minor release: {', '.join(keys)}"
+
+
+def log_experimental_keys(model: BaseModel) -> None:
+    """Log that line once, when *model* wrote an experimental key."""
+    keys = written_experimental_keys(model)
+    if keys:
+        logger.info("%s", experimental_keys_line(keys), extra=MILESTONE)
+
+
+def _experimental_keys(value: Any, path: str) -> Iterator[str]:
+    if isinstance(value, BaseModel):
+        for name in written_fields(value):
+            key = f"{path}.{name}" if path else name
+            extra = type(value).model_fields[name].json_schema_extra
+            extra = extra if isinstance(extra, dict) else {}
+            held = getattr(value, name)
+            if held is None:
+                # TOML has no null: a loader that fills a section it did not find
+                # sets the field, and the file wrote nothing.
+                continue
+            if extra.get("stability") == "experimental":
+                yield key
+                continue
+            marked = extra.get("experimental_values", ())
+            for item in held if isinstance(held, (list, tuple)) else (held,):
+                if isinstance(item, str) and item in marked:
+                    yield f'{key} = "{item}"'
+            yield from _experimental_keys(held, key)
+    elif isinstance(value, Mapping):
+        for name, item in value.items():
+            yield from _experimental_keys(item, f"{path}.{name}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            yield from _experimental_keys(item, f"{path}[{index}]")
 
 
 def _is_tag(annotation: Any) -> bool:
@@ -101,4 +159,10 @@ def _prune(value: Any, dumped: Any) -> Any:
     return dumped
 
 
-__all__ = ["written_fields", "written_payload"]
+__all__ = [
+    "experimental_keys_line",
+    "log_experimental_keys",
+    "written_experimental_keys",
+    "written_fields",
+    "written_payload",
+]

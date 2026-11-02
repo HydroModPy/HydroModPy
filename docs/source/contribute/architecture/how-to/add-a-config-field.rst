@@ -328,6 +328,28 @@ Tests to add
 Run ``hmp config check <toml>`` to validate any candidate TOML
 against the new model.
 
+Rename, move or remove a key
+----------------------------
+
+A stable key leaves under the rules of :doc:`/about/versions`, so it keeps loading
+for two minor versions. In one change:
+
+1. Add a row to ``RENAMED_KEYS`` in ``hydromodpy/config/config_migration.py``, with
+   ``since`` set to the version that will ship the change. A load then reads the old
+   name with a warning, and ``hmp doctor --fix-config`` rewrites the file.
+2. List the old key in the ``model_refused_keys`` of the model, with ``renamed_to``, so
+   a config built in Python is told what to write.
+3. Name the old path in ``renamed_from`` on the new field, so the changes page lists
+   the rename.
+4. Run ``python -m tools.surface_snapshot``. It refuses a stable key that has no row in
+   the table, and it records the key in ``removed_toml_keys.tsv``.
+5. Write the old and the new name under ``Changed`` in the changelog.
+
+A row outlives its delay when the version of the package reaches ``since`` plus two
+minor versions, and ``tests/unit/config/test_config_migration.py`` then fails. Set
+``sealed_only=True`` on the row at that point: a live file is refused, and a run sealed
+under the old name stays readable.
+
 Pitfalls flagged by the layer matrix
 ------------------------------------
 

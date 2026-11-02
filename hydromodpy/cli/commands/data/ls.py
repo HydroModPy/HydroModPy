@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import verbosity_parser
+from hydromodpy.cli.conventions import verbosity_parser
 from hydromodpy.cli.helpers import apply_verbosity
 
 NAME: str = "ls"

@@ -21,7 +21,9 @@ Precedence, when reading
 ------------------------
 :func:`effective_status` reads the directory and answers one word. The seal
 wins: ``manifest.json`` present means ``completed`` whatever the outcome says,
-because the manifest is written before the outcome flips to ``completed``.
+because the manifest is written before the outcome flips to ``completed``. A
+seal, or an outcome, this code cannot read is ``unreadable``, after one warning
+naming it: a directory of another version never stops a listing.
 Then the outcome: ``completed`` without a manifest is ``partial`` (the seal
 never landed); ``failed`` and ``aborted`` stand; ``running`` is ``running``
 while the pulse is fresh and ``stale`` once it is older than the threshold
@@ -39,30 +41,44 @@ from __future__ import annotations
 import socket
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary, read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.paths import process_is_alive
 from hydromodpy.results.heartbeat import heartbeat_age_s
+from hydromodpy.results.manifest import read_manifest
 from hydromodpy.results.storage.contract import RUN_MANIFEST_FILENAME, RUN_OUTCOME_FILENAME
-from hydromodpy.results.storage.json_io import read_sealed_json, write_json_durable
+from hydromodpy.results.storage.json_io import (
+    UNREADABLE_ERRORS,
+    read_sealed_json,
+    readable,
+    warn_unreadable,
+    write_json_durable,
+)
 
 OUTCOME_SCHEMA: Final[str] = "hydromodpy.outcome.v1"
 """Schema id of the document."""
 
+OUTCOME_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.outcome.v1", current=OUTCOME_SCHEMA
+)
+"""Versions of the document this code reads."""
+
 DEFAULT_STALE_AFTER_S: Final[float] = 300.0
 """Age of the pulse past which a running attempt reads as stale."""
 
-OutcomeStatus = Literal["running", "completed", "failed", "aborted"]
+OutcomeStatus = Annotated[str, Vocabulary("running", "completed", "failed", "aborted")]
 """What the writer of the outcome knew when it wrote."""
 
-WrittenBy = Literal["worker", "launcher", "trap"]
+WrittenBy = Annotated[str, Vocabulary("worker", "launcher", "trap")]
 """Who wrote the outcome: the attempt itself, its parent, or a shell trap."""
 
 EffectiveStatus = Literal[
-    "running", "completed", "partial", "failed", "aborted", "stale", "unknown"
+    "running", "completed", "partial", "failed", "aborted", "stale", "unknown", "unreadable"
 ]
 """What a reader concludes from the directory."""
 
@@ -101,7 +117,7 @@ class Outcome(HydroModelBase):
 
     @model_validator(mode="after")
     def _consistent(self) -> Outcome:
-        if self.schema_ != OUTCOME_SCHEMA:
+        if not OUTCOME_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {OUTCOME_SCHEMA!r}")
         if self.status == "running" and self.ended_at is not None:
             raise ValueError("a running attempt has no ended_at")
@@ -125,10 +141,10 @@ def write_outcome(run_dir: str | Path, outcome: Outcome) -> Path:
 def read_outcome(run_dir: str | Path) -> Outcome | None:
     """Return the outcome of a directory, or ``None`` when it has none."""
     try:
-        payload = read_sealed_json(outcome_path(run_dir), OUTCOME_SCHEMA)
+        payload = read_sealed_json(outcome_path(run_dir), OUTCOME_VERSIONS)
     except FileNotFoundError:
         return None
-    return Outcome.model_validate(payload)
+    return read_stored(Outcome, payload)
 
 
 def death_is_proven(host: str | None, pid: int | None) -> bool:
@@ -149,8 +165,12 @@ def effective_status(
     """
     directory = Path(run_dir)
     if (directory / RUN_MANIFEST_FILENAME).is_file():
-        return "completed"
-    outcome = read_outcome(directory)
+        return "unreadable" if readable(read_manifest, directory) is None else "completed"
+    try:
+        outcome = read_outcome(directory)
+    except UNREADABLE_ERRORS as exc:
+        warn_unreadable(directory, exc)
+        return "unreadable"
     if outcome is None:
         return "unknown"
     if outcome.status == "completed":
@@ -170,6 +190,7 @@ def effective_status(
 __all__ = [
     "DEFAULT_STALE_AFTER_S",
     "OUTCOME_SCHEMA",
+    "OUTCOME_VERSIONS",
     "EffectiveStatus",
     "Outcome",
     "OutcomeError",

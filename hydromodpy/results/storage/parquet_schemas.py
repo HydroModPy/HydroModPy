@@ -10,10 +10,10 @@ incoming records to the matching schema before handing them to
 
 Schema-level metadata embeds ``hmp.schema``, ``hmp.schema_version``, ``hmp.pk``
 and CF ``Conventions``. Per-field metadata documents the physical unit and a
-short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``; :func:`check_schema_version`
-enforces it when an existing table of a run is re-opened for append (the merge
-path in ``arrow_tables``), so a stale or version-less file is rejected before it
-can silently corrupt a ``union_by_name`` read.
+short description. ``PARQUET_SCHEMA_VERSION`` is ``v2``. A table is read back with
+:func:`~hydromodpy.results.storage.parquet_io.read_checked_table`, which refuses a
+version outside :data:`PARQUET_VERSIONS`, for a read and for an append alike. A
+column this code does not declare is additive: it reads, and an append keeps it.
 """
 
 from __future__ import annotations
@@ -23,8 +23,13 @@ from typing import Final
 
 import pyarrow as pa
 
+from hydromodpy.core.io.document_version import VersionWindow, check_version
+
 PARQUET_SCHEMA_VERSION: Final[str] = "v2"
 """Current Parquet schema generation. Stored in KV metadata of every file."""
+
+PARQUET_VERSIONS: Final[VersionWindow] = VersionWindow(oldest="v2", current=PARQUET_SCHEMA_VERSION)
+"""Versions of a table of a run this code reads."""
 
 CF_CONVENTIONS: Final[str] = "CF-1.11"
 """CF convention version embedded in schema metadata."""
@@ -1215,10 +1220,6 @@ VIEW_SCHEMAS: Final[dict[str, pa.Schema]] = {
 """Map of per-simulation view name to declared :class:`pa.Schema`."""
 
 
-class ParquetSchemaVersionError(ValueError):
-    """Raised when a Parquet file ships an unsupported ``hmp.schema_version``."""
-
-
 def schema_for(view_name: str) -> pa.Schema:
     """Return the declared :class:`pa.Schema` for ``view_name``."""
     try:
@@ -1236,32 +1237,20 @@ def primary_key_for(view_name: str) -> tuple[str, ...]:
     return tuple(raw.decode("utf-8").split(","))
 
 
-def check_schema_version(metadata: dict[bytes, bytes] | dict[str, str] | None) -> None:
-    """Raise :class:`ParquetSchemaVersionError` if ``hmp.schema_version`` differs.
+def check_schema_version(metadata: dict[bytes, bytes] | None, *, document: object) -> None:
+    """Refuse a table of a run whose ``hmp.schema_version`` lies outside the window.
 
-    A missing version is also rejected: a file that pre-dates the v2 contract
-    must be migrated first. Strings keys and byte keys are both accepted to
-    accept both raw pyarrow metadata dicts and decoded ones.
+    *metadata* is the schema metadata pyarrow returns, *document* names the file.
     """
-    if not metadata:
-        raise ParquetSchemaVersionError(
-            "No HMP metadata found on Parquet file; expected schema_version "
-            f"{PARQUET_SCHEMA_VERSION!r}"
-        )
-    found: str | None = None
-    for key, raw in metadata.items():
-        key_text = key.decode("utf-8") if isinstance(key, bytes) else key
-        if key_text == "hmp.schema_version":
-            found = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
-            break
-    if found is None:
-        raise ParquetSchemaVersionError(
-            f"Missing hmp.schema_version in Parquet metadata; expected {PARQUET_SCHEMA_VERSION!r}"
-        )
-    if found != PARQUET_SCHEMA_VERSION:
-        raise ParquetSchemaVersionError(
-            f"Parquet schema_version {found!r} does not match expected {PARQUET_SCHEMA_VERSION!r}"
-        )
+    found = (metadata or {}).get(b"hmp.schema_version")
+    writer = (metadata or {}).get(b"hydromodpy_version")
+    check_version(
+        None if found is None else found.decode("utf-8"),
+        PARQUET_VERSIONS,
+        document=str(document),
+        key="hmp.schema_version",
+        writer=None if writer is None else writer.decode("utf-8"),
+    )
 
 
 __all__ = [
@@ -1275,8 +1264,8 @@ __all__ = [
     "OBSERVATION_POINTS_SCHEMA",
     "PARAMETERS_SCHEMA",
     "PARQUET_SCHEMA_VERSION",
+    "PARQUET_VERSIONS",
     "PROVENANCE_SCHEMA",
-    "ParquetSchemaVersionError",
     "TIMESERIES_SCHEMA",
     "SFR_REACHES_SCHEMA",
     "SIMULATION_SCHEMA",

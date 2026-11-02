@@ -38,6 +38,7 @@ from hydromodpy.results.plan_store import (
     write_plan,
 )
 from hydromodpy.results.storage.contract import PLAN_FILENAME
+from hydromodpy.results.storage.json_io import readable
 
 PLAN_HASH_LENGTH = 16
 """Hexadecimal characters of a plan hash."""
@@ -108,11 +109,8 @@ def build_plan(draft: PlanDraft) -> tuple[Plan, pa.Table, list[PlanCase], dict[s
     hashed = plan_hash(draft.cases, digests)
     existing = plan_path(draft.project_root, hashed)
     # The same plan written again is the same plan: it keeps its instant.
-    created_at = (
-        read_plan(draft.project_root, hashed).plan.created_at
-        if existing.is_dir()
-        else datetime.now(UTC)
-    )
+    previous = readable(read_plan, draft.project_root, hashed) if existing.is_dir() else None
+    created_at = previous.plan.created_at if previous is not None else datetime.now(UTC)
     plan = Plan(
         plan_hash=hashed,
         hydromodpy_version=__version__,
@@ -149,8 +147,10 @@ def running_cases(project_root: Path, case_ids: Iterable[str]) -> list[str]:
             stem, _ = split_stem_version(entry.name)
             if stem not in wanted or not entry.is_dir():
                 continue
-            if session_descriptor_path(entry).is_file() and read_session(entry).status != "running":
-                continue
+            if session_descriptor_path(entry).is_file():
+                descriptor = readable(read_session, entry)
+                if descriptor is None or descriptor.status != "running":
+                    continue
             if effective_status(entry) == "running":
                 running.append(f"{tree.name}/{entry.name}")
     return running
@@ -192,8 +192,9 @@ def write_plan_draft(project_root: str | Path, draft: PlanDraft, *, force: bool 
     plan, sites, cases, tomls = build_plan(draft)
     if not force:
         ids = {case.case_id for case in cases}
-        if current_plan_hash(root) is not None:
-            ids |= {case.case_id for case in read_plan(root).cases}
+        current = readable(read_plan, root) if current_plan_hash(root) is not None else None
+        if current is not None:
+            ids |= {case.case_id for case in current.cases}
         running = running_cases(root, ids)
         if running:
             raise RunningCaseError(

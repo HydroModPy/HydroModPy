@@ -84,6 +84,9 @@ def chips(n: dict, *, in_variant: bool) -> list[str]:
         out.append(f'<span class="tc tc-prof">{esc(n["profile"])}</span>')
     if n.get("stability") == "experimental":
         out.append('<span class="tc tc-exp">experimental</span>')
+    if n.get("experimental_values"):
+        vals = " | ".join(json.dumps(v) for v in n["experimental_values"])
+        out.append(f'<span class="tc tc-exp">experimental if {esc(vals)}</span>')
     if n.get("deprecated"):
         out.append('<span class="tc tc-exp">deprecated</span>')
     return out

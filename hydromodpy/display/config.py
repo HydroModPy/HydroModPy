@@ -184,7 +184,7 @@ class DisplayConfig(HydroModelBase):
         carry this rename. The policy is the same: the old key loads and
         warns, and both keys in one table are refused. A project TOML reaches
         this validator already renamed: ``config_migration`` renames the key on
-        load and logs it. This validator serves a ``DisplayConfig`` built from
+        load and warns. This validator serves a ``DisplayConfig`` built from
         a dict, and the pair of keys it refuses is left untouched by the
         migration.
         """
@@ -207,8 +207,9 @@ class DisplayConfig(HydroModelBase):
             # stacklevel=1 names this file, as base.py does: the caller is
             # pydantic, which the console routing hides.
             warnings.warn(
-                f"{_FORMER_TIME_KEY!r} is now called {TIME_KEY!r} ({table}); the old "
-                "spelling still loads and will stop being read in a later version.",
+                f"{_FORMER_TIME_KEY!r} is now called {TIME_KEY!r} ({table}); the old spelling "
+                "keeps loading for two minor versions, and `hmp doctor --fix-config <file>` "
+                "rewrites a file.",
                 ConfigKeyRenamedWarning,
                 stacklevel=1,
             )

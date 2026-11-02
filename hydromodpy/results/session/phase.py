@@ -25,6 +25,8 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.checks import StopState
 from hydromodpy.results.session.descriptor import BestTrial, SessionStatus
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME, SESSION_PHASES_DIRNAME
@@ -32,6 +34,11 @@ from hydromodpy.results.storage.json_io import read_sealed_json, write_json_dura
 
 PHASE_SCHEMA: Final[str] = "hydromodpy.phase.v1"
 """Schema id of ``phases/<phase>/session.json``."""
+
+PHASE_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.phase.v1", current=PHASE_SCHEMA
+)
+"""Versions of the document this code reads."""
 
 
 class PhaseDescriptor(HydroModelBase):
@@ -83,8 +90,11 @@ def write_phase(session_dir: str | Path, descriptor: PhaseDescriptor) -> Path:
 
 def read_phase(session_dir: str | Path, name: str) -> PhaseDescriptor:
     """Read the descriptor of one phase."""
-    return PhaseDescriptor.model_validate(
-        read_sealed_json(phase_dir(session_dir, name) / SESSION_DESCRIPTOR_FILENAME, PHASE_SCHEMA)
+    return read_stored(
+        PhaseDescriptor,
+        read_sealed_json(
+            phase_dir(session_dir, name) / SESSION_DESCRIPTOR_FILENAME, PHASE_VERSIONS
+        ),
     )
 
 
@@ -103,6 +113,7 @@ def list_phases(session_dir: str | Path) -> list[PhaseDescriptor]:
 
 __all__ = [
     "PHASE_SCHEMA",
+    "PHASE_VERSIONS",
     "PhaseDescriptor",
     "list_phases",
     "phase_dir",

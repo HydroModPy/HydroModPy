@@ -1,0 +1,42 @@
+data-request@1.json $schema	'urn:hmp:profile:process:v1'
+data-request@1.json description	'Loads each [data] section of the request through its manager over a bounding box, a vector mask or a list of stations, cuts what comes back to that extent and period, and seals one file per variable and source beside a report that lists each file with its checksum.'
+data-request@1.json hmp:artifacts	e48ea0b0ee0d4fc2
+data-request@1.json hmp:exceptions	dac272dbcf8ae6b3
+data-request@1.json id	'data-request'
+data-request@1.json inputs.data	0cad77c881e4f9b3
+data-request@1.json inputs.extent	3d2f4c1f1e7ac08b
+data-request@1.json inputs.installed	bc0d3e9221d4e77d
+data-request@1.json inputs.period	c9ad080623c806b8
+data-request@1.json jobControlOptions	f5ec89d1356d3502
+data-request@1.json keywords	fd32eb1b4d5921cf
+data-request@1.json links	ecc97f3c09bf057f
+data-request@1.json outputTransmission	8eb2c20fce24f0f5
+data-request@1.json outputs.inputset	b721769220f207c0
+data-request@1.json outputs.outcome	3be8ffe9be764c1f
+data-request@1.json outputs.report	8ddf80224d64fd53
+data-request@1.json title	'Serve [data] sections over an extent and a period, one file per variable'
+data-request@1.json version	'1.0.0'
+domain-build@1.json $schema	'urn:hmp:profile:process:v1'
+domain-build@1.json description	'Places the bottom of the aquifer below a topographic surface, bounds the active grid with an optional polygon, and describes the resulting vertical extent as one document a mesh generator can be handed.'
+domain-build@1.json hmp:artifacts	e48ea0b0ee0d4fc2
+domain-build@1.json hmp:exceptions	86bc4b439c8decbc
+domain-build@1.json id	'domain-build'
+domain-build@1.json inputs.dem	f4201757b27d2fe1
+domain-build@1.json inputs.depth_model	47a668bfa0bf22e2
+domain-build@1.json inputs.mask	f5385556c3a03b0b
+domain-build@1.json inputs.mask_layer	27457e51b3e4ce24
+domain-build@1.json inputs.substratum	5f6c4b4b7aff20e7
+domain-build@1.json jobControlOptions	f5ec89d1356d3502
+domain-build@1.json keywords	f984aacf69bcc048
+domain-build@1.json links	f947df746269926f
+domain-build@1.json outputTransmission	8eb2c20fce24f0f5
+domain-build@1.json outputs.active_cells	cd66bf242eaa94af
+domain-build@1.json outputs.bottom	7cba0ba62a89b0f6
+domain-build@1.json outputs.domain	d1d2a9ff29700dc0
+domain-build@1.json outputs.inputset	b721769220f207c0
+domain-build@1.json outputs.outcome	3be8ffe9be764c1f
+domain-build@1.json outputs.thickness	631171032e300a12
+domain-build@1.json title	'Aquifer domain geometry from a terrain and a depth model'
+domain-build@1.json version	'1.0.0'
+index.json $schema	'urn:hmp:profile:process-index:v1'
+index.json processes	c01e6fed9f172341

@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.version import __version__ as HYDROMODPY_VERSION
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.manifest import Manifest, is_sealed, read_manifest
@@ -34,7 +35,7 @@ def read_sealed_manifest(run_dir: str | Path) -> Manifest | None:
     directory = Path(run_dir)
     if not is_sealed(directory):
         return None
-    return Manifest.model_validate(read_manifest(directory))
+    return read_stored(Manifest, read_manifest(directory))
 
 
 def label_of(seal: Manifest | RunRecord) -> LabelResult:

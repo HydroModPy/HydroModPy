@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.data import (
     add,
     archive,
@@ -31,6 +30,7 @@ from hydromodpy.cli.commands.data import (
     remove,
     restore,
 )
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "data"
 HELP: str = "Workspace data cache management"

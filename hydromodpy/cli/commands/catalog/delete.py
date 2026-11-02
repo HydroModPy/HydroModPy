@@ -7,7 +7,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from hydromodpy.cli._conventions import (
+from hydromodpy.cli.conventions import (
     add_sim_ref,
     confirm_parser,
     verbosity_parser,

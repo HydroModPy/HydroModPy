@@ -184,6 +184,21 @@ python -m pytest -m "(regression and fast) or slow" -q
 
 ## Update golden references
 
+A golden moves only with a stated reason. `--update-goldens` records what the code
+does today, so it can record a bug as easily as a fix. Before you run it:
+
+- Know which number moves, and why the new one is right. An unexplained change is a
+  regression, and updating the golden hides it.
+- Update only the goldens of that change, with the one-file commands below. Use the
+  full update only after a change that touches every solver.
+- Read the diff of the golden file. Any line you cannot explain stops the update.
+
+A golden that moves because the old number was wrong takes two more things in the
+same commit, as `docs/source/contribute/architecture/how-to/cut-a-release.rst` says: a
+line under `Numbers` in `CHANGELOG.md` with the quantity and the size of the change, and
+an entry in `hydromodpy/results/known_issues.toml`. The tolerances live in
+`tests/TOLERANCES.md`, and widening one to avoid a golden update is not allowed.
+
 Update all golden references:
 
 ```powershell

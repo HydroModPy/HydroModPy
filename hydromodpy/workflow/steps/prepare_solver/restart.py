@@ -32,6 +32,7 @@ from hydromodpy.physics.flow.flow_config import RestartReference
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.storage.attempt import run_dir_for_name
 from hydromodpy.results.storage.contract import FIELDS_STORE_NAME
+from hydromodpy.results.storage.json_io import readable
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,10 +135,9 @@ def _run_dir_by_sim_id(root: Path, prefix: str) -> Path | None:
 def _sim_id_of(run_dir: Path) -> str | None:
     if not is_sealed(run_dir):
         return None
-    try:
-        return str(read_manifest(run_dir)["run"]["sim_id"])
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
+    manifest = readable(read_manifest, run_dir)
+    sim_id = None if manifest is None else manifest.get("run", {}).get("sim_id")
+    return None if sim_id is None else str(sim_id)
 
 
 __all__ = ["RestartSource", "resolve_restart_source"]

@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli._conventions import confirm_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import confirm_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_SIGINT,

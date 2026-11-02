@@ -61,7 +61,7 @@ A map of one value per mesh face needs no ``render``: subclass
 
    from hydromodpy.display.figure import FigureSpec
    from hydromodpy.display.figure_registry import register
-   from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
+   from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 
 
    @register

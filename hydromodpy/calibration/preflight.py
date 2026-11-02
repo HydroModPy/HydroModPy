@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from hydromodpy.core.config_kit.written import log_experimental_keys
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -133,6 +134,9 @@ def preflight_launch(
 def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> list[PreflightFinding]:
     """Run the preflight at a launch: raise on its errors, log its warnings once.
 
+    The experimental keys of the file are logged here too, once for the session,
+    since no trial comes back through this gate.
+
     The one gate every launch passes, ``hmp calibrate``, ``hmp run``,
     ``--dry-run``, ``hmp.calibrate`` and ``Project.calibrate``, so the launch
     refuses what ``hmp config check`` refuses, with every finding at once.
@@ -155,6 +159,7 @@ def refuse_what_the_preflight_refuses(config: Any, *, source: str | Path) -> lis
         if text not in seen:
             seen.add(text)
             logger.warning("%s", text)
+    log_experimental_keys(config)
     return findings
 
 
@@ -259,10 +264,11 @@ def check_calibration_file(target: Path) -> CalibrationCheck:
     """
     import warnings
 
-    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
+    from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning, forget_old_forms_told
     from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 
     target = Path(target).expanduser().resolve()
+    forget_old_forms_told(target)
     with warnings.catch_warnings(record=True) as caught:
         # Only the categories a file's author acts on are forced through; the
         # others keep the filters they had, so nothing ignored today is printed.

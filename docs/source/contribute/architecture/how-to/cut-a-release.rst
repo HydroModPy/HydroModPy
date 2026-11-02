@@ -3,8 +3,8 @@ Cut a release
 
 A release is a Git tag. The tag starts three jobs: the publication to PyPI, the
 GitHub Release, and the build of the documentation for that version. This page
-is the maintainer's checklist. What a version number means for a user is in the
-release policy of the About door.
+is the maintainer's checklist. What each kind of version may change is in
+:doc:`/about/versions`, the only statement of that contract.
 
 Version and tag syntax
 ----------------------
@@ -20,17 +20,6 @@ Versions follow Semantic Versioning for meaning and PEP 440 for the string.
 
 The Git tag is the version with a leading ``v``: ``v2.0.0a5``, ``v2.0.0``. Do not
 invent other forms such as ``release-v2`` or ``v2-beta``.
-
-- ``MAJOR`` is an incompatible change of the public contract: a removed or
-  renamed public function, command, config field or storage format, or a solver
-  behaviour that makes users edit their files.
-- ``MINOR`` is a compatible addition: a solver, an optional field with a default,
-  a command.
-- ``PATCH`` is a compatible bug fix and nothing else.
-
-HydroModPy keeps no compatibility shim for a removed public name. A change that
-makes users edit their code, TOML or project layout is a ``MAJOR`` change, unless
-it lands before a stable release, in an ``a``, ``b`` or ``rc`` pre-release.
 
 Four places must agree
 ----------------------
@@ -57,7 +46,7 @@ Four places must agree
 The checklist
 -------------
 
-1. **Choose the version** from the change, as above.
+1. **Choose the version** from the change, with :doc:`/about/versions`.
 2. **Choose the branch.** Normal work comes from ``dev``. A stabilisation window
    uses ``release/X.Y``. A fix on an old line starts from the tag it fixes
    (``hotfix/X.Y.Z``). ``v1.0`` is frozen at ``v1.0.0``: do not release from it.
@@ -67,28 +56,56 @@ The checklist
    rule right under the empty heading: the docs include the file, and the strict
    build refuses a section that begins with a rule. Use the Keep a
    Changelog categories: Added, Changed, Deprecated (only for an announced
-   removal), Removed, Fixed, Security. The reason for a change belongs here. The
+   removal), Removed, Fixed, Security, plus ``Numbers`` for anything that changes
+   a number of a run. The reason for a change belongs here. The
    release job takes the section as the body of the GitHub Release. It looks for
    the section of the tag and ends it at the next ``## [`` heading, so the section
    must exist and must not be the last one of the file.
-5. **Check.** Run ``ruff check`` and ``ruff format --check``, the architecture gate
+5. **Read the numbers section.** Each entry names the quantity and the size of the
+   change, and has its entry in ``hydromodpy/results/known_issues.toml``, under the
+   rule of `Changing a number`_.
+6. **Review the surface snapshots.** Read what changed since the last tag:
+   ``git diff vX.Y.Z -- tests/unit/architecture/surface/``. Each removed or renamed
+   line must be in the changelog with both names, and each TOML key it removes must
+   be in ``removed_toml_keys.tsv``, with its rewrite in
+   ``hydromodpy/config/config_migration.py``. A form past its delay fails
+   ``tests/unit/config/test_config_migration.py``, so remove it now.
+7. **Regenerate the example catalog.** ``hmp example add`` fetches the files at the
+   tag of the installed version and checks them against ``catalog.toml``. Run
+   ``hmp dev examples manifest`` and commit the result, or every download of the
+   release fails on a checksum.
+8. **Check.** Run ``ruff check`` and ``ruff format --check``, the architecture gate
    and the tests of what changed, and build the docs
    (``make -C docs html-strict``). CI repeats them.
-6. **Commit** the preparation in one line, for example
+9. **Commit** the preparation in one line, for example
    ``chore(release): prepare v2.0.0b1``.
-7. **Tag the commit** with an annotated tag, then send the tag to the remote.
+10. **Tag the commit** with an annotated tag, then send the tag to the remote.
 
-   .. code-block:: bash
+    .. code-block:: bash
 
-      git tag -a v2.0.0b1 -m "v2.0.0b1"
-      git push origin v2.0.0b1
+       git tag -a v2.0.0b1 -m "v2.0.0b1"
+       git push origin v2.0.0b1
 
-   A tag is immutable. A botched release is fixed by a new tag, never by moving
-   the old one.
-8. **Watch the jobs** (next section) and check the result.
-9. **Merge back.** After a final release, merge the release branch into ``main``
-   and ``dev``. After a maintenance release, merge the fix forward into ``dev`` if
-   the bug is still there.
+    A tag is immutable. A botched release is fixed by a new tag, never by moving
+    the old one.
+11. **Watch the jobs** (next section) and check the result.
+12. **Merge back.** After a final release, merge the release branch into ``main``
+    and ``dev``. After a maintenance release, merge the fix forward into ``dev`` if
+    the bug is still there.
+
+Changing a number
+-----------------
+
+A fix that moves a number of a run is allowed in a minor version and in a patch when
+the old number was wrong. It carries three things in the commit that makes it:
+
+- an entry under ``Numbers`` in ``CHANGELOG.md``, with the quantity and the size of
+  the change, measured before and after;
+- an ``[[issue]]`` in ``hydromodpy/results/known_issues.toml``, with the versions it
+  touches, so that a run stored before the fix reads as ``exploratory``;
+- the goldens it moves, under the rule of ``tests/regression/README.md``.
+
+Moving a default is another thing: see the Defaults section of :doc:`/about/versions`.
 
 What the tag starts
 -------------------

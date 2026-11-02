@@ -36,6 +36,7 @@ import pandas as pd
 import pyarrow as pa
 
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
@@ -70,12 +71,11 @@ from hydromodpy.results.storage.geo_metadata import (
     run_parquet_footer,
 )
 from hydromodpy.results.storage.licence import LicenceMember, TrackedPath, run_licence
-from hydromodpy.results.storage.parquet_io import read_kv_metadata, write_table_atomic
+from hydromodpy.results.storage.parquet_io import read_checked_table, write_table_atomic
 from hydromodpy.results.storage.parquet_schemas import (
     BUDGETS_SCHEMA,
     MASS_BALANCE_SCHEMA,
     METRICS_SCHEMA,
-    PARQUET_SCHEMA_VERSION,
     PROVENANCE_SCHEMA,
     TIMESERIES_SCHEMA,
     primary_key_for,
@@ -153,7 +153,7 @@ class RunStore:
         stored = read_facts(directory)
         sealed = stored is None and facts is None and is_sealed(directory)
         if sealed:
-            stored = RunFacts.from_manifest(Manifest.model_validate(read_manifest(directory)))
+            stored = RunFacts.from_manifest(read_stored(Manifest, read_manifest(directory)))
         if facts is None and stored is None:
             raise FileNotFoundError(f"{directory} carries no facts.json and none were given")
         current = facts if facts is not None else stored
@@ -997,12 +997,10 @@ class RunStore:
 
     def read_table(self, view_name: str) -> pd.DataFrame:
         """Return one Parquet payload of the run as a frame; empty without the file."""
-        import pyarrow.parquet as pq
-
         path = self.table_path_for(self.sim_id, view_name)
         if not path.is_file():
             return pd.DataFrame()
-        return pq.read_table(path).to_pandas()
+        return read_checked_table(path).to_pandas()
 
     def query_timeseries(
         self,
@@ -1098,21 +1096,7 @@ class RunStore:
         self, *, target: Path, new_table: pa.Table, pk_cols: Sequence[str]
     ) -> None:
         """Persist a table atomically, merging with the file already there."""
-        if target.exists():
-            try:
-                old_version = read_kv_metadata(target).get("hmp.schema_version")
-            except Exception:
-                old_version = None
-            if old_version and old_version != PARQUET_SCHEMA_VERSION:
-                logger.warning(
-                    "Parquet file %s carries schema_version=%s; rewriting as %s",
-                    target,
-                    old_version,
-                    PARQUET_SCHEMA_VERSION,
-                )
-            merged = merge_with_existing(target, new_table, pk_cols)
-        else:
-            merged = new_table
+        merged = merge_with_existing(target, new_table, pk_cols) if target.exists() else new_table
         write_table_atomic(
             merged, target, kv_metadata=self.parquet_metadata(), pk_cols=tuple(pk_cols)
         )

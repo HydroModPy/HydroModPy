@@ -10,14 +10,81 @@ HydroModPy follows [Semantic Versioning](https://semver.org/). A pre-release add
 that [PEP 440](https://peps.python.org/pep-0440/) defines: `a` for alpha, `b` for beta and `rc`
 for release candidate, then a number, as in `2.0.0a5`.
 
-- **Major** (`X.0.0`): a change that makes you edit your files. A removed or renamed TOML key,
-  Python function or `hmp` verb, a new storage format, a different solver behaviour.
-- **Minor** (`X.Y.0`): a compatible addition. A new solver, a new optional key with a default,
-  a new verb or function.
-- **Patch** (`X.Y.Z`): a bug fix only. No new public name, no change you have to adapt to.
+The rules below hold from `2.0.0` on, and this page is their only statement. The goal is that
+the 2 line can grow for years without a version 3, so a change that a user can absorb never
+needs a major version.
 
-A removed name is not kept as an alias. If a change needs you to edit a file, it is a major
-change, unless it lands in a pre-release before the stable version.
+### Frozen for the whole 2 line
+
+A run you stored stays readable. Its folder layout, its Parquet and Zarr schemas, its manifest
+and its provenance can be read by every later 2.x, and so can the keys of its frozen
+`config.toml`. Only a major version can change this. A stored format can gain a new version
+inside the line, and the build that writes it then also reads the older ones.
+
+The index `.hmp/index.duckdb` is outside this promise, because it is derived from the run
+folders. `hmp catalog reindex` rebuilds it at any time.
+
+### Can change in a minor version, with a migration
+
+This covers the name or the place of a TOML key, an `hmp` command or flag, a name of
+`hydromodpy.__all__` and the shape of a config table.
+
+The old name keeps working for two minor versions, the one that changes it included. A key
+renamed in 2.3 still loads in 2.3 and 2.4, and can go in 2.5. While it works it prints a warning
+that gives the old name and the new one, once per key and per file. `hmp doctor --fix-config
+<file>` rewrites your file, and keeps your comments. The changelog lists the rename under
+`Changed` with both names, and later its removal under `Removed`.
+
+### Numbers
+
+A fix that changes the numbers of a run (a head, a flow, a score) is allowed in a minor version
+and in a patch when the old number was wrong. A scientific correction does not wait. The
+changelog lists it under `Numbers` with the size of the change, and it gets an entry in the
+register of known issues, `hydromodpy/results/known_issues.toml`. A run stored with an older
+version keeps its numbers and its version stamp and is never rewritten. `Run.label()` then
+calls it `exploratory` and names the issue.
+
+### Defaults
+
+A file that does not say which defaults it wants follows the defaults of 2.0, for the whole 2
+line. So a key you did not write never changes your numbers. The day a default has to move, an
+optional `edition` key comes with it, and only a file that writes this key gets the new value.
+The key does not exist yet, because no default has moved.
+
+### Experimental
+
+Anything marked experimental may change in any minor version, without the delay above.
+
+- In a TOML file: the whole `[calibration]` section, the VI and TS runtimes of Boussinesq with
+  their settings, `partition_release_depth_m`, `transport.modflow6prt`, the MODPATH block, the
+  HFB barriers, the parameters of the soil reservoir beyond its budget,
+  `geographic.domain_extent` and the `custom` backend. The
+  {doc}`parameter reference </reference/parameters/index>` marks each key. A run lists the
+  experimental keys its file writes in one line of its log, and `hmp config check` shows them.
+- In Python: the shape of `CalibrationReport`, and the `solver`, `solver.extractor` and
+  `calibration.evaluator` plugin ports, as {doc}`the contracts page
+  </contribute/architecture/contracts>` details.
+- The sidecars of `validity_frame`.
+- Every command under `hmp dev`.
+
+### Patch
+
+A patch fixes bugs. It adds no public name, and it asks nothing of you. It can still change a
+number that was wrong, under the rule above.
+
+### What the rules cover
+
+The names are the ones the generated pages list: the {doc}`Python reference
+</reference/python/index>`, the {doc}`command line reference </reference/cli/index>` with its
+{doc}`exit codes </reference/cli/exit-codes>`, and the {doc}`parameter reference
+</reference/parameters/index>`. A module path outside `hydromodpy.__all__` is internal, except the
+short list on {doc}`the contracts page </contribute/architecture/contracts>`. So is any `HMP_*`
+variable that {doc}`its generated page </contribute/architecture/generated/environment>` does
+not give to users.
+
+### Pre-releases
+
+A pre-release makes none of these promises.
 
 | Stage | Example | What to expect |
 |---|---|---|

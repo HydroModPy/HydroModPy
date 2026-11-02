@@ -13,7 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import add_sim_ref, verbosity_parser
+from hydromodpy.cli.conventions import add_sim_ref, verbosity_parser
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USAGE, apply_verbosity
 
 NAME: str = "show"

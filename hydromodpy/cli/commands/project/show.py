@@ -17,7 +17,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, resolve_project_ref
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
@@ -95,12 +95,14 @@ def _summary(project_dir: Path) -> dict:
     from hydromodpy.results.outcome import effective_status
     from hydromodpy.results.plan_store import current_plan_hash
     from hydromodpy.results.session.descriptor import list_session_dirs, read_session
+    from hydromodpy.results.storage.json_io import readable
     from hydromodpy.results.trash import list_trash
 
     entries = scan_tree(project_dir)
     runs = Counter(effective_status(e.path) for e in entries.values() if e.kind == "run")
     n_trials = sum(1 for e in entries.values() if e.kind == "trial")
-    sessions = Counter(read_session(path).status for path in list_session_dirs(project_dir))
+    descriptors = (readable(read_session, path) for path in list_session_dirs(project_dir))
+    sessions = Counter("unreadable" if each is None else each.status for each in descriptors)
     return {
         "name": project_dir.name,
         "path": str(project_dir),

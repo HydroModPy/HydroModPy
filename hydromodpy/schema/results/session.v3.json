@@ -1,7 +1,7 @@
 {
   "$defs": {
     "BestTrial": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The trial a session or a phase holds as its best.",
       "properties": {
         "objective": {
@@ -64,7 +64,7 @@
       "type": "object"
     },
     "DateWindow": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "A closed range of days, ``start`` and ``end`` included.",
       "properties": {
         "end": {
@@ -90,7 +90,7 @@
       "type": "object"
     },
     "ScoredSamples": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The pairs one dated output's cost was scored on.\n\nA stamp closes its period, so ``first`` and ``last`` are the ends of the\nfirst and last period scored, not the bounds of a window.",
       "properties": {
         "first": {
@@ -156,7 +156,7 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "Identity, search and outcome of one calibration session.",
   "properties": {
     "best": {
@@ -342,19 +342,19 @@
     },
     "status": {
       "default": "running",
-      "enum": [
-        "running",
-        "completed",
-        "partial",
-        "aborted",
-        "failed"
-      ],
       "examples": [
         "running"
       ],
       "title": "Status",
       "type": "string",
-      "x-hmp-profile": "user"
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "running",
+        "completed",
+        "partial",
+        "aborted",
+        "failed"
+      ]
     },
     "stop_note": {
       "anyOf": [
@@ -373,12 +373,12 @@
     "stop_state": {
       "anyOf": [
         {
-          "enum": [
+          "type": "string",
+          "x-hmp-vocabulary": [
             "rule_met",
             "plan_exhausted",
             "budget_spent"
-          ],
-          "type": "string"
+          ]
         },
         {
           "type": "null"

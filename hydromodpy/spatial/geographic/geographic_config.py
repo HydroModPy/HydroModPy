@@ -7,6 +7,7 @@ from typing import Annotated, Any, ClassVar, Literal
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.spatial.geographic.bed_regularization_config import BedRegularizationConfig
@@ -125,8 +126,9 @@ class GeographicConfig(HydroModelBase):
             "the MODFLOW 6 mesh still covers the buffered box (the buffer stays "
             "active for inter-basin exchange); out-of-watershed drainage is kept "
             "out of the catchment discharge by the DRN watershed-routing, not by "
-            "an idomain mask. Experimental."
+            "an idomain mask."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     reg_fold: Annotated[Path | None, Profile.DEV] = Field(
         default=None,

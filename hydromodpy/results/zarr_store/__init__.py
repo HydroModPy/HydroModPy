@@ -23,7 +23,6 @@ from hydromodpy.results.zarr_store.constants import (
     SHARD_TRIGGER_BYTES,
     ZARR_SCHEMA_VERSION,
 )
-from hydromodpy.results.zarr_store.exceptions import ZarrSchemaVersionError
 from hydromodpy.results.zarr_store.simulation_zarr import (
     LOCK_TIMEOUT_SECONDS,
     SimulationZarr,
@@ -43,7 +42,6 @@ __all__ = [
     "SHARD_TRIGGER_BYTES",
     "SimulationZarr",
     "ZARR_SCHEMA_VERSION",
-    "ZarrSchemaVersionError",
     "cf_v85_names",
     "compose_acdd_root_attrs",
     "compute_balanced_chunks_1d",

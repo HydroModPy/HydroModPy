@@ -24,20 +24,27 @@ failure makes the number a fiction rather than coarse.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Final, Literal
+from typing import Annotated, Any, Final
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import Vocabulary
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.metric_rule import DateWindow
 
 CHECKS_SCHEMA: Final[str] = "hydromodpy.checks.v1"
 """Schema id of the block, the name of its JSON Schema file."""
 
-CalibrationSessionStatus = Literal["completed", "partial", "aborted"]
+CHECKS_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.checks.v1", current=CHECKS_SCHEMA
+)
+"""Versions of the block this code reads; the seal around it carries the key that is checked."""
+
+CalibrationSessionStatus = Annotated[str, Vocabulary("completed", "partial", "aborted")]
 """How the session that promoted a run ended."""
 
-StopState = Literal["rule_met", "plan_exhausted", "budget_spent"]
+StopState = Annotated[str, Vocabulary("rule_met", "plan_exhausted", "budget_spent")]
 """Why a search stopped.
 
 ``rule_met``: the engine's own stopping rule was met. ``plan_exhausted``: every
@@ -64,14 +71,14 @@ def stop_text(state: StopState | None, rule: str | None) -> str:
         return "spent its budget, a budget-only search with no rule of its own"
     if state == "budget_spent":
         return f"spent its budget before its rule ({rule}) was met"
-    return "not recorded"
+    return "not recorded" if state is None else f"stopped as {state}"
 
 
 def stop_line(state: StopState | None, rule: str | None) -> str:
     """Return why a search stopped and whether that is convergence, in words."""
     if state is None:
         return stop_text(state, rule)
-    verdict = "not converged" if state == "budget_spent" else "converged"
+    verdict = "converged" if state in ("rule_met", "plan_exhausted") else "not converged"
     return f"{stop_text(state, rule)}, {verdict}"
 
 

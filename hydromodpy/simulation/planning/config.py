@@ -10,6 +10,7 @@ from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import (
     CoveragePolicy,
@@ -262,6 +263,7 @@ class TransportProcessConfig(_ProcessBase):
             "Ordered list of active transport solver names. At least one "
             "solver is required for transport processes."
         ),
+        json_schema_extra=field_metadata(experimental_values=["modpath", "modflow6_prt"]),
     )
 
     @field_validator("solvers")

@@ -313,6 +313,7 @@ def watch_running(workspace: Any, *, stale_minutes: float | None = None) -> list
     """
     from hydromodpy.results.heartbeat import read_heartbeat
     from hydromodpy.results.outcome import effective_status, read_outcome
+    from hydromodpy.results.storage.json_io import readable
 
     root = Path(workspace).expanduser().resolve()
     stale_after_s = DEFAULT_STALE_AFTER_S if stale_minutes is None else stale_minutes * 60.0
@@ -322,7 +323,7 @@ def watch_running(workspace: Any, *, stale_minutes: float | None = None) -> list
         status = effective_status(path, now=now, stale_after_s=stale_after_s)
         if status not in ("running", "stale"):
             continue
-        outcome = read_outcome(path)
+        outcome = readable(read_outcome, path)
         if outcome is None:
             continue
         beat = read_heartbeat(path)
@@ -355,20 +356,10 @@ def stale_running_sim_ids(project_root: Path, minutes: float | None = None) -> l
 
 
 def _session_descriptors(project_root: Path) -> list[tuple[Path, Any]]:
-    from hydromodpy.core.state.paths import sessions_dir_for
-    from hydromodpy.results.session.descriptor import read_session, session_descriptor_path
+    from hydromodpy.results.session.descriptor import list_session_dirs, read_session
+    from hydromodpy.results.storage.json_io import readable_documents
 
-    sessions_dir = sessions_dir_for(Path(project_root))
-    if not sessions_dir.is_dir():
-        return []
-    found = []
-    for path in sorted(sessions_dir.iterdir()):
-        if path.is_dir() and session_descriptor_path(path).is_file():
-            try:
-                found.append((path, read_session(path)))
-            except (OSError, ValueError) as exc:
-                logger.warning("Session %s is unreadable: %s", path.name, exc)
-    return found
+    return list(readable_documents(read_session, list_session_dirs(project_root)))
 
 
 def abandoned_calibration_session_count(project_root: Path) -> int:

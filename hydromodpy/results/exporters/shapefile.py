@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.exporters._fields import native_crs, one_layer, read_field_step
+from hydromodpy.results.exporters.fields import native_crs, one_layer, read_field_step
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:

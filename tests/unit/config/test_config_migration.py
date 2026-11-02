@@ -2,16 +2,32 @@
 
 from __future__ import annotations
 
+import importlib
 import tomllib
+import warnings
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
 from hydromodpy.config.config_migration import (
+    ALPHA_FORM,
+    DEPRECATION_DELAY_MINORS,
+    OldForm,
+    document_path,
     fix_config_file,
     migrate_config_doc,
     migrate_config_doc_on_load,
+    old_forms,
+    outlived_forms,
 )
+from hydromodpy.core.config_kit.base import (
+    ConfigKeyRenamedWarning,
+    HydroModelBase,
+    forget_old_forms_told,
+    warn_old_form,
+)
+from hydromodpy.core.version import __version__
 
 
 def _write(tmp_path: Path, body: str) -> Path:
@@ -366,14 +382,14 @@ def test_migrate_config_doc_on_load_leaves_a_current_doc_untouched(
     assert caplog.records == []
 
 
-def test_migrate_config_doc_on_load_migrates_in_memory_and_logs_once(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    doc = tomllib.loads(
-        '[export]\ngeotiff = true\ntimes = "last"\n[export.variables]\nhead = true\n'
-    )
-    with caplog.at_level("INFO"):
-        changes = migrate_config_doc_on_load(doc, source="run/config.toml")
+OLD_EXPORT = '[export]\ngeotiff = true\ntimes = "last"\n[export.variables]\nhead = true\n'
+
+
+def test_a_load_migrates_in_memory_and_warns_once_per_key_and_file(tmp_path: Path) -> None:
+    source = tmp_path / "project.toml"
+    doc = tomllib.loads(OLD_EXPORT)
+    with pytest.warns(ConfigKeyRenamedWarning) as told:
+        changes = migrate_config_doc_on_load(doc, source=source)
 
     assert changes == [
         "export.variables (boolean table) -> list ['head']",
@@ -381,12 +397,101 @@ def test_migrate_config_doc_on_load_migrates_in_memory_and_logs_once(
         "[export] toggles and artifacts -> 1 [[export]] block(s) (geotiff)",
     ]
     assert doc["export"] == [{"variables": ["head"], "format": "geotiff", "time": "last"}]
+    assert len(told) == len(changes)
+    for change, warning in zip(changes, told, strict=True):
+        assert change in str(warning.message)
+        assert f"hmp doctor --fix-config {source}" in str(warning.message)
 
-    assert len(caplog.records) == 1
-    message = caplog.records[0].message
-    assert "run/config.toml" in message
-    assert "3 legacy key" in message
-    assert "hmp doctor" in message
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConfigKeyRenamedWarning)
+        assert migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=source) == changes
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=tmp_path / "other.toml")
+
+
+def test_a_report_on_a_file_sees_its_old_forms_again(tmp_path: Path) -> None:
+    source = tmp_path / "project.toml"
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=source)
+
+    forget_old_forms_told(source)
+
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(tomllib.loads(OLD_EXPORT), source=source)
+
+
+def test_a_form_the_loader_cannot_rewrite_does_not_promise_the_doctor() -> None:
+    with pytest.warns(ConfigKeyRenamedWarning, match="seed left: why") as told:
+        warn_old_form("project.toml", "calibration.seed left: why")
+    assert "hmp doctor" not in str(told[0].message)
+
+
+def test_the_delay_is_two_minor_versions_the_one_that_retired_the_form_included() -> None:
+    form = OldForm("a.old", "a.new", "2.3.0")
+
+    assert DEPRECATION_DELAY_MINORS == 2
+    assert form.removal == "2.5.0"
+    assert not form.outlived_by("2.4.9")
+    assert form.outlived_by("2.5.0a1")
+    assert form.outlived_by("3.0.0")
+    assert not OldForm("a.old", None, "2.0.0").outlived_by("2.1.0rc1")
+
+
+def test_no_old_form_outlives_its_delay() -> None:
+    late = [f"{form.old} (since {form.since})" for form in outlived_forms(__version__)]
+    assert late == [], (
+        f"HydroModPy {__version__} still holds old forms past their delay: {late}. Delete each "
+        "one from hydromodpy/config/config_migration.py. A row of RENAMED_KEYS stays with "
+        "sealed_only=True, because a run sealed under the old name stays readable."
+    )
+
+
+def test_every_form_states_a_version_and_is_listed_once() -> None:
+    forms = old_forms()
+    assert all(Version(form.since) >= Version(ALPHA_FORM) for form in forms)
+    paths = [(form.old, form.new) for form in forms]
+    assert len(paths) == len(set(paths))
+
+
+def _config_models() -> list[type]:
+    importlib.import_module("hydromodpy.config.hydromodpy_config")
+    found, todo = [], [HydroModelBase]
+    while todo:
+        cls = todo.pop()
+        # A test may define its own model, and it stays a subclass for the whole session.
+        if cls.__module__.startswith("hydromodpy."):
+            found.append(cls)
+        todo.extend(cls.__subclasses__())
+    return found
+
+
+def test_every_rename_a_model_declares_has_its_form() -> None:
+    """``renamed_from``, ``model_legacy_keys`` and ``model_retired_keys`` all name an old form."""
+    known = {document_path(form.old) for form in old_forms()}
+    leaves = {path.rsplit(".", 1)[-1] for path in known}
+    declared: set[str] = set()
+    for model in _config_models():
+        for field in model.model_fields.values():
+            extra = field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
+            declared.update(extra.get("renamed_from") or ())
+    assert declared
+    assert sorted(declared - known) == []
+    # A model knows the leaf of its key and not the path that reaches it.
+    for model in _config_models():
+        undeclared = (set(model.model_legacy_keys) | set(model.model_retired_keys)) - leaves
+        assert undeclared == set(), f"{model.__name__} retires {undeclared} with no old form"
+
+
+def test_a_rewritten_form_is_read_at_load_with_the_new_name_in_the_warning(tmp_path: Path) -> None:
+    doc = {"calibration": {"optimizer_kwargs": {"seed": 1}, "max_iter": 5}}
+    with pytest.warns(ConfigKeyRenamedWarning) as told:
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+
+    assert doc == {"calibration": {"method_options": {"seed": 1}, "max_trials": 5}}
+    text = " ".join(str(warning.message) for warning in told)
+    assert "optimizer_kwargs -> method_options" in text
+    assert "max_iter -> max_trials" in text
 
 
 _FROZEN_V1 = Path(__file__).parent / "fixtures" / "frozen_run_config_export_v1.toml"

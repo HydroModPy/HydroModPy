@@ -19,13 +19,14 @@ from typing import Any
 import zarr
 from upath import UPath
 
+from hydromodpy.core.io.document_version import check_version
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.zarr_store.constants import (
     _SUBGROUPS,
     CF_CONVENTIONS,
     ZARR_SCHEMA_VERSION,
+    ZARR_VERSIONS,
 )
-from hydromodpy.results.zarr_store.exceptions import ZarrSchemaVersionError
 
 LOCAL_STORE_WRITE_RETRIES = 5
 LOCAL_STORE_WRITE_RETRY_BASE_DELAY_SECONDS = 0.05
@@ -120,11 +121,11 @@ def update_attrs(node: Any, attrs: dict[str, object]) -> Any:
 def open_root_strict(store: Any, *, read_only: bool) -> zarr.Group:
     """Open the root group of ``store`` and validate the schema version.
 
-    The v2 contract requires every persisted store to carry a non-null
-    ``zarr_schema_version`` attribute matching ``ZARR_SCHEMA_VERSION`` at
-    the root. Mismatch, absence and null all raise
-    :class:`ZarrSchemaVersionError`. A freshly created empty directory is
-    the only exempted case (``__init__`` racing with ``create``).
+    Every persisted store carries a ``zarr_schema_version`` attribute at the
+    root. A version outside ``ZARR_VERSIONS``, an absent one and a null one
+    raise :class:`~hydromodpy.core.exceptions.SchemaVersionMismatchError`. A
+    freshly created empty directory is the only exempted case (``__init__``
+    racing with ``create``).
     """
     mode = "r" if read_only else "a"
     with warnings.catch_warnings():
@@ -142,12 +143,13 @@ def open_root_strict(store: Any, *, read_only: bool) -> zarr.Group:
     is_empty = not dict(root.attrs) and not list(root.keys())
     if is_empty and not read_only:
         return root
-    actual = root.attrs.get("zarr_schema_version")
-    if actual is None or str(actual) != ZARR_SCHEMA_VERSION:
-        raise ZarrSchemaVersionError(
-            ZARR_SCHEMA_VERSION,
-            None if actual is None else str(actual),
-        )
+    check_version(
+        root.attrs.get("zarr_schema_version"),
+        ZARR_VERSIONS,
+        document=str(store),
+        key="zarr_schema_version",
+        writer=root.attrs.get("hydromodpy_version"),
+    )
     return root
 
 

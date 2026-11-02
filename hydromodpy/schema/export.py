@@ -31,12 +31,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.config.schema_export import (
-    _cached_full_schema,
-    _ensure_root_sections,
-    export_schema,
+from hydromodpy.config.schema_export import cached_full_schema, export_schema
+from hydromodpy.core.config_kit.registry import (
+    repeated_root_sections,
+    root_scalar_fields,
+    root_sections,
 )
-from hydromodpy.core.config_kit.registry import repeated_root_sections, root_scalar_fields
 
 SCHEMA_FILE = "config.json"
 META_FILE = "config_meta.json"
@@ -54,7 +54,7 @@ def build_config_meta() -> dict[str, Any]:
     * ``groups`` aggregates ``json_schema_extra.group`` across all annotated
       fields so a UI can render tabs / accordions.
     """
-    sections = _ensure_root_sections()
+    sections = root_sections()
     root_fields = root_scalar_fields()
     full_schema = export_schema()
     root_props = full_schema.get("properties", {})
@@ -152,7 +152,7 @@ def _walk_fields(
 ) -> None:
     """Populate *out* with ``field_path -> validator_type`` entries."""
     try:
-        schema = _cached_full_schema(model_cls)
+        schema = cached_full_schema(model_cls)
     except Exception:
         return
     props = schema.get("properties", {})
@@ -163,7 +163,7 @@ def _walk_fields(
 
 def build_field_validators() -> dict[str, str]:
     """Flatten every root-level field into a ``path -> validator_type`` map."""
-    sections = _ensure_root_sections()
+    sections = root_sections()
     root_fields = root_scalar_fields()
     root_schema = export_schema().get("properties", {})
     flat: dict[str, str] = {}

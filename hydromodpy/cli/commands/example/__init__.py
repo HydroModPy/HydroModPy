@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli._conventions import add_action_subparsers
 from hydromodpy.cli.commands.example import add, show
 from hydromodpy.cli.commands.example import list_cmd as list_action
+from hydromodpy.cli.conventions import add_action_subparsers
 
 NAME: str = "example"
 HELP: str = "List the shipped examples and install one into a workspace"

@@ -325,8 +325,8 @@ def read_run_facts(run_dir: str | Path) -> RunFacts | None:
     except ValidationError as exc:
         raise UnreadableManifestError(
             f"{run_dir}: manifest.json does not read under HydroModPy {HYDROMODPY_VERSION} "
-            f"({exc.error_count()} error(s), first: {exc.errors()[0]['msg']}). Read the run "
-            "with the version that sealed it, or move it to the trash with hmp catalog delete."
+            f"({exc.error_count()} error(s), first: {exc.errors()[0]['msg']}). Upgrade HydroModPy "
+            "if a newer version sealed it, or move it to the trash with hmp catalog delete."
         ) from exc
     if manifest is None:
         return None
@@ -587,8 +587,9 @@ def _refuse_left_out(skipped: Sequence[Any]) -> None:
     more = f" and {len(skipped) - 3} more" if len(skipped) > 3 else ""
     raise UnreadableManifestError(
         f"{len(skipped)} sealed directory(ies) do not read under HydroModPy "
-        f"{HYDROMODPY_VERSION}: {listed}{more}. Read them with the version that sealed them, "
-        "or move them to the trash with hmp catalog delete."
+        f"{HYDROMODPY_VERSION}: {listed}{more}. A summary states every case, so it stops here: "
+        "upgrade HydroModPy if a newer version sealed them, or move them to the trash with "
+        "hmp catalog delete."
     )
 
 
@@ -634,10 +635,10 @@ def _read_settings(root: Path) -> _Settings:
 def _planned_cases(root: Path) -> tuple[Any, ...]:
     """Return the cases of the current plan, none without a plan."""
     from hydromodpy.results.plan_store import current_plan_hash, read_plan
+    from hydromodpy.results.storage.json_io import readable
 
-    if current_plan_hash(root) is None:
-        return ()
-    return read_plan(root).cases
+    stored = readable(read_plan, root) if current_plan_hash(root) is not None else None
+    return () if stored is None else stored.cases
 
 
 def _version_of(rel_dir: str) -> int:

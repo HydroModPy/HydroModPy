@@ -25,7 +25,6 @@ from pathlib import Path
 
 import pandas as pd
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import (
@@ -40,6 +39,8 @@ from hydromodpy.results.storage.contract import (
     SIMULATION_TABLE_NAME,
     TABLES_DIRNAME,
 )
+from hydromodpy.results.storage.json_io import readable
+from hydromodpy.results.storage.parquet_io import read_checked_table
 
 logger = get_logger(__name__)
 
@@ -85,7 +86,9 @@ def read_project_runs(project_root: Path | str) -> pd.DataFrame:
         if not snapshot.is_file():
             logger.warning("%s is sealed but carries no %s; skipped", run_dir, snapshot.name)
             continue
-        table = pq.read_table(snapshot)
+        table = readable(read_checked_table, snapshot)
+        if table is None:
+            continue
         tables.append(
             table.append_column(PROJECT_ROOT_COLUMN, pa.array([str(root)] * table.num_rows))
         )

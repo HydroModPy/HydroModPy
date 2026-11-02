@@ -70,8 +70,7 @@ def test_fresh_database_writes_no_empty_backup(tmp_path: Path, versions_dir: Pat
         logger.removeHandler(handler)
 
     assert list_backups(db_path) == []
-    warnings = [r.getMessage() for r in records if r.levelno >= logging.WARNING]
-    assert any("no table yet" in message for message in warnings)
+    assert [r.getMessage() for r in records if r.levelno >= logging.WARNING] == []
 
 
 def test_populated_database_keeps_its_backup(tmp_path: Path, versions_dir: Path) -> None:

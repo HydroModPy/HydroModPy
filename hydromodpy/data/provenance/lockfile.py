@@ -26,8 +26,8 @@ why the project root, and not the workspace, owns the file.
 Frozen mode is two module variables: one project is frozen per process. The
 runner sets it before a run and clears it after.
 
-Every reader refuses a lockfile whose ``[hydromodpy] version`` is not
-:data:`LOCKFILE_VERSION`, naming the version read and the command that
+Every reader refuses a lockfile whose ``[hydromodpy] version`` lies outside
+:data:`LOCKFILE_VERSIONS`, naming the version read and the command that
 writes it again: a lockfile is never migrated.
 """
 
@@ -41,10 +41,11 @@ from typing import Any
 import tomlkit
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.core.io.document_version import check_version
+from hydromodpy.core.io.document_version import VersionWindow, check_version
 
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_VERSION = "2.0.0"
+LOCKFILE_VERSIONS = VersionWindow(oldest="2.0.0", current=LOCKFILE_VERSION)
 LOCKFILE_REMEDY = "Write it again from the data cache with `hmp dev lock update`."
 
 # Process-wide frozen-mode state. Consulted by data loaders to refuse fresh
@@ -161,14 +162,20 @@ def sha256_of(path: Path, *, chunk: int = 64 * 1024) -> str:
 
 
 def _parse(path: Path | str) -> tomlkit.TOMLDocument:
-    """Parse the lockfile at *path*; refuse it unless it carries :data:`LOCKFILE_VERSION`."""
+    """Parse the lockfile at *path*; refuse it unless its version lies in the window."""
     target = Path(path)
     doc = tomlkit.parse(target.read_text())
     header = doc.get("hydromodpy")
     raw = header.get("version") if isinstance(header, dict) else None
     found = None if raw is None else str(raw)
+    writer = header.get("hydromodpy_version") if isinstance(header, dict) else None
     check_version(
-        found, LOCKFILE_VERSION, document=target, key="hydromodpy.version", remedy=LOCKFILE_REMEDY
+        found,
+        LOCKFILE_VERSIONS,
+        document=target,
+        key="hydromodpy.version",
+        writer=writer,
+        remedy=LOCKFILE_REMEDY,
     )
     return doc
 

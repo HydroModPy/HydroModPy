@@ -26,6 +26,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     directory, a seal without solver tables, and a completed outcome. A run
     of the same name already sealed takes the next version.
     """
+    from hydromodpy.core.config_kit.written import log_experimental_keys
     from hydromodpy.display.overview import overview_name
     from hydromodpy.project.attempt import run_attempt
     from hydromodpy.results.catalog.registration import input_file_digests, run_identity_hash
@@ -39,6 +40,7 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     project_root = Path(cfg.workspace.project_root)
     config_hash = run_identity_hash(cfg.model_dump(mode="json"), inputs=input_file_digests(cfg))
     simulation = getattr(cfg, "simulation", None)
+    log_experimental_keys(cfg)
     with run_attempt(
         project_root,
         name,

@@ -25,15 +25,18 @@ from typing import Any, Final
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.state.paths import INTERNAL_DIRNAME, RUN_INTERNAL_CHECKPOINTS_DIRNAME
 from hydromodpy.core.version import __version__ as HMP_VERSION
 from hydromodpy.results.checks import CalibratedBy, Validity
 from hydromodpy.results.identity import Identity
 from hydromodpy.results.lineage import Lineage
 from hydromodpy.results.manifest import (
+    FlowRegime,
     InputEntry,
     Manifest,
     ManifestSite,
+    MeshTopology,
     MetricRow,
     ParameterRow,
     TrackedInput,
@@ -103,7 +106,7 @@ class RunFacts(HydroModelBase):
     started_at: datetime = Field(description="Start of this attempt, UTC")
     solver: str | None = None
     solver_category: str | None = None
-    flow_regime: str | None = None
+    flow_regime: FlowRegime | None = None
     config_hash: str | None = Field(default=None, description="Identity hash, without [workspace]")
     config_source: str | None = Field(default=None, description="File the run was launched from")
     config_file: str | None = Field(default=None, description="config.toml once frozen")
@@ -115,7 +118,7 @@ class RunFacts(HydroModelBase):
     n_layers: int | None = None
     n_timesteps: int | None = None
     mesh_hash: str | None = None
-    mesh_topology: str | None = None
+    mesh_topology: MeshTopology | None = None
     crs_wkt: str | None = None
     crs_epsg: int | None = None
     bbox: tuple[float, float, float, float] | None = None
@@ -329,7 +332,7 @@ def read_facts(run_dir: str | Path) -> RunFacts | None:
         payload = read_transient_json(facts_path(run_dir), FACTS_SCHEMA)
     except FileNotFoundError:
         return None
-    return RunFacts.model_validate(payload)
+    return read_stored(RunFacts, payload)
 
 
 __all__ = [

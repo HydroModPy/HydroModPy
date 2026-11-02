@@ -27,8 +27,8 @@ the last step of the trash:
   :data:`TRASH_RETENTION_DAYS`. Removed, each leaving a tombstone, so its
   name is never given out again.
 
-A directory tagged :data:`~hydromodpy.results.trash.PROTECTED_TAG`, and one a
-live attempt writes into, is never selected.
+A directory tagged :data:`~hydromodpy.results.trash.PROTECTED_TAG`, one a live
+attempt writes into, and one this code cannot read, is never selected.
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ from hydromodpy.results.outcome import (
 )
 from hydromodpy.results.session.descriptor import read_session, write_session
 from hydromodpy.results.storage.contract import SESSION_DESCRIPTOR_FILENAME
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.trash import (
     TrashedEntry,
     expired_entries,
@@ -123,7 +124,7 @@ def plan_gc(project_root: Path, policy: RetentionPolicy, *, now: datetime) -> Gc
         state = effective_status(run_dir, now=now)
         if state == "stale":
             stale.append(rel_dir)
-        if state in _LIVE_STATES or is_protected(run_dir):
+        if state in _LIVE_STATES or state == "unreadable" or is_protected(run_dir):
             continue
         stem, version = split_stem_version(run_dir.name)
         eligible.append(_Version(rel_dir, stem, version or 1, _started_at(run_dir)))
@@ -184,8 +185,8 @@ def mark_aborted(run_dir: Path, *, now: datetime) -> Outcome:
     outcome = read_outcome(run_dir)
     if outcome is None:
         raise FileNotFoundError(f"{run_dir} holds no outcome.json to close")
-    closed = Outcome.model_validate(
-        {
+    closed = Outcome(
+        **{
             **outcome.model_dump(by_alias=True),
             "status": "aborted",
             "ended_at": _as_utc(now),
@@ -208,8 +209,8 @@ def _close_session(session_dir: Path, *, now: datetime) -> None:
     closed = mark_aborted(session_dir, now=now)
     if not (session_dir / SESSION_DESCRIPTOR_FILENAME).is_file():
         return
-    descriptor = read_session(session_dir)
-    if descriptor.status != "running":
+    descriptor = readable(read_session, session_dir)
+    if descriptor is None or descriptor.status != "running":
         return
     assert closed.error is not None
     write_session(

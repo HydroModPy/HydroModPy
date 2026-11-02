@@ -21,7 +21,7 @@ import numpy as np
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_options import CmapOrOwn, Opt, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
+from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_relative_km_axes
 from hydromodpy.display.maps.overlays import apply_overlays
 from hydromodpy.display.maps.ugrid import last_timestep, render_face_field

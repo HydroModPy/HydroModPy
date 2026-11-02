@@ -44,6 +44,7 @@ from hydromodpy.core.state.paths import (
     catalog_path_for,
     runs_dir_for,
 )
+from hydromodpy.core.workspace.workspace_toml import refuse_a_newer_workspace
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
 _SAFE_FILENAME_WINDOWS_DRIVE = "\uf03a"
@@ -161,6 +162,7 @@ class WorkspaceConfig(HydroModelBase):
             runs_dir=self.runs_dir,
         )
 
+        refuse_a_newer_workspace(root)
         _set_if_changed(self, "root", root)
         _set_if_changed(
             self,

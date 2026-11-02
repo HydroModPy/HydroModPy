@@ -19,7 +19,6 @@ import numpy as np
 from hydromodpy.display.figure import FigureSpec
 from hydromodpy.display.figure_options import Extent, Layer, Overlays, Timestep
 from hydromodpy.display.figure_registry import register
-from hydromodpy.display.figures._scalar_face_map import ScalarFaceMap
 from hydromodpy.display.figures._stream_comparison import (
     catchment_cells,
     checked_cells,
@@ -31,6 +30,7 @@ from hydromodpy.display.figures._stream_comparison import (
     select_cells,
     veil_outside_catchment,
 )
+from hydromodpy.display.figures.scalar_face_map import ScalarFaceMap
 from hydromodpy.display.maps.axes import style_map_axes
 from hydromodpy.display.maps.mesh_geometry import face_polygons
 from hydromodpy.display.maps.overlays import apply_overlays

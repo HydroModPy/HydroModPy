@@ -1,7 +1,7 @@
 {
   "$defs": {
     "PublicationMember": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "One copy a project copy holds: a run or the summary, a folder or a tar.",
       "properties": {
         "manifest_sha256": {
@@ -57,7 +57,7 @@
       "type": "object"
     },
     "PublicationSource": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The run or summary a copy was made from.",
       "properties": {
         "project": {
@@ -101,7 +101,7 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "``PUBLICATION.json``: what a published copy is.",
   "properties": {
     "files": {
@@ -115,16 +115,16 @@
     },
     "format": {
       "description": "dir or tar",
-      "enum": [
-        "dir",
-        "tar"
-      ],
       "examples": [
-        "dir"
+        "example"
       ],
       "title": "Format",
       "type": "string",
-      "x-hmp-profile": "user"
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "dir",
+        "tar"
+      ]
     },
     "hydromodpy_version": {
       "description": "Version that published",
@@ -138,28 +138,28 @@
     "kind": {
       "default": "run",
       "description": "What the copy is: one run, the summary or a whole project",
-      "enum": [
-        "run",
-        "summary",
-        "project"
-      ],
       "examples": [
         "run"
       ],
       "title": "Kind",
       "type": "string",
-      "x-hmp-profile": "user"
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "run",
+        "summary",
+        "project"
+      ]
     },
     "label": {
       "anyOf": [
         {
-          "enum": [
+          "type": "string",
+          "x-hmp-vocabulary": [
             "exploratory",
             "calibrated",
             "evaluated",
             "failed"
-          ],
-          "type": "string"
+          ]
         },
         {
           "type": "null"
@@ -229,11 +229,11 @@
     "with": {
       "description": "What was taken along",
       "items": {
-        "enum": [
+        "type": "string",
+        "x-hmp-vocabulary": [
           "results",
           "inputs"
-        ],
-        "type": "string"
+        ]
       },
       "title": "With",
       "type": "array"

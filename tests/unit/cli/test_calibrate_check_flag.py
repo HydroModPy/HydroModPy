@@ -281,9 +281,7 @@ def test_an_old_key_is_a_warning_and_the_file_still_passes(tmp_path) -> None:
 
     assert result.exit_code == 0, result.stderr
     warnings = [line for line in result.stderr.splitlines() if "warning:" in line]
-    assert any(
-        "'steady_engine_options' is now called 'steady_method_options'" in line for line in warnings
-    )
+    assert any("steady_engine_options -> steady_method_options" in line for line in warnings)
 
 
 def test_a_phase_two_option_its_method_refuses_is_named_before_phase_one_runs(

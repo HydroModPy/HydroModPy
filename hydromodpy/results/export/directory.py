@@ -39,7 +39,8 @@ from hydromodpy.config.publication_config import PublicationConfig
 from hydromodpy.core.exceptions import ExportError
 from hydromodpy.core.io.atomic_replace import rename_over_open_file
 from hydromodpy.results.export.context import AssetEntry, FairExportContext, InputEntry
-from hydromodpy.results.manifest import RUN_RECORD_MANIFEST_VERSION, read_manifest
+from hydromodpy.results.manifest import read_manifest
+from hydromodpy.results.record import PROVENANCE_VERSIONS
 from hydromodpy.results.storage.contract import (
     RUN_CONFIG_FILENAME,
     RUN_MANIFEST_FILENAME,
@@ -166,7 +167,7 @@ def _run_context(root: Path, manifest: Mapping[str, Any]) -> FairExportContext:
     period = _mapping(manifest.get("period"))
     provenance_path = root / RUN_PROVENANCE_FILENAME
     provenance: Mapping[str, Any] = (
-        read_sealed_json(provenance_path, RUN_RECORD_MANIFEST_VERSION, key="provenance_version")
+        read_sealed_json(provenance_path, PROVENANCE_VERSIONS, key="provenance_version")
         if provenance_path.is_file()
         else {}
     )

@@ -37,11 +37,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal
+from typing import Final
 
 from pydantic import ConfigDict, Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.results.manifest import is_sealed, read_manifest
 from hydromodpy.results.outcome import read_outcome
 from hydromodpy.results.storage.contract import RUN_ANNOTATIONS_FILENAME
@@ -49,6 +51,9 @@ from hydromodpy.results.storage.json_io import read_sealed_json, write_json_atom
 
 ANNOTATIONS_VERSION: Final[int] = 1
 """Schema version of the annotations file."""
+
+ANNOTATIONS_VERSIONS: Final[VersionWindow] = VersionWindow(oldest=1, current=ANNOTATIONS_VERSION)
+"""Versions of the annotations file this code reads."""
 
 
 class Note(HydroModelBase):
@@ -64,7 +69,7 @@ class Note(HydroModelBase):
 class Annotations(HydroModelBase):
     """Tags and notes of one run."""
 
-    annotations_version: Literal[1] = ANNOTATIONS_VERSION
+    annotations_version: int = ANNOTATIONS_VERSION
     sim_id: str | None = Field(default=None, description="Id of the run the file belongs to")
     tags: tuple[str, ...] = ()
     notes: tuple[Note, ...] = ()
@@ -84,8 +89,8 @@ def read_annotations(run_dir: Path | str) -> Annotations:
     target = annotations_path(run_dir)
     if not target.is_file():
         return Annotations()
-    return Annotations.model_validate(
-        read_sealed_json(target, ANNOTATIONS_VERSION, key="annotations_version")
+    return read_stored(
+        Annotations, read_sealed_json(target, ANNOTATIONS_VERSIONS, key="annotations_version")
     )
 
 
@@ -151,6 +156,7 @@ def _sim_id_of(run_dir: Path) -> str | None:
 
 __all__ = [
     "ANNOTATIONS_VERSION",
+    "ANNOTATIONS_VERSIONS",
     "Annotations",
     "Note",
     "add_note",

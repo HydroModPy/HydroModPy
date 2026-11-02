@@ -46,7 +46,7 @@ Each command file exposes:
 The dispatcher iterates ``ALL_COMMANDS``, calls ``register`` on each,
 and forwards the parsed namespace to ``args._handler``.
 
-Reuse the shared grammar from ``hydromodpy/cli/_conventions.py`` instead
+Reuse the shared grammar from ``hydromodpy/cli/conventions.py`` instead
 of re-declaring flags: ``workspace_parser()`` for ``-w/--workspace``,
 ``confirm_parser()`` for ``-y/--yes``, ``format_parser()`` for
 ``--format {table,json,csv}``, ``add_sim_ref()`` for the canonical
@@ -65,7 +65,7 @@ Two edits.
    import argparse
 
    import hydromodpy as hmp
-   from hydromodpy.cli._conventions import workspace_parser
+   from hydromodpy.cli.conventions import workspace_parser
    from hydromodpy.cli.helpers import resolve_workspace
 
 

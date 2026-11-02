@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import sessions_dir_for
 from hydromodpy.core.time.period_aggregation import period_edges
@@ -559,7 +560,7 @@ def _scored_on(session: Mapping[str, Any]) -> str | None:
     window = session.get("objective_window")
     declared = f"window {window['start']} to {window['end']}" if window else None
     samples = {
-        name: ScoredSamples.model_validate(payload)
+        name: read_stored(ScoredSamples, payload)
         for name, payload in (session.get("objective_samples") or {}).items()
     }
     if samples:

@@ -89,6 +89,7 @@ from hydromodpy.project.launch.prepare import (
 from hydromodpy.project.launch.status import CaseState, case_state, plan_is_stale
 from hydromodpy.results.outcome import death_is_proven
 from hydromodpy.results.plan_store import StoredPlan, current_plan_hash, read_plan
+from hydromodpy.results.storage.json_io import readable
 
 logger = get_logger(__name__)
 
@@ -182,8 +183,8 @@ def sites_run_config(project_root: Path) -> SitesRunConfig:
 def _current_plan(project_root: Path) -> StoredPlan:
     """Return the current plan, writing it from ``project.toml`` when missing or stale."""
     if current_plan_hash(project_root) is not None:
-        stored = read_plan(project_root)
-        if not plan_is_stale(project_root, stored):
+        stored = readable(read_plan, project_root)
+        if stored is not None and not plan_is_stale(project_root, stored):
             return stored
     plan_project(project_root)
     return read_plan(project_root)

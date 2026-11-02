@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import workspace_parser
+from hydromodpy.cli.conventions import workspace_parser
 from hydromodpy.cli.helpers import EXIT_GENERIC, find_workspace
 
 NAME: str = "doctor"
@@ -83,11 +83,8 @@ def register(subparsers) -> argparse.ArgumentParser:
         default=None,
         metavar="FILE.toml",
         help=(
-            "Migrate a project TOML to the current schema in place "
-            "(simulation.on_collision -> if_exists, run_id -> name, "
-            "[simulation.results.export] -> [export], and drop the dead "
-            "solver_scratch / save_lock options). "
-            "Preserves comments and layout."
+            "Rewrite every old key of a TOML under its current name, in place. "
+            "Preserves comments and layout. A key that still loads warns and names this option."
         ),
     )
     parser.set_defaults(_handler=run)

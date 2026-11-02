@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,

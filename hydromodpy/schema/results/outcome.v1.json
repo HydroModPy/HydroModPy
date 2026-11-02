@@ -1,7 +1,7 @@
 {
   "$defs": {
     "OutcomeError": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "The error that ended an attempt.",
       "properties": {
         "message": {
@@ -31,7 +31,7 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "description": "The issue of one attempt of a run or a session.",
   "properties": {
     "attempt": {
@@ -216,18 +216,18 @@
     },
     "status": {
       "description": "What the writer knew",
-      "enum": [
+      "examples": [
+        "example"
+      ],
+      "title": "Status",
+      "type": "string",
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
         "running",
         "completed",
         "failed",
         "aborted"
-      ],
-      "examples": [
-        "running"
-      ],
-      "title": "Status",
-      "type": "string",
-      "x-hmp-profile": "user"
+      ]
     },
     "step": {
       "anyOf": [
@@ -245,17 +245,17 @@
     },
     "written_by": {
       "description": "Who wrote this document",
-      "enum": [
-        "worker",
-        "launcher",
-        "trap"
-      ],
       "examples": [
-        "worker"
+        "example"
       ],
       "title": "Written By",
       "type": "string",
-      "x-hmp-profile": "user"
+      "x-hmp-profile": "user",
+      "x-hmp-vocabulary": [
+        "worker",
+        "launcher",
+        "trap"
+      ]
     }
   },
   "required": [

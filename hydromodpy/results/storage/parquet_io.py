@@ -30,6 +30,7 @@ import pyarrow.parquet as pq
 
 from hydromodpy.core.io.filesystem import native_io_path as _native_io_path
 from hydromodpy.core.io.parquet import PARQUET_WRITE_DEFAULTS
+from hydromodpy.results.storage.parquet_schemas import check_schema_version
 
 
 def _supports_bloom_filter_columns() -> bool:
@@ -142,6 +143,20 @@ def _replace_with_retry(tmp_io: str, target_io: str) -> None:
             delay_s *= 2
 
 
+def read_checked_table(
+    path: Path | str,
+    *,
+    columns: Sequence[str] | None = None,
+    filters: list[tuple[str, str, object]] | None = None,
+) -> pa.Table:
+    """Read one table of a run; refuse a ``hmp.schema_version`` outside the window."""
+    target = Path(path)
+    check_schema_version(pq.read_schema(target).metadata, document=target)
+    return pq.read_table(
+        target, columns=None if columns is None else list(columns), filters=filters
+    )
+
+
 def read_kv_metadata(path: Path | str) -> dict[str, str]:
     """Return the Parquet file metadata decoded as a plain ``str`` mapping.
 
@@ -169,5 +184,6 @@ def read_kv_metadata(path: Path | str) -> dict[str, str]:
 
 __all__ = [
     "read_kv_metadata",
+    "read_checked_table",
     "write_table_atomic",
 ]

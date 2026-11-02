@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.cli._conventions import format_parser, verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import format_parser, verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
     EXIT_USAGE,
@@ -117,12 +117,24 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     sys.exit(EXIT_NOT_FOUND)
 
 
+def _readable_facts(run_dir: Path) -> Any:
+    """Return the facts of a listed run, or ``None`` after one warning when it does not read."""
+    from hydromodpy.project.summary import UnreadableManifestError, read_run_facts
+    from hydromodpy.results.storage.json_io import readable, warn_unreadable
+
+    try:
+        return readable(read_run_facts, run_dir)
+    except UnreadableManifestError as exc:
+        warn_unreadable(run_dir, exc)
+        return None
+
+
 def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
     """Add the ``overrides`` of each run, its score rule, and ``metric`` when not ``nse``.
 
     Read from the ``manifest.json`` of each listed run.
     """
-    from hydromodpy.project.summary import overrides_text, read_run_facts
+    from hydromodpy.project.summary import overrides_text
     from hydromodpy.results.catalog import iter_project_catalog_roots
 
     roots = {path.name: path for path in iter_project_catalog_roots(workspace_root)}
@@ -138,7 +150,7 @@ def _with_seal_facts(df: Any, workspace_root: Path, metric: str | None) -> Any:
     for record in df.to_dict("records"):
         root = roots.get(str(record.get("project")))
         rel_dir = record.get("rel_dir")
-        facts = read_run_facts(root / str(rel_dir)) if root is not None and rel_dir else None
+        facts = _readable_facts(root / str(rel_dir)) if root is not None and rel_dir else None
         score = None if facts is None else facts.manifest.score
         columns["overrides"].append("" if facts is None else overrides_text(facts.overrides))
         columns["nse_station"].append(None if score is None else score.station)

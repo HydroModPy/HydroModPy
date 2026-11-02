@@ -143,7 +143,7 @@ def _first_unreadable_file(path: Path) -> Path | None:
     """Follow the base_config chain from *path* and return the first file that fails to parse."""
     import tomllib
 
-    from hydromodpy.core.toml_io.loader import _read_toml
+    from hydromodpy.core.toml_io.loader import read_toml
     from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
     seen: set[Path] = set()
@@ -151,7 +151,7 @@ def _first_unreadable_file(path: Path) -> Path | None:
     while current is not None and current not in seen:
         seen.add(current)
         try:
-            raw = _read_toml(current)
+            raw = read_toml(current)
         except tomllib.TOMLDecodeError:
             return current
         except OSError:

@@ -40,7 +40,7 @@ _BASIC_STRING_ASSIGNMENT_RE = re.compile(
 _LOG = get_logger(__name__)
 
 
-def _read_toml(path: Path) -> dict[str, Any]:
+def read_toml(path: Path) -> dict[str, Any]:
     """Read one TOML file and return its raw mapping."""
     raw_text = path.read_text(encoding="utf-8-sig")
     try:
@@ -167,7 +167,7 @@ def read_toml_chain(toml_path: str | Path) -> tuple[ChainFile, ...]:
             cycle = " -> ".join(str(path) for path in (*seen, current))
             raise ValueError(f"Detected circular base_config chain: {cycle}")
         seen.append(current)
-        raw = _read_toml(current)
+        raw = read_toml(current)
         own = dict(raw)
         own.pop(BASE_CONFIG_KEY, None)
         files.append(ChainFile(path=current, own=own))

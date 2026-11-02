@@ -438,10 +438,10 @@ def planned_recipe(project_root: Path, case_id: str) -> str | None:
     the current plan answers for a case of any earlier plan too.
     """
     from hydromodpy.results.plan_store import read_plan
+    from hydromodpy.results.storage.json_io import readable
 
-    try:
-        stored = read_plan(project_root)
-    except FileNotFoundError:
+    stored = readable(read_plan, project_root)
+    if stored is None:
         return None
     case = next((case for case in stored.cases if case.case_id == case_id), None)
     return None if case is None else case.recipe

@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.physics.base import ProcessSpatialConfig
@@ -378,6 +379,7 @@ class TransportConfig(ProcessSpatialConfig):
     modpath: Annotated[TransportModpathConfig, Profile.USER] = Field(
         default_factory=TransportModpathConfig,
         description="Modpath solver configuration block.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     mt3dms: Annotated[TransportMt3dmsConfig, Profile.USER] = Field(
         default_factory=TransportMt3dmsConfig,
@@ -390,4 +392,5 @@ class TransportConfig(ProcessSpatialConfig):
     modflow6prt: Annotated[TransportModflow6PrtConfig, Profile.USER] = Field(
         default_factory=TransportModflow6PrtConfig,
         description="MODFLOW 6 PRT particle-tracking solver configuration block.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )

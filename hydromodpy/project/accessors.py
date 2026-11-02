@@ -35,6 +35,7 @@ from hydromodpy.results.catalog.constants import metric_sense
 from hydromodpy.results.plan_store import current_plan_hash, read_plan
 from hydromodpy.results.session.descriptor import list_session_dirs
 from hydromodpy.results.session.view import Session
+from hydromodpy.results.storage.json_io import readable
 from hydromodpy.results.validity_rules import CALIBRATED_LABELS
 
 if TYPE_CHECKING:
@@ -199,10 +200,8 @@ def sites_frame(catalog: Catalog, project_root: Path) -> gpd.GeoDataFrame:
     """
     import geopandas as gpd
 
-    if current_plan_hash(project_root) is not None:
-        frame = read_plan(project_root).sites.to_pandas()
-    else:
-        frame = catalog.sites
+    stored = readable(read_plan, project_root) if current_plan_hash(project_root) else None
+    frame = catalog.sites if stored is None else stored.sites.to_pandas()
     if not {"x_outlet", "y_outlet"} <= set(frame.columns):
         return gpd.GeoDataFrame(frame)
     x = pd.to_numeric(frame["x_outlet"], errors="coerce")

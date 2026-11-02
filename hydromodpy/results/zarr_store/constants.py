@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import zarr.codecs
 
+from hydromodpy.core.io.document_version import VersionWindow
+
 # Default Blosc-zstd codec used by every array written by HydroModPy.
 # clevel=5 with bitshuffle is the V1 sweet spot for groundwater fields.
 BLOSC_ZSTD = zarr.codecs.BloscCodec(
@@ -24,6 +26,7 @@ CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 # ``mesh/z_interfaces`` (layer_interface, face), ``mesh/idomain`` (layer, face)
 # and the ``vertical_layout`` attribute of ``mesh/``.
 ZARR_SCHEMA_VERSION = "3"
+ZARR_VERSIONS = VersionWindow(oldest="3", current=ZARR_SCHEMA_VERSION)
 
 # Subgroups created at store init. ``budget`` is created by the extraction,
 # which writes the per-cell terms and the attributes that say what it kept.

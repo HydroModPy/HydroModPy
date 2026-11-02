@@ -37,8 +37,10 @@ import pyarrow.parquet as pq
 from pydantic import ConfigDict, Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.stored import read_stored
 from hydromodpy.core.exceptions import HydroModPyError
 from hydromodpy.core.io.atomic_replace import staged_path
+from hydromodpy.core.io.document_version import VersionWindow
 from hydromodpy.core.state.paths import PLAN_CURRENT_FILENAME, plan_dir_for
 from hydromodpy.results.storage.contract import (
     PLAN_CASES_FILENAME,
@@ -50,6 +52,11 @@ from hydromodpy.results.storage.parquet_io import write_table_atomic
 
 PLAN_SCHEMA: Final[str] = "hydromodpy.plan.v1"
 """Schema id of ``plan.json``."""
+
+PLAN_VERSIONS: Final[VersionWindow] = VersionWindow(
+    oldest="hydromodpy.plan.v1", current=PLAN_SCHEMA
+)
+"""Versions of ``plan.json`` this code reads."""
 
 CASE_TOML_SUFFIX: Final[str] = ".toml"
 """Suffix of the resolved configuration of one case inside a plan."""
@@ -102,7 +109,7 @@ class Plan(HydroModelBase):
 
     @model_validator(mode="after")
     def _schema(self) -> Plan:
-        if self.schema_ != PLAN_SCHEMA:
+        if not PLAN_VERSIONS.holds(self.schema_):
             raise ValueError(f"schema is {self.schema_!r}, this module reads {PLAN_SCHEMA!r}")
         return self
 
@@ -187,10 +194,10 @@ def read_plan(project_root: str | Path, plan_hash: str | None = None) -> StoredP
     if chosen is None:
         raise FileNotFoundError(f"no plan under {plan_dir_for(Path(project_root))}")
     directory = plan_path(project_root, chosen)
-    plan = Plan.model_validate(read_sealed_json(directory / PLAN_FILENAME, PLAN_SCHEMA))
+    plan = read_stored(Plan, read_sealed_json(directory / PLAN_FILENAME, PLAN_VERSIONS))
     sites = pq.read_table(directory / PLAN_SITES_FILENAME)
     cases = tuple(
-        PlanCase.model_validate(row)
+        read_stored(PlanCase, row)
         for row in pq.read_table(directory / PLAN_CASES_FILENAME).to_pylist()
     )
     return StoredPlan(directory=directory, plan=plan, sites=sites, cases=cases)
@@ -238,6 +245,7 @@ __all__ = [
     "CASE_TOML_SUFFIX",
     "PLAN_CASES_SCHEMA",
     "PLAN_SCHEMA",
+    "PLAN_VERSIONS",
     "Plan",
     "PlanCase",
     "PlanConflictError",

@@ -19,6 +19,7 @@ from types import SimpleNamespace
 
 import matplotlib as mpl
 import pandas as pd
+import pyarrow as pa
 import pytest
 
 from hydromodpy.display.figure import FigureNotApplicable
@@ -26,6 +27,8 @@ from hydromodpy.display.figures.sfr_longitudinal_profile import (
     SfrLongitudinalProfile,
     distance_to_outlet,
 )
+from hydromodpy.results.storage.parquet_io import write_table_atomic
+from hydromodpy.results.storage.parquet_schemas import PARQUET_SCHEMA_VERSION
 
 LINKS = pd.DataFrame(
     {
@@ -44,7 +47,11 @@ FLOW = {0: 1.0, 1: 2.0, 2: 3.0, 3: 5.0, 4: 8.0, 5: 9.0}
 def _run(tables: Path, links: pd.DataFrame = LINKS) -> SimpleNamespace:
     """A run whose ``sfr_reaches`` table sits in *tables*, as in a run directory."""
     tables.mkdir(parents=True, exist_ok=True)
-    links.to_parquet(tables / "sfr_reaches.parquet", index=False)
+    write_table_atomic(
+        pa.Table.from_pandas(links, preserve_index=False),
+        tables / "sfr_reaches.parquet",
+        kv_metadata={"hmp.schema_version": PARQUET_SCHEMA_VERSION},
+    )
     stations = {ifno: f"sfr:main:{ifno}" for ifno in FLOW}
     return SimpleNamespace(
         sim_id="sim-sfr",

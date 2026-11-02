@@ -18,6 +18,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from hydromodpy.core.config_kit.stored import read_stored
+
 SIDECAR_SUFFIX = ".json"
 
 #: Extensions of the data files a sidecar can describe. A file named
@@ -135,7 +137,7 @@ def load_sidecar(file_path: Path) -> Sidecar:
     target = sidecar_path_for(file_path)
     raw = target.read_text(encoding="utf-8")
     payload = json.loads(raw)
-    return Sidecar.model_validate(payload)
+    return read_stored(Sidecar, payload)
 
 
 def compute_sha256(path: Path, chunk_size: int = 1 << 20) -> str:

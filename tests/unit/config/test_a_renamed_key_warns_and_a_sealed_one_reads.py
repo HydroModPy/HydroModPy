@@ -1,4 +1,4 @@
-"""A renamed key is refused in a file, rewritten by the doctor, and read in a sealed run.
+"""A renamed key loads with a warning, the doctor rewrites it, and a sealed run reads it.
 
 The frame is tested with a table of its own, patched in, so it holds whatever
 keys are renamed today: ``RENAMED_KEYS`` is what each rename adds a row to.
@@ -21,6 +21,7 @@ from hydromodpy.config.config_migration import (
     migrate_config_doc_on_load,
     migrate_sealed_config_doc,
 )
+from hydromodpy.core.config_kit.base import ConfigKeyRenamedWarning
 from hydromodpy.core.exceptions import ConfigValidationError
 from hydromodpy.workflow.steps.prepare_solver.dispatch import portable_config_document
 
@@ -89,10 +90,11 @@ name = "matching_hydrographic_network"
 """
 
 # Old spellings that exist nowhere in the models: each one is a stand-in rename.
-SEED = KeyRename("calibration", "seed_before", "seed")
-PHASE = KeyRename("calibration.phases[*]", "description_before", "description")
-PROTOCOL = KeyRename("calibration.protocol", "steady_window_before", "steady_window")
-PARAMETER = KeyRename("calibration.parameters.{*}", "bounds_before", "bounds")
+SINCE = "2.3.0"
+SEED = KeyRename("calibration", "seed_before", "seed", since=SINCE)
+PHASE = KeyRename("calibration.phases[*]", "description_before", "description", since=SINCE)
+PROTOCOL = KeyRename("calibration.protocol", "steady_window_before", "steady_window", since=SINCE)
+PARAMETER = KeyRename("calibration.parameters.{*}", "bounds_before", "bounds", since=SINCE)
 
 
 def _only(monkeypatch: pytest.MonkeyPatch, *rules: KeyRename) -> None:
@@ -182,7 +184,7 @@ def test_a_value_the_doctor_cannot_carry_over_stays_with_its_reason(
     def refuse(value, doc):
         raise migration._CannotRewrite("no unit to write")
 
-    _only(monkeypatch, KeyRename("calibration", "seed_before", "seed", convert=refuse))
+    _only(monkeypatch, KeyRename("calibration", "seed_before", "seed", convert=refuse, since=SINCE))
     path = tmp_path / "calibration.toml"
     path.write_text("[calibration]\nseed_before = 7\n", encoding="utf-8")
 
@@ -191,7 +193,8 @@ def test_a_value_the_doctor_cannot_carry_over_stays_with_its_reason(
 
 
 def test_a_dropped_key_is_dropped_in_a_sealed_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    _only(monkeypatch, KeyRename("calibration", "seed_before", "seed", sealed_drop=True))
+    rule = KeyRename("calibration", "seed_before", "seed", sealed_drop=True, since=SINCE)
+    _only(monkeypatch, rule)
     doc = {"calibration": {"seed_before": 7}}
 
     migrate_sealed_config_doc(doc)
@@ -199,24 +202,49 @@ def test_a_dropped_key_is_dropped_in_a_sealed_read(monkeypatch: pytest.MonkeyPat
     assert doc == {"calibration": {}}
 
 
-def test_a_renamed_key_is_refused_in_a_file_and_read_in_a_sealed_run_config(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+WITH_OLD_SEED = PROJECT.replace(
+    "[calibration.parameters.K]", "[calibration]\nseed_before = 7\n\n[calibration.parameters.K]"
+)
+
+
+def test_a_renamed_key_warns_in_a_file_and_reads_in_silence_in_a_sealed_run_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
 ) -> None:
     _only(monkeypatch, SEED)
-    text = PROJECT.replace(
-        "[calibration.parameters.K]", "[calibration]\nseed_before = 7\n\n[calibration.parameters.K]"
-    )
     project = _project(tmp_path)
     user_file = project / "project.toml"
-    user_file.write_text(text, encoding="utf-8")
-    with pytest.raises(ConfigValidationError, match="seed_before"):
-        HydroModPyConfig.from_toml(user_file)
+    user_file.write_text(WITH_OLD_SEED, encoding="utf-8")
+
+    with pytest.warns(ConfigKeyRenamedWarning, match="seed_before -> seed") as told:
+        assert HydroModPyConfig.from_toml(user_file).calibration.seed == 7
+    assert f"hmp doctor --fix-config {user_file}" in str(told[0].message)
 
     sealed = project / "runs" / "nancon" / "config.toml"
     sealed.parent.mkdir(parents=True)
-    sealed.write_text(text, encoding="utf-8")
+    sealed.write_text(WITH_OLD_SEED, encoding="utf-8")
+    recwarn.clear()
 
     assert HydroModPyConfig.from_toml(sealed).calibration.seed == 7
+    assert not [w for w in recwarn if issubclass(w.category, ConfigKeyRenamedWarning)]
+
+
+def test_the_end_of_the_delay_refuses_a_file_and_still_reads_a_sealed_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rule = KeyRename("calibration", "seed_before", "seed", since=SINCE, sealed_only=True)
+    _only(monkeypatch, rule)
+    project = _project(tmp_path)
+    user_file = project / "project.toml"
+    user_file.write_text(WITH_OLD_SEED, encoding="utf-8")
+    with pytest.raises(ConfigValidationError, match="seed_before"):
+        HydroModPyConfig.from_toml(user_file)
+    assert fix_config_file(user_file) == []
+
+    sealed = project / "runs" / "nancon" / "config.toml"
+    sealed.parent.mkdir(parents=True)
+    sealed.write_text(WITH_OLD_SEED, encoding="utf-8")
+    assert HydroModPyConfig.from_toml(sealed).calibration.seed == 7
+    assert "calibration.seed_before" not in [form.old for form in migration.old_forms()]
 
 
 def test_a_sealed_document_is_read_under_the_new_name_not_a_user_dict(
@@ -262,14 +290,32 @@ def test_a_frozen_protocol_stage_with_an_old_key_reads_back(
 def test_a_load_of_a_user_file_does_not_run_the_sealed_rules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    _only(monkeypatch, KeyRename("calibration", "seed_before", "seed", sealed_drop=True))
+    rule = KeyRename("calibration", "seed_before", "seed", sealed_drop=True, since=SINCE)
+    _only(monkeypatch, rule)
     doc = {"calibration": {"seed_before": 7}}
+    with pytest.warns(ConfigKeyRenamedWarning):
+        migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
+    assert doc == {"calibration": {"seed": 7}}
 
-    migrate_config_doc_on_load(doc, source=tmp_path / "project.toml")
-
-    assert doc == {"calibration": {"seed_before": 7}}
+    doc = {"calibration": {"seed_before": 7}}
     migrate_config_doc_on_load(doc, source=tmp_path / "runs" / "nancon" / "config.toml")
     assert doc == {"calibration": {}}
+
+
+def test_a_renamed_table_keeps_its_place_and_its_comments(tmp_path: Path) -> None:
+    path = tmp_path / "calibration.toml"
+    path.write_text(
+        "[calibration.optimizer_kwargs]\nsigma = 0.5  # the step\n\n[calibration.protocol]\n"
+        'name = "matching_hydrographic_network"\n',
+        encoding="utf-8",
+    )
+
+    assert fix_config_file(path) == ["calibration.optimizer_kwargs -> method_options"]
+
+    written = path.read_text(encoding="utf-8")
+    assert "sigma = 0.5  # the step" in written
+    assert written.index("[calibration.method_options]") < written.index("[calibration.protocol]")
+    assert tomllib.loads(written)["calibration"]["method_options"] == {"sigma": 0.5}
 
 
 def test_a_comment_survives_in_a_document_the_doctor_wrote(

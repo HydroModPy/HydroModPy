@@ -54,12 +54,15 @@ class FlowRuntimeFields(HydroModelBase):
             "Optional Boussinesq surface-interaction closure selector. "
             "'regularized_partition' uses the Marcais-style q_ex = G_r(theta) "
             "R(balance) law; 'complementarity' uses the mixed PETSc "
-            "q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the "
-            "experimental PETSc head-only VI obstacle formulation; 'auto' "
-            "keeps the historical backend-dependent default."
+            "q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the PETSc "
+            "head-only VI obstacle formulation, and 'ts_vi_obstacle' the same "
+            "one integrated by PETSc TS; 'auto' keeps the historical "
+            "backend-dependent default."
         ),
         examples=["auto", "regularized_partition"],
-        json_schema_extra=field_metadata(stability="experimental"),
+        json_schema_extra=field_metadata(
+            experimental_values=["complementarity", "vi_obstacle", "ts_vi_obstacle"]
+        ),
     )
     partition_release_depth_m: Annotated[float, Profile.USER] = Field(
         default=DEFAULT_PARTITION_RELEASE_DEPTH_M,
@@ -78,7 +81,7 @@ class FlowRuntimeFields(HydroModelBase):
             "stiffer. The other closures and the MODFLOW solvers do not read it."
         ),
         examples=[0.05, 0.02],
-        json_schema_extra=field_metadata(unit="m"),
+        json_schema_extra=field_metadata(unit="m", stability="experimental"),
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -93,6 +96,7 @@ class FlowRuntimeFields(HydroModelBase):
             help_text_fr="Budget d'itérations non-linéaires pour le solveur.",
             display_min=1,
             display_max=100_000,
+            stability="experimental",
         ),
     )
     runtime_tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
@@ -101,6 +105,7 @@ class FlowRuntimeFields(HydroModelBase):
             "Optional override for the infinity-norm residual tolerance used "
             "by the Boussinesq runtime backend."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     runtime_tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
@@ -108,55 +113,65 @@ class FlowRuntimeFields(HydroModelBase):
             "Optional override for the infinity-norm state-update tolerance "
             "used by Boussinesq backends that track it."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
         default=1,
         description=(
             "Fixed number of Backward-Euler substeps per time step for the "
-            "experimental PETSc VI obstacle runtime. A stress period holds "
+            "PETSc VI obstacle runtime. A stress period holds "
             "simulation.time.substeps_per_period time steps. Rate-based forcing "
             "values are kept unchanged on each substep."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description=(
             "When true, retry a failed PETSc VI obstacle time step with increasing substep counts."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
         default=4,
         description=(
             "Fixed PETSc TS Backward-Euler steps per time step for the "
-            "experimental TS VI obstacle runtime. A stress period holds "
+            "TS VI obstacle runtime. A stress period holds "
             "simulation.time.substeps_per_period time steps."
         ),
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
         default=False,
-        description="Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.",
+        description="Enable PETSc TS adaptivity for the TS VI obstacle runtime.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 64.0,
         description="Minimum TS VI step as a fraction of the time-step length.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
         default=1.0 / 4.0,
         description="Maximum TS VI step as a fraction of the time-step length.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_type: Annotated[str, Profile.DEV] = Field(
         default="beuler",
-        description="PETSc TS type for the experimental TS VI obstacle runtime.",
+        description="PETSc TS type for the TS VI obstacle runtime.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
         default="vinewtonrsls",
-        description="PETSc SNES type for the experimental TS VI obstacle runtime.",
+        description="PETSc SNES type for the TS VI obstacle runtime.",
+        json_schema_extra=field_metadata(stability="experimental"),
     )
 
     @property

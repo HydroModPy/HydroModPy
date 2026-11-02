@@ -13,7 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli._conventions import verbosity_parser, workspace_parser
+from hydromodpy.cli.conventions import verbosity_parser, workspace_parser
 from hydromodpy.cli.helpers import apply_verbosity, exit_code_for, resolve_project_ref
 
 NAME: str = "export"
