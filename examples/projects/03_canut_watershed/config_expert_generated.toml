@@ -601,7 +601,6 @@ freq = ""
 
 # Fraction of recharge routed to runoff (0.0 to 1.0).
 # Type: float (optional) | Optional
-# runoff_ratio = 0.0
 
 # Explicit station ids (custom source).
 # Type: list (optional) | Optional

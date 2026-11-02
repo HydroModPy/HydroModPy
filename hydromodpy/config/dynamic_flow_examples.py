@@ -65,8 +65,8 @@ class DynamicFlowExamples:
         out.append("")
         out.append("# " + "-" * 70)
         out.append("# Flow diffuse recharge - emitted when 'recharge' is listed in")
-        out.append("# [flow].active_sinks_sources. Values are taken from the data")
-        out.append("# layer ([data.recharge]) unless overridden here.")
+        out.append("# [flow].active_sinks_sources. A series loaded from [data.recharge]")
+        out.append("# or computed by the soil section replaces values.")
         out.append("# " + "-" * 70)
         out.extend(
             section_renderer(

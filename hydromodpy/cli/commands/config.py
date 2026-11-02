@@ -190,6 +190,10 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
     """
     import json
 
+    from hydromodpy.calibration.parameter_resolution import (
+        RECHARGE_VALUES_PATH,
+        replaced_recharge_rate,
+    )
     from hydromodpy.calibration.targets import calibration_targets
     from hydromodpy.config import HydroModPyConfig
 
@@ -205,6 +209,8 @@ def _cmd_config_targets(args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     targets = calibration_targets(cfg)
+    if replaced_recharge_rate(cfg) is not None:
+        targets = [target for target in targets if target.path != RECHARGE_VALUES_PATH]
     _warn_about_suffix_only_parameters(path, targets)
 
     if getattr(args, "json", False):

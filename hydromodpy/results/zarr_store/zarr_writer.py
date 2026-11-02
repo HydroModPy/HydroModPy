@@ -1214,6 +1214,13 @@ def write_forcing_timeseries(
         )
 
 
+def write_forcing_attrs(store_obj: SimulationZarr, attrs: Mapping[str, object]) -> None:
+    """Stamp attributes on the ``forcing`` group."""
+    with store_obj._guard_write():
+        ensure_child_dir(store_obj, store_obj._root, "forcing")
+        update_attrs(store_obj._root.require_group("forcing"), attrs)
+
+
 def write_forcing_field(
     store_obj: SimulationZarr,
     variable: str,
@@ -1678,6 +1685,7 @@ __all__ = [
     "write_crs",
     "write_descent",
     "write_field",
+    "write_forcing_attrs",
     "write_forcing_field",
     "write_forcing_timeseries",
     "write_geographic_raster",

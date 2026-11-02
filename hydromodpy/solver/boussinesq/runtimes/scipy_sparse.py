@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable
+from dataclasses import replace
 
 import numpy as np
 
@@ -47,6 +48,7 @@ from hydromodpy.solver.boussinesq.runtimes.newton_common import (
 from hydromodpy.solver.boussinesq.runtimes.partition_utils import (
     interiorize_regularized_partition_initial_guess,
     regularized_partition_jacobian_shift,
+    solve_by_release_depth_continuation,
 )
 
 _log = get_logger(__name__)
@@ -67,6 +69,14 @@ def _require_scipy_sparse():
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one transient implicit step with sparse Newton iterations."""
+    direct = _solve_transient_once(inputs)
+    if direct.converged:
+        return direct
+    return solve_by_release_depth_continuation(inputs, direct=direct, solve=_solve_transient_once)
+
+
+def _solve_transient_once(inputs: TransientStepInputs) -> RuntimeSolveResult:
+    """Solve one transient step at the release depth ``inputs`` states."""
     solve_setup = build_transient_assembly_callback(inputs)
     jacobian_rows_by_col = build_cell_coupling_rows_by_column(
         n_cells=inputs.mesh.n_cells,
@@ -101,13 +111,27 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
 
 def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     """Solve one steady nonlinear balance with sparse Newton iterations."""
-    solve_setup = build_steady_assembly_callback(
-        inputs,
-        head_transform=lambda values: interiorize_regularized_partition_initial_guess(
+
+    def interiorized(values: np.ndarray) -> np.ndarray:
+        return interiorize_regularized_partition_initial_guess(
             inputs.mesh,
             np.asarray(values, dtype=float),
-        ),
-    )
+        )
+
+    direct = _solve_steady_once(inputs, head_transform=interiorized)
+    if direct.converged:
+        return direct
+    start = replace(inputs, head_initial_guess_m=interiorized(inputs.head_initial_guess_m))
+    return solve_by_release_depth_continuation(start, direct=direct, solve=_solve_steady_once)
+
+
+def _solve_steady_once(
+    inputs: SteadySolveInputs,
+    *,
+    head_transform: Callable[[np.ndarray], np.ndarray] | None = None,
+) -> RuntimeSolveResult:
+    """Solve one steady balance at the release depth ``inputs`` states."""
+    solve_setup = build_steady_assembly_callback(inputs, head_transform=head_transform)
     jacobian_rows_by_col = build_cell_coupling_rows_by_column(
         n_cells=inputs.mesh.n_cells,
         edge_cell_a=inputs.mesh.edge_cell_a,
@@ -251,12 +275,16 @@ def _solve_nonlinear_system(
             damping,
         )
 
+    # A Newton step lowers the L2 norm, not always the largest entry: on the kink of
+    # the surface closure, one cell can hold the maximum while the mesh improves, and
+    # a search on the maximum then rejects every step.
     return _newton_loop_template(
         assembly_for=assembly_for,
         head_initial_guess_m=head_initial_guess_m,
         max_iterations=max_iterations,
         tol_residual_inf=tol_residual_inf,
         min_damping=min_damping,
+        line_search_norm=lambda residual: float(np.linalg.norm(residual)),
         backend_name=backend_name,
         newton_label="sparse",
         build_jacobian=_build_sparse_newton_jacobian,

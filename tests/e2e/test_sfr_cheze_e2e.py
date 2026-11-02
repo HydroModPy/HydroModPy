@@ -198,7 +198,6 @@ types = ["recharge"]
 source = "synthetic"
 values = [2.0, 2.0, 2.0, 1.5, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0, 1.5, 2.0]
 freq = "MS"
-runoff_ratio = 0.0
 
 [[data.lake_geometry.sources]]
 source = "custom"

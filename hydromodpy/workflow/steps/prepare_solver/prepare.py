@@ -374,7 +374,7 @@ def _portable_path(source_path: Path | None, anchor: Path | str | None) -> str:
 # Gridded forcing families reduced to a watershed-mean station series at
 # persist time. The catchment discharge derivation reads runoff back from
 # Zarr forcing/ when no stream network routes it.
-_WATERSHED_MEAN_FORCINGS = frozenset({"runoff"})
+_WATERSHED_MEAN_FORCINGS = frozenset({"runoff", "recharge"})
 _WATERSHED_MEAN_STATION = "_watershed"
 
 

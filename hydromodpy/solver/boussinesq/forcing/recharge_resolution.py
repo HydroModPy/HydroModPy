@@ -6,7 +6,10 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from hydromodpy.physics.forcing.steady_periods import apply_first_clim
+from hydromodpy.physics.forcing.steady_periods import (
+    apply_first_clim,
+    first_clim_sets_a_deficit,
+)
 from hydromodpy.physics.forcing.validation import ensure_non_negative_numeric_payload
 from hydromodpy.spatial.forcing.cells import (
     discretize_fields_on_cells,
@@ -30,6 +33,14 @@ class RechargeResolutionMixin:
         recharge_cfg = self.recharge_config()
         if recharge_cfg is None:
             return tuple(0.0 for _ in range(int(nper)))
+
+        first_clim = getattr(recharge_cfg, "first_clim", "mean")
+        if first_clim_sets_a_deficit(first_clim, self.boussinesq_steady_flags(int(nper))):
+            raise ValueError(
+                f"flow.sinks_sources.recharge.first_clim = {first_clim} is a negative rate, "
+                "and the Boussinesq solver has no EVT to route a deficit to: give a rate "
+                "of zero or more, or run the deficit under modflow6 or modflow_nwt."
+            )
 
         heterogeneous_source = getattr(recharge_cfg, "heterogeneous_source", None)
         if heterogeneous_source is not None:

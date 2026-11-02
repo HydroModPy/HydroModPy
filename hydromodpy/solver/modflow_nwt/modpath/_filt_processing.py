@@ -16,7 +16,9 @@ from scipy.optimize import curve_fit
 
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.modflow_common.calibration_extractors import open_cell_budget
 
+from ._pre_processing import budget_holds
 from ._resolvers import (
     crs_for_write_from_proj,
     resolve_domain_raster,
@@ -175,17 +177,20 @@ def _build_weighted_outputs(
         hdsfile=modeldir + namepath + ".hds",
         model=mymodel,
     )
-    Qx_2, Qy_2, Qz_drain = pp.get_extended_budget(
-        modeldir + namepath + ".cbc",
-        precision="single",
-        idx=None,
-        kstpkper=(step, period),
-        totim=None,
-        boundary_ifaces={"DRAINS": 6},
-        hdsfile=modeldir + namepath + ".hds",
-        model=mymodel,
-    )
-    _ = (Qx, Qy, Qx_2, Qy_2)  # silence: original kept for parity
+    if budget_holds(open_cell_budget(modeldir + namepath + ".cbc"), "DRAINS"):
+        _, _, Qz_drain = pp.get_extended_budget(
+            modeldir + namepath + ".cbc",
+            precision="single",
+            idx=None,
+            kstpkper=(step, period),
+            totim=None,
+            boundary_ifaces={"DRAINS": 6},
+            hdsfile=modeldir + namepath + ".hds",
+            model=mymodel,
+        )
+    else:
+        Qz_drain = np.zeros_like(Qz_rech)
+    _ = (Qx, Qy)  # silence: original kept for parity
 
     recharge_raw = aux_rech.rech.array[0, 0]
     recharge_list = recharge_raw.flatten()

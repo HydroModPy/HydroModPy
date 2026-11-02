@@ -58,7 +58,6 @@ path = "DEM_armorican_massif.tif"
 [[data.recharge.sources]]
 source = "synthetic"
 values = [0.9589]
-runoff_ratio = 0.0
 
 
 [flow]

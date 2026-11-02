@@ -86,6 +86,7 @@ from hydromodpy.data import DataManagersConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.forcing.validation import refuse_an_impossible_recharge
 from hydromodpy.physics.hydrology.soil_reservoir.config import (
     soil_reservoir_of,
     spinup_refusal,
@@ -1404,6 +1405,26 @@ class HydroModPyConfig(HydroModelBase):
             steady_start_message = steady_start_refusal(flow_cfg, window)
             if steady_start_message is not None:
                 raise ValueError(steady_start_message)
+
+        declared_recharge = getattr(
+            getattr(getattr(self, "flow", None), "sinks_sources", None), "recharge", None
+        )
+        if declared_recharge is not None:
+            refuse_an_impossible_recharge(
+                declared_recharge.peak_rate_mm_day(),
+                label="flow.sinks_sources.recharge.values",
+            )
+            if (
+                soil is None
+                and "recharge" in set(getattr(data_cfg, "types", []) or [])
+                and declared_recharge.peak_rate_mm_day() != 0.0
+            ):
+                raise ValueError(
+                    f"flow.sinks_sources.recharge.values = {declared_recharge.values!r} would be "
+                    "replaced by the series [data.recharge] loads, so the model would not read "
+                    "it: remove values (write values__delete = true if a base file declares "
+                    'it), or remove "recharge" from data.types to impose this rate.'
+                )
 
         if soil is None and getattr(data_cfg, "soil_capacity", None) is not None:
             raise ValueError(

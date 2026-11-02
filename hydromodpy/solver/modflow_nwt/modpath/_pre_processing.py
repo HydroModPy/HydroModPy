@@ -92,6 +92,11 @@ def build_modpath_model(
     return mp
 
 
+def budget_holds(cbb: Any, text: str) -> bool:
+    """Return True when the cell budget file holds the term ``text``."""
+    return any(text == name.decode().strip() for name in cbb.get_unique_record_names())
+
+
 def compute_seepage_zone(
     *,
     mf: Any,
@@ -106,18 +111,21 @@ def compute_seepage_zone(
     ibound = bas.ibound.array
 
     cbb = open_cell_budget(bud_file)  # NWT ecrit en simple, MF6 en double
-    rec_drn = cbb.get_data(kstpkper=(0, 0), text="DRAINS")
     rec_rch = cbb.get_data(kstpkper=(0, 0), text="RECHARGE")
 
-    drn = np.ones((nrow, ncol))
-    compti = 0
-    comptj = 0
-    for ii in range(0, rec_drn[0].shape[0]):
-        drn[compti, comptj] = -1 * rec_drn[0][ii][1]
-        comptj += 1
-        if comptj == ncol:
-            compti += 1
-            comptj = 0
+    # A model without drains seeps nowhere: only its prescribed heads take the water.
+    drn = np.zeros((nrow, ncol))
+    if budget_holds(cbb, "DRAINS"):
+        rec_drn = cbb.get_data(kstpkper=(0, 0), text="DRAINS")
+        drn = np.ones((nrow, ncol))
+        compti = 0
+        comptj = 0
+        for ii in range(0, rec_drn[0].shape[0]):
+            drn[compti, comptj] = -1 * rec_drn[0][ii][1]
+            comptj += 1
+            if comptj == ncol:
+                compti += 1
+                comptj = 0
     rch = rec_rch[0][1]
     b = drn / rch
     b[np.isnan(b)] = 0

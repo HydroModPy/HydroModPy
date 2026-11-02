@@ -20,6 +20,7 @@ from hydromodpy.physics.forcing.steady_periods import (
     steady_flags,
 )
 from hydromodpy.physics.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
@@ -174,16 +175,8 @@ class ForcingCommonMixin:
             )
         ensure_non_negative_numeric_payload(payload, label=label)
         if isinstance(payload, Mapping):
-            series = np.zeros(nper, dtype=float)
-            for raw_key, raw_value in payload.items():
-                if isinstance(raw_key, bool) or not isinstance(raw_key, Real):
-                    raise TypeError(f"{label} mapping keys must be integer period indices.")
-                kper = int(raw_key)
-                if float(raw_key) != float(kper):
-                    raise TypeError(f"{label} mapping keys must be integer period indices.")
-                if kper < 0 or kper >= int(nper):
-                    raise ValueError(f"{label} mapping key {kper} is outside [0, {int(nper) - 1}].")
-                series[kper] = float(raw_value)
+            table = complete_period_table(payload, nper=int(nper), label=label)
+            series = np.asarray([float(value) for value in table.values()], dtype=float)
             return self.apply_first_clim_to_series(series, first_clim=first_clim)
         if self.is_scalar_number(payload):
             return self.apply_first_clim_to_series(

@@ -12,6 +12,26 @@ from validation_cases.analytical.transient.linearized_unconfined_1d import (
 )
 
 
+def periodic_recharge_levels_mm_day(
+    *,
+    start_days: np.ndarray,
+    step_days: float,
+    mean_recharge_mm_day: float,
+    amplitude_mm_day: float,
+    period_days: float,
+    phase_radians: float = 0.0,
+) -> np.ndarray:
+    """Return the mean of the wave over each period, the rate the synthetic source gives it."""
+    angular_frequency = 2.0 * np.pi / float(period_days)
+    wave_start = (angular_frequency * np.asarray(start_days, dtype=float)) + float(phase_radians)
+    wave_end = wave_start + (angular_frequency * float(step_days))
+    return float(mean_recharge_mm_day) + (
+        float(amplitude_mm_day)
+        * (np.cos(wave_start) - np.cos(wave_end))
+        / (angular_frequency * float(step_days))
+    )
+
+
 def expected_linearized_unconfined_recharge_periodic_profiles(
     *,
     x: np.ndarray,
@@ -36,9 +56,13 @@ def expected_linearized_unconfined_recharge_periodic_profiles(
         specific_yield=float(specific_yield),
     )
     start_days = np.asarray(period_start_seconds, dtype=float) / SECONDS_PER_DAY
-    angular_frequency = 2.0 * np.pi / float(period_days)
-    recharge_levels_mm_day = float(mean_recharge_mm_day) + (
-        float(amplitude_mm_day) * np.sin((angular_frequency * start_days) + float(phase_radians))
+    recharge_levels_mm_day = periodic_recharge_levels_mm_day(
+        start_days=start_days,
+        step_days=float(np.median(np.diff(start_days))) if start_days.size > 1 else 1.0,
+        mean_recharge_mm_day=mean_recharge_mm_day,
+        amplitude_mm_day=amplitude_mm_day,
+        period_days=period_days,
+        phase_radians=phase_radians,
     )
     recharge_levels_m_per_s = np.asarray(
         [mm_day_to_m_s(value) for value in recharge_levels_mm_day],

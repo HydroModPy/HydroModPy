@@ -248,7 +248,6 @@ def _apply_scenario_to_launcher_payload(
             {
                 "source": "synthetic",
                 "values": [float(scenario.recharge_mm_day)],
-                "runoff_ratio": 0.0,
             }
         ]
     }

@@ -38,7 +38,11 @@ from hydromodpy.core.stream_geometry import (
 )
 from hydromodpy.core.stream_heads import HeadCandidates, HeadsSettings
 from hydromodpy.core.stream_network import build_simulated_network
-from hydromodpy.core.stream_recharge import criterion_mean_recharge, forcing_period_rates
+from hydromodpy.core.stream_recharge import (
+    CRITERION_MEAN_RECHARGE_ATTR,
+    criterion_mean_recharge,
+    forcing_period_rates,
+)
 from hydromodpy.core.time.period_aggregation import period_edges
 from hydromodpy.core.topographic_distance import downslope_distance_to_mask
 from hydromodpy.core.units import factor_to_m_per_s
@@ -125,7 +129,7 @@ def no_recharge_reason(sim: Run, ratio: float) -> str:
     """Say why the recharge a seepage threshold is a fraction of cannot be read."""
     return _with_kept_budget(
         f"a seepage threshold of tau = {float(ratio):g} is a fraction of the recharge the "
-        "model received, and this run persisted no recharge budget and no dated station "
+        "model received, and this run persisted no recharge budget and no dated "
         "recharge forcing",
         "recharge",
         sim,
@@ -422,23 +426,25 @@ def _delineated_outlet_xy(sim: Run) -> tuple[float, float] | None:
 def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
     """Return the mean recharge rate of the run, in m/s, as the trials read it.
 
-    The criterion's one rule (:mod:`hydromodpy.core.stream_recharge`): the
-    unweighted mean, over the run's periods, of the rate the recharge forcing
-    gives each. It is rebuilt from the station forcing the run stores, put on
-    the run's own period edges by the rule the solver forcing is built by, so
-    a steady spin-up period counts at its own rate. The budget the solver wrote
-    holds the record mean there instead: on the monthly Nancon, 8.656e-9 m/s
-    against the 9.075e-9 every trial scored with.
+    The criterion's one rule (:mod:`hydromodpy.core.stream_recharge`). A run
+    keeps on its ``forcing`` group the number its trials read from the built
+    model, for a station series and for a grid alike, and that number is read
+    back here. A solver that holds no recharge on its model keeps none.
 
-    The budget is read only when the run stores no station forcing, or no
-    dates to place it on. A gridded forcing is stored without its time axis,
-    and the gridded path writes each period's rate as the forcing gives it, so
-    its budget is the forcing on the cells. A zero ratio makes the threshold
-    zero whatever the recharge is, so the run is not asked for one. The gates
-    ask :func:`has_recharge_source`, which answers from the same two sources.
+    Such a run rebuilds the rates from the forcing it stores, put on the run's
+    own period edges by the rule the solver forcing is built by, so a steady
+    spin-up period counts at its own rate. The budget the solver wrote holds the
+    record mean there instead: on the monthly Nancon, 8.656e-9 m/s against the
+    9.075e-9 every trial scored with. The budget is read only when the run stores
+    no forcing, or no dates to place it on. A zero ratio makes the threshold zero
+    whatever the recharge is, so the run is not asked for one. The gates ask
+    :func:`has_recharge_source`, which answers from the same sources.
     """
     if float(ratio) == 0.0:
         return 0.0
+    kept = _kept_criterion_mean_recharge(sim)
+    if kept is not None:
+        return kept
     forcing = _recharge_forcing_on_periods(sim)
     if forcing is not None:
         stored, edges = forcing
@@ -454,11 +460,29 @@ def _mean_recharge_m_s(sim: Run, areas: np.ndarray, *, ratio: float) -> float:
 def has_recharge_source(sim: Run) -> bool:
     """Return whether the mean recharge of a positive seepage threshold can be read.
 
-    The one predicate the gates and the computation share: the station forcing
-    the run stores on its period edges, else the recharge budget. A run with
-    either computes the criterion.
+    The one predicate the gates and the computation share: the number the run
+    kept, the forcing it stores on its period edges, else the recharge budget. A
+    run with any of them computes the criterion.
     """
-    return _recharge_forcing_on_periods(sim) is not None or sim.has_field("recharge")
+    return (
+        _kept_criterion_mean_recharge(sim) is not None
+        or _recharge_forcing_on_periods(sim) is not None
+        or sim.has_field("recharge")
+    )
+
+
+def _kept_criterion_mean_recharge(sim: Run) -> float | None:
+    """Return the mean recharge the run kept when it ran, in m/s, or None."""
+    open_zarr = getattr(getattr(sim, "_catalog", None), "open_zarr", None)
+    if not callable(open_zarr):
+        return None
+    store = open_zarr(sim.sim_id)
+    try:
+        forcing = store.root.get("forcing")
+        kept = None if forcing is None else forcing.attrs.get(CRITERION_MEAN_RECHARGE_ATTR)
+    finally:
+        store.close()
+    return None if kept is None else float(kept)
 
 
 def _recharge_forcing_on_periods(sim: Run) -> tuple[pd.Series, pd.DatetimeIndex] | None:
@@ -522,9 +546,8 @@ def _run_period_edges(sim: Run) -> pd.DatetimeIndex | None:
 def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
     """Return the mean recharge rate of the budget the solver wrote, in m/s.
 
-    Every timestep and every cell of finite area, unweighted. The last
-    timestep alone is one day of a transient run: 4.5 times the mean on the
-    daily Nancon run.
+    Every timestep counts once, its cells by their area. The last timestep alone
+    is one day of a transient run: 4.5 times the mean on the daily Nancon run.
     """
     from hydromodpy.core.stream_extent import CHUNK_ELEMENTS
     from hydromodpy.results.run.geographic import field_steps
@@ -532,7 +555,7 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
     n_steps = sim.n_timesteps
     steps = list(range(int(n_steps))) if n_steps else [-1]
     per_pass = max(1, CHUNK_ELEMENTS // max(1, int(areas.size)))
-    rates: list[np.ndarray] = []
+    rates: list[float] = []
     for first in range(0, len(steps), per_pass):
         chunk = steps[first : first + per_pass]
         stack = np.asarray(field_steps(sim, "recharge", chunk), dtype=float)
@@ -542,7 +565,8 @@ def _budget_mean_recharge_m_s(sim: Run, areas: np.ndarray) -> float:
             stack = stack.sum(axis=1)
         for recharge_m3_s in stack.reshape(len(chunk), -1):
             usable = np.isfinite(recharge_m3_s) & np.isfinite(areas) & (areas > 0.0)
-            rates.append(recharge_m3_s[usable] / areas[usable])
+            if np.any(usable):
+                rates.append(float(recharge_m3_s[usable].sum() / areas[usable].sum()))
     try:
         return criterion_mean_recharge(rates)
     except ValueError as exc:

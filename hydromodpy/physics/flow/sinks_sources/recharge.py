@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated, Any
 
+import numpy as np
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.calibrable import Calibrable
 from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
 from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
+    integer_period_keys,
+    numeric_payload_array,
 )
 from hydromodpy.physics.hydrology.soil_reservoir.config import SoilReservoirConfig
 
@@ -23,10 +28,10 @@ class FlowRechargeConfig(HydroModelBase):
     """
     Typed payload for diffuse recharge over the model domain.
 
-    Recharge drives the MODFLOW RCH package. The conversion to MODFLOW
-    stress-period dictionaries is handled by
-    ``FlowToModflowAdapter._build_recharge_payload``. Negative values can be
-    routed to EVT when ``negative_to_evt`` is enabled.
+    Recharge drives RCHA under MODFLOW 6, RCH under MODFLOW-NWT and the recharge
+    term of the residual under Boussinesq. Each solver builds its own
+    stress-period data from this payload. Negative values can be routed to EVT
+    when ``negative_to_evt`` is enabled, under the two MODFLOW solvers only.
 
     Attributes
     ----------
@@ -36,7 +41,8 @@ class FlowRechargeConfig(HydroModelBase):
         - **scalar** ``float``: uniform rate applied to every stress period,
         - **list / numpy array**: one value per stress period
           (length must match ``nper``),
-        - **mapping** ``{period_index: value}``: explicit per-period assignment,
+        - **mapping** ``{period_index: value}``: one value for every stress
+          period, the keys counted from 0,
         - **runtime series** (pandas-like object with ``.iloc``): used when
           recharge is computed dynamically (e.g. from PyHELP output).
 
@@ -58,13 +64,11 @@ class FlowRechargeConfig(HydroModelBase):
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
-            "Recharge rate: one number, one number per stress period, a table "
-            "{period: value}, or the series loaded from [data.recharge], in the unit that "
-            "'units' names (mm/day by default). A calibration reads its bounds "
-            "in that unit too. The "
-            "'matching_hydrographic_network' protocol calibrates conductivity "
-            "against the ratio K/R in its steady stage and requires this value "
-            "held frozen there."
+            "Recharge rate: one number, one number per stress period, or a table "
+            "{period: value} that states every period, in the unit that 'units' names "
+            "(mm/day by default). A calibration reads its bounds in that unit too. "
+            "Do not write it beside [data.recharge] or the soil section, which "
+            "replace it."
         ),
         # No unit on the Calibrable: the search writes its sample as is into
         # this field, so the unit is the one 'units' declares, whatever it is.
@@ -100,7 +104,8 @@ class FlowRechargeConfig(HydroModelBase):
             "period keeps its own rate. The same rule holds for one value per "
             "period and for one grid per period, under every solver. With "
             "negative_to_evt, the steady period takes the rule on the recharge "
-            "part and on the deficit part, so its net rate is the one stated here."
+            "part and on the deficit part, so its net rate is the one stated here. "
+            "Boussinesq has no EVT and refuses a negative number."
         ),
         examples=["mean", "first", 2.0],
     )
@@ -117,7 +122,8 @@ class FlowRechargeConfig(HydroModelBase):
         default=True,
         description=(
             "When true, negative recharge values are routed to the solver EVT "
-            "package and RCH receives the non-negative clipped recharge."
+            "package and RCH receives the non-negative clipped recharge. Boussinesq "
+            "has no EVT and refuses a negative rate whatever this says."
         ),
     )
     spatial_mode: Annotated[SpatialMode, Profile.DEV] = Field(
@@ -140,6 +146,16 @@ class FlowRechargeConfig(HydroModelBase):
         ),
     )
 
+    def peak_rate_mm_day(self) -> float:
+        """Return the largest rate ``values`` states, whatever its sign, in mm/day."""
+        payload = self.values
+        if isinstance(payload, Mapping):
+            payload = list(payload.values())
+        array = numeric_payload_array(payload, label="flow.sinks_sources.recharge.values")
+        return float(np.max(np.abs(array))) * (
+            factor_to_m_per_s(self.units) / factor_to_m_per_s("mm/day")
+        )
+
     @field_validator("first_clim", mode="before")
     @classmethod
     def _validate_first_clim(cls, value):
@@ -148,8 +164,9 @@ class FlowRechargeConfig(HydroModelBase):
     @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
-        ensure_finite_numeric_payload(value, label="flow.sinks_sources.recharge.values")
-        return value
+        label = "flow.sinks_sources.recharge.values"
+        ensure_finite_numeric_payload(value, label=label)
+        return integer_period_keys(value, label=label) if isinstance(value, Mapping) else value
 
     @model_validator(mode="after")
     def _validate_negative_policy(self):

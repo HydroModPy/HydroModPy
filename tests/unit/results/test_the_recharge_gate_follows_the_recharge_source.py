@@ -100,7 +100,7 @@ def test_a_grid_forced_run_without_a_recharge_budget_is_refused(tmp_path) -> Non
     assert not has_recharge_source(run)
     assert reason is not None
     assert "tau = 0.0001" in reason
-    assert "persisted no recharge budget and no dated station recharge forcing" in reason
+    assert "persisted no recharge budget and no dated recharge forcing" in reason
     with pytest.raises(ValueError, match="persisted no recharge budget"):
         network_comparison_from_run(run, tau_specific_ratio=1e-4)
 

@@ -428,6 +428,10 @@ class SimulationZarr:
             source=source,
         )
 
+    def write_forcing_attrs(self, attrs: Mapping[str, object]) -> None:
+        """Stamp attributes on the ``forcing`` group."""
+        zarr_writer.write_forcing_attrs(self, attrs)
+
     def write_forcing_field(
         self,
         variable: str,

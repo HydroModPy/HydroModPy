@@ -369,8 +369,8 @@ gives the default.
 
 **The equilibrium.** For `steady_state`, the code first solves an auxiliary
 steady problem with the same solver, the same grid and the same properties. Its
-recharge is a constant, set by {toml}`flow.ic.h.source`: the mean of the whole
-record, or the rate that you state. The result is $h_0$:
+recharge is a constant, set by {toml}`flow.ic.h.source`: the mean of the record,
+one weight per period, or the rate that you state. The result is $h_0$:
 
 $$
 \nabla\!\cdot\!\bigl(K\,B(h^\star)\,\nabla h^\star\bigr) + \bar N + q_\mathrm{bc}(h^\star) = 0 ,
@@ -454,7 +454,7 @@ carries no flow. The two keys that activate them are {toml}`flow.active_bc` and
   raster kind. The thickness of a layer by surfaces is an input and is not calibrable.
 - **Boussinesq has one layer and no $S_s$.** It reads $K$ and $S_y$ only.
 - **Newton and rewetting exclude each other** in MODFLOW 6.
-- **A steady first period is refused with the soil reservoir.** The reservoir
+- **A transient run with the soil reservoir refuses a steady first period.** The reservoir
   sends a daily recharge that is zero after a dry day, and a one-period steady
   state would start the run from a drained aquifer.
 - **Each solver has its own boundaries.** What each solver supports is listed in

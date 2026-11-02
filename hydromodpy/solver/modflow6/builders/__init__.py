@@ -104,8 +104,6 @@ from hydromodpy.solver.modflow6.builders.recharge import (
     resolve_deferred_soil_etp,
     sanitize_numeric_payload,
     scalar_to_flat,
-    series_like_to_scalar,
-    series_payload_value,
 )
 from hydromodpy.solver.modflow6.builders.sfr import (
     ResolvedSfrNetwork,
@@ -236,8 +234,6 @@ __all__ = [
     "rewet_is_enabled",
     "sanitize_numeric_payload",
     "scalar_to_flat",
-    "series_like_to_scalar",
-    "series_payload_value",
     "sfr_drain_cells_to_drop",
     "sfr_routes_drainage",
     "side_boundary_cell_ids",

@@ -23,6 +23,7 @@ from hydromodpy.physics.forcing.steady_periods import (
     one_period_rate,
 )
 from hydromodpy.physics.forcing.validation import (
+    complete_period_table,
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
     has_temporal_index,
@@ -157,41 +158,6 @@ def extract_evt_payload_2d(
     )
     clipped = {kper: np.maximum(arr, 0.0) for kper, arr in normalized_rch.items()}
     return clipped, deficit
-
-
-def series_payload_value(payload: object, kper: int, *, first_clim: object) -> float:
-    """Resolve one scalar climate value from a scalar/sequence payload."""
-    if kper == 0:
-        if first_clim == "mean":
-            arr = np.asarray(payload, dtype=float)
-            return float(np.mean(arr))
-        if first_clim == "first":
-            if hasattr(payload, "iloc"):
-                first = payload.iloc[0]
-                if isinstance(first, Real) and not isinstance(first, bool):
-                    return float(first)
-                first_arr = np.asarray(first, dtype=float).ravel()
-                return float(first_arr[0]) if first_arr.size else 0.0
-            arr = np.asarray(payload, dtype=float).ravel()
-            return float(arr[0]) if arr.size else 0.0
-        if isinstance(first_clim, Real) and not isinstance(first_clim, bool):
-            return float(first_clim)
-
-    if hasattr(payload, "iloc"):
-        idx = min(max(int(kper), 0), len(payload) - 1)
-        value = payload.iloc[idx]
-        if isinstance(value, Real) and not isinstance(value, bool):
-            return float(value)
-        value_arr = np.asarray(value, dtype=float).ravel()
-        if value_arr.size:
-            return float(value_arr[0])
-        return 0.0
-
-    arr = np.asarray(payload, dtype=float).ravel()
-    if arr.size == 0:
-        return 0.0
-    idx = min(max(int(kper), 0), int(arr.size) - 1)
-    return float(arr[idx])
 
 
 def extract_evt_payload(
@@ -538,10 +504,6 @@ def as_recharge_flat(model, value: object, *, kper: int | None = None) -> np.nda
     raise ValueError(f"Unsupported recharge payload shape {arr.shape}.")
 
 
-def series_like_to_scalar(model, kper: int) -> float:
-    return series_payload_value(model.recharge, kper, first_clim=model.first_clim)
-
-
 def _payload_sequence(payload: object) -> np.ndarray:
     if hasattr(payload, "iloc"):
         values = [payload.iloc[idx] for idx in range(len(payload))]
@@ -601,12 +563,12 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
     """
     first_clim = model.first_clim if model.first_clim is not None else "mean"
     if isinstance(model.recharge, Mapping):
-        rows: dict[int, np.ndarray] = {}
-        for kper in range(model.nper):
-            arr = model.recharge.get(kper)
-            if arr is None:
-                raise ValueError(f"model.recharge mapping is missing stress period {kper}.")
-            rows[kper] = as_recharge_flat(model, arr, kper=kper)
+        table = complete_period_table(
+            model.recharge, nper=int(model.nper), label="flow.sinks_sources.recharge.values"
+        )
+        rows: dict[int, np.ndarray] = {
+            kper: as_recharge_flat(model, arr, kper=kper) for kper, arr in table.items()
+        }
     else:
         # The rule acts on the own rates before they are spread over the cells,
         # so a series keeps the mean of its own values, to the last bit.
@@ -1051,6 +1013,4 @@ __all__ = [
     "resolve_deferred_soil_etp",
     "sanitize_numeric_payload",
     "scalar_to_flat",
-    "series_like_to_scalar",
-    "series_payload_value",
 ]

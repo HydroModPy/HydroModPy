@@ -264,7 +264,8 @@ are run again and again, starting from that full soil. The loop stops when no
 store of any column moves by $0.1$ mm or more over one repetition, or after 20
 repetitions. The state at the end of the last repetition is $S_0$, $R_0$ and
 $C_0$. If 20 repetitions are not enough, the run stops with an error. A run
-shorter than 365 days is refused with this option.
+shorter than 52 weeks is refused with this option, and a run of 364 days repeats
+those 364 days.
 
 ## Columns and capacity classes
 

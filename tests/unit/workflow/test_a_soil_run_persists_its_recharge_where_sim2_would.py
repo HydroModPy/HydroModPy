@@ -114,7 +114,7 @@ def test_the_gridded_recharge_lands_where_sim2_would(tmp_path):
         try:
             forcing = sz.root["forcing"]
             assert "recharge_recharge" in forcing
-            assert "recharge" not in forcing
+            assert "_watershed" in forcing["recharge"]
             assert "_watershed" in forcing["runoff"]
             assert "soil" in forcing
         finally:

@@ -34,6 +34,45 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- A recharge series with a negative rate, or a negative `first_clim` on a series, no longer stops
+  MODFLOW 6 on a missing `ncpl` (2026-11-02). The deficit reaches EVT as it does for a grid.
+- `flow.sinks_sources.recharge.values` beside `[data.recharge]` is refused when it is not zero,
+  instead of being dropped without a word (2026-11-02). A calibration of that rate is refused too, and
+  `hmp config targets` no longer lists it. `values = 0.0` stays accepted, because a frozen
+  configuration writes it.
+- A table `{period: rate}` written in TOML reaches every solver, and it must state every period
+  (2026-11-02). A partial table repeated its last value under MODFLOW-NWT and read zero under
+  Boussinesq. MODFLOW-NWT also reads a list as the other solvers do: a run of one period takes the mean
+  of a longer record, where it took the first value, and another length is refused, where it was cut.
+- A negative `first_clim` goes to EVT under MODFLOW-NWT and is refused under Boussinesq, instead of
+  staying a negative recharge (2026-11-02).
+- The synthetic recharge counts the time of its sinusoid in days, so `period_days` holds whatever `freq`
+  is, and each sample holds the mean of the wave over its period (2026-11-02). A list that is neither
+  one value nor one per sample is refused, and so is an `offset`, an `amplitude` or a `period_days` that
+  would be ignored. Every synthetic series with a sinusoid changes.
+- A custom NetCDF grid with one or two dates in the window loads, and a window without a date is named
+  (2026-11-02).
+- A recharge rate above 1000 mm/day is refused, the mark of a wrong unit (2026-11-02). A recharge loaded
+  in `[data]` and absent from `flow.active_sinks_sources` now gives a warning.
+- The comparison budget keeps the evapotranspiration, the wells and the stream, lake, river and
+  general-head exchanges, which the closure residual used to absorb (2026-11-02).
+- Under Boussinesq, every cell at or below the ocean stage holds the head, as the MODFLOW 6 ocean CHD
+  does (2026-11-02). A wide sea used to stay free and shed the recharge at the level of its bed. Heads
+  of a run with such a sea change: the island centre goes from 3.12 m to 3.56 m against 3.44 m exact.
+- The sparse Boussinesq runtime no longer stalls where the water table reaches the ground (2026-11-02).
+  Its line search reads the L2 norm of the residual, not its largest entry, which one cell on the kink
+  of the surface closure can hold. A solve that still fails restarts from a release depth 16 times
+  larger and halves it down to the depth asked. Its iteration limit goes from 30 to 60. The convergence
+  test and a run that converged directly do not change. The dense runtime keeps its line search.
+- A gridded or soil recharge keeps its spatial mean under `forcing/recharge/_watershed`, so the
+  comparison figure finds it (2026-11-02). A run keeps on its `forcing` group the mean recharge its
+  trials read, and a redraw reads it back.
+- The mean recharge of the network criterion averages each period over the cells by their area, so a
+  refined mesh does not weigh its small cells like its large ones (2026-11-02). Each period still counts
+  once, like `first_clim = "mean"`. The K/R of a gridded forcing on an irregular mesh changes.
+- MODPATH runs without drains and on a grid that is not the DEM grid (2026-11-02). A zero specific
+  yield, which gives it a zero porosity and a division by zero in `mp6`, and a run without recharge are
+  refused by name.
 - A custom GeoTIFF or NetCDF grid masks its nodata code before its unit is converted (2026-11-01). A
   GeoTIFF read in another unit was refused as declaring no nodata, and a NetCDF `nodata` attribute of
   -9999 mm/day became -9.999 m/day, a value no later step recognised as nodata.
@@ -2093,6 +2132,8 @@ Each release section includes the following standard categories:
 - The compact network comparison reads the reference river from `mesh_cell_families`.
 
 ### Removed
+- `[data.recharge] runoff_ratio`, which no code read (2026-11-02). The key is now refused, so a project
+  file that writes it must drop the line. The example projects, tests and validation cases are updated.
 - The lazy re-exports of `hydromodpy.spatial.field`, `hydromodpy.spatial.geographic` and
   `hydromodpy.spatial.geographic.synthetic` (2026-10-31). Import each name from the module that defines
   it, for example `GeographicConfig` from `spatial.geographic.geographic_config` and

@@ -20,6 +20,8 @@ NY = 5
 LENGTH_X_M = 100.0
 WIDTH_Y_M = 10.0
 
+from .reference import periodic_recharge_levels_mm_day
+
 
 def _periodic_recharge_series_mm_day(
     *,
@@ -30,10 +32,14 @@ def _periodic_recharge_series_mm_day(
     nper: int,
     dt_seconds: float,
 ) -> list[float]:
-    start_days = (np.arange(int(nper), dtype=float) * float(dt_seconds)) / SECONDS_PER_DAY
-    angular_frequency = 2.0 * np.pi / float(period_days)
-    values = float(mean_recharge_mm_day) + (
-        float(amplitude_mm_day) * np.sin((angular_frequency * start_days) + float(phase_radians))
+    step_days = float(dt_seconds) / SECONDS_PER_DAY
+    values = periodic_recharge_levels_mm_day(
+        start_days=np.arange(int(nper), dtype=float) * step_days,
+        step_days=step_days,
+        mean_recharge_mm_day=mean_recharge_mm_day,
+        amplitude_mm_day=amplitude_mm_day,
+        period_days=period_days,
+        phase_radians=phase_radians,
     )
     return [float(value) for value in values]
 

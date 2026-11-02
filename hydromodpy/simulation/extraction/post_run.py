@@ -15,6 +15,7 @@ from typing import Any
 from hydromodpy.core.budget_terms import BudgetKeep
 from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.stream_recharge import CRITERION_MEAN_RECHARGE_ATTR, mean_recharge_m_s
 from hydromodpy.physics.flow.sinks_sources.wells import (
     WELL_THROTTLE_WARNING_FRACTION,
     WELLS_PUMPED_CHECK,
@@ -195,7 +196,25 @@ def extract_run_outputs(
         extract_kwargs["vertical_layout"] = ctx.state.cfg.domain.layers.vertical_layout
     extractor.extract(sim_id, solver_output_dir, store, **extract_kwargs)
 
+    _keep_the_criterion_recharge(ctx=ctx, sim_id=sim_id, store=store)
     _finalize_run_provenance(ctx=ctx, sim_id=sim_id, store=store)
+
+
+def _keep_the_criterion_recharge(*, ctx: RunContext, sim_id: str, store: Any) -> None:
+    """Keep on the run the mean recharge its trials read, for a later redraw to read back."""
+    model = ctx.model
+    if getattr(model, "recharge", None) is None:
+        return
+    try:
+        mean_recharge = mean_recharge_m_s(model)
+    except ValueError:
+        logger.debug("The model of sim %s holds no finite recharge rate.", sim_id)
+        return
+    fields = store.open_zarr(sim_id)
+    try:
+        fields.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: mean_recharge})
+    finally:
+        fields.close()
 
 
 def _finalize_run_provenance(*, ctx: RunContext, sim_id: str, store: Any) -> None:

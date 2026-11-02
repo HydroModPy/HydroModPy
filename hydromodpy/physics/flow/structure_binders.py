@@ -29,6 +29,7 @@ from hydromodpy.physics.flow.time_forcing import (
     aggregate_forcing_series,
     resolve_period_values_from_forcing,
 )
+from hydromodpy.physics.forcing.validation import refuse_an_impossible_recharge
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
@@ -63,6 +64,18 @@ def apply_oceanic_to_flow(
         ocean_bc.value = float(sea[0].data["value"].mean())
 
 
+def _peak_mm_day_of_a_recharge_source(source: LoadResultProto) -> float:
+    """Return the largest rate of a recharge source, a grid through its spatial mean, in mm/day."""
+    from hydromodpy.physics.contracts import get_field_aggregator
+
+    peaks = [float(record.data["value"].abs().max()) for record in source.points]
+    if source.has_fields:
+        spatial_mean = get_field_aggregator()(source)
+        if spatial_mean is not None:
+            peaks.append(float(spatial_mean.abs().max()))
+    return max(peaks, default=0.0)
+
+
 def apply_recharge_load_result_to_flow(
     *,
     flow: Flow,
@@ -84,6 +97,13 @@ def apply_recharge_load_result_to_flow(
 
     from hydromodpy.core.units.hydraulic_conductivity import factor_to_m_per_s
     from hydromodpy.physics.forcing.forcing_bridge import resolve_forcing
+
+    if "recharge" not in (getattr(flow, "active_sinks_sources", None) or []):
+        logger.warning(
+            "[data.recharge] is loaded and flow.active_sinks_sources does not list "
+            '"recharge", so the model receives no recharge: add "recharge" to '
+            "flow.active_sinks_sources, or remove it from data.types."
+        )
 
     sinks_sources = getattr(flow, "sinks_sources", {})
     recharge_cfg = sinks_sources.get("recharge") if isinstance(sinks_sources, dict) else None
@@ -113,6 +133,9 @@ def apply_recharge_load_result_to_flow(
     )
     if resolved is None:
         return False
+    refuse_an_impossible_recharge(
+        _peak_mm_day_of_a_recharge_source(recharge_result), label="[data.recharge]"
+    )
 
     flow.set_recharge(
         FlowRechargeConfig(

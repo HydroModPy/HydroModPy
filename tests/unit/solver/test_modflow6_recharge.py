@@ -100,7 +100,7 @@ def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
     model = toy_model()
     model.recharge = {0: np.full(6, 1.0e-8, dtype=float)}
 
-    with pytest.raises(ValueError, match="missing stress period 1"):
+    with pytest.raises(ValueError, match=r"gives no rate for period\(s\) \[1\]"):
         recharge_to_spd(model)
 
 

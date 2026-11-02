@@ -233,7 +233,6 @@ value = 0.0
 [[data.recharge.sources]]
 source = "synthetic"
 values = [1.0]
-runoff_ratio = 0.0
 
 [flow]
 flow_regime = "steady"

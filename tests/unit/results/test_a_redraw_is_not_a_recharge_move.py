@@ -20,10 +20,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration.observations.network_geometry import mean_recharge_m_s
 from hydromodpy.core import stream_geometry
 from hydromodpy.core.stream_geometry import build_network_geometry
-from hydromodpy.core.stream_recharge import criterion_mean_recharge, forcing_period_rates
+from hydromodpy.core.stream_recharge import (
+    CRITERION_MEAN_RECHARGE_ATTR,
+    criterion_mean_recharge,
+    forcing_period_rates,
+    mean_recharge_m_s,
+)
 from hydromodpy.core.units import factor_to_m_per_s
 from hydromodpy.results.derive.stream_network import network_comparison_from_run
 from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
@@ -121,6 +125,35 @@ def test_the_steady_and_transient_models_hold_the_record_mean() -> None:
 
     assert mean_recharge_m_s(steady) == pytest.approx(RECORD_MEAN_M_S, rel=1e-12)
     assert mean_recharge_m_s(transient) == pytest.approx(RECORD_MEAN_M_S, rel=1e-12)
+
+
+def test_a_grid_weighs_its_cells_by_area_and_its_periods_once() -> None:
+    fine_and_coarse = np.array([1.0, 100.0])
+    mesh = SimpleNamespace(cell_areas=lambda: fine_and_coarse)
+    model = SimpleNamespace(
+        recharge={0: np.array([3.0, 1.0]), 1: np.array([5.0, 1.0])}, solver_mesh=mesh
+    )
+
+    own = [(3.0 + 100.0) / 101.0, (5.0 + 100.0) / 101.0]
+    assert mean_recharge_m_s(model) == pytest.approx(np.mean(own))
+
+
+def test_a_series_as_long_as_the_mesh_stays_one_rate_per_period() -> None:
+    mesh = SimpleNamespace(cell_areas=lambda: np.array([1.0, 100.0]))
+    model = SimpleNamespace(recharge=pd.Series([3.0, 1.0]), solver_mesh=mesh)
+
+    assert mean_recharge_m_s(model) == pytest.approx(2.0)
+
+
+def test_the_run_gives_back_the_number_its_trials_read(tmp_path) -> None:
+    run = _promoted_run(tmp_path)
+    writer = SimulationZarr(tmp_path / "fields.zarr")
+    writer.write_forcing_attrs({CRITERION_MEAN_RECHARGE_ATTR: 1.25e-8})
+    writer.close()
+
+    comparison = network_comparison_from_run(run)
+
+    assert comparison.geometry.mean_recharge_m_s == pytest.approx(1.25e-8)
 
 
 def test_the_redraw_reads_the_recharge_the_trials_scored(tmp_path, caplog) -> None:

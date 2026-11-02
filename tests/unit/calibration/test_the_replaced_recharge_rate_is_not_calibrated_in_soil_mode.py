@@ -8,6 +8,8 @@ section is declared.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from hydromodpy.calibration.config import CalibrationConfig
@@ -81,3 +83,26 @@ def test_ru_is_still_calibrable_beside_a_soil_section() -> None:
     resolve_parameter_targets(calibration, _project_with_soil())
 
     assert calibration.parameters["ru"].path == "flow.sinks_sources.recharge.soil.ru"
+
+
+class _ProjectLoadingRecharge(_Project):
+    def __init__(self, flow: FlowConfig, types: list[str]) -> None:
+        super().__init__(flow)
+        self.data = SimpleNamespace(types=types)
+
+
+def test_a_loaded_recharge_replaces_the_rate_a_search_would_move() -> None:
+    project = _ProjectLoadingRecharge(_project_without_soil().flow, ["recharge"])
+    calibration = CalibrationConfig.model_validate({"parameters": {"recharge.values": {}}})
+
+    with pytest.raises(ConfigError, match=r"\[data.recharge\] loads replaces"):
+        resolve_parameter_targets(calibration, project)
+
+
+def test_the_rate_stays_calibrable_when_no_recharge_is_loaded() -> None:
+    project = _ProjectLoadingRecharge(_project_without_soil().flow, ["oceanic"])
+    calibration = CalibrationConfig.model_validate({"parameters": {"recharge.values": {}}})
+
+    resolve_parameter_targets(calibration, project)
+
+    assert calibration.parameters["recharge.values"].path is not None

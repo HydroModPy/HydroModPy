@@ -51,6 +51,25 @@ def _synthetic_index(
     return pd.date_range(start=start, periods=periods, freq=freq)
 
 
+def _sine_period_means(
+    index: pd.DatetimeIndex, freq: str, *, amplitude: float, period_days: float
+) -> np.ndarray:
+    """Return ``amplitude * sin(2 pi t / period_days)`` averaged over each sample's period.
+
+    ``t`` is in days from the first stamp, so the wave keeps its period whatever
+    ``freq`` is. A sample stands for the period it opens (:func:`_synthetic_index`),
+    so it holds the mean of the wave over that period: a full wave then brings no
+    net water.
+    """
+    next_stamp = _synthetic_index(freq, start=index[-1], periods=2)[1]
+    edges = index.append(pd.DatetimeIndex([next_stamp]))
+    days = (edges - edges[0]).total_seconds().to_numpy(dtype=float) / 86400.0
+    omega = 2.0 * np.pi / float(period_days)
+    return (
+        amplitude * (np.cos(omega * days[:-1]) - np.cos(omega * days[1:])) / (omega * np.diff(days))
+    )
+
+
 def generate(
     config: RechargeSourceConfig,
     *,
@@ -71,22 +90,26 @@ def generate(
         start = config.start_date or "2000-01-01"
         index = _synthetic_index(freq, start=start, periods=periods)
 
-    # Broadcast values to match index length
     if len(values) == 1:
         series_values = np.full(len(index), values[0])
     elif len(values) == len(index):
         series_values = np.array(values)
     else:
-        # Repeat or truncate values to match index length
-        series_values = np.resize(np.array(values), len(index))
+        raise ValueError(
+            f"[data.recharge] synthetic values holds {len(values)} numbers and the series "
+            f"has {len(index)} samples at freq = {freq!r}: give one number, or one per "
+            "sample. Repeating or cutting the list would change the water the model receives."
+        )
 
-    # Apply sinusoidal modulation if specified
     if config.amplitude is not None and config.period_days is not None:
         offset = config.offset if config.offset is not None else 0.0
-        t = np.arange(len(index), dtype=float)
-        omega = 2.0 * np.pi / config.period_days
-        modulation = config.amplitude * np.sin(omega * t) + offset
-        series_values = series_values + modulation
+        series_values = (
+            series_values
+            + offset
+            + _sine_period_means(
+                index, freq, amplitude=config.amplitude, period_days=config.period_days
+            )
+        )
 
     df = pd.DataFrame(
         {

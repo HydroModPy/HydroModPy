@@ -103,6 +103,28 @@ def test_mf_component_name_aliases() -> None:
     assert _mf_budget_component_name("unknown") == ""
 
 
+@pytest.mark.parametrize(
+    ("canonical", "component"),
+    [
+        ("evapotranspiration", "evapotranspiration_total_m3_s"),
+        ("well", "well_total_m3_s"),
+        ("stream", "boundary_exchange_out_total_m3_s"),
+        ("lake", "boundary_exchange_out_total_m3_s"),
+        ("river", "boundary_exchange_out_total_m3_s"),
+        ("general_head", "boundary_exchange_out_total_m3_s"),
+    ],
+)
+def test_the_canonical_names_of_the_budget_table_reach_the_comparison(
+    canonical: str, component: str
+) -> None:
+    assert _mf_budget_component_name(canonical) == component
+
+
+def test_a_boundary_exchange_counts_what_leaves_the_aquifer() -> None:
+    value = _mf_budget_component_value_m3_s("stream", flux_in=1.0, flux_out=4.0)
+    assert value == pytest.approx(3.0)
+
+
 def test_mf_recharge_is_net_inflow() -> None:
     # Recharge is an inflow term: value = flux_in - flux_out.
     value = _mf_budget_component_value_m3_s("RCH", flux_in=8.0, flux_out=1.0)

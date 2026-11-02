@@ -651,6 +651,17 @@ def _mf_budget_component_name(component: str) -> str:
         "constant-head": "prescribed_head_out_total_m3_s",
         "evt": "evapotranspiration_total_m3_s",
         "et": "evapotranspiration_total_m3_s",
+        "evapotranspiration": "evapotranspiration_total_m3_s",
+        "well": "well_total_m3_s",
+        "wel": "well_total_m3_s",
+        "river": "boundary_exchange_out_total_m3_s",
+        "riv": "boundary_exchange_out_total_m3_s",
+        "stream": "boundary_exchange_out_total_m3_s",
+        "sfr": "boundary_exchange_out_total_m3_s",
+        "lake": "boundary_exchange_out_total_m3_s",
+        "lak": "boundary_exchange_out_total_m3_s",
+        "general-head": "boundary_exchange_out_total_m3_s",
+        "ghb": "boundary_exchange_out_total_m3_s",
     }
     if key.startswith("sto") or key.startswith("storage"):
         return "storage_change_total_m3_s"
@@ -665,6 +676,7 @@ def _mf_budget_component_value_m3_s(component: str, flux_in: float, flux_out: fl
         "drainage_total_m3_s",
         "prescribed_head_out_total_m3_s",
         "evapotranspiration_total_m3_s",
+        "boundary_exchange_out_total_m3_s",
     }:
         return float(flux_out) - float(flux_in)
     return float(flux_in) - float(flux_out)
@@ -744,10 +756,12 @@ def _load_table_budget_rows(
         }.issubset(values):
             values["closure_residual_m3_s"] = (
                 values.get("recharge_total_m3_s", 0.0)
+                + values.get("well_total_m3_s", 0.0)
                 - values.get("drainage_total_m3_s", 0.0)
                 - values.get("surface_excess_total_m3_s", 0.0)
                 - values.get("prescribed_head_out_total_m3_s", 0.0)
                 - values.get("evapotranspiration_total_m3_s", 0.0)
+                - values.get("boundary_exchange_out_total_m3_s", 0.0)
                 - values.get("storage_change_total_m3_s", 0.0)
             )
 

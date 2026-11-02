@@ -36,13 +36,15 @@ from hydromodpy.core.exceptions import ConfigError
 from hydromodpy.physics.hydrology.soil_reservoir.config import soil_reservoir_of
 
 __all__ = [
+    "RECHARGE_VALUES_PATH",
     "UnresolvedParameterName",
     "parameters_awaiting_resolution",
+    "replaced_recharge_rate",
     "resolve_parameter_targets",
     "unresolved_parameter_names",
 ]
 
-_RECHARGE_VALUES_PATH = "flow.sinks_sources.recharge.values"
+RECHARGE_VALUES_PATH = "flow.sinks_sources.recharge.values"
 
 
 class UnresolvedParameterName(ConfigError):
@@ -162,24 +164,40 @@ def _refuse_a_name_that_contradicts_its_path(
     )
 
 
+def replaced_recharge_rate(project_config: Any) -> str | None:
+    """Say what replaces ``flow.sinks_sources.recharge.values`` in this project, or None.
+
+    ``[flow.sinks_sources.recharge.soil]`` computes the recharge itself, and
+    ``FlowRechargeConfig`` forbids writing ``values`` beside it (R11). A series
+    loaded from ``[data.recharge]`` takes its place in the same way. A search
+    that still moves ``values`` would change a rate the solver never reads.
+    """
+    if soil_reservoir_of(getattr(project_config, "flow", None)) is not None:
+        return (
+            "the soil reservoir replaces: the search would change nothing. "
+            "Calibrate ru instead, with [calibration.parameters.ru] and its bounds in mm."
+        )
+    data = getattr(project_config, "data", None)
+    if "recharge" in set(getattr(data, "types", []) or []):
+        return (
+            "the series [data.recharge] loads replaces: the search would change nothing. "
+            'Remove "recharge" from data.types to calibrate one rate.'
+        )
+    return None
+
+
 def _refuse_a_replaced_recharge_rate(
     name: str, target: CalibrationTarget, project_config: Any
 ) -> None:
-    """Refuse calibrating the recharge rate a soil reservoir already replaces.
-
-    ``[flow.sinks_sources.recharge.soil]`` computes the recharge itself, and
-    ``FlowRechargeConfig`` forbids writing ``values`` beside it (R11), so a
-    search that still moves ``values`` would change a rate MODFLOW never reads.
-    """
-    if target.path != _RECHARGE_VALUES_PATH:
+    """Refuse calibrating a recharge rate the run replaces."""
+    if target.path != RECHARGE_VALUES_PATH:
         return
-    if soil_reservoir_of(getattr(project_config, "flow", None)) is None:
-        return
-    raise ConfigError(
-        f"[calibration.parameters.{name}] moves flow.sinks_sources.recharge.values, "
-        "which the soil reservoir replaces: the search would change nothing. "
-        "Calibrate ru instead, with [calibration.parameters.ru] and its bounds in mm."
-    )
+    replaced_by = replaced_recharge_rate(project_config)
+    if replaced_by is not None:
+        raise ConfigError(
+            f"[calibration.parameters.{name}] moves flow.sinks_sources.recharge.values, "
+            f"which {replaced_by}"
+        )
 
 
 def _target_for(

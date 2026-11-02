@@ -7,6 +7,18 @@ from numbers import Real
 
 import numpy as np
 
+# The ceiling the soil reservoir sets on a daily rain: a recharge cannot pass it.
+MAX_PLAUSIBLE_RECHARGE_MM_DAY = 1000.0
+
+
+def refuse_an_impossible_recharge(peak_mm_day: float, *, label: str) -> None:
+    """Refuse a recharge rate beyond any daily rainfall, the mark of a wrong unit."""
+    if peak_mm_day > MAX_PLAUSIBLE_RECHARGE_MM_DAY:
+        raise ValueError(
+            f"{label} reaches {peak_mm_day:g} mm/day, beyond any daily rainfall: check "
+            "the unit it is written in (units, or source_unit for a grid)."
+        )
+
 
 def has_temporal_index(payload: object) -> bool:
     """Return True when a payload index carries datetime-like labels."""
@@ -33,6 +45,52 @@ def has_temporal_index(payload: object) -> bool:
     except TypeError:
         return not bool(pd.isna(converted))
     return bool(length > 0 and not converted.isna().any())
+
+
+def integer_period_keys(table: Mapping[object, object], *, label: str) -> dict[int, object]:
+    """Return a ``{period: rate}`` table with integer keys.
+
+    A TOML key is always a string, so ``{"0" = 1.0}`` reaches the solvers here
+    as ``{0: 1.0}``.
+    """
+    periods: dict[int, object] = {}
+    for key, value in table.items():
+        try:
+            period = int(key)
+            if isinstance(key, bool) or float(key) != period:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError(f"{label} key {key!r} is not a period index.") from None
+        if period < 0:
+            raise ValueError(f"{label} key {key!r} is not a period index: periods count from 0.")
+        if period in periods:
+            raise ValueError(f"{label} names period {period} twice.")
+        periods[period] = value
+    return periods
+
+
+def complete_period_table(
+    table: Mapping[object, object], *, nper: int, label: str
+) -> dict[int, object]:
+    """Return a ``{period: rate}`` table that states every period of the run, or refuse.
+
+    A missing period has no rate to take: repeating the last one or reading zero
+    would both change the water the model receives without saying so.
+    """
+    periods = integer_period_keys(table, label=label)
+    expected = set(range(int(nper)))
+    missing = sorted(expected - set(periods))
+    if missing:
+        raise ValueError(
+            f"{label} gives no rate for period(s) {missing} of the {int(nper)} periods "
+            "of this run: state every period, or give one number or one list."
+        )
+    outside = sorted(set(periods) - expected)
+    if outside:
+        raise ValueError(
+            f"{label} names period(s) {outside}, outside the {int(nper)} periods of this run."
+        )
+    return {period: periods[period] for period in sorted(periods)}
 
 
 def numeric_payload_array(payload: object, *, label: str) -> np.ndarray:
@@ -84,8 +142,12 @@ def ensure_non_negative_numeric_payload(payload: object, *, label: str) -> None:
 
 
 __all__ = [
+    "MAX_PLAUSIBLE_RECHARGE_MM_DAY",
+    "complete_period_table",
     "ensure_finite_numeric_payload",
     "ensure_non_negative_numeric_payload",
     "has_temporal_index",
+    "integer_period_keys",
     "numeric_payload_array",
+    "refuse_an_impossible_recharge",
 ]
