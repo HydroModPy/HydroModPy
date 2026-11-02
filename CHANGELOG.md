@@ -34,6 +34,8 @@ Each release section includes the following standard categories:
 ## [Unreleased]
 
 ### Fixed
+- Every `hmp` command starts again on Python 3.11, where a mesh request default raised `ValueError` at import, and a
+  run no longer prints `'Event' object is not callable` when its heartbeat stops (2026-11-02).
 - A recharge series with a negative rate, or a negative `first_clim` on a series, no longer stops
   MODFLOW 6 on a missing `ncpl` (2026-11-02). The deficit reaches EVT as it does for a grid.
 - `flow.sinks_sources.recharge.values` beside `[data.recharge]` is refused when it is not zero,

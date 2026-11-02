@@ -82,3 +82,10 @@ def test_a_stopped_thread_stops_writing(tmp_path):
 
     assert heartbeat_path(tmp_path).stat().st_mtime_ns == frozen
     assert not pulse.is_alive()
+
+
+def test_heartbeat_thread_leaves_the_stop_method_of_thread_alone() -> None:
+    # Python before 3.13 calls ``Thread._stop()`` when a thread ends.
+    assert "_stop" not in vars(HeartbeatThread)
+    thread = HeartbeatThread.__new__(HeartbeatThread)
+    assert callable(thread._stop)

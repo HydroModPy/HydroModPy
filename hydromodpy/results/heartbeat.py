@@ -104,7 +104,7 @@ class HeartbeatThread(threading.Thread):
         self._step = step
         self._host = host if host is not None else socket.gethostname()
         self._pid = pid if pid is not None else os.getpid()
-        self._stop = threading.Event()
+        self._stop_requested = threading.Event()
         self._lock = threading.Lock()
 
     @property
@@ -136,12 +136,12 @@ class HeartbeatThread(threading.Thread):
         super().start()
 
     def run(self) -> None:
-        while not self._stop.wait(self._interval_s):
+        while not self._stop_requested.wait(self._interval_s):
             self.beat()
 
     def stop(self) -> None:
         """Stop pulsing and wait for the thread."""
-        self._stop.set()
+        self._stop_requested.set()
         if self.is_alive():
             self.join()
 
