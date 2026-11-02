@@ -277,7 +277,7 @@ must carry a rationale before it is merged.
   summation order, the heads a share of the golden range; each absolute floor has its
   own row.
 - 2026-10-26: rule B9 of the unified mesh, applied to the Voronoi variants. All the
-  Voronoi metrics were measured again on `50aad8403` (58 tests, all passed) and each
+  Voronoi metrics were measured again on `3d2b45dc9` (58 tests, all passed) and each
   bound became the smaller of the current bound and twice the measure, rounded up to
   three figures, wherever the measure is a discretisation or a physical error. Of the
   103 metrics the rule classes as tightened, 41 moved, by 0.1 to 3.7 %, because the

@@ -1,7 +1,7 @@
 """``spinup = "first_year"`` needs a run of at least 52 weeks to repeat.
 
 The default spin-up repeats the first days of the run until the soil storage
-settles. Since e065ca7d9 the shortest accepted run is 364 days (52 weekly
+settles. Since 5ae2bc784 the shortest accepted run is 364 days (52 weekly
 stress periods); a shorter run has no first year to repeat.
 """
 

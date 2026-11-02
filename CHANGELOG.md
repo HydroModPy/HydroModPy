@@ -273,7 +273,7 @@ Each release section includes the following standard categories:
   `catchment` line and by the active domain for the domain line, and the axis names the zone. A run
   with a `catchment` line and no stored basin is refused, with the advice to plot m3/s. On example
   04 the recharge of the catchment line gives 0.943 mm/d, like the domain line. The CSV of an
-  earlier export are not comparable with the new ones (`542595c7d`).
+  earlier export are not comparable with the new ones (`69e7c4209`).
 - A lake over a pinched or sloping stack connects to every active cell that faces its water
   (2026-10-26). The bank connections went to the occupied layer index only, and only where the
   neighbour was active in that layer. A neighbour whose layer was pinched out had no bank, and on a
@@ -288,18 +288,18 @@ Each release section includes the following standard categories:
   lower than the bed the lake table holds. A lake in the active-shore mode connects to the top
   active cell of the column, where it connected to layer 0, a pass-through cell on a stack pinched
   from the top. The count of bank connections that a cutoff wall seals can drop, because it counts
-  the connections that exist (`d0b98e761`).
+  the connections that exist (`3d2b45dc9`).
 - MODFLOW-NWT reads a flow `Kv` as the vertical conductivity of UPW (2026-10-26). `Kv` was dropped
   and the vertical conductivity stayed K. The code writes `layvka = 0` and `vka = Kv`, in the time
   unit of the solver like K, because `layvka = 0` is what makes `vka` a conductivity. Without `Kv`
   nothing changes. A `Kv` that is not positive is refused, and so is a `Kv` beside a `vka` other
   than 1, as in MODFLOW 6. The results of an NWT run with a `Kv` change, and a calibration of `Kv`
-  under NWT has an effect now. No example sets `Kv` with NWT (`cf15eb392`).
+  under NWT has an effect now. No example sets `Kv` with NWT (`3d2b45dc9`).
 - The warning about disconnected active cells runs on the final grid, after the lake mask
   (2026-10-26). It counts a pass-through cell as a link between the layers above and below it, and a
   lake as a link between the active cells it touches, as MODFLOW 6 does. It no longer reports false
   groups when a whole layer is pinched or when a lake takes the only active cell of its columns. The
-  text says `no face, vertical connection or lake joins` (`cf15eb392`).
+  text says `no face, vertical connection or lake joins` (`3d2b45dc9`).
 - A calibration output with `support = "cell"` and no `layer` reads the top active cell of its
   column (2026-10-26), like any point given without a layer. It read layer 0, a pass-through cell on
   a pinched stack. `CalibOutputCell.layer` is optional. The adapter answers through a new method of
@@ -311,7 +311,7 @@ Each release section includes the following standard categories:
   log space of K, and a bound such as [-30, 30] stopped the load with `log search space requires
   lower > 0`. `Project.run(properties=...)` takes `Kv`, `K22` and the three angles beside K, Sy and
   Ss, where they were dropped without a word. A name that is no property is refused, and so is a
-  property that the solver does not read, such as `K22` under NWT (`f0d4875b9`, `e6084958a`).
+  property that the solver does not read, such as `K22` under NWT (`3d2b45dc9`, `3d2b45dc9`).
 - The head series `head_domain_low`, `head_domain_mid` and `head_domain_high` of a comparison pick
   their cells by surface elevation (2026-10-26). They took the cell at the rank 0.2, 0.5 and 0.8 of
   the index in `observables.csv`, which has no relation to elevation. They now draw the median cell
@@ -320,7 +320,7 @@ Each release section includes the following standard categories:
   another cell count is left out, where it was read at the same indices. Without a reference run,
   the cells come from the first run that has a head map. A run that stores no elevation draws no
   figure, and the new `head_domain_figures_skipped.json` at the root of the comparison says why. A
-  figure whose plot fails is logged. The images written before are not comparable (`2edff003e`).
+  figure whose plot fails is logged. The images written before are not comparable (`3d2b45dc9`).
 - Validation cases that failed before the mesh campaign pass again (2026-10-26). A twin observation
   point on a cell edge reads the same cell on the route of the truth and on the route of the trial,
   because both locate it on the polygons of the mesh. The truth route rounded on a regular grid. The
@@ -333,8 +333,8 @@ Each release section includes the following standard categories:
   widened (the p50 of the water-table depth moves by 1.15e-4 relative, the mean depth of the
   extensive one from 0.448996 to 0.449116 m), and the offline test of the data seal no longer
   expects the provenance children. No tolerance moves. The benchmark figures of the `modflow6` and
-  `modflow_nwt` columns of the twins can move a little (`c7b7fbad2`, `8c19288ac`, `51c14c706`,
-  `b1e2a84e1`, `4bb5b0754`).
+  `modflow_nwt` columns of the twins can move a little (`3d2b45dc9`, `3d2b45dc9`, `3d2b45dc9`,
+  `3d2b45dc9`, `3d2b45dc9`).
 - A mesh refined by an earlier run replays from that run (2026-10-26). The frozen `config.toml`
   writes the `sim_id` that a `[[mesh.refinement_zone]]` `run` read in place of its name, taken from
   the new `zone_runs` key of the mesh summary. So `hmp catalog rerun` and `hmp run --resume` read
@@ -345,7 +345,7 @@ Each release section includes the following standard categories:
   `restart_from` (name, table, path) hash alike. The hash of a run with a `restart_from` or a zone
   with `run` changes once, so such a run is recomputed once. A run with neither keeps its hash. The
   message of a river mesh without a network threshold names the zone when a `height_above_stream`
-  zone asks for the network (`d3469a487`, `6381a97ae`).
+  zone asks for the network (`3d2b45dc9`, `3d2b45dc9`).
 - A run calibrated by a `[calibration] protocol` replays from its own frozen `config.toml`
   (2026-10-19). The load writes `[site] gauge` into each stage and `[metrics] window` into a
   transient stage without one after it expands the protocol, so the frozen stages read as a
@@ -357,7 +357,7 @@ Each release section includes the following standard categories:
   steady initialisation closed on its budget only, the fixed EVT extinction depth of a routed
   deficit, a lake footprint far from its abacus, a failed GP surrogate fit and a failed HELP3O
   download were silent in a run. Each is now logged as a warning too.
-- Calibration audit leftovers fixed on 2026-10-25 (thirteen commits `6feb2dfdc..a07541e77`).
+- Calibration audit leftovers fixed on 2026-10-25 (thirteen commits `737953279..737953279`).
   `Project.best` and `[sites.summary] best = "calibrated"` keep the `evaluated` runs, the calibrated
   runs scored out of their calibration window; `label="calibrated"` keeps the in-window ones only.
   An observed gauge is scored only against the simulated series of its own name, or against the single
@@ -386,86 +386,86 @@ Each release section includes the following standard categories:
   refused: each phase is checked with its own overrides.
 - Calibration audit of 2026-10-22, batch q01 (2026-10-22). `hmp calibrate --resume` refuses a
   session whose journal holds trials this document scores another way, and a session a live process
-  of this host still writes; each trial row carries its `params_hash` (`8c6c7210d`). The promoted
-  run is the trial `session.json` names, a speculative trial never ranking first (`a4a076e5e`). The
-  cache preload skips a session journal this version cannot read, with a warning (`483921ff1`). No
-  linearized width is reported when a perturbed run fails (`2f67eb2cb`). Bounds written in another
-  unit than the target are refused with the converted bounds (`ebf7e1df1`, `00a0881c3`). A declared
-  output that no block and no `variable` scores is refused when the file loads (`6270f4095`).
-  `[calibration.persistence]` is retired: still read, ignored with a warning (`d0ead4259`).
+  of this host still writes; each trial row carries its `params_hash` (`dc8675921`). The promoted
+  run is the trial `session.json` names, a speculative trial never ranking first (`dc8675921`). The
+  cache preload skips a session journal this version cannot read, with a warning (`dc8675921`). No
+  linearized width is reported when a perturbed run fails (`dc8675921`). Bounds written in another
+  unit than the target are refused with the converted bounds (`dc8675921`, `dc8675921`). A declared
+  output that no block and no `variable` scores is refused when the file loads (`dc8675921`).
+  `[calibration.persistence]` is retired: still read, ignored with a warning (`dc8675921`).
   `hmp calibrate` and `hmp run` exit with code 21 when the session closed failed, partial or
-  aborted, and print the reason `session.json` gives (`c43d85122`). `grid` and `lhs` stop when every
+  aborted, and print the reason `session.json` gives (`dc8675921`). `grid` and `lhs` stop when every
   point of their design is solved: a `max_trials` below the design is refused before the first
-  solve and by `hmp config check`, and `"auto"` budgets the design (`8111574df`). The trial cache
+  solve and by `hmp config check`, and `"auto"` budgets the design (`dc8675921`). The trial cache
   key holds the content of `stream_geometry_path` and `minimal_stream_geometry_path`, sidecars of a
   shapefile included, so a network calibration solves its trials again once and a session written
-  before cannot be resumed (`a6531e8cd`). `nse`, `log_nse`, `nse_delta` and `nse_seasonal` give NaN
+  before cannot be resumed (`dc8675921`). `nse`, `log_nse`, `nse_delta` and `nse_seasonal` give NaN
   when the observed spread is no larger than rounding; the metric rule version is unchanged, so a
-  cached cost of such a series stays as it was (`1f54dccc2`). The network protocol is tested on
-  MODFLOW-NWT and unsupported on Boussinesq (`55a766eac`). Docstrings and pages corrected: the
+  cached cost of such a series stays as it was (`dc8675921`). The network protocol is tested on
+  MODFLOW-NWT and unsupported on Boussinesq (`dc8675921`). Docstrings and pages corrected: the
   default rasterization `heads`, the validity bound, the default window of the second stage, the
-  three rasterization rules, the method how-to and the diagnostics notes (`c41e9c6cf`, `6f60087b9`,
-  `a1f2833ae`, `2e6b25de0`). The code identity of the cache key and the release flux Boussinesq
+  three rasterization rules, the method how-to and the diagnostics notes (`dc8675921`, `dc8675921`,
+  `dc8675921`, `dc8675921`). The code identity of the cache key and the release flux Boussinesq
   declares without serving it are not done yet.
 - Calibration audit of 2026-10-14, windows (2026-10-20, decisions m03 and m04). A `[metrics]
   window` that shares no day with `[simulation.time]` is refused when a file is loaded, naming both
-  periods (`d97ebb8a4`); the frozen config of a run already on disk that carries such a window still
-  reads, with a warning, and the run has no score (`b7059b9ea`). Series figures of a run
+  periods (`b2e4a7eed`); the frozen config of a run already on disk that carries such a window still
+  reads, with a warning, and the run has no score (`b2e4a7eed`). Series figures of a run
   (hydrograph, hydrograph_sim_obs, piezometer and lake sim/obs, sfr_reach_timeseries,
   flux_timeseries, residuals) shade what precedes the `[metrics] window` start, read from the run;
-  there is no `spinup_end` key (`6d562725e`). The validation window (m05), the single `window` type
+  there is no `spinup_end` key (`b2e4a7eed`). The validation window (m05), the single `window` type
   (m06), the refusal of `warmup_periods` (m07) and example 04 split in calibration and validation
   (m24) are not done yet.
 - Calibration audit of 2026-10-14, metrics (2026-10-20, decisions m10, m12, m13, m14). One scoring
   route: a calibration written `variable` + `objective` is scored by implicit blocks, one output
   `<variable>@<station>` and one block `<objective>@<station>` per scored station, with the trial
-  costs of before; `ScalarObjective` and `ObservationSet` are removed (`814c99829`, `29ce59fdc`).
+  costs of before; `ScalarObjective` and `ObservationSet` are removed (`b2e4a7eed`, `b2e4a7eed`).
   The trial components of that form are renamed (`cost:<objective>@<station>` becomes
   `<objective>@<station>.raw_cost`, with `.n_values`, `.n_paired`, `.date_start`, `.date_end`); only
   the gauge `observed_station_id` names is scored; an undefined metric gives the trial an infinite
   cost instead of raising; `aggregate.min_samples` applies to it. `nse_log` clips a negative value
   to zero and counts it, for a run as for the calibration cost, and the run writes `n_clipped` on its
-  metric row and in the index (`fc82b7684`). `pbias` is `100 x sum(s - o) / sum(o)`, positive when the
-  model overestimates, the sign of `bias` (`91722e2b3`). The metric rule is version 2: runs scored
+  metric row and in the index (`b2e4a7eed`). `pbias` is `100 x sum(s - o) / sum(o)`, positive when the
+  model overestimates, the sign of `bias` (`b2e4a7eed`). The metric rule is version 2: runs scored
   under 1 and 2 no longer rank together, and the calibration cache is solved again once. The KGE is
-  written as its 2009 form everywhere it is described (`2b0a96d0b`, `67dec1fce`). Index schema 8:
+  written as its 2009 form everywhere it is described (`b2e4a7eed`, `b2e4a7eed`). Index schema 8:
   run `hmp catalog reindex`. The cost naming (m15) is not done yet.
 - Calibration audit of 2026-10-14, parameter surface (2026-10-20, decisions m17 to m23 and m28). A
   renamed key in a file is refused with its new name, `hmp doctor --fix-config` rewrites it, and the
-  frozen config of a run on disk reads under the new names (`a8d1dc2fb`). Renamed:
+  frozen config of a run on disk reads under the new names (`b2e4a7eed`). Renamed:
   `max_iter` -> `max_trials`, the only search budget (protocol `steady_max_trials`,
   `transient_max_trials`; `Project.calibrate(max_trials=)`); the budget options of the methods
   (`maxfev`, `maxiter`, `max_evaluations`, gp_mapping `max_iter`) are refused, the doctor moves an
   evaluation count into `max_trials`, and da_mh_gp `max_iter` is `chain_length`; gp_mapping and
-  cma_es spend `max_trials` (100 under "auto", no longer 30) (`963963e05`). `tolerance` ->
+  cma_es spend `max_trials` (100 under "auto", no longer 30) (`b2e4a7eed`). `tolerance` ->
   `precision` (protocol `steady_precision`, `transient_precision`); `uncertainty.tolerance` and
   `mode` -> `cost_margin`, "5%" of the best cost or a length such as "75 m" on a search scored only
-  by network distances (`5896f4685`). `parameters.<p>.transform` -> `search_space`, `prior` ->
+  by network distances (`b2e4a7eed`). `parameters.<p>.transform` -> `search_space`, `prior` ->
   `sampling`, `objective_blocks[].transform` -> `cost_transform`, and `Calibrable` follows
-  (`2c67560a2`). `extent.maximal_flowing_steps` and `minimal_dry_steps` -> `maximal_flowing_duration`
+  (`b2e4a7eed`). `extent.maximal_flowing_steps` and `minimal_dry_steps` -> `maximal_flowing_duration`
   and `minimal_dry_duration`, durations converted by the run's step (flowing rounded up, dry rounded
-  down); left unwritten they are one time step, as before (`b701911a3`, `627d8db2c`). A phase that
+  down); left unwritten they are one time step, as before (`b2e4a7eed`, `b2e4a7eed`). A phase that
   writes no `method`, `max_trials`, `precision` or `method_options` takes them from `[calibration]`,
-  and `--list-phases` says where each comes from (`95690355c`). `hmp calibrate` takes `--set`,
+  and `--list-phases` says where each comes from (`b2e4a7eed`). `hmp calibrate` takes `--set`,
   `--overlay` and `--case`, and a calibration launched with them is named after the user's file or
-  `--case`, not after the temporary copy (`c5ab86112`, `87f7206c0`). `[sites.summary] rank_by`
+  `--case`, not after the temporary copy (`b2e4a7eed`, `b2e4a7eed`). `[sites.summary] rank_by`
   names the ranking metric (default "nse"); the order of `metrics` no longer chooses it
-  (`b94e1e562`). The trial cache is keyed on what changes a cost only: a new method, seed,
+  (`b2e4a7eed`). The trial cache is keyed on what changes a cost only: a new method, seed,
   precision, budget, method options, bounds or search space replays the trials already solved;
-  params_hash v3 solves every earlier trial again, once (`687cc62f3`). The removal of
+  params_hash v3 solves every earlier trial again, once (`b2e4a7eed`). The removal of
   `observed_station_id` (m16) is not done yet.
 - Calibration audit of 2026-10-14, methods (2026-10-20, decisions m25 to m30). The GR4J package
   without a model, `hydromodpy.calibration.lumped`, is removed and the docs no longer announce GR4J
-  (`2db8dd8b0`, `a41feb5fe`). `da_mh_gp` is described as a sequential search, not a posterior
-  (`fc2adb018`, `9704e675c`). A phase may write `bounds` for its parameters, inside the section's
-  bounds or the field's range, refused otherwise (`cdc36c404`). The acceptable interval of
+  (`4ca07e106`, `b2e4a7eed`). `da_mh_gp` is described as a sequential search, not a posterior
+  (`b2e4a7eed`, `b2e4a7eed`). A phase may write `bounds` for its parameters, inside the section's
+  bounds or the field's range, refused otherwise (`b2e4a7eed`). The acceptable interval of
   `cost_profile` is read on the total cost only; a block cost drawn alone gets no interval
-  (`eca1327b4`, `476e77916`). A MODFLOW-NWT run writes the catchment budget row, so a run without
+  (`b2e4a7eed`, `b2e4a7eed`). A MODFLOW-NWT run writes the catchment budget row, so a run without
   the per-cell budget reads its `_catchment` discharge on the catchment and its score matches its
-  trial cost (Nançon, session `26952cbc`: KGE 0.24 -> 0.87) (`2876df91d`). Trials are not truncated
+  trial cost (Nançon, session `26952cbc`: KGE 0.24 -> 0.87) (`b2e4a7eed`). Trials are not truncated
   (m31).
 - The four decided items of the calibration and score audit of 2026-10-14 are applied: m01, m08,
-  m09 and m11 (2026-10-20, eight commits `d2e2dd729..829864b4a`). What changes for a user:
+  m09 and m11 (2026-10-20, eight commits `4ca07e106..4ca07e106`). What changes for a user:
   - A calibration session keeps the periods of its scoring window the way the run scores them:
     a mean counts when its whole period lies in the window, a state when its stamp does
     (`core.time.period_aggregation.periods_in_window`, one rule for both). The session cost is
@@ -491,7 +491,7 @@ Each release section includes the following standard categories:
     rmse, mae and the network distances still pool several outputs. No example, documentation
     page or protocol declared such a block.
 - The calibration and score audit of 2026-10-14 closes its second batch of fixes that needed no
-  decision (2026-10-20, 33 commits `2d77f617a..66cde23bd`). What changes for a user:
+  decision (2026-10-20, 33 commits `4ca07e106..4ca07e106`). What changes for a user:
   - Search engines. `gp_mapping` with `kappa != 0` no longer stops after three proposals on
     positive costs: it compares the improvement the lower confidence bound still promises to
     `ei_tol`. `scipy_nelder_mead` no longer stops at a hard 100 iterations: with no `maxiter` or
@@ -546,7 +546,7 @@ Each release section includes the following standard categories:
     window` when declared. `lineage.overrides` keeps the case of an `HMP_SET_*` key
     (`flow.param.K`, no longer `flow.param.k`).
 - The lake-river stack closes the findings of the 2026-10-14 audit left open on 2026-10-15
-  (2026-10-20, nine commits `612011a41..cc6378260`). What changes for a user:
+  (2026-10-20, nine commits `f65e21d63..f65e21d63`). What changes for a user:
   - Lake outlets run one way. Two WEIR outlets of two lakes toward each other at the same crest
     are refused, naming both outlets: they made the water circulate instead of a sill. A
     spillway without a reach on the dam foot is refused (enable `rectify_on_mesh`) instead of
@@ -655,7 +655,7 @@ Each release section includes the following standard categories:
   centre now bars the link it crosses, like the same trace beside the centre already did. The
   `regular` engine is 1.1.1: its `barriers` staircase uses the same rule.
 - A run with `[flow.sinks_sources.recharge.soil]` passes `prepare_solver` again, and its frozen
-  `config.toml` replays (2026-10-19). Since 91de8a43a the frozen configuration spelled out every
+  `config.toml` replays (2026-10-19). Since aa8c33809 the frozen configuration spelled out every
   default, so `recharge.values = 0.0` counted as written beside the soil section and was refused,
   on the run and on `hmp catalog rerun`. The frozen document now keeps what the run was given
   (`core/config_kit/written.py`, `to_toml(written_only=True)`): the fields a file, a caller or the
@@ -688,7 +688,7 @@ Each release section includes the following standard categories:
     cell and a cell across the wall (the staircase on `regular`, the shore faces on `triangle` and
     `voronoi`), plus the faces the wall line crosses: the wings, the joints and the corners where
     the cells round the shore (without them `voronoi` leaked at the corners). A face between two
-    lake cells is never barred. HFB rows still go only where both cells are active (9a53b1dbd), so
+    lake cells is never barred. HFB rows still go only where both cells are active (5ae2bc784), so
     a lake face is barred below the bed and sealed by LAK in the lake layers.
   - LAK seal and drop: the HORIZONTAL connections are cut across exactly the faces the HFB bars,
     and the lake cells dropped are those across the wall within its span, the side read at the
@@ -836,7 +836,7 @@ Each release section includes the following standard categories:
   the request when it is not empty, so the existing meshes keep their hash. A table with neither or
   both of `path` and `where` is refused. On the Nançon (25 m DEM, network threshold 0.05 km2), the
   zone below 2 m covers 20 % of the catchment. A Voronoi mesh of 75 m with that zone at 25 m holds
-  40 043 cells, against 14 897 at 75 m and 134 074 at 25 m (`abed303ff`).
+  40 043 cells, against 14 897 at 75 m and 134 074 at 25 m (`3d2b45dc9`).
 - The outlet can snap by the Jenson rule (2026-10-26). `[geographic.catchment] snap_method` is
   `"window"` (default) or `"jenson"`. `window` moves the outlet to the cell of the largest flow
   accumulation inside the square window of width `snap_dist`, and it can jump onto a larger stream
@@ -850,7 +850,7 @@ Each release section includes the following standard categories:
   and the cache fingerprint of a project at `window` do not change. On example 04 (window of 3 by 3
   cells), `window` moves the outlet by 130 m and gives 11 488 cells (64.620 km2), and `jenson` moves
   it by 36 m and gives 11 483 cells (64.592 km2). With a window of 900 m, `window` gives 64.851 km2
-  and `jenson` still 64.592 km2 (`85836796d`).
+  and `jenson` still 64.592 km2 (`3d2b45dc9`).
 - `parameter_map` and `parameter_section` draw K22, K33 and the three angles of the K tensor
   (2026-10-26): `hydraulic_conductivity_k22`, `hydraulic_conductivity_k33` and
   `conductivity_tensor_angle1` to `3`. K22 and K33 take the scale rule of K, and the conductivity
@@ -860,7 +860,7 @@ Each release section includes the following standard categories:
   `angle1`. Without `variables`, `parameter_section` adds K22 and the angles when the run holds
   them, and K33 only when it differs from K. A variable that the run does not hold is refused by
   name with `FigureNotApplicable`, where `parameter_section` dropped it without a word, and so is a
-  variable that is not an aquifer property, such as `head` (`8105d417f`).
+  variable that is not an aquifer property, such as `head` (`3d2b45dc9`).
 - The catchment fraction (2026-10-26). A run with a delineated polygon stores
   `mesh/catchment_fraction`, the share of the area of each face inside the polygon, from 0 to 1, and
   the `mesh_cells` layer of `hmp export` carries it as `catchment_fraction`. The share is exact for
@@ -876,7 +876,7 @@ Each release section includes the following standard categories:
   the whole cells of its basin and says so. On example 04 the grid is the DEM, so no cell is cut and
   every share is 0 or 1. The recharge over the catchment is 0.23 % below the `catchment` row and the
   seepage 1.2 % below, because the basin of D and the polygon disagree on 34 and 8 whole cells
-  (`2b4ac4f0b`).
+  (`69e7c4209`).
 - The cell shape in the mesh QA, and a build warning (2026-10-26). `MeshQA` gains
   `bisection_offset` (quantiles over the interior faces longer than `min_face_length_m`, and
   `n_cells_gt_0_25`, the cells with a face above `BISECTION_OFFSET_WARNING`), `min_angle_deg` and
@@ -1854,7 +1854,7 @@ Each release section includes the following standard categories:
   them, so `triangle` stays 11 % above the integral of the size field with one river and 35 % on the
   dense network of the Flume. The `regular` and `voronoi` engines, a `.msh` read and the validation
   cases, which read a file, do not change. The size of the triangle fixtures in the tests is divided
-  by the factor (`50aad8403`, `85ca68f1d`).
+  by the factor (`3d2b45dc9`, `69e7c4209`).
 - The planner smooths the pixel staircase of the catchment outline before meshing (2026-10-26). It
   does so for the `triangle` and `voronoi` engines, where the mesh follows the outline:
   `mesh.families.watershed_boundary = "face"`, or `geographic.domain_extent` at `"watershed"` or
@@ -1867,7 +1867,7 @@ Each release section includes the following standard categories:
   area moves by -0.08 %. With the catchment as the domain, the Voronoi cells with an isoperimetric
   quotient under 0.6 go from 118 to 5 out of about 7300. With the buffer as the domain, the
   `triangle` mesh goes from 27 918 to 24 002 cells and the triangles under 20 degrees from 144 to 0.
-  With the catchment or a box as the domain, the `triangle` count does not change (`cc2eb8443`).
+  With the catchment or a box as the domain, the `triangle` count does not change (`69e7c4209`).
 - A view that says catchment reads the catchment (2026-10-26). `views.catchment_mean` averages a
   variable over the delineated catchment, weighted by the share of each face inside the polygon and
   by its area. It was an unweighted mean over the active domain. It refuses a synthetic run and a
@@ -1881,8 +1881,8 @@ Each release section includes the following standard categories:
   goes from 0.375 to 0.596 and the F1 from 0.447 to 0.575, because the 403 active cells outside the
   catchment no longer count as false positives. The coverage of the reference stays at 0.555.
   `saturated_fraction` and `recharge_forcing` keep the active domain, the cells with a finite top,
-  and their docstrings say so. The CSV written before are not comparable (`542595c7d`, `8f061a194`,
-  `92b66ffa0`).
+  and their docstrings say so. The CSV written before are not comparable (`69e7c4209`, `69e7c4209`,
+  `69e7c4209`).
 - A synthetic domain has no catchment (2026-10-26). `catchment_outline` gives nothing for a
   synthetic geography, and the box stays the domain. The basin of D is the largest basin of the
   domain, and no `catchment` row is written in the budget. It held 12 cells of 960 on the flat
@@ -1890,13 +1890,13 @@ Each release section includes the following standard categories:
   The `_catchment` series of a MODFLOW synthetic run carry the whole domain, the discharge
   observable sums every cell with an INFO line, and the stream criterion closes on the largest basin
   of its own graph. The `_catchment` numbers of a synthetic run sealed before are not comparable
-  with the new ones (`2b4ac4f0b`).
+  with the new ones (`69e7c4209`).
 - A lake column with no active cell under the lake is refused at build (2026-10-26). The message
   names the lake, the number of columns and the first cell, and three ways out: fewer
   `occupied_layers`, a smaller `min_thickness` of the `[[domain.layers.layer]]` under the lake, or
   `pinch_out = "keep_min_thickness"`. The run passed before, with the lake resting on the base of
   the model. A carved bed on a column whose layers under the top one are all pass-through cells is
-  refused too (`d0b98e761`).
+  refused too (`3d2b45dc9`).
 - XT3D on triangle cells under Newton warns that it can cycle (2026-10-26). MODFLOW 6 scales the
   XT3D face area by the saturation of the upstream cell, but the cross term of XT3D is not zero at
   equal heads, so the discrete system can have no root. The steady Nançon on triangles stops with
@@ -1906,11 +1906,11 @@ Each release section includes the following standard categories:
   inputs in 21 outer iterations. `mf6_enable_xt3d = false` converges in 23, with heads about 0.1 m
   RMSE from XT3D. The cost wording is measured: XT3D costs from about 1.5 times the MODFLOW 6 run
   time on one layer to about 10 times on ten, and the description of `mf6_enable_xt3d` and the
-  tensor warning say so (`7970fb843`).
+  tensor warning say so (`69e7c4209`).
 - `hmp dev lock archive` and `hmp data archive` write `zarr_schema_version = "3"` in the lockfile of
   the archive (2026-10-26). A default of `"2"`, which the `data` layer could not read from
   `results`, was stale. `write_lockfile` and `archive_lockfile` take `zarr_schema_version` and
-  `parquet_schema_version` as arguments with no default (`cf15eb392`, `14e8065a3`).
+  `parquet_schema_version` as arguments with no default (`3d2b45dc9`, `3d2b45dc9`).
 - The page of TOML changes shows a moved table as a rename (2026-10-26).
   `config_migration.MOVED_TABLES`, a list of `TableMove(old, new)`, declares
   `modflow6.sgrid.vertical` and `modflownwt.sgrid.vertical` going to `domain.layers` once, and the
@@ -1919,7 +1919,7 @@ Each release section includes the following standard categories:
   `domain.layers.<key>`. The keys that kept their name are compared from one release to the next, so
   a change of default, profile, shape or unit shows under Changed. Against 2.0.0a4, the page has two
   Renamed lines where it had two Removed and one Added, and four more Changed lines. No config
-  changes (`ae94557b9`).
+  changes (`3d2b45dc9`).
 - The Voronoi validation tolerances are twice the measured error (2026-10-26). Of 103 lines
   remeasured on 58 tests, 41 are tightened (38 values in 15 `tolerances_modflow6_voronoi*.toml`
   files), 8 were already at twice the error, 30 stay on a numerical floor, 21 stay as twin noise and
@@ -1928,7 +1928,7 @@ Each release section includes the following standard categories:
   coefficient, 0.01 becomes 1.57e-3 on the exponent and 0.04 becomes 0.033 on the late RMSE. The two
   azimuth spreads of the islands on a triangulation seed stay on a floor, because they follow the
   iteration path and moved from 5.2e-5 to 4.0e-6 m between two runs. No run result changes. A
-  Voronoi validation test fails when its error passes twice the value of 2026-10-26 (`5cb6f2efc`).
+  Voronoi validation test fails when its error passes twice the value of 2026-10-26 (`69e7c4209`).
 - XT3D turns on by itself for a K tensor off the mesh axes (2026-10-26): a `K22` different
   from K on a cell whose `angle1` is not a multiple of 90 degrees, or on any cell of an
   unstructured mesh, beside the tilted tensor (`angle2` or `angle3`). The two-point flux drops
@@ -2209,7 +2209,7 @@ Each release section includes the following standard categories:
   comparison, which was empty for every sealed run. The columns `surface_top_m` and
   `surface_bottom_m` of `observables.csv` and `timeseries_long.csv`, always empty, go with the
   surface lines of the series figures. `catchment_mesh_bundle_reader` stays, because the 16
-  committed bundles of the validation cases are read by it. No TOML key changes (`5861d49d7`).
+  committed bundles of the validation cases are read by it. No TOML key changes (`3d2b45dc9`).
 - `[calibration.aggregate]` `weighting`, `nested_gauges` and `on_member_failure`, and
   `[calibration]` `lightweight_extraction` and `persist_model_distribution`, leave the schema
   (2026-10-20). Nothing read them: `weighting = "error"` or `on_member_failure = "drop"` gave the

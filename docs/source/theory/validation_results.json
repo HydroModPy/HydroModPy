@@ -25,9 +25,9 @@
    "markers": "not petsc",
    "command": "pytest tests/validation -m not petsc -n 6 --dist loadgroup -p no:cacheprovider -q -rfE --durations=25"
   },
-  "2026-10-26T10:21:28+00:00-9ed743b0c": {
+  "2026-10-26T10:21:28+00:00-d0f510b65": {
    "date": "2026-10-26T10:21:28+00:00",
-   "commit": "9ed743b0cb956fd507fdfab670b8ab0b8a759ead",
+   "commit": "d0f510b65ff9706b86d71ec5c858640c6a1374a5",
    "dirty": true,
    "branch": "dev",
    "version": "2.0.0a5",
@@ -6712,7 +6712,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-26T10:21:28+00:00-9ed743b0c"
+   "run": "2026-10-26T10:21:28+00:00-d0f510b65"
   },
   "tests/validation/analytical/steady/test_k_tensor_rotated_plan_2d.py::test_k_tensor_rotated_plan_2d_carries_the_exact_uniform_flow[modflow6_mirrored]": {
    "nodeid": "tests/validation/analytical/steady/test_k_tensor_rotated_plan_2d.py::test_k_tensor_rotated_plan_2d_carries_the_exact_uniform_flow[modflow6_mirrored]",
@@ -6779,7 +6779,7 @@
     }
    ],
    "spacetime": [],
-   "run": "2026-10-26T10:21:28+00:00-9ed743b0c"
+   "run": "2026-10-26T10:21:28+00:00-d0f510b65"
   },
   "tests/validation/analytical/steady/test_k_tensor_tilted_section_2d.py::test_k_tensor_tilted_section_2d_carries_the_exact_uniform_flow[modflow6]": {
    "nodeid": "tests/validation/analytical/steady/test_k_tensor_tilted_section_2d.py::test_k_tensor_tilted_section_2d_carries_the_exact_uniform_flow[modflow6]",
@@ -6836,7 +6836,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-26T10:21:28+00:00-9ed743b0c"
+   "run": "2026-10-26T10:21:28+00:00-d0f510b65"
   },
   "tests/validation/analytical/steady/test_k_tensor_tilted_section_2d.py::test_k_tensor_tilted_section_2d_carries_the_exact_uniform_flow[modflow6_mirrored]": {
    "nodeid": "tests/validation/analytical/steady/test_k_tensor_tilted_section_2d.py::test_k_tensor_tilted_section_2d_carries_the_exact_uniform_flow[modflow6_mirrored]",
@@ -6893,7 +6893,7 @@
    "samples": [],
    "maps": [],
    "spacetime": [],
-   "run": "2026-10-26T10:21:28+00:00-9ed743b0c"
+   "run": "2026-10-26T10:21:28+00:00-d0f510b65"
   },
   "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[boussinesq]": {
    "nodeid": "tests/validation/analytical/steady/test_linearized_unconfined_drainage_1d.py::test_linearized_unconfined_drainage_1d_matches_reference_profile[boussinesq]",
