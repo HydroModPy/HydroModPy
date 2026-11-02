@@ -51,7 +51,7 @@ class FlowRechargeConfig(HydroModelBase):
         periods (``hydromodpy.physics.forcing.steady_periods``). A transient
         period keeps its own rate. Options:
 
-        - ``"mean"``: mean of the per-period rates, one weight per period
+        - ``"mean"``: time mean of the per-period rates, each weighted by its length
           (default),
         - ``"first"``: rate of period 0,
         - *numeric*: that rate.
@@ -99,7 +99,7 @@ class FlowRechargeConfig(HydroModelBase):
             "Recharge rate of every steady stress period: every period of a steady "
             "run, and the first period of a transient run when "
             "flow.first_period_steady is true. 'mean' is the mean of the "
-            "per-period rates, one weight per period; 'first' is the rate of "
+            "per-period rates, each weighted by its length; 'first' is the rate of "
             "period 0; a number is that rate, in the units of values. A transient "
             "period keeps its own rate. The same rule holds for one value per "
             "period and for one grid per period, under every solver. With "

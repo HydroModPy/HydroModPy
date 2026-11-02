@@ -8,6 +8,8 @@ run that loads exactly one discharge station takes it as its gauge.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
 
@@ -15,7 +17,6 @@ from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.site import GaugeConflictError, SiteConfig
 from hydromodpy.data import DataManagersConfig
 from hydromodpy.data.sites.gauge import apply_site_gauge, gauge_of_run
-from tests._helpers.site_selection_cases import make_point_record
 
 NANCON = SiteConfig(name="nancon", gauge="NANCON")
 
@@ -109,7 +110,7 @@ def test_without_a_gauge_the_declared_stations_stay_as_written():
 def test_the_gauge_of_a_run_is_the_declared_one_else_its_single_station():
     class Loaded:
         def __init__(self, *station_ids: str) -> None:
-            self.points = [make_point_record(sid) for sid in station_ids]
+            self.points = [SimpleNamespace(station_id=sid) for sid in station_ids]
 
     assert gauge_of_run(NANCON, Loaded("OTHER")) == "NANCON"
     assert gauge_of_run(SiteConfig(name="nancon"), Loaded("J001401001")) == "J001401001"

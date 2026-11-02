@@ -22,7 +22,7 @@ import json
 import math
 import struct
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol
 
@@ -327,7 +327,7 @@ class MeshRequest:
     lines: tuple[LineFamilySpec, ...] = ()
     size_field: SizeField | None = None
     seed: int = 0
-    options: Mapping[str, object] = _EMPTY_OPTIONS
+    options: Mapping[str, object] = field(default_factory=lambda: _EMPTY_OPTIONS)
     input_triangulation: InputTriangulation | None = None
     notes: tuple[str, ...] = ()
     source_runs: tuple[str, ...] = ()

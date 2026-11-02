@@ -1,7 +1,7 @@
 """The window the recipe runs is ``[metrics] window`` once the file declares one.
 
 Since the protocol writes ``[metrics] window`` on its transient stage
-(6dcd212ce), the first year after the start is the recipe's window only for a
+(d0390cb68), the first year after the start is the recipe's window only for a
 file without ``[metrics] window``. ``hmp config check`` still compared a
 protocol ``scoring_window`` with the spin-up year, and called the spin-up window
 "written as the recipe runs it" while the recipe now scores the run window.

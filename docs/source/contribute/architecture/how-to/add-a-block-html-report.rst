@@ -47,17 +47,17 @@ A block report is built from immutable dataclasses:
    )
 
    block = ReportBlock(
-       block_id="selection_identity",
-       title="Selection identity",
+       block_id="run_identity",
+       title="Run identity",
        level="compact",
        lead="Short human-readable context.",
        metrics=(
-           ReportMetric("Selected sites", 6),
-           ReportMetric("Rejected sites", 0),
+           ReportMetric("Sites", 6),
+           ReportMetric("Failed runs", 0),
        ),
        figures=(
            ReportFigure(
-               "site_selection_map",
+               "catchment_map",
                "Review map",
                map_path,
                "DEM background, basins, outlets, and observation stations.",
@@ -158,7 +158,6 @@ Output layout
 Keep one stable user-facing entry point, then add optional level pages around
 it. Existing reports use these patterns:
 
-- ``review/index.html`` for site-selection review reports;
 - ``review/compact/index.html``, ``review/standard/index.html`` and
   ``review/audit/index.html`` for global detail levels;
 - ``runs/<run>/report/index.html`` for the catchment report's standard page,
@@ -189,14 +188,7 @@ Use this decision rule:
 - **Heavy solver or provider examples**: generate artifacts explicitly before
   the docs build, commit the reviewed outputs, and keep Sphinx as a reader
   only. Do not make the docs build execute hydrological providers, MODFLOW
-  binaries, PETSc jobs, or long site-selection campaigns just to draw one
-  illustration.
-
-For ``site_selection``, the minimum updateable illustration should come from a
-short fixture or example that writes ``review/site_selection_map.png`` and the
-four HTML pages under ``review/``. The documentation page can then reference
-the committed PNG or a small derived screenshot, while the manifest and source
-TOML remain the traceable inputs.
+  binaries, PETSc jobs, or long campaigns just to draw one illustration.
 
 For ``catchment_report``, the minimum updateable illustration should come from
 a tiny report fixture or one short basin example that writes, under
@@ -241,4 +233,3 @@ See also
 
 - :doc:`../packages/display` for ownership of ``display/report_blocks``.
 - :doc:`/reference/cli/report` for the user-facing catchment report.
-- :doc:`/reference/cli/site` for the site-selection report.

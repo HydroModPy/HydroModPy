@@ -433,6 +433,8 @@ class ModflowNwt:
             grid=None if self.grid_ctx is None else self.grid_ctx.grid,
             simulation_window=None if self.time_grid is None else self.time_grid.window,
             steady=getattr(self, "steady", None),
+            period_lengths=getattr(self, "perlen", None),
+            record_lengths=getattr(self.time_grid, "record_lengths_seconds", None),
             sink_fill=bool(self.sink_fill),
             sink=self.sink,
             drain_band_depth_m=float(self.drain_band_depth_m),

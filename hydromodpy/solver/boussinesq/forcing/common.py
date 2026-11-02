@@ -192,8 +192,14 @@ class ForcingCommonMixin:
             # A record longer than a one-period run gives that period its mean,
             # or its first value when the period is steady under "first".
             steady = bool(self.boussinesq_steady_flags(1)[0])
+            record_lengths = getattr(self.time_grid, "record_lengths_seconds", None)
             own = np.asarray(
-                [one_period_rate(sequence, steady=steady, first_clim=first_clim)], dtype=float
+                [
+                    one_period_rate(
+                        sequence, steady=steady, first_clim=first_clim, durations=record_lengths
+                    )
+                ],
+                dtype=float,
             )
         else:
             raise ValueError(
@@ -205,6 +211,17 @@ class ForcingCommonMixin:
         """Return which periods this run solves steady (see :func:`steady_period_flags`)."""
         return steady_period_flags(self.flow, nper)
 
+    def period_durations(self, nper: int) -> np.ndarray:
+        """Return the length of each period, in seconds.
+
+        A run built without a time grid has periods without dates: they count
+        as equally long.
+        """
+        lengths = getattr(self.time_grid, "period_lengths_seconds", None)
+        if lengths is None:
+            return np.ones(int(nper), dtype=float)
+        return np.asarray(lengths, dtype=float).reshape(-1)
+
     def apply_first_clim_to_series(self, own: np.ndarray, *, first_clim: object) -> np.ndarray:
         """Give every steady period the ``first_clim`` rate, keep the transient ones."""
         nper = int(own.size)
@@ -212,6 +229,7 @@ class ForcingCommonMixin:
             {kper: own[kper] for kper in range(nper)},
             steady=self.boussinesq_steady_flags(nper),
             first_clim=first_clim,
+            durations=self.period_durations(nper),
         )
         return np.asarray([float(ruled[kper]) for kper in range(nper)], dtype=float)
 

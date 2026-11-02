@@ -3,9 +3,7 @@
 Where the model is in space. From a DEM and an outlet to a catchment, its river
 network and the ground of the model; from the ground and a depth model to the
 domain; from the domain to a mesh; and the fields that carry a value per zone,
-per cell or per depth onto that mesh. The choice of the sites that fit a study
-is the layer `hydromodpy/site_selection/`, which reads spatial and is never read
-by it. The package knows no solver and no data provider: the geology source is
+per cell or per depth onto that mesh. The package knows no solver and no data provider: the geology source is
 registered at start-up, and a mesh leaves as a `PlanarCellMesh` that each solver reads.
 This file is the map of the package: what each part answers, the import
 rules, the tree, how a catchment becomes a mesh, and where to add what. Each
@@ -17,7 +15,7 @@ sub-package has a note of its own with the full map.
 |---|---|
 | `raster_support.py`, `surface.py`, `surface_sampling.py` | where a 2D surface sits (`RasterSupport`), the surfaces of the domain (`Surface`), and samplers prepared for repeated reads at points |
 | `protocols.py` | the `GeologyDataSource` Protocol that spatial needs from outside, and its registration |
-| `job_inputs.py` | the input checks the `domain-build` and `terrain-delineate` workers share, and the hashes of the outputs they seal. `terrain-delineate` lives in `hydromodpy/site_selection/hydrology/` |
+| `job_inputs.py` | the input checks of the `domain-build` worker, and the hashes of the outputs it seals |
 | `administrative/` | the French departments and regions of the bundled `departement.gpkg`: their codes in a box or a region, their box and outline |
 | `delineation/` | the backends that route flow on a DEM and delineate a catchment. `whitebox_workflows_backend/` is the one shipped |
 | `terrain/` | the `TerrainEngine` port, its two engines (Whitebox and numpy), the artifact writers and the D8 pointer reader |
@@ -55,7 +53,7 @@ Two rules hold inside:
    entry-point group; one conformance suite, `tests/contract/test_terrain_engine_contract.py`,
    runs on every engine the registry resolves.
 
-Who imports spatial: `solver` and `workflow` (most), `site_selection`, `data`,
+Who imports spatial: `solver` and `workflow` (most), `data`,
 `results`, `calibration`, `config`, `project`, `simulation`, `physics` (one
 module, the field sections in `physics/flow/flow_param_config.py`) and the
 package root (`_bootstrap.py`, `_lazy.py`).

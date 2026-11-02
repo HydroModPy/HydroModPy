@@ -74,7 +74,7 @@ class DomainBuildRequest(HydroModelBase):
         default=None,
         description=(
             "polygon layer bounding the active part of the grid, for example the "
-            "catchment terrain-delineate seals; a layer of lines or points is "
+            "catchment polygon; a layer of lines or points is "
             "refused, and without a mask every cell carrying data is active"
         ),
     )

@@ -14,7 +14,7 @@ is mapped to the canonical ``permanence`` column of
 :mod:`hydromodpy.data.source.permanence`, next to the native attribute, which
 is kept as it came.
 
-``fetch`` serves a caller holding a WGS84 box (site selection); it takes a
+``fetch`` serves a caller holding a WGS84 box (the outlet snap of ``hmp site import``); it takes a
 ``HydrographySourceConfig`` and reads its ``page_size``.
 """
 

@@ -24,7 +24,6 @@ describes the experimental observability project next to it.
    physics
    data
    spatial
-   site_selection
    solver
    simulation
    calibration

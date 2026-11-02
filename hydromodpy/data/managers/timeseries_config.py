@@ -85,7 +85,7 @@ class TimeseriesSelectionMixin(HydroModelBase):
     ] = Field(
         default=None,
         description=(
-            "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are told apart by the site-selection pipeline alone, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it."
+            "Retrieve on the project extent rather than on this source's own filters. Only whether it is SET matters to the loaders; the two literals are not told apart, and a standard project run clips on the delineated watershed either way, through the mask the loader fills in. Declared at DEV level for that reason: a project run neither needs it nor changes with it."
         ),
     )
     force_refresh: Annotated[bool, Profile.USER] = Field(

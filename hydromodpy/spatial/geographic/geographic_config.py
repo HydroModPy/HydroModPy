@@ -323,8 +323,7 @@ class GeographicConfig(HydroModelBase):
     def _check_terrain_engine_resolves(cls, value: str | None) -> str | None:
         """Refuse an engine this installation cannot serve, while reading the document.
 
-        The same refusal the ``terrain-delineate`` capability performs on
-        ``inputs.engine``, at the other door. It happens here rather than at the
+        It happens here rather than at the
         first delineation because a project that names an engine nobody installed
         is a broken document, and learning that after a DEM has been conditioned
         costs the conditioning.

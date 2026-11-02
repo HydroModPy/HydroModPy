@@ -2,8 +2,7 @@
 
 Standalone HTML pages that put several results side by side. A calibration
 session becomes one page with its convergence figures and its best fit. A
-comparison of sealed runs (`hmp report compare`) becomes a browsable report. A
-site selection becomes a review page. Figures come from `display`, derived series from `analysis`,
+comparison of sealed runs (`hmp report compare`) becomes a browsable report. Figures come from `display`, derived series from `analysis`,
 data from `results`; this package composes them and writes the page.
 This file is the map of the package: what each part answers, the import
 rules, who calls it, and where to add what.
@@ -18,7 +17,6 @@ rules, who calls it, and where to add what.
 | `comparison/context.py` | what the page reads: `comparison_manifest.json` (with its `case_check` block), the metric and budget tables, the figure list; and the domain head profile figures it draws from the runs' `fields.zarr` |
 | `comparison/figures.py`, `comparison/html_utils.py` | how the figures are grouped into categories, and small HTML helpers |
 | `comparison/sections/` | one function per section of the page, their templates, and the loaders of config payloads |
-| `site_selection/` | the review reports of a site selection: `html.py` (the report of a manifest, `render_site_selection_html_report`), `plan.py` (the report of a plan manifest), `blocks.py` and `figures.py` (the blocks and the map they use) |
 
 ## Import rules
 
@@ -27,8 +25,7 @@ rules, who calls it, and where to add what.
 `results`, `display` and `analysis`; it imports no `config`. Four rules:
 
 1. `display` never imports `reporting`. The page structure that several
-   reports share lives in `display/report_blocks`; `site_selection/` renders
-   through it.
+   reports share lives in `display/report_blocks`.
 2. `analysis` never imports `reporting`. The comparison is computed in
    `analysis/comparison` and its page is rendered here, from
    `comparison/compare.py`.
@@ -43,8 +40,7 @@ rules, who calls it, and where to add what.
 No `reporting_layout.yaml` orders the parts inside the package.
 
 Who imports reporting: `workflow` (the calibration step) and `cli`
-(`hmp report compare`; `hmp site select` hands the site-selection renderers to
-`hydromodpy/workflow/site_selection/selection_run.py`, which never imports reporting).
+(`hmp report compare`).
 
 ## Tree
 
@@ -53,7 +49,6 @@ hydromodpy/reporting/
   calibration_report.py
   comparison/       compare.py  render.py  context.py  figures.py  html_utils.py
     sections/       sections.py  templates.py  io.py
-  site_selection/   html.py  plan.py  blocks.py  figures.py
 ```
 
 ## Where a report is written
@@ -62,8 +57,6 @@ hydromodpy/reporting/
 |---|---|
 | calibration session | `sessions/<session>/report/index.html`, figures in `sessions/<session>/figures/` |
 | comparison | `<project>/summary/report/compare/<refs>/[<site>/]web/index.html`, or under `--out` |
-| site selection | `review/index.html` under the `[site_selection] output_root` of the manifest |
-| site-selection plan | `review/index.html` under the `[site_selection] output_root` of the plan manifest |
 
 Nothing a report writes is a source of truth. A report is regenerated from
 the runs, the sessions and the manifests it reads.

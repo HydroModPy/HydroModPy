@@ -103,8 +103,11 @@ I) and wet (class III) numbers is the one of {cite:t}`chow1988`, equations
 - The wetness of the soil is the store at the end of the day before, as a share
   of its capacity (next equation).
 - The retention $\sigma_t$, in mm, moves linearly with $w_t$ between its value
-  at the dry number ($w_t = 0$) and its value at the wet number ($w_t = 1$)
-  {cite:p}`schroeder1994`.
+  at the dry number ($w_t = 0$) and its value at the wet number ($w_t = 1$).
+  HELP also ties the retention to the soil water, with other bounds
+  {cite:p}`schroeder1994`. SWAT uses these two bounds, at the wilting point and
+  at field capacity, on a curve {cite:p}`neitsch2011`. The straight line is a
+  choice made here.
 - The initial abstraction is $0.2\,\sigma_t$, with no other choice.
 - The rain that infiltrates is $P_t - Q_t$. The runoff $Q_t$ is taken before
   the soil sees the rain, so the soil gets less of it.

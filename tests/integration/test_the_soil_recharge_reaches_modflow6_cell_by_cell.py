@@ -183,6 +183,7 @@ def _build_and_run(ws: Path):
         first_clim=None,
         nper=_NPER,
         ncpl=_NROW * _NCOL,
+        perlen=np.ones(_NPER),
         steady=np.zeros(_NPER, dtype=bool),
         time_grid=SimpleNamespace(window=window),
         solver_mesh=mesh,

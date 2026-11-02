@@ -25,7 +25,7 @@ description that did not change. What governs an input schema is the
 capability that declares it.
 
 The description carries no invocation block. No CLI verb runs a capability by
-its id: ``hmp data get``, the domain step of ``hmp run`` and ``hmp site select``
+its id: ``hmp data get`` and the domain step of ``hmp run``
 drive them, so an argv in the document would name a command that does not exist.
 """
 
@@ -45,7 +45,6 @@ from hydromodpy.schema.processes import (
     PROCESS_PROFILE,
     description_filename,
 )
-from hydromodpy.site_selection.hydrology.capability import TERRAIN_DELINEATE
 from hydromodpy.spatial.domain.capability import DOMAIN_BUILD
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -60,7 +59,7 @@ OUTPUT_TRANSMISSION = ("reference",)
 
 def capability_decls() -> tuple[CapabilityDecl, ...]:
     """Return the declaration of every capability this build describes."""
-    return (DATA_REQUEST, DOMAIN_BUILD, TERRAIN_DELINEATE)
+    return (DATA_REQUEST, DOMAIN_BUILD)
 
 
 def _write_if_changed(path: Path, content: str) -> bool:

@@ -294,7 +294,7 @@ jobs:
       - name: Install the solver binary the mesh regression needs
         run: python -m hydromodpy install-binaries --subset mf6 --quiet
 
-      # Branch coverage of spatial/ and site_selection/ over the unit tier, the engine contract,
+      # Branch coverage of spatial/ over the unit tier, the engine contract,
       # the mesh regression and the domain-build worker, which only its integration
       # test reaches. HMP_REQUIRE_GMSH fails a skipped gmsh engine.
       - name: Run the tests that reach the spatial package
@@ -315,8 +315,6 @@ jobs:
             --max-worker-restart=0 \
             --timeout=300 \
             --cov=hydromodpy/spatial \
-            --cov=hydromodpy/site_selection \
-            --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-report= \
             --cov-fail-under=0 \
@@ -335,8 +333,6 @@ jobs:
             -m "not slow" \
             --timeout=300 \
             --cov=hydromodpy/spatial \
-            --cov=hydromodpy/site_selection \
-            --cov=hydromodpy/workflow/site_selection \
             --cov-branch \
             --cov-append \
             --cov-report= \
@@ -347,8 +343,7 @@ jobs:
       # an average. The floors only go up: raise each to the value a clean-up
       # lot reaches. A floor goes down only when files enter or leave a package, or
       # covered code leaves it, with no covered line lost, and the commit says so.
-      # The last three lines gate the modules at the top of spatial/, the site
-      # selection layer and its runner.
+      # The last line gates the modules at the top of spatial/.
       - name: Gate the spatial coverage
         run: |
           coverage combine || true
@@ -362,8 +357,6 @@ jobs:
           coverage report --include='hydromodpy/spatial/lake_bed/*' --precision=2 --fail-under=98.9
           coverage report --include='hydromodpy/spatial/terrain/*' --precision=2 --fail-under=94.6
           coverage report --include='hydromodpy/spatial/*.py' --precision=2 --fail-under=99.2
-          coverage report --include='hydromodpy/site_selection/*' --precision=2 --fail-under=96.4
-          coverage report --include='hydromodpy/workflow/site_selection/*' --precision=2 --fail-under=96.4
 
   integration:
     name: Tests / integration py3.13

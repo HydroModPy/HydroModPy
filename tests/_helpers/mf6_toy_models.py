@@ -72,6 +72,7 @@ def toy_model() -> Modflow6:
     model.nlay = 1
     model.ncpl = 6
     model.nper = 2
+    model.perlen = np.array([31.0, 28.0]) * 86400.0
     model.steady = np.array([False, False])  # all transient by default
     model.dem_mask = np.zeros(6, dtype=bool)  # flat (ncpl,)
     model.time_grid = SimpleNamespace(

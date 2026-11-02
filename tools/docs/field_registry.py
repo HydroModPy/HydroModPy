@@ -657,11 +657,6 @@ EXTRA_FILES: dict[str, tuple[str, str, str]] = {
         "hmp report catchment FILE",
         "hydromodpy.display.catchment_report.settings:ReportConfig",
     ),
-    "site-selection-file": (
-        "The site selection file",
-        "hmp site select FILE",
-        "hydromodpy.site_selection.config.site_selection_config:SiteSelectionFile",
-    ),
 }
 
 

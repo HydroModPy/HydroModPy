@@ -25,7 +25,7 @@ STEADY_FIRST = np.array([True, False])
 
 def test_modflow_nwt_routes_it_to_evt_on_the_steady_period_only() -> None:
     rch, evt = extract_negative_recharge_evt_payload(
-        payload={0: 1.0, 1: 2.0}, nper=2, steady=STEADY_FIRST, first_clim=-0.5
+        payload={0: 1.0, 1: 2.0}, nper=2, steady=STEADY_FIRST, first_clim=-0.5, durations=[1, 1]
     )
 
     assert rch == {0: 0.0, 1: 2.0}
@@ -36,7 +36,11 @@ def test_modflow_nwt_routes_nothing_without_a_steady_period() -> None:
     payload = {0: 1.0, 1: 2.0}
 
     rch, evt = extract_negative_recharge_evt_payload(
-        payload=payload, nper=2, steady=np.array([False, False]), first_clim=-0.5
+        payload=payload,
+        nper=2,
+        steady=np.array([False, False]),
+        first_clim=-0.5,
+        durations=[1, 1],
     )
 
     assert rch is payload

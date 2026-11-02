@@ -2,7 +2,7 @@
 
 A capability is a function from a validated document to a directory of sealed
 artefacts, and two of them compose through the disk: the GeoPackage
-``terrain-delineate`` seals is a mask ``data-request`` reads. Nothing in this
+one capability seals is an input another reads. Nothing in this
 repository performed that composition -- the caller had to create both
 directories, write both ``request.json`` by hand, and know which artefact of
 the first fills which member of the second.

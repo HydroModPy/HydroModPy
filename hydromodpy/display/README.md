@@ -317,7 +317,7 @@ writes the page. A domain report keeps its scientific logic in its own
 
 `render_report_page` and `render_report_page_with_block_variants` return the HTML
 instead of writing it. The renderer is used by the overview (`overview/web.py`),
-the catchment report, the site-selection reports of `hydromodpy/reporting`, and
+the catchment report, and
 the network and transient calibration page of `hydromodpy/calibration/reporting`.
 
 ## Figure contract

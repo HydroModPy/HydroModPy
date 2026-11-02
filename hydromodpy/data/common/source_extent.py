@@ -42,11 +42,9 @@ the type that makes that unrepresentable, and it is F5b's, not a new one.
 Why ``project_extent`` carries a declared CRS and not a measured one
 -------------------------------------------------------------------
 ``project_extent`` is a bare tuple with no CRS anywhere in its plumbing, and
-its value **is not in one CRS**: the site-selection pipeline builds it in
-Lambert-93 for the DEM (``workflow/_site_selection_dem.py:350``, and
-``_expand_projected_bbox`` adds a margin in metres) and converts it to WGS84
-for the observation managers (``_observation_request_bbox_wgs84``, same file,
-line 422). So the constant is what the DEM side actually receives, measured on
+its value **is not in one CRS**: the DEM manager reads it in Lambert-93 and
+the observation managers in WGS84 (``_project_extent`` in
+``data/request/engine.py``). So the constant is what the DEM side actually receives, measured on
 that path and on the unit tests that pin it --
 ``tests/unit/data_managers/test_dem_manager.py`` passes ``(650000.0,
 6400000.0, 1050000.0, 6650000.0)``, which is Lambert-93 or nothing.
@@ -61,12 +59,9 @@ that F5c's declaration tests exist against.
 Declaring it is strictly better than what stood here before, where the answer
 lived in no file at all. It is not the end state: the end state is a
 ``project_extent`` that is an :class:`Extent`, and that change touches the
-site-selection pipeline, the store and the timeseries managers, none of which
-this phase needs. ``test_the_project_extent_crs_matches_what_site_selection_builds``
-pins it against ``bbox_for_departments``, and that is **one branch** of
-``workflow.site_selection.dem_request.dem_request_bbox`` out of three -- the
-`polygon_file` branch reprojects to EPSG:2154 explicitly, and the `outlets` branch is metric by
-construction of the delineation, but neither is measured here.
+store and the timeseries managers, neither of which this phase needs.
+``test_the_project_extent_crs_reads_a_department_box`` pins it against
+``bbox_for_departments``.
 """
 
 from __future__ import annotations
@@ -87,7 +82,7 @@ here is the one its only producer builds for these managers.
 STATION_EXTENT_CRS = "EPSG:4326"
 """The CRS of the ``project_extent`` tuple as the station managers receive it.
 
-Site selection builds it in WGS84 for them, the frame Hub'Eau is asked in.
+It reaches them in WGS84, the frame Hub'Eau is asked in.
 """
 
 
@@ -172,8 +167,7 @@ def resolve_source_extent(source_cfg, *, project_extent: tuple | None) -> Extent
 
     ``mask_path`` first, because it is the specific answer and the loader fills
     it in from the delineated watershed; then ``extent`` together with the
-    project extent, which is the territory-scale request the site-selection
-    pipeline builds. ``None`` when the source names neither, and it is the
+    project extent, which is the territory-scale request. ``None`` when the source names neither, and it is the
     caller that decides whether that is a refusal -- ``custom`` sources load a
     file happily without one.
     """

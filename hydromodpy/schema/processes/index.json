@@ -14,13 +14,6 @@
       "major": 1,
       "title": "Aquifer domain geometry from a terrain and a depth model",
       "file": "domain-build@1.json"
-    },
-    {
-      "id": "terrain-delineate",
-      "version": "1.1.0",
-      "major": 1,
-      "title": "Watershed delineation from a DEM and one or more outlets",
-      "file": "terrain-delineate@1.json"
     }
   ]
 }

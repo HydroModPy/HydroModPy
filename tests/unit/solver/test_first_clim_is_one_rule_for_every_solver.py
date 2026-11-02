@@ -49,7 +49,9 @@ def _net_rate(recharge: dict, deficit: dict, kper: int) -> float:
 def test_the_net_rate_of_a_steady_period_is_the_one_first_clim_states(first_clim, expected):
     rates = dict(enumerate(NET))
 
-    recharge, deficit = split_net_recharge(rates, steady=STEADY_FIRST, first_clim=first_clim)
+    recharge, deficit = split_net_recharge(
+        rates, steady=STEADY_FIRST, first_clim=first_clim, durations=np.ones(4)
+    )
 
     assert _net_rate(recharge, deficit, 0) == pytest.approx(expected)
     for kper in (1, 2, 3):
@@ -60,7 +62,7 @@ def test_the_net_rate_of_a_steady_period_is_the_one_first_clim_states(first_clim
 def test_a_transient_period_keeps_its_own_rate_whatever_its_index():
     rates = {0: np.array([1.0, 2.0]), 1: np.array([3.0, 4.0])}
 
-    out = apply_first_clim(rates, steady=[False, False], first_clim=7.0)
+    out = apply_first_clim(rates, steady=[False, False], first_clim=7.0, durations=[1.0, 1.0])
 
     np.testing.assert_allclose(out[0], [1.0, 2.0])
     np.testing.assert_allclose(out[1], [3.0, 4.0])
@@ -79,6 +81,7 @@ def test_every_period_of_a_steady_run_takes_the_rule():
 def _mf6_model(*, nper: int, steady: list[bool], first_clim: object):
     model = toy_model()
     model.nper = nper
+    model.perlen = np.ones(nper)
     model.ncpl = 2
     model.steady = np.asarray(steady, dtype=bool)
     model.first_clim = first_clim
@@ -126,7 +129,7 @@ def test_modflow6_series_and_grids_route_the_same_steady_deficit(first_clim, def
     grid_model = _mf6_model(nper=4, steady=STEADY_FIRST, first_clim=first_clim)
     grids = {k: np.full(2, value) for k, value in enumerate(NET)}
     grid_model.recharge, grid_evt = extract_evt_payload_2d(
-        grids, True, steady=grid_model.steady, first_clim=first_clim
+        grids, True, steady=grid_model.steady, first_clim=first_clim, durations=grid_model.perlen
     )
     grid_rch = recharge_to_spd(grid_model)
 
@@ -153,7 +156,9 @@ def test_modflow6_routes_a_negative_first_clim_without_a_negative_record(deferre
 def test_modflow6_grids_route_a_negative_first_clim_without_a_negative_record():
     grids = {k: np.full(2, value) for k, value in enumerate(POSITIVE)}
     model = _mf6_model(nper=4, steady=STEADY_FIRST, first_clim=-3.0)
-    model.recharge, evt = extract_evt_payload_2d(grids, True, steady=model.steady, first_clim=-3.0)
+    model.recharge, evt = extract_evt_payload_2d(
+        grids, True, steady=model.steady, first_clim=-3.0, durations=model.perlen
+    )
     rch = recharge_to_spd(model)
 
     assert evt is not None

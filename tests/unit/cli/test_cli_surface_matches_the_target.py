@@ -44,7 +44,7 @@ TARGET_FAMILIES: dict[str, frozenset[str]] = {
             "import",
         }
     ),
-    "site": frozenset({"add", "import", "select", "ls", "show"}),
+    "site": frozenset({"add", "import", "ls", "show"}),
     "catalog": frozenset(
         {
             "ls",
@@ -90,9 +90,7 @@ TARGET_LEAVES: frozenset[str] = frozenset(
 )
 
 # What the target retired, by verb, by action and by option.
-REMOVED_VERBS: frozenset[str] = frozenset(
-    {"process", "site-selection", "audit", "compare", "testbed", "init"}
-)
+REMOVED_VERBS: frozenset[str] = frozenset({"process", "audit", "compare", "testbed", "init"})
 REMOVED_ACTIONS: tuple[tuple[str, str], ...] = (
     ("viz", "gallery"),
     ("workspace", "prune"),

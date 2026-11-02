@@ -498,8 +498,9 @@ false, the first period is a backward Euler step from the initial heads, like th
 others.
 
 The initial heads come from :toml:`flow.ic.h.type`. With ``steady_state``, the solver
-first runs one steady solve with the same method, under the mean recharge, one
-weight per period, or under the rate of :toml:`flow.ic.h.rate`, with the boundary heads of the first period.
+first runs one steady solve with the same method, under the time mean of the recharge,
+each period by its length, or under the rate of :toml:`flow.ic.h.rate`, with the boundary
+heads of the first period.
 It starts the transient from the result. Cyclic spin-up and :toml:`flow.restart_from`
 are not implemented for this solver and the file is refused when it asks for them.
 In the code: ``run_transient_runtime``.

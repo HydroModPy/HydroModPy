@@ -54,9 +54,8 @@ administrative/
   else from HydroModPy. Its other imports are geopandas and shapely.
 - No import is deferred inside this package.
 - The callers import it inside their functions: `hydromodpy/data/variables/dem/manager.py`,
-  `hydromodpy/data/variables/dem/apis/ign_dem_fr.py`,
-  `hydromodpy/data/variables/geology/apis/brgm_50k.py` and
-  `hydromodpy/site_selection/candidates/pipeline.py`.
+  `hydromodpy/data/variables/dem/apis/ign_dem_fr.py` and
+  `hydromodpy/data/variables/geology/apis/brgm_50k.py`.
 
 The rules between HydroModPy layers are checked by `tests/unit/architecture/`.
 
@@ -76,6 +75,5 @@ When the `.gpkg` file is replaced, keep a code column named `code_insee` and a r
 
 ## Documentation
 
-No page of `docs/source/` describes this package. The parameter pages that expose the regions it
-serves are `docs/source/reference/parameters/data/dem.md` and
-`docs/source/reference/parameters/site-selection-file.md`.
+No page of `docs/source/` describes this package. The parameter page that exposes the regions it
+serves is `docs/source/reference/parameters/data/dem.md`.

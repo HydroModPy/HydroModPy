@@ -1,10 +1,9 @@
 """The checks a spatial capability job makes on its input files, and the hashes of its outputs.
 
-``domain-build`` and ``terrain-delineate`` read the same kind of request: files
-named by an ``href``, optionally pinned by their ``sha256``. Both refuse a file
-that is not there, a file whose bytes are not the pinned ones, and a raster no
-reader opens, with the same words and the same codes. Both seal the outputs
-their declaration lists.
+``domain-build`` reads files named by an ``href``, optionally pinned by their
+``sha256``. It refuses a file that is not there, a file whose bytes are not the
+pinned ones, and a raster no reader opens. It seals the outputs its declaration
+lists.
 """
 
 from __future__ import annotations

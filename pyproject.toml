@@ -154,8 +154,8 @@ hydromodpy = "hydromodpy.cli.main:main"
 # declares, and a name this build already ships is refused.
 #
 # "hydromodpy.terrain.engine" is the third, read by
-# hydromodpy.spatial.terrain.registry, under the same three rules. It is what a
-# terrain-delineate request names in its "engine" member, so a flow-routing
+# hydromodpy.spatial.terrain.registry, under the same three rules. It is what
+# [geographic] terrain_engine names, so a flow-routing
 # engine is substituted from outside without a patch to this package.
 #
 # "hydromodpy.mesh.engine" is the fourth, read by hydromodpy.spatial.mesh.registry,
@@ -214,7 +214,6 @@ source = [
     "hydromodpy.schema",
     "hydromodpy.config",
     "hydromodpy.spatial",
-    "hydromodpy.site_selection",
     "hydromodpy.physics",
     "hydromodpy.data",
     "hydromodpy.catalog",

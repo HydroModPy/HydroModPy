@@ -59,11 +59,11 @@ One field of `HydroModPyConfig` per top-level TOML section. Required: `workflow`
 `[workflow].mode` is one of `simulation`, `calibration`, `overview`
 (`WorkflowMode`), and is optional: unset, the sections of the file say what
 `hmp run` does (`workflow/dispatch.py`). A retired mode (`comparison`,
-`testbed`, `site_selection`) is refused with its replacement
+`testbed`) is refused with its replacement
 (`RETIRED_WORKFLOW_MODES`). `[site]` and `[sites]` never coexist: a `[sites]`
 project takes the site of each case from its table row.
 
-The retired root sections `[analysis]`, `[site_selection]` and `[hydrometry]` are refused by name with what replaces them
+The retired root sections `[analysis]` and `[hydrometry]` are refused by name with what replaces them
 (`model_refused_keys`).
 
 The generated reference of the sections is the TOML reference of the

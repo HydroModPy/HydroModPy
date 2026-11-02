@@ -127,7 +127,7 @@ SIM_ID_MASK = "<sim_id>"
 # Golden constants. The rows are the ones the catalog writer produced at
 # commit a89658f85, less the columns the run record no longer carries
 # (study_area_name, outlet_x, outlet_y). The timeseries hash is the one of
-# that writer's file with the sim_id column left out (measured at 062358279).
+# that writer's file with the sim_id column left out (measured at d99780c52).
 # Updating these is allowed only when an intentional data change is shipped
 # together.
 GOLDEN_PARAMETERS = (

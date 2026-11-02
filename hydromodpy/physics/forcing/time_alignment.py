@@ -25,7 +25,8 @@ def _align_series_to_simulation_window(
 ) -> pd.Series:
     """Aggregate one datetime-indexed series to simulation stress periods.
 
-    A period takes the mean of the samples stamped in ``[start, end)``. A period
+    A period takes the mean of the samples stamped in ``[start, end)``, each sample
+    of a monthly or yearly record by the length of its month or year. A period
     with none takes the sample in force, and a period the record does not cover
     follows ``simulation.time.coverage_policy``
     (:mod:`hydromodpy.core.time.coverage`). ``checked_periods`` limits that
@@ -60,10 +61,7 @@ def _align_series_to_simulation_window(
         label=label,
     )
     samples = data.to_numpy(dtype=float)
-    values = [
-        float(samples[inside].mean()) if inside.size else float(samples[int(fill)])
-        for inside, fill in zip(periods.inside, periods.fill, strict=True)
-    ]
+    values = [float(periods.value_of(samples, kper)) for kper in range(len(starts))]
     return pd.Series(values, index=starts, dtype=float)
 
 

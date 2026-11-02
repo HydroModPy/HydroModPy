@@ -451,6 +451,7 @@ def prepare_mf6(pair: MeshPair, flow: Flow, tmp_path: Path) -> SolverInputs:
         first_clim=None,
         nper=NPER,
         ncpl=solver_mesh.n_cells,
+        perlen=np.ones(NPER),
         steady=np.zeros(NPER, dtype=bool),
         time_grid=SimpleNamespace(window=WINDOW),
         solver_mesh=solver_mesh,

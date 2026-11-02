@@ -156,6 +156,7 @@ def extract_negative_recharge_evt_payload(
     nper: int,
     steady: object,
     first_clim: object = "mean",
+    durations: object,
 ) -> tuple[object, dict[int, object] | None]:
     """Route negative recharge values to EVT and keep RCH non-negative.
 
@@ -179,7 +180,7 @@ def extract_negative_recharge_evt_payload(
             for kper in range(int(nper))
         }
     clipped, deficit = route_negative_recharge_to_evt(
-        normalized, steady=steady, first_clim=first_clim
+        normalized, steady=steady, first_clim=first_clim, durations=durations
     )
     return _scalars_as_floats(clipped), _scalars_as_floats(deficit)
 
@@ -231,14 +232,27 @@ def merge_evt_payloads(
     return merged
 
 
+def _clipped_at_zero(own_rates: Mapping[int, object]) -> dict[int, object]:
+    """Return each period's own rate as the recharge package would receive it."""
+    return _scalars_as_floats(
+        {kper: np.maximum(np.asarray(rate, dtype=float), 0.0) for kper, rate in own_rates.items()}
+    )
+
+
 def _own_rates_by_period(
-    payload: object, *, nper: int, steady: object, first_clim: object
+    payload: object,
+    *,
+    nper: int,
+    steady: object,
+    first_clim: object,
+    record_lengths: object = None,
 ) -> dict[int, np.ndarray]:
     """Return the own rate of every period of a recharge or ETP payload.
 
     A list holds one rate or one per period. A run of one period may read a longer
     record, as under the other solvers (``one_period_rate``). Any other length is
     refused: cutting it would change the water the model receives.
+    ``record_lengths`` holds the length of each value of such a record, when known.
     """
     if isinstance(payload, Mapping):
         table = complete_period_table(
@@ -257,7 +271,10 @@ def _own_rates_by_period(
                 f"has {int(nper)} periods: give one rate, or one per period."
             )
         is_steady = bool(np.asarray(steady, dtype=bool).reshape(-1)[0])
-        return {0: np.asarray(one_period_rate(record, steady=is_steady, first_clim=first_clim))}
+        rate = one_period_rate(
+            record, steady=is_steady, first_clim=first_clim, durations=record_lengths
+        )
+        return {0: np.asarray(rate)}
     return {kper: np.asarray(series_value(payload, kper), dtype=float) for kper in range(int(nper))}
 
 
@@ -267,6 +284,8 @@ def assemble_rch_data(
     first_clim: object,
     steady: object,
     nper: int,
+    durations: object,
+    record_lengths: object = None,
     allow_negative: bool = False,
 ) -> dict[int, object]:
     """Convert a recharge payload into the period-indexed structure.
@@ -280,8 +299,12 @@ def assemble_rch_data(
         ensure_non_negative_numeric_payload(payload, label="flow.sinks_sources.recharge.values")
     if isinstance(payload, Mapping) and len(payload) == 0:
         raise ValueError("flow.sinks_sources.recharge.values mapping cannot be empty.")
-    rows = _own_rates_by_period(payload, nper=nper, steady=steady, first_clim=first_clim)
-    return _scalars_as_floats(apply_first_clim(rows, steady=steady, first_clim=first_clim))
+    rows = _own_rates_by_period(
+        payload, nper=nper, steady=steady, first_clim=first_clim, record_lengths=record_lengths
+    )
+    return _scalars_as_floats(
+        apply_first_clim(rows, steady=steady, first_clim=first_clim, durations=durations)
+    )
 
 
 def apply_first_clim_2d(
@@ -292,6 +315,7 @@ def apply_first_clim_2d(
     nper: int,
     nrow: int,
     ncol: int,
+    durations: object,
     allow_negative: bool = False,
 ) -> dict[int, np.ndarray]:
     """Give every steady period the ``first_clim`` array, keep the transient ones."""
@@ -301,7 +325,7 @@ def apply_first_clim_2d(
         ensure_non_negative_numeric_payload(raw_arrays, label="flow.sinks_sources.recharge.values")
     if not raw_arrays:
         return {kper: np.zeros((nrow, ncol), dtype=float) for kper in range(int(nper))}
-    return apply_first_clim(raw_arrays, steady=steady, first_clim=first_clim)
+    return apply_first_clim(raw_arrays, steady=steady, first_clim=first_clim, durations=durations)
 
 
 def build_heterogeneous_recharge_payload(
@@ -316,6 +340,7 @@ def build_heterogeneous_recharge_payload(
         adapter, het_source, method=interp_method, source_unit=source_unit
     )
 
+    adapter.recharge_own_rates = _clipped_at_zero(raw_arrays)
     negative_to_evt = bool(getattr(recharge_cfg, "negative_to_evt", False))
     first_clim = getattr(recharge_cfg, "first_clim", "mean")
     steady = steady_period_flags(adapter)
@@ -326,6 +351,7 @@ def build_heterogeneous_recharge_payload(
             nper=adapter.nper,
             steady=steady,
             first_clim=first_clim,
+            durations=adapter.period_lengths,
         )
         adapter._negative_recharge_evt_spd = evt_payload
         if evt_payload is not None:
@@ -337,6 +363,7 @@ def build_heterogeneous_recharge_payload(
         nper=adapter.nper,
         nrow=adapter.nrow,
         ncol=adapter.ncol,
+        durations=adapter.period_lengths,
         allow_negative=False,
     )
 
@@ -358,6 +385,7 @@ def build_heterogeneous_etp_payload(
         nper=adapter.nper,
         nrow=adapter.nrow,
         ncol=adapter.ncol,
+        durations=adapter.period_lengths,
     )
     return {
         kper: np.maximum(np.asarray(arr, dtype=float), 0.0) for kper, arr in rate_arrays.items()
@@ -393,27 +421,43 @@ def build_recharge_payload(adapter: FlowToModflowAdapter) -> object | None:
     steady = steady_period_flags(adapter)
     if negative_to_evt:
         ensure_finite_numeric_payload(recharge_payload, label="flow.sinks_sources.recharge.values")
-        rch_data, evt_payload = extract_negative_recharge_evt_payload(
-            payload=_own_rates_by_period(
-                recharge_payload,
-                nper=adapter.nper,
-                steady=steady,
-                first_clim=recharge_cfg.first_clim,
-            ),
+        own_rates = _own_rates_by_period(
+            recharge_payload,
             nper=adapter.nper,
             steady=steady,
             first_clim=recharge_cfg.first_clim,
+            record_lengths=adapter.record_lengths,
+        )
+        adapter.recharge_own_rates = _clipped_at_zero(own_rates)
+        rch_data, evt_payload = extract_negative_recharge_evt_payload(
+            payload=own_rates,
+            nper=adapter.nper,
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
+            durations=adapter.period_lengths,
         )
         adapter._negative_recharge_evt_spd = evt_payload
         if evt_payload is not None:
             return rch_data
-    return assemble_rch_data(
+    rch_data = assemble_rch_data(
         payload=recharge_payload,
         first_clim=recharge_cfg.first_clim,
         steady=steady,
         nper=adapter.nper,
+        durations=adapter.period_lengths,
+        record_lengths=adapter.record_lengths,
         allow_negative=False,
     )
+    adapter.recharge_own_rates = _clipped_at_zero(
+        _own_rates_by_period(
+            recharge_payload,
+            nper=adapter.nper,
+            steady=steady,
+            first_clim=recharge_cfg.first_clim,
+            record_lengths=adapter.record_lengths,
+        )
+    )
+    return rch_data
 
 
 def build_etp_payload(
@@ -458,6 +502,8 @@ def build_etp_payload(
         first_clim=etp_cfg.first_clim,
         steady=steady_period_flags(adapter),
         nper=adapter.nper,
+        durations=adapter.period_lengths,
+        record_lengths=adapter.record_lengths,
     )
     return (
         merge_evt_payloads(dict(evt_spd), negative_evt_spd, nper=adapter.nper),

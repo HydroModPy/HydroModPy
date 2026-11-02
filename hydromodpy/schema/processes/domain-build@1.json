@@ -361,7 +361,7 @@
           }
         ],
         "default": null,
-        "description": "polygon layer bounding the active part of the grid, for example the catchment terrain-delineate seals; a layer of lines or points is refused, and without a mask every cell carrying data is active",
+        "description": "polygon layer bounding the active part of the grid, for example the catchment polygon; a layer of lines or points is refused, and without a mask every cell carrying data is active",
         "x-hmp-profile": "user",
         "$defs": {
           "FileLink": {
@@ -410,7 +410,7 @@
         "$id": "urn:hmp:schema:domain-build:1.0.0:mask",
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
-      "description": "polygon layer bounding the active part of the grid, for example the catchment terrain-delineate seals; a layer of lines or points is refused, and without a mask every cell carrying data is active"
+      "description": "polygon layer bounding the active part of the grid, for example the catchment polygon; a layer of lines or points is refused, and without a mask every cell carrying data is active"
     },
     "mask_layer": {
       "title": "Mask Layer",

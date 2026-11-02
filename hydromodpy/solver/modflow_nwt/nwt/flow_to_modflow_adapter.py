@@ -106,6 +106,8 @@ class FlowModflowInputs:
     evt_extinction_depth: float = 1.0
     kv: np.ndarray | None = None
     """Vertical conductivity per cell [m/s], None when the flow sets no ``Kv``."""
+    recharge_own_rates: dict[int, object] | None = None
+    """Each period's own recharge [m/s], before ``first_clim``, clipped at zero."""
 
 
 class FlowToModflowAdapter:
@@ -131,6 +133,8 @@ class FlowToModflowAdapter:
         grid: GridReference | None = None,
         simulation_window: ResolvedSimulationTimeWindow | None = None,
         steady: np.ndarray | None = None,
+        period_lengths: np.ndarray | None = None,
+        record_lengths: np.ndarray | None = None,
         sink_fill: bool,
         sink: np.ndarray | None = None,
         drain_band_depth_m: float = 0.0,
@@ -161,6 +165,16 @@ class FlowToModflowAdapter:
         # Per-period steady flags of the DIS package. None rebuilds them from the
         # flow regime and first_period_steady (payloads.recharge_etp).
         self.steady = None if steady is None else np.asarray(steady, dtype=bool).reshape(-1)
+        # The length of each period, which weighs the mean first_clim states. None
+        # counts the periods of a run built without dates as equally long. The
+        # record lengths are those of the run an auxiliary steady solve averages.
+        self.period_lengths = (
+            np.ones(self.nper, dtype=float)
+            if period_lengths is None
+            else np.asarray(period_lengths, dtype=float).reshape(-1)
+        )
+        self.record_lengths = record_lengths
+        self.recharge_own_rates: dict[int, object] | None = None
         if self.grid is None:
             self.cell_area = float(solver_mesh.characteristic_length) ** 2
             self.characteristic_length = float(solver_mesh.characteristic_length)
@@ -347,6 +361,7 @@ class FlowToModflowAdapter:
             evt_surface_offset=evt_surface_offset,
             evt_extinction_depth=evt_extinction_depth,
             kv=kv,
+            recharge_own_rates=self.recharge_own_rates,
         )
 
 

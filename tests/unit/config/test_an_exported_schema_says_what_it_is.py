@@ -44,16 +44,6 @@ def test_a_bare_model_export_is_named_after_where_the_model_is_declared() -> Non
     assert schema["$id"] == schema_urn("physics.flow.physical_properties.FlowPhysicalProperties")
 
 
-def test_the_two_dem_tables_have_their_own_name_and_identity() -> None:
-    """The DEM table of ``[site_selection]`` is not the ``DemConfig`` of ``[data]``."""
-    from hydromodpy.data.variables.dem.config import DemConfig
-    from hydromodpy.site_selection.config.dem_config import SiteSelectionDemConfig
-
-    assert DemConfig.__name__ != SiteSelectionDemConfig.__name__
-    assert export_schema(SiteSelectionDemConfig)["title"] == "SiteSelectionDemConfig"
-    assert export_schema(DemConfig)["$id"] != export_schema(SiteSelectionDemConfig)["$id"]
-
-
 def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None:
     full = export_schema(section="flow")
     trimmed = export_schema(section="flow", profile="user")
@@ -63,8 +53,8 @@ def test_a_filtered_export_does_not_claim_the_identity_of_the_full_one() -> None
 
 
 def test_an_explicit_scope_overrides_the_derived_one() -> None:
-    schema = export_schema(section="flow", scope="terrain-delineate:1.0.0")
-    assert schema["$id"] == schema_urn("terrain-delineate:1.0.0")
+    schema = export_schema(section="flow", scope="domain-build:1.0.0")
+    assert schema["$id"] == schema_urn("domain-build:1.0.0")
 
 
 def test_a_dotted_path_exports_the_nested_model() -> None:

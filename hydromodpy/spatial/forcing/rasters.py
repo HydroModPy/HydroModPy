@@ -209,7 +209,14 @@ def discretize_from_xarray(
             if inside.size:
                 selected = da.isel(time=order[inside])
                 _field_values(selected.values, source=source, where=where)
-                slice_2d = selected.mean(dim="time", skipna=False).values
+                if periods.weights is None or inside.size == 1:
+                    slice_2d = selected.mean(dim="time", skipna=False).values
+                else:
+                    slice_2d = np.average(
+                        selected.values,
+                        axis=selected.get_axis_num("time"),
+                        weights=periods.weights[inside],
+                    )
             else:
                 slice_2d = _field_values(
                     da.isel(time=int(order[int(fill)])).values, source=source, where=where

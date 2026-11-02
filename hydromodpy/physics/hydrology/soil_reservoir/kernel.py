@@ -126,8 +126,10 @@ def retention_mm(cn: float, w: np.ndarray) -> np.ndarray:
     """SCS retention ``S``, mm, at each column's soil wetness ``w`` (0 to 1).
 
     ``w = 0`` reads the dry-soil retention (AMC I), ``w = 1`` the wet-soil one
-    (AMC III), linear between the two (HELP eq. 26; AMC I/III from AMC II,
-    Chow, Maidment and Mays 1988, eq. 5.5.6-5.5.7).
+    (AMC III), linear between the two. HELP eq. 26 ties the retention to the soil
+    water and SWAT eq. 2:1.1.6 holds the same two bounds, each on another curve:
+    the line is our choice. AMC I/III from AMC II: Chow, Maidment and Mays 1988,
+    eq. 5.5.6-5.5.7.
     """
     cn1 = 4.2 * cn / (10.0 - 0.058 * cn)
     cn3 = 23.0 * cn / (10.0 + 0.13 * cn)

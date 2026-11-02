@@ -6,7 +6,7 @@ import hashlib
 import os
 import threading
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from numbers import Real
 from pathlib import Path
 from typing import Literal
@@ -136,6 +136,7 @@ def extract_evt_payload_2d(
     *,
     steady: object,
     first_clim: object = "mean",
+    durations: Sequence[float] | np.ndarray,
 ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray] | None]:
     """Route negative recharge arrays to EVT and clip RCH to non-negative values.
 
@@ -154,7 +155,7 @@ def extract_evt_payload_2d(
         return normalized_rch, None
 
     _, deficit = route_negative_recharge_to_evt(
-        normalized_rch, steady=steady, first_clim=first_clim
+        normalized_rch, steady=steady, first_clim=first_clim, durations=durations
     )
     clipped = {kper: np.maximum(arr, 0.0) for kper, arr in normalized_rch.items()}
     return clipped, deficit
@@ -180,7 +181,9 @@ def extract_evt_payload(
         return payload, None
 
     if isinstance(payload, Mapping):
-        return extract_evt_payload_2d(payload, True, steady=model.steady, first_clim=first_clim)
+        return extract_evt_payload_2d(
+            payload, True, steady=model.steady, first_clim=first_clim, durations=model.perlen
+        )
 
     deficit_payload = np.maximum(-_payload_sequence(payload), 0.0)
     deficit = first_clim_on_part(
@@ -188,6 +191,7 @@ def extract_evt_payload(
         steady=model.steady,
         first_clim=first_clim,
         sign=-1.0,
+        durations=model.perlen,
     )
     evt_spd: dict[int, object] = {
         kper: (float(value) if np.ndim(value) == 0 else value) for kper, value in deficit.items()
@@ -344,6 +348,7 @@ def resolve_deferred_heterogeneous_recharge(model) -> None:
         getattr(model, "_heterogeneous_negative_to_evt", False),
         steady=model.steady,
         first_clim=model.first_clim if model.first_clim is not None else "mean",
+        durations=model.perlen,
     )
     validate_recharge_numeric_payload(
         raw_arrays,
@@ -537,7 +542,14 @@ def _period_rows(model, payload: object) -> dict[int, np.ndarray]:
             flags = getattr(model, "steady", None)
             steady = flags is not None and bool(np.asarray(flags, dtype=bool).reshape(-1)[0])
             first_clim = model.first_clim if model.first_clim is not None else "mean"
-            rate = one_period_rate(arr, steady=steady, first_clim=first_clim)
+            rate = one_period_rate(
+                arr,
+                steady=steady,
+                first_clim=first_clim,
+                durations=getattr(
+                    getattr(model, "time_grid", None), "record_lengths_seconds", None
+                ),
+            )
             return {0: np.asarray(rate)}
         raise ValueError(
             "model.recharge sequence length must be 1, nper "
@@ -576,7 +588,7 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
 
     steady = getattr(model, "steady", None)
     if steady is not None and np.any(np.asarray(steady, dtype=bool)):
-        rows = apply_first_clim(rows, steady=steady, first_clim=first_clim)
+        rows = apply_first_clim(rows, steady=steady, first_clim=first_clim, durations=model.perlen)
         steady_flags = np.asarray(steady, dtype=bool).reshape(-1)
         for kper in range(int(model.nper)):
             if kper < steady_flags.size and steady_flags[kper]:

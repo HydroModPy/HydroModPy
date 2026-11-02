@@ -4,7 +4,7 @@ Decision m10 of the audit of 2026-10-20: the one-line form becomes, once the
 records are loaded, one implicit output and one implicit block per scored
 station, and the block route scores them. ``PINNED`` holds the costs the old
 single-metric route (``StationScorer`` and ``scalar.score``) returned on these
-exact series at 2db8dd8b0, so a cost that moves is caught here. One station
+exact series at 4ca07e106, so a cost that moves is caught here. One station
 reproduces the old cost to the bit; several are averaged by the block weights,
 which may round differently in the last place.
 

@@ -7,7 +7,7 @@ HydroModPy, and a gate refuses a committed file that the generator no longer
 reproduces.
 
 The file name carries the **major** version: a breaking change to inputs or
-outputs mints ``terrain-delineate@2.json`` and both ship side by side, while a
+outputs mints ``domain-build@2.json`` and both ship side by side, while a
 compatible change bumps ``version`` inside the existing file. A caller pins the
 major and survives a minor bump.
 
